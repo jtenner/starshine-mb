@@ -1043,6 +1043,12 @@ fn optimize_trace_noop(_ : String) -> Unit {
 }
 
 ///|
+const OPT_VALIDATION_BEFORE_WASM_PATH : String = "before.wasm"
+
+///|
+const OPT_VALIDATION_AFTER_WASM_PATH : String = "after.wasm"
+
+///|
 fn optimize_trace_normalize_env_now_ms(raw : UInt64) -> UInt64 {
   if raw >= 100000000000000000UL {
     // Likely nanoseconds.
@@ -1060,6 +1066,126 @@ fn optimize_trace_normalize_env_now_ms(raw : UInt64) -> UInt64 {
 #cfg(target="native")
 #borrow(tv)
 extern "c" fn optimize_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
+
+///|
+#cfg(target="native")
+fn optimize_native_c_string(text : String) -> Bytes {
+  let out = @buffer.new(size_hint=text.length() + 1)
+  for ch in text {
+    let code = ch.to_int()
+    if code >= 0 && code <= 255 {
+      out.write_byte(code.to_byte())
+    } else {
+      out.write_byte('?'.to_int().to_byte())
+    }
+  }
+  out.write_byte(0)
+  out.to_bytes()
+}
+
+///|
+#cfg(target="native")
+#borrow(path, mode)
+extern "c" fn optimize_native_fopen(path : Bytes, mode : Bytes) -> UInt64 = "fopen"
+
+///|
+#cfg(target="native")
+extern "c" fn optimize_native_fclose(stream : UInt64) -> Int = "fclose"
+
+///|
+#cfg(target="native")
+#borrow(ptr)
+extern "c" fn optimize_native_fwrite(
+  ptr : Bytes,
+  size : UInt64,
+  nmemb : UInt64,
+  stream : UInt64,
+) -> UInt64 = "fwrite"
+
+///|
+#cfg(target="native")
+fn optimize_native_write_file(
+  path : String,
+  bytes : Bytes,
+) -> Result[Unit, String] {
+  let c_path = optimize_native_c_string(path)
+  let c_mode = optimize_native_c_string("wb")
+  let file = optimize_native_fopen(c_path, c_mode)
+  if file == 0UL {
+    return Err("open failed")
+  }
+  let expected = bytes.length()
+  if expected > 0 {
+    let wrote = optimize_native_fwrite(bytes, 1UL, expected.to_uint64(), file)
+    if wrote != expected.to_uint64() {
+      ignore(optimize_native_fclose(file))
+      return Err("write failed")
+    }
+  }
+  if optimize_native_fclose(file) != 0 {
+    return Err("close failed")
+  }
+  Ok(())
+}
+
+///|
+#cfg(not(target="native"))
+fn optimize_native_write_file(
+  _path : String,
+  _bytes : Bytes,
+) -> Result[Unit, String] {
+  Err("writing validation dump files is only supported on native target")
+}
+
+///|
+fn optimize_validation_dump_module(
+  path : String,
+  mod : Module,
+) -> Result[Unit, String] {
+  match @binary.encode_module(mod) {
+    Ok(bytes) => optimize_native_write_file(path, bytes)
+    Err(e) => Err("encode failed: \{e}")
+  }
+}
+
+///|
+fn optimize_validation_dump_before_after(
+  before_mod : Module,
+  after_mod : Module,
+  trace : (String) -> Unit,
+  trace_enabled : Bool,
+) -> Unit {
+  match
+    optimize_validation_dump_module(OPT_VALIDATION_BEFORE_WASM_PATH, before_mod) {
+    Ok(_) =>
+      if trace_enabled {
+        trace(
+          "validation_dump:before wrote path=\{OPT_VALIDATION_BEFORE_WASM_PATH}",
+        )
+      }
+    Err(e) =>
+      if trace_enabled {
+        trace(
+          "validation_dump:before error path=\{OPT_VALIDATION_BEFORE_WASM_PATH} \{e}",
+        )
+      }
+  }
+  match
+    optimize_validation_dump_module(OPT_VALIDATION_AFTER_WASM_PATH, after_mod) {
+    Ok(_) =>
+      if trace_enabled {
+        trace(
+          "validation_dump:after wrote path=\{OPT_VALIDATION_AFTER_WASM_PATH}",
+        )
+      }
+    Err(e) =>
+      if trace_enabled {
+        trace(
+          "validation_dump:after error path=\{OPT_VALIDATION_AFTER_WASM_PATH} \{e}",
+        )
+      }
+  }
+}
 
 ///|
 #cfg(target="native")
@@ -1130,6 +1256,24 @@ fn optimize_trace_context_label(kind : SchedulerPassContextKind) -> String {
 }
 
 ///|
+fn optimize_trace_pass_details_enabled(
+  pass : ModulePass,
+  trace_pass_details : Bool,
+  trace_module_stats : Bool,
+) -> Bool {
+  if trace_pass_details {
+    return true
+  }
+  if !trace_module_stats {
+    return false
+  }
+  match pass {
+    RemoveUnusedBrs => true
+    _ => false
+  }
+}
+
+///|
 fn optimize_module_with_options_internal(
   mod : Module,
   passes : Array[ModulePass],
@@ -1137,8 +1281,10 @@ fn optimize_module_with_options_internal(
   trace : (String) -> Unit,
   trace_enabled : Bool,
   trace_pass_details : Bool,
-  _trace_module_stats : Bool,
+  trace_module_stats : Bool,
+  dump_failed_module_state : Bool,
 ) -> Result[Module, String] {
+  let original_mod = mod
   let optimize_start_ms = optimize_trace_now_ms()
   if trace_enabled {
     trace("start passes=\{passes.length()}")
@@ -1192,7 +1338,10 @@ fn optimize_module_with_options_internal(
       )
     }
     ctx.set_mod(mod)
-    let pass_trace = if trace_enabled && trace_pass_details {
+    let pass_trace_details = optimize_trace_pass_details_enabled(
+      pass, trace_pass_details, trace_module_stats,
+    )
+    let pass_trace = if trace_enabled && pass_trace_details {
       fn(msg) { trace("pass[\{pass_index}/\{passes.length()}]:\{msg}") }
     } else {
       optimize_trace_noop
@@ -1206,7 +1355,7 @@ fn optimize_module_with_options_internal(
             pass,
             options,
             pass_trace,
-            trace_enabled && trace_pass_details,
+            trace_enabled && pass_trace_details,
           ) {
           Ok(new_mod) => new_mod
           Err(e) => {
@@ -1224,7 +1373,7 @@ fn optimize_module_with_options_internal(
             mod,
             pass,
             pass_trace,
-            trace_enabled && trace_pass_details,
+            trace_enabled && pass_trace_details,
           ) {
           Ok(new_mod) => new_mod
           Err(e) => {
@@ -1243,7 +1392,7 @@ fn optimize_module_with_options_internal(
             pass,
             options,
             pass_trace,
-            trace_enabled && trace_pass_details,
+            trace_enabled && pass_trace_details,
           ) {
           Ok(new_mod) => new_mod
           Err(e) => {
@@ -1261,6 +1410,11 @@ fn optimize_module_with_options_internal(
       Ok(_) => ()
       Err(e) => {
         let summary = validation_error_message(e)
+        if dump_failed_module_state {
+          optimize_validation_dump_before_after(
+            original_mod, mod, trace, trace_enabled,
+          )
+        }
         if trace_enabled {
           trace(
             "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation_error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{summary}",
@@ -1305,7 +1459,7 @@ pub fn optimize_module_with_options(
   options : OptimizeOptions,
 ) -> Result[Module, String] {
   optimize_module_with_options_internal(
-    mod, passes, options, optimize_trace_noop, false, false, false,
+    mod, passes, options, optimize_trace_noop, false, false, false, false,
   )
 }
 
@@ -1317,10 +1471,10 @@ pub fn optimize_module_with_options_trace(
   trace : (String) -> Unit,
   trace_pass_details? : Bool = true,
   trace_module_stats? : Bool = false,
+  dump_failed_module_state? : Bool = false,
 ) -> Result[Module, String] {
-  ignore(trace_module_stats)
   optimize_module_with_options_internal(
-    mod, passes, options, trace, true, trace_pass_details, trace_module_stats,
+    mod, passes, options, trace, true, trace_pass_details, trace_module_stats, dump_failed_module_state,
   )
 }
 

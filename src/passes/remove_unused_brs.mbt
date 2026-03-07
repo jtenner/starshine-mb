@@ -363,6 +363,14 @@ priv struct RUBWalkState {
   zero_break_is_fallthrough : Bool
   label_depth : Int
   catchers : Array[RUBTryTableCatcher]
+  tag_payload_types : Map[TagIdx, Array[ValType]]
+  local_base_count : Int
+  scratch_locals : Ref[Array[ValType]]
+}
+
+///|
+fn rub_new_scratch_locals_ref() -> Ref[Array[ValType]] {
+  Ref::new([])
 }
 
 ///|
@@ -372,6 +380,9 @@ fn rub_walk_state(
   zero_break_is_fallthrough : Bool,
   label_depth? : Int = 0,
   catchers? : Array[RUBTryTableCatcher] = [],
+  tag_payload_types? : Map[TagIdx, Array[ValType]] = Map::new(),
+  local_base_count? : Int = 0,
+  scratch_locals? : Ref[Array[ValType]] = rub_new_scratch_locals_ref(),
 ) -> RUBWalkState {
   {
     in_function_body,
@@ -379,7 +390,24 @@ fn rub_walk_state(
     zero_break_is_fallthrough,
     label_depth,
     catchers,
+    tag_payload_types,
+    local_base_count,
+    scratch_locals,
   }
+}
+
+///|
+fn rub_walk_function_body_state(root : RUBWalkState) -> RUBWalkState {
+  rub_walk_state(
+    true,
+    false,
+    true,
+    label_depth=0,
+    catchers=[],
+    tag_payload_types=root.tag_payload_types,
+    local_base_count=root.local_base_count,
+    scratch_locals=root.scratch_locals,
+  )
 }
 
 ///|
@@ -396,6 +424,9 @@ fn rub_walk_nested_texpr_state(
         zero_break_is_fallthrough,
         label_depth=parent.label_depth + 1,
         catchers=parent.catchers,
+        tag_payload_types=parent.tag_payload_types,
+        local_base_count=parent.local_base_count,
+        scratch_locals=parent.scratch_locals,
       )
     _ =>
       rub_walk_state(
@@ -404,6 +435,9 @@ fn rub_walk_nested_texpr_state(
         zero_break_is_fallthrough,
         label_depth=parent.label_depth + 1,
         catchers=parent.catchers,
+        tag_payload_types=parent.tag_payload_types,
+        local_base_count=parent.local_base_count,
+        scratch_locals=parent.scratch_locals,
       )
   }
 }
@@ -421,6 +455,9 @@ fn rub_push_try_table_catcher(
     state.zero_break_is_fallthrough,
     label_depth=state.label_depth,
     catchers=next_catchers,
+    tag_payload_types=state.tag_payload_types,
+    local_base_count=state.local_base_count,
+    scratch_locals=state.scratch_locals,
   )
 }
 
@@ -1107,21 +1144,124 @@ fn rub_texpr_has_branch(expr : TExpr) -> Bool {
 }
 
 ///|
-fn rub_has_single_top_level_child_scope_br_if(expr : TExpr) -> Bool {
-  let mut saw_target = false
-  for instr in expr.instrs {
-    match instr.kind {
-      TInstrKind::TNop => ()
-      TInstrKind::TBrIf(label, _, []) =>
-        if rub_is_label_zero(label) && !saw_target {
-          saw_target = true
-        } else {
-          return false
-        }
-      _ => if rub_instr_has_branch(instr) { return false }
+fn rub_merge_single_child_scope_br_if_count(a : Int, b : Int) -> Int {
+  if a < 0 || b < 0 {
+    -1
+  } else {
+    let total = a + b
+    if total > 1 {
+      -1
+    } else {
+      total
     }
   }
-  saw_target
+}
+
+///|
+fn rub_count_single_child_scope_br_if_instr(instr : TInstr, depth : Int) -> Int {
+  match instr.kind {
+    TInstrKind::TBrIf(label, cond, []) =>
+      if rub_label_to_int(label) == depth && !rub_instr_has_branch(cond) {
+        1
+      } else {
+        -1
+      }
+    TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_) => -1
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      rub_count_single_child_scope_br_if_texpr(body, depth + 1)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      let cond_count = rub_count_single_child_scope_br_if_instr(cond, depth)
+      let then_count = rub_count_single_child_scope_br_if_texpr(
+        then_body,
+        depth + 1,
+      )
+      let else_count = match else_body {
+        Some(other) =>
+          rub_count_single_child_scope_br_if_texpr(other, depth + 1)
+        None => 0
+      }
+      rub_merge_single_child_scope_br_if_count(
+        rub_merge_single_child_scope_br_if_count(cond_count, then_count),
+        else_count,
+      )
+    }
+    _ => {
+      let mut total = 0
+      for child in eval_children(instr) {
+        total = rub_merge_single_child_scope_br_if_count(
+          total,
+          rub_count_single_child_scope_br_if_instr(child, depth),
+        )
+        if total < 0 {
+          return -1
+        }
+      }
+      total
+    }
+  }
+}
+
+///|
+fn rub_count_single_child_scope_br_if_texpr(expr : TExpr, depth : Int) -> Int {
+  let mut total = 0
+  for instr in expr.instrs {
+    total = rub_merge_single_child_scope_br_if_count(
+      total,
+      rub_count_single_child_scope_br_if_instr(instr, depth),
+    )
+    if total < 0 {
+      return -1
+    }
+  }
+  total
+}
+
+///|
+fn rub_has_single_top_level_child_scope_br_if(expr : TExpr) -> Bool {
+  rub_count_single_child_scope_br_if_texpr(expr, 0) == 1
+}
+
+///|
+fn rub_if_arm_crosses_removed_scope(expr : TExpr) -> Bool {
+  match rub_rebase_labels_in_texpr_from_depth_result(expr, 1, -1) {
+    Ok(_) => false
+    Err(e) =>
+      if e == RUB_LABEL_REBASE_CROSSES_REMOVED_SCOPE {
+        true
+      } else {
+        abort(
+          "unexpected remove_unused_brs if-arm crossing check failure: \{e}",
+        )
+      }
+  }
+}
+
+///|
+fn rub_if_arm_is_single_simple_branch(expr : TExpr) -> Bool {
+  match rub_single_non_nop_tinstr(expr) {
+    Some(instr) =>
+      match instr.kind {
+        TInstrKind::TBr(_, _)
+        | TInstrKind::TBrIf(_, _, _)
+        | TInstrKind::TBrTable(_, _, _, _) => true
+        _ => false
+      }
+    None => false
+  }
 }
 
 ///|
@@ -1730,7 +1870,11 @@ fn rub_optimize_loop_tail_branches(
           TInstrKind::TBrIf(exit_label, cond, []),
           TInstrKind::TBr(loop_label, []),
         ) =>
-          if rub_is_label_zero(loop_label) && !rub_is_label_zero(exit_label) {
+          if rub_is_label_zero(loop_label) {
+            if rub_is_label_zero(exit_label) {
+              instrs[second_last_i] = TInstr::drop(cond)
+              return true
+            }
             instrs[second_last_i] = TInstr::br_if(
               LabelIdx::new(0),
               TInstr::unary(UnaryOp::i32_eqz(), cond),
@@ -1958,7 +2102,8 @@ fn rub_optimize_single_if_void_block_wrapper(instr : TInstr) -> (TInstr, Bool) {
                           rub_try_rebase_labels_in_if_arm(else_body, -1),
                         ) {
                         (None, Some(next_else)) =>
-                          if rub_texpr_has_branch(else_body) {
+                          if rub_if_arm_crosses_removed_scope(else_body) ||
+                            rub_if_arm_is_single_simple_branch(else_body) {
                             (instr, false)
                           } else {
                             (
@@ -1972,7 +2117,8 @@ fn rub_optimize_single_if_void_block_wrapper(instr : TInstr) -> (TInstr, Bool) {
                             )
                           }
                         (Some(next_then), None) =>
-                          if rub_texpr_has_branch(then_body) {
+                          if rub_if_arm_crosses_removed_scope(then_body) ||
+                            rub_if_arm_is_single_simple_branch(then_body) {
                             (instr, false)
                           } else {
                             (
@@ -2024,6 +2170,12 @@ fn rub_optimize_single_if_void_block_wrapper(instr : TInstr) -> (TInstr, Bool) {
                           ),
                           true,
                         )
+                      Some({ kind: TInstrKind::TBrIf(label, _, []), .. }) =>
+                        if rub_is_label_zero(label) {
+                          (instr, false)
+                        } else {
+                          (TInstr::loop_(BlockType::void_(), body), true)
+                        }
                       Some(_) => (instr, false)
                       None =>
                         (
@@ -2122,60 +2274,107 @@ fn rub_optimize_jump_thread_child_block_following_br(
 ///|
 fn rub_optimize_jump_thread_child_block_following_br_if(
   instrs : Array[TInstr],
+  trace_state? : RUBRoundTraceState? = None,
 ) -> Bool {
   if instrs.length() < 3 {
     return false
   }
-  let body = match instrs[0].kind {
-    TInstrKind::TBlock(VoidBlockType, body) => body
-    _ => return false
-  }
-  let mut j = 1
-  while j < instrs.length() && instrs[j].kind is TInstrKind::TNop {
-    j += 1
-  }
-  if j >= instrs.length() {
-    return false
-  }
-  let (target_label, cond) = match instrs[j].kind {
-    TInstrKind::TBrIf(target_label, cond, []) => (target_label, cond)
-    _ => return false
-  }
-  let mut k = j + 1
-  while k < instrs.length() && instrs[k].kind is TInstrKind::TNop {
-    k += 1
-  }
-  if k >= instrs.length() {
-    return false
-  }
-  let default_label = match instrs[k].kind {
-    TInstrKind::TBr(default_label, []) => default_label
-    _ => return false
-  }
-  let mut tail = k + 1
-  while tail < instrs.length() {
-    if !(instrs[tail].kind is TInstrKind::TNop) {
-      return false
-    }
-    tail += 1
-  }
-  // Keep this conservative and non-oscillatory: only thread the exact
-  // two-target tail form with a branch-free condition and a single top-level
-  // child-scope `br_if 0` in the child block.
-  let is_two_target_tail = (
-      !rub_is_label_zero(target_label) && rub_is_label_zero(default_label)
-    ) ||
-    (rub_is_label_zero(target_label) && !rub_is_label_zero(default_label))
-  if is_two_target_tail &&
-    !rub_instr_has_branch(cond) &&
-    rub_has_single_top_level_child_scope_br_if(body) {
-    let (next_body, body_changed) = rub_redirect_simple_child_scope_branches_with_branch_pair(
-      body, target_label, cond, default_label,
+  rub_trace_log_helper_event(
+    trace_state,
+    "jump_thread_br_if",
+    "start",
+    "instrs=\{instrs.length()}",
+  )
+  let mut i = 0
+  while i + 2 < instrs.length() {
+    rub_trace_log_helper_event(
+      trace_state,
+      "jump_thread_br_if",
+      "scan_site",
+      "site=\{i}",
     )
-    if body_changed {
-      instrs[0] = TInstr::block(BlockType::void_(), next_body)
-      return true
+    let body = match instrs[i].kind {
+      TInstrKind::TBlock(VoidBlockType, body) => body
+      _ => {
+        i += 1
+        continue
+      }
     }
+    let mut j = i + 1
+    while j < instrs.length() && instrs[j].kind is TInstrKind::TNop {
+      j += 1
+    }
+    if j >= instrs.length() {
+      break
+    }
+    let (target_label, cond) = match instrs[j].kind {
+      TInstrKind::TBrIf(target_label, cond, []) => (target_label, cond)
+      _ => {
+        i += 1
+        continue
+      }
+    }
+    let mut k = j + 1
+    while k < instrs.length() && instrs[k].kind is TInstrKind::TNop {
+      k += 1
+    }
+    if k >= instrs.length() {
+      i += 1
+      continue
+    }
+    let default_label = match instrs[k].kind {
+      TInstrKind::TBr(default_label, []) => default_label
+      _ => {
+        i += 1
+        continue
+      }
+    }
+    let mut tail = k + 1
+    let mut only_tail_nops = true
+    while tail < instrs.length() {
+      if !(instrs[tail].kind is TInstrKind::TNop) {
+        only_tail_nops = false
+        break
+      }
+      tail += 1
+    }
+    // Keep this conservative and non-oscillatory: only thread the exact
+    // two-target tail form with a branch-free condition and a single top-level
+    // child-scope `br_if 0` in the child block.
+    let is_two_target_tail = (
+        !rub_is_label_zero(target_label) && rub_is_label_zero(default_label)
+      ) ||
+      (rub_is_label_zero(target_label) && !rub_is_label_zero(default_label))
+    let body_scan_start_ms = sl_trace_now_ms()
+    let has_single_child_scope_br_if = rub_has_single_top_level_child_scope_br_if(
+      body,
+    )
+    rub_trace_log_helper_step_done(
+      trace_state,
+      "jump_thread_br_if",
+      "scan_body",
+      sl_trace_elapsed_ms(body_scan_start_ms),
+      "site=\{i} body_instrs=\{body.instrs.length()} has_single_child_scope_br_if=\{has_single_child_scope_br_if}",
+    )
+    if only_tail_nops &&
+      is_two_target_tail &&
+      !rub_instr_has_branch(cond) &&
+      has_single_child_scope_br_if {
+      let (next_body, body_changed) = rub_redirect_simple_child_scope_branches_with_branch_pair(
+        body, target_label, cond, default_label,
+      )
+      if body_changed {
+        instrs[i] = TInstr::block(BlockType::void_(), next_body)
+        rub_trace_log_helper_event(
+          trace_state,
+          "jump_thread_br_if",
+          "rewrite",
+          "site=\{i}",
+        )
+        return true
+      }
+    }
+    i += 1
   }
   false
 }
@@ -2261,7 +2460,8 @@ priv enum RUBTryTableThrowMatch {
   NoMatch
   MatchCatch(LabelIdx)
   MatchCatchAll(LabelIdx)
-  MatchRef
+  MatchCatchRef(LabelIdx)
+  MatchCatchAllRef(LabelIdx)
 }
 
 ///|
@@ -2270,6 +2470,15 @@ priv enum RUBTryTableThrowRefMatch {
   MatchCatchAll(LabelIdx)
   MatchCatchAllRef(LabelIdx)
   MatchUnknown
+}
+
+///|
+priv enum RUBTryTableStaticTagMatch {
+  NoMatch
+  MatchCatch(LabelIdx)
+  MatchCatchRef(LabelIdx)
+  MatchCatchAll(LabelIdx)
+  MatchCatchAllRef(LabelIdx)
 }
 
 ///|
@@ -2283,9 +2492,12 @@ fn rub_try_table_throw_match(
         if catch_tag == thrown_tag {
           return MatchCatch(label)
         }
-      CatchRef(catch_tag, _) => if catch_tag == thrown_tag { return MatchRef }
+      CatchRef(catch_tag, label) =>
+        if catch_tag == thrown_tag {
+          return MatchCatchRef(label)
+        }
       CatchAll(label) => return MatchCatchAll(label)
-      CatchAllRef(_) => return MatchRef
+      CatchAllRef(label) => return MatchCatchAllRef(label)
     }
   }
   NoMatch
@@ -2301,6 +2513,28 @@ fn rub_try_table_throw_ref_match(
         // `throw_ref` carries only an exnref. Without static tag identity we
         // cannot prove whether a tag-specific catch intercepts here.
         return MatchUnknown
+      CatchAll(label) => return MatchCatchAll(label)
+      CatchAllRef(label) => return MatchCatchAllRef(label)
+    }
+  }
+  NoMatch
+}
+
+///|
+fn rub_try_table_match_static_tag(
+  catches : Array[Catch],
+  thrown_tag : TagIdx,
+) -> RUBTryTableStaticTagMatch {
+  for catch_ in catches {
+    match catch_ {
+      Catch(catch_tag, label) =>
+        if catch_tag == thrown_tag {
+          return MatchCatch(label)
+        }
+      CatchRef(catch_tag, label) =>
+        if catch_tag == thrown_tag {
+          return MatchCatchRef(label)
+        }
       CatchAll(label) => return MatchCatchAll(label)
       CatchAllRef(label) => return MatchCatchAllRef(label)
     }
@@ -2325,6 +2559,138 @@ fn rub_branch_after_dropping_values(
 }
 
 ///|
+fn rub_non_null_exnref_type() -> ValType {
+  ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::exn())))
+}
+
+///|
+fn rub_is_internal_exnref_materializer_catches(catches : Array[Catch]) -> Bool {
+  match catches {
+    [CatchAllRef(LabelIdx(2U))] => true
+    _ => false
+  }
+}
+
+///|
+fn rub_materialize_exnref_from_throw(
+  thrown_tag : TagIdx,
+  values : Array[TInstr],
+) -> TInstr {
+  TInstr::block(
+    BlockType::val_type(rub_non_null_exnref_type()),
+    TExpr::new([
+      TInstr::block(
+        BlockType::void_(),
+        TExpr::new([
+          TInstr::try_table(
+            BlockType::void_(),
+            [Catch::all_ref(LabelIdx::new(2))],
+            TExpr::new([TInstr::throw_(thrown_tag, values)]),
+          ),
+          TInstr::unreachable_(),
+        ]),
+      ),
+      TInstr::unreachable_(),
+    ]),
+  )
+}
+
+///|
+fn rub_extract_materialized_throw_exnref(
+  value : TInstr,
+) -> (TagIdx, Array[TInstr])? {
+  match value.kind {
+    TInstrKind::TBlock(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              VoidBlockType,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TTryTable(
+                      VoidBlockType,
+                      catches,
+                      {
+                        instrs: [
+                          {
+                            kind: TInstrKind::TThrow(thrown_tag, thrown_values),
+                            ..,
+                          },
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                  { kind: TInstrKind::TUnreachable, .. },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+          { kind: TInstrKind::TUnreachable, .. },
+        ],
+        ..,
+      }
+    ) =>
+      if rub_is_internal_exnref_materializer_catches(catches) {
+        Some((thrown_tag, thrown_values))
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn rub_alloc_scratch_local(state : RUBWalkState, ty : ValType) -> LocalIdx {
+  let idx = state.local_base_count + state.scratch_locals.val.length()
+  if idx < 0 {
+    abort("remove_unused_brs scratch local index underflow")
+  }
+  state.scratch_locals.val.push(ty)
+  LocalIdx::new(idx.reinterpret_as_uint())
+}
+
+///|
+fn rub_try_build_throw_to_catch_ref_branch(
+  state : RUBWalkState,
+  label : LabelIdx,
+  thrown_tag : TagIdx,
+  values : Array[TInstr],
+) -> TInstr? {
+  if values.length() == 0 {
+    return Some(
+      TInstr::br(label, [rub_materialize_exnref_from_throw(thrown_tag, [])]),
+    )
+  }
+  let payload_types = match state.tag_payload_types.get(thrown_tag) {
+    Some(payload_types) => payload_types
+    None => return None
+  }
+  if payload_types.length() != values.length() {
+    return None
+  }
+  let br_values : Array[TInstr] = []
+  let materialize_values : Array[TInstr] = []
+  let mut i = 0
+  while i < values.length() {
+    let local_idx = rub_alloc_scratch_local(state, payload_types[i])
+    br_values.push(TInstr::local_tee(local_idx, values[i]))
+    materialize_values.push(TInstr::local_get(local_idx))
+    i += 1
+  }
+  br_values.push(
+    rub_materialize_exnref_from_throw(thrown_tag, materialize_values),
+  )
+  Some(TInstr::br(label, br_values))
+}
+
+///|
 fn rub_rebase_try_table_throw_label(
   label : LabelIdx,
   throw_depth : Int,
@@ -2345,6 +2711,12 @@ fn rub_optimize_throw_to_branch(
 ) -> (TInstr, Bool) {
   match instr.kind {
     TInstrKind::TThrow(thrown_tag, values) => {
+      if state.catchers.length() > 0 &&
+        rub_is_internal_exnref_materializer_catches(
+          state.catchers[state.catchers.length() - 1].catches,
+        ) {
+        return (instr, false)
+      }
       let mut i = state.catchers.length()
       while i > 0 {
         i -= 1
@@ -2366,20 +2738,92 @@ fn rub_optimize_throw_to_branch(
             )
             return (rub_branch_after_dropping_values(next_label, values), true)
           }
-          MatchRef =>
-            // TODO(binaryen-parity): `throw(tag, values)` -> `catch_ref` /
-            // `catch_all_ref` still needs semantic exnref materialization.
-            return (instr, false)
+          MatchCatchRef(label) => {
+            let next_label = rub_rebase_try_table_throw_label(
+              label,
+              state.label_depth,
+              catcher.depth,
+            )
+            match
+              rub_try_build_throw_to_catch_ref_branch(
+                state, next_label, thrown_tag, values,
+              ) {
+              Some(rewrite) => return (rewrite, true)
+              None => return (instr, false)
+            }
+          }
+          MatchCatchAllRef(label) => {
+            let next_label = rub_rebase_try_table_throw_label(
+              label,
+              state.label_depth,
+              catcher.depth,
+            )
+            return (
+              TInstr::br(next_label, [
+                rub_materialize_exnref_from_throw(thrown_tag, values),
+              ]),
+              true,
+            )
+          }
           NoMatch => ()
         }
       }
       (instr, false)
     }
     TInstrKind::TThrowRef(value) => {
+      let static_throw = rub_extract_materialized_throw_exnref(value)
       let mut i = state.catchers.length()
       while i > 0 {
         i -= 1
         let catcher = state.catchers[i]
+        match static_throw {
+          Some((static_tag, static_values)) =>
+            match rub_try_table_match_static_tag(catcher.catches, static_tag) {
+              MatchCatch(label) => {
+                let next_label = rub_rebase_try_table_throw_label(
+                  label,
+                  state.label_depth,
+                  catcher.depth,
+                )
+                return (TInstr::br(next_label, static_values), true)
+              }
+              MatchCatchRef(label) => {
+                let next_label = rub_rebase_try_table_throw_label(
+                  label,
+                  state.label_depth,
+                  catcher.depth,
+                )
+                match
+                  rub_try_build_throw_to_catch_ref_branch(
+                    state, next_label, static_tag, static_values,
+                  ) {
+                  Some(rewrite) => return (rewrite, true)
+                  None => return (instr, false)
+                }
+              }
+              MatchCatchAll(label) => {
+                let next_label = rub_rebase_try_table_throw_label(
+                  label,
+                  state.label_depth,
+                  catcher.depth,
+                )
+                return (
+                  rub_branch_after_dropping_values(next_label, [value]),
+                  true,
+                )
+              }
+              MatchCatchAllRef(label) => {
+                let next_label = rub_rebase_try_table_throw_label(
+                  label,
+                  state.label_depth,
+                  catcher.depth,
+                )
+                return (TInstr::br(next_label, [value]), true)
+              }
+              NoMatch => continue
+            }
+          None => ()
+        }
         match rub_try_table_throw_ref_match(catcher.catches) {
           MatchCatchAll(label) => {
             let next_label = rub_rebase_try_table_throw_label(
@@ -2397,10 +2841,7 @@ fn rub_optimize_throw_to_branch(
             )
             return (TInstr::br(next_label, [value]), true)
           }
-          MatchUnknown =>
-            // TODO(binaryen-parity): precise `throw_ref` -> `catch_ref`
-            // rewriting requires static exnref tag identity.
-            return (instr, false)
+          MatchUnknown => return (instr, false)
           NoMatch => ()
         }
       }
@@ -2411,58 +2852,137 @@ fn rub_optimize_throw_to_branch(
 }
 
 ///|
-fn rub_optimize_try_table_throw_to_branch(instr : TInstr) -> (TInstr, Bool) {
+fn rub_optimize_try_table_throw_to_branch(
+  instr : TInstr,
+  state : RUBWalkState,
+) -> (TInstr, Bool) {
   match instr.kind {
     TInstrKind::TTryTable(bt, catches, { instrs: [single], .. }) =>
-      match single.kind {
-        TInstrKind::TThrow(thrown_tag, values) =>
-          match rub_try_table_throw_match(catches, thrown_tag) {
-            MatchCatch(label) =>
-              (
-                TInstr::try_table(
-                  bt,
-                  catches,
-                  TExpr::new([TInstr::br(label, values)]),
-                ),
-                true,
-              )
-            MatchCatchAll(label) =>
-              (
-                TInstr::try_table(
-                  bt,
-                  catches,
-                  TExpr::new([rub_branch_after_dropping_values(label, values)]),
-                ),
-                true,
-              )
-            MatchRef | NoMatch =>
-              // TODO(binaryen-parity): same exnref materialization blocker as
-              // above for `throw(tag, values)` through ref catches.
-              (instr, false)
-          }
-        TInstrKind::TThrowRef(value) =>
-          match rub_try_table_throw_ref_match(catches) {
-            MatchCatchAll(label) =>
-              (
-                TInstr::try_table(
-                  bt,
-                  catches,
-                  TExpr::new([rub_branch_after_dropping_values(label, [value])]),
-                ),
-                true,
-              )
-            MatchCatchAllRef(label) =>
-              (
-                TInstr::try_table(
-                  bt,
-                  catches,
-                  TExpr::new([TInstr::br(label, [value])]),
-                ),
-                true,
-              )
-            MatchUnknown | NoMatch => (instr, false)
-          }
-        _ => (instr, false)
+      if rub_is_internal_exnref_materializer_catches(catches) {
+        (instr, false)
+      } else {
+        match single.kind {
+          TInstrKind::TThrow(thrown_tag, values) =>
+            match rub_try_table_throw_match(catches, thrown_tag) {
+              MatchCatch(label) =>
+                (
+                  TInstr::try_table(
+                    bt,
+                    catches,
+                    TExpr::new([TInstr::br(label, values)]),
+                  ),
+                  true,
+                )
+              MatchCatchAll(label) =>
+                (
+                  TInstr::try_table(
+                    bt,
+                    catches,
+                    TExpr::new([rub_branch_after_dropping_values(label, values)]),
+                  ),
+                  true,
+                )
+              MatchCatchRef(label) =>
+                match
+                  rub_try_build_throw_to_catch_ref_branch(
+                    state, label, thrown_tag, values,
+                  ) {
+                  Some(rewrite) =>
+                    (
+                      TInstr::try_table(bt, catches, TExpr::new([rewrite])),
+                      true,
+                    )
+                  None => (instr, false)
+                }
+              MatchCatchAllRef(label) =>
+                (
+                  TInstr::try_table(
+                    bt,
+                    catches,
+                    TExpr::new([
+                      TInstr::br(label, [
+                        rub_materialize_exnref_from_throw(thrown_tag, values),
+                      ]),
+                    ]),
+                  ),
+                  true,
+                )
+              NoMatch => (instr, false)
+            }
+          TInstrKind::TThrowRef(value) =>
+            match rub_extract_materialized_throw_exnref(value) {
+              Some((static_tag, static_values)) =>
+                match rub_try_table_match_static_tag(catches, static_tag) {
+                  MatchCatch(label) =>
+                    (
+                      TInstr::try_table(
+                        bt,
+                        catches,
+                        TExpr::new([TInstr::br(label, static_values)]),
+                      ),
+                      true,
+                    )
+                  MatchCatchRef(label) =>
+                    match
+                      rub_try_build_throw_to_catch_ref_branch(
+                        state, label, static_tag, static_values,
+                      ) {
+                      Some(rewrite) =>
+                        (
+                          TInstr::try_table(bt, catches, TExpr::new([rewrite])),
+                          true,
+                        )
+                      None => (instr, false)
+                    }
+                  MatchCatchAll(label) =>
+                    (
+                      TInstr::try_table(
+                        bt,
+                        catches,
+                        TExpr::new([
+                          rub_branch_after_dropping_values(label, [value]),
+                        ]),
+                      ),
+                      true,
+                    )
+                  MatchCatchAllRef(label) =>
+                    (
+                      TInstr::try_table(
+                        bt,
+                        catches,
+                        TExpr::new([TInstr::br(label, [value])]),
+                      ),
+                      true,
+                    )
+                  NoMatch => (instr, false)
+                }
+              None =>
+                match rub_try_table_throw_ref_match(catches) {
+                  MatchCatchAll(label) =>
+                    (
+                      TInstr::try_table(
+                        bt,
+                        catches,
+                        TExpr::new([
+                          rub_branch_after_dropping_values(label, [value]),
+                        ]),
+                      ),
+                      true,
+                    )
+                  MatchCatchAllRef(label) =>
+                    (
+                      TInstr::try_table(
+                        bt,
+                        catches,
+                        TExpr::new([TInstr::br(label, [value])]),
+                      ),
+                      true,
+                    )
+                  MatchUnknown | NoMatch => (instr, false)
+                }
+            }
+          _ => (instr, false)
+        }
       }
     _ => (instr, false)
   }
@@ -3345,18 +3865,46 @@ fn rub_optimize_instr_list(
     sl_trace_elapsed_ms(adjacent_breaks_start_ms),
     instrs.length(),
   )
-  if rub_optimize_jump_thread_child_block_following_br_if(instrs) {
+  let jump_thread_br_if_start_ms = sl_trace_now_ms()
+  if rub_optimize_jump_thread_child_block_following_br_if(instrs, trace_state~) {
     changed = true
   }
+  rub_trace_log_slow_helper(
+    trace_state,
+    "jump_thread_br_if",
+    sl_trace_elapsed_ms(jump_thread_br_if_start_ms),
+    instrs.length(),
+  )
+  let jump_thread_br_start_ms = sl_trace_now_ms()
   if rub_optimize_jump_thread_child_block_following_br(instrs) {
     changed = true
   }
+  rub_trace_log_slow_helper(
+    trace_state,
+    "jump_thread_br",
+    sl_trace_elapsed_ms(jump_thread_br_start_ms),
+    instrs.length(),
+  )
+  let jump_thread_unreachable_start_ms = sl_trace_now_ms()
   if rub_optimize_jump_thread_child_block_following_unreachable(instrs) {
     changed = true
   }
+  rub_trace_log_slow_helper(
+    trace_state,
+    "jump_thread_unreachable",
+    sl_trace_elapsed_ms(jump_thread_unreachable_start_ms),
+    instrs.length(),
+  )
+  let jump_thread_return_start_ms = sl_trace_now_ms()
   if rub_optimize_jump_thread_child_block_following_return(instrs) {
     changed = true
   }
+  rub_trace_log_slow_helper(
+    trace_state,
+    "jump_thread_return",
+    sl_trace_elapsed_ms(jump_thread_return_start_ms),
+    instrs.length(),
+  )
   if zero_break_is_fallthrough {
     let dropped_tail_start_ms = sl_trace_now_ms()
     if rub_optimize_redundant_dropped_br_if_tail(instrs) {
@@ -3391,7 +3939,7 @@ fn remove_unused_brs_pass(
     match func {
       TFunc(params, locals, body) => {
         let new_body = match
-          self.walk_texpr(rub_walk_state(true, false, true), body) {
+          self.walk_texpr(rub_walk_function_body_state(state), body) {
           Ok(Some((_, walked))) => walked
           Ok(None) => body
           Err(e) => return Err(e)
@@ -3583,7 +4131,7 @@ fn remove_unused_brs_pass(
       after_sink_block,
     )
     let (after_try_table_throw, changed_try_table_throw) = rub_optimize_try_table_throw_to_branch(
-      after_jump_thread,
+      after_jump_thread, state,
     )
     if changed_throw_to_branch ||
       changed_if ||
@@ -3616,12 +4164,64 @@ fn remove_unused_brs_pass(
 }
 
 ///|
+fn rub_collect_tag_payload_types(mod : Module) -> Map[TagIdx, Array[ValType]] {
+  let out : Map[TagIdx, Array[ValType]] = Map::new()
+  let env = Env::new().with_module(mod)
+  let mut total_tags = 0
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          Import(_, _, TagExternType(_)) => total_tags += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.tag_sec {
+    Some(TagSec(tags)) => total_tags += tags.length()
+    None => ()
+  }
+  let mut i = 0
+  while i < total_tags {
+    let tag = TagIdx::new(i.reinterpret_as_uint())
+    match env.resolve_tag_functype(tag) {
+      Some(FuncType(params, _)) => out.set(tag, params)
+      None => ()
+    }
+    i += 1
+  }
+  out
+}
+
+///|
+fn rub_append_scratch_locals_to_func(
+  func : Func,
+  scratch_locals : Array[ValType],
+) -> Func {
+  if scratch_locals.length() == 0 {
+    return func
+  }
+  match func {
+    TFunc(params, locals, body) => {
+      let next_locals = locals.copy()
+      for ty in scratch_locals {
+        next_locals.push(ty)
+      }
+      Func::t_func(params, next_locals, body)
+    }
+    _ => func
+  }
+}
+
+///|
 fn rub_optimize_func_fixpoint(
   func : Func,
   options : OptimizeOptions,
   trace? : (String) -> Unit = rub_trace_noop,
   ordinal? : Int = 0,
   trace_all_funcs? : Bool = false,
+  tag_payload_types? : Map[TagIdx, Array[ValType]] = Map::new(),
 ) -> Result[Func, String] {
   let log_func = rub_trace_should_log_func(ordinal, trace_all_funcs)
   match func {
@@ -3629,6 +4229,9 @@ fn rub_optimize_func_fixpoint(
       let start_top_instrs = body.instrs.length()
       let func_start_ms = sl_trace_now_ms()
       if log_func {
+        trace(
+          "func[\{ordinal}] phase=fixpoint:start locals=\{locals.length()} top_instrs=\{start_top_instrs}",
+        )
         trace(
           "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{start_top_instrs}",
         )
@@ -3651,13 +4254,41 @@ fn rub_optimize_func_fixpoint(
           options,
           trace_state=Some(round_trace),
         )
-        match pass.walk_func(rub_walk_state(false, false, true), curr) {
-          Ok(Some((_, next_func))) => {
+        let round_scratch_locals : Ref[Array[ValType]] = Ref::new([])
+        let round_local_base_count = match curr {
+          TFunc(params, locals, _) => params.length() + locals.length()
+          _ => 0
+        }
+        if log_func {
+          trace(
+            "func[\{ordinal}] round[\{rounds}] phase=walk_func:start top_instrs=\{round_start_top_instrs} local_base=\{round_local_base_count}",
+          )
+        }
+        match
+          pass.walk_func(
+            rub_walk_state(
+              false,
+              false,
+              true,
+              tag_payload_types~,
+              local_base_count=round_local_base_count,
+              scratch_locals=round_scratch_locals,
+            ),
+            curr,
+          ) {
+          Ok(Some((_, next_func0))) => {
+            let next_func = rub_append_scratch_locals_to_func(
+              next_func0,
+              round_scratch_locals.val,
+            )
             let next_top_instrs = match next_func {
               TFunc(_, _, next_body) => next_body.instrs.length()
               _ => round_start_top_instrs
             }
             if log_func {
+              trace(
+                "func[\{ordinal}] round[\{rounds}] phase=walk_func:done elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} changed=\{next_func != curr} top_instrs=\{round_start_top_instrs}->\{next_top_instrs} scratch_locals=\{round_scratch_locals.val.length()} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val}",
+              )
               trace(
                 "func[\{ordinal}] round[\{rounds}] walk:done elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} changed=\{next_func != curr} top_instrs=\{round_start_top_instrs}->\{next_top_instrs} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val}",
               )
@@ -3677,6 +4308,9 @@ fn rub_optimize_func_fixpoint(
           Ok(None) => {
             if log_func {
               trace(
+                "func[\{ordinal}] round[\{rounds}] phase=walk_func:done elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} changed=false top_instrs=\{round_start_top_instrs}->\{round_start_top_instrs} scratch_locals=\{round_scratch_locals.val.length()} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val}",
+              )
+              trace(
                 "func[\{ordinal}] round[\{rounds}] walk:done elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} changed=false top_instrs=\{round_start_top_instrs}->\{round_start_top_instrs} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val}",
               )
             }
@@ -3685,11 +4319,19 @@ fn rub_optimize_func_fixpoint(
           }
           Err(e) => {
             if e == RUB_NO_PROGRESS_TIMEOUT {
+              if log_func {
+                trace(
+                  "func[\{ordinal}] round[\{rounds}] phase=walk_func:stalled reason=no_progress_timeout elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val}",
+                )
+              }
               hit_round_limit = false
               stalled_reason = Some("no_progress_timeout")
               break
             }
             if log_func {
+              trace(
+                "func[\{ordinal}] round[\{rounds}] phase=walk_func:error elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val} \{e}",
+              )
               trace(
                 "func[\{ordinal}] round[\{rounds}] walk:error elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val} \{e}",
               )
@@ -3703,6 +4345,9 @@ fn rub_optimize_func_fixpoint(
           TFunc(_, _, curr_body) => curr_body.instrs.length()
           _ => start_top_instrs
         }
+        trace(
+          "func[\{ordinal}] phase=fixpoint:done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=\{curr != func} rounds=\{rounds} top_instrs=\{start_top_instrs}->\{end_top_instrs} locals=\{locals.length()}",
+        )
         trace(
           "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=\{curr != func} rounds=\{rounds} top_instrs=\{start_top_instrs}->\{end_top_instrs} locals=\{locals.length()} round_limit_hit=\{hit_round_limit}",
         )
@@ -3753,10 +4398,23 @@ fn remove_unused_brs(
   trace? : (String) -> Unit = rub_trace_noop,
   trace_all_funcs? : Bool = false,
 ) -> Result[Module, String] {
+  let pass_start_ms = sl_trace_now_ms()
+  let collect_tags_start_ms = sl_trace_now_ms()
+  trace("phase=module:collect_tag_payload_types:start")
+  let tag_payload_types = rub_collect_tag_payload_types(mod)
+  trace(
+    "phase=module:collect_tag_payload_types:done elapsed_ms=\{sl_trace_elapsed_ms(collect_tags_start_ms)} tags=\{tag_payload_types.length()}",
+  )
   let next_ordinal = Ref::new(0)
+  trace("phase=module:walk_funcs:start")
+  let walk_start_ms = sl_trace_now_ms()
   let pass = ModuleTransformer::new().on_func_evt(fn(_, state, func) {
     next_ordinal.val += 1
     let ordinal = next_ordinal.val
+    let log_func = rub_trace_should_log_func(ordinal, trace_all_funcs)
+    if log_func {
+      trace("func[\{ordinal}] phase=function_pipeline:start")
+    }
     match
       rub_optimize_func_fixpoint(
         func,
@@ -3764,12 +4422,34 @@ fn remove_unused_brs(
         trace~,
         ordinal~,
         trace_all_funcs~,
+        tag_payload_types~,
       ) {
       Ok(next_func) => {
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=function_pipeline:fixpoint_done changed=\{next_func != func}",
+          )
+        }
         let finalized_func = if next_func == func {
+          if log_func {
+            trace("func[\{ordinal}] phase=refinalize:skip reason=unchanged")
+          }
           next_func
         } else {
-          rub_refinalize_changed_func(next_func, mod)
+          let refinalize_start_ms = sl_trace_now_ms()
+          if log_func {
+            trace("func[\{ordinal}] phase=refinalize:start")
+          }
+          let finalized = rub_refinalize_changed_func(next_func, mod)
+          if log_func {
+            trace(
+              "func[\{ordinal}] phase=refinalize:done elapsed_ms=\{sl_trace_elapsed_ms(refinalize_start_ms)} changed=\{finalized != next_func}",
+            )
+          }
+          finalized
+        }
+        if log_func {
+          trace("func[\{ordinal}] phase=function_pipeline:done")
         }
         if finalized_func == func {
           unchanged()
@@ -3777,7 +4457,12 @@ fn remove_unused_brs(
           change(state, finalized_func)
         }
       }
-      Err(e) => Err(e)
+      Err(e) => {
+        if log_func {
+          trace("func[\{ordinal}] phase=function_pipeline:error \{e}")
+        }
+        Err(e)
+      }
     }
   })
   let out = match pass.walk_module(rub_walk_state(false, false, true), mod) {
@@ -3785,6 +4470,12 @@ fn remove_unused_brs(
     Ok(None) => mod
     Err(e) => return Err(e)
   }
+  trace(
+    "phase=module:walk_funcs:done elapsed_ms=\{sl_trace_elapsed_ms(walk_start_ms)} funcs=\{next_ordinal.val} changed=\{out != mod}",
+  )
+  trace(
+    "phase=module:done elapsed_ms=\{sl_trace_elapsed_ms(pass_start_ms)} funcs=\{next_ordinal.val}",
+  )
   Ok(out)
 }
 
@@ -5241,6 +5932,64 @@ test "remove_unused_brs loop optimization drops redundant tail br_if 0 before no
     _ =>
       fail(
         "expected redundant loop-tail br_if 0 before nop + br to canonicalize to drop(cond)",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs loop optimization drops redundant tail br_if 0 before nop + br with prefix" {
+  let body = TExpr::new([
+    TInstr::loop_(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::drop(TInstr::i32_const(I32(8))),
+        TInstr::br_if(LabelIdx::new(0), TInstr::local_get(LocalIdx::new(0)), []),
+        TInstr::nop(),
+        TInstr::br(LabelIdx::new(0), []),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLoop(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TDrop(
+                      { kind: TInstrKind::TI32Const(I32(8)), .. }
+                    ),
+                    ..,
+                  },
+                  {
+                    kind: TInstrKind::TDrop(
+                      { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. }
+                    ),
+                    ..,
+                  },
+                  { kind: TInstrKind::TNop, .. },
+                  { kind: TInstrKind::TBr(LabelIdx(0U), []), .. },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected redundant tail br_if 0 before nop + br to canonicalize even with a loop prefix",
       )
   }
 }
@@ -8213,6 +8962,52 @@ test "remove_unused_brs sinks single-loop block wrapper into single-instr loop b
 }
 
 ///|
+test "remove_unused_brs sinks single-loop block wrapper into single-instr br_if loop body when body targets removed scope" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::br_if(
+              LabelIdx::new(1),
+              TInstr::local_get(LocalIdx::new(0)),
+              [],
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLoop(
+              _,
+              { instrs: [{ kind: TInstrKind::TBrIf(_, _, []), .. }], .. }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected single-loop block wrapper to sink into a single-instr br_if loop body with rebased target labels",
+      )
+  }
+}
+
+///|
 test "remove_unused_brs keeps single-if block wrapper when removed scope is targeted" {
   let body = TExpr::new([
     TInstr::block(
@@ -8423,6 +9218,94 @@ test "remove_unused_brs sinks single-if block wrapper into targeted then arm wit
     _ =>
       fail(
         "expected single-if block wrapper to sink into the then arm while preserving the else arm",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs sinks single-if block wrapper into targeted then arm when else has internal non-crossing branch" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::if_(
+          BlockType::void_(),
+          TInstr::local_get(LocalIdx::new(0)),
+          TExpr::new([
+            TInstr::br_if(
+              LabelIdx::new(1),
+              TInstr::local_get(LocalIdx::new(1)),
+              [],
+            ),
+            TInstr::drop(TInstr::i32_const(I32(9))),
+          ]),
+          Some(
+            TExpr::new([
+              TInstr::block(
+                BlockType::void_(),
+                TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
+              ),
+              TInstr::drop(TInstr::i32_const(I32(3))),
+            ]),
+          ),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32(), ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TIf(
+              _,
+              { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBlock(
+                      _,
+                      {
+                        instrs: [
+                          {
+                            kind: TInstrKind::TBrIf(
+                              LabelIdx(0U),
+                              { kind: TInstrKind::TLocalGet(LocalIdx(1U)), .. },
+                              []
+                            ),
+                            ..,
+                          },
+                          {
+                            kind: TInstrKind::TDrop(
+                              { kind: TInstrKind::TI32Const(I32(9)), .. }
+                            ),
+                            ..,
+                          },
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              },
+              Some(_)
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected single-if block wrapper to sink into targeted then arm when else branches only within its own internal block scope",
       )
   }
 }
@@ -10046,6 +10929,218 @@ test "remove_unused_brs jump threads child block br_if through following br_if p
 }
 
 ///|
+test "remove_unused_brs jump threads child block br_if through following br_if plus default branch after leading nop" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::nop(),
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::br_if(
+                  LabelIdx::new(0),
+                  TInstr::local_get(LocalIdx::new(0)),
+                  [],
+                ),
+                TInstr::drop(TInstr::i32_const(I32(1))),
+              ]),
+            ),
+            TInstr::br_if(
+              LabelIdx::new(1),
+              TInstr::local_get(LocalIdx::new(1)),
+              [],
+            ),
+            TInstr::br(LabelIdx::new(0), []),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32(), ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TLoop(
+                      _,
+                      {
+                        instrs: [
+                          { kind: TInstrKind::TNop, .. },
+                          {
+                            kind: TInstrKind::TBlock(
+                              _,
+                              { instrs: [threaded, _], .. }
+                            ),
+                            ..,
+                          },
+                          _,
+                          _,
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) =>
+      match threaded.kind {
+        TInstrKind::TIf(
+          _,
+          { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+          _,
+          None
+        ) => ()
+        _ =>
+          fail(
+            "expected child block br_if to thread through following branch pair even with a leading nop",
+          )
+      }
+    _ =>
+      fail(
+        "expected child block br_if threading through following br_if+br pair after a leading nop",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs jump threads nested child block br_if through following br_if plus default branch" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::block(
+                  BlockType::void_(),
+                  TExpr::new([
+                    TInstr::br_if(
+                      LabelIdx::new(1),
+                      TInstr::local_get(LocalIdx::new(0)),
+                      [],
+                    ),
+                  ]),
+                ),
+                TInstr::drop(TInstr::i32_const(I32(1))),
+              ]),
+            ),
+            TInstr::br_if(
+              LabelIdx::new(1),
+              TInstr::local_get(LocalIdx::new(1)),
+              [],
+            ),
+            TInstr::br(LabelIdx::new(0), []),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32(), ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TLoop(
+                      _,
+                      {
+                        instrs: [
+                          {
+                            kind: TInstrKind::TBlock(
+                              _,
+                              { instrs: [{ kind: threaded_kind, .. }, _], .. }
+                            ),
+                            ..,
+                          },
+                          _,
+                          _,
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) =>
+      match threaded_kind {
+        TInstrKind::TIf(
+          _,
+          { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+          _,
+          None
+        ) => ()
+        TInstrKind::TBlock(
+          _,
+          {
+            instrs: [
+              {
+                kind: TInstrKind::TIf(
+                  _,
+                  { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+                  _,
+                  None
+                ),
+                ..,
+              },
+            ],
+            ..,
+          }
+        ) => ()
+        _ =>
+          fail(
+            "expected nested child-scope br_if to thread into a one-armed if before the following branch pair",
+          )
+      }
+    _ =>
+      fail(
+        "expected nested child block br_if to thread through following br_if with explicit default branch target",
+      )
+  }
+}
+
+///|
 test "remove_unused_brs rewrites try_table throw to branch for matching catch" {
   let body = TExpr::new([
     TInstr::block(
@@ -10142,6 +11237,73 @@ test "remove_unused_brs rewrites try_table throw to branch for catch_all" {
       }
     ) => assert_eq(label, LabelIdx::new(1))
     _ => fail("expected catch_all try_table throw to rewrite to direct branch")
+  }
+}
+
+///|
+test "remove_unused_brs rewrites try_table throw to branch for catch_all_ref via exnref materialization in typed result fixture" {
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let main_type = RecType::new(SubType::comp_type(CompType::func([], [exnref])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([tag_type, main_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(1)),
+              [Catch::all_ref(LabelIdx::new(1))],
+              TExpr::new([TInstr::throw_(TagIdx::new(0), [])]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = rub_run(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) => fail("expected rewritten catch_all_ref module to validate: \{e}")
+  }
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TTryTable(
+              _,
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBr(
+                      LabelIdx(1U),
+                      [{ kind: TInstrKind::TBlock(_, _), .. }]
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected catch_all_ref try_table throw to rewrite to branch carrying a materialized exnref",
+      )
   }
 }
 
@@ -10548,6 +11710,166 @@ test "remove_unused_brs rewrites nested throw to branch via enclosing try_table"
 }
 
 ///|
+test "remove_unused_brs rewrites nested throw under catch_ref to branch with materialized exnref when payload empty" {
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let main_type = RecType::new(SubType::comp_type(CompType::func([], [exnref])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([tag_type, main_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(1)),
+              [Catch::ref_(TagIdx::new(0), LabelIdx::new(1))],
+              TExpr::new([
+                TInstr::block(
+                  BlockType::val_type(exnref),
+                  TExpr::new([TInstr::throw_(TagIdx::new(0), [])]),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TTryTable(
+              _,
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBlock(
+                      _,
+                      {
+                        instrs: [
+                          {
+                            kind: TInstrKind::TBr(
+                              _,
+                              [{ kind: TInstrKind::TBlock(_, _), .. }]
+                            ),
+                            ..,
+                          },
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected nested throw under catch_ref to rewrite to branch carrying materialized exnref when payload is empty",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs rewrites nested throw under catch_all_ref to branch with materialized exnref" {
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let main_type = RecType::new(SubType::comp_type(CompType::func([], [exnref])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([tag_type, main_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(1)),
+              [Catch::all_ref(LabelIdx::new(1))],
+              TExpr::new([
+                TInstr::block(
+                  BlockType::val_type(exnref),
+                  TExpr::new([TInstr::throw_(TagIdx::new(0), [])]),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TTryTable(
+              _,
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBlock(
+                      _,
+                      {
+                        instrs: [
+                          {
+                            kind: TInstrKind::TBr(
+                              _,
+                              [{ kind: TInstrKind::TBlock(_, _), .. }]
+                            ),
+                            ..,
+                          },
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected nested throw under catch_all_ref to rewrite to branch carrying materialized exnref",
+      )
+  }
+}
+
+///|
 test "remove_unused_brs keeps try_table throw when catch tag differs" {
   let body = TExpr::new([
     TInstr::try_table(
@@ -10582,7 +11904,7 @@ test "remove_unused_brs keeps try_table throw when catch tag differs" {
 }
 
 ///|
-test "remove_unused_brs keeps try_table throw when matching catcher is catch_ref" {
+test "remove_unused_brs rewrites try_table throw to branch for catch_ref when payload empty" {
   let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let exnref = ValType::ref_type(
     RefType::new(false, HeapType::abs(AbsHeapType::exn())),
@@ -10619,7 +11941,18 @@ test "remove_unused_brs keeps try_table throw when matching catcher is catch_ref
             kind: TInstrKind::TTryTable(
               _,
               _,
-              { instrs: [{ kind: TInstrKind::TThrow(TagIdx(0U), []), .. }], .. }
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBr(
+                      _,
+                      [{ kind: TInstrKind::TBlock(_, _), .. }]
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
             ),
             ..,
           },
@@ -10629,13 +11962,173 @@ test "remove_unused_brs keeps try_table throw when matching catcher is catch_ref
     ) => ()
     _ =>
       fail(
-        "expected catch_ref try_table to preserve throw (rewriting requires exnref payload synthesis)",
+        "expected catch_ref try_table throw to rewrite to branch carrying materialized exnref when payload is empty",
       )
   }
 }
 
 ///|
-test "remove_unused_brs keeps try_table throw when matching catcher is catch_all_ref" {
+test "remove_unused_brs rewrites try_table throw to branch for catch_ref with payload values via local_tee" {
+  let tag_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let main_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), exnref])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([tag_type, main_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(1)),
+              [Catch::ref_(TagIdx::new(0), LabelIdx::new(1))],
+              TExpr::new([
+                TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(9))]),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      locals,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TTryTable(
+              _,
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBr(
+                      _,
+                      [
+                        {
+                          kind: TInstrKind::TLocalTee(
+                            LocalIdx(0U),
+                            { kind: TInstrKind::TI32Const(I32(9)), .. }
+                          ),
+                          ..,
+                        },
+                        { kind: TInstrKind::TBlock(_, _), .. },
+                      ]
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => assert_eq(locals, [ValType::i32()])
+    _ =>
+      fail(
+        "expected catch_ref try_table throw with payload to rewrite to a branch carrying payload+materialized exnref",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs rewrites multi-instr throw under catch_ref with payload values via local_tee" {
+  let tag_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let main_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), exnref])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([tag_type, main_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(1)),
+              [Catch::ref_(TagIdx::new(0), LabelIdx::new(1))],
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(1))),
+                TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(5))]),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      locals,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TTryTable(
+              _,
+              _,
+              {
+                instrs: [
+                  _,
+                  {
+                    kind: TInstrKind::TBr(
+                      _,
+                      [
+                        {
+                          kind: TInstrKind::TLocalTee(
+                            LocalIdx(0U),
+                            { kind: TInstrKind::TI32Const(I32(5)), .. }
+                          ),
+                          ..,
+                        },
+                        { kind: TInstrKind::TBlock(_, _), .. },
+                      ]
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => assert_eq(locals, [ValType::i32()])
+    _ =>
+      fail(
+        "expected multi-instr throw under catch_ref with payload to rewrite to payload+materialized-exnref branch",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs rewrites try_table throw to branch for catch_all_ref via exnref materialization" {
   let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let exnref = ValType::ref_type(
     RefType::new(false, HeapType::abs(AbsHeapType::exn())),
@@ -10672,7 +12165,18 @@ test "remove_unused_brs keeps try_table throw when matching catcher is catch_all
             kind: TInstrKind::TTryTable(
               _,
               _,
-              { instrs: [{ kind: TInstrKind::TThrow(TagIdx(0U), []), .. }], .. }
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBr(
+                      _,
+                      [{ kind: TInstrKind::TBlock(_, _), .. }]
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
             ),
             ..,
           },
@@ -10682,7 +12186,226 @@ test "remove_unused_brs keeps try_table throw when matching catcher is catch_all
     ) => ()
     _ =>
       fail(
-        "expected catch_all_ref try_table to preserve throw (rewriting requires exnref payload synthesis)",
+        "expected catch_all_ref try_table throw to rewrite to branch carrying materialized exnref",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs rewrites throw_ref under catch_ref when exnref is statically materialized from matching throw" {
+  let tag_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let main_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), exnref])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([tag_type, main_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(1)),
+              [Catch::ref_(TagIdx::new(0), LabelIdx::new(1))],
+              TExpr::new([
+                TInstr::throw_ref(
+                  rub_materialize_exnref_from_throw(TagIdx::new(0), [
+                    TInstr::i32_const(I32(11)),
+                  ]),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      locals,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TTryTable(
+              _,
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBr(
+                      _,
+                      [
+                        {
+                          kind: TInstrKind::TLocalTee(
+                            LocalIdx(0U),
+                            { kind: TInstrKind::TI32Const(I32(11)), .. }
+                          ),
+                          ..,
+                        },
+                        { kind: TInstrKind::TBlock(_, _), .. },
+                      ]
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => assert_eq(locals, [ValType::i32()])
+    _ =>
+      fail(
+        "expected throw_ref with statically-materialized matching exnref to rewrite through catch_ref",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs rewrites multi-instr throw when enclosing catcher is catch_ref and payload empty" {
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let main_type = RecType::new(SubType::comp_type(CompType::func([], [exnref])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([tag_type, main_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(1)),
+              [Catch::ref_(TagIdx::new(0), LabelIdx::new(1))],
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(1))),
+                TInstr::throw_(TagIdx::new(0), []),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TTryTable(
+              _,
+              _,
+              {
+                instrs: [
+                  _,
+                  {
+                    kind: TInstrKind::TBr(
+                      _,
+                      [{ kind: TInstrKind::TBlock(_, _), .. }]
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected multi-instr throw under catch_ref to rewrite to branch carrying materialized exnref when payload is empty",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs rewrites multi-instr throw when enclosing catcher is catch_all_ref" {
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let main_type = RecType::new(SubType::comp_type(CompType::func([], [exnref])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([tag_type, main_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(1)),
+              [Catch::all_ref(LabelIdx::new(1))],
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(1))),
+                TInstr::throw_(TagIdx::new(0), []),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TTryTable(
+              _,
+              _,
+              {
+                instrs: [
+                  _,
+                  {
+                    kind: TInstrKind::TBr(
+                      _,
+                      [{ kind: TInstrKind::TBlock(_, _), .. }]
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected multi-instr throw under catch_all_ref to rewrite to branch carrying materialized exnref",
       )
   }
 }

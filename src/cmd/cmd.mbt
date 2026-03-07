@@ -1538,6 +1538,30 @@ fn cmd_trace_optimize_verbose(io : CmdIO) -> Bool {
 }
 
 ///|
+fn cmd_trace_remove_unused_brs_verbose(io : CmdIO) -> Bool {
+  match (io.get_env)("STARSHINE_TRACE_OPTIMIZATION_VERBOSE") {
+    Some(raw) =>
+      match parse_bool_string(raw) {
+        Some(enabled) => enabled
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
+fn cmd_optimize_dump_failed_module_state(io : CmdIO) -> Bool {
+  match (io.get_env)("OPTIMIZE_DUMP_FAILED_MODULE_STATE") {
+    Some(raw) =>
+      match parse_bool_string(raw) {
+        Some(enabled) => enabled
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
 fn cmd_trace_optimize_max_passes(io : CmdIO) -> Int? {
   match (io.get_env)("STARSHINE_OPTIMIZE_MAX_PASSES") {
     Some(raw) => parse_non_negative_decimal(raw)
@@ -2159,7 +2183,11 @@ pub fn run_cmd_with_adapter(
   let env = parse_env_overlay(io)
   let merged = merge_parse_results(config, env, cli)
   let trace_optimize_verbose = cmd_trace_optimize_verbose(io)
-  let trace_optimize = cmd_trace_optimize_enabled(io) || trace_optimize_verbose
+  let trace_remove_unused_brs_verbose = cmd_trace_remove_unused_brs_verbose(io)
+  let dump_failed_module_state = cmd_optimize_dump_failed_module_state(io)
+  let trace_optimize = cmd_trace_optimize_enabled(io) ||
+    trace_optimize_verbose ||
+    trace_remove_unused_brs_verbose
   let input_files = resolve_input_files_with_glob(
     merged.input_globs,
     io,
@@ -2216,13 +2244,29 @@ pub fn run_cmd_with_adapter(
     trace_optimize,
     "options o=\{optimize_level} z=\{shrink_level} traps_never=\{traps_never_happen}",
   )
-  let trace_mode = if trace_optimize_verbose { "verbose" } else { "compact" }
+  let trace_mode = if trace_optimize_verbose {
+    "verbose"
+  } else if trace_remove_unused_brs_verbose {
+    "remove-unused-brs-verbose"
+  } else {
+    "compact"
+  }
   cmd_trace_emit(io, trace_optimize, "trace_mode=\{trace_mode}")
   if trace_optimize_verbose {
     cmd_trace_emit(
       io,
       true,
       "effective_pass_flags=\{cmd_trace_join_pass_flags(resolved_passes)}",
+    )
+  }
+  if trace_remove_unused_brs_verbose && !trace_optimize_verbose {
+    cmd_trace_emit(
+      io, true, "remove_unused_brs_verbose_env=STARSHINE_TRACE_OPTIMIZATION_VERBOSE",
+    )
+  }
+  if dump_failed_module_state {
+    cmd_trace_emit(
+      io, true, "dump_failed_module_state_env=OPTIMIZE_DUMP_FAILED_MODULE_STATE",
     )
   }
 
@@ -2297,7 +2341,23 @@ pub fn run_cmd_with_adapter(
           options,
           fn(msg) { cmd_trace_emit(io, true, "input \{input_path}:opt \{msg}") },
           trace_pass_details=trace_optimize_verbose,
-          trace_module_stats=trace_optimize_verbose,
+          trace_module_stats=trace_optimize_verbose ||
+            trace_remove_unused_brs_verbose,
+          dump_failed_module_state~,
+        ) {
+        Ok(out) => out
+        Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
+      }
+    } else if dump_failed_module_state {
+      match
+        optimize_module_with_options_trace(
+          mod,
+          passes,
+          options,
+          fn(_) {  },
+          trace_pass_details=false,
+          trace_module_stats=false,
+          dump_failed_module_state=true,
         ) {
         Ok(out) => out
         Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))

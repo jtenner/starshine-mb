@@ -17,7 +17,7 @@ pub fn optimize_module(@lib.Module, Array[ModulePass]) -> Result[@lib.Module, St
 
 pub fn optimize_module_with_options(@lib.Module, Array[ModulePass], OptimizeOptions) -> Result[@lib.Module, String]
 
-pub fn optimize_module_with_options_trace(@lib.Module, Array[ModulePass], OptimizeOptions, (String) -> Unit, trace_pass_details? : Bool, trace_module_stats? : Bool) -> Result[@lib.Module, String]
+pub fn optimize_module_with_options_trace(@lib.Module, Array[ModulePass], OptimizeOptions, (String) -> Unit, trace_pass_details? : Bool, trace_module_stats? : Bool, dump_failed_module_state? : Bool) -> Result[@lib.Module, String]
 
 // Errors
 
