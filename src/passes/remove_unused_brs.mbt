@@ -1311,6 +1311,56 @@ fn rub_optimize_loop_tail_branches(
 
   let last_i = instrs.length() - 1
   match instrs[last_i].kind {
+    TInstrKind::TBr(loop_label, []) =>
+      if rub_is_label_zero(loop_label) && instrs.length() >= 3 {
+        let mut i = last_i - 1
+        while true {
+          match instrs[i].kind {
+            TInstrKind::TBrIf(label, cond, []) =>
+              if !rub_is_label_zero(label) && i + 1 < instrs.length() {
+                let else_instrs : Array[TInstr] = []
+                let mut j = i + 1
+                while j < instrs.length() {
+                  else_instrs.push(
+                    rub_rebase_labels_in_tinstruction(instrs[j], 1),
+                  )
+                  j += 1
+                }
+                let next_then = TExpr::new([
+                  TInstr::br(rub_label_from_int(rub_label_to_int(label) + 1), []),
+                ])
+                let next : Array[TInstr] = []
+                for j in 0..<i {
+                  next.push(instrs[j])
+                }
+                next.push(
+                  TInstr::if_(
+                    BlockType::void_(),
+                    cond,
+                    next_then,
+                    Some(TExpr::new(else_instrs)),
+                  ),
+                )
+                instrs.clear()
+                for item in next {
+                  instrs.push(item)
+                }
+                return true
+              } else {
+                return false
+              }
+            _ => if rub_instr_has_branch(instrs[i]) { return false }
+          }
+          if i == 0 {
+            break
+          }
+          i -= 1
+        }
+      }
+    _ => ()
+  }
+
+  match instrs[last_i].kind {
     TInstrKind::TIf(VoidBlockType, cond, then_body, Some(else_body)) =>
       match (rub_is_single_tinstr(then_body), rub_is_single_tinstr(else_body)) {
         (
@@ -4208,6 +4258,105 @@ test "remove_unused_brs loop optimization lowers tail if-else branch pair" {
     _ =>
       fail(
         "expected loop-tail if(br exit, br loop) to lower to inverted br_if + exit br",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs loop optimization lowers non-adjacent tail br_if into if-else" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::br_if(
+              LabelIdx::new(1),
+              TInstr::local_get(LocalIdx::new(0)),
+              [],
+            ),
+            TInstr::drop(TInstr::i32_const(I32(1))),
+            TInstr::br(LabelIdx::new(0), []),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TLoop(
+                      _,
+                      {
+                        instrs: [
+                          {
+                            kind: TInstrKind::TIf(
+                              _,
+                              { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+                              {
+                                instrs: [
+                                  {
+                                    kind: TInstrKind::TBr(LabelIdx(2U), []),
+                                    ..,
+                                  },
+                                ],
+                                ..,
+                              },
+                              Some(
+                                {
+                                  instrs: [
+                                    {
+                                      kind: TInstrKind::TDrop(
+                                        {
+                                          kind: TInstrKind::TI32Const(I32(1)),
+                                          ..,
+                                        }
+                                      ),
+                                      ..,
+                                    },
+                                    {
+                                      kind: TInstrKind::TBr(LabelIdx(1U), []),
+                                      ..,
+                                    },
+                                  ],
+                                  ..,
+                                }
+                              )
+                            ),
+                            ..,
+                          },
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected non-adjacent loop-tail br_if to become if(cond, br exit, tail+br loop)",
       )
   }
 }
