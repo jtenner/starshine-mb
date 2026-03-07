@@ -34,9 +34,9 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Running multiple `moon` commands in parallel contends on `_build/.moon-lock`; one process waits on the lock instead of progressing concurrently.
 - Running the full optimize pipeline on large inputs is currently very slow. Instead of running a self-optimize test, allow the user to run the command themselves and provide the output manually.
 
-In this workspace, use absolute moon path when needed:
-- `/home/jtenner/.moon/bin/moon test`
-- `/home/jtenner/.moon/bin/moon info && /home/jtenner/.moon/bin/moon fmt`
+In this workspace, run `moon` directly from `PATH`:
+- `moon test`
+- `moon info && moon fmt`
 
 ## Repository Layout
 - `src/lib/`: wasm core model types plus shared traits and utilities.
@@ -58,9 +58,9 @@ In this workspace, use absolute moon path when needed:
 ## Test/Validation Expectations for Pass Changes
 - Update inline/dispatch tests in the pass file and/or `src/passes/optimize.mbt`.
 - Run:
-  - `/home/jtenner/.moon/bin/moon check`
-  - `/home/jtenner/.moon/bin/moon test`
-  - `/home/jtenner/.moon/bin/moon info && /home/jtenner/.moon/bin/moon fmt`
+  - `moon check`
+  - `moon test`
+  - `moon info && moon fmt`
 - Review `.mbti` diffs to confirm intended public API changes.
 
 ## Agent Task File

@@ -72,9 +72,9 @@ Measured on `2026-02-25` in this repository with warm local build cache (`moon t
 
 | Workload | Command | Wall time |
 | --- | --- | --- |
-| Single CLI pipeline test (`run_cmd_with_adapter runs requested passes for each module`) | `/home/jtenner/.moon/bin/moon test --quiet --package jtenner/starshine/cmd --file cmd_test.mbt --index 5` | `0.557s` |
-| Fuzz harness smoke (`run_wasm_smith_fuzz_harness smoke covers full pipeline`) | `/home/jtenner/.moon/bin/moon test --quiet --package jtenner/starshine/cmd --file fuzz_harness_test.mbt --index 2` | `0.710s` |
-| Full test suite | `/home/jtenner/.moon/bin/moon test --quiet` | `10.158s` |
+| Single CLI pipeline test (`run_cmd_with_adapter runs requested passes for each module`) | `moon test --quiet --package jtenner/starshine/cmd --file cmd_test.mbt --index 5` | `0.557s` |
+| Fuzz harness smoke (`run_wasm_smith_fuzz_harness smoke covers full pipeline`) | `moon test --quiet --package jtenner/starshine/cmd --file fuzz_harness_test.mbt --index 2` | `0.710s` |
+| Full test suite | `moon test --quiet` | `10.158s` |
 <!-- README_BENCHMARK_TABLE_END -->
 
 ## CLI Command Examples
