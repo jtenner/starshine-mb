@@ -18,9 +18,6 @@
 const RUB_TOO_COSTLY_TO_RUN_UNCONDITIONALLY : Int = 8
 
 ///|
-const RUB_HAS_CANDIDATE_FOUND : String = "__remove_unused_brs_has_candidate_found__"
-
-///|
 const RUB_LABEL_REBASE_CROSSES_REMOVED_SCOPE : String = "__remove_unused_brs_label_rebase_crosses_removed_scope__"
 
 ///|
@@ -281,6 +278,9 @@ fn rub_trace_note_expr(
   trace_state : RUBRoundTraceState?,
   phase : String,
 ) -> Result[Unit, String] {
+  if trace_state is None {
+    return Ok(())
+  }
   match rub_trace_check_no_progress(trace_state, phase) {
     Ok(_) => ()
     Err(e) => return Err(e)
@@ -300,6 +300,9 @@ fn rub_trace_note_instr(
   trace_state : RUBRoundTraceState?,
   phase : String,
 ) -> Result[Unit, String] {
+  if trace_state is None {
+    return Ok(())
+  }
   match rub_trace_check_no_progress(trace_state, phase) {
     Ok(_) => ()
     Err(e) => return Err(e)
@@ -319,6 +322,9 @@ fn rub_trace_note_rewrite(
   trace_state : RUBRoundTraceState?,
   phase : String,
 ) -> Result[Unit, String] {
+  if trace_state is None {
+    return Ok(())
+  }
   match rub_trace_check_no_progress(trace_state, phase) {
     Ok(_) => ()
     Err(e) => return Err(e)
@@ -629,14 +635,6 @@ fn rub_try_rebase_labels_in_tinstruction(
           "unexpected remove_unused_brs tinstruction label rebase failure: \{e}",
         )
       }
-  }
-}
-
-///|
-fn rub_rebase_labels_in_texpr(expr : TExpr, delta : Int) -> TExpr {
-  match rub_rebase_labels_in_texpr_result(expr, delta) {
-    Ok(out) => out
-    Err(e) => abort("remove_unused_brs label rebase failed: \{e}")
   }
 }
 
@@ -1034,6 +1032,194 @@ fn rub_optimize_br_if(instr : TInstr) -> (TInstr, Bool) {
             _ => (instr, false)
           }
         None => (instr, false)
+      }
+    _ => (instr, false)
+  }
+}
+
+///|
+priv enum RUBFlow {
+  NoFlow
+  BreakFlow(LabelIdx)
+  ReturnFlow
+} derive(Eq)
+
+///|
+fn rub_flow_through_scope(flow : RUBFlow) -> RUBFlow {
+  match flow {
+    BreakFlow(label) =>
+      if rub_is_label_zero(label) {
+        NoFlow
+      } else {
+        BreakFlow(rub_label_from_int(rub_label_to_int(label) - 1))
+      }
+    _ => flow
+  }
+}
+
+///|
+fn rub_merge_if_flows(then_flow : RUBFlow, else_flow : RUBFlow) -> RUBFlow {
+  if then_flow == else_flow {
+    then_flow
+  } else {
+    NoFlow
+  }
+}
+
+///|
+fn rub_terminal_flow_of_instr(instr : TInstr) -> RUBFlow {
+  match instr.kind {
+    TInstrKind::TBr(label, values) =>
+      if values.length() == 0 {
+        BreakFlow(label)
+      } else {
+        NoFlow
+      }
+    TInstrKind::TReturn(values) =>
+      if values.length() == 0 {
+        ReturnFlow
+      } else {
+        NoFlow
+      }
+    TInstrKind::TIf(_, _, then_body, Some(else_body)) => {
+      let then_flow = rub_flow_through_scope(
+        rub_terminal_flow_of_texpr(then_body),
+      )
+      let else_flow = rub_flow_through_scope(
+        rub_terminal_flow_of_texpr(else_body),
+      )
+      rub_merge_if_flows(then_flow, else_flow)
+    }
+    _ => NoFlow
+  }
+}
+
+///|
+fn rub_terminal_flow_of_texpr(expr : TExpr) -> RUBFlow {
+  if expr.instrs.length() == 0 {
+    return NoFlow
+  }
+  rub_terminal_flow_of_instr(expr.instrs[expr.instrs.length() - 1])
+}
+
+///|
+fn rub_optimize_terminal_if_flow(
+  instrs : Array[TInstr],
+  in_function_body : Bool,
+  zero_break_is_fallthrough : Bool,
+) -> Bool {
+  if instrs.length() == 0 {
+    return false
+  }
+  let idx = instrs.length() - 1
+  match instrs[idx].kind {
+    TInstrKind::TIf(VoidBlockType, cond, _, Some(_)) => {
+      let merged_flow = rub_terminal_flow_of_instr(instrs[idx])
+      match merged_flow {
+        BreakFlow(label) => {
+          instrs[idx] = TInstr::drop(cond)
+          if !(zero_break_is_fallthrough && rub_is_label_zero(label)) {
+            instrs.push(TInstr::br(label, []))
+          }
+          true
+        }
+        ReturnFlow =>
+          if in_function_body {
+            instrs[idx] = TInstr::drop(cond)
+            true
+          } else {
+            false
+          }
+        NoFlow => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn rub_optimize_loop_tail_branches(
+  instrs : Array[TInstr],
+  zero_break_is_fallthrough : Bool,
+) -> Bool {
+  // Loop bodies are the only places where `br 0` is not fallthrough.
+  if zero_break_is_fallthrough || instrs.length() < 2 {
+    return false
+  }
+  let second_last_i = instrs.length() - 2
+  let last_i = instrs.length() - 1
+  match (instrs[second_last_i].kind, instrs[last_i].kind) {
+    (TInstrKind::TBrIf(exit_label, cond, []), TInstrKind::TBr(loop_label, [])) =>
+      if rub_is_label_zero(loop_label) && !rub_is_label_zero(exit_label) {
+        instrs[second_last_i] = TInstr::br_if(
+          LabelIdx::new(0),
+          TInstr::unary(UnaryOp::i32_eqz(), cond),
+          [],
+        )
+        instrs[last_i] = TInstr::br(exit_label, [])
+        true
+      } else {
+        false
+      }
+    _ => false
+  }
+}
+
+///|
+fn rub_optimize_single_if_void_block_wrapper(instr : TInstr) -> (TInstr, Bool) {
+  match instr.kind {
+    TInstrKind::TBlock(
+      VoidBlockType,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TIf(
+              VoidBlockType,
+              cond,
+              then_body,
+              Some(else_body)
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => {
+      if rub_texpr_has_branch(then_body) || rub_texpr_has_branch(else_body) {
+        return (instr, false)
+      }
+      let next_cond = rub_try_rebase_labels_in_tinstruction(cond, -1)
+      let next_then = rub_try_rebase_labels_in_texpr(then_body, -1)
+      let next_else = rub_try_rebase_labels_in_texpr(else_body, -1)
+      match (next_cond, next_then, next_else) {
+        (Some(next_cond), Some(next_then), Some(next_else)) =>
+          (
+            TInstr::if_(
+              BlockType::void_(),
+              next_cond,
+              next_then,
+              Some(next_else),
+            ),
+            true,
+          )
+        _ => (instr, false)
+      }
+    }
+    _ => (instr, false)
+  }
+}
+
+///|
+fn rub_optimize_jump_thread_block_wrapper(instr : TInstr) -> (TInstr, Bool) {
+  match instr.kind {
+    TInstrKind::TBlock(
+      VoidBlockType,
+      { instrs: [{ kind: TInstrKind::TBr(label, []), .. }], .. }
+    ) =>
+      if rub_is_label_zero(label) {
+        (TInstr::nop(), true)
+      } else {
+        (TInstr::br(rub_label_from_int(rub_label_to_int(label) - 1), []), true)
       }
     _ => (instr, false)
   }
@@ -1673,46 +1859,6 @@ fn rub_optimize_redundant_dropped_br_if_tail(instrs : Array[TInstr]) -> Bool {
 }
 
 ///|
-fn rub_optimize_entry_restructure_if(
-  instrs : Array[TInstr],
-  allow_list_splicing : Bool,
-) -> Bool {
-  if !allow_list_splicing {
-    return false
-  }
-  if instrs.length() < 2 {
-    return false
-  }
-  match instrs[0].kind {
-    TInstrKind::TDrop({ kind: TInstrKind::TBrIf(label, cond, []), .. }) => {
-      if !rub_is_label_zero(label) {
-        return false
-      }
-      let tail : Array[TInstr] = []
-      for i in 1..<instrs.length() {
-        tail.push(instrs[i])
-      }
-      let tail_expr = TExpr::new(tail)
-      if has_break_to_depth_in_texpr(tail_expr, 0) ||
-        rub_texpr_has_branch(tail_expr) {
-        return false
-      }
-      instrs.clear()
-      instrs.push(
-        TInstr::if_(
-          BlockType::void_(),
-          TInstr::unary(UnaryOp::i32_eqz(), cond),
-          rub_rebase_labels_in_texpr(tail_expr, 1),
-          None,
-        ),
-      )
-      true
-    }
-    _ => false
-  }
-}
-
-///|
 fn rub_optimize_instr_list(
   instrs : Array[TInstr],
   options : OptimizeOptions,
@@ -1722,6 +1868,9 @@ fn rub_optimize_instr_list(
   trace_state? : RUBRoundTraceState? = None,
 ) -> Bool {
   let mut changed = false
+  if rub_optimize_loop_tail_branches(instrs, zero_break_is_fallthrough) {
+    changed = true
+  }
   if rub_remove_trailing_nops(instrs) {
     changed = true
   }
@@ -1729,6 +1878,11 @@ fn rub_optimize_instr_list(
     changed = true
   }
   if in_function_body && rub_remove_trailing_return(instrs) {
+    changed = true
+  }
+  if rub_optimize_terminal_if_flow(
+      instrs, in_function_body, zero_break_is_fallthrough,
+    ) {
     changed = true
   }
   let if_else_tail_start_ms = sl_trace_now_ms()
@@ -1768,18 +1922,6 @@ fn rub_optimize_instr_list(
       instrs.length(),
     )
   }
-  if zero_break_is_fallthrough {
-    let entry_restructure_start_ms = sl_trace_now_ms()
-    if rub_optimize_entry_restructure_if(instrs, allow_list_splicing) {
-      changed = true
-    }
-    rub_trace_log_slow_helper(
-      trace_state,
-      "entry_restructure_if",
-      sl_trace_elapsed_ms(entry_restructure_start_ms),
-      instrs.length(),
-    )
-  }
   if rub_remove_trailing_nops(instrs) {
     changed = true
   }
@@ -1790,34 +1932,6 @@ fn rub_optimize_instr_list(
     changed = true
   }
   changed
-}
-
-///|
-fn rub_has_candidate_instr(instr : TInstr) -> Bool {
-  match instr.kind {
-    TInstrKind::TNop
-    | TInstrKind::TBr(_, _)
-    | TInstrKind::TBrIf(_, _, _)
-    | TInstrKind::TBrTable(_, _, _, _)
-    | TInstrKind::TIf(_, _, _, _)
-    | TInstrKind::TReturn(_)
-    | TInstrKind::TDrop({ kind: TInstrKind::TBrIf(_, _, _), .. }) => true
-    _ => false
-  }
-}
-
-///|
-fn rub_has_candidate_in_body(body : TExpr) -> Result[Bool, String] {
-  let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    if rub_has_candidate_instr(instr) {
-      return Err(RUB_HAS_CANDIDATE_FOUND)
-    }
-    self.walk_tinstruction_default(false, instr)
-  })
-  match pass.walk_texpr(false, body) {
-    Ok(_) => Ok(false)
-    Err(e) => if e == RUB_HAS_CANDIDATE_FOUND { Ok(true) } else { Err(e) }
-  }
 }
 
 ///|
@@ -2008,14 +2122,29 @@ fn remove_unused_brs_pass(
     let (after_if, changed_if) = rub_optimize_if(walked, options)
     let (after_br_table, changed_switch) = rub_optimize_br_table(after_if)
     let (after_br_if, changed_br_if) = rub_optimize_br_if(after_br_table)
-    if changed_if || changed_switch || changed_br_if {
+    let (after_sink_block, changed_sink_block) = rub_optimize_single_if_void_block_wrapper(
+      after_br_if,
+    )
+    let (after_jump_thread, changed_jump_thread) = rub_optimize_jump_thread_block_wrapper(
+      after_sink_block,
+    )
+    if changed_if ||
+      changed_switch ||
+      changed_br_if ||
+      changed_sink_block ||
+      changed_jump_thread {
       match rub_trace_note_rewrite(trace_state, "rewrite:instr") {
         Ok(_) => ()
         Err(e) => return Err(e)
       }
     }
-    if changed_if || changed_switch || changed_br_if || after_br_if != instr {
-      change(state, after_br_if)
+    if changed_if ||
+      changed_switch ||
+      changed_br_if ||
+      changed_sink_block ||
+      changed_jump_thread ||
+      after_jump_thread != instr {
+      change(state, after_jump_thread)
     } else {
       // Children were already traversed above; avoid default re-traversal.
       change(state, instr)
@@ -2040,125 +2169,94 @@ fn rub_optimize_func_fixpoint(
         trace(
           "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{start_top_instrs}",
         )
-        trace(
-          "func[\{ordinal}] phase=candidate_scan start top_instrs=\{start_top_instrs}",
+      }
+      let mut curr = func
+      let mut rounds = 0
+      let mut hit_round_limit = true
+      let mut stalled_reason : String? = None
+      while rounds < 16 {
+        rounds += 1
+        let round_start_top_instrs = match curr {
+          TFunc(_, _, curr_body) => curr_body.instrs.length()
+          _ => 0
+        }
+        let round_trace = rub_round_trace_state(
+          log_func, trace, ordinal, rounds, func_start_ms,
         )
-      }
-      match rub_has_candidate_in_body(body) {
-        Ok(false) => {
-          if log_func {
-            trace(
-              "func[\{ordinal}] phase=candidate_scan done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} candidate_found=false top_instrs=\{start_top_instrs}",
-            )
-            trace(
-              "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=false rounds=0 top_instrs=\{start_top_instrs}->\{start_top_instrs} locals=\{locals.length()} round_limit_hit=false reason=no_candidates",
-            )
-          }
-          Ok(func)
-        }
-        Ok(true) => {
-          if log_func {
-            trace(
-              "func[\{ordinal}] phase=candidate_scan done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} candidate_found=true top_instrs=\{start_top_instrs}",
-            )
-          }
-          let mut curr = func
-          let mut rounds = 0
-          let mut hit_round_limit = true
-          let mut stalled_reason : String? = None
-          while rounds < 16 {
-            rounds += 1
-            let round_start_top_instrs = match curr {
-              TFunc(_, _, curr_body) => curr_body.instrs.length()
-              _ => 0
+        rub_trace_emit_round_start(round_trace, round_start_top_instrs)
+        let pass = remove_unused_brs_pass(
+          options,
+          trace_state=Some(round_trace),
+        )
+        match pass.walk_func(rub_walk_state(false, false, true), curr) {
+          Ok(Some((_, next_func))) => {
+            let next_top_instrs = match next_func {
+              TFunc(_, _, next_body) => next_body.instrs.length()
+              _ => round_start_top_instrs
             }
-            let round_trace = rub_round_trace_state(
-              log_func, trace, ordinal, rounds, func_start_ms,
-            )
-            rub_trace_emit_round_start(round_trace, round_start_top_instrs)
-            let pass = remove_unused_brs_pass(
-              options,
-              trace_state=Some(round_trace),
-            )
-            match pass.walk_func(rub_walk_state(false, false, true), curr) {
-              Ok(Some((_, next_func))) => {
-                let next_top_instrs = match next_func {
-                  TFunc(_, _, next_body) => next_body.instrs.length()
-                  _ => round_start_top_instrs
-                }
-                if log_func {
-                  trace(
-                    "func[\{ordinal}] round[\{rounds}] walk:done elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} changed=\{next_func != curr} top_instrs=\{round_start_top_instrs}->\{next_top_instrs} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val}",
-                  )
-                }
-                if round_trace.rewrites.val == 0 {
-                  curr = next_func
-                  hit_round_limit = false
-                  stalled_reason = Some("no_rewrites")
-                  break
-                }
-                if next_func == curr {
-                  hit_round_limit = false
-                  break
-                }
-                curr = next_func
-              }
-              Ok(None) => {
-                if log_func {
-                  trace(
-                    "func[\{ordinal}] round[\{rounds}] walk:done elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} changed=false top_instrs=\{round_start_top_instrs}->\{round_start_top_instrs} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val}",
-                  )
-                }
-                hit_round_limit = false
-                break
-              }
-              Err(e) => {
-                if e == RUB_NO_PROGRESS_TIMEOUT {
-                  hit_round_limit = false
-                  stalled_reason = Some("no_progress_timeout")
-                  break
-                }
-                if log_func {
-                  trace(
-                    "func[\{ordinal}] round[\{rounds}] walk:error elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val} \{e}",
-                  )
-                }
-                return Err(e)
-              }
+            if log_func {
+              trace(
+                "func[\{ordinal}] round[\{rounds}] walk:done elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} changed=\{next_func != curr} top_instrs=\{round_start_top_instrs}->\{next_top_instrs} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val}",
+              )
             }
-          }
-          if log_func {
-            let end_top_instrs = match curr {
-              TFunc(_, _, curr_body) => curr_body.instrs.length()
-              _ => start_top_instrs
+            if round_trace.rewrites.val == 0 {
+              curr = next_func
+              hit_round_limit = false
+              stalled_reason = Some("no_rewrites")
+              break
             }
-            trace(
-              "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=\{curr != func} rounds=\{rounds} top_instrs=\{start_top_instrs}->\{end_top_instrs} locals=\{locals.length()} round_limit_hit=\{hit_round_limit}",
-            )
-            match stalled_reason {
-              Some(reason) =>
-                trace(
-                  "func[\{ordinal}] stalled reason=\{reason} rounds=\{rounds} top_instrs=\{end_top_instrs}",
-                )
-              None =>
-                if hit_round_limit {
-                  trace(
-                    "func[\{ordinal}] stalled reason=round_limit rounds=\{rounds} top_instrs=\{end_top_instrs}",
-                  )
-                }
+            if next_func == curr {
+              hit_round_limit = false
+              break
             }
+            curr = next_func
           }
-          Ok(curr)
-        }
-        Err(e) => {
-          if log_func {
-            trace(
-              "func[\{ordinal}] phase=candidate_scan error elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} \{e}",
-            )
+          Ok(None) => {
+            if log_func {
+              trace(
+                "func[\{ordinal}] round[\{rounds}] walk:done elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} changed=false top_instrs=\{round_start_top_instrs}->\{round_start_top_instrs} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val}",
+              )
+            }
+            hit_round_limit = false
+            break
           }
-          Err(e)
+          Err(e) => {
+            if e == RUB_NO_PROGRESS_TIMEOUT {
+              hit_round_limit = false
+              stalled_reason = Some("no_progress_timeout")
+              break
+            }
+            if log_func {
+              trace(
+                "func[\{ordinal}] round[\{rounds}] walk:error elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val} \{e}",
+              )
+            }
+            return Err(e)
+          }
         }
       }
+      if log_func {
+        let end_top_instrs = match curr {
+          TFunc(_, _, curr_body) => curr_body.instrs.length()
+          _ => start_top_instrs
+        }
+        trace(
+          "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=\{curr != func} rounds=\{rounds} top_instrs=\{start_top_instrs}->\{end_top_instrs} locals=\{locals.length()} round_limit_hit=\{hit_round_limit}",
+        )
+        match stalled_reason {
+          Some(reason) =>
+            trace(
+              "func[\{ordinal}] stalled reason=\{reason} rounds=\{rounds} top_instrs=\{end_top_instrs}",
+            )
+          None =>
+            if hit_round_limit {
+              trace(
+                "func[\{ordinal}] stalled reason=round_limit rounds=\{rounds} top_instrs=\{end_top_instrs}",
+              )
+            }
+        }
+      }
+      Ok(curr)
     }
     _ => {
       if log_func {
@@ -2166,6 +2264,22 @@ fn rub_optimize_func_fixpoint(
       }
       Ok(func)
     }
+  }
+}
+
+///|
+fn rub_refinalize_changed_func(func : Func, mod : Module) -> Func {
+  match func {
+    TFunc(params, locals, body) => {
+      let env = Env::new().with_module(mod).with_locals(locals)
+      let next_body = mb_refinalize_texpr(body, env)
+      if next_body == body {
+        func
+      } else {
+        Func::t_func(params, locals, next_body)
+      }
+    }
+    _ => func
   }
 }
 
@@ -2188,12 +2302,18 @@ fn remove_unused_brs(
         ordinal~,
         trace_all_funcs~,
       ) {
-      Ok(next_func) =>
-        if next_func == func {
+      Ok(next_func) => {
+        let finalized_func = if next_func == func {
+          next_func
+        } else {
+          rub_refinalize_changed_func(next_func, mod)
+        }
+        if finalized_func == func {
           unchanged()
         } else {
-          change(state, next_func)
+          change(state, finalized_func)
         }
+      }
       Err(e) => Err(e)
     }
   })
@@ -2202,15 +2322,7 @@ fn remove_unused_brs(
     Ok(None) => mod
     Err(e) => return Err(e)
   }
-  match validate_module(out) {
-    Ok(_) => Ok(out)
-    Err(e) => {
-      trace(
-        "remove_unused_brs fallback: dropping pass result due to validation error: \{validation_error_message(e)}",
-      )
-      Ok(mod)
-    }
-  }
+  Ok(out)
 }
 
 ///|
@@ -2313,7 +2425,7 @@ test "remove_unused_brs traces function phases and rounds" {
     }
   }
   assert_true(saw_func_start)
-  assert_true(saw_candidate_scan)
+  assert_false(saw_candidate_scan)
   assert_true(saw_round_start)
   assert_true(saw_round_progress)
   assert_true(saw_round_done)
@@ -3125,6 +3237,86 @@ test "remove_unused_brs merges br_if followed by br to same target" {
 }
 
 ///|
+test "remove_unused_brs loop optimization inverts tail br_if + br" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::br_if(
+              LabelIdx::new(1),
+              TInstr::local_get(LocalIdx::new(0)),
+              [],
+            ),
+            TInstr::br(LabelIdx::new(0), []),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TLoop(
+                      _,
+                      {
+                        instrs: [
+                          {
+                            kind: TInstrKind::TBrIf(
+                              loop_label,
+                              {
+                                kind: TInstrKind::TUnary(
+                                  I32EqzOp,
+                                  { kind: TInstrKind::TLocalGet(_), .. }
+                                ),
+                                ..,
+                              },
+                              []
+                            ),
+                            ..,
+                          },
+                          { kind: TInstrKind::TBr(exit_label, []), .. },
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => {
+      assert_eq(loop_label, LabelIdx::new(0))
+      assert_eq(exit_label, LabelIdx::new(1))
+    }
+    _ =>
+      fail(
+        "expected loop-tail br_if+br pattern to invert condition and retarget loop break",
+      )
+  }
+}
+
+///|
 test "remove_unused_brs merges adjacent br_ifs in shrink mode" {
   let body = TExpr::new([
     TInstr::br_if(LabelIdx::new(0), TInstr::local_get(LocalIdx::new(0)), []),
@@ -3522,6 +3714,186 @@ test "remove_unused_brs forwards trailing return value in function body" {
     TFunc(_, _, { instrs: [{ kind: TInstrKind::TI32Const(I32(77)), .. }], .. }) =>
       ()
     _ => fail("expected trailing return value to be forwarded")
+  }
+}
+
+///|
+test "remove_unused_brs removes tail if when both arms return in function body" {
+  let body = TExpr::new([
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::local_get(LocalIdx::new(0)),
+      TExpr::new([TInstr::return_([])]),
+      Some(TExpr::new([TInstr::return_([])])),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TDrop(
+              { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ => fail("expected if(return, return) tail to become drop(condition)")
+  }
+}
+
+///|
+test "remove_unused_brs removes tail if when both arms break to block tail" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::if_(
+          BlockType::void_(),
+          TInstr::local_get(LocalIdx::new(0)),
+          TExpr::new([TInstr::br(LabelIdx::new(1), [])]),
+          Some(TExpr::new([TInstr::br(LabelIdx::new(1), [])])),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TDrop(
+                      { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ => fail("expected if(br 0, br 0) block tail to become drop(condition)")
+  }
+}
+
+///|
+test "remove_unused_brs sinks single-if void block wrapper when labels rebase" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::if_(
+          BlockType::void_(),
+          TInstr::local_get(LocalIdx::new(0)),
+          TExpr::new([TInstr::drop(TInstr::i32_const(I32(1)))]),
+          Some(TExpr::new([TInstr::drop(TInstr::i32_const(I32(2)))])),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      { instrs: [{ kind: TInstrKind::TIf(_, _, _, Some(_)), .. }], .. }
+    ) => ()
+    _ => fail("expected single-if void block wrapper to be removed")
+  }
+}
+
+///|
+test "remove_unused_brs keeps single-if block wrapper when removed scope is targeted" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::if_(
+          BlockType::void_(),
+          TInstr::local_get(LocalIdx::new(0)),
+          TExpr::new([
+            TInstr::br(LabelIdx::new(0), []),
+            TInstr::drop(TInstr::i32_const(I32(9))),
+          ]),
+          Some(TExpr::new([TInstr::nop()])),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              { instrs: [{ kind: TInstrKind::TIf(_, _, _, Some(_)), .. }], .. }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail("expected single-if block wrapper to remain when targeted by branch")
+  }
+}
+
+///|
+test "remove_unused_brs jump threads single-br block wrappers" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::block(
+          BlockType::void_(),
+          TExpr::new([TInstr::br(LabelIdx::new(1), [])]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      { instrs: [{ kind: TInstrKind::TBlock(_, { instrs: [], .. }), .. }], .. }
+    ) => ()
+    _ =>
+      fail("expected nested single-br block wrappers to thread and disappear")
   }
 }
 
