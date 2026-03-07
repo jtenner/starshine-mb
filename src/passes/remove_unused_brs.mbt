@@ -351,10 +351,18 @@ fn rub_trace_note_rewrite(
 }
 
 ///|
+priv struct RUBTryTableCatcher {
+  catches : Array[Catch]
+  depth : Int
+}
+
+///|
 priv struct RUBWalkState {
   in_function_body : Bool
   allow_list_splicing : Bool
   zero_break_is_fallthrough : Bool
+  label_depth : Int
+  catchers : Array[RUBTryTableCatcher]
 }
 
 ///|
@@ -362,19 +370,58 @@ fn rub_walk_state(
   in_function_body : Bool,
   allow_list_splicing : Bool,
   zero_break_is_fallthrough : Bool,
+  label_depth? : Int = 0,
+  catchers? : Array[RUBTryTableCatcher] = [],
 ) -> RUBWalkState {
-  { in_function_body, allow_list_splicing, zero_break_is_fallthrough }
+  {
+    in_function_body,
+    allow_list_splicing,
+    zero_break_is_fallthrough,
+    label_depth,
+    catchers,
+  }
 }
 
 ///|
 fn rub_walk_nested_texpr_state(
+  parent : RUBWalkState,
   bt : BlockType,
   zero_break_is_fallthrough : Bool,
 ) -> RUBWalkState {
   match bt {
-    VoidBlockType => rub_walk_state(false, true, zero_break_is_fallthrough)
-    _ => rub_walk_state(false, false, zero_break_is_fallthrough)
+    VoidBlockType =>
+      rub_walk_state(
+        false,
+        true,
+        zero_break_is_fallthrough,
+        label_depth=parent.label_depth + 1,
+        catchers=parent.catchers,
+      )
+    _ =>
+      rub_walk_state(
+        false,
+        false,
+        zero_break_is_fallthrough,
+        label_depth=parent.label_depth + 1,
+        catchers=parent.catchers,
+      )
   }
+}
+
+///|
+fn rub_push_try_table_catcher(
+  state : RUBWalkState,
+  catches : Array[Catch],
+) -> RUBWalkState {
+  let next_catchers = state.catchers.copy()
+  next_catchers.push({ catches, depth: state.label_depth })
+  rub_walk_state(
+    state.in_function_body,
+    state.allow_list_splicing,
+    state.zero_break_is_fallthrough,
+    label_depth=state.label_depth,
+    catchers=next_catchers,
+  )
 }
 
 ///|
@@ -813,6 +860,20 @@ fn rub_values_cost(instrs : Array[TInstr]) -> Int {
 }
 
 ///|
+fn rub_can_reorder_switch_condition_and_values(
+  cond : TInstr,
+  values : Array[TInstr],
+) -> Bool {
+  if values.length() == 0 {
+    return true
+  }
+  let cond_effects = lcs_collect_effects(cond)
+  let value_effects = rub_instr_list_effects(values)
+  !cond_effects.invalidates(value_effects) &&
+  !value_effects.invalidates(cond_effects)
+}
+
+///|
 fn rub_branch_values_are_hoistable(
   if_condition : TInstr,
   values : Array[TInstr],
@@ -897,6 +958,30 @@ fn rub_single_target_switch(
 }
 
 ///|
+fn rub_single_target_switch_with_values(
+  default_ : LabelIdx,
+  cond : TInstr,
+  values : Array[TInstr],
+) -> TInstr {
+  let next_default = match rub_shift_label_at_depth(default_, 0, 1) {
+    Ok(next_default) => next_default
+    Err(e) =>
+      abort(
+        "remove_unused_brs single-target switch-with-values rebase failed: \{e}",
+      )
+  }
+  let next_cond = rub_rebase_labels_in_tinstruction(cond, 1)
+  let next_values : Array[TInstr] = []
+  for value in values {
+    next_values.push(rub_rebase_labels_in_tinstruction(value, 1))
+  }
+  TInstr::block(
+    BlockType::void_(),
+    TExpr::new([TInstr::drop(next_cond), TInstr::br(next_default, next_values)]),
+  )
+}
+
+///|
 fn rub_optimize_br_table(instr : TInstr) -> (TInstr, Bool) {
   match instr.kind {
     TInstrKind::TBrTable(targets, default_, cond, values) => {
@@ -936,18 +1021,27 @@ fn rub_optimize_br_table(instr : TInstr) -> (TInstr, Bool) {
         changed = true
       }
 
-      if values.length() > 0 {
-        let out = TInstr::br_table(targets, default_, cond, values)
-        return (out, changed)
-      }
-
       let unique : Set[LabelIdx] = Set::new()
       unique.add(default_)
       for target in targets {
         unique.add(target)
       }
       if unique.length() == 1 {
-        return (rub_default_only_switch(default_, cond), true)
+        if values.length() == 0 {
+          return (rub_default_only_switch(default_, cond), true)
+        }
+        if rub_can_reorder_switch_condition_and_values(cond, values) {
+          return (
+            rub_single_target_switch_with_values(default_, cond, values),
+            true,
+          )
+        }
+        return (TInstr::br_table(targets, default_, cond, values), changed)
+      }
+
+      if values.length() > 0 {
+        let out = TInstr::br_table(targets, default_, cond, values)
+        return (out, changed)
       }
 
       if targets.length() == 0 {
@@ -1194,23 +1288,61 @@ fn rub_optimize_loop_tail_branches(
   zero_break_is_fallthrough : Bool,
 ) -> Bool {
   // Loop bodies are the only places where `br 0` is not fallthrough.
-  if zero_break_is_fallthrough || instrs.length() < 2 {
+  if zero_break_is_fallthrough || instrs.length() == 0 {
     return false
   }
-  let second_last_i = instrs.length() - 2
+  if instrs.length() >= 2 {
+    let second_last_i = instrs.length() - 2
+    let last_i = instrs.length() - 1
+    match (instrs[second_last_i].kind, instrs[last_i].kind) {
+      (TInstrKind::TBrIf(exit_label, cond, []), TInstrKind::TBr(loop_label, [])) =>
+        if rub_is_label_zero(loop_label) && !rub_is_label_zero(exit_label) {
+          instrs[second_last_i] = TInstr::br_if(
+            LabelIdx::new(0),
+            TInstr::unary(UnaryOp::i32_eqz(), cond),
+            [],
+          )
+          instrs[last_i] = TInstr::br(exit_label, [])
+          return true
+        }
+      _ => ()
+    }
+  }
+
   let last_i = instrs.length() - 1
-  match (instrs[second_last_i].kind, instrs[last_i].kind) {
-    (TInstrKind::TBrIf(exit_label, cond, []), TInstrKind::TBr(loop_label, [])) =>
-      if rub_is_label_zero(loop_label) && !rub_is_label_zero(exit_label) {
-        instrs[second_last_i] = TInstr::br_if(
-          LabelIdx::new(0),
-          TInstr::unary(UnaryOp::i32_eqz(), cond),
-          [],
-        )
-        instrs[last_i] = TInstr::br(exit_label, [])
-        true
-      } else {
-        false
+  match instrs[last_i].kind {
+    TInstrKind::TIf(VoidBlockType, cond, then_body, Some(else_body)) =>
+      match (rub_is_single_tinstr(then_body), rub_is_single_tinstr(else_body)) {
+        (
+          Some({ kind: TInstrKind::TBr(then_label, []), .. }),
+          Some({ kind: TInstrKind::TBr(else_label, []), .. }),
+        ) => {
+          let rebased_then = match rub_shift_label_at_depth(then_label, 0, -1) {
+            Ok(label) => label
+            Err(_) => return false
+          }
+          let rebased_else = match rub_shift_label_at_depth(else_label, 0, -1) {
+            Ok(label) => label
+            Err(_) => return false
+          }
+          if rub_is_label_zero(rebased_else) && !rub_is_label_zero(rebased_then) {
+            instrs[last_i] = TInstr::br_if(
+              LabelIdx::new(0),
+              TInstr::unary(UnaryOp::i32_eqz(), cond),
+              [],
+            )
+            instrs.push(TInstr::br(rebased_then, []))
+            true
+          } else if rub_is_label_zero(rebased_then) &&
+            !rub_is_label_zero(rebased_else) {
+            instrs[last_i] = TInstr::br_if(LabelIdx::new(0), cond, [])
+            instrs.push(TInstr::br(rebased_else, []))
+            true
+          } else {
+            false
+          }
+        }
+        _ => false
       }
     _ => false
   }
@@ -1219,43 +1351,16 @@ fn rub_optimize_loop_tail_branches(
 ///|
 fn rub_optimize_single_if_void_block_wrapper(instr : TInstr) -> (TInstr, Bool) {
   match instr.kind {
-    TInstrKind::TBlock(
-      VoidBlockType,
-      {
-        instrs: [
-          {
-            kind: TInstrKind::TIf(
-              VoidBlockType,
-              cond,
-              then_body,
-              Some(else_body)
-            ),
-            ..,
-          },
-        ],
-        ..,
-      }
-    ) => {
-      if rub_texpr_has_branch(then_body) || rub_texpr_has_branch(else_body) {
-        return (instr, false)
-      }
-      let next_cond = rub_try_rebase_labels_in_tinstruction(cond, -1)
-      let next_then = rub_try_rebase_labels_in_texpr(then_body, -1)
-      let next_else = rub_try_rebase_labels_in_texpr(else_body, -1)
-      match (next_cond, next_then, next_else) {
-        (Some(next_cond), Some(next_then), Some(next_else)) =>
-          (
-            TInstr::if_(
-              BlockType::void_(),
-              next_cond,
-              next_then,
-              Some(next_else),
-            ),
-            true,
-          )
+    TInstrKind::TBlock(VoidBlockType, { instrs: [single], .. }) =>
+      match single.kind {
+        TInstrKind::TIf(VoidBlockType, _, _, Some(_))
+        | TInstrKind::TLoop(VoidBlockType, _) =>
+          match rub_try_rebase_labels_in_tinstruction(single, -1) {
+            Some(next_single) => (next_single, true)
+            None => (instr, false)
+          }
         _ => (instr, false)
       }
-    }
     _ => (instr, false)
   }
 }
@@ -1289,28 +1394,30 @@ fn rub_optimize_jump_thread_block_wrapper(instr : TInstr) -> (TInstr, Bool) {
 }
 
 ///|
-priv enum RUBTryTableThrowTarget {
-  CatchTarget(LabelIdx)
-  CatchAllTarget(LabelIdx)
+priv enum RUBTryTableThrowMatch {
+  NoMatch
+  MatchCatch(LabelIdx)
+  MatchCatchAll(LabelIdx)
+  MatchRef
 }
 
 ///|
-fn rub_try_table_throw_target(
+fn rub_try_table_throw_match(
   catches : Array[Catch],
   thrown_tag : TagIdx,
-) -> RUBTryTableThrowTarget? {
+) -> RUBTryTableThrowMatch {
   for catch_ in catches {
     match catch_ {
       Catch(catch_tag, label) =>
         if catch_tag == thrown_tag {
-          return Some(CatchTarget(label))
+          return MatchCatch(label)
         }
-      CatchRef(catch_tag, _) => if catch_tag == thrown_tag { return None }
-      CatchAll(label) => return Some(CatchAllTarget(label))
-      CatchAllRef(_) => return None
+      CatchRef(catch_tag, _) => if catch_tag == thrown_tag { return MatchRef }
+      CatchAll(label) => return MatchCatchAll(label)
+      CatchAllRef(_) => return MatchRef
     }
   }
-  None
+  NoMatch
 }
 
 ///|
@@ -1330,13 +1437,68 @@ fn rub_branch_after_dropping_values(
 }
 
 ///|
+fn rub_rebase_try_table_throw_label(
+  label : LabelIdx,
+  throw_depth : Int,
+  catcher_depth : Int,
+) -> LabelIdx {
+  let shift = throw_depth - (catcher_depth + 1)
+  if shift <= 0 {
+    label
+  } else {
+    rub_label_from_int(rub_label_to_int(label) + shift)
+  }
+}
+
+///|
+fn rub_optimize_throw_to_branch(
+  instr : TInstr,
+  state : RUBWalkState,
+) -> (TInstr, Bool) {
+  match instr.kind {
+    TInstrKind::TThrow(thrown_tag, values) => {
+      let mut i = state.catchers.length()
+      while i > 0 {
+        i -= 1
+        let catcher = state.catchers[i]
+        match rub_try_table_throw_match(catcher.catches, thrown_tag) {
+          MatchCatch(label) => {
+            let next_label = rub_rebase_try_table_throw_label(
+              label,
+              state.label_depth,
+              catcher.depth,
+            )
+            return (TInstr::br(next_label, values), true)
+          }
+          MatchCatchAll(label) => {
+            let next_label = rub_rebase_try_table_throw_label(
+              label,
+              state.label_depth,
+              catcher.depth,
+            )
+            return (rub_branch_after_dropping_values(next_label, values), true)
+          }
+          MatchRef =>
+            // TODO(binaryen-parity): throw->branch for catch_ref/catch_all_ref
+            // needs explicit exnref payload construction in this IR path.
+            return (instr, false)
+          NoMatch => ()
+        }
+      }
+      (instr, false)
+    }
+    _ => (instr, false)
+  }
+}
+
+///|
 fn rub_optimize_try_table_throw_to_branch(instr : TInstr) -> (TInstr, Bool) {
   match instr.kind {
     TInstrKind::TTryTable(bt, catches, { instrs: [single], .. }) =>
       match single.kind {
         TInstrKind::TThrow(thrown_tag, values) =>
-          match rub_try_table_throw_target(catches, thrown_tag) {
-            Some(CatchTarget(label)) =>
+          match rub_try_table_throw_match(catches, thrown_tag) {
+            MatchCatch(label) =>
               (
                 TInstr::try_table(
                   bt,
@@ -1345,7 +1507,7 @@ fn rub_optimize_try_table_throw_to_branch(instr : TInstr) -> (TInstr, Bool) {
                 ),
                 true,
               )
-            Some(CatchAllTarget(label)) =>
+            MatchCatchAll(label) =>
               (
                 TInstr::try_table(
                   bt,
@@ -1354,7 +1516,9 @@ fn rub_optimize_try_table_throw_to_branch(instr : TInstr) -> (TInstr, Bool) {
                 ),
                 true,
               )
-            None => (instr, false)
+            MatchRef | NoMatch =>
+              // TODO(binaryen-parity): same exnref payload blocker as above.
+              (instr, false)
           }
         _ => (instr, false)
       }
@@ -1744,85 +1908,70 @@ fn rub_optimize_if_else_block_tail(
           "site=\{i} then_instrs=\{then_body.instrs.length()} else_instrs=\{else_body.instrs.length()} cond_kind=\{rub_instr_kind_name(cond)}",
         )
         let mut applied = false
-        match rub_is_single_tinstr(then_body) {
-          Some(single_then) => {
-            rub_trace_log_helper_event(
-              trace_state,
-              "if_else_tail",
-              "then_path:start",
-              "site=\{i} kind=\{rub_instr_kind_name(single_then)}",
-            )
-            match single_then.kind {
-              TInstrKind::TBr(_, values) => {
-                rub_trace_log_helper_event(
-                  trace_state,
-                  "if_else_tail",
-                  "then_branch_scan:start",
-                  "site=\{i}",
+        match
+          (rub_is_single_tinstr(then_body), rub_is_single_tinstr(else_body)) {
+          (Some(single_then), Some(single_else)) =>
+            match (single_then.kind, single_else.kind) {
+              (TInstrKind::TBr(_, then_values), TInstrKind::TBr(_, else_values)) => {
+                let can_hoist_then = rub_can_turn_if_into_br_if(
+                  cond, then_values, options,
                 )
-                let then_branch_scan_start_ms = sl_trace_now_ms()
-                let else_has_branch = rub_texpr_has_branch(else_body)
-                rub_trace_log_helper_step_done(
-                  trace_state,
-                  "if_else_tail",
-                  "then_branch_scan",
-                  sl_trace_elapsed_ms(then_branch_scan_start_ms),
-                  "site=\{i} has_branch=\{else_has_branch}",
+                let can_hoist_else = rub_can_turn_if_into_br_if(
+                  cond, else_values, options,
                 )
-                if !else_has_branch {
-                  rub_trace_log_helper_event(
-                    trace_state,
-                    "if_else_tail",
-                    "then_hoist_check:start",
-                    "site=\{i} values=\{values.length()}",
+                if can_hoist_then || can_hoist_else {
+                  let next_single_then = rub_try_rebase_labels_in_tinstruction(
+                    single_then, -1,
                   )
-                  let then_hoist_check_start_ms = sl_trace_now_ms()
-                  let can_hoist = rub_can_turn_if_into_br_if(
-                    cond, values, options,
+                  let next_single_else = rub_try_rebase_labels_in_tinstruction(
+                    single_else, -1,
                   )
-                  rub_trace_log_helper_step_done(
-                    trace_state,
-                    "if_else_tail",
-                    "then_hoist_check",
-                    sl_trace_elapsed_ms(then_hoist_check_start_ms),
-                    "site=\{i} can_hoist=\{can_hoist}",
-                  )
-                  if can_hoist {
-                    let then_rebase_instr_start_ms = sl_trace_now_ms()
-                    let next_single_then = rub_try_rebase_labels_in_tinstruction(
-                      single_then, -1,
-                    )
-                    rub_trace_log_helper_step_done(
-                      trace_state,
-                      "if_else_tail",
-                      "then_rebase_instr",
-                      sl_trace_elapsed_ms(then_rebase_instr_start_ms),
-                      "site=\{i} success=\{next_single_then is Some(_)}",
-                    )
-                    let then_rebase_else_start_ms = sl_trace_now_ms()
-                    let next_else_body = rub_try_rebase_labels_in_texpr(
-                      else_body, -1,
-                    )
-                    rub_trace_log_helper_step_done(
-                      trace_state,
-                      "if_else_tail",
-                      "then_rebase_else",
-                      sl_trace_elapsed_ms(then_rebase_else_start_ms),
-                      "site=\{i} success=\{next_else_body is Some(_)}",
-                    )
-                    match (next_single_then, next_else_body) {
-                      (
-                        Some({ kind: TInstrKind::TBr(label, values), .. }),
-                        Some(next_else_body),
-                      ) => {
-                        instrs[i] = TInstr::br_if(label, cond, values)
+                  match (next_single_then, next_single_else) {
+                    (
+                      Some(
+                        { kind: TInstrKind::TBr(then_label, then_values), .. }
+                      ),
+                      Some(
+                        { kind: TInstrKind::TBr(else_label, else_values), .. }
+                      ),
+                    ) =>
+                      if rub_is_label_zero(then_label) ||
+                        rub_is_label_zero(else_label) {
+                        ()
+                      } else {
+                        let hoisted_label = if can_hoist_then {
+                          then_label
+                        } else {
+                          else_label
+                        }
+                        let hoisted_cond = if can_hoist_then {
+                          cond
+                        } else {
+                          TInstr::unary(UnaryOp::i32_eqz(), cond)
+                        }
+                        let hoisted_values = if can_hoist_then {
+                          then_values
+                        } else {
+                          else_values
+                        }
+                        let tail_label = if can_hoist_then {
+                          else_label
+                        } else {
+                          then_label
+                        }
+                        let tail_values = if can_hoist_then {
+                          else_values
+                        } else {
+                          then_values
+                        }
+                        instrs[i] = TInstr::br_if(
+                          hoisted_label, hoisted_cond, hoisted_values,
+                        )
                         let next : Array[TInstr] = []
                         for j in 0..<instrs.length() {
                           next.push(instrs[j])
                           if j == i {
-                            for item in next_else_body.instrs {
-                              next.push(item)
-                            }
+                            next.push(TInstr::br(tail_label, tail_values))
                           }
                         }
                         instrs.clear()
@@ -1830,24 +1979,129 @@ fn rub_optimize_if_else_block_tail(
                           instrs.push(item)
                         }
                         changed = true
-                        i += next_else_body.instrs.length()
                         applied = true
+                        i += 1
                         rub_trace_log_helper_event(
                           trace_state,
                           "if_else_tail",
-                          "then_rewrite",
-                          "site=\{i} splice_instrs=\{next_else_body.instrs.length()}",
+                          "both_branch_rewrite",
+                          "site=\{i}",
                         )
                       }
-                      _ => ()
-                    }
+                    _ => ()
                   }
                 }
               }
               _ => ()
             }
+          _ => ()
+        }
+        if !applied {
+          match rub_is_single_tinstr(then_body) {
+            Some(single_then) => {
+              rub_trace_log_helper_event(
+                trace_state,
+                "if_else_tail",
+                "then_path:start",
+                "site=\{i} kind=\{rub_instr_kind_name(single_then)}",
+              )
+              match single_then.kind {
+                TInstrKind::TBr(_, values) => {
+                  rub_trace_log_helper_event(
+                    trace_state,
+                    "if_else_tail",
+                    "then_branch_scan:start",
+                    "site=\{i}",
+                  )
+                  let then_branch_scan_start_ms = sl_trace_now_ms()
+                  let else_has_branch = rub_texpr_has_branch(else_body)
+                  rub_trace_log_helper_step_done(
+                    trace_state,
+                    "if_else_tail",
+                    "then_branch_scan",
+                    sl_trace_elapsed_ms(then_branch_scan_start_ms),
+                    "site=\{i} has_branch=\{else_has_branch}",
+                  )
+                  if !else_has_branch {
+                    rub_trace_log_helper_event(
+                      trace_state,
+                      "if_else_tail",
+                      "then_hoist_check:start",
+                      "site=\{i} values=\{values.length()}",
+                    )
+                    let then_hoist_check_start_ms = sl_trace_now_ms()
+                    let can_hoist = rub_can_turn_if_into_br_if(
+                      cond, values, options,
+                    )
+                    rub_trace_log_helper_step_done(
+                      trace_state,
+                      "if_else_tail",
+                      "then_hoist_check",
+                      sl_trace_elapsed_ms(then_hoist_check_start_ms),
+                      "site=\{i} can_hoist=\{can_hoist}",
+                    )
+                    if can_hoist {
+                      let then_rebase_instr_start_ms = sl_trace_now_ms()
+                      let next_single_then = rub_try_rebase_labels_in_tinstruction(
+                        single_then, -1,
+                      )
+                      rub_trace_log_helper_step_done(
+                        trace_state,
+                        "if_else_tail",
+                        "then_rebase_instr",
+                        sl_trace_elapsed_ms(then_rebase_instr_start_ms),
+                        "site=\{i} success=\{next_single_then is Some(_)}",
+                      )
+                      let then_rebase_else_start_ms = sl_trace_now_ms()
+                      let next_else_body = rub_try_rebase_labels_in_texpr(
+                        else_body, -1,
+                      )
+                      rub_trace_log_helper_step_done(
+                        trace_state,
+                        "if_else_tail",
+                        "then_rebase_else",
+                        sl_trace_elapsed_ms(then_rebase_else_start_ms),
+                        "site=\{i} success=\{next_else_body is Some(_)}",
+                      )
+                      match (next_single_then, next_else_body) {
+                        (
+                          Some({ kind: TInstrKind::TBr(label, values), .. }),
+                          Some(next_else_body),
+                        ) => {
+                          instrs[i] = TInstr::br_if(label, cond, values)
+                          let next : Array[TInstr] = []
+                          for j in 0..<instrs.length() {
+                            next.push(instrs[j])
+                            if j == i {
+                              for item in next_else_body.instrs {
+                                next.push(item)
+                              }
+                            }
+                          }
+                          instrs.clear()
+                          for item in next {
+                            instrs.push(item)
+                          }
+                          changed = true
+                          i += next_else_body.instrs.length()
+                          applied = true
+                          rub_trace_log_helper_event(
+                            trace_state,
+                            "if_else_tail",
+                            "then_rewrite",
+                            "site=\{i} splice_instrs=\{next_else_body.instrs.length()}",
+                          )
+                        }
+                        _ => ()
+                      }
+                    }
+                  }
+                }
+                _ => ()
+              }
+            }
+            None => ()
           }
-          None => ()
         }
         if !applied {
           match rub_is_single_tinstr(else_body) {
@@ -1969,6 +2223,95 @@ fn rub_optimize_if_else_block_tail(
 }
 
 ///|
+fn rub_if_arm_set_values_are_selectifiable(
+  cond : TInstr,
+  then_value : TInstr,
+  else_value : TInstr,
+  options : OptimizeOptions,
+) -> Bool {
+  if rub_has_side_effects(then_value) || rub_has_side_effects(else_value) {
+    return false
+  }
+  if rub_too_costly_to_run_unconditionally(
+      options,
+      rub_values_cost([then_value, else_value]),
+    ) {
+    return false
+  }
+  let cond_effects = lcs_collect_effects(cond)
+  let value_effects = rub_instr_list_effects([then_value, else_value])
+  !cond_effects.invalidates(value_effects) &&
+  !value_effects.invalidates(cond_effects)
+}
+
+///|
+fn rub_optimize_if_arm_local_set_get_tail(
+  instrs : Array[TInstr],
+  options : OptimizeOptions,
+) -> Bool {
+  if instrs.length() == 0 {
+    return false
+  }
+  let mut changed = false
+  let mut i = 0
+  while i < instrs.length() {
+    match instrs[i].kind {
+      TInstrKind::TIf(VoidBlockType, cond, then_body, Some(else_body)) =>
+        match
+          (rub_is_single_tinstr(then_body), rub_is_single_tinstr(else_body)) {
+          (
+            Some({ kind: TInstrKind::TLocalSet(then_idx, then_value), .. }),
+            Some({ kind: TInstrKind::TLocalSet(else_idx, else_value), .. }),
+          ) =>
+            if then_idx == else_idx &&
+              rub_if_arm_set_values_are_selectifiable(
+                cond, then_value, else_value, options,
+              ) {
+              let next_then = rub_try_rebase_labels_in_tinstruction(
+                then_value, -1,
+              )
+              let next_else = rub_try_rebase_labels_in_tinstruction(
+                else_value, -1,
+              )
+              match (next_then, next_else) {
+                (Some(next_then), Some(next_else)) => {
+                  let set_value = TInstr::select(
+                    None,
+                    cond,
+                    next_then,
+                    next_else,
+                  )
+                  if i + 1 < instrs.length() {
+                    match instrs[i + 1].kind {
+                      TInstrKind::TLocalGet(get_idx) if get_idx == then_idx => {
+                        instrs[i] = TInstr::local_tee(then_idx, set_value)
+                        instrs[i + 1] = TInstr::nop()
+                        changed = true
+                        i += 1
+                      }
+                      _ => {
+                        instrs[i] = TInstr::local_set(then_idx, set_value)
+                        changed = true
+                      }
+                    }
+                  } else {
+                    instrs[i] = TInstr::local_set(then_idx, set_value)
+                    changed = true
+                  }
+                }
+                _ => ()
+              }
+            }
+          _ => ()
+        }
+      _ => ()
+    }
+    i += 1
+  }
+  changed
+}
+
+///|
 fn rub_optimize_redundant_dropped_br_if_tail(instrs : Array[TInstr]) -> Bool {
   if instrs.length() < 2 {
     return false
@@ -2035,6 +2378,16 @@ fn rub_optimize_instr_list(
     trace_state,
     "if_else_tail",
     sl_trace_elapsed_ms(if_else_tail_start_ms),
+    instrs.length(),
+  )
+  let set_get_tail_start_ms = sl_trace_now_ms()
+  if rub_optimize_if_arm_local_set_get_tail(instrs, options) {
+    changed = true
+  }
+  rub_trace_log_slow_helper(
+    trace_state,
+    "if_set_get_tail",
+    sl_trace_elapsed_ms(set_get_tail_start_ms),
     instrs.length(),
   )
   let adjacent_breaks_start_ms = sl_trace_now_ms()
@@ -2148,7 +2501,7 @@ fn remove_unused_brs_pass(
         }
         let next_body = match
           self.rub_walk_texpr_result(
-            rub_walk_nested_texpr_state(next_bt, true),
+            rub_walk_nested_texpr_state(state, next_bt, true),
             body,
           ) {
           Ok(next_body) => next_body
@@ -2167,7 +2520,7 @@ fn remove_unused_brs_pass(
         }
         let next_body = match
           self.rub_walk_texpr_result(
-            rub_walk_nested_texpr_state(next_bt, false),
+            rub_walk_nested_texpr_state(state, next_bt, false),
             body,
           ) {
           Ok(next_body) => next_body
@@ -2188,7 +2541,7 @@ fn remove_unused_brs_pass(
           Ok(next_cond) => next_cond
           Err(e) => return Err(e)
         }
-        let branch_state = rub_walk_nested_texpr_state(next_bt, true)
+        let branch_state = rub_walk_nested_texpr_state(state, next_bt, true)
         let next_then = match
           self.rub_walk_texpr_result(branch_state, then_body) {
           Ok(next_then) => next_then
@@ -2220,9 +2573,10 @@ fn remove_unused_brs_pass(
           Ok(next_catches) => next_catches
           Err(e) => return Err(e)
         }
+        let catcher_state = rub_push_try_table_catcher(state, next_catches)
         let next_body = match
           self.rub_walk_texpr_result(
-            rub_walk_nested_texpr_state(next_bt, true),
+            rub_walk_nested_texpr_state(catcher_state, next_bt, true),
             body,
           ) {
           Ok(next_body) => next_body
@@ -2256,7 +2610,10 @@ fn remove_unused_brs_pass(
       instr,
       sl_trace_elapsed_ms(walked_start_ms),
     )
-    let (after_if, changed_if) = rub_optimize_if(walked, options)
+    let (after_throw_to_branch, changed_throw_to_branch) = rub_optimize_throw_to_branch(
+      walked, state,
+    )
+    let (after_if, changed_if) = rub_optimize_if(after_throw_to_branch, options)
     let (after_br_table, changed_switch) = rub_optimize_br_table(after_if)
     let (after_br_if, changed_br_if) = rub_optimize_br_if(after_br_table)
     let (after_gc_branch, changed_gc_branch) = rub_optimize_gc_branch(
@@ -2271,7 +2628,8 @@ fn remove_unused_brs_pass(
     let (after_try_table_throw, changed_try_table_throw) = rub_optimize_try_table_throw_to_branch(
       after_jump_thread,
     )
-    if changed_if ||
+    if changed_throw_to_branch ||
+      changed_if ||
       changed_switch ||
       changed_br_if ||
       changed_gc_branch ||
@@ -2283,7 +2641,8 @@ fn remove_unused_brs_pass(
         Err(e) => return Err(e)
       }
     }
-    if changed_if ||
+    if changed_throw_to_branch ||
+      changed_if ||
       changed_switch ||
       changed_br_if ||
       changed_gc_branch ||
@@ -3526,6 +3885,64 @@ test "remove_unused_brs folds out-of-range constant-index br_table to default br
 }
 
 ///|
+test "remove_unused_brs rewrites single-target br_table with values when reorderable" {
+  let instr = TInstr::br_table(
+    [LabelIdx::new(1)],
+    LabelIdx::new(1),
+    TInstr::local_get(LocalIdx::new(0)),
+    [TInstr::i32_const(I32(7))],
+  )
+  let (out, changed) = rub_optimize_br_table(instr)
+  assert_true(changed)
+  match out.kind {
+    TInstrKind::TBlock(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TDrop(
+              { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. }
+            ),
+            ..,
+          },
+          {
+            kind: TInstrKind::TBr(
+              label,
+              [{ kind: TInstrKind::TI32Const(I32(7)), .. }]
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => assert_eq(label, LabelIdx::new(2))
+    _ =>
+      fail(
+        "expected single-target br_table with values to rewrite to drop(cond)+br",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs keeps single-target br_table with values when reorder is unsafe" {
+  let instr = TInstr::br_table(
+    [LabelIdx::new(1)],
+    LabelIdx::new(1),
+    TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+    [TInstr::local_get(LocalIdx::new(0))],
+  )
+  let (out, changed) = rub_optimize_br_table(instr)
+  assert_true(changed)
+  match out.kind {
+    TInstrKind::TBrTable(_, _, _, _) => ()
+    _ =>
+      fail(
+        "expected unsafe-reorder single-target br_table with values to remain a br_table",
+      )
+  }
+}
+
+///|
 test "remove_unused_brs folds dropped br_on_null with ref.null to br" {
   let instr = TInstr::drop(
     TInstr::br_on_null(
@@ -3736,6 +4153,61 @@ test "remove_unused_brs loop optimization inverts tail br_if + br" {
     _ =>
       fail(
         "expected loop-tail br_if+br pattern to invert condition and retarget loop break",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs loop optimization lowers tail if-else branch pair" {
+  let body = TExpr::new([
+    TInstr::loop_(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::if_(
+          BlockType::void_(),
+          TInstr::local_get(LocalIdx::new(0)),
+          TExpr::new([TInstr::br(LabelIdx::new(2), [])]),
+          Some(TExpr::new([TInstr::br(LabelIdx::new(1), [])])),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLoop(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBrIf(
+                      LabelIdx(0U),
+                      { kind: TInstrKind::TUnary(I32EqzOp, _), .. },
+                      []
+                    ),
+                    ..,
+                  },
+                  { kind: TInstrKind::TBr(label, []), .. },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => assert_eq(label, LabelIdx::new(1))
+    _ =>
+      fail(
+        "expected loop-tail if(br exit, br loop) to lower to inverted br_if + exit br",
       )
   }
 }
@@ -4129,6 +4601,152 @@ test "remove_unused_brs removes trailing return with no value in function body" 
 }
 
 ///|
+test "remove_unused_brs rewrites if arm local.set + local.get tail to local.tee select" {
+  let body = TExpr::new([
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::local_get(LocalIdx::new(0)),
+      TExpr::new([
+        TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(11))),
+      ]),
+      Some(
+        TExpr::new([
+          TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(22))),
+        ]),
+      ),
+    ),
+    TInstr::local_get(LocalIdx::new(1)),
+  ])
+  let mod = rub_single_typed_func_module(
+    [ValType::i32()],
+    [ValType::i32()],
+    body,
+    locals=[ValType::i32()],
+  )
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLocalTee(
+              LocalIdx(1U),
+              {
+                kind: TInstrKind::TSelect(
+                  _,
+                  { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+                  { kind: TInstrKind::TI32Const(I32(11)), .. },
+                  { kind: TInstrKind::TI32Const(I32(22)), .. }
+                ),
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected if(local.set/local.set)+local.get tail to fold into local.tee(select)",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs keeps if arm local.set + local.get tail when arm value traps" {
+  let body = TExpr::new([
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::local_get(LocalIdx::new(0)),
+      TExpr::new([
+        TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(11))),
+      ]),
+      Some(
+        TExpr::new([TInstr::local_set(LocalIdx::new(1), TInstr::unreachable_())]),
+      ),
+    ),
+    TInstr::local_get(LocalIdx::new(1)),
+  ])
+  let mod = rub_single_typed_func_module(
+    [ValType::i32()],
+    [ValType::i32()],
+    body,
+    locals=[ValType::i32()],
+  )
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          { kind: TInstrKind::TIf(VoidBlockType, _, _, Some(_)), .. },
+          { kind: TInstrKind::TLocalGet(LocalIdx(1U)), .. },
+        ],
+        ..,
+      }
+    ) => ()
+    _ => fail("expected trapping if-arm local.set pattern to remain structured")
+  }
+}
+
+///|
+test "remove_unused_brs rewrites if arm local.set pair to local.set select" {
+  let body = TExpr::new([
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::local_get(LocalIdx::new(0)),
+      TExpr::new([
+        TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(11))),
+      ]),
+      Some(
+        TExpr::new([
+          TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(22))),
+        ]),
+      ),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body, locals=[
+    ValType::i32(),
+  ])
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLocalSet(
+              LocalIdx(1U),
+              {
+                kind: TInstrKind::TSelect(
+                  _,
+                  { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+                  { kind: TInstrKind::TI32Const(I32(11)), .. },
+                  { kind: TInstrKind::TI32Const(I32(22)), .. }
+                ),
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ => fail("expected if(local.set/local.set) to fold into local.set(select)")
+  }
+}
+
+///|
 test "remove_unused_brs forwards trailing return value in function body" {
   let body = TExpr::new([TInstr::return_([TInstr::i32_const(I32(77))])])
   let mod = rub_single_typed_func_module([], [ValType::i32()], body)
@@ -4224,6 +4842,41 @@ test "remove_unused_brs removes tail if when both arms break to block tail" {
 }
 
 ///|
+test "remove_unused_brs lowers if with distinct branch arms into br_if plus br" {
+  let instrs : Array[TInstr] = [
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::local_get(LocalIdx::new(0)),
+      TExpr::new([TInstr::br(LabelIdx::new(4), [])]),
+      Some(TExpr::new([TInstr::br(LabelIdx::new(3), [])])),
+    ),
+  ]
+  let changed = rub_optimize_if_else_block_tail(
+    instrs,
+    OptimizeOptions::new(),
+    true,
+  )
+  assert_true(changed)
+  match instrs {
+    [
+      {
+        kind: TInstrKind::TBrIf(
+          LabelIdx(3U),
+          { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+          []
+        ),
+        ..,
+      },
+      { kind: TInstrKind::TBr(LabelIdx(2U), []), .. },
+    ] => ()
+    _ =>
+      fail(
+        "expected if(br, br) to rewrite to br_if plus trailing br with rebased labels",
+      )
+  }
+}
+
+///|
 test "remove_unused_brs sinks single-if void block wrapper when labels rebase" {
   let body = TExpr::new([
     TInstr::block(
@@ -4248,6 +4901,68 @@ test "remove_unused_brs sinks single-if void block wrapper when labels rebase" {
       { instrs: [{ kind: TInstrKind::TIf(_, _, _, Some(_)), .. }], .. }
     ) => ()
     _ => fail("expected single-if void block wrapper to be removed")
+  }
+}
+
+///|
+test "remove_unused_brs sinks single-loop void block wrapper when labels rebase" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([TInstr::drop(TInstr::i32_const(I32(1)))]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(_, _, { instrs: [{ kind: TInstrKind::TLoop(_, _), .. }], .. }) => ()
+    _ => fail("expected single-loop void block wrapper to be removed")
+  }
+}
+
+///|
+test "remove_unused_brs keeps single-loop block wrapper when removed scope is targeted" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([TInstr::br(LabelIdx::new(1), [])]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              { instrs: [{ kind: TInstrKind::TLoop(_, _), .. }], .. }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected single-loop block wrapper to remain when targeted by branch",
+      )
   }
 }
 
@@ -4611,6 +5326,108 @@ test "remove_unused_brs rewrites catch_all throw values to drops then branch" {
 }
 
 ///|
+test "remove_unused_brs rewrites nested throw to branch via enclosing try_table" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::try_table(
+          BlockType::void_(),
+          [Catch::new(TagIdx::new(0), LabelIdx::new(1))],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([TInstr::throw_(TagIdx::new(0), [])]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module_with_tags([], body, [[]])
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TTryTable(
+                      _,
+                      _,
+                      { instrs: [{ kind: TInstrKind::TBr(label, []), .. }], .. }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => assert_eq(label, LabelIdx::new(1))
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TTryTable(
+                      _,
+                      _,
+                      {
+                        instrs: [
+                          {
+                            kind: TInstrKind::TBlock(
+                              _,
+                              {
+                                instrs: [
+                                  { kind: TInstrKind::TBr(label, []), .. },
+                                ],
+                                ..,
+                              }
+                            ),
+                            ..,
+                          },
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => assert_eq(label, LabelIdx::new(2))
+    _ =>
+      fail(
+        "expected nested throw in try_table body to rewrite to a correctly rebased branch",
+      )
+  }
+}
+
+///|
 test "remove_unused_brs keeps try_table throw when catch tag differs" {
   let body = TExpr::new([
     TInstr::try_table(
@@ -4641,6 +5458,112 @@ test "remove_unused_brs keeps try_table throw when catch tag differs" {
       }
     ) => ()
     _ => fail("expected mismatched try_table catch to preserve throw")
+  }
+}
+
+///|
+test "remove_unused_brs keeps try_table throw when matching catcher is catch_ref" {
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let main_type = RecType::new(SubType::comp_type(CompType::func([], [exnref])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([tag_type, main_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(1)),
+              [Catch::ref_(TagIdx::new(0), LabelIdx::new(1))],
+              TExpr::new([TInstr::throw_(TagIdx::new(0), [])]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TTryTable(
+              _,
+              _,
+              { instrs: [{ kind: TInstrKind::TThrow(TagIdx(0U), []), .. }], .. }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected catch_ref try_table to preserve throw (rewriting requires exnref payload synthesis)",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs keeps try_table throw when matching catcher is catch_all_ref" {
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let main_type = RecType::new(SubType::comp_type(CompType::func([], [exnref])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([tag_type, main_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(1)),
+              [Catch::all_ref(LabelIdx::new(1))],
+              TExpr::new([TInstr::throw_(TagIdx::new(0), [])]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TTryTable(
+              _,
+              _,
+              { instrs: [{ kind: TInstrKind::TThrow(TagIdx(0U), []), .. }], .. }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected catch_all_ref try_table to preserve throw (rewriting requires exnref payload synthesis)",
+      )
   }
 }
 
