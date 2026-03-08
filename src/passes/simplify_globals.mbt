@@ -695,30 +695,109 @@ fn sg_reads_global_only_to_write_it(
 }
 
 ///|
-fn sg_analyze_count_global_uses(body : TExpr) -> (Int, Int, Int) {
-  let global_gets = sg_count_tinstr(body, fn(instr) {
-    match instr.kind {
-      TInstrKind::TGlobalGet(_) => true
-      _ => false
+const SG_ANALYZE_PROGRESS_INTERVAL : Int = 50000
+
+///|
+const SG_ANALYZE_PROGRESS_HEARTBEAT_MS : UInt64 = 1000UL
+
+///|
+const SG_ANALYZE_SLOW_WALK_MS : UInt64 = 50UL
+
+///|
+const SG_ANALYZE_SLOW_READ_ONLY_CHECK_MS : UInt64 = 10UL
+
+///|
+const SG_ANALYZE_LEGACY_VISIT_BAILOUT : Int = 2000000
+
+///|
+fn sg_analyze_mark_globals_unknown(info : SGInfo, total_globals : Int) -> Unit {
+  for i = 0; i < total_globals; i = i + 1 {
+    if info.read[i] == 0 {
+      info.read[i] = 1
     }
-  })
-  let global_sets = sg_count_tinstr(body, fn(instr) {
-    match instr.kind {
-      TInstrKind::TGlobalSet(_, _) => true
-      _ => false
+    if info.written[i] == 0 {
+      info.written[i] = 1
     }
-  })
-  let read_only_to_write_hits = sg_count_tinstr(body, fn(instr) {
-    match instr.kind {
-      TInstrKind::TIf(_, cond, then_body, None) =>
-        match sg_reads_global_only_to_write_it(cond, then_body) {
-          Some(_) => true
-          None => false
-        }
-      _ => false
-    }
-  })
-  (global_gets, global_sets, read_only_to_write_hits)
+    info.non_init_written[i] = true
+  }
+}
+
+///|
+fn sg_analyze_note_progress(
+  trace : (String) -> Unit,
+  trace_verbose : Bool,
+  active_func_ordinal : Int,
+  func_start_ms : Array[UInt64],
+  func_instrs_visited : Array[Int],
+  func_next_progress_at : Array[Int],
+  func_global_gets : Array[Int],
+  func_global_sets : Array[Int],
+  func_read_only_to_write : Array[Int],
+  func_read_only_checks : Array[Int],
+  func_read_only_elapsed_ms : Array[UInt64],
+  func_walk_elapsed_ms : Array[UInt64],
+  func_slow_walks : Array[Int],
+  func_last_progress_ms : Array[UInt64],
+) -> Unit {
+  if !trace_verbose ||
+    active_func_ordinal <= 0 ||
+    active_func_ordinal > func_instrs_visited.length() {
+    return
+  }
+  let slot = active_func_ordinal - 1
+  func_instrs_visited[slot] = func_instrs_visited[slot] + 1
+  let mut should_emit = false
+  if func_instrs_visited[slot] >= func_next_progress_at[slot] {
+    should_emit = true
+    func_next_progress_at[slot] = func_next_progress_at[slot] +
+      SG_ANALYZE_PROGRESS_INTERVAL
+  }
+  let heartbeat_ms = sg_trace_elapsed_ms(func_last_progress_ms[slot])
+  if heartbeat_ms >= SG_ANALYZE_PROGRESS_HEARTBEAT_MS {
+    should_emit = true
+  }
+  if !should_emit {
+    return
+  }
+  trace(
+    "func[\{active_func_ordinal}] analyze progress elapsed_ms=\{sg_trace_elapsed_ms(func_start_ms[slot])} heartbeat_ms=\{heartbeat_ms} visited=\{func_instrs_visited[slot]} global_gets=\{func_global_gets[slot]} global_sets=\{func_global_sets[slot]} read_only_to_write=\{func_read_only_to_write[slot]} read_only_checks=\{func_read_only_checks[slot]} read_only_check_ms=\{func_read_only_elapsed_ms[slot]} walk_ms=\{func_walk_elapsed_ms[slot]} slow_walks=\{func_slow_walks[slot]}",
+  )
+  func_last_progress_ms[slot] = sg_trace_now_ms()
+}
+
+///|
+fn sg_analyze_check_read_only_to_write(
+  condition : TInstr,
+  code : TExpr,
+  trace : (String) -> Unit,
+  trace_verbose : Bool,
+  active_func_ordinal : Int,
+  func_start_ms : Array[UInt64],
+  func_instrs_visited : Array[Int],
+  func_read_only_checks : Array[Int],
+  func_read_only_elapsed_ms : Array[UInt64],
+  func_slow_read_only_checks : Array[Int],
+  check_context : String,
+) -> GlobalIdx? {
+  let valid_slot = trace_verbose &&
+    active_func_ordinal > 0 &&
+    active_func_ordinal <= func_read_only_checks.length()
+  let check_start_ms = if valid_slot { sg_trace_now_ms() } else { 0UL }
+  let out = sg_reads_global_only_to_write_it(condition, code)
+  if !valid_slot {
+    return out
+  }
+  let slot = active_func_ordinal - 1
+  func_read_only_checks[slot] = func_read_only_checks[slot] + 1
+  let elapsed_ms = sg_trace_elapsed_ms(check_start_ms)
+  func_read_only_elapsed_ms[slot] = func_read_only_elapsed_ms[slot] + elapsed_ms
+  if elapsed_ms >= SG_ANALYZE_SLOW_READ_ONLY_CHECK_MS {
+    func_slow_read_only_checks[slot] = func_slow_read_only_checks[slot] + 1
+    trace(
+      "func[\{active_func_ordinal}] analyze slow_read_only_check context=\{check_context} elapsed_ms=\{elapsed_ms} total_elapsed_ms=\{sg_trace_elapsed_ms(func_start_ms[slot])} visited=\{func_instrs_visited[slot]} check_instrs=\{code.instrs.length()} matched=\{out is Some(_)}",
+    )
+  }
+  out
 }
 
 ///|
@@ -735,6 +814,24 @@ fn sg_analyze(
   let total_globals = imported_globals + defined_globals.length()
   let info = SGInfo::new(total_globals)
   let mut func_ordinal = 0
+  let mut active_func_ordinal = 0
+  let func_is_typed : Array[Bool] = []
+  let func_top_instrs : Array[Int] = []
+  let func_locals : Array[Int] = []
+  let func_global_gets : Array[Int] = []
+  let func_global_sets : Array[Int] = []
+  let func_read_only_to_write : Array[Int] = []
+  let func_read_only_checks : Array[Int] = []
+  let func_slow_read_only_checks : Array[Int] = []
+  let func_read_only_elapsed_ms : Array[UInt64] = []
+  let func_instrs_visited : Array[Int] = []
+  let func_next_progress_at : Array[Int] = []
+  let func_last_progress_ms : Array[UInt64] = []
+  let func_walk_elapsed_ms : Array[UInt64] = []
+  let func_slow_walks : Array[Int] = []
+  let func_max_walk_ms : Array[UInt64] = []
+  let func_bailed : Array[Bool] = []
+  let func_start_ms : Array[UInt64] = []
 
   for i = 0; i < imported_globals; i = i + 1 {
     info.imported[i] = true
@@ -757,8 +854,24 @@ fn sg_analyze(
 
   let scanner = ModuleTransformer::new()
     .on_tinstruction_evt(fn(self, _, instr) {
+      if active_func_ordinal > 0 &&
+        active_func_ordinal <= func_bailed.length() &&
+        func_bailed[active_func_ordinal - 1] {
+        return unchanged()
+      }
+      sg_analyze_note_progress(
+        trace, trace_verbose, active_func_ordinal, func_start_ms, func_instrs_visited,
+        func_next_progress_at, func_global_gets, func_global_sets, func_read_only_to_write,
+        func_read_only_checks, func_read_only_elapsed_ms, func_walk_elapsed_ms, func_slow_walks,
+        func_last_progress_ms,
+      )
       match instr.kind {
         TInstrKind::TGlobalSet(idx, value) => {
+          if active_func_ordinal > 0 &&
+            active_func_ordinal <= func_global_sets.length() {
+            let func_slot = active_func_ordinal - 1
+            func_global_sets[func_slot] = func_global_sets[func_slot] + 1
+          }
           let raw = sg_globalidx_to_int(idx)
           if raw >= 0 && raw < total_globals {
             info.written[raw] = info.written[raw] + 1
@@ -791,14 +904,30 @@ fn sg_analyze(
           }
         }
         TInstrKind::TGlobalGet(idx) => {
+          if active_func_ordinal > 0 &&
+            active_func_ordinal <= func_global_gets.length() {
+            let func_slot = active_func_ordinal - 1
+            func_global_gets[func_slot] = func_global_gets[func_slot] + 1
+          }
           let raw = sg_globalidx_to_int(idx)
           if raw >= 0 && raw < total_globals {
             info.read[raw] = info.read[raw] + 1
           }
         }
         TInstrKind::TIf(_, cond, then_body, None) =>
-          match sg_reads_global_only_to_write_it(cond, then_body) {
+          match
+            sg_analyze_check_read_only_to_write(
+              cond, then_body, trace, trace_verbose, active_func_ordinal, func_start_ms,
+              func_instrs_visited, func_read_only_checks, func_read_only_elapsed_ms,
+              func_slow_read_only_checks, "tinstr_if",
+            ) {
             Some(idx) => {
+              if active_func_ordinal > 0 &&
+                active_func_ordinal <= func_read_only_to_write.length() {
+                let func_slot = active_func_ordinal - 1
+                func_read_only_to_write[func_slot] = func_read_only_to_write[func_slot] +
+                  1
+              }
               let raw = sg_globalidx_to_int(idx)
               if raw >= 0 && raw < total_globals {
                 info.read_only_to_write[raw] = info.read_only_to_write[raw] + 1
@@ -808,9 +937,56 @@ fn sg_analyze(
           }
         _ => ()
       }
-      self.walk_tinstruction_default((), instr)
+      let should_time_walk = trace_verbose &&
+        active_func_ordinal > 0 &&
+        active_func_ordinal <= func_walk_elapsed_ms.length()
+      let walk_start_ms = if should_time_walk { sg_trace_now_ms() } else { 0UL }
+      let walked = self.walk_tinstruction_default((), instr)
+      if should_time_walk {
+        let slot = active_func_ordinal - 1
+        let walk_elapsed_ms = sg_trace_elapsed_ms(walk_start_ms)
+        func_walk_elapsed_ms[slot] = func_walk_elapsed_ms[slot] +
+          walk_elapsed_ms
+        if walk_elapsed_ms > func_max_walk_ms[slot] {
+          func_max_walk_ms[slot] = walk_elapsed_ms
+        }
+        if walk_elapsed_ms >= SG_ANALYZE_SLOW_WALK_MS {
+          func_slow_walks[slot] = func_slow_walks[slot] + 1
+          trace(
+            "func[\{active_func_ordinal}] analyze slow_walk kind=tinstr elapsed_ms=\{walk_elapsed_ms} total_elapsed_ms=\{sg_trace_elapsed_ms(func_start_ms[slot])} visited=\{func_instrs_visited[slot]}",
+          )
+        }
+      }
+      walked
     })
     .on_instruction_evt(fn(self, _, instr) {
+      if active_func_ordinal > 0 &&
+        active_func_ordinal <= func_bailed.length() &&
+        func_bailed[active_func_ordinal - 1] {
+        return unchanged()
+      }
+      sg_analyze_note_progress(
+        trace, trace_verbose, active_func_ordinal, func_start_ms, func_instrs_visited,
+        func_next_progress_at, func_global_gets, func_global_sets, func_read_only_to_write,
+        func_read_only_checks, func_read_only_elapsed_ms, func_walk_elapsed_ms, func_slow_walks,
+        func_last_progress_ms,
+      )
+      if active_func_ordinal > 0 &&
+        active_func_ordinal <= func_instrs_visited.length() &&
+        !func_is_typed[active_func_ordinal - 1] &&
+        !func_bailed[active_func_ordinal - 1] &&
+        func_instrs_visited[active_func_ordinal - 1] >=
+        SG_ANALYZE_LEGACY_VISIT_BAILOUT {
+        let func_slot = active_func_ordinal - 1
+        func_bailed[func_slot] = true
+        sg_analyze_mark_globals_unknown(info, total_globals)
+        if trace_verbose {
+          trace(
+            "func[\{active_func_ordinal}] analyze bailout reason=legacy_visit_limit limit=\{SG_ANALYZE_LEGACY_VISIT_BAILOUT} elapsed_ms=\{sg_trace_elapsed_ms(func_start_ms[func_slot])} visited=\{func_instrs_visited[func_slot]}",
+          )
+        }
+        return unchanged()
+      }
       match instr {
         GlobalGet(idx) => {
           let raw = sg_globalidx_to_int(idx)
@@ -827,24 +1003,72 @@ fn sg_analyze(
         }
         _ => ()
       }
-      self.walk_instruction_default((), instr)
+      let should_time_walk = trace_verbose &&
+        active_func_ordinal > 0 &&
+        active_func_ordinal <= func_walk_elapsed_ms.length()
+      let walk_start_ms = if should_time_walk { sg_trace_now_ms() } else { 0UL }
+      let walked = self.walk_instruction_default((), instr)
+      if should_time_walk {
+        let slot = active_func_ordinal - 1
+        let walk_elapsed_ms = sg_trace_elapsed_ms(walk_start_ms)
+        func_walk_elapsed_ms[slot] = func_walk_elapsed_ms[slot] +
+          walk_elapsed_ms
+        if walk_elapsed_ms > func_max_walk_ms[slot] {
+          func_max_walk_ms[slot] = walk_elapsed_ms
+        }
+        if walk_elapsed_ms >= SG_ANALYZE_SLOW_WALK_MS {
+          func_slow_walks[slot] = func_slow_walks[slot] + 1
+          trace(
+            "func[\{active_func_ordinal}] analyze slow_walk kind=instr elapsed_ms=\{walk_elapsed_ms} total_elapsed_ms=\{sg_trace_elapsed_ms(func_start_ms[slot])} visited=\{func_instrs_visited[slot]}",
+          )
+        }
+      }
+      walked
     })
     .on_func_evt(fn(self, _, func) {
       func_ordinal += 1
       let ordinal = func_ordinal
+      func_is_typed.push(false)
+      func_top_instrs.push(0)
+      func_locals.push(0)
+      func_global_gets.push(0)
+      func_global_sets.push(0)
+      func_read_only_to_write.push(0)
+      func_read_only_checks.push(0)
+      func_slow_read_only_checks.push(0)
+      func_read_only_elapsed_ms.push(0UL)
+      func_instrs_visited.push(0)
+      func_next_progress_at.push(SG_ANALYZE_PROGRESS_INTERVAL)
+      func_last_progress_ms.push(0UL)
+      func_walk_elapsed_ms.push(0UL)
+      func_slow_walks.push(0)
+      func_max_walk_ms.push(0UL)
+      func_bailed.push(false)
+      func_start_ms.push(0UL)
+      let func_slot = ordinal - 1
+      match func {
+        TFunc(_, locals, body) => {
+          func_is_typed[func_slot] = true
+          func_top_instrs[func_slot] = body.instrs.length()
+          func_locals[func_slot] = locals.length()
+        }
+        Func(_, Expr(instrs)) => func_top_instrs[func_slot] = instrs.length()
+      }
       if trace_verbose {
-        match func {
-          TFunc(_, locals, body) => {
-            let (global_gets, global_sets, read_only_to_write_hits) = sg_analyze_count_global_uses(
-              body,
-            )
-            trace(
-              "func[\{ordinal}] analyze top_instrs=\{body.instrs.length()} locals=\{locals.length()} global_gets=\{global_gets} global_sets=\{global_sets} read_only_to_write=\{read_only_to_write_hits}",
-            )
-          }
-          _ => trace("func[\{ordinal}] analyze skip non-typed-func")
+        func_start_ms[func_slot] = sg_trace_now_ms()
+        func_last_progress_ms[func_slot] = func_start_ms[func_slot]
+        if func_is_typed[func_slot] {
+          trace(
+            "func[\{ordinal}] analyze start kind=typed top_instrs=\{func_top_instrs[func_slot]} locals=\{func_locals[func_slot]}",
+          )
+        } else {
+          trace(
+            "func[\{ordinal}] analyze start kind=legacy top_instrs=\{func_top_instrs[func_slot]}",
+          )
         }
       }
+      let prev_active = active_func_ordinal
+      active_func_ordinal = ordinal
       match func {
         TFunc(_, _, { instrs, .. }) if instrs.length() == 2 =>
           match instrs[0].kind {
@@ -855,8 +1079,25 @@ fn sg_analyze(
               None
             ) if values.length() == 0 =>
               match
-                sg_reads_global_only_to_write_it(cond, TExpr::new([instrs[1]])) {
+                sg_analyze_check_read_only_to_write(
+                  cond,
+                  TExpr::new([instrs[1]]),
+                  trace,
+                  trace_verbose,
+                  active_func_ordinal,
+                  func_start_ms,
+                  func_instrs_visited,
+                  func_read_only_checks,
+                  func_read_only_elapsed_ms,
+                  func_slow_read_only_checks,
+                  "func_fastpath",
+                ) {
                 Some(idx) => {
+                  if active_func_ordinal > 0 &&
+                    active_func_ordinal <= func_read_only_to_write.length() {
+                    func_read_only_to_write[func_slot] = func_read_only_to_write[func_slot] +
+                      1
+                  }
                   let raw = sg_globalidx_to_int(idx)
                   if raw >= 0 && raw < total_globals {
                     info.read_only_to_write[raw] = info.read_only_to_write[raw] +
@@ -869,7 +1110,21 @@ fn sg_analyze(
           }
         _ => ()
       }
-      self.walk_func_default((), func)
+      let walked = self.walk_func_default((), func)
+      active_func_ordinal = prev_active
+      if trace_verbose {
+        let elapsed_ms = sg_trace_elapsed_ms(func_start_ms[func_slot])
+        if func_is_typed[func_slot] {
+          trace(
+            "func[\{ordinal}] analyze done kind=typed elapsed_ms=\{elapsed_ms} top_instrs=\{func_top_instrs[func_slot]} locals=\{func_locals[func_slot]} visited=\{func_instrs_visited[func_slot]} global_gets=\{func_global_gets[func_slot]} global_sets=\{func_global_sets[func_slot]} read_only_to_write=\{func_read_only_to_write[func_slot]} read_only_checks=\{func_read_only_checks[func_slot]} slow_read_only_checks=\{func_slow_read_only_checks[func_slot]} read_only_check_ms=\{func_read_only_elapsed_ms[func_slot]} walk_ms=\{func_walk_elapsed_ms[func_slot]} slow_walks=\{func_slow_walks[func_slot]} max_walk_ms=\{func_max_walk_ms[func_slot]}",
+          )
+        } else {
+          trace(
+            "func[\{ordinal}] analyze done kind=legacy elapsed_ms=\{elapsed_ms} top_instrs=\{func_top_instrs[func_slot]} visited=\{func_instrs_visited[func_slot]} global_gets=\{func_global_gets[func_slot]} global_sets=\{func_global_sets[func_slot]} read_only_to_write=\{func_read_only_to_write[func_slot]} read_only_checks=\{func_read_only_checks[func_slot]} slow_read_only_checks=\{func_slow_read_only_checks[func_slot]} read_only_check_ms=\{func_read_only_elapsed_ms[func_slot]} walk_ms=\{func_walk_elapsed_ms[func_slot]} slow_walks=\{func_slow_walks[func_slot]} max_walk_ms=\{func_max_walk_ms[func_slot]} bailed=\{func_bailed[func_slot]}",
+          )
+        }
+      }
+      walked
     })
   match scanner.walk_module((), mod) {
     Ok(_) => ()
