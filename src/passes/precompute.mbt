@@ -74,77 +74,13 @@ fn pc_wrap_i64(x : Int64) -> Int64 {
 }
 
 ///|
-fn pc_trace_normalize_env_now_ms(raw : UInt64) -> UInt64 {
-  if raw >= 100000000000000000UL {
-    raw / 1000000UL
-  } else if raw >= 100000000000000UL {
-    raw / 1000UL
-  } else {
-    raw
-  }
-}
-
-///|
-#cfg(target="native")
-#borrow(tv)
-extern "c" fn pc_trace_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
-
-///|
-#cfg(target="native")
-fn pc_trace_read_u64_le(bytes : Bytes, start : Int) -> UInt64 {
-  let mut out = 0UL
-  let mut i = 0
-  while i < 8 {
-    out = out | (bytes[start + i].to_uint64() << (i * 8))
-    i += 1
-  }
-  out
-}
-
-///|
-#cfg(target="native")
 fn pc_trace_now_ms() -> UInt64 {
-  let tv = Bytes::new(16)
-  if pc_trace_native_gettimeofday(tv, 0UL) != 0 {
-    return pc_trace_normalize_env_now_ms(@env.now())
-  }
-  let sec = pc_trace_read_u64_le(tv, 0)
-  let usec = pc_trace_read_u64_le(tv, 8)
-  sec * 1000UL + usec / 1000UL
-}
-
-///|
-#cfg(target="wasm-gc")
-fn pc_trace_now_ms() -> UInt64 {
-  pc_trace_normalize_env_now_ms(@env.now())
-}
-
-///|
-#cfg(target="wasm")
-fn pc_trace_now_ms() -> UInt64 {
-  pc_trace_normalize_env_now_ms(@env.now())
-}
-
-///|
-#cfg(target="js")
-fn pc_trace_now_ms() -> UInt64 {
-  pc_trace_normalize_env_now_ms(@env.now())
-}
-
-///|
-#cfg(target="llvm")
-fn pc_trace_now_ms() -> UInt64 {
-  pc_trace_normalize_env_now_ms(@env.now())
+  pass_trace_now_ms()
 }
 
 ///|
 fn pc_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
-  let end_ms = pc_trace_now_ms()
-  if end_ms >= start_ms {
-    end_ms - start_ms
-  } else {
-    0UL
-  }
+  pass_trace_elapsed_ms(start_ms)
 }
 
 ///|

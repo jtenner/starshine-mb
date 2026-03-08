@@ -104,70 +104,17 @@ fn dfe_trace_noop(_ : String) -> Unit {
 
 ///|
 fn dfe_trace_delta_us_to_ms(delta_us : UInt64) -> UInt64 {
-  delta_us / 1000UL
+  pass_trace_delta_us_to_ms(delta_us)
 }
 
 ///|
-#cfg(target="native")
-#borrow(tv)
-extern "c" fn dfe_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
-
-///|
-#cfg(target="native")
-fn dfe_trace_read_u64_le(bytes : Bytes, start : Int) -> UInt64 {
-  let mut out = 0UL
-  let mut i = 0
-  while i < 8 {
-    out = out | (bytes[start + i].to_uint64() << (i * 8))
-    i += 1
-  }
-  out
-}
-
-///|
-#cfg(target="native")
 fn dfe_trace_now_us() -> UInt64 {
-  let tv = Bytes::new(16)
-  if dfe_native_gettimeofday(tv, 0UL) != 0 {
-    return @env.now() * 1000UL
-  }
-  let sec = dfe_trace_read_u64_le(tv, 0)
-  let usec = dfe_trace_read_u64_le(tv, 8)
-  sec * 1000000UL + usec
-}
-
-///|
-#cfg(target="wasm-gc")
-fn dfe_trace_now_us() -> UInt64 {
-  @env.now() * 1000UL
-}
-
-///|
-#cfg(target="wasm")
-fn dfe_trace_now_us() -> UInt64 {
-  @env.now() * 1000UL
-}
-
-///|
-#cfg(target="js")
-fn dfe_trace_now_us() -> UInt64 {
-  @env.now() * 1000UL
-}
-
-///|
-#cfg(target="llvm")
-fn dfe_trace_now_us() -> UInt64 {
-  @env.now() * 1000UL
+  pass_trace_now_us()
 }
 
 ///|
 fn dfe_trace_elapsed_us_since(start_us : UInt64) -> UInt64 {
-  let end_us = dfe_trace_now_us()
-  if end_us >= start_us {
-    end_us - start_us
-  } else {
-    0UL
-  }
+  pass_trace_elapsed_us_since(start_us)
 }
 
 ///|

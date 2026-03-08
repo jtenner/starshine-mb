@@ -4,9 +4,9 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import { runWasmStart } from './lib/moonbit-wasi-runner.mjs';
-import { distArtifactPaths, repoRootFromScript } from './lib/paths.mjs';
+import { distArtifactPaths, repoRootFromScript } from './lib/self-optimized-artifacts.mjs';
 
-export function parseCliArgs(argv) {
+function parseCliArgs(argv) {
   let limit = null;
   let wasmPath = null;
   const onlyFiles = [];
@@ -48,7 +48,7 @@ export function parseCliArgs(argv) {
   return { limit, onlyFiles, wasmPath };
 }
 
-export function collectSpecFiles(specRoot) {
+function collectSpecFiles(specRoot) {
   const out = [];
 
   function walk(current) {
@@ -68,16 +68,16 @@ export function collectSpecFiles(specRoot) {
   return out;
 }
 
+function resolveRepoPath(repoRoot, filePath) {
+  return path.isAbsolute(filePath) ? filePath : path.join(repoRoot, filePath);
+}
+
 function toPosixRelativePath(repoRoot, filePath) {
   const relative = path.relative(repoRoot, filePath);
   return relative.split(path.sep).join('/');
 }
 
-export function resolveRepoPath(repoRoot, filePath) {
-  return path.isAbsolute(filePath) ? filePath : path.join(repoRoot, filePath);
-}
-
-export async function runWasmSpecSuite({
+export async function runSelfOptimizedSpecSuite({
   repoRoot,
   wasmPath = null,
   limit = null,
@@ -85,7 +85,8 @@ export async function runWasmSpecSuite({
 } = {}) {
   const specRoot = path.join(repoRoot, 'tests', 'spec');
   const dist = distArtifactPaths(repoRoot);
-  const runnerWasm = wasmPath === null ? dist.optimized : resolveRepoPath(repoRoot, wasmPath);
+  const runnerWasm = wasmPath === null ? dist.selfOptimized : resolveRepoPath(repoRoot, wasmPath);
+
   let files = onlyFiles.length > 0
     ? onlyFiles.map((filePath) => resolveRepoPath(repoRoot, filePath))
     : collectSpecFiles(specRoot);
@@ -118,7 +119,7 @@ export async function runWasmSpecSuite({
 async function main() {
   const repoRoot = repoRootFromScript(import.meta.url);
   const options = parseCliArgs(process.argv.slice(2));
-  const result = await runWasmSpecSuite({
+  const result = await runSelfOptimizedSpecSuite({
     repoRoot,
     wasmPath: options.wasmPath,
     limit: options.limit,

@@ -1119,23 +1119,14 @@ const OPT_VALIDATION_BEFORE_WASM_PATH : String = "before.wasm"
 const OPT_VALIDATION_AFTER_WASM_PATH : String = "after.wasm"
 
 ///|
-fn optimize_trace_normalize_env_now_ms(raw : UInt64) -> UInt64 {
-  if raw >= 100000000000000000UL {
-    // Likely nanoseconds.
-    raw / 1000000UL
-  } else if raw >= 100000000000000UL {
-    // Likely microseconds.
-    raw / 1000UL
-  } else {
-    // Already milliseconds.
-    raw
-  }
+fn optimize_trace_now_ms() -> UInt64 {
+  pass_trace_now_ms()
 }
 
 ///|
-#cfg(target="native")
-#borrow(tv)
-extern "c" fn optimize_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
+fn optimize_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
+  pass_trace_elapsed_ms(start_ms)
+}
 
 ///|
 #cfg(target="native")
@@ -1254,65 +1245,6 @@ fn optimize_validation_dump_before_after(
           "validation_dump:after error path=\{OPT_VALIDATION_AFTER_WASM_PATH} \{e}",
         )
       }
-  }
-}
-
-///|
-#cfg(target="native")
-fn optimize_trace_read_u64_le(bytes : Bytes, start : Int) -> UInt64 {
-  let mut out = 0UL
-  let mut i = 0
-  while i < 8 {
-    out = out | (bytes[start + i].to_uint64() << (i * 8))
-    i += 1
-  }
-  out
-}
-
-///|
-#cfg(target="native")
-fn optimize_trace_now_ms() -> UInt64 {
-  // struct timeval { long tv_sec; long tv_usec; } on current native targets.
-  let tv = Bytes::new(16)
-  if optimize_native_gettimeofday(tv, 0UL) != 0 {
-    return optimize_trace_normalize_env_now_ms(@env.now())
-  }
-  let sec = optimize_trace_read_u64_le(tv, 0)
-  let usec = optimize_trace_read_u64_le(tv, 8)
-  sec * 1000UL + usec / 1000UL
-}
-
-///|
-#cfg(target="wasm-gc")
-fn optimize_trace_now_ms() -> UInt64 {
-  optimize_trace_normalize_env_now_ms(@env.now())
-}
-
-///|
-#cfg(target="wasm")
-fn optimize_trace_now_ms() -> UInt64 {
-  optimize_trace_normalize_env_now_ms(@env.now())
-}
-
-///|
-#cfg(target="js")
-fn optimize_trace_now_ms() -> UInt64 {
-  optimize_trace_normalize_env_now_ms(@env.now())
-}
-
-///|
-#cfg(target="llvm")
-fn optimize_trace_now_ms() -> UInt64 {
-  optimize_trace_normalize_env_now_ms(@env.now())
-}
-
-///|
-fn optimize_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
-  let end_ms = optimize_trace_now_ms()
-  if end_ms >= start_ms {
-    end_ms - start_ms
-  } else {
-    0UL
   }
 }
 

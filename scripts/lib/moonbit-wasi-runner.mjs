@@ -13,7 +13,7 @@ function toCodePoints(value) {
   return out;
 }
 
-export function createMoonbitFsHost({ args = [], cwd = process.cwd() } = {}) {
+function createMoonbitFsHost({ args = [], cwd = process.cwd() } = {}) {
   let nextHandle = 1;
   const handles = new Map();
 

@@ -2,7 +2,7 @@
 
 ## WASM Artifact Snapshot (2026-02-25)
 
-From `tests/node/dist` after `npm --prefix tests/node run build:all`:
+From `tests/node/dist` after `node scripts/build-self-optimized.mjs`:
 
 | Artifact | File | Size (bytes) | Size (MiB) |
 | --- | --- | ---: | ---: |

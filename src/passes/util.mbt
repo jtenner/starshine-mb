@@ -15,6 +15,52 @@
 ///
 
 ///|
+fn pass_trace_normalize_env_now_ms(raw : UInt64) -> UInt64 {
+  if raw >= 100000000000000000UL {
+    raw / 1000000UL
+  } else if raw >= 100000000000000UL {
+    raw / 1000UL
+  } else {
+    raw
+  }
+}
+
+///|
+fn pass_trace_now_ms() -> UInt64 {
+  pass_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+fn pass_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
+  let end_ms = pass_trace_now_ms()
+  if end_ms >= start_ms {
+    end_ms - start_ms
+  } else {
+    0UL
+  }
+}
+
+///|
+fn pass_trace_now_us() -> UInt64 {
+  pass_trace_now_ms() * 1000UL
+}
+
+///|
+fn pass_trace_elapsed_us_since(start_us : UInt64) -> UInt64 {
+  let end_us = pass_trace_now_us()
+  if end_us >= start_us {
+    end_us - start_us
+  } else {
+    0UL
+  }
+}
+
+///|
+fn pass_trace_delta_us_to_ms(delta_us : UInt64) -> UInt64 {
+  delta_us / 1000UL
+}
+
+///|
 pub struct SquareMatrix[T] {
   storage : Map[UInt64, T]
   n : UInt
@@ -133,6 +179,23 @@ test "SquareMatrix::get_or returns bounds error" {
     Ok(_) => fail("expected out-of-bounds access to return error")
     Err(e) => assert_eq(e, "Index out of bounds")
   }
+}
+
+///|
+test "pass_trace_normalize_env_now_ms handles ms/us/ns magnitudes" {
+  assert_eq(pass_trace_normalize_env_now_ms(42UL), 42UL)
+  assert_eq(pass_trace_normalize_env_now_ms(100000000000000UL), 100000000000UL)
+  assert_eq(
+    pass_trace_normalize_env_now_ms(100000000000000000UL),
+    100000000000UL,
+  )
+}
+
+///|
+test "pass_trace_delta_us_to_ms truncates microseconds" {
+  assert_eq(pass_trace_delta_us_to_ms(999UL), 0UL)
+  assert_eq(pass_trace_delta_us_to_ms(1000UL), 1UL)
+  assert_eq(pass_trace_delta_us_to_ms(2501UL), 2UL)
 }
 
 ///|

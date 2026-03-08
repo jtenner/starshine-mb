@@ -32,29 +32,13 @@ const RG_TRACE_SLOW_WALK_MS : UInt64 = 50UL
 const RG_TRACE_HEARTBEAT_CHECK_INTERVAL : Int = 8192
 
 ///|
-fn rg_trace_normalize_env_now_ms(raw : UInt64) -> UInt64 {
-  if raw >= 100000000000000000UL {
-    raw / 1000000UL
-  } else if raw >= 100000000000000UL {
-    raw / 1000UL
-  } else {
-    raw
-  }
-}
-
-///|
 fn rg_trace_now_ms() -> UInt64 {
-  rg_trace_normalize_env_now_ms(@env.now())
+  pass_trace_now_ms()
 }
 
 ///|
 fn rg_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
-  let end_ms = rg_trace_now_ms()
-  if end_ms >= start_ms {
-    end_ms - start_ms
-  } else {
-    0UL
-  }
+  pass_trace_elapsed_ms(start_ms)
 }
 
 ///|
