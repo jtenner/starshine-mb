@@ -583,7 +583,7 @@ export const FieldType: {
 
 export const Func: {
   new(arg0: Array<Locals>, arg1: Expr): Func;
-  tFunc(arg0: Array<ValType>, arg1: TExpr): Func;
+  tFunc(arg0: Array<ValType>, arg1: Array<ValType>, arg2: TExpr): Func;
   show(value: Func): string;
 };
 
@@ -1278,6 +1278,8 @@ export const MemType: {
 
 export const Module: {
   new(customSecs?: Array<CustomSec>, typeSec?: TypeSec | null, importSec?: ImportSec | null, funcSec?: FuncSec | null, tableSec?: TableSec | null, memSec?: MemSec | null, tagSec?: TagSec | null, globalSec?: GlobalSec | null, exportSec?: ExportSec | null, startSec?: StartSec | null, elemSec?: ElemSec | null, dataCntSec?: DataCntSec | null, codeSec?: CodeSec | null, dataSec?: DataSec | null): Module;
+  prettyPrintDefinedFunc(arg0: Module, arg1: number): string;
+  prettyPrintFunc(arg0: Module, arg1: FuncIdx): string;
   withCodeSec(arg0: Module, arg1: CodeSec): Module;
   withCustomSecs(arg0: Module, arg1: Array<CustomSec>): Module;
   withDataCntSec(arg0: Module, arg1: DataCntSec): Module;

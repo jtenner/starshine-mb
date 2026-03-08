@@ -53,12 +53,6 @@ export const BlockLiveness = Object.freeze({
 export const CFPState = Object.freeze({
 });
 
-export const CallSite = Object.freeze({
-  show(value) {
-    return wasm["__js_show_passes_CallSite"](value);
-  },
-});
-
 export const ConstHoistingState = Object.freeze({
 });
 

@@ -3,7 +3,7 @@ import { countProvidedArgs, getWasmGcExports, liftValue, lowerValue, unsupported
 const wasm = await getWasmGcExports();
 
 export function lookupKeyword(arg0) {
-  return liftValue({ kind: "option", helper: {"none":"__js_option_40_none","some":"__js_option_40_some","isSome":"__js_option_40_is_some","unwrap":"__js_option_40_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wat__lookup_keyword"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "option", helper: {"none":"__js_option_43_none","some":"__js_option_43_some","isSome":"__js_option_43_is_some","unwrap":"__js_option_43_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wat__lookup_keyword"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
 }
 
 export function moduleToWat(arg0) {

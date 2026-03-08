@@ -381,15 +381,21 @@ Type namespace `IRContext`
   Call IRContext.localGraphDirty.
 - `IRContext.lowerToCfg(arg0: IRContext): CFG`
   Convert values with IRContext.lowerToCfg.
+- `IRContext.lowerToCfgWithLocals(arg0: IRContext): [Array<ValType>, CFG] | null`
+  Convert values with IRContext.lowerToCfgWithLocals.
 - `IRContext.new(): IRContext`
   Create a IRContext value.
 - `IRContext.optimizeBodyWithSsa(arg0: IRContext): TExpr | null`
   Call IRContext.optimizeBodyWithSsa.
 - `IRContext.optimizeBodyWithSsaTrace(...args: never[]): never`
   Higher-order function parameters are not available through the wasm-gc adapter.
+- `IRContext.optimizeBodyWithSsaTraceWithLocals(...args: never[]): never`
+  Higher-order function parameters are not available through the wasm-gc adapter.
+- `IRContext.optimizeBodyWithSsaWithLocals(arg0: IRContext): [Array<ValType>, TExpr] | null`
+  Call IRContext.optimizeBodyWithSsaWithLocals.
 - `IRContext.setBody(arg0: IRContext, arg1: TExpr): void`
   Call IRContext.setBody.
-- `IRContext.setLocals(arg0: IRContext, arg1: Array<ValType>): void`
+- `IRContext.setLocals(arg0: IRContext, arg1: Array<ValType>, paramCount?: number): void`
   Call IRContext.setLocals.
 - `IRContext.setMod(arg0: IRContext, arg1: Module): void`
   Call IRContext.setMod.
@@ -437,6 +443,8 @@ Type namespace `SSACFG`
   Call SSACFG.splitCriticalEdges.
 - `SSACFG.toCfg(arg0: SSACFG, arg1: number): CFG`
   Call SSACFG.toCfg.
+- `SSACFG.toCfgWithLocals(arg0: SSACFG, arg1: Array<ValType>, arg2: number, arg3: SSATypeInfo): [Array<ValType>, CFG]`
+  Call SSACFG.toCfgWithLocals.
 - `SSACFG.show(value: SSACFG): string`
   Format the value with its MoonBit `Show` implementation.
 
@@ -1352,7 +1360,7 @@ Type namespace `FieldType`
 Type namespace `Func`
 - `Func.new(arg0: Array<Locals>, arg1: Expr): Func`
   Create a Func value.
-- `Func.tFunc(arg0: Array<ValType>, arg1: TExpr): Func`
+- `Func.tFunc(arg0: Array<ValType>, arg1: Array<ValType>, arg2: TExpr): Func`
   Call Func.tFunc.
 - `Func.show(value: Func): string`
   Format the value with its MoonBit `Show` implementation.
@@ -2640,6 +2648,10 @@ Type namespace `MemType`
 Type namespace `Module`
 - `Module.new(customSecs?: Array<CustomSec>, typeSec?: TypeSec | null, importSec?: ImportSec | null, funcSec?: FuncSec | null, tableSec?: TableSec | null, memSec?: MemSec | null, tagSec?: TagSec | null, globalSec?: GlobalSec | null, exportSec?: ExportSec | null, startSec?: StartSec | null, elemSec?: ElemSec | null, dataCntSec?: DataCntSec | null, codeSec?: CodeSec | null, dataSec?: DataSec | null): Module`
   Create a Module value.
+- `Module.prettyPrintDefinedFunc(arg0: Module, arg1: number): string`
+  Call Module.prettyPrintDefinedFunc.
+- `Module.prettyPrintFunc(arg0: Module, arg1: FuncIdx): string`
+  Call Module.prettyPrintFunc.
 - `Module.withCodeSec(arg0: Module, arg1: CodeSec): Module`
   Return an updated value from Module.withCodeSec.
 - `Module.withCustomSecs(arg0: Module, arg1: Array<CustomSec>): Module`
@@ -3583,10 +3595,6 @@ Type namespace `BlockLiveness`
 - `BlockLiveness.show(value: BlockLiveness): string`
   Format the value with its MoonBit `Show` implementation.
 
-Type namespace `CallSite`
-- `CallSite.show(value: CallSite): string`
-  Format the value with its MoonBit `Show` implementation.
-
 Type namespace `EquivalentClass`
 - `EquivalentClass.show(value: EquivalentClass): string`
   Format the value with its MoonBit `Show` implementation.
@@ -4024,6 +4032,8 @@ Import directly with `import * as validate from '@jtenner/starshine/validate';` 
   Call genValidTfunc.
 - `genValidValtype(arg0: GenValidContext): ValType`
   Call genValidValtype.
+- `makeState(arg0: Env, arg1: Array<ValType>): TcState`
+  Call makeState.
 - `toTexpr(arg0: Expr, arg1: Env): StarshineResult<TExpr, string>`
   Call toTexpr.
 - `validateCodesec(arg0: CodeSec | null, arg1: FuncSec | null, arg2: Env): StarshineResult<void, string>`
@@ -4054,6 +4064,14 @@ Import directly with `import * as validate from '@jtenner/starshine/validate';` 
   Validate tagsec.
 - `validateTypesec(arg0: TypeSec | null, arg1: Env): StarshineResult<Env, string>`
   Validate typesec.
+- `validationErrorDiagnostic(arg0: ValidationError): ValidationDiagnostic`
+  Call validationErrorDiagnostic.
+- `validationErrorFuncIdx(arg0: ValidationError): FuncIdx | null`
+  Call validationErrorFuncIdx.
+- `validationErrorMessage(arg0: ValidationError): string`
+  Call validationErrorMessage.
+- `validationIssueMessage(arg0: ValidationIssue): string`
+  Call validationIssueMessage.
 
 Type namespace `Env`
 - `Env.appendRectypeTypes(arg0: Env, arg1: RecType): Env`
@@ -4157,8 +4175,18 @@ Type namespace `TcState`
 - `TcState.show(value: TcState): string`
   Format the value with its MoonBit `Show` implementation.
 
+Type namespace `ValidationDiagnostic`
+- `ValidationDiagnostic.new(arg0: ValidationIssue, funcIdx?: FuncIdx | null): ValidationDiagnostic`
+  Create a ValidationDiagnostic value.
+- `ValidationDiagnostic.show(value: ValidationDiagnostic): string`
+  Format the value with its MoonBit `Show` implementation.
+
 Type namespace `ValidationError`
 - `ValidationError.show(value: ValidationError): string`
+  Format the value with its MoonBit `Show` implementation.
+
+Type namespace `ValidationIssue`
+- `ValidationIssue.show(value: ValidationIssue): string`
   Format the value with its MoonBit `Show` implementation.
 
 ### wast

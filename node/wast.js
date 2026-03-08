@@ -3,7 +3,7 @@ import { countProvidedArgs, getWasmGcExports, liftValue, lowerValue, unsupported
 const wasm = await getWasmGcExports();
 
 export function lookupKeyword(arg0) {
-  return liftValue({ kind: "option", helper: {"none":"__js_option_40_none","some":"__js_option_40_some","isSome":"__js_option_40_is_some","unwrap":"__js_option_40_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wast__lookup_keyword"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "option", helper: {"none":"__js_option_43_none","some":"__js_option_43_some","isSome":"__js_option_43_is_some","unwrap":"__js_option_43_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wast__lookup_keyword"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
 }
 
 export function moduleToWast(arg0) {
@@ -38,9 +38,9 @@ export function wastTextBinaryRoundtrip(arg0, filename) {
   const provided = countProvidedArgs(arguments);
   switch (provided) {
     case 1:
-      return liftValue({ kind: "result", helper: {"isOk":"__js_result_21_is_ok","unwrapOk":"__js_result_21_unwrap_ok","unwrapErr":"__js_result_21_unwrap_err"}, ok: { kind: "tuple", helper: {"make":"__js_tuple_7_new","getters":["__js_tuple_7_get_0","__js_tuple_7_get_1"]}, items: [{ kind: "string" }, { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }] }, err: { kind: "string" } }, wasm["wast__wast_text_binary_roundtrip__arity_1"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
+      return liftValue({ kind: "result", helper: {"isOk":"__js_result_21_is_ok","unwrapOk":"__js_result_21_unwrap_ok","unwrapErr":"__js_result_21_unwrap_err"}, ok: { kind: "tuple", helper: {"make":"__js_tuple_9_new","getters":["__js_tuple_9_get_0","__js_tuple_9_get_1"]}, items: [{ kind: "string" }, { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }] }, err: { kind: "string" } }, wasm["wast__wast_text_binary_roundtrip__arity_1"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
     case 2:
-      return liftValue({ kind: "result", helper: {"isOk":"__js_result_21_is_ok","unwrapOk":"__js_result_21_unwrap_ok","unwrapErr":"__js_result_21_unwrap_err"}, ok: { kind: "tuple", helper: {"make":"__js_tuple_7_new","getters":["__js_tuple_7_get_0","__js_tuple_7_get_1"]}, items: [{ kind: "string" }, { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }] }, err: { kind: "string" } }, wasm["wast__wast_text_binary_roundtrip"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "string" }, filename, wasm)), wasm);
+      return liftValue({ kind: "result", helper: {"isOk":"__js_result_21_is_ok","unwrapOk":"__js_result_21_unwrap_ok","unwrapErr":"__js_result_21_unwrap_err"}, ok: { kind: "tuple", helper: {"make":"__js_tuple_9_new","getters":["__js_tuple_9_get_0","__js_tuple_9_get_1"]}, items: [{ kind: "string" }, { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }] }, err: { kind: "string" } }, wasm["wast__wast_text_binary_roundtrip"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "string" }, filename, wasm)), wasm);
     default:
       throw new TypeError("Invalid argument count for wast.wastTextBinaryRoundtrip.");
   }
@@ -192,7 +192,7 @@ export const Instruction = Object.freeze({
 
 export const KeywordTable = Object.freeze({
   lookup(arg0, arg1) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_40_none","some":"__js_option_40_some","isSome":"__js_option_40_is_some","unwrap":"__js_option_40_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wast__KeywordTable__lookup"](lowerValue({ kind: "named", brand: "wast.KeywordTable", showExport: null }, arg0, wasm), lowerValue({ kind: "string" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_43_none","some":"__js_option_43_some","isSome":"__js_option_43_is_some","unwrap":"__js_option_43_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wast__KeywordTable__lookup"](lowerValue({ kind: "named", brand: "wast.KeywordTable", showExport: null }, arg0, wasm), lowerValue({ kind: "string" }, arg1, wasm)), wasm);
   },
 });
 

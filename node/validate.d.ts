@@ -6,7 +6,9 @@ export type GenValidContext = OpaqueHandle<"validate.GenValidContext">;
 export type TcResult = OpaqueHandle<"validate.TcResult">;
 export type TcState = OpaqueHandle<"validate.TcState">;
 export type TypeGenerationStrategy = OpaqueHandle<"validate.TypeGenerationStrategy">;
+export type ValidationDiagnostic = OpaqueHandle<"validate.ValidationDiagnostic">;
 export type ValidationError = OpaqueHandle<"validate.ValidationError">;
+export type ValidationIssue = OpaqueHandle<"validate.ValidationIssue">;
 
 export function descriptorCompatible(arg0: RefType, arg1: RefType, arg2: Env): boolean;
 export function diff(arg0: RefType, arg1: RefType): StarshineResult<RefType, string>;
@@ -18,6 +20,7 @@ export function genValidNumtype(arg0: GenValidContext): NumType;
 export function genValidResultType(arg0: GenValidContext, arg1: Array<ValType>, arg2: TypeGenerationStrategy): Array<ValType>;
 export function genValidTfunc(arg0: GenValidContext, arg1: Array<ValType>, arg2: Array<ValType>): Func;
 export function genValidValtype(arg0: GenValidContext): ValType;
+export function makeState(arg0: Env, arg1: Array<ValType>): TcState;
 export function toTexpr(arg0: Expr, arg1: Env): StarshineResult<TExpr, string>;
 export function validateCodesec(arg0: CodeSec | null, arg1: FuncSec | null, arg2: Env): StarshineResult<void, string>;
 export function validateDatacnt(arg0: DataCntSec | null, arg1: DataSec | null): StarshineResult<void, string>;
@@ -33,6 +36,10 @@ export function validateStartsec(arg0: StartSec | null, arg1: Env): StarshineRes
 export function validateTablesec(arg0: TableSec | null, arg1: Env): StarshineResult<Env, string>;
 export function validateTagsec(arg0: TagSec | null, arg1: Env): StarshineResult<Env, string>;
 export function validateTypesec(arg0: TypeSec | null, arg1: Env): StarshineResult<Env, string>;
+export function validationErrorDiagnostic(arg0: ValidationError): ValidationDiagnostic;
+export function validationErrorFuncIdx(arg0: ValidationError): FuncIdx | null;
+export function validationErrorMessage(arg0: ValidationError): string;
+export function validationIssueMessage(arg0: ValidationIssue): string;
 
 export const Env: {
   appendRectypeTypes(arg0: Env, arg1: RecType): Env;
@@ -98,6 +105,15 @@ export const TcState: {
 export const TypeGenerationStrategy: {
 };
 
+export const ValidationDiagnostic: {
+  new(arg0: ValidationIssue, funcIdx?: FuncIdx | null): ValidationDiagnostic;
+  show(value: ValidationDiagnostic): string;
+};
+
 export const ValidationError: {
   show(value: ValidationError): string;
+};
+
+export const ValidationIssue: {
+  show(value: ValidationIssue): string;
 };

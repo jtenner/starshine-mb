@@ -5,7 +5,6 @@ export type AbstractTypeRefiningPassProps = OpaqueHandle<"passes.AbstractTypeRef
 export type AsyncifyPassProps = OpaqueHandle<"passes.AsyncifyPassProps">;
 export type BlockLiveness = OpaqueHandle<"passes.BlockLiveness">;
 export type CFPState = OpaqueHandle<"passes.CFPState">;
-export type CallSite = OpaqueHandle<"passes.CallSite">;
 export type ConstHoistingState = OpaqueHandle<"passes.ConstHoistingState">;
 export type ConstKey = OpaqueHandle<"passes.ConstKey">;
 export type EquivalentClass = OpaqueHandle<"passes.EquivalentClass">;
@@ -49,10 +48,6 @@ export const BlockLiveness: {
 };
 
 export const CFPState: {
-};
-
-export const CallSite: {
-  show(value: CallSite): string;
 };
 
 export const ConstHoistingState: {
