@@ -47,6 +47,50 @@ fn SGInfo::new(total_globals : Int) -> SGInfo {
 }
 
 ///|
+priv struct SGInfoTraceSummary {
+  total_globals : Int
+  imported_globals : Int
+  exported_globals : Int
+  writes_seen : Int
+  reads_seen : Int
+  non_init_written : Int
+  read_only_to_write : Int
+}
+
+///|
+fn sg_count_true_flags(values : Array[Bool]) -> Int {
+  let mut out = 0
+  for value in values {
+    if value {
+      out += 1
+    }
+  }
+  out
+}
+
+///|
+fn sg_sum_ints(values : Array[Int]) -> Int {
+  let mut out = 0
+  for value in values {
+    out += value
+  }
+  out
+}
+
+///|
+fn sg_info_trace_summary(info : SGInfo) -> SGInfoTraceSummary {
+  {
+    total_globals: info.read.length(),
+    imported_globals: sg_count_true_flags(info.imported),
+    exported_globals: sg_count_true_flags(info.exported),
+    writes_seen: sg_sum_ints(info.written),
+    reads_seen: sg_sum_ints(info.read),
+    non_init_written: sg_count_true_flags(info.non_init_written),
+    read_only_to_write: sg_sum_ints(info.read_only_to_write),
+  }
+}
+
+///|
 priv struct SGConstSlots {
   values : Array[SGConstValue?]
   epochs : Array[Int]
@@ -651,7 +695,38 @@ fn sg_reads_global_only_to_write_it(
 }
 
 ///|
-fn sg_analyze(mod : Module) -> Result[(SGInfo, Module, Bool), String] {
+fn sg_analyze_count_global_uses(body : TExpr) -> (Int, Int, Int) {
+  let global_gets = sg_count_tinstr(body, fn(instr) {
+    match instr.kind {
+      TInstrKind::TGlobalGet(_) => true
+      _ => false
+    }
+  })
+  let global_sets = sg_count_tinstr(body, fn(instr) {
+    match instr.kind {
+      TInstrKind::TGlobalSet(_, _) => true
+      _ => false
+    }
+  })
+  let read_only_to_write_hits = sg_count_tinstr(body, fn(instr) {
+    match instr.kind {
+      TInstrKind::TIf(_, cond, then_body, None) =>
+        match sg_reads_global_only_to_write_it(cond, then_body) {
+          Some(_) => true
+          None => false
+        }
+      _ => false
+    }
+  })
+  (global_gets, global_sets, read_only_to_write_hits)
+}
+
+///|
+fn sg_analyze(
+  mod : Module,
+  trace? : (String) -> Unit = sg_trace_noop,
+  trace_verbose? : Bool = false,
+) -> Result[(SGInfo, Module, Bool), String] {
   let imported_globals = sg_count_imported_globals(mod)
   let defined_globals = match mod.global_sec {
     Some(GlobalSec(globals)) => globals
@@ -659,6 +734,7 @@ fn sg_analyze(mod : Module) -> Result[(SGInfo, Module, Bool), String] {
   }
   let total_globals = imported_globals + defined_globals.length()
   let info = SGInfo::new(total_globals)
+  let mut func_ordinal = 0
 
   for i = 0; i < imported_globals; i = i + 1 {
     info.imported[i] = true
@@ -754,6 +830,21 @@ fn sg_analyze(mod : Module) -> Result[(SGInfo, Module, Bool), String] {
       self.walk_instruction_default((), instr)
     })
     .on_func_evt(fn(self, _, func) {
+      func_ordinal += 1
+      let ordinal = func_ordinal
+      if trace_verbose {
+        match func {
+          TFunc(_, locals, body) => {
+            let (global_gets, global_sets, read_only_to_write_hits) = sg_analyze_count_global_uses(
+              body,
+            )
+            trace(
+              "func[\{ordinal}] analyze top_instrs=\{body.instrs.length()} locals=\{locals.length()} global_gets=\{global_gets} global_sets=\{global_sets} read_only_to_write=\{read_only_to_write_hits}",
+            )
+          }
+          _ => trace("func[\{ordinal}] analyze skip non-typed-func")
+        }
+      }
       match func {
         TFunc(_, _, { instrs, .. }) if instrs.length() == 2 =>
           match instrs[0].kind {
@@ -880,6 +971,8 @@ fn sg_fold_single_uses(mod : Module, info : SGInfo) -> (Module, Bool) {
 fn sg_remove_unneeded_writes(
   mod : Module,
   info : SGInfo,
+  trace? : (String) -> Unit = sg_trace_noop,
+  trace_verbose? : Bool = false,
 ) -> Result[(Module, Bool, Bool), String] {
   let globals = match mod.global_sec {
     Some(GlobalSec(globals)) => globals
@@ -890,6 +983,8 @@ fn sg_remove_unneeded_writes(
   let rewritten_globals = globals.copy()
   let mut changed_globals = false
   let mut more = false
+  let mut removed_globals = 0
+  let mut made_immutable = 0
 
   for i = 0; i < rewritten_globals.length(); i = i + 1 {
     let abs = imported_globals + i
@@ -904,14 +999,28 @@ fn sg_remove_unneeded_writes(
     }
     let only_read_only = info.read[abs] == info.read_only_to_write[abs]
     if info.read[abs] == 0 || !info.non_init_written[abs] || only_read_only {
+      removed_globals += 1
       to_remove.add(sg_globalidx_from_int(abs))
       if only_read_only {
         more = true
+      }
+      if trace_verbose {
+        let reason = if info.read[abs] == 0 {
+          "unread"
+        } else if !info.non_init_written[abs] {
+          "init_value_only"
+        } else {
+          "read_only_to_write"
+        }
+        trace(
+          "candidate global=\{abs} reason=\{reason} writes=\{info.written[abs]} reads=\{info.read[abs]} read_only_to_write=\{info.read_only_to_write[abs]}",
+        )
       }
       let Global(GlobalType(vt, is_mut), init) = rewritten_globals[i]
       if is_mut {
         rewritten_globals[i] = Global::new(GlobalType::new(vt, false), init)
         changed_globals = true
+        made_immutable += 1
       }
     }
   }
@@ -922,30 +1031,78 @@ fn sg_remove_unneeded_writes(
     mod
   }
   if to_remove.is_empty() {
+    if trace_verbose {
+      trace(
+        "done removed_globals=\{removed_globals} removed_sets=0 made_immutable=\{made_immutable} changed=\{changed_globals} need_more=\{more}",
+      )
+    }
     return Ok((next_mod, changed_globals, more))
   }
 
-  let remover = ModuleTransformer::new().on_tinstruction_evt(fn(
-    self,
-    _,
-    instr,
-  ) {
-    match instr.kind {
-      TInstrKind::TGlobalSet(idx, value) =>
-        if to_remove.contains(idx) {
-          change((), TInstr::drop(value))
-        } else {
-          self.walk_tinstruction_default((), instr)
-        }
-      _ => self.walk_tinstruction_default((), instr)
+  let mut removed_sets = 0
+  let mut func_ordinal = 0
+  let mut active_func_ordinal = 0
+  let removed_sets_per_func : Array[Int] = []
+  let remover = ModuleTransformer::new()
+    .on_tinstruction_evt(fn(self, _, instr) {
+      match instr.kind {
+        TInstrKind::TGlobalSet(idx, value) =>
+          if to_remove.contains(idx) {
+            removed_sets += 1
+            if active_func_ordinal > 0 &&
+              active_func_ordinal <= removed_sets_per_func.length() {
+              let func_slot = active_func_ordinal - 1
+              removed_sets_per_func[func_slot] = removed_sets_per_func[func_slot] +
+                1
+            }
+            change((), TInstr::drop(value))
+          } else {
+            self.walk_tinstruction_default((), instr)
+          }
+        _ => self.walk_tinstruction_default((), instr)
+      }
+    })
+    .on_func_evt(fn(self, _, func) {
+      func_ordinal += 1
+      let ordinal = func_ordinal
+      removed_sets_per_func.push(0)
+      let prev = active_func_ordinal
+      active_func_ordinal = ordinal
+      let walked = self.walk_func_default((), func)
+      active_func_ordinal = prev
+      walked
+    })
+  let sg_trace_removed_sets_per_func = fn() {
+    if !trace_verbose {
+      return
     }
-  })
+    for i = 0; i < removed_sets_per_func.length(); i = i + 1 {
+      let count = removed_sets_per_func[i]
+      if count != 0 {
+        trace("func[\{i + 1}] remove_writes removed_sets=\{count}")
+      }
+    }
+  }
   match remover.walk_module((), next_mod) {
     Ok(Some((_, out))) => {
       next_mod = out
+      sg_trace_removed_sets_per_func()
+      if trace_verbose {
+        trace(
+          "done removed_globals=\{removed_globals} removed_sets=\{removed_sets} made_immutable=\{made_immutable} changed=true need_more=\{more}",
+        )
+      }
       Ok((next_mod, true, more))
     }
-    Ok(None) => Ok((next_mod, changed_globals, more))
+    Ok(None) => {
+      sg_trace_removed_sets_per_func()
+      if trace_verbose {
+        trace(
+          "done removed_globals=\{removed_globals} removed_sets=\{removed_sets} made_immutable=\{made_immutable} changed=\{changed_globals} need_more=\{more}",
+        )
+      }
+      Ok((next_mod, changed_globals, more))
+    }
     Err(e) => Err(e)
   }
 }
@@ -1550,23 +1707,52 @@ fn sg_simplify_globals_impl(
     rounds += 1
     rerun = false
     let round_start_ms = sg_trace_now_ms()
+    if trace_all_funcs {
+      trace(
+        "round[\{rounds}] start optimize=\{optimize} cleanup_needed=\{cleanup_needed}",
+      )
+    }
 
-    let (info0, analyzed0, analyze_changed0) = match sg_analyze(curr) {
+    let analyze_start_ms = sg_trace_now_ms()
+    let (info0, analyzed0, analyze_changed0) = match
+      sg_analyze(
+        curr,
+        trace=fn(msg) { trace("round[\{rounds}] analyze:\{msg}") },
+        trace_verbose=trace_all_funcs,
+      ) {
       Ok(res) => res
       Err(e) => return Err(e)
     }
     curr = analyzed0
     changed = changed || analyze_changed0
+    if trace_all_funcs {
+      let summary = sg_info_trace_summary(info0)
+      trace(
+        "round[\{rounds}] analyze:done elapsed_ms=\{sg_trace_elapsed_ms(analyze_start_ms)} changed=\{analyze_changed0} total_globals=\{summary.total_globals} imported=\{summary.imported_globals} exported=\{summary.exported_globals} reads=\{summary.reads_seen} writes=\{summary.writes_seen} non_init_written=\{summary.non_init_written} read_only_to_write=\{summary.read_only_to_write}",
+      )
+    }
 
+    let fold_start_ms = sg_trace_now_ms()
     let (folded, fold_changed) = sg_fold_single_uses(curr, info0)
     curr = folded
     changed = changed || fold_changed
+    if trace_all_funcs {
+      trace(
+        "round[\{rounds}] fold_single_uses:done elapsed_ms=\{sg_trace_elapsed_ms(fold_start_ms)} changed=\{fold_changed}",
+      )
+    }
 
     let mut info1 = info0
     let mut analyze_changed1 = false
     let mut reanalyzed = false
     if fold_changed {
-      let (next_info, analyzed1, changed1) = match sg_analyze(curr) {
+      let reanalyze_start_ms = sg_trace_now_ms()
+      let (next_info, analyzed1, changed1) = match
+        sg_analyze(
+          curr,
+          trace=fn(msg) { trace("round[\{rounds}] analyze_after_fold:\{msg}") },
+          trace_verbose=trace_all_funcs,
+        ) {
         Ok(res) => res
         Err(e) => return Err(e)
       }
@@ -1575,40 +1761,75 @@ fn sg_simplify_globals_impl(
       analyze_changed1 = changed1
       changed = changed || analyze_changed1
       reanalyzed = true
+      if trace_all_funcs {
+        let summary = sg_info_trace_summary(info1)
+        trace(
+          "round[\{rounds}] analyze_after_fold:done elapsed_ms=\{sg_trace_elapsed_ms(reanalyze_start_ms)} changed=\{analyze_changed1} total_globals=\{summary.total_globals} imported=\{summary.imported_globals} exported=\{summary.exported_globals} reads=\{summary.reads_seen} writes=\{summary.writes_seen} non_init_written=\{summary.non_init_written} read_only_to_write=\{summary.read_only_to_write}",
+        )
+      }
     }
 
+    let remove_start_ms = sg_trace_now_ms()
     let (removed, remove_changed, need_more) = match
-      sg_remove_unneeded_writes(curr, info1) {
+      sg_remove_unneeded_writes(
+        curr,
+        info1,
+        trace=fn(msg) { trace("round[\{rounds}] remove_writes:\{msg}") },
+        trace_verbose=trace_all_funcs,
+      ) {
       Ok(res) => res
       Err(e) => return Err(e)
     }
     curr = removed
     changed = changed || remove_changed
+    if trace_all_funcs {
+      trace(
+        "round[\{rounds}] remove_writes:phase_done elapsed_ms=\{sg_trace_elapsed_ms(remove_start_ms)} changed=\{remove_changed} need_more=\{need_more}",
+      )
+    }
     if need_more {
       rerun = true
     }
 
+    let prefer_start_ms = sg_trace_now_ms()
     let (preferred, prefer_changed) = match sg_prefer_earlier_imports(curr) {
       Ok(res) => res
       Err(e) => return Err(e)
     }
     curr = preferred
     changed = changed || prefer_changed
+    if trace_all_funcs {
+      trace(
+        "round[\{rounds}] prefer_earlier_imports:done elapsed_ms=\{sg_trace_elapsed_ms(prefer_start_ms)} changed=\{prefer_changed}",
+      )
+    }
 
+    let globals_start_ms = sg_trace_now_ms()
     let (globals_propagated, globals_changed) = sg_propagate_constants_to_globals(
       curr,
     )
     curr = globals_propagated
     changed = changed || globals_changed
+    if trace_all_funcs {
+      trace(
+        "round[\{rounds}] propagate_globals:done elapsed_ms=\{sg_trace_elapsed_ms(globals_start_ms)} changed=\{globals_changed}",
+      )
+    }
 
+    let code_start_ms = sg_trace_now_ms()
     let (code_propagated, code_changed) = sg_propagate_constants_to_code(
       curr,
-      trace=fn(msg) { trace("propagate_code:\{msg}") },
+      trace=fn(msg) { trace("round[\{rounds}] propagate_code:\{msg}") },
       trace_all_funcs~,
     )
     curr = code_propagated
     changed = changed || code_changed
     cleanup_needed = cleanup_needed || code_changed
+    if trace_all_funcs {
+      trace(
+        "round[\{rounds}] propagate_code:phase_done elapsed_ms=\{sg_trace_elapsed_ms(code_start_ms)} changed=\{code_changed}",
+      )
+    }
     trace(
       "round[\{rounds}] done elapsed_ms=\{sg_trace_elapsed_ms(round_start_ms)} analyze_changed=\{analyze_changed0} fold_changed=\{fold_changed} reanalyzed=\{reanalyzed} reanalyze_changed=\{analyze_changed1} remove_changed=\{remove_changed} need_more=\{need_more} prefer_changed=\{prefer_changed} globals_changed=\{globals_changed} code_changed=\{code_changed}",
     )
