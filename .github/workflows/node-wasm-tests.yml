@@ -1,0 +1,82 @@
+name: "Node WASM Tests"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "node/**"
+      - "tests/node/**"
+      - "src/node_api/**"
+      - "src/cmd/**"
+      - "src/cli/**"
+      - "src/ir/**"
+      - "src/lib/**"
+      - "src/passes/**"
+      - "src/wast/**"
+      - "src/wat/**"
+      - "src/binary/**"
+      - "src/validate/**"
+      - "scripts/generate-node-package.mjs"
+      - "scripts/build-node-package.mjs"
+      - "moon.mod.json"
+      - "moon.pkg.json"
+      - ".github/workflows/node-wasm-tests.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "node/**"
+      - "tests/node/**"
+      - "src/node_api/**"
+      - "src/cmd/**"
+      - "src/cli/**"
+      - "src/ir/**"
+      - "src/lib/**"
+      - "src/passes/**"
+      - "src/wast/**"
+      - "src/wat/**"
+      - "src/binary/**"
+      - "src/validate/**"
+      - "scripts/generate-node-package.mjs"
+      - "scripts/build-node-package.mjs"
+      - "moon.mod.json"
+      - "moon.pkg.json"
+      - ".github/workflows/node-wasm-tests.yml"
+
+jobs:
+  node-wasm-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 25
+
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Run Node unit tests
+        run: |
+          npm --prefix tests/node run test:unit
+
+      - name: Run wasm artifact build and comparison flow
+        env:
+          STARSHINE_TRACE_OPTIMIZE: "1"
+          STARSHINE_TRACE_OPTIMIZE_VERBOSE: "1"
+        run: |
+          npm --prefix tests/node run build:all
+
+      - name: Run official spec suite against self-optimized wasm
+        run: |
+          npm --prefix tests/node run test:spec:self-optimized:wasm
+
+      - name: Run Node package smoke tests
+        run: |
+          npm --prefix node run test

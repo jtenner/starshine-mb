@@ -1,0 +1,18 @@
+import {
+  "jtenner/starshine/binary",
+  "jtenner/starshine/cli",
+  "jtenner/starshine/diff",
+  "jtenner/starshine/lib",
+  "jtenner/starshine/passes",
+  "jtenner/starshine/validate",
+  "jtenner/starshine/wast",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/quickcheck/splitmix",
+}
+
+options(
+  "is-main": true,
+  link: { "wasm": { "export-memory-name": "memory" } },
+)

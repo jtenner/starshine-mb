@@ -1,0 +1,160 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/cmd"
+
+import {
+  "jtenner/starshine/binary",
+  "jtenner/starshine/cli",
+  "jtenner/starshine/lib",
+  "jtenner/starshine/passes",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn cmd_help_text() -> String
+
+pub fn cmd_version_text() -> String
+
+pub fn differential_validate_wasm(Bytes, adapters? : DifferentialAdapters) -> Result[DifferentialValidationReport, String]
+
+pub fn minimize_fuzz_passes(Array[String], (Array[String]) -> Bool) -> Array[String]
+
+pub fn native_differential_tools_available() -> (Bool, Bool)
+
+pub fn persist_fuzz_failure_report(FuzzFailureReport, FuzzFailurePersistIO, corpus_dir? : String) -> Result[(String, String?), String]
+
+pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]
+
+pub fn run_cmd_exit_code(Array[String]) -> Int
+
+pub fn run_cmd_exit_code_with_adapter(Array[String], CmdIO, config_json? : String?) -> Int
+
+pub fn run_cmd_with_adapter(Array[String], CmdIO, config_json? : String?) -> Result[CmdRunSummary, CmdError]
+
+pub fn run_wasm_smith_fuzz_harness(Int, seed? : UInt64, optimize_passes? : Array[@passes.ModulePass], optimize_pass_names? : Array[String]?, differential_adapters? : DifferentialAdapters?, differential_every? : Int, on_failure? : ((FuzzFailureReport) -> Result[Unit, String])?) -> Result[WasmSmithFuzzStats, String]
+
+pub fn verify_readme_api_signatures(String, Array[(String, String)]) -> Result[Unit, String]
+
+pub fn verify_readme_api_signatures_with_required_blocks(String, Array[(String, String)], Array[String]) -> Result[Unit, String]
+
+// Errors
+pub suberror CmdEncodeError {
+  Encode(@binary.EncodeError)
+  Adapter(String)
+}
+pub fn CmdEncodeError::adapter(String) -> Self
+pub fn CmdEncodeError::encode(@binary.EncodeError) -> Self
+pub impl Eq for CmdEncodeError
+pub impl Show for CmdEncodeError
+pub impl @debug.Debug for CmdEncodeError
+
+// Types and methods
+pub enum CmdError {
+  CliParse(@cli.CliParseError)
+  UnknownPassFlag(String)
+  InvalidConfig(String)
+  ConfigNotFound(String)
+  ConfigReadFailed(String)
+  InputReadFailed(String)
+  SpecFailed(String)
+  TextLoweringFailed(String)
+  DecodeFailed(String, @binary.DecodeError)
+  OptimizeFailed(String)
+  EncodeFailed(String, CmdEncodeError)
+  OutputWriteFailed(String)
+  AmbiguousOutputFile(String)
+  NoInputFiles
+}
+pub fn CmdError::ambiguous_output_file(String) -> Self
+pub fn CmdError::unknown_pass_flag(String) -> Self
+pub impl Eq for CmdError
+pub impl Show for CmdError
+pub impl @debug.Debug for CmdError
+
+pub struct CmdIO {
+  get_env : (String) -> String?
+  file_exists : (String) -> Bool
+  read_file : (String) -> Result[Bytes, String]
+  encode_module : (@lib.Module) -> Result[Bytes, CmdEncodeError]
+  write_file : (String, Bytes) -> Result[Unit, String]
+  write_stdout : (Bytes) -> Result[Unit, String]
+  write_stderr : (Bytes) -> Result[Unit, String]
+  list_candidates : () -> Array[String]
+  lower_text_module : (String, @cli.CliInputFormat, Bytes) -> Result[Bytes, String]
+}
+pub fn CmdIO::new(get_env? : (String) -> String?, file_exists? : (String) -> Bool, read_file? : (String) -> Result[Bytes, String], encode_module? : (@lib.Module) -> Result[Bytes, CmdEncodeError], write_file? : (String, Bytes) -> Result[Unit, String], write_stdout? : (Bytes) -> Result[Unit, String], write_stderr? : (Bytes) -> Result[Unit, String], list_candidates? : () -> Array[String], lower_text_module? : (String, @cli.CliInputFormat, Bytes) -> Result[Bytes, String]) -> Self
+
+pub struct CmdRunSummary {
+  input_files : Array[String]
+  output_files : Array[String]
+  resolved_passes : Array[String]
+  optimize_level : Int
+  shrink_level : Int
+  traps_never_happen : Bool
+  monomorphize_min_benefit : Int
+  low_memory_unused : Bool
+  low_memory_bound : UInt64
+}
+pub fn CmdRunSummary::new(input_files? : Array[String], output_files? : Array[String], resolved_passes? : Array[String], optimize_level? : Int, shrink_level? : Int, traps_never_happen? : Bool, monomorphize_min_benefit? : Int, low_memory_unused? : Bool, low_memory_bound? : UInt64) -> Self
+pub impl Eq for CmdRunSummary
+pub impl Show for CmdRunSummary
+pub impl @debug.Debug for CmdRunSummary
+
+pub struct DifferentialAdapters {
+  wasm_tools_validate : (Bytes) -> Result[Bool, String]
+  binaryen_validate : (Bytes) -> Result[Bool, String]
+}
+pub fn DifferentialAdapters::new(wasm_tools_validate? : (Bytes) -> Result[Bool, String], binaryen_validate? : (Bytes) -> Result[Bool, String]) -> Self
+
+pub struct DifferentialValidationReport {
+  internal_valid : Bool
+  wasm_tools_valid : Bool?
+  binaryen_valid : Bool?
+}
+pub impl Eq for DifferentialValidationReport
+pub impl Show for DifferentialValidationReport
+pub impl @debug.Debug for DifferentialValidationReport
+
+pub struct FuzzFailurePersistIO {
+  ensure_dir : (String) -> Result[Unit, String]
+  write_file : (String, Bytes) -> Result[Unit, String]
+}
+pub fn FuzzFailurePersistIO::new(ensure_dir? : (String) -> Result[Unit, String], write_file? : (String, Bytes) -> Result[Unit, String]) -> Self
+
+pub struct FuzzFailureReport {
+  seed : UInt64
+  attempt : Int
+  generated_valid : Int
+  stage : String
+  message : String
+  optimize_passes : Array[String]
+  minimized_passes : Array[String]
+  wasm : Bytes?
+}
+pub fn FuzzFailureReport::new(UInt64, Int, Int, String, String, optimize_passes? : Array[String], minimized_passes? : Array[String], wasm? : Bytes?) -> Self
+pub impl Eq for FuzzFailureReport
+pub impl Show for FuzzFailureReport
+pub impl @debug.Debug for FuzzFailureReport
+
+type ReadmeApiVerifyBlock
+pub impl Eq for ReadmeApiVerifyBlock
+pub impl Show for ReadmeApiVerifyBlock
+pub impl @debug.Debug for ReadmeApiVerifyBlock
+
+pub struct WasmSmithFuzzStats {
+  attempts : Int
+  generated_valid : Int
+  generated_invalid : Int
+  pipeline_validated : Int
+  optimized : Int
+  roundtripped : Int
+  differential_checked : Int
+}
+pub fn WasmSmithFuzzStats::new(attempts? : Int, generated_valid? : Int, generated_invalid? : Int, pipeline_validated? : Int, optimized? : Int, roundtripped? : Int, differential_checked? : Int) -> Self
+pub impl Eq for WasmSmithFuzzStats
+pub impl Show for WasmSmithFuzzStats
+pub impl @debug.Debug for WasmSmithFuzzStats
+
+// Type aliases
+
+// Traits
+

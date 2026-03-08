@@ -1,0 +1,11 @@
+export type { OpaqueHandle, StarshineResult } from "./internal/shared.js";
+export * as binary from './binary.js';
+export * as cli from './cli.js';
+export * as cmd from './cmd.js';
+export * as ir from './ir.js';
+export * as lib from './lib.js';
+export * as passes from './passes.js';
+export * as transformer from './transformer.js';
+export * as validate from './validate.js';
+export * as wast from './wast.js';
+export * as wat from './wat.js';

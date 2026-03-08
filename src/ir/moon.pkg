@@ -1,0 +1,7 @@
+import {
+  "moonbitlang/core/set",
+  "jtenner/starshine/lib",
+  "jtenner/starshine/transformer",
+  "moonbitlang/core/double",
+  "moonbitlang/core/float",
+}

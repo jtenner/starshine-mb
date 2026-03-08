@@ -1,0 +1,268 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/passes"
+
+import {
+  "jtenner/starshine/lib",
+  "moonbitlang/core/hashmap",
+}
+
+// Values
+pub fn default_function_optimization_passes(@lib.Module, OptimizeOptions) -> Array[ModulePass]
+
+pub fn default_global_optimization_post_passes(@lib.Module, OptimizeOptions) -> Array[ModulePass]
+
+pub fn default_global_optimization_pre_passes(@lib.Module, OptimizeOptions, closed_world? : Bool) -> Array[ModulePass]
+
+pub fn optimize_module(@lib.Module, Array[ModulePass]) -> Result[@lib.Module, String]
+
+pub fn optimize_module_with_options(@lib.Module, Array[ModulePass], OptimizeOptions) -> Result[@lib.Module, String]
+
+pub fn optimize_module_with_options_trace(@lib.Module, Array[ModulePass], OptimizeOptions, (String) -> Unit, trace_pass_details? : Bool, trace_module_stats? : Bool, dump_failed_module_state? : Bool) -> Result[@lib.Module, String]
+
+// Errors
+
+// Types and methods
+pub(all) struct AbstractTypeRefiningPassProps {
+  traps_never_happen : Bool
+}
+pub impl Eq for AbstractTypeRefiningPassProps
+pub impl Show for AbstractTypeRefiningPassProps
+
+pub(all) struct AsyncifyPassProps {
+  imports : Array[String]
+  ignore_imports : Bool
+  ignore_indirect : Bool
+  asserts : Bool
+  ignore_unwind_from_catch : Bool
+  verbose : Bool
+  memory : String?
+  removelist : Array[String]
+  addlist : Array[String]
+  propagate_addlist : Bool
+  onlylist : Array[String]
+  import_globals : Bool
+  export_globals : Bool
+  in_secondary_memory : Bool
+  secondary_memory_size : UInt64
+  auto_lower_tail_calls : Bool
+}
+pub impl Eq for AsyncifyPassProps
+pub impl Show for AsyncifyPassProps
+
+type BlockLiveness
+pub impl Show for BlockLiveness
+
+pub struct CFPState {
+  field_values : @hashmap.HashMap[(Int, Int), FieldValue]
+  type_sec : @lib.TypeSec?
+}
+
+pub struct ConstHoistingState {
+  usage : Map[Literal, Int]
+}
+
+type ConstKey
+pub impl Eq for ConstKey
+pub impl Hash for ConstKey
+
+type EquivalentClass
+pub impl Eq for EquivalentClass
+pub impl Show for EquivalentClass
+
+pub enum FieldValue {
+  Uninitialized
+  Constant(@lib.TInstr)
+  Unknown
+}
+pub impl Eq for FieldValue
+
+type ILCallKind
+pub impl Eq for ILCallKind
+
+type ILTrivialKind
+pub impl Eq for ILTrivialKind
+
+pub struct InliningOptions {
+  always_inline_max_size : Int
+  one_caller_inline_max_size : Int
+  flexible_inline_max_size : Int
+  max_combined_binary_size : Int
+  allow_functions_with_loops : Bool
+  partial_inlining_ifs : Int
+}
+pub fn InliningOptions::new(always_inline_max_size? : Int, one_caller_inline_max_size? : Int, flexible_inline_max_size? : Int, max_combined_binary_size? : Int, allow_functions_with_loops? : Bool, partial_inlining_ifs? : Int) -> Self
+
+pub struct Literal(LiteralKind, Bytes)
+
+
+pub impl Compare for Literal
+pub impl Eq for Literal
+pub impl Hash for Literal
+pub impl Show for Literal
+
+pub enum LiteralKind {
+  I32LiteralKind
+  I64LiteralKind
+  F32LiteralKind
+  F64LiteralKind
+  V128LiteralKind
+}
+pub impl Compare for LiteralKind
+pub impl Eq for LiteralKind
+pub impl Hash for LiteralKind
+pub impl Show for LiteralKind
+
+type MSFCallSite
+pub impl Eq for MSFCallSite
+pub impl Hash for MSFCallSite
+pub impl Show for MSFCallSite
+
+type MSFDefinedFunc
+pub impl Eq for MSFDefinedFunc
+pub impl Show for MSFDefinedFunc
+
+type MSFHashBucketKey
+pub impl Eq for MSFHashBucketKey
+pub impl Hash for MSFHashBucketKey
+
+type MSFHashState
+pub impl Show for MSFHashState
+
+type MSFParamKey
+pub impl Eq for MSFParamKey
+pub impl Hash for MSFParamKey
+
+type MSFParamKind
+pub impl Eq for MSFParamKind
+pub impl Hash for MSFParamKind
+pub impl Show for MSFParamKind
+
+type MSFSiteValue
+pub impl Eq for MSFSiteValue
+pub impl Hash for MSFSiteValue
+pub impl Show for MSFSiteValue
+
+pub(all) struct MemoryPackingPassProps {
+  zero_filled_memory : Bool
+  traps_never_happen : Bool
+  max_data_segments : Int
+}
+pub impl Eq for MemoryPackingPassProps
+pub impl Show for MemoryPackingPassProps
+
+pub(all) enum ModulePass {
+  AbstractTypeRefining(AbstractTypeRefiningPassProps)
+  AlignmentLowering
+  AvoidReinterprets
+  CoalesceLocals
+  CodeFolding
+  CodePushing
+  ConstHoisting
+  ConstantFieldPropagation
+  DataflowOptimization
+  DeadCodeElimination
+  DeadArgumentElimination
+  DeadArgumentEliminationOptimizing
+  SignaturePruning
+  SignatureRefining
+  DuplicateImportElimination
+  GlobalRefining
+  GlobalStructInference
+  GlobalStructInferenceDescCast
+  GlobalTypeOptimization
+  SimplifyGlobals
+  SimplifyGlobalsOptimizing
+  GlobalEffects
+  PropagateGlobalsGlobally
+  TypeRefining
+  TypeGeneralizing
+  TypeFinalizing
+  TypeUnFinalizing
+  Unsubtyping
+  Heap2Local
+  HeapStoreOptimization
+  Inlining
+  InliningOptimizing
+  InlineMain
+  LocalCSE
+  LocalSubtyping
+  LoopInvariantCodeMotion
+  MergeLocals
+  MergeSimilarFunctions
+  MergeBlocks
+  Flatten
+  ReReloop
+  TupleOptimization
+  OnceReduction
+  Asyncify(AsyncifyPassProps)
+  MinimizeRecGroups
+  TypeMerging
+  Monomorphize
+  MonomorphizeAlways
+  MemoryPacking(MemoryPackingPassProps)
+  OptimizeAddedConstants
+  OptimizeAddedConstantsPropagate
+  OptimizeInstructions
+  Precompute
+  PrecomputePropagate
+  RedundantSetElimination
+  PickLoadSigns
+  GUFA
+  GUFAOptimizing
+  GUFACastAll
+  I64ToI32Lowering
+  DuplicateFunctionElimination
+  Directize(Bool)
+  OptimizeCasts
+  DeNaN
+  RemoveUnusedBrs
+  RemoveUnusedNames
+  SimplifyLocals
+  SimplifyLocalsNoTee
+  SimplifyLocalsNoStructure
+  SimplifyLocalsNoTeeNoStructure
+  SimplifyLocalsNoNesting
+  Untee
+  Vacuum
+  ReorderLocals
+  ReorderTypes
+  ReorderGlobals
+  ReorderGlobalsAlways
+  ReorderFunctions
+  ReorderFunctionsByName
+  RemoveUnusedTypes
+  RemoveUnused
+  RemoveUnusedModuleElements
+  RemoveUnusedNonFunctionElements
+}
+pub impl Eq for ModulePass
+pub impl Show for ModulePass
+
+pub struct OptimizeOptions {
+  optimize_level : Int
+  shrink_level : Int
+  inlining : InliningOptions
+  monomorphize_min_benefit : Int
+  low_memory_unused : Bool
+  low_memory_bound : UInt64
+  traps_never_happen : Bool
+}
+pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool) -> Self
+
+type ParamInfo
+pub impl Eq for ParamInfo
+pub impl Hash for ParamInfo
+pub impl Show for ParamInfo
+
+pub struct SquareMatrix[T] {
+  storage : Map[UInt64, T]
+  n : UInt
+}
+
+type Tail
+pub impl Eq for Tail
+
+// Type aliases
+
+// Traits
+

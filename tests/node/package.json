@@ -1,0 +1,29 @@
+{
+  "name": "@jtenner/starshine-node-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Node/WASI tests for Starshine wasm artifacts",
+  "type": "commonjs",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "dist",
+    "scripts",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "mkdir -p dist && rm -f dist/*.wasm dist/*.json dist/*.txt",
+    "test:unit": "node --test test/*.test.mjs",
+    "build:wasm:debug": "\"${MOON_BIN:-$HOME/.moon/bin/moon}\" build --target wasm",
+    "build:wasm:optimized": "\"${MOON_BIN:-$HOME/.moon/bin/moon}\" build --target wasm --release",
+    "build:wasm:artifacts": "node scripts/build-wasm-artifacts.mjs",
+    "copy:wasm": "node scripts/copy-wasm.mjs",
+    "optimize:wasm": "node scripts/optimize-with-starshine.mjs",
+    "bootstrap:optimized": "node scripts/bootstrap-optimized.mjs",
+    "test:spec:wasm": "node scripts/run-wasm-spec-suite.mjs",
+    "test:spec:self-optimized:wasm": "node scripts/run-wasm-spec-suite.mjs --wasm tests/node/dist/starshine-self-optimized-wasi.wasm",
+    "compare:wasm": "node scripts/compare-wasm.mjs",
+    "build:all": "npm run clean && npm run build:wasm:artifacts && npm run compare:wasm",
+    "test": "npm run test:unit && npm run build:all"
+  }
+}

@@ -1,0 +1,2 @@
+# keep wasm artifacts publishable even though they are gitignored locally
+

@@ -1,0 +1,76 @@
+{
+  "name": "@jtenner/starshine",
+  "version": "0.1.0",
+  "description": "Node.js package for the Starshine WebAssembly toolkit",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    },
+    "./binary": {
+      "types": "./binary.d.ts",
+      "import": "./binary.js"
+    },
+    "./cli": {
+      "types": "./cli.d.ts",
+      "import": "./cli.js"
+    },
+    "./cmd": {
+      "types": "./cmd.d.ts",
+      "import": "./cmd.js"
+    },
+    "./ir": {
+      "types": "./ir.d.ts",
+      "import": "./ir.js"
+    },
+    "./lib": {
+      "types": "./lib.d.ts",
+      "import": "./lib.js"
+    },
+    "./passes": {
+      "types": "./passes.d.ts",
+      "import": "./passes.js"
+    },
+    "./transformer": {
+      "types": "./transformer.d.ts",
+      "import": "./transformer.js"
+    },
+    "./validate": {
+      "types": "./validate.d.ts",
+      "import": "./validate.js"
+    },
+    "./wast": {
+      "types": "./wast.d.ts",
+      "import": "./wast.js"
+    },
+    "./wat": {
+      "types": "./wat.d.ts",
+      "import": "./wat.js"
+    }
+  },
+  "bin": {
+    "starshine": "./bin/starshine.js"
+  },
+  "files": [
+    "*.js",
+    "*.d.ts",
+    "bin",
+    "examples",
+    "internal",
+    "README.md",
+    "package.json"
+  ],
+  "engines": {
+    "node": ">=25"
+  },
+  "scripts": {
+    "generate": "node ../scripts/generate-node-package.mjs",
+    "build": "node ../scripts/build-node-package.mjs",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "clean": "rm -f internal/starshine.wasm-gc.wasm internal/starshine.wasm-wasi.wasm",
+    "prepack": "npm run build"
+  }
+}

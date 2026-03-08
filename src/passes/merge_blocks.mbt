@@ -1,0 +1,4175 @@
+///| 
+/// Copyright 2023 WebAssembly Community Group participants
+/// 
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+/// 
+///     http://www.apache.org/licenses/LICENSE-2.0
+/// 
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+///|
+priv struct BranchCacheKey {
+  instr : TInstr
+  depth : Int
+} derive(Eq, Hash)
+
+///|
+priv struct BranchCache {
+  entries : Map[BranchCacheKey, Bool]
+}
+
+///|
+fn BranchCache::new() -> BranchCache {
+  { entries: Map::new() }
+}
+
+///|
+priv struct MBEffects {
+  locals_read : Set[LocalIdx]
+  locals_written : Set[LocalIdx]
+  mut reads_memory : Bool
+  mut writes_memory : Bool
+  mut reads_globals : Bool
+  mut writes_globals : Bool
+  mut calls : Bool
+  mut branches : Bool
+  mut traps : Bool
+  mut throws : Bool
+}
+
+///|
+fn MBEffects::new() -> MBEffects {
+  {
+    locals_read: Set::new(),
+    locals_written: Set::new(),
+    reads_memory: false,
+    writes_memory: false,
+    reads_globals: false,
+    writes_globals: false,
+    calls: false,
+    branches: false,
+    traps: false,
+    throws: false,
+  }
+}
+
+///|
+fn MBEffects::merge(self : MBEffects, other : MBEffects) -> Unit {
+  for idx in other.locals_read {
+    self.locals_read.add(idx)
+  }
+  for idx in other.locals_written {
+    self.locals_written.add(idx)
+  }
+  self.reads_memory = self.reads_memory || other.reads_memory
+  self.writes_memory = self.writes_memory || other.writes_memory
+  self.reads_globals = self.reads_globals || other.reads_globals
+  self.writes_globals = self.writes_globals || other.writes_globals
+  self.calls = self.calls || other.calls
+  self.branches = self.branches || other.branches
+  self.traps = self.traps || other.traps
+  self.throws = self.throws || other.throws
+}
+
+///|
+fn MBEffects::invalidates(self : MBEffects, other : MBEffects) -> Bool {
+  for local_idx in self.locals_written {
+    if other.locals_read.contains(local_idx) ||
+      other.locals_written.contains(local_idx) {
+      return true
+    }
+  }
+  for local_idx in self.locals_read {
+    if other.locals_written.contains(local_idx) {
+      return true
+    }
+  }
+  if (self.reads_memory && other.writes_memory) ||
+    (self.writes_memory && other.reads_memory) ||
+    (self.writes_memory && other.writes_memory) {
+    return true
+  }
+  if (self.reads_globals && other.writes_globals) ||
+    (self.writes_globals && other.reads_globals) ||
+    (self.writes_globals && other.writes_globals) {
+    return true
+  }
+  if self.calls || other.calls {
+    if self.reads_memory ||
+      self.writes_memory ||
+      other.reads_memory ||
+      other.writes_memory ||
+      self.reads_globals ||
+      self.writes_globals ||
+      other.reads_globals ||
+      other.writes_globals {
+      return true
+    }
+  }
+  if self.branches || other.branches || self.throws || other.throws {
+    return true
+  }
+  if self.traps || other.traps {
+    if self.has_side_effects() || other.has_side_effects() {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn MBEffects::has_side_effects(self : MBEffects) -> Bool {
+  self.locals_written.length() > 0 ||
+  self.writes_memory ||
+  self.writes_globals ||
+  self.calls ||
+  self.branches ||
+  self.throws ||
+  self.traps
+}
+
+///|
+priv struct MBStackSig {
+  required : Int
+  produced : Int
+  reachable : Bool
+}
+
+///|
+fn MBStackSig::new(
+  required : Int,
+  produced : Int,
+  reachable : Bool,
+) -> MBStackSig {
+  { required, produced, reachable }
+}
+
+///|
+
+///|
+fn mb_max_int(a : Int, b : Int) -> Int {
+  if a > b {
+    a
+  } else {
+    b
+  }
+}
+
+///|
+fn mb_nonneg_int(i : Int) -> Int {
+  if i > 0 {
+    i
+  } else {
+    0
+  }
+}
+
+///|
+fn mb_stack_sig_is_consistent(sig : MBStackSig) -> Bool {
+  sig.required >= 0 && (!sig.reachable || sig.produced >= 0)
+}
+
+///|
+fn mb_stack_sig_seq(a : MBStackSig, b : MBStackSig) -> MBStackSig {
+  if !a.reachable {
+    a
+  } else {
+    let upstream_slack = mb_nonneg_int(b.required - a.produced)
+    let required = a.required + upstream_slack
+    if !b.reachable {
+      MBStackSig::new(required, 0, false)
+    } else {
+      MBStackSig::new(
+        required,
+        mb_nonneg_int(upstream_slack + a.produced - b.required + b.produced),
+        true,
+      )
+    }
+  }
+}
+
+///|
+fn mb_stack_sig_pop_push(
+  child_sig : MBStackSig,
+  pop_count : Int,
+  push_count : Int,
+) -> MBStackSig {
+  if !child_sig.reachable {
+    child_sig
+  } else {
+    let upstream_slack = mb_nonneg_int(pop_count - child_sig.produced)
+    MBStackSig::new(
+      child_sig.required + upstream_slack,
+      mb_nonneg_int(
+        upstream_slack + child_sig.produced - pop_count + push_count,
+      ),
+      true,
+    )
+  }
+}
+
+///|
+fn mb_stack_sig_terminate(
+  child_sig : MBStackSig,
+  pop_count : Int,
+) -> MBStackSig {
+  if !child_sig.reachable {
+    child_sig
+  } else {
+    let upstream_slack = mb_nonneg_int(pop_count - child_sig.produced)
+    MBStackSig::new(child_sig.required + upstream_slack, 0, false)
+  }
+}
+
+///|
+fn mb_call_args_match_params(
+  args : Array[TInstr],
+  params : Array[ValType],
+  env : Env,
+) -> Bool {
+  if args.length() != params.length() {
+    false
+  } else {
+    let mut matches = true
+    for i = 0; i < params.length(); i = i + 1 {
+      match mb_infer_tinstr_type(args[i], env) {
+        Some(arg_ty) =>
+          if arg_ty != params[i] {
+            matches = false
+            break
+          }
+        None => {
+          matches = false
+          break
+        }
+      }
+    }
+    matches
+  }
+}
+
+///|
+fn mb_local_set_arg_matches(
+  local_idx : LocalIdx,
+  value : TInstr,
+  env : Env,
+) -> Bool {
+  match (env.get_local_type(local_idx), mb_infer_tinstr_type(value, env)) {
+    (Some(want), Some(got)) => want == got
+    _ => false
+  }
+}
+
+///|
+fn mb_global_set_arg_matches(
+  global_idx : GlobalIdx,
+  value : TInstr,
+  env : Env,
+) -> Bool {
+  match (env.get_global_type(global_idx), mb_infer_tinstr_type(value, env)) {
+    (Some(GlobalType(want, _)), Some(got)) => want == got
+    _ => false
+  }
+}
+
+///|
+fn mb_stack_sig_list(items : Array[TInstr], env : Env) -> MBStackSig? {
+  let mut acc = MBStackSig::new(0, 0, true)
+  for item in items {
+    match mb_stack_sig_instr(item, env) {
+      Some(sig) => {
+        acc = mb_stack_sig_seq(acc, sig)
+        if !acc.reachable {
+          break
+        }
+      }
+      None => return None
+    }
+  }
+  Some(acc)
+}
+
+///|
+fn mb_stack_sig_if(
+  cond_sig : MBStackSig,
+  then_sig : MBStackSig,
+  else_sig : MBStackSig,
+) -> MBStackSig {
+  if !cond_sig.reachable {
+    return cond_sig
+  }
+  let branch_required = mb_max_int(then_sig.required, else_sig.required)
+  let branch_reachable = then_sig.reachable || else_sig.reachable
+  let then_produced = branch_required - then_sig.required + then_sig.produced
+  let else_produced = branch_required - else_sig.required + else_sig.produced
+  let branch_produced = if then_sig.reachable && else_sig.reachable {
+    if then_produced < else_produced {
+      then_produced
+    } else {
+      else_produced
+    }
+  } else if then_sig.reachable {
+    then_produced
+  } else if else_sig.reachable {
+    else_produced
+  } else {
+    0
+  }
+  let need_after_cond = 1 + branch_required
+  let upstream_slack = mb_nonneg_int(need_after_cond - cond_sig.produced)
+  MBStackSig::new(
+    cond_sig.required + upstream_slack,
+    if branch_reachable {
+      mb_nonneg_int(
+        upstream_slack + cond_sig.produced - need_after_cond + branch_produced,
+      )
+    } else {
+      0
+    },
+    branch_reachable,
+  )
+}
+
+///|
+fn mb_block_result_count(bt : BlockType, env : Env) -> Int? {
+  match env.expand_blocktype(bt) {
+    Ok((_, results)) => Some(results.length())
+    Err(_) => None
+  }
+}
+
+///|
+fn mb_stack_sig_with_declared_results(
+  child_sig : MBStackSig,
+  result_count : Int,
+) -> MBStackSig {
+  if !child_sig.reachable {
+    child_sig
+  } else {
+    let upstream_slack = mb_nonneg_int(result_count - child_sig.produced)
+    MBStackSig::new(child_sig.required + upstream_slack, result_count, true)
+  }
+}
+
+///|
+fn mb_stack_sig_instr(instr : TInstr, env : Env) -> MBStackSig? {
+  match instr.kind {
+    TInstrKind::TNop => Some(MBStackSig::new(0, 0, true))
+    TInstrKind::TUnreachable => Some(MBStackSig::new(0, 0, false))
+    TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_) => Some(MBStackSig::new(0, 1, true))
+    TInstrKind::TDrop(value) =>
+      mb_stack_sig_instr(value, env).map(fn(sig) {
+        mb_stack_sig_pop_push(sig, 1, 0)
+      })
+    TInstrKind::TLocalSet(local_idx, value) =>
+      if !mb_local_set_arg_matches(local_idx, value, env) {
+        None
+      } else {
+        mb_stack_sig_instr(value, env).map(fn(sig) {
+          mb_stack_sig_pop_push(sig, 1, 0)
+        })
+      }
+    TInstrKind::TGlobalSet(global_idx, value) =>
+      if !mb_global_set_arg_matches(global_idx, value, env) {
+        None
+      } else {
+        mb_stack_sig_instr(value, env).map(fn(sig) {
+          mb_stack_sig_pop_push(sig, 1, 0)
+        })
+      }
+    TInstrKind::TLocalTee(local_idx, value) =>
+      if !mb_local_set_arg_matches(local_idx, value, env) {
+        None
+      } else {
+        mb_stack_sig_instr(value, env).map(fn(sig) {
+          mb_stack_sig_pop_push(sig, 1, 1)
+        })
+      }
+    TInstrKind::TUnary(_, value)
+    | TInstrKind::TLoad(_, _, value)
+    | TInstrKind::TRefIsNull(value)
+    | TInstrKind::TRefAsNonNull(value)
+    | TInstrKind::TAnyConvertExtern(value)
+    | TInstrKind::TExternConvertAny(value)
+    | TInstrKind::TI31GetS(value)
+    | TInstrKind::TI31GetU(value)
+    | TInstrKind::TArrayLen(value) =>
+      mb_stack_sig_instr(value, env).map(fn(sig) {
+        mb_stack_sig_pop_push(sig, 1, 1)
+      })
+    TInstrKind::TBinary(_, left, right) | TInstrKind::TRefEq(left, right) =>
+      mb_stack_sig_list([left, right], env).map(fn(sig) {
+        mb_stack_sig_pop_push(sig, 2, 1)
+      })
+    TInstrKind::TStore(_, _, addr, value) =>
+      mb_stack_sig_list([addr, value], env).map(fn(sig) {
+        mb_stack_sig_pop_push(sig, 2, 0)
+      })
+    TInstrKind::TSelect(_, cond, if_true, if_false) =>
+      mb_stack_sig_list([if_true, if_false, cond], env).map(fn(sig) {
+        mb_stack_sig_pop_push(sig, 3, 1)
+      })
+    TInstrKind::TBlock(bt, body)
+    | TInstrKind::TLoop(bt, body)
+    | TInstrKind::TTryTable(bt, _, body) =>
+      match
+        (mb_stack_sig_list(body.instrs, env), mb_block_result_count(bt, env)) {
+        (Some(sig), Some(result_count)) =>
+          Some(mb_stack_sig_with_declared_results(sig, result_count))
+        _ => None
+      }
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      let else_sig = match else_body {
+        Some(other) => mb_stack_sig_list(other.instrs, env)
+        None => Some(MBStackSig::new(0, 0, true))
+      }
+      match
+        (
+          mb_stack_sig_instr(cond, env),
+          mb_stack_sig_list(then_body.instrs, env),
+          else_sig,
+        ) {
+        (Some(cond_sig), Some(then_sig), Some(other_sig)) =>
+          match instr.kind {
+            TInstrKind::TIf(bt, _, _, _) =>
+              match mb_block_result_count(bt, env) {
+                Some(result_count) =>
+                  Some(
+                    mb_stack_sig_with_declared_results(
+                      mb_stack_sig_if(cond_sig, then_sig, other_sig),
+                      result_count,
+                    ),
+                  )
+                None => None
+              }
+            _ => None
+          }
+        _ => None
+      }
+    }
+    TInstrKind::TCall(func_idx, args) =>
+      match env.get_functype_by_funcidx(func_idx) {
+        Some(FuncType(params, results)) =>
+          if !mb_call_args_match_params(args, params, env) {
+            None
+          } else {
+            match mb_stack_sig_list(args, env) {
+              Some(sig) =>
+                Some(
+                  mb_stack_sig_pop_push(sig, params.length(), results.length()),
+                )
+              None => None
+            }
+          }
+        _ => None
+      }
+    TInstrKind::TCallIndirect(type_idx, _, args, callee)
+    | TInstrKind::TCallRef(type_idx, args, callee) =>
+      match env.resolve_functype(type_idx) {
+        Some(FuncType(params, results)) =>
+          if !mb_call_args_match_params(args, params, env) {
+            None
+          } else {
+            match mb_stack_sig_list(args + [callee], env) {
+              Some(sig) =>
+                Some(
+                  mb_stack_sig_pop_push(
+                    sig,
+                    params.length() + 1,
+                    results.length(),
+                  ),
+                )
+              None => None
+            }
+          }
+        _ => None
+      }
+    TInstrKind::TReturn(values) | TInstrKind::TThrow(_, values) =>
+      mb_stack_sig_list(values, env).map(fn(sig) {
+        mb_stack_sig_terminate(sig, 0)
+      })
+    TInstrKind::TThrowRef(value) =>
+      mb_stack_sig_instr(value, env).map(fn(sig) {
+        mb_stack_sig_terminate(sig, 1)
+      })
+    TInstrKind::TBr(_, values) =>
+      mb_stack_sig_list(values, env).map(fn(sig) {
+        mb_stack_sig_terminate(sig, 0)
+      })
+    TInstrKind::TBrIf(_, cond, values) =>
+      mb_stack_sig_list(values + [cond], env).map(fn(sig) {
+        mb_stack_sig_pop_push(sig, 1, 0)
+      })
+    TInstrKind::TBrTable(_, _, index, values) =>
+      mb_stack_sig_list(values + [index], env).map(fn(sig) {
+        mb_stack_sig_terminate(sig, 1)
+      })
+    TInstrKind::TReturnCall(func_idx, args) =>
+      match env.get_functype_by_funcidx(func_idx) {
+        Some(FuncType(params, _)) =>
+          if !mb_call_args_match_params(args, params, env) {
+            None
+          } else {
+            match mb_stack_sig_list(args, env) {
+              Some(sig) => Some(mb_stack_sig_terminate(sig, params.length()))
+              None => None
+            }
+          }
+        _ => None
+      }
+    TInstrKind::TReturnCallIndirect(type_idx, _, args, callee)
+    | TInstrKind::TReturnCallRef(type_idx, args, callee) =>
+      match env.resolve_functype(type_idx) {
+        Some(FuncType(params, _)) =>
+          if !mb_call_args_match_params(args, params, env) {
+            None
+          } else {
+            match mb_stack_sig_list(args + [callee], env) {
+              Some(sig) =>
+                Some(mb_stack_sig_terminate(sig, params.length() + 1))
+              None => None
+            }
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn mb_rewrite_critical_types_hold_expr(expr : TExpr, env : Env) -> Bool {
+  for instr in expr.instrs {
+    if !mb_rewrite_critical_types_hold_instr(instr, env) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn mb_rewrite_critical_types_hold_instr(instr : TInstr, env : Env) -> Bool {
+  match instr.kind {
+    TInstrKind::TCall(func_idx, args) =>
+      match env.get_functype_by_funcidx(func_idx) {
+        Some(FuncType(params, _)) =>
+          mb_rewrite_critical_types_hold_expr(TExpr::new(args), env) &&
+          mb_call_args_match_params(args, params, env)
+        _ => false
+      }
+    TInstrKind::TCallIndirect(type_idx, _, args, callee) =>
+      match env.resolve_functype(type_idx) {
+        Some(FuncType(params, _)) =>
+          mb_rewrite_critical_types_hold_expr(TExpr::new(args), env) &&
+          mb_rewrite_critical_types_hold_instr(callee, env) &&
+          mb_call_args_match_params(args, params, env) &&
+          mb_infer_tinstr_type(callee, env) == Some(ValType::i32())
+        _ => false
+      }
+    TInstrKind::TCallRef(type_idx, args, callee) =>
+      match env.resolve_functype(type_idx) {
+        Some(FuncType(params, _)) => {
+          let callee_ok = match mb_infer_tinstr_type(callee, env) {
+            Some(RefTypeValType(_)) => true
+            _ => false
+          }
+          mb_rewrite_critical_types_hold_expr(TExpr::new(args), env) &&
+          mb_rewrite_critical_types_hold_instr(callee, env) &&
+          mb_call_args_match_params(args, params, env) &&
+          callee_ok
+        }
+        _ => false
+      }
+    TInstrKind::TLocalSet(local_idx, value) =>
+      mb_rewrite_critical_types_hold_instr(value, env) &&
+      mb_local_set_arg_matches(local_idx, value, env)
+    TInstrKind::TLocalTee(local_idx, value) =>
+      mb_rewrite_critical_types_hold_instr(value, env) &&
+      mb_local_set_arg_matches(local_idx, value, env)
+    TInstrKind::TGlobalSet(global_idx, value) =>
+      mb_rewrite_critical_types_hold_instr(value, env) &&
+      mb_global_set_arg_matches(global_idx, value, env)
+    TInstrKind::TBlock(_, body) =>
+      mb_rewrite_critical_types_hold_expr(body, env)
+    TInstrKind::TLoop(_, body) => mb_rewrite_critical_types_hold_expr(body, env)
+    TInstrKind::TTryTable(_, _, body) =>
+      mb_rewrite_critical_types_hold_expr(body, env)
+    TInstrKind::TIf(_, cond, then_, else_) => {
+      let else_ok = match else_ {
+        Some(other) => mb_rewrite_critical_types_hold_expr(other, env)
+        None => true
+      }
+      mb_rewrite_critical_types_hold_instr(cond, env) &&
+      mb_rewrite_critical_types_hold_expr(then_, env) &&
+      else_ok
+    }
+    _ => {
+      for child in mb_eval_children(instr) {
+        if !mb_rewrite_critical_types_hold_instr(child, env) {
+          return false
+        }
+      }
+      true
+    }
+  }
+}
+
+///|
+fn mb_rewrite_critical_types_hold_items(
+  items : Array[TInstr],
+  env : Env,
+) -> Bool {
+  for item in items {
+    if !mb_rewrite_critical_types_hold_instr(item, env) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn mb_rewrite_preserves_stack_sig(
+  before : TInstr,
+  after_items : Array[TInstr],
+  env : Env,
+) -> Bool {
+  if !mb_rewrite_critical_types_hold_items(after_items, env) {
+    return false
+  }
+  match (mb_stack_sig_instr(before, env), mb_stack_sig_list(after_items, env)) {
+    (Some(before_sig), Some(after_sig)) =>
+      mb_stack_sig_is_consistent(before_sig) &&
+      mb_stack_sig_is_consistent(after_sig) &&
+      before_sig.reachable == after_sig.reachable &&
+      before_sig.required == after_sig.required &&
+      before_sig.produced == after_sig.produced
+    _ => false
+  }
+}
+
+///|
+fn compute_effects(expr : TInstr) -> MBEffects {
+  let effects = MBEffects::new()
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+    mb_collect_shallow_effects(curr, effects)
+    self.walk_tinstruction_default((), curr)
+  })
+  ignore(walker.walk_tinstruction((), expr))
+  effects
+}
+
+///|
+fn invalidates(a : MBEffects, b : MBEffects) -> Bool {
+  a.invalidates(b)
+}
+
+///|
+fn mb_collect_shallow_effects(instr : TInstr, effects : MBEffects) -> Unit {
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => effects.locals_read.add(idx)
+    TInstrKind::TLocalSet(idx, _) => effects.locals_written.add(idx)
+    TInstrKind::TLocalTee(idx, _) => {
+      effects.locals_read.add(idx)
+      effects.locals_written.add(idx)
+    }
+    TInstrKind::TGlobalGet(_) => effects.reads_globals = true
+    TInstrKind::TGlobalSet(_, _) => effects.writes_globals = true
+    TInstrKind::TLoad(_, _, _) => {
+      effects.reads_memory = true
+      effects.traps = true
+    }
+    TInstrKind::TStore(_, _, _, _) => {
+      effects.writes_memory = true
+      effects.traps = true
+    }
+    TInstrKind::TMemoryGrow(_, _) => effects.writes_memory = true
+    TInstrKind::TMemorySize(_) => effects.reads_memory = true
+    TInstrKind::TMemoryCopy(_, _, _, _, _) => {
+      effects.reads_memory = true
+      effects.writes_memory = true
+    }
+    TInstrKind::TMemoryFill(_, _, _, _) => effects.writes_memory = true
+    TInstrKind::TMemoryInit(_, _, _, _, _) => {
+      effects.reads_memory = true
+      effects.writes_memory = true
+    }
+    TInstrKind::TDataDrop(_) => effects.writes_memory = true
+    TInstrKind::TTableSet(_, _, _)
+    | TInstrKind::TTableGrow(_, _, _)
+    | TInstrKind::TTableFill(_, _, _, _) => effects.writes_memory = true
+    TInstrKind::TTableGet(_, _) | TInstrKind::TTableSize(_) =>
+      effects.reads_memory = true
+    TInstrKind::TTableCopy(_, _, _, _, _)
+    | TInstrKind::TTableInit(_, _, _, _, _)
+    | TInstrKind::TElemDrop(_) => {
+      effects.reads_memory = true
+      effects.writes_memory = true
+    }
+    TInstrKind::TCall(_, _)
+    | TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _) => effects.calls = true
+    TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _) => {
+      effects.calls = true
+      effects.branches = true
+    }
+    TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_) => effects.branches = true
+    TInstrKind::TThrow(_, _) => {
+      effects.throws = true
+      effects.branches = true
+    }
+    TInstrKind::TThrowRef(_) => {
+      effects.throws = true
+      effects.branches = true
+    }
+    TInstrKind::TUnreachable => effects.traps = true
+    TInstrKind::TRefAsNonNull(_) | TInstrKind::TRefCast(_, _, _) =>
+      effects.traps = true
+    TInstrKind::TStructGet(_, _, _)
+    | TInstrKind::TStructGetS(_, _, _)
+    | TInstrKind::TStructGetU(_, _, _) => {
+      effects.reads_memory = true
+      effects.traps = true
+    }
+    TInstrKind::TStructSet(_, _, _, _) => {
+      effects.writes_memory = true
+      effects.traps = true
+    }
+    TInstrKind::TArrayGet(_, _, _)
+    | TInstrKind::TArrayGetS(_, _, _)
+    | TInstrKind::TArrayGetU(_, _, _) => {
+      effects.reads_memory = true
+      effects.traps = true
+    }
+    TInstrKind::TArraySet(_, _, _, _) | TInstrKind::TArrayFill(_, _, _, _, _) => {
+      effects.writes_memory = true
+      effects.traps = true
+    }
+    TInstrKind::TArrayCopy(_, _, _, _, _, _, _)
+    | TInstrKind::TArrayInitData(_, _, _, _, _, _)
+    | TInstrKind::TArrayInitElem(_, _, _, _, _, _) => {
+      effects.reads_memory = true
+      effects.writes_memory = true
+      effects.traps = true
+    }
+    TInstrKind::TArrayNew(_, _, _)
+    | TInstrKind::TArrayNewDefault(_, _)
+    | TInstrKind::TArrayNewFixed(_, _)
+    | TInstrKind::TArrayNewData(_, _, _, _)
+    | TInstrKind::TArrayNewElem(_, _, _, _)
+    | TInstrKind::TStructNew(_, _)
+    | TInstrKind::TStructNewDefault(_) => effects.writes_memory = true
+    _ => ()
+  }
+}
+
+///|
+priv struct MBContext {
+  env : Env
+  mut needs_refinalize : Bool
+  branch_cache : BranchCache
+}
+
+///|
+fn MBContext::new(env : Env) -> MBContext {
+  { env, needs_refinalize: false, branch_cache: BranchCache::new() }
+}
+
+///|
+priv enum ProblemResult {
+  ProblemOk
+  ProblemBlocked
+}
+
+///|
+priv struct ProblemFinderState {
+  mut blocked : String?
+  mut total_br_if_values : Int
+  mut dropped_br_if_values : Int
+}
+
+///|
+fn ProblemFinderState::new() -> ProblemFinderState {
+  { blocked: None, total_br_if_values: 0, dropped_br_if_values: 0 }
+}
+
+///|
+fn mb_label_to_int(label : LabelIdx) -> Int {
+  let LabelIdx(raw) = label
+  raw.reinterpret_as_int()
+}
+
+///|
+fn mb_label_matches_depth(label : LabelIdx, depth : Int) -> Bool {
+  mb_label_to_int(label) == depth
+}
+
+///|
+fn has_branch(expr : TInstr, name : LabelIdx) -> Bool {
+  mb_has_branch_to_depth(expr, mb_label_to_int(name), BranchCache::new())
+}
+
+///|
+fn mb_has_any_branch(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_) => true
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => mb_has_any_branch_in_expr(body)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      if mb_has_any_branch(cond) || mb_has_any_branch_in_expr(then_body) {
+        return true
+      }
+      match else_body {
+        Some(else_) => mb_has_any_branch_in_expr(else_)
+        None => false
+      }
+    }
+    _ => {
+      for child in mb_eval_children(instr) {
+        if mb_has_any_branch(child) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn mb_has_any_branch_in_expr(expr : TExpr) -> Bool {
+  for instr in expr.instrs {
+    if mb_has_any_branch(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn mb_has_branch_to_depth(
+  instr : TInstr,
+  depth : Int,
+  cache : BranchCache,
+) -> Bool {
+  let key = { instr, depth }
+  match cache.entries.get(key) {
+    Some(v) => v
+    None => {
+      let v = mb_has_branch_to_depth_uncached(instr, depth, cache)
+      cache.entries[key] = v
+      v
+    }
+  }
+}
+
+///|
+fn mb_has_branch_to_depth_uncached(
+  instr : TInstr,
+  depth : Int,
+  cache : BranchCache,
+) -> Bool {
+  match instr.kind {
+    TInstrKind::TBr(label, _) => mb_label_matches_depth(label, depth)
+    TInstrKind::TBrIf(label, _, _) => mb_label_matches_depth(label, depth)
+    TInstrKind::TBrTable(labels, default, _, _) => {
+      if mb_label_matches_depth(default, depth) {
+        return true
+      }
+      for label in labels {
+        if mb_label_matches_depth(label, depth) {
+          return true
+        }
+      }
+      false
+    }
+    TInstrKind::TBrOnNull(label, _, _)
+    | TInstrKind::TBrOnNonNull(label, _, _)
+    | TInstrKind::TBrOnCast(label, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(label, _, _, _, _, _) =>
+      mb_label_matches_depth(label, depth)
+    TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
+      mb_has_branch_to_depth_in_expr(body, depth + 1, cache)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      if mb_has_branch_to_depth(cond, depth, cache) {
+        return true
+      }
+      if mb_has_branch_to_depth_in_expr(then_body, depth + 1, cache) {
+        return true
+      }
+      match else_body {
+        Some(other) => mb_has_branch_to_depth_in_expr(other, depth + 1, cache)
+        None => false
+      }
+    }
+    TInstrKind::TTryTable(_, catches, body) => {
+      for catch_ in catches {
+        if mb_catch_targets_depth(catch_, depth + 1) {
+          return true
+        }
+      }
+      mb_has_branch_to_depth_in_expr(body, depth + 1, cache)
+    }
+    _ => {
+      for child in mb_eval_children(instr) {
+        if mb_has_branch_to_depth(child, depth, cache) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn mb_has_branch_to_depth_in_expr(
+  expr : TExpr,
+  depth : Int,
+  cache : BranchCache,
+) -> Bool {
+  for instr in expr.instrs {
+    if mb_has_branch_to_depth(instr, depth, cache) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn mb_catch_targets_depth(catch_ : Catch, depth : Int) -> Bool {
+  match catch_ {
+    Catch(_, label)
+    | CatchRef(_, label)
+    | CatchAll(label)
+    | CatchAllRef(label) => mb_label_matches_depth(label, depth)
+  }
+}
+
+///|
+fn mb_single_result_of_blocktype(bt : BlockType, env : Env) -> ValType? {
+  match env.expand_blocktype(bt) {
+    Ok((_, [vt])) => Some(vt)
+    _ => None
+  }
+}
+
+///|
+fn mb_unary_result_type(op : UnaryOp, operand_ty : ValType?) -> ValType? {
+  match op {
+    I32EqzOp
+    | I32ClzOp
+    | I32CtzOp
+    | I32PopcntOp
+    | I32WrapI64Op
+    | I32TruncF32SOp
+    | I32TruncF32UOp
+    | I32TruncF64SOp
+    | I32TruncF64UOp
+    | I32ReinterpretF32Op
+    | I32Extend8SOp
+    | I32Extend16SOp
+    | I32TruncSatF32SOp
+    | I32TruncSatF32UOp
+    | I32TruncSatF64SOp
+    | I32TruncSatF64UOp
+    | I64EqzOp
+    | V128AnyTrueOp
+    | I8x16AllTrueOp
+    | I8x16BitmaskOp
+    | I16x8AllTrueOp
+    | I16x8BitmaskOp
+    | I32x4AllTrueOp
+    | I32x4BitmaskOp
+    | I64x2AllTrueOp
+    | I64x2BitmaskOp => Some(ValType::i32())
+    I64ClzOp
+    | I64CtzOp
+    | I64PopcntOp
+    | I64ExtendI32SOp
+    | I64ExtendI32UOp
+    | I64TruncF32SOp
+    | I64TruncF32UOp
+    | I64TruncF64SOp
+    | I64TruncF64UOp
+    | I64ReinterpretF64Op
+    | I64Extend8SOp
+    | I64Extend16SOp
+    | I64Extend32SOp
+    | I64TruncSatF32SOp
+    | I64TruncSatF32UOp
+    | I64TruncSatF64SOp
+    | I64TruncSatF64UOp => Some(ValType::i64())
+    F32AbsOp
+    | F32NegOp
+    | F32CeilOp
+    | F32FloorOp
+    | F32TruncOp
+    | F32NearestOp
+    | F32SqrtOp
+    | F32ConvertI32SOp
+    | F32ConvertI32UOp
+    | F32ConvertI64SOp
+    | F32ConvertI64UOp
+    | F32DemoteF64Op
+    | F32ReinterpretI32Op => Some(ValType::f32())
+    F64AbsOp
+    | F64NegOp
+    | F64CeilOp
+    | F64FloorOp
+    | F64TruncOp
+    | F64NearestOp
+    | F64SqrtOp
+    | F64ConvertI32SOp
+    | F64ConvertI32UOp
+    | F64ConvertI64SOp
+    | F64ConvertI64UOp
+    | F64PromoteF32Op
+    | F64ReinterpretI64Op => Some(ValType::f64())
+    _ => operand_ty
+  }
+}
+
+///|
+fn mb_binary_result_type(op : BinaryOp, lhs_ty : ValType?) -> ValType? {
+  match op {
+    I32EqOp
+    | I32NeOp
+    | I32LtSOp
+    | I32LtUOp
+    | I32GtSOp
+    | I32GtUOp
+    | I32LeSOp
+    | I32LeUOp
+    | I32GeSOp
+    | I32GeUOp
+    | I64EqOp
+    | I64NeOp
+    | I64LtSOp
+    | I64LtUOp
+    | I64GtSOp
+    | I64GtUOp
+    | I64LeSOp
+    | I64LeUOp
+    | I64GeSOp
+    | I64GeUOp
+    | F32EqOp
+    | F32NeOp
+    | F32LtOp
+    | F32GtOp
+    | F32LeOp
+    | F32GeOp
+    | F64EqOp
+    | F64NeOp
+    | F64LtOp
+    | F64GtOp
+    | F64LeOp
+    | F64GeOp => Some(ValType::i32())
+    I32AddOp
+    | I32SubOp
+    | I32MulOp
+    | I32DivSOp
+    | I32DivUOp
+    | I32RemSOp
+    | I32RemUOp
+    | I32AndOp
+    | I32OrOp
+    | I32XorOp
+    | I32ShlOp
+    | I32ShrSOp
+    | I32ShrUOp
+    | I32RotlOp
+    | I32RotrOp => Some(ValType::i32())
+    I64AddOp
+    | I64SubOp
+    | I64MulOp
+    | I64DivSOp
+    | I64DivUOp
+    | I64RemSOp
+    | I64RemUOp
+    | I64AndOp
+    | I64OrOp
+    | I64XorOp
+    | I64ShlOp
+    | I64ShrSOp
+    | I64ShrUOp
+    | I64RotlOp
+    | I64RotrOp => Some(ValType::i64())
+    F32AddOp
+    | F32SubOp
+    | F32MulOp
+    | F32DivOp
+    | F32MinOp
+    | F32MaxOp
+    | F32CopysignOp => Some(ValType::f32())
+    F64AddOp
+    | F64SubOp
+    | F64MulOp
+    | F64DivOp
+    | F64MinOp
+    | F64MaxOp
+    | F64CopysignOp => Some(ValType::f64())
+    _ => lhs_ty
+  }
+}
+
+///|
+fn mb_load_result_type(op : LoadOp) -> ValType {
+  match op {
+    I32LoadOp | I32Load8SOp | I32Load8UOp | I32Load16SOp | I32Load16UOp =>
+      ValType::i32()
+    I64LoadOp
+    | I64Load8SOp
+    | I64Load8UOp
+    | I64Load16SOp
+    | I64Load16UOp
+    | I64Load32SOp
+    | I64Load32UOp => ValType::i64()
+    F32LoadOp => ValType::f32()
+    F64LoadOp => ValType::f64()
+    _ => ValType::v128()
+  }
+}
+
+///|
+fn mb_ref_func_type(fi : FuncIdx, env : Env) -> ValType {
+  ignore(fi)
+  ignore(env)
+  ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func())))
+}
+
+///|
+fn mb_infer_texpr_type(texpr : TExpr, env : Env) -> ValType? {
+  let { instrs, .. } = texpr
+  if instrs.is_empty() {
+    None
+  } else {
+    mb_infer_tinstr_type(instrs[instrs.length() - 1], env)
+  }
+}
+
+///|
+fn mb_infer_tinstr_type(instr : TInstr, env : Env) -> ValType? {
+  match instr.kind {
+    TInstrKind::TI32Const(_) => Some(ValType::i32())
+    TInstrKind::TI64Const(_) => Some(ValType::i64())
+    TInstrKind::TF32Const(_) => Some(ValType::f32())
+    TInstrKind::TF64Const(_) => Some(ValType::f64())
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      Some(ValType::v128())
+    TInstrKind::TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
+    TInstrKind::TRefFunc(fi) => Some(mb_ref_func_type(fi, env))
+    TInstrKind::TLocalGet(idx) => env.get_local_type(idx)
+    TInstrKind::TGlobalGet(idx) =>
+      match env.get_global_type(idx) {
+        Some(GlobalType(vt, _)) => Some(vt)
+        None => None
+      }
+    TInstrKind::TLocalTee(_, value) => mb_infer_tinstr_type(value, env)
+    TInstrKind::TUnary(op, value) =>
+      mb_unary_result_type(op, mb_infer_tinstr_type(value, env))
+    TInstrKind::TBinary(op, lhs, _) =>
+      mb_binary_result_type(op, mb_infer_tinstr_type(lhs, env))
+    TInstrKind::TRefEq(_, _)
+    | TInstrKind::TRefIsNull(_)
+    | TInstrKind::TRefTest(_, _, _) => Some(ValType::i32())
+    TInstrKind::TLoad(op, _, _) => Some(mb_load_result_type(op))
+    TInstrKind::TMemorySize(_) | TInstrKind::TTableSize(_) =>
+      Some(ValType::i32())
+    TInstrKind::TRefAsNonNull(value) =>
+      match mb_infer_tinstr_type(value, env) {
+        Some(RefTypeValType(rt)) =>
+          Some(ValType::ref_type(RefType::new(false, rt.get_heap_type())))
+        _ => None
+      }
+    TInstrKind::TRefCast(nullable, ht, _) =>
+      Some(ValType::ref_type(RefType::new(nullable, ht)))
+    TInstrKind::TStructNew(type_idx, _)
+    | TInstrKind::TStructNewDefault(type_idx)
+    | TInstrKind::TArrayNew(type_idx, _, _)
+    | TInstrKind::TArrayNewDefault(type_idx, _)
+    | TInstrKind::TArrayNewFixed(type_idx, _)
+    | TInstrKind::TArrayNewData(type_idx, _, _, _)
+    | TInstrKind::TArrayNewElem(type_idx, _, _, _) =>
+      Some(ValType::ref_type(RefType::new(false, HeapType::new(type_idx))))
+    TInstrKind::TStructGet(type_idx, field_idx, _)
+    | TInstrKind::TStructGetS(type_idx, field_idx, _)
+    | TInstrKind::TStructGetU(type_idx, field_idx, _) =>
+      match env.resolve_struct_fields(type_idx) {
+        Ok(fields) =>
+          match field_idx {
+            U32(raw_idx) =>
+              match fields.get(raw_idx.reinterpret_as_int()) {
+                Some(field_ty) => Some(field_ty.unpack())
+                None => None
+              }
+          }
+        Err(_) => None
+      }
+    TInstrKind::TArrayGet(type_idx, _, _)
+    | TInstrKind::TArrayGetS(type_idx, _, _)
+    | TInstrKind::TArrayGetU(type_idx, _, _) =>
+      match env.resolve_array_field(type_idx) {
+        Ok(field_ty) => Some(field_ty.unpack())
+        Err(_) => None
+      }
+    TInstrKind::TArrayLen(_) => Some(ValType::i32())
+    TInstrKind::TExtractLane(op, _, _) =>
+      match op {
+        I8x16ExtractLaneSOp
+        | I8x16ExtractLaneUOp
+        | I16x8ExtractLaneSOp
+        | I16x8ExtractLaneUOp
+        | I32x4ExtractLaneOp => Some(ValType::i32())
+        I64x2ExtractLaneOp => Some(ValType::i64())
+        F32x4ExtractLaneOp => Some(ValType::f32())
+        F64x2ExtractLaneOp => Some(ValType::f64())
+      }
+    TInstrKind::TI31GetS(_) | TInstrKind::TI31GetU(_) => Some(ValType::i32())
+    TInstrKind::TRefI31(_) =>
+      Some(
+        ValType::ref_type(
+          RefType::new(false, HeapType::abs(AbsHeapType::i31())),
+        ),
+      )
+    TInstrKind::TAnyConvertExtern(_) => Some(ValType::anyref())
+    TInstrKind::TExternConvertAny(_) => Some(ValType::externref())
+    TInstrKind::TSelect(types, _, if_true, if_false) => {
+      let from_decl = match types {
+        Some(vts) if vts.length() == 1 => Some(vts[0])
+        _ => None
+      }
+      let from_branches = match
+        (
+          mb_infer_tinstr_type(if_true, env),
+          mb_infer_tinstr_type(if_false, env),
+        ) {
+        (Some(t), Some(f)) if t == f => Some(t)
+        _ => None
+      }
+      match (from_branches, from_decl) {
+        (Some(t), _) => Some(t)
+        (_, Some(vt)) => Some(vt)
+        _ => None
+      }
+    }
+    TInstrKind::TCall(target, _) =>
+      match env.get_functype_by_funcidx(target) {
+        Some(FuncType(_, [r])) => Some(r)
+        _ => None
+      }
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
+      match env.resolve_functype(type_idx) {
+        Some(FuncType(_, [r])) => Some(r)
+        _ => None
+      }
+    TInstrKind::TBlock(bt, body)
+    | TInstrKind::TLoop(bt, body)
+    | TInstrKind::TTryTable(bt, _, body) =>
+      match
+        (mb_infer_texpr_type(body, env), mb_single_result_of_blocktype(bt, env)) {
+        (Some(t), _) => Some(t)
+        (_, Some(vt)) => Some(vt)
+        _ => None
+      }
+    TInstrKind::TIf(bt, _, then_, else_) => {
+      let from_bt = mb_single_result_of_blocktype(bt, env)
+      let from_branches = match else_ {
+        Some(else_expr) =>
+          match
+            (
+              mb_infer_texpr_type(then_, env),
+              mb_infer_texpr_type(else_expr, env),
+            ) {
+            (Some(t), Some(e)) if t == e => Some(t)
+            _ => None
+          }
+        None => None
+      }
+      match (from_branches, from_bt) {
+        (Some(t), _) => Some(t)
+        (_, Some(vt)) => Some(vt)
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn mb_instr_is_concrete(instr : TInstr, env : Env) -> Bool {
+  match mb_infer_tinstr_type(instr, env) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn mb_blocktype_is_concrete(bt : BlockType, env : Env) -> Bool {
+  match mb_single_result_of_blocktype(bt, env) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn mb_is_unreachable_instr(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TUnreachable
+    | TInstrKind::TBr(_, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_) => true
+    TInstrKind::TBlock(_, body) => mb_texpr_is_unreachable(body)
+    TInstrKind::TLoop(_, body) => mb_texpr_is_unreachable(body)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      if mb_is_unreachable_instr(cond) {
+        return true
+      }
+      match else_body {
+        Some(else_) =>
+          mb_texpr_is_unreachable(then_body) && mb_texpr_is_unreachable(else_)
+        None => false
+      }
+    }
+    TInstrKind::TTryTable(_, _, body) => mb_texpr_is_unreachable(body)
+    _ => false
+  }
+}
+
+///|
+fn mb_texpr_is_unreachable(expr : TExpr) -> Bool {
+  for instr in expr.instrs {
+    if mb_is_unreachable_instr(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn has_dead_code(block : TInstr) -> Bool {
+  match block.kind {
+    TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
+      mb_has_dead_code_in_expr(body)
+    _ => false
+  }
+}
+
+///|
+fn mb_has_dead_code_in_expr(body : TExpr) -> Bool {
+  let instrs = body.instrs
+  for i = 0; i < instrs.length(); i = i + 1 {
+    if mb_is_unreachable_instr(instrs[i]) && i + 1 < instrs.length() {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn mb_finalize_block(block : TInstr, env : Env) -> TInstr {
+  match block.kind {
+    TInstrKind::TBlock(bt, body) => {
+      let next_bt = mb_finalize_block_type(bt, body, env)
+      TInstr::block(next_bt, body)
+    }
+    TInstrKind::TLoop(bt, body) => {
+      let next_bt = mb_finalize_block_type(bt, body, env)
+      TInstr::loop_(next_bt, body)
+    }
+    TInstrKind::TTryTable(bt, catches, body) => {
+      let next_bt = mb_finalize_block_type(bt, body, env)
+      TInstr::try_table(next_bt, catches, body)
+    }
+    _ => block
+  }
+}
+
+///|
+fn mb_finalize_block_type(bt : BlockType, body : TExpr, env : Env) -> BlockType {
+  match bt {
+    VoidBlockType => BlockType::void_()
+    ValTypeBlockType(orig_ty) => {
+      // Explicit value block signatures are authoritative; inference is advisory only.
+      ignore(mb_infer_texpr_type(body, env))
+      BlockType::val_type(orig_ty)
+    }
+    TypeIdxBlockType(_) => bt
+  }
+}
+
+///|
+fn mb_refinalize_instr(instr : TInstr, env : Env) -> TInstr {
+  match instr.kind {
+    TInstrKind::TBlock(bt, body) => {
+      let next_body = mb_refinalize_texpr(body, env)
+      mb_finalize_block(TInstr::block(bt, next_body), env)
+    }
+    TInstrKind::TLoop(bt, body) => {
+      let next_body = mb_refinalize_texpr(body, env)
+      mb_finalize_block(TInstr::loop_(bt, next_body), env)
+    }
+    TInstrKind::TTryTable(bt, catches, body) => {
+      let next_body = mb_refinalize_texpr(body, env)
+      mb_finalize_block(TInstr::try_table(bt, catches, next_body), env)
+    }
+    TInstrKind::TIf(bt, cond, then_, else_) => {
+      let next_cond = mb_refinalize_instr(cond, env)
+      let next_then = mb_refinalize_texpr(then_, env)
+      let next_else = match else_ {
+        Some(e) => Some(mb_refinalize_texpr(e, env))
+        None => None
+      }
+      let inferred_bt = match next_else {
+        Some(e) =>
+          match
+            (mb_infer_texpr_type(next_then, env), mb_infer_texpr_type(e, env)) {
+            (Some(t), Some(u)) if t == u => BlockType::val_type(t)
+            _ => BlockType::void_()
+          }
+        None => BlockType::void_()
+      }
+      let next_bt = match bt {
+        TypeIdxBlockType(_) => bt
+        VoidBlockType => inferred_bt
+        ValTypeBlockType(orig_ty) =>
+          match inferred_bt {
+            ValTypeBlockType(inferred_ty) =>
+              if inferred_ty == orig_ty {
+                BlockType::val_type(inferred_ty)
+              } else {
+                BlockType::val_type(orig_ty)
+              }
+            _ => BlockType::val_type(orig_ty)
+          }
+      }
+      TInstr::if_(next_bt, next_cond, next_then, next_else)
+    }
+    _ => {
+      let children = mb_eval_children(instr)
+      if children.is_empty() {
+        instr
+      } else {
+        let next_children = []
+        for child in children {
+          next_children.push(mb_refinalize_instr(child, env))
+        }
+        mb_rebuild_non_control(instr, next_children)
+      }
+    }
+  }
+}
+
+///|
+fn mb_refinalize_texpr(expr : TExpr, env : Env) -> TExpr {
+  let out : Array[TInstr] = []
+  for instr in expr.instrs {
+    out.push(mb_refinalize_instr(instr, env))
+  }
+  TExpr::new(out)
+}
+
+///|
+fn mb_sequence(instrs : Array[TInstr]) -> TInstr {
+  match instrs {
+    [] => TInstr::nop()
+    [single] => single
+    _ => TInstr::block(BlockType::void_(), TExpr::new(instrs))
+  }
+}
+
+///|
+fn mb_drop_or_value(value : TInstr, env : Env) -> TInstr {
+  if mb_instr_is_concrete(value, env) {
+    TInstr::drop(value)
+  } else {
+    value
+  }
+}
+
+///|
+fn mb_can_extract_child_block(
+  bt : BlockType,
+  body : TExpr,
+  env : Env,
+  branch_cache : BranchCache,
+) -> (Bool, Array[TInstr], TInstr) {
+  let items = body.instrs
+  if items.length() < 2 {
+    return (false, [], TInstr::nop())
+  }
+  if mb_has_branch_to_depth_in_expr(body, 0, branch_cache) {
+    return (false, [], TInstr::nop())
+  }
+  let back = items[items.length() - 1]
+  if mb_is_unreachable_instr(back) {
+    return (false, [], TInstr::nop())
+  }
+  let block_ty = mb_single_result_of_blocktype(bt, env)
+  let back_ty = mb_infer_tinstr_type(back, env)
+  match bt {
+    TypeIdxBlockType(_) => return (false, [], TInstr::nop())
+    _ => ()
+  }
+  if block_ty != back_ty {
+    return (false, [], TInstr::nop())
+  }
+  let prefix = []
+  for i = 0; i + 1 < items.length(); i = i + 1 {
+    prefix.push(items[i])
+  }
+  (true, prefix, back)
+}
+
+///|
+fn optimize_expression_restructure(
+  parent_expr : TInstr,
+  mod : Module,
+  options : OptimizeOptions,
+  branch_cache : BranchCache,
+  ctx : MBContext,
+) -> (TInstr, Bool) {
+  match parent_expr.kind {
+    TInstrKind::TIf(bt, cond, then_, else_) =>
+      match cond.kind {
+        TInstrKind::TBlock(cbt, cbody) => {
+          let (ok, prefix, back) = mb_can_extract_child_block(
+            cbt,
+            cbody,
+            ctx.env,
+            branch_cache,
+          )
+          if !ok {
+            return (parent_expr, false)
+          }
+          let moved_effects = MBEffects::new()
+          for item in prefix {
+            moved_effects.merge(compute_effects(item))
+          }
+          if moved_effects.has_side_effects() {
+            ctx.needs_refinalize = true
+          }
+          let wrapped = []
+          for item in prefix {
+            wrapped.push(item)
+          }
+          wrapped.push(TInstr::if_(bt, back, then_, else_))
+          let wrapper_bt = match mb_infer_tinstr_type(parent_expr, ctx.env) {
+            Some(vt) => BlockType::val_type(vt)
+            None => BlockType::void_()
+          }
+          return (TInstr::block(wrapper_bt, TExpr::new(wrapped)), true)
+        }
+        _ => (parent_expr, false)
+      }
+    TInstrKind::TThrow(_, args) => {
+      for arg in args {
+        if compute_effects(arg).has_side_effects() {
+          return (parent_expr, false)
+        }
+      }
+      mb_restructure_non_control(parent_expr, mod, options, branch_cache, ctx)
+    }
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TTryTable(_, _, _) => (parent_expr, false)
+    _ =>
+      mb_restructure_non_control(parent_expr, mod, options, branch_cache, ctx)
+  }
+}
+
+///|
+fn mb_restructure_non_control(
+  parent_expr : TInstr,
+  _mod : Module,
+  _options : OptimizeOptions,
+  branch_cache : BranchCache,
+  ctx : MBContext,
+) -> (TInstr, Bool) {
+  let children = mb_eval_children(parent_expr)
+  if children.is_empty() {
+    return (parent_expr, false)
+  }
+  let pulled : Array[TInstr] = []
+  let rebuilt_children : Array[TInstr] = []
+  let effects_before = MBEffects::new()
+  let mut changed = false
+  for child in children {
+    let mut next_child = child
+    match child.kind {
+      TInstrKind::TBlock(bt, body) => {
+        let (ok, prefix, back) = mb_can_extract_child_block(
+          bt,
+          body,
+          ctx.env,
+          branch_cache,
+        )
+        if ok {
+          let moved_effects = MBEffects::new()
+          let mut move_ok = true
+          for item in prefix {
+            moved_effects.merge(compute_effects(item))
+            if mb_has_any_branch(item) {
+              move_ok = false
+            }
+          }
+          if move_ok &&
+            !invalidates(moved_effects, effects_before) &&
+            !invalidates(effects_before, moved_effects) {
+            for item in prefix {
+              pulled.push(item)
+            }
+            next_child = back
+            changed = true
+            ctx.needs_refinalize = true
+          }
+        }
+      }
+      _ => ()
+    }
+    rebuilt_children.push(next_child)
+    effects_before.merge(compute_effects(next_child))
+  }
+  if !changed {
+    return (parent_expr, false)
+  }
+  let rebuilt_parent = mb_rebuild_non_control(parent_expr, rebuilt_children)
+  let wrapper_items = []
+  for item in pulled {
+    wrapper_items.push(item)
+  }
+  wrapper_items.push(rebuilt_parent)
+  let wrapper_bt = match mb_infer_tinstr_type(rebuilt_parent, ctx.env) {
+    Some(vt) => BlockType::val_type(vt)
+    None => BlockType::void_()
+  }
+  (TInstr::block(wrapper_bt, TExpr::new(wrapper_items)), true)
+}
+
+///|
+fn problem_finder(
+  origin : LabelIdx,
+  expr : TInstr,
+  mod : Module,
+  options : OptimizeOptions,
+  ctx : MBContext,
+) -> ProblemResult {
+  ignore(mod)
+  ignore(options)
+  let st = ProblemFinderState::new()
+  mb_problem_finder_walk(origin, expr, 0, false, st, ctx.env)
+  match st.blocked {
+    Some(_) => ProblemBlocked
+    None =>
+      if st.total_br_if_values != st.dropped_br_if_values {
+        ProblemBlocked
+      } else {
+        ProblemOk
+      }
+  }
+}
+
+///|
+fn mb_problem_finder_walk(
+  origin : LabelIdx,
+  expr : TInstr,
+  depth : Int,
+  under_drop : Bool,
+  st : ProblemFinderState,
+  env : Env,
+) -> Unit {
+  if st.blocked is Some(_) {
+    return
+  }
+  let origin_depth = mb_label_to_int(origin) + depth
+  match expr.kind {
+    TInstrKind::TBr(label, values) =>
+      if mb_label_matches_depth(label, origin_depth) && !values.is_empty() {
+        for value in values {
+          if compute_effects(value).has_side_effects() {
+            st.blocked = Some("side effects in br value")
+            return
+          }
+        }
+      }
+    TInstrKind::TBrIf(label, cond, values) => {
+      mb_problem_finder_walk(origin, cond, depth, false, st, env)
+      if st.blocked is Some(_) {
+        return
+      }
+      if mb_label_matches_depth(label, origin_depth) && !values.is_empty() {
+        st.total_br_if_values += 1
+        if under_drop {
+          st.dropped_br_if_values += 1
+        }
+        for value in values {
+          if compute_effects(value).has_side_effects() {
+            st.blocked = Some("side effects in br_if value")
+            return
+          }
+        }
+      }
+      for value in values {
+        mb_problem_finder_walk(origin, value, depth, false, st, env)
+        if st.blocked is Some(_) {
+          return
+        }
+      }
+    }
+    TInstrKind::TBrTable(labels, default, index, values) => {
+      let mut targets_origin = mb_label_matches_depth(default, origin_depth)
+      if !targets_origin {
+        for label in labels {
+          if mb_label_matches_depth(label, origin_depth) {
+            targets_origin = true
+            break
+          }
+        }
+      }
+      if targets_origin {
+        st.blocked = Some("unsupported branch op targeting origin")
+        return
+      }
+      mb_problem_finder_walk(origin, index, depth, false, st, env)
+      for value in values {
+        mb_problem_finder_walk(origin, value, depth, false, st, env)
+      }
+    }
+    TInstrKind::TBrOnNull(label, ref_, values)
+    | TInstrKind::TBrOnNonNull(label, ref_, values)
+    | TInstrKind::TBrOnCast(label, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(label, _, _, _, ref_, values) => {
+      if mb_label_matches_depth(label, origin_depth) {
+        st.blocked = Some("unsupported branch op targeting origin")
+        return
+      }
+      mb_problem_finder_walk(origin, ref_, depth, false, st, env)
+      for value in values {
+        mb_problem_finder_walk(origin, value, depth, false, st, env)
+      }
+    }
+    TInstrKind::TTryTable(_, catches, body) => {
+      for catch_ in catches {
+        match catch_ {
+          Catch(_, label)
+          | CatchRef(_, label)
+          | CatchAll(label)
+          | CatchAllRef(label) =>
+            if mb_label_matches_depth(label, origin_depth + 1) {
+              match catch_ {
+                CatchAllRef(_) => ()
+                CatchRef(tag_idx, _) =>
+                  match env.resolve_tag_functype(tag_idx) {
+                    Some(FuncType(params, _)) if params.is_empty() => ()
+                    _ => {
+                      st.blocked = Some(
+                        "catch_ref with paramful tag targets origin",
+                      )
+                      return
+                    }
+                  }
+                _ => {
+                  st.blocked = Some("unsupported catch targeting origin")
+                  return
+                }
+              }
+            }
+        }
+      }
+      mb_problem_finder_walk_expr(origin, body, depth + 1, false, st, env)
+    }
+    TInstrKind::TDrop(value) =>
+      mb_problem_finder_walk(origin, value, depth, true, st, env)
+    TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
+      mb_problem_finder_walk_expr(origin, body, depth + 1, false, st, env)
+    TInstrKind::TIf(_, cond, then_, else_) => {
+      mb_problem_finder_walk(origin, cond, depth, false, st, env)
+      if st.blocked is Some(_) {
+        return
+      }
+      mb_problem_finder_walk_expr(origin, then_, depth + 1, false, st, env)
+      if st.blocked is Some(_) {
+        return
+      }
+      match else_ {
+        Some(e) =>
+          mb_problem_finder_walk_expr(origin, e, depth + 1, false, st, env)
+        None => ()
+      }
+    }
+    _ =>
+      for child in mb_eval_children(expr) {
+        mb_problem_finder_walk(origin, child, depth, false, st, env)
+        if st.blocked is Some(_) {
+          return
+        }
+      }
+  }
+}
+
+///|
+fn mb_problem_finder_walk_expr(
+  origin : LabelIdx,
+  expr : TExpr,
+  depth : Int,
+  under_drop : Bool,
+  st : ProblemFinderState,
+  env : Env,
+) -> Unit {
+  for instr in expr.instrs {
+    mb_problem_finder_walk(origin, instr, depth, under_drop, st, env)
+    if st.blocked is Some(_) {
+      return
+    }
+  }
+}
+
+///|
+fn break_value_dropper(
+  origin : LabelIdx,
+  expr : TInstr,
+  mod : Module,
+  options : OptimizeOptions,
+  branch_cache : BranchCache,
+  ctx : MBContext,
+) -> TInstr {
+  ignore(options)
+  mb_break_value_dropper_walk(origin, expr, 0, mod, branch_cache, ctx)
+}
+
+///|
+fn mb_break_value_dropper_walk(
+  origin : LabelIdx,
+  expr : TInstr,
+  depth : Int,
+  mod : Module,
+  branch_cache : BranchCache,
+  ctx : MBContext,
+) -> TInstr {
+  let origin_depth = mb_label_to_int(origin) + depth
+  match expr.kind {
+    TInstrKind::TBr(label, values) =>
+      if mb_label_matches_depth(label, origin_depth) && !values.is_empty() {
+        let prefix : Array[TInstr] = []
+        for value in values {
+          if mb_is_unreachable_instr(value) {
+            return TInstr::unreachable_()
+          }
+          prefix.push(mb_drop_or_value(value, ctx.env))
+        }
+        prefix.push(TInstr::br(label, []))
+        mb_sequence(prefix)
+      } else {
+        expr
+      }
+    TInstrKind::TBrIf(label, cond, values) => {
+      let next_cond = mb_break_value_dropper_walk(
+        origin, cond, depth, mod, branch_cache, ctx,
+      )
+      let next_values : Array[TInstr] = []
+      for value in values {
+        next_values.push(
+          mb_break_value_dropper_walk(
+            origin, value, depth, mod, branch_cache, ctx,
+          ),
+        )
+      }
+      if mb_label_matches_depth(label, origin_depth) && !next_values.is_empty() {
+        let prefix : Array[TInstr] = []
+        for value in next_values {
+          if mb_is_unreachable_instr(value) {
+            return TInstr::unreachable_()
+          }
+          prefix.push(mb_drop_or_value(value, ctx.env))
+        }
+        prefix.push(TInstr::br_if(label, next_cond, []))
+        mb_sequence(prefix)
+      } else {
+        TInstr::br_if(label, next_cond, next_values)
+      }
+    }
+    TInstrKind::TTryTable(bt, catches, body) => {
+      let next_catches : Array[Catch] = []
+      for catch_ in catches {
+        let next = match catch_ {
+          CatchRef(tag, label) if mb_label_matches_depth(
+              label,
+              origin_depth + 1,
+            ) => Catch::new(tag, label)
+          CatchAllRef(label) if mb_label_matches_depth(label, origin_depth + 1) =>
+            Catch::all(label)
+          _ => catch_
+        }
+        next_catches.push(next)
+      }
+      let next_body = mb_break_value_dropper_expr(
+        origin,
+        body,
+        depth + 1,
+        mod,
+        branch_cache,
+        ctx,
+      )
+      let rewritten = TInstr::try_table(bt, next_catches, next_body)
+      let (optimized, _) = optimize_block(
+        rewritten,
+        mod,
+        OptimizeOptions::new(),
+        branch_cache,
+        ctx,
+      )
+      optimized
+    }
+    TInstrKind::TDrop(value) => {
+      let next_value = mb_break_value_dropper_walk(
+        origin, value, depth, mod, branch_cache, ctx,
+      )
+      if mb_instr_is_concrete(next_value, ctx.env) {
+        TInstr::drop(next_value)
+      } else {
+        next_value
+      }
+    }
+    TInstrKind::TBlock(bt, body) => {
+      let next_body = mb_break_value_dropper_expr(
+        origin,
+        body,
+        depth + 1,
+        mod,
+        branch_cache,
+        ctx,
+      )
+      let rewritten = TInstr::block(bt, next_body)
+      let (optimized, _) = optimize_block(
+        rewritten,
+        mod,
+        OptimizeOptions::new(),
+        branch_cache,
+        ctx,
+      )
+      optimized
+    }
+    TInstrKind::TLoop(bt, body) => {
+      let next_body = mb_break_value_dropper_expr(
+        origin,
+        body,
+        depth + 1,
+        mod,
+        branch_cache,
+        ctx,
+      )
+      let rewritten = TInstr::loop_(bt, next_body)
+      let (optimized, _) = optimize_block(
+        rewritten,
+        mod,
+        OptimizeOptions::new(),
+        branch_cache,
+        ctx,
+      )
+      optimized
+    }
+    TInstrKind::TIf(bt, cond, then_, else_) => {
+      let next_cond = mb_break_value_dropper_walk(
+        origin, cond, depth, mod, branch_cache, ctx,
+      )
+      let next_then = mb_break_value_dropper_expr(
+        origin,
+        then_,
+        depth + 1,
+        mod,
+        branch_cache,
+        ctx,
+      )
+      let next_else = match else_ {
+        Some(e) =>
+          Some(
+            mb_break_value_dropper_expr(
+              origin,
+              e,
+              depth + 1,
+              mod,
+              branch_cache,
+              ctx,
+            ),
+          )
+        None => None
+      }
+      TInstr::if_(bt, next_cond, next_then, next_else)
+    }
+    _ => {
+      let children = mb_eval_children(expr)
+      if children.is_empty() {
+        expr
+      } else {
+        let next_children = []
+        for child in children {
+          next_children.push(
+            mb_break_value_dropper_walk(
+              origin, child, depth, mod, branch_cache, ctx,
+            ),
+          )
+        }
+        mb_rebuild_non_control(expr, next_children)
+      }
+    }
+  }
+}
+
+///|
+fn mb_break_value_dropper_expr(
+  origin : LabelIdx,
+  expr : TExpr,
+  depth : Int,
+  mod : Module,
+  branch_cache : BranchCache,
+  ctx : MBContext,
+) -> TExpr {
+  let out : Array[TInstr] = []
+  for instr in expr.instrs {
+    out.push(
+      mb_break_value_dropper_walk(origin, instr, depth, mod, branch_cache, ctx),
+    )
+  }
+  TExpr::new(out)
+}
+
+///|
+fn optimize_dropped_block(
+  drop_instr : TInstr,
+  block_instr : TInstr,
+  mod : Module,
+  options : OptimizeOptions,
+  branch_cache : BranchCache,
+  ctx : MBContext,
+) -> (TInstr, Bool) {
+  ignore(options)
+  match block_instr.kind {
+    TInstrKind::TBlock(TypeIdxBlockType(_), _) => return (drop_instr, false)
+    _ => ()
+  }
+  let mut next_body = match drop_instr.kind {
+    TInstrKind::TDrop({ kind: TInstrKind::TBlock(_, body), .. }) => body
+    _ => return (drop_instr, false)
+  }
+  for instr in next_body.instrs {
+    match problem_finder(LabelIdx::new(0), instr, mod, options, ctx) {
+      ProblemBlocked => return (drop_instr, false)
+      ProblemOk => ()
+    }
+  }
+  {
+    let rewritten_items : Array[TInstr] = []
+    for instr in next_body.instrs {
+      rewritten_items.push(
+        break_value_dropper(
+          LabelIdx::new(0),
+          instr,
+          mod,
+          options,
+          branch_cache,
+          ctx,
+        ),
+      )
+    }
+    next_body = TExpr::new(rewritten_items)
+  }
+  let next_items = next_body.instrs.copy()
+  if !next_items.is_empty() {
+    let last = next_items.pop().unwrap()
+    next_items.push(mb_drop_or_value(last, ctx.env))
+  }
+  let rewritten = mb_finalize_block(
+    TInstr::block(BlockType::void_(), TExpr::new(next_items)),
+    ctx.env,
+  )
+  let (optimized, _) = optimize_block(
+    rewritten, mod, options, branch_cache, ctx,
+  )
+  if mb_rewrite_preserves_stack_sig(drop_instr, [optimized], ctx.env) {
+    (optimized, true)
+  } else if mb_rewrite_preserves_stack_sig(drop_instr, [rewritten], ctx.env) {
+    (rewritten, true)
+  } else {
+    (drop_instr, false)
+  }
+}
+
+///|
+fn mb_prepare_moved_item(item : TInstr, has_after : Bool, env : Env) -> TInstr {
+  if has_after && mb_instr_is_concrete(item, env) {
+    TInstr::drop(item)
+  } else {
+    item
+  }
+}
+
+///|
+fn optimize_block(
+  block : TInstr,
+  mod : Module,
+  options : OptimizeOptions,
+  branch_cache : BranchCache,
+  ctx : MBContext,
+) -> (TInstr, Bool) {
+  match block.kind {
+    TInstrKind::TBlock(bt, body) => {
+      let curr_items = body.instrs.copy()
+      let mut any_change = false
+      let mut rounds = 0
+      while rounds < 20 {
+        rounds += 1
+        let out : Array[TInstr] = []
+        let mut round_change = false
+        let n = curr_items.length()
+        for i = 0; i < curr_items.length(); i = i + 1 {
+          let item0 = curr_items[i]
+          let (item1, nested_changed) = mb_optimize_instr(
+            item0, mod, options, branch_cache, ctx,
+          )
+          if nested_changed {
+            round_change = true
+          }
+          match item1.kind {
+            TInstrKind::TDrop({ kind: TInstrKind::TBlock(_, _), .. }) => {
+              let (rewritten, changed) = optimize_dropped_block(
+                item1,
+                match item1.kind {
+                  TInstrKind::TDrop(inner) => inner
+                  _ => item1
+                },
+                mod,
+                options,
+                branch_cache,
+                ctx,
+              )
+              if changed {
+                out.push(rewritten)
+                round_change = true
+                continue
+              }
+            }
+            _ => ()
+          }
+          match item1.kind {
+            TInstrKind::TBlock(child_bt, child_body) => {
+              if has_dead_code(item1) {
+                out.push(item1)
+                continue
+              }
+              let child_items = child_body.instrs
+              let mut split = child_items.length()
+              let mut named = false
+              for j = 0; j < child_items.length(); j = j + 1 {
+                if has_branch(child_items[j], LabelIdx::new(0)) {
+                  split = j
+                  named = true
+                  break
+                }
+              }
+              if named && mb_blocktype_is_concrete(child_bt, ctx.env) {
+                out.push(item1)
+                continue
+              }
+              if split == 0 {
+                out.push(item1)
+                continue
+              }
+              let mut can_move = true
+              for j = 0; j < split; j = j + 1 {
+                if mb_has_any_branch(child_items[j]) {
+                  can_move = false
+                  break
+                }
+              }
+              if !can_move {
+                out.push(item1)
+                continue
+              }
+              let mut split_item_has_parent_branch = false
+              for j = split; j < child_items.length(); j = j + 1 {
+                if mb_has_branch_to_depth(child_items[j], 1, branch_cache) {
+                  split_item_has_parent_branch = true
+                  break
+                }
+              }
+              if split_item_has_parent_branch {
+                out.push(item1)
+                continue
+              }
+              let moved_items_keep : Array[TInstr] = []
+              let moved_items_drop : Array[TInstr] = []
+              let mut drop_changed = false
+              for j = 0; j < split; j = j + 1 {
+                let has_after = j + 1 < split ||
+                  split < child_items.length() ||
+                  i + 1 < n
+                let item = child_items[j]
+                let kept = item
+                let dropped = mb_prepare_moved_item(item, has_after, ctx.env)
+                if has_after && mb_instr_is_concrete(item, ctx.env) {
+                  drop_changed = true
+                }
+                moved_items_keep.push(kept)
+                moved_items_drop.push(dropped)
+              }
+              if split < child_items.length() {
+                let rest : Array[TInstr] = []
+                for j = split; j < child_items.length(); j = j + 1 {
+                  rest.push(child_items[j])
+                }
+                let suffix = mb_finalize_block(
+                  TInstr::block(child_bt, TExpr::new(rest)),
+                  ctx.env,
+                )
+                moved_items_keep.push(suffix)
+                moved_items_drop.push(suffix)
+              }
+              let moved_items = if !drop_changed {
+                moved_items_keep
+              } else if mb_rewrite_preserves_stack_sig(
+                  item1,
+                  moved_items_drop,
+                  ctx.env,
+                ) {
+                moved_items_drop
+              } else if mb_rewrite_preserves_stack_sig(
+                  item1,
+                  moved_items_keep,
+                  ctx.env,
+                ) {
+                moved_items_keep
+              } else {
+                []
+              }
+              if moved_items.is_empty() && drop_changed {
+                out.push(item1)
+                continue
+              }
+              for moved in moved_items {
+                out.push(moved)
+              }
+              round_change = true
+              continue
+            }
+            TInstrKind::TLoop(
+              loop_bt,
+              {
+                instrs: [{ kind: TInstrKind::TBlock(inner_bt, inner_body), .. }],
+                ..,
+              }
+            ) => {
+              if mb_has_dead_code_in_expr(inner_body) {
+                out.push(item1)
+                continue
+              }
+              let inner_items = inner_body.instrs
+              if inner_items.is_empty() {
+                out.push(item1)
+                continue
+              }
+              let mut last_back_branch = -1
+              for j = 0; j < inner_items.length(); j = j + 1 {
+                if mb_has_branch_to_depth(inner_items[j], 1, branch_cache) {
+                  last_back_branch = j
+                }
+              }
+              let split = last_back_branch + 1
+              if split >= inner_items.length() {
+                out.push(item1)
+                continue
+              }
+              if split > 0 && mb_blocktype_is_concrete(loop_bt, ctx.env) {
+                out.push(item1)
+                continue
+              }
+              let mut can_move = true
+              for j = split; j < inner_items.length(); j = j + 1 {
+                if mb_has_branch_to_depth(inner_items[j], 0, branch_cache) ||
+                  mb_has_branch_to_depth(inner_items[j], 1, branch_cache) ||
+                  mb_has_any_branch(inner_items[j]) {
+                  can_move = false
+                  break
+                }
+              }
+              if !can_move {
+                out.push(item1)
+                continue
+              }
+              let keep : Array[TInstr] = []
+              for j = 0; j < split; j = j + 1 {
+                keep.push(inner_items[j])
+              }
+              let updated_loop = TInstr::loop_(
+                loop_bt,
+                TExpr::new([
+                  mb_finalize_block(
+                    TInstr::block(inner_bt, TExpr::new(keep)),
+                    ctx.env,
+                  ),
+                ]),
+              )
+              out.push(updated_loop)
+              for j = split; j < inner_items.length(); j = j + 1 {
+                let has_after = j + 1 < inner_items.length() || i + 1 < n
+                out.push(
+                  mb_prepare_moved_item(inner_items[j], has_after, ctx.env),
+                )
+              }
+              round_change = true
+              continue
+            }
+            _ => ()
+          }
+          let (restructured, restructured_changed) = optimize_expression_restructure(
+            item1, mod, options, branch_cache, ctx,
+          )
+          if restructured_changed {
+            out.push(restructured)
+            round_change = true
+          } else {
+            out.push(item1)
+          }
+        }
+        if !round_change {
+          break
+        }
+        any_change = true
+        curr_items.clear()
+        for item in out {
+          curr_items.push(item)
+        }
+      }
+      let finalized = mb_finalize_block(
+        TInstr::block(bt, TExpr::new(curr_items)),
+        ctx.env,
+      )
+      (finalized, any_change)
+    }
+    _ => (block, false)
+  }
+}
+
+///|
+fn mb_optimize_instr(
+  instr : TInstr,
+  mod : Module,
+  options : OptimizeOptions,
+  branch_cache : BranchCache,
+  ctx : MBContext,
+) -> (TInstr, Bool) {
+  match instr.kind {
+    TInstrKind::TBlock(_, _) =>
+      optimize_block(instr, mod, options, branch_cache, ctx)
+    TInstrKind::TLoop(bt, body) => {
+      let (next_body, changed) = mb_optimize_texpr(
+        body, mod, options, branch_cache, ctx,
+      )
+      (mb_finalize_block(TInstr::loop_(bt, next_body), ctx.env), changed)
+    }
+    TInstrKind::TTryTable(bt, catches, body) => {
+      let (next_body, changed) = mb_optimize_texpr(
+        body, mod, options, branch_cache, ctx,
+      )
+      (
+        mb_finalize_block(TInstr::try_table(bt, catches, next_body), ctx.env),
+        changed,
+      )
+    }
+    TInstrKind::TIf(bt, cond, then_, else_) => {
+      let (next_cond, changed_cond) = mb_optimize_instr(
+        cond, mod, options, branch_cache, ctx,
+      )
+      let (next_then, changed_then) = mb_optimize_texpr(
+        then_, mod, options, branch_cache, ctx,
+      )
+      let (next_else, changed_else) = match else_ {
+        Some(e) => {
+          let (next, changed) = mb_optimize_texpr(
+            e, mod, options, branch_cache, ctx,
+          )
+          (Some(next), changed)
+        }
+        None => (None, false)
+      }
+      (
+        TInstr::if_(bt, next_cond, next_then, next_else),
+        changed_cond || changed_then || changed_else,
+      )
+    }
+    _ => {
+      let children = mb_eval_children(instr)
+      if children.is_empty() {
+        (instr, false)
+      } else {
+        let next_children = []
+        let mut changed = false
+        for child in children {
+          let (next_child, child_changed) = mb_optimize_instr(
+            child, mod, options, branch_cache, ctx,
+          )
+          if child_changed {
+            changed = true
+          }
+          next_children.push(next_child)
+        }
+        if changed {
+          (mb_rebuild_non_control(instr, next_children), true)
+        } else {
+          (instr, false)
+        }
+      }
+    }
+  }
+}
+
+///|
+fn mb_optimize_texpr(
+  expr : TExpr,
+  mod : Module,
+  options : OptimizeOptions,
+  branch_cache : BranchCache,
+  ctx : MBContext,
+) -> (TExpr, Bool) {
+  let out : Array[TInstr] = []
+  let mut changed = false
+  for instr in expr.instrs {
+    let (next, child_changed) = mb_optimize_instr(
+      instr, mod, options, branch_cache, ctx,
+    )
+    if child_changed {
+      changed = true
+    }
+    out.push(next)
+  }
+  (TExpr::new(out), changed)
+}
+
+///|
+fn run_on_function(
+  func : Func,
+  mod : Module,
+  options : OptimizeOptions,
+) -> (Func, Bool) {
+  match func {
+    TFunc(params, locals, body) => {
+      let env = Env::new().with_module(mod).with_locals(locals)
+      let ctx = MBContext::new(env)
+      let root = TInstr::block(BlockType::void_(), body)
+      let (next_root, changed) = optimize_block(
+        root,
+        mod,
+        options,
+        ctx.branch_cache,
+        ctx,
+      )
+      let next_body = match next_root.kind {
+        TInstrKind::TBlock(_, b) => b
+        _ => body
+      }
+      let mut final_body = next_body
+      if changed {
+        final_body = mb_refinalize_texpr(final_body, env)
+      }
+      if ctx.needs_refinalize {
+        final_body = mb_refinalize_texpr(final_body, env)
+      }
+      if changed || ctx.needs_refinalize {
+        (Func::t_func(params, locals, final_body), true)
+      } else {
+        (func, false)
+      }
+    }
+    _ => (func, false)
+  }
+}
+
+///|
+fn merge_blocks_ir_pass(
+  mod : Module,
+  options? : OptimizeOptions = OptimizeOptions::new(),
+) -> ModuleTransformer[IRContext] {
+  ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
+    let (next_func, changed) = run_on_function(func, mod, options)
+    if changed {
+      change(ctx, next_func)
+    } else {
+      unchanged()
+    }
+  })
+}
+
+///|
+fn run_merge_blocks(
+  mod : Module,
+  options? : OptimizeOptions = OptimizeOptions::new(),
+) -> Module {
+  let pass = merge_blocks_ir_pass(mod, options~)
+  match pass.walk_module(IRContext::new(), mod) {
+    Ok(Some((_, out))) => out
+    _ => mod
+  }
+}
+
+///|
+fn mb_eval_children(instr : TInstr) -> Array[TInstr] {
+  match instr.kind {
+    // Zero-operand instructions.
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TNop
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TStructNewDefault(_) => []
+
+    // Unary operands.
+    TInstrKind::TUnary(_, child)
+    | TInstrKind::TDrop(child)
+    | TInstrKind::TLocalSet(_, child)
+    | TInstrKind::TLocalTee(_, child)
+    | TInstrKind::TGlobalSet(_, child)
+    | TInstrKind::TRefIsNull(child)
+    | TInstrKind::TRefAsNonNull(child)
+    | TInstrKind::TI31GetS(child)
+    | TInstrKind::TI31GetU(child)
+    | TInstrKind::TRefI31(child)
+    | TInstrKind::TArrayLen(child)
+    | TInstrKind::TAnyConvertExtern(child)
+    | TInstrKind::TExternConvertAny(child)
+    | TInstrKind::TThrowRef(child)
+    | TInstrKind::TMemoryGrow(_, child)
+    | TInstrKind::TTableGet(_, child)
+    | TInstrKind::TLoad(_, _, child)
+    | TInstrKind::TArrayNewDefault(_, child)
+    | TInstrKind::TStructGet(_, _, child)
+    | TInstrKind::TStructGetS(_, _, child)
+    | TInstrKind::TStructGetU(_, _, child)
+    | TInstrKind::TI8x16Splat(child)
+    | TInstrKind::TI16x8Splat(child)
+    | TInstrKind::TI32x4Splat(child)
+    | TInstrKind::TI64x2Splat(child)
+    | TInstrKind::TF32x4Splat(child)
+    | TInstrKind::TF64x2Splat(child)
+    | TInstrKind::TExtractLane(_, _, child)
+    | TInstrKind::TRefTest(_, _, child)
+    | TInstrKind::TRefCast(_, _, child)
+    | TInstrKind::TRefGetDesc(child)
+    | TInstrKind::TRefTestDesc(_, _, child)
+    | TInstrKind::TRefCastDescEq(_, _, child) => [child]
+
+    // Two operands.
+    TInstrKind::TBinary(_, left, right)
+    | TInstrKind::TRefEq(left, right)
+    | TInstrKind::TStore(_, _, left, right)
+    | TInstrKind::TMemoryAtomicNotify(_, left, right)
+    | TInstrKind::TAtomicRmw(_, _, left, right)
+    | TInstrKind::TTableSet(_, left, right)
+    | TInstrKind::TTableGrow(_, left, right)
+    | TInstrKind::TStructSet(_, _, left, right)
+    | TInstrKind::TArrayNew(_, left, right)
+    | TInstrKind::TArrayNewData(_, _, left, right)
+    | TInstrKind::TArrayNewElem(_, _, left, right)
+    | TInstrKind::TArrayGet(_, left, right)
+    | TInstrKind::TArrayGetS(_, left, right)
+    | TInstrKind::TArrayGetU(_, left, right)
+    | TInstrKind::TReplaceLane(_, _, left, right)
+    | TInstrKind::TI8x16Swizzle(left, right)
+    | TInstrKind::TI8x16RelaxedSwizzle(left, right)
+    | TInstrKind::TV128Shift(_, left, right)
+    | TInstrKind::TV128LoadLane(_, _, _, left, right)
+    | TInstrKind::TV128StoreLane(_, _, _, left, right) => [left, right]
+
+    // Three operands.
+    TInstrKind::TMemoryFill(_, a, b, c)
+    | TInstrKind::TMemoryCopy(_, _, a, b, c)
+    | TInstrKind::TMemoryInit(_, _, a, b, c)
+    | TInstrKind::TMemoryAtomicWait32(_, a, b, c)
+    | TInstrKind::TMemoryAtomicWait64(_, a, b, c)
+    | TInstrKind::TAtomicCmpxchg(_, _, a, b, c)
+    | TInstrKind::TTableFill(_, a, b, c)
+    | TInstrKind::TTableCopy(_, _, a, b, c)
+    | TInstrKind::TTableInit(_, _, a, b, c)
+    | TInstrKind::TSelect(_, c, a, b)
+    | TInstrKind::TV128Ternary(_, a, b, c) => [a, b, c]
+
+    // Variable-length operands.
+    TInstrKind::TCall(_, args)
+    | TInstrKind::TReturnCall(_, args)
+    | TInstrKind::TThrow(_, args)
+    | TInstrKind::TBr(_, args)
+    | TInstrKind::TReturn(args)
+    | TInstrKind::TStructNew(_, args)
+    | TInstrKind::TArrayNewFixed(_, args) => args.copy()
+    TInstrKind::TCallIndirect(_, _, args, index)
+    | TInstrKind::TReturnCallIndirect(_, _, args, index) => {
+      let out = args.copy()
+      out.push(index)
+      out
+    }
+    TInstrKind::TCallRef(_, args, ref_)
+    | TInstrKind::TReturnCallRef(_, args, ref_) => {
+      let out = args.copy()
+      out.push(ref_)
+      out
+    }
+    TInstrKind::TBrIf(_, cond, values) => {
+      let out = values.copy()
+      out.push(cond)
+      out
+    }
+    TInstrKind::TBrTable(_, _, index, values) => {
+      let out = values.copy()
+      out.push(index)
+      out
+    }
+    TInstrKind::TBrOnNull(_, ref_, values)
+    | TInstrKind::TBrOnNonNull(_, ref_, values)
+    | TInstrKind::TBrOnCast(_, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) => {
+      let out = values.copy()
+      out.push(ref_)
+      out
+    }
+    TInstrKind::TArraySet(_, a, b, c) => [a, b, c]
+    TInstrKind::TArrayFill(_, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayCopy(_, _, a, b, c, d, e) => [a, b, c, d, e]
+    TInstrKind::TArrayInitData(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayInitElem(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TI8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      left,
+      right
+    ) => [left, right]
+
+    // Control-flow structures are handled directly by control-flow logic.
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => []
+  }
+}
+
+///|
+fn mb_rebuild_non_control(instr : TInstr, children : Array[TInstr]) -> TInstr {
+  match instr.kind {
+    // Zero-operand instructions.
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TNop
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TStructNewDefault(_) => instr
+
+    // Unary operands.
+    TInstrKind::TUnary(op, _) => TInstr::unary(op, children[0])
+    TInstrKind::TDrop(_) => TInstr::drop(children[0])
+    TInstrKind::TLocalSet(idx, _) => TInstr::local_set(idx, children[0])
+    TInstrKind::TLocalTee(idx, _) => TInstr::local_tee(idx, children[0])
+    TInstrKind::TGlobalSet(idx, _) => TInstr::global_set(idx, children[0])
+    TInstrKind::TRefIsNull(_) => TInstr::ref_is_null(children[0])
+    TInstrKind::TRefAsNonNull(_) => TInstr::ref_as_non_null(children[0])
+    TInstrKind::TI31GetS(_) => TInstr::i31_get_s(children[0])
+    TInstrKind::TI31GetU(_) => TInstr::i31_get_u(children[0])
+    TInstrKind::TRefI31(_) => TInstr::ref_i31(children[0])
+    TInstrKind::TArrayLen(_) => TInstr::array_len(children[0])
+    TInstrKind::TAnyConvertExtern(_) => TInstr::any_convert_extern(children[0])
+    TInstrKind::TExternConvertAny(_) => TInstr::extern_convert_any(children[0])
+    TInstrKind::TThrowRef(_) => TInstr::throw_ref(children[0])
+    TInstrKind::TMemoryGrow(idx, _) => TInstr::memory_grow(idx, children[0])
+    TInstrKind::TTableGet(idx, _) => TInstr::table_get(idx, children[0])
+    TInstrKind::TLoad(op, memarg, _) => TInstr::load(op, memarg, children[0])
+    TInstrKind::TArrayNewDefault(type_idx, _) =>
+      TInstr::array_new_default(type_idx, children[0])
+    TInstrKind::TStructGet(type_idx, field_idx, _) =>
+      TInstr::struct_get(type_idx, field_idx, children[0])
+    TInstrKind::TStructGetS(type_idx, field_idx, _) =>
+      TInstr::struct_get_s(type_idx, field_idx, children[0])
+    TInstrKind::TStructGetU(type_idx, field_idx, _) =>
+      TInstr::struct_get_u(type_idx, field_idx, children[0])
+    TInstrKind::TI8x16Splat(_) => TInstr::i8x16_splat(children[0])
+    TInstrKind::TI16x8Splat(_) => TInstr::i16x8_splat(children[0])
+    TInstrKind::TI32x4Splat(_) => TInstr::i32x4_splat(children[0])
+    TInstrKind::TI64x2Splat(_) => TInstr::i64x2_splat(children[0])
+    TInstrKind::TF32x4Splat(_) => TInstr::f32x4_splat(children[0])
+    TInstrKind::TF64x2Splat(_) => TInstr::f64x2_splat(children[0])
+    TInstrKind::TExtractLane(op, lane, _) =>
+      TInstr::extract_lane(op, lane, children[0])
+    TInstrKind::TRefTest(nullable, ht, _) =>
+      TInstr::ref_test(nullable, ht, children[0])
+    TInstrKind::TRefCast(nullable, ht, _) =>
+      TInstr::ref_cast(nullable, ht, children[0])
+    TInstrKind::TRefGetDesc(_) => TInstr::ref_get_desc(children[0])
+    TInstrKind::TRefTestDesc(nullable, ht, _) =>
+      TInstr::ref_test_desc(nullable, ht, children[0])
+    TInstrKind::TRefCastDescEq(nullable, ht, _) =>
+      TInstr::ref_cast_desc_eq(nullable, ht, children[0])
+
+    // Two operands.
+    TInstrKind::TBinary(op, _, _) =>
+      TInstr::binary(op, children[0], children[1])
+    TInstrKind::TRefEq(_, _) => TInstr::ref_eq(children[0], children[1])
+    TInstrKind::TStore(op, memarg, _, _) =>
+      TInstr::store(op, memarg, children[0], children[1])
+    TInstrKind::TMemoryAtomicNotify(memarg, _, _) =>
+      TInstr::memory_atomic_notify(memarg, children[0], children[1])
+    TInstrKind::TAtomicRmw(op, memarg, _, _) =>
+      TInstr::atomic_rmw(op, memarg, children[0], children[1])
+    TInstrKind::TTableSet(table_idx, _, _) =>
+      TInstr::table_set(table_idx, children[0], children[1])
+    TInstrKind::TTableGrow(table_idx, _, _) =>
+      TInstr::table_grow(table_idx, children[0], children[1])
+    TInstrKind::TStructSet(type_idx, field_idx, _, _) =>
+      TInstr::struct_set(type_idx, field_idx, children[0], children[1])
+    TInstrKind::TArrayNew(type_idx, _, _) =>
+      TInstr::array_new(type_idx, children[0], children[1])
+    TInstrKind::TArrayNewData(type_idx, data_idx, _, _) =>
+      TInstr::array_new_data(type_idx, data_idx, children[0], children[1])
+    TInstrKind::TArrayNewElem(type_idx, elem_idx, _, _) =>
+      TInstr::array_new_elem(type_idx, elem_idx, children[0], children[1])
+    TInstrKind::TArrayGet(type_idx, _, _) =>
+      TInstr::array_get(type_idx, children[0], children[1])
+    TInstrKind::TArrayGetS(type_idx, _, _) =>
+      TInstr::array_get_s(type_idx, children[0], children[1])
+    TInstrKind::TArrayGetU(type_idx, _, _) =>
+      TInstr::array_get_u(type_idx, children[0], children[1])
+    TInstrKind::TReplaceLane(op, lane, _, _) =>
+      TInstr::replace_lane(op, lane, children[0], children[1])
+    TInstrKind::TI8x16Swizzle(_, _) =>
+      TInstr::i8x16_swizzle(children[0], children[1])
+    TInstrKind::TI8x16RelaxedSwizzle(_, _) =>
+      TInstr::i8x16_relaxed_swizzle(children[0], children[1])
+    TInstrKind::TV128Shift(op, _, _) =>
+      TInstr::v128_shift(op, children[0], children[1])
+    TInstrKind::TV128LoadLane(op, memarg, lane, _, _) =>
+      TInstr::v128_load_lane(op, memarg, lane, children[0], children[1])
+    TInstrKind::TV128StoreLane(op, memarg, lane, _, _) =>
+      TInstr::v128_store_lane(op, memarg, lane, children[0], children[1])
+
+    // Three operands.
+    TInstrKind::TMemoryFill(mem_idx, _, _, _) =>
+      TInstr::memory_fill(mem_idx, children[0], children[1], children[2])
+    TInstrKind::TMemoryCopy(dst, src, _, _, _) =>
+      TInstr::memory_copy(dst, src, children[0], children[1], children[2])
+    TInstrKind::TMemoryInit(data_idx, mem_idx, _, _, _) =>
+      TInstr::memory_init(
+        data_idx,
+        mem_idx,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TInstrKind::TMemoryAtomicWait32(memarg, _, _, _) =>
+      TInstr::memory_atomic_wait32(
+        memarg,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TInstrKind::TMemoryAtomicWait64(memarg, _, _, _) =>
+      TInstr::memory_atomic_wait64(
+        memarg,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TInstrKind::TAtomicCmpxchg(op, memarg, _, _, _) =>
+      TInstr::atomic_cmpxchg(op, memarg, children[0], children[1], children[2])
+    TInstrKind::TTableFill(table_idx, _, _, _) =>
+      TInstr::table_fill(table_idx, children[0], children[1], children[2])
+    TInstrKind::TTableCopy(dst, src, _, _, _) =>
+      TInstr::table_copy(dst, src, children[0], children[1], children[2])
+    TInstrKind::TTableInit(elem_idx, table_idx, _, _, _) =>
+      TInstr::table_init(
+        elem_idx,
+        table_idx,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TInstrKind::TSelect(types, _, _, _) =>
+      TInstr::select(types, children[2], children[0], children[1])
+    TInstrKind::TV128Ternary(op, _, _, _) =>
+      TInstr::v128_ternary(op, children[0], children[1], children[2])
+
+    // Variable-length operands.
+    TInstrKind::TCall(func_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::call(func_idx, rebuilt)
+    }
+    TInstrKind::TReturnCall(func_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::return_call(func_idx, rebuilt)
+    }
+    TInstrKind::TThrow(tag_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::throw_(tag_idx, rebuilt)
+    }
+    TInstrKind::TBr(label_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::br(label_idx, rebuilt)
+    }
+    TInstrKind::TReturn(args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::return_(rebuilt)
+    }
+    TInstrKind::TStructNew(type_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::struct_new(type_idx, rebuilt)
+    }
+    TInstrKind::TArrayNewFixed(type_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::array_new_fixed(type_idx, rebuilt)
+    }
+    TInstrKind::TCallIndirect(type_idx, table_idx, args, _) => {
+      let rebuilt_args = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt_args.push(children[i])
+      }
+      TInstr::call_indirect(
+        type_idx,
+        table_idx,
+        rebuilt_args,
+        children[args.length()],
+      )
+    }
+    TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, _) => {
+      let rebuilt_args = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt_args.push(children[i])
+      }
+      TInstr::return_call_indirect(
+        type_idx,
+        table_idx,
+        rebuilt_args,
+        children[args.length()],
+      )
+    }
+    TInstrKind::TCallRef(type_idx, args, _) => {
+      let rebuilt_args = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt_args.push(children[i])
+      }
+      TInstr::call_ref(type_idx, rebuilt_args, children[args.length()])
+    }
+    TInstrKind::TReturnCallRef(type_idx, args, _) => {
+      let rebuilt_args = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt_args.push(children[i])
+      }
+      TInstr::return_call_ref(type_idx, rebuilt_args, children[args.length()])
+    }
+    TInstrKind::TBrIf(label_idx, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_if(label_idx, children[values.length()], rebuilt_values)
+    }
+    TInstrKind::TBrTable(labels, default, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_table(
+        labels,
+        default,
+        children[values.length()],
+        rebuilt_values,
+      )
+    }
+    TInstrKind::TBrOnNull(label_idx, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_on_null(label_idx, children[values.length()], rebuilt_values)
+    }
+    TInstrKind::TBrOnNonNull(label_idx, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_on_non_null(
+        label_idx,
+        children[values.length()],
+        rebuilt_values,
+      )
+    }
+    TInstrKind::TBrOnCast(label_idx, castop, ht1, ht2, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_on_cast(
+        label_idx,
+        castop.0,
+        ht1,
+        castop.1,
+        ht2,
+        children[values.length()],
+        rebuilt_values,
+      )
+    }
+    TInstrKind::TBrOnCastFail(label_idx, castop, ht1, ht2, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_on_cast_fail(
+        label_idx,
+        castop.0,
+        ht1,
+        castop.1,
+        ht2,
+        children[values.length()],
+        rebuilt_values,
+      )
+    }
+    TInstrKind::TArraySet(type_idx, _, _, _) =>
+      TInstr::array_set(type_idx, children[0], children[1], children[2])
+    TInstrKind::TArrayFill(type_idx, _, _, _, _) =>
+      TInstr::array_fill(
+        type_idx,
+        children[0],
+        children[1],
+        children[2],
+        children[3],
+      )
+    TInstrKind::TArrayCopy(dst_type, src_type, _, _, _, _, _) =>
+      TInstr::array_copy(
+        dst_type,
+        src_type,
+        children[0],
+        children[1],
+        children[2],
+        children[3],
+        children[4],
+      )
+    TInstrKind::TArrayInitData(type_idx, data_idx, _, _, _, _) =>
+      TInstr::array_init_data(
+        type_idx,
+        data_idx,
+        children[0],
+        children[1],
+        children[2],
+        children[3],
+      )
+    TInstrKind::TArrayInitElem(type_idx, elem_idx, _, _, _, _) =>
+      TInstr::array_init_elem(
+        type_idx,
+        elem_idx,
+        children[0],
+        children[1],
+        children[2],
+        children[3],
+      )
+    TInstrKind::TI8x16Shuffle(
+      l0,
+      l1,
+      l2,
+      l3,
+      l4,
+      l5,
+      l6,
+      l7,
+      l8,
+      l9,
+      l10,
+      l11,
+      l12,
+      l13,
+      l14,
+      l15,
+      _,
+      _
+    ) =>
+      TInstr::i8x16_shuffle(
+        l0,
+        l1,
+        l2,
+        l3,
+        l4,
+        l5,
+        l6,
+        l7,
+        l8,
+        l9,
+        l10,
+        l11,
+        l12,
+        l13,
+        l14,
+        l15,
+        children[0],
+        children[1],
+      )
+
+    // Control-flow structures are rebuilt in dedicated handlers.
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => instr
+  }
+}
+
+///|
+fn mb_make_test_module_with_body(
+  locals : Array[ValType],
+  body : TExpr,
+  results? : Array[ValType] = [],
+) -> Module {
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], results)))]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], locals, body)]))
+}
+
+///|
+fn mb_extract_only_tfunc(mod : Module) -> Func? {
+  match mod.code_sec {
+    Some(CodeSec([func])) => Some(func)
+    _ => None
+  }
+}
+
+///|
+fn mb_run_on_body(body : TExpr, locals? : Array[ValType] = []) -> TExpr {
+  let mod = mb_make_test_module_with_body(locals, body)
+  let out = run_merge_blocks(mod)
+  match mb_extract_only_tfunc(out) {
+    Some(TFunc(_, _, new_body)) => new_body
+    _ => body
+  }
+}
+
+///|
+fn mb_is_local_set_or_tee_chain(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TLocalSet(_, _) | TInstrKind::TLocalTee(_, _) => true
+    _ => false
+  }
+}
+
+///|
+fn mb_local_chain_sig(instr : TInstr, env : Env) -> (Int, Int, ValType)? {
+  match instr.kind {
+    TInstrKind::TLocalGet(local_idx) =>
+      match env.get_local_type(local_idx) {
+        Some(local_ty) => Some((0, 1, local_ty))
+        None => None
+      }
+    TInstrKind::TLocalSet(local_idx, value) =>
+      match (env.get_local_type(local_idx), mb_local_chain_sig(value, env)) {
+        (Some(local_ty), Some((required, produced, value_ty))) =>
+          if local_ty == value_ty {
+            let upstream_slack = mb_nonneg_int(1 - produced)
+            Some(
+              (
+                required + upstream_slack,
+                mb_nonneg_int(upstream_slack + produced - 1),
+                local_ty,
+              ),
+            )
+          } else {
+            None
+          }
+        _ => None
+      }
+    TInstrKind::TLocalTee(local_idx, value) =>
+      match (env.get_local_type(local_idx), mb_local_chain_sig(value, env)) {
+        (Some(local_ty), Some((required, produced, value_ty))) =>
+          if local_ty == value_ty {
+            let upstream_slack = mb_nonneg_int(1 - produced)
+            Some(
+              (
+                required + upstream_slack,
+                mb_nonneg_int(upstream_slack + produced),
+                local_ty,
+              ),
+            )
+          } else {
+            None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn mb_has_bad_single_arg_local_chain_call(body : TExpr, env : Env) -> Bool {
+  let mut bad = false
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr.kind {
+      TInstrKind::TCall(func_idx, [arg]) =>
+        match env.get_functype_by_funcidx(func_idx) {
+          Some(FuncType([param_ty], _)) =>
+            if mb_is_local_set_or_tee_chain(arg) {
+              match mb_local_chain_sig(arg, env) {
+                Some((_, produced, got_ty)) =>
+                  if produced != 1 || got_ty != param_ty {
+                    bad = true
+                  }
+                _ => bad = true
+              }
+            }
+          _ => ()
+        }
+      _ => ()
+    }
+    self.walk_tinstruction_default((), instr)
+  })
+  ignore(walker.walk_texpr((), body))
+  bad
+}
+
+///|
+test "merge blocks: stack sig pop_push carries child required depth" {
+  let child = MBStackSig::new(1, 0, true)
+  let out = mb_stack_sig_pop_push(child, 1, 1)
+  assert_eq(out.required, 2)
+  assert_eq(out.produced, 1)
+  assert_true(out.reachable)
+}
+
+///|
+test "merge blocks: stack sig sequence accumulates upstream requirement" {
+  let a = MBStackSig::new(2, 1, true)
+  let b = MBStackSig::new(2, 0, true)
+  let out = mb_stack_sig_seq(a, b)
+  assert_eq(out.required, 3)
+  assert_eq(out.produced, 0)
+  assert_true(out.reachable)
+}
+
+///|
+test "merge blocks: stack sig never reports negative produced for reachable expression" {
+  let child = MBStackSig::new(0, 0, true)
+  let out = mb_stack_sig_pop_push(child, 1, 0)
+  assert_eq(out.required, 1)
+  assert_eq(out.produced, 0)
+  assert_true(out.reachable)
+}
+
+///|
+test "merge blocks: does not produce underflowing call arg local-set chain" {
+  let locals = [ValType::i32(), ValType::i64(), ValType::i32(), ValType::i64()]
+  let inner_body = TExpr::new([
+    TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
+    TInstr::local_set(
+      LocalIdx::new(3),
+      TInstr::unary(
+        UnaryOp::i64_extend_i32s(),
+        TInstr::local_tee(LocalIdx::new(0), TInstr::local_get(LocalIdx::new(2))),
+      ),
+    ),
+    TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+    TInstr::i32_const(I32(0)),
+    TInstr::local_tee(
+      LocalIdx::new(0),
+      TInstr::if_(
+        BlockType::val_type(ValType::i32()),
+        TInstr::local_set(LocalIdx::new(0), TInstr::local_get(LocalIdx::new(0))),
+        TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+        Some(
+          TExpr::new([
+            TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+            TInstr::br(LabelIdx::new(1), []),
+          ]),
+        ),
+      ),
+    ),
+    TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(1)), []),
+    TInstr::br(LabelIdx::new(1), []),
+  ])
+  let ambient_arg = TInstr::local_tee(
+    LocalIdx::new(0),
+    TInstr::local_set(LocalIdx::new(0), TInstr::local_get(LocalIdx::new(0))),
+  )
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::type_idx(TypeIdx::new(1)),
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([TInstr::block(BlockType::void_(), inner_body)]),
+          ),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::local_get(LocalIdx::new(0)),
+        ]),
+      ),
+    ),
+    TInstr::call(FuncIdx::new(1), [ambient_arg]),
+    TInstr::call(FuncIdx::new(1), [ambient_arg]),
+    TInstr::call(FuncIdx::new(1), [ambient_arg]),
+  ])
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+        RecType::new(
+          SubType::comp_type(
+            CompType::func([], [
+              ValType::i32(),
+              ValType::i32(),
+              ValType::i32(),
+              ValType::i32(),
+            ]),
+          ),
+        ),
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(2)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], locals, body),
+        Func::t_func([ValType::i32()], [], TExpr::new([])),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_merge_blocks(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected merge_blocks to preserve dropped typed block stack validity: \{e}",
+      )
+  }
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, next_locals, next_body), _])) => {
+      let env = Env::new().with_module(out).with_locals(next_locals)
+      assert_false(mb_has_bad_single_arg_local_chain_call(next_body, env))
+    }
+    _ => fail("expected transformed regression function")
+  }
+}
+
+///|
+test "merge blocks: stack signature guard rejects call arg type mismatch" {
+  let before = TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(1))])
+  let after_items = [TInstr::call(FuncIdx::new(0), [TInstr::i64_const(I64(2))])]
+  let env = Env::new().with_module(
+    Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)])),
+  )
+  assert_false(mb_rewrite_preserves_stack_sig(before, after_items, env))
+}
+
+///|
+test "merge blocks: finalize preserves explicit value block type on inference conflict" {
+  let if_instr = TInstr::if_(
+    BlockType::val_type(ValType::i32()),
+    TInstr::i32_const(I32(1)),
+    TExpr::new([TInstr::i64_const(I64(1))]),
+    Some(TExpr::new([TInstr::i64_const(I64(2))])),
+  )
+  let out = mb_refinalize_instr(if_instr, Env::new())
+  match out.kind {
+    TInstrKind::TIf(bt, _, _, _) =>
+      match bt {
+        ValTypeBlockType(out_ty) => assert_eq(out_ty, ValType::i32())
+        _ => fail("expected refinalized if block type")
+      }
+    _ => fail("expected refinalized if instruction")
+  }
+}
+
+///|
+test "merge blocks: nested unnamed block fully merges" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::i32_const(I32(1)),
+        TInstr::drop(TInstr::i32_const(I32(2))),
+      ]),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  match out.instrs {
+    [
+      {
+        kind: TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(1)), .. }),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(2)), .. }),
+        ..,
+      },
+    ] => ()
+    _ => fail("expected child block to merge into parent")
+  }
+}
+
+///|
+test "merge blocks: converges through two-level nesting" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::block(
+          BlockType::void_(),
+          TExpr::new([TInstr::i32_const(I32(3))]),
+        ),
+      ]),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  match out.instrs {
+    [{ kind: TInstrKind::TI32Const(I32(3)), .. }] => ()
+    _ => fail("expected full convergence")
+  }
+}
+
+///|
+test "merge blocks: concrete moved to middle gets drop" {
+  let body = TExpr::new([
+    TInstr::block(BlockType::void_(), TExpr::new([TInstr::i32_const(I32(4))])),
+    TInstr::nop(),
+  ])
+  let out = mb_run_on_body(body)
+  match out.instrs {
+    [
+      {
+        kind: TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(4)), .. }),
+        ..,
+      },
+      { kind: TInstrKind::TNop, .. },
+    ] => ()
+    _ => fail("expected concrete merged value to be dropped in middle")
+  }
+}
+
+///|
+test "merge blocks: named child only merges prefix before branch" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::i32_const(I32(7)),
+        TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(1)), []),
+        TInstr::i32_const(I32(9)),
+      ]),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  match out.instrs {
+    [
+      first,
+      {
+        kind: TInstrKind::TBlock(
+          VoidBlockType,
+          {
+            instrs: [
+              { kind: TInstrKind::TBrIf(LabelIdx(target), _, []), .. },
+              { kind: TInstrKind::TI32Const(I32(9)), .. },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      },
+    ] => {
+      match first.kind {
+        TInstrKind::TI32Const(I32(7))
+        | TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(7)), .. }) => ()
+        _ => fail("expected merged prefix value")
+      }
+      assert_eq(target.reinterpret_as_int(), 0)
+    }
+    _ => fail("expected partial merge before first self-branch: \{out}")
+  }
+}
+
+///|
+test "merge blocks: named concrete child not merged" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([
+        TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(1))]),
+        TInstr::i32_const(I32(2)),
+      ]),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  assert_eq(out, body)
+}
+
+///|
+test "merge blocks: loop tail merge moves non-branching suffix outward" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::br_if(LabelIdx::new(1), TInstr::i32_const(I32(0)), []),
+                TInstr::call(FuncIdx::new(0), []),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body([], body)
+  let out = run_merge_blocks(mod)
+  match mb_extract_only_tfunc(out) {
+    Some(
+      TFunc(
+        [],
+        _,
+        {
+          instrs: [
+            {
+              kind: TInstrKind::TBlock(
+                _,
+                {
+                  instrs: [
+                    {
+                      kind: TInstrKind::TLoop(
+                        _,
+                        {
+                          instrs: [
+                            {
+                              kind: TInstrKind::TBlock(
+                                _,
+                                {
+                                  instrs: [
+                                    { kind: TInstrKind::TBrIf(_, _, []), .. },
+                                  ],
+                                  ..,
+                                }
+                              ),
+                              ..,
+                            },
+                          ],
+                          ..,
+                        }
+                      ),
+                      ..,
+                    },
+                    { kind: TInstrKind::TCall(_, []), .. },
+                  ],
+                  ..,
+                }
+              ),
+              ..,
+            },
+          ],
+          ..,
+        }
+      )
+    ) => ()
+    _ => fail("expected loop tail instruction moved outward")
+  }
+}
+
+///|
+test "merge blocks: loop tail blocked when last item branches to loop" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::i32_const(I32(1)),
+                TInstr::br_if(LabelIdx::new(1), TInstr::i32_const(I32(0)), []),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  assert_eq(out, body)
+}
+
+///|
+test "merge blocks: loop partial merge with concrete loop value is skipped" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::br_if(LabelIdx::new(1), TInstr::i32_const(I32(0)), []),
+                TInstr::i32_const(I32(11)),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  assert_eq(out, body)
+}
+
+///|
+test "merge blocks: dropped block pushes drop inward" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::call(FuncIdx::new(0), []),
+          TInstr::i32_const(I32(1)),
+        ]),
+      ),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body([], body)
+  let out = run_merge_blocks(mod)
+  match mb_extract_only_tfunc(out) {
+    Some(
+      TFunc(
+        [],
+        _,
+        {
+          instrs: [
+            { kind: TInstrKind::TCall(_, []), .. },
+            {
+              kind: TInstrKind::TDrop(
+                { kind: TInstrKind::TI32Const(I32(1)), .. }
+              ),
+              ..,
+            },
+          ],
+          ..,
+        }
+      )
+    ) => ()
+    _ => fail("expected drop moved inside block")
+  }
+}
+
+///|
+test "merge blocks: named dropped block removes break values when safe" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(5))]),
+          TInstr::i32_const(I32(7)),
+        ]),
+      ),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  let mut saw_value_br = false
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr.kind {
+      TInstrKind::TBr(_, values) if !values.is_empty() => saw_value_br = true
+      _ => ()
+    }
+    self.walk_tinstruction_default((), instr)
+  })
+  ignore(walker.walk_texpr((), out))
+  assert_false(saw_value_br)
+}
+
+///|
+test "merge blocks: problem finder blocks side-effecting br value" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::br(LabelIdx::new(0), [TInstr::call(FuncIdx::new(0), [])]),
+          TInstr::i32_const(I32(0)),
+        ]),
+      ),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  assert_eq(out, body)
+}
+
+///|
+test "merge blocks: problem finder blocks br_if mismatch" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(1)), [
+            TInstr::i32_const(I32(3)),
+          ]),
+          TInstr::i32_const(I32(4)),
+        ]),
+      ),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  assert_eq(out, body)
+}
+
+///|
+test "merge blocks: problem finder blocks unsupported br_table target" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::br_table(
+            [LabelIdx::new(0)],
+            LabelIdx::new(0),
+            TInstr::i32_const(I32(0)),
+            [TInstr::i32_const(I32(1))],
+          ),
+          TInstr::i32_const(I32(9)),
+        ]),
+      ),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  assert_eq(out, body)
+}
+
+///|
+test "merge blocks: try_table catch_all_ref targeting origin is allowed" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::try_table(
+            BlockType::void_(),
+            [Catch::all_ref(LabelIdx::new(1))],
+            TExpr::new([TInstr::nop()]),
+          ),
+          TInstr::i32_const(I32(10)),
+        ]),
+      ),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  let mut saw_ref_catch = false
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr.kind {
+      TInstrKind::TTryTable(_, catches, _) =>
+        for catch_ in catches {
+          match catch_ {
+            CatchAllRef(_) | CatchRef(_, _) => saw_ref_catch = true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+    self.walk_tinstruction_default((), instr)
+  })
+  ignore(walker.walk_texpr((), out))
+  assert_false(saw_ref_catch)
+}
+
+///|
+test "merge blocks: try_table catch_ref with params blocks optimization" {
+  let tag_type = TagType::new(TypeIdx::new(0))
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::try_table(
+            BlockType::void_(),
+            [Catch::ref_(TagIdx::new(0), LabelIdx::new(1))],
+            TExpr::new([TInstr::nop()]),
+          ),
+          TInstr::i32_const(I32(1)),
+        ]),
+      ),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(TagSec::new([tag_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+  let out = run_merge_blocks(mod)
+  assert_eq(out, mod)
+}
+
+///|
+test "merge blocks: restructure pulls operand block outward with effect checks" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::binary(
+        BinaryOp::i32_add(),
+        TInstr::block(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([
+            TInstr::drop(TInstr::i32_const(I32(1))),
+            TInstr::i32_const(I32(2)),
+          ]),
+        ),
+        TInstr::i32_const(I32(3)),
+      ),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  let mut wrapped = false
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr.kind {
+      TInstrKind::TBlock(_, { instrs: items, .. }) if items.length() >= 2 =>
+        wrapped = true
+      _ => ()
+    }
+    self.walk_tinstruction_default((), instr)
+  })
+  ignore(walker.walk_texpr((), out))
+  assert_true(wrapped)
+}
+
+///|
+test "merge blocks: second operand pull blocked by effect invalidation" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::binary(
+        BinaryOp::i32_add(),
+        TInstr::call(FuncIdx::new(0), []),
+        TInstr::block(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([
+            TInstr::call(FuncIdx::new(0), []),
+            TInstr::i32_const(I32(2)),
+          ]),
+        ),
+      ),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  assert_eq(out, body)
+}
+
+///|
+test "merge blocks: preserves typed if result when branch inference is unknown" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::i32_const(I32(7)),
+        TInstr::local_set(
+          LocalIdx::new(0),
+          TInstr::if_(
+            BlockType::val_type(ValType::i32()),
+            TInstr::i32_const(I32(1)),
+            TExpr::new([TInstr::unreachable_()]),
+            Some(TExpr::new([TInstr::i32_const(I32(22))])),
+          ),
+        ),
+      ]),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body([ValType::i32()], body)
+  let out = run_merge_blocks(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected typed-if result to stay valid after merge_blocks: \{e}")
+  }
+}
+
+///|
+test "merge blocks: preserves explicit typed block with branch-produced value" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::local_set(
+          LocalIdx::new(0),
+          TInstr::block(
+            BlockType::val_type(ValType::i32()),
+            TExpr::new([
+              TInstr::block(BlockType::void_(), TExpr::new([TInstr::nop()])),
+              TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(9))]),
+            ]),
+          ),
+        ),
+      ]),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body([ValType::i32()], body)
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_merge_blocks(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected typed block result to stay valid after merge_blocks: \{e}")
+  }
+}
+
+///|
+test "merge blocks: typed local.set source keeps explicit block result when inference is unknown" {
+  let typed_body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([TInstr::drop(TInstr::i32_const(I32(1))), TInstr::nop()]),
+    ),
+    TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(9))]),
+  ])
+  assert_eq(mb_infer_texpr_type(typed_body, Env::new()), None)
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::local_set(
+          LocalIdx::new(0),
+          TInstr::block(BlockType::val_type(ValType::i32()), typed_body),
+        ),
+      ]),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body([ValType::i32()], body)
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_merge_blocks(mod)
+  assert_false(out == mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected merge_blocks to keep explicit typed block result for local.set source: \{e}",
+      )
+  }
+}
+
+///|
+test "merge blocks: keeps ambient-fed if condition stack valid after split merge" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::block(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::i32_const(I32(0)),
+            TInstr::local_tee(
+              LocalIdx::new(0),
+              TInstr::if_(
+                BlockType::val_type(ValType::i32()),
+                TInstr::local_set(
+                  LocalIdx::new(0),
+                  TInstr::local_get(LocalIdx::new(0)),
+                ),
+                TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+                Some(
+                  TExpr::new([
+                    TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+                    TInstr::br(LabelIdx::new(1), []),
+                  ]),
+                ),
+              ),
+            ),
+            TInstr::br(LabelIdx::new(1), []),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body([ValType::i32()], body)
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_merge_blocks(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected merge_blocks to preserve ambient-fed stack validity: \{e}")
+  }
+}
+
+///|
+test "merge blocks: named split preserves ambient stack for nested local.set chain" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::block(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::local_get(LocalIdx::new(3)),
+            TInstr::i32_const(I32(0)),
+            TInstr::local_set(
+              LocalIdx::new(2),
+              TInstr::local_set(
+                LocalIdx::new(0),
+                TInstr::local_set(
+                  LocalIdx::new(0),
+                  TInstr::local_get(LocalIdx::new(2)),
+                ),
+              ),
+            ),
+            TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(1)), []),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body(
+    [ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()],
+    body,
+  )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_merge_blocks(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected merge_blocks to preserve ambient stack consumers: \{e}")
+  }
+}
+
+///|
+test "merge blocks: transformed output stays typable and pass is idempotent" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::drop(
+          TInstr::block(
+            BlockType::val_type(ValType::i32()),
+            TExpr::new([TInstr::i32_const(I32(1)), TInstr::i32_const(I32(2))]),
+          ),
+        ),
+      ]),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body([], body)
+  let out = run_merge_blocks(mod)
+  match mb_extract_only_tfunc(out) {
+    Some(TFunc(_, locals, texpr)) => {
+      let env = Env::new().with_module(out).with_locals(locals)
+      let lowered = texpr.to_expr()
+      match to_texpr(lowered, env) {
+        Ok(_) => ()
+        Err(e) => fail("expected typable output, got: \{e}")
+      }
+    }
+    _ => fail("expected tfunc")
+  }
+  let once = run_merge_blocks(mod)
+  let twice = run_merge_blocks(once)
+  assert_eq(once, twice)
+}
+
+///|
+test "merge blocks: trap-only effects invalidate movement" {
+  let trap_a = compute_effects(TInstr::unreachable_())
+  let trap_b = compute_effects(
+    TInstr::ref_as_non_null(
+      TInstr::ref_null(HeapType::abs(AbsHeapType::func())),
+    ),
+  )
+  assert_true(invalidates(trap_a, trap_b))
+  assert_true(invalidates(trap_b, trap_a))
+}
+
+///|
+test "merge blocks: call effects invalidate memory effects" {
+  let call_fx = compute_effects(TInstr::call(FuncIdx::new(0), []))
+  let load_fx = compute_effects(
+    TInstr::load(
+      LoadOp::i32_load(),
+      MemArg::new(0, None, 0),
+      TInstr::i32_const(I32(0)),
+    ),
+  )
+  assert_true(invalidates(call_fx, load_fx))
+  assert_true(invalidates(load_fx, call_fx))
+}
+
+///|
+test "merge blocks: MBEffects merge unions local sets and side-effect flags" {
+  let lhs = MBEffects::new()
+  lhs.locals_read.add(LocalIdx::new(0))
+  lhs.reads_memory = true
+
+  let rhs = MBEffects::new()
+  rhs.locals_written.add(LocalIdx::new(1))
+  rhs.writes_globals = true
+  rhs.calls = true
+
+  lhs.merge(rhs)
+  assert_true(lhs.locals_read.contains(LocalIdx::new(0)))
+  assert_true(lhs.locals_written.contains(LocalIdx::new(1)))
+  assert_true(lhs.reads_memory)
+  assert_true(lhs.writes_globals)
+  assert_true(lhs.calls)
+}
+
+///|
+test "merge blocks: MBEffects invalidates on local read-write hazards only" {
+  let reads = MBEffects::new()
+  reads.locals_read.add(LocalIdx::new(2))
+  let writes = MBEffects::new()
+  writes.locals_written.add(LocalIdx::new(2))
+  assert_true(invalidates(reads, writes))
+  assert_true(invalidates(writes, reads))
+
+  let disjoint = MBEffects::new()
+  disjoint.locals_read.add(LocalIdx::new(3))
+  assert_false(invalidates(reads, disjoint))
+}
+
+///|
+test "merge blocks: mb_collect_shallow_effects marks instruction-specific flags" {
+  let local_fx = MBEffects::new()
+  mb_collect_shallow_effects(
+    TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+    local_fx,
+  )
+  assert_true(local_fx.locals_read.contains(LocalIdx::new(0)))
+  assert_true(local_fx.locals_written.contains(LocalIdx::new(0)))
+
+  let load_fx = MBEffects::new()
+  mb_collect_shallow_effects(
+    TInstr::load(
+      LoadOp::i32_load(),
+      MemArg::new(0, None, 0),
+      TInstr::i32_const(I32(0)),
+    ),
+    load_fx,
+  )
+  assert_true(load_fx.reads_memory)
+  assert_true(load_fx.traps)
+
+  let throw_fx = MBEffects::new()
+  mb_collect_shallow_effects(
+    TInstr::throw_ref(TInstr::ref_null(HeapType::abs(AbsHeapType::exn()))),
+    throw_fx,
+  )
+  assert_true(throw_fx.throws)
+  assert_true(throw_fx.branches)
+}
+
+///|
+test "merge blocks: infers ref.func as non-null func reference" {
+  let inferred = mb_infer_tinstr_type(
+    TInstr::ref_func(FuncIdx::new(0)),
+    Env::new(),
+  )
+  assert_eq(
+    inferred,
+    Some(
+      ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
+    ),
+  )
+}

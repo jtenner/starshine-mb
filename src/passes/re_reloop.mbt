@@ -1,0 +1,2235 @@
+///| 
+/// Copyright 2023 WebAssembly Community Group participants
+/// 
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+/// 
+///     http://www.apache.org/licenses/LICENSE-2.0
+/// 
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+///|
+fn rr_apply_ir_pass(
+  mod : Module,
+  pass : ModuleTransformer[IRContext],
+) -> Result[Module, String] {
+  let ctx = IRContext::new()
+  match pass.walk_module(ctx, mod) {
+    Ok(Some((_, out))) => Ok(out)
+    Ok(None) => Ok(mod)
+    Err(e) => Err(e)
+  }
+}
+
+///|
+fn rr_run_re_reloop(mod : Module) -> Result[Module, String] {
+  rr_apply_ir_pass(mod, re_reloop_ir_pass(mod))
+}
+
+///|
+fn rr_fixture_mergeable_block_module() -> Module {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([t_void]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([TInstr::i32_const(I32(9)), TInstr::nop()]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_fixture_flattened_branch_shell_module() -> Module {
+  let t_with_param = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_with_param]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::br_if(
+                LabelIdx::new(0),
+                TInstr::local_get(LocalIdx::new(0)),
+                [],
+              ),
+              TInstr::drop(TInstr::i32_const(I32(7))),
+            ]),
+          ),
+          TInstr::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_fixture_flattened_bron_block_module() -> Module {
+  let t_with_ref = RecType::new(
+    SubType::comp_type(CompType::func([ValType::funcref()], [])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_with_ref]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::br_on_null(
+                LabelIdx::new(0),
+                TInstr::local_get(LocalIdx::new(0)),
+                [],
+              ),
+              TInstr::drop(TInstr::i32_const(I32(21))),
+            ]),
+          ),
+          TInstr::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_fixture_flattened_bron_family_module() -> Module {
+  let t_with_ref = RecType::new(
+    SubType::comp_type(CompType::func([ValType::funcref()], [])),
+  )
+  let src_ht = HeapType::abs(AbsHeapType::func())
+  let dst_ht = HeapType::abs(AbsHeapType::func())
+  Module::new()
+  .with_type_sec(TypeSec::new([t_with_ref]))
+  .with_func_sec(
+    FuncSec::new([
+      TypeIdx::new(0),
+      TypeIdx::new(0),
+      TypeIdx::new(0),
+      TypeIdx::new(0),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::br_on_null(
+                LabelIdx::new(0),
+                TInstr::local_get(LocalIdx::new(0)),
+                [],
+              ),
+              TInstr::drop(TInstr::i32_const(I32(1))),
+            ]),
+          ),
+        ]),
+      ),
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::br_on_non_null(
+                LabelIdx::new(0),
+                TInstr::local_get(LocalIdx::new(0)),
+                [],
+              ),
+              TInstr::drop(TInstr::i32_const(I32(2))),
+            ]),
+          ),
+        ]),
+      ),
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::br_on_cast(
+                LabelIdx::new(0),
+                true,
+                src_ht,
+                false,
+                dst_ht,
+                TInstr::local_get(LocalIdx::new(0)),
+                [],
+              ),
+              TInstr::drop(TInstr::i32_const(I32(3))),
+            ]),
+          ),
+        ]),
+      ),
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::br_on_cast_fail(
+                LabelIdx::new(0),
+                true,
+                src_ht,
+                false,
+                dst_ht,
+                TInstr::local_get(LocalIdx::new(0)),
+                [],
+              ),
+              TInstr::drop(TInstr::i32_const(I32(4))),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_fixture_flattened_brtable_block_module() -> Module {
+  let t_with_idx = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_with_idx]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::br_table(
+                [LabelIdx::new(0), LabelIdx::new(0)],
+                LabelIdx::new(0),
+                TInstr::local_get(LocalIdx::new(0)),
+                [],
+              ),
+              TInstr::drop(TInstr::i32_const(I32(99))),
+            ]),
+          ),
+          TInstr::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_fixture_branch_value_flow_module() -> Module {
+  let t_with_i32s = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+    ),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_with_i32s]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::val_type(ValType::i32()),
+            TExpr::new([
+              TInstr::br_if(
+                LabelIdx::new(0),
+                TInstr::local_get(LocalIdx::new(0)),
+                [TInstr::local_get(LocalIdx::new(1))],
+              ),
+              TInstr::i32_const(I32(42)),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_fixture_brtable_side_effect_index_module() -> Module {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([t_i32, t_void]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(1))])),
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::br_table(
+                [LabelIdx::new(0), LabelIdx::new(0)],
+                LabelIdx::new(0),
+                TInstr::call(FuncIdx::new(0), []),
+                [],
+              ),
+              TInstr::drop(TInstr::i32_const(I32(44))),
+            ]),
+          ),
+          TInstr::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_fixture_brtable_non_direct_side_effect_module() -> Module {
+  let t_with_param = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_with_param]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::block(
+                BlockType::void_(),
+                TExpr::new([
+                  TInstr::br_table(
+                    [LabelIdx::new(0), LabelIdx::new(1)],
+                    LabelIdx::new(1),
+                    TInstr::local_get(LocalIdx::new(0)),
+                    [],
+                  ),
+                  TInstr::drop(TInstr::i32_const(I32(66))),
+                ]),
+              ),
+              TInstr::drop(TInstr::i32_const(I32(77))),
+            ]),
+          ),
+          TInstr::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_fixture_loop_internal_brtable_side_effect_module() -> Module {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([t_i32, t_void]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(1))])),
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::loop_(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::br_table(
+                [LabelIdx::new(0), LabelIdx::new(1)],
+                LabelIdx::new(1),
+                TInstr::call(FuncIdx::new(0), []),
+                [],
+              ),
+              TInstr::drop(TInstr::i32_const(I32(88))),
+            ]),
+          ),
+          TInstr::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_fixture_non_special_target_merge_module() -> Module {
+  let t_with_conds = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32(), ValType::i32()], [])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_with_conds]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::block(
+                BlockType::void_(),
+                TExpr::new([
+                  TInstr::br_if(
+                    LabelIdx::new(1),
+                    TInstr::local_get(LocalIdx::new(0)),
+                    [],
+                  ),
+                  TInstr::br_if(
+                    LabelIdx::new(0),
+                    TInstr::local_get(LocalIdx::new(1)),
+                    [],
+                  ),
+                  TInstr::drop(TInstr::i32_const(I32(5))),
+                ]),
+              ),
+              TInstr::nop(),
+            ]),
+          ),
+          TInstr::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_fixture_loop_backedge_module() -> Module {
+  let t_with_cond = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_with_cond]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::loop_(
+                BlockType::void_(),
+                TExpr::new([
+                  TInstr::br_if(
+                    LabelIdx::new(1),
+                    TInstr::local_get(LocalIdx::new(0)),
+                    [],
+                  ),
+                  TInstr::br(LabelIdx::new(0), []),
+                ]),
+              ),
+            ]),
+          ),
+          TInstr::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_fixture_non_flat_if_module() -> Module {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([t_void]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::if_(
+            BlockType::void_(),
+            TInstr::block(
+              BlockType::val_type(ValType::i32()),
+              TExpr::new([TInstr::i32_const(I32(1))]),
+            ),
+            TExpr::new([TInstr::nop()]),
+            None,
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_fixture_try_table_module() -> Module {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([t_void]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::try_table(BlockType::void_(), [], TExpr::new([TInstr::nop()])),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_expect_error_contains(
+  result : Result[Module, String],
+  needle : String,
+) -> Unit {
+  match result {
+    Ok(_) => abort("expected re_reloop to fail with: \{needle}")
+    Err(e) =>
+      if !e.contains(needle) {
+        abort("expected error containing '\{needle}', got: \{e}")
+      }
+  }
+}
+
+///|
+fn rr_texpr_contains(body : TExpr, pred : (TInstr) -> Bool) -> Bool {
+  for instr in body.instrs {
+    if rr_tinstr_contains(instr, pred) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn rr_tinstr_contains(instr : TInstr, pred : (TInstr) -> Bool) -> Bool {
+  if pred(instr) {
+    return true
+  }
+  for child in rr_eval_children(instr) {
+    if rr_tinstr_contains(child, pred) {
+      return true
+    }
+  }
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => rr_texpr_contains(body, pred)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      if rr_tinstr_contains(cond, pred) || rr_texpr_contains(then_body, pred) {
+        return true
+      }
+      match else_body {
+        Some(other) => rr_texpr_contains(other, pred)
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn rr_texpr_count(body : TExpr, pred : (TInstr) -> Bool) -> Int {
+  let mut total = 0
+  for instr in body.instrs {
+    total = total + rr_tinstr_count(instr, pred)
+  }
+  total
+}
+
+///|
+fn rr_tinstr_count(instr : TInstr, pred : (TInstr) -> Bool) -> Int {
+  let mut total = if pred(instr) { 1 } else { 0 }
+  for child in rr_eval_children(instr) {
+    total = total + rr_tinstr_count(child, pred)
+  }
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => total + rr_texpr_count(body, pred)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      total = total +
+        rr_tinstr_count(cond, pred) +
+        rr_texpr_count(then_body, pred)
+      match else_body {
+        Some(other) => total + rr_texpr_count(other, pred)
+        None => total
+      }
+    }
+    _ => total
+  }
+}
+
+///|
+test "re_reloop rewrites mergeable block shells" {
+  let mod = rr_fixture_mergeable_block_module()
+  let out = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) => fail("re_reloop should succeed on mergeable block fixture: \{e}")
+  }
+  match out.code_sec {
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            [],
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TI32Const(I32(v)), .. }
+                  ),
+                  ..,
+                },
+                { kind: TInstrKind::TNop, .. },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
+    ) => assert_eq(v, 9)
+    _ => fail("expected re_reloop to collapse wrapper block into plain body")
+  }
+}
+
+///|
+test "re_reloop output is validator-clean and idempotent" {
+  let mod = rr_fixture_mergeable_block_module()
+  let once = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) => fail("re_reloop first run should succeed: \{e}")
+  }
+  let twice = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) => fail("re_reloop second run should succeed: \{e}")
+  }
+  assert_eq(once, twice)
+  match validate_module(once) {
+    Ok(_) => ()
+    Err(e) => fail("re_reloop output should validate: \{e}")
+  }
+}
+
+///|
+test "re_reloop reconstructs flattened branch shells via cfg relayout" {
+  let mod = rr_fixture_flattened_branch_shell_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) => fail("re_reloop should succeed: \{e}")
+  }
+  let merged = match rr_apply_ir_pass(mod, merge_blocks_ir_pass(mod)) {
+    Ok(next) => next
+    Err(e) => fail("merge_blocks fixture run should succeed: \{e}")
+  }
+  assert_false(rerelooped == merged)
+  match rerelooped.code_sec {
+    Some(CodeSec([TFunc(_, _, body)])) => {
+      assert_true(
+        rr_texpr_contains(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TIf(_, _, _, _) => true
+            _ => false
+          }
+        }),
+      )
+      assert_false(
+        rr_texpr_contains(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TBrIf(_, _, _) => true
+            _ => false
+          }
+        }),
+      )
+    }
+    _ => fail("expected rerelooped typed function body")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) => fail("re_reloop cfg reconstruction output should validate: \{e}")
+  }
+}
+
+///|
+test "re_reloop reconstructs flattened br_on_null shell via cfg relayout" {
+  let mod = rr_fixture_flattened_bron_block_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) => fail("re_reloop should succeed on br_on fixture: \{e}")
+  }
+  match rerelooped.code_sec {
+    Some(CodeSec([TFunc(_, _, body)])) => {
+      assert_true(
+        rr_texpr_contains(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TIf(_, _, _, _) => true
+            _ => false
+          }
+        }),
+      )
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TBrOnNull(_, _, _) => true
+            _ => false
+          }
+        }),
+        0,
+      )
+    }
+    _ => fail("expected rerelooped br_on fixture body")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("re_reloop br_on reconstruction output should validate: \{e}")
+  }
+}
+
+///|
+test "re_reloop reconstructs flattened br_on family shells via cfg relayout" {
+  let mod = rr_fixture_flattened_bron_family_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) => fail("re_reloop should succeed on br_on family fixture: \{e}")
+  }
+  match rerelooped.code_sec {
+    Some(CodeSec(funcs)) => {
+      let if_count = Ref::new(0)
+      for func in funcs {
+        match func {
+          TFunc(_, _, body) =>
+            if_count.update(fn(v) {
+              v +
+              rr_texpr_count(body, fn(instr) {
+                match instr.kind {
+                  TInstrKind::TIf(_, _, _, _) => true
+                  _ => false
+                }
+              })
+            })
+          _ => ()
+        }
+      }
+      assert_eq(if_count.val, 4)
+      let bron_count = Ref::new(0)
+      for func in funcs {
+        match func {
+          TFunc(_, _, body) =>
+            bron_count.update(fn(v) {
+              v +
+              rr_texpr_count(body, fn(instr) {
+                match instr.kind {
+                  TInstrKind::TBrOnNull(_, _, _)
+                  | TInstrKind::TBrOnNonNull(_, _, _)
+                  | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+                  | TInstrKind::TBrOnCastFail(_, _, _, _, _, _) => true
+                  _ => false
+                }
+              })
+            })
+          _ => ()
+        }
+      }
+      assert_eq(bron_count.val, 0)
+    }
+    _ => fail("expected rerelooped br_on family fixture bodies")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("re_reloop br_on family reconstruction output should validate: \{e}")
+  }
+}
+
+///|
+test "re_reloop reconstructs flattened br_table shell via cfg relayout" {
+  let mod = rr_fixture_flattened_brtable_block_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) => fail("re_reloop should succeed on br_table fixture: \{e}")
+  }
+  match rerelooped.code_sec {
+    Some(CodeSec([TFunc(_, _, body)])) => {
+      assert_true(
+        rr_texpr_contains(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TIf(_, _, _, _) => true
+            _ => false
+          }
+        }),
+      )
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TBrTable(_, _, _, _) => true
+            _ => false
+          }
+        }),
+        0,
+      )
+    }
+    _ => fail("expected rerelooped br_table fixture body")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("re_reloop br_table reconstruction output should validate: \{e}")
+  }
+}
+
+///|
+test "re_reloop preserves single-evaluation semantics for side-effectful br_table index" {
+  let mod = rr_fixture_brtable_side_effect_index_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) =>
+      fail("re_reloop should succeed on side-effectful br_table fixture: \{e}")
+  }
+  match rerelooped.code_sec {
+    Some(CodeSec([_, TFunc(_, _, body)])) =>
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TCall(FuncIdx(idx), _) => idx == 0
+            _ => false
+          }
+        }),
+        1,
+      )
+    _ => fail("expected rerelooped side-effectful br_table fixture body")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "re_reloop side-effectful br_table reconstruction output should validate: \{e}",
+      )
+  }
+}
+
+///|
+test "re_reloop cfg br_table fallback preserves single-evaluation semantics for non-direct targets" {
+  let entry = RRBlockId(0)
+  let case_block = RRBlockId(1)
+  let default_block = RRBlockId(2)
+  let stop = RRBlockId(3)
+  let blocks : Map[RRBlockId, RRBasicBlock] = {}
+  blocks[entry] = {
+    instrs: [],
+    terminator: RRBrTable(
+      TInstr::call(FuncIdx::new(0), []),
+      [Internal(case_block)],
+      Internal(default_block),
+      [],
+    ),
+  }
+  blocks[case_block] = {
+    instrs: [TInstr::drop(TInstr::i32_const(I32(7)))],
+    terminator: RRBr(Internal(stop), [], true),
+  }
+  blocks[default_block] = {
+    instrs: [TInstr::drop(TInstr::i32_const(I32(9)))],
+    terminator: RRBr(Internal(stop), [], true),
+  }
+  blocks[stop] = RRBasicBlock::{ instrs: [], terminator: RRUnreachable }
+  let cfg : RRCFG = { entry, blocks }
+  let state : RRReconstructState = {
+    stop,
+    break_label: LabelIdx::new(0),
+    continue_target: None,
+    continue_label: None,
+  }
+  let scratch_used = Ref::new(false)
+  let rebuilt = match
+    rr_cfg_region_to_texpr(
+      cfg,
+      entry,
+      state,
+      0,
+      32,
+      Some(LocalIdx::new(0)),
+      Some(scratch_used),
+    ) {
+    Some(expr) => expr
+    None =>
+      fail(
+        "expected non-direct side-effectful br_table fallback reconstruction",
+      )
+  }
+  assert_true(scratch_used.val)
+  assert_eq(
+    rr_texpr_count(rebuilt, fn(instr) {
+      match instr.kind {
+        TInstrKind::TCall(FuncIdx(idx), _) => idx == 0
+        _ => false
+      }
+    }),
+    1,
+  )
+}
+
+///|
+test "re_reloop reconstructs mixed-depth br_table targets end-to-end" {
+  let mod = rr_fixture_brtable_non_direct_side_effect_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) =>
+      fail("re_reloop should succeed on non-direct br_table fixture: \{e}")
+  }
+  match rerelooped.code_sec {
+    Some(CodeSec([TFunc(_, _, body)])) => {
+      assert_true(
+        rr_texpr_count(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TIf(_, _, _, _) => true
+            _ => false
+          }
+        }) >=
+        1,
+      )
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TBrTable(_, _, _, _) => true
+            _ => false
+          }
+        }),
+        0,
+      )
+    }
+    _ => fail("expected rerelooped non-direct br_table fixture body")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "re_reloop non-direct br_table reconstruction output should validate: \{e}",
+      )
+  }
+}
+
+///|
+test "re_reloop preserves direct br_table for internal loop targets end-to-end" {
+  let mod = rr_fixture_loop_internal_brtable_side_effect_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) =>
+      fail("re_reloop should succeed on internal loop br_table fixture: \{e}")
+  }
+  match rerelooped.code_sec {
+    Some(CodeSec([_, TFunc(_, _, body)])) => {
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TCall(FuncIdx(idx), _) => idx == 0
+            _ => false
+          }
+        }),
+        1,
+      )
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TBrTable(_, _, _, _) => true
+            _ => false
+          }
+        }),
+        1,
+      )
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TLocalSet(_) => true
+            _ => false
+          }
+        }),
+        0,
+      )
+    }
+    _ => fail("expected rerelooped internal loop br_table fixture body")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "re_reloop internal loop br_table reconstruction output should validate: \{e}",
+      )
+  }
+}
+
+///|
+test "re_reloop reconstructs flattened shells with non-special outer-target branches" {
+  let mod = rr_fixture_non_special_target_merge_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) =>
+      fail("re_reloop should succeed on non-special target fixture: \{e}")
+  }
+  match rerelooped.code_sec {
+    Some(CodeSec([TFunc(_, _, body)])) => {
+      assert_true(
+        rr_texpr_contains(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TIf(_, _, _, _) => true
+            _ => false
+          }
+        }),
+      )
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TBrIf(_, _, _) => true
+            _ => false
+          }
+        }),
+        0,
+      )
+    }
+    _ => fail("expected rerelooped non-special target fixture body")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "re_reloop non-special target reconstruction output should validate: \{e}",
+      )
+  }
+}
+
+///|
+test "re_reloop preserves branch-value flows while reconstructing if form" {
+  let mod = rr_fixture_branch_value_flow_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) => fail("re_reloop should succeed on branch-value fixture: \{e}")
+  }
+  match rerelooped.code_sec {
+    Some(CodeSec([TFunc(_, _, body)])) => {
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TBrIf(_, _, _) => true
+            _ => false
+          }
+        }),
+        0,
+      )
+      assert_true(
+        rr_texpr_contains(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TBr(
+              LabelIdx(depth),
+              [{ kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }]
+            ) => depth == 0 && i == 1U
+            _ => false
+          }
+        }),
+      )
+    }
+    _ => fail("expected rerelooped branch-value fixture body")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("re_reloop branch-value reconstruction output should validate: \{e}")
+  }
+}
+
+///|
+test "re_reloop reconstructs flattened loop backedge branch shells" {
+  let mod = rr_fixture_loop_backedge_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) => fail("re_reloop should succeed on loop fixture: \{e}")
+  }
+  match rerelooped.code_sec {
+    Some(CodeSec([TFunc(_, _, body)])) => {
+      assert_true(
+        rr_texpr_contains(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TLoop(_, loop_body) =>
+              rr_texpr_contains(loop_body, fn(inner) {
+                match inner.kind {
+                  TInstrKind::TIf(_, _, _, _) => true
+                  _ => false
+                }
+              })
+            _ => false
+          }
+        }),
+      )
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr.kind {
+            TInstrKind::TBrIf(_, _, _) => true
+            _ => false
+          }
+        }),
+        0,
+      )
+    }
+    _ => fail("expected rerelooped loop fixture body")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) => fail("re_reloop loop reconstruction output should validate: \{e}")
+  }
+}
+
+///|
+test "re_reloop cfg reconstruction output is idempotent" {
+  let mod = rr_fixture_flattened_branch_shell_module()
+  let once = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) => fail("re_reloop first run should succeed: \{e}")
+  }
+  let twice = match rr_run_re_reloop(once) {
+    Ok(next) => next
+    Err(e) => fail("re_reloop second run should succeed: \{e}")
+  }
+  assert_eq(once, twice)
+  match validate_module(once) {
+    Ok(_) => ()
+    Err(e) => fail("re_reloop cfg reconstruction output should validate: \{e}")
+  }
+}
+
+///|
+test "re_reloop rejects non-flat control-flow trees" {
+  let mod = rr_fixture_non_flat_if_module()
+  rr_expect_error_contains(
+    rr_run_re_reloop(mod),
+    "re_reloop requires flattened control flow",
+  )
+}
+
+///|
+test "re_reloop rejects exception handling instructions" {
+  let mod = rr_fixture_try_table_module()
+  rr_expect_error_contains(
+    rr_run_re_reloop(mod),
+    "re_reloop does not support EH instructions yet",
+  )
+}
+
+///|
+test "merge_blocks can still run on non-flat fixture where re_reloop rejects" {
+  let mod = rr_fixture_non_flat_if_module()
+  let rereloop = rr_run_re_reloop(mod)
+  rr_expect_error_contains(
+    rereloop, "re_reloop requires flattened control flow",
+  )
+  match rr_apply_ir_pass(mod, merge_blocks_ir_pass(mod)) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "merge_blocks should still run on non-flat fixture even when re_reloop rejects: \{e}",
+      )
+  }
+}
+
+///|
+fn rr_is_control_flow(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _)
+    | TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_)
+    | TInstrKind::TUnreachable => true
+    _ => false
+  }
+}
+
+///|
+fn rr_eval_children(instr : TInstr) -> Array[TInstr] {
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TNop
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TStructNewDefault(_) => []
+    TInstrKind::TUnary(_, child)
+    | TInstrKind::TDrop(child)
+    | TInstrKind::TLocalSet(_, child)
+    | TInstrKind::TLocalTee(_, child)
+    | TInstrKind::TGlobalSet(_, child)
+    | TInstrKind::TRefIsNull(child)
+    | TInstrKind::TRefAsNonNull(child)
+    | TInstrKind::TI31GetS(child)
+    | TInstrKind::TI31GetU(child)
+    | TInstrKind::TRefI31(child)
+    | TInstrKind::TArrayLen(child)
+    | TInstrKind::TAnyConvertExtern(child)
+    | TInstrKind::TExternConvertAny(child)
+    | TInstrKind::TThrowRef(child)
+    | TInstrKind::TMemoryGrow(_, child)
+    | TInstrKind::TTableGet(_, child)
+    | TInstrKind::TLoad(_, _, child)
+    | TInstrKind::TArrayNewDefault(_, child)
+    | TInstrKind::TStructGet(_, _, child)
+    | TInstrKind::TStructGetS(_, _, child)
+    | TInstrKind::TStructGetU(_, _, child)
+    | TInstrKind::TI8x16Splat(child)
+    | TInstrKind::TI16x8Splat(child)
+    | TInstrKind::TI32x4Splat(child)
+    | TInstrKind::TI64x2Splat(child)
+    | TInstrKind::TF32x4Splat(child)
+    | TInstrKind::TF64x2Splat(child)
+    | TInstrKind::TExtractLane(_, _, child)
+    | TInstrKind::TRefTest(_, _, child)
+    | TInstrKind::TRefCast(_, _, child)
+    | TInstrKind::TRefGetDesc(child)
+    | TInstrKind::TRefTestDesc(_, _, child)
+    | TInstrKind::TRefCastDescEq(_, _, child) => [child]
+    TInstrKind::TBinary(_, left, right)
+    | TInstrKind::TRefEq(left, right)
+    | TInstrKind::TStore(_, _, left, right)
+    | TInstrKind::TMemoryAtomicNotify(_, left, right)
+    | TInstrKind::TAtomicRmw(_, _, left, right)
+    | TInstrKind::TTableSet(_, left, right)
+    | TInstrKind::TTableGrow(_, left, right)
+    | TInstrKind::TStructSet(_, _, left, right)
+    | TInstrKind::TArrayNew(_, left, right)
+    | TInstrKind::TArrayNewData(_, _, left, right)
+    | TInstrKind::TArrayNewElem(_, _, left, right)
+    | TInstrKind::TArrayGet(_, left, right)
+    | TInstrKind::TArrayGetS(_, left, right)
+    | TInstrKind::TArrayGetU(_, left, right)
+    | TInstrKind::TReplaceLane(_, _, left, right)
+    | TInstrKind::TI8x16Swizzle(left, right)
+    | TInstrKind::TI8x16RelaxedSwizzle(left, right)
+    | TInstrKind::TV128Shift(_, left, right)
+    | TInstrKind::TV128LoadLane(_, _, _, left, right)
+    | TInstrKind::TV128StoreLane(_, _, _, left, right) => [left, right]
+    TInstrKind::TMemoryFill(_, a, b, c)
+    | TInstrKind::TMemoryCopy(_, _, a, b, c)
+    | TInstrKind::TMemoryInit(_, _, a, b, c)
+    | TInstrKind::TMemoryAtomicWait32(_, a, b, c)
+    | TInstrKind::TMemoryAtomicWait64(_, a, b, c)
+    | TInstrKind::TAtomicCmpxchg(_, _, a, b, c)
+    | TInstrKind::TTableFill(_, a, b, c)
+    | TInstrKind::TTableCopy(_, _, a, b, c)
+    | TInstrKind::TTableInit(_, _, a, b, c)
+    | TInstrKind::TSelect(_, c, a, b)
+    | TInstrKind::TV128Ternary(_, a, b, c) => [a, b, c]
+    TInstrKind::TCall(_, args)
+    | TInstrKind::TReturnCall(_, args)
+    | TInstrKind::TThrow(_, args)
+    | TInstrKind::TBr(_, args)
+    | TInstrKind::TReturn(args)
+    | TInstrKind::TStructNew(_, args)
+    | TInstrKind::TArrayNewFixed(_, args) => args.copy()
+    TInstrKind::TCallIndirect(_, _, args, index)
+    | TInstrKind::TReturnCallIndirect(_, _, args, index) => {
+      let out = args.copy()
+      out.push(index)
+      out
+    }
+    TInstrKind::TCallRef(_, args, ref_)
+    | TInstrKind::TReturnCallRef(_, args, ref_) => {
+      let out = args.copy()
+      out.push(ref_)
+      out
+    }
+    TInstrKind::TBrIf(_, cond, values) => {
+      let out = values.copy()
+      out.push(cond)
+      out
+    }
+    TInstrKind::TBrTable(_, _, index, values) => {
+      let out = values.copy()
+      out.push(index)
+      out
+    }
+    TInstrKind::TBrOnNull(_, ref_, values)
+    | TInstrKind::TBrOnNonNull(_, ref_, values)
+    | TInstrKind::TBrOnCast(_, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) => {
+      let out = values.copy()
+      out.push(ref_)
+      out
+    }
+    TInstrKind::TArraySet(_, a, b, c) => [a, b, c]
+    TInstrKind::TArrayFill(_, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayCopy(_, _, a, b, c, d, e) => [a, b, c, d, e]
+    TInstrKind::TArrayInitData(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayInitElem(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TI8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      left,
+      right
+    ) => [left, right]
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => []
+  }
+}
+
+///|
+fn rr_contains_nested_control(instr : TInstr) -> Bool {
+  for child in rr_eval_children(instr) {
+    if rr_is_control_flow(child) || rr_contains_nested_control(child) {
+      return true
+    }
+  }
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      for item in body.instrs {
+        if rr_contains_nested_control(item) {
+          return true
+        }
+      }
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      if rr_is_control_flow(cond) || rr_contains_nested_control(cond) {
+        return true
+      }
+      for item in then_body.instrs {
+        if rr_contains_nested_control(item) {
+          return true
+        }
+      }
+      match else_body {
+        Some(other) =>
+          for item in other.instrs {
+            if rr_contains_nested_control(item) {
+              return true
+            }
+          }
+        None => ()
+      }
+    }
+    _ => ()
+  }
+  false
+}
+
+///|
+fn rr_validate_function_body_flat_and_supported(
+  body : TExpr,
+) -> Result[Unit, String] {
+  for instr in body.instrs {
+    match instr.kind {
+      TInstrKind::TTryTable(_, _, _)
+      | TInstrKind::TThrow(_, _)
+      | TInstrKind::TThrowRef(_) =>
+        return Err("re_reloop does not support EH instructions yet")
+      _ => ()
+    }
+    if rr_contains_nested_control(instr) {
+      return Err(
+        "re_reloop requires flattened control flow; run flatten before re_reloop",
+      )
+    }
+  }
+  Ok(())
+}
+
+///|
+fn rr_validate_module_preconditions(mod : Module) -> Result[Unit, String] {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        match func {
+          TFunc(_, _, body) =>
+            match rr_validate_function_body_flat_and_supported(body) {
+              Ok(_) => ()
+              Err(e) => return Err(e)
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  Ok(())
+}
+
+///|
+fn rr_collect_param_counts(mod : Module) -> Array[Int] {
+  let out : Array[Int] = []
+  let env = Env::new().with_module(mod)
+  match mod.func_sec {
+    Some(FuncSec(type_idxs)) =>
+      for tidx in type_idxs {
+        match env.resolve_functype(tidx) {
+          Some(FuncType(params, _)) => out.push(params.length())
+          None => out.push(0)
+        }
+      }
+    None => ()
+  }
+  out
+}
+
+///|
+priv struct RRBlockId(Int) derive(Eq, Hash)
+
+///|
+priv enum RRJumpTarget {
+  Internal(RRBlockId)
+  External(LabelIdx)
+}
+
+///|
+priv enum RRTerminator {
+  RRBr(RRJumpTarget, Array[TInstr], Bool)
+  RRBrIf(TInstr, RRJumpTarget, RRBlockId, Array[TInstr])
+  RRBrTable(TInstr, Array[RRJumpTarget], RRJumpTarget, Array[TInstr])
+  RRUnreachable
+}
+
+///|
+priv struct RRBasicBlock {
+  instrs : Array[TInstr]
+  terminator : RRTerminator
+}
+
+///|
+priv struct RRCFG {
+  entry : RRBlockId
+  blocks : Map[RRBlockId, RRBasicBlock]
+}
+
+///|
+priv enum RRFlowMode {
+  BlockFlow
+  LoopFlow
+}
+
+///|
+priv struct RRReconstructState {
+  stop : RRBlockId
+  break_label : LabelIdx
+  continue_target : RRBlockId?
+  continue_label : LabelIdx?
+}
+
+///|
+fn rr_append_texpr(dst : Array[TInstr], src : TExpr) -> Unit {
+  for instr in src.instrs {
+    dst.push(instr)
+  }
+}
+
+///|
+fn rr_internal_target_label(
+  target : RRBlockId,
+  state : RRReconstructState,
+) -> LabelIdx? {
+  if target == state.stop {
+    return Some(state.break_label)
+  }
+  match (state.continue_target, state.continue_label) {
+    (Some(loop_entry), Some(label)) if target == loop_entry => Some(label)
+    _ => None
+  }
+}
+
+///|
+fn rr_target_label(
+  target : RRJumpTarget,
+  state : RRReconstructState,
+) -> LabelIdx? {
+  match target {
+    Internal(block_id) => rr_internal_target_label(block_id, state)
+    External(label) => Some(label)
+  }
+}
+
+///|
+fn rr_dup_safe_expr(expr : TInstr) -> Bool {
+  match expr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      true
+    TInstrKind::TUnary(_, child)
+    | TInstrKind::TRefIsNull(child)
+    | TInstrKind::TRefAsNonNull(child)
+    | TInstrKind::TI31GetS(child)
+    | TInstrKind::TI31GetU(child)
+    | TInstrKind::TRefI31(child)
+    | TInstrKind::TAnyConvertExtern(child)
+    | TInstrKind::TExternConvertAny(child) => rr_dup_safe_expr(child)
+    TInstrKind::TBinary(_, left, right) | TInstrKind::TRefEq(left, right) =>
+      rr_dup_safe_expr(left) && rr_dup_safe_expr(right)
+    _ => false
+  }
+}
+
+///|
+fn rr_target_to_label(
+  target : RRJumpTarget,
+  state : RRReconstructState,
+) -> LabelIdx? {
+  rr_target_label(target, state)
+}
+
+///|
+fn rr_try_emit_direct_br_table(
+  instrs : Array[TInstr],
+  index : TInstr,
+  targets : Array[RRJumpTarget],
+  default_target : RRJumpTarget,
+  values : Array[TInstr],
+  state : RRReconstructState,
+) -> Bool {
+  let labels : Array[LabelIdx] = []
+  for target in targets {
+    match rr_target_to_label(target, state) {
+      Some(label) => labels.push(label)
+      None => return false
+    }
+  }
+  let default_label = match rr_target_to_label(default_target, state) {
+    Some(label) => label
+    None => return false
+  }
+  instrs.push(TInstr::br_table(labels, default_label, index, values))
+  true
+}
+
+///|
+fn rr_cfg_target_to_texpr(
+  cfg : RRCFG,
+  target : RRJumpTarget,
+  branch_values : Array[TInstr],
+  state : RRReconstructState,
+  depth : Int,
+  max_depth : Int,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
+) -> TExpr? {
+  match target {
+    External(label) => Some(TExpr::new([TInstr::br(label, branch_values)]))
+    Internal(block_id) =>
+      match rr_internal_target_label(block_id, state) {
+        Some(label) => Some(TExpr::new([TInstr::br(label, branch_values)]))
+        None =>
+          rr_cfg_region_to_texpr(
+            cfg,
+            block_id,
+            state,
+            depth + 1,
+            max_depth,
+            scratch_local,
+            scratch_used,
+          )
+      }
+  }
+}
+
+///|
+fn rr_build_br_table_dispatch(
+  cfg : RRCFG,
+  targets : Array[RRJumpTarget],
+  default_target : RRJumpTarget,
+  values : Array[TInstr],
+  state : RRReconstructState,
+  depth : Int,
+  max_depth : Int,
+  index_expr : TInstr,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
+) -> TExpr? {
+  let dispatch = match
+    rr_cfg_target_to_texpr(
+      cfg,
+      default_target,
+      values,
+      state,
+      depth + 1,
+      max_depth,
+      scratch_local,
+      scratch_used,
+    ) {
+    Some(expr) => expr
+    None => return None
+  }
+  let mut dispatch = dispatch
+  for i = targets.length() - 1; i >= 0; i = i - 1 {
+    let then_expr = match
+      rr_cfg_target_to_texpr(
+        cfg,
+        targets[i],
+        values,
+        state,
+        depth + 1,
+        max_depth,
+        scratch_local,
+        scratch_used,
+      ) {
+      Some(expr) => expr
+      None => return None
+    }
+    let cond = TInstr::binary(
+      BinaryOp::i32_eq(),
+      index_expr,
+      TInstr::i32_const(I32(i)),
+    )
+    dispatch = TExpr::new([
+      TInstr::if_(BlockType::void_(), cond, then_expr, Some(dispatch)),
+    ])
+  }
+  Some(dispatch)
+}
+
+///|
+fn rr_cfg_region_to_texpr(
+  cfg : RRCFG,
+  block_id : RRBlockId,
+  state : RRReconstructState,
+  depth : Int,
+  max_depth : Int,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
+) -> TExpr? {
+  if depth > max_depth {
+    return None
+  }
+  if block_id == state.stop {
+    return Some(TExpr::new([]))
+  }
+  let block = match cfg.blocks.get(block_id) {
+    Some(b) => b
+    None => return None
+  }
+  let instrs = block.instrs.copy()
+  match block.terminator {
+    RRBr(target, values, explicit) =>
+      match rr_target_label(target, state) {
+        Some(label) => {
+          if explicit {
+            instrs.push(TInstr::br(label, values))
+          }
+          return Some(TExpr::new(instrs))
+        }
+        None =>
+          match target {
+            Internal(next_block) =>
+              match
+                rr_cfg_region_to_texpr(
+                  cfg,
+                  next_block,
+                  state,
+                  depth + 1,
+                  max_depth,
+                  scratch_local,
+                  scratch_used,
+                ) {
+                Some(tail) => {
+                  rr_append_texpr(instrs, tail)
+                  return Some(TExpr::new(instrs))
+                }
+                None => return None
+              }
+            External(_) => return None
+          }
+      }
+    RRBrIf(cond, then_block, else_block, values) => {
+      if values.length() != 0 {
+        match then_block {
+          Internal(block_id) =>
+            if rr_internal_target_label(block_id, state) is None {
+              return None
+            }
+          _ => ()
+        }
+      }
+      let then_is_direct_branch = match then_block {
+        External(_) => true
+        Internal(block_id) =>
+          rr_internal_target_label(block_id, state) is Some(_)
+      }
+      if then_is_direct_branch {
+        let then_expr = match
+          rr_cfg_target_to_texpr(
+            cfg,
+            then_block,
+            values,
+            state,
+            depth + 1,
+            max_depth,
+            scratch_local,
+            scratch_used,
+          ) {
+          Some(expr) => expr
+          None => return None
+        }
+        let else_tail = match
+          rr_cfg_region_to_texpr(
+            cfg,
+            else_block,
+            state,
+            depth + 1,
+            max_depth,
+            scratch_local,
+            scratch_used,
+          ) {
+          Some(expr) => expr
+          None => return None
+        }
+        instrs.push(TInstr::if_(BlockType::void_(), cond, then_expr, None))
+        rr_append_texpr(instrs, else_tail)
+        return Some(TExpr::new(instrs))
+      }
+      let then_expr = match
+        rr_cfg_target_to_texpr(
+          cfg,
+          then_block,
+          values,
+          state,
+          depth + 1,
+          max_depth,
+          scratch_local,
+          scratch_used,
+        ) {
+        Some(expr) => expr
+        None => return None
+      }
+      let else_tail = match
+        rr_cfg_region_to_texpr(
+          cfg,
+          else_block,
+          state,
+          depth + 1,
+          max_depth,
+          scratch_local,
+          scratch_used,
+        ) {
+        Some(expr) => expr
+        None => return None
+      }
+      let else_opt = if else_tail.instrs.length() == 0 {
+        None
+      } else {
+        Some(else_tail)
+      }
+      instrs.push(TInstr::if_(BlockType::void_(), cond, then_expr, else_opt))
+      return Some(TExpr::new(instrs))
+    }
+    RRBrTable(index, targets, default_target, values) => {
+      if !rr_dup_safe_expr(index) {
+        if rr_try_emit_direct_br_table(
+            instrs, index, targets, default_target, values, state,
+          ) {
+          return Some(TExpr::new(instrs))
+        }
+        match (scratch_local, scratch_used) {
+          (Some(local_idx), Some(used_ref)) => {
+            used_ref.update(fn(_) { true })
+            instrs.push(TInstr::local_set(local_idx, index))
+            let dispatch = match
+              rr_build_br_table_dispatch(
+                cfg,
+                targets,
+                default_target,
+                values,
+                state,
+                depth,
+                max_depth,
+                TInstr::local_get(local_idx),
+                scratch_local,
+                scratch_used,
+              ) {
+              Some(expr) => expr
+              None => return None
+            }
+            rr_append_texpr(instrs, dispatch)
+            return Some(TExpr::new(instrs))
+          }
+          _ => return None
+        }
+      }
+      let dispatch = match
+        rr_build_br_table_dispatch(
+          cfg, targets, default_target, values, state, depth, max_depth, index, scratch_local,
+          scratch_used,
+        ) {
+        Some(expr) => expr
+        None => return None
+      }
+      rr_append_texpr(instrs, dispatch)
+      return Some(TExpr::new(instrs))
+    }
+    RRUnreachable => {
+      instrs.push(TInstr::unreachable_())
+      return Some(TExpr::new(instrs))
+    }
+  }
+}
+
+///|
+fn rr_label_to_target(
+  mode : RRFlowMode,
+  label : LabelIdx,
+  entry : RRBlockId,
+  exit : RRBlockId,
+) -> RRJumpTarget {
+  match (mode, label) {
+    (BlockFlow, LabelIdx(depth)) =>
+      if depth == 0 {
+        Internal(exit)
+      } else {
+        External(label)
+      }
+    (LoopFlow, LabelIdx(depth)) =>
+      if depth == 0 {
+        Internal(entry)
+      } else if depth == 1 {
+        Internal(exit)
+      } else {
+        External(label)
+      }
+  }
+}
+
+///|
+fn rr_try_build_flat_cfg(
+  body : TExpr,
+  mode : RRFlowMode,
+) -> (RRCFG, RRBlockId)? {
+  let mut next_id = 0
+  fn fresh() -> RRBlockId {
+    let id = RRBlockId(next_id)
+    next_id = next_id + 1
+    id
+  }
+  let entry = fresh()
+  let exit = fresh()
+  let blocks : Map[RRBlockId, RRBasicBlock] = {}
+  let mut current = entry
+  let mut current_instrs : Array[TInstr] = []
+  let mut saw_control = false
+  let mut terminated = false
+
+  for instr in body.instrs {
+    match instr.kind {
+      TInstrKind::TBr(label, values) => {
+        let target = rr_label_to_target(mode, label, entry, exit)
+        blocks[current] = {
+          instrs: current_instrs,
+          terminator: RRBr(target, values, true),
+        }
+        saw_control = true
+        terminated = true
+      }
+      TInstrKind::TBrIf(label, cond, values) => {
+        let target = rr_label_to_target(mode, label, entry, exit)
+        let fallthrough = fresh()
+        blocks[current] = {
+          instrs: current_instrs,
+          terminator: RRBrIf(cond, target, fallthrough, values),
+        }
+        current = fallthrough
+        current_instrs = []
+        saw_control = true
+      }
+      TInstrKind::TBrOnNull(label, ref_, values) => {
+        let target = rr_label_to_target(mode, label, entry, exit)
+        let fallthrough = fresh()
+        blocks[current] = {
+          instrs: current_instrs,
+          terminator: RRBrIf(
+            TInstr::ref_is_null(ref_),
+            target,
+            fallthrough,
+            values,
+          ),
+        }
+        current = fallthrough
+        current_instrs = []
+        saw_control = true
+      }
+      TInstrKind::TBrOnNonNull(label, ref_, values) => {
+        let target = rr_label_to_target(mode, label, entry, exit)
+        let fallthrough = fresh()
+        blocks[current] = {
+          instrs: current_instrs,
+          terminator: RRBrIf(
+            TInstr::unary(UnaryOp::i32_eqz(), TInstr::ref_is_null(ref_)),
+            target,
+            fallthrough,
+            values,
+          ),
+        }
+        current = fallthrough
+        current_instrs = []
+        saw_control = true
+      }
+      TInstrKind::TBrOnCast(label, op, _src_ht, dst_ht, ref_, values) => {
+        let target = rr_label_to_target(mode, label, entry, exit)
+        let fallthrough = fresh()
+        blocks[current] = {
+          instrs: current_instrs,
+          terminator: RRBrIf(
+            TInstr::ref_test(op.1, dst_ht, ref_),
+            target,
+            fallthrough,
+            values,
+          ),
+        }
+        current = fallthrough
+        current_instrs = []
+        saw_control = true
+      }
+      TInstrKind::TBrOnCastFail(label, op, _src_ht, dst_ht, ref_, values) => {
+        let target = rr_label_to_target(mode, label, entry, exit)
+        let fallthrough = fresh()
+        blocks[current] = {
+          instrs: current_instrs,
+          terminator: RRBrIf(
+            TInstr::unary(
+              UnaryOp::i32_eqz(),
+              TInstr::ref_test(op.1, dst_ht, ref_),
+            ),
+            target,
+            fallthrough,
+            values,
+          ),
+        }
+        current = fallthrough
+        current_instrs = []
+        saw_control = true
+      }
+      TInstrKind::TBrTable(labels, default_label, index, values) => {
+        let mapped_targets : Array[RRJumpTarget] = []
+        for label in labels {
+          mapped_targets.push(rr_label_to_target(mode, label, entry, exit))
+        }
+        let mapped_default = rr_label_to_target(
+          mode, default_label, entry, exit,
+        )
+        blocks[current] = {
+          instrs: current_instrs,
+          terminator: RRBrTable(index, mapped_targets, mapped_default, values),
+        }
+        saw_control = true
+        terminated = true
+      }
+      TInstrKind::TBlock(_, _)
+      | TInstrKind::TLoop(_, _)
+      | TInstrKind::TIf(_, _, _, _)
+      | TInstrKind::TTryTable(_, _, _) => return None
+      TInstrKind::TReturn(_)
+      | TInstrKind::TReturnCall(_, _)
+      | TInstrKind::TReturnCallIndirect(_, _, _, _)
+      | TInstrKind::TReturnCallRef(_, _, _)
+      | TInstrKind::TThrow(_, _)
+      | TInstrKind::TThrowRef(_)
+      | TInstrKind::TUnreachable => return None
+      _ => current_instrs.push(instr)
+    }
+    if terminated {
+      break
+    }
+  }
+
+  if !terminated {
+    blocks[current] = {
+      instrs: current_instrs,
+      terminator: RRBr(Internal(exit), [], false),
+    }
+  }
+  blocks[exit] = RRBasicBlock::{ instrs: [], terminator: RRUnreachable }
+  if !saw_control {
+    return None
+  }
+
+  Some((RRCFG::{ entry, blocks }, exit))
+}
+
+///|
+fn rr_try_reconstruct_flat_block_cfg(
+  body : TExpr,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
+) -> TExpr? {
+  match rr_try_build_flat_cfg(body, BlockFlow) {
+    Some((cfg, stop)) => {
+      let max_depth = cfg.blocks.length() * 4 + 16
+      let state : RRReconstructState = {
+        stop,
+        break_label: LabelIdx::new(0),
+        continue_target: None,
+        continue_label: None,
+      }
+      rr_cfg_region_to_texpr(
+        cfg,
+        cfg.entry,
+        state,
+        0,
+        max_depth,
+        scratch_local,
+        scratch_used,
+      )
+    }
+    None => None
+  }
+}
+
+///|
+fn rr_try_reconstruct_flat_loop_cfg(
+  body : TExpr,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
+) -> TExpr? {
+  match rr_try_build_flat_cfg(body, LoopFlow) {
+    Some((cfg, stop)) => {
+      let max_depth = cfg.blocks.length() * 4 + 16
+      let state : RRReconstructState = {
+        stop,
+        break_label: LabelIdx::new(1),
+        continue_target: Some(cfg.entry),
+        continue_label: Some(LabelIdx::new(0)),
+      }
+      rr_cfg_region_to_texpr(
+        cfg,
+        cfg.entry,
+        state,
+        0,
+        max_depth,
+        scratch_local,
+        scratch_used,
+      )
+    }
+    None => None
+  }
+}
+
+///|
+fn rr_reconstruct_tinstr(
+  instr : TInstr,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
+) -> Result[TInstr, String] {
+  match instr.kind {
+    TInstrKind::TBlock(bt, body) => {
+      let next_body = match
+        rr_reconstruct_texpr(body, scratch_local, scratch_used) {
+        Ok(next) => next
+        Err(e) => return Err(e)
+      }
+      match
+        rr_try_reconstruct_flat_block_cfg(
+          next_body, scratch_local, scratch_used,
+        ) {
+        Some(rebuilt) => Ok(TInstr::block(bt, rebuilt))
+        None => Ok(TInstr::block(bt, next_body))
+      }
+    }
+    TInstrKind::TLoop(bt, body) => {
+      let next_body = match
+        rr_reconstruct_texpr(body, scratch_local, scratch_used) {
+        Ok(next) => next
+        Err(e) => return Err(e)
+      }
+      match
+        rr_try_reconstruct_flat_loop_cfg(next_body, scratch_local, scratch_used) {
+        Some(rebuilt) => Ok(TInstr::loop_(bt, rebuilt))
+        None => Ok(TInstr::loop_(bt, next_body))
+      }
+    }
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
+      let next_then = match
+        rr_reconstruct_texpr(then_body, scratch_local, scratch_used) {
+        Ok(next) => next
+        Err(e) => return Err(e)
+      }
+      let next_else = match else_body {
+        Some(other) =>
+          match rr_reconstruct_texpr(other, scratch_local, scratch_used) {
+            Ok(next) => Some(next)
+            Err(e) => return Err(e)
+          }
+        None => None
+      }
+      Ok(TInstr::if_(bt, cond, next_then, next_else))
+    }
+    _ => Ok(instr)
+  }
+}
+
+///|
+fn rr_reconstruct_texpr(
+  body : TExpr,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
+) -> Result[TExpr, String] {
+  let out : Array[TInstr] = []
+  for instr in body.instrs {
+    let next_instr = match
+      rr_reconstruct_tinstr(instr, scratch_local, scratch_used) {
+      Ok(next) => next
+      Err(e) => return Err(e)
+    }
+    out.push(next_instr)
+  }
+  Ok(TExpr::new(out))
+}
+
+///|
+fn rr_reconstruct_module_cfg(mod : Module) -> Result[Module, String] {
+  let param_counts = rr_collect_param_counts(mod)
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => {
+      let next_funcs : Array[Func] = []
+      let mut changed = false
+      let mut def_idx = 0
+      for func in funcs {
+        let param_count = param_counts.get(def_idx).unwrap_or(0)
+        def_idx = def_idx + 1
+        match func {
+          TFunc(_, locals, body) => {
+            let scratch_idx = LocalIdx::new(
+              (param_count + locals.length()).reinterpret_as_uint(),
+            )
+            let scratch_used = Ref::new(false)
+            match
+              rr_reconstruct_texpr(body, Some(scratch_idx), Some(scratch_used)) {
+              Ok(next_body) => {
+                let next_locals = if scratch_used.val {
+                  let extended = locals.copy()
+                  extended.push(ValType::i32())
+                  extended
+                } else {
+                  locals
+                }
+                if next_body != body || scratch_used.val {
+                  changed = true
+                }
+                next_funcs.push(Func::t_func([], next_locals, next_body))
+              }
+              Err(e) => return Err(e)
+            }
+          }
+          _ => next_funcs.push(func)
+        }
+      }
+      if changed {
+        Ok(mod.with_code_sec(CodeSec::new(next_funcs)))
+      } else {
+        Ok(mod)
+      }
+    }
+    None => Ok(mod)
+  }
+}
+
+///|
+fn run_re_reloop(mod : Module) -> Result[Module, String] {
+  match rr_validate_module_preconditions(mod) {
+    Ok(_) =>
+      match rr_reconstruct_module_cfg(mod) {
+        Ok(rebuilt) => rr_apply_ir_pass(rebuilt, merge_blocks_ir_pass(rebuilt))
+        Err(e) => Err(e)
+      }
+    Err(e) => Err(e)
+  }
+}
+
+///|
+fn re_reloop_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+  ModuleTransformer::new().on_module_evt(fn(_, ctx : IRContext, mod : Module) {
+    match run_re_reloop(mod) {
+      Ok(next_mod) =>
+        if next_mod == mod {
+          unchanged()
+        } else {
+          change(ctx, next_mod)
+        }
+      Err(e) => Err(e)
+    }
+  })
+}

@@ -1,0 +1,11 @@
+import {
+  "jtenner/starshine/binary" @binary,
+  "jtenner/starshine/lib",
+  "jtenner/starshine/validate" @validate,
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/double",
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/core/strconv",
+}

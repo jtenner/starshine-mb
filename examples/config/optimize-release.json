@@ -1,0 +1,27 @@
+{
+  "inputs": {
+    "globs": [
+      "examples/modules/simple.wat",
+      "examples/modules/feature_mix.wat",
+      "examples/modules/memory64_data.wat"
+    ],
+    "format": "wat"
+  },
+  "outputs": {
+    "outDir": "examples/out"
+  },
+  "passes": [
+    "global-effects",
+    "flatten",
+    "code-folding",
+    "vacuum"
+  ],
+  "options": {
+    "optimize-level": 3,
+    "shrink-level": 1,
+    "trap-mode": "allow",
+    "monomorphize-min-benefit": 5,
+    "low-memory-unused": false,
+    "low-memory-bound": 1024
+  }
+}

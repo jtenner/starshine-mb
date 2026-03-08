@@ -1,0 +1,1341 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/wast"
+
+import {
+  "jtenner/starshine/lib",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+}
+
+// Values
+pub fn lookup_keyword(String) -> TokenType?
+
+pub fn module_to_wast(Module) -> Result[String, String]
+
+pub fn module_to_wast_with_context(Module, @lib.PrettyPrintContext) -> Result[String, String]
+
+pub fn run_wast_spec_file(String, String) -> WastSpecFileReport
+
+pub fn run_wast_spec_suite(Array[(String, String)]) -> WastSpecRunSummary
+
+pub fn script_to_wast(WastScript) -> Result[String, String]
+
+pub fn script_to_wast_with_context(WastScript, @lib.PrettyPrintContext) -> Result[String, String]
+
+pub fn wast_ast_to_binary_module(Module) -> Result[@lib.Module, String]
+
+pub fn wast_text_binary_roundtrip(String, filename? : String) -> Result[(String, @lib.Module), String]
+
+pub fn wast_to_binary_module(String, filename? : String) -> Result[@lib.Module, String]
+
+pub fn wast_to_module(String, filename? : String) -> Result[Module, String]
+
+pub fn wast_to_script(String, filename? : String) -> Result[WastScript, String]
+
+// Errors
+pub suberror ParserError {
+  UnexpectedToken(Token, String)
+  InvalidInstruction(String)
+  Custom(String)
+}
+pub impl @lib.PrettyPrint for ParserError
+pub impl Eq for ParserError
+pub impl Show for ParserError
+pub impl @debug.Debug for ParserError
+
+pub suberror WastTextError {
+  Unsupported(String)
+}
+
+// Types and methods
+pub struct BlockType {
+  label : String?
+  type_use : TypeUse?
+}
+pub impl @lib.PrettyPrint for BlockType
+pub impl Eq for BlockType
+pub impl Show for BlockType
+pub impl @debug.Debug for BlockType
+pub impl @quickcheck.Arbitrary for BlockType
+
+pub enum CatchClause {
+  CatchClause(Index, Index)
+  CatchRefClause(Index, Index)
+  CatchAllClause(Index)
+  CatchAllRefClause(Index)
+}
+pub impl Eq for CatchClause
+pub impl Show for CatchClause
+pub impl @debug.Debug for CatchClause
+
+pub struct DataSegment {
+  id : String?
+  memory_index : Index
+  offset : Array[Instruction]
+  data : Bytes
+}
+pub impl @lib.PrettyPrint for DataSegment
+pub impl Eq for DataSegment
+pub impl Show for DataSegment
+pub impl @debug.Debug for DataSegment
+pub impl @quickcheck.Arbitrary for DataSegment
+
+pub struct ElemInitExpr {
+  instrs : Array[Instruction]
+  explicit_item : Bool
+}
+pub impl Eq for ElemInitExpr
+pub impl Show for ElemInitExpr
+pub impl @debug.Debug for ElemInitExpr
+
+pub struct ElemSegment {
+  id : String?
+  table_index : Index
+  offset : Array[Instruction]
+  func_indices : Array[Index]
+  elem_exprs : Array[ElemInitExpr]
+  elem_type : ValueType?
+}
+pub impl @lib.PrettyPrint for ElemSegment
+pub impl Eq for ElemSegment
+pub impl Show for ElemSegment
+pub impl @debug.Debug for ElemSegment
+pub impl @quickcheck.Arbitrary for ElemSegment
+
+pub enum ErrorLevel {
+  Error
+}
+pub impl @lib.PrettyPrint for ErrorLevel
+pub impl Eq for ErrorLevel
+pub impl Show for ErrorLevel
+pub impl @debug.Debug for ErrorLevel
+
+pub struct Export {
+  name : String
+  desc : ExportDesc
+}
+pub impl @lib.PrettyPrint for Export
+pub impl Eq for Export
+pub impl Show for Export
+pub impl @debug.Debug for Export
+pub impl @quickcheck.Arbitrary for Export
+
+pub enum ExportDesc {
+  Func(Index)
+  Table(Index)
+  Memory(Index)
+  Global(Index)
+  Tag(Index)
+}
+pub impl @lib.PrettyPrint for ExportDesc
+pub impl Eq for ExportDesc
+pub impl Show for ExportDesc
+pub impl @debug.Debug for ExportDesc
+pub impl @quickcheck.Arbitrary for ExportDesc
+
+pub struct Func {
+  id : String?
+  exports : Array[InlineExport]
+  type_use : TypeUse
+  locals : Array[Local]
+  body : Array[Instruction]
+}
+pub impl @lib.PrettyPrint for Func
+pub impl Eq for Func
+pub impl Show for Func
+pub impl @debug.Debug for Func
+pub impl @quickcheck.Arbitrary for Func
+
+pub struct FuncType {
+  params : Array[ValueType]
+  results : Array[ValueType]
+}
+pub impl @lib.PrettyPrint for FuncType
+pub impl Eq for FuncType
+pub impl Show for FuncType
+pub impl @debug.Debug for FuncType
+pub impl @quickcheck.Arbitrary for FuncType
+
+pub struct Global {
+  id : String?
+  exports : Array[InlineExport]
+  global_type : GlobalType
+  init : Array[Instruction]
+}
+pub impl @lib.PrettyPrint for Global
+pub impl Eq for Global
+pub impl Show for Global
+pub impl @debug.Debug for Global
+pub impl @quickcheck.Arbitrary for Global
+
+pub struct GlobalType {
+  val_type : ValueType
+  mutable_ : Bool
+}
+pub impl @lib.PrettyPrint for GlobalType
+pub impl Eq for GlobalType
+pub impl Show for GlobalType
+pub impl @debug.Debug for GlobalType
+pub impl @quickcheck.Arbitrary for GlobalType
+
+pub enum HeapTypeRef {
+  TypeNum(UInt)
+  TypeId(String)
+  Any
+  Eq
+  I31
+  None_
+  NoFunc
+  NoExtern
+  NoExn
+}
+pub impl Eq for HeapTypeRef
+pub impl Show for HeapTypeRef
+pub impl @debug.Debug for HeapTypeRef
+
+pub struct Import {
+  module_name : String
+  field_name : String
+  desc : ImportDesc
+  id : String?
+}
+pub impl @lib.PrettyPrint for Import
+pub impl Eq for Import
+pub impl Show for Import
+pub impl @debug.Debug for Import
+pub impl @quickcheck.Arbitrary for Import
+
+pub enum ImportDesc {
+  Func(TypeUse)
+  Table(TableType)
+  Memory(MemoryType)
+  Global(GlobalType)
+  Tag(TypeUse)
+}
+pub impl @lib.PrettyPrint for ImportDesc
+pub impl Eq for ImportDesc
+pub impl Show for ImportDesc
+pub impl @debug.Debug for ImportDesc
+pub impl @quickcheck.Arbitrary for ImportDesc
+
+pub enum Index {
+  Num(UInt)
+  Id(String)
+}
+pub impl @lib.PrettyPrint for Index
+pub impl Eq for Index
+pub impl Show for Index
+pub impl @debug.Debug for Index
+pub impl @quickcheck.Arbitrary for Index
+
+pub enum InlineExport {
+  Export(String)
+}
+pub impl @lib.PrettyPrint for InlineExport
+pub impl Eq for InlineExport
+pub impl Show for InlineExport
+pub impl @debug.Debug for InlineExport
+pub impl @quickcheck.Arbitrary for InlineExport
+
+pub enum Instruction {
+  Unreachable
+  Nop
+  Block(BlockType, Array[Instruction])
+  Loop(BlockType, Array[Instruction])
+  If(BlockType, Array[Instruction], Array[Instruction])
+  Br(Index)
+  BrIf(Index)
+  BrTable(Array[Index], Index)
+  Return
+  Call(Index)
+  CallIndirect(Index, TypeUse)
+  ReturnCall(Index)
+  ReturnCallIndirect(Index, TypeUse)
+  ReturnCallRef(TypeUse)
+  Throw(Index)
+  ThrowRef
+  Rethrow(Index)
+  TryTable(BlockType, Array[CatchClause], Array[Instruction])
+  TryLegacy(BlockType, Array[Instruction], Array[LegacyCatchClause], Index?)
+  Drop
+  Select(Array[ValueType]?)
+  LocalGet(Index)
+  LocalSet(Index)
+  LocalTee(Index)
+  GlobalGet(Index)
+  GlobalSet(Index)
+  TableGet(Index)
+  TableSet(Index)
+  TableSize(Index)
+  TableGrow(Index)
+  TableFill(Index)
+  TableCopy(Index, Index)
+  TableInit(Index, Index)
+  ElemDrop(Index)
+  Load(Opcode, MemArg)
+  Store(Opcode, MemArg)
+  MemorySize
+  MemoryGrow
+  MemoryFill
+  MemoryCopy
+  MemoryInit(Index)
+  DataDrop(Index)
+  Const(Opcode, String)
+  Unary(Opcode)
+  Binary(Opcode)
+  Test(Opcode)
+  Compare(Opcode)
+  Convert(Opcode)
+  RefNull(ValueType)
+  RefIsNull
+  RefFunc(Index)
+  RefGetDesc
+  RefTestDesc(Bool, Index)
+  RefCastDescEq(Bool, Index)
+  V128Const(V128Const)
+  V128Load(MemArg)
+  V128Load8x8S(MemArg)
+  V128Load8x8U(MemArg)
+  V128Load16x4S(MemArg)
+  V128Load16x4U(MemArg)
+  V128Load32x2S(MemArg)
+  V128Load32x2U(MemArg)
+  V128Load8Splat(MemArg)
+  V128Load16Splat(MemArg)
+  V128Load32Splat(MemArg)
+  V128Load64Splat(MemArg)
+  V128Load32Zero(MemArg)
+  V128Load64Zero(MemArg)
+  V128Store(MemArg)
+  V128Load8Lane(MemArg, UInt)
+  V128Load16Lane(MemArg, UInt)
+  V128Load32Lane(MemArg, UInt)
+  V128Load64Lane(MemArg, UInt)
+  V128Store8Lane(MemArg, UInt)
+  V128Store16Lane(MemArg, UInt)
+  V128Store32Lane(MemArg, UInt)
+  V128Store64Lane(MemArg, UInt)
+  I8x16Shuffle(ShuffleLanes)
+  I8x16Swizzle
+  I8x16Splat
+  I16x8Splat
+  I32x4Splat
+  I64x2Splat
+  F32x4Splat
+  F64x2Splat
+  I8x16ExtractLaneS(UInt)
+  I8x16ExtractLaneU(UInt)
+  I8x16ReplaceLane(UInt)
+  I16x8ExtractLaneS(UInt)
+  I16x8ExtractLaneU(UInt)
+  I16x8ReplaceLane(UInt)
+  I32x4ExtractLane(UInt)
+  I32x4ReplaceLane(UInt)
+  I64x2ExtractLane(UInt)
+  I64x2ReplaceLane(UInt)
+  F32x4ExtractLane(UInt)
+  F32x4ReplaceLane(UInt)
+  F64x2ExtractLane(UInt)
+  F64x2ReplaceLane(UInt)
+  SimdUnary(Opcode)
+  SimdBinary(Opcode)
+  SimdTernary(Opcode)
+  SimdShift(Opcode)
+  SimdTest(Opcode)
+  SimdCompare(Opcode)
+  SimdConvert(Opcode)
+  SimdRelaxed(Opcode)
+}
+pub impl @lib.PrettyPrint for Instruction
+pub impl Eq for Instruction
+pub impl Show for Instruction
+pub impl @debug.Debug for Instruction
+pub impl @quickcheck.Arbitrary for Instruction
+
+pub struct KeywordTable {
+  map : @hashmap.HashMap[String, TokenType]
+}
+pub fn KeywordTable::lookup(Self, String) -> TokenType?
+
+pub enum LegacyCatchClause {
+  LegacyCatch(Index, Array[Instruction])
+  LegacyCatchAll(Array[Instruction])
+}
+pub impl Eq for LegacyCatchClause
+pub impl Show for LegacyCatchClause
+pub impl @debug.Debug for LegacyCatchClause
+
+pub struct LexerError {
+  level : ErrorLevel
+  location : Location
+  message : String
+}
+pub impl @lib.PrettyPrint for LexerError
+pub impl Eq for LexerError
+pub impl Show for LexerError
+pub impl @debug.Debug for LexerError
+
+pub struct LexerState {
+  cursor : Int
+  line : Int
+  line_start : Int
+}
+
+pub struct Limits {
+  min : UInt
+  max : UInt?
+}
+pub impl @lib.PrettyPrint for Limits
+pub impl Eq for Limits
+pub impl Show for Limits
+pub impl @debug.Debug for Limits
+pub impl @quickcheck.Arbitrary for Limits
+
+pub struct Literal {
+  literal_type : LiteralType
+  text : String
+}
+pub impl @lib.PrettyPrint for Literal
+pub impl Eq for Literal
+pub impl Show for Literal
+pub impl @debug.Debug for Literal
+
+pub enum LiteralType {
+  Int
+  Float
+  Hexfloat
+  Infinity
+  Nan
+}
+pub impl @lib.PrettyPrint for LiteralType
+pub impl Eq for LiteralType
+pub impl Show for LiteralType
+pub impl @debug.Debug for LiteralType
+
+pub struct Local {
+  id : String?
+  val_type : ValueType
+}
+pub impl @lib.PrettyPrint for Local
+pub impl Eq for Local
+pub impl Show for Local
+pub impl @debug.Debug for Local
+pub impl @quickcheck.Arbitrary for Local
+
+pub struct Location {
+  filename : String
+  line : Int
+  first_column : Int
+  last_column : Int
+}
+pub impl @lib.PrettyPrint for Location
+pub impl Eq for Location
+pub impl Show for Location
+pub impl @debug.Debug for Location
+
+pub struct MemArg {
+  align : UInt64
+  offset : UInt64
+}
+pub impl @lib.PrettyPrint for MemArg
+pub impl Eq for MemArg
+pub impl Show for MemArg
+pub impl @debug.Debug for MemArg
+pub impl @quickcheck.Arbitrary for MemArg
+
+pub struct Memory {
+  id : String?
+  exports : Array[InlineExport]
+  memory_type : MemoryType
+}
+pub impl @lib.PrettyPrint for Memory
+pub impl Eq for Memory
+pub impl Show for Memory
+pub impl @debug.Debug for Memory
+pub impl @quickcheck.Arbitrary for Memory
+
+pub struct MemoryType(Limits)
+#deprecated
+pub fn MemoryType::inner(Self) -> Limits
+pub impl @lib.PrettyPrint for MemoryType
+pub impl Eq for MemoryType
+pub impl Show for MemoryType
+pub impl @debug.Debug for MemoryType
+pub impl @quickcheck.Arbitrary for MemoryType
+
+pub struct Module {
+  id : String?
+  fields : Array[ModuleField]
+}
+pub impl @lib.PrettyPrint for Module
+pub impl Eq for Module
+pub impl Show for Module
+pub impl @debug.Debug for Module
+pub impl @quickcheck.Arbitrary for Module
+
+pub enum ModuleField {
+  TypeField(TypeDef)
+  FuncField(Func)
+  TableField(Table)
+  MemoryField(Memory)
+  GlobalField(Global)
+  TagField(Tag)
+  ImportField(Import)
+  ExportField(Export)
+  StartField(Start)
+  ElemField(ElemSegment)
+  DataField(DataSegment)
+}
+pub impl @lib.PrettyPrint for ModuleField
+pub impl Eq for ModuleField
+pub impl Show for ModuleField
+pub impl @debug.Debug for ModuleField
+pub impl @quickcheck.Arbitrary for ModuleField
+
+pub enum Opcode {
+  Unreachable
+  Nop
+  Br
+  BrIf
+  BrTable
+  Return
+  Call
+  CallIndirect
+  ReturnCall
+  ReturnCallIndirect
+  ReturnCallRef
+  Throw
+  ThrowRef
+  TryTable
+  RefNull
+  RefIsNull
+  RefFunc
+  RefEq
+  RefAsNonNull
+  AnyConvertExtern
+  ExternConvertAny
+  RefI31
+  I31GetS
+  I31GetU
+  RefGetDesc
+  RefTestDesc
+  RefTestDescNull
+  RefCastDescEq
+  RefCastDescEqNull
+  RefExtern
+  Drop
+  Select
+  LocalGet
+  LocalSet
+  LocalTee
+  GlobalGet
+  GlobalSet
+  TableGet
+  TableSet
+  TableSize
+  TableGrow
+  TableFill
+  TableCopy
+  TableInit
+  ElemDrop
+  I32Load
+  I64Load
+  F32Load
+  F64Load
+  I32Load8S
+  I32Load8U
+  I32Load16S
+  I32Load16U
+  I64Load8S
+  I64Load8U
+  I64Load16S
+  I64Load16U
+  I64Load32S
+  I64Load32U
+  I32Store
+  I64Store
+  F32Store
+  F64Store
+  I32Store8
+  I32Store16
+  I64Store8
+  I64Store16
+  I64Store32
+  MemorySize
+  MemoryGrow
+  MemoryFill
+  MemoryCopy
+  MemoryInit
+  DataDrop
+  I32Const
+  I64Const
+  F32Const
+  F64Const
+  I32Eqz
+  I32Eq
+  I32Ne
+  I32LtS
+  I32LtU
+  I32GtS
+  I32GtU
+  I32LeS
+  I32LeU
+  I32GeS
+  I32GeU
+  I32Clz
+  I32Ctz
+  I32Popcnt
+  I32Add
+  I32Sub
+  I32Mul
+  I32DivS
+  I32DivU
+  I32RemS
+  I32RemU
+  I32And
+  I32Or
+  I32Xor
+  I32Shl
+  I32ShrS
+  I32ShrU
+  I32Rotl
+  I32Rotr
+  I64Eqz
+  I64Eq
+  I64Ne
+  I64LtS
+  I64LtU
+  I64GtS
+  I64GtU
+  I64LeS
+  I64LeU
+  I64GeS
+  I64GeU
+  I64Clz
+  I64Ctz
+  I64Popcnt
+  I64Add
+  I64Sub
+  I64Mul
+  I64DivS
+  I64DivU
+  I64RemS
+  I64RemU
+  I64And
+  I64Or
+  I64Xor
+  I64Shl
+  I64ShrS
+  I64ShrU
+  I64Rotl
+  I64Rotr
+  F32Eq
+  F32Ne
+  F32Lt
+  F32Gt
+  F32Le
+  F32Ge
+  F32Abs
+  F32Neg
+  F32Ceil
+  F32Floor
+  F32Trunc
+  F32Nearest
+  F32Sqrt
+  F32Add
+  F32Sub
+  F32Mul
+  F32Div
+  F32Min
+  F32Max
+  F32Copysign
+  F64Eq
+  F64Ne
+  F64Lt
+  F64Gt
+  F64Le
+  F64Ge
+  F64Abs
+  F64Neg
+  F64Ceil
+  F64Floor
+  F64Trunc
+  F64Nearest
+  F64Sqrt
+  F64Add
+  F64Sub
+  F64Mul
+  F64Div
+  F64Min
+  F64Max
+  F64Copysign
+  I32WrapI64
+  I32TruncF32S
+  I32TruncF32U
+  I32TruncF64S
+  I32TruncF64U
+  I64ExtendI32S
+  I64ExtendI32U
+  I64TruncF32S
+  I64TruncF32U
+  I64TruncF64S
+  I64TruncF64U
+  F32ConvertI32S
+  F32ConvertI32U
+  F32ConvertI64S
+  F32ConvertI64U
+  F32DemoteF64
+  F64ConvertI32S
+  F64ConvertI32U
+  F64ConvertI64S
+  F64ConvertI64U
+  F64PromoteF32
+  I32ReinterpretF32
+  I64ReinterpretF64
+  F32ReinterpretI32
+  F64ReinterpretI64
+  I32Extend8S
+  I32Extend16S
+  I64Extend8S
+  I64Extend16S
+  I64Extend32S
+  I32TruncSatF32S
+  I32TruncSatF32U
+  I32TruncSatF64S
+  I32TruncSatF64U
+  I64TruncSatF32S
+  I64TruncSatF32U
+  I64TruncSatF64S
+  I64TruncSatF64U
+  V128Const
+  V128Load
+  V128Load8x8S
+  V128Load8x8U
+  V128Load16x4S
+  V128Load16x4U
+  V128Load32x2S
+  V128Load32x2U
+  V128Load8Splat
+  V128Load16Splat
+  V128Load32Splat
+  V128Load64Splat
+  V128Load32Zero
+  V128Load64Zero
+  V128Store
+  V128Load8Lane
+  V128Load16Lane
+  V128Load32Lane
+  V128Load64Lane
+  V128Store8Lane
+  V128Store16Lane
+  V128Store32Lane
+  V128Store64Lane
+  I8x16Shuffle
+  I8x16Swizzle
+  I8x16Splat
+  I8x16ExtractLaneS
+  I8x16ExtractLaneU
+  I8x16ReplaceLane
+  I8x16Eq
+  I8x16Ne
+  I8x16LtS
+  I8x16LtU
+  I8x16GtS
+  I8x16GtU
+  I8x16LeS
+  I8x16LeU
+  I8x16GeS
+  I8x16GeU
+  I8x16Abs
+  I8x16Neg
+  I8x16Popcnt
+  I8x16AllTrue
+  I8x16Bitmask
+  I8x16NarrowI16x8S
+  I8x16NarrowI16x8U
+  I8x16Shl
+  I8x16ShrS
+  I8x16ShrU
+  I8x16Add
+  I8x16AddSatS
+  I8x16AddSatU
+  I8x16Sub
+  I8x16SubSatS
+  I8x16SubSatU
+  I8x16MinS
+  I8x16MinU
+  I8x16MaxS
+  I8x16MaxU
+  I8x16AvgrU
+  I16x8Splat
+  I16x8ExtractLaneS
+  I16x8ExtractLaneU
+  I16x8ReplaceLane
+  I16x8Eq
+  I16x8Ne
+  I16x8LtS
+  I16x8LtU
+  I16x8GtS
+  I16x8GtU
+  I16x8LeS
+  I16x8LeU
+  I16x8GeS
+  I16x8GeU
+  I16x8Abs
+  I16x8Neg
+  I16x8Q15mulrSatS
+  I16x8AllTrue
+  I16x8Bitmask
+  I16x8NarrowI32x4S
+  I16x8NarrowI32x4U
+  I16x8ExtendLowI8x16S
+  I16x8ExtendHighI8x16S
+  I16x8ExtendLowI8x16U
+  I16x8ExtendHighI8x16U
+  I16x8Shl
+  I16x8ShrS
+  I16x8ShrU
+  I16x8Add
+  I16x8AddSatS
+  I16x8AddSatU
+  I16x8Sub
+  I16x8SubSatS
+  I16x8SubSatU
+  I16x8Mul
+  I16x8MinS
+  I16x8MinU
+  I16x8MaxS
+  I16x8MaxU
+  I16x8AvgrU
+  I16x8ExtmulLowI8x16S
+  I16x8ExtmulHighI8x16S
+  I16x8ExtmulLowI8x16U
+  I16x8ExtmulHighI8x16U
+  I32x4Splat
+  I32x4ExtractLane
+  I32x4ReplaceLane
+  I32x4Eq
+  I32x4Ne
+  I32x4LtS
+  I32x4LtU
+  I32x4GtS
+  I32x4GtU
+  I32x4LeS
+  I32x4LeU
+  I32x4GeS
+  I32x4GeU
+  I32x4Abs
+  I32x4Neg
+  I32x4AllTrue
+  I32x4Bitmask
+  I32x4ExtendLowI16x8S
+  I32x4ExtendHighI16x8S
+  I32x4ExtendLowI16x8U
+  I32x4ExtendHighI16x8U
+  I32x4Shl
+  I32x4ShrS
+  I32x4ShrU
+  I32x4Add
+  I32x4Sub
+  I32x4Mul
+  I32x4MinS
+  I32x4MinU
+  I32x4MaxS
+  I32x4MaxU
+  I32x4DotI16x8S
+  I32x4ExtmulLowI16x8S
+  I32x4ExtmulHighI16x8S
+  I32x4ExtmulLowI16x8U
+  I32x4ExtmulHighI16x8U
+  I32x4TruncSatF32x4S
+  I32x4TruncSatF32x4U
+  I32x4TruncSatF64x2SZero
+  I32x4TruncSatF64x2UZero
+  I64x2Splat
+  I64x2ExtractLane
+  I64x2ReplaceLane
+  I64x2Eq
+  I64x2Ne
+  I64x2LtS
+  I64x2GtS
+  I64x2LeS
+  I64x2GeS
+  I64x2Abs
+  I64x2Neg
+  I64x2AllTrue
+  I64x2Bitmask
+  I64x2ExtendLowI32x4S
+  I64x2ExtendHighI32x4S
+  I64x2ExtendLowI32x4U
+  I64x2ExtendHighI32x4U
+  I64x2Shl
+  I64x2ShrS
+  I64x2ShrU
+  I64x2Add
+  I64x2Sub
+  I64x2Mul
+  I64x2ExtmulLowI32x4S
+  I64x2ExtmulHighI32x4S
+  I64x2ExtmulLowI32x4U
+  I64x2ExtmulHighI32x4U
+  F32x4Splat
+  F32x4ExtractLane
+  F32x4ReplaceLane
+  F32x4Eq
+  F32x4Ne
+  F32x4Lt
+  F32x4Gt
+  F32x4Le
+  F32x4Ge
+  F32x4Abs
+  F32x4Neg
+  F32x4Sqrt
+  F32x4Add
+  F32x4Sub
+  F32x4Mul
+  F32x4Div
+  F32x4Min
+  F32x4Max
+  F32x4Pmin
+  F32x4Pmax
+  F32x4Ceil
+  F32x4Floor
+  F32x4Trunc
+  F32x4Nearest
+  F32x4ConvertI32x4S
+  F32x4ConvertI32x4U
+  F32x4DemoteF64x2Zero
+  F64x2Splat
+  F64x2ExtractLane
+  F64x2ReplaceLane
+  F64x2Eq
+  F64x2Ne
+  F64x2Lt
+  F64x2Gt
+  F64x2Le
+  F64x2Ge
+  F64x2Abs
+  F64x2Neg
+  F64x2Sqrt
+  F64x2Add
+  F64x2Sub
+  F64x2Mul
+  F64x2Div
+  F64x2Min
+  F64x2Max
+  F64x2Pmin
+  F64x2Pmax
+  F64x2Ceil
+  F64x2Floor
+  F64x2Trunc
+  F64x2Nearest
+  F64x2ConvertLowI32x4S
+  F64x2ConvertLowI32x4U
+  F64x2PromoteLowF32x4
+  V128Not
+  V128And
+  V128AndNot
+  V128Or
+  V128Xor
+  V128Bitselect
+  V128AnyTrue
+  I8x16RelaxedSwizzle
+  I32x4RelaxedTruncF32x4S
+  I32x4RelaxedTruncF32x4U
+  I32x4RelaxedTruncF64x2SZero
+  I32x4RelaxedTruncF64x2UZero
+  F32x4RelaxedMadd
+  F32x4RelaxedNmadd
+  F64x2RelaxedMadd
+  F64x2RelaxedNmadd
+  I8x16RelaxedLaneselect
+  I16x8RelaxedLaneselect
+  I32x4RelaxedLaneselect
+  I64x2RelaxedLaneselect
+  F32x4RelaxedMin
+  F32x4RelaxedMax
+  F64x2RelaxedMin
+  F64x2RelaxedMax
+  I16x8RelaxedQ15mulrS
+  I16x8RelaxedDotI8x16I7x16S
+  I32x4RelaxedDotI8x16I7x16AddS
+}
+pub impl @lib.PrettyPrint for Opcode
+pub impl Eq for Opcode
+pub impl Show for Opcode
+pub impl @debug.Debug for Opcode
+pub impl @quickcheck.Arbitrary for Opcode
+
+pub struct ParseError {
+  location : Location
+  message : String
+}
+pub impl @lib.PrettyPrint for ParseError
+pub impl Eq for ParseError
+pub impl Show for ParseError
+pub impl @debug.Debug for ParseError
+
+pub struct ShuffleLanes {
+  lanes : FixedArray[UInt]
+}
+pub impl @lib.PrettyPrint for ShuffleLanes
+pub impl Eq for ShuffleLanes
+pub impl Show for ShuffleLanes
+pub impl @debug.Debug for ShuffleLanes
+pub impl @quickcheck.Arbitrary for ShuffleLanes
+
+pub enum SimdShape {
+  I8x16
+  I16x8
+  I32x4
+  I64x2
+  F32x4
+  F64x2
+}
+pub impl @lib.PrettyPrint for SimdShape
+pub impl Eq for SimdShape
+pub impl Show for SimdShape
+pub impl @debug.Debug for SimdShape
+pub impl @quickcheck.Arbitrary for SimdShape
+
+pub struct Start {
+  func_index : Index
+}
+pub impl @lib.PrettyPrint for Start
+pub impl Eq for Start
+pub impl Show for Start
+pub impl @debug.Debug for Start
+pub impl @quickcheck.Arbitrary for Start
+
+pub struct Table {
+  id : String?
+  exports : Array[InlineExport]
+  table_type : TableType
+  elem_init : Array[Index]?
+  elem_exprs : Array[ElemInitExpr]?
+  elem_init_type : ValueType?
+  elem_offset : Array[Instruction]?
+}
+pub impl @lib.PrettyPrint for Table
+pub impl Eq for Table
+pub impl Show for Table
+pub impl @debug.Debug for Table
+pub impl @quickcheck.Arbitrary for Table
+
+pub struct TableType {
+  limits : Limits
+  elem_type : ValueType
+}
+pub impl @lib.PrettyPrint for TableType
+pub impl Eq for TableType
+pub impl Show for TableType
+pub impl @debug.Debug for TableType
+pub impl @quickcheck.Arbitrary for TableType
+
+pub struct Tag {
+  id : String?
+  exports : Array[InlineExport]
+  type_use : TypeUse
+}
+pub impl Eq for Tag
+pub impl Show for Tag
+pub impl @debug.Debug for Tag
+
+pub struct Token {
+  location : Location
+  token_type : TokenType
+  value : TokenValue
+}
+pub impl @lib.PrettyPrint for Token
+pub impl Eq for Token
+pub impl Show for Token
+pub impl @debug.Debug for Token
+
+pub enum TokenType {
+  Eof
+  Lpar
+  Rpar
+  LparAnn
+  Nat
+  Int
+  Float
+  Text
+  Var
+  Reserved
+  Invalid
+  Module
+  Type
+  Func
+  Param
+  Result
+  Local
+  Global
+  Tag
+  Table
+  Memory
+  Import
+  Export
+  ValueType(ValueType)
+  Opcode(Opcode)
+  Block
+  Loop
+  If
+  Try
+  Do
+  Then
+  Else
+  End
+  Catch
+  CatchRef
+  CatchAll
+  CatchAllRef
+  Delegate
+  Rethrow
+  Offset
+  Item
+  Start
+  Data
+  Elem
+  Mut
+  Binary
+  Quote
+  Input
+  Output
+  Register
+  Invoke
+  Get
+  Declare
+  AssertMalformed
+  AssertInvalid
+  AssertUnlinkable
+  AssertReturn
+  AssertTrap
+  AssertException
+  AssertExhaustion
+  NanCanonical
+  NanArithmetic
+  OffsetEqNat
+  AlignEqNat
+  SimdShapeToken(SimdShape)
+}
+pub impl @lib.PrettyPrint for TokenType
+pub impl Eq for TokenType
+pub impl Show for TokenType
+pub impl @debug.Debug for TokenType
+
+pub enum TokenValue {
+  None
+  Text(String)
+  Literal(Literal)
+  ValueType(ValueType)
+  Opcode(Opcode)
+}
+pub impl @lib.PrettyPrint for TokenValue
+pub impl Eq for TokenValue
+pub impl Show for TokenValue
+pub impl @debug.Debug for TokenValue
+
+pub struct TypeDef {
+  id : String?
+  func_type : FuncType
+}
+pub impl @lib.PrettyPrint for TypeDef
+pub impl Eq for TypeDef
+pub impl Show for TypeDef
+pub impl @debug.Debug for TypeDef
+pub impl @quickcheck.Arbitrary for TypeDef
+
+pub struct TypeUse {
+  type_index : Index?
+  func_type : FuncType
+  param_ids : Array[String?]
+}
+pub impl @lib.PrettyPrint for TypeUse
+pub impl Eq for TypeUse
+pub impl Show for TypeUse
+pub impl @debug.Debug for TypeUse
+pub impl @quickcheck.Arbitrary for TypeUse
+
+pub struct V128Const {
+  shape : SimdShape
+  values : Array[String]
+}
+pub impl @lib.PrettyPrint for V128Const
+pub impl Eq for V128Const
+pub impl Show for V128Const
+pub impl @debug.Debug for V128Const
+pub impl @quickcheck.Arbitrary for V128Const
+
+pub enum ValueType {
+  I32
+  I64
+  F32
+  F64
+  V128
+  FuncRef
+  ExternRef
+  ExnRef
+  NonNullFuncRef
+  NonNullExternRef
+  NonNullExnRef
+  TypedFuncRef(HeapTypeRef)
+  NonNullTypedFuncRef(HeapTypeRef)
+}
+pub impl @lib.PrettyPrint for ValueType
+pub impl Eq for ValueType
+pub impl Show for ValueType
+pub impl @debug.Debug for ValueType
+pub impl @quickcheck.Arbitrary for ValueType
+
+pub struct WastAction {
+  module_name : String?
+  name : String
+  args : Array[WastValue]
+}
+pub impl @lib.PrettyPrint for WastAction
+pub impl Eq for WastAction
+pub impl Show for WastAction
+pub impl @debug.Debug for WastAction
+pub impl @quickcheck.Arbitrary for WastAction
+
+pub enum WastActionType {
+  Invoke(WastAction)
+  Get(String?, String)
+}
+pub impl @lib.PrettyPrint for WastActionType
+pub impl Eq for WastActionType
+pub impl Show for WastActionType
+pub impl @debug.Debug for WastActionType
+pub impl @quickcheck.Arbitrary for WastActionType
+
+pub enum WastCommand {
+  Module(Module)
+  ModuleBinary(String?, Bytes)
+  ModuleQuote(String?, Array[String])
+  Register(String, String?)
+  Action(WastActionType)
+  AssertReturn(WastActionType, Array[WastResult])
+  AssertTrap(WastActionType, String)
+  AssertException(WastActionType)
+  AssertExhaustion(WastActionType, String)
+  AssertMalformed(WastModuleDef, String)
+  AssertInvalid(WastModuleDef, String)
+  AssertUnlinkable(WastModuleDef, String)
+}
+pub impl @lib.PrettyPrint for WastCommand
+pub impl Eq for WastCommand
+pub impl Show for WastCommand
+pub impl @debug.Debug for WastCommand
+pub impl @quickcheck.Arbitrary for WastCommand
+
+pub struct WastLexer {
+  buffer : Bytes
+  filename : String
+  mut line : Int
+  mut cursor : Int
+  mut line_start : Int
+  mut token_start : Int
+  errors : Array[LexerError]
+}
+pub fn WastLexer::get_errors(Self) -> Array[LexerError]
+pub fn WastLexer::get_token(Self) -> Token
+pub fn WastLexer::has_errors(Self) -> Bool
+pub fn WastLexer::new(Bytes, String) -> Self
+
+pub enum WastModuleDef {
+  Inline(Module)
+  Binary(Bytes)
+  Quote(Array[String])
+}
+pub impl @lib.PrettyPrint for WastModuleDef
+pub impl Eq for WastModuleDef
+pub impl Show for WastModuleDef
+pub impl @debug.Debug for WastModuleDef
+pub impl @quickcheck.Arbitrary for WastModuleDef
+
+pub struct WastParser {
+  lexer : WastLexer
+  mut current : Token
+  errors : Array[ParseError]
+}
+pub fn WastParser::get_errors(Self) -> Array[ParseError]
+pub fn WastParser::has_errors(Self) -> Bool
+pub fn WastParser::new(WastLexer) -> Self
+pub fn WastParser::parse_module(Self) -> Module raise ParserError
+pub fn WastParser::parse_script(Self) -> WastScript raise ParserError
+
+pub enum WastResult {
+  Value(WastValue)
+  F32NanCanonical
+  F32NanArithmetic
+  F64NanCanonical
+  F64NanArithmetic
+  RefNull(ValueType?)
+  RefFunc
+}
+pub impl @lib.PrettyPrint for WastResult
+pub impl Eq for WastResult
+pub impl Show for WastResult
+pub impl @debug.Debug for WastResult
+pub impl @quickcheck.Arbitrary for WastResult
+
+pub struct WastScript {
+  commands : Array[WastCommand]
+}
+pub impl @lib.PrettyPrint for WastScript
+pub impl Eq for WastScript
+pub impl Show for WastScript
+pub impl @debug.Debug for WastScript
+pub impl @quickcheck.Arbitrary for WastScript
+
+pub struct WastSpecFileReport {
+  path : String
+  status : WastSpecFileStatus
+  total_commands : Int
+  checked_commands : Int
+  skipped_commands : Int
+}
+pub impl Eq for WastSpecFileReport
+pub impl Show for WastSpecFileReport
+pub impl @debug.Debug for WastSpecFileReport
+
+pub enum WastSpecFileStatus {
+  Passed
+  Skipped(String)
+  Failed(String)
+}
+pub impl Eq for WastSpecFileStatus
+pub impl Show for WastSpecFileStatus
+pub impl @debug.Debug for WastSpecFileStatus
+
+pub struct WastSpecRunSummary {
+  files : Array[WastSpecFileReport]
+  total_files : Int
+  passed_files : Int
+  skipped_files : Int
+  failed_files : Int
+}
+pub impl Eq for WastSpecRunSummary
+pub impl Show for WastSpecRunSummary
+pub impl @debug.Debug for WastSpecRunSummary
+
+pub enum WastValue {
+  I32(String)
+  I64(String)
+  F32(String)
+  F64(String)
+  RefNull(ValueType)
+  RefFunc
+}
+pub impl @lib.PrettyPrint for WastValue
+pub impl Eq for WastValue
+pub impl Show for WastValue
+pub impl @debug.Debug for WastValue
+pub impl @quickcheck.Arbitrary for WastValue
+
+// Type aliases
+
+// Traits
+

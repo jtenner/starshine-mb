@@ -1,0 +1,70 @@
+# Project Agents.md Guide
+
+This is a [MoonBit](https://docs.moonbitlang.com) project.
+
+## Project Structure
+- MoonBit packages are directory-scoped (`moon.pkg` per package).
+- Top-level module metadata is in `moon.mod.json`.
+- Tests are usually colocated with code in this project.
+- Common test suffixes:
+  - blackbox: `_test.mbt`
+  - whitebox: `_wbtest.mbt`
+- Project hasn't been released yet, breaking api changes are okay.
+- Imports from other modules should exist in `package*/imports.mbt`
+
+## Coding Convention
+- MoonBit code is block-structured with `///|`; block order is not semantically relevant.
+- Prefer constructor methods over open-struct literals.
+- Put deprecated code in `deprecated.mbt` with `#deprecated` markers.
+- If optimization state is reusable, put it in `IRContext` instead of threading extra parameters.
+- Pass constructor parameters should be immutable and captured in `ModuleTransformer` event closures.
+- Please use strict TDD for both feature and regression tests. Write tests before code, and make sure they fail before writing the code.
+- Unless explicitly instructed, do not remove or disable existing features or tests to make tests pass. Changing test expectations to meet correctness standards is fine.
+
+## Tooling
+- Format: `moon fmt`
+- Interface refresh: `moon info`
+- Lint/check: `moon check` (not very useful, runs as part of "test")
+- Tests: `moon test` (`moon test --update` for snapshot updates) (also runs "check" as byproduct)
+- Coverage helper: `moon coverage analyze > uncovered.log`
+- Preferred final local check sequence:
+  - `moon info && moon fmt`
+  - `moon check`
+  - `moon test`
+- Running multiple `moon` commands in parallel contends on `_build/.moon-lock`; one process waits on the lock instead of progressing concurrently.
+- Running the full optimize pipeline on large inputs is currently very slow. Instead of running a self-optimize test, allow the user to run the command themselves and provide the output manually.
+
+In this workspace, run `moon` directly from `PATH`:
+- `moon test`
+- `moon info && moon fmt`
+
+## Repository Layout
+- `src/lib/`: wasm core model types plus shared traits and utilities.
+- `src/ir/`: IR data structures and compiler analyses/utilities.
+- `src/passes/`: optimization/lowering pass implementations and pass helpers.
+- `src/transformer/`: `ModuleTransformer` framework and related tests.
+- `src/validate/`: wasm validation and typechecking logic.
+- `src/binary/`: binary wasm encoding/decoding.
+- `src/wast/`: WAST s-expression parsing and printing.
+- `src/wat/`: text-format wasm (`.wat`) support.
+- `src/cmd/` and `src/cli/`: command entrypoints and CLI plumbing.
+- `src/node_api/`: Node-facing API integration layer.
+- `src/spec_runner/`: spec test execution helpers.
+- `tests/spec/`: upstream-style spec test corpus and proposal fixtures.
+- `tests/node/`: Node integration tests and scripts.
+- `examples/`: runnable usage examples and sample config/module inputs.
+- `scripts/`: project automation and maintenance scripts.
+
+## Test/Validation Expectations for Pass Changes
+- Update inline/dispatch tests in the pass file and/or `src/passes/optimize.mbt`.
+- Run:
+  - `moon check`
+  - `moon test`
+  - `moon info && moon fmt`
+- Review `.mbti` diffs to confirm intended public API changes.
+
+## Agent Task File
+- `./agent-todo.md` contains AI-friendly backlog items.
+
+## Surprises
+Please report any concerning surprises that are unrelated to your current task in `./agent-surprises.md`. This will help the user understand the project better and help developers modify the codebase so that things are less surprising in the future. Look for code smells, anti-patterns, potential improvements, or anything that deviates from common best practices.

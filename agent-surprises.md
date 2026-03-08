@@ -1,0 +1,1 @@
+- 2026-03-08: During the requested post-fix large optimize reproduction, pass 23 (`CoalesceLocals`) completed, but pass 39 (`DeadArgumentEliminationOptimizing`) then failed with a separate `validation_error ... invalid local index` on `_build/wasm/debug/build/cmd/cmd.wasm`.

@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/wat"
+
+import {
+  "jtenner/starshine/lib",
+  "jtenner/starshine/wast",
+}
+
+// Values
+pub fn lookup_keyword(String) -> @wast.TokenType?
+
+pub fn module_to_wat(@wast.Module) -> Result[String, String]
+
+pub fn module_to_wat_with_context(@wast.Module, @lib.PrettyPrintContext) -> Result[String, String]
+
+pub fn script_to_wat(@wast.WastScript) -> Result[String, String]
+
+pub fn script_to_wat_with_context(@wast.WastScript, @lib.PrettyPrintContext) -> Result[String, String]
+
+pub fn wat_to_module(String, filename? : String) -> Result[@wast.Module, String]
+
+pub fn wat_to_script(String, filename? : String) -> Result[@wast.WastScript, String]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+
