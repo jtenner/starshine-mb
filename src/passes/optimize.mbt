@@ -834,9 +834,27 @@ fn run_ir_context_transformer_scheduler_pass(
     ReorderLocals =>
       apply_ir_transformer_pass(ctx, mod, reorder_locals_ir_pass(mod))
     ReorderGlobals =>
-      apply_ir_transformer_pass(ctx, mod, reorder_globals_ir_pass(mod, false))
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        reorder_globals_ir_pass(
+          mod,
+          false,
+          trace=fn(msg) { trace("reorder_globals:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
     ReorderGlobalsAlways =>
-      apply_ir_transformer_pass(ctx, mod, reorder_globals_ir_pass(mod, true))
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        reorder_globals_ir_pass(
+          mod,
+          true,
+          trace=fn(msg) { trace("reorder_globals:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
     _ => Err("optimize scheduler bug: expected IRContext transformer pass")
   }
 }
