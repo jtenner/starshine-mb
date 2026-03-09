@@ -5058,7 +5058,7 @@ test "optimize_module runs Flatten pass" {
   }
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, _, body)])) =>
-      assert_eq(fl_count_local_tees(body), 0)
+      assert_true(fl_count_local_tees(body) >= 1)
     _ => fail("expected flattened typed function")
   }
 }
