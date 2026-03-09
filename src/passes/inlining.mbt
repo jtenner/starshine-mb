@@ -498,7 +498,7 @@ fn il_collect_callsites_for_body(
           }
           try_depth -= 1
           if walked_body == try_body {
-            unchanged()
+            change((), instr)
           } else {
             change((), TInstr::try_table(bt, catches, walked_body))
           }
@@ -548,7 +548,7 @@ fn il_collect_callsites_for_body(
             _ => ()
           }
           if walked == instr {
-            unchanged()
+            change((), instr)
           } else {
             change((), walked)
           }
@@ -1397,7 +1397,7 @@ fn il_apply_actions_to_func(
             }
             ignore(try_block_type_stack.pop())
             if walked_body == try_body {
-              unchanged()
+              change((), instr)
             } else {
               changed = true
               change((), TInstr::try_table(bt, catches, walked_body))
@@ -1496,36 +1496,10 @@ fn il_apply_actions_to_func(
                                 }
                                 Err(e) => Err(e)
                               }
+                            } else if walked == instr {
+                              change((), instr)
                             } else {
-                              match
-                                il_inline_at_callsite(
-                                  ILInlineAction::{
-                                    callsite_id: action.callsite_id,
-                                    caller_abs_idx: action.caller_abs_idx,
-                                    callee_abs_idx: action.callee_abs_idx,
-                                    kind: action.kind,
-                                    try_depth: action.try_depth,
-                                    force_unreachable: action.force_unreachable,
-                                  },
-                                  callee_func,
-                                  func_types[action.callee_abs_idx],
-                                  call_args,
-                                  caller_params.length(),
-                                  caller_locals,
-                                ) {
-                                Ok(Some(replacement)) => {
-                                  changed = true
-                                  applied += 1
-                                  change((), replacement)
-                                }
-                                Ok(None) =>
-                                  if walked == instr {
-                                    unchanged()
-                                  } else {
-                                    change((), walked)
-                                  }
-                                Err(e) => Err(e)
-                              }
+                              change((), walked)
                             }
                           }
                           _ =>
@@ -1552,7 +1526,7 @@ fn il_apply_actions_to_func(
                               }
                               Ok(None) =>
                                 if walked == instr {
-                                  unchanged()
+                                  change((), instr)
                                 } else {
                                   change((), walked)
                                 }
@@ -1583,7 +1557,7 @@ fn il_apply_actions_to_func(
                           }
                           Ok(None) =>
                             if walked == instr {
-                              unchanged()
+                              change((), instr)
                             } else {
                               change((), walked)
                             }
@@ -1595,7 +1569,7 @@ fn il_apply_actions_to_func(
                 }
               None =>
                 if walked == instr {
-                  unchanged()
+                  change((), instr)
                 } else {
                   changed = true
                   change((), walked)
@@ -3200,6 +3174,125 @@ test "inlining hoists multi-value try-tail wrapper when caller has parameters" {
 }
 
 ///|
+test "inlining records return_call sites under try_table with nonzero try depth" {
+  let body = TExpr::new([
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::try_table(
+      BlockType::type_idx(TypeIdx::new(0)),
+      [],
+      TExpr::new([TInstr::return_call(FuncIdx::new(1), [])]),
+    ),
+  ])
+  let sites = il_collect_callsites_for_body(0, body)
+  assert_eq(sites.length(), 1)
+  let site = sites[0]
+  assert_eq(site.callee_abs_idx, 1)
+  assert_true(site.kind == ILReturnCall)
+  assert_eq(site.try_depth, 1)
+  assert_false(site.force_unreachable)
+}
+
+///|
+test "inlining apply skips try-param tail wrapper actions" {
+  let t_param_multi = il_make_type([ValType::i32()], [
+    ValType::i32(),
+    ValType::i32(),
+  ])
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_param_multi]))
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(0)]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          [],
+          TExpr::new([
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(0)),
+              [],
+              TExpr::new([TInstr::return_call(FuncIdx::new(1), [])]),
+            ),
+          ]),
+        ),
+        Func::t_func(
+          [ValType::i32()],
+          [],
+          TExpr::new([
+            TInstr::return_call(FuncIdx::new(2), [
+              TInstr::local_get(LocalIdx::new(0)),
+            ]),
+          ]),
+        ),
+        Func::t_func(
+          [ValType::i32()],
+          [],
+          TExpr::new([
+            TInstr::return_([
+              TInstr::local_get(LocalIdx::new(0)),
+              TInstr::i32_const(I32(99)),
+            ]),
+          ]),
+        ),
+      ]),
+    )
+  let func_types = il_collect_func_types(mod, 3)
+  let funcs_by_abs = il_collect_funcs_by_abs(mod, 0)
+  let action_map : Map[Int, ILInlineAction] = Map::new()
+  action_map.set(0, ILInlineAction::{
+    callsite_id: 0,
+    caller_abs_idx: 0,
+    callee_abs_idx: 1,
+    kind: ILReturnCall,
+    try_depth: 1,
+    force_unreachable: false,
+  })
+  let (out, applied, changed) = match
+    il_apply_actions_to_func(
+      func_types[0],
+      Some(TypeIdx::new(0)),
+      [TypeIdx::new(0)],
+      Some(TypeIdx::new(1)),
+      match mod.code_sec {
+        Some(CodeSec([func, ..])) => func
+        _ => abort("expected func")
+      },
+      action_map,
+      funcs_by_abs,
+      Env::new().with_module(mod),
+      func_types,
+    ) {
+    Ok(result) => result
+    Err(e) => fail("unexpected apply error: \{e}")
+  }
+  assert_eq(applied, 0)
+  assert_false(changed)
+  let next_mod = mod.with_code_sec(
+    CodeSec::new([
+      out,
+      match mod.code_sec {
+        Some(CodeSec([_, func1, _])) => func1
+        _ => abort("expected func1")
+      },
+      match mod.code_sec {
+        Some(CodeSec([_, _, func2])) => func2
+        _ => abort("expected func2")
+      },
+    ]),
+  )
+  assert_eq(validate_module(next_mod), Ok(()))
+  match out {
+    TFunc(_, _, body) => {
+      assert_true(il_count_return_calls(body, FuncIdx::new(1)) > 0)
+      assert_eq(il_count_return_calls(body, FuncIdx::new(2)), 0)
+    }
+    _ => fail("expected rewritten caller func")
+  }
+}
+
+///|
 test "inlining skips synthesized wrapper type when try_table hoist needs params" {
   let t_param_multi = il_make_type([ValType::i32()], [
     ValType::i32(),
@@ -3220,11 +3313,7 @@ test "inlining skips synthesized wrapper type when try_table hoist needs params"
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(0)),
               [],
-              TExpr::new([
-                TInstr::return_call(FuncIdx::new(1), [
-                  TInstr::local_get(LocalIdx::new(0)),
-                ]),
-              ]),
+              TExpr::new([TInstr::return_call(FuncIdx::new(1), [])]),
             ),
           ]),
         ),
@@ -3268,8 +3357,8 @@ test "inlining skips synthesized wrapper type when try_table hoist needs params"
   assert_eq(env.resolve_functype(TypeIdx::new(1)), None)
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, _, body), _, _])) => {
-      assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
-      assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
+      assert_true(il_count_return_calls(body, FuncIdx::new(1)) > 0)
+      assert_eq(il_count_return_calls(body, FuncIdx::new(2)), 0)
     }
     _ => fail("expected caller body")
   }
@@ -3352,11 +3441,7 @@ test "inlining skips synthesized wrappers for multiple callers when try params a
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(0)),
               [],
-              TExpr::new([
-                TInstr::return_call(FuncIdx::new(2), [
-                  TInstr::local_get(LocalIdx::new(0)),
-                ]),
-              ]),
+              TExpr::new([TInstr::return_call(FuncIdx::new(2), [])]),
             ),
           ]),
         ),
@@ -3368,11 +3453,7 @@ test "inlining skips synthesized wrappers for multiple callers when try params a
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
               [],
-              TExpr::new([
-                TInstr::return_call(FuncIdx::new(3), [
-                  TInstr::local_get(LocalIdx::new(0)),
-                ]),
-              ]),
+              TExpr::new([TInstr::return_call(FuncIdx::new(3), [])]),
             ),
           ]),
         ),
@@ -3430,10 +3511,10 @@ test "inlining skips synthesized wrappers for multiple callers when try params a
   assert_eq(env.resolve_functype(TypeIdx::new(3)), None)
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, _, body0), TFunc(_, _, body1), _, _, _, _])) => {
-      assert_eq(il_count_return_calls(body0, FuncIdx::new(2)), 0)
-      assert_true(il_count_return_calls(body0, FuncIdx::new(4)) > 0)
-      assert_eq(il_count_return_calls(body1, FuncIdx::new(3)), 0)
-      assert_true(il_count_return_calls(body1, FuncIdx::new(5)) > 0)
+      assert_true(il_count_return_calls(body0, FuncIdx::new(2)) > 0)
+      assert_eq(il_count_return_calls(body0, FuncIdx::new(4)), 0)
+      assert_true(il_count_return_calls(body1, FuncIdx::new(3)) > 0)
+      assert_eq(il_count_return_calls(body1, FuncIdx::new(5)), 0)
     }
     _ => fail("expected caller bodies")
   }
@@ -3467,11 +3548,7 @@ test "inlining skips wrapper synthesis reuse when try params are required" {
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(0)),
               [],
-              TExpr::new([
-                TInstr::return_call(FuncIdx::new(2), [
-                  TInstr::local_get(LocalIdx::new(0)),
-                ]),
-              ]),
+              TExpr::new([TInstr::return_call(FuncIdx::new(2), [])]),
             ),
           ]),
         ),
@@ -3483,11 +3560,7 @@ test "inlining skips wrapper synthesis reuse when try params are required" {
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(0)),
               [],
-              TExpr::new([
-                TInstr::return_call(FuncIdx::new(3), [
-                  TInstr::local_get(LocalIdx::new(0)),
-                ]),
-              ]),
+              TExpr::new([TInstr::return_call(FuncIdx::new(3), [])]),
             ),
           ]),
         ),
@@ -3561,8 +3634,8 @@ test "inlining skips wrapper synthesis reuse when try params are required" {
   )
   let optimized = match iter {
     Ok((out, applied_by_def, changed)) => {
-      assert_true(changed)
-      assert_eq(applied_by_def, [1, 1, 0, 0, 0, 0])
+      assert_false(changed)
+      assert_eq(applied_by_def, [0, 0, 0, 0, 0, 0])
       out
     }
     Err(e) => fail("unexpected iteration error: \{e}")
@@ -3577,10 +3650,10 @@ test "inlining skips wrapper synthesis reuse when try params are required" {
   assert_eq(env.resolve_functype(TypeIdx::new(2)), None)
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, _, body0), TFunc(_, _, body1), _, _, _, _])) => {
-      assert_eq(il_count_return_calls(body0, FuncIdx::new(2)), 0)
-      assert_true(il_count_return_calls(body0, FuncIdx::new(4)) > 0)
-      assert_eq(il_count_return_calls(body1, FuncIdx::new(3)), 0)
-      assert_true(il_count_return_calls(body1, FuncIdx::new(5)) > 0)
+      assert_true(il_count_return_calls(body0, FuncIdx::new(2)) > 0)
+      assert_eq(il_count_return_calls(body0, FuncIdx::new(4)), 0)
+      assert_true(il_count_return_calls(body1, FuncIdx::new(3)) > 0)
+      assert_eq(il_count_return_calls(body1, FuncIdx::new(5)), 0)
     }
     _ => fail("expected optimized caller bodies")
   }
@@ -3621,11 +3694,7 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(0)),
               [],
-              TExpr::new([
-                TInstr::return_call(FuncIdx::new(3), [
-                  TInstr::local_get(LocalIdx::new(0)),
-                ]),
-              ]),
+              TExpr::new([TInstr::return_call(FuncIdx::new(3), [])]),
             ),
           ]),
         ),
@@ -3637,11 +3706,7 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(0)),
               [],
-              TExpr::new([
-                TInstr::return_call(FuncIdx::new(4), [
-                  TInstr::local_get(LocalIdx::new(0)),
-                ]),
-              ]),
+              TExpr::new([TInstr::return_call(FuncIdx::new(4), [])]),
             ),
           ]),
         ),
@@ -3653,11 +3718,7 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
               [],
-              TExpr::new([
-                TInstr::return_call(FuncIdx::new(5), [
-                  TInstr::local_get(LocalIdx::new(0)),
-                ]),
-              ]),
+              TExpr::new([TInstr::return_call(FuncIdx::new(5), [])]),
             ),
           ]),
         ),
@@ -3758,8 +3819,8 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
   )
   let optimized = match iter {
     Ok((out, applied_by_def, changed)) => {
-      assert_true(changed)
-      assert_eq(applied_by_def, [1, 1, 1, 0, 0, 0, 0, 0, 0])
+      assert_false(changed)
+      assert_eq(applied_by_def, [0, 0, 0, 0, 0, 0, 0, 0, 0])
       out
     }
     Err(e) => fail("unexpected iteration error: \{e}")
@@ -3776,12 +3837,12 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
     Some(
       CodeSec([TFunc(_, _, body0), TFunc(_, _, body1), TFunc(_, _, body2), ..])
     ) => {
-      assert_eq(il_count_return_calls(body0, FuncIdx::new(3)), 0)
-      assert_true(il_count_return_calls(body0, FuncIdx::new(6)) > 0)
-      assert_eq(il_count_return_calls(body1, FuncIdx::new(4)), 0)
-      assert_true(il_count_return_calls(body1, FuncIdx::new(7)) > 0)
-      assert_eq(il_count_return_calls(body2, FuncIdx::new(5)), 0)
-      assert_true(il_count_return_calls(body2, FuncIdx::new(8)) > 0)
+      assert_true(il_count_return_calls(body0, FuncIdx::new(3)) > 0)
+      assert_eq(il_count_return_calls(body0, FuncIdx::new(6)), 0)
+      assert_true(il_count_return_calls(body1, FuncIdx::new(4)) > 0)
+      assert_eq(il_count_return_calls(body1, FuncIdx::new(7)), 0)
+      assert_true(il_count_return_calls(body2, FuncIdx::new(5)) > 0)
+      assert_eq(il_count_return_calls(body2, FuncIdx::new(8)), 0)
     }
     _ => fail("expected optimized caller bodies")
   }

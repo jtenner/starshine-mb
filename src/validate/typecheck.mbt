@@ -4325,13 +4325,20 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       Ok(out.push_types(results))
     }
     TInstrKind::TTryTable(bt, catches, body) => {
-      let (_params, results) = match st.env.expand_blocktype(bt) {
+      let (params, results) = match st.env.expand_blocktype(bt) {
         Err(e) => return Err(e)
         Ok(x) => x
       }
-      let st1 = st
+      let st1 = match st.pop_types(params) {
+        Err(e) => return Err(e)
+        Ok(s) => s
+      }
       let env2 = st.env.with_label(results)
-      let st_body0 = TcState::{ env: env2, stack: [], reachable: st1.reachable }
+      let st_body0 = TcState::{
+        env: env2,
+        stack: tc_stack_from_types(params),
+        reachable: st1.reachable,
+      }
       let mut st_body = st_body0
       let { instrs: body, .. } = body
       for instr in body {

@@ -1833,6 +1833,38 @@ test "validate_module rejects legacy typed locals that duplicate param prefix" {
 }
 
 ///|
+test "validate_module accepts typed try_table with param input" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          [],
+          TExpr::new([
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(0U)),
+              [],
+              TExpr::new([TInstr::return_call(FuncIdx::new(1U), [])]),
+            ),
+          ]),
+        ),
+        Func::t_func(
+          [ValType::i32()],
+          [],
+          TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(0)))]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
 test "validate_module rejects undeclared function reference in body" {
   let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()

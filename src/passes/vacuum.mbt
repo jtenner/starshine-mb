@@ -1927,7 +1927,7 @@ test "vacuum keeps explicit unreachable sentinel after br tail" {
               TExpr::new([
                 TInstr::br(LabelIdx::new(0), []),
                 TInstr::unreachable_(),
-                TInstr::i32_const(I32(11)),
+                TInstr::nop(),
               ]),
             ),
           ]),

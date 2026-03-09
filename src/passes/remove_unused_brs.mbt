@@ -4271,6 +4271,47 @@ fn rub_remove_trailing_return(instrs : Array[TInstr]) -> Bool {
 }
 
 ///|
+fn rub_is_explicit_flow_terminator(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TBr(_, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_) => true
+    _ => false
+  }
+}
+
+///|
+fn rub_trim_dead_tail_after_terminator(instrs : Array[TInstr]) -> Bool {
+  if instrs.length() < 2 {
+    return false
+  }
+  let mut i = 0
+  while i + 1 < instrs.length() {
+    if rub_is_explicit_flow_terminator(instrs[i]) {
+      let keep_existing_sentinel = instrs[i + 1].kind
+        is TInstrKind::TUnreachable
+      let keep_len = if keep_existing_sentinel { i + 2 } else { i + 1 }
+      let mut changed = keep_len < instrs.length()
+      while instrs.length() > keep_len {
+        ignore(instrs.pop())
+      }
+      if !keep_existing_sentinel {
+        instrs.push(TInstr::unreachable_())
+        changed = true
+      }
+      return changed
+    }
+    i += 1
+  }
+  false
+}
+
+///|
 fn rub_optimize_adjacent_breaks(
   instrs : Array[TInstr],
   options : OptimizeOptions,
@@ -4897,6 +4938,9 @@ fn rub_optimize_instr_list(
       sl_trace_elapsed_ms(dropped_tail_start_ms),
       instrs.length(),
     )
+  }
+  if rub_trim_dead_tail_after_terminator(instrs) {
+    changed = true
   }
   if rub_remove_trailing_nops(instrs) {
     changed = true
@@ -9209,7 +9253,7 @@ test "remove_unused_brs folds br_if with constant true condition" {
               {
                 instrs: [
                   { kind: TInstrKind::TBr(label, []), .. },
-                  { kind: TInstrKind::TI32Const(I32(2)), .. },
+                  { kind: TInstrKind::TUnreachable, .. },
                 ],
                 ..,
               }
