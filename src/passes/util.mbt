@@ -96,7 +96,7 @@ fn[T] SquareMatrix::get_or(
 ///|
 fn uses(instr : TInstr) -> Set[LocalIdx] {
   let result = Set::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i : TInstr) {
     match i.kind {
       TInstrKind::TLocalGet(idx) => result.add(idx)
       _ => ()
@@ -124,7 +124,6 @@ fn wrap_unit_func_pass(
   ModuleTransformer::new().on_func_evt(fn(_, ctx : IRContext, func : Func) {
     match pass.walk_func((), func) {
       Ok((new_func, _)) => change(ctx, new_func)
-      Ok(_) => unchanged()
       Err(e) => error(e)
     }
   })

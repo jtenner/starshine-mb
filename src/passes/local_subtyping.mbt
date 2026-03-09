@@ -369,7 +369,7 @@ fn ls_infer_tinstr_type(
 fn ls_scan_body(body : TExpr, relevant_locals : Set[Int]) -> LocalSubtypingScan {
   let scan = LocalSubtypingScan::new()
   let mut get_id = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TLocalGet(idx) => {
         let local_idx = ls_local_idx_to_int(idx)

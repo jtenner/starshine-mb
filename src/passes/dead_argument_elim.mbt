@@ -846,7 +846,7 @@ fn analyze_function_body(
   env : Env,
   trace_stats : DAETraceStats,
 ) -> Unit {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     trace_stats.analysis_instrs_visited += 1
     match instr.kind {
       TInstrKind::TLocalGet(LocalIdx(raw)) => {
@@ -1179,7 +1179,7 @@ fn rewrite_body(
   let func_start_us = if trace_progress { dae_trace_now_us() } else { 0UL }
   let mut func_last_emit_us = func_start_us
   let mut func_next_progress_instr = dae_trace_rewrite_progress_check_interval()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     trace_stats.rewrite_instrs_visited += 1
     rewrite_trace.instrs_visited += 1
     if trace_progress &&
@@ -1199,7 +1199,6 @@ fn rewrite_body(
     let (processed, child_changed) = match
       self.walk_tinstruction_default((), instr) {
       Ok((i, _)) => (i, true)
-      Ok(_) => (instr, false)
       Err(e) => return error(e)
     }
     match processed.kind {

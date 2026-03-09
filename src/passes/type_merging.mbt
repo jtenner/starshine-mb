@@ -469,7 +469,7 @@ fn tm_collect_cast_types(
 ) -> TMCastInfo {
   let cast_types : Set[Int] = Set::new()
   let exact_cast_types : Set[Int] = Set::new()
-  let walker = ModuleTransformer::new()
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
     .on_tinstruction_evt(fn(_, _, instr : TInstr) {
       match instr.kind {
         TInstrKind::TRefCast(_, heap_type, _)
@@ -1403,7 +1403,6 @@ fn tm_apply_merges(
 
   let merged = match remapper.walk_module((), mod) {
     Ok((out, _)) => out
-    Ok(_) => mod.with_type_sec(new_type_sec)
     Err(e) => return Err(e)
   }
   remove_unused_types(merged)

@@ -93,7 +93,6 @@ fn rl_remap_local_indices(
   })
   match rewriter.walk_texpr((), body) {
     Ok((out, _)) => Ok(out)
-    Ok(_) => Ok(body)
     Err(e) => Err(e)
   }
 }
@@ -208,7 +207,6 @@ fn run_reorder_locals(mod : Module) -> Module {
   let pass = reorder_locals_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
     Ok((out, _)) => out
-    Ok(_) => mod
     Err(e) => abort("reorder_locals_ir_pass failed: \{e}")
   }
 }

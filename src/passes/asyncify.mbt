@@ -1233,7 +1233,7 @@ fn af_remap_func_indices(
   if remap.is_empty() {
     return Ok(mod)
   }
-  let transformer = ModuleTransformer::new().on_funcidx_evt(fn(_, _, idx) {
+  let transformer = ModuleTransformer::new().on_funcidx_evt(fn(_, _, idx : FuncIdx) {
     match remap.get(idx) {
       Some(new_idx) =>
         if new_idx != idx {
@@ -1246,7 +1246,6 @@ fn af_remap_func_indices(
   })
   match transformer.walk_module((), mod) {
     Ok((next_mod, _)) => Ok(next_mod)
-    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }
@@ -1259,7 +1258,7 @@ fn af_remap_global_indices(
   if remap.is_empty() {
     return Ok(mod)
   }
-  let transformer = ModuleTransformer::new().on_globalidx_evt(fn(_, _, idx) {
+  let transformer = ModuleTransformer::new().on_globalidx_evt(fn(_, _, idx : GlobalIdx) {
     match remap.get(idx) {
       Some(new_idx) =>
         if new_idx != idx {
@@ -1272,7 +1271,6 @@ fn af_remap_global_indices(
   })
   match transformer.walk_module((), mod) {
     Ok((next_mod, _)) => Ok(next_mod)
-    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }
@@ -1458,7 +1456,7 @@ fn FakeGlobalHelper::new(
     Ok(next_mod)
   }
 
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TCall(target, _) | TInstrKind::TReturnCall(target, _) =>
         match env.get_functype_by_funcidx(target) {
@@ -1526,7 +1524,7 @@ fn af_module_references_any_global(
     return Ok(false)
   }
   let found = Ref::new(false)
-  let walker = ModuleTransformer::new().on_globalidx_evt(fn(_, _, idx) {
+  let walker = ModuleTransformer::new().on_globalidx_evt(fn(_, _, idx : GlobalIdx) {
     if targets.contains(idx) {
       found.update(fn(_) { true })
     }
@@ -1661,7 +1659,7 @@ fn af_match_any_pattern(value : String, patterns : Array[String]) -> Bool {
 
 ///|
 fn af_collect_direct_edges(func : Func, out : Set[FuncIdx]) -> Unit {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TCall(target, _) | TInstrKind::TReturnCall(target, _) =>
         out.add(target)
@@ -1677,7 +1675,7 @@ fn af_collect_direct_edges(func : Func, out : Set[FuncIdx]) -> Unit {
 ///|
 fn af_func_calls(func : Func, target : FuncIdx) -> Bool {
   let found = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TCall(callee, _) | TInstrKind::TReturnCall(callee, _) if callee ==
         target => found.update(fn(_) { true })
@@ -2473,7 +2471,7 @@ fn af_align_up(v : Int, align : Int) -> Int {
 fn af_collect_live_like_locals(body : TExpr) -> Set[LocalIdx] {
   // Conservative approximation: any local read in the rewritten function body.
   let out = Set::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     let used = uses(instr)
     for idx in used {
       out.add(idx)
@@ -2614,7 +2612,7 @@ fn af_lower_intrinsics_and_locals(
       let lowered = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
-        instr,
+        instr : TInstr,
       ) {
         match instr.kind {
           TInstrKind::TCall(
@@ -2674,7 +2672,6 @@ fn af_lower_intrinsics_and_locals(
       })
       let lowered_body = match lowered.walk_texpr((), body) {
         Ok((next, _)) => next
-        Ok(_) => body
         Err(e) => return Err(e)
       }
       let final_instrs : Array[TInstr] = []
@@ -2760,10 +2757,10 @@ fn af_assert_non_instrumented(
         let state_local = LocalIdx::new(locals.length().reinterpret_as_uint())
         let next_locals = locals.copy()
         next_locals.push(ValType::i32())
-        let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
           self,
           _,
-          instr,
+          instr : TInstr,
         ) {
           match instr.kind {
             TInstrKind::TCall(_, _)
@@ -2898,7 +2895,7 @@ fn af_catch_wrap_calls_in_instr(
   ctx : AFCatchAssertCtx,
   instr : TInstr,
 ) -> TInstr {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TReturnCall(_, _)
       | TInstrKind::TReturnCallIndirect(_, _, _, _)
@@ -2912,7 +2909,6 @@ fn af_catch_wrap_calls_in_instr(
   })
   match walker.walk_tinstruction((), instr) {
     Ok((out, _)) => out
-    Ok(_) => instr
     Err(_) => instr
   }
 }
@@ -3265,11 +3261,10 @@ fn af_lower_tail_calls_prepass(mod : Module) -> Result[Module, String] {
         let pass = ModuleTransformer::new().on_tinstruction_evt(fn(
           self,
           env,
-          instr,
+          instr : TInstr,
         ) {
           let walked = match self.walk_tinstruction_default(env, instr) {
             Ok((next, _)) => next
-            Ok(_) => instr
             Err(e) => return error(e)
           }
           let rewritten_instr = match
@@ -3285,7 +3280,6 @@ fn af_lower_tail_calls_prepass(mod : Module) -> Result[Module, String] {
         })
         let next_body = match pass.walk_texpr(env, body) {
           Ok((out, _)) => out
-          Ok(_) => body
           Err(e) => return Err(e)
         }
         rewritten.push(Func::t_func(params, locals, next_body))

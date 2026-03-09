@@ -27,7 +27,7 @@ fn GetParents::new(body : TExpr) -> GetParents {
   let parent_map = Map::new()
   let parent_stack : Array[TInstr] = []
   let next_get_id = Ref::new(0)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalGet(_) =>
         match parent_stack.last() {
@@ -101,7 +101,7 @@ priv struct MemoryAccessOptimizer {
 fn oac_collect_local_get_infos(body : TExpr) -> Array[OACLocalGetInfo] {
   let infos : Array[OACLocalGetInfo] = []
   let next_get_id = Ref::new(0)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalGet(local_idx) => {
         infos.push({ get_id: next_get_id.val, local_idx })
@@ -118,7 +118,7 @@ fn oac_collect_local_get_infos(body : TExpr) -> Array[OACLocalGetInfo] {
 ///|
 fn oac_collect_all_sets(body : TExpr) -> Array[OACSetKey] {
   let sets : Array[OACSetKey] = []
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalSet(local_idx, value) =>
         sets.push({ local_idx, root: TInstr::local_set(local_idx, value) })
@@ -169,7 +169,7 @@ fn oac_build_local_get_id_map(
 ///|
 fn oac_collect_tee_locals(body : TExpr) -> Set[LocalIdx] {
   let out = Set::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalTee(local_idx, _) => out.add(local_idx)
       _ => ()
@@ -183,7 +183,7 @@ fn oac_collect_tee_locals(body : TExpr) -> Set[LocalIdx] {
 ///|
 fn oac_collect_set_counts(body : TExpr) -> Map[LocalIdx, Int] {
   let counts : Map[LocalIdx, Int] = Map::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalSet(local_idx, _)
       | TInstrKind::TLocalTee(local_idx, _) => {
@@ -610,7 +610,7 @@ fn oac_insert_helper_indexes(
   if helper_indexes.is_empty() {
     return body
   }
-  let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let pass : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalSet(
         local_idx,
@@ -651,7 +651,6 @@ fn oac_insert_helper_indexes(
   })
   match pass.walk_texpr((), body) {
     Ok((updated, _)) => updated
-    Ok(_) => body
     Err(_) => body
   }
 }
@@ -700,7 +699,7 @@ fn oac_has_side_effects(instr : TInstr) -> Bool {
 ///|
 fn oac_collect_used_locals(body : TExpr) -> Set[LocalIdx] {
   let used = Set::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalGet(local_idx) => used.add(local_idx)
       _ => ()
@@ -717,16 +716,15 @@ fn oac_cleanup_unneeded_sets(body : TExpr) -> TExpr {
   while true {
     let used = oac_collect_used_locals(curr_body)
     let changed = Ref::new(false)
-    let remover = ModuleTransformer::new().on_tinstruction_evt(fn(
+let remover : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
       self,
       _,
-      curr,
+      curr : TInstr,
     ) {
       match curr.kind {
         TInstrKind::TLocalSet(local_idx, value) => {
           let next_value = match self.walk_tinstruction((), value) {
             Ok((updated, _)) => updated
-            Ok(_) => value
             Err(_) => value
           }
           if !used.contains(local_idx) {
@@ -747,7 +745,6 @@ fn oac_cleanup_unneeded_sets(body : TExpr) -> TExpr {
     })
     curr_body = match remover.walk_texpr((), curr_body) {
       Ok((updated, _)) => updated
-      Ok(_) => curr_body
       Err(_) => curr_body
     }
     if !changed.val {
@@ -763,7 +760,7 @@ fn oac_rewrite_body(
   state : OACIterationState,
 ) -> Result[TExpr, String] {
   let next_get_id = Ref::new(0)
-  let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+  let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalGet(_) => {
         next_get_id.update(fn(n) { n + 1 })
@@ -776,7 +773,6 @@ fn oac_rewrite_body(
         }
         let walked = match self.walk_tinstruction_default((), curr) {
           Ok((updated, _)) => updated
-          Ok(_) => curr
           Err(e) => return error(e)
         }
         match walked.kind {
@@ -799,7 +795,6 @@ fn oac_rewrite_body(
         }
         let walked = match self.walk_tinstruction_default((), curr) {
           Ok((updated, _)) => updated
-          Ok(_) => curr
           Err(e) => return error(e)
         }
         match walked.kind {
@@ -828,7 +823,6 @@ fn oac_rewrite_body(
   })
   match pass.walk_texpr((), body) {
     Ok((updated, _)) => Ok(updated)
-    Ok(_) => Ok(body)
     Err(e) => Err(e)
   }
 }
@@ -906,7 +900,7 @@ fn optimize_added_constants_ir_pass(
   options : OptimizeOptions,
   propagate : Bool,
 ) -> ModuleTransformer[IRContext, String] {
-  ModuleTransformer::new().on_func_evt(fn(_self, t : IRContext, func) {
+  ModuleTransformer::new().on_func_evt(fn(_self, t : IRContext, func : Func) {
     match optimize_added_constants_on_func(func, mod, options, propagate) {
       Ok(next_func) =>
         match (func, next_func) {
@@ -941,7 +935,6 @@ fn oac_run_module(
   let pass = optimize_added_constants_ir_pass(mod_, options, propagate)
   match pass.walk_module(ctx, mod_) {
     Ok((out, _)) => Ok(out)
-    Ok(_) => Ok(mod_)
     Err(e) => Err(e)
   }
 }

@@ -1892,35 +1892,30 @@ fn remove_unused_with_props(
           match self.walk_typeidx(s, type_idx) {
             Ok((next_type_idx, next_s)) =>
               change(next_s, ExternType::func(next_type_idx))
-            Ok(_) => unchanged()
             Err(e) => error(e)
           }
         TableExternType(table_type) =>
           match self.walk_tabletype(s, table_type) {
             Ok((next_table_type, next_s)) =>
               change(next_s, ExternType::table(next_table_type))
-            Ok(_) => unchanged()
             Err(e) => error(e)
           }
         MemExternType(mem_type) =>
           match self.walk_memtype(s, mem_type) {
             Ok((next_mem_type, next_s)) =>
               change(next_s, ExternType::mem(next_mem_type))
-            Ok(_) => unchanged()
             Err(e) => error(e)
           }
         GlobalExternType(global_type) =>
           match self.walk_globaltype(s, global_type) {
             Ok((next_global_type, next_s)) =>
               change(next_s, ExternType::global(next_global_type))
-            Ok(_) => unchanged()
             Err(e) => error(e)
           }
         TagExternType(tag_type) =>
           match self.walk_tagtype(s, tag_type) {
             Ok((next_tag_type, next_s)) =>
               change(next_s, ExternType::tag(next_tag_type))
-            Ok(_) => unchanged()
             Err(e) => error(e)
           }
       }
@@ -1987,12 +1982,6 @@ fn remove_unused_with_props(
       let filtered = ImportSec::new(new_imports)
       match self.walk_importsec_default(s, filtered) {
         Ok((remapped, next_s)) => change(next_s, remapped)
-        Ok(_) =>
-          if filtered == imp_sec {
-            unchanged()
-          } else {
-            change(s, filtered)
-          }
         Err(e) => error(e)
       }
     })
@@ -2016,12 +2005,6 @@ fn remove_unused_with_props(
       let filtered = TypeSec::new(new_types)
       match self.walk_typesec_default(s, filtered) {
         Ok((remapped, next_s)) => change(next_s, remapped)
-        Ok(_) =>
-          if filtered == type_sec {
-            unchanged()
-          } else {
-            change(s, filtered)
-          }
         Err(e) => error(e)
       }
     })
@@ -2066,12 +2049,6 @@ fn remove_unused_with_props(
       let filtered = CodeSec::new(new_funcs)
       match self.walk_codesec_default(s, filtered) {
         Ok((remapped, next_s)) => change(next_s, remapped)
-        Ok(_) =>
-          if filtered == code_sec {
-            unchanged()
-          } else {
-            change(s, filtered)
-          }
         Err(e) => error(e)
       }
     })
@@ -2128,12 +2105,6 @@ fn remove_unused_with_props(
       let filtered = GlobalSec::new(new_globals)
       match self.walk_globalsec_default(s, filtered) {
         Ok((remapped, next_s)) => change(next_s, remapped)
-        Ok(_) =>
-          if filtered == global_sec {
-            unchanged()
-          } else {
-            change(s, filtered)
-          }
         Err(e) => error(e)
       }
     })
@@ -2170,12 +2141,6 @@ fn remove_unused_with_props(
       let filtered = ElemSec::new(new_elems)
       match self.walk_elemsec_default(s, filtered) {
         Ok((remapped, next_s)) => change(next_s, remapped)
-        Ok(_) =>
-          if filtered == elem_sec {
-            unchanged()
-          } else {
-            change(s, filtered)
-          }
         Err(e) => error(e)
       }
     })
@@ -2196,12 +2161,6 @@ fn remove_unused_with_props(
       let filtered = DataSec::new(new_datas)
       match self.walk_datasec_default(s, filtered) {
         Ok((remapped, next_s)) => change(next_s, remapped)
-        Ok(_) =>
-          if filtered == data_sec {
-            unchanged()
-          } else {
-            change(s, filtered)
-          }
         Err(e) => error(e)
       }
     })
@@ -4192,7 +4151,6 @@ test "remove_unused_ir_pass rewrites module through IRContext wrapper" {
         Some(FuncSec(funcs)) => assert_eq(funcs.length(), 1)
         None => fail("expected rewritten function section")
       }
-    Ok(_) => fail("expected remove_unused_ir_pass to report changes")
     Err(e) => fail("unexpected remove_unused_ir_pass error: \{e}")
   }
 }

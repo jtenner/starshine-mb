@@ -1007,7 +1007,6 @@ fn walk_child_tinstr(
 ) -> Result[(GUFAState, TInstr, Bool), String] {
   match transformer.walk_tinstruction(state, instr) {
     Ok((next_instr, next_state)) => Ok((next_state, next_instr, true))
-    Ok(_) => Ok((state, instr, false))
     Err(e) => Err(e)
   }
 }
@@ -1020,7 +1019,6 @@ fn walk_child_texpr(
 ) -> Result[(GUFAState, TExpr, Bool), String] {
   match transformer.walk_texpr(state, expr) {
     Ok((next_expr, next_state)) => Ok((next_state, next_expr, true))
-    Ok(_) => Ok((state, expr, false))
     Err(e) => Err(e)
   }
 }
@@ -1092,7 +1090,6 @@ fn gufa_transform_tinstr(
   let walk_state = state_for_nested_walk(instr, state)
   let (state, walked) = match
     transformer.walk_tinstruction_default(walk_state, instr) {
-    Ok(_) => (walk_state, instr)
     Ok((walked, state)) => (state, walked)
     Err(e) => return error(e)
   }
@@ -1128,7 +1125,6 @@ fn gufa_transform_func(
           } else {
             unchanged()
           }
-        Ok(_) => unchanged()
         Err(e) => error(e)
       }
     }
@@ -1158,7 +1154,6 @@ fn gufa_ir_pass(
         } else {
           unchanged()
         }
-      Ok(_) => unchanged()
       Err(e) => error(e)
     }
   })
@@ -1174,7 +1169,6 @@ fn run_gufa_module(
   let pass = gufa_ir_pass(mod, cast_all)
   match pass.walk_module(ctx, mod) {
     Ok((new_mod, _)) => Ok(new_mod)
-    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }

@@ -811,7 +811,7 @@ fn redundant_set_elimination_ir_pass(
   let env_base = Env::new().with_module(mod)
   let param_types = rse_collect_param_types(mod)
   let next_def_idx = Ref::new(0)
-  ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
+  ModuleTransformer::new().on_func_evt(fn(_, ctx, func : Func) {
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
     let params = param_types.get(def_idx).unwrap_or([])
@@ -858,7 +858,7 @@ fn rse_run(mod : Module) -> Module {
 ///|
 fn rse_count_instr(body : TExpr, pred : (TInstr) -> Bool) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     if pred(instr) {
       count += 1
     }

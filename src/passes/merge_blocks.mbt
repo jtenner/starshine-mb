@@ -663,7 +663,7 @@ fn mb_rewrite_preserves_stack_sig(
 ///|
 fn compute_effects(expr : TInstr) -> MBEffects {
   let effects = MBEffects::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     mb_collect_shallow_effects(curr, effects)
     from_walk(self.walk_tinstruction_default((), curr))
   })
@@ -2523,7 +2523,7 @@ fn merge_blocks_ir_pass(
   mod : Module,
   options? : OptimizeOptions = OptimizeOptions::new(),
 ) -> ModuleTransformer[IRContext, String] {
-  ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
+  ModuleTransformer::new().on_func_evt(fn(_, ctx, func : Func) {
     let (next_func, changed) = run_on_function(func, mod, options)
     if changed {
       change(ctx, next_func)
@@ -3193,7 +3193,7 @@ fn mb_local_chain_sig(instr : TInstr, env : Env) -> (Int, Int, ValType)? {
 ///|
 fn mb_has_bad_single_arg_local_chain_call(body : TExpr, env : Env) -> Bool {
   let mut bad = false
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TCall(func_idx, [arg]) =>
         match env.get_functype_by_funcidx(func_idx) {
@@ -3678,7 +3678,7 @@ test "merge blocks: named dropped block removes break values when safe" {
   ])
   let out = mb_run_on_body(body)
   let mut saw_value_br = false
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TBr(_, values) if !values.is_empty() => saw_value_br = true
       _ => ()
@@ -3766,7 +3766,7 @@ test "merge blocks: try_table catch_all_ref targeting origin is allowed" {
   ])
   let out = mb_run_on_body(body)
   let mut saw_ref_catch = false
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TTryTable(_, catches, _) =>
         for catch_ in catches {
@@ -3834,7 +3834,7 @@ test "merge blocks: restructure pulls operand block outward with effect checks" 
   ])
   let out = mb_run_on_body(body)
   let mut wrapped = false
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TBlock(_, { instrs: items, .. }) if items.length() >= 2 =>
         wrapped = true

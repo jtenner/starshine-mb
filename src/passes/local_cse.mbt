@@ -193,7 +193,7 @@ fn LCSEffects::has_unremovable_side_effects(self : LCSEffects) -> Bool {
 ///|
 fn lcs_collect_effects(instr : TInstr) -> LCSEffects {
   let effects = LCSEffects::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     lcs_collect_shallow_effects_into(curr, effects)
     from_walk(self.walk_tinstruction_default((), curr))
   })
@@ -1874,7 +1874,7 @@ fn local_cse_ir_pass(
   let base_env = Env::new().with_module(mod)
   let imported_funcs = local_cse_count_imported_funcs(mod)
   let mut seen_funcs = 0
-  ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
+  ModuleTransformer::new().on_func_evt(fn(_, ctx, func : Func) {
     seen_funcs += 1
     match func {
       TFunc(_, locals, body) => {
@@ -1922,7 +1922,7 @@ fn run_local_cse(
 ///|
 fn count_local_tees(body : TExpr) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TLocalTee(_, _) => count += 1
       _ => ()
@@ -1936,7 +1936,7 @@ fn count_local_tees(body : TExpr) -> Int {
 ///|
 fn count_local_gets(body : TExpr) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TLocalGet(_) => count += 1
       _ => ()

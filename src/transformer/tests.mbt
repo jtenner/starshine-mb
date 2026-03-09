@@ -15,10 +15,10 @@ test "change and unchanged helpers return expected visit actions" {
 
 ///|
 test "walk_module applies on_tinstruction rewrite" {
-  let transformer = ModuleTransformer::new().on_tinstruction_evt(fn(
+let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     _,
-    instr,
+    instr : TInstr,
   ) {
     match instr.kind {
       TInstrKind::TLocalGet(LocalIdx(i)) if i == 0U =>
@@ -33,7 +33,6 @@ test "walk_module applies on_tinstruction rewrite" {
   )
   let rewritten = match transformer.walk_module((), mod) {
     Ok((m, _)) => m
-    Ok(_) => fail("expected transformed module")
     Err(e) => fail("unexpected walk_module error: \{e}")
   }
   match rewritten.code_sec {
@@ -57,7 +56,7 @@ test "walk_module forwards event errors" {
   let transformer = ModuleTransformer::new().on_tinstruction_evt(fn(
     _,
     _,
-    instr,
+    instr : TInstr,
   ) {
     match instr.kind {
       TInstrKind::TNop => error("boom")
@@ -95,12 +94,12 @@ test "walk_module propagates on_module errors before traversal" {
 ///|
 test "walk_module falls through on_module Ok(_) to default traversal" {
   let mut module_hook_called = false
-  let transformer = ModuleTransformer::new()
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
     .on_module_evt(fn(_, _, _) {
       module_hook_called = true
       unchanged()
     })
-    .on_tinstruction_evt(fn(self, _, instr) {
+    .on_tinstruction_evt(fn(self, _, instr : TInstr) {
       match instr.kind {
         TInstrKind::TLocalGet(LocalIdx(i)) if i == 0U =>
           change((), TInstr::local_get(LocalIdx::new(2)))
@@ -114,7 +113,6 @@ test "walk_module falls through on_module Ok(_) to default traversal" {
   )
   let rewritten = match transformer.walk_module((), mod) {
     Ok((m, _)) => m
-    Ok(_) => fail("expected transformed module from fallback traversal")
     Err(e) => fail("unexpected walk_module error: \{e}")
   }
   assert_true(module_hook_called)
@@ -136,7 +134,7 @@ test "walk_module falls through on_module Ok(_) to default traversal" {
 
 ///|
 test "walk_module invokes on_module event hook" {
-  let transformer = ModuleTransformer::new().on_module_evt(fn(_, _, mod) {
+let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_module_evt(fn(_, _, mod : Module) {
     change(
       (),
       mod.with_code_sec(
@@ -147,7 +145,6 @@ test "walk_module invokes on_module event hook" {
   let mod = Module::new()
   let rewritten = match transformer.walk_module((), mod) {
     Ok((m, _)) => m
-    Ok(_) => fail("expected on_module rewrite result")
     Err(e) => fail("unexpected walk_module error: \{e}")
   }
   match rewritten.code_sec {
@@ -175,7 +172,7 @@ test "section walkers dispatch corresponding section hooks" {
   let mut hit_datacntsec = false
   let mut hit_codesec = false
   let mut hit_datasec = false
-  let transformer = ModuleTransformer::new()
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
     .on_module_evt(fn(_, _, _) {
       hit_module = true
       unchanged()
@@ -318,7 +315,7 @@ test "core walkers dispatch corresponding hooks" {
   let mut hit_tinstruction = false
   let mut hit_expr = false
   let mut hit_texpr = false
-  let transformer = ModuleTransformer::new()
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
     .on_name_evt(fn(_, _, _) {
       hit_name = true
       unchanged()
@@ -659,7 +656,7 @@ test "walk_tinstruction dispatches less-used variant callbacks" {
   let mut typeidx_hits = 0
   let mut elemidx_hits = 0
   let mut laneidx_hits = 0
-  let transformer = ModuleTransformer::new()
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
     .on_memarg_evt(fn(_, _, _) {
       memarg_hits += 1
       unchanged()
@@ -863,7 +860,7 @@ test "walk_tinstruction forwards callback errors for less-used variants" {
 
 ///|
 test "walk_tinstruction preserves array_copy final operand when unchanged" {
-  let transformer = ModuleTransformer::new()
+let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
   let i0 = TInstr::i32_const(I32(10))
   let i1 = TInstr::i32_const(I32(11))
   let i2 = TInstr::i32_const(I32(12))
@@ -880,7 +877,6 @@ test "walk_tinstruction preserves array_copy final operand when unchanged" {
   )
   let rewritten = match transformer.walk_tinstruction((), instr) {
     Ok((out, _)) => out
-    Ok(_) => fail("expected walk_tinstruction to rebuild array_copy")
     Err(e) => fail("unexpected walk_tinstruction error: \{e}")
   }
   match rewritten.kind {
@@ -922,7 +918,7 @@ test "walk_expr_default forwards instruction walker errors" {
 
 ///|
 test "walk_array rewrites only changed typed items" {
-  let transformer = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx) {
+let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx : LocalIdx) {
     match idx {
       LocalIdx(i) if i == 1U => change((), LocalIdx::new(9))
       _ => unchanged()
@@ -945,7 +941,6 @@ test "walk_array rewrites only changed typed items" {
         }
         _ => fail("expected only the rewritten slot to change")
       }
-    Ok(_) => fail("expected walk_array to report the rewritten item")
     Err(e) => fail("unexpected walk_array error: \{e}")
   }
 }
@@ -976,7 +971,7 @@ test "walk_tinstruction_default forwards index child and heaptype errors" {
     _ => fail("expected child localidx error propagation")
   }
 
-  let heap_rewrite = ModuleTransformer::new().on_heaptype_evt(fn(_, _, _) {
+let heap_rewrite : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_heaptype_evt(fn(_, _, _) {
     change((), HeapType::new(TypeIdx::new(3)))
   })
   match
@@ -993,8 +988,8 @@ test "walk_tinstruction_default forwards index child and heaptype errors" {
 ///|
 test "walk_tinstruction callback matrix Ok(_) uses default traversal for less-used variants" {
   let mut top_level_hits = 0
-  let transformer = ModuleTransformer::new()
-    .on_tinstruction_evt(fn(_, _, instr) {
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+    .on_tinstruction_evt(fn(_, _, instr : TInstr) {
       match instr.kind {
         TInstrKind::TMemoryAtomicWait32(_, _, _, _) => top_level_hits += 1
         TInstrKind::TI31GetS(_) => top_level_hits += 1
@@ -1023,8 +1018,6 @@ test "walk_tinstruction callback matrix Ok(_) uses default traversal for less-us
       ),
     ) {
     Ok((out, _)) => out
-    Ok(_) =>
-      fail("expected rewritten memory.atomic.wait32 from callback fallback")
     Err(e) => fail("unexpected wait32 error: \{e}")
   }
   assert_eq(
@@ -1043,7 +1036,6 @@ test "walk_tinstruction callback matrix Ok(_) uses default traversal for less-us
       TInstr::i31_get_s(TInstr::local_get(LocalIdx::new(0))),
     ) {
     Ok((out, _)) => out
-    Ok(_) => fail("expected rewritten i31.get_s from callback fallback")
     Err(e) => fail("unexpected i31.get_s error: \{e}")
   }
   assert_eq(
@@ -1057,8 +1049,6 @@ test "walk_tinstruction callback matrix Ok(_) uses default traversal for less-us
       TInstr::any_convert_extern(TInstr::local_get(LocalIdx::new(0))),
     ) {
     Ok((out, _)) => out
-    Ok(_) =>
-      fail("expected rewritten any.convert_extern from callback fallback")
     Err(e) => fail("unexpected any.convert_extern error: \{e}")
   }
   assert_eq(
@@ -1072,8 +1062,6 @@ test "walk_tinstruction callback matrix Ok(_) uses default traversal for less-us
       TInstr::extern_convert_any(TInstr::local_get(LocalIdx::new(0))),
     ) {
     Ok((out, _)) => out
-    Ok(_) =>
-      fail("expected rewritten extern.convert_any from callback fallback")
     Err(e) => fail("unexpected extern.convert_any error: \{e}")
   }
   assert_eq(
@@ -1087,7 +1075,6 @@ test "walk_tinstruction callback matrix Ok(_) uses default traversal for less-us
       TInstr::throw_ref(TInstr::local_get(LocalIdx::new(0))),
     ) {
     Ok((out, _)) => out
-    Ok(_) => fail("expected rewritten throw_ref from callback fallback")
     Err(e) => fail("unexpected throw_ref error: \{e}")
   }
   assert_eq(
@@ -1109,7 +1096,6 @@ test "walk_tinstruction callback matrix Ok(_) uses default traversal for less-us
       ),
     ) {
     Ok((out, _)) => out
-    Ok(_) => fail("expected rewritten br_on_cast from callback fallback")
     Err(e) => fail("unexpected br_on_cast error: \{e}")
   }
   assert_eq(
@@ -1139,7 +1125,6 @@ test "walk_tinstruction callback matrix Ok(_) uses default traversal for less-us
       ),
     ) {
     Ok((out, _)) => out
-    Ok(_) => fail("expected rewritten br_on_cast_fail from callback fallback")
     Err(e) => fail("unexpected br_on_cast_fail error: \{e}")
   }
   assert_eq(
@@ -1162,7 +1147,7 @@ test "walk_tinstruction callback matrix Ok(_) uses default traversal for less-us
 test "walk_tinstruction callback matrix Ok(Some) short-circuits less-used variants" {
   let mut top_level_hits = 0
   let transformer = ModuleTransformer::new()
-    .on_tinstruction_evt(fn(_, _, instr) {
+    .on_tinstruction_evt(fn(_, _, instr : TInstr) {
       match instr.kind {
         TInstrKind::TMemoryAtomicNotify(_, _, _) => {
           top_level_hits += 1
@@ -1261,7 +1246,6 @@ test "walk_tinstruction callback matrix Ok(Some) short-circuits less-used varian
   for result in rewrites {
     match result {
       Ok((out, _)) => assert_eq(out, TInstr::nop())
-      Ok(_) => fail("expected direct on_tinstruction rewrite result")
       Err(e) => fail("unexpected short-circuit rewrite error: \{e}")
     }
   }
@@ -1273,7 +1257,7 @@ test "walk_tinstruction callback matrix Err propagates on less-used variants" {
   let transformer = ModuleTransformer::new().on_tinstruction_evt(fn(
     _,
     _,
-    instr,
+    instr : TInstr,
   ) {
     match instr.kind {
       TInstrKind::TMemoryAtomicNotify(_, _, _) => error("matrix atomic err")
@@ -1369,21 +1353,21 @@ test "walk_tinstruction callback matrix Err propagates on less-used variants" {
 ///|
 test "walk_tinstruction remaps nested index and heaptype values in branch payloads" {
   let mut heaptype_hits = 0
-  let transformer = ModuleTransformer::new()
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
     .on_heaptype_evt(fn(_, _, _) {
       heaptype_hits += 1
       unchanged()
     })
     .on_typeidx_evt(fn(_, _, _) { change((), TypeIdx::new(20)) })
-    .on_labelidx_evt(fn(_, _, idx) {
+    .on_labelidx_evt(fn(_, _, idx : LabelIdx) {
       let LabelIdx(i) = idx
       change((), LabelIdx::new(i + 10U))
     })
-    .on_elemidx_evt(fn(_, _, idx) {
+    .on_elemidx_evt(fn(_, _, idx : ElemIdx) {
       let ElemIdx(i) = idx
       change((), ElemIdx::new(i + 30U))
     })
-    .on_localidx_evt(fn(_, _, idx) {
+    .on_localidx_evt(fn(_, _, idx : LocalIdx) {
       let LocalIdx(i) = idx
       change((), LocalIdx::new(i + 40U))
     })
@@ -1428,7 +1412,6 @@ test "walk_tinstruction remaps nested index and heaptype values in branch payloa
   )
   let rewritten = match transformer.walk_tinstruction((), nested) {
     Ok((out, _)) => out
-    Ok(_) => fail("expected nested remap rewrite")
     Err(e) => fail("unexpected nested remap error: \{e}")
   }
 
@@ -1476,13 +1459,13 @@ test "walk_tinstruction remaps nested index and heaptype values in branch payloa
 
 ///|
 test "walk_tinstruction remaps nested branch-on-cast-fail inside wrappers" {
-  let transformer = ModuleTransformer::new()
-    .on_labelidx_evt(fn(_, _, idx) {
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+    .on_labelidx_evt(fn(_, _, idx : LabelIdx) {
       let LabelIdx(i) = idx
       change((), LabelIdx::new(i + 2U))
     })
     .on_typeidx_evt(fn(_, _, _) { change((), TypeIdx::new(3)) })
-    .on_localidx_evt(fn(_, _, idx) {
+    .on_localidx_evt(fn(_, _, idx : LocalIdx) {
       let LocalIdx(i) = idx
       change((), LocalIdx::new(i + 4U))
     })
@@ -1507,7 +1490,6 @@ test "walk_tinstruction remaps nested branch-on-cast-fail inside wrappers" {
   )
   let rewritten = match transformer.walk_tinstruction((), wrapped) {
     Ok((out, _)) => out
-    Ok(_) => fail("expected nested wrapper rewrite")
     Err(e) => fail("unexpected nested wrapper error: \{e}")
   }
 
@@ -1712,7 +1694,7 @@ fn transformer_tinstruction_corpus() -> Array[TInstr] {
 
 ///|
 test "walk_tinstruction traverses broad constructor corpus without remaps" {
-  let transformer = ModuleTransformer::new()
+let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
   for instr in transformer_tinstruction_corpus() {
     match transformer.walk_tinstruction((), instr) {
       Ok(_) => ()
@@ -1723,7 +1705,7 @@ test "walk_tinstruction traverses broad constructor corpus without remaps" {
 
 ///|
 test "walk_tinstruction traverses broad constructor corpus with remap hooks" {
-  let transformer = ModuleTransformer::new()
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
     .on_funcidx_evt(fn(_, _, _) { change((), FuncIdx::new(1)) })
     .on_typeidx_evt(fn(_, _, _) { change((), TypeIdx::new(2)) })
     .on_localidx_evt(fn(_, _, _) { change((), LocalIdx::new(3)) })

@@ -893,7 +893,7 @@ fn rewrite_body_locals(
   mapping : LocalMap,
 ) -> Result[(TExpr, Int), String] {
   let max_local_used = Ref::new(-1)
-  let rewriter = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx) {
+  let rewriter = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx : LocalIdx) {
     let mapped = mapping.get(idx).unwrap_or(idx)
     let mapped_raw = cl_localidx_to_int(mapped)
     if mapped_raw > max_local_used.val {
@@ -907,7 +907,6 @@ fn rewrite_body_locals(
   })
   match rewriter.walk_texpr((), body) {
     Ok((out, _)) => Ok((out, max_local_used.val))
-    Ok(_) => Ok((body, max_local_used.val))
     Err(e) => Err(e)
   }
 }
@@ -919,7 +918,7 @@ fn coalesce_locals(
   trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[Unit, String] {
   let next_def_idx = Ref::new(0)
-  ModuleTransformer::new().on_func_evt(fn(_, _, func) {
+  ModuleTransformer::new().on_func_evt(fn(_, _, func : Func) {
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
     match func {
@@ -1160,7 +1159,7 @@ fn compose_maps(
 ///|
 fn cl_max_local_used(body : TExpr) -> Int {
   let max_local_used = Ref::new(-1)
-  let walker = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx : LocalIdx) {
     let raw = cl_localidx_to_int(idx)
     if raw > max_local_used.val {
       max_local_used.val = raw
@@ -2032,7 +2031,6 @@ test "CoalesceLocals: plain Func entries do not shift param boundaries" {
   let result = pass.walk_module((), mod)
   let (out_mod, _) = match result {
     Ok(changed) => changed
-    Ok(_) => fail("expected coalesce_locals to update typed function params")
     Err(e) => fail("unexpected coalesce_locals error: \{e}")
   }
   match out_mod.code_sec {
@@ -2073,7 +2071,6 @@ test "CoalesceLocals: mixed Func/TFunc keeps typed params when func_sec is stale
   let result = pass.walk_module((), mod)
   let (out_mod, _) = match result {
     Ok(changed) => changed
-    Ok(_) => fail("expected coalesce_locals to keep typed params/locals")
     Err(e) => fail("unexpected coalesce_locals error: \{e}")
   }
   match out_mod.code_sec {

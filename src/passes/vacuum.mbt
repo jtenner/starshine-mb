@@ -164,7 +164,6 @@ fn vq_walk_tinstruction_with_depth(
     TInstrKind::TBlock(bt, body) => {
       let next_body = match transformer.walk_texpr(depth + 1, body) {
         Ok((out, _)) => out
-        Ok(_) => body
         Err(e) => return error(e)
       }
       let next_instr = TInstr::block(bt, next_body)
@@ -177,7 +176,6 @@ fn vq_walk_tinstruction_with_depth(
     TInstrKind::TLoop(bt, body) => {
       let next_body = match transformer.walk_texpr(depth + 1, body) {
         Ok((out, _)) => out
-        Ok(_) => body
         Err(e) => return error(e)
       }
       let next_instr = TInstr::loop_(bt, next_body)
@@ -190,19 +188,16 @@ fn vq_walk_tinstruction_with_depth(
     TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let next_cond = match transformer.walk_tinstruction(depth, cond) {
         Ok((out, _)) => out
-        Ok(_) => cond
         Err(e) => return error(e)
       }
       let next_then = match transformer.walk_texpr(depth + 1, then_body) {
         Ok((out, _)) => out
-        Ok(_) => then_body
         Err(e) => return error(e)
       }
       let next_else = match else_body {
         Some(other) =>
           match transformer.walk_texpr(depth + 1, other) {
             Ok((out, _)) => Some(out)
-            Ok(_) => Some(other)
             Err(e) => return error(e)
           }
         None => None
@@ -222,12 +217,10 @@ fn vq_walk_tinstruction_with_depth(
           catches,
         ) {
         Ok((out, _)) => out
-        Ok(_) => catches
         Err(e) => return error(e)
       }
       let next_body = match transformer.walk_texpr(depth + 1, body) {
         Ok((out, _)) => out
-        Ok(_) => body
         Err(e) => return error(e)
       }
       let next_instr = TInstr::try_table(bt, next_catches, next_body)
@@ -244,7 +237,7 @@ fn vq_walk_tinstruction_with_depth(
 ///|
 fn vq_rebase_labels_for_collapsed_wrapper(instr : TInstr) -> TInstr {
   let pass = ModuleTransformer::new()
-    .on_labelidx_evt(fn(_, depth, label) {
+    .on_labelidx_evt(fn(_, depth, label : LabelIdx) {
       let next = vq_adjust_label_for_collapsed_wrapper(label, depth)
       if next == label {
         unchanged()
@@ -252,12 +245,11 @@ fn vq_rebase_labels_for_collapsed_wrapper(instr : TInstr) -> TInstr {
         change(depth, next)
       }
     })
-    .on_tinstruction_evt(fn(self, depth, curr) {
+    .on_tinstruction_evt(fn(self, depth, curr : TInstr) {
       vq_walk_tinstruction_with_depth(self, depth, curr)
     })
   match pass.walk_tinstruction(0, instr) {
     Ok((out, _)) => out
-    Ok(_) => instr
     Err(e) => abort("vacuum label rebase failed: \{e}")
   }
 }
@@ -1050,7 +1042,7 @@ fn vq_simplify_block_to_contents(
 ///|
 fn vq_texpr_throws(expr : TExpr) -> Bool {
   let mut throws = false
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TThrow(_, _)
       | TInstrKind::TThrowRef(_)
@@ -1071,7 +1063,7 @@ fn vq_texpr_throws(expr : TExpr) -> Bool {
 ///|
 fn vq_texpr_has_control_transfer(expr : TExpr) -> Bool {
   let mut has_control_transfer = false
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TBr(_, _)
       | TInstrKind::TBrIf(_, _, _)
@@ -1548,7 +1540,7 @@ fn vacuum_ir_pass_with_trace(
 ) -> ModuleTransformer[IRContext, String] {
   let sigs = vq_collect_func_sigs(mod)
   let next_def_idx = Ref::new(0)
-  ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
+  ModuleTransformer::new().on_func_evt(fn(_, ctx, func : Func) {
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
     let ordinal = def_idx + 1
@@ -1591,7 +1583,6 @@ fn run_vacuum(mod : Module) -> Module {
   let pass = vacuum_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
     Ok((out, _)) => out
-    Ok(_) => mod
     Err(e) => abort("vacuum pass failed: \{e}")
   }
 }

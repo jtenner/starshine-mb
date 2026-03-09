@@ -437,10 +437,10 @@ fn global_refining(mod : Module) -> Result[Module, String] {
     optimizable.add(idx)
   }
   let candidates : Map[GlobalIdx, ValType] = Map::new()
-  let set_walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+  let set_walker : ModuleTransformer[Env, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     env : Env,
-    instr,
+    instr : TInstr,
   ) {
     match instr.kind {
       TInstrKind::TGlobalSet(idx, value) =>

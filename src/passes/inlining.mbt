@@ -185,7 +185,7 @@ fn il_compute_used_globally(mod : Module, total_funcs : Int) -> Array[Bool] {
       }
     None => ()
   }
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TRefFunc(idx) => il_mark_func_used(used, idx)
       _ => ()
@@ -223,7 +223,7 @@ fn il_compute_used_globally(mod : Module, total_funcs : Int) -> Array[Bool] {
 ///|
 fn il_measure_body(body : TExpr) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     count += 1
     from_walk(self.walk_tinstruction_default((), instr))
   })
@@ -349,10 +349,10 @@ fn il_analyze_func(
       let mut has_try_delegate = false
       let mut direct_call_refs = 0
       let mut ref_func_refs = 0
-      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
-        instr,
+        instr : TInstr,
       ) {
         match instr.kind {
           TInstrKind::TLoop(_, _) => has_loops = true
@@ -454,8 +454,8 @@ fn il_collect_callsites_for_body(
   let mut try_depth = 0
   let reachable_stack : Array[Bool] = []
   let mut reachable_depth = 0
-  let walker = ModuleTransformer::new()
-    .on_texpr_evt(fn(self, _, expr) {
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+    .on_texpr_evt(fn(self, _, expr : TExpr) {
       let start_reachable = if reachable_depth > 0 {
         reachable_stack[reachable_depth - 1]
       } else {
@@ -484,13 +484,12 @@ fn il_collect_callsites_for_body(
       reachable_depth -= 1
       change((), expr)
     })
-    .on_tinstruction_evt(fn(self, _, instr) {
+    .on_tinstruction_evt(fn(self, _, instr : TInstr) {
       match instr.kind {
         TInstrKind::TTryTable(bt, catches, try_body) => {
           try_depth += 1
           let walked_body = match self.walk_texpr((), try_body) {
             Ok((next, _)) => next
-            Ok(_) => try_body
             Err(e) => {
               try_depth -= 1
               return error(e)
@@ -506,7 +505,6 @@ fn il_collect_callsites_for_body(
         _ => {
           let walked = match self.walk_tinstruction_default((), instr) {
             Ok((next, _)) => next
-            Ok(_) => instr
             Err(e) => return error(e)
           }
           let is_reachable = if reachable_depth > 0 {
@@ -681,7 +679,6 @@ fn il_apply_ir_transformer_pass(
   let ctx = IRContext::new()
   match pass.walk_module(ctx, mod) {
     Ok((new_mod, _)) => Ok(new_mod)
-    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }
@@ -851,7 +848,7 @@ fn il_rewrite_inlined_body(
   site_is_tail : Bool,
 ) -> Result[TExpr, String] {
   let mapper = ModuleTransformer::new()
-    .on_localidx_evt(fn(_, _, idx) {
+    .on_localidx_evt(fn(_, _, idx : LocalIdx) {
       let LocalIdx(raw) = idx
       let i = raw.reinterpret_as_int()
       let mapped = if i < callee_param_count {
@@ -864,14 +861,13 @@ fn il_rewrite_inlined_body(
         None => error("inlining: local index mapping out of range")
       }
     })
-    .on_labelidx_evt(fn(_, _, idx) {
+    .on_labelidx_evt(fn(_, _, idx : LabelIdx) {
       let LabelIdx(raw) = idx
       change((), il_label_idx_from_int(raw.reinterpret_as_int() + 1))
     })
-    .on_tinstruction_evt(fn(self, _, instr) {
+    .on_tinstruction_evt(fn(self, _, instr : TInstr) {
       let walked = match self.walk_tinstruction_default((), instr) {
         Ok((next, _)) => next
-        Ok(_) => instr
         Err(e) => return error(e)
       }
       let rewritten = match walked.kind {
@@ -952,7 +948,6 @@ fn il_rewrite_inlined_body(
     })
   match mapper.walk_texpr((), body) {
     Ok((out, _)) => Ok(out)
-    Ok(_) => Ok(body)
     Err(e) => Err(e)
   }
 }
@@ -962,10 +957,9 @@ fn il_substitute_params_in_instr(
   instr : TInstr,
   args : Array[TInstr],
 ) -> Result[TInstr, String] {
-  let sub = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+  let sub = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     let walked = match self.walk_tinstruction_default((), curr) {
       Ok((next, _)) => next
-      Ok(_) => curr
       Err(e) => return error(e)
     }
     match walked.kind {
@@ -986,7 +980,6 @@ fn il_substitute_params_in_instr(
   })
   match sub.walk_tinstruction((), instr) {
     Ok((out, _)) => Ok(out)
-    Ok(_) => Ok(instr)
     Err(e) => Err(e)
   }
 }
@@ -1381,14 +1374,13 @@ fn il_apply_actions_to_func(
       let rewriter = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
-        instr,
+        instr : TInstr,
       ) {
         match instr.kind {
           TInstrKind::TTryTable(bt, catches, try_body) => {
             try_block_type_stack.push(bt)
             let walked_body = match self.walk_texpr((), try_body) {
               Ok((next, _)) => next
-              Ok(_) => try_body
               Err(e) => {
                 ignore(try_block_type_stack.pop())
                 return error(e)
@@ -1405,7 +1397,6 @@ fn il_apply_actions_to_func(
           _ => {
             let walked = match self.walk_tinstruction_default((), instr) {
               Ok((next, _)) => next
-              Ok(_) => instr
               Err(e) => return error(e)
             }
             let maybe_action = match walked.kind {
@@ -1579,7 +1570,6 @@ fn il_apply_actions_to_func(
       })
       let new_body = match rewriter.walk_texpr((), body) {
         Ok((next, _)) => next
-        Ok(_) => body
         Err(e) => return Err(e)
       }
       let final_body = if hoisted_followups.is_empty() {
@@ -1740,10 +1730,10 @@ fn il_run_partial_splitting(
               }
               if !then_is_unreachable {
                 let mut has_return = false
-                let scan = ModuleTransformer::new().on_tinstruction_evt(fn(
+let scan : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
                   self,
                   _,
-                  instr,
+                  instr : TInstr,
                 ) {
                   match instr.kind {
                     TInstrKind::TReturn(_) => has_return = true
@@ -1768,10 +1758,10 @@ fn il_run_partial_splitting(
         match trailing {
           Some(last) => {
             let trailing_reads : Set[LocalIdx] = Set::new()
-            let scan = ModuleTransformer::new().on_tinstruction_evt(fn(
+let scan : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
               self,
               _,
-              instr,
+              instr : TInstr,
             ) {
               match instr.kind {
                 TInstrKind::TLocalGet(idx) => trailing_reads.add(idx)
@@ -2219,7 +2209,7 @@ fn il_make_type(params : Array[ValType], results : Array[ValType]) -> RecType {
 ///|
 fn il_count_calls(body : TExpr, target : FuncIdx) -> Int {
   let mut calls = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TCall(fi, _) | TInstrKind::TReturnCall(fi, _) =>
         if fi == target {
@@ -2236,7 +2226,7 @@ fn il_count_calls(body : TExpr, target : FuncIdx) -> Int {
 ///|
 fn il_count_direct_calls(body : TExpr, target : FuncIdx) -> Int {
   let mut calls = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TCall(fi, _) => if fi == target { calls += 1 }
       _ => ()
@@ -2250,7 +2240,7 @@ fn il_count_direct_calls(body : TExpr, target : FuncIdx) -> Int {
 ///|
 fn il_count_return_calls(body : TExpr, target : FuncIdx) -> Int {
   let mut calls = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TReturnCall(fi, _) => if fi == target { calls += 1 }
       _ => ()
@@ -2264,7 +2254,7 @@ fn il_count_return_calls(body : TExpr, target : FuncIdx) -> Int {
 ///|
 fn il_count_return_call_indirects(body : TExpr) -> Int {
   let mut calls = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TReturnCallIndirect(_, _, _, _) => calls += 1
       _ => ()
@@ -2278,7 +2268,7 @@ fn il_count_return_call_indirects(body : TExpr) -> Int {
 ///|
 fn il_count_return_call_refs(body : TExpr) -> Int {
   let mut calls = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TReturnCallRef(_, _, _) => calls += 1
       _ => ()
@@ -2292,7 +2282,7 @@ fn il_count_return_call_refs(body : TExpr) -> Int {
 ///|
 fn il_has_return(body : TExpr) -> Bool {
   let mut found = false
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TReturn(_) => found = true
       _ => ()
@@ -2306,7 +2296,7 @@ fn il_has_return(body : TExpr) -> Bool {
 ///|
 fn il_count_br_to(body : TExpr, label : LabelIdx) -> Int {
   let mut found = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TBr(li, _) => if li == label { found += 1 }
       _ => ()
@@ -2539,10 +2529,10 @@ test "inlining maps locals and only zero-inits defaultable callee locals" {
       assert_true(locals.length() >= 2)
       let mut has_i32_zero = false
       let mut has_ref_null_init = false
-      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
-        instr,
+        instr : TInstr,
       ) {
         match instr.kind {
           TInstrKind::TLocalSet(_, { kind: TInstrKind::TI32Const(I32(0)), .. }) =>

@@ -392,7 +392,6 @@ fn alignment_lowering_pass(
               _ => error("Expected TFunc")
             }
           Err(t) => error(t)
-          Ok(_) => unchanged()
         }
       }
     }
@@ -402,7 +401,6 @@ fn alignment_lowering_pass(
       TInstrKind::TLoad(op, MemArg(U32(align), mem_option, U64(offset)), a) => {
         let a = match self.walk_tinstruction_default(t, a) {
           Ok((a, _)) => a
-          Ok(_) => a
           Err(e) => return error(e)
         }
         let op_size = size_of_load_op(op)
@@ -482,12 +480,10 @@ fn alignment_lowering_pass(
       TInstrKind::TStore(op, MemArg(U32(align), mem_option, U64(offset)), a, b) => {
         let a = match self.walk_tinstruction(t, a) {
           Ok((a, _)) => a
-          Ok(_) => a
           Err(e) => return error(e)
         }
         let b = match self.walk_tinstruction(t, b) {
           Ok((b, _)) => b
-          Ok(_) => b
           Err(e) => return error(e)
         }
         let op_size = size_of_store_op(op)
@@ -587,12 +583,10 @@ fn alignment_lowering_pass(
         let effective_align = @cmp.minimum(align, op_size)
         let a = match self.walk_tinstruction_default(t, a) {
           Ok((a, _)) => a
-          Ok(_) => a
           Err(e) => return error(e)
         }
         let b = match self.walk_tinstruction_default(t, b) {
           Ok((b, _)) => b
-          Ok(_) => b
           Err(e) => return error(e)
         }
         let c = chunks(op_size, effective_align, offset)
@@ -695,7 +689,6 @@ fn run_pass(
   let pass = alignment_lowering_pass(mod)
   match pass.walk_tinstruction(ctx, instr) {
     Ok((result, _)) => Ok(result)
-    Ok(_) => Ok(instr)
     Err(e) => Err(e)
   }
 }

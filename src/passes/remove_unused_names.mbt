@@ -114,7 +114,6 @@ fn run_remove_unused_names(
   )
   match pass.walk_module(IRContext::new(), mod) {
     Ok((out, _)) => out
-    Ok(_) => mod
     Err(e) => abort("remove_unused_names_ir_pass failed: \{e}")
   }
 }
@@ -236,7 +235,6 @@ fn run_walk_tinstruction_with_depth(
     TInstrKind::TBlock(bt, body) => {
       let next_body = match transformer.walk_texpr(depth + 1, body) {
         Ok((out, _)) => out
-        Ok(_) => body
         Err(e) => return error(e)
       }
       if next_body == body {
@@ -248,7 +246,6 @@ fn run_walk_tinstruction_with_depth(
     TInstrKind::TLoop(bt, body) => {
       let next_body = match transformer.walk_texpr(depth + 1, body) {
         Ok((out, _)) => out
-        Ok(_) => body
         Err(e) => return error(e)
       }
       if next_body == body {
@@ -260,19 +257,16 @@ fn run_walk_tinstruction_with_depth(
     TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let next_cond = match transformer.walk_tinstruction(depth, cond) {
         Ok((out, _)) => out
-        Ok(_) => cond
         Err(e) => return error(e)
       }
       let next_then = match transformer.walk_texpr(depth + 1, then_body) {
         Ok((out, _)) => out
-        Ok(_) => then_body
         Err(e) => return error(e)
       }
       let next_else = match else_body {
         Some(other) =>
           match transformer.walk_texpr(depth + 1, other) {
             Ok((out, _)) => Some(out)
-            Ok(_) => Some(other)
             Err(e) => return error(e)
           }
         None => None
@@ -292,12 +286,10 @@ fn run_walk_tinstruction_with_depth(
           catches,
         ) {
         Ok((out, _)) => out
-        Ok(_) => catches
         Err(e) => return error(e)
       }
       let next_body = match transformer.walk_texpr(depth + 1, body) {
         Ok((out, _)) => out
-        Ok(_) => body
         Err(e) => return error(e)
       }
       let next_instr = TInstr::try_table(bt, next_catches, next_body)
@@ -353,7 +345,6 @@ fn run_shift_labels_for_removed_scopes(
     })
   match pass.walk_texpr(0, body) {
     Ok((out, _)) => Ok(Some(out))
-    Ok(_) => Ok(Some(body))
     Err(e) => if e == RUN_RESCAN_BUDGET_EXHAUSTED { Ok(None) } else { Err(e) }
   }
 }
@@ -588,7 +579,6 @@ fn run_remove_unused_names_once(
     let walk_start_ms = sl_trace_now_ms()
     let walked = match self.walk_tinstruction_default((), seed) {
       Ok((out, _)) => out
-      Ok(_) => seed
       Err(e) => return error(e)
     }
     let elapsed_ms = sl_trace_elapsed_ms(walk_start_ms)
@@ -692,7 +682,6 @@ fn run_remove_unused_names_once(
   })
   let final_result = match pass.walk_texpr((), body) {
     Ok((out, _)) => Ok((out, changed, stats))
-    Ok(_) => Ok((body, changed, stats))
     Err(e) =>
       if e == RUN_NO_PROGRESS_VISIT_BUDGET_EXHAUSTED {
         Ok((body, false, stats))

@@ -223,7 +223,6 @@ test "lift_to_texpr_pass expands grouped locals when lifting Func" {
         Some(CodeSec([TFunc(_, locals, _)])) => assert_eq(locals.length(), 2)
         _ => fail("expected lifted TFunc with expanded locals")
       }
-    Ok(_) => fail("expected module change")
     Err(e) => fail("unexpected lift_to_texpr_pass error: \{e}")
   }
 }
@@ -235,7 +234,6 @@ test "lift_to_texpr_pass keeps original Func when conversion fails" {
   let pass = lift_to_texpr_pass()
   let result = pass.walk_module((), mod)
   match result {
-    Ok(_) => ()
     Ok((new_mod, _)) => assert_eq(new_mod, mod)
     Err(e) =>
       fail("expected graceful fallback on conversion failure, got: \{e}")

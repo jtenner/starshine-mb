@@ -265,7 +265,6 @@ fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState, String] {
     t.usage.clear()
     let (t, func) = match self.walk_func_default(t, func) {
       Ok((func, t)) => (t, func)
-      Ok(_) => (t, func)
       Err(t) => return error(t)
     }
     let (params, locals, body) = match func {
@@ -293,7 +292,6 @@ fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState, String] {
     }
     let body = match replacer_pass.walk_texpr_default(replacers, body) {
       Ok((body, _)) => body
-      Ok(_) => body
       Err(t) => return error(t)
     }
     for k in replacers {
@@ -327,7 +325,6 @@ fn const_hoisting_ir_pass(
   ModuleTransformer::new().on_func_evt(fn(_, ctx : IRContext, func : Func) {
     match pass.walk_func(ConstHoistingState::new(), func) {
       Ok((new_func, _)) => change(ctx, new_func)
-      Ok(_) => unchanged()
       Err(e) => error(e)
     }
   })
@@ -339,7 +336,6 @@ fn run_hoist(f : Func) -> Func raise {
   let empty_state = ConstHoistingState::new()
   match pass.walk_func(empty_state, f) {
     Ok((f, _)) => return f
-    Ok(_) => ()
     Err(e) => assert_true(false, msg=e)
   }
   f

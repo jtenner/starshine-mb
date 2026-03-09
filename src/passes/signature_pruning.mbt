@@ -246,10 +246,9 @@ fn sp_rewrite_calls(
   removed_by_type_abs : Map[Int, Set[Int]],
   new_type_idx_by_old_abs : Map[Int, TypeIdx],
 ) -> TExpr {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     let processed = match self.walk_tinstruction_default((), instr) {
       Ok((i, _)) => i
-      Ok(_) => instr
       Err(e) => return error(e)
     }
     match processed.kind {
@@ -490,10 +489,10 @@ fn sp_run_iteration(mod : Module) -> (Module, Bool) {
     let used = used_params_by_type[type_abs]
     match funcs[def_idx] {
       TFunc(_, _, body) => {
-        let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
           self,
           _,
-          instr,
+          instr : TInstr,
         ) {
           match instr.kind {
             TInstrKind::TLocalGet(LocalIdx(raw)) => {
@@ -821,7 +820,6 @@ test "signature pruning removes unused params across same signature group" {
   let pass = signature_pruning_ir_pass(mod)
   let optimized = match pass.walk_module(IRContext::new(), mod) {
     Ok((m, _)) => m
-    Ok(_) => mod
     Err(e) => fail("signature_pruning_ir_pass failed: \{e}")
   }
   match optimized.code_sec {
@@ -878,7 +876,6 @@ test "signature pruning updates call_ref type and arguments" {
   let pass = signature_pruning_ir_pass(mod)
   let optimized = match pass.walk_module(IRContext::new(), mod) {
     Ok((m, _)) => m
-    Ok(_) => mod
     Err(e) => fail("signature_pruning_ir_pass failed: \{e}")
   }
   let mut seen = false
@@ -934,7 +931,6 @@ test "signature pruning is disabled when table section is present" {
   let pass = signature_pruning_ir_pass(mod)
   let optimized = match pass.walk_module(IRContext::new(), mod) {
     Ok((m, _)) => m
-    Ok(_) => mod
     Err(e) => fail("signature_pruning_ir_pass failed: \{e}")
   }
   assert_eq(optimized, mod)

@@ -196,7 +196,6 @@ fn run_untee(mod : Module) -> Module {
   let pass = untee_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
     Ok((out, _)) => out
-    Ok(_) => mod
     Err(e) => abort("untee pass failed: \{e}")
   }
 }

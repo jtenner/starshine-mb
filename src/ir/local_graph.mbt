@@ -47,7 +47,7 @@ fn extract_actions_from_instr(
   last_sets : Map[LocalIdx, Int],
   action_index_ref : Ref[Int],
 ) -> Unit {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i : TInstr) {
     match i.kind {
       TInstrKind::TLocalGet(idx) => {
         actions.push(Action::Get(idx, action_index_ref.val))

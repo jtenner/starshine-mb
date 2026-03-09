@@ -4453,7 +4453,6 @@ fn oi_run_module(
   let pass = optimize_instructions_ir_pass(mod_, options)
   match pass.walk_module(ctx, mod_) {
     Ok((out, _)) => out
-    Ok(_) => mod_
     Err(e) => abort("optimize instructions pass error: \{e}")
   }
 }

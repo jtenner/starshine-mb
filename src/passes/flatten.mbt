@@ -990,7 +990,7 @@ fn flatten_ir_pass_with_trace(
   let next_def_idx = Ref::new(0)
   let base_env = Env::new().with_module(mod)
   trace("phase=flatten:prepare:done funcs=\{fl_defined_func_count(mod)}")
-  ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
+  ModuleTransformer::new().on_func_evt(fn(_, ctx, func : Func) {
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
     let ordinal = def_idx + 1
@@ -1142,15 +1142,6 @@ fn run_flatten_with_trace(
         Ok(out)
       }
     }
-    Ok(_) => {
-      trace(
-        "phase=flatten:walk_module:done elapsed_ms=\{fl_trace_elapsed_ms(pass_start_ms)} changed=false",
-      )
-      trace(
-        "phase=flatten:pass:done elapsed_ms=\{fl_trace_elapsed_ms(pass_start_ms)} changed=false",
-      )
-      Ok(mod)
-    }
     Err(e) => {
       trace(
         "phase=flatten:walk_module:error elapsed_ms=\{fl_trace_elapsed_ms(pass_start_ms)} \{e}",
@@ -1168,7 +1159,7 @@ fn run_flatten(mod : Module) -> Result[Module, String] {
 ///|
 fn fl_count_local_tees(body : TExpr) -> Int {
   let count = Ref::new(0)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TLocalTee(_, _) => count.update(fn(v) { v + 1 })
       _ => ()
@@ -1320,7 +1311,7 @@ test "flatten preserves value-position if result form" {
 ///|
 fn fl_count_br_on_family(body : TExpr) -> Int {
   let count = Ref::new(0)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TBrOnNull(_, _, _)
       | TInstrKind::TBrOnNonNull(_, _, _)
@@ -1338,7 +1329,7 @@ fn fl_count_br_on_family(body : TExpr) -> Int {
 ///|
 fn fl_find_try_table_result_blocktype(body : TExpr) -> BlockType? {
   let found = Ref::new(None)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TTryTable(bt, _, _) =>
         match found.val {
@@ -1938,10 +1929,10 @@ test "flatten keeps br_on value flow in value position" {
     Some(CodeSec([TFunc(_, _, body)])) => {
       let saw_const_value = Ref::new(false)
       let saw_set_of_const = Ref::new(false)
-      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
-        instr,
+        instr : TInstr,
       ) {
         match instr.kind {
           TInstrKind::TBrOnNull(
@@ -2015,10 +2006,10 @@ test "flatten preserves carried values for br_on variants in value position" {
   match out.code_sec {
     Some(CodeSec([TFunc(_, _, body)])) => {
       let carried_const_count = Ref::new(0)
-      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
-        instr,
+        instr : TInstr,
       ) {
         match instr.kind {
           TInstrKind::TBrOnNull(
@@ -2381,10 +2372,10 @@ test "flatten: br_table value targeting result block remains valid" {
   match out.code_sec {
     Some(CodeSec([TFunc(_, _, body)])) => {
       let saw_value_block = Ref::new(false)
-      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
-        instr,
+        instr : TInstr,
       ) {
         match instr.kind {
           TInstrKind::TBlock(ValTypeBlockType(NumTypeValType(I32NumType)), _) =>

@@ -295,7 +295,7 @@ fn gto_note_read(
 
 ///|
 fn gto_scan_texpr(texpr : TExpr, infos : Array[Array[GTOFieldInfo]]) -> Unit {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TStructSet(type_idx, field_idx, _, _) =>
         gto_note_write(infos, type_idx, field_idx)
@@ -1082,11 +1082,10 @@ fn gto_rewrite_function_texpr(
   next_local : Array[Int],
   extra_locals : Array[ValType],
 ) -> Result[TExpr, String] {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     let rewritten = match self.walk_tinstruction_default((), instr) {
       Err(e) => return error(e)
       Ok((next, _)) => next
-      Ok(_) => instr
     }
     match rewritten.kind {
       TInstrKind::TStructNew(type_idx, operands) => {
@@ -1242,7 +1241,6 @@ fn gto_rewrite_function_texpr(
   match walker.walk_texpr((), body) {
     Err(e) => Err(e)
     Ok((next_body, _)) => Ok(next_body)
-    Ok(_) => Ok(body)
   }
 }
 
@@ -1253,11 +1251,10 @@ fn gto_rewrite_module_texpr(
   indexes_after_removals : Map[Int, Array[Int]],
   removed_trapping_inits : Array[(ValType, TInstr)],
 ) -> Result[TExpr, String] {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     let rewritten = match self.walk_tinstruction_default((), instr) {
       Err(e) => return error(e)
       Ok((next, _)) => next
-      Ok(_) => instr
     }
     match rewritten.kind {
       TInstrKind::TStructNew(type_idx, operands) => {
@@ -1381,7 +1378,6 @@ fn gto_rewrite_module_texpr(
   match walker.walk_texpr((), body) {
     Err(e) => Err(e)
     Ok((next_body, _)) => Ok(next_body)
-    Ok(_) => Ok(body)
   }
 }
 

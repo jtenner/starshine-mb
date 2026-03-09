@@ -180,7 +180,7 @@ fn visit_local_set(curr : TInstr) -> (TInstr, Bool) {
 ///|
 fn ml_instrument_copies(body : TExpr) -> (TExpr, Bool) {
   let changed = Ref::new(false)
-  let transformer = ModuleTransformer::new().on_tinstruction_evt(fn(
+let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     _,
     instr : TInstr,
@@ -200,7 +200,6 @@ fn ml_instrument_copies(body : TExpr) -> (TExpr, Bool) {
   })
   match transformer.walk_texpr((), body) {
     Ok((out, _)) => (out, changed.val)
-    Ok(_) => (body, changed.val)
     Err(_) => (body, false)
   }
 }
@@ -599,7 +598,7 @@ fn ml_rewrite_get_indices(
   }
   let get_id = Ref::new(0)
   let changed = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TLocalGet(curr_idx) => {
         let id = get_id.val
@@ -617,7 +616,6 @@ fn ml_rewrite_get_indices(
   })
   match walker.walk_texpr((), body) {
     Ok((out, _)) => (out, changed.val)
-    Ok(_) => (body, false)
     Err(_) => (body, false)
   }
 }
@@ -625,7 +623,7 @@ fn ml_rewrite_get_indices(
 ///|
 fn ml_cleanup_instrumentation(body : TExpr) -> (TExpr, Bool) {
   let changed = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TLocalSet(
         dst,
@@ -645,7 +643,6 @@ fn ml_cleanup_instrumentation(body : TExpr) -> (TExpr, Bool) {
   })
   match walker.walk_texpr((), body) {
     Ok((out, _)) => (out, changed.val)
-    Ok(_) => (body, false)
     Err(_) => (body, false)
   }
 }
@@ -805,7 +802,7 @@ fn merge_locals_ir_pass(
   if ml_should_skip_module(mod) {
     return ModuleTransformer::new()
   }
-  ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
+  ModuleTransformer::new().on_func_evt(fn(_, ctx, func : Func) {
     let (next_func, changed) = merge_locals_run_on_function(func, mod, options)
     if changed {
       change(ctx, next_func)

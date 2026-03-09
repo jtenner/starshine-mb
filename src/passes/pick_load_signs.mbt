@@ -547,7 +547,6 @@ fn pls_rewrite_body_with_trace(
     parent_stack.push(curr)
     let walked = match self.walk_tinstruction_default((), curr) {
       Ok((out, _)) => out
-      Ok(_) => curr
       Err(e) => return error(e)
     }
     ignore(parent_stack.pop())
@@ -599,14 +598,6 @@ fn pls_rewrite_body_with_trace(
         )
       }
       Ok(rewritten)
-    }
-    Ok(_) => {
-      if log_func {
-        trace(
-          "func[\{ordinal}] phase=rewrite done elapsed_ms=\{sl_trace_elapsed_ms(phase_start_ms)} instrs=\{instr_visits.val} rewrites=\{rewrite_count.val} changed=false top_instrs=\{body.instrs.length()}->\{body.instrs.length()}",
-        )
-      }
-      Ok(body)
     }
     Err(e) => {
       if log_func {
@@ -705,7 +696,6 @@ fn pls_run_func(func : Func) -> Func {
   let state = IRContext::new()
   match pass.walk_func(state, func) {
     Ok((out, _)) => out
-    Ok(_) => func
     Err(e) => abort("pick_load_signs pass error: \{e}")
   }
 }

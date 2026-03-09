@@ -802,7 +802,6 @@ test "make_cfp_optimizer preserves struct.get for unknown fields" {
         TInstrKind::TStructGet(_, _, _) => () // Good, preserved the struct.get
         _ => fail("Expected TInstrKind::TStructGet but got something else")
       }
-    Ok(_) => () // Also acceptable - means no change
     Err(_) => fail("Optimizer should not error")
   }
 }
@@ -1169,7 +1168,6 @@ test "ref.test not optimized for non-null constant" {
         TInstrKind::TBlock(_, _) => () // Also acceptable - inner was optimized
         _ => ()
       }
-    Ok(_) => () // Also acceptable - no change
     Err(_) => fail("Optimizer should not error")
   }
 }

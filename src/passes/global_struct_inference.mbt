@@ -93,7 +93,7 @@ fn gsi_collect_struct_types_in_tinstr(
   instr : TInstr,
   out : Set[TypeIdx],
 ) -> Unit {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TStructNew(type_idx, _)
       | TInstrKind::TStructNewDefault(type_idx) => out.add(type_idx)
@@ -106,7 +106,7 @@ fn gsi_collect_struct_types_in_tinstr(
 
 ///|
 fn gsi_collect_struct_types_in_texpr(expr : TExpr, out : Set[TypeIdx]) -> Unit {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TStructNew(type_idx, _)
       | TInstrKind::TStructNewDefault(type_idx) => out.add(type_idx)
@@ -966,7 +966,6 @@ fn gsi_rewrite_func(
           } else {
             unchanged()
           }
-        Ok(_) => unchanged()
         Err(e) => error(e)
       }
     }
@@ -991,7 +990,6 @@ fn gsi_rewrite_tinstruction(
         unchanged()
       }
     }
-    Ok(_) => instr
     Err(e) => return error(e)
   }
   let optimized_instr = gsi_optimize_tinstruction(walked, state)
@@ -1097,7 +1095,6 @@ fn run_global_struct_inference(
     .on_tinstruction_evt(gsi_rewrite_tinstruction)
   match pass.walk_module(state, mod) {
     Ok((new_mod, _)) => Ok(new_mod)
-    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }

@@ -79,10 +79,10 @@ fn build_subtypes(mod : Module) -> SubTypes {
 ///|
 fn collect_created_types(mod : Module) -> HeapTypeSet {
   let set = Set::new()
-  let transformer = ModuleTransformer::new().on_tinstruction_evt(fn(
+let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
     _,
     _,
-    instr,
+    instr : TInstr,
   ) {
     match instr.kind {
       // ---- structs ----
@@ -315,7 +315,6 @@ fn run_abstract_type_refining_pass(
   let pass = abstract_type_refining(mod, props.traps_never_happen)
   match pass.walk_module(ctx, mod) {
     Ok((final_mod, _)) => mod = final_mod
-    Ok(_) => ()
     Err(e) => return Err(e)
   }
   Ok(mod)
@@ -328,10 +327,9 @@ fn abstract_type_refining(
 ) -> ModuleTransformer[IRContext, String] {
   let state = compute_atr_state(mod, traps_never_happen)
   ModuleTransformer::new()
-  .on_tinstruction_evt(fn(self, ctx : IRContext, instr) {
+  .on_tinstruction_evt(fn(self, ctx : IRContext, instr : TInstr) {
     let walked = match self.walk_tinstruction_default(ctx, instr) {
       Ok((next, _)) => next
-      Ok(_) => instr
       Err(e) => return error(e)
     }
     let rewritten = rewrite_cast(walked, state.mapping)
@@ -351,7 +349,7 @@ fn abstract_type_refining(
       change(ctx, rewritten)
     }
   })
-  .on_heaptype_evt(fn(_, ctx, ht) {
+  .on_heaptype_evt(fn(_, ctx, ht : HeapType) {
     change(ctx, rewrite_heaptype(ht, state.mapping))
   })
 }
@@ -1926,7 +1924,7 @@ fn atr_handler_throwing_validator_clean_module() -> Module {
 ///|
 fn atr_count_handler_try_tables(body : TExpr) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TTryTable(_, catches, _) =>
         if !catches.is_empty() {
@@ -1943,7 +1941,7 @@ fn atr_count_handler_try_tables(body : TExpr) -> Int {
 ///|
 fn atr_count_throw_instrs(body : TExpr) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TThrow(_, _) => count += 1
       _ => ()
@@ -1957,7 +1955,7 @@ fn atr_count_throw_instrs(body : TExpr) -> Int {
 ///|
 fn atr_count_ref_cast_instrs(body : TExpr) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TRefCast(_, _, _) => count += 1
       _ => ()
@@ -1971,7 +1969,7 @@ fn atr_count_ref_cast_instrs(body : TExpr) -> Int {
 ///|
 fn atr_count_catch_new(body : TExpr) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TTryTable(_, catches, _) =>
         for c in catches {
@@ -1991,7 +1989,7 @@ fn atr_count_catch_new(body : TExpr) -> Int {
 ///|
 fn atr_count_catch_ref(body : TExpr) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TTryTable(_, catches, _) =>
         for c in catches {
@@ -2011,7 +2009,7 @@ fn atr_count_catch_ref(body : TExpr) -> Int {
 ///|
 fn atr_collect_throw_arg_counts(body : TExpr) -> Array[Int] {
   let out : Array[Int] = []
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TThrow(_, args) => out.push(args.length())
       _ => ()
@@ -2025,7 +2023,7 @@ fn atr_collect_throw_arg_counts(body : TExpr) -> Array[Int] {
 ///|
 fn atr_count_drop_void_block(body : TExpr) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TDrop({ kind: TInstrKind::TBlock(VoidBlockType, _), .. }) =>
         count += 1

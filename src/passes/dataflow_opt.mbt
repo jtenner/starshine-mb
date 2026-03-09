@@ -269,7 +269,6 @@ test "dataflow optimization pass folds simple constants via SSA" {
   let result = pass.walk_module(ctx, mod)
   match result {
     Ok((new_mod, _)) => assert_true(new_mod.code_sec is Some(_))
-    Ok(_) => ()
     Err(e) => fail("Unexpected error: \{e}")
   }
 }
@@ -290,7 +289,6 @@ test "dataflow optimization pass simplifies const multi-block if" {
   let ctx = IRContext::new()
   let result = pass.walk_module(ctx, mod)
   match result {
-    Ok(_) => ()
     Ok((new_mod, _)) => assert_true(new_mod.code_sec is Some(_))
     Err(e) => fail("Unexpected error: \{e}")
   }
@@ -314,7 +312,6 @@ test "dataflow optimization pass normalizes non-texpr Func bodies" {
         Some(CodeSec([TFunc(_, _, _)])) => ()
         _ => fail("expected dataflow to rewrite Func input into TFunc")
       }
-    Ok(_) => fail("expected module change")
     Err(e) => fail("Unexpected error: \{e}")
   }
 }
@@ -333,7 +330,6 @@ test "dataflow optimization pass skips non-liftable Func bodies without failing"
         Some(CodeSec([Func(_, _)])) => ()
         _ => fail("expected non-liftable Func to remain unchanged")
       }
-    Ok(_) => fail("expected module change")
     Err(e) => fail("Unexpected error: \{e}")
   }
 }
@@ -370,7 +366,6 @@ test "dataflow optimization preserves valid locals for parameterized functions" 
       assert_eq(validate_module(out), Ok(()))
       assert_true(out.code_sec is Some(_))
     }
-    Ok(_) => fail("expected module change")
     Err(e) => fail("Unexpected error: \{e}")
   }
 }

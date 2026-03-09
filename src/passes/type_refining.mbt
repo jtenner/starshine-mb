@@ -225,7 +225,7 @@ fn tr_analyze_function_body(
   calls_by_target : Array[Array[TRCallSite]],
   has_unseen_calls : Array[Bool],
 ) -> Unit {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TCall(target, args) =>
         tr_record_call(abs_func_idx, target, args, calls_by_target)
@@ -450,10 +450,10 @@ fn tr_update_param_types(
   let param_fixups : Map[Int, Int] = Map::new()
   let next_local = [old_param_types.length() + locals.length()]
 
-  let scan_sets = ModuleTransformer::new().on_tinstruction_evt(fn(
+let scan_sets : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     _,
-    instr,
+    instr : TInstr,
   ) {
     match instr.kind {
       TInstrKind::TLocalSet(idx, value) | TInstrKind::TLocalTee(idx, value) => {
@@ -490,10 +490,9 @@ fn tr_update_param_types(
     }
   }
 
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     let walked = match self.walk_tinstruction_default((), instr) {
       Ok((out, _)) => out
-      Ok(_) => instr
       Err(e) => return error(e)
     }
     match walked.kind {

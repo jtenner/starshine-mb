@@ -136,7 +136,7 @@ fn LICMEffects::has_unremovable_side_effects(self : LICMEffects) -> Bool {
 ///|
 fn licm_collect_effects(instr : TInstr) -> LICMEffects {
   let effects = LICMEffects::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalGet(idx) => effects.locals_read.add(idx)
       TInstrKind::TLocalSet(idx, _) => effects.locals_written.add(idx)
@@ -389,7 +389,7 @@ fn licm_interesting_to_move(curr : TInstr) -> Bool {
 fn licm_collect_get_ids(curr : TInstr, start_get_id : Int) -> (Array[Int], Int) {
   let ids : Array[Int] = []
   let next_get = Ref::new(start_get_id)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TLocalGet(_) => {
         ids.push(next_get.val)
@@ -431,7 +431,7 @@ priv struct LICMSetInfo {
 fn licm_collect_set_info(instr : TInstr) -> LICMSetInfo {
   let set_indices : Array[Int] = []
   let local_sets : Array[TInstr] = []
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalSet(idx, _) => {
         set_indices.push(licm_local_idx_to_int(idx))
@@ -453,7 +453,7 @@ fn licm_collect_loop_sets_and_counts(
 ) -> (Set[TInstr], Map[Int, Int]) {
   let loop_sets : Set[TInstr] = Set::new()
   let num_sets_for_index : Map[Int, Int] = Map::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TLocalSet(idx, _) => {
         loop_sets.add(instr)
@@ -590,7 +590,7 @@ fn licm_visit_loop(
 fn licm_collect_loop_entry_get_ids(body : TExpr) -> Array[Int] {
   let ids : Array[Int] = []
   let next_get_id = Ref::new(0)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TLoop(_, _) => ids.push(next_get_id.val)
       TInstrKind::TLocalGet(_) => next_get_id.update(fn(n) { n + 1 })
@@ -614,10 +614,10 @@ fn licm_run_on_body(body : TExpr) -> (TExpr, Bool) {
     let local_graph = LocalGraph::new(curr_body.instrs)
     let loop_entry_get_ids = licm_collect_loop_entry_get_ids(curr_body)
     let loop_visit = Ref::new(0)
-    let licm_pass = ModuleTransformer::new().on_tinstruction_evt(fn(
+let licm_pass : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
       self,
       _,
-      instr,
+      instr : TInstr,
     ) {
       match instr.kind {
         TInstrKind::TLoop(_, _) => {
@@ -625,7 +625,6 @@ fn licm_run_on_body(body : TExpr) -> (TExpr, Bool) {
           loop_visit.update(fn(n) { n + 1 })
           let walked = match self.walk_tinstruction_default((), instr) {
             Ok((updated, _)) => updated
-            Ok(_) => instr
             Err(e) => return error(e)
           }
           if loop_index >= loop_entry_get_ids.length() {
@@ -652,7 +651,6 @@ fn licm_run_on_body(body : TExpr) -> (TExpr, Bool) {
     })
     let next_body = match licm_pass.walk_texpr((), curr_body) {
       Ok((updated, _)) => updated
-      Ok(_) => curr_body
       Err(_) => curr_body
     }
     if next_body == curr_body {
@@ -667,7 +665,7 @@ fn licm_run_on_body(body : TExpr) -> (TExpr, Bool) {
 
 ///|
 fn loop_invariant_code_motion_pass() -> ModuleTransformer[Unit, String] {
-  ModuleTransformer::new().on_func_evt(fn(_, _, func) {
+  ModuleTransformer::new().on_func_evt(fn(_, _, func : Func) {
     match func {
       TFunc(params, locals, body) => {
         let (next_body, changed) = licm_run_on_body(body)
@@ -694,7 +692,6 @@ fn licm_optimize(mod : Module) -> Module {
   let pass = loop_invariant_code_motion_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
     Ok((out, _)) => out
-    Ok(_) => mod
     Err(e) => abort("licm pass error: \{e}")
   }
 }

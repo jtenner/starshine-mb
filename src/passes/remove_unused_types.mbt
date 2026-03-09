@@ -96,16 +96,16 @@ fn rut_mark_heaptype(roots : Set[Int], ht : HeapType) -> Unit {
 ///|
 fn rut_mark_module_roots(mod : Module) -> Set[Int] {
   let roots : Set[Int] = Set::new()
-  let walker = ModuleTransformer::new()
-    .on_typeidx_evt(fn(_, _, tidx) {
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+    .on_typeidx_evt(fn(_, _, tidx : TypeIdx) {
       rut_mark_typeidx(roots, tidx)
       unchanged()
     })
-    .on_heaptype_evt(fn(_, _, ht) {
+    .on_heaptype_evt(fn(_, _, ht : HeapType) {
       rut_mark_heaptype(roots, ht)
       unchanged()
     })
-    .on_tinstruction_evt(fn(self, _, instr) {
+    .on_tinstruction_evt(fn(self, _, instr : TInstr) {
       match instr.kind {
         TInstrKind::TRefTestDesc(_, ht, _)
         | TInstrKind::TRefCastDescEq(_, ht, _) => rut_mark_heaptype(roots, ht)
@@ -113,7 +113,7 @@ fn rut_mark_module_roots(mod : Module) -> Set[Int] {
       }
       from_walk(self.walk_tinstruction_default((), instr))
     })
-    .on_instruction_evt(fn(self, _, instr) {
+    .on_instruction_evt(fn(self, _, instr : Instruction) {
       match instr {
         RefTestDesc(_, ht) | RefCastDescEq(_, ht) =>
           rut_mark_heaptype(roots, ht)
@@ -620,7 +620,6 @@ fn remove_unused_types(mod : Module) -> Result[Module, String] {
 
   match remapper.walk_module((), mod) {
     Ok((out, _)) => Ok(out)
-    Ok(_) => Ok(mod.with_type_sec(new_type_sec))
     Err(e) => Err(e)
   }
 }

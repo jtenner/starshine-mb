@@ -3220,7 +3220,6 @@ fn sl_run_simplify_locals(
   )
   match pass.walk_module(IRContext::new(), mod) {
     Ok((out, _)) => out
-    Ok(_) => mod
     Err(e) => abort("simplify_locals pass failed: \{e}")
   }
 }

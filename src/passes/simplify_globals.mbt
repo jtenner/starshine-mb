@@ -789,7 +789,7 @@ fn sg_analyze(
   }
 
   let scanner = ModuleTransformer::new()
-    .on_tinstruction_evt(fn(self, _, instr) {
+    .on_tinstruction_evt(fn(self, _, instr : TInstr) {
       if active_func_ordinal > 0 &&
         active_func_ordinal <= func_bailed.length() &&
         func_bailed[active_func_ordinal - 1] {
@@ -895,7 +895,7 @@ fn sg_analyze(
       }
       from_walk(walked)
     })
-    .on_instruction_evt(fn(self, _, instr) {
+    .on_instruction_evt(fn(self, _, instr : Instruction) {
       if active_func_ordinal > 0 &&
         active_func_ordinal <= func_bailed.length() &&
         func_bailed[active_func_ordinal - 1] {
@@ -961,7 +961,7 @@ fn sg_analyze(
       }
       from_walk(walked)
     })
-    .on_func_evt(fn(self, _, func) {
+    .on_func_evt(fn(self, _, func : Func) {
       func_ordinal += 1
       let ordinal = func_ordinal
       func_is_typed.push(false)
@@ -1235,7 +1235,7 @@ fn sg_remove_unneeded_writes(
   let mut active_func_ordinal = 0
   let removed_sets_per_func : Array[Int] = []
   let remover = ModuleTransformer::new()
-    .on_tinstruction_evt(fn(self, _, instr) {
+    .on_tinstruction_evt(fn(self, _, instr : TInstr) {
       match instr.kind {
         TInstrKind::TGlobalSet(idx, value) =>
           if to_remove.contains(idx) {
@@ -1253,7 +1253,7 @@ fn sg_remove_unneeded_writes(
         _ => from_walk(self.walk_tinstruction_default((), instr))
       }
     })
-    .on_func_evt(fn(self, _, func) {
+    .on_func_evt(fn(self, _, func : Func) {
       func_ordinal += 1
       let ordinal = func_ordinal
       removed_sets_per_func.push(0)
@@ -1284,15 +1284,6 @@ fn sg_remove_unneeded_writes(
         )
       }
       Ok((next_mod, true, more))
-    }
-    Ok(_) => {
-      sg_trace_removed_sets_per_func()
-      if trace_verbose {
-        trace(
-          "done removed_globals=\{removed_globals} removed_sets=\{removed_sets} made_immutable=\{made_immutable} changed=\{changed_globals} need_more=\{more}",
-        )
-      }
-      Ok((next_mod, changed_globals, more))
     }
     Err(e) => Err(e)
   }
@@ -1375,7 +1366,7 @@ fn sg_prefer_earlier_imports(mod : Module) -> Result[(Module, Bool), String] {
   }
 
   let rewriter = ModuleTransformer::new()
-    .on_tinstruction_evt(fn(self, _, instr) {
+    .on_tinstruction_evt(fn(self, _, instr : TInstr) {
       match instr.kind {
         TInstrKind::TGlobalGet(idx) =>
           match copied_parent_map.get(idx) {
@@ -1390,7 +1381,7 @@ fn sg_prefer_earlier_imports(mod : Module) -> Result[(Module, Bool), String] {
         _ => from_walk(self.walk_tinstruction_default((), instr))
       }
     })
-    .on_instruction_evt(fn(self, _, instr) {
+    .on_instruction_evt(fn(self, _, instr : Instruction) {
       match instr {
         GlobalGet(idx) =>
           match copied_parent_map.get(idx) {
@@ -1407,7 +1398,6 @@ fn sg_prefer_earlier_imports(mod : Module) -> Result[(Module, Bool), String] {
     })
   match rewriter.walk_module((), mod) {
     Ok((out, _)) => Ok((out, true))
-    Ok(_) => Ok((mod, false))
     Err(e) => Err(e)
   }
 }
@@ -2056,7 +2046,7 @@ fn simplify_globals_ir_pass(
   trace? : (String) -> Unit = sg_trace_noop,
   trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[IRContext, String] {
-  ModuleTransformer::new().on_module_evt(fn(_, ctx, curr) {
+  ModuleTransformer::new().on_module_evt(fn(_, ctx, curr : Module) {
     match sg_simplify_globals_impl(curr, optimize, trace~, trace_all_funcs~) {
       Ok((next, _)) =>
         if next == curr {
@@ -2073,7 +2063,7 @@ fn simplify_globals_ir_pass(
 fn propagate_globals_globally_ir_pass(
   _mod : Module,
 ) -> ModuleTransformer[IRContext, String] {
-  ModuleTransformer::new().on_module_evt(fn(_, ctx, curr) {
+  ModuleTransformer::new().on_module_evt(fn(_, ctx, curr : Module) {
     let (next, _) = sg_propagate_constants_to_globals(curr)
     if next == curr {
       unchanged()
@@ -2088,7 +2078,6 @@ fn sg_run_simplify_globals(mod : Module, optimize : Bool) -> Module {
   let pass = simplify_globals_ir_pass(mod, optimize)
   match pass.walk_module(IRContext::new(), mod) {
     Ok((out, _)) => out
-    Ok(_) => mod
     Err(e) => abort("simplify_globals pass failed: \{e}")
   }
 }
@@ -2098,7 +2087,6 @@ fn sg_run_propagate_globals_globally(mod : Module) -> Module {
   let pass = propagate_globals_globally_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
     Ok((out, _)) => out
-    Ok(_) => mod
     Err(e) => abort("propagate_globals_globally pass failed: \{e}")
   }
 }
@@ -2106,7 +2094,7 @@ fn sg_run_propagate_globals_globally(mod : Module) -> Module {
 ///|
 fn sg_count_tinstr(body : TExpr, pred : (TInstr) -> Bool) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     if pred(instr) {
       count += 1
     }

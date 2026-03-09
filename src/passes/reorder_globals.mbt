@@ -774,7 +774,6 @@ fn rg_remap_global_indices(
   })
   match pass.walk_module((), mod) {
     Ok((out, _)) => Ok(out)
-    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }
@@ -965,7 +964,6 @@ fn rg_run_reorder_globals(mod : Module, always : Bool) -> Module {
   let pass = reorder_globals_ir_pass(mod, always)
   match pass.walk_module(IRContext::new(), mod) {
     Ok((out, _)) => out
-    Ok(_) => mod
     Err(e) => abort("reorder_globals pass failed: \{e}")
   }
 }

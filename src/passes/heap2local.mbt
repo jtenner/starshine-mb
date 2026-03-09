@@ -298,7 +298,7 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
     uses: Map::new(),
     has_sync_atomic: false,
   }
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+  let walker : ModuleTransformer[H2LAnalyzeState, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     s : H2LAnalyzeState,
     instr : TInstr,
@@ -692,7 +692,6 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
   })
   match walker.walk_texpr(state, body) {
     Ok((_, out)) => out
-    Ok(_) => state
     Err(_) => state
   }
 }
@@ -828,10 +827,10 @@ fn h2l_local_graph_get_order(body : TExpr) -> Array[LocalIdx] {
   let out : Array[LocalIdx] = []
   let flat = h2l_flatten_instrs(body.instrs)
   for instr in flat {
-    let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
       self,
       _,
-      curr,
+      curr : TInstr,
     ) {
       match curr.kind {
         TInstrKind::TLocalGet(idx) => out.push(idx)
@@ -864,7 +863,7 @@ fn h2l_root_has_matching_set(
   shape : H2LShape,
 ) -> Bool {
   let found = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalSet(idx, value) =>
         if idx == target &&
@@ -929,7 +928,7 @@ fn h2l_filter_by_local_graph(
 ///|
 fn h2l_texpr_has_local_set(expr : TExpr, target : LocalIdx) -> Bool {
   let found = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalSet(idx, _) if idx == target =>
         found.update(fn(_) { true })
@@ -992,7 +991,7 @@ fn h2l_filter_nonuniform_if_sets(
 ///|
 fn h2l_instr_transfers_control_flow(instr : TInstr) -> Bool {
   let transfers = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TBr(_, _)
       | TInstrKind::TBrIf(_, _, _)
@@ -1018,7 +1017,7 @@ fn h2l_instr_transfers_control_flow(instr : TInstr) -> Bool {
 ///|
 fn h2l_tinstr_has_local_get_for(instr : TInstr, target : LocalIdx) -> Bool {
   let found = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalGet(idx) if idx == target =>
         found.update(fn(_) { true })
@@ -1038,7 +1037,7 @@ fn h2l_tinstr_has_branchy_set_for(
   env : Env,
 ) -> Bool {
   let found = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalSet(idx, value) =>
         if idx == target &&
@@ -1610,7 +1609,6 @@ fn h2l_rewrite_tinstr(
   let (state_after_walk, walked, walked_changed) = match
     transformer.walk_tinstruction_default(state, instr) {
     Ok((next_instr, next_state)) => (next_state, next_instr, true)
-    Ok(_) => (state, instr, false)
     Err(e) => return error(e)
   }
   match walked.kind {
@@ -2734,14 +2732,13 @@ fn h2l_optimize_func_once(
       let rewrite = ModuleTransformer::new().on_tinstruction_evt(fn(
         transformer,
         st,
-        instr,
+        instr : TInstr,
       ) {
         h2l_rewrite_tinstr(transformer, st, analysis.env, mod, instr)
       })
       let (final_state, rewritten, changed_body) = match
         rewrite.walk_texpr(state, body) {
         Ok((expr, s)) => (s, expr, true)
-        Ok(_) => (state, body, false)
         Err(_) => return None
       }
       if !changed_body {
@@ -2783,7 +2780,7 @@ fn h2l_optimize_func(func : Func, env : Env, mod : Module) -> Func? {
 ///|
 fn heap2local_ir_pass(mod : Module) -> ModuleTransformer[IRContext, String] {
   let env = Env::new().with_module(mod)
-  ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
+  ModuleTransformer::new().on_func_evt(fn(_, ctx, func : Func) {
     match h2l_optimize_func(func, env, mod) {
       Some(new_func) => change(ctx, new_func)
       None => unchanged()
@@ -2803,7 +2800,7 @@ fn run_heap2local(mod : Module) -> Module {
 ///|
 fn h2l_count_gc_ops(body : TExpr) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TStructNew(_, _)
       | TInstrKind::TStructNewDefault(_)
@@ -2830,7 +2827,7 @@ fn h2l_count_gc_ops(body : TExpr) -> Int {
 ///|
 fn h2l_has_unary(body : TExpr, op : UnaryOp) -> Bool {
   let found = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TUnary(found_op, _) if found_op == op =>
         found.update(fn(_) { true })
@@ -2845,7 +2842,7 @@ fn h2l_has_unary(body : TExpr, op : UnaryOp) -> Bool {
 ///|
 fn h2l_has_binary(body : TExpr, op : BinaryOp) -> Bool {
   let found = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TBinary(found_op, _, _) if found_op == op =>
         found.update(fn(_) { true })
@@ -2860,7 +2857,7 @@ fn h2l_has_binary(body : TExpr, op : BinaryOp) -> Bool {
 ///|
 fn h2l_has_unreachable(body : TExpr) -> Bool {
   let found = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TUnreachable => found.update(fn(_) { true })
       _ => ()
@@ -2874,7 +2871,7 @@ fn h2l_has_unreachable(body : TExpr) -> Bool {
 ///|
 fn h2l_has_i32_const(body : TExpr, target : Int) -> Bool {
   let found = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TI32Const(I32(v)) if v == target =>
         found.update(fn(_) { true })
@@ -2889,7 +2886,7 @@ fn h2l_has_i32_const(body : TExpr, target : Int) -> Bool {
 ///|
 fn h2l_has_local_get(body : TExpr, idx : UInt) -> Bool {
   let found = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TLocalGet(LocalIdx(i)) if i == idx =>
         found.update(fn(_) { true })
@@ -2904,7 +2901,7 @@ fn h2l_has_local_get(body : TExpr, idx : UInt) -> Bool {
 ///|
 fn h2l_has_ref_get_desc(body : TExpr) -> Bool {
   let found = Ref::new(false)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TRefGetDesc(_) => found.update(fn(_) { true })
       _ => ()

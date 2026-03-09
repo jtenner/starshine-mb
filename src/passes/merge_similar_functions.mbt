@@ -545,7 +545,7 @@ fn msf_hash_function_ignoring_consts(
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
-        instr,
+        instr : TInstr,
       ) {
         hashed_instrs += 1
         if hashed_instrs > MSF_HASH_MAX_INSTRS {
@@ -639,7 +639,7 @@ fn msf_normalize_body(
       "func[\{ordinal}] phase=hash:normalize_internal:start top_instrs=\{body.instrs.length()}",
     )
   }
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     visited_instrs += 1
     if trace_all_funcs && visited_instrs % msf_trace_heartbeat_interval() == 0 {
       trace(
@@ -648,7 +648,6 @@ fn msf_normalize_body(
     }
     let walked = match self.walk_tinstruction_default((), instr) {
       Ok((next, _)) => next
-      Ok(_) => instr
       Err(e) => return error(e)
     }
     let rewritten = match walked.kind {
@@ -678,14 +677,6 @@ fn msf_normalize_body(
       }
       Ok(out)
     }
-    Ok(_) => {
-      if trace_all_funcs {
-        trace(
-          "func[\{ordinal}] phase=hash:normalize_internal:done elapsed_ms=\{msf_trace_elapsed_ms(normalize_start_ms)} instrs=\{visited_instrs} changed=false",
-        )
-      }
-      Ok(body)
-    }
     Err(e) => {
       if trace_all_funcs {
         trace(
@@ -701,7 +692,7 @@ fn msf_normalize_body(
 fn msf_collect_call_sites(body : TExpr) -> Array[MSFCallSite] {
   let out : Array[MSFCallSite] = []
   let mut next_id = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     let id = next_id
     next_id += 1
     match instr.kind {
@@ -734,7 +725,7 @@ fn msf_collect_sites(
 ) -> Map[Int, MSFSiteValue] {
   let out : Map[Int, MSFSiteValue] = Map::new()
   let mut next_id = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     let id = next_id
     next_id += 1
     match instr.kind {
@@ -1355,7 +1346,7 @@ fn derive_params(
 ///|
 fn msf_measure_body(body : TExpr) -> Int {
   let mut n = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     n += 1
     from_walk(self.walk_tinstruction_default((), instr))
   })
@@ -1495,12 +1486,11 @@ fn msf_rewrite_shared_body(
     trace("func[\{ordinal}] phase=shared_rewrite:walk:start shift=\{shift}")
   }
   let walk_start_ms = msf_trace_now_ms()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     let node_id = next_id
     next_id += 1
     let walked = match self.walk_tinstruction_default((), instr) {
       Ok((next, _)) => next
-      Ok(_) => instr
       Err(e) => return error(e)
     }
     let shifted = match walked.kind {
@@ -1665,17 +1655,6 @@ fn msf_rewrite_shared_body(
         )
       }
       Ok(out)
-    }
-    Ok(_) => {
-      if trace_all_funcs {
-        trace(
-          "func[\{ordinal}] phase=shared_rewrite:walk:done elapsed_ms=\{msf_trace_elapsed_ms(walk_start_ms)} changed=false",
-        )
-        trace(
-          "func[\{ordinal}] phase=shared_rewrite:done elapsed_ms=\{msf_trace_elapsed_ms(rewrite_start_ms)} changed=false",
-        )
-      }
-      Ok(body)
     }
     Err(e) => {
       if trace_all_funcs {
@@ -2371,10 +2350,10 @@ test "merge similar functions basic const merging creates shared + thunks" {
       match funcs[2] {
         TFunc(_, _, body) => {
           let mut saw_param_get = false
-          let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
             self,
             _,
-            instr,
+            instr : TInstr,
           ) {
             match instr.kind {
               TInstrKind::TLocalGet(LocalIdx(raw)) if raw.reinterpret_as_int() ==
@@ -2445,10 +2424,10 @@ test "merge similar functions reuses parameter across repeated diff vector" {
         TFunc(_, _, { instrs: body, .. }) => {
           let mut local_get_count = 0
           for instr in body {
-            let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
               self,
               _,
-              curr,
+              curr : TInstr,
             ) {
               match curr.kind {
                 TInstrKind::TLocalGet(LocalIdx(raw)) if raw.reinterpret_as_int() ==
@@ -2572,10 +2551,10 @@ test "merge similar functions parameterizes call target using call_ref" {
           let mut saw_call_ref = false
           let mut seen_type_idx = -1
           let mut saw_casted_local = false
-          let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
             self,
             _,
-            instr,
+            instr : TInstr,
           ) {
             match instr.kind {
               TInstrKind::TCallRef(TypeIdx(raw), _, ref_) => {
@@ -2774,7 +2753,7 @@ test "merge similar functions rewrites call target params with unchanged ancesto
   let mut saw_return_call_ref = false
   let mut saw_call_casted_local = false
   let mut saw_return_call_casted_local = false
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TCallRef(TypeIdx(raw), args, ref_) => {
         if raw.reinterpret_as_int() == 0 && args.length() == 1 {
@@ -2863,7 +2842,7 @@ test "merge similar functions validates call-target arity by callee type idx" {
       )
   }
   let mut saw_call_ref = false
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TCallRef(TypeIdx(raw), args, _) =>
         if raw.reinterpret_as_int() == 1 && args.length() == 1 {
@@ -3188,10 +3167,10 @@ test "merge similar functions shifts var local indices in shared function" {
         TFunc(_, _, body) => {
           let mut saw_shifted_set = false
           let mut saw_shifted_get = false
-          let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
             self,
             _,
-            instr,
+            instr : TInstr,
           ) {
             match instr.kind {
               TInstrKind::TLocalSet(LocalIdx(raw), _) if raw.reinterpret_as_int() ==

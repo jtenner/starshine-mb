@@ -60,7 +60,6 @@ fn tu_apply_ir_pass(
   let ctx = IRContext::new()
   match pass.walk_module(ctx, mod) {
     Ok((out, _)) => Ok(out)
-    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }

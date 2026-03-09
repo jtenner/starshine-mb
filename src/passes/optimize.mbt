@@ -186,7 +186,6 @@ fn[T] apply_transformer_pass(
 ) -> Result[Module, String] {
   match pass.walk_module(state, mod) {
     Ok((new_mod, _)) => Ok(new_mod)
-    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }
@@ -2084,8 +2083,8 @@ fn opt_scheduler_count_descriptor_target_uses(
   target : UInt,
 ) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new()
-    .on_tinstruction_evt(fn(self, _, instr) {
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+    .on_tinstruction_evt(fn(self, _, instr : TInstr) {
       match instr.kind {
         TInstrKind::TRefTestDesc(_, HeapType(TypeIdx(i)), _)
         | TInstrKind::TRefCastDescEq(_, HeapType(TypeIdx(i)), _) =>
@@ -2096,7 +2095,7 @@ fn opt_scheduler_count_descriptor_target_uses(
       }
       from_walk(self.walk_tinstruction_default((), instr))
     })
-    .on_instruction_evt(fn(self, _, instr) {
+    .on_instruction_evt(fn(self, _, instr : Instruction) {
       match instr {
         RefTestDesc(_, HeapType(TypeIdx(i)))
         | RefCastDescEq(_, HeapType(TypeIdx(i))) =>
@@ -4705,10 +4704,10 @@ test "optimize_module runs Inlining pass" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, _, body), _])) => {
       let mut direct_calls = 0
-      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
-        instr,
+        instr : TInstr,
       ) {
         match instr.kind {
           TInstrKind::TCall(FuncIdx(raw), _) =>
@@ -4754,10 +4753,10 @@ test "optimize_module runs InlineMain pass" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, _, body), _])) => {
       let mut direct_calls = 0
-      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
-        instr,
+        instr : TInstr,
       ) {
         match instr.kind {
           TInstrKind::TCall(FuncIdx(raw), _) =>

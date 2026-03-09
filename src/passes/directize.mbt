@@ -405,7 +405,6 @@ fn directize_module(
   }
   match pass.walk_module(IRContext::new(), m) {
     Ok((new_m, _)) => Ok(new_m)
-    Ok(_) => Ok(m)
     Err(e) => Err(e)
   }
 }

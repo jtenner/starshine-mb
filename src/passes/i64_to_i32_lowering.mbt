@@ -1148,7 +1148,6 @@ fn i64l_rewrite_tinstruction(
 ) -> VisitAction[I64LFuncCtx, TInstr, String] {
   let walked = match transformer.walk_tinstruction_default(ctx, instr) {
     Ok((next_instr, next_ctx)) => (next_ctx, next_instr)
-    Ok(_) => (ctx, instr)
     Err(e) => return error(e)
   }
   let (ctx, curr) = walked
@@ -2626,7 +2625,6 @@ fn i64l_rewrite_one_func(
       )
       let rewritten_body = match pass.walk_texpr(ctx, body) {
         Ok((next_body, _)) => next_body
-        Ok(_) => body
         Err(e) => return Err(e)
       }
       let needs_implicit_return_wrap = if old_result_is_i64 {
@@ -3543,7 +3541,7 @@ test "i64_to_i32_lowering handles implicit i64 return from typeidx block" {
   match lowered.code_sec {
     Some(CodeSec([TFunc(_, _, { instrs, .. })])) => {
       let mut saw_high_set = false
-      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i : TInstr) {
         if i.kind is TInstrKind::TGlobalSet(GlobalIdx(0), _) {
           saw_high_set = true
         }

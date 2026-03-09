@@ -124,7 +124,6 @@ fn rf_remap_func_indices(
   })
   match transformer.walk_module((), mod) {
     Ok((out, _)) => Ok(out)
-    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }

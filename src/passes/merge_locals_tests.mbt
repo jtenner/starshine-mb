@@ -19,7 +19,6 @@ fn ml_run_merge_locals(mod : Module) -> Module {
   let pass = merge_locals_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
     Ok((out, _)) => out
-    Ok(_) => mod
     Err(e) => abort("merge locals pass error: \{e}")
   }
 }
@@ -43,7 +42,7 @@ fn ml_single_func_body(mod : Module) -> TExpr {
 ///|
 fn ml_trivial_tee_count(body : TExpr) -> Int {
   let mut count = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TLocalTee(idx, { kind: TInstrKind::TLocalGet(src), .. }) if idx ==
         src => count += 1
@@ -58,7 +57,7 @@ fn ml_trivial_tee_count(body : TExpr) -> Int {
 ///|
 fn ml_drop_get_indices(body : TExpr) -> Array[Int] {
   let out = Array::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TDrop({ kind: TInstrKind::TLocalGet(idx), .. }) => {
         let LocalIdx(raw) = idx

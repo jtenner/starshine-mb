@@ -354,7 +354,6 @@ fn dce_texpr(
     let new_instr = match transformer.walk_tinstruction((), instr) {
       Err(e) => return error(e)
       Ok((updated, _)) => updated
-      Ok(_) => instr
     }
 
     if new_instr != instr {
@@ -414,7 +413,6 @@ fn dce_tinstr(
   let walked = match transformer.walk_tinstruction_default((), instr) {
     Err(e) => return error(e)
     Ok((updated, _)) => updated
-    Ok(_) => instr
   }
 
   let mut rewritten = walked
@@ -1104,7 +1102,6 @@ fn run_dce_on_module(mod : Module) -> Module {
   let pass = dead_code_elimination_pass()
   match pass.walk_module((), mod) {
     Ok((out, _)) => out
-    Ok(_) => mod
     Err(e) => abort("unexpected DCE module error: \{e}")
   }
 }

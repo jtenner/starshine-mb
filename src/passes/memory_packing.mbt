@@ -777,7 +777,7 @@ fn ensure_drop_state_global(mod : Module) -> (Module, GlobalIdx) {
 ///|
 fn collect_segment_referrers(mod : Module) -> Map[Int, MPSegmentReferrers] {
   let out : Map[Int, MPSegmentReferrers] = Map::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     fn update_ref(
       out : Map[Int, MPSegmentReferrers],
       idx : Int,
@@ -928,14 +928,13 @@ fn optimize_segment_ops(
   memories : Array[Limits],
   data_segments : Array[Data],
 ) -> (Module, Bool) {
-  let rewriter = ModuleTransformer::new().on_tinstruction_evt(fn(
+let rewriter : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     _,
-    instr,
+    instr : TInstr,
   ) {
     let walked = match self.walk_tinstruction_default((), instr) {
       Ok((out, _)) => out
-      Ok(_) => instr
       Err(e) => return error(e)
     }
     match walked.kind {
@@ -1138,10 +1137,10 @@ fn mp_needs_drop_state_global(
   mod : Module,
   transforms : Map[Int, MPSegmentTransform],
 ) -> Bool {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+  let walker : ModuleTransformer[Bool, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     state,
-    instr,
+    instr : TInstr,
   ) {
     let mut needed = state
     match instr.kind {
@@ -1167,12 +1166,11 @@ fn mp_needs_drop_state_global(
     if needed {
       change(true, instr)
     } else {
-      from_walk(self.walk_tinstruction_default(false, instr))
+      from_walk(self.walk_tinstruction_default(needed, instr))
     }
   })
   match walker.walk_module(false, mod) {
     Ok((_, needed)) => needed
-    Ok(_) => false
     Err(_) => false
   }
 }
@@ -1452,7 +1450,6 @@ fn apply_replacements(
             ) {
               let walked = match self.walk_tinstruction_default(state, instr) {
                 Ok((out, s)) => (s, out)
-                Ok(_) => (state, instr)
                 Err(e) => return error(e)
               }
               let (state, curr) = walked
@@ -1569,7 +1566,6 @@ fn apply_replacements(
             let (final_state, new_body) = match
               rewriter.walk_texpr(init_state, body) {
               Ok((rewritten, s)) => (s, rewritten)
-              Ok(_) => (init_state, body)
               Err(e) => return Err(e)
             }
             let new_locals = locals.copy()
@@ -1829,7 +1825,7 @@ fn mp_first_body(mod : Module) -> TExpr {
 ///|
 fn mp_count_instr(body : TExpr, pred : (TInstr) -> Bool) -> Int {
   let mut n = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     if pred(instr) {
       n += 1
     }

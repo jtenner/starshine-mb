@@ -950,10 +950,10 @@ fn sr_update_param_types(
   let param_fixups : Map[Int, Int] = Map::new()
   let next_local = [old_param_types.length() + locals.length()]
 
-  let scan_sets = ModuleTransformer::new().on_tinstruction_evt(fn(
+let scan_sets : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     _,
-    instr,
+    instr : TInstr,
   ) {
     match instr.kind {
       TInstrKind::TLocalSet(idx, value) | TInstrKind::TLocalTee(idx, value) => {
@@ -990,10 +990,9 @@ fn sr_update_param_types(
     }
   }
 
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     let walked = match self.walk_tinstruction_default((), instr) {
       Ok((out, _)) => out
-      Ok(_) => instr
       Err(e) => return error(e)
     }
     match walked.kind {
@@ -1283,10 +1282,10 @@ fn signature_refining(mod : Module) -> Result[Module, String] {
     let FuncType(_, old_results) = func_types[abs_idx]
     match funcs[def_idx] {
       TFunc(_, _, body) => {
-        let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
           self,
           _,
-          instr,
+          instr : TInstr,
         ) {
           match instr.kind {
             TInstrKind::TCall(target, args)

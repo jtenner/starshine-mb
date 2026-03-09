@@ -688,17 +688,6 @@ fn dfe_remap_func_indices(
           },
         ),
       )
-    Ok(_) =>
-      Ok(
-        (
-          mod,
-          {
-            elapsed_us: dfe_trace_elapsed_us_since(remap_start_us),
-            visits: visits.val,
-            changes: changes.val,
-          },
-        ),
-      )
     Err(e) => Err(e)
   }
 }

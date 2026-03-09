@@ -1305,10 +1305,10 @@ fn pc_replace_gets_with_constants(
     return body
   }
   let next_get_id = Ref::new(0)
-  let replacer = ModuleTransformer::new().on_tinstruction_evt(fn(
+let replacer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     _,
-    curr,
+    curr : TInstr,
   ) {
     match curr.kind {
       TInstrKind::TLocalGet(_) => {
@@ -2367,7 +2367,7 @@ fn precompute_ir_pass(
   trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[IRContext, String] {
   let ordinal = Ref::new(0)
-  ModuleTransformer::new().on_func_evt(fn(_self, ctx : IRContext, func) {
+  ModuleTransformer::new().on_func_evt(fn(_self, ctx : IRContext, func : Func) {
     let curr_ordinal = ordinal.val
     ordinal.update(fn(n) { n + 1 })
     match

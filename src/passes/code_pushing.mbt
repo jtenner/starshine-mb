@@ -698,7 +698,7 @@ fn count_gets_in_instr(state : PushingState, instr : TInstr) -> Unit {
     }
     _ => {
       // Use a walker to find all local.gets
-      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i : TInstr) {
         match i.kind {
           TInstrKind::TLocalGet(idx) => count_local_get(state, idx)
           _ => ()
@@ -1145,7 +1145,7 @@ fn code_pushing_pass_with_trace(
   trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[Unit, String] {
   let next_def_idx = Ref::new(0)
-  ModuleTransformer::new().on_func_evt(fn(_self, _state, func) {
+  ModuleTransformer::new().on_func_evt(fn(_self, _state, func : Func) {
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
     let ordinal = def_idx + 1

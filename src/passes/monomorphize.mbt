@@ -273,7 +273,7 @@ fn mn_collect_shallow_effects(instr : TInstr) -> MonoEffects {
 ///|
 fn mn_collect_effects(instr : TInstr) -> MonoEffects {
   let effects = MonoEffects::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     mn_collect_shallow_effects_into(curr, effects)
     from_walk(self.walk_tinstruction_default((), curr))
   })
@@ -766,10 +766,10 @@ fn find_return_callers(mod : Module) -> Array[Bool] {
         match funcs[i] {
           TFunc(_, _, body) => {
             let mut has_return_call = false
-            let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
               self,
               _,
-              instr,
+              instr : TInstr,
             ) {
               match instr.kind {
                 TInstrKind::TReturnCall(_, _)
@@ -896,7 +896,7 @@ fn mn_shift_local_indices(body : TExpr, shift : Int) -> TExpr {
   if shift == 0 {
     return body
   }
-  let walker = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx : LocalIdx) {
     let LocalIdx(raw) = idx
     let next_idx = raw.reinterpret_as_int() + shift
     change((), LocalIdx::new(next_idx.reinterpret_as_uint()))
@@ -909,10 +909,9 @@ fn mn_shift_local_indices(body : TExpr, shift : Int) -> TExpr {
 
 ///|
 fn mn_remove_returns_for_dropped(body : TExpr) -> TExpr {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     let processed = match self.walk_tinstruction_default((), instr) {
       Ok((i, _)) => i
-      Ok(_) => instr
       Err(e) => return error(e)
     }
     match processed.kind {
@@ -1129,7 +1128,7 @@ fn cost(body : TExpr) -> Int {
 ///|
 fn mn_collect_read_locals(body : TExpr) -> Set[LocalIdx] {
   let reads : Set[LocalIdx] = Set::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TLocalGet(idx) => reads.add(idx)
       _ => ()
@@ -1143,10 +1142,9 @@ fn mn_collect_read_locals(body : TExpr) -> Set[LocalIdx] {
 ///|
 fn mn_cleanup_body(body : TExpr) -> TExpr {
   let reads = mn_collect_read_locals(body)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     let processed = match self.walk_tinstruction_default((), instr) {
       Ok((i, _)) => i
-      Ok(_) => instr
       Err(e) => return error(e)
     }
     match processed.kind {
@@ -1592,7 +1590,7 @@ fn mono_run_pass(
 ///|
 fn mono_call_targets_in_body(body : TExpr) -> Array[FuncIdx] {
   let out : Array[FuncIdx] = []
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
     match instr.kind {
       TInstrKind::TCall(target, _) => out.push(target)
       TInstrKind::TDrop({ kind: TInstrKind::TCall(target, _), .. }) =>
@@ -1717,10 +1715,10 @@ test "monomorphize always keeps immovable operand as call argument for partial m
     ) => {
       assert_eq(args.length(), 1)
       let mut saw_binary_prelude = false
-      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
-        instr,
+        instr : TInstr,
       ) {
         match instr.kind {
           TInstrKind::TLocalSet(

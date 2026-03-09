@@ -1822,7 +1822,6 @@ test "de_nan_ir_pass rewrites module through IRContext wrapper" {
         ) => assert_eq(v, 0.0)
         _ => fail("expected rewritten f32 NaN constant")
       }
-    Ok(_) => fail("expected de_nan_ir_pass to report rewritten module")
     Err(e) => fail("unexpected de_nan_ir_pass error: \{e}")
   }
 }

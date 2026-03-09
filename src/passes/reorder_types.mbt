@@ -430,7 +430,7 @@ fn rt_has_gc_types(flat : RTFlatTypes) -> Bool {
 
 ///|
 fn rt_collect_non_type_use_counts(mod : Module, counts : Array[Int]) -> Unit {
-  let walker = ModuleTransformer::new().on_typeidx_evt(fn(_, _, tidx) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_typeidx_evt(fn(_, _, tidx : TypeIdx) {
     match tidx {
       TypeIdx(i) => {
         let raw = i.reinterpret_as_int()
@@ -1063,7 +1063,6 @@ fn reorder_types(
     .on_typesec_evt(fn(_, _, _) { change((), new_type_sec) })
   match remapper.walk_module((), mod) {
     Ok((out, _)) => Ok(out)
-    Ok(_) => Ok(mod.with_type_sec(new_type_sec))
     Err(e) => Err(e)
   }
 }

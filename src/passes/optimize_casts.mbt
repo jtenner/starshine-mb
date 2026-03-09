@@ -553,7 +553,7 @@ fn EarlyCastFinder::has_casts_to_move(self : EarlyCastFinder) -> Bool {
 ///|
 fn oc_apply_early_casts(body : TExpr, finder : EarlyCastFinder) -> TExpr {
   let get_id = Ref::new(0)
-  let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let pass : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     match curr.kind {
       TInstrKind::TLocalGet(_) => {
         let this_id = get_id.val
@@ -803,10 +803,10 @@ fn oc_apply_best_casts(
   }
   let next_local = Ref::new(new_locals.length())
   let next_refinement_id = Ref::new(0)
-  let pass_refinement = ModuleTransformer::new().on_tinstruction_evt(fn(
+let pass_refinement : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     _,
-    curr,
+    curr : TInstr,
   ) {
     match curr.kind {
       TInstrKind::TRefCast(nullable, ht, _) => {
@@ -869,10 +869,10 @@ fn oc_apply_best_casts(
     _ => body
   }
   let get_id = Ref::new(0)
-  let pass_gets = ModuleTransformer::new().on_tinstruction_evt(fn(
+let pass_gets : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     _,
-    curr,
+    curr : TInstr,
   ) {
     match curr.kind {
       TInstrKind::TLocalGet(_) => {
@@ -935,7 +935,7 @@ fn optimize_casts_on_func(func : Func, mod : Module) -> Result[Func, String] {
 
 ///|
 fn optimize_casts_ir_pass(mod : Module) -> ModuleTransformer[IRContext, String] {
-  ModuleTransformer::new().on_func_evt(fn(_self, t : IRContext, func) {
+  ModuleTransformer::new().on_func_evt(fn(_self, t : IRContext, func : Func) {
     match optimize_casts_on_func(func, mod) {
       Ok(next_func) =>
         match (func, next_func) {
@@ -1070,10 +1070,10 @@ test "optimize casts uses most refined cast" {
   match oc_get_func(out) {
     Some(TFunc(_, _, new_body)) => {
       let mut saw_refined = false
-      let walk = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walk : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
-        curr,
+        curr : TInstr,
       ) {
         match curr.kind {
           TInstrKind::TRefCast(_, HeapType(TypeIdx(i)), _) if i.reinterpret_as_int() ==
@@ -1105,10 +1105,10 @@ test "optimize casts handles ref.as_non_null movement" {
   match oc_get_func(out) {
     Some(TFunc(_, _, new_body)) => {
       let mut count_non_null = 0
-      let walk = ModuleTransformer::new().on_tinstruction_evt(fn(
+let walk : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
-        curr,
+        curr : TInstr,
       ) {
         match curr.kind {
           TInstrKind::TRefAsNonNull(_) => count_non_null += 1

@@ -2405,7 +2405,6 @@ fn rewrite_types(
     .on_typesec_evt(fn(_t, _, _ts : TypeSec) { change((), new_type_sec) })
   match remapper.walk_module((), mod) {
     Ok((next_mod, _)) => Ok(next_mod)
-    Ok(_) => Ok(mod.with_type_sec(new_type_sec))
     Err(e) => Err(e)
   }
 }

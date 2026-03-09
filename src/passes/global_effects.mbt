@@ -244,7 +244,7 @@ fn ge_collect_shallow_effects(instr : TInstr) -> GEEffects {
 ///|
 fn ge_collect_effects_texpr(body : TExpr) -> GEEffects {
   let effects = GEEffects::new()
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
     ge_collect_shallow_effects_into(curr, effects)
     from_walk(self.walk_tinstruction_default((), curr))
   })
@@ -267,10 +267,10 @@ fn ge_scan_defined_func(func : Func, total_funcs : Int) -> GEFuncInfo {
           }
           None => ()
         }
-        let scanner = ModuleTransformer::new().on_tinstruction_evt(fn(
+let scanner : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
           self,
           _,
-          curr,
+          curr : TInstr,
         ) {
           match curr.kind {
             TInstrKind::TCall(target, _) | TInstrKind::TReturnCall(target, _) => {
