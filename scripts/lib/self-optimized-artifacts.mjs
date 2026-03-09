@@ -129,6 +129,10 @@ export function optimizeDebugWasm({
   try {
     execFileSync(binary, ['--optimize', '-O4z', '--out', dist.selfOptimized, dist.debug], {
       cwd: repoRoot,
+      env: {
+        ...process.env,
+        STARSHINE_TRACE_OPTIMIZE: '1',
+      },
       stdio: ['ignore', 'inherit', 'pipe'],
     });
   } catch (error) {
