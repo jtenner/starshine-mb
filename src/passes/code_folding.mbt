@@ -56,6 +56,16 @@ const CF_EXPR_SITE_LIMIT : Int = 1024
 const CF_COLLECT_BODY_LIMIT : Int = 512
 
 ///|
+/// Skip expensive terminating-tail rewrites when both the candidate set and
+/// control-surface traversal are already very large.
+const CF_TERMINATING_TAIL_COUNT_LIMIT : Int = 64
+
+///|
+/// Tail-collection body visits beyond this point indicate large control-heavy
+/// functions where terminating-tail scans are often not profitable.
+const CF_TERMINATING_COLLECT_BODY_LIMIT : Int = 256
+
+///|
 /// Expression tail folding is enabled for self-contained suffixes that can be
 /// rebuilt as wrapper blocks without changing stack requirements.
 const CF_ENABLE_EXPRESSION_FOLDING : Bool = true
@@ -511,6 +521,15 @@ fn cf_can_fast_skip_func_body(body : TExpr) -> Bool {
     return false
   }
   !cf_texpr_has_control_surface(body)
+}
+
+///|
+fn cf_should_skip_terminating_tail_phase(
+  tail_count : Int,
+  collect_calls : Int,
+) -> Bool {
+  tail_count >= CF_TERMINATING_TAIL_COUNT_LIMIT &&
+  collect_calls > CF_TERMINATING_COLLECT_BODY_LIMIT
 }
 
 ///|
@@ -3624,7 +3643,13 @@ fn code_folding_pass_with_trace(
             round_stats.unreachable_phase_calls += 1
             let unreachable_tail_count = state.unreachable_tails.length()
             round_stats.unreachable_phase_tails += unreachable_tail_count
+            let skip_unreachable_phase = cf_should_skip_terminating_tail_phase(
+              unreachable_tail_count,
+              round_stats.collect_calls,
+            )
             let unreachable_result = if unreachable_tail_count < 2 {
+              None
+            } else if skip_unreachable_phase {
               None
             } else {
               let unreachable_start_us = if log_func {
@@ -3653,6 +3678,10 @@ fn code_folding_pass_with_trace(
             if unreachable_tail_count < 2 && log_func {
               trace(
                 "func[\{ordinal}] round[\{rounds}] terminating_unreachable elapsed_ms=0 elapsed_us=0 tails=\{unreachable_tail_count} changed=false",
+              )
+            } else if skip_unreachable_phase && log_func {
+              trace(
+                "func[\{ordinal}] round[\{rounds}] terminating_unreachable elapsed_ms=0 elapsed_us=0 tails=\{unreachable_tail_count} changed=false skipped reason=terminating_budget collect_bodies=\{round_stats.collect_calls} tail_limit=\{CF_TERMINATING_TAIL_COUNT_LIMIT} collect_body_limit=\{CF_TERMINATING_COLLECT_BODY_LIMIT}",
               )
             }
             match unreachable_result {
@@ -3694,7 +3723,13 @@ fn code_folding_pass_with_trace(
             round_stats.return_phase_calls += 1
             let return_tail_count = state.return_tails.length()
             round_stats.return_phase_tails += return_tail_count
+            let skip_return_phase = cf_should_skip_terminating_tail_phase(
+              return_tail_count,
+              round_stats.collect_calls,
+            )
             let return_result = if return_tail_count < 2 {
+              None
+            } else if skip_return_phase {
               None
             } else {
               let return_start_us = if log_func {
@@ -3723,6 +3758,10 @@ fn code_folding_pass_with_trace(
             if return_tail_count < 2 && log_func {
               trace(
                 "func[\{ordinal}] round[\{rounds}] terminating_returns elapsed_ms=0 elapsed_us=0 tails=\{return_tail_count} changed=false",
+              )
+            } else if skip_return_phase && log_func {
+              trace(
+                "func[\{ordinal}] round[\{rounds}] terminating_returns elapsed_ms=0 elapsed_us=0 tails=\{return_tail_count} changed=false skipped reason=terminating_budget collect_bodies=\{round_stats.collect_calls} tail_limit=\{CF_TERMINATING_TAIL_COUNT_LIMIT} collect_body_limit=\{CF_TERMINATING_COLLECT_BODY_LIMIT}",
               )
             }
             let mut defer_walk_after_return_rewrite = false
@@ -4066,6 +4105,89 @@ test "code_folding_pass_with_trace skips walk when collect-body budget is exceed
       msg.contains("walk skipped reason=collect_body_budget")
     }),
     msg="expected collect-body budget guard to skip expression walk",
+  )
+}
+
+///|
+test "code_folding_pass_with_trace skips terminating returns when terminating budget is exceeded" {
+  let trace_logs : Array[String] = []
+  let pass = code_folding_pass_with_trace(trace=fn(msg) { trace_logs.push(msg) })
+  let state = CodeFoldingState::{
+    ..CodeFoldingState::new(),
+    another_pass: false,
+  }
+  let if_sites = 160
+  let body_instrs : Array[TInstr] = []
+  let mut i = 0
+  while i < if_sites {
+    body_instrs.push(
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::i32_const(I32(0)),
+        TExpr::new([TInstr::return_([])]),
+        Some(TExpr::new([TInstr::return_([])])),
+      ),
+    )
+    i += 1
+  }
+  let func = Func::t_func([], [], TExpr::new(body_instrs))
+  match pass.walk_func(state, func) {
+    Ok(_) => ()
+    Err(e) => fail("Unexpected error: " + e)
+  }
+  assert_true(
+    trace_logs.any(fn(msg) {
+      msg.contains("terminating_returns") &&
+      msg.contains("skipped reason=terminating_budget")
+    }),
+    msg="expected terminating-return budget guard to skip expensive return-tail optimization",
+  )
+}
+
+///|
+test "code_folding_pass_with_trace keeps terminating returns enabled for small foldable cases" {
+  let trace_logs : Array[String] = []
+  let pass = code_folding_pass_with_trace(trace=fn(msg) { trace_logs.push(msg) })
+  let state = CodeFoldingState::{
+    ..CodeFoldingState::new(
+      env=Env::new().with_return_type(Some([ValType::i32()])),
+    ),
+    another_pass: false,
+  }
+  let func = Func::t_func(
+    [],
+    [],
+    TExpr::new([
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::i32_const(I32(0)),
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(9))),
+          TInstr::return_([TInstr::i32_const(I32(1))]),
+        ]),
+        Some(
+          TExpr::new([
+            TInstr::drop(TInstr::i32_const(I32(9))),
+            TInstr::return_([TInstr::i32_const(I32(2))]),
+          ]),
+        ),
+      ),
+    ]),
+  )
+  ignore(pass.walk_func(state, func))
+  assert_true(
+    trace_logs.any(fn(msg) {
+      msg.contains("round[1] terminating_returns") &&
+      msg.contains("changed=true")
+    }),
+    msg="expected small foldable returns to continue using terminating return optimization",
+  )
+  assert_false(
+    trace_logs.any(fn(msg) {
+      msg.contains("terminating_returns") &&
+      msg.contains("skipped reason=terminating_budget")
+    }),
+    msg="terminating-return budget should not block small foldable cases",
   )
 }
 
