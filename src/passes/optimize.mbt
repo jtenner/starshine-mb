@@ -593,7 +593,16 @@ fn run_ir_context_transformer_scheduler_pass(
       apply_ir_transformer_pass(ctx, mod, merge_locals_ir_pass(mod, options~))
     MergeBlocks =>
       apply_ir_transformer_pass(ctx, mod, merge_blocks_ir_pass(mod, options~))
-    Flatten => apply_ir_transformer_pass(ctx, mod, flatten_ir_pass(mod))
+    Flatten =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        flatten_ir_pass_with_trace(
+          mod,
+          trace=fn(msg) { trace("flatten:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
     ReReloop => apply_ir_transformer_pass(ctx, mod, re_reloop_ir_pass(mod))
     TupleOptimization =>
       apply_ir_transformer_pass(ctx, mod, tuple_optimization_ir_pass(mod))

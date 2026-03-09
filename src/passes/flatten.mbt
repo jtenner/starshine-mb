@@ -21,6 +21,63 @@ priv struct FLBreakTempKey {
 } derive(Eq, Hash)
 
 ///|
+const FL_TRACE_PROGRESS_INTERVAL : Int = 2048
+
+///|
+const FL_TRACE_PROGRESS_INTERVAL_MS : UInt64 = 250UL
+
+///|
+fn fl_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn fl_trace_should_log_func(ordinal : Int, trace_all_funcs : Bool) -> Bool {
+  trace_all_funcs || ordinal <= 5 || ordinal % 250 == 0
+}
+
+///|
+fn fl_trace_now_ms() -> UInt64 {
+  pass_trace_now_ms()
+}
+
+///|
+fn fl_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
+  pass_trace_elapsed_ms(start_ms)
+}
+
+///|
+priv struct FLFuncTraceState {
+  trace : (String) -> Unit
+  log_func : Bool
+  ordinal : Int
+  func_start_ms : UInt64
+  last_progress_ms : Ref[UInt64]
+  expr_visits : Ref[Int]
+  instr_visits : Ref[Int]
+  rewrites : Ref[Int]
+}
+
+///|
+fn FLFuncTraceState::new(
+  trace : (String) -> Unit,
+  log_func : Bool,
+  ordinal : Int,
+  func_start_ms : UInt64,
+) -> FLFuncTraceState {
+  {
+    trace,
+    log_func,
+    ordinal,
+    func_start_ms,
+    last_progress_ms: Ref::new(0UL),
+    expr_visits: Ref::new(0),
+    instr_visits: Ref::new(0),
+    rewrites: Ref::new(0),
+  }
+}
+
+///|
 priv struct FLFuncState {
   mut env : Env
   locals : Array[ValType]
@@ -30,10 +87,15 @@ priv struct FLFuncState {
   // Label identity stack: each control construct with a label gets a unique uid.
   label_uids : Array[Int]
   next_label_uid : Ref[Int]
+  trace_state : FLFuncTraceState?
 }
 
 ///|
-fn FLFuncState::new(env : Env, locals : Array[ValType]) -> FLFuncState {
+fn FLFuncState::new(
+  env : Env,
+  locals : Array[ValType],
+  trace_state? : FLFuncTraceState? = None,
+) -> FLFuncState {
   {
     env,
     locals,
@@ -41,7 +103,183 @@ fn FLFuncState::new(env : Env, locals : Array[ValType]) -> FLFuncState {
     changed: false,
     label_uids: [],
     next_label_uid: Ref::new(1),
+    trace_state,
   }
+}
+
+///|
+fn fl_instr_kind_name(instr : TInstr) -> String {
+  match instr.kind {
+    TInstrKind::TBlock(_, _) => "block"
+    TInstrKind::TLoop(_, _) => "loop"
+    TInstrKind::TTryTable(_, _, _) => "try_table"
+    TInstrKind::TIf(_, _, _, _) => "if"
+    TInstrKind::TBr(_, _) => "br"
+    TInstrKind::TBrIf(_, _, _) => "br_if"
+    TInstrKind::TBrTable(_, _, _, _) => "br_table"
+    TInstrKind::TBrOnNull(_, _, _) => "br_on_null"
+    TInstrKind::TBrOnNonNull(_, _, _) => "br_on_non_null"
+    TInstrKind::TBrOnCast(_, _, _, _, _, _) => "br_on_cast"
+    TInstrKind::TBrOnCastFail(_, _, _, _, _, _) => "br_on_cast_fail"
+    TInstrKind::TLocalSet(_, _) => "local.set"
+    TInstrKind::TLocalTee(_, _) => "local.tee"
+    TInstrKind::TLocalGet(_) => "local.get"
+    TInstrKind::TDrop(_) => "drop"
+    TInstrKind::TCall(_, _) => "call"
+    TInstrKind::TCallIndirect(_, _, _, _) => "call_indirect"
+    TInstrKind::TCallRef(_, _, _) => "call_ref"
+    TInstrKind::TReturn(_) => "return"
+    TInstrKind::TSelect(_, _, _, _) => "select"
+    _ => "other"
+  }
+}
+
+///|
+fn fl_trace_maybe_emit_progress(
+  state : FLFuncState,
+  phase : String,
+  detail : String,
+) -> Unit {
+  match state.trace_state {
+    Some(ts) => {
+      if !ts.log_func {
+        return
+      }
+      let now_ms = fl_trace_now_ms()
+      let expr_visits = ts.expr_visits.val
+      let instr_visits = ts.instr_visits.val
+      let rewrites = ts.rewrites.val
+      let work_done = expr_visits + instr_visits + rewrites
+      let has_emitted_progress = ts.last_progress_ms.val != 0UL
+      let since_last_ms = if has_emitted_progress &&
+        now_ms >= ts.last_progress_ms.val {
+        now_ms - ts.last_progress_ms.val
+      } else {
+        0UL
+      }
+      let should_emit_first = !has_emitted_progress && work_done >= 32
+      let should_emit_periodic = (
+          expr_visits > 0 &&
+          (
+            (expr_visits <= 256 && expr_visits % 64 == 0) ||
+            expr_visits % FL_TRACE_PROGRESS_INTERVAL == 0
+          )
+        ) ||
+        (
+          instr_visits > 0 &&
+          (
+            (instr_visits <= 512 && instr_visits % 128 == 0) ||
+            instr_visits % FL_TRACE_PROGRESS_INTERVAL == 0
+          )
+        ) ||
+        (rewrites > 0 && rewrites % 32 == 0)
+      let should_emit_timed = since_last_ms >= FL_TRACE_PROGRESS_INTERVAL_MS
+      if !(should_emit_first || should_emit_periodic || should_emit_timed) {
+        return
+      }
+      (ts.trace)(
+        "func[\{ts.ordinal}] progress phase=\{phase} elapsed_ms=\{fl_trace_elapsed_ms(ts.func_start_ms)} exprs=\{expr_visits} instrs=\{instr_visits} rewrites=\{rewrites} \{detail}",
+      )
+      ts.last_progress_ms.val = now_ms
+    }
+    None => ()
+  }
+}
+
+///|
+fn fl_trace_note_expr_visit(
+  state : FLFuncState,
+  phase : String,
+  detail : String,
+) -> Unit {
+  match state.trace_state {
+    Some(ts) => ts.expr_visits.val = ts.expr_visits.val + 1
+    None => ()
+  }
+  fl_trace_maybe_emit_progress(state, phase, detail)
+}
+
+///|
+fn fl_trace_note_instr_visit(
+  state : FLFuncState,
+  phase : String,
+  detail : String,
+) -> Unit {
+  match state.trace_state {
+    Some(ts) => ts.instr_visits.val = ts.instr_visits.val + 1
+    None => ()
+  }
+  fl_trace_maybe_emit_progress(state, phase, detail)
+}
+
+///|
+fn fl_trace_helper_start(
+  state : FLFuncState,
+  helper : String,
+  detail : String,
+) -> UInt64 {
+  let start_ms = fl_trace_now_ms()
+  match state.trace_state {
+    Some(ts) =>
+      if ts.log_func {
+        (ts.trace)(
+          "func[\{ts.ordinal}] helper=\{helper} step=start elapsed_ms=\{fl_trace_elapsed_ms(ts.func_start_ms)} \{detail}",
+        )
+      }
+    None => ()
+  }
+  start_ms
+}
+
+///|
+fn fl_trace_helper_done(
+  state : FLFuncState,
+  helper : String,
+  start_ms : UInt64,
+  detail : String,
+) -> Unit {
+  match state.trace_state {
+    Some(ts) =>
+      if ts.log_func {
+        (ts.trace)(
+          "func[\{ts.ordinal}] helper=\{helper} step=done elapsed_ms=\{fl_trace_elapsed_ms(start_ms)} total_ms=\{fl_trace_elapsed_ms(ts.func_start_ms)} \{detail}",
+        )
+      }
+    None => ()
+  }
+}
+
+///|
+fn fl_trace_helper_event(
+  state : FLFuncState,
+  helper : String,
+  step : String,
+  detail : String,
+) -> Unit {
+  match state.trace_state {
+    Some(ts) =>
+      if ts.log_func {
+        (ts.trace)(
+          "func[\{ts.ordinal}] helper=\{helper} step=\{step} elapsed_ms=\{fl_trace_elapsed_ms(ts.func_start_ms)} \{detail}",
+        )
+      }
+    None => ()
+  }
+}
+
+///|
+fn fl_trace_mark_rewrite(
+  state : FLFuncState,
+  helper : String,
+  detail : String,
+) -> Unit {
+  state.changed = true
+  match state.trace_state {
+    Some(ts) => ts.rewrites.val = ts.rewrites.val + 1
+    None => ()
+  }
+  fl_trace_helper_event(state, helper, "rewrite", detail)
+  fl_trace_maybe_emit_progress(state, helper, detail)
 }
 
 ///|
@@ -88,7 +326,7 @@ fn fl_add_temp_local(state : FLFuncState, ty : ValType) -> LocalIdx {
   let idx = LocalIdx::new(state.locals.length().reinterpret_as_uint())
   state.locals.push(ty)
   state.env = state.env.with_locals(state.locals)
-  state.changed = true
+  fl_trace_mark_rewrite(state, "fl_add_temp_local", "new_local=\{idx}")
   idx
 }
 
@@ -113,6 +351,12 @@ fn fl_get_break_temp(
     None => {
       let idx = fl_add_temp_local(state, ty)
       state.break_temps[key] = idx
+      fl_trace_helper_event(
+        state,
+        "fl_get_break_temp",
+        "allocate",
+        "label_uid=\{uid} val_type=\{ty}",
+      )
       idx
     }
   }
@@ -169,6 +413,16 @@ fn fl_is_leaf_constant_or_nop(instr : TInstr) -> Bool {
 ///|
 /// Main flattening entry for expressions: unchanged signature.
 fn fl_flatten_texpr(body : TExpr, state : FLFuncState) -> Result[TExpr, String] {
+  let helper_start_ms = fl_trace_helper_start(
+    state,
+    "fl_flatten_texpr",
+    "instrs=\{body.instrs.length()}",
+  )
+  fl_trace_note_expr_visit(
+    state,
+    "helper=fl_flatten_texpr:start",
+    "instrs=\{body.instrs.length()}",
+  )
   let out : Array[TInstr] = []
   for instr in body.instrs {
     let (next_instr, preludes) = match
@@ -178,10 +432,20 @@ fn fl_flatten_texpr(body : TExpr, state : FLFuncState) -> Result[TExpr, String] 
     }
     for prelude in preludes {
       out.push(prelude)
-      state.changed = true
+      fl_trace_mark_rewrite(
+        state,
+        "fl_flatten_texpr",
+        "insert_prelude kind=\{fl_instr_kind_name(prelude)}",
+      )
     }
     out.push(next_instr)
   }
+  fl_trace_helper_done(
+    state,
+    "fl_flatten_texpr",
+    helper_start_ms,
+    "instrs=\{body.instrs.length()} out_instrs=\{out.length()}",
+  )
   Ok(TExpr::new(out))
 }
 
@@ -190,8 +454,16 @@ fn fl_flatten_non_control_children(
   instr : TInstr,
   state : FLFuncState,
 ) -> Result[(TInstr, Array[TInstr]), String] {
+  let helper_start_ms = fl_trace_helper_start(
+    state,
+    "fl_flatten_non_control_children",
+    "kind=\{fl_instr_kind_name(instr)}",
+  )
   let children = eval_children(instr)
   if children.is_empty() {
+    fl_trace_helper_done(
+      state, "fl_flatten_non_control_children", helper_start_ms, "children=0 changed=false",
+    )
     return Ok((instr, []))
   }
   let rebuilt_children : Array[TInstr] = []
@@ -217,9 +489,25 @@ fn fl_flatten_non_control_children(
     rebuilt_children.push(next_child)
   }
   if any_child_change {
-    state.changed = true
+    fl_trace_mark_rewrite(
+      state,
+      "fl_flatten_non_control_children",
+      "kind=\{fl_instr_kind_name(instr)} children=\{children.length()}",
+    )
+    fl_trace_helper_done(
+      state,
+      "fl_flatten_non_control_children",
+      helper_start_ms,
+      "children=\{children.length()} changed=true preludes=\{preludes.length()}",
+    )
     Ok((mb_rebuild_non_control(instr, rebuilt_children), preludes))
   } else {
+    fl_trace_helper_done(
+      state,
+      "fl_flatten_non_control_children",
+      helper_start_ms,
+      "children=\{children.length()} changed=false preludes=\{preludes.length()}",
+    )
     Ok((instr, preludes))
   }
 }
@@ -230,6 +518,11 @@ fn fl_flatten_instr(
   state : FLFuncState,
   pos : FLPosition,
 ) -> Result[(TInstr, Array[TInstr]), String] {
+  fl_trace_note_instr_visit(
+    state,
+    "helper=fl_flatten_instr",
+    "kind=\{fl_instr_kind_name(instr)}",
+  )
   if fl_is_leaf_constant_or_nop(instr) {
     return Ok((instr, []))
   }
@@ -285,7 +578,9 @@ fn fl_flatten_instr(
 
                   preludes.push(TInstr::block(BlockType::void_(), rewritten2))
                   curr = TInstr::local_get(temp)
-                  state.changed = true
+                  fl_trace_mark_rewrite(
+                    state, "fl_flatten_instr", "lower_result_block kind=block",
+                  )
                 }
                 None =>
                   // unexpected, but keep structure
@@ -334,7 +629,9 @@ fn fl_flatten_instr(
 
                   preludes.push(TInstr::loop_(BlockType::void_(), rewritten2))
                   curr = TInstr::local_get(temp)
-                  state.changed = true
+                  fl_trace_mark_rewrite(
+                    state, "fl_flatten_instr", "lower_result_block kind=loop",
+                  )
                 }
                 None => curr = TInstr::loop_(bt, next_body)
               }
@@ -382,7 +679,9 @@ fn fl_flatten_instr(
                     TInstr::try_table(BlockType::void_(), catches, rewritten2),
                   )
                   curr = TInstr::local_get(temp)
-                  state.changed = true
+                  fl_trace_mark_rewrite(
+                    state, "fl_flatten_instr", "lower_result_block kind=try_table",
+                  )
                 }
                 None => curr = TInstr::try_table(bt, catches, next_body)
               }
@@ -478,7 +777,9 @@ fn fl_flatten_instr(
             )
             preludes.push(rewritten_if)
             curr = TInstr::local_get(temp)
-            state.changed = true
+            fl_trace_mark_rewrite(
+              state, "fl_flatten_instr", "lower_result_block kind=if",
+            )
           }
           None => curr = rewritten_if
         }
@@ -508,7 +809,9 @@ fn fl_flatten_instr(
                   let temp = fl_get_break_temp(state, label, vt)
                   preludes.push(TInstr::local_set(temp, values[0]))
                   curr = TInstr::br(label, [TInstr::local_get(temp)])
-                  state.changed = true
+                  fl_trace_mark_rewrite(
+                    state, "fl_flatten_instr", "localize_branch_value kind=br",
+                  )
                 }
                 None => ()
               }
@@ -520,7 +823,9 @@ fn fl_flatten_instr(
                   let temp = fl_get_break_temp(state, label, vt)
                   preludes.push(TInstr::local_set(temp, values[0]))
                   curr = TInstr::br_if(label, cond, [TInstr::local_get(temp)])
-                  state.changed = true
+                  fl_trace_mark_rewrite(
+                    state, "fl_flatten_instr", "localize_branch_value kind=br_if",
+                  )
                 }
                 None => ()
               }
@@ -534,7 +839,9 @@ fn fl_flatten_instr(
                   curr = TInstr::br_on_null(label, ref_, [
                     TInstr::local_get(temp),
                   ])
-                  state.changed = true
+                  fl_trace_mark_rewrite(
+                    state, "fl_flatten_instr", "localize_branch_value kind=br_on_null",
+                  )
                 }
                 None => ()
               }
@@ -548,7 +855,9 @@ fn fl_flatten_instr(
                   curr = TInstr::br_on_non_null(label, ref_, [
                     TInstr::local_get(temp),
                   ])
-                  state.changed = true
+                  fl_trace_mark_rewrite(
+                    state, "fl_flatten_instr", "localize_branch_value kind=br_on_non_null",
+                  )
                 }
                 None => ()
               }
@@ -568,7 +877,9 @@ fn fl_flatten_instr(
                     ref_,
                     [TInstr::local_get(temp)],
                   )
-                  state.changed = true
+                  fl_trace_mark_rewrite(
+                    state, "fl_flatten_instr", "localize_branch_value kind=br_on_cast",
+                  )
                 }
                 None => ()
               }
@@ -588,7 +899,9 @@ fn fl_flatten_instr(
                     ref_,
                     [TInstr::local_get(temp)],
                   )
-                  state.changed = true
+                  fl_trace_mark_rewrite(
+                    state, "fl_flatten_instr", "localize_branch_value kind=br_on_cast_fail",
+                  )
                 }
                 None => ()
               }
@@ -607,7 +920,9 @@ fn fl_flatten_instr(
   if is_unreachable_instr(curr) {
     if fl_can_emit_statement_preludes(pos) {
       preludes.push(curr)
-      state.changed = true
+      fl_trace_mark_rewrite(
+        state, "fl_flatten_instr", "unreachable_lifted_to_prelude",
+      )
       return Ok((TInstr::unreachable_(), preludes))
     }
     return Ok((curr, preludes))
@@ -622,7 +937,11 @@ fn fl_flatten_instr(
       if !fl_is_leaf_constant_or_nop(curr) {
         let temp = fl_add_temp_local(state, vt)
         preludes.push(TInstr::local_set(temp, curr))
-        state.changed = true
+        fl_trace_mark_rewrite(
+          state,
+          "fl_flatten_instr",
+          "wrap_typed_expr_in_temp kind=\{fl_instr_kind_name(curr)}",
+        )
         Ok((TInstr::local_get(temp), preludes))
       } else {
         Ok((curr, preludes))
@@ -649,32 +968,94 @@ fn fl_collect_param_types(mod : Module) -> Array[Array[ValType]] {
 }
 
 ///|
-fn flatten_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn fl_defined_func_count(mod : Module) -> Int {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => funcs.length()
+    None => 0
+  }
+}
+
+///|
+fn flatten_ir_pass_with_trace(
+  mod : Module,
+  trace? : (String) -> Unit = fl_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> ModuleTransformer[IRContext] {
+  let params_start_ms = fl_trace_now_ms()
+  trace("phase=flatten:collect_param_types:start")
   let param_types = fl_collect_param_types(mod)
+  trace(
+    "phase=flatten:collect_param_types:done elapsed_ms=\{fl_trace_elapsed_ms(params_start_ms)} funcs=\{param_types.length()}",
+  )
   let next_def_idx = Ref::new(0)
   let base_env = Env::new().with_module(mod)
   let validate_rewrites = match validate_module(mod) {
     Ok(_) => true
     Err(_) => false
   }
+  trace(
+    "phase=flatten:prepare:done validate_rewrites=\{validate_rewrites} funcs=\{fl_defined_func_count(mod)}",
+  )
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
+    let ordinal = def_idx + 1
+    let log_func = fl_trace_should_log_func(ordinal, trace_all_funcs)
+    let func_start_ms = fl_trace_now_ms()
     match func {
       TFunc(tfunc_params, locals, body) => {
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=function:start params=\{tfunc_params.length()} locals=\{locals.length()} top_instrs=\{body.instrs.length()}",
+          )
+        }
+        let trace_state = FLFuncTraceState::new(
+          trace, log_func, ordinal, func_start_ms,
+        )
         let params = param_types.get(def_idx).unwrap_or([])
         let all_locals = match
           FunctionLocals::from_typed_func_for_pass(params, tfunc_params, locals) {
           Ok(function_locals) => function_locals.all_locals()
-          Err(e) => return Err("flatten: malformed typed function locals: \{e}")
+          Err(e) => {
+            if log_func {
+              trace(
+                "func[\{ordinal}] phase=locals:error elapsed_ms=\{fl_trace_elapsed_ms(func_start_ms)} \{e}",
+              )
+            }
+            return Err("flatten: malformed typed function locals: \{e}")
+          }
+        }
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=locals:done elapsed_ms=\{fl_trace_elapsed_ms(func_start_ms)} all_locals=\{all_locals.length()}",
+          )
         }
         let state = FLFuncState::new(
           base_env.with_locals(all_locals),
           all_locals,
+          trace_state=Some(trace_state),
         )
+        let flatten_start_ms = fl_trace_now_ms()
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=flatten_body:start top_instrs=\{body.instrs.length()}",
+          )
+        }
         let next_body = match fl_flatten_texpr(body, state) {
           Ok(v) => v
-          Err(e) => return Err(e)
+          Err(e) => {
+            if log_func {
+              trace(
+                "func[\{ordinal}] phase=flatten_body:error elapsed_ms=\{fl_trace_elapsed_ms(flatten_start_ms)} \{e}",
+              )
+            }
+            return Err(e)
+          }
+        }
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=flatten_body:done elapsed_ms=\{fl_trace_elapsed_ms(flatten_start_ms)} top_instrs=\{body.instrs.length()}->\{next_body.instrs.length()}",
+          )
         }
         let next_non_param_locals : Array[ValType] = []
         for i in params.length()..<state.locals.length() {
@@ -683,6 +1064,10 @@ fn flatten_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
         let next_func = Func::t_func(params, next_non_param_locals, next_body)
         if state.changed || next_non_param_locals.length() != locals.length() {
           if validate_rewrites {
+            let validate_start_ms = fl_trace_now_ms()
+            if log_func {
+              trace("func[\{ordinal}] phase=validate_candidate:start")
+            }
             match mod.code_sec {
               Some(CodeSec(funcs)) if def_idx < funcs.length() => {
                 let candidate_funcs = funcs.copy()
@@ -700,37 +1085,118 @@ fn flatten_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
               }
               _ => ()
             }
+            if log_func {
+              trace(
+                "func[\{ordinal}] phase=validate_candidate:done elapsed_ms=\{fl_trace_elapsed_ms(validate_start_ms)}",
+              )
+            }
+          }
+          if log_func {
+            match state.trace_state {
+              Some(ts) =>
+                trace(
+                  "func[\{ordinal}] phase=function:done elapsed_ms=\{fl_trace_elapsed_ms(func_start_ms)} changed=true top_instrs=\{body.instrs.length()}->\{next_body.instrs.length()} locals=\{locals.length()}->\{next_non_param_locals.length()} exprs=\{ts.expr_visits.val} instrs=\{ts.instr_visits.val} rewrites=\{ts.rewrites.val}",
+                )
+              None => ()
+            }
           }
           change(ctx, next_func)
         } else {
+          if log_func {
+            match state.trace_state {
+              Some(ts) =>
+                trace(
+                  "func[\{ordinal}] phase=function:done elapsed_ms=\{fl_trace_elapsed_ms(func_start_ms)} changed=false top_instrs=\{body.instrs.length()}->\{body.instrs.length()} locals=\{locals.length()} exprs=\{ts.expr_visits.val} instrs=\{ts.instr_visits.val} rewrites=\{ts.rewrites.val}",
+                )
+              None => ()
+            }
+          }
           unchanged()
         }
       }
-      _ => unchanged()
+      _ => {
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=function:skip reason=non-typed-func elapsed_ms=\{fl_trace_elapsed_ms(func_start_ms)}",
+          )
+        }
+        unchanged()
+      }
     }
   })
 }
 
 ///|
-fn run_flatten(mod : Module) -> Result[Module, String] {
-  let pass = flatten_ir_pass(mod)
+fn run_flatten_with_trace(
+  mod : Module,
+  trace? : (String) -> Unit = fl_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> Result[Module, String] {
+  let pass_start_ms = fl_trace_now_ms()
+  trace(
+    "phase=flatten:pass:start funcs=\{fl_defined_func_count(mod)} trace_all_funcs=\{trace_all_funcs}",
+  )
+  let pass = flatten_ir_pass_with_trace(mod, trace~, trace_all_funcs~)
   let validate_output = match validate_module(mod) {
     Ok(_) => true
     Err(_) => false
   }
+  trace(
+    "phase=flatten:walk_module:start validate_output=\{validate_output} funcs=\{fl_defined_func_count(mod)}",
+  )
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) =>
+    Ok(Some((_, out))) => {
+      trace(
+        "phase=flatten:walk_module:done elapsed_ms=\{fl_trace_elapsed_ms(pass_start_ms)} changed=true",
+      )
       if validate_output {
+        let validate_start_ms = fl_trace_now_ms()
+        trace("phase=flatten:validate_output:start")
         match validate_module(out) {
-          Ok(_) => Ok(out)
-          Err(e) => Err("flatten: output module failed validation: \{e}")
+          Ok(_) => {
+            trace(
+              "phase=flatten:validate_output:done elapsed_ms=\{fl_trace_elapsed_ms(validate_start_ms)}",
+            )
+            trace(
+              "phase=flatten:pass:done elapsed_ms=\{fl_trace_elapsed_ms(pass_start_ms)} changed=true",
+            )
+            Ok(out)
+          }
+          Err(e) => {
+            trace(
+              "phase=flatten:validate_output:failed elapsed_ms=\{fl_trace_elapsed_ms(validate_start_ms)} \{e}",
+            )
+            Err("flatten: output module failed validation: \{e}")
+          }
         }
       } else {
+        trace(
+          "phase=flatten:pass:done elapsed_ms=\{fl_trace_elapsed_ms(pass_start_ms)} changed=true",
+        )
         Ok(out)
       }
-    Ok(None) => Ok(mod)
-    Err(e) => Err(e)
+    }
+    Ok(None) => {
+      trace(
+        "phase=flatten:walk_module:done elapsed_ms=\{fl_trace_elapsed_ms(pass_start_ms)} changed=false",
+      )
+      trace(
+        "phase=flatten:pass:done elapsed_ms=\{fl_trace_elapsed_ms(pass_start_ms)} changed=false",
+      )
+      Ok(mod)
+    }
+    Err(e) => {
+      trace(
+        "phase=flatten:walk_module:error elapsed_ms=\{fl_trace_elapsed_ms(pass_start_ms)} \{e}",
+      )
+      Err(e)
+    }
   }
+}
+
+///|
+fn run_flatten(mod : Module) -> Result[Module, String] {
+  run_flatten_with_trace(mod)
 }
 
 ///|
@@ -1033,12 +1499,23 @@ fn fl_rewrite_label_value_flow_in_texpr(
   target_uid : Int,
   temp : LocalIdx,
 ) -> TExpr {
+  let helper_start_ms = fl_trace_helper_start(
+    state,
+    "fl_rewrite_label_value_flow_in_texpr",
+    "instrs=\{body.instrs.length()} target_uid=\{target_uid}",
+  )
   let out : Array[TInstr] = []
   for instr in body.instrs {
     out.push(
       fl_rewrite_label_value_flow_in_instr(instr, state, target_uid, temp),
     )
   }
+  fl_trace_helper_done(
+    state,
+    "fl_rewrite_label_value_flow_in_texpr",
+    helper_start_ms,
+    "instrs=\{body.instrs.length()} out_instrs=\{out.length()} target_uid=\{target_uid}",
+  )
   TExpr::new(out)
 }
 
@@ -1162,11 +1639,28 @@ fn fl_has_unsupported_targeting_branch_in_texpr(
   state : FLFuncState,
   target_uid : Int,
 ) -> Bool {
+  let helper_start_ms = fl_trace_helper_start(
+    state,
+    "fl_has_unsupported_targeting_branch_in_texpr",
+    "instrs=\{body.instrs.length()} target_uid=\{target_uid}",
+  )
   for instr in body.instrs {
     if fl_has_unsupported_targeting_branch_in_instr(instr, state, target_uid) {
+      fl_trace_helper_done(
+        state,
+        "fl_has_unsupported_targeting_branch_in_texpr",
+        helper_start_ms,
+        "blocked=true target_uid=\{target_uid}",
+      )
       return true
     }
   }
+  fl_trace_helper_done(
+    state,
+    "fl_has_unsupported_targeting_branch_in_texpr",
+    helper_start_ms,
+    "blocked=false target_uid=\{target_uid}",
+  )
   false
 }
 
@@ -1218,6 +1712,12 @@ fn fl_rewrite_branch_node(
         match fl_resolve_label_uid(state, label) {
           Some(uid) if uid == target_uid => {
             let bumped = fl_bump_label(label, 1)
+            fl_trace_helper_event(
+              state,
+              "fl_rewrite_branch_node",
+              "rewrite",
+              "kind=br label=\{label} target_uid=\{target_uid}",
+            )
             TInstr::block(
               BlockType::void_(),
               TExpr::new([
@@ -1237,7 +1737,13 @@ fn fl_rewrite_branch_node(
           Some(uid) if uid == target_uid => {
             let bumped = fl_bump_label(label, 1)
             match fl_instr_type(values[0], state.env) {
-              Some(vt) =>
+              Some(vt) => {
+                fl_trace_helper_event(
+                  state,
+                  "fl_rewrite_branch_node",
+                  "rewrite",
+                  "kind=br_if label=\{label} target_uid=\{target_uid}",
+                )
                 TInstr::block(
                   BlockType::val_type(vt),
                   TExpr::new([
@@ -1246,6 +1752,7 @@ fn fl_rewrite_branch_node(
                     TInstr::local_get(temp),
                   ]),
                 )
+              }
               None => instr
             }
           }
@@ -1260,7 +1767,13 @@ fn fl_rewrite_branch_node(
           Some(uid) if uid == target_uid => {
             let bumped = fl_bump_label(label, 1)
             match fl_branch_fallthrough_type(instr, state.env) {
-              Some(vt) =>
+              Some(vt) => {
+                fl_trace_helper_event(
+                  state,
+                  "fl_rewrite_branch_node",
+                  "rewrite",
+                  "kind=br_on_null label=\{label} target_uid=\{target_uid}",
+                )
                 TInstr::block(
                   BlockType::val_type(vt),
                   TExpr::new([
@@ -1268,6 +1781,7 @@ fn fl_rewrite_branch_node(
                     TInstr::br_on_null(bumped, ref_, []),
                   ]),
                 )
+              }
               None => instr
             }
           }
@@ -1281,6 +1795,12 @@ fn fl_rewrite_branch_node(
         match fl_resolve_label_uid(state, label) {
           Some(uid) if uid == target_uid => {
             let bumped = fl_bump_label(label, 1)
+            fl_trace_helper_event(
+              state,
+              "fl_rewrite_branch_node",
+              "rewrite",
+              "kind=br_on_non_null label=\{label} target_uid=\{target_uid}",
+            )
             TInstr::block(
               BlockType::void_(),
               TExpr::new([
@@ -1300,7 +1820,13 @@ fn fl_rewrite_branch_node(
           Some(uid) if uid == target_uid => {
             let bumped = fl_bump_label(label, 1)
             match fl_branch_fallthrough_type(instr, state.env) {
-              Some(vt) =>
+              Some(vt) => {
+                fl_trace_helper_event(
+                  state,
+                  "fl_rewrite_branch_node",
+                  "rewrite",
+                  "kind=br_on_cast label=\{label} target_uid=\{target_uid}",
+                )
                 TInstr::block(
                   BlockType::val_type(vt),
                   TExpr::new([
@@ -1316,6 +1842,7 @@ fn fl_rewrite_branch_node(
                     ),
                   ]),
                 )
+              }
               None => instr
             }
           }
@@ -1330,7 +1857,13 @@ fn fl_rewrite_branch_node(
           Some(uid) if uid == target_uid => {
             let bumped = fl_bump_label(label, 1)
             match fl_branch_fallthrough_type(instr, state.env) {
-              Some(vt) =>
+              Some(vt) => {
+                fl_trace_helper_event(
+                  state,
+                  "fl_rewrite_branch_node",
+                  "rewrite",
+                  "kind=br_on_cast_fail label=\{label} target_uid=\{target_uid}",
+                )
                 TInstr::block(
                   BlockType::val_type(vt),
                   TExpr::new([
@@ -1346,6 +1879,7 @@ fn fl_rewrite_branch_node(
                     ),
                   ]),
                 )
+              }
               None => instr
             }
           }
