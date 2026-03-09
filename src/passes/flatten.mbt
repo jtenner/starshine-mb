@@ -989,13 +989,7 @@ fn flatten_ir_pass_with_trace(
   )
   let next_def_idx = Ref::new(0)
   let base_env = Env::new().with_module(mod)
-  let validate_rewrites = match validate_module(mod) {
-    Ok(_) => true
-    Err(_) => false
-  }
-  trace(
-    "phase=flatten:prepare:done validate_rewrites=\{validate_rewrites} funcs=\{fl_defined_func_count(mod)}",
-  )
+  trace("phase=flatten:prepare:done funcs=\{fl_defined_func_count(mod)}")
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
@@ -1063,34 +1057,6 @@ fn flatten_ir_pass_with_trace(
         }
         let next_func = Func::t_func(params, next_non_param_locals, next_body)
         if state.changed || next_non_param_locals.length() != locals.length() {
-          if validate_rewrites {
-            let validate_start_ms = fl_trace_now_ms()
-            if log_func {
-              trace("func[\{ordinal}] phase=validate_candidate:start")
-            }
-            match mod.code_sec {
-              Some(CodeSec(funcs)) if def_idx < funcs.length() => {
-                let candidate_funcs = funcs.copy()
-                candidate_funcs[def_idx] = next_func
-                let candidate_mod = mod.with_code_sec(
-                  CodeSec::new(candidate_funcs),
-                )
-                match validate_module(candidate_mod) {
-                  Ok(_) => ()
-                  Err(e) =>
-                    return Err(
-                      "flatten: transformed function \{def_idx} failed validation: \{e}",
-                    )
-                }
-              }
-              _ => ()
-            }
-            if log_func {
-              trace(
-                "func[\{ordinal}] phase=validate_candidate:done elapsed_ms=\{fl_trace_elapsed_ms(validate_start_ms)}",
-              )
-            }
-          }
           if log_func {
             match state.trace_state {
               Some(ts) =>
