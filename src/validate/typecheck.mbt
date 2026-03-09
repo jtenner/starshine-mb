@@ -1475,7 +1475,7 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
   }
 
   // if reachable, enforce results on top
-  let st2 = if st_body.reachable {
+  if st_body.reachable {
     let st_after_results = match st_body.pop_types(results) {
       Err(e) => return Err(e)
       Ok(s) => s
@@ -1483,16 +1483,15 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     if st_after_results.stack.length() != 0 {
       return Err("type mismatch")
     }
-    st_after_results
-  } else {
-    st_body
   }
 
   // restore outer env (pop label scope)
   let out = TcState::{
     env: st.env,
     stack: st1.stack.copy(),
-    reachable: st2.reachable,
+    // A loop does not make outer control-flow unreachable by itself.
+    // Preserve entry reachability at the merge point.
+    reachable: st.reachable,
   }
   Ok(out.push_types(results))
 }
@@ -4259,7 +4258,8 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       let out = TcState::{
         env: st.env,
         stack: st.stack.copy(),
-        reachable: st2.reachable,
+        // Typed loop merge mirrors untyped loop reachability semantics.
+        reachable: st.reachable,
       }
       Ok(out.push_types(results))
     }

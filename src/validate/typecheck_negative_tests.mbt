@@ -873,6 +873,26 @@ test "Typecheck block with unreachable body propagates unreachable" {
 }
 
 ///|
+test "Typecheck loop with unconditional backedge preserves outer reachability" {
+  let env = empty_env()
+  let state = tcneg_make_state(env, [])
+  let result = Typecheck::typecheck(
+    Instruction::loop_(
+      BlockType::void_(),
+      Expr::new([Instruction::br(LabelIdx::new(0))]),
+    ),
+    state,
+  )
+  match result {
+    Ok(st) => assert_true(st.reachable)
+    Err(e) =>
+      fail(
+        "Expected loop with unreachable body to keep outer reachability, got Err: \{e}",
+      )
+  }
+}
+
+///|
 test "Typecheck return with no return_type in env" {
   let env = empty_env() // return_type is None
   let state = tcneg_make_state(env, [])

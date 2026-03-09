@@ -1866,6 +1866,43 @@ test "validate_module accepts ref.func body when function is exported" {
   }
 }
 
+///|
+test "validate_module rejects tail loop that leaves function result missing" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          [],
+          Expr::new([
+            Instruction::loop_(
+              BlockType::void_(),
+              Expr::new([Instruction::br(LabelIdx::new(0))]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) =>
+      fail(
+        "expected missing i32 function result after tail loop to fail validation",
+      )
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      assert_true(
+        validation_error_message(err).contains(
+          "function body leaves extra values on stack",
+        ),
+      )
+    }
+  }
+}
+
 // ============ NumType Tests ============
 
 ///|
