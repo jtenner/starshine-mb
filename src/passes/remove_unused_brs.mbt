@@ -36,6 +36,15 @@ const RUB_TRACE_NO_PROGRESS_TIMEOUT_MS : UInt64 = 2000UL
 const RUB_NO_PROGRESS_TIMEOUT : String = "__remove_unused_brs_no_progress_timeout__"
 
 ///|
+const RUB_JUMP_THREAD_BR_CHILD_SCOPE_SCAN_VISIT_BUDGET : Int = 200000
+
+///|
+const RUB_JUMP_THREAD_BR_CHILD_SCOPE_SCAN_GUARD_INTERVAL : Int = 256
+
+///|
+const RUB_JUMP_THREAD_BR_CHILD_SCOPE_SCAN_TIMEOUT_MS : UInt64 = 200UL
+
+///|
 fn rub_trace_noop(_ : String) -> Unit {
   ()
 }
@@ -80,6 +89,21 @@ priv struct RUBRoundTraceState {
   expr_visits : Ref[Int]
   instr_visits : Ref[Int]
   rewrites : Ref[Int]
+}
+
+///|
+priv enum RUBChildScopeBranchScanResult {
+  ScanFound
+  ScanNotFound
+  ScanAborted
+}
+
+///|
+priv struct RUBChildScopeBranchScanState {
+  remaining_budget : Ref[Int]
+  visits_until_guard : Ref[Int]
+  start_ms : UInt64
+  trace_state : RUBRoundTraceState?
 }
 
 ///|
@@ -1248,34 +1272,7 @@ fn rub_has_top_level_child_scope_branch_instr(
   instr : TInstr,
   depth : Int,
 ) -> Bool {
-  match instr.kind {
-    TInstrKind::TBr(label, values) =>
-      values.length() == 0 && rub_label_to_int(label) == depth
-    TInstrKind::TBrIf(label, _, values) =>
-      values.length() == 0 && rub_label_to_int(label) == depth
-    TInstrKind::TBlock(_, body)
-    | TInstrKind::TLoop(_, body)
-    | TInstrKind::TTryTable(_, _, body) =>
-      rub_has_top_level_child_scope_branch_texpr(body, depth + 1)
-    TInstrKind::TIf(_, cond, then_body, else_body) => {
-      let else_has_child_scope_branch = match else_body {
-        Some(other) =>
-          rub_has_top_level_child_scope_branch_texpr(other, depth + 1)
-        None => false
-      }
-      rub_has_top_level_child_scope_branch_instr(cond, depth) ||
-      rub_has_top_level_child_scope_branch_texpr(then_body, depth + 1) ||
-      else_has_child_scope_branch
-    }
-    _ => {
-      for child in eval_children(instr) {
-        if rub_has_top_level_child_scope_branch_instr(child, depth) {
-          return true
-        }
-      }
-      false
-    }
-  }
+  rub_has_top_level_child_scope_branch_instr_bounded(instr, depth) is ScanFound
 }
 
 ///|
@@ -1289,6 +1286,171 @@ fn rub_has_top_level_child_scope_branch_texpr(
     }
   }
   false
+}
+
+///|
+fn rub_take_child_scope_branch_scan_step(
+  scan_state : RUBChildScopeBranchScanState,
+) -> Bool {
+  if scan_state.remaining_budget.val <= 0 {
+    return false
+  }
+  scan_state.remaining_budget.val -= 1
+  let next_visits_until_guard = scan_state.visits_until_guard.val - 1
+  if next_visits_until_guard > 0 {
+    scan_state.visits_until_guard.val = next_visits_until_guard
+    return true
+  }
+  scan_state.visits_until_guard.val = RUB_JUMP_THREAD_BR_CHILD_SCOPE_SCAN_GUARD_INTERVAL
+  if sl_trace_elapsed_ms(scan_state.start_ms) >=
+    RUB_JUMP_THREAD_BR_CHILD_SCOPE_SCAN_TIMEOUT_MS {
+    return false
+  }
+  match
+    rub_trace_check_no_progress(
+      scan_state.trace_state,
+      "helper=jump_thread_br:scan_body",
+    ) {
+    Ok(_) => true
+    Err(_) => false
+  }
+}
+
+///|
+fn rub_has_top_level_child_scope_branch_instr_bounded(
+  instr : TInstr,
+  depth : Int,
+  scan_state? : RUBChildScopeBranchScanState? = None,
+) -> RUBChildScopeBranchScanResult {
+  match scan_state {
+    Some(scan_state) =>
+      if !rub_take_child_scope_branch_scan_step(scan_state) {
+        return ScanAborted
+      }
+    None => ()
+  }
+  match instr.kind {
+    TInstrKind::TBr(label, values) =>
+      if values.length() == 0 && rub_label_to_int(label) == depth {
+        ScanFound
+      } else {
+        ScanNotFound
+      }
+    TInstrKind::TBrIf(label, _, values) =>
+      if values.length() == 0 && rub_label_to_int(label) == depth {
+        ScanFound
+      } else {
+        ScanNotFound
+      }
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      rub_has_top_level_child_scope_branch_texpr_bounded(
+        body,
+        depth + 1,
+        scan_state~,
+      )
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      let cond_result = rub_has_top_level_child_scope_branch_instr_bounded(
+        cond,
+        depth,
+        scan_state~,
+      )
+      match cond_result {
+        ScanFound | ScanAborted => return cond_result
+        ScanNotFound => ()
+      }
+      let then_result = rub_has_top_level_child_scope_branch_texpr_bounded(
+        then_body,
+        depth + 1,
+        scan_state~,
+      )
+      match then_result {
+        ScanFound | ScanAborted => return then_result
+        ScanNotFound => ()
+      }
+      match else_body {
+        Some(other) =>
+          rub_has_top_level_child_scope_branch_texpr_bounded(
+            other,
+            depth + 1,
+            scan_state~,
+          )
+        None => ScanNotFound
+      }
+    }
+    _ => {
+      for child in eval_children(instr) {
+        match
+          rub_has_top_level_child_scope_branch_instr_bounded(
+            child,
+            depth,
+            scan_state~,
+          ) {
+          ScanFound => return ScanFound
+          ScanAborted => return ScanAborted
+          ScanNotFound => ()
+        }
+      }
+      ScanNotFound
+    }
+  }
+}
+
+///|
+fn rub_has_top_level_child_scope_branch_texpr_bounded(
+  expr : TExpr,
+  depth : Int,
+  scan_state? : RUBChildScopeBranchScanState? = None,
+) -> RUBChildScopeBranchScanResult {
+  for instr in expr.instrs {
+    match
+      rub_has_top_level_child_scope_branch_instr_bounded(
+        instr,
+        depth,
+        scan_state~,
+      ) {
+      ScanFound => return ScanFound
+      ScanAborted => return ScanAborted
+      ScanNotFound => ()
+    }
+  }
+  ScanNotFound
+}
+
+///|
+fn rub_child_scope_branch_scan_result_name(
+  result : RUBChildScopeBranchScanResult,
+) -> String {
+  match result {
+    ScanFound => "found"
+    ScanNotFound => "not_found"
+    ScanAborted => "aborted"
+  }
+}
+
+///|
+fn rub_has_top_level_child_scope_branch_with_budget(
+  expr : TExpr,
+  visit_budget : Int,
+  trace_state? : RUBRoundTraceState? = None,
+) -> RUBChildScopeBranchScanResult {
+  if visit_budget <= 0 {
+    return ScanAborted
+  }
+  let scan_state : RUBChildScopeBranchScanState = {
+    remaining_budget: Ref::new(visit_budget),
+    visits_until_guard: Ref::new(
+      RUB_JUMP_THREAD_BR_CHILD_SCOPE_SCAN_GUARD_INTERVAL,
+    ),
+    start_ms: sl_trace_now_ms(),
+    trace_state,
+  }
+  rub_has_top_level_child_scope_branch_texpr_bounded(
+    expr,
+    0,
+    scan_state=Some(scan_state),
+  )
 }
 
 ///|
@@ -2323,6 +2485,7 @@ fn rub_optimize_jump_thread_block_wrapper(instr : TInstr) -> (TInstr, Bool) {
 ///|
 fn rub_optimize_jump_thread_child_block_following_br(
   instrs : Array[TInstr],
+  trace_state? : RUBRoundTraceState? = None,
 ) -> Bool {
   if instrs.length() < 2 {
     return false
@@ -2339,9 +2502,35 @@ fn rub_optimize_jump_thread_child_block_following_br(
         if j < instrs.length() {
           match instrs[j].kind {
             TInstrKind::TBr(fallthrough_label, []) => {
-              if !rub_has_top_level_child_scope_branch(body) {
-                i += 1
-                continue
+              let body_scan_start_ms = sl_trace_now_ms()
+              let body_scan_result = rub_has_top_level_child_scope_branch_with_budget(
+                body,
+                RUB_JUMP_THREAD_BR_CHILD_SCOPE_SCAN_VISIT_BUDGET,
+                trace_state~,
+              )
+              rub_trace_log_helper_step_done(
+                trace_state,
+                "jump_thread_br",
+                "scan_body",
+                sl_trace_elapsed_ms(body_scan_start_ms),
+                "site=\{i} body_instrs=\{body.instrs.length()} result=\{rub_child_scope_branch_scan_result_name(body_scan_result)}",
+              )
+              match body_scan_result {
+                ScanNotFound => {
+                  i += 1
+                  continue
+                }
+                ScanAborted => {
+                  rub_trace_log_helper_event(
+                    trace_state,
+                    "jump_thread_br",
+                    "scan_body_abort",
+                    "site=\{i} body_instrs=\{body.instrs.length()}",
+                  )
+                  i += 1
+                  continue
+                }
+                ScanFound => ()
               }
               let (next_body, body_changed) = rub_redirect_simple_child_scope_branches(
                 body, fallthrough_label,
@@ -3980,7 +4169,7 @@ fn rub_optimize_instr_list(
     instrs.length(),
   )
   let jump_thread_br_start_ms = sl_trace_now_ms()
-  if rub_optimize_jump_thread_child_block_following_br(instrs) {
+  if rub_optimize_jump_thread_child_block_following_br(instrs, trace_state~) {
     changed = true
   }
   rub_trace_log_slow_helper(
