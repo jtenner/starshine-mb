@@ -1067,14 +1067,37 @@ fn rub_redirect_simple_child_scope_branches_with_branch_pair_with_budget(
 }
 
 ///|
-fn rub_redirect_simple_child_scope_branches_to_unreachable(
+fn rub_redirect_simple_child_scope_branches_to_unreachable_with_budget(
   expr : TExpr,
+  visit_budget : Int,
+  trace_state? : RUBRoundTraceState? = None,
 ) -> (TExpr, Bool) {
+  if visit_budget <= 0 {
+    rub_trace_log_helper_event(
+      trace_state,
+      "jump_thread_unreachable",
+      "rewrite_abort",
+      "body_instrs=\{expr.instrs.length()} visits=0",
+    )
+    return (expr, false)
+  }
+  let rewrite_state : RUBChildScopeBranchRewriteState = {
+    remaining_budget: Ref::new(visit_budget),
+    visits_until_guard: Ref::new(
+      RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_GUARD_INTERVAL,
+    ),
+    start_ms: sl_trace_now_ms(),
+    trace_state,
+    no_progress_phase: "helper=jump_thread_unreachable:rewrite_body",
+  }
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     depth,
     instr,
   ) {
+    if !rub_take_child_scope_branch_rewrite_step(rewrite_state) {
+      return Err(RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED)
+    }
     let walked = match self.walk_tinstruction_default(depth, instr) {
       Ok(Some((_, updated))) => updated
       Ok(None) => instr
@@ -1107,19 +1130,54 @@ fn rub_redirect_simple_child_scope_branches_to_unreachable(
   match pass.walk_texpr(0, expr) {
     Ok(Some((_, out))) => (out, true)
     Ok(None) => (expr, false)
-    Err(e) => abort("remove_unused_brs child trap-thread failed: \{e}")
+    Err(e) =>
+      if e == RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED {
+        let visits = visit_budget - rewrite_state.remaining_budget.val
+        rub_trace_log_helper_event(
+          trace_state,
+          "jump_thread_unreachable",
+          "rewrite_abort",
+          "body_instrs=\{expr.instrs.length()} visits=\{visits}",
+        )
+        (expr, false)
+      } else {
+        abort("remove_unused_brs child trap-thread failed: \{e}")
+      }
   }
 }
 
 ///|
-fn rub_redirect_simple_child_scope_branches_to_return(
+fn rub_redirect_simple_child_scope_branches_to_return_with_budget(
   expr : TExpr,
+  visit_budget : Int,
+  trace_state? : RUBRoundTraceState? = None,
 ) -> (TExpr, Bool) {
+  if visit_budget <= 0 {
+    rub_trace_log_helper_event(
+      trace_state,
+      "jump_thread_return",
+      "rewrite_abort",
+      "body_instrs=\{expr.instrs.length()} visits=0",
+    )
+    return (expr, false)
+  }
+  let rewrite_state : RUBChildScopeBranchRewriteState = {
+    remaining_budget: Ref::new(visit_budget),
+    visits_until_guard: Ref::new(
+      RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_GUARD_INTERVAL,
+    ),
+    start_ms: sl_trace_now_ms(),
+    trace_state,
+    no_progress_phase: "helper=jump_thread_return:rewrite_body",
+  }
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     depth,
     instr,
   ) {
+    if !rub_take_child_scope_branch_rewrite_step(rewrite_state) {
+      return Err(RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED)
+    }
     let walked = match self.walk_tinstruction_default(depth, instr) {
       Ok(Some((_, updated))) => updated
       Ok(None) => instr
@@ -1152,7 +1210,19 @@ fn rub_redirect_simple_child_scope_branches_to_return(
   match pass.walk_texpr(0, expr) {
     Ok(Some((_, out))) => (out, true)
     Ok(None) => (expr, false)
-    Err(e) => abort("remove_unused_brs child return-thread failed: \{e}")
+    Err(e) =>
+      if e == RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED {
+        let visits = visit_budget - rewrite_state.remaining_budget.val
+        rub_trace_log_helper_event(
+          trace_state,
+          "jump_thread_return",
+          "rewrite_abort",
+          "body_instrs=\{expr.instrs.length()} visits=\{visits}",
+        )
+        (expr, false)
+      } else {
+        abort("remove_unused_brs child return-thread failed: \{e}")
+      }
   }
 }
 
@@ -2813,9 +2883,7 @@ fn rub_optimize_jump_thread_child_block_following_br(
                 "site=\{i} body_instrs=\{body.instrs.length()} result=\{rub_child_scope_branch_scan_result_name(body_scan_result)}",
               )
               match body_scan_result {
-                ScanNotFound => {
-                  continue
-                }
+                ScanNotFound => continue
                 ScanAborted => {
                   rub_trace_log_helper_event(
                     trace_state,
@@ -3037,9 +3105,7 @@ fn rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
       "elapsed_ms=\{sl_trace_elapsed_ms(body_scan_start_ms)} site=\{i} body_instrs=\{body.instrs.length()} result=\{rub_child_scope_branch_scan_result_name(body_scan_result)}",
     )
     match body_scan_result {
-      ScanNotFound => {
-        continue
-      }
+      ScanNotFound => continue
       ScanAborted => {
         rub_trace_log_helper_event(
           trace_state,
@@ -3079,6 +3145,23 @@ fn rub_optimize_jump_thread_child_block_following_unreachable(
   candidate_sites : Array[Int],
   trace_state? : RUBRoundTraceState? = None,
 ) -> Bool {
+  rub_optimize_jump_thread_child_block_following_unreachable_with_budgets(
+    instrs,
+    candidate_sites,
+    RUB_JUMP_THREAD_BR_CHILD_SCOPE_SCAN_VISIT_BUDGET,
+    RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_VISIT_BUDGET,
+    trace_state~,
+  )
+}
+
+///|
+fn rub_optimize_jump_thread_child_block_following_unreachable_with_budgets(
+  instrs : Array[TInstr],
+  candidate_sites : Array[Int],
+  scan_visit_budget : Int,
+  rewrite_visit_budget : Int,
+  trace_state? : RUBRoundTraceState? = None,
+) -> Bool {
   if instrs.length() < 2 {
     return false
   }
@@ -3114,19 +3197,53 @@ fn rub_optimize_jump_thread_child_block_following_unreachable(
                 "candidate",
                 "site=\{i} body_instrs=\{body.instrs.length()} unreachable_site=\{j}",
               )
-              if !rub_has_top_level_child_scope_branch(body) {
+              let body_scan_start_ms = sl_trace_now_ms()
+              let body_scan_result = rub_has_top_level_child_scope_branch_with_budget(
+                body,
+                scan_visit_budget,
+                trace_state~,
+              )
+              rub_trace_log_helper_step_done(
+                trace_state,
+                "jump_thread_unreachable",
+                "scan_body",
+                sl_trace_elapsed_ms(body_scan_start_ms),
+                "site=\{i} body_instrs=\{body.instrs.length()} result=\{rub_child_scope_branch_scan_result_name(body_scan_result)}",
+              )
+              match body_scan_result {
+                ScanNotFound => {
+                  rub_trace_log_helper_event(
+                    trace_state,
+                    "jump_thread_unreachable",
+                    "candidate_reject",
+                    "site=\{i} reason=no_child_scope_branch",
+                  )
+                  continue
+                }
+                ScanAborted => {
+                  rub_trace_log_helper_event(
+                    trace_state,
+                    "jump_thread_unreachable",
+                    "scan_body_abort",
+                    "site=\{i} body_instrs=\{body.instrs.length()}",
+                  )
+                  continue
+                }
+                ScanFound => ()
+              }
+              let (next_body, body_changed) = rub_redirect_simple_child_scope_branches_to_unreachable_with_budget(
+                body,
+                rewrite_visit_budget,
+                trace_state~,
+              )
+              if !body_changed {
                 rub_trace_log_helper_event(
                   trace_state,
                   "jump_thread_unreachable",
                   "candidate_reject",
-                  "site=\{i} reason=no_child_scope_branch",
+                  "site=\{i} reason=rewrite_no_change",
                 )
-                continue
-              }
-              let (next_body, body_changed) = rub_redirect_simple_child_scope_branches_to_unreachable(
-                body,
-              )
-              if body_changed {
+              } else {
                 instrs[i] = TInstr::block(BlockType::void_(), next_body)
                 changed = true
               }
@@ -3166,6 +3283,23 @@ fn rub_optimize_jump_thread_child_block_following_return(
   candidate_sites : Array[Int],
   trace_state? : RUBRoundTraceState? = None,
 ) -> Bool {
+  rub_optimize_jump_thread_child_block_following_return_with_budgets(
+    instrs,
+    candidate_sites,
+    RUB_JUMP_THREAD_BR_CHILD_SCOPE_SCAN_VISIT_BUDGET,
+    RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_VISIT_BUDGET,
+    trace_state~,
+  )
+}
+
+///|
+fn rub_optimize_jump_thread_child_block_following_return_with_budgets(
+  instrs : Array[TInstr],
+  candidate_sites : Array[Int],
+  scan_visit_budget : Int,
+  rewrite_visit_budget : Int,
+  trace_state? : RUBRoundTraceState? = None,
+) -> Bool {
   if instrs.length() < 2 {
     return false
   }
@@ -3201,19 +3335,53 @@ fn rub_optimize_jump_thread_child_block_following_return(
                 "candidate",
                 "site=\{i} body_instrs=\{body.instrs.length()} return_site=\{j}",
               )
-              if !rub_has_top_level_child_scope_branch(body) {
+              let body_scan_start_ms = sl_trace_now_ms()
+              let body_scan_result = rub_has_top_level_child_scope_branch_with_budget(
+                body,
+                scan_visit_budget,
+                trace_state~,
+              )
+              rub_trace_log_helper_step_done(
+                trace_state,
+                "jump_thread_return",
+                "scan_body",
+                sl_trace_elapsed_ms(body_scan_start_ms),
+                "site=\{i} body_instrs=\{body.instrs.length()} result=\{rub_child_scope_branch_scan_result_name(body_scan_result)}",
+              )
+              match body_scan_result {
+                ScanNotFound => {
+                  rub_trace_log_helper_event(
+                    trace_state,
+                    "jump_thread_return",
+                    "candidate_reject",
+                    "site=\{i} reason=no_child_scope_branch",
+                  )
+                  continue
+                }
+                ScanAborted => {
+                  rub_trace_log_helper_event(
+                    trace_state,
+                    "jump_thread_return",
+                    "scan_body_abort",
+                    "site=\{i} body_instrs=\{body.instrs.length()}",
+                  )
+                  continue
+                }
+                ScanFound => ()
+              }
+              let (next_body, body_changed) = rub_redirect_simple_child_scope_branches_to_return_with_budget(
+                body,
+                rewrite_visit_budget,
+                trace_state~,
+              )
+              if !body_changed {
                 rub_trace_log_helper_event(
                   trace_state,
                   "jump_thread_return",
                   "candidate_reject",
-                  "site=\{i} reason=no_child_scope_branch",
+                  "site=\{i} reason=rewrite_no_change",
                 )
-                continue
-              }
-              let (next_body, body_changed) = rub_redirect_simple_child_scope_branches_to_return(
-                body,
-              )
-              if body_changed {
+              } else {
                 instrs[i] = TInstr::block(BlockType::void_(), next_body)
                 changed = true
               }
@@ -10650,6 +10818,90 @@ test "remove_unused_brs jump_thread_br skips oversized child-block rewrite" {
     rub_collect_top_level_void_block_sites(instrs),
   )
   assert_false(changed)
+}
+
+///|
+test "remove_unused_brs jump_thread_unreachable skips when child-body scan budget is exhausted" {
+  let large_body : Array[TInstr] = []
+  for _ in 0..<25000 {
+    large_body.push(TInstr::nop())
+  }
+  large_body.push(TInstr::br(LabelIdx::new(0), []))
+  let instrs : Array[TInstr] = [
+    TInstr::block(BlockType::void_(), TExpr::new(large_body)),
+    TInstr::unreachable_(),
+  ]
+  let original_instrs = instrs.copy()
+  let changed = rub_optimize_jump_thread_child_block_following_unreachable_with_budgets(
+    instrs,
+    rub_collect_top_level_void_block_sites(instrs),
+    0,
+    64,
+  )
+  assert_false(changed)
+  assert_eq(instrs, original_instrs)
+}
+
+///|
+test "remove_unused_brs jump_thread_unreachable skips when child-body rewrite budget is exhausted" {
+  let instrs : Array[TInstr] = [
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
+    ),
+    TInstr::unreachable_(),
+  ]
+  let original_instrs = instrs.copy()
+  let changed = rub_optimize_jump_thread_child_block_following_unreachable_with_budgets(
+    instrs,
+    rub_collect_top_level_void_block_sites(instrs),
+    64,
+    0,
+  )
+  assert_false(changed)
+  assert_eq(instrs, original_instrs)
+}
+
+///|
+test "remove_unused_brs jump_thread_return skips when child-body scan budget is exhausted" {
+  let large_body : Array[TInstr] = []
+  for _ in 0..<25000 {
+    large_body.push(TInstr::nop())
+  }
+  large_body.push(TInstr::br(LabelIdx::new(0), []))
+  let instrs : Array[TInstr] = [
+    TInstr::block(BlockType::void_(), TExpr::new(large_body)),
+    TInstr::return_([]),
+  ]
+  let original_instrs = instrs.copy()
+  let changed = rub_optimize_jump_thread_child_block_following_return_with_budgets(
+    instrs,
+    rub_collect_top_level_void_block_sites(instrs),
+    0,
+    64,
+  )
+  assert_false(changed)
+  assert_eq(instrs, original_instrs)
+}
+
+///|
+test "remove_unused_brs jump_thread_return skips when child-body rewrite budget is exhausted" {
+  let instrs : Array[TInstr] = [
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
+    ),
+    TInstr::return_([]),
+  ]
+  let original_instrs = instrs.copy()
+  let changed = rub_optimize_jump_thread_child_block_following_return_with_budgets(
+    instrs,
+    rub_collect_top_level_void_block_sites(instrs),
+    64,
+    0,
+  )
+  assert_false(changed)
+  assert_eq(instrs, original_instrs)
 }
 
 ///|
