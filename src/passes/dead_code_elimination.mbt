@@ -582,9 +582,32 @@ fn dce_has_break_to_depth(
     return true
   }
   match instr.kind {
-    TInstrKind::TBr(label, _) => label_matches_depth(label, depth)
-    TInstrKind::TBrIf(label, _, _) => label_matches_depth(label, depth)
-    TInstrKind::TBrTable(labels, default, _, _) => {
+    TInstrKind::TBr(label, values) => {
+      if label_matches_depth(label, depth) {
+        return true
+      }
+      for value in values {
+        if dce_has_break_to_depth(value, depth, break_scan_budget, trace_state) {
+          return true
+        }
+      }
+      false
+    }
+    TInstrKind::TBrIf(label, cond, values) => {
+      if label_matches_depth(label, depth) {
+        return true
+      }
+      if dce_has_break_to_depth(cond, depth, break_scan_budget, trace_state) {
+        return true
+      }
+      for value in values {
+        if dce_has_break_to_depth(value, depth, break_scan_budget, trace_state) {
+          return true
+        }
+      }
+      false
+    }
+    TInstrKind::TBrTable(labels, default, index, values) => {
       if label_matches_depth(default, depth) {
         return true
       }
@@ -593,13 +616,33 @@ fn dce_has_break_to_depth(
           return true
         }
       }
+      if dce_has_break_to_depth(index, depth, break_scan_budget, trace_state) {
+        return true
+      }
+      for value in values {
+        if dce_has_break_to_depth(value, depth, break_scan_budget, trace_state) {
+          return true
+        }
+      }
       false
     }
-    TInstrKind::TBrOnNull(label, _, _)
-    | TInstrKind::TBrOnNonNull(label, _, _)
-    | TInstrKind::TBrOnCast(label, _, _, _, _, _)
-    | TInstrKind::TBrOnCastFail(label, _, _, _, _, _) =>
-      label_matches_depth(label, depth)
+    TInstrKind::TBrOnNull(label, ref_, values)
+    | TInstrKind::TBrOnNonNull(label, ref_, values)
+    | TInstrKind::TBrOnCast(label, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(label, _, _, _, ref_, values) => {
+      if label_matches_depth(label, depth) {
+        return true
+      }
+      if dce_has_break_to_depth(ref_, depth, break_scan_budget, trace_state) {
+        return true
+      }
+      for value in values {
+        if dce_has_break_to_depth(value, depth, break_scan_budget, trace_state) {
+          return true
+        }
+      }
+      false
+    }
     TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
       dce_has_break_to_depth_in_texpr(
         body,

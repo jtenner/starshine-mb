@@ -2681,16 +2681,18 @@ test "vacuum rebases branch labels when simplifying nested result blocks" {
                   TInstr::block(
                     BlockType::val_type(ValType::i32()),
                     TExpr::new([
-                      TInstr::br(LabelIdx::new(1), [TInstr::i32_const(I32(42))]),
+                      TInstr::br(LabelIdx::new(2), [TInstr::i32_const(I32(42))]),
                     ]),
                   ),
                 ]),
               ]),
             ),
+            TInstr::i32_const(I32(5)),
           ]),
         ),
       ]),
     )
+  assert_eq(validate_module(mod), Ok(()))
   let out = run_vacuum(mod)
 
   match validate_module(out) {
@@ -2731,11 +2733,80 @@ test "vacuum rebases branch labels when simplifying nested result blocks" {
       },
     ] => {
       assert_eq(depth0, 0U)
-      assert_eq(depth1, 0U)
+      assert_eq(depth1, 1U)
     }
     _ =>
       fail(
         "expected vacuum to keep the nested result block valid after rebasing: \{vq_first_func_body(out)}",
+      )
+  }
+}
+
+///|
+test "vacuum preserves nested break-to-wrapper inside branch value tree" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::val_type(ValType::i32()),
+              TExpr::new([
+                TInstr::block(
+                  BlockType::void_(),
+                  TExpr::new([
+                    TInstr::br(LabelIdx::new(1), [
+                      TInstr::if_(
+                        BlockType::val_type(ValType::i32()),
+                        TInstr::local_get(LocalIdx::new(0)),
+                        TExpr::new([TInstr::i32_const(I32(7))]),
+                        Some(TExpr::new([TInstr::br(LabelIdx::new(1), [])])),
+                      ),
+                    ]),
+                  ]),
+                ),
+                TInstr::i32_const(I32(9)),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected nested break-to-wrapper branch value tree to survive vacuum: \{e}",
+      )
+  }
+  match vq_first_func_body(out).instrs {
+    [
+      {
+        kind: TInstrKind::TBlock(
+          ValTypeBlockType(NumTypeValType(I32NumType)),
+          {
+            instrs: [
+              { kind: TInstrKind::TBlock(VoidBlockType, _), .. },
+              { kind: TInstrKind::TI32Const(I32(9)), .. },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      },
+    ] => ()
+    _ =>
+      fail(
+        "expected vacuum to keep wrapper block when nested branch-value path targets it",
       )
   }
 }
