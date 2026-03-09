@@ -4484,7 +4484,9 @@ fn rub_optimize_func_fixpoint(
 fn rub_refinalize_changed_func(func : Func, mod : Module) -> Func {
   match func {
     TFunc(params, locals, body) => {
-      let env = Env::new().with_module(mod).with_locals(locals)
+      let env = Env::new()
+        .with_module(mod)
+        .with_locals(FunctionLocals::new(params, locals).all_locals())
       let next_body = mb_refinalize_texpr(body, env)
       if next_body == body {
         func

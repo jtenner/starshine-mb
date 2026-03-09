@@ -428,7 +428,7 @@ fn cf_full_locals(
   params : Array[ValType],
   locals : Array[ValType],
 ) -> Array[ValType] {
-  params + locals
+  FunctionLocals::new(params, locals).all_locals()
 }
 
 ///|
@@ -4506,8 +4506,10 @@ fn cf_assert_func_body_typechecks(
   results : Array[ValType],
 ) -> Unit raise {
   match f {
-    TFunc(_, locals, body) => {
-      let env = Env::new().with_locals(locals).with_return_type(Some(results))
+    TFunc(params, locals, body) => {
+      let env = Env::new()
+        .with_locals(FunctionLocals::new(params, locals).all_locals())
+        .with_return_type(Some(results))
       match Typecheck::typecheck(body, make_state(env, [])) {
         Ok(st) =>
           if st.reachable && st.stack != results {
@@ -4996,9 +4998,9 @@ test "code folding folded operand positions remain value-producing" {
     ),
   )
   match folded {
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       let env = Env::new()
-        .with_locals(locals)
+        .with_locals(FunctionLocals::new(params, locals).all_locals())
         .with_return_type(Some([ValType::i32()]))
       cf_assert_operand_value_positions_expr(body, env, "func")
     }

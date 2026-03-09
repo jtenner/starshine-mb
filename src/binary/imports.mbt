@@ -14,6 +14,7 @@ using @lib {
   type ValType,
   type CompType,
   type FieldType,
+  type FunctionLocals,
   type Mut,
   type StorageType,
   type PackType,
@@ -77,6 +78,3 @@ using @lib {
   type NumType,
   type ElemKind,
 }
-
-///|
-using @transformer {type ModuleTransformer}

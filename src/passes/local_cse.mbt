@@ -1886,7 +1886,9 @@ fn local_cse_ir_pass(
           Some(FuncType(params, _)) => params
           None => []
         }
-        let env = base_env.with_locals(params + locals)
+        let env = base_env.with_locals(
+          FunctionLocals::new(params, locals).all_locals(),
+        )
         let (new_locals, new_body, changed) = run_local_cse_on_func(
           env,
           params,

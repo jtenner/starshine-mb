@@ -1375,13 +1375,13 @@ pub fn Module::pretty_print_defined_func(
       md_write_line(out, 2, "results: " + pretty_result_type(results))
       match func {
         Func(grouped_locals, body) => {
-          let full_locals = params.copy()
-          match expand_locals(grouped_locals) {
-            Ok(expanded_locals) =>
-              for local_type in expanded_locals {
-                full_locals.push(local_type)
-              }
-            Err(err) => md_write_line(out, 2, "locals_error: " + err)
+          let full_locals = match
+            FunctionLocals::from_local_decls(params, grouped_locals) {
+            Ok(locals) => locals.all_locals()
+            Err(err) => {
+              md_write_line(out, 2, "locals_error: " + err)
+              params.copy()
+            }
           }
           md_write_line(out, 2, "locals:")
           if full_locals.is_empty() {
@@ -1400,33 +1400,23 @@ pub fn Module::pretty_print_defined_func(
           md_write_line(out, 4, body.to_string())
         }
         TFunc(func_params, local_vals, body) => {
-          let effective_params = if func_params.is_empty() {
-            params
-          } else {
-            func_params
-          }
-          let full_locals = if local_vals.length() >= effective_params.length() {
-            let mut has_prefix = true
-            for i in 0..<effective_params.length() {
-              if local_vals[i] != effective_params[i] {
-                has_prefix = false
-                break
-              }
+          let resolved = FunctionLocals::from_typed_func(
+            params, func_params, local_vals,
+          )
+          let local_info = match resolved {
+            Ok(ls) => ls
+            Err(err) => {
+              md_write_line(out, 2, "locals_error: " + err)
+              FunctionLocals::new(func_params, local_vals)
             }
-            if has_prefix {
-              local_vals.copy()
-            } else {
-              effective_params + local_vals
-            }
-          } else {
-            effective_params + local_vals
           }
+          let full_locals = local_info.all_locals()
           md_write_line(out, 2, "locals:")
           if full_locals.is_empty() {
             md_write_line(out, 4, "<none>")
           } else {
             for i in 0..<full_locals.length() {
-              let role = if i < effective_params.length() {
+              let role = if i < local_info.param_count() {
                 "param"
               } else {
                 "local"
@@ -1439,7 +1429,14 @@ pub fn Module::pretty_print_defined_func(
             }
           }
           md_write_line(out, 2, "body:")
-          md_render_texpr(out, 4, ctx, local_vals, params.length(), body)
+          md_render_texpr(
+            out,
+            4,
+            ctx,
+            full_locals,
+            local_info.param_count(),
+            body,
+          )
         }
       }
     }

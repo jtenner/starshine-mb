@@ -1,6 +1,5 @@
 import {
   "jtenner/starshine/lib" @lib,
-  "jtenner/starshine/transformer" @transformer,
   "moonbitlang/core/buffer" @buffer,
   "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/core/list" @list,

@@ -1157,7 +1157,7 @@ fn sr_refinalize_changed_functions(
       continue
     }
     match next_funcs[def_idx] {
-      TFunc(_, locals, body) => {
+      TFunc(tfunc_params, locals, body) => {
         let params = match
           env.get_functype_by_funcidx(
             FuncIdx::new(abs_idx.reinterpret_as_uint()),
@@ -1165,14 +1165,18 @@ fn sr_refinalize_changed_functions(
           Some(FuncType(ps, _)) => ps
           None => []
         }
-        let all_locals = params.copy()
-        all_locals.append(locals)
+        let all_locals = match
+          FunctionLocals::from_typed_func_for_pass(params, tfunc_params, locals) {
+          Ok(function_locals) => function_locals.all_locals()
+          Err(_) => continue
+        }
         let local_env = env.with_locals(all_locals)
         let lowered = body.to_expr()
         match to_texpr(lowered, local_env) {
           Ok(new_body) =>
-            if new_body != body {
-              next_funcs[def_idx] = Func::t_func(params, locals, new_body)
+            if tfunc_params != params || new_body != body {
+              let final_body = if new_body != body { new_body } else { body }
+              next_funcs[def_idx] = Func::t_func(params, locals, final_body)
               changed = true
             }
           Err(_) => ()
@@ -1556,7 +1560,7 @@ fn signature_refining(mod : Module) -> Result[Module, String] {
           body, old_params, new_params, locals, local_types_by_abs, global_types,
           env, abs_idx, func_type_idxs,
         )
-        if new_locals != locals || new_body != body {
+        if old_params != new_params || new_locals != locals || new_body != body {
           next_funcs[def_idx] = Func::t_func(new_params, new_locals, new_body)
           changed_code = true
         }

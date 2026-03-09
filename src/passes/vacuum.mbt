@@ -1326,12 +1326,16 @@ fn vq_optimize_function(
       (func, false)
     }
     TFunc(tfunc_params, locals, body) => {
-      let params = if tfunc_params.is_empty() {
-        sig.params
-      } else {
-        tfunc_params
+      let function_locals = match
+        FunctionLocals::from_typed_func_for_pass(
+          sig.params,
+          tfunc_params,
+          locals,
+        ) {
+        Ok(ls) => ls
+        Err(e) => abort("vacuum vq_optimize_function: \{e}")
       }
-      let all_locals = params + locals
+      let all_locals = function_locals.all_locals()
       let top_instrs = body.instrs.length()
       let num_locals = all_locals.length()
 
@@ -1370,14 +1374,18 @@ fn vq_optimize_function(
       let mut changed = sequence.changed
       if sig.results.length() == 0 &&
         !vq_texpr_has_unremovable_side_effects(next_body, effect_cache) {
-        let nopped = Func::t_func(params, locals, TExpr::new([TInstr::nop()]))
+        let nopped = Func::t_func(
+          tfunc_params,
+          locals,
+          TExpr::new([TInstr::nop()]),
+        )
         changed = true
         if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
           trace("func[\{ordinal}] vacuum nopped=true budget_left=\{budget.val}")
         }
         (nopped, changed)
       } else {
-        let next_func = Func::t_func(params, locals, next_body)
+        let next_func = Func::t_func(tfunc_params, locals, next_body)
         if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
           trace(
             "func[\{ordinal}] vacuum done changed=\{changed} budget_left=\{budget.val}",
@@ -1714,7 +1722,7 @@ test "vacuum simplifies dropped unary wrapper around call to dropped call" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [],
+          [ValType::i32()],
           [],
           TExpr::new([
             TInstr::drop(
@@ -1751,7 +1759,7 @@ test "vacuum replaces constant if(true) with then arm" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [],
+          [ValType::i32()],
           [],
           TExpr::new([
             TInstr::if_(
@@ -1817,7 +1825,7 @@ test "vacuum removes if without else when then arm is nop by dropping condition"
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [],
+          [ValType::i32()],
           [],
           TExpr::new([
             TInstr::if_(
@@ -2028,7 +2036,7 @@ test "vacuum safely inverts if with nop then arm" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [],
+          [ValType::i32()],
           [],
           TExpr::new([
             TInstr::if_(
@@ -2089,7 +2097,7 @@ test "vacuum regression: inverts dropped-then if when else arm is simple" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [],
+          [ValType::i32()],
           [ValType::i32()],
           TExpr::new([
             TInstr::if_(
@@ -2152,7 +2160,7 @@ test "vacuum regression: avoids inversion when moved else has control transfer" 
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [],
+          [ValType::i32()],
           [],
           TExpr::new([
             TInstr::block(
@@ -2607,7 +2615,7 @@ test "vacuum does not invert stack-fed if condition with non-i32 condition expre
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [],
+          [ValType::i32()],
           [ValType::i64(), ValType::i32()],
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),
@@ -2767,7 +2775,7 @@ test "vacuum keeps stack-feeding sibling values with unknown stack signatures" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [],
+          [ValType::i32()],
           [ValType::i32()],
           TExpr::new([
             TInstr::memory_size(MemIdx::new(0)),
@@ -2775,7 +2783,7 @@ test "vacuum keeps stack-feeding sibling values with unknown stack signatures" {
             TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
           ]),
         ),
-        Func::t_func([], [], TExpr::new([TInstr::nop()])),
+        Func::t_func([ValType::i32()], [], TExpr::new([TInstr::nop()])),
       ]),
     )
   assert_eq(validate_module(mod), Ok(()))
@@ -2800,7 +2808,7 @@ test "vacuum keeps typed params and declared locals separated" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [],
+          [ValType::i32()],
           [ValType::i32()],
           TExpr::new([
             TInstr::drop(TInstr::i32_const(I32(1))),
@@ -2849,14 +2857,14 @@ test "vacuum preserves stack-carried table.get result across trailing side effec
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [],
+          [ValType::i32()],
           [],
           TExpr::new([
             TInstr::table_get(TableIdx::new(0), TInstr::i32_const(I32(0))),
             TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
           ]),
         ),
-        Func::t_func([], [], TExpr::new([TInstr::nop()])),
+        Func::t_func([ValType::i32()], [], TExpr::new([TInstr::nop()])),
       ]),
     )
   assert_eq(validate_module(mod), Ok(()))
@@ -2955,7 +2963,7 @@ test "vacuum keeps stack-signature when dropping binary with ambient-fed call ch
           ]),
         ),
         Func::t_func(
-          [],
+          [ValType::i32()],
           [],
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),

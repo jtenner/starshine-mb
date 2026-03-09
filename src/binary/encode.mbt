@@ -13,6 +13,7 @@ pub suberror BinaryEncodeError {
   CannotEncodeRecursiveIndexBlockType
   InvalidMemArgEncoding
   InvalidActiveElemSequence
+  InvalidTypedFunctionLocals
 } derive(Eq, Show, Debug)
 
 ///|
@@ -855,62 +856,17 @@ pub impl Encode for CodeSec with encode(val, buf) {
 }
 
 ///|
-fn max_local_idx_used(texpr : TExpr) -> Int {
-  let max_idx = Ref::new(-1)
-  let walker = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx) {
-    let raw = idx.0.reinterpret_as_int()
-    if raw > max_idx.val {
-      max_idx.val = raw
-    }
-    Ok(None)
-  })
-  ignore(walker.walk_texpr((), texpr))
-  max_idx.val
-}
-
-///|
-fn canonical_tfunc_non_param_locals_for_encoding(
-  params : Array[ValType],
-  local_vals : Array[ValType],
-  texpr : TExpr,
-) -> Array[ValType] {
-  if local_vals.length() >= params.length() {
-    let mut has_prefix = true
-    for i in 0..<params.length() {
-      if local_vals[i] != params[i] {
-        has_prefix = false
-        break
-      }
-    }
-    if has_prefix {
-      // Backward compatibility: if local vals already include params and
-      // texpr local indices fit that full vector, only encode non-param locals.
-      let max_idx = max_local_idx_used(texpr)
-      if max_idx < local_vals.length() {
-        let non_param = Array::new(
-          capacity=local_vals.length() - params.length(),
-        )
-        for i = params.length(); i < local_vals.length(); i = i + 1 {
-          non_param.push(local_vals[i])
-        }
-        return non_param
-      }
-    }
-  }
-  // Legacy shape: local_vals only contains non-param locals.
-  local_vals.copy()
-}
-
-///|
 pub impl Encode for Func with encode(val, buf) {
   let fn_body = @buffer.new()
   let (locals, expr) = match val {
     Func(locals, expr) => (locals, expr)
     TFunc(params, tlocals, texpr) => {
-      let non_param_locals = canonical_tfunc_non_param_locals_for_encoding(
-        params, tlocals, texpr,
-      )
-      let locals = tlocals_to_locals(non_param_locals)
+      let function_locals = match
+        FunctionLocals::from_typed_func(params, params, tlocals) {
+        Ok(ls) => ls
+        Err(_) => return Err(BinaryEncodeError::InvalidTypedFunctionLocals)
+      }
+      let locals = tlocals_to_locals(function_locals.body_locals())
       let expr = texpr.to_expr()
       (locals, expr)
     }

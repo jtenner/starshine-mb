@@ -3109,16 +3109,19 @@ fn af_assert_unwind_catch(mod : Module, runtime : AFApi) -> Module {
   for i = 0; i < funcs.length(); i = i + 1 {
     let abs_idx = FuncIdx::new((imported + i).reinterpret_as_uint())
     match funcs[i] {
-      TFunc(_, locals, body) => {
+      TFunc(tfunc_params, locals, body) => {
         let func_locals = locals.copy()
         let mut full_env = Env::new().with_module(mod)
         let params = match full_env.get_functype_by_funcidx(abs_idx) {
           Some(FuncType(ps, _)) => ps
           None => []
         }
-        let all_locals = params.copy()
-        for vt in func_locals {
-          all_locals.push(vt)
+        let all_locals = match
+          FunctionLocals::from_typed_func_for_pass(
+            params, tfunc_params, func_locals,
+          ) {
+          Ok(function_locals) => function_locals.all_locals()
+          Err(e) => abort("asyncify af_assert_unwind_catch: \{e}")
         }
         full_env = full_env.with_locals(all_locals)
         let ctx : AFCatchAssertCtx = {
@@ -3892,11 +3895,11 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call" {
   }
   assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([_, TFunc(_, locals, body), ..])) => {
+    Some(CodeSec([_, TFunc(params, locals, body), ..])) => {
       assert_false(af_has_tail_call(body))
       let env = Env::new()
         .with_module(out)
-        .with_locals(locals)
+        .with_locals(FunctionLocals::new(params, locals).all_locals())
         .with_return_type(Some([ValType::i32(), ValType::i32()]))
       match to_texpr(body.to_expr(), env) {
         Ok(_) => ()
@@ -3972,11 +3975,11 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_indi
   }
   assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([_, TFunc(_, locals, body), ..])) => {
+    Some(CodeSec([_, TFunc(params, locals, body), ..])) => {
       assert_false(af_has_tail_call(body))
       let env = Env::new()
         .with_module(out)
-        .with_locals(locals)
+        .with_locals(FunctionLocals::new(params, locals).all_locals())
         .with_return_type(Some([ValType::i32(), ValType::i32()]))
       match to_texpr(body.to_expr(), env) {
         Ok(_) => ()
@@ -4032,11 +4035,11 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_ref"
   }
   assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([_, TFunc(_, locals, body), ..])) => {
+    Some(CodeSec([_, TFunc(params, locals, body), ..])) => {
       assert_false(af_has_tail_call(body))
       let env = Env::new()
         .with_module(out)
-        .with_locals(locals)
+        .with_locals(FunctionLocals::new(params, locals).all_locals())
         .with_return_type(Some([ValType::i32(), ValType::i32()]))
       match to_texpr(body.to_expr(), env) {
         Ok(_) => ()

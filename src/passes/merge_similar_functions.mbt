@@ -1925,7 +1925,7 @@ fn replace_with_thunk(
   values_for_target : Array[TInstr],
 ) -> Func {
   match target {
-    TFunc(_, _, _) => {
+    TFunc(target_params, _, _) => {
       let param_count = values_for_target.length() - params.length()
       let args : Array[TInstr] = []
       for i = 0; i < param_count; i = i + 1 {
@@ -1935,7 +1935,7 @@ fn replace_with_thunk(
         args.push(values_for_target[param_count + i])
       }
       let body = TExpr::new([TInstr::return_call(shared, args)])
-      Func::t_func([], [], body)
+      Func::t_func(target_params, [], body)
     }
     _ => target
   }
@@ -2252,7 +2252,7 @@ fn msf_shared_abs_index(mod : Module) -> Int {
 fn msf_is_forwarder(func : Func, target_abs : Int, arg_count : Int) -> Bool {
   match func {
     TFunc(
-      [],
+      _,
       locals,
       {
         instrs: [{ kind: TInstrKind::TReturnCall(FuncIdx(raw), args), .. }],
@@ -2295,8 +2295,8 @@ test "merge similar functions hash trace avoids normalize internal walk" {
 ///|
 test "merge similar functions basic const merging creates shared + thunks" {
   let t = msf_i32_func_type()
-  let f0 = Func::t_func([], [], msf_binary_body(42, 10))
-  let f1 = Func::t_func([], [], msf_binary_body(43, 10))
+  let f0 = Func::t_func([ValType::i32()], [], msf_binary_body(42, 10))
+  let f1 = Func::t_func([ValType::i32()], [], msf_binary_body(43, 10))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -2338,7 +2338,7 @@ test "merge similar functions basic const merging creates shared + thunks" {
 test "merge similar functions reuses parameter across repeated diff vector" {
   let t = msf_i32_func_type()
   let f0 = Func::t_func(
-    [],
+    [ValType::i32()],
     [],
     TExpr::new([
       TInstr::return_([
@@ -2355,7 +2355,7 @@ test "merge similar functions reuses parameter across repeated diff vector" {
     ]),
   )
   let f1 = Func::t_func(
-    [],
+    [ValType::i32()],
     [],
     TExpr::new([
       TInstr::return_([
@@ -2411,8 +2411,8 @@ test "merge similar functions reuses parameter across repeated diff vector" {
 ///|
 test "merge similar functions creates multiple params for independent differences" {
   let t = msf_i32_func_type()
-  let f0 = Func::t_func([], [], msf_binary_body(10, 20))
-  let f1 = Func::t_func([], [], msf_binary_body(11, 21))
+  let f0 = Func::t_func([ValType::i32()], [], msf_binary_body(10, 20))
+  let f1 = Func::t_func([ValType::i32()], [], msf_binary_body(11, 21))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -2433,7 +2433,7 @@ test "merge similar functions parameterizes call target using call_ref" {
   let t_callee = msf_i32_func_type()
   let t_wrap = msf_i32_func_type()
   let callee_a = Func::t_func(
-    [],
+    [ValType::i32()],
     [],
     TExpr::new([
       TInstr::return_([
@@ -2446,7 +2446,7 @@ test "merge similar functions parameterizes call target using call_ref" {
     ]),
   )
   let callee_b = Func::t_func(
-    [],
+    [ValType::i32()],
     [],
     TExpr::new([
       TInstr::return_([
@@ -2459,7 +2459,7 @@ test "merge similar functions parameterizes call target using call_ref" {
     ]),
   )
   let wrap_a = Func::t_func(
-    [],
+    [ValType::i32()],
     [],
     TExpr::new([
       TInstr::return_([
@@ -2472,7 +2472,7 @@ test "merge similar functions parameterizes call target using call_ref" {
     ]),
   )
   let wrap_b = Func::t_func(
-    [],
+    [ValType::i32()],
     [],
     TExpr::new([
       TInstr::return_([
@@ -2958,8 +2958,8 @@ test "merge similar functions profitability gate keeps tiny but merges larger" {
     _ => fail("expected code section")
   }
   let t2 = msf_i32_func_type()
-  let big0 = Func::t_func([], [], msf_binary_body(100, 7))
-  let big1 = Func::t_func([], [], msf_binary_body(101, 7))
+  let big0 = Func::t_func([ValType::i32()], [], msf_binary_body(100, 7))
+  let big1 = Func::t_func([ValType::i32()], [], msf_binary_body(101, 7))
   let mod_big = Module::new()
     .with_type_sec(TypeSec::new([t2]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -2996,10 +2996,10 @@ test "merge similar functions enforces synthetic param limit" {
 ///|
 test "merge similar functions is deterministic with multiple classes" {
   let t = msf_i32_func_type()
-  let a0 = Func::t_func([], [], msf_binary_body(10, 1))
-  let a1 = Func::t_func([], [], msf_binary_body(11, 1))
-  let b0 = Func::t_func([], [], msf_binary_body(20, 2))
-  let b1 = Func::t_func([], [], msf_binary_body(21, 2))
+  let a0 = Func::t_func([ValType::i32()], [], msf_binary_body(10, 1))
+  let a1 = Func::t_func([ValType::i32()], [], msf_binary_body(11, 1))
+  let b0 = Func::t_func([ValType::i32()], [], msf_binary_body(20, 2))
+  let b1 = Func::t_func([ValType::i32()], [], msf_binary_body(21, 2))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(
@@ -3024,7 +3024,7 @@ test "merge similar functions is deterministic with multiple classes" {
 test "merge similar functions shifts var local indices in shared function" {
   let t = msf_i32_func_type()
   let f0 = Func::t_func(
-    [],
+    [ValType::i32()],
     [ValType::i32()],
     TExpr::new([
       TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(42))),
@@ -3038,7 +3038,7 @@ test "merge similar functions shifts var local indices in shared function" {
     ]),
   )
   let f1 = Func::t_func(
-    [],
+    [ValType::i32()],
     [ValType::i32()],
     TExpr::new([
       TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(43))),

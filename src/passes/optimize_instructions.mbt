@@ -4304,8 +4304,7 @@ fn optimize_instructions_on_func(
           rewrite_needs_flags, oi_rewrite_need_fold_equal_operands,
         )
       let env_start_us = oi_trace_now_us()
-      let all_locals = params.copy()
-      all_locals.append(locals)
+      let all_locals = FunctionLocals::new(params, locals).all_locals()
       let env = base_env.with_locals(all_locals)
       let env_us = oi_trace_elapsed_us_since(env_start_us)
       let visited_instr_budget = if top_instrs > 12000 {

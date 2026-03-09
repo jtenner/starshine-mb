@@ -593,30 +593,18 @@ fn sl_collect_param_types(mod : Module) -> Array[Array[ValType]] {
 }
 
 ///|
-fn sl_locals_have_param_prefix(
-  locals : Array[ValType],
-  params : Array[ValType],
-) -> Bool {
-  if params.length() > locals.length() {
-    return false
-  }
-  for i = 0; i < params.length(); i = i + 1 {
-    if locals[i] != params[i] {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn sl_canonical_tfunc_locals(
-  params : Array[ValType],
-  locals : Array[ValType],
-) -> Array[ValType] {
-  if sl_locals_have_param_prefix(locals, params) {
-    locals.copy()
-  } else {
-    params + locals
+fn sl_require_typed_function_locals(
+  declared_params : Array[ValType],
+  typed_params : Array[ValType],
+  typed_body_locals : Array[ValType],
+  context : String,
+) -> FunctionLocals {
+  match
+    FunctionLocals::from_typed_func(
+      declared_params, typed_params, typed_body_locals,
+    ) {
+    Ok(locals) => locals
+    Err(e) => abort("simplify_locals \{context}: \{e}")
   }
 }
 
@@ -2899,10 +2887,14 @@ fn sl_validate_typed_function_candidate(
     None => return Ok(())
   }
   match func {
-    TFunc(_, local_vals, body) => {
-      let all_locals = sl_canonical_tfunc_locals(params, local_vals)
+    TFunc(tfunc_params, local_vals, body) => {
+      let locals = match
+        FunctionLocals::from_typed_func(params, tfunc_params, local_vals) {
+        Ok(ls) => ls
+        Err(e) => return Err(e)
+      }
       let env1 = env
-        .with_locals(all_locals)
+        .with_locals(locals.all_locals())
         .with_label(results)
         .with_return_type(Some(results))
       let st1 = match Typecheck::typecheck(body, make_state(env1, [])) {
@@ -2957,8 +2949,10 @@ fn sl_simplify_function(
   trace_verbose? : Bool = false,
 ) -> (Func, Bool) {
   match func {
-    TFunc(_, locals, body) => {
-      let local_types = sl_canonical_tfunc_locals(param_types, locals)
+    TFunc(tfunc_params, locals, body) => {
+      let local_types = sl_require_typed_function_locals(
+        param_types, tfunc_params, locals, "sl_simplify_function",
+      ).all_locals()
       if local_types.length() == 0 {
         return (func, false)
       }
@@ -3081,7 +3075,7 @@ fn sl_simplify_function(
         )
       }
       if changed_any {
-        (Func::t_func(param_types, locals, body), true)
+        (Func::t_func(tfunc_params, locals, body), true)
       } else {
         (func, false)
       }
@@ -3121,8 +3115,12 @@ fn simplify_locals_ir_pass(
       (imported_func_count + def_idx).reinterpret_as_uint(),
     )
     let func_env = match func {
-      TFunc(_, locals, _) =>
-        base_env.with_locals(sl_canonical_tfunc_locals(params, locals))
+      TFunc(tfunc_params, locals, _) =>
+        base_env.with_locals(
+          sl_require_typed_function_locals(
+            params, tfunc_params, locals, "simplify_locals_ir_pass",
+          ).all_locals(),
+        )
       _ => base_env
     }
     let func_trace = if log_func {
@@ -4275,7 +4273,7 @@ test "simplify_locals typed function validator rejects local.set result type mis
 }
 
 ///|
-test "simplify_locals typed function validator accepts canonical locals including params" {
+test "simplify_locals typed function validator rejects duplicated param-prefix locals" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -4285,13 +4283,35 @@ test "simplify_locals typed function validator accepts canonical locals includin
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   let env = Env::new().with_module(mod)
   let candidate = Func::t_func(
-    [],
+    [ValType::i32()],
     [ValType::i32(), ValType::i64()],
     TExpr::new([TInstr::local_set(LocalIdx::new(1), TInstr::i64_const(I64(7)))]),
   )
   match sl_validate_typed_function_candidate(env, FuncIdx::new(0), candidate) {
+    Ok(_) =>
+      fail("expected duplicated param-prefix locals to fail typed validation")
+    Err(_) => ()
+  }
+}
+
+///|
+test "simplify_locals typed function validator accepts normalized param/local layout" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  let env = Env::new().with_module(mod)
+  let candidate = Func::t_func(
+    [ValType::i32()],
+    [ValType::i64()],
+    TExpr::new([TInstr::local_set(LocalIdx::new(1), TInstr::i64_const(I64(7)))]),
+  )
+  match sl_validate_typed_function_candidate(env, FuncIdx::new(0), candidate) {
     Ok(_) => ()
-    Err(e) => fail("expected canonical locals to validate, got: " + e)
+    Err(e) => fail("expected normalized typed locals to validate, got: " + e)
   }
 }
 

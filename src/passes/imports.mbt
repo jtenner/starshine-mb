@@ -20,6 +20,7 @@ using @lib {
   func_idx,
   table_idx,
   tlocals_to_locals,
+  type FunctionLocals,
   type AbsHeapType,
   type TInstr,
   type TInstrKind,

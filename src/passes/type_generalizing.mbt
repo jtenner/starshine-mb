@@ -1087,7 +1087,7 @@ test "type generalizing generalizes concrete struct local when only anyref is re
     .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(2)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], [], TExpr::new([TInstr::nop()])),
+        Func::t_func([ValType::anyref()], [], TExpr::new([TInstr::nop()])),
         Func::t_func(
           [],
           [ValType::ref_null(HeapType::new(TypeIdx::new(0)))],

@@ -571,24 +571,7 @@ pub impl Show for Func with output(self, logger) {
       logger.write_char(')')
     }
     TFunc(params, ls, texpr) => {
-      let merged_locals = if params.is_empty() {
-        ls.copy()
-      } else if ls.length() >= params.length() {
-        let mut has_prefix = true
-        for i in 0..<params.length() {
-          if ls[i] != params[i] {
-            has_prefix = false
-            break
-          }
-        }
-        if has_prefix {
-          ls.copy()
-        } else {
-          params + ls
-        }
-      } else {
-        params + ls
-      }
+      let merged_locals = FunctionLocals::new(params, ls).all_locals()
       logger.write_string("(Func ")
       merged_locals.output(logger)
       logger.write_char(' ')

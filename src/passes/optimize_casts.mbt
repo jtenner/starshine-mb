@@ -911,7 +911,9 @@ fn optimize_casts_on_func(func : Func, mod : Module) -> Result[Func, String] {
   match func {
     Func(_, _) => Ok(func)
     TFunc(params, locals, body) => {
-      let env = Env::new().with_module(mod).with_locals(locals)
+      let env = Env::new()
+        .with_module(mod)
+        .with_locals(FunctionLocals::new(params, locals).all_locals())
       let early_finder = EarlyCastFinder::new(env, locals.length())
       early_finder.run(body)
       let after_early = if early_finder.has_casts_to_move() {

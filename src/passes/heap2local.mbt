@@ -2716,7 +2716,10 @@ fn h2l_optimize_func_once(
   match func {
     Func(_) => None
     TFunc(params, locals, body) => {
-      let analysis = h2l_scan_body(env.with_locals(locals), body)
+      let analysis = h2l_scan_body(
+        env.with_locals(FunctionLocals::new(params, locals).all_locals()),
+        body,
+      )
       let candidates = h2l_collect_candidates(analysis)
       let candidates = h2l_filter_nonuniform_if_sets(body, candidates)
       let candidates = h2l_filter_branchy_sets(analysis.env, body, candidates)

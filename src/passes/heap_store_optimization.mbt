@@ -725,7 +725,9 @@ fn heap_store_optimization_ir_pass(
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     match func {
       TFunc(params, locals, body) => {
-        let state = { env: env.with_locals(locals) }
+        let state = {
+          env: env.with_locals(FunctionLocals::new(params, locals).all_locals()),
+        }
         match pass.walk_texpr(state, body) {
           Ok(Some((_, new_body))) =>
             change(ctx, Func::t_func(params, locals, new_body))

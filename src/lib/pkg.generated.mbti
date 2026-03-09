@@ -1031,6 +1031,24 @@ pub impl Hash for FuncType
 pub impl Show for FuncType
 pub impl @debug.Debug for FuncType
 
+pub struct FunctionLocals {
+  params : Array[ValType]
+  body_locals : Array[ValType]
+  all_locals : Array[ValType]
+}
+pub fn FunctionLocals::all_locals(Self) -> Array[ValType]
+pub fn FunctionLocals::body_locals(Self) -> Array[ValType]
+pub fn FunctionLocals::from_local_decls(Array[ValType], Array[Locals]) -> Result[Self, String]
+pub fn FunctionLocals::from_typed_func(Array[ValType], Array[ValType], Array[ValType]) -> Result[Self, String]
+pub fn FunctionLocals::from_typed_func_for_pass(Array[ValType], Array[ValType], Array[ValType]) -> Result[Self, String]
+pub fn FunctionLocals::local_type(Self, LocalIdx) -> ValType?
+pub fn FunctionLocals::new(Array[ValType], Array[ValType]) -> Self
+pub fn FunctionLocals::param_count(Self) -> Int
+pub fn FunctionLocals::params(Self) -> Array[ValType]
+pub impl Eq for FunctionLocals
+pub impl Hash for FunctionLocals
+pub impl @debug.Debug for FunctionLocals
+
 pub struct Global(GlobalType, Expr)
 
 

@@ -250,10 +250,13 @@ fn opt_validation_prepare_texpr_context(
 ) -> (TExpr, Env)? {
   let FuncType(params, results) = ft
   match func {
-    TFunc(_, local_vals, body) => {
-      let all_locals = params.copy()
-      for vt in local_vals {
-        all_locals.push(vt)
+    TFunc(tfunc_params, local_vals, body) => {
+      let all_locals = match
+        FunctionLocals::from_typed_func_for_pass(
+          params, tfunc_params, local_vals,
+        ) {
+        Ok(function_locals) => function_locals.all_locals()
+        Err(_) => return None
       }
       Some(
         (
@@ -266,13 +269,10 @@ fn opt_validation_prepare_texpr_context(
       )
     }
     Func(local_decls, body) => {
-      let locals_extra = match expand_locals(local_decls) {
-        Ok(xs) => xs
+      let all_locals = match
+        FunctionLocals::from_local_decls(params, local_decls) {
+        Ok(function_locals) => function_locals.all_locals()
         Err(_) => return None
-      }
-      let all_locals = params.copy()
-      for vt in locals_extra {
-        all_locals.push(vt)
       }
       let func_env = base_env
         .with_locals(all_locals)
@@ -3057,7 +3057,7 @@ test "optimize_module_with_options_trace emits merge similar functions per-funct
     SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
   )
   let f0 = Func::t_func(
-    [],
+    [ValType::i32()],
     [],
     TExpr::new([
       TInstr::return_([
@@ -3078,7 +3078,7 @@ test "optimize_module_with_options_trace emits merge similar functions per-funct
     ]),
   )
   let f1 = Func::t_func(
-    [],
+    [ValType::i32()],
     [],
     TExpr::new([
       TInstr::return_([
@@ -3602,7 +3602,7 @@ test "optimize_module runs AvoidReinterprets pass" {
 ///|
 test "optimize_module runs DeadArgumentElimination pass" {
   let caller = Func::t_func(
-    [],
+    [ValType::i32()],
     [],
     TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(9))])]),
   )
@@ -3775,13 +3775,13 @@ test "optimize_module runs SignatureRefining pass" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
   )
   let caller = Func::t_func(
-    [],
+    [non_null_funcref],
     [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let callee = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func([nullable_funcref], [], TExpr::new([TInstr::nop()]))
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -3818,13 +3818,17 @@ test "optimize_module runs TypeRefining pass" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
   )
   let caller = Func::t_func(
-    [],
+    [non_null_funcref],
     [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let callee = Func::t_func([], [], TExpr::new([TInstr::return_([])]))
+  let callee = Func::t_func(
+    [nullable_funcref],
+    [],
+    TExpr::new([TInstr::return_([])]),
+  )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -4672,7 +4676,11 @@ test "optimize_module runs Inlining pass" {
             TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(5))]),
           ]),
         ),
-        Func::t_func([], [], TExpr::new([TInstr::local_get(LocalIdx::new(0))])),
+        Func::t_func(
+          [ValType::i32()],
+          [],
+          TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+        ),
       ]),
     )
   let optimized = match optimize_module(mod, [Inlining]) {
@@ -5146,7 +5154,7 @@ test "optimize_module runs MergeSimilarFunctions pass" {
     SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
   )
   let f0 = Func::t_func(
-    [],
+    [ValType::i32()],
     [],
     TExpr::new([
       TInstr::return_([
@@ -5167,7 +5175,7 @@ test "optimize_module runs MergeSimilarFunctions pass" {
     ]),
   )
   let f1 = Func::t_func(
-    [],
+    [ValType::i32()],
     [],
     TExpr::new([
       TInstr::return_([

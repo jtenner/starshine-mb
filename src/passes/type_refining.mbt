@@ -692,13 +692,17 @@ test "type refining refines parameter reference types" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
   )
   let caller = Func::t_func(
-    [],
+    [non_null_funcref],
     [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let callee = Func::t_func([], [], TExpr::new([TInstr::return_([])]))
+  let callee = Func::t_func(
+    [nullable_funcref],
+    [],
+    TExpr::new([TInstr::return_([])]),
+  )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -723,14 +727,14 @@ test "type refining inserts param fixup local for incompatible param.set" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
   )
   let caller = Func::t_func(
-    [],
+    [non_null_funcref],
     [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
   let callee = Func::t_func(
-    [],
+    [nullable_funcref],
     [],
     TExpr::new([
       TInstr::local_set(

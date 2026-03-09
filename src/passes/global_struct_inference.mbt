@@ -955,7 +955,9 @@ fn gsi_rewrite_func(
     TFunc(params, locals, body) => {
       let local_state = GSIRewriteState::{
         ..state,
-        env: state.env.with_locals(locals),
+        env: state.env.with_locals(
+          FunctionLocals::new(params, locals).all_locals(),
+        ),
       }
       match transformer.walk_texpr(local_state, body) {
         Ok(Some((_, new_body))) =>

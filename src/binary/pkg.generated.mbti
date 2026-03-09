@@ -87,6 +87,7 @@ pub suberror BinaryEncodeError {
   CannotEncodeRecursiveIndexBlockType
   InvalidMemArgEncoding
   InvalidActiveElemSequence
+  InvalidTypedFunctionLocals
 }
 pub impl Eq for BinaryEncodeError
 pub impl Show for BinaryEncodeError

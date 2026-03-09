@@ -617,11 +617,12 @@ fn flatten_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
     match func {
-      TFunc(_, locals, body) => {
+      TFunc(tfunc_params, locals, body) => {
         let params = param_types.get(def_idx).unwrap_or([])
-        let all_locals = params.copy()
-        for local_ in locals {
-          all_locals.push(local_)
+        let all_locals = match
+          FunctionLocals::from_typed_func_for_pass(params, tfunc_params, locals) {
+          Ok(function_locals) => function_locals.all_locals()
+          Err(e) => return Err("flatten: malformed typed function locals: \{e}")
         }
         let state = FLFuncState::new(
           base_env.with_locals(all_locals),
@@ -1444,7 +1445,7 @@ fn fl_mk_valid_one_func_module(
   Module::new()
   .with_type_sec(TypeSec::new([sig]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-  .with_code_sec(CodeSec::new([Func::t_func([], locals, body)]))
+  .with_code_sec(CodeSec::new([Func::t_func(params, locals, body)]))
 }
 
 ///|

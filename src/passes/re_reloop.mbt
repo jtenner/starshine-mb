@@ -1430,15 +1430,15 @@ fn rr_validate_module_preconditions(mod : Module) -> Result[Unit, String] {
 }
 
 ///|
-fn rr_collect_param_counts(mod : Module) -> Array[Int] {
-  let out : Array[Int] = []
+fn rr_collect_param_types(mod : Module) -> Array[Array[ValType]] {
+  let out : Array[Array[ValType]] = []
   let env = Env::new().with_module(mod)
   match mod.func_sec {
     Some(FuncSec(type_idxs)) =>
       for tidx in type_idxs {
         match env.resolve_functype(tidx) {
-          Some(FuncType(params, _)) => out.push(params.length())
-          None => out.push(0)
+          Some(FuncType(params, _)) => out.push(params)
+          None => out.push([])
         }
       }
     None => ()
@@ -2161,19 +2161,26 @@ fn rr_reconstruct_texpr(
 
 ///|
 fn rr_reconstruct_module_cfg(mod : Module) -> Result[Module, String] {
-  let param_counts = rr_collect_param_counts(mod)
+  let param_types = rr_collect_param_types(mod)
   match mod.code_sec {
     Some(CodeSec(funcs)) => {
       let next_funcs : Array[Func] = []
       let mut changed = false
       let mut def_idx = 0
       for func in funcs {
-        let param_count = param_counts.get(def_idx).unwrap_or(0)
+        let declared_params = param_types.get(def_idx).unwrap_or([])
         def_idx = def_idx + 1
         match func {
-          TFunc(_, locals, body) => {
+          TFunc(tfunc_params, locals, body) => {
+            let params = match
+              FunctionLocals::from_typed_func_for_pass(
+                declared_params, tfunc_params, locals,
+              ) {
+              Ok(function_locals) => function_locals.params()
+              Err(e) => return Err("re_reloop: \{e}")
+            }
             let scratch_idx = LocalIdx::new(
-              (param_count + locals.length()).reinterpret_as_uint(),
+              (params.length() + locals.length()).reinterpret_as_uint(),
             )
             let scratch_used = Ref::new(false)
             match
@@ -2189,7 +2196,7 @@ fn rr_reconstruct_module_cfg(mod : Module) -> Result[Module, String] {
                 if next_body != body || scratch_used.val {
                   changed = true
                 }
-                next_funcs.push(Func::t_func([], next_locals, next_body))
+                next_funcs.push(Func::t_func(params, next_locals, next_body))
               }
               Err(e) => return Err(e)
             }

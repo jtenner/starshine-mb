@@ -1116,7 +1116,9 @@ fn gufa_transform_func(
     TFunc(params, locals, body) => {
       let local_state = GUFAState::{
         ..state,
-        env: state.env.with_locals(locals),
+        env: state.env.with_locals(
+          FunctionLocals::new(params, locals).all_locals(),
+        ),
         local_contents: Map::new(),
       }
       match transformer.walk_texpr(local_state, body) {

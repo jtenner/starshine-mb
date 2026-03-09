@@ -50,6 +50,46 @@ test "tlocals_to_locals and expand_locals roundtrip valtypes" {
 }
 
 ///|
+test "FunctionLocals normalizes params and body locals" {
+  let locals = FunctionLocals::new([ValType::i32(), ValType::i64()], [
+    ValType::funcref(),
+  ])
+  assert_eq(locals.param_count(), 2)
+  assert_eq(locals.params(), [ValType::i32(), ValType::i64()])
+  assert_eq(locals.body_locals(), [ValType::funcref()])
+  assert_eq(locals.all_locals(), [
+    ValType::i32(),
+    ValType::i64(),
+    ValType::funcref(),
+  ])
+}
+
+///|
+test "FunctionLocals local index lookup uses unified local space" {
+  let locals = FunctionLocals::new([ValType::i32()], [
+    ValType::i64(),
+    ValType::externref(),
+  ])
+  assert_eq(locals.local_type(LocalIdx::new(0)), Some(ValType::i32()))
+  assert_eq(locals.local_type(LocalIdx::new(1)), Some(ValType::i64()))
+  assert_eq(locals.local_type(LocalIdx::new(2)), Some(ValType::externref()))
+  assert_eq(locals.local_type(LocalIdx::new(3)), None)
+}
+
+///|
+test "FunctionLocals pass helper adopts declared params when typed params are missing" {
+  let locals = match
+    FunctionLocals::from_typed_func_for_pass([ValType::i32()], [], [
+      ValType::i64(),
+    ]) {
+    Ok(v) => v
+    Err(e) => fail("unexpected locals resolution error: \{e}")
+  }
+  assert_eq(locals.params(), [ValType::i32()])
+  assert_eq(locals.all_locals(), [ValType::i32(), ValType::i64()])
+}
+
+///|
 test "TExpr.to_expr lowers nested if with explicit operand order" {
   let texpr = TExpr::new([
     TInstr::if_(

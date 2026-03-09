@@ -1037,7 +1037,7 @@ test "redundant_set_elimination handles params and declared locals in one index 
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [],
+          [ValType::i32(), ValType::i32()],
           [ValType::i32()],
           TExpr::new([
             TInstr::local_set(

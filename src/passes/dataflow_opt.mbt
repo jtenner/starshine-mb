@@ -23,8 +23,12 @@ fn optimize_tfunc_with_ssa(
   body : TExpr,
   trace? : (String) -> Unit = fn(_) { () },
 ) -> (Array[ValType], TExpr)? {
+  let function_locals = FunctionLocals::new(params, locals)
   ctx.set_mod(mod)
-  ctx.set_locals(params + locals, param_count=params.length())
+  ctx.set_locals(
+    function_locals.all_locals(),
+    param_count=function_locals.param_count(),
+  )
   ctx.set_body(body)
   ctx.optimize_body_with_ssa_trace_with_locals(trace)
 }
@@ -101,15 +105,27 @@ fn dataflow_normalize_func_to_tfunc(
     None => ([], [])
   }
   match func {
-    TFunc(_, locals, body) =>
-      Ok(DataflowNormalizedFunc::TFuncBody(params, locals, body))
+    TFunc(tfunc_params, locals, body) =>
+      match
+        FunctionLocals::from_typed_func_for_pass(params, tfunc_params, locals) {
+        Ok(function_locals) =>
+          Ok(
+            DataflowNormalizedFunc::TFuncBody(
+              function_locals.params(),
+              function_locals.body_locals(),
+              body,
+            ),
+          )
+        Err(e) =>
+          Err(
+            "dataflow_optimization_pass: malformed typed function locals for function \{abs_idx}: \{e}",
+          )
+      }
     Func(grouped_locals, expr_body) =>
-      match expand_locals(grouped_locals) {
-        Ok(locals) => {
-          let all_locals = params.copy()
-          for vt in locals {
-            all_locals.push(vt)
-          }
+      match FunctionLocals::from_local_decls(params, grouped_locals) {
+        Ok(function_locals) => {
+          let locals = function_locals.body_locals()
+          let all_locals = function_locals.all_locals()
           let func_env = env
             .with_locals(all_locals)
             .with_labels([results])

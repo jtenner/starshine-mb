@@ -7,8 +7,8 @@ test "pretty_print_defined_func resolves signatures locals and typed calls" {
     RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
   ])
   let main = Func::t_func(
-    [],
-    [ValType::i32(), ValType::i32()],
+    [ValType::i32()],
+    [ValType::i32()],
     TExpr::new([
       TInstr::if_(
         BlockType::type_idx(TypeIdx::new(1U)),

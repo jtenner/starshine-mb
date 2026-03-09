@@ -2485,7 +2485,9 @@ fn run_on_function(
 ) -> (Func, Bool) {
   match func {
     TFunc(params, locals, body) => {
-      let env = Env::new().with_module(mod).with_locals(locals)
+      let env = Env::new()
+        .with_module(mod)
+        .with_locals(FunctionLocals::new(params, locals).all_locals())
       let ctx = MBContext::new(env)
       let root = TInstr::block(BlockType::void_(), body)
       let (next_root, changed) = optimize_block(
@@ -3332,8 +3334,10 @@ test "merge blocks: does not produce underflowing call arg local-set chain" {
       )
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, next_locals, next_body), _])) => {
-      let env = Env::new().with_module(out).with_locals(next_locals)
+    Some(CodeSec([TFunc(next_params, next_locals, next_body), _])) => {
+      let env = Env::new()
+        .with_module(out)
+        .with_locals(FunctionLocals::new(next_params, next_locals).all_locals())
       assert_false(mb_has_bad_single_arg_local_chain_call(next_body, env))
     }
     _ => fail("expected transformed regression function")
@@ -4055,8 +4059,10 @@ test "merge blocks: transformed output stays typable and pass is idempotent" {
   let mod = mb_make_test_module_with_body([], body)
   let out = run_merge_blocks(mod)
   match mb_extract_only_tfunc(out) {
-    Some(TFunc(_, locals, texpr)) => {
-      let env = Env::new().with_module(out).with_locals(locals)
+    Some(TFunc(params, locals, texpr)) => {
+      let env = Env::new()
+        .with_module(out)
+        .with_locals(FunctionLocals::new(params, locals).all_locals())
       let lowered = texpr.to_expr()
       match to_texpr(lowered, env) {
         Ok(_) => ()
@@ -4068,6 +4074,30 @@ test "merge blocks: transformed output stays typable and pass is idempotent" {
   let once = run_merge_blocks(mod)
   let twice = run_merge_blocks(once)
   assert_eq(once, twice)
+}
+
+///|
+test "merge blocks: refinalization keeps param local index space valid" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::i32_const(I32(1)),
+        TInstr::drop(TInstr::i32_const(I32(2))),
+      ]),
+    ),
+    TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+  ])
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([Func::t_func([ValType::i32()], [], body)]))
+  let out = run_merge_blocks(mod)
+  assert_eq(validate_module(out), Ok(()))
 }
 
 ///|

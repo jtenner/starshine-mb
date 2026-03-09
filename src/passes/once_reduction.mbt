@@ -1161,7 +1161,7 @@ test "once_reduction disqualifies zero and non-const writes" {
         ),
         Func::t_func([], [], or_once_body(0, 1, [TInstr::nop()])),
         Func::t_func(
-          [],
+          [ValType::i32()],
           [],
           TExpr::new([
             TInstr::global_set(
@@ -1467,7 +1467,7 @@ test "once_reduction honors dominance across branches" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [],
+          [ValType::i32()],
           [],
           TExpr::new([
             TInstr::if_(
@@ -1488,7 +1488,7 @@ test "once_reduction honors dominance across branches" {
       CodeSec(
         [
           TFunc(
-            [],
+            _,
             _,
             {
               instrs: [

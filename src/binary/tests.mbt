@@ -274,7 +274,7 @@ test "encode_module keeps separated TFunc locals even when they share a param-pr
 }
 
 ///|
-test "encode_module strips param prefix when TFunc local vector is already full locals" {
+test "encode_module keeps typed-function body locals without prefix stripping" {
   let ty = RecType::new(
     SubType::comp_type(CompType::func([ValType::i32()], [ValType::i64()])),
   )
@@ -283,12 +283,10 @@ test "encode_module strips param prefix when TFunc local vector is already full 
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        // local_vals includes params prefix here (full locals vector):
-        // [param i32, local i64]
         Func::t_func(
           [ValType::i32()],
           [ValType::i32(), ValType::i64()],
-          TExpr::new([TInstr::local_get(LocalIdx::new(1))]),
+          TExpr::new([TInstr::local_get(LocalIdx::new(2))]),
         ),
       ]),
     )
@@ -301,9 +299,21 @@ test "encode_module strips param prefix when TFunc local vector is already full 
     Err(e) => fail("expected decode success, got \{e}")
   }
   match decoded.code_sec {
-    Some(CodeSec([Func([Locals(1U, NumTypeValType(I64NumType))], _)])) => ()
+    Some(
+      CodeSec(
+        [
+          Func(
+            [
+              Locals(1U, NumTypeValType(I32NumType)),
+              Locals(1U, NumTypeValType(I64NumType)),
+            ],
+            _
+          ),
+        ]
+      )
+    ) => ()
     Some(CodeSec([Func(locals, _)])) =>
-      fail("expected only one non-param i64 local, got \{locals}")
+      fail("expected two declared body locals [i32, i64], got \{locals}")
     _ => fail("expected single decoded function body")
   }
 }

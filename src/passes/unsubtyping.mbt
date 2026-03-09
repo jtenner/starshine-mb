@@ -1258,10 +1258,13 @@ fn uf_collect_initial_requirements(
           None => ([], [])
         }
         match funcs[i] {
-          TFunc(_, locals, body) => {
-            let all_locals = params.copy()
-            for local_ty in locals {
-              all_locals.push(local_ty)
+          TFunc(tfunc_params, locals, body) => {
+            let all_locals = match
+              FunctionLocals::from_typed_func_for_pass(
+                params, tfunc_params, locals,
+              ) {
+              Ok(function_locals) => function_locals.all_locals()
+              Err(_) => params.copy()
             }
             let func_env = env
               .with_locals(all_locals)
@@ -1275,13 +1278,10 @@ fn uf_collect_initial_requirements(
             }
           }
           Func(locals, body) => {
-            let all_locals = params.copy()
-            let expanded = match expand_locals(locals) {
-              Ok(vts) => vts
-              Err(_) => []
-            }
-            for local_ty in expanded {
-              all_locals.push(local_ty)
+            let all_locals = match
+              FunctionLocals::from_local_decls(params, locals) {
+              Ok(function_locals) => function_locals.all_locals()
+              Err(_) => params.copy()
             }
             let func_env = env
               .with_locals(all_locals)

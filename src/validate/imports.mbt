@@ -1,7 +1,6 @@
 ///|
 using @lib {
   equals,
-  expand_locals,
   get_struct_field,
   has_default,
   min_addr_valtype,
@@ -32,6 +31,7 @@ using @lib {
   type ExternIdx,
   type ExternType,
   type FieldType,
+  type FunctionLocals,
   type Func,
   type FuncIdx,
   type FuncSec,

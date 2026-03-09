@@ -928,15 +928,17 @@ fn coalesce_locals(
         let ordinal = def_idx + 1
         let log_func = cl_trace_should_log_func(ordinal, trace_all_funcs)
         let func_start_ms = if log_func { sl_trace_now_ms() } else { 0UL }
-        let fallback_params = param_types.get(def_idx).unwrap_or([])
-        let params = if func_params.is_empty() {
-          fallback_params
-        } else {
-          func_params
+        let fallback_params = param_types.get(def_idx).unwrap_or(func_params)
+        let function_locals = match
+          FunctionLocals::from_typed_func_for_pass(
+            fallback_params, func_params, locals,
+          ) {
+          Ok(ls) => ls
+          Err(e) => abort("coalesce_locals: \{e}")
         }
+        let params = function_locals.params()
         let param_count = params.length()
-        let all_locals = params.copy()
-        all_locals.append(locals)
+        let all_locals = function_locals.all_locals()
         if log_func {
           trace(
             "func[\{ordinal}] start params=\{param_count} locals=\{locals.length()} all_locals=\{all_locals.length()} top_instrs=\{body.instrs.length()}",

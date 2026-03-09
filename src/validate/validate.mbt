@@ -621,50 +621,6 @@ fn validate_func_body_against_functype(
   ft : FuncType,
   f : Func,
 ) -> Result[Unit, String] {
-  fn max_local_idx_used(texpr : TExpr) -> Int {
-    let max_idx = Ref::new(-1)
-    let walker = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx) {
-      let raw = idx.0.reinterpret_as_int()
-      if raw > max_idx.val {
-        max_idx.val = raw
-      }
-      Ok(None)
-    })
-    ignore(walker.walk_texpr((), texpr))
-    max_idx.val
-  }
-
-  fn canonical_tfunc_locals(
-    params : Array[ValType],
-    tfunc_params : Array[ValType],
-    local_vals : Array[ValType],
-    texpr : TExpr,
-  ) -> Array[ValType] {
-    let effective_params = if tfunc_params.is_empty() {
-      params
-    } else {
-      tfunc_params
-    }
-    if local_vals.length() >= effective_params.length() {
-      let mut has_prefix = true
-      for i in 0..<effective_params.length() {
-        if local_vals[i] != effective_params[i] {
-          has_prefix = false
-          break
-        }
-      }
-      if has_prefix {
-        let max_idx = max_local_idx_used(texpr)
-        if max_idx < local_vals.length() {
-          return local_vals.copy()
-        }
-      }
-    }
-    // Backward compatibility for legacy typed-func shape where
-    // `local_vals` omits parameters.
-    effective_params + local_vals
-  }
-
   let FuncType(params, results) = ft
   match f {
     Func(local_decls, body) => {
@@ -673,14 +629,9 @@ fn validate_func_body_against_functype(
         return Err(e)
       }
 
-      // Expand locals vector = params ++ expanded locals
-      let locals_extra = match expand_locals(local_decls) {
-        Ok(xs) => xs
+      let locals = match FunctionLocals::from_local_decls(params, local_decls) {
+        Ok(ls) => ls
         Err(e) => return Err(e)
-      }
-      let all_locals = params.copy()
-      for vt in locals_extra {
-        all_locals.push(vt)
       }
 
       // Extend context:
@@ -688,7 +639,7 @@ fn validate_func_body_against_functype(
       // - labels appended by results (function label)
       // - return appended by results
       let env1 = env
-        .with_locals(all_locals)
+        .with_locals(locals.all_locals())
         .with_labels(
           {
             let ls = env.labels.copy()
@@ -718,11 +669,13 @@ fn validate_func_body_against_functype(
       Ok(())
     }
     TFunc(tfunc_params, local_vals, texpr) => {
-      let all_locals = canonical_tfunc_locals(
-        params, tfunc_params, local_vals, texpr,
-      )
+      let locals = match
+        FunctionLocals::from_typed_func(params, tfunc_params, local_vals) {
+        Ok(ls) => ls
+        Err(e) => return Err(e)
+      }
       let env1 = env
-        .with_locals(all_locals)
+        .with_locals(locals.all_locals())
         .with_labels(
           {
             let ls = env.labels.copy()
@@ -734,7 +687,7 @@ fn validate_func_body_against_functype(
       let st0 = TcState::{ env: env1, stack: [], reachable: true }
       let st1 = match Typecheck::typecheck(texpr, st0) {
         Ok(s) => s
-        Err(e) => return Err(e)
+        Err(e) => return Err("typed function " + e)
       }
       if st1.reachable {
         if st1.stack.length() != results.length() {
@@ -1549,6 +1502,53 @@ test "validate_module requires data count section for memory.init and data.drop"
         validation_error_message(err).contains("data count section required"),
       )
     }
+  }
+}
+
+///|
+test "validate_module rejects typed function with missing explicit params" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], [ValType::i32()], TExpr::new([]))]),
+    )
+  match validate_module(mod) {
+    Ok(_) => fail("expected typed function params mismatch to fail validation")
+    Err(err) =>
+      assert_true(
+        validation_error_message(err).contains(
+          "typed function params must match declared signature exactly",
+        ),
+      )
+  }
+}
+
+///|
+test "validate_module rejects legacy typed locals that duplicate param prefix" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          [ValType::i32(), ValType::i64()],
+          TExpr::new([
+            TInstr::local_set(LocalIdx::new(1), TInstr::i64_const(I64(7))),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => fail("expected duplicated param-prefix locals to fail validation")
+    Err(_) => ()
   }
 }
 
