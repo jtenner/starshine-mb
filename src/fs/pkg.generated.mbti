@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/fs"
+
+// Values
+pub fn create_dir(String) -> Result[Unit, String]
+
+pub fn remove_dir(String) -> Result[Unit, String]
+
+pub fn remove_file(String) -> Result[Unit, String]
+
+pub fn write_file_bytes(String, Bytes) -> Result[Unit, String]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

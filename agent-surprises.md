@@ -1,1 +1,2 @@
 - 2026-03-08: During the requested post-fix large optimize reproduction, pass 23 (`CoalesceLocals`) completed, but pass 39 (`DeadArgumentEliminationOptimizing`) then failed with a separate `validation_error ... invalid local index` on `_build/wasm/debug/build/cmd/cmd.wasm`.
+- 2026-03-08: Running `moon fmt` reformatted `src/node_api/generated.mbt` (and related generated files) into a very large diff unrelated to functional changes, so generated-file churn can dominate PRs unless those files are explicitly excluded/reverted after formatting.

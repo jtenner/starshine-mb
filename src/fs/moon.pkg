@@ -1,0 +1,5 @@
+import {
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/env",
+  "moonbitlang/x/fs" @xfs,
+}

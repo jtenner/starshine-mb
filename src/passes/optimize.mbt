@@ -1130,63 +1130,11 @@ fn optimize_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
 
 ///|
 #cfg(target="native")
-fn optimize_native_c_string(text : String) -> Bytes {
-  let out = @buffer.new(size_hint=text.length() + 1)
-  for ch in text {
-    let code = ch.to_int()
-    if code >= 0 && code <= 255 {
-      out.write_byte(code.to_byte())
-    } else {
-      out.write_byte('?'.to_int().to_byte())
-    }
-  }
-  out.write_byte(0)
-  out.to_bytes()
-}
-
-///|
-#cfg(target="native")
-#borrow(path, mode)
-extern "c" fn optimize_native_fopen(path : Bytes, mode : Bytes) -> UInt64 = "fopen"
-
-///|
-#cfg(target="native")
-extern "c" fn optimize_native_fclose(stream : UInt64) -> Int = "fclose"
-
-///|
-#cfg(target="native")
-#borrow(ptr)
-extern "c" fn optimize_native_fwrite(
-  ptr : Bytes,
-  size : UInt64,
-  nmemb : UInt64,
-  stream : UInt64,
-) -> UInt64 = "fwrite"
-
-///|
-#cfg(target="native")
 fn optimize_native_write_file(
   path : String,
   bytes : Bytes,
 ) -> Result[Unit, String] {
-  let c_path = optimize_native_c_string(path)
-  let c_mode = optimize_native_c_string("wb")
-  let file = optimize_native_fopen(c_path, c_mode)
-  if file == 0UL {
-    return Err("open failed")
-  }
-  let expected = bytes.length()
-  if expected > 0 {
-    let wrote = optimize_native_fwrite(bytes, 1UL, expected.to_uint64(), file)
-    if wrote != expected.to_uint64() {
-      ignore(optimize_native_fclose(file))
-      return Err("write failed")
-    }
-  }
-  if optimize_native_fclose(file) != 0 {
-    return Err("close failed")
-  }
-  Ok(())
+  @sfs.write_file_bytes(path, bytes)
 }
 
 ///|

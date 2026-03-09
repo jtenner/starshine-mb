@@ -317,77 +317,77 @@ pub fn __js_option_10_some(@ir.SSATypeInfo) -> @ir.SSATypeInfo?
 
 pub fn __js_option_10_unwrap(@ir.SSATypeInfo?) -> @ir.SSATypeInfo
 
-pub fn __js_option_11_is_some(@lib.TExpr?) -> Bool
+pub fn __js_option_11_is_some((Array[@lib.ValType], @ir.CFG)?) -> Bool
 
-pub fn __js_option_11_none() -> @lib.TExpr?
+pub fn __js_option_11_none() -> (Array[@lib.ValType], @ir.CFG)?
 
-pub fn __js_option_11_some(@lib.TExpr) -> @lib.TExpr?
+pub fn __js_option_11_some((Array[@lib.ValType], @ir.CFG)) -> (Array[@lib.ValType], @ir.CFG)?
 
-pub fn __js_option_11_unwrap(@lib.TExpr?) -> @lib.TExpr
+pub fn __js_option_11_unwrap((Array[@lib.ValType], @ir.CFG)?) -> (Array[@lib.ValType], @ir.CFG)
 
-pub fn __js_option_12_is_some(@lib.ValType?) -> Bool
+pub fn __js_option_12_is_some(@lib.TExpr?) -> Bool
 
-pub fn __js_option_12_none() -> @lib.ValType?
+pub fn __js_option_12_none() -> @lib.TExpr?
 
-pub fn __js_option_12_some(@lib.ValType) -> @lib.ValType?
+pub fn __js_option_12_some(@lib.TExpr) -> @lib.TExpr?
 
-pub fn __js_option_12_unwrap(@lib.ValType?) -> @lib.ValType
+pub fn __js_option_12_unwrap(@lib.TExpr?) -> @lib.TExpr
 
-pub fn __js_option_13_is_some((@ir.BlockId, @ir.SSADef)?) -> Bool
+pub fn __js_option_13_is_some((Array[@lib.ValType], @lib.TExpr)?) -> Bool
 
-pub fn __js_option_13_none() -> (@ir.BlockId, @ir.SSADef)?
+pub fn __js_option_13_none() -> (Array[@lib.ValType], @lib.TExpr)?
 
-pub fn __js_option_13_some((@ir.BlockId, @ir.SSADef)) -> (@ir.BlockId, @ir.SSADef)?
+pub fn __js_option_13_some((Array[@lib.ValType], @lib.TExpr)) -> (Array[@lib.ValType], @lib.TExpr)?
 
-pub fn __js_option_13_unwrap((@ir.BlockId, @ir.SSADef)?) -> (@ir.BlockId, @ir.SSADef)
+pub fn __js_option_13_unwrap((Array[@lib.ValType], @lib.TExpr)?) -> (Array[@lib.ValType], @lib.TExpr)
 
-pub fn __js_option_14_is_some(@lib.SubType?) -> Bool
+pub fn __js_option_14_is_some(@lib.ValType?) -> Bool
 
-pub fn __js_option_14_none() -> @lib.SubType?
+pub fn __js_option_14_none() -> @lib.ValType?
 
-pub fn __js_option_14_some(@lib.SubType) -> @lib.SubType?
+pub fn __js_option_14_some(@lib.ValType) -> @lib.ValType?
 
-pub fn __js_option_14_unwrap(@lib.SubType?) -> @lib.SubType
+pub fn __js_option_14_unwrap(@lib.ValType?) -> @lib.ValType
 
-pub fn __js_option_15_is_some(Array[@lib.Instruction]?) -> Bool
+pub fn __js_option_15_is_some((@ir.BlockId, @ir.SSADef)?) -> Bool
 
-pub fn __js_option_15_none() -> Array[@lib.Instruction]?
+pub fn __js_option_15_none() -> (@ir.BlockId, @ir.SSADef)?
 
-pub fn __js_option_15_some(Array[@lib.Instruction]) -> Array[@lib.Instruction]?
+pub fn __js_option_15_some((@ir.BlockId, @ir.SSADef)) -> (@ir.BlockId, @ir.SSADef)?
 
-pub fn __js_option_15_unwrap(Array[@lib.Instruction]?) -> Array[@lib.Instruction]
+pub fn __js_option_15_unwrap((@ir.BlockId, @ir.SSADef)?) -> (@ir.BlockId, @ir.SSADef)
 
-pub fn __js_option_16_is_some(Array[@lib.ValType]?) -> Bool
+pub fn __js_option_16_is_some(@lib.SubType?) -> Bool
 
-pub fn __js_option_16_none() -> Array[@lib.ValType]?
+pub fn __js_option_16_none() -> @lib.SubType?
 
-pub fn __js_option_16_some(Array[@lib.ValType]) -> Array[@lib.ValType]?
+pub fn __js_option_16_some(@lib.SubType) -> @lib.SubType?
 
-pub fn __js_option_16_unwrap(Array[@lib.ValType]?) -> Array[@lib.ValType]
+pub fn __js_option_16_unwrap(@lib.SubType?) -> @lib.SubType
 
-pub fn __js_option_17_is_some(@lib.MemIdx?) -> Bool
+pub fn __js_option_17_is_some(Array[@lib.Instruction]?) -> Bool
 
-pub fn __js_option_17_none() -> @lib.MemIdx?
+pub fn __js_option_17_none() -> Array[@lib.Instruction]?
 
-pub fn __js_option_17_some(@lib.MemIdx) -> @lib.MemIdx?
+pub fn __js_option_17_some(Array[@lib.Instruction]) -> Array[@lib.Instruction]?
 
-pub fn __js_option_17_unwrap(@lib.MemIdx?) -> @lib.MemIdx
+pub fn __js_option_17_unwrap(Array[@lib.Instruction]?) -> Array[@lib.Instruction]
 
-pub fn __js_option_18_is_some(@lib.TypeSec?) -> Bool
+pub fn __js_option_18_is_some(Array[@lib.ValType]?) -> Bool
 
-pub fn __js_option_18_none() -> @lib.TypeSec?
+pub fn __js_option_18_none() -> Array[@lib.ValType]?
 
-pub fn __js_option_18_some(@lib.TypeSec) -> @lib.TypeSec?
+pub fn __js_option_18_some(Array[@lib.ValType]) -> Array[@lib.ValType]?
 
-pub fn __js_option_18_unwrap(@lib.TypeSec?) -> @lib.TypeSec
+pub fn __js_option_18_unwrap(Array[@lib.ValType]?) -> Array[@lib.ValType]
 
-pub fn __js_option_19_is_some(@lib.ImportSec?) -> Bool
+pub fn __js_option_19_is_some(@lib.MemIdx?) -> Bool
 
-pub fn __js_option_19_none() -> @lib.ImportSec?
+pub fn __js_option_19_none() -> @lib.MemIdx?
 
-pub fn __js_option_19_some(@lib.ImportSec) -> @lib.ImportSec?
+pub fn __js_option_19_some(@lib.MemIdx) -> @lib.MemIdx?
 
-pub fn __js_option_19_unwrap(@lib.ImportSec?) -> @lib.ImportSec
+pub fn __js_option_19_unwrap(@lib.MemIdx?) -> @lib.MemIdx
 
 pub fn __js_option_1_is_some(@cli.CliInputFormat?) -> Bool
 
@@ -397,85 +397,85 @@ pub fn __js_option_1_some(@cli.CliInputFormat) -> @cli.CliInputFormat?
 
 pub fn __js_option_1_unwrap(@cli.CliInputFormat?) -> @cli.CliInputFormat
 
-pub fn __js_option_20_is_some(@lib.FuncSec?) -> Bool
+pub fn __js_option_20_is_some(@lib.TypeSec?) -> Bool
 
-pub fn __js_option_20_none() -> @lib.FuncSec?
+pub fn __js_option_20_none() -> @lib.TypeSec?
 
-pub fn __js_option_20_some(@lib.FuncSec) -> @lib.FuncSec?
+pub fn __js_option_20_some(@lib.TypeSec) -> @lib.TypeSec?
 
-pub fn __js_option_20_unwrap(@lib.FuncSec?) -> @lib.FuncSec
+pub fn __js_option_20_unwrap(@lib.TypeSec?) -> @lib.TypeSec
 
-pub fn __js_option_21_is_some(@lib.TableSec?) -> Bool
+pub fn __js_option_21_is_some(@lib.ImportSec?) -> Bool
 
-pub fn __js_option_21_none() -> @lib.TableSec?
+pub fn __js_option_21_none() -> @lib.ImportSec?
 
-pub fn __js_option_21_some(@lib.TableSec) -> @lib.TableSec?
+pub fn __js_option_21_some(@lib.ImportSec) -> @lib.ImportSec?
 
-pub fn __js_option_21_unwrap(@lib.TableSec?) -> @lib.TableSec
+pub fn __js_option_21_unwrap(@lib.ImportSec?) -> @lib.ImportSec
 
-pub fn __js_option_22_is_some(@lib.MemSec?) -> Bool
+pub fn __js_option_22_is_some(@lib.FuncSec?) -> Bool
 
-pub fn __js_option_22_none() -> @lib.MemSec?
+pub fn __js_option_22_none() -> @lib.FuncSec?
 
-pub fn __js_option_22_some(@lib.MemSec) -> @lib.MemSec?
+pub fn __js_option_22_some(@lib.FuncSec) -> @lib.FuncSec?
 
-pub fn __js_option_22_unwrap(@lib.MemSec?) -> @lib.MemSec
+pub fn __js_option_22_unwrap(@lib.FuncSec?) -> @lib.FuncSec
 
-pub fn __js_option_23_is_some(@lib.TagSec?) -> Bool
+pub fn __js_option_23_is_some(@lib.TableSec?) -> Bool
 
-pub fn __js_option_23_none() -> @lib.TagSec?
+pub fn __js_option_23_none() -> @lib.TableSec?
 
-pub fn __js_option_23_some(@lib.TagSec) -> @lib.TagSec?
+pub fn __js_option_23_some(@lib.TableSec) -> @lib.TableSec?
 
-pub fn __js_option_23_unwrap(@lib.TagSec?) -> @lib.TagSec
+pub fn __js_option_23_unwrap(@lib.TableSec?) -> @lib.TableSec
 
-pub fn __js_option_24_is_some(@lib.GlobalSec?) -> Bool
+pub fn __js_option_24_is_some(@lib.MemSec?) -> Bool
 
-pub fn __js_option_24_none() -> @lib.GlobalSec?
+pub fn __js_option_24_none() -> @lib.MemSec?
 
-pub fn __js_option_24_some(@lib.GlobalSec) -> @lib.GlobalSec?
+pub fn __js_option_24_some(@lib.MemSec) -> @lib.MemSec?
 
-pub fn __js_option_24_unwrap(@lib.GlobalSec?) -> @lib.GlobalSec
+pub fn __js_option_24_unwrap(@lib.MemSec?) -> @lib.MemSec
 
-pub fn __js_option_25_is_some(@lib.ExportSec?) -> Bool
+pub fn __js_option_25_is_some(@lib.TagSec?) -> Bool
 
-pub fn __js_option_25_none() -> @lib.ExportSec?
+pub fn __js_option_25_none() -> @lib.TagSec?
 
-pub fn __js_option_25_some(@lib.ExportSec) -> @lib.ExportSec?
+pub fn __js_option_25_some(@lib.TagSec) -> @lib.TagSec?
 
-pub fn __js_option_25_unwrap(@lib.ExportSec?) -> @lib.ExportSec
+pub fn __js_option_25_unwrap(@lib.TagSec?) -> @lib.TagSec
 
-pub fn __js_option_26_is_some(@lib.StartSec?) -> Bool
+pub fn __js_option_26_is_some(@lib.GlobalSec?) -> Bool
 
-pub fn __js_option_26_none() -> @lib.StartSec?
+pub fn __js_option_26_none() -> @lib.GlobalSec?
 
-pub fn __js_option_26_some(@lib.StartSec) -> @lib.StartSec?
+pub fn __js_option_26_some(@lib.GlobalSec) -> @lib.GlobalSec?
 
-pub fn __js_option_26_unwrap(@lib.StartSec?) -> @lib.StartSec
+pub fn __js_option_26_unwrap(@lib.GlobalSec?) -> @lib.GlobalSec
 
-pub fn __js_option_27_is_some(@lib.ElemSec?) -> Bool
+pub fn __js_option_27_is_some(@lib.ExportSec?) -> Bool
 
-pub fn __js_option_27_none() -> @lib.ElemSec?
+pub fn __js_option_27_none() -> @lib.ExportSec?
 
-pub fn __js_option_27_some(@lib.ElemSec) -> @lib.ElemSec?
+pub fn __js_option_27_some(@lib.ExportSec) -> @lib.ExportSec?
 
-pub fn __js_option_27_unwrap(@lib.ElemSec?) -> @lib.ElemSec
+pub fn __js_option_27_unwrap(@lib.ExportSec?) -> @lib.ExportSec
 
-pub fn __js_option_28_is_some(@lib.DataCntSec?) -> Bool
+pub fn __js_option_28_is_some(@lib.StartSec?) -> Bool
 
-pub fn __js_option_28_none() -> @lib.DataCntSec?
+pub fn __js_option_28_none() -> @lib.StartSec?
 
-pub fn __js_option_28_some(@lib.DataCntSec) -> @lib.DataCntSec?
+pub fn __js_option_28_some(@lib.StartSec) -> @lib.StartSec?
 
-pub fn __js_option_28_unwrap(@lib.DataCntSec?) -> @lib.DataCntSec
+pub fn __js_option_28_unwrap(@lib.StartSec?) -> @lib.StartSec
 
-pub fn __js_option_29_is_some(@lib.CodeSec?) -> Bool
+pub fn __js_option_29_is_some(@lib.ElemSec?) -> Bool
 
-pub fn __js_option_29_none() -> @lib.CodeSec?
+pub fn __js_option_29_none() -> @lib.ElemSec?
 
-pub fn __js_option_29_some(@lib.CodeSec) -> @lib.CodeSec?
+pub fn __js_option_29_some(@lib.ElemSec) -> @lib.ElemSec?
 
-pub fn __js_option_29_unwrap(@lib.CodeSec?) -> @lib.CodeSec
+pub fn __js_option_29_unwrap(@lib.ElemSec?) -> @lib.ElemSec
 
 pub fn __js_option_2_is_some(String?) -> Bool
 
@@ -485,85 +485,85 @@ pub fn __js_option_2_some(String) -> String?
 
 pub fn __js_option_2_unwrap(String?) -> String
 
-pub fn __js_option_30_is_some(@lib.DataSec?) -> Bool
+pub fn __js_option_30_is_some(@lib.DataCntSec?) -> Bool
 
-pub fn __js_option_30_none() -> @lib.DataSec?
+pub fn __js_option_30_none() -> @lib.DataCntSec?
 
-pub fn __js_option_30_some(@lib.DataSec) -> @lib.DataSec?
+pub fn __js_option_30_some(@lib.DataCntSec) -> @lib.DataCntSec?
 
-pub fn __js_option_30_unwrap(@lib.DataSec?) -> @lib.DataSec
+pub fn __js_option_30_unwrap(@lib.DataCntSec?) -> @lib.DataCntSec
 
-pub fn __js_option_31_is_some(@lib.Expr?) -> Bool
+pub fn __js_option_31_is_some(@lib.CodeSec?) -> Bool
 
-pub fn __js_option_31_none() -> @lib.Expr?
+pub fn __js_option_31_none() -> @lib.CodeSec?
 
-pub fn __js_option_31_some(@lib.Expr) -> @lib.Expr?
+pub fn __js_option_31_some(@lib.CodeSec) -> @lib.CodeSec?
 
-pub fn __js_option_31_unwrap(@lib.Expr?) -> @lib.Expr
+pub fn __js_option_31_unwrap(@lib.CodeSec?) -> @lib.CodeSec
 
-pub fn __js_option_32_is_some(@lib.Elem?) -> Bool
+pub fn __js_option_32_is_some(@lib.DataSec?) -> Bool
 
-pub fn __js_option_32_none() -> @lib.Elem?
+pub fn __js_option_32_none() -> @lib.DataSec?
 
-pub fn __js_option_32_some(@lib.Elem) -> @lib.Elem?
+pub fn __js_option_32_some(@lib.DataSec) -> @lib.DataSec?
 
-pub fn __js_option_32_unwrap(@lib.Elem?) -> @lib.Elem
+pub fn __js_option_32_unwrap(@lib.DataSec?) -> @lib.DataSec
 
-pub fn __js_option_33_is_some(@lib.FuncType?) -> Bool
+pub fn __js_option_33_is_some(@lib.Expr?) -> Bool
 
-pub fn __js_option_33_none() -> @lib.FuncType?
+pub fn __js_option_33_none() -> @lib.Expr?
 
-pub fn __js_option_33_some(@lib.FuncType) -> @lib.FuncType?
+pub fn __js_option_33_some(@lib.Expr) -> @lib.Expr?
 
-pub fn __js_option_33_unwrap(@lib.FuncType?) -> @lib.FuncType
+pub fn __js_option_33_unwrap(@lib.Expr?) -> @lib.Expr
 
-pub fn __js_option_34_is_some(@lib.TypeIdx?) -> Bool
+pub fn __js_option_34_is_some(@lib.FuncIdx?) -> Bool
 
-pub fn __js_option_34_none() -> @lib.TypeIdx?
+pub fn __js_option_34_none() -> @lib.FuncIdx?
 
-pub fn __js_option_34_some(@lib.TypeIdx) -> @lib.TypeIdx?
+pub fn __js_option_34_some(@lib.FuncIdx) -> @lib.FuncIdx?
 
-pub fn __js_option_34_unwrap(@lib.TypeIdx?) -> @lib.TypeIdx
+pub fn __js_option_34_unwrap(@lib.FuncIdx?) -> @lib.FuncIdx
 
-pub fn __js_option_35_is_some(@lib.GlobalType?) -> Bool
+pub fn __js_option_35_is_some(@lib.Elem?) -> Bool
 
-pub fn __js_option_35_none() -> @lib.GlobalType?
+pub fn __js_option_35_none() -> @lib.Elem?
 
-pub fn __js_option_35_some(@lib.GlobalType) -> @lib.GlobalType?
+pub fn __js_option_35_some(@lib.Elem) -> @lib.Elem?
 
-pub fn __js_option_35_unwrap(@lib.GlobalType?) -> @lib.GlobalType
+pub fn __js_option_35_unwrap(@lib.Elem?) -> @lib.Elem
 
-pub fn __js_option_36_is_some(@lib.MemType?) -> Bool
+pub fn __js_option_36_is_some(@lib.FuncType?) -> Bool
 
-pub fn __js_option_36_none() -> @lib.MemType?
+pub fn __js_option_36_none() -> @lib.FuncType?
 
-pub fn __js_option_36_some(@lib.MemType) -> @lib.MemType?
+pub fn __js_option_36_some(@lib.FuncType) -> @lib.FuncType?
 
-pub fn __js_option_36_unwrap(@lib.MemType?) -> @lib.MemType
+pub fn __js_option_36_unwrap(@lib.FuncType?) -> @lib.FuncType
 
-pub fn __js_option_37_is_some(@lib.TableType?) -> Bool
+pub fn __js_option_37_is_some(@lib.TypeIdx?) -> Bool
 
-pub fn __js_option_37_none() -> @lib.TableType?
+pub fn __js_option_37_none() -> @lib.TypeIdx?
 
-pub fn __js_option_37_some(@lib.TableType) -> @lib.TableType?
+pub fn __js_option_37_some(@lib.TypeIdx) -> @lib.TypeIdx?
 
-pub fn __js_option_37_unwrap(@lib.TableType?) -> @lib.TableType
+pub fn __js_option_37_unwrap(@lib.TypeIdx?) -> @lib.TypeIdx
 
-pub fn __js_option_38_is_some(@lib.TagType?) -> Bool
+pub fn __js_option_38_is_some(@lib.GlobalType?) -> Bool
 
-pub fn __js_option_38_none() -> @lib.TagType?
+pub fn __js_option_38_none() -> @lib.GlobalType?
 
-pub fn __js_option_38_some(@lib.TagType) -> @lib.TagType?
+pub fn __js_option_38_some(@lib.GlobalType) -> @lib.GlobalType?
 
-pub fn __js_option_38_unwrap(@lib.TagType?) -> @lib.TagType
+pub fn __js_option_38_unwrap(@lib.GlobalType?) -> @lib.GlobalType
 
-pub fn __js_option_39_is_some(@lib.CompType?) -> Bool
+pub fn __js_option_39_is_some(@lib.MemType?) -> Bool
 
-pub fn __js_option_39_none() -> @lib.CompType?
+pub fn __js_option_39_none() -> @lib.MemType?
 
-pub fn __js_option_39_some(@lib.CompType) -> @lib.CompType?
+pub fn __js_option_39_some(@lib.MemType) -> @lib.MemType?
 
-pub fn __js_option_39_unwrap(@lib.CompType?) -> @lib.CompType
+pub fn __js_option_39_unwrap(@lib.MemType?) -> @lib.MemType
 
 pub fn __js_option_3_is_some(@cli.TrapMode?) -> Bool
 
@@ -573,13 +573,37 @@ pub fn __js_option_3_some(@cli.TrapMode) -> @cli.TrapMode?
 
 pub fn __js_option_3_unwrap(@cli.TrapMode?) -> @cli.TrapMode
 
-pub fn __js_option_40_is_some(@wast.TokenType?) -> Bool
+pub fn __js_option_40_is_some(@lib.TableType?) -> Bool
 
-pub fn __js_option_40_none() -> @wast.TokenType?
+pub fn __js_option_40_none() -> @lib.TableType?
 
-pub fn __js_option_40_some(@wast.TokenType) -> @wast.TokenType?
+pub fn __js_option_40_some(@lib.TableType) -> @lib.TableType?
 
-pub fn __js_option_40_unwrap(@wast.TokenType?) -> @wast.TokenType
+pub fn __js_option_40_unwrap(@lib.TableType?) -> @lib.TableType
+
+pub fn __js_option_41_is_some(@lib.TagType?) -> Bool
+
+pub fn __js_option_41_none() -> @lib.TagType?
+
+pub fn __js_option_41_some(@lib.TagType) -> @lib.TagType?
+
+pub fn __js_option_41_unwrap(@lib.TagType?) -> @lib.TagType
+
+pub fn __js_option_42_is_some(@lib.CompType?) -> Bool
+
+pub fn __js_option_42_none() -> @lib.CompType?
+
+pub fn __js_option_42_some(@lib.CompType) -> @lib.CompType?
+
+pub fn __js_option_42_unwrap(@lib.CompType?) -> @lib.CompType
+
+pub fn __js_option_43_is_some(@wast.TokenType?) -> Bool
+
+pub fn __js_option_43_none() -> @wast.TokenType?
+
+pub fn __js_option_43_some(@wast.TokenType) -> @wast.TokenType?
+
+pub fn __js_option_43_unwrap(@wast.TokenType?) -> @wast.TokenType
 
 pub fn __js_option_4_is_some(Int?) -> Bool
 
@@ -1039,7 +1063,11 @@ pub fn __js_show_validate_Env(@validate.Env) -> String
 
 pub fn __js_show_validate_TcState(@validate.TcState) -> String
 
+pub fn __js_show_validate_ValidationDiagnostic(@validate.ValidationDiagnostic) -> String
+
 pub fn __js_show_validate_ValidationError(@validate.ValidationError) -> String
+
+pub fn __js_show_validate_ValidationIssue(@validate.ValidationIssue) -> String
 
 pub fn __js_show_wast_BlockType(@wast.BlockType) -> String
 
@@ -1177,23 +1205,35 @@ pub fn __js_tuple_4_get_1((String, String)) -> String
 
 pub fn __js_tuple_4_new(String, String) -> (String, String)
 
-pub fn __js_tuple_5_get_0((@ir.BlockId, @ir.SSADef)) -> @ir.BlockId
+pub fn __js_tuple_5_get_0((Array[@lib.ValType], @ir.CFG)) -> Array[@lib.ValType]
 
-pub fn __js_tuple_5_get_1((@ir.BlockId, @ir.SSADef)) -> @ir.SSADef
+pub fn __js_tuple_5_get_1((Array[@lib.ValType], @ir.CFG)) -> @ir.CFG
 
-pub fn __js_tuple_5_new(@ir.BlockId, @ir.SSADef) -> (@ir.BlockId, @ir.SSADef)
+pub fn __js_tuple_5_new(Array[@lib.ValType], @ir.CFG) -> (Array[@lib.ValType], @ir.CFG)
 
-pub fn __js_tuple_6_get_0((Array[@lib.ValType], Array[@lib.ValType])) -> Array[@lib.ValType]
+pub fn __js_tuple_6_get_0((Array[@lib.ValType], @lib.TExpr)) -> Array[@lib.ValType]
 
-pub fn __js_tuple_6_get_1((Array[@lib.ValType], Array[@lib.ValType])) -> Array[@lib.ValType]
+pub fn __js_tuple_6_get_1((Array[@lib.ValType], @lib.TExpr)) -> @lib.TExpr
 
-pub fn __js_tuple_6_new(Array[@lib.ValType], Array[@lib.ValType]) -> (Array[@lib.ValType], Array[@lib.ValType])
+pub fn __js_tuple_6_new(Array[@lib.ValType], @lib.TExpr) -> (Array[@lib.ValType], @lib.TExpr)
 
-pub fn __js_tuple_7_get_0((String, @lib.Module)) -> String
+pub fn __js_tuple_7_get_0((@ir.BlockId, @ir.SSADef)) -> @ir.BlockId
 
-pub fn __js_tuple_7_get_1((String, @lib.Module)) -> @lib.Module
+pub fn __js_tuple_7_get_1((@ir.BlockId, @ir.SSADef)) -> @ir.SSADef
 
-pub fn __js_tuple_7_new(String, @lib.Module) -> (String, @lib.Module)
+pub fn __js_tuple_7_new(@ir.BlockId, @ir.SSADef) -> (@ir.BlockId, @ir.SSADef)
+
+pub fn __js_tuple_8_get_0((Array[@lib.ValType], Array[@lib.ValType])) -> Array[@lib.ValType]
+
+pub fn __js_tuple_8_get_1((Array[@lib.ValType], Array[@lib.ValType])) -> Array[@lib.ValType]
+
+pub fn __js_tuple_8_new(Array[@lib.ValType], Array[@lib.ValType]) -> (Array[@lib.ValType], Array[@lib.ValType])
+
+pub fn __js_tuple_9_get_0((String, @lib.Module)) -> String
+
+pub fn __js_tuple_9_get_1((String, @lib.Module)) -> @lib.Module
+
+pub fn __js_tuple_9_new(String, @lib.Module) -> (String, @lib.Module)
 
 pub fn __node_cli_input_format_name(@cli.CliInputFormat) -> String
 
@@ -1545,13 +1585,19 @@ pub fn ir__IRContext__local_graph_dirty(@ir.IRContext) -> Unit
 
 pub fn ir__IRContext__lower_to_cfg(@ir.IRContext) -> @ir.CFG
 
+pub fn ir__IRContext__lower_to_cfg_with_locals(@ir.IRContext) -> (Array[@lib.ValType], @ir.CFG)?
+
 pub fn ir__IRContext__new() -> @ir.IRContext
 
 pub fn ir__IRContext__optimize_body_with_ssa(@ir.IRContext) -> @lib.TExpr?
 
+pub fn ir__IRContext__optimize_body_with_ssa_with_locals(@ir.IRContext) -> (Array[@lib.ValType], @lib.TExpr)?
+
 pub fn ir__IRContext__set_body(@ir.IRContext, @lib.TExpr) -> Unit
 
-pub fn ir__IRContext__set_locals(@ir.IRContext, Array[@lib.ValType]) -> Unit
+pub fn ir__IRContext__set_locals(@ir.IRContext, Array[@lib.ValType], Int) -> Unit
+
+pub fn ir__IRContext__set_locals__arity_2(@ir.IRContext, Array[@lib.ValType]) -> Unit
 
 pub fn ir__IRContext__set_mod(@ir.IRContext, @lib.Module) -> Unit
 
@@ -1584,6 +1630,8 @@ pub fn ir__SSACFG__optimize(@ir.SSACFG) -> @ir.SSACFG
 pub fn ir__SSACFG__split_critical_edges(@ir.SSACFG) -> @ir.SSACFG
 
 pub fn ir__SSACFG__to_cfg(@ir.SSACFG, Int) -> @ir.CFG
+
+pub fn ir__SSACFG__to_cfg_with_locals(@ir.SSACFG, Array[@lib.ValType], Int, @ir.SSATypeInfo) -> (Array[@lib.ValType], @ir.CFG)
 
 pub fn ir__SSATypeInfo__get(@ir.SSATypeInfo, @ir.SSAValue) -> @lib.ValType?
 
@@ -3501,6 +3549,10 @@ pub fn lib__Module__new__arity_8(Array[@lib.CustomSec], @lib.TypeSec?, @lib.Impo
 
 pub fn lib__Module__new__arity_9(Array[@lib.CustomSec], @lib.TypeSec?, @lib.ImportSec?, @lib.FuncSec?, @lib.TableSec?, @lib.MemSec?, @lib.TagSec?, @lib.GlobalSec?, @lib.ExportSec?) -> @lib.Module
 
+pub fn lib__Module__pretty_print_defined_func(@lib.Module, UInt) -> String
+
+pub fn lib__Module__pretty_print_func(@lib.Module, @lib.FuncIdx) -> String
+
 pub fn lib__Module__with_code_sec(@lib.Module, @lib.CodeSec) -> @lib.Module
 
 pub fn lib__Module__with_custom_secs(@lib.Module, Array[@lib.CustomSec]) -> @lib.Module
@@ -4469,6 +4521,10 @@ pub fn validate__Env__with_tags(@validate.Env, Array[@lib.TagType]) -> @validate
 
 pub fn validate__Env__with_types(@validate.Env, Array[@lib.SubType]) -> @validate.Env
 
+pub fn validate__ValidationDiagnostic__new(@validate.ValidationIssue, @lib.FuncIdx?) -> @validate.ValidationDiagnostic
+
+pub fn validate__ValidationDiagnostic__new__arity_1(@validate.ValidationIssue) -> @validate.ValidationDiagnostic
+
 pub fn validate__descriptor_compatible(@lib.RefType, @lib.RefType, @validate.Env) -> Bool
 
 pub fn validate__diff(@lib.RefType, @lib.RefType) -> Result[@lib.RefType, String]
@@ -4490,6 +4546,8 @@ pub fn validate__gen_valid_result_type(@validate.GenValidContext, Array[@lib.Val
 pub fn validate__gen_valid_tfunc(@validate.GenValidContext, Array[@lib.ValType], Array[@lib.ValType]) -> @lib.Func
 
 pub fn validate__gen_valid_valtype(@validate.GenValidContext) -> @lib.ValType
+
+pub fn validate__make_state(@validate.Env, Array[@lib.ValType]) -> @validate.TcState
 
 pub fn validate__to_texpr(@lib.Expr, @validate.Env) -> Result[@lib.TExpr, String]
 
@@ -4520,6 +4578,14 @@ pub fn validate__validate_tablesec(@lib.TableSec?, @validate.Env) -> Result[@val
 pub fn validate__validate_tagsec(@lib.TagSec?, @validate.Env) -> Result[@validate.Env, String]
 
 pub fn validate__validate_typesec(@lib.TypeSec?, @validate.Env) -> Result[@validate.Env, String]
+
+pub fn validate__validation_error_diagnostic(@validate.ValidationError) -> @validate.ValidationDiagnostic
+
+pub fn validate__validation_error_func_idx(@validate.ValidationError) -> @lib.FuncIdx?
+
+pub fn validate__validation_error_message(@validate.ValidationError) -> String
+
+pub fn validate__validation_issue_message(@validate.ValidationIssue) -> String
 
 pub fn wast__KeywordTable__lookup(@wast.KeywordTable, String) -> @wast.TokenType?
 

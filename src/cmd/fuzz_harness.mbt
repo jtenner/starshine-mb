@@ -619,12 +619,12 @@ fn cmd_native_validate_wasm_with(
   }
   let path = cmd_native_tmp_path("differential", ".wasm")
   if cmd_native_write_file(path, bytes) is Err(e) {
-    ignore(cmd_native_remove(cmd_native_c_string(path)))
+    cmd_native_remove_file(path)
     return Err("failed to stage wasm for \{command}: \{e}")
   }
   let run = "\{command} \{cmd_native_shell_quote(path)} >/dev/null 2>&1"
   let code = cmd_native_system(cmd_native_c_string(run))
-  ignore(cmd_native_remove(cmd_native_c_string(path)))
+  cmd_native_remove_file(path)
   Ok(code == 0)
 }
 

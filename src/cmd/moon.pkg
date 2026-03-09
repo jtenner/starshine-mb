@@ -2,6 +2,7 @@ import {
   "jtenner/starshine/binary",
   "jtenner/starshine/cli",
   "jtenner/starshine/diff",
+  "jtenner/starshine/fs" @sfs,
   "jtenner/starshine/lib",
   "jtenner/starshine/passes",
   "jtenner/starshine/validate",

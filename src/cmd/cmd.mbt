@@ -2543,16 +2543,6 @@ extern "c" fn cmd_native_fread(
 
 ///|
 #cfg(target="native")
-#borrow(ptr)
-extern "c" fn cmd_native_fwrite(
-  ptr : Bytes,
-  size : UInt64,
-  count : UInt64,
-  stream : UInt64,
-) -> UInt64 = "moonbit_fwrite_ffi"
-
-///|
-#cfg(target="native")
 #borrow(path)
 extern "c" fn cmd_native_access(path : Bytes, mode : Int) -> Int = "access"
 
@@ -2569,11 +2559,6 @@ extern "c" fn cmd_native_pclose(stream : UInt64) -> Int = "pclose"
 #cfg(target="native")
 #borrow(command)
 extern "c" fn cmd_native_system(command : Bytes) -> Int = "system"
-
-///|
-#cfg(target="native")
-#borrow(path)
-extern "c" fn cmd_native_remove(path : Bytes) -> Int = "remove"
 
 ///|
 #cfg(target="native")
@@ -2646,25 +2631,13 @@ fn cmd_native_read_file(path : String) -> Result[Bytes, String] {
 ///|
 #cfg(target="native")
 fn cmd_native_write_file(path : String, bytes : Bytes) -> Result[Unit, String] {
-  let c_path = cmd_native_c_string(path)
-  let c_mode = cmd_native_c_string("wb")
-  let file = cmd_native_fopen(c_path, c_mode)
-  if file == 0UL {
-    return Err("open failed")
-  }
-  let expected = bytes.length()
-  if expected > 0 {
-    let expected_u = expected.to_uint64()
-    let wrote = cmd_native_fwrite(bytes, 1UL, expected_u, file)
-    if wrote != expected_u {
-      ignore(cmd_native_fclose(file))
-      return Err("write failed")
-    }
-  }
-  if cmd_native_fclose(file) != 0 {
-    return Err("close failed")
-  }
-  Ok(())
+  @sfs.write_file_bytes(path, bytes)
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_remove_file(path : String) -> Unit {
+  ignore(@sfs.remove_file(path))
 }
 
 ///|
@@ -2910,10 +2883,8 @@ fn cmd_native_lower_text_module(
   let out_path = cmd_native_tmp_path("text-out", ".wasm")
 
   if cmd_native_write_file(in_path, bytes) is Err(e) {
-    let c_in_path = cmd_native_c_string(in_path)
-    let c_out_path = cmd_native_c_string(out_path)
-    ignore(cmd_native_remove(c_in_path))
-    ignore(cmd_native_remove(c_out_path))
+    cmd_native_remove_file(in_path)
+    cmd_native_remove_file(out_path)
     return Err("failed to stage text input for \{path}: \{e}")
   }
 
@@ -2944,10 +2915,8 @@ fn cmd_native_lower_text_module(
     )
   }
 
-  let c_in_path = cmd_native_c_string(in_path)
-  let c_out_path = cmd_native_c_string(out_path)
-  ignore(cmd_native_remove(c_in_path))
-  ignore(cmd_native_remove(c_out_path))
+  cmd_native_remove_file(in_path)
+  cmd_native_remove_file(out_path)
   result
 }
 
