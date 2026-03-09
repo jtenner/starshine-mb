@@ -99,7 +99,7 @@ fn gsi_collect_struct_types_in_tinstr(
       | TInstrKind::TStructNewDefault(type_idx) => out.add(type_idx)
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_tinstruction((), instr))
 }
@@ -112,7 +112,7 @@ fn gsi_collect_struct_types_in_texpr(expr : TExpr, out : Set[TypeIdx]) -> Unit {
       | TInstrKind::TStructNewDefault(type_idx) => out.add(type_idx)
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_texpr((), expr))
 }
@@ -946,10 +946,10 @@ fn gsi_optimize_tinstruction(instr : TInstr, state : GSIRewriteState) -> TInstr 
 
 ///|
 fn gsi_rewrite_func(
-  transformer : ModuleTransformer[GSIRewriteState],
+  transformer : ModuleTransformer[GSIRewriteState, String],
   state : GSIRewriteState,
   func : Func,
-) -> TransformerResult[GSIRewriteState, Func] {
+) -> VisitAction[GSIRewriteState, Func, String] {
   match func {
     Func(_, _) => unchanged()
     TFunc(params, locals, body) => {
@@ -960,14 +960,14 @@ fn gsi_rewrite_func(
         ),
       }
       match transformer.walk_texpr(local_state, body) {
-        Ok(Some((_, new_body))) =>
+        Ok((new_body, _)) =>
           if new_body != body {
             change(state, Func::t_func(params, locals, new_body))
           } else {
             unchanged()
           }
-        Ok(None) => unchanged()
-        Err(e) => Err(e)
+        Ok(_) => unchanged()
+        Err(e) => error(e)
       }
     }
   }
@@ -975,12 +975,12 @@ fn gsi_rewrite_func(
 
 ///|
 fn gsi_rewrite_tinstruction(
-  transformer : ModuleTransformer[GSIRewriteState],
+  transformer : ModuleTransformer[GSIRewriteState, String],
   state : GSIRewriteState,
   instr : TInstr,
-) -> TransformerResult[GSIRewriteState, TInstr] {
+) -> VisitAction[GSIRewriteState, TInstr, String] {
   let walked = match transformer.walk_tinstruction_default(state, instr) {
-    Ok(Some((next_state, next_instr))) => {
+    Ok((next_instr, next_state)) => {
       let optimized_instr = gsi_optimize_tinstruction(next_instr, next_state)
       if optimized_instr != instr {
         return change(next_state, optimized_instr)
@@ -991,8 +991,8 @@ fn gsi_rewrite_tinstruction(
         unchanged()
       }
     }
-    Ok(None) => instr
-    Err(e) => return Err(e)
+    Ok(_) => instr
+    Err(e) => return error(e)
   }
   let optimized_instr = gsi_optimize_tinstruction(walked, state)
   if optimized_instr != instr {
@@ -1096,8 +1096,8 @@ fn run_global_struct_inference(
     .on_func_evt(gsi_rewrite_func)
     .on_tinstruction_evt(gsi_rewrite_tinstruction)
   match pass.walk_module(state, mod) {
-    Ok(Some((_, new_mod))) => Ok(new_mod)
-    Ok(None) => Ok(mod)
+    Ok((new_mod, _)) => Ok(new_mod)
+    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }

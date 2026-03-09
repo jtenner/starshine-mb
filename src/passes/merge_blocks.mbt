@@ -665,7 +665,7 @@ fn compute_effects(expr : TInstr) -> MBEffects {
   let effects = MBEffects::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
     mb_collect_shallow_effects(curr, effects)
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_tinstruction((), expr))
   effects
@@ -2522,7 +2522,7 @@ fn run_on_function(
 fn merge_blocks_ir_pass(
   mod : Module,
   options? : OptimizeOptions = OptimizeOptions::new(),
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     let (next_func, changed) = run_on_function(func, mod, options)
     if changed {
@@ -2540,7 +2540,7 @@ fn run_merge_blocks(
 ) -> Module {
   let pass = merge_blocks_ir_pass(mod, options~)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
+    Ok((out, _)) => out
     _ => mod
   }
 }
@@ -3211,7 +3211,7 @@ fn mb_has_bad_single_arg_local_chain_call(body : TExpr, env : Env) -> Bool {
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   bad
@@ -3683,7 +3683,7 @@ test "merge blocks: named dropped block removes break values when safe" {
       TInstrKind::TBr(_, values) if !values.is_empty() => saw_value_br = true
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), out))
   assert_false(saw_value_br)
@@ -3777,7 +3777,7 @@ test "merge blocks: try_table catch_all_ref targeting origin is allowed" {
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), out))
   assert_false(saw_ref_catch)
@@ -3840,7 +3840,7 @@ test "merge blocks: restructure pulls operand block outward with effect checks" 
         wrapped = true
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), out))
   assert_true(wrapped)

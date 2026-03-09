@@ -392,7 +392,7 @@ fn ls_scan_body(body : TExpr, relevant_locals : Set[Int]) -> LocalSubtypingScan 
       }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   scan

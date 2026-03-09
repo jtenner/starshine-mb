@@ -906,8 +906,8 @@ fn rewrite_body_locals(
     }
   })
   match rewriter.walk_texpr((), body) {
-    Ok(Some((_, out))) => Ok((out, max_local_used.val))
-    Ok(None) => Ok((body, max_local_used.val))
+    Ok((out, _)) => Ok((out, max_local_used.val))
+    Ok(_) => Ok((body, max_local_used.val))
     Err(e) => Err(e)
   }
 }
@@ -917,7 +917,7 @@ fn coalesce_locals(
   param_types? : Array[Array[ValType]] = [],
   trace? : (String) -> Unit = cl_trace_noop,
   trace_all_funcs? : Bool = false,
-) -> ModuleTransformer[Unit] {
+) -> ModuleTransformer[Unit, String] {
   let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_, _, func) {
     let def_idx = next_def_idx.val
@@ -1063,7 +1063,7 @@ fn coalesce_locals(
                 "func[\{ordinal}] phase=rewrite_body error elapsed_ms=\{sl_trace_elapsed_ms(rewrite_start_ms)} \{e}",
               )
             }
-            return Err(e)
+            return error(e)
           }
         }
         if log_func {
@@ -1079,7 +1079,7 @@ fn coalesce_locals(
               "func[\{ordinal}] phase=validate error elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} \{err}",
             )
           }
-          return Err(err)
+          return error(err)
         }
         if log_func {
           let changed = new_locals != locals || new_body != body
@@ -1098,7 +1098,7 @@ fn coalesce_locals_ir_pass_with_trace(
   mod : Module,
   trace? : (String) -> Unit = cl_trace_noop,
   trace_all_funcs? : Bool = false,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   wrap_unit_func_pass(
     coalesce_locals(
       param_types=cl_collect_param_types(mod),
@@ -1355,7 +1355,7 @@ test "CoalesceLocals: trivial coalescing rewrites locals" {
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = coalesce_locals()
-  let (_, new_module) = pass.walk_module((), mod).unwrap().unwrap()
+  let (new_module, _) = pass.walk_module((), mod).unwrap()
 
   // After coalescing, only one local remains
   assert_true(
@@ -1512,7 +1512,7 @@ test "CoalesceLocals: locals of different types do not coalesce" {
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
-  let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
+  let (new_mod, _) = coalesce_locals().walk_module((), mod).unwrap()
   assert_true(
     new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 2,
@@ -1539,7 +1539,7 @@ test "CoalesceLocals: nested expressions still allow coalescing" {
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
-  let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
+  let (new_mod, _) = coalesce_locals().walk_module((), mod).unwrap()
   assert_true(
     new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 1,
@@ -1639,7 +1639,7 @@ test "CoalesceLocals: merge interference prevents coalescing" {
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
-  let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
+  let (new_mod, _) = coalesce_locals().walk_module((), mod).unwrap()
   assert_true(
     new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 2,
@@ -1673,7 +1673,7 @@ test "CoalesceLocals: branch-local lifetimes can be coalesced" {
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
-  let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
+  let (new_mod, _) = coalesce_locals().walk_module((), mod).unwrap()
   assert_true(
     new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 1,
@@ -1768,7 +1768,7 @@ test "Copy-based coalescing eliminates local copy" {
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
-  let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
+  let (new_mod, _) = coalesce_locals().walk_module((), mod).unwrap()
   assert_true(
     new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 1,
@@ -1791,7 +1791,7 @@ test "Copy-based coalescing respects interference" {
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
-  let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
+  let (new_mod, _) = coalesce_locals().walk_module((), mod).unwrap()
   assert_true(
     new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 2,
@@ -1817,7 +1817,7 @@ test "Value numbering: identical constant assignments coalesce" {
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
-  let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
+  let (new_mod, _) = coalesce_locals().walk_module((), mod).unwrap()
 
   // With value numbering, x and y can be coalesced
   assert_true(
@@ -1845,7 +1845,7 @@ test "Value numbering: different constants do not coalesce" {
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
-  let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
+  let (new_mod, _) = coalesce_locals().walk_module((), mod).unwrap()
 
   // Must not coalesce
   assert_true(
@@ -1873,7 +1873,7 @@ test "Value numbering: copy propagation enables coalescing" {
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
-  let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
+  let (new_mod, _) = coalesce_locals().walk_module((), mod).unwrap()
   // x and y hold same value → coalesce
   assert_true(
     new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
@@ -1901,7 +1901,7 @@ test "Value numbering: reassignment breaks equality" {
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
-  let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
+  let (new_mod, _) = coalesce_locals().walk_module((), mod).unwrap()
 
   // x and y no longer equal
   assert_true(
@@ -1933,7 +1933,7 @@ test "Value numbering: equal values across branches do not coalesce" {
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
-  let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
+  let (new_mod, _) = coalesce_locals().walk_module((), mod).unwrap()
   assert_true(
     new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 2,
@@ -1962,7 +1962,7 @@ test "CoalesceLocals: nested local use is rewritten when locals coalesce" {
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
-  let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
+  let (new_mod, _) = coalesce_locals().walk_module((), mod).unwrap()
   assert_true(
     new_mod.code_sec is Some(CodeSec([TFunc(_, locals, body)])) &&
     locals.length() == 1 &&
@@ -2001,7 +2001,7 @@ test "CoalesceLocals: imported functions do not shift param boundaries" {
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
     .with_code_sec(CodeSec::new([func]))
   let pass = coalesce_locals(param_types=cl_collect_param_types(mod))
-  let (_, new_mod) = pass.walk_module((), mod).unwrap().unwrap()
+  let (new_mod, _) = pass.walk_module((), mod).unwrap()
   assert_true(
     new_mod.code_sec is Some(CodeSec([TFunc(_, locals, new_body)])) &&
     locals.length() == 1 &&
@@ -2030,9 +2030,9 @@ test "CoalesceLocals: plain Func entries do not shift param boundaries" {
     )
   let pass = coalesce_locals(param_types=cl_collect_param_types(mod))
   let result = pass.walk_module((), mod)
-  let (_, out_mod) = match result {
-    Ok(Some(changed)) => changed
-    Ok(None) => fail("expected coalesce_locals to update typed function params")
+  let (out_mod, _) = match result {
+    Ok(changed) => changed
+    Ok(_) => fail("expected coalesce_locals to update typed function params")
     Err(e) => fail("unexpected coalesce_locals error: \{e}")
   }
   match out_mod.code_sec {
@@ -2071,9 +2071,9 @@ test "CoalesceLocals: mixed Func/TFunc keeps typed params when func_sec is stale
     )
   let pass = coalesce_locals(param_types=cl_collect_param_types(mod))
   let result = pass.walk_module((), mod)
-  let (_, out_mod) = match result {
-    Ok(Some(changed)) => changed
-    Ok(None) => fail("expected coalesce_locals to keep typed params/locals")
+  let (out_mod, _) = match result {
+    Ok(changed) => changed
+    Ok(_) => fail("expected coalesce_locals to keep typed params/locals")
     Err(e) => fail("unexpected coalesce_locals error: \{e}")
   }
   match out_mod.code_sec {

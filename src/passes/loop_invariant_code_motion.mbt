@@ -265,7 +265,7 @@ fn licm_collect_effects(instr : TInstr) -> LICMEffects {
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_tinstruction((), instr))
   effects
@@ -397,7 +397,7 @@ fn licm_collect_get_ids(curr : TInstr, start_get_id : Int) -> (Array[Int], Int) 
       }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_tinstruction((), curr))
   (ids, next_get.val)
@@ -441,7 +441,7 @@ fn licm_collect_set_info(instr : TInstr) -> LICMSetInfo {
         set_indices.push(licm_local_idx_to_int(idx))
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_tinstruction((), instr))
   { set_indices, local_sets }
@@ -462,7 +462,7 @@ fn licm_collect_loop_sets_and_counts(
       TInstrKind::TLocalTee(idx, _) => licm_count_set(num_sets_for_index, idx)
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   (loop_sets, num_sets_for_index)
@@ -596,7 +596,7 @@ fn licm_collect_loop_entry_get_ids(body : TExpr) -> Array[Int] {
       TInstrKind::TLocalGet(_) => next_get_id.update(fn(n) { n + 1 })
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   ids
@@ -624,9 +624,9 @@ fn licm_run_on_body(body : TExpr) -> (TExpr, Bool) {
           let loop_index = loop_visit.val
           loop_visit.update(fn(n) { n + 1 })
           let walked = match self.walk_tinstruction_default((), instr) {
-            Ok(Some((_, updated))) => updated
-            Ok(None) => instr
-            Err(e) => return Err(e)
+            Ok((updated, _)) => updated
+            Ok(_) => instr
+            Err(e) => return error(e)
           }
           if loop_index >= loop_entry_get_ids.length() {
             if walked == instr {
@@ -647,12 +647,12 @@ fn licm_run_on_body(body : TExpr) -> (TExpr, Bool) {
             }
           }
         }
-        _ => self.walk_tinstruction_default((), instr)
+        _ => from_walk(self.walk_tinstruction_default((), instr))
       }
     })
     let next_body = match licm_pass.walk_texpr((), curr_body) {
-      Ok(Some((_, updated))) => updated
-      Ok(None) => curr_body
+      Ok((updated, _)) => updated
+      Ok(_) => curr_body
       Err(_) => curr_body
     }
     if next_body == curr_body {
@@ -666,7 +666,7 @@ fn licm_run_on_body(body : TExpr) -> (TExpr, Bool) {
 }
 
 ///|
-fn loop_invariant_code_motion_pass() -> ModuleTransformer[Unit] {
+fn loop_invariant_code_motion_pass() -> ModuleTransformer[Unit, String] {
   ModuleTransformer::new().on_func_evt(fn(_, _, func) {
     match func {
       TFunc(params, locals, body) => {
@@ -685,7 +685,7 @@ fn loop_invariant_code_motion_pass() -> ModuleTransformer[Unit] {
 ///|
 fn loop_invariant_code_motion_ir_pass(
   _mod : Module,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   wrap_unit_func_pass(loop_invariant_code_motion_pass())
 }
 
@@ -693,8 +693,8 @@ fn loop_invariant_code_motion_ir_pass(
 fn licm_optimize(mod : Module) -> Module {
   let pass = loop_invariant_code_motion_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod
+    Ok((out, _)) => out
+    Ok(_) => mod
     Err(e) => abort("licm pass error: \{e}")
   }
 }

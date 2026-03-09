@@ -3093,7 +3093,7 @@ fn simplify_locals_ir_pass(
   validate_each_rewrite? : Bool = false,
   trace? : (String) -> Unit = sl_trace_noop,
   trace_all_funcs? : Bool = false,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let options = { allow_tee, allow_structure, allow_nesting }
   let param_types = sl_collect_param_types(mod)
   let base_env = Env::new().with_module(mod)
@@ -3219,8 +3219,8 @@ fn sl_run_simplify_locals(
     validate_each_rewrite~,
   )
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod
+    Ok((out, _)) => out
+    Ok(_) => mod
     Err(e) => abort("simplify_locals pass failed: \{e}")
   }
 }

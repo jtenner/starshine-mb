@@ -51,7 +51,7 @@ fn remove_unused_names_ir_pass(
   trace? : (String) -> Unit = run_trace_noop,
   trace_all_funcs? : Bool = false,
   trace_budget? : Bool = true,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     let def_idx = next_def_idx.val
@@ -91,7 +91,7 @@ fn remove_unused_names_ir_pass(
               }
               change(ctx, Func::t_func(params, locals, next_body))
             }
-          Err(e) => Err(e)
+          Err(e) => error(e)
         }
       }
       _ => unchanged()
@@ -113,8 +113,8 @@ fn run_remove_unused_names(
     trace_budget~,
   )
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod
+    Ok((out, _)) => out
+    Ok(_) => mod
     Err(e) => abort("remove_unused_names_ir_pass failed: \{e}")
   }
 }
@@ -228,16 +228,16 @@ fn run_adjust_label_for_removed_scopes(
 
 ///|
 fn run_walk_tinstruction_with_depth(
-  transformer : ModuleTransformer[Int],
+  transformer : ModuleTransformer[Int, String],
   depth : Int,
   instr : TInstr,
-) -> TransformerResult[Int, TInstr] {
+) -> VisitAction[Int, TInstr, String] {
   match instr.kind {
     TInstrKind::TBlock(bt, body) => {
       let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok(Some((_, out))) => out
-        Ok(None) => body
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => body
+        Err(e) => return error(e)
       }
       if next_body == body {
         unchanged()
@@ -247,9 +247,9 @@ fn run_walk_tinstruction_with_depth(
     }
     TInstrKind::TLoop(bt, body) => {
       let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok(Some((_, out))) => out
-        Ok(None) => body
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => body
+        Err(e) => return error(e)
       }
       if next_body == body {
         unchanged()
@@ -259,21 +259,21 @@ fn run_walk_tinstruction_with_depth(
     }
     TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let next_cond = match transformer.walk_tinstruction(depth, cond) {
-        Ok(Some((_, out))) => out
-        Ok(None) => cond
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => cond
+        Err(e) => return error(e)
       }
       let next_then = match transformer.walk_texpr(depth + 1, then_body) {
-        Ok(Some((_, out))) => out
-        Ok(None) => then_body
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => then_body
+        Err(e) => return error(e)
       }
       let next_else = match else_body {
         Some(other) =>
           match transformer.walk_texpr(depth + 1, other) {
-            Ok(Some((_, out))) => Some(out)
-            Ok(None) => Some(other)
-            Err(e) => return Err(e)
+            Ok((out, _)) => Some(out)
+            Ok(_) => Some(other)
+            Err(e) => return error(e)
           }
         None => None
       }
@@ -291,14 +291,14 @@ fn run_walk_tinstruction_with_depth(
           ModuleTransformer::walk_catch,
           catches,
         ) {
-        Ok(Some((_, out))) => out
-        Ok(None) => catches
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => catches
+        Err(e) => return error(e)
       }
       let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok(Some((_, out))) => out
-        Ok(None) => body
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => body
+        Err(e) => return error(e)
       }
       let next_instr = TInstr::try_table(bt, next_catches, next_body)
       if next_instr == instr {
@@ -307,7 +307,7 @@ fn run_walk_tinstruction_with_depth(
         change(depth, next_instr)
       }
     }
-    _ => transformer.walk_tinstruction_default(depth, instr)
+    _ => from_walk(transformer.walk_tinstruction_default(depth, instr))
   }
 }
 
@@ -347,13 +347,13 @@ fn run_shift_labels_for_removed_scopes(
     })
     .on_tinstruction_evt(fn(self, depth, instr) {
       if !run_take_rescan_budget(budget) {
-        return Err(RUN_RESCAN_BUDGET_EXHAUSTED)
+        return error(RUN_RESCAN_BUDGET_EXHAUSTED)
       }
       run_walk_tinstruction_with_depth(self, depth, instr)
     })
   match pass.walk_texpr(0, body) {
-    Ok(Some((_, out))) => Ok(Some(out))
-    Ok(None) => Ok(Some(body))
+    Ok((out, _)) => Ok(Some(out))
+    Ok(_) => Ok(Some(body))
     Err(e) => if e == RUN_RESCAN_BUDGET_EXHAUSTED { Ok(None) } else { Err(e) }
   }
 }
@@ -391,13 +391,13 @@ fn run_has_branch_to_current_scope(
   let pass = ModuleTransformer::new()
     .on_labelidx_evt(fn(_, depth, label) {
       if run_label_to_int(label) == depth {
-        return Err(RUN_BRANCH_TO_SCOPE_FOUND)
+        return error(RUN_BRANCH_TO_SCOPE_FOUND)
       }
       unchanged()
     })
     .on_tinstruction_evt(fn(self, depth, instr) {
       if !run_take_rescan_budget(budget) {
-        return Err(RUN_RESCAN_BUDGET_EXHAUSTED)
+        return error(RUN_RESCAN_BUDGET_EXHAUSTED)
       }
       run_walk_tinstruction_with_depth(self, depth, instr)
     })
@@ -433,7 +433,7 @@ fn run_scan_remove_unused_names_candidates(
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     visited.update(fn(i) { i + 1 })
     if visited.val > visit_limit {
-      return Err(RUN_ANALYSIS_VISIT_LIMIT_EXHAUSTED)
+      return error(RUN_ANALYSIS_VISIT_LIMIT_EXHAUSTED)
     }
     match instr.kind {
       TInstrKind::TBlock(
@@ -446,7 +446,7 @@ fn run_scan_remove_unused_names_candidates(
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   match pass.walk_texpr((), body) {
     Ok(_) =>
@@ -532,7 +532,7 @@ fn run_remove_unused_names_once(
           "func[\{ordinal}] visit=\{visit} kind=\{run_instr_kind_name(instr)} no_progress_abort budget=\{RUN_NO_PROGRESS_VISIT_BUDGET_PER_FUNC} remaining_budget=\{remaining_budget()}",
         )
       }
-      return Err(RUN_NO_PROGRESS_VISIT_BUDGET_EXHAUSTED)
+      return error(RUN_NO_PROGRESS_VISIT_BUDGET_EXHAUSTED)
     }
     let mut seed = instr
     match instr.kind {
@@ -558,7 +558,7 @@ fn run_remove_unused_names_once(
               }
               Some(out)
             }
-            Ok(None) => {
+            Ok(_) => {
               note_budget_exhausted()
               if trace_budget {
                 let elapsed_ms = sl_trace_elapsed_ms(shift_start_ms)
@@ -568,7 +568,7 @@ fn run_remove_unused_names_once(
               }
               None
             }
-            Err(e) => return Err(e)
+            Err(e) => return error(e)
           }
           match shifted {
             Some(next_body) => {
@@ -587,9 +587,9 @@ fn run_remove_unused_names_once(
 
     let walk_start_ms = sl_trace_now_ms()
     let walked = match self.walk_tinstruction_default((), seed) {
-      Ok(Some((_, out))) => out
-      Ok(None) => seed
-      Err(e) => return Err(e)
+      Ok((out, _)) => out
+      Ok(_) => seed
+      Err(e) => return error(e)
     }
     let elapsed_ms = sl_trace_elapsed_ms(walk_start_ms)
     if trace_budget && elapsed_ms >= RUN_TRACE_SLOW_WALK_MS {
@@ -626,7 +626,7 @@ fn run_remove_unused_names_once(
               }
               next
             }
-            Ok(None) => {
+            Ok(_) => {
               note_budget_exhausted()
               if trace_budget {
                 let elapsed_ms = sl_trace_elapsed_ms(shift_start_ms)
@@ -636,7 +636,7 @@ fn run_remove_unused_names_once(
               }
               walked
             }
-            Err(e) => return Err(e)
+            Err(e) => return error(e)
           }
         }
       }
@@ -659,7 +659,7 @@ fn run_remove_unused_names_once(
               }
               found
             }
-            Ok(None) => {
+            Ok(_) => {
               note_budget_exhausted()
               stats.loop_branch_unknown += 1
               if trace_budget {
@@ -670,7 +670,7 @@ fn run_remove_unused_names_once(
               }
               true
             }
-            Err(e) => return Err(e)
+            Err(e) => return error(e)
           }
           if has_branch {
             walked
@@ -691,8 +691,8 @@ fn run_remove_unused_names_once(
     }
   })
   let final_result = match pass.walk_texpr((), body) {
-    Ok(Some((_, out))) => Ok((out, changed, stats))
-    Ok(None) => Ok((body, changed, stats))
+    Ok((out, _)) => Ok((out, changed, stats))
+    Ok(_) => Ok((body, changed, stats))
     Err(e) =>
       if e == RUN_NO_PROGRESS_VISIT_BUDGET_EXHAUSTED {
         Ok((body, false, stats))

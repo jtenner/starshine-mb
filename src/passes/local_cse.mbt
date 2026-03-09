@@ -195,7 +195,7 @@ fn lcs_collect_effects(instr : TInstr) -> LCSEffects {
   let effects = LCSEffects::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
     lcs_collect_shallow_effects_into(curr, effects)
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_tinstruction((), instr))
   effects
@@ -1870,7 +1870,7 @@ fn local_cse_count_imported_funcs(mod : Module) -> Int {
 fn local_cse_ir_pass(
   mod : Module,
   options : OptimizeOptions,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let base_env = Env::new().with_module(mod)
   let imported_funcs = local_cse_count_imported_funcs(mod)
   let mut seen_funcs = 0
@@ -1914,7 +1914,7 @@ fn run_local_cse(
 ) -> Module {
   let pass = local_cse_ir_pass(mod, options)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
+    Ok((out, _)) => out
     _ => mod
   }
 }
@@ -1927,7 +1927,7 @@ fn count_local_tees(body : TExpr) -> Int {
       TInstrKind::TLocalTee(_, _) => count += 1
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count
@@ -1941,7 +1941,7 @@ fn count_local_gets(body : TExpr) -> Int {
       TInstrKind::TLocalGet(_) => count += 1
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count

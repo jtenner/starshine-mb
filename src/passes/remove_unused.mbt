@@ -1835,7 +1835,7 @@ fn remove_unused_with_props(
   let transformer = ModuleTransformer::new()
     // Remap all index types
     .on_funcidx_evt(fn(
-      _t : ModuleTransformer[DCEState],
+      _t : ModuleTransformer[DCEState, String],
       s : DCEState,
       idx : FuncIdx,
     ) {
@@ -1886,42 +1886,42 @@ fn remove_unused_with_props(
         None => unchanged()
       }
     })
-    .on_externtype_evt(fn(self : ModuleTransformer[DCEState], s, ex) {
+    .on_externtype_evt(fn(self : ModuleTransformer[DCEState, String], s, ex) {
       match ex {
         FuncExternType(type_idx) =>
           match self.walk_typeidx(s, type_idx) {
-            Ok(Some((next_s, next_type_idx))) =>
+            Ok((next_type_idx, next_s)) =>
               change(next_s, ExternType::func(next_type_idx))
-            Ok(None) => unchanged()
-            Err(e) => Err(e)
+            Ok(_) => unchanged()
+            Err(e) => error(e)
           }
         TableExternType(table_type) =>
           match self.walk_tabletype(s, table_type) {
-            Ok(Some((next_s, next_table_type))) =>
+            Ok((next_table_type, next_s)) =>
               change(next_s, ExternType::table(next_table_type))
-            Ok(None) => unchanged()
-            Err(e) => Err(e)
+            Ok(_) => unchanged()
+            Err(e) => error(e)
           }
         MemExternType(mem_type) =>
           match self.walk_memtype(s, mem_type) {
-            Ok(Some((next_s, next_mem_type))) =>
+            Ok((next_mem_type, next_s)) =>
               change(next_s, ExternType::mem(next_mem_type))
-            Ok(None) => unchanged()
-            Err(e) => Err(e)
+            Ok(_) => unchanged()
+            Err(e) => error(e)
           }
         GlobalExternType(global_type) =>
           match self.walk_globaltype(s, global_type) {
-            Ok(Some((next_s, next_global_type))) =>
+            Ok((next_global_type, next_s)) =>
               change(next_s, ExternType::global(next_global_type))
-            Ok(None) => unchanged()
-            Err(e) => Err(e)
+            Ok(_) => unchanged()
+            Err(e) => error(e)
           }
         TagExternType(tag_type) =>
           match self.walk_tagtype(s, tag_type) {
-            Ok(Some((next_s, next_tag_type))) =>
+            Ok((next_tag_type, next_s)) =>
               change(next_s, ExternType::tag(next_tag_type))
-            Ok(None) => unchanged()
-            Err(e) => Err(e)
+            Ok(_) => unchanged()
+            Err(e) => error(e)
           }
       }
     })
@@ -1938,7 +1938,7 @@ fn remove_unused_with_props(
     })
     // Filter import section
     .on_importsec_evt(fn(
-      self : ModuleTransformer[DCEState],
+      self : ModuleTransformer[DCEState, String],
       s : DCEState,
       imp_sec : ImportSec,
     ) {
@@ -1986,19 +1986,19 @@ fn remove_unused_with_props(
       }
       let filtered = ImportSec::new(new_imports)
       match self.walk_importsec_default(s, filtered) {
-        Ok(Some((next_s, remapped))) => change(next_s, remapped)
-        Ok(None) =>
+        Ok((remapped, next_s)) => change(next_s, remapped)
+        Ok(_) =>
           if filtered == imp_sec {
             unchanged()
           } else {
             change(s, filtered)
           }
-        Err(e) => Err(e)
+        Err(e) => error(e)
       }
     })
     // Filter type section
     .on_typesec_evt(fn(
-      self : ModuleTransformer[DCEState],
+      self : ModuleTransformer[DCEState, String],
       s : DCEState,
       type_sec : TypeSec,
     ) {
@@ -2015,19 +2015,19 @@ fn remove_unused_with_props(
       }
       let filtered = TypeSec::new(new_types)
       match self.walk_typesec_default(s, filtered) {
-        Ok(Some((next_s, remapped))) => change(next_s, remapped)
-        Ok(None) =>
+        Ok((remapped, next_s)) => change(next_s, remapped)
+        Ok(_) =>
           if filtered == type_sec {
             unchanged()
           } else {
             change(s, filtered)
           }
-        Err(e) => Err(e)
+        Err(e) => error(e)
       }
     })
     // Filter func section (type indices for defined functions)
     .on_funcsec_evt(fn(
-      _t : ModuleTransformer[DCEState],
+      _t : ModuleTransformer[DCEState, String],
       s : DCEState,
       func_sec : FuncSec,
     ) {
@@ -2047,7 +2047,7 @@ fn remove_unused_with_props(
     })
     // Filter code section
     .on_codesec_evt(fn(
-      self : ModuleTransformer[DCEState],
+      self : ModuleTransformer[DCEState, String],
       s : DCEState,
       code_sec : CodeSec,
     ) {
@@ -2065,19 +2065,19 @@ fn remove_unused_with_props(
       }
       let filtered = CodeSec::new(new_funcs)
       match self.walk_codesec_default(s, filtered) {
-        Ok(Some((next_s, remapped))) => change(next_s, remapped)
-        Ok(None) =>
+        Ok((remapped, next_s)) => change(next_s, remapped)
+        Ok(_) =>
           if filtered == code_sec {
             unchanged()
           } else {
             change(s, filtered)
           }
-        Err(e) => Err(e)
+        Err(e) => error(e)
       }
     })
     // Filter table section
     .on_tablesec_evt(fn(
-      _t : ModuleTransformer[DCEState],
+      _t : ModuleTransformer[DCEState, String],
       s : DCEState,
       table_sec : TableSec,
     ) {
@@ -2095,7 +2095,7 @@ fn remove_unused_with_props(
     })
     // Filter memory section
     .on_memsec_evt(fn(
-      _t : ModuleTransformer[DCEState],
+      _t : ModuleTransformer[DCEState, String],
       s : DCEState,
       mem_sec : MemSec,
     ) {
@@ -2111,7 +2111,7 @@ fn remove_unused_with_props(
     })
     // Filter global section
     .on_globalsec_evt(fn(
-      self : ModuleTransformer[DCEState],
+      self : ModuleTransformer[DCEState, String],
       s : DCEState,
       global_sec : GlobalSec,
     ) {
@@ -2127,19 +2127,19 @@ fn remove_unused_with_props(
       }
       let filtered = GlobalSec::new(new_globals)
       match self.walk_globalsec_default(s, filtered) {
-        Ok(Some((next_s, remapped))) => change(next_s, remapped)
-        Ok(None) =>
+        Ok((remapped, next_s)) => change(next_s, remapped)
+        Ok(_) =>
           if filtered == global_sec {
             unchanged()
           } else {
             change(s, filtered)
           }
-        Err(e) => Err(e)
+        Err(e) => error(e)
       }
     })
     // Filter tag section
     .on_tagsec_evt(fn(
-      _t : ModuleTransformer[DCEState],
+      _t : ModuleTransformer[DCEState, String],
       s : DCEState,
       tag_sec : TagSec,
     ) {
@@ -2155,7 +2155,7 @@ fn remove_unused_with_props(
     })
     // Filter element section
     .on_elemsec_evt(fn(
-      self : ModuleTransformer[DCEState],
+      self : ModuleTransformer[DCEState, String],
       s : DCEState,
       elem_sec : ElemSec,
     ) {
@@ -2169,19 +2169,19 @@ fn remove_unused_with_props(
       }
       let filtered = ElemSec::new(new_elems)
       match self.walk_elemsec_default(s, filtered) {
-        Ok(Some((next_s, remapped))) => change(next_s, remapped)
-        Ok(None) =>
+        Ok((remapped, next_s)) => change(next_s, remapped)
+        Ok(_) =>
           if filtered == elem_sec {
             unchanged()
           } else {
             change(s, filtered)
           }
-        Err(e) => Err(e)
+        Err(e) => error(e)
       }
     })
     // Filter data section
     .on_datasec_evt(fn(
-      self : ModuleTransformer[DCEState],
+      self : ModuleTransformer[DCEState, String],
       s : DCEState,
       data_sec : DataSec,
     ) {
@@ -2195,24 +2195,28 @@ fn remove_unused_with_props(
       }
       let filtered = DataSec::new(new_datas)
       match self.walk_datasec_default(s, filtered) {
-        Ok(Some((next_s, remapped))) => change(next_s, remapped)
-        Ok(None) =>
+        Ok((remapped, next_s)) => change(next_s, remapped)
+        Ok(_) =>
           if filtered == data_sec {
             unchanged()
           } else {
             change(s, filtered)
           }
-        Err(e) => Err(e)
+        Err(e) => error(e)
       }
     })
     // Update data count section
-    .on_datacntsec_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, _) {
+    .on_datacntsec_evt(fn(
+      _t : ModuleTransformer[DCEState, String],
+      s : DCEState,
+      _,
+    ) {
       let count = s.used.datas.length().reinterpret_as_uint()
       change(s, DataCntSec::new(count))
     })
     // Filter exports to only include used items
     .on_exportsec_evt(fn(
-      _t : ModuleTransformer[DCEState],
+      _t : ModuleTransformer[DCEState, String],
       s : DCEState,
       export_sec : ExportSec,
     ) {
@@ -2277,7 +2281,7 @@ fn remove_unused_with_props(
     })
     // Update start section
     .on_startsec_evt(fn(
-      _t : ModuleTransformer[DCEState],
+      _t : ModuleTransformer[DCEState, String],
       s : DCEState,
       start_sec : StartSec,
     ) {
@@ -2289,11 +2293,9 @@ fn remove_unused_with_props(
     })
   let result = transformer
     .walk_module(state, mod)
-    .map(fn(pair : (DCEState, Module)?) {
-      match pair {
-        Some((_, mod)) => mod
-        None => mod
-      }
+    .map(fn(pair : (Module, DCEState)) {
+      let (next_mod, _) = pair
+      next_mod
     })
   match result {
     Ok(next_mod) => {
@@ -2310,7 +2312,7 @@ fn remove_unused_ir_pass(
   closed_world? : Bool = true,
   root_all_functions? : Bool = false,
   trace? : (String) -> Unit = ru_trace_noop,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let props = RemoveUnusedProps::new(closed_world~, root_all_functions~)
   ModuleTransformer::new().on_module_evt(fn(_, ctx : IRContext, mod : Module) {
     match remove_unused_with_props(mod, props, trace~) {
@@ -2320,7 +2322,7 @@ fn remove_unused_ir_pass(
         } else {
           change(ctx, next_mod)
         }
-      Err(e) => Err(e)
+      Err(e) => error(e)
     }
   })
 }
@@ -4185,12 +4187,12 @@ test "remove_unused_ir_pass rewrites module through IRContext wrapper" {
     )
   let ctx = IRContext::new()
   match remove_unused_ir_pass(mod).walk_module(ctx, mod) {
-    Ok(Some((_, out))) =>
+    Ok((out, _)) =>
       match out.func_sec {
         Some(FuncSec(funcs)) => assert_eq(funcs.length(), 1)
         None => fail("expected rewritten function section")
       }
-    Ok(None) => fail("expected remove_unused_ir_pass to report changes")
+    Ok(_) => fail("expected remove_unused_ir_pass to report changes")
     Err(e) => fail("unexpected remove_unused_ir_pass error: \{e}")
   }
 }

@@ -363,7 +363,9 @@ fn load_or_op(stack_size : StackSize, l : TInstr, r : TInstr) -> TInstr {
 }
 
 ///|
-fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn alignment_lowering_pass(
+  mod : Module,
+) -> ModuleTransformer[IRContext, String] {
   let memories = match mod.mem_sec {
     Some(sec) => sec.0
     None => []
@@ -373,12 +375,12 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
   ModuleTransformer::new()
   .on_func_evt(fn(self, t : IRContext, i) {
     match i {
-      Func(_) => Err("Expected TFunc")
+      Func(_) => error("Expected TFunc")
       TFunc(params, locals, b) => {
         temp_params = params
         temp_locals = locals
         match self.walk_func_default(t, Func::t_func(params, locals, b)) {
-          Ok(Some((t, func))) =>
+          Ok((func, t)) =>
             match func {
               TFunc(_, _, b) => {
                 let result_params = temp_params
@@ -387,10 +389,10 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
                 temp_locals = []
                 change(t, Func::t_func(result_params, result_locals, b))
               }
-              _ => Err("Expected TFunc")
+              _ => error("Expected TFunc")
             }
-          Err(t) => Err(t)
-          Ok(None) => unchanged()
+          Err(t) => error(t)
+          Ok(_) => unchanged()
         }
       }
     }
@@ -399,9 +401,9 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
     match i.kind {
       TInstrKind::TLoad(op, MemArg(U32(align), mem_option, U64(offset)), a) => {
         let a = match self.walk_tinstruction_default(t, a) {
-          Ok(Some((_, a))) => a
-          Ok(None) => a
-          Err(e) => return Err(e)
+          Ok((a, _)) => a
+          Ok(_) => a
+          Err(e) => return error(e)
         }
         let op_size = size_of_load_op(op)
         if op_size > 8 {
@@ -432,7 +434,7 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
         }
         let ptr_valtype = match memories.get(mem_idx) {
           Some(mem_type) => mem_type.0.addr_valtype()
-          None => return Err("Invalid memory index")
+          None => return error("Invalid memory index")
         }
         let next = temp_locals.length().reinterpret_as_uint()
         temp_locals.push(ptr_valtype)
@@ -443,7 +445,7 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
         let chunk_byte_count = first.0.byte_count()
         let load_op = match load_op_with_chunk_size(value_stack_size, first.0) {
           Ok(t) => t
-          Err(e) => return Err(e)
+          Err(e) => return error(e)
         }
         let first_load = TInstr::load(
           load_op,
@@ -457,7 +459,7 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
             let load_op = match
               load_op_with_chunk_size(value_stack_size, chunk_size) {
               Ok(t) => t
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
             let load_instr = TInstr::load(
               load_op,
@@ -479,14 +481,14 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
       }
       TInstrKind::TStore(op, MemArg(U32(align), mem_option, U64(offset)), a, b) => {
         let a = match self.walk_tinstruction(t, a) {
-          Ok(Some((_, a))) => a
-          Ok(None) => a
-          Err(e) => return Err(e)
+          Ok((a, _)) => a
+          Ok(_) => a
+          Err(e) => return error(e)
         }
         let b = match self.walk_tinstruction(t, b) {
-          Ok(Some((_, b))) => b
-          Ok(None) => b
-          Err(e) => return Err(e)
+          Ok((b, _)) => b
+          Ok(_) => b
+          Err(e) => return error(e)
         }
         let op_size = size_of_store_op(op)
         if op_size > 8 {
@@ -521,7 +523,7 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
         }
         let ptr_valtype = match memories.get(mem_idx) {
           Some(mem_type) => mem_type.0.addr_valtype()
-          None => return Err("Invalid memory index")
+          None => return error("Invalid memory index")
         }
         let ptr_local_idx = temp_locals.length().reinterpret_as_uint()
         temp_locals.push(ptr_valtype)
@@ -551,7 +553,7 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
           let store_op = match
             store_op_with_chunk_size(value_stack_size, chunk_size) {
             Ok(t) => t
-            Err(e) => return Err(e)
+            Err(e) => return error(e)
           }
           let shifted_value = store_shift_op(
             value_stack_size,
@@ -584,14 +586,14 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
         let op_size = size_of_v128_load_lane_op(op)
         let effective_align = @cmp.minimum(align, op_size)
         let a = match self.walk_tinstruction_default(t, a) {
-          Ok(Some((_, a))) => a
-          Ok(None) => a
-          Err(e) => return Err(e)
+          Ok((a, _)) => a
+          Ok(_) => a
+          Err(e) => return error(e)
         }
         let b = match self.walk_tinstruction_default(t, b) {
-          Ok(Some((_, b))) => b
-          Ok(None) => b
-          Err(e) => return Err(e)
+          Ok((b, _)) => b
+          Ok(_) => b
+          Err(e) => return error(e)
         }
         let c = chunks(op_size, effective_align, offset)
         if c.length() == 1 {
@@ -615,7 +617,7 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
         }
         let ptr_valtype = match memories.get(mem_idx) {
           Some(mem_type) => mem_type.0.addr_valtype()
-          None => return Err("Invalid memory index")
+          None => return error("Invalid memory index")
         }
         let ptr_local_idx = temp_locals.length().reinterpret_as_uint()
         temp_locals.push(ptr_valtype)
@@ -634,7 +636,7 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
         let chunk_byte_count = first.0.byte_count()
         let chunk_load_op = match load_op_with_chunk_size(stack_size, first.0) {
           Ok(t) => t
-          Err(e) => return Err(e)
+          Err(e) => return error(e)
         }
         let first_load = TInstr::load(
           chunk_load_op,
@@ -648,7 +650,7 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
           let chunk_load_op = match
             load_op_with_chunk_size(stack_size, chunk_size) {
             Ok(t) => t
-            Err(e) => return Err(e)
+            Err(e) => return error(e)
           }
           let load_instr = TInstr::load(
             chunk_load_op,
@@ -666,7 +668,7 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
         // Use replace_lane to put the loaded value into the vector
         change(t, TInstr::replace_lane(replace_op, lane, b, acc))
       }
-      _ => self.walk_tinstruction_default(t, i)
+      _ => from_walk(self.walk_tinstruction_default(t, i))
     }
   })
 }
@@ -692,8 +694,8 @@ fn run_pass(
   ctx.set_mod(mod)
   let pass = alignment_lowering_pass(mod)
   match pass.walk_tinstruction(ctx, instr) {
-    Ok(Some((_, result))) => Ok(result)
-    Ok(None) => Ok(instr)
+    Ok((result, _)) => Ok(result)
+    Ok(_) => Ok(instr)
     Err(e) => Err(e)
   }
 }
@@ -710,9 +712,8 @@ fn run_func_pass(
   let pass = alignment_lowering_pass(mod)
   let func = Func::t_func([], locals, TExpr::new(body))
   match pass.walk_func(ctx, func) {
-    Ok(Some((_, TFunc(_, new_locals, new_body)))) => Ok((new_locals, new_body))
-    Ok(None) => Ok((locals, TExpr::new(body)))
-    Ok(Some(_)) => Err("Expected TFunc")
+    Ok((TFunc(_, new_locals, new_body), _)) => Ok((new_locals, new_body))
+    Ok((_, _)) => Err("Expected TFunc")
     Err(e) => Err(e)
   }
 }

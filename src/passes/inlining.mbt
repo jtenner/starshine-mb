@@ -190,7 +190,7 @@ fn il_compute_used_globally(mod : Module, total_funcs : Int) -> Array[Bool] {
       TInstrKind::TRefFunc(idx) => il_mark_func_used(used, idx)
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   match mod.code_sec {
     Some(CodeSec(funcs)) =>
@@ -225,7 +225,7 @@ fn il_measure_body(body : TExpr) -> Int {
   let mut count = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     count += 1
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count
@@ -373,7 +373,7 @@ fn il_analyze_func(
           TInstrKind::TRefFunc(_) => ref_func_refs += 1
           _ => ()
         }
-        self.walk_tinstruction_default((), instr)
+        from_walk(self.walk_tinstruction_default((), instr))
       })
       ignore(walker.walk_texpr((), body))
       let FuncType(params, _) = func_type
@@ -474,7 +474,7 @@ fn il_collect_callsites_for_body(
           Ok(_) => ()
           Err(e) => {
             reachable_depth -= 1
-            return Err(e)
+            return error(e)
           }
         }
         if curr_reachable && is_unreachable_instr(instr) {
@@ -489,11 +489,11 @@ fn il_collect_callsites_for_body(
         TInstrKind::TTryTable(bt, catches, try_body) => {
           try_depth += 1
           let walked_body = match self.walk_texpr((), try_body) {
-            Ok(Some((_, next))) => next
-            Ok(None) => try_body
+            Ok((next, _)) => next
+            Ok(_) => try_body
             Err(e) => {
               try_depth -= 1
-              return Err(e)
+              return error(e)
             }
           }
           try_depth -= 1
@@ -505,9 +505,9 @@ fn il_collect_callsites_for_body(
         }
         _ => {
           let walked = match self.walk_tinstruction_default((), instr) {
-            Ok(Some((_, next))) => next
-            Ok(None) => instr
-            Err(e) => return Err(e)
+            Ok((next, _)) => next
+            Ok(_) => instr
+            Err(e) => return error(e)
           }
           let is_reachable = if reachable_depth > 0 {
             reachable_stack[reachable_depth - 1]
@@ -676,12 +676,12 @@ fn il_worth_full_inlining(
 ///|
 fn il_apply_ir_transformer_pass(
   mod : Module,
-  pass : ModuleTransformer[IRContext],
+  pass : ModuleTransformer[IRContext, String],
 ) -> Result[Module, String] {
   let ctx = IRContext::new()
   match pass.walk_module(ctx, mod) {
-    Ok(Some((_, new_mod))) => Ok(new_mod)
-    Ok(None) => Ok(mod)
+    Ok((new_mod, _)) => Ok(new_mod)
+    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }
@@ -861,7 +861,7 @@ fn il_rewrite_inlined_body(
       }
       match mapped {
         Some(next) => if next == idx { unchanged() } else { change((), next) }
-        None => Err("inlining: local index mapping out of range")
+        None => error("inlining: local index mapping out of range")
       }
     })
     .on_labelidx_evt(fn(_, _, idx) {
@@ -870,9 +870,9 @@ fn il_rewrite_inlined_body(
     })
     .on_tinstruction_evt(fn(self, _, instr) {
       let walked = match self.walk_tinstruction_default((), instr) {
-        Ok(Some((_, next))) => next
-        Ok(None) => instr
-        Err(e) => return Err(e)
+        Ok((next, _)) => next
+        Ok(_) => instr
+        Err(e) => return error(e)
       }
       let rewritten = match walked.kind {
         TInstrKind::TReturn(values) => TInstr::br(LabelIdx::new(0), values)
@@ -891,7 +891,7 @@ fn il_rewrite_inlined_body(
                 )
               [_] => TInstr::br(LabelIdx::new(0), [TInstr::call(target, args)])
               _ =>
-                return Err(
+                return error(
                   "inlining: return_call rewrite for multi-value results is unsupported",
                 )
             }
@@ -914,7 +914,7 @@ fn il_rewrite_inlined_body(
                   TInstr::call_indirect(type_idx, table_idx, args, idx),
                 ])
               _ =>
-                return Err(
+                return error(
                   "inlining: return_call_indirect rewrite for multi-value results is unsupported",
                 )
             }
@@ -937,7 +937,7 @@ fn il_rewrite_inlined_body(
                   TInstr::call_ref(type_idx, args, ref_),
                 ])
               _ =>
-                return Err(
+                return error(
                   "inlining: return_call_ref rewrite for multi-value results is unsupported",
                 )
             }
@@ -951,8 +951,8 @@ fn il_rewrite_inlined_body(
       }
     })
   match mapper.walk_texpr((), body) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(body)
+    Ok((out, _)) => Ok(out)
+    Ok(_) => Ok(body)
     Err(e) => Err(e)
   }
 }
@@ -964,9 +964,9 @@ fn il_substitute_params_in_instr(
 ) -> Result[TInstr, String] {
   let sub = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
     let walked = match self.walk_tinstruction_default((), curr) {
-      Ok(Some((_, next))) => next
-      Ok(None) => curr
-      Err(e) => return Err(e)
+      Ok((next, _)) => next
+      Ok(_) => curr
+      Err(e) => return error(e)
     }
     match walked.kind {
       TInstrKind::TLocalGet(LocalIdx(raw)) => {
@@ -974,19 +974,19 @@ fn il_substitute_params_in_instr(
         match args.get(idx) {
           Some(arg) => change((), arg)
           None =>
-            Err(
+            error(
               "inlining: tail wrapper references non-parameter local during substitution",
             )
         }
       }
       TInstrKind::TLocalSet(_, _) | TInstrKind::TLocalTee(_, _) =>
-        Err("inlining: tail wrapper local writes are unsupported")
+        error("inlining: tail wrapper local writes are unsupported")
       _ => if walked == curr { unchanged() } else { change((), walked) }
     }
   })
   match sub.walk_tinstruction((), instr) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(instr)
+    Ok((out, _)) => Ok(out)
+    Ok(_) => Ok(instr)
     Err(e) => Err(e)
   }
 }
@@ -1165,7 +1165,7 @@ fn il_inline_at_callsite(
     ILReturnCall =>
       match il_inline_tail_wrapper_call(callee_func, args) {
         Ok(Some(instr)) => Ok(Some(instr))
-        Ok(None) => Ok(None)
+        Ok(_) => Ok(None)
         Err(e) => Err(e)
       }
     ILDirectCall =>
@@ -1192,8 +1192,7 @@ fn il_prepare_hoisted_tail_call(
 ) -> Result[(TInstr, TInstr, TInstr), String] {
   let inlined = match il_inline_tail_wrapper_call(callee_func, call_args) {
     Ok(Some(instr)) => instr
-    Ok(None) =>
-      return Err("inlining: expected a tail-wrapper callee for hoisting")
+    Ok(_) => return Err("inlining: expected a tail-wrapper callee for hoisting")
     Err(e) => return Err(e)
   }
   match inlined.kind {
@@ -1388,11 +1387,11 @@ fn il_apply_actions_to_func(
           TInstrKind::TTryTable(bt, catches, try_body) => {
             try_block_type_stack.push(bt)
             let walked_body = match self.walk_texpr((), try_body) {
-              Ok(Some((_, next))) => next
-              Ok(None) => try_body
+              Ok((next, _)) => next
+              Ok(_) => try_body
               Err(e) => {
                 ignore(try_block_type_stack.pop())
-                return Err(e)
+                return error(e)
               }
             }
             ignore(try_block_type_stack.pop())
@@ -1405,9 +1404,9 @@ fn il_apply_actions_to_func(
           }
           _ => {
             let walked = match self.walk_tinstruction_default((), instr) {
-              Ok(Some((_, next))) => next
-              Ok(None) => instr
-              Err(e) => return Err(e)
+              Ok((next, _)) => next
+              Ok(_) => instr
+              Err(e) => return error(e)
             }
             let maybe_action = match walked.kind {
               TInstrKind::TCall(fi, args) => {
@@ -1450,7 +1449,7 @@ fn il_apply_actions_to_func(
               Some((action, call_args)) =>
                 if action.callee_abs_idx < 0 ||
                   action.callee_abs_idx >= funcs_by_abs.length() {
-                  Err("inlining: callee index out of range")
+                  error("inlining: callee index out of range")
                 } else {
                   match funcs_by_abs[action.callee_abs_idx] {
                     Some(callee_func) =>
@@ -1494,7 +1493,7 @@ fn il_apply_actions_to_func(
                                   applied += 1
                                   change((), replacement)
                                 }
-                                Err(e) => Err(e)
+                                Err(e) => error(e)
                               }
                             } else if walked == instr {
                               change((), instr)
@@ -1524,13 +1523,13 @@ fn il_apply_actions_to_func(
                                 applied += 1
                                 change((), replacement)
                               }
-                              Ok(None) =>
+                              Ok(_) =>
                                 if walked == instr {
                                   change((), instr)
                                 } else {
                                   change((), walked)
                                 }
-                              Err(e) => Err(e)
+                              Err(e) => error(e)
                             }
                         }
                       } else {
@@ -1555,16 +1554,16 @@ fn il_apply_actions_to_func(
                             applied += 1
                             change((), replacement)
                           }
-                          Ok(None) =>
+                          Ok(_) =>
                             if walked == instr {
                               change((), instr)
                             } else {
                               change((), walked)
                             }
-                          Err(e) => Err(e)
+                          Err(e) => error(e)
                         }
                       }
-                    None => Err("inlining: callee function body is missing")
+                    None => error("inlining: callee function body is missing")
                   }
                 }
               None =>
@@ -1579,8 +1578,8 @@ fn il_apply_actions_to_func(
         }
       })
       let new_body = match rewriter.walk_texpr((), body) {
-        Ok(Some((_, next))) => next
-        Ok(None) => body
+        Ok((next, _)) => next
+        Ok(_) => body
         Err(e) => return Err(e)
       }
       let final_body = if hoisted_followups.is_empty() {
@@ -1752,7 +1751,7 @@ fn il_run_partial_splitting(
                     | TInstrKind::TLocalTee(idx, _) => if_writes.add(idx)
                     _ => ()
                   }
-                  self.walk_tinstruction_default((), instr)
+                  from_walk(self.walk_tinstruction_default((), instr))
                 })
                 ignore(scan.walk_texpr((), then_body))
                 if has_return {
@@ -1778,7 +1777,7 @@ fn il_run_partial_splitting(
                 TInstrKind::TLocalGet(idx) => trailing_reads.add(idx)
                 _ => ()
               }
-              self.walk_tinstruction_default((), instr)
+              from_walk(self.walk_tinstruction_default((), instr))
             })
             ignore(scan.walk_tinstruction((), last))
             let mut dep = false
@@ -2228,7 +2227,7 @@ fn il_count_calls(body : TExpr, target : FuncIdx) -> Int {
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   calls
@@ -2242,7 +2241,7 @@ fn il_count_direct_calls(body : TExpr, target : FuncIdx) -> Int {
       TInstrKind::TCall(fi, _) => if fi == target { calls += 1 }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   calls
@@ -2256,7 +2255,7 @@ fn il_count_return_calls(body : TExpr, target : FuncIdx) -> Int {
       TInstrKind::TReturnCall(fi, _) => if fi == target { calls += 1 }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   calls
@@ -2270,7 +2269,7 @@ fn il_count_return_call_indirects(body : TExpr) -> Int {
       TInstrKind::TReturnCallIndirect(_, _, _, _) => calls += 1
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   calls
@@ -2284,7 +2283,7 @@ fn il_count_return_call_refs(body : TExpr) -> Int {
       TInstrKind::TReturnCallRef(_, _, _) => calls += 1
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   calls
@@ -2298,7 +2297,7 @@ fn il_has_return(body : TExpr) -> Bool {
       TInstrKind::TReturn(_) => found = true
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   found
@@ -2312,7 +2311,7 @@ fn il_count_br_to(body : TExpr, label : LabelIdx) -> Int {
       TInstrKind::TBr(li, _) => if li == label { found += 1 }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   found
@@ -2552,7 +2551,7 @@ test "inlining maps locals and only zero-inits defaultable callee locals" {
             has_ref_null_init = true
           _ => ()
         }
-        self.walk_tinstruction_default((), instr)
+        from_walk(self.walk_tinstruction_default((), instr))
       })
       ignore(walker.walk_texpr((), body))
       assert_true(has_i32_zero)

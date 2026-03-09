@@ -156,16 +156,16 @@ fn vq_adjust_label_for_collapsed_wrapper(
 
 ///|
 fn vq_walk_tinstruction_with_depth(
-  transformer : ModuleTransformer[Int],
+  transformer : ModuleTransformer[Int, String],
   depth : Int,
   instr : TInstr,
-) -> TransformerResult[Int, TInstr] {
+) -> VisitAction[Int, TInstr, String] {
   match instr.kind {
     TInstrKind::TBlock(bt, body) => {
       let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok(Some((_, out))) => out
-        Ok(None) => body
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => body
+        Err(e) => return error(e)
       }
       let next_instr = TInstr::block(bt, next_body)
       if next_instr == instr {
@@ -176,9 +176,9 @@ fn vq_walk_tinstruction_with_depth(
     }
     TInstrKind::TLoop(bt, body) => {
       let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok(Some((_, out))) => out
-        Ok(None) => body
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => body
+        Err(e) => return error(e)
       }
       let next_instr = TInstr::loop_(bt, next_body)
       if next_instr == instr {
@@ -189,21 +189,21 @@ fn vq_walk_tinstruction_with_depth(
     }
     TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let next_cond = match transformer.walk_tinstruction(depth, cond) {
-        Ok(Some((_, out))) => out
-        Ok(None) => cond
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => cond
+        Err(e) => return error(e)
       }
       let next_then = match transformer.walk_texpr(depth + 1, then_body) {
-        Ok(Some((_, out))) => out
-        Ok(None) => then_body
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => then_body
+        Err(e) => return error(e)
       }
       let next_else = match else_body {
         Some(other) =>
           match transformer.walk_texpr(depth + 1, other) {
-            Ok(Some((_, out))) => Some(out)
-            Ok(None) => Some(other)
-            Err(e) => return Err(e)
+            Ok((out, _)) => Some(out)
+            Ok(_) => Some(other)
+            Err(e) => return error(e)
           }
         None => None
       }
@@ -221,14 +221,14 @@ fn vq_walk_tinstruction_with_depth(
           ModuleTransformer::walk_catch,
           catches,
         ) {
-        Ok(Some((_, out))) => out
-        Ok(None) => catches
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => catches
+        Err(e) => return error(e)
       }
       let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok(Some((_, out))) => out
-        Ok(None) => body
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => body
+        Err(e) => return error(e)
       }
       let next_instr = TInstr::try_table(bt, next_catches, next_body)
       if next_instr == instr {
@@ -237,7 +237,7 @@ fn vq_walk_tinstruction_with_depth(
         change(depth, next_instr)
       }
     }
-    _ => transformer.walk_tinstruction_default(depth, instr)
+    _ => from_walk(transformer.walk_tinstruction_default(depth, instr))
   }
 }
 
@@ -256,8 +256,8 @@ fn vq_rebase_labels_for_collapsed_wrapper(instr : TInstr) -> TInstr {
       vq_walk_tinstruction_with_depth(self, depth, curr)
     })
   match pass.walk_tinstruction(0, instr) {
-    Ok(Some((_, out))) => out
-    Ok(None) => instr
+    Ok((out, _)) => out
+    Ok(_) => instr
     Err(e) => abort("vacuum label rebase failed: \{e}")
   }
 }
@@ -1062,7 +1062,7 @@ fn vq_texpr_throws(expr : TExpr) -> Bool {
       | TInstrKind::TReturnCallRef(_, _, _) => throws = true
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_texpr((), expr))
   throws
@@ -1085,7 +1085,7 @@ fn vq_texpr_has_control_transfer(expr : TExpr) -> Bool {
       | TInstrKind::TUnreachable => has_control_transfer = true
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_texpr((), expr))
   has_control_transfer
@@ -1545,7 +1545,7 @@ fn vacuum_ir_pass_with_trace(
   mod : Module,
   trace : (String) -> Unit,
   trace_all_funcs? : Bool = false,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let sigs = vq_collect_func_sigs(mod)
   let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
@@ -1582,7 +1582,7 @@ fn vacuum_ir_pass_with_trace(
 }
 
 ///|
-fn vacuum_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn vacuum_ir_pass(mod : Module) -> ModuleTransformer[IRContext, String] {
   vacuum_ir_pass_with_trace(mod, vacuum_trace_noop)
 }
 
@@ -1590,8 +1590,8 @@ fn vacuum_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
 fn run_vacuum(mod : Module) -> Module {
   let pass = vacuum_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod
+    Ok((out, _)) => out
+    Ok(_) => mod
     Err(e) => abort("vacuum pass failed: \{e}")
   }
 }

@@ -1142,14 +1142,14 @@ fn i64l_is_i64_result(ft : FuncType) -> Bool {
 
 ///|
 fn i64l_rewrite_tinstruction(
-  transformer : ModuleTransformer[I64LFuncCtx],
+  transformer : ModuleTransformer[I64LFuncCtx, String],
   ctx : I64LFuncCtx,
   instr : TInstr,
-) -> TransformerResult[I64LFuncCtx, TInstr] {
+) -> VisitAction[I64LFuncCtx, TInstr, String] {
   let walked = match transformer.walk_tinstruction_default(ctx, instr) {
-    Ok(Some((next_ctx, next_instr))) => (next_ctx, next_instr)
-    Ok(None) => (ctx, instr)
-    Err(e) => return Err(e)
+    Ok((next_instr, next_ctx)) => (next_ctx, next_instr)
+    Ok(_) => (ctx, instr)
+    Err(e) => return error(e)
   }
   let (ctx, curr) = walked
   let rewritten = match curr.kind {
@@ -1239,7 +1239,7 @@ fn i64l_rewrite_tinstruction(
           let FuncType(params, _) = ft
           let lowered_args = match i64l_lower_call_args(args, params, ctx) {
             Ok(a) => a
-            Err(e) => return Err(e)
+            Err(e) => return error(e)
           }
           let call = TInstr::call(target, lowered_args)
           if i64l_is_i64_result(ft) {
@@ -1257,7 +1257,9 @@ fn i64l_rewrite_tinstruction(
           }
         }
         None =>
-          return Err("i64_to_i32_lowering: missing function signature for call")
+          return error(
+            "i64_to_i32_lowering: missing function signature for call",
+          )
       }
     TInstrKind::TCallIndirect(type_idx, table_idx, args, target) =>
       match ctx.info.old_type_func_types.get(type_idx) {
@@ -1265,7 +1267,7 @@ fn i64l_rewrite_tinstruction(
           let FuncType(params, _) = ft
           let lowered_args = match i64l_lower_call_args(args, params, ctx) {
             Ok(a) => a
-            Err(e) => return Err(e)
+            Err(e) => return error(e)
           }
           let call = TInstr::call_indirect(
             type_idx, table_idx, lowered_args, target,
@@ -1285,7 +1287,7 @@ fn i64l_rewrite_tinstruction(
           }
         }
         None =>
-          return Err("i64_to_i32_lowering: missing indirect call signature")
+          return error("i64_to_i32_lowering: missing indirect call signature")
       }
     TInstrKind::TCallRef(type_idx, args, ref_) =>
       match ctx.info.old_type_func_types.get(type_idx) {
@@ -1293,7 +1295,7 @@ fn i64l_rewrite_tinstruction(
           let FuncType(params, _) = ft
           let lowered_args = match i64l_lower_call_args(args, params, ctx) {
             Ok(a) => a
-            Err(e) => return Err(e)
+            Err(e) => return error(e)
           }
           let call = TInstr::call_ref(type_idx, lowered_args, ref_)
           if i64l_is_i64_result(ft) {
@@ -1310,7 +1312,7 @@ fn i64l_rewrite_tinstruction(
             call
           }
         }
-        None => return Err("i64_to_i32_lowering: missing call_ref signature")
+        None => return error("i64_to_i32_lowering: missing call_ref signature")
       }
     TInstrKind::TReturnCall(target, args) =>
       match ctx.info.old_func_types.get(target) {
@@ -1319,7 +1321,7 @@ fn i64l_rewrite_tinstruction(
             let FuncType(params, _) = ft
             let lowered_args = match i64l_lower_call_args(args, params, ctx) {
               Ok(a) => a
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
             let low_tmp = i64l_alloc_temp(ctx, ValType::i32())
             i64l_make_block_void([
@@ -1330,11 +1332,12 @@ fn i64l_rewrite_tinstruction(
             let FuncType(params, _) = ft
             let lowered_args = match i64l_lower_call_args(args, params, ctx) {
               Ok(a) => a
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
             TInstr::return_call(target, lowered_args)
           }
-        None => return Err("i64_to_i32_lowering: missing return_call signature")
+        None =>
+          return error("i64_to_i32_lowering: missing return_call signature")
       }
     TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, target) =>
       match ctx.info.old_type_func_types.get(type_idx) {
@@ -1343,7 +1346,7 @@ fn i64l_rewrite_tinstruction(
             let FuncType(params, _) = ft
             let lowered_args = match i64l_lower_call_args(args, params, ctx) {
               Ok(a) => a
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
             let low_tmp = i64l_alloc_temp(ctx, ValType::i32())
             i64l_make_block_void([
@@ -1357,14 +1360,14 @@ fn i64l_rewrite_tinstruction(
             let FuncType(params, _) = ft
             let lowered_args = match i64l_lower_call_args(args, params, ctx) {
               Ok(a) => a
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
             TInstr::return_call_indirect(
               type_idx, table_idx, lowered_args, target,
             )
           }
         None =>
-          return Err(
+          return error(
             "i64_to_i32_lowering: missing return_call_indirect signature",
           )
       }
@@ -1375,7 +1378,7 @@ fn i64l_rewrite_tinstruction(
             let FuncType(params, _) = ft
             let lowered_args = match i64l_lower_call_args(args, params, ctx) {
               Ok(a) => a
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
             let low_tmp = i64l_alloc_temp(ctx, ValType::i32())
             i64l_make_block_void([
@@ -1389,12 +1392,12 @@ fn i64l_rewrite_tinstruction(
             let FuncType(params, _) = ft
             let lowered_args = match i64l_lower_call_args(args, params, ctx) {
               Ok(a) => a
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
             TInstr::return_call_ref(type_idx, lowered_args, ref_)
           }
         None =>
-          return Err("i64_to_i32_lowering: missing return_call_ref signature")
+          return error("i64_to_i32_lowering: missing return_call_ref signature")
       }
     TInstrKind::TLoad(op, memarg, ptr) =>
       match i64l_lower_i64_load_op(op) {
@@ -2622,8 +2625,8 @@ fn i64l_rewrite_one_func(
         i64l_rewrite_tinstruction,
       )
       let rewritten_body = match pass.walk_texpr(ctx, body) {
-        Ok(Some((_, next_body))) => next_body
-        Ok(None) => body
+        Ok((next_body, _)) => next_body
+        Ok(_) => body
         Err(e) => return Err(e)
       }
       let needs_implicit_return_wrap = if old_result_is_i64 {
@@ -3544,7 +3547,7 @@ test "i64_to_i32_lowering handles implicit i64 return from typeidx block" {
         if i.kind is TInstrKind::TGlobalSet(GlobalIdx(0), _) {
           saw_high_set = true
         }
-        self.walk_tinstruction_default((), i)
+        from_walk(self.walk_tinstruction_default((), i))
       })
       ignore(walker.walk_texpr((), TExpr::new(instrs)))
       assert_true(saw_high_set)

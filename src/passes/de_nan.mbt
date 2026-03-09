@@ -463,7 +463,7 @@ fn function_local_types(
 }
 
 ///|
-fn make_denam_transformer() -> ModuleTransformer[DeNaNState] {
+fn make_denam_transformer() -> ModuleTransformer[DeNaNState, String] {
   ModuleTransformer::new()
   .on_func_evt(fn(self, st : DeNaNState, func : Func) {
     let abs_raw = st.next_func_abs
@@ -494,10 +494,9 @@ fn make_denam_transformer() -> ModuleTransformer[DeNaNState] {
             _ => ()
           }
         }
-        let (st, func) = match self.walk_func_default(st, func) {
-          Ok(Some(t)) => t
-          Ok(None) => (st, func)
-          Err(t) => return Err(t)
+        let (func, st) = match self.walk_func_default(st, func) {
+          Ok(t) => t
+          Err(t) => return error(t)
         }
         change(
           DeNaNState::{
@@ -509,22 +508,22 @@ fn make_denam_transformer() -> ModuleTransformer[DeNaNState] {
           func,
         )
       }
-      _ => self.walk_func_default(st, func)
+      _ => from_walk(self.walk_func_default(st, func))
     }
   })
   .on_tinstruction_evt(fn(self, st, instr) {
     match instr.kind {
       TInstrKind::TF32Const(f) =>
         if is_f32_nan(f) {
-          Ok(Some((st, TInstr::f32_const(F32(0.0)))))
+          change(st, TInstr::f32_const(F32(0.0)))
         } else {
-          Ok(None)
+          unchanged()
         }
       TInstrKind::TF64Const(f) =>
         if is_f64_nan(f) {
-          Ok(Some((st, TInstr::f64_const(F64(0.0)))))
+          change(st, TInstr::f64_const(F64(0.0)))
         } else {
-          Ok(None)
+          unchanged()
         }
       TInstrKind::TCall(idx, _) if st.wrap_enabled &&
         (st.deNan32 == Some(idx) || st.deNan64 == Some(idx)) =>
@@ -535,43 +534,41 @@ fn make_denam_transformer() -> ModuleTransformer[DeNaNState] {
             Some(Float32) => {
               let st = DeNaNState::{ ..st, need_f32: true }
               if !st.wrap_enabled {
-                return self.walk_tinstruction_default(st, instr)
+                return from_walk(self.walk_tinstruction_default(st, instr))
               }
               match st.deNan32 {
                 Some(idx) => {
-                  let (st, processed_instr) = match
+                  let (processed_instr, st) = match
                     self.walk_tinstruction_default(st, instr) {
-                    Ok(Some(pair)) => pair
-                    Ok(None) => (st, instr)
-                    Err(e) => return Err(e)
+                    Ok(pair) => pair
+                    Err(e) => return error(e)
                   }
-                  Ok(Some((st, TInstr::call(idx, [processed_instr]))))
+                  change(st, TInstr::call(idx, [processed_instr]))
                 }
-                None => self.walk_tinstruction_default(st, instr)
+                None => from_walk(self.walk_tinstruction_default(st, instr))
               }
             }
             Some(Float64) => {
               let st = DeNaNState::{ ..st, need_f64: true }
               if !st.wrap_enabled {
-                return self.walk_tinstruction_default(st, instr)
+                return from_walk(self.walk_tinstruction_default(st, instr))
               }
               match st.deNan64 {
                 Some(idx) => {
-                  let (st, processed_instr) = match
+                  let (processed_instr, st) = match
                     self.walk_tinstruction_default(st, instr) {
-                    Ok(Some(pair)) => pair
-                    Ok(None) => (st, instr)
-                    Err(e) => return Err(e)
+                    Ok(pair) => pair
+                    Err(e) => return error(e)
                   }
-                  Ok(Some((st, TInstr::call(idx, [processed_instr]))))
+                  change(st, TInstr::call(idx, [processed_instr]))
                 }
-                None => self.walk_tinstruction_default(st, instr)
+                None => from_walk(self.walk_tinstruction_default(st, instr))
               }
             }
-            None => self.walk_tinstruction_default(st, instr)
+            None => from_walk(self.walk_tinstruction_default(st, instr))
           }
         } else {
-          self.walk_tinstruction_default(st, instr)
+          from_walk(self.walk_tinstruction_default(st, instr))
         }
     }
   })
@@ -626,14 +623,13 @@ fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
     deNan32: existing_32,
     deNan64: existing_64,
   }
-  let (st1, mod1) = match tr.walk_module(init_state, m) {
-    Ok(Some(pair)) => pair
-    Ok(None) => return Ok(m) // unreachable for walk_module, but keeps behavior explicit
+  let (mod1, st1) = match tr.walk_module(init_state, m) {
+    Ok(pair) => pair
     Err(e) => return Err(e)
   }
   let defined_count = match mod1.code_sec {
     Some(cs) => cs.0.length().reinterpret_as_uint()
-    None => 0
+    None => 0U
   }
   let mut idx32 : FuncIdx? = st1.deNan32
   let mut idx64 : FuncIdx? = st1.deNan64
@@ -660,9 +656,8 @@ fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
     deNan32: idx32,
     deNan64: idx64,
   }
-  let (st2, mod2) = match tr.walk_module(st2, mod1) {
-    Ok(Some(pair)) => pair
-    Ok(None) => (st2, mod1)
+  let (mod2, st2) = match tr.walk_module(st2, mod1) {
+    Ok(pair) => pair
     Err(e) => return Err(e)
   }
   let env2 = Env::new().with_module(mod2)
@@ -721,7 +716,7 @@ fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
 }
 
 ///|
-fn de_nan_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+fn de_nan_ir_pass(_mod : Module) -> ModuleTransformer[IRContext, String] {
   ModuleTransformer::new().on_module_evt(fn(_, ctx : IRContext, mod : Module) {
     match run_denam(mod) {
       Ok(next_mod) =>
@@ -730,7 +725,7 @@ fn de_nan_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
         } else {
           change(ctx, next_mod)
         }
-      Err(e) => Err(e)
+      Err(e) => error(e)
     }
   })
 }
@@ -1812,7 +1807,7 @@ test "de_nan_ir_pass rewrites module through IRContext wrapper" {
   )
   let ctx = IRContext::new()
   match de_nan_ir_pass(mod).walk_module(ctx, mod) {
-    Ok(Some((_, out))) =>
+    Ok((out, _)) =>
       match out.code_sec {
         Some(
           CodeSec(
@@ -1827,7 +1822,7 @@ test "de_nan_ir_pass rewrites module through IRContext wrapper" {
         ) => assert_eq(v, 0.0)
         _ => fail("expected rewritten f32 NaN constant")
       }
-    Ok(None) => fail("expected de_nan_ir_pass to report rewritten module")
+    Ok(_) => fail("expected de_nan_ir_pass to report rewritten module")
     Err(e) => fail("unexpected de_nan_ir_pass error: \{e}")
   }
 }

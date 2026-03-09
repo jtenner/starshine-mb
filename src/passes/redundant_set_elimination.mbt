@@ -807,7 +807,7 @@ fn rse_optimize_function(
 ///|
 fn redundant_set_elimination_ir_pass(
   mod : Module,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let env_base = Env::new().with_module(mod)
   let param_types = rse_collect_param_types(mod)
   let next_def_idx = Ref::new(0)
@@ -828,7 +828,7 @@ fn redundant_set_elimination_ir_pass(
 fn run_redundant_set_elimination(mod : Module) -> Module {
   let pass = redundant_set_elimination_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
+    Ok((out, _)) => out
     _ => mod
   }
 }
@@ -862,7 +862,7 @@ fn rse_count_instr(body : TExpr, pred : (TInstr) -> Bool) -> Int {
     if pred(instr) {
       count += 1
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count

@@ -459,7 +459,7 @@ fn global_refining(mod : Module) -> Result[Module, String] {
         }
       _ => ()
     }
-    self.walk_tinstruction_default(env, instr)
+    from_walk(self.walk_tinstruction_default(env, instr))
   })
   match mod.code_sec {
     Some(CodeSec(funcs)) =>

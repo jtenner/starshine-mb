@@ -237,7 +237,7 @@ fn tr_analyze_function_body(
       }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
 }
@@ -477,7 +477,7 @@ fn tr_update_param_types(
       }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(scan_sets.walk_texpr((), body))
 
@@ -492,9 +492,9 @@ fn tr_update_param_types(
 
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     let walked = match self.walk_tinstruction_default((), instr) {
-      Ok(Some((_, out))) => out
-      Ok(None) => instr
-      Err(e) => return Err(e)
+      Ok((out, _)) => out
+      Ok(_) => instr
+      Err(e) => return error(e)
     }
     match walked.kind {
       TInstrKind::TLocalGet(idx) => {
@@ -526,7 +526,7 @@ fn tr_update_param_types(
   })
 
   let rewritten = match walker.walk_texpr((), body) {
-    Ok(Some((_, out))) => out
+    Ok((out, _)) => out
     _ => body
   }
 

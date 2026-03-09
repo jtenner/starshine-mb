@@ -1001,48 +1001,48 @@ fn intersect_local_contents(
 
 ///|
 fn walk_child_tinstr(
-  transformer : ModuleTransformer[GUFAState],
+  transformer : ModuleTransformer[GUFAState, String],
   state : GUFAState,
   instr : TInstr,
 ) -> Result[(GUFAState, TInstr, Bool), String] {
   match transformer.walk_tinstruction(state, instr) {
-    Ok(Some((next_state, next_instr))) => Ok((next_state, next_instr, true))
-    Ok(None) => Ok((state, instr, false))
+    Ok((next_instr, next_state)) => Ok((next_state, next_instr, true))
+    Ok(_) => Ok((state, instr, false))
     Err(e) => Err(e)
   }
 }
 
 ///|
 fn walk_child_texpr(
-  transformer : ModuleTransformer[GUFAState],
+  transformer : ModuleTransformer[GUFAState, String],
   state : GUFAState,
   expr : TExpr,
 ) -> Result[(GUFAState, TExpr, Bool), String] {
   match transformer.walk_texpr(state, expr) {
-    Ok(Some((next_state, next_expr))) => Ok((next_state, next_expr, true))
-    Ok(None) => Ok((state, expr, false))
+    Ok((next_expr, next_state)) => Ok((next_state, next_expr, true))
+    Ok(_) => Ok((state, expr, false))
     Err(e) => Err(e)
   }
 }
 
 ///|
 fn gufa_transform_tinstr(
-  transformer : ModuleTransformer[GUFAState],
+  transformer : ModuleTransformer[GUFAState, String],
   state : GUFAState,
   instr : TInstr,
-) -> TransformerResult[GUFAState, TInstr] {
+) -> VisitAction[GUFAState, TInstr, String] {
   match instr.kind {
     TInstrKind::TIf(bt, cond, then_, else_) => {
       let (cond_state, new_cond, cond_changed) = match
         walk_child_tinstr(transformer, state, cond) {
         Ok(v) => v
-        Err(e) => return Err(e)
+        Err(e) => return error(e)
       }
       let branch_entry = cond_state
       let (then_state, new_then, then_changed) = match
         walk_child_texpr(transformer, branch_entry, then_) {
         Ok(v) => v
-        Err(e) => return Err(e)
+        Err(e) => return error(e)
       }
       let mut walk_changed = cond_changed || then_changed
       let (new_else, merged_locals) = match else_ {
@@ -1050,7 +1050,7 @@ fn gufa_transform_tinstr(
           let (else_state, walked_else, else_changed) = match
             walk_child_texpr(transformer, branch_entry, else_expr) {
             Ok(v) => v
-            Err(e) => return Err(e)
+            Err(e) => return error(e)
           }
           walk_changed = walk_changed || else_changed
           (
@@ -1092,9 +1092,9 @@ fn gufa_transform_tinstr(
   let walk_state = state_for_nested_walk(instr, state)
   let (state, walked) = match
     transformer.walk_tinstruction_default(walk_state, instr) {
-    Ok(None) => (walk_state, instr)
-    Ok(Some((state, walked))) => (state, walked)
-    Err(e) => return Err(e)
+    Ok(_) => (walk_state, instr)
+    Ok((walked, state)) => (state, walked)
+    Err(e) => return error(e)
   }
   let optimized = gufa_optimize_tinstr(walked, state)
   let (next_state, state_changed) = post_instr_state(state, optimized)
@@ -1107,10 +1107,10 @@ fn gufa_transform_tinstr(
 
 ///|
 fn gufa_transform_func(
-  transformer : ModuleTransformer[GUFAState],
+  transformer : ModuleTransformer[GUFAState, String],
   state : GUFAState,
   func : Func,
-) -> TransformerResult[GUFAState, Func] {
+) -> VisitAction[GUFAState, Func, String] {
   match func {
     Func(_, _) => unchanged()
     TFunc(params, locals, body) => {
@@ -1122,21 +1122,24 @@ fn gufa_transform_func(
         local_contents: Map::new(),
       }
       match transformer.walk_texpr(local_state, body) {
-        Ok(Some((_, new_body))) =>
+        Ok((new_body, _)) =>
           if new_body != body {
             change(state, Func::t_func(params, locals, new_body))
           } else {
             unchanged()
           }
-        Ok(None) => unchanged()
-        Err(e) => Err(e)
+        Ok(_) => unchanged()
+        Err(e) => error(e)
       }
     }
   }
 }
 
 ///|
-fn gufa_ir_pass(mod : Module, cast_all : Bool) -> ModuleTransformer[IRContext] {
+fn gufa_ir_pass(
+  mod : Module,
+  cast_all : Bool,
+) -> ModuleTransformer[IRContext, String] {
   let base_state = {
     oracle: ContentOracle::new(),
     env: Env::new().with_module(mod),
@@ -1149,14 +1152,14 @@ fn gufa_ir_pass(mod : Module, cast_all : Bool) -> ModuleTransformer[IRContext] {
     .on_tinstruction_evt(gufa_transform_tinstr)
   ModuleTransformer::new().on_func_evt(fn(_, ctx : IRContext, func : Func) {
     match pass.walk_func(base_state, func) {
-      Ok(Some((_, new_func))) =>
+      Ok((new_func, _)) =>
         if new_func != func {
           change(ctx, new_func)
         } else {
           unchanged()
         }
-      Ok(None) => unchanged()
-      Err(e) => Err(e)
+      Ok(_) => unchanged()
+      Err(e) => error(e)
     }
   })
 }
@@ -1170,8 +1173,8 @@ fn run_gufa_module(
   ctx.set_mod(mod)
   let pass = gufa_ir_pass(mod, cast_all)
   match pass.walk_module(ctx, mod) {
-    Ok(Some((_, new_mod))) => Ok(new_mod)
-    Ok(None) => Ok(mod)
+    Ok((new_mod, _)) => Ok(new_mod)
+    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }

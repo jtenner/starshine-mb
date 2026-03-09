@@ -175,7 +175,7 @@ fn untee_pass(func : Func, params : Array[ValType]) -> (Func, Bool) {
 }
 
 ///|
-fn untee_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn untee_ir_pass(mod : Module) -> ModuleTransformer[IRContext, String] {
   let param_types = ut_collect_param_types(mod)
   let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
@@ -195,8 +195,8 @@ fn untee_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
 fn run_untee(mod : Module) -> Module {
   let pass = untee_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod
+    Ok((out, _)) => out
+    Ok(_) => mod
     Err(e) => abort("untee pass failed: \{e}")
   }
 }

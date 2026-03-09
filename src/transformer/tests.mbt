@@ -1,15 +1,15 @@
 ///|
-test "change and unchanged helpers return expected transformer results" {
-  match (change(7, 9) : TransformerResult[Int, Int]) {
-    Ok(Some((state, value))) => {
+test "change and unchanged helpers return expected visit actions" {
+  match (change(7, 9) : VisitAction[Int, Int, String]) {
+    Replace(value, Some(state), true) => {
       assert_eq(state, 7)
       assert_eq(value, 9)
     }
-    _ => fail("expected change to return Some result")
+    _ => fail("expected change to return Replace with skip=true")
   }
-  match (unchanged() : TransformerResult[Int, Int]) {
-    Ok(None) => ()
-    _ => fail("expected unchanged to return None")
+  match (unchanged() : VisitAction[Int, Int, String]) {
+    Mutate(None, false) => ()
+    _ => fail("expected unchanged to return Mutate(None, false)")
   }
 }
 
@@ -23,7 +23,7 @@ test "walk_module applies on_tinstruction rewrite" {
     match instr.kind {
       TInstrKind::TLocalGet(LocalIdx(i)) if i == 0U =>
         change((), TInstr::local_get(LocalIdx::new(1)))
-      _ => self.walk_tinstruction_default((), instr)
+      _ => from_walk(self.walk_tinstruction_default((), instr))
     }
   })
   let mod = Module::new().with_code_sec(
@@ -32,8 +32,8 @@ test "walk_module applies on_tinstruction rewrite" {
     ]),
   )
   let rewritten = match transformer.walk_module((), mod) {
-    Ok(Some((_, m))) => m
-    Ok(None) => fail("expected transformed module")
+    Ok((m, _)) => m
+    Ok(_) => fail("expected transformed module")
     Err(e) => fail("unexpected walk_module error: \{e}")
   }
   match rewritten.code_sec {
@@ -93,7 +93,7 @@ test "walk_module propagates on_module errors before traversal" {
 }
 
 ///|
-test "walk_module falls through on_module Ok(None) to default traversal" {
+test "walk_module falls through on_module Ok(_) to default traversal" {
   let mut module_hook_called = false
   let transformer = ModuleTransformer::new()
     .on_module_evt(fn(_, _, _) {
@@ -104,7 +104,7 @@ test "walk_module falls through on_module Ok(None) to default traversal" {
       match instr.kind {
         TInstrKind::TLocalGet(LocalIdx(i)) if i == 0U =>
           change((), TInstr::local_get(LocalIdx::new(2)))
-        _ => self.walk_tinstruction_default((), instr)
+        _ => from_walk(self.walk_tinstruction_default((), instr))
       }
     })
   let mod = Module::new().with_code_sec(
@@ -113,8 +113,8 @@ test "walk_module falls through on_module Ok(None) to default traversal" {
     ]),
   )
   let rewritten = match transformer.walk_module((), mod) {
-    Ok(Some((_, m))) => m
-    Ok(None) => fail("expected transformed module from fallback traversal")
+    Ok((m, _)) => m
+    Ok(_) => fail("expected transformed module from fallback traversal")
     Err(e) => fail("unexpected walk_module error: \{e}")
   }
   assert_true(module_hook_called)
@@ -146,8 +146,8 @@ test "walk_module invokes on_module event hook" {
   })
   let mod = Module::new()
   let rewritten = match transformer.walk_module((), mod) {
-    Ok(Some((_, m))) => m
-    Ok(None) => fail("expected on_module rewrite result")
+    Ok((m, _)) => m
+    Ok(_) => fail("expected on_module rewrite result")
     Err(e) => fail("unexpected walk_module error: \{e}")
   }
   match rewritten.code_sec {
@@ -879,8 +879,8 @@ test "walk_tinstruction preserves array_copy final operand when unchanged" {
     i4,
   )
   let rewritten = match transformer.walk_tinstruction((), instr) {
-    Ok(Some((_, out))) => out
-    Ok(None) => fail("expected walk_tinstruction to rebuild array_copy")
+    Ok((out, _)) => out
+    Ok(_) => fail("expected walk_tinstruction to rebuild array_copy")
     Err(e) => fail("unexpected walk_tinstruction error: \{e}")
   }
   match rewritten.kind {
@@ -934,7 +934,7 @@ test "walk_array rewrites only changed typed items" {
   ]
   match
     transformer.walk_array((), ModuleTransformer::walk_tinstruction, items) {
-    Ok(Some((_, out))) =>
+    Ok((out, _)) =>
       match out {
         [
           { kind: TInstrKind::TLocalGet(LocalIdx(i0)), .. },
@@ -945,7 +945,7 @@ test "walk_array rewrites only changed typed items" {
         }
         _ => fail("expected only the rewritten slot to change")
       }
-    Ok(None) => fail("expected walk_array to report the rewritten item")
+    Ok(_) => fail("expected walk_array to report the rewritten item")
     Err(e) => fail("unexpected walk_array error: \{e}")
   }
 }
@@ -984,14 +984,14 @@ test "walk_tinstruction_default forwards index child and heaptype errors" {
       (),
       TInstr::ref_null(HeapType::new(TypeIdx::new(0))),
     ) {
-    Ok(Some((_, rewritten))) =>
+    Ok((rewritten, _)) =>
       assert_eq(rewritten, TInstr::ref_null(HeapType::new(TypeIdx::new(3))))
     _ => fail("expected rewritten ref.null heap type")
   }
 }
 
 ///|
-test "walk_tinstruction callback matrix Ok(None) uses default traversal for less-used variants" {
+test "walk_tinstruction callback matrix Ok(_) uses default traversal for less-used variants" {
   let mut top_level_hits = 0
   let transformer = ModuleTransformer::new()
     .on_tinstruction_evt(fn(_, _, instr) {
@@ -1022,8 +1022,8 @@ test "walk_tinstruction callback matrix Ok(None) uses default traversal for less
         TInstr::i64_const(I64(11)),
       ),
     ) {
-    Ok(Some((_, out))) => out
-    Ok(None) =>
+    Ok((out, _)) => out
+    Ok(_) =>
       fail("expected rewritten memory.atomic.wait32 from callback fallback")
     Err(e) => fail("unexpected wait32 error: \{e}")
   }
@@ -1042,8 +1042,8 @@ test "walk_tinstruction callback matrix Ok(None) uses default traversal for less
       (),
       TInstr::i31_get_s(TInstr::local_get(LocalIdx::new(0))),
     ) {
-    Ok(Some((_, out))) => out
-    Ok(None) => fail("expected rewritten i31.get_s from callback fallback")
+    Ok((out, _)) => out
+    Ok(_) => fail("expected rewritten i31.get_s from callback fallback")
     Err(e) => fail("unexpected i31.get_s error: \{e}")
   }
   assert_eq(
@@ -1056,8 +1056,8 @@ test "walk_tinstruction callback matrix Ok(None) uses default traversal for less
       (),
       TInstr::any_convert_extern(TInstr::local_get(LocalIdx::new(0))),
     ) {
-    Ok(Some((_, out))) => out
-    Ok(None) =>
+    Ok((out, _)) => out
+    Ok(_) =>
       fail("expected rewritten any.convert_extern from callback fallback")
     Err(e) => fail("unexpected any.convert_extern error: \{e}")
   }
@@ -1071,8 +1071,8 @@ test "walk_tinstruction callback matrix Ok(None) uses default traversal for less
       (),
       TInstr::extern_convert_any(TInstr::local_get(LocalIdx::new(0))),
     ) {
-    Ok(Some((_, out))) => out
-    Ok(None) =>
+    Ok((out, _)) => out
+    Ok(_) =>
       fail("expected rewritten extern.convert_any from callback fallback")
     Err(e) => fail("unexpected extern.convert_any error: \{e}")
   }
@@ -1086,8 +1086,8 @@ test "walk_tinstruction callback matrix Ok(None) uses default traversal for less
       (),
       TInstr::throw_ref(TInstr::local_get(LocalIdx::new(0))),
     ) {
-    Ok(Some((_, out))) => out
-    Ok(None) => fail("expected rewritten throw_ref from callback fallback")
+    Ok((out, _)) => out
+    Ok(_) => fail("expected rewritten throw_ref from callback fallback")
     Err(e) => fail("unexpected throw_ref error: \{e}")
   }
   assert_eq(
@@ -1108,8 +1108,8 @@ test "walk_tinstruction callback matrix Ok(None) uses default traversal for less
         [TInstr::local_get(LocalIdx::new(0))],
       ),
     ) {
-    Ok(Some((_, out))) => out
-    Ok(None) => fail("expected rewritten br_on_cast from callback fallback")
+    Ok((out, _)) => out
+    Ok(_) => fail("expected rewritten br_on_cast from callback fallback")
     Err(e) => fail("unexpected br_on_cast error: \{e}")
   }
   assert_eq(
@@ -1138,9 +1138,8 @@ test "walk_tinstruction callback matrix Ok(None) uses default traversal for less
         [TInstr::local_get(LocalIdx::new(0))],
       ),
     ) {
-    Ok(Some((_, out))) => out
-    Ok(None) =>
-      fail("expected rewritten br_on_cast_fail from callback fallback")
+    Ok((out, _)) => out
+    Ok(_) => fail("expected rewritten br_on_cast_fail from callback fallback")
     Err(e) => fail("unexpected br_on_cast_fail error: \{e}")
   }
   assert_eq(
@@ -1261,8 +1260,8 @@ test "walk_tinstruction callback matrix Ok(Some) short-circuits less-used varian
   ]
   for result in rewrites {
     match result {
-      Ok(Some((_, out))) => assert_eq(out, TInstr::nop())
-      Ok(None) => fail("expected direct on_tinstruction rewrite result")
+      Ok((out, _)) => assert_eq(out, TInstr::nop())
+      Ok(_) => fail("expected direct on_tinstruction rewrite result")
       Err(e) => fail("unexpected short-circuit rewrite error: \{e}")
     }
   }
@@ -1428,8 +1427,8 @@ test "walk_tinstruction remaps nested index and heaptype values in branch payloa
     ]),
   )
   let rewritten = match transformer.walk_tinstruction((), nested) {
-    Ok(Some((_, out))) => out
-    Ok(None) => fail("expected nested remap rewrite")
+    Ok((out, _)) => out
+    Ok(_) => fail("expected nested remap rewrite")
     Err(e) => fail("unexpected nested remap error: \{e}")
   }
 
@@ -1507,8 +1506,8 @@ test "walk_tinstruction remaps nested branch-on-cast-fail inside wrappers" {
     ),
   )
   let rewritten = match transformer.walk_tinstruction((), wrapped) {
-    Ok(Some((_, out))) => out
-    Ok(None) => fail("expected nested wrapper rewrite")
+    Ok((out, _)) => out
+    Ok(_) => fail("expected nested wrapper rewrite")
     Err(e) => fail("unexpected nested wrapper error: \{e}")
   }
 

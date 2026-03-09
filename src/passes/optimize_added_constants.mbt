@@ -42,7 +42,7 @@ fn GetParents::new(body : TExpr) -> GetParents {
     parent_stack.push(curr)
     let out = self.walk_tinstruction_default((), curr)
     ignore(parent_stack.pop())
-    out
+    from_walk(out)
   })
   ignore(walker.walk_texpr((), body))
   GetParents::{ parent_map, }
@@ -109,7 +109,7 @@ fn oac_collect_local_get_infos(body : TExpr) -> Array[OACLocalGetInfo] {
       }
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_texpr((), body))
   infos
@@ -124,7 +124,7 @@ fn oac_collect_all_sets(body : TExpr) -> Array[OACSetKey] {
         sets.push({ local_idx, root: TInstr::local_set(local_idx, value) })
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_texpr((), body))
   sets
@@ -174,7 +174,7 @@ fn oac_collect_tee_locals(body : TExpr) -> Set[LocalIdx] {
       TInstrKind::TLocalTee(local_idx, _) => out.add(local_idx)
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_texpr((), body))
   out
@@ -192,7 +192,7 @@ fn oac_collect_set_counts(body : TExpr) -> Map[LocalIdx, Int] {
       }
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_texpr((), body))
   counts
@@ -641,17 +641,17 @@ fn oac_insert_helper_indexes(
                     ]),
                   ),
                 )
-              None => self.walk_tinstruction_default((), curr)
+              None => from_walk(self.walk_tinstruction_default((), curr))
             }
           }
-          None => self.walk_tinstruction_default((), curr)
+          None => from_walk(self.walk_tinstruction_default((), curr))
         }
-      _ => self.walk_tinstruction_default((), curr)
+      _ => from_walk(self.walk_tinstruction_default((), curr))
     }
   })
   match pass.walk_texpr((), body) {
-    Ok(Some((_, updated))) => updated
-    Ok(None) => body
+    Ok((updated, _)) => updated
+    Ok(_) => body
     Err(_) => body
   }
 }
@@ -705,7 +705,7 @@ fn oac_collect_used_locals(body : TExpr) -> Set[LocalIdx] {
       TInstrKind::TLocalGet(local_idx) => used.add(local_idx)
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_texpr((), body))
   used
@@ -725,8 +725,8 @@ fn oac_cleanup_unneeded_sets(body : TExpr) -> TExpr {
       match curr.kind {
         TInstrKind::TLocalSet(local_idx, value) => {
           let next_value = match self.walk_tinstruction((), value) {
-            Ok(Some((_, updated))) => updated
-            Ok(None) => value
+            Ok((updated, _)) => updated
+            Ok(_) => value
             Err(_) => value
           }
           if !used.contains(local_idx) {
@@ -742,12 +742,12 @@ fn oac_cleanup_unneeded_sets(body : TExpr) -> TExpr {
             change((), TInstr::local_set(local_idx, next_value))
           }
         }
-        _ => self.walk_tinstruction_default((), curr)
+        _ => from_walk(self.walk_tinstruction_default((), curr))
       }
     })
     curr_body = match remover.walk_texpr((), curr_body) {
-      Ok(Some((_, updated))) => updated
-      Ok(None) => curr_body
+      Ok((updated, _)) => updated
+      Ok(_) => curr_body
       Err(_) => curr_body
     }
     if !changed.val {
@@ -775,9 +775,9 @@ fn oac_rewrite_body(
           _ => None
         }
         let walked = match self.walk_tinstruction_default((), curr) {
-          Ok(Some((_, updated))) => updated
-          Ok(None) => curr
-          Err(e) => return Err(e)
+          Ok((updated, _)) => updated
+          Ok(_) => curr
+          Err(e) => return error(e)
         }
         match walked.kind {
           TInstrKind::TLoad(next_op, next_memarg, next_ptr) => {
@@ -798,9 +798,9 @@ fn oac_rewrite_body(
           _ => None
         }
         let walked = match self.walk_tinstruction_default((), curr) {
-          Ok(Some((_, updated))) => updated
-          Ok(None) => curr
-          Err(e) => return Err(e)
+          Ok((updated, _)) => updated
+          Ok(_) => curr
+          Err(e) => return error(e)
         }
         match walked.kind {
           TInstrKind::TStore(next_op, next_memarg, next_ptr, next_value) => {
@@ -823,12 +823,12 @@ fn oac_rewrite_body(
           _ => change((), walked)
         }
       }
-      _ => self.walk_tinstruction_default((), curr)
+      _ => from_walk(self.walk_tinstruction_default((), curr))
     }
   })
   match pass.walk_texpr((), body) {
-    Ok(Some((_, updated))) => Ok(updated)
-    Ok(None) => Ok(body)
+    Ok((updated, _)) => Ok(updated)
+    Ok(_) => Ok(body)
     Err(e) => Err(e)
   }
 }
@@ -905,7 +905,7 @@ fn optimize_added_constants_ir_pass(
   mod : Module,
   options : OptimizeOptions,
   propagate : Bool,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   ModuleTransformer::new().on_func_evt(fn(_self, t : IRContext, func) {
     match optimize_added_constants_on_func(func, mod, options, propagate) {
       Ok(next_func) =>
@@ -925,7 +925,7 @@ fn optimize_added_constants_ir_pass(
           }
           _ => change(t, next_func)
         }
-      Err(e) => Err(e)
+      Err(e) => error(e)
     }
   })
 }
@@ -940,8 +940,8 @@ fn oac_run_module(
   ctx.set_mod(mod_)
   let pass = optimize_added_constants_ir_pass(mod_, options, propagate)
   match pass.walk_module(ctx, mod_) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(mod_)
+    Ok((out, _)) => Ok(out)
+    Ok(_) => Ok(mod_)
     Err(e) => Err(e)
   }
 }

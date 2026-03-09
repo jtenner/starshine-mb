@@ -821,7 +821,7 @@ fn tg_require_instr(
 fn tg_run_dce_body(body : TExpr) -> TExpr {
   let pass = dead_code_elimination_pass()
   match pass.walk_texpr((), body) {
-    Ok(Some((_, out))) => out
+    Ok((out, _)) => out
     _ => body
   }
 }

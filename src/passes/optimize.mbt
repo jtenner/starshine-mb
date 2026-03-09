@@ -182,11 +182,11 @@ priv enum SchedulerPassContextKind {
 fn[T] apply_transformer_pass(
   state : T,
   mod : Module,
-  pass : ModuleTransformer[T],
+  pass : ModuleTransformer[T, String],
 ) -> Result[Module, String] {
   match pass.walk_module(state, mod) {
-    Ok(Some((_, new_mod))) => Ok(new_mod)
-    Ok(None) => Ok(mod)
+    Ok((new_mod, _)) => Ok(new_mod)
+    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }
@@ -195,7 +195,7 @@ fn[T] apply_transformer_pass(
 fn apply_ir_transformer_pass(
   ctx : IRContext,
   mod : Module,
-  pass : ModuleTransformer[IRContext],
+  pass : ModuleTransformer[IRContext, String],
 ) -> Result[Module, String] {
   apply_transformer_pass(ctx, mod, pass)
 }
@@ -203,7 +203,7 @@ fn apply_ir_transformer_pass(
 ///|
 fn apply_unit_transformer_pass(
   mod : Module,
-  pass : ModuleTransformer[Unit],
+  pass : ModuleTransformer[Unit, String],
 ) -> Result[Module, String] {
   apply_transformer_pass((), mod, pass)
 }
@@ -2094,7 +2094,7 @@ fn opt_scheduler_count_descriptor_target_uses(
           }
         _ => ()
       }
-      self.walk_tinstruction_default((), instr)
+      from_walk(self.walk_tinstruction_default((), instr))
     })
     .on_instruction_evt(fn(self, _, instr) {
       match instr {
@@ -2105,7 +2105,7 @@ fn opt_scheduler_count_descriptor_target_uses(
           }
         _ => ()
       }
-      self.walk_instruction_default((), instr)
+      from_walk(self.walk_instruction_default((), instr))
     })
   ignore(walker.walk_module((), mod))
   count
@@ -4717,7 +4717,7 @@ test "optimize_module runs Inlining pass" {
             }
           _ => ()
         }
-        self.walk_tinstruction_default((), instr)
+        from_walk(self.walk_tinstruction_default((), instr))
       })
       ignore(walker.walk_texpr((), body))
       assert_eq(direct_calls, 0)
@@ -4766,7 +4766,7 @@ test "optimize_module runs InlineMain pass" {
             }
           _ => ()
         }
-        self.walk_tinstruction_default((), instr)
+        from_walk(self.walk_tinstruction_default((), instr))
       })
       ignore(walker.walk_texpr((), body))
       assert_eq(direct_calls, 0)

@@ -41,7 +41,9 @@ fn tu_mod_has_multivalue(mod : Module) -> Bool {
 }
 
 ///|
-fn tuple_optimization_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn tuple_optimization_ir_pass(
+  mod : Module,
+) -> ModuleTransformer[IRContext, String] {
   if !tu_mod_has_multivalue(mod) {
     return ModuleTransformer::new()
   }
@@ -53,12 +55,12 @@ fn tuple_optimization_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
 ///|
 fn tu_apply_ir_pass(
   mod : Module,
-  pass : ModuleTransformer[IRContext],
+  pass : ModuleTransformer[IRContext, String],
 ) -> Result[Module, String] {
   let ctx = IRContext::new()
   match pass.walk_module(ctx, mod) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(mod)
+    Ok((out, _)) => Ok(out)
+    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }

@@ -472,7 +472,7 @@ fn pls_analyze_body_with_trace(
     parent_stack.push(curr)
     let out = self.walk_tinstruction_default((), curr)
     ignore(parent_stack.pop())
-    out
+    from_walk(out)
   })
   match scanner.walk_texpr((), body) {
     Ok(_) => {
@@ -546,9 +546,9 @@ fn pls_rewrite_body_with_trace(
     let candidate = pls_candidate_load(curr, parent_stack)
     parent_stack.push(curr)
     let walked = match self.walk_tinstruction_default((), curr) {
-      Ok(Some((_, out))) => out
-      Ok(None) => curr
-      Err(e) => return Err(e)
+      Ok((out, _)) => out
+      Ok(_) => curr
+      Err(e) => return error(e)
     }
     ignore(parent_stack.pop())
     let output = match candidate {
@@ -592,7 +592,7 @@ fn pls_rewrite_body_with_trace(
     }
   })
   match rewriter.walk_texpr((), body) {
-    Ok(Some((_, rewritten))) => {
+    Ok((rewritten, _)) => {
       if log_func {
         trace(
           "func[\{ordinal}] phase=rewrite done elapsed_ms=\{sl_trace_elapsed_ms(phase_start_ms)} instrs=\{instr_visits.val} rewrites=\{rewrite_count.val} changed=\{rewritten != body} top_instrs=\{body.instrs.length()}->\{rewritten.instrs.length()}",
@@ -600,7 +600,7 @@ fn pls_rewrite_body_with_trace(
       }
       Ok(rewritten)
     }
-    Ok(None) => {
+    Ok(_) => {
       if log_func {
         trace(
           "func[\{ordinal}] phase=rewrite done elapsed_ms=\{sl_trace_elapsed_ms(phase_start_ms)} instrs=\{instr_visits.val} rewrites=\{rewrite_count.val} changed=false top_instrs=\{body.instrs.length()}->\{body.instrs.length()}",
@@ -674,7 +674,7 @@ fn pick_load_signs_ir_pass_with_trace(
   _mod : Module,
   trace? : (String) -> Unit = pls_trace_noop,
   trace_all_funcs? : Bool = false,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_, state, func) {
     let def_idx = next_def_idx.val
@@ -687,13 +687,15 @@ fn pick_load_signs_ir_pass_with_trace(
         } else {
           change(state, updated)
         }
-      Err(e) => Err(e)
+      Err(e) => error(e)
     }
   })
 }
 
 ///|
-fn pick_load_signs_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn pick_load_signs_ir_pass(
+  mod : Module,
+) -> ModuleTransformer[IRContext, String] {
   pick_load_signs_ir_pass_with_trace(mod)
 }
 
@@ -702,8 +704,8 @@ fn pls_run_func(func : Func) -> Func {
   let pass = pick_load_signs_ir_pass(Module::new())
   let state = IRContext::new()
   match pass.walk_func(state, func) {
-    Ok(Some((_, out))) => out
-    Ok(None) => func
+    Ok((out, _)) => out
+    Ok(_) => func
     Err(e) => abort("pick_load_signs pass error: \{e}")
   }
 }

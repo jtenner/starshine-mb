@@ -305,7 +305,7 @@ fn gto_scan_texpr(texpr : TExpr, infos : Array[Array[GTOFieldInfo]]) -> Unit {
         gto_note_read(infos, type_idx, field_idx)
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), texpr))
 }
@@ -1084,9 +1084,9 @@ fn gto_rewrite_function_texpr(
 ) -> Result[TExpr, String] {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     let rewritten = match self.walk_tinstruction_default((), instr) {
-      Err(e) => return Err(e)
-      Ok(None) => instr
-      Ok(Some((_, next))) => next
+      Err(e) => return error(e)
+      Ok((next, _)) => next
+      Ok(_) => instr
     }
     match rewritten.kind {
       TInstrKind::TStructNew(type_idx, operands) => {
@@ -1097,7 +1097,7 @@ fn gto_rewrite_function_texpr(
             let remapped = match
               gto_build_reordered_operands(operands, indexes) {
               Ok(v) => v
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
             let mut safe = true
             for operand in operands {
@@ -1111,10 +1111,11 @@ fn gto_rewrite_function_texpr(
             } else {
               let fields = match flat.struct_fields.get(type_i) {
                 Some(Some(fields)) => fields
-                _ => return Err("global_type_optimization: missing struct type")
+                _ =>
+                  return error("global_type_optimization: missing struct type")
               }
               if operands.length() != fields.length() {
-                return Err(
+                return error(
                   "global_type_optimization: struct.new field mismatch",
                 )
               }
@@ -1187,7 +1188,7 @@ fn gto_rewrite_function_texpr(
           indexes_after_removals, type_idx, old_idx,
         )
         if new_idx == gto_removed_field {
-          Err("global_type_optimization: removed field still read")
+          error("global_type_optimization: removed field still read")
         } else {
           change(
             (),
@@ -1205,7 +1206,7 @@ fn gto_rewrite_function_texpr(
           indexes_after_removals, type_idx, old_idx,
         )
         if new_idx == gto_removed_field {
-          Err("global_type_optimization: removed field still read")
+          error("global_type_optimization: removed field still read")
         } else {
           change(
             (),
@@ -1223,7 +1224,7 @@ fn gto_rewrite_function_texpr(
           indexes_after_removals, type_idx, old_idx,
         )
         if new_idx == gto_removed_field {
-          Err("global_type_optimization: removed field still read")
+          error("global_type_optimization: removed field still read")
         } else {
           change(
             (),
@@ -1240,8 +1241,8 @@ fn gto_rewrite_function_texpr(
   })
   match walker.walk_texpr((), body) {
     Err(e) => Err(e)
-    Ok(None) => Ok(body)
-    Ok(Some((_, next_body))) => Ok(next_body)
+    Ok((next_body, _)) => Ok(next_body)
+    Ok(_) => Ok(body)
   }
 }
 
@@ -1254,9 +1255,9 @@ fn gto_rewrite_module_texpr(
 ) -> Result[TExpr, String] {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     let rewritten = match self.walk_tinstruction_default((), instr) {
-      Err(e) => return Err(e)
-      Ok(None) => instr
-      Ok(Some((_, next))) => next
+      Err(e) => return error(e)
+      Ok((next, _)) => next
+      Ok(_) => instr
     }
     match rewritten.kind {
       TInstrKind::TStructNew(type_idx, operands) => {
@@ -1267,7 +1268,7 @@ fn gto_rewrite_module_texpr(
             let remapped = match
               gto_build_reordered_operands(operands, indexes) {
               Ok(v) => v
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
             match flat.struct_fields.get(type_i) {
               Some(Some(fields)) => {
@@ -1326,7 +1327,7 @@ fn gto_rewrite_module_texpr(
           indexes_after_removals, type_idx, old_idx,
         )
         if new_idx == gto_removed_field {
-          Err("global_type_optimization: removed field still read")
+          error("global_type_optimization: removed field still read")
         } else {
           change(
             (),
@@ -1344,7 +1345,7 @@ fn gto_rewrite_module_texpr(
           indexes_after_removals, type_idx, old_idx,
         )
         if new_idx == gto_removed_field {
-          Err("global_type_optimization: removed field still read")
+          error("global_type_optimization: removed field still read")
         } else {
           change(
             (),
@@ -1362,7 +1363,7 @@ fn gto_rewrite_module_texpr(
           indexes_after_removals, type_idx, old_idx,
         )
         if new_idx == gto_removed_field {
-          Err("global_type_optimization: removed field still read")
+          error("global_type_optimization: removed field still read")
         } else {
           change(
             (),
@@ -1379,8 +1380,8 @@ fn gto_rewrite_module_texpr(
   })
   match walker.walk_texpr((), body) {
     Err(e) => Err(e)
-    Ok(None) => Ok(body)
-    Ok(Some((_, next_body))) => Ok(next_body)
+    Ok((next_body, _)) => Ok(next_body)
+    Ok(_) => Ok(body)
   }
 }
 

@@ -80,14 +80,14 @@ fn rf_scan_call_counts(
         rf_bump_defined_count(counts, imported, target)
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   let scanner = ModuleTransformer::new().on_instruction_evt(fn(self, _, instr) {
     match instr {
       Call(target) => rf_bump_defined_count(counts, imported, target)
       _ => ()
     }
-    self.walk_instruction_default((), instr)
+    from_walk(self.walk_instruction_default((), instr))
   })
   for func in funcs {
     match func {
@@ -123,8 +123,8 @@ fn rf_remap_func_indices(
     }
   })
   match transformer.walk_module((), mod) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(mod)
+    Ok((out, _)) => Ok(out)
+    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }

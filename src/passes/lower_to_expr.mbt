@@ -15,12 +15,12 @@
 ///
 
 ///|
-fn lower_to_expr_pass() -> ModuleTransformer[Unit] {
+fn lower_to_expr_pass() -> ModuleTransformer[Unit, String] {
   ModuleTransformer::new().on_func_evt(fn(
-    _ : ModuleTransformer[Unit],
+    _ : ModuleTransformer[Unit, String],
     _ : Unit,
     f : Func,
-  ) -> TransformerResult[Unit, Func] {
+  ) -> VisitAction[Unit, Func, String] {
     match f {
       TFunc(_, l, t) => {
         let locals = tlocals_to_locals(l)
@@ -35,7 +35,7 @@ fn lower_to_expr_pass() -> ModuleTransformer[Unit] {
 ///|
 fn run_lower_to_expr_pass(mod : Module) -> Module {
   let t = lower_to_expr_pass()
-  let (_, mod) = t.walk_module((), mod).unwrap().unwrap()
+  let (mod, _) = t.walk_module((), mod).unwrap()
   mod
 }
 

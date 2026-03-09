@@ -893,7 +893,7 @@ fn sg_analyze(
           )
         }
       }
-      walked
+      from_walk(walked)
     })
     .on_instruction_evt(fn(self, _, instr) {
       if active_func_ordinal > 0 &&
@@ -959,7 +959,7 @@ fn sg_analyze(
           )
         }
       }
-      walked
+      from_walk(walked)
     })
     .on_func_evt(fn(self, _, func) {
       func_ordinal += 1
@@ -1060,7 +1060,7 @@ fn sg_analyze(
           )
         }
       }
-      walked
+      from_walk(walked)
     })
   match scanner.walk_module((), mod) {
     Ok(_) => ()
@@ -1248,9 +1248,9 @@ fn sg_remove_unneeded_writes(
             }
             change((), TInstr::drop(value))
           } else {
-            self.walk_tinstruction_default((), instr)
+            from_walk(self.walk_tinstruction_default((), instr))
           }
-        _ => self.walk_tinstruction_default((), instr)
+        _ => from_walk(self.walk_tinstruction_default((), instr))
       }
     })
     .on_func_evt(fn(self, _, func) {
@@ -1261,7 +1261,7 @@ fn sg_remove_unneeded_writes(
       active_func_ordinal = ordinal
       let walked = self.walk_func_default((), func)
       active_func_ordinal = prev
-      walked
+      from_walk(walked)
     })
   let sg_trace_removed_sets_per_func = fn() {
     if !trace_verbose {
@@ -1275,7 +1275,7 @@ fn sg_remove_unneeded_writes(
     }
   }
   match remover.walk_module((), next_mod) {
-    Ok(Some((_, out))) => {
+    Ok((out, _)) => {
       next_mod = out
       sg_trace_removed_sets_per_func()
       if trace_verbose {
@@ -1285,7 +1285,7 @@ fn sg_remove_unneeded_writes(
       }
       Ok((next_mod, true, more))
     }
-    Ok(None) => {
+    Ok(_) => {
       sg_trace_removed_sets_per_func()
       if trace_verbose {
         trace(
@@ -1387,7 +1387,7 @@ fn sg_prefer_earlier_imports(mod : Module) -> Result[(Module, Bool), String] {
               }
             None => unchanged()
           }
-        _ => self.walk_tinstruction_default((), instr)
+        _ => from_walk(self.walk_tinstruction_default((), instr))
       }
     })
     .on_instruction_evt(fn(self, _, instr) {
@@ -1402,12 +1402,12 @@ fn sg_prefer_earlier_imports(mod : Module) -> Result[(Module, Bool), String] {
               }
             None => unchanged()
           }
-        _ => self.walk_instruction_default((), instr)
+        _ => from_walk(self.walk_instruction_default((), instr))
       }
     })
   match rewriter.walk_module((), mod) {
-    Ok(Some((_, out))) => Ok((out, true))
-    Ok(None) => Ok((mod, false))
+    Ok((out, _)) => Ok((out, true))
+    Ok(_) => Ok((mod, false))
     Err(e) => Err(e)
   }
 }
@@ -2055,7 +2055,7 @@ fn simplify_globals_ir_pass(
   optimize : Bool,
   trace? : (String) -> Unit = sg_trace_noop,
   trace_all_funcs? : Bool = false,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   ModuleTransformer::new().on_module_evt(fn(_, ctx, curr) {
     match sg_simplify_globals_impl(curr, optimize, trace~, trace_all_funcs~) {
       Ok((next, _)) =>
@@ -2064,7 +2064,7 @@ fn simplify_globals_ir_pass(
         } else {
           change(ctx, next)
         }
-      Err(e) => Err(e)
+      Err(e) => error(e)
     }
   })
 }
@@ -2072,7 +2072,7 @@ fn simplify_globals_ir_pass(
 ///|
 fn propagate_globals_globally_ir_pass(
   _mod : Module,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   ModuleTransformer::new().on_module_evt(fn(_, ctx, curr) {
     let (next, _) = sg_propagate_constants_to_globals(curr)
     if next == curr {
@@ -2087,8 +2087,8 @@ fn propagate_globals_globally_ir_pass(
 fn sg_run_simplify_globals(mod : Module, optimize : Bool) -> Module {
   let pass = simplify_globals_ir_pass(mod, optimize)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod
+    Ok((out, _)) => out
+    Ok(_) => mod
     Err(e) => abort("simplify_globals pass failed: \{e}")
   }
 }
@@ -2097,8 +2097,8 @@ fn sg_run_simplify_globals(mod : Module, optimize : Bool) -> Module {
 fn sg_run_propagate_globals_globally(mod : Module) -> Module {
   let pass = propagate_globals_globally_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod
+    Ok((out, _)) => out
+    Ok(_) => mod
     Err(e) => abort("propagate_globals_globally pass failed: \{e}")
   }
 }
@@ -2110,7 +2110,7 @@ fn sg_count_tinstr(body : TExpr, pred : (TInstr) -> Bool) -> Int {
     if pred(instr) {
       count += 1
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count

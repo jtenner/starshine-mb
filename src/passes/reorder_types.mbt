@@ -1062,8 +1062,8 @@ fn reorder_types(
     })
     .on_typesec_evt(fn(_, _, _) { change((), new_type_sec) })
   match remapper.walk_module((), mod) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(mod.with_type_sec(new_type_sec))
+    Ok((out, _)) => Ok(out)
+    Ok(_) => Ok(mod.with_type_sec(new_type_sec))
     Err(e) => Err(e)
   }
 }

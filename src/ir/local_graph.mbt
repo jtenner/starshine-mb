@@ -62,7 +62,7 @@ fn extract_actions_from_instr(
     }
 
     // continue traversal
-    self.walk_tinstruction_default((), i)
+    from_walk(self.walk_tinstruction_default((), i))
   })
 
   // kick off traversal

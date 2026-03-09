@@ -159,13 +159,13 @@ fn lift_to_texpr_module_with_trace(
 ///|
 fn lift_to_texpr_pass_with_trace(
   trace : (String) -> Unit,
-) -> ModuleTransformer[Unit] {
+) -> ModuleTransformer[Unit, String] {
   let mut seen_funcs = 0
   ModuleTransformer::new().on_func_evt(fn(
-    _ : ModuleTransformer[Unit],
+    _ : ModuleTransformer[Unit, String],
     _ : Unit,
     f : Func,
-  ) -> TransformerResult[Unit, Func] {
+  ) -> VisitAction[Unit, Func, String] {
     seen_funcs += 1
     if seen_funcs <= 5 || seen_funcs % 500 == 0 {
       trace("func[\{seen_funcs}] visit")
@@ -183,7 +183,7 @@ fn lift_to_texpr_pass_with_trace(
               }
               Err(err) => {
                 trace("func[\{seen_funcs}] expand_locals failed: \{err}")
-                Err(err)
+                error(err)
               }
             }
           Err(e) => {
@@ -204,7 +204,7 @@ fn lift_to_texpr_pass_with_trace(
 }
 
 ///|
-fn lift_to_texpr_pass() -> ModuleTransformer[Unit] {
+fn lift_to_texpr_pass() -> ModuleTransformer[Unit, String] {
   lift_to_texpr_pass_with_trace(fn(_) { () })
 }
 
@@ -218,12 +218,12 @@ test "lift_to_texpr_pass expands grouped locals when lifting Func" {
   let pass = lift_to_texpr_pass()
   let result = pass.walk_module((), mod)
   match result {
-    Ok(Some((_, new_mod))) =>
+    Ok((new_mod, _)) =>
       match new_mod.code_sec {
         Some(CodeSec([TFunc(_, locals, _)])) => assert_eq(locals.length(), 2)
         _ => fail("expected lifted TFunc with expanded locals")
       }
-    Ok(None) => fail("expected module change")
+    Ok(_) => fail("expected module change")
     Err(e) => fail("unexpected lift_to_texpr_pass error: \{e}")
   }
 }
@@ -235,8 +235,8 @@ test "lift_to_texpr_pass keeps original Func when conversion fails" {
   let pass = lift_to_texpr_pass()
   let result = pass.walk_module((), mod)
   match result {
-    Ok(None) => ()
-    Ok(Some((_, new_mod))) => assert_eq(new_mod, mod)
+    Ok(_) => ()
+    Ok((new_mod, _)) => assert_eq(new_mod, mod)
     Err(e) =>
       fail("expected graceful fallback on conversion failure, got: \{e}")
   }

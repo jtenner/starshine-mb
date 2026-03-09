@@ -703,7 +703,7 @@ fn count_gets_in_instr(state : PushingState, instr : TInstr) -> Unit {
           TInstrKind::TLocalGet(idx) => count_local_get(state, idx)
           _ => ()
         }
-        self.walk_tinstruction_default((), i)
+        from_walk(self.walk_tinstruction_default((), i))
       })
       ignore(walker.walk_tinstruction((), instr))
     }
@@ -1143,7 +1143,7 @@ fn push_code_in_block(
 fn code_pushing_pass_with_trace(
   trace? : (String) -> Unit = cp_trace_noop,
   trace_all_funcs? : Bool = false,
-) -> ModuleTransformer[Unit] {
+) -> ModuleTransformer[Unit, String] {
   let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_self, _state, func) {
     let def_idx = next_def_idx.val
@@ -1214,7 +1214,7 @@ fn code_pushing_pass_with_trace(
               "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=true top_instrs=\{body.instrs.length()}->\{body_instrs.length()} locals=\{num_locals}",
             )
           }
-          Ok(Some(((), Func::t_func(params, locals, TExpr::new(body_instrs)))))
+          change((), Func::t_func(params, locals, TExpr::new(body_instrs)))
         } else {
           if log_func {
             trace(
@@ -1229,7 +1229,7 @@ fn code_pushing_pass_with_trace(
 }
 
 ///|
-fn code_pushing_pass() -> ModuleTransformer[Unit] {
+fn code_pushing_pass() -> ModuleTransformer[Unit, String] {
   code_pushing_pass_with_trace()
 }
 
@@ -1238,7 +1238,7 @@ fn code_pushing_ir_pass_with_trace(
   _mod : Module,
   trace? : (String) -> Unit = cp_trace_noop,
   trace_all_funcs? : Bool = false,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   wrap_unit_func_pass(code_pushing_pass_with_trace(trace~, trace_all_funcs~))
 }
 
@@ -1534,8 +1534,8 @@ test "code_pushing_pass leaves empty function unchanged" {
   match pass.on_func {
     Some(handler) =>
       match handler(pass, (), f) {
-        Ok(None) => ()
-        _ => fail("expected unchanged (Ok(None))")
+        Mutate(_, _) => ()
+        _ => fail("expected unchanged (Ok(_))")
       }
     None => fail("expected handler")
   }
@@ -1563,7 +1563,7 @@ test "code_pushing handles multiple sets before terminal if" {
   match pass.on_func {
     Some(handler) =>
       match handler(pass, (), f) {
-        Ok(Some((_, TFunc(_, _, out_body)))) => {
+        Replace(TFunc(_, _, out_body), _, _) => {
           let mut saw_if = false
           for instr in out_body.instrs {
             match instr.kind {
@@ -1577,9 +1577,10 @@ test "code_pushing handles multiple sets before terminal if" {
           }
           assert_true(saw_if)
         }
-        Ok(Some(_)) => fail("expected typed function result")
-        Ok(None) => fail("expected code pushing to rewrite function")
-        Err(e) => fail("unexpected code_pushing error: \{e}")
+        Replace(_, _, _) => fail("expected typed function result")
+        Mutate(_, _) => fail("expected code pushing to rewrite function")
+        Skip => fail("expected code pushing to rewrite function")
+        Error(e) => fail("unexpected code_pushing error: \{e}")
       }
     None => fail("expected handler")
   }
@@ -1598,8 +1599,10 @@ test "code_pushing handles very deep nested blocks" {
   match pass.on_func {
     Some(handler) =>
       match handler(pass, (), f) {
-        Ok(_) => ()
-        Err(e) => fail("unexpected code_pushing deep-nesting error: \{e}")
+        Mutate(_, _) => ()
+        Replace(_, _, _) => ()
+        Skip => ()
+        Error(e) => fail("unexpected code_pushing deep-nesting error: \{e}")
       }
     None => fail("expected handler")
   }

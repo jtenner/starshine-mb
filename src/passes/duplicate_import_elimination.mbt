@@ -62,8 +62,8 @@ fn die_remap_func_indices(
     }
   })
   match transformer.walk_module((), mod) {
-    Ok(Some((_, new_mod))) => Ok(new_mod)
-    Ok(None) => Ok(mod)
+    Ok((new_mod, _)) => Ok(new_mod)
+    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }

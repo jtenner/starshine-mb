@@ -4380,7 +4380,7 @@ fn optimize_instructions_ir_pass(
   options : OptimizeOptions,
   trace? : (String) -> Unit = oi_trace_noop,
   trace_all_funcs? : Bool = true,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let mut seen_funcs = 0
   let base_env = Env::new().with_module(mod)
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
@@ -4452,8 +4452,8 @@ fn oi_run_module(
   ctx.set_mod(mod_)
   let pass = optimize_instructions_ir_pass(mod_, options)
   match pass.walk_module(ctx, mod_) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod_
+    Ok((out, _)) => out
+    Ok(_) => mod_
     Err(e) => abort("optimize instructions pass error: \{e}")
   }
 }

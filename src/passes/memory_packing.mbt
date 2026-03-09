@@ -829,7 +829,7 @@ fn collect_segment_referrers(mod : Module) -> Map[Int, MPSegmentReferrers] {
       }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_module((), mod))
   out
@@ -934,9 +934,9 @@ fn optimize_segment_ops(
     instr,
   ) {
     let walked = match self.walk_tinstruction_default((), instr) {
-      Ok(Some((_, out))) => out
-      Ok(None) => instr
-      Err(e) => return Err(e)
+      Ok((out, _)) => out
+      Ok(_) => instr
+      Err(e) => return error(e)
     }
     match walked.kind {
       TInstrKind::TDataDrop(di) =>
@@ -1021,7 +1021,7 @@ fn optimize_segment_ops(
     }
   })
   match rewriter.walk_module((), mod) {
-    Ok(Some((_, out))) => (out, true)
+    Ok((out, _)) => (out, true)
     _ => (mod, false)
   }
 }
@@ -1165,14 +1165,14 @@ fn mp_needs_drop_state_global(
       _ => ()
     }
     if needed {
-      Ok(Some((true, instr)))
+      change(true, instr)
     } else {
-      self.walk_tinstruction_default(false, instr)
+      from_walk(self.walk_tinstruction_default(false, instr))
     }
   })
   match walker.walk_module(false, mod) {
-    Ok(Some((needed, _))) => needed
-    Ok(None) => false
+    Ok((_, needed)) => needed
+    Ok(_) => false
     Err(_) => false
   }
 }
@@ -1451,9 +1451,9 @@ fn apply_replacements(
               instr : TInstr,
             ) {
               let walked = match self.walk_tinstruction_default(state, instr) {
-                Ok(Some((s, out))) => (s, out)
-                Ok(None) => (state, instr)
-                Err(e) => return Err(e)
+                Ok((out, s)) => (s, out)
+                Ok(_) => (state, instr)
+                Err(e) => return error(e)
               }
               let (state, curr) = walked
               match curr.kind {
@@ -1568,8 +1568,8 @@ fn apply_replacements(
             })
             let (final_state, new_body) = match
               rewriter.walk_texpr(init_state, body) {
-              Ok(Some((s, rewritten))) => (s, rewritten)
-              Ok(None) => (init_state, body)
+              Ok((rewritten, s)) => (s, rewritten)
+              Ok(_) => (init_state, body)
               Err(e) => return Err(e)
             }
             let new_locals = locals.copy()
@@ -1833,7 +1833,7 @@ fn mp_count_instr(body : TExpr, pred : (TInstr) -> Bool) -> Int {
     if pred(instr) {
       n += 1
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   n

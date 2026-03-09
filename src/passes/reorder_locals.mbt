@@ -66,7 +66,7 @@ fn rl_scan_local_uses(
       TInstrKind::TLocalTee(idx, _) => bump(idx)
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   match walker.walk_texpr((), body) {
     Ok(_) => Ok(())
@@ -92,8 +92,8 @@ fn rl_remap_local_indices(
     }
   })
   match rewriter.walk_texpr((), body) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(body)
+    Ok((out, _)) => Ok(out)
+    Ok(_) => Ok(body)
     Err(e) => Err(e)
   }
 }
@@ -187,7 +187,7 @@ fn rl_reorder_function(func : Func, param_count_hint : Int) -> (Func, Bool) {
 }
 
 ///|
-fn reorder_locals_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn reorder_locals_ir_pass(mod : Module) -> ModuleTransformer[IRContext, String] {
   let param_counts = rl_collect_param_counts(mod)
   let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
@@ -207,8 +207,8 @@ fn reorder_locals_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
 fn run_reorder_locals(mod : Module) -> Module {
   let pass = reorder_locals_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod
+    Ok((out, _)) => out
+    Ok(_) => mod
     Err(e) => abort("reorder_locals_ir_pass failed: \{e}")
   }
 }

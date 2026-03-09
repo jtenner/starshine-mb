@@ -549,7 +549,7 @@ fn msf_hash_function_ignoring_consts(
       ) {
         hashed_instrs += 1
         if hashed_instrs > MSF_HASH_MAX_INSTRS {
-          return Err(MSF_HASH_BUDGET_EXCEEDED_ERR)
+          return error(MSF_HASH_BUDGET_EXCEEDED_ERR)
         }
         if trace_all_funcs &&
           hashed_instrs % msf_trace_heartbeat_interval() == 0 {
@@ -558,7 +558,7 @@ fn msf_hash_function_ignoring_consts(
           )
         }
         msf_hash_tinstr(state, instr)
-        self.walk_tinstruction_default((), instr)
+        from_walk(self.walk_tinstruction_default((), instr))
       })
       match walker.walk_texpr((), body) {
         Ok(_) => {
@@ -647,9 +647,9 @@ fn msf_normalize_body(
       )
     }
     let walked = match self.walk_tinstruction_default((), instr) {
-      Ok(Some((_, next))) => next
-      Ok(None) => instr
-      Err(e) => return Err(e)
+      Ok((next, _)) => next
+      Ok(_) => instr
+      Err(e) => return error(e)
     }
     let rewritten = match walked.kind {
       TInstrKind::TI32Const(_)
@@ -670,7 +670,7 @@ fn msf_normalize_body(
     change((), rewritten)
   })
   match walker.walk_texpr((), body) {
-    Ok(Some((_, out))) => {
+    Ok((out, _)) => {
       if trace_all_funcs {
         trace(
           "func[\{ordinal}] phase=hash:normalize_internal:done elapsed_ms=\{msf_trace_elapsed_ms(normalize_start_ms)} instrs=\{visited_instrs} changed=\{out != body}",
@@ -678,7 +678,7 @@ fn msf_normalize_body(
       }
       Ok(out)
     }
-    Ok(None) => {
+    Ok(_) => {
       if trace_all_funcs {
         trace(
           "func[\{ordinal}] phase=hash:normalize_internal:done elapsed_ms=\{msf_trace_elapsed_ms(normalize_start_ms)} instrs=\{visited_instrs} changed=false",
@@ -721,7 +721,7 @@ fn msf_collect_call_sites(body : TExpr) -> Array[MSFCallSite] {
         })
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   out
@@ -777,7 +777,7 @@ fn msf_collect_sites(
       }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   out
@@ -1357,7 +1357,7 @@ fn msf_measure_body(body : TExpr) -> Int {
   let mut n = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     n += 1
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   n
@@ -1499,9 +1499,9 @@ fn msf_rewrite_shared_body(
     let node_id = next_id
     next_id += 1
     let walked = match self.walk_tinstruction_default((), instr) {
-      Ok(Some((_, next))) => next
-      Ok(None) => instr
-      Err(e) => return Err(e)
+      Ok((next, _)) => next
+      Ok(_) => instr
+      Err(e) => return error(e)
     }
     let shifted = match walked.kind {
       TInstrKind::TLocalGet(idx) => {
@@ -1571,12 +1571,12 @@ fn msf_rewrite_shared_body(
             CallTargetParam(type_idx, expected_arg_count, expects_return, _),
           ) => {
             if expects_return {
-              return Err(
+              return error(
                 "merge_similar_functions: call_target rewrite expected return_call but saw call",
               )
             }
             if args.length() != expected_arg_count {
-              return Err(
+              return error(
                 "merge_similar_functions: call_target rewrite arg count mismatch",
               )
             }
@@ -1585,15 +1585,15 @@ fn msf_rewrite_shared_body(
                 type_idx, expected_arg_count, func_types, func_type_idxs,
               ) {
               Ok(_) => ()
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
             let callee_type_idx = match
               msf_resolve_callee_type_idx(target, func_type_idxs) {
               Ok(v) => v
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
             if callee_type_idx != type_idx {
-              return Err(
+              return error(
                 "merge_similar_functions: call_target rewrite callee type mismatch",
               )
             }
@@ -1609,12 +1609,12 @@ fn msf_rewrite_shared_body(
             CallTargetParam(type_idx, expected_arg_count, expects_return, _),
           ) => {
             if !expects_return {
-              return Err(
+              return error(
                 "merge_similar_functions: call_target rewrite expected call but saw return_call",
               )
             }
             if args.length() != expected_arg_count {
-              return Err(
+              return error(
                 "merge_similar_functions: call_target rewrite arg count mismatch",
               )
             }
@@ -1623,15 +1623,15 @@ fn msf_rewrite_shared_body(
                 type_idx, expected_arg_count, func_types, func_type_idxs,
               ) {
               Ok(_) => ()
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
             let callee_type_idx = match
               msf_resolve_callee_type_idx(target, func_type_idxs) {
               Ok(v) => v
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
             if callee_type_idx != type_idx {
-              return Err(
+              return error(
                 "merge_similar_functions: call_target rewrite callee type mismatch",
               )
             }
@@ -1643,7 +1643,7 @@ fn msf_rewrite_shared_body(
             TInstr::return_call_ref(type_idx, args, casted)
           }
           _ =>
-            return Err(
+            return error(
               "merge_similar_functions: call_target rewrite kind mismatch",
             )
         }
@@ -1655,7 +1655,7 @@ fn msf_rewrite_shared_body(
     change((), replaced)
   })
   match walker.walk_texpr((), body) {
-    Ok(Some((_, out))) => {
+    Ok((out, _)) => {
       if trace_all_funcs {
         trace(
           "func[\{ordinal}] phase=shared_rewrite:walk:done elapsed_ms=\{msf_trace_elapsed_ms(walk_start_ms)} changed=\{out != body}",
@@ -1666,7 +1666,7 @@ fn msf_rewrite_shared_body(
       }
       Ok(out)
     }
-    Ok(None) => {
+    Ok(_) => {
       if trace_all_funcs {
         trace(
           "func[\{ordinal}] phase=shared_rewrite:walk:done elapsed_ms=\{msf_trace_elapsed_ms(walk_start_ms)} changed=false",
@@ -2381,7 +2381,7 @@ test "merge similar functions basic const merging creates shared + thunks" {
                 1 => saw_param_get = true
               _ => ()
             }
-            self.walk_tinstruction_default((), instr)
+            from_walk(self.walk_tinstruction_default((), instr))
           })
           ignore(walker.walk_texpr((), body))
           assert_true(saw_param_get)
@@ -2455,7 +2455,7 @@ test "merge similar functions reuses parameter across repeated diff vector" {
                   1 => local_get_count += 1
                 _ => ()
               }
-              self.walk_tinstruction_default((), curr)
+              from_walk(self.walk_tinstruction_default((), curr))
             })
             ignore(walker.walk_tinstruction((), instr))
           }
@@ -2596,7 +2596,7 @@ test "merge similar functions parameterizes call target using call_ref" {
               }
               _ => ()
             }
-            self.walk_tinstruction_default((), instr)
+            from_walk(self.walk_tinstruction_default((), instr))
           })
           ignore(walker.walk_texpr((), TExpr::new(body)))
           assert_true(saw_call_ref)
@@ -2812,7 +2812,7 @@ test "merge similar functions rewrites call target params with unchanged ancesto
       }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), rewritten))
   assert_true(saw_call_ref)
@@ -2871,7 +2871,7 @@ test "merge similar functions validates call-target arity by callee type idx" {
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), rewritten))
   assert_true(saw_call_ref)
@@ -3200,7 +3200,7 @@ test "merge similar functions shifts var local indices in shared function" {
                 2 => saw_shifted_get = true
               _ => ()
             }
-            self.walk_tinstruction_default((), instr)
+            from_walk(self.walk_tinstruction_default((), instr))
           })
           ignore(walker.walk_texpr((), body))
           assert_true(saw_shifted_set)

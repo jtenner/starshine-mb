@@ -188,15 +188,15 @@ fn dataflow_optimization_pass(
   mod : Module,
   trace? : (String) -> Unit = fn(_) { () },
   trace_all_funcs? : Bool = false,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let env = Env::new().with_module(mod)
   let imported_funcs = dataflow_count_imported_funcs(mod)
   let mut seen_funcs = 0
   ModuleTransformer::new().on_func_evt(fn(
-    _self : ModuleTransformer[IRContext],
+    _self : ModuleTransformer[IRContext, String],
     ctx : IRContext,
     func : Func,
-  ) -> TransformerResult[IRContext, Func] {
+  ) -> VisitAction[IRContext, Func, String] {
     seen_funcs += 1
     let ordinal = seen_funcs
     let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
@@ -205,7 +205,7 @@ fn dataflow_optimization_pass(
     let normalized = match
       dataflow_normalize_func_to_tfunc(env, abs_idx, func) {
       Ok(out) => out
-      Err(e) => return Err(e)
+      Err(e) => return error(e)
     }
     let (params, locals, body) = match normalized {
       DataflowNormalizedFunc::TFuncBody(params, locals, body) =>
@@ -268,8 +268,8 @@ test "dataflow optimization pass folds simple constants via SSA" {
   let ctx = IRContext::new()
   let result = pass.walk_module(ctx, mod)
   match result {
-    Ok(Some((_, new_mod))) => assert_true(new_mod.code_sec is Some(_))
-    Ok(None) => ()
+    Ok((new_mod, _)) => assert_true(new_mod.code_sec is Some(_))
+    Ok(_) => ()
     Err(e) => fail("Unexpected error: \{e}")
   }
 }
@@ -290,8 +290,8 @@ test "dataflow optimization pass simplifies const multi-block if" {
   let ctx = IRContext::new()
   let result = pass.walk_module(ctx, mod)
   match result {
-    Ok(None) => ()
-    Ok(Some((_, new_mod))) => assert_true(new_mod.code_sec is Some(_))
+    Ok(_) => ()
+    Ok((new_mod, _)) => assert_true(new_mod.code_sec is Some(_))
     Err(e) => fail("Unexpected error: \{e}")
   }
 }
@@ -309,12 +309,12 @@ test "dataflow optimization pass normalizes non-texpr Func bodies" {
   let ctx = IRContext::new()
   let result = pass.walk_module(ctx, mod)
   match result {
-    Ok(Some((_, out))) =>
+    Ok((out, _)) =>
       match out.code_sec {
         Some(CodeSec([TFunc(_, _, _)])) => ()
         _ => fail("expected dataflow to rewrite Func input into TFunc")
       }
-    Ok(None) => fail("expected module change")
+    Ok(_) => fail("expected module change")
     Err(e) => fail("Unexpected error: \{e}")
   }
 }
@@ -328,12 +328,12 @@ test "dataflow optimization pass skips non-liftable Func bodies without failing"
   let ctx = IRContext::new()
   let result = pass.walk_module(ctx, mod)
   match result {
-    Ok(Some((_, out))) =>
+    Ok((out, _)) =>
       match out.code_sec {
         Some(CodeSec([Func(_, _)])) => ()
         _ => fail("expected non-liftable Func to remain unchanged")
       }
-    Ok(None) => fail("expected module change")
+    Ok(_) => fail("expected module change")
     Err(e) => fail("Unexpected error: \{e}")
   }
 }
@@ -366,11 +366,11 @@ test "dataflow optimization preserves valid locals for parameterized functions" 
   let ctx = IRContext::new()
   let result = pass.walk_module(ctx, mod)
   match result {
-    Ok(Some((_, out))) => {
+    Ok((out, _)) => {
       assert_eq(validate_module(out), Ok(()))
       assert_true(out.code_sec is Some(_))
     }
-    Ok(None) => fail("expected module change")
+    Ok(_) => fail("expected module change")
     Err(e) => fail("Unexpected error: \{e}")
   }
 }

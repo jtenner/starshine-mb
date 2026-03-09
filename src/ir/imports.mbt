@@ -49,4 +49,4 @@ using @lib {
 }
 
 ///|
-using @transformer {type ModuleTransformer}
+using @transformer {type ModuleTransformer, from_walk}

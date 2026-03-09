@@ -275,7 +275,7 @@ fn hso_collect_effects(instr : TInstr) -> HSOEffects {
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_tinstruction((), instr))
   effects
@@ -368,7 +368,7 @@ fn hso_local_get_infos(list : Array[TInstr]) -> Array[HSOLocalGetInfo] {
           infos.push({ local_idx, top_instr_idx: origin })
         _ => ()
       }
-      self.walk_tinstruction_default((), curr)
+      from_walk(self.walk_tinstruction_default((), curr))
     })
     ignore(walker.walk_texpr((), TExpr::new([flat[i]])))
   }
@@ -634,15 +634,15 @@ fn hso_optimize_block_list(list : Array[TInstr], env : Env) -> Bool {
 
 ///|
 fn hso_rewrite_tinstruction(
-  transformer : ModuleTransformer[HSOState],
+  transformer : ModuleTransformer[HSOState, String],
   state : HSOState,
   instr : TInstr,
-) -> TransformerResult[HSOState, TInstr] {
+) -> VisitAction[HSOState, TInstr, String] {
   let (state_after_walk, walked, walk_changed) = match
     transformer.walk_tinstruction_default(state, instr) {
-    Ok(Some((next_state, next_instr))) => (next_state, next_instr, true)
-    Ok(None) => (state, instr, false)
-    Err(e) => return Err(e)
+    Ok((next_instr, next_state)) => (next_state, next_instr, true)
+    Ok(_) => (state, instr, false)
+    Err(e) => return error(e)
   }
   match walked.kind {
     TInstrKind::TStructSet(
@@ -685,23 +685,23 @@ fn hso_rewrite_tinstruction(
 
 ///|
 fn hso_rewrite_texpr(
-  transformer : ModuleTransformer[HSOState],
+  transformer : ModuleTransformer[HSOState, String],
   state : HSOState,
   expr : TExpr,
-) -> TransformerResult[HSOState, TExpr] {
+) -> VisitAction[HSOState, TExpr, String] {
   let { instrs, .. } = expr
   let rewritten : Array[TInstr] = []
   let mut changed = false
   let mut curr_state = state
   for instr in instrs {
     match transformer.walk_tinstruction(curr_state, instr) {
-      Ok(Some((next_state, next_instr))) => {
+      Ok((next_instr, next_state)) => {
         curr_state = next_state
         rewritten.push(next_instr)
         changed = true
       }
-      Ok(None) => rewritten.push(instr)
-      Err(e) => return Err(e)
+      Ok(_) => rewritten.push(instr)
+      Err(e) => return error(e)
     }
   }
   if hso_optimize_block_list(rewritten, curr_state.env) {
@@ -717,7 +717,7 @@ fn hso_rewrite_texpr(
 ///|
 fn heap_store_optimization_ir_pass(
   mod : Module,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let env = Env::new().with_module(mod)
   let pass = ModuleTransformer::new()
     .on_texpr_evt(hso_rewrite_texpr)
@@ -729,10 +729,10 @@ fn heap_store_optimization_ir_pass(
           env: env.with_locals(FunctionLocals::new(params, locals).all_locals()),
         }
         match pass.walk_texpr(state, body) {
-          Ok(Some((_, new_body))) =>
+          Ok((new_body, _)) =>
             change(ctx, Func::t_func(params, locals, new_body))
-          Ok(None) => unchanged()
-          Err(e) => Err(e)
+          Ok(_) => unchanged()
+          Err(e) => error(e)
         }
       }
       _ => unchanged()
@@ -744,7 +744,7 @@ fn heap_store_optimization_ir_pass(
 fn run_heap_store_optimization(mod : Module) -> Module {
   let pass = heap_store_optimization_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
+    Ok((out, _)) => out
     _ => mod
   }
 }
@@ -757,7 +757,7 @@ fn hso_count_struct_sets(body : TExpr) -> Int {
       TInstrKind::TStructSet(_, _, _, _) => count += 1
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count

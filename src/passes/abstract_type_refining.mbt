@@ -314,8 +314,8 @@ fn run_abstract_type_refining_pass(
   ctx.set_mod(mod)
   let pass = abstract_type_refining(mod, props.traps_never_happen)
   match pass.walk_module(ctx, mod) {
-    Ok(Some((_, final_mod))) => mod = final_mod
-    Ok(None) => ()
+    Ok((final_mod, _)) => mod = final_mod
+    Ok(_) => ()
     Err(e) => return Err(e)
   }
   Ok(mod)
@@ -325,14 +325,14 @@ fn run_abstract_type_refining_pass(
 fn abstract_type_refining(
   mod : Module,
   traps_never_happen : Bool,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let state = compute_atr_state(mod, traps_never_happen)
   ModuleTransformer::new()
   .on_tinstruction_evt(fn(self, ctx : IRContext, instr) {
     let walked = match self.walk_tinstruction_default(ctx, instr) {
-      Ok(Some((_, next))) => next
-      Ok(None) => instr
-      Err(e) => return Err(e)
+      Ok((next, _)) => next
+      Ok(_) => instr
+      Err(e) => return error(e)
     }
     let rewritten = rewrite_cast(walked, state.mapping)
     let rewritten = rewrite_descriptor_exact_ref_cast(
@@ -1934,7 +1934,7 @@ fn atr_count_handler_try_tables(body : TExpr) -> Int {
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count
@@ -1948,7 +1948,7 @@ fn atr_count_throw_instrs(body : TExpr) -> Int {
       TInstrKind::TThrow(_, _) => count += 1
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count
@@ -1962,7 +1962,7 @@ fn atr_count_ref_cast_instrs(body : TExpr) -> Int {
       TInstrKind::TRefCast(_, _, _) => count += 1
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count
@@ -1982,7 +1982,7 @@ fn atr_count_catch_new(body : TExpr) -> Int {
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count
@@ -2002,7 +2002,7 @@ fn atr_count_catch_ref(body : TExpr) -> Int {
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count
@@ -2016,7 +2016,7 @@ fn atr_collect_throw_arg_counts(body : TExpr) -> Array[Int] {
       TInstrKind::TThrow(_, args) => out.push(args.length())
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   out
@@ -2031,7 +2031,7 @@ fn atr_count_drop_void_block(body : TExpr) -> Int {
         count += 1
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count

@@ -248,9 +248,9 @@ fn sp_rewrite_calls(
 ) -> TExpr {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     let processed = match self.walk_tinstruction_default((), instr) {
-      Ok(Some((_, i))) => i
-      Ok(None) => instr
-      Err(e) => return Err(e)
+      Ok((i, _)) => i
+      Ok(_) => instr
+      Err(e) => return error(e)
     }
     match processed.kind {
       TInstrKind::TCall(target, args) => {
@@ -371,7 +371,7 @@ fn sp_rewrite_calls(
     }
   })
   match walker.walk_texpr((), body) {
-    Ok(Some((_, new_body))) => new_body
+    Ok((new_body, _)) => new_body
     _ => body
   }
 }
@@ -522,7 +522,7 @@ fn sp_run_iteration(mod : Module) -> (Module, Bool) {
             }
             _ => ()
           }
-          self.walk_tinstruction_default((), instr)
+          from_walk(self.walk_tinstruction_default((), instr))
         })
         ignore(walker.walk_texpr((), body))
       }
@@ -751,7 +751,9 @@ fn run_signature_pruning(mod : Module) -> Module {
 }
 
 ///|
-fn signature_pruning_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn signature_pruning_ir_pass(
+  mod : Module,
+) -> ModuleTransformer[IRContext, String] {
   let rewritten = run_signature_pruning(mod)
   let rewritten_code = rewritten.code_sec
   let rewritten_types = rewritten.type_sec
@@ -818,8 +820,8 @@ test "signature pruning removes unused params across same signature group" {
     .with_code_sec(CodeSec::new([caller, callee1, callee2]))
   let pass = signature_pruning_ir_pass(mod)
   let optimized = match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, m))) => m
-    Ok(None) => mod
+    Ok((m, _)) => m
+    Ok(_) => mod
     Err(e) => fail("signature_pruning_ir_pass failed: \{e}")
   }
   match optimized.code_sec {
@@ -875,8 +877,8 @@ test "signature pruning updates call_ref type and arguments" {
     .with_code_sec(CodeSec::new([caller, callee]))
   let pass = signature_pruning_ir_pass(mod)
   let optimized = match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, m))) => m
-    Ok(None) => mod
+    Ok((m, _)) => m
+    Ok(_) => mod
     Err(e) => fail("signature_pruning_ir_pass failed: \{e}")
   }
   let mut seen = false
@@ -931,8 +933,8 @@ test "signature pruning is disabled when table section is present" {
     .with_code_sec(CodeSec::new([caller, callee]))
   let pass = signature_pruning_ir_pass(mod)
   let optimized = match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, m))) => m
-    Ok(None) => mod
+    Ok((m, _)) => m
+    Ok(_) => mod
     Err(e) => fail("signature_pruning_ir_pass failed: \{e}")
   }
   assert_eq(optimized, mod)

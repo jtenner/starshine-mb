@@ -66,12 +66,12 @@ test "lift_to_texpr_pass lifts Func body and expands locals" {
   )
   let pass = lift_to_texpr_pass()
   let lifted = match pass.walk_module((), mod) {
-    Ok(Some((_, m))) => m
-    Ok(None) => fail("expected lifted module")
+    Ok((m, _)) => m
     Err(e) => fail("unexpected lift_to_texpr_pass error: \{e}")
   }
   match lifted.code_sec {
-    Some(CodeSec([TFunc(_, locals, { instrs, .. })])) => {
+    Some(CodeSec([TFunc(_, locals, body)])) => {
+      let instrs = body.instrs
       assert_eq(locals, [ValType::i32(), ValType::i32()])
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
@@ -95,14 +95,15 @@ test "lift_to_texpr_pass leaves existing TFunc unchanged" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = lift_to_texpr_pass()
   let lifted = match pass.walk_module((), mod) {
-    Ok(Some((_, m))) => m
-    Ok(None) => fail("expected module result")
+    Ok((m, _)) => m
     Err(e) => fail("unexpected lift_to_texpr_pass error: \{e}")
   }
   match lifted.code_sec {
-    Some(
-      CodeSec([TFunc(_, _, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])
-    ) => ()
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      match body.instrs {
+        [{ kind: TInstrKind::TNop, .. }] => ()
+        _ => fail("expected existing TFunc to remain unchanged")
+      }
     _ => fail("expected existing TFunc to remain unchanged")
   }
 }

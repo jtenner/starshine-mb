@@ -192,15 +192,15 @@ fn ml_instrument_copies(body : TExpr) -> (TExpr, Bool) {
           changed.update(fn(_) { true })
           change((), next)
         } else {
-          self.walk_tinstruction_default((), instr)
+          from_walk(self.walk_tinstruction_default((), instr))
         }
       }
-      _ => self.walk_tinstruction_default((), instr)
+      _ => from_walk(self.walk_tinstruction_default((), instr))
     }
   })
   match transformer.walk_texpr((), body) {
-    Ok(Some((_, out))) => (out, changed.val)
-    Ok(None) => (body, changed.val)
+    Ok((out, _)) => (out, changed.val)
+    Ok(_) => (body, changed.val)
     Err(_) => (body, false)
   }
 }
@@ -612,12 +612,12 @@ fn ml_rewrite_get_indices(
           _ => unchanged()
         }
       }
-      _ => self.walk_tinstruction_default((), instr)
+      _ => from_walk(self.walk_tinstruction_default((), instr))
     }
   })
   match walker.walk_texpr((), body) {
-    Ok(Some((_, out))) => (out, changed.val)
-    Ok(None) => (body, false)
+    Ok((out, _)) => (out, changed.val)
+    Ok(_) => (body, false)
     Err(_) => (body, false)
   }
 }
@@ -640,12 +640,12 @@ fn ml_cleanup_instrumentation(body : TExpr) -> (TExpr, Bool) {
         changed.update(fn(_) { true })
         change((), TInstr::local_set(dst, TInstr::local_get(src)))
       }
-      _ => self.walk_tinstruction_default((), instr)
+      _ => from_walk(self.walk_tinstruction_default((), instr))
     }
   })
   match walker.walk_texpr((), body) {
-    Ok(Some((_, out))) => (out, changed.val)
-    Ok(None) => (body, false)
+    Ok((out, _)) => (out, changed.val)
+    Ok(_) => (body, false)
     Err(_) => (body, false)
   }
 }
@@ -801,7 +801,7 @@ fn merge_locals_run_on_function(
 fn merge_locals_ir_pass(
   mod : Module,
   options? : OptimizeOptions = OptimizeOptions::new(),
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   if ml_should_skip_module(mod) {
     return ModuleTransformer::new()
   }

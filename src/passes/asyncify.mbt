@@ -1245,8 +1245,8 @@ fn af_remap_func_indices(
     }
   })
   match transformer.walk_module((), mod) {
-    Ok(Some((_, next_mod))) => Ok(next_mod)
-    Ok(None) => Ok(mod)
+    Ok((next_mod, _)) => Ok(next_mod)
+    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }
@@ -1271,8 +1271,8 @@ fn af_remap_global_indices(
     }
   })
   match transformer.walk_module((), mod) {
-    Ok(Some((_, next_mod))) => Ok(next_mod)
-    Ok(None) => Ok(mod)
+    Ok((next_mod, _)) => Ok(next_mod)
+    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }
@@ -1483,7 +1483,7 @@ fn FakeGlobalHelper::new(
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_module((), mod))
   Ok((next_mod, { global_by_type, type_by_global }))
@@ -1669,7 +1669,7 @@ fn af_collect_direct_edges(func : Func, out : Set[FuncIdx]) -> Unit {
       | TInstrKind::TReturnCallRef(_, _, _) => ()
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_func((), func))
 }
@@ -1683,7 +1683,7 @@ fn af_func_calls(func : Func, target : FuncIdx) -> Bool {
         target => found.update(fn(_) { true })
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_func((), func))
   found.val
@@ -2478,7 +2478,7 @@ fn af_collect_live_like_locals(body : TExpr) -> Set[LocalIdx] {
     for idx in used {
       out.add(idx)
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   out
@@ -2659,7 +2659,7 @@ fn af_lower_intrinsics_and_locals(
                 let tmp = fake_tmp_for(gidx, vt)
                 change((), TInstr::local_set(tmp, value))
               }
-              None => self.walk_tinstruction_default((), instr)
+              None => from_walk(self.walk_tinstruction_default((), instr))
             }
           TInstrKind::TGlobalGet(gidx) =>
             match fake_globals.get_type_or_none(gidx) {
@@ -2669,12 +2669,12 @@ fn af_lower_intrinsics_and_locals(
               }
               None => unchanged()
             }
-          _ => self.walk_tinstruction_default((), instr)
+          _ => from_walk(self.walk_tinstruction_default((), instr))
         }
       })
       let lowered_body = match lowered.walk_texpr((), body) {
-        Ok(Some((_, next))) => next
-        Ok(None) => body
+        Ok((next, _)) => next
+        Ok(_) => body
         Err(e) => return Err(e)
       }
       let final_instrs : Array[TInstr] = []
@@ -2788,11 +2788,11 @@ fn af_assert_non_instrumented(
                   ]),
                 ),
               )
-            _ => self.walk_tinstruction_default((), instr)
+            _ => from_walk(self.walk_tinstruction_default((), instr))
           }
         })
         let next_body = match walker.walk_texpr((), body) {
-          Ok(Some((_, t))) => t
+          Ok((t, _)) => t
           _ => body
         }
         rewritten.push(
@@ -2907,12 +2907,12 @@ fn af_catch_wrap_calls_in_instr(
       | TInstrKind::TCallIndirect(_, _, _, _)
       | TInstrKind::TCallRef(_, _, _) =>
         change((), af_catch_wrap_guarded_call(ctx, curr))
-      _ => self.walk_tinstruction_default((), curr)
+      _ => from_walk(self.walk_tinstruction_default((), curr))
     }
   })
   match walker.walk_tinstruction((), instr) {
-    Ok(Some((_, out))) => out
-    Ok(None) => instr
+    Ok((out, _)) => out
+    Ok(_) => instr
     Err(_) => instr
   }
 }
@@ -3268,14 +3268,14 @@ fn af_lower_tail_calls_prepass(mod : Module) -> Result[Module, String] {
           instr,
         ) {
           let walked = match self.walk_tinstruction_default(env, instr) {
-            Ok(Some((_, next))) => next
-            Ok(None) => instr
-            Err(e) => return Err(e)
+            Ok((next, _)) => next
+            Ok(_) => instr
+            Err(e) => return error(e)
           }
           let rewritten_instr = match
             af_rewrite_tail_call_to_non_tail(walked, env) {
             Ok(next) => next
-            Err(e) => return Err(e)
+            Err(e) => return error(e)
           }
           if rewritten_instr == instr {
             unchanged()
@@ -3284,8 +3284,8 @@ fn af_lower_tail_calls_prepass(mod : Module) -> Result[Module, String] {
           }
         })
         let next_body = match pass.walk_texpr(env, body) {
-          Ok(Some((_, out))) => out
-          Ok(None) => body
+          Ok((out, _)) => out
+          Ok(_) => body
           Err(e) => return Err(e)
         }
         rewritten.push(Func::t_func(params, locals, next_body))

@@ -688,11 +688,11 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
         }
       _ => ()
     }
-    self.walk_tinstruction_default(s, instr)
+    from_walk(self.walk_tinstruction_default(s, instr))
   })
   match walker.walk_texpr(state, body) {
-    Ok(Some((out, _))) => out
-    Ok(None) => state
+    Ok((_, out)) => out
+    Ok(_) => state
     Err(_) => state
   }
 }
@@ -837,7 +837,7 @@ fn h2l_local_graph_get_order(body : TExpr) -> Array[LocalIdx] {
         TInstrKind::TLocalGet(idx) => out.push(idx)
         _ => ()
       }
-      self.walk_tinstruction_default((), curr)
+      from_walk(self.walk_tinstruction_default((), curr))
     })
     ignore(walker.walk_texpr((), TExpr::new([instr])))
   }
@@ -873,7 +873,7 @@ fn h2l_root_has_matching_set(
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_texpr((), TExpr::new([root])))
   found.val
@@ -935,7 +935,7 @@ fn h2l_texpr_has_local_set(expr : TExpr, target : LocalIdx) -> Bool {
         found.update(fn(_) { true })
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_texpr((), expr))
   found.val
@@ -1009,7 +1009,7 @@ fn h2l_instr_transfers_control_flow(instr : TInstr) -> Bool {
       | TInstrKind::TReturnCallRef(_, _, _) => transfers.update(fn(_) { true })
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_texpr((), TExpr::new([instr])))
   transfers.val
@@ -1024,7 +1024,7 @@ fn h2l_tinstr_has_local_get_for(instr : TInstr, target : LocalIdx) -> Bool {
         found.update(fn(_) { true })
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_texpr((), TExpr::new([instr])))
   found.val
@@ -1048,7 +1048,7 @@ fn h2l_tinstr_has_branchy_set_for(
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_texpr((), TExpr::new([instr])))
   found.val
@@ -1601,17 +1601,17 @@ fn h2l_rewrite_array_local_set(
 
 ///|
 fn h2l_rewrite_tinstr(
-  transformer : ModuleTransformer[H2LRewriteState],
+  transformer : ModuleTransformer[H2LRewriteState, String],
   state : H2LRewriteState,
   env : Env,
   mod : Module,
   instr : TInstr,
-) -> TransformerResult[H2LRewriteState, TInstr] {
+) -> VisitAction[H2LRewriteState, TInstr, String] {
   let (state_after_walk, walked, walked_changed) = match
     transformer.walk_tinstruction_default(state, instr) {
-    Ok(Some((next_state, next_instr))) => (next_state, next_instr, true)
-    Ok(None) => (state, instr, false)
-    Err(e) => return Err(e)
+    Ok((next_instr, next_state)) => (next_state, next_instr, true)
+    Ok(_) => (state, instr, false)
+    Err(e) => return error(e)
   }
   match walked.kind {
     TInstrKind::TLocalSet(loc, value) =>
@@ -2740,8 +2740,8 @@ fn h2l_optimize_func_once(
       })
       let (final_state, rewritten, changed_body) = match
         rewrite.walk_texpr(state, body) {
-        Ok(Some((s, expr))) => (s, expr, true)
-        Ok(None) => (state, body, false)
+        Ok((expr, s)) => (s, expr, true)
+        Ok(_) => (state, body, false)
         Err(_) => return None
       }
       if !changed_body {
@@ -2781,7 +2781,7 @@ fn h2l_optimize_func(func : Func, env : Env, mod : Module) -> Func? {
 }
 
 ///|
-fn heap2local_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn heap2local_ir_pass(mod : Module) -> ModuleTransformer[IRContext, String] {
   let env = Env::new().with_module(mod)
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     match h2l_optimize_func(func, env, mod) {
@@ -2795,7 +2795,7 @@ fn heap2local_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
 fn run_heap2local(mod : Module) -> Module {
   let pass = heap2local_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, new_mod))) => new_mod
+    Ok((new_mod, _)) => new_mod
     _ => mod
   }
 }
@@ -2821,7 +2821,7 @@ fn h2l_count_gc_ops(body : TExpr) -> Int {
       | TInstrKind::TArrayLen(_) => count += 1
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count
@@ -2836,7 +2836,7 @@ fn h2l_has_unary(body : TExpr, op : UnaryOp) -> Bool {
         found.update(fn(_) { true })
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   found.val
@@ -2851,7 +2851,7 @@ fn h2l_has_binary(body : TExpr, op : BinaryOp) -> Bool {
         found.update(fn(_) { true })
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   found.val
@@ -2865,7 +2865,7 @@ fn h2l_has_unreachable(body : TExpr) -> Bool {
       TInstrKind::TUnreachable => found.update(fn(_) { true })
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   found.val
@@ -2880,7 +2880,7 @@ fn h2l_has_i32_const(body : TExpr, target : Int) -> Bool {
         found.update(fn(_) { true })
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   found.val
@@ -2895,7 +2895,7 @@ fn h2l_has_local_get(body : TExpr, idx : UInt) -> Bool {
         found.update(fn(_) { true })
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   found.val
@@ -2909,7 +2909,7 @@ fn h2l_has_ref_get_desc(body : TExpr) -> Bool {
       TInstrKind::TRefGetDesc(_) => found.update(fn(_) { true })
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   found.val

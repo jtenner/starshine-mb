@@ -188,7 +188,7 @@ fn ConstHoistingState::uses(self : Self, literal : Literal) -> Unit {
 }
 
 ///|
-fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
+fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx], String] {
   ModuleTransformer::new().on_tinstruction_evt(fn(self, t, i) {
     match i.kind {
       TInstrKind::TI32Const(I32(val)) => {
@@ -252,25 +252,25 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
           unchanged()
         }
       }
-      _ => self.walk_tinstruction_default(t, i)
+      _ => from_walk(self.walk_tinstruction_default(t, i))
     }
   })
 }
 
 ///|
-fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
+fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState, String] {
   ModuleTransformer::new()
   .on_func_evt(fn(self, t : ConstHoistingState, func) {
     // reset uses of consts per function
     t.usage.clear()
     let (t, func) = match self.walk_func_default(t, func) {
-      Ok(Some((t, func))) => (t, func)
-      Ok(None) => (t, func)
-      Err(t) => return Err(t)
+      Ok((func, t)) => (t, func)
+      Ok(_) => (t, func)
+      Err(t) => return error(t)
     }
     let (params, locals, body) = match func {
       Func(_) =>
-        return Err(
+        return error(
           "Invalid transformer state. Expected TFunc but received Func",
         )
       TFunc(params, locals, body) => (params, locals, body)
@@ -292,9 +292,9 @@ fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
       }
     }
     let body = match replacer_pass.walk_texpr_default(replacers, body) {
-      Ok(Some((_, body))) => body
-      Ok(None) => body
-      Err(t) => return Err(t)
+      Ok((body, _)) => body
+      Ok(_) => body
+      Err(t) => return error(t)
     }
     for k in replacers {
       let lit = k.0
@@ -315,18 +315,20 @@ fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
       //   t.uses(v128_lit(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15))
       _ => ()
     }
-    self.walk_tinstruction_default(t, i)
+    from_walk(self.walk_tinstruction_default(t, i))
   })
 }
 
 ///|
-fn const_hoisting_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+fn const_hoisting_ir_pass(
+  _mod : Module,
+) -> ModuleTransformer[IRContext, String] {
   let pass = const_hoisting_pass()
   ModuleTransformer::new().on_func_evt(fn(_, ctx : IRContext, func : Func) {
     match pass.walk_func(ConstHoistingState::new(), func) {
-      Ok(Some((_, new_func))) => change(ctx, new_func)
-      Ok(None) => unchanged()
-      Err(e) => Err(e)
+      Ok((new_func, _)) => change(ctx, new_func)
+      Ok(_) => unchanged()
+      Err(e) => error(e)
     }
   })
 }
@@ -336,8 +338,8 @@ fn run_hoist(f : Func) -> Func raise {
   let pass = const_hoisting_pass()
   let empty_state = ConstHoistingState::new()
   match pass.walk_func(empty_state, f) {
-    Ok(Some((_, f))) => return f
-    Ok(None) => ()
+    Ok((f, _)) => return f
+    Ok(_) => ()
     Err(e) => assert_true(false, msg=e)
   }
   f

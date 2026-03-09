@@ -509,52 +509,52 @@ fn rub_push_try_table_catcher(
 
 ///|
 fn ModuleTransformer::rub_walk_tinstruction_result(
-  self : ModuleTransformer[RUBWalkState],
+  self : ModuleTransformer[RUBWalkState, String],
   state : RUBWalkState,
   instr : TInstr,
 ) -> Result[TInstr, String] {
   match self.walk_tinstruction(state, instr) {
-    Ok(Some((_, next_instr))) => Ok(next_instr)
-    Ok(None) => Ok(instr)
+    Ok((next_instr, _)) => Ok(next_instr)
+    Ok(_) => Ok(instr)
     Err(e) => Err(e)
   }
 }
 
 ///|
 fn ModuleTransformer::rub_walk_texpr_result(
-  self : ModuleTransformer[RUBWalkState],
+  self : ModuleTransformer[RUBWalkState, String],
   state : RUBWalkState,
   expr : TExpr,
 ) -> Result[TExpr, String] {
   match self.walk_texpr(state, expr) {
-    Ok(Some((_, next_expr))) => Ok(next_expr)
-    Ok(None) => Ok(expr)
+    Ok((next_expr, _)) => Ok(next_expr)
+    Ok(_) => Ok(expr)
     Err(e) => Err(e)
   }
 }
 
 ///|
 fn ModuleTransformer::rub_walk_blocktype_result(
-  self : ModuleTransformer[RUBWalkState],
+  self : ModuleTransformer[RUBWalkState, String],
   state : RUBWalkState,
   bt : BlockType,
 ) -> Result[BlockType, String] {
   match self.walk_blocktype(state, bt) {
-    Ok(Some((_, next_bt))) => Ok(next_bt)
-    Ok(None) => Ok(bt)
+    Ok((next_bt, _)) => Ok(next_bt)
+    Ok(_) => Ok(bt)
     Err(e) => Err(e)
   }
 }
 
 ///|
 fn ModuleTransformer::rub_walk_catches_result(
-  self : ModuleTransformer[RUBWalkState],
+  self : ModuleTransformer[RUBWalkState, String],
   state : RUBWalkState,
   catches : Array[Catch],
 ) -> Result[Array[Catch], String] {
   match self.walk_array(state, ModuleTransformer::walk_catch, catches) {
-    Ok(Some((_, next_catches))) => Ok(next_catches)
-    Ok(None) => Ok(catches)
+    Ok((next_catches, _)) => Ok(next_catches)
+    Ok(_) => Ok(catches)
     Err(e) => Err(e)
   }
 }
@@ -605,16 +605,16 @@ fn rub_shift_label_at_depth(
 
 ///|
 fn rub_walk_tinstruction_with_depth(
-  transformer : ModuleTransformer[Int],
+  transformer : ModuleTransformer[Int, String],
   depth : Int,
   instr : TInstr,
-) -> TransformerResult[Int, TInstr] {
+) -> VisitAction[Int, TInstr, String] {
   match instr.kind {
     TInstrKind::TBlock(bt, body) => {
       let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok(Some((_, out))) => out
-        Ok(None) => body
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => body
+        Err(e) => return error(e)
       }
       if next_body == body {
         unchanged()
@@ -624,9 +624,9 @@ fn rub_walk_tinstruction_with_depth(
     }
     TInstrKind::TLoop(bt, body) => {
       let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok(Some((_, out))) => out
-        Ok(None) => body
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => body
+        Err(e) => return error(e)
       }
       if next_body == body {
         unchanged()
@@ -636,21 +636,21 @@ fn rub_walk_tinstruction_with_depth(
     }
     TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let next_cond = match transformer.walk_tinstruction(depth, cond) {
-        Ok(Some((_, out))) => out
-        Ok(None) => cond
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => cond
+        Err(e) => return error(e)
       }
       let next_then = match transformer.walk_texpr(depth + 1, then_body) {
-        Ok(Some((_, out))) => out
-        Ok(None) => then_body
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => then_body
+        Err(e) => return error(e)
       }
       let next_else = match else_body {
         Some(other) =>
           match transformer.walk_texpr(depth + 1, other) {
-            Ok(Some((_, out))) => Some(out)
-            Ok(None) => Some(other)
-            Err(e) => return Err(e)
+            Ok((out, _)) => Some(out)
+            Ok(_) => Some(other)
+            Err(e) => return error(e)
           }
         None => None
       }
@@ -668,14 +668,14 @@ fn rub_walk_tinstruction_with_depth(
           ModuleTransformer::walk_catch,
           catches,
         ) {
-        Ok(Some((_, out))) => out
-        Ok(None) => catches
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => catches
+        Err(e) => return error(e)
       }
       let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok(Some((_, out))) => out
-        Ok(None) => body
-        Err(e) => return Err(e)
+        Ok((out, _)) => out
+        Ok(_) => body
+        Err(e) => return error(e)
       }
       let next_instr = TInstr::try_table(bt, next_catches, next_body)
       if next_instr == instr {
@@ -684,7 +684,7 @@ fn rub_walk_tinstruction_with_depth(
         change(depth, next_instr)
       }
     }
-    _ => transformer.walk_tinstruction_default(depth, instr)
+    _ => from_walk(transformer.walk_tinstruction_default(depth, instr))
   }
 }
 
@@ -714,15 +714,15 @@ fn rub_rebase_labels_in_texpr_from_depth_result(
           } else {
             change(depth, next)
           }
-        Err(e) => Err(e)
+        Err(e) => error(e)
       }
     })
     .on_tinstruction_evt(fn(self, depth, instr) {
       rub_walk_tinstruction_with_depth(self, depth, instr)
     })
   match pass.walk_texpr(start_depth, expr) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(expr)
+    Ok((out, _)) => Ok(out)
+    Ok(_) => Ok(expr)
     Err(e) => Err(e)
   }
 }
@@ -744,15 +744,15 @@ fn rub_rebase_labels_in_tinstruction_result(
           } else {
             change(depth, next)
           }
-        Err(e) => Err(e)
+        Err(e) => error(e)
       }
     })
     .on_tinstruction_evt(fn(self, depth, curr) {
       rub_walk_tinstruction_with_depth(self, depth, curr)
     })
   match pass.walk_tinstruction(0, instr) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(instr)
+    Ok((out, _)) => Ok(out)
+    Ok(_) => Ok(instr)
     Err(e) => Err(e)
   }
 }
@@ -831,8 +831,8 @@ fn rub_retarget_labels_for_sinked_if_arm(expr : TExpr) -> TExpr {
       rub_walk_tinstruction_with_depth(self, depth, instr)
     })
   match pass.walk_texpr(0, expr) {
-    Ok(Some((_, out))) => out
-    Ok(None) => expr
+    Ok((out, _)) => out
+    Ok(_) => expr
     Err(e) => abort("remove_unused_brs sunk-if arm label retarget failed: \{e}")
   }
 }
@@ -867,8 +867,8 @@ fn rub_retarget_labels_for_sinked_loop_body(expr : TExpr) -> TExpr {
       rub_walk_tinstruction_with_depth(self, depth, instr)
     })
   match pass.walk_texpr(0, expr) {
-    Ok(Some((_, out))) => out
-    Ok(None) => expr
+    Ok((out, _)) => out
+    Ok(_) => expr
     Err(e) =>
       abort("remove_unused_brs sunk-loop body label retarget failed: \{e}")
   }
@@ -908,12 +908,12 @@ fn rub_redirect_simple_child_scope_branches(
     instr,
   ) {
     if !rub_take_child_scope_branch_rewrite_step(rewrite_state) {
-      return Err(RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED)
+      return error(RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED)
     }
     let walked = match self.walk_tinstruction_default(depth, instr) {
-      Ok(Some((_, updated))) => updated
-      Ok(None) => instr
-      Err(e) => return Err(e)
+      Ok((updated, _)) => updated
+      Ok(_) => instr
+      Err(e) => return error(e)
     }
     match walked.kind {
       TInstrKind::TBr(label, []) =>
@@ -935,8 +935,8 @@ fn rub_redirect_simple_child_scope_branches(
     }
   })
   match pass.walk_texpr(0, expr) {
-    Ok(Some((_, out))) => (out, true)
-    Ok(None) => (expr, false)
+    Ok((out, _)) => (out, true)
+    Ok(_) => (expr, false)
     Err(e) =>
       if e == RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED {
         let visits = RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_VISIT_BUDGET -
@@ -989,12 +989,12 @@ fn rub_redirect_simple_child_scope_branches_with_branch_pair_with_budget(
     instr,
   ) {
     if !rub_take_child_scope_branch_rewrite_step(rewrite_state) {
-      return Err(RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED)
+      return error(RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED)
     }
     let walked = match self.walk_tinstruction_default(depth, instr) {
-      Ok(Some((_, updated))) => updated
-      Ok(None) => instr
-      Err(e) => return Err(e)
+      Ok((updated, _)) => updated
+      Ok(_) => instr
+      Err(e) => return error(e)
     }
     match walked.kind {
       TInstrKind::TBr(label, []) =>
@@ -1048,8 +1048,8 @@ fn rub_redirect_simple_child_scope_branches_with_branch_pair_with_budget(
     }
   })
   match pass.walk_texpr(0, expr) {
-    Ok(Some((_, out))) => (out, true)
-    Ok(None) => (expr, false)
+    Ok((out, _)) => (out, true)
+    Ok(_) => (expr, false)
     Err(e) =>
       if e == RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED {
         let visits = visit_budget - rewrite_state.remaining_budget.val
@@ -1096,12 +1096,12 @@ fn rub_redirect_simple_child_scope_branches_to_unreachable_with_budget(
     instr,
   ) {
     if !rub_take_child_scope_branch_rewrite_step(rewrite_state) {
-      return Err(RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED)
+      return error(RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED)
     }
     let walked = match self.walk_tinstruction_default(depth, instr) {
-      Ok(Some((_, updated))) => updated
-      Ok(None) => instr
-      Err(e) => return Err(e)
+      Ok((updated, _)) => updated
+      Ok(_) => instr
+      Err(e) => return error(e)
     }
     match walked.kind {
       TInstrKind::TBr(label, []) =>
@@ -1128,8 +1128,8 @@ fn rub_redirect_simple_child_scope_branches_to_unreachable_with_budget(
     }
   })
   match pass.walk_texpr(0, expr) {
-    Ok(Some((_, out))) => (out, true)
-    Ok(None) => (expr, false)
+    Ok((out, _)) => (out, true)
+    Ok(_) => (expr, false)
     Err(e) =>
       if e == RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED {
         let visits = visit_budget - rewrite_state.remaining_budget.val
@@ -1176,12 +1176,12 @@ fn rub_redirect_simple_child_scope_branches_to_return_with_budget(
     instr,
   ) {
     if !rub_take_child_scope_branch_rewrite_step(rewrite_state) {
-      return Err(RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED)
+      return error(RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED)
     }
     let walked = match self.walk_tinstruction_default(depth, instr) {
-      Ok(Some((_, updated))) => updated
-      Ok(None) => instr
-      Err(e) => return Err(e)
+      Ok((updated, _)) => updated
+      Ok(_) => instr
+      Err(e) => return error(e)
     }
     match walked.kind {
       TInstrKind::TBr(label, []) =>
@@ -1208,8 +1208,8 @@ fn rub_redirect_simple_child_scope_branches_to_return_with_budget(
     }
   })
   match pass.walk_texpr(0, expr) {
-    Ok(Some((_, out))) => (out, true)
-    Ok(None) => (expr, false)
+    Ok((out, _)) => (out, true)
+    Ok(_) => (expr, false)
     Err(e) =>
       if e == RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED {
         let visits = visit_budget - rewrite_state.remaining_budget.val
@@ -4958,16 +4958,16 @@ fn rub_optimize_instr_list(
 fn remove_unused_brs_pass(
   options : OptimizeOptions,
   trace_state? : RUBRoundTraceState? = None,
-) -> ModuleTransformer[RUBWalkState] {
+) -> ModuleTransformer[RUBWalkState, String] {
   ModuleTransformer::new()
   .on_func_evt(fn(self, state, func) {
     match func {
       TFunc(params, locals, body) => {
         let new_body = match
           self.walk_texpr(rub_walk_function_body_state(state), body) {
-          Ok(Some((_, walked))) => walked
-          Ok(None) => body
-          Err(e) => return Err(e)
+          Ok((walked, _)) => walked
+          Ok(_) => body
+          Err(e) => return error(e)
         }
         if new_body != body {
           change(state, Func::t_func(params, locals, new_body))
@@ -4981,15 +4981,15 @@ fn remove_unused_brs_pass(
   .on_texpr_evt(fn(self, state, expr) {
     match rub_trace_note_expr(trace_state, "walk:expr") {
       Ok(_) => ()
-      Err(e) => return Err(e)
+      Err(e) => return error(e)
     }
     let out : Array[TInstr] = []
     let mut changed = false
     for instr in expr.instrs {
       let next_instr = match self.walk_tinstruction(state, instr) {
-        Ok(Some((_, walked))) => walked
-        Ok(None) => instr
-        Err(e) => return Err(e)
+        Ok((walked, _)) => walked
+        Ok(_) => instr
+        Err(e) => return error(e)
       }
       if next_instr != instr {
         changed = true
@@ -5007,7 +5007,7 @@ fn remove_unused_brs_pass(
       changed = true
       match rub_trace_note_rewrite(trace_state, "rewrite:expr") {
         Ok(_) => ()
-        Err(e) => return Err(e)
+        Err(e) => return error(e)
       }
     }
     if changed {
@@ -5020,14 +5020,14 @@ fn remove_unused_brs_pass(
   .on_tinstruction_evt(fn(self, state, instr) {
     match rub_trace_note_instr(trace_state, "walk:instr") {
       Ok(_) => ()
-      Err(e) => return Err(e)
+      Err(e) => return error(e)
     }
     let walked_start_ms = sl_trace_now_ms()
     let walked = match instr.kind {
       TInstrKind::TBlock(bt, body) => {
         let next_bt = match self.rub_walk_blocktype_result(state, bt) {
           Ok(next_bt) => next_bt
-          Err(e) => return Err(e)
+          Err(e) => return error(e)
         }
         let next_body = match
           self.rub_walk_texpr_result(
@@ -5035,7 +5035,7 @@ fn remove_unused_brs_pass(
             body,
           ) {
           Ok(next_body) => next_body
-          Err(e) => return Err(e)
+          Err(e) => return error(e)
         }
         if next_bt == bt && next_body == body {
           instr
@@ -5046,7 +5046,7 @@ fn remove_unused_brs_pass(
       TInstrKind::TLoop(bt, body) => {
         let next_bt = match self.rub_walk_blocktype_result(state, bt) {
           Ok(next_bt) => next_bt
-          Err(e) => return Err(e)
+          Err(e) => return error(e)
         }
         let next_body = match
           self.rub_walk_texpr_result(
@@ -5054,7 +5054,7 @@ fn remove_unused_brs_pass(
             body,
           ) {
           Ok(next_body) => next_body
-          Err(e) => return Err(e)
+          Err(e) => return error(e)
         }
         if next_bt == bt && next_body == body {
           instr
@@ -5065,23 +5065,23 @@ fn remove_unused_brs_pass(
       TInstrKind::TIf(bt, cond, then_body, else_body) => {
         let next_bt = match self.rub_walk_blocktype_result(state, bt) {
           Ok(next_bt) => next_bt
-          Err(e) => return Err(e)
+          Err(e) => return error(e)
         }
         let next_cond = match self.rub_walk_tinstruction_result(state, cond) {
           Ok(next_cond) => next_cond
-          Err(e) => return Err(e)
+          Err(e) => return error(e)
         }
         let branch_state = rub_walk_nested_texpr_state(state, next_bt, true)
         let next_then = match
           self.rub_walk_texpr_result(branch_state, then_body) {
           Ok(next_then) => next_then
-          Err(e) => return Err(e)
+          Err(e) => return error(e)
         }
         let next_else = match else_body {
           Some(other) =>
             match self.rub_walk_texpr_result(branch_state, other) {
               Ok(next_other) => Some(next_other)
-              Err(e) => return Err(e)
+              Err(e) => return error(e)
             }
           None => None
         }
@@ -5097,11 +5097,11 @@ fn remove_unused_brs_pass(
       TInstrKind::TTryTable(bt, catches, body) => {
         let next_bt = match self.rub_walk_blocktype_result(state, bt) {
           Ok(next_bt) => next_bt
-          Err(e) => return Err(e)
+          Err(e) => return error(e)
         }
         let next_catches = match self.rub_walk_catches_result(state, catches) {
           Ok(next_catches) => next_catches
-          Err(e) => return Err(e)
+          Err(e) => return error(e)
         }
         let catcher_state = rub_push_try_table_catcher(state, next_catches)
         let next_body = match
@@ -5110,7 +5110,7 @@ fn remove_unused_brs_pass(
             body,
           ) {
           Ok(next_body) => next_body
-          Err(e) => return Err(e)
+          Err(e) => return error(e)
         }
         if next_bt == bt && next_catches == catches && next_body == body {
           instr
@@ -5121,9 +5121,9 @@ fn remove_unused_brs_pass(
       _ => {
         let default_walk_start_ms = sl_trace_now_ms()
         let out = match self.walk_tinstruction_default(state, instr) {
-          Ok(Some((_, updated))) => updated
-          Ok(None) => instr
-          Err(e) => return Err(e)
+          Ok((updated, _)) => updated
+          Ok(_) => instr
+          Err(e) => return error(e)
         }
         rub_trace_log_slow_instr(
           trace_state,
@@ -5169,7 +5169,7 @@ fn remove_unused_brs_pass(
       changed_try_table_throw {
       match rub_trace_note_rewrite(trace_state, "rewrite:instr") {
         Ok(_) => ()
-        Err(e) => return Err(e)
+        Err(e) => return error(e)
       }
     }
     if changed_throw_to_branch ||
@@ -5302,7 +5302,7 @@ fn rub_optimize_func_fixpoint(
             ),
             curr,
           ) {
-          Ok(Some((_, next_func0))) => {
+          Ok((next_func0, _)) => {
             let next_func = rub_append_scratch_locals_to_func(
               next_func0,
               round_scratch_locals.val,
@@ -5331,7 +5331,7 @@ fn rub_optimize_func_fixpoint(
             }
             curr = next_func
           }
-          Ok(None) => {
+          Ok(_) => {
             if log_func {
               trace(
                 "func[\{ordinal}] round[\{rounds}] phase=walk_func:done elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} changed=false top_instrs=\{round_start_top_instrs}->\{round_start_top_instrs} scratch_locals=\{round_scratch_locals.val.length()} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val}",
@@ -5499,13 +5499,13 @@ fn remove_unused_brs(
         if log_func {
           trace("func[\{ordinal}] phase=function_pipeline:error \{e}")
         }
-        Err(e)
+        error(e)
       }
     }
   })
   let out = match pass.walk_module(rub_walk_state(false, false, true), mod) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod
+    Ok((out, _)) => out
+    Ok(_) => mod
     Err(e) => return Err(e)
   }
   trace(

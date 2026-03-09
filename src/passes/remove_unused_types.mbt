@@ -111,7 +111,7 @@ fn rut_mark_module_roots(mod : Module) -> Set[Int] {
         | TInstrKind::TRefCastDescEq(_, ht, _) => rut_mark_heaptype(roots, ht)
         _ => ()
       }
-      self.walk_tinstruction_default((), instr)
+      from_walk(self.walk_tinstruction_default((), instr))
     })
     .on_instruction_evt(fn(self, _, instr) {
       match instr {
@@ -119,7 +119,7 @@ fn rut_mark_module_roots(mod : Module) -> Set[Int] {
           rut_mark_heaptype(roots, ht)
         _ => ()
       }
-      self.walk_instruction_default((), instr)
+      from_walk(self.walk_instruction_default((), instr))
     })
   match mod.import_sec {
     Some(sec) => ignore(walker.walk_importsec((), sec))
@@ -619,8 +619,8 @@ fn remove_unused_types(mod : Module) -> Result[Module, String] {
     .on_typesec_evt(fn(_, _, _) { change((), new_type_sec) })
 
   match remapper.walk_module((), mod) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(mod.with_type_sec(new_type_sec))
+    Ok((out, _)) => Ok(out)
+    Ok(_) => Ok(mod.with_type_sec(new_type_sec))
     Err(e) => Err(e)
   }
 }

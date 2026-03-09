@@ -290,7 +290,7 @@ fn get_field_value(
 /// Main constant field propagation pass
 /// This is a two-phase pass. Call run_constant_field_propagation for full optimization.
 /// The pass itself just scans for struct operations.
-fn constant_field_propagation_pass() -> ModuleTransformer[CFPState] {
+fn constant_field_propagation_pass() -> ModuleTransformer[CFPState, String] {
   ModuleTransformer::new().on_func_evt(fn(_self, state, func) {
     match func {
       Func(_, _) => unchanged()
@@ -305,7 +305,7 @@ fn constant_field_propagation_pass() -> ModuleTransformer[CFPState] {
 
 ///|
 /// Create an optimizer that replaces struct.get with constants
-fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit] {
+fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit, String] {
   ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     match instr.kind {
       TInstrKind::TStructGet(type_idx, field_idx, ref_instr)
@@ -327,7 +327,7 @@ fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit] {
             )
             change((), result)
           }
-          None => self.walk_tinstruction_default((), instr)
+          None => from_walk(self.walk_tinstruction_default((), instr))
         }
       }
       // Optimize ref.test when the input is a struct.get from a known ref.null field
@@ -351,14 +351,14 @@ fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit] {
                   )
                   change((), result)
                 } else {
-                  self.walk_tinstruction_default((), instr)
+                  from_walk(self.walk_tinstruction_default((), instr))
                 }
-              None => self.walk_tinstruction_default((), instr)
+              None => from_walk(self.walk_tinstruction_default((), instr))
             }
           }
-          _ => self.walk_tinstruction_default((), instr)
+          _ => from_walk(self.walk_tinstruction_default((), instr))
         }
-      _ => self.walk_tinstruction_default((), instr)
+      _ => from_walk(self.walk_tinstruction_default((), instr))
     }
   })
 }
@@ -366,7 +366,7 @@ fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit] {
 ///|
 fn constant_field_propagation_ir_pass(
   mod : Module,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let state = CFPState::from_module(mod)
   match mod.code_sec {
     None => ()
@@ -763,7 +763,7 @@ test "make_cfp_optimizer replaces struct.get with constant" {
 
   // Should return a block with (drop ref) and (i32.const 42)
   match result {
-    Ok(Some((_, new_instr))) =>
+    Ok((new_instr, _)) =>
       match new_instr.kind {
         TInstrKind::TBlock(_, body) => {
           assert_eq(body.instrs.length(), 2)
@@ -797,12 +797,12 @@ test "make_cfp_optimizer preserves struct.get for unknown fields" {
 
   // Should return the original struct.get (or similar)
   match result {
-    Ok(Some((_, new_instr))) =>
+    Ok((new_instr, _)) =>
       match new_instr.kind {
         TInstrKind::TStructGet(_, _, _) => () // Good, preserved the struct.get
         _ => fail("Expected TInstrKind::TStructGet but got something else")
       }
-    Ok(None) => () // Also acceptable - means no change
+    Ok(_) => () // Also acceptable - means no change
     Err(_) => fail("Optimizer should not error")
   }
 }
@@ -1071,7 +1071,7 @@ test "struct.get_s and struct.get_u optimization" {
   let get_s_instr = TInstr::struct_get_s(type_idx, field_idx, ref_instr)
   let result = optimizer.walk_tinstruction((), get_s_instr)
   match result {
-    Ok(Some((_, new_instr))) =>
+    Ok((new_instr, _)) =>
       match new_instr.kind {
         TInstrKind::TBlock(_, body) => {
           assert_eq(body.instrs.length(), 2)
@@ -1088,7 +1088,7 @@ test "struct.get_s and struct.get_u optimization" {
   let get_u_instr = TInstr::struct_get_u(type_idx, field_idx, ref_instr2)
   let result2 = optimizer.walk_tinstruction((), get_u_instr)
   match result2 {
-    Ok(Some((_, new_instr))) =>
+    Ok((new_instr, _)) =>
       match new_instr.kind {
         TInstrKind::TBlock(_, body) => {
           assert_eq(body.instrs.length(), 2)
@@ -1123,7 +1123,7 @@ test "ref.test optimization with ref.null field" {
 
   // Should return a block with (drop ref) and (i32.const 0)
   match result {
-    Ok(Some((_, new_instr))) =>
+    Ok((new_instr, _)) =>
       match new_instr.kind {
         TInstrKind::TBlock(_, body) => {
           assert_eq(body.instrs.length(), 2)
@@ -1162,14 +1162,14 @@ test "ref.test not optimized for non-null constant" {
   // Should NOT optimize (i32 is not a ref.null)
   // The struct.get inside will be optimized, but not the ref.test itself
   match result {
-    Ok(Some((_, new_instr))) =>
+    Ok((new_instr, _)) =>
       // The inner struct.get gets optimized, so we get a ref.test with a block inside
       match new_instr.kind {
         TInstrKind::TRefTest(_, _, _) => () // Good, ref.test preserved
         TInstrKind::TBlock(_, _) => () // Also acceptable - inner was optimized
         _ => ()
       }
-    Ok(None) => () // Also acceptable - no change
+    Ok(_) => () // Also acceptable - no change
     Err(_) => fail("Optimizer should not error")
   }
 }

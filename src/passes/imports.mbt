@@ -108,8 +108,11 @@ using @diff {render_line_diff}
 ///|
 using @transformer {
   type ModuleTransformer,
+  type VisitAction,
   type TransformerResult,
   change,
+  error,
+  from_walk,
   unchanged,
 }
 

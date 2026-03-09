@@ -91,15 +91,15 @@ fn get_single_load_from_local(
 }
 
 ///|
-fn avoid_reinterprets() -> ModuleTransformer[IRContext] {
+fn avoid_reinterprets() -> ModuleTransformer[IRContext, String] {
   let mut idx = 0
   ModuleTransformer::new()
   .on_func_evt(fn(self, state : IRContext, func) {
     match func {
-      Func(_) => Err("Expected TFunc")
+      Func(_) => error("Expected TFunc")
       TFunc(_, _, body) => {
         state.set_body(body)
-        self.walk_func_default(state, func)
+        from_walk(self.walk_func_default(state, func))
       }
     }
   })
@@ -135,7 +135,9 @@ fn avoid_reinterprets() -> ModuleTransformer[IRContext] {
 }
 
 ///|
-fn avoid_reinterprets_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+fn avoid_reinterprets_pass(
+  _mod : Module,
+) -> ModuleTransformer[IRContext, String] {
   avoid_reinterprets()
 }
 
@@ -153,7 +155,7 @@ test "AvoidReinterprets: rewrite reinterpret(load)" {
   let func = Func::t_func([], [], expr)
   let pass = avoid_reinterprets()
   let state = IRContext::new()
-  let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
+  let (new_func, _) = pass.walk_func(state, func).unwrap()
   match new_func {
     TFunc(_, _, { instrs, .. }) =>
       match instrs[0].kind {
@@ -183,7 +185,7 @@ test "AvoidReinterprets: rewrite reinterpret(local.get) with single load" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = avoid_reinterprets()
   let initial_state = IRContext::new()
-  let (_, new_module) = pass.walk_module(initial_state, mod).unwrap().unwrap()
+  let (new_module, _) = pass.walk_module(initial_state, mod).unwrap()
   let CodeSec(funcs) = new_module.code_sec.unwrap()
   let new_func = funcs[0]
   match new_func {
@@ -222,7 +224,7 @@ test "AvoidReinterprets: do not rewrite when multiple defining loads exist" {
   let func = Func::t_func([], [], expr)
   let pass = avoid_reinterprets()
   let state = IRContext::new()
-  let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
+  let (new_func, _) = pass.walk_func(state, func).unwrap()
   match new_func {
     TFunc(_, _, { instrs: new_instrs, .. }) =>
       match new_instrs[2].kind {
@@ -240,7 +242,7 @@ test "AvoidReinterprets: unrelated instructions are unchanged" {
   let func = Func::t_func([], [], expr)
   let pass = avoid_reinterprets()
   let state = IRContext::new()
-  let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
+  let (new_func, _) = pass.walk_func(state, func).unwrap()
   assert_eq(new_func, func)
 }
 
@@ -254,7 +256,7 @@ test "AvoidReinterprets: reinterpret of non-load is unchanged" {
   let func = Func::t_func([], [], expr)
   let pass = avoid_reinterprets()
   let state = IRContext::new()
-  let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
+  let (new_func, _) = pass.walk_func(state, func).unwrap()
   assert_eq(new_func, func)
 }
 
@@ -272,7 +274,7 @@ test "AvoidReinterprets: reinterpret with mismatched load type is unchanged" {
   let func = Func::t_func([], [], expr)
   let pass = avoid_reinterprets()
   let state = IRContext::new()
-  let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
+  let (new_func, _) = pass.walk_func(state, func).unwrap()
   assert_eq(new_func, func)
 }
 
@@ -298,7 +300,7 @@ test "AvoidReinterprets: reinterpret(local.get) inside expression" {
   let func = Func::t_func([], [], expr)
   let pass = avoid_reinterprets()
   let state = IRContext::new()
-  let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
+  let (new_func, _) = pass.walk_func(state, func).unwrap()
   match new_func {
     TFunc(_, _, { instrs: new_instrs, .. }) =>
       match new_instrs[1].kind {

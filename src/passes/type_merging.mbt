@@ -1402,8 +1402,8 @@ fn tm_apply_merges(
     .on_typesec_evt(fn(_, _, _) { change((), new_type_sec) })
 
   let merged = match remapper.walk_module((), mod) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod.with_type_sec(new_type_sec)
+    Ok((out, _)) => out
+    Ok(_) => mod.with_type_sec(new_type_sec)
     Err(e) => return Err(e)
   }
   remove_unused_types(merged)

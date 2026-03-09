@@ -17,12 +17,12 @@
 ///|
 fn rr_apply_ir_pass(
   mod : Module,
-  pass : ModuleTransformer[IRContext],
+  pass : ModuleTransformer[IRContext, String],
 ) -> Result[Module, String] {
   let ctx = IRContext::new()
   match pass.walk_module(ctx, mod) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(mod)
+    Ok((out, _)) => Ok(out)
+    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }
@@ -2227,7 +2227,7 @@ fn run_re_reloop(mod : Module) -> Result[Module, String] {
 }
 
 ///|
-fn re_reloop_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+fn re_reloop_ir_pass(_mod : Module) -> ModuleTransformer[IRContext, String] {
   ModuleTransformer::new().on_module_evt(fn(_, ctx : IRContext, mod : Module) {
     match run_re_reloop(mod) {
       Ok(next_mod) =>
@@ -2236,7 +2236,7 @@ fn re_reloop_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
         } else {
           change(ctx, next_mod)
         }
-      Err(e) => Err(e)
+      Err(e) => error(e)
     }
   })
 }

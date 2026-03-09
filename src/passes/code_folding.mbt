@@ -578,7 +578,7 @@ fn measure_with_trace(
   let mut count = 1
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, c, i) {
     count += 1
-    self.walk_tinstruction_default(c, i)
+    from_walk(self.walk_tinstruction_default(c, i))
   })
   ignore(walker.walk_tinstruction((), instr))
   if trace_enabled {
@@ -642,7 +642,7 @@ fn get_branch_targets_with_trace(
       TInstrKind::TBrOnCastFail(label, _, _, _, _, _) => targets.add(label)
       _ => ()
     }
-    self.walk_tinstruction_default((), i)
+    from_walk(self.walk_tinstruction_default((), i))
   })
   ignore(walker.walk_tinstruction((), instr))
   if trace_enabled {
@@ -989,14 +989,14 @@ fn cf_instr_has_try_table(instr : TInstr) -> Bool {
   let mut found = false
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
     if found {
-      return Ok(None)
+      return unchanged()
     }
     match curr.kind {
       TInstrKind::TTryTable(_, _, _) => {
         found = true
-        Ok(None)
+        unchanged()
       }
-      _ => self.walk_tinstruction_default((), curr)
+      _ => from_walk(self.walk_tinstruction_default((), curr))
     }
   })
   ignore(walker.walk_tinstruction((), instr))
@@ -1008,7 +1008,7 @@ fn cf_instr_may_throw(instr : TInstr) -> Bool {
   let mut may_throw = false
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
     if may_throw {
-      return Ok(None)
+      return unchanged()
     }
     match curr.kind {
       TInstrKind::TThrow(_, _)
@@ -1020,9 +1020,9 @@ fn cf_instr_may_throw(instr : TInstr) -> Bool {
       | TInstrKind::TReturnCallIndirect(_, _, _, _)
       | TInstrKind::TReturnCallRef(_, _, _) => {
         may_throw = true
-        Ok(None)
+        unchanged()
       }
-      _ => self.walk_tinstruction_default((), curr)
+      _ => from_walk(self.walk_tinstruction_default((), curr))
     }
   })
   ignore(walker.walk_tinstruction((), instr))
@@ -2250,18 +2250,18 @@ fn cf_shift_outer_labels_with(
         TInstrKind::TBlock(bt, body) => {
           let body_ctx = { ..ctx, control_depth: ctx.control_depth + 1 }
           let body = match self.walk_texpr(body_ctx, body) {
-            Ok(None) => body
-            Ok(Some((_, body))) => body
-            Err(_) => return Ok(None)
+            Ok((body, _)) => body
+            Ok(_) => body
+            Err(_) => return unchanged()
           }
           change(ctx, TInstr::block(bt, body))
         }
         TInstrKind::TLoop(bt, body) => {
           let body_ctx = { ..ctx, control_depth: ctx.control_depth + 1 }
           let body = match self.walk_texpr(body_ctx, body) {
-            Ok(None) => body
-            Ok(Some((_, body))) => body
-            Err(_) => return Ok(None)
+            Ok((body, _)) => body
+            Ok(_) => body
+            Err(_) => return unchanged()
           }
           change(ctx, TInstr::loop_(bt, body))
         }
@@ -2271,25 +2271,25 @@ fn cf_shift_outer_labels_with(
               CfLabelShiftCtx::{ ..ctx, in_cond: true },
               cond,
             ) {
-            Ok(None) => cond
-            Ok(Some((_, cond))) => cond
-            Err(_) => return Ok(None)
+            Ok((cond, _)) => cond
+            Ok(_) => cond
+            Err(_) => return unchanged()
           }
           let branch_ctx = CfLabelShiftCtx::{
             control_depth: ctx.control_depth + 1,
             in_cond: ctx.in_cond,
           }
           let then_body = match self.walk_texpr(branch_ctx, then_body) {
-            Ok(None) => then_body
-            Ok(Some((_, then_body))) => then_body
-            Err(_) => return Ok(None)
+            Ok((then_body, _)) => then_body
+            Ok(_) => then_body
+            Err(_) => return unchanged()
           }
           let else_body = match else_body {
             Some(else_body) =>
               match self.walk_texpr(branch_ctx, else_body) {
-                Ok(None) => Some(else_body)
-                Ok(Some((_, else_body))) => Some(else_body)
-                Err(_) => return Ok(None)
+                Ok((else_body, _)) => Some(else_body)
+                Ok(_) => Some(else_body)
+                Err(_) => return unchanged()
               }
             None => None
           }
@@ -2298,19 +2298,19 @@ fn cf_shift_outer_labels_with(
         TInstrKind::TTryTable(bt, catches, body) => {
           let catches = match
             self.walk_array(ctx, ModuleTransformer::walk_catch, catches) {
-            Ok(None) => catches
-            Ok(Some((_, catches))) => catches
-            Err(_) => return Ok(None)
+            Ok((catches, _)) => catches
+            Ok(_) => catches
+            Err(_) => return unchanged()
           }
           let body_ctx = { ..ctx, control_depth: ctx.control_depth + 1 }
           let body = match self.walk_texpr(body_ctx, body) {
-            Ok(None) => body
-            Ok(Some((_, body))) => body
-            Err(_) => return Ok(None)
+            Ok((body, _)) => body
+            Ok(_) => body
+            Err(_) => return unchanged()
           }
           change(ctx, TInstr::try_table(bt, catches, body))
         }
-        _ => self.walk_tinstruction_default(ctx, instr)
+        _ => from_walk(self.walk_tinstruction_default(ctx, instr))
       }
     })
   match
@@ -2318,8 +2318,8 @@ fn cf_shift_outer_labels_with(
       CfLabelShiftCtx::{ control_depth: 0, in_cond: root_in_cond },
       instr,
     ) {
-    Ok(Some((_, rewritten))) => rewritten
-    Ok(None) => instr
+    Ok((rewritten, _)) => rewritten
+    Ok(_) => instr
     Err(_) => instr
   }
 }
@@ -3389,7 +3389,7 @@ fn cf_restore_state_env(
 fn code_folding_pass_with_trace(
   trace? : (String) -> Unit = cf_trace_noop,
   trace_all_funcs? : Bool = true,
-) -> ModuleTransformer[CodeFoldingState] {
+) -> ModuleTransformer[CodeFoldingState, String] {
   let mut seen_funcs = 0
   let round_stats = cf_round_trace_stats_new()
   let total_stats = cf_round_trace_stats_new()
@@ -3406,9 +3406,9 @@ fn code_folding_pass_with_trace(
       TInstrKind::TBlock(bt, body) => {
         let original_env = state.env
         let (state1, bt1, bt_changed) = match self.walk_blocktype(state, bt) {
-          Ok(None) => (state, bt, false)
-          Ok(Some((state1, bt1))) => (state1, bt1, true)
-          Err(e) => return Err(e)
+          Ok((bt1, state1)) => (state1, bt1, true)
+          Ok(_) => (state, bt, false)
+          Err(e) => return error(e)
         }
         let nested_state = cf_restore_state_env(
           state1,
@@ -3417,9 +3417,9 @@ fn code_folding_pass_with_trace(
         )
         let (state2, body1, body_changed) = match
           self.walk_texpr(nested_state, body) {
-          Ok(None) => (nested_state, body, false)
-          Ok(Some((state2, body1))) => (state2, body1, true)
-          Err(e) => return Err(e)
+          Ok((body1, state2)) => (state2, body1, true)
+          Ok(_) => (nested_state, body, false)
+          Err(e) => return error(e)
         }
         let restored_state = cf_restore_state_env(
           state2,
@@ -3448,9 +3448,9 @@ fn code_folding_pass_with_trace(
       TInstrKind::TLoop(bt, body) => {
         let original_env = state.env
         let (state1, bt1, bt_changed) = match self.walk_blocktype(state, bt) {
-          Ok(None) => (state, bt, false)
-          Ok(Some((state1, bt1))) => (state1, bt1, true)
-          Err(e) => return Err(e)
+          Ok((bt1, state1)) => (state1, bt1, true)
+          Ok(_) => (state, bt, false)
+          Err(e) => return error(e)
         }
         let nested_state = cf_restore_state_env(
           state1,
@@ -3459,9 +3459,9 @@ fn code_folding_pass_with_trace(
         )
         let (state2, body1, body_changed) = match
           self.walk_texpr(nested_state, body) {
-          Ok(None) => (nested_state, body, false)
-          Ok(Some((state2, body1))) => (state2, body1, true)
-          Err(e) => return Err(e)
+          Ok((body1, state2)) => (state2, body1, true)
+          Ok(_) => (nested_state, body, false)
+          Err(e) => return error(e)
         }
         let restored_state = cf_restore_state_env(
           state2,
@@ -3478,15 +3478,15 @@ fn code_folding_pass_with_trace(
       TInstrKind::TIf(bt, cond, then_body, else_body) => {
         let original_env = state.env
         let (state1, bt1, bt_changed) = match self.walk_blocktype(state, bt) {
-          Ok(None) => (state, bt, false)
-          Ok(Some((state1, bt1))) => (state1, bt1, true)
-          Err(e) => return Err(e)
+          Ok((bt1, state1)) => (state1, bt1, true)
+          Ok(_) => (state, bt, false)
+          Err(e) => return error(e)
         }
         let (state2, cond1, cond_changed) = match
           self.walk_tinstruction(state1, cond) {
-          Ok(None) => (state1, cond, false)
-          Ok(Some((state2, cond1))) => (state2, cond1, true)
-          Err(e) => return Err(e)
+          Ok((cond1, state2)) => (state2, cond1, true)
+          Ok(_) => (state1, cond, false)
+          Err(e) => return error(e)
         }
         let branch_state = cf_restore_state_env(
           state2,
@@ -3495,16 +3495,16 @@ fn code_folding_pass_with_trace(
         )
         let (state3, then1, then_changed) = match
           self.walk_texpr(branch_state, then_body) {
-          Ok(None) => (branch_state, then_body, false)
-          Ok(Some((state3, then1))) => (state3, then1, true)
-          Err(e) => return Err(e)
+          Ok((then1, state3)) => (state3, then1, true)
+          Ok(_) => (branch_state, then_body, false)
+          Err(e) => return error(e)
         }
         let (state4, else1, else_changed) = match else_body {
           Some(else_expr) =>
             match self.walk_texpr(state3, else_expr) {
-              Ok(None) => (state3, else_body, false)
-              Ok(Some((state4, else1))) => (state4, Some(else1), true)
-              Err(e) => return Err(e)
+              Ok((else1, state4)) => (state4, Some(else1), true)
+              Ok(_) => (state3, else_body, false)
+              Err(e) => return error(e)
             }
           None => (state3, else_body, false)
         }
@@ -3530,15 +3530,15 @@ fn code_folding_pass_with_trace(
       TInstrKind::TTryTable(bt, catches, body) => {
         let original_env = state.env
         let (state1, bt1, bt_changed) = match self.walk_blocktype(state, bt) {
-          Ok(None) => (state, bt, false)
-          Ok(Some((state1, bt1))) => (state1, bt1, true)
-          Err(e) => return Err(e)
+          Ok((bt1, state1)) => (state1, bt1, true)
+          Ok(_) => (state, bt, false)
+          Err(e) => return error(e)
         }
         let (state2, catches1, catches_changed) = match
           self.walk_array(state1, ModuleTransformer::walk_catch, catches) {
-          Ok(None) => (state1, catches, false)
-          Ok(Some((state2, catches1))) => (state2, catches1, true)
-          Err(e) => return Err(e)
+          Ok((catches1, state2)) => (state2, catches1, true)
+          Ok(_) => (state1, catches, false)
+          Err(e) => return error(e)
         }
         let nested_state = cf_restore_state_env(
           state2,
@@ -3547,9 +3547,9 @@ fn code_folding_pass_with_trace(
         )
         let (state3, body1, body_changed) = match
           self.walk_texpr(nested_state, body) {
-          Ok(None) => (nested_state, body, false)
-          Ok(Some((state3, body1))) => (state3, body1, true)
-          Err(e) => return Err(e)
+          Ok((body1, state3)) => (state3, body1, true)
+          Ok(_) => (nested_state, body, false)
+          Err(e) => return error(e)
         }
         let restored_state = cf_restore_state_env(
           state3,
@@ -3563,7 +3563,7 @@ fn code_folding_pass_with_trace(
           unchanged()
         }
       }
-      _ => self.walk_tinstruction_default(state, instr)
+      _ => from_walk(self.walk_tinstruction_default(state, instr))
     }
   })
   .on_func_evt(fn(self, state, func) {
@@ -3834,7 +3834,7 @@ fn code_folding_pass_with_trace(
               let walk_start_us = cf_trace_now_us()
               let walk_changed = match
                 self.walk_func_default(state, current_func) {
-                Ok(Some((new_state, new_func))) => {
+                Ok((new_func, new_state)) => {
                   state.func_locals = new_state.func_locals
                   state.env = new_state.env
                   state.another_pass = new_state.another_pass
@@ -3853,7 +3853,7 @@ fn code_folding_pass_with_trace(
                   }
                   true
                 }
-                Ok(None) => false
+                Ok(_) => false
                 Err(e) => {
                   let walk_elapsed_us = cf_trace_elapsed_us_since(walk_start_us)
                   round_stats.walk_us = round_stats.walk_us + walk_elapsed_us
@@ -3862,7 +3862,7 @@ fn code_folding_pass_with_trace(
                       "func[\{ordinal}] round[\{rounds}] walk error elapsed_ms=\{cf_trace_delta_us_to_ms(walk_elapsed_us)} elapsed_us=\{walk_elapsed_us} \{e}",
                     )
                   }
-                  return Err(e)
+                  return error(e)
                 }
               }
               let walk_elapsed_us = cf_trace_elapsed_us_since(walk_start_us)
@@ -3911,7 +3911,7 @@ fn code_folding_pass_with_trace(
 }
 
 ///|
-fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
+fn code_folding_pass() -> ModuleTransformer[CodeFoldingState, String] {
   code_folding_pass_with_trace()
 }
 
@@ -3920,7 +3920,7 @@ fn code_folding_ir_pass_with_trace(
   _mod : Module,
   trace? : (String) -> Unit = cf_trace_noop,
   trace_all_funcs? : Bool = true,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let pass = code_folding_pass_with_trace(trace~, trace_all_funcs~)
   let base_env = Env::new().with_module(_mod)
   let func_param_types : Array[Array[ValType]] = []
@@ -3959,15 +3959,15 @@ fn code_folding_ir_pass_with_trace(
         CodeFoldingState::new(env=func_env, param_types~, func_locals~),
         normalized_func,
       ) {
-      Ok(Some((_, new_func))) => change(ctx, new_func)
-      Ok(None) => unchanged()
-      Err(e) => Err(e)
+      Ok((new_func, _)) => change(ctx, new_func)
+      Ok(_) => unchanged()
+      Err(e) => error(e)
     }
   })
 }
 
 ///|
-fn code_folding_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+fn code_folding_ir_pass(_mod : Module) -> ModuleTransformer[IRContext, String] {
   code_folding_ir_pass_with_trace(_mod)
 }
 
@@ -4388,8 +4388,8 @@ fn run_fold_with_env(f : Func, env? : Env = Env::new()) -> Func raise {
     another_pass: false,
   }
   match pass.walk_func(state, f) {
-    Ok(Some((_, new_f))) => return new_f
-    Ok(None) => ()
+    Ok((new_f, _)) => return new_f
+    Ok(_) => ()
     Err(e) => assert_true(false, msg=e)
   }
   f
@@ -4404,8 +4404,8 @@ fn run_fold(f : Func) -> Func raise {
 fn cf_run_fold_module(mod : Module) -> Module raise {
   let pass = code_folding_ir_pass_with_trace(mod)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, next_mod))) => next_mod
-    Ok(None) => mod
+    Ok((next_mod, _)) => next_mod
+    Ok(_) => mod
     Err(e) => fail("code folding module pass failed: " + e)
   }
 }
@@ -5826,8 +5826,8 @@ test "code folding module pass can fold throw then return tails in same round" {
       IRContext::new(),
       mod,
     ) {
-    Ok(Some((_, next_mod))) => next_mod
-    Ok(None) => mod
+    Ok((next_mod, _)) => next_mod
+    Ok(_) => mod
     Err(e) => fail("code folding module pass failed: " + e)
   }
   assert_true(

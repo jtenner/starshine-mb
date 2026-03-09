@@ -101,7 +101,7 @@ fn uses(instr : TInstr) -> Set[LocalIdx] {
       TInstrKind::TLocalGet(idx) => result.add(idx)
       _ => ()
     }
-    self.walk_tinstruction_default((), i)
+    from_walk(self.walk_tinstruction_default((), i))
   })
   ignore(walker.walk_texpr_default((), TExpr::new([instr])))
   result
@@ -119,13 +119,13 @@ fn defs(instr : TInstr) -> Set[LocalIdx] {
 
 ///|
 fn wrap_unit_func_pass(
-  pass : ModuleTransformer[Unit],
-) -> ModuleTransformer[IRContext] {
+  pass : ModuleTransformer[Unit, String],
+) -> ModuleTransformer[IRContext, String] {
   ModuleTransformer::new().on_func_evt(fn(_, ctx : IRContext, func : Func) {
     match pass.walk_func((), func) {
-      Ok(Some((_, new_func))) => change(ctx, new_func)
-      Ok(None) => unchanged()
-      Err(e) => Err(e)
+      Ok((new_func, _)) => change(ctx, new_func)
+      Ok(_) => unchanged()
+      Err(e) => error(e)
     }
   })
 }
@@ -201,7 +201,7 @@ test "pass_trace_delta_us_to_ms truncates microseconds" {
 ///|
 test "wrap_unit_func_pass propagates wrapped pass errors" {
   let bad = ModuleTransformer::new().on_func_evt(fn(_, _, _ : Func) {
-    Err("boom")
+    error("boom")
   })
   let wrapped = wrap_unit_func_pass(bad)
   let mod = Module::new().with_code_sec(

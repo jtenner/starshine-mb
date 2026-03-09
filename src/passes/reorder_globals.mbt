@@ -396,7 +396,7 @@ fn rg_collect_use_counts(
           )
         }
       }
-      walked
+      from_walk(walked)
     })
     .on_instruction_evt(fn(self, _, instr) {
       if active_func_ordinal > 0 &&
@@ -443,7 +443,7 @@ fn rg_collect_use_counts(
           )
         }
       }
-      walked
+      from_walk(walked)
     })
     .on_func_evt(fn(_, _, func) {
       func_ordinal += 1
@@ -590,7 +590,7 @@ fn rg_collect_dependencies(
           )
         }
       }
-      walked
+      from_walk(walked)
     })
     match walker.walk_expr((), init) {
       Ok(_) => ()
@@ -773,8 +773,8 @@ fn rg_remap_global_indices(
     }
   })
   match pass.walk_module((), mod) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(mod)
+    Ok((out, _)) => Ok(out)
+    Ok(_) => Ok(mod)
     Err(e) => Err(e)
   }
 }
@@ -951,11 +951,11 @@ fn reorder_globals_ir_pass(
   always : Bool,
   trace? : (String) -> Unit = rg_trace_noop,
   trace_all_funcs? : Bool = false,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   ModuleTransformer::new().on_module_evt(fn(_, ctx, mod) {
     match reorder_globals_impl(mod, always, trace~, trace_all_funcs~) {
       Ok(next) => change(ctx, next)
-      Err(e) => Err(e)
+      Err(e) => error(e)
     }
   })
 }
@@ -964,8 +964,8 @@ fn reorder_globals_ir_pass(
 fn rg_run_reorder_globals(mod : Module, always : Bool) -> Module {
   let pass = reorder_globals_ir_pass(mod, always)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod
+    Ok((out, _)) => out
+    Ok(_) => mod
     Err(e) => abort("reorder_globals pass failed: \{e}")
   }
 }

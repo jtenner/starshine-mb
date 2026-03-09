@@ -47,7 +47,9 @@ priv enum IndirectTargetInfo {
 }
 
 ///|
-fn make_table_write_analyzer(infos : TableInfoMap) -> ModuleTransformer[Unit] {
+fn make_table_write_analyzer(
+  infos : TableInfoMap,
+) -> ModuleTransformer[Unit, String] {
   ModuleTransformer::new().on_tinstruction_evt(fn(_, _, instr : TInstr) {
     match instr.kind {
       // Any runtime write invalidates entry-based initialization
@@ -82,7 +84,7 @@ fn make_table_write_analyzer(infos : TableInfoMap) -> ModuleTransformer[Unit] {
         }
       _ => ()
     }
-    Ok(None)
+    unchanged()
   })
 }
 
@@ -332,7 +334,7 @@ fn rewrite_br_table_call_indirect(
 fn make_directize_transformer(
   tables : TableInfoMap,
   env : Env,
-) -> ModuleTransformer[Unit] {
+) -> ModuleTransformer[Unit, String] {
   ModuleTransformer::new().on_tinstruction_evt(fn(_, _, instr) {
     match instr.kind {
       TInstrKind::TCallIndirect(type_idx, table_idx, args, index) =>
@@ -362,7 +364,7 @@ fn make_directize_transformer(
                   Unknown => unchanged()
                 }
             }
-          _ => Ok(None)
+          _ => unchanged()
         }
       TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, index) =>
         match tables.get(table_idx) {
@@ -383,7 +385,7 @@ fn make_directize_transformer(
 fn directize_ir_pass(
   mod : Module,
   initial_immutable : Bool,
-) -> Result[ModuleTransformer[IRContext], String] {
+) -> Result[ModuleTransformer[IRContext, String], String] {
   let env = Env::new().with_module(mod)
   let tables = match compute_table_info(mod, initial_immutable) {
     Err(t) => return Err(t)
@@ -402,8 +404,8 @@ fn directize_module(
     Err(e) => return Err(e)
   }
   match pass.walk_module(IRContext::new(), m) {
-    Ok(Some((_, new_m))) => Ok(new_m)
-    Ok(None) => Ok(m)
+    Ok((new_m, _)) => Ok(new_m)
+    Ok(_) => Ok(m)
     Err(e) => Err(e)
   }
 }

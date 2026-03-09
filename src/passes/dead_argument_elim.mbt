@@ -925,7 +925,7 @@ fn analyze_function_body(
         )
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
 }
@@ -1198,9 +1198,9 @@ fn rewrite_body(
     }
     let (processed, child_changed) = match
       self.walk_tinstruction_default((), instr) {
-      Ok(Some((_, i))) => (i, true)
-      Ok(None) => (instr, false)
-      Err(e) => return Err(e)
+      Ok((i, _)) => (i, true)
+      Ok(_) => (instr, false)
+      Err(e) => return error(e)
     }
     match processed.kind {
       TInstrKind::TLocalGet(LocalIdx(raw)) => {
@@ -1388,7 +1388,7 @@ fn rewrite_body(
     }
   })
   match walker.walk_texpr((), body) {
-    Ok(Some((_, new_body))) =>
+    Ok((new_body, _)) =>
       if remove_result {
         drop_implicit_result(new_body)
       } else {

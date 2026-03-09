@@ -980,7 +980,7 @@ fn flatten_ir_pass_with_trace(
   mod : Module,
   trace? : (String) -> Unit = fl_trace_noop,
   trace_all_funcs? : Bool = false,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let params_start_ms = fl_trace_now_ms()
   trace("phase=flatten:collect_param_types:start")
   let param_types = fl_collect_param_types(mod)
@@ -1016,7 +1016,7 @@ fn flatten_ir_pass_with_trace(
                 "func[\{ordinal}] phase=locals:error elapsed_ms=\{fl_trace_elapsed_ms(func_start_ms)} \{e}",
               )
             }
-            return Err("flatten: malformed typed function locals: \{e}")
+            return error("flatten: malformed typed function locals: \{e}")
           }
         }
         if log_func {
@@ -1043,7 +1043,7 @@ fn flatten_ir_pass_with_trace(
                 "func[\{ordinal}] phase=flatten_body:error elapsed_ms=\{fl_trace_elapsed_ms(flatten_start_ms)} \{e}",
               )
             }
-            return Err(e)
+            return error(e)
           }
         }
         if log_func {
@@ -1111,7 +1111,7 @@ fn run_flatten_with_trace(
     "phase=flatten:walk_module:start validate_output=\{validate_output} funcs=\{fl_defined_func_count(mod)}",
   )
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => {
+    Ok((out, _)) => {
       trace(
         "phase=flatten:walk_module:done elapsed_ms=\{fl_trace_elapsed_ms(pass_start_ms)} changed=true",
       )
@@ -1142,7 +1142,7 @@ fn run_flatten_with_trace(
         Ok(out)
       }
     }
-    Ok(None) => {
+    Ok(_) => {
       trace(
         "phase=flatten:walk_module:done elapsed_ms=\{fl_trace_elapsed_ms(pass_start_ms)} changed=false",
       )
@@ -1173,7 +1173,7 @@ fn fl_count_local_tees(body : TExpr) -> Int {
       TInstrKind::TLocalTee(_, _) => count.update(fn(v) { v + 1 })
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count.val
@@ -1329,7 +1329,7 @@ fn fl_count_br_on_family(body : TExpr) -> Int {
         count.update(fn(v) { v + 1 })
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count.val
@@ -1347,7 +1347,7 @@ fn fl_find_try_table_result_blocktype(body : TExpr) -> BlockType? {
         }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   found.val
@@ -1953,7 +1953,7 @@ test "flatten keeps br_on value flow in value position" {
             17 => saw_set_of_const.update(fn(_) { true })
           _ => ()
         }
-        self.walk_tinstruction_default((), instr)
+        from_walk(self.walk_tinstruction_default((), instr))
       })
       ignore(walker.walk_texpr((), body))
       assert_true(saw_const_value.val)
@@ -2049,7 +2049,7 @@ test "flatten preserves carried values for br_on variants in value position" {
           ) => carried_const_count.update(fn(v) { v + 1 })
           _ => ()
         }
-        self.walk_tinstruction_default((), instr)
+        from_walk(self.walk_tinstruction_default((), instr))
       })
       ignore(walker.walk_texpr((), body))
       assert_eq(carried_const_count.val, 4)
@@ -2391,7 +2391,7 @@ test "flatten: br_table value targeting result block remains valid" {
             saw_value_block.update(fn(_) { true })
           _ => ()
         }
-        self.walk_tinstruction_default((), instr)
+        from_walk(self.walk_tinstruction_default((), instr))
       })
       ignore(walker.walk_texpr((), body))
       assert_true(saw_value_block.val)

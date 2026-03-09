@@ -18,8 +18,8 @@
 fn ml_run_merge_locals(mod : Module) -> Module {
   let pass = merge_locals_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod
+    Ok((out, _)) => out
+    Ok(_) => mod
     Err(e) => abort("merge locals pass error: \{e}")
   }
 }
@@ -49,7 +49,7 @@ fn ml_trivial_tee_count(body : TExpr) -> Int {
         src => count += 1
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   count
@@ -66,7 +66,7 @@ fn ml_drop_get_indices(body : TExpr) -> Array[Int] {
       }
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   out

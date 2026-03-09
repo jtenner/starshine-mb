@@ -249,7 +249,7 @@ fn dce_trace_record_rewrite(
 fn dead_code_elimination_pass_with_trace(
   trace? : (String) -> Unit = dead_code_elimination_trace_noop,
   trace_all_funcs? : Bool = false,
-) -> ModuleTransformer[Unit] {
+) -> ModuleTransformer[Unit, String] {
   // Shared per-function budget ref (reset at func start).
   let break_scan_budget = Ref::new(200_000)
   let skip_current_func = Ref::new(false)
@@ -304,23 +304,25 @@ fn dead_code_elimination_pass_with_trace(
 }
 
 ///|
-fn dead_code_elimination_pass() -> ModuleTransformer[Unit] {
+fn dead_code_elimination_pass() -> ModuleTransformer[Unit, String] {
   dead_code_elimination_pass_with_trace()
 }
 
 ///|
-fn dead_code_elimination_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+fn dead_code_elimination_ir_pass(
+  _mod : Module,
+) -> ModuleTransformer[IRContext, String] {
   wrap_unit_func_pass(dead_code_elimination_pass())
 }
 
 ///|
 fn dce_texpr(
-  transformer : ModuleTransformer[Unit],
+  transformer : ModuleTransformer[Unit, String],
   _ctx : Unit,
   expr : TExpr,
   break_scan_budget : Ref[Int],
   trace_state : DCEPassTraceState,
-) -> TransformerResult[Unit, TExpr] {
+) -> VisitAction[Unit, TExpr, String] {
   trace_state.expr_visits.val += 1
   dce_trace_maybe_emit_progress(trace_state, "texpr", break_scan_budget)
 
@@ -350,9 +352,9 @@ fn dce_texpr(
     preserve_next_unreachable = false
 
     let new_instr = match transformer.walk_tinstruction((), instr) {
-      Err(e) => return Err(e)
-      Ok(None) => instr
-      Ok(Some((_, updated))) => updated
+      Err(e) => return error(e)
+      Ok((updated, _)) => updated
+      Ok(_) => instr
     }
 
     if new_instr != instr {
@@ -393,12 +395,12 @@ fn dce_texpr(
 
 ///|
 fn dce_tinstr(
-  transformer : ModuleTransformer[Unit],
+  transformer : ModuleTransformer[Unit, String],
   _ctx : Unit,
   instr : TInstr,
   break_scan_budget : Ref[Int],
   trace_state : DCEPassTraceState,
-) -> TransformerResult[Unit, TInstr] {
+) -> VisitAction[Unit, TInstr, String] {
   trace_state.instr_visits.val += 1
   dce_trace_maybe_emit_progress(trace_state, "instr", break_scan_budget)
 
@@ -410,9 +412,9 @@ fn dce_tinstr(
   }
 
   let walked = match transformer.walk_tinstruction_default((), instr) {
-    Err(e) => return Err(e)
-    Ok(None) => instr
-    Ok(Some((_, updated))) => updated
+    Err(e) => return error(e)
+    Ok((updated, _)) => updated
+    Ok(_) => instr
   }
 
   let mut rewritten = walked
@@ -1092,7 +1094,7 @@ fn eval_children(instr : TInstr) -> Array[TInstr] {
 fn run_dce_on_texpr(expr : TExpr) -> TExpr {
   let pass = dead_code_elimination_pass()
   match pass.walk_texpr((), expr) {
-    Ok(Some((_, out))) => out
+    Ok((out, _)) => out
     _ => expr
   }
 }
@@ -1101,8 +1103,8 @@ fn run_dce_on_texpr(expr : TExpr) -> TExpr {
 fn run_dce_on_module(mod : Module) -> Module {
   let pass = dead_code_elimination_pass()
   match pass.walk_module((), mod) {
-    Ok(Some((_, out))) => out
-    Ok(None) => mod
+    Ok((out, _)) => out
+    Ok(_) => mod
     Err(e) => abort("unexpected DCE module error: \{e}")
   }
 }

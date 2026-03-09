@@ -1319,11 +1319,11 @@ fn pc_replace_gets_with_constants(
           None => unchanged()
         }
       }
-      _ => self.walk_tinstruction_default((), curr)
+      _ => from_walk(self.walk_tinstruction_default((), curr))
     }
   })
   match replacer.walk_texpr((), body) {
-    Ok(Some((_, out))) => out
+    Ok((out, _)) => out
     _ => body
   }
 }
@@ -2365,7 +2365,7 @@ fn precompute_ir_pass(
   propagate : Bool,
   trace? : (String) -> Unit = fn(_) {  },
   trace_all_funcs? : Bool = false,
-) -> ModuleTransformer[IRContext] {
+) -> ModuleTransformer[IRContext, String] {
   let ordinal = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_self, ctx : IRContext, func) {
     let curr_ordinal = ordinal.val
@@ -2391,7 +2391,7 @@ fn precompute_ir_pass(
           }
           _ => change(ctx, next_func)
         }
-      Err(e) => Err(e)
+      Err(e) => error(e)
     }
   })
 }

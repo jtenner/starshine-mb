@@ -275,7 +275,7 @@ fn mn_collect_effects(instr : TInstr) -> MonoEffects {
   let effects = MonoEffects::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
     mn_collect_shallow_effects_into(curr, effects)
-    self.walk_tinstruction_default((), curr)
+    from_walk(self.walk_tinstruction_default((), curr))
   })
   ignore(walker.walk_tinstruction((), instr))
   effects
@@ -777,7 +777,7 @@ fn find_return_callers(mod : Module) -> Array[Bool] {
                 | TInstrKind::TReturnCallRef(_, _, _) => has_return_call = true
                 _ => ()
               }
-              self.walk_tinstruction_default((), instr)
+              from_walk(self.walk_tinstruction_default((), instr))
             })
             ignore(walker.walk_texpr((), body))
             return_callers[abs_idx] = has_return_call
@@ -902,7 +902,7 @@ fn mn_shift_local_indices(body : TExpr, shift : Int) -> TExpr {
     change((), LocalIdx::new(next_idx.reinterpret_as_uint()))
   })
   match walker.walk_texpr((), body) {
-    Ok(Some((_, out))) => out
+    Ok((out, _)) => out
     _ => body
   }
 }
@@ -911,9 +911,9 @@ fn mn_shift_local_indices(body : TExpr, shift : Int) -> TExpr {
 fn mn_remove_returns_for_dropped(body : TExpr) -> TExpr {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     let processed = match self.walk_tinstruction_default((), instr) {
-      Ok(Some((_, i))) => i
-      Ok(None) => instr
-      Err(e) => return Err(e)
+      Ok((i, _)) => i
+      Ok(_) => instr
+      Err(e) => return error(e)
     }
     match processed.kind {
       TInstrKind::TReturn(values) if values.length() > 0 => {
@@ -963,7 +963,7 @@ fn mn_remove_returns_for_dropped(body : TExpr) -> TExpr {
     }
   })
   let rewritten = match walker.walk_texpr((), body) {
-    Ok(Some((_, out))) => out
+    Ok((out, _)) => out
     _ => body
   }
   let out_instrs = rewritten.instrs.copy()
@@ -1134,7 +1134,7 @@ fn mn_collect_read_locals(body : TExpr) -> Set[LocalIdx] {
       TInstrKind::TLocalGet(idx) => reads.add(idx)
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   reads
@@ -1145,9 +1145,9 @@ fn mn_cleanup_body(body : TExpr) -> TExpr {
   let reads = mn_collect_read_locals(body)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     let processed = match self.walk_tinstruction_default((), instr) {
-      Ok(Some((_, i))) => i
-      Ok(None) => instr
-      Err(e) => return Err(e)
+      Ok((i, _)) => i
+      Ok(_) => instr
+      Err(e) => return error(e)
     }
     match processed.kind {
       TInstrKind::TDrop(value) => {
@@ -1182,7 +1182,7 @@ fn mn_cleanup_body(body : TExpr) -> TExpr {
     }
   })
   match walker.walk_texpr((), body) {
-    Ok(Some((_, out))) => out
+    Ok((out, _)) => out
     _ => body
   }
 }
@@ -1208,7 +1208,7 @@ fn do_opts(func : Func, mod : Module, params? : Array[ValType] = []) -> Func {
           CodeFoldingState::new(),
           Func::t_func(params, locals, body),
         ) {
-        Ok(Some((_, out))) => out
+        Ok((out, _)) => out
         _ => Func::t_func(params, locals, body)
       }
       match folded {
@@ -1599,7 +1599,7 @@ fn mono_call_targets_in_body(body : TExpr) -> Array[FuncIdx] {
         out.push(target)
       _ => ()
     }
-    self.walk_tinstruction_default((), instr)
+    from_walk(self.walk_tinstruction_default((), instr))
   })
   ignore(walker.walk_texpr((), body))
   out
@@ -1736,7 +1736,7 @@ test "monomorphize always keeps immovable operand as call argument for partial m
           ) => saw_binary_prelude = true
           _ => ()
         }
-        self.walk_tinstruction_default((), instr)
+        from_walk(self.walk_tinstruction_default((), instr))
       })
       ignore(walker.walk_texpr((), mono_body))
       assert_true(saw_binary_prelude)

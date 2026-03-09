@@ -571,11 +571,11 @@ fn oc_apply_early_casts(body : TExpr, finder : EarlyCastFinder) -> TExpr {
           change((), casted)
         }
       }
-      _ => self.walk_tinstruction_default((), curr)
+      _ => from_walk(self.walk_tinstruction_default((), curr))
     }
   })
   match pass.walk_texpr((), body) {
-    Ok(Some((_, updated))) => updated
+    Ok((updated, _)) => updated
     _ => body
   }
 }
@@ -813,7 +813,7 @@ fn oc_apply_best_casts(
         let rid = next_refinement_id.val
         next_refinement_id.update(fn(i) { i + 1 })
         let walked = match self.walk_tinstruction_default((), curr) {
-          Ok(Some((_, updated))) => updated
+          Ok((updated, _)) => updated
           _ => curr
         }
         match finder.less_casted_gets.get(rid) {
@@ -831,7 +831,7 @@ fn oc_apply_best_casts(
         let rid = next_refinement_id.val
         next_refinement_id.update(fn(i) { i + 1 })
         let walked = match self.walk_tinstruction_default((), curr) {
-          Ok(Some((_, updated))) => updated
+          Ok((updated, _)) => updated
           _ => curr
         }
         match finder.less_casted_gets.get(rid) {
@@ -861,11 +861,11 @@ fn oc_apply_best_casts(
           _ => change((), walked)
         }
       }
-      _ => self.walk_tinstruction_default((), curr)
+      _ => from_walk(self.walk_tinstruction_default((), curr))
     }
   })
   let body_with_tees = match pass_refinement.walk_texpr((), body) {
-    Ok(Some((_, updated))) => updated
+    Ok((updated, _)) => updated
     _ => body
   }
   let get_id = Ref::new(0)
@@ -887,11 +887,11 @@ fn oc_apply_best_casts(
           None => unchanged()
         }
       }
-      _ => self.walk_tinstruction_default((), curr)
+      _ => from_walk(self.walk_tinstruction_default((), curr))
     }
   })
   let final_body = match pass_gets.walk_texpr((), body_with_tees) {
-    Ok(Some((_, updated))) => updated
+    Ok((updated, _)) => updated
     _ => body_with_tees
   }
   let original_local_count = match func {
@@ -934,7 +934,7 @@ fn optimize_casts_on_func(func : Func, mod : Module) -> Result[Func, String] {
 }
 
 ///|
-fn optimize_casts_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn optimize_casts_ir_pass(mod : Module) -> ModuleTransformer[IRContext, String] {
   ModuleTransformer::new().on_func_evt(fn(_self, t : IRContext, func) {
     match optimize_casts_on_func(func, mod) {
       Ok(next_func) =>
@@ -954,7 +954,7 @@ fn optimize_casts_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
           }
           _ => unchanged()
         }
-      Err(e) => Err(e)
+      Err(e) => error(e)
     }
   })
 }
@@ -963,7 +963,7 @@ fn optimize_casts_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
 fn optimize_casts(mod : Module) -> Module {
   let pass = optimize_casts_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
-    Ok(Some((_, out))) => out
+    Ok((out, _)) => out
     _ => mod
   }
 }
@@ -1080,7 +1080,7 @@ test "optimize casts uses most refined cast" {
             2 => saw_refined = true
           _ => ()
         }
-        self.walk_tinstruction_default((), curr)
+        from_walk(self.walk_tinstruction_default((), curr))
       })
       ignore(walk.walk_texpr((), new_body))
       assert_true(saw_refined)
@@ -1114,7 +1114,7 @@ test "optimize casts handles ref.as_non_null movement" {
           TInstrKind::TRefAsNonNull(_) => count_non_null += 1
           _ => ()
         }
-        self.walk_tinstruction_default((), curr)
+        from_walk(self.walk_tinstruction_default((), curr))
       })
       ignore(walk.walk_texpr((), new_body))
       assert_true(count_non_null >= 1)
