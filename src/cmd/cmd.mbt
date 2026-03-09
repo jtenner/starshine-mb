@@ -2938,18 +2938,21 @@ fn default_cmd_io() -> CmdIO {
 ///|
 #cfg(target="js")
 fn default_cmd_io() -> CmdIO {
+  let _ = @sfs.remove_file
   CmdIO::new()
 }
 
 ///|
 #cfg(target="llvm")
 fn default_cmd_io() -> CmdIO {
+  let _ = @sfs.remove_file
   CmdIO::new()
 }
 
 ///|
 #cfg(target="wasm-gc")
 fn default_cmd_io() -> CmdIO {
+  let _ = @sfs.remove_file
   CmdIO::new()
 }
 
@@ -3118,5 +3121,6 @@ fn cmd_wasm_list_candidates() -> Array[String] {
 ///|
 #cfg(target="wasm")
 fn default_cmd_io() -> CmdIO {
+  let _ = @sfs.remove_file
   CmdIO::new(list_candidates=cmd_wasm_list_candidates)
 }

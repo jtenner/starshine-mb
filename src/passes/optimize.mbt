@@ -1143,6 +1143,7 @@ fn optimize_native_write_file(
   _path : String,
   _bytes : Bytes,
 ) -> Result[Unit, String] {
+  let _ = @sfs.write_file_bytes
   Err("writing validation dump files is only supported on native target")
 }
 
