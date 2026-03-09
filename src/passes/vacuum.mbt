@@ -131,6 +131,138 @@ fn vq_block_result_type(bt : BlockType, env : Env) -> ValType? {
 }
 
 ///|
+fn vq_label_to_int(label : LabelIdx) -> Int {
+  let LabelIdx(raw) = label
+  raw.reinterpret_as_int()
+}
+
+///|
+fn vq_label_from_int(idx : Int) -> LabelIdx {
+  LabelIdx::new(idx.reinterpret_as_uint())
+}
+
+///|
+fn vq_adjust_label_for_collapsed_wrapper(
+  label : LabelIdx,
+  depth : Int,
+) -> LabelIdx {
+  let curr = vq_label_to_int(label)
+  if curr >= depth {
+    vq_label_from_int(curr - 1)
+  } else {
+    label
+  }
+}
+
+///|
+fn vq_walk_tinstruction_with_depth(
+  transformer : ModuleTransformer[Int],
+  depth : Int,
+  instr : TInstr,
+) -> TransformerResult[Int, TInstr] {
+  match instr.kind {
+    TInstrKind::TBlock(bt, body) => {
+      let next_body = match transformer.walk_texpr(depth + 1, body) {
+        Ok(Some((_, out))) => out
+        Ok(None) => body
+        Err(e) => return Err(e)
+      }
+      let next_instr = TInstr::block(bt, next_body)
+      if next_instr == instr {
+        unchanged()
+      } else {
+        change(depth, next_instr)
+      }
+    }
+    TInstrKind::TLoop(bt, body) => {
+      let next_body = match transformer.walk_texpr(depth + 1, body) {
+        Ok(Some((_, out))) => out
+        Ok(None) => body
+        Err(e) => return Err(e)
+      }
+      let next_instr = TInstr::loop_(bt, next_body)
+      if next_instr == instr {
+        unchanged()
+      } else {
+        change(depth, next_instr)
+      }
+    }
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
+      let next_cond = match transformer.walk_tinstruction(depth, cond) {
+        Ok(Some((_, out))) => out
+        Ok(None) => cond
+        Err(e) => return Err(e)
+      }
+      let next_then = match transformer.walk_texpr(depth + 1, then_body) {
+        Ok(Some((_, out))) => out
+        Ok(None) => then_body
+        Err(e) => return Err(e)
+      }
+      let next_else = match else_body {
+        Some(other) =>
+          match transformer.walk_texpr(depth + 1, other) {
+            Ok(Some((_, out))) => Some(out)
+            Ok(None) => Some(other)
+            Err(e) => return Err(e)
+          }
+        None => None
+      }
+      let next_instr = TInstr::if_(bt, next_cond, next_then, next_else)
+      if next_instr == instr {
+        unchanged()
+      } else {
+        change(depth, next_instr)
+      }
+    }
+    TInstrKind::TTryTable(bt, catches, body) => {
+      let next_catches = match
+        transformer.walk_array(
+          depth + 1,
+          ModuleTransformer::walk_catch,
+          catches,
+        ) {
+        Ok(Some((_, out))) => out
+        Ok(None) => catches
+        Err(e) => return Err(e)
+      }
+      let next_body = match transformer.walk_texpr(depth + 1, body) {
+        Ok(Some((_, out))) => out
+        Ok(None) => body
+        Err(e) => return Err(e)
+      }
+      let next_instr = TInstr::try_table(bt, next_catches, next_body)
+      if next_instr == instr {
+        unchanged()
+      } else {
+        change(depth, next_instr)
+      }
+    }
+    _ => transformer.walk_tinstruction_default(depth, instr)
+  }
+}
+
+///|
+fn vq_rebase_labels_for_collapsed_wrapper(instr : TInstr) -> TInstr {
+  let pass = ModuleTransformer::new()
+    .on_labelidx_evt(fn(_, depth, label) {
+      let next = vq_adjust_label_for_collapsed_wrapper(label, depth)
+      if next == label {
+        unchanged()
+      } else {
+        change(depth, next)
+      }
+    })
+    .on_tinstruction_evt(fn(self, depth, curr) {
+      vq_walk_tinstruction_with_depth(self, depth, curr)
+    })
+  match pass.walk_tinstruction(0, instr) {
+    Ok(Some((_, out))) => out
+    Ok(None) => instr
+    Err(e) => abort("vacuum label rebase failed: \{e}")
+  }
+}
+
+///|
 fn vq_texpr_result_type(
   expr : TExpr,
   env : Env,
@@ -897,15 +1029,19 @@ fn vq_simplify_block_to_contents(
     match result_types {
       [vt] =>
         match vq_type_of_cached(only, env, type_cache) {
-          Some(t) if t == vt => return only
+          Some(t) if t == vt =>
+            return vq_rebase_labels_for_collapsed_wrapper(only)
           _ => ()
         }
       [] =>
         if vq_type_of_cached(only, env, type_cache) is None ||
           is_unreachable_instr(only) {
-          return only
+          return vq_rebase_labels_for_collapsed_wrapper(only)
         }
-      _ => if is_unreachable_instr(only) { return only }
+      _ =>
+        if is_unreachable_instr(only) {
+          return vq_rebase_labels_for_collapsed_wrapper(only)
+        }
     }
   }
   TInstr::block(bt, body)
@@ -1220,7 +1356,9 @@ fn vq_process_instr(
                         )
                       }
                       if next_items.length() == 1 {
-                        return Some(next_items[0])
+                        return Some(
+                          vq_rebase_labels_for_collapsed_wrapper(next_items[0]),
+                        )
                       }
                       return Some(TInstr::nop())
                     }
@@ -2519,6 +2657,86 @@ test "vacuum preserves multi-value block results and validates" {
       assert_eq(b, 12L)
     }
     _ => fail("expected multi-value block results to be preserved")
+  }
+}
+
+///|
+test "vacuum rebases branch labels when simplifying nested result blocks" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::br(LabelIdx::new(1), [
+                  TInstr::block(
+                    BlockType::val_type(ValType::i32()),
+                    TExpr::new([
+                      TInstr::br(LabelIdx::new(1), [TInstr::i32_const(I32(42))]),
+                    ]),
+                  ),
+                ]),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = run_vacuum(mod)
+
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected nested result block labels to stay valid after vacuum: \{e}",
+      )
+  }
+
+  match vq_first_func_body(out).instrs {
+    [
+      {
+        kind: TInstrKind::TBr(
+          LabelIdx(depth0),
+          [
+            {
+              kind: TInstrKind::TBlock(
+                ValTypeBlockType(NumTypeValType(I32NumType)),
+                {
+                  instrs: [
+                    {
+                      kind: TInstrKind::TBr(
+                        LabelIdx(depth1),
+                        [{ kind: TInstrKind::TI32Const(I32(42)), .. }]
+                      ),
+                      ..,
+                    },
+                  ],
+                  ..,
+                }
+              ),
+              ..,
+            },
+          ]
+        ),
+        ..,
+      },
+    ] => {
+      assert_eq(depth0, 0U)
+      assert_eq(depth1, 0U)
+    }
+    _ =>
+      fail(
+        "expected vacuum to keep the nested result block valid after rebasing: \{vq_first_func_body(out)}",
+      )
   }
 }
 
