@@ -2745,16 +2745,45 @@ fn rub_optimize_jump_thread_block_wrapper(instr : TInstr) -> (TInstr, Bool) {
 }
 
 ///|
+fn rub_collect_top_level_void_block_sites(instrs : Array[TInstr]) -> Array[Int] {
+  let sites : Array[Int] = []
+  let mut i = 0
+  while i < instrs.length() {
+    match instrs[i].kind {
+      TInstrKind::TBlock(VoidBlockType, _) => sites.push(i)
+      _ => ()
+    }
+    i += 1
+  }
+  sites
+}
+
+///|
 fn rub_optimize_jump_thread_child_block_following_br(
   instrs : Array[TInstr],
+  candidate_sites : Array[Int],
   trace_state? : RUBRoundTraceState? = None,
 ) -> Bool {
   if instrs.length() < 2 {
     return false
   }
+  rub_trace_log_helper_event(
+    trace_state,
+    "jump_thread_br",
+    "start",
+    "instrs=\{instrs.length()}",
+  )
   let mut changed = false
-  let mut i = 0
-  while i + 1 < instrs.length() {
+  for i in candidate_sites {
+    if i + 1 >= instrs.length() {
+      continue
+    }
+    rub_trace_log_helper_event(
+      trace_state,
+      "jump_thread_br",
+      "scan_site",
+      "site=\{i}",
+    )
     match instrs[i].kind {
       TInstrKind::TBlock(VoidBlockType, body) => {
         let mut j = i + 1
@@ -2764,6 +2793,12 @@ fn rub_optimize_jump_thread_child_block_following_br(
         if j < instrs.length() {
           match instrs[j].kind {
             TInstrKind::TBr(fallthrough_label, []) => {
+              rub_trace_log_helper_event(
+                trace_state,
+                "jump_thread_br",
+                "candidate",
+                "site=\{i} body_instrs=\{body.instrs.length()} fallthrough_site=\{j}",
+              )
               let body_scan_start_ms = sl_trace_now_ms()
               let body_scan_result = rub_has_top_level_child_scope_branch_with_budget(
                 body,
@@ -2779,7 +2814,6 @@ fn rub_optimize_jump_thread_child_block_following_br(
               )
               match body_scan_result {
                 ScanNotFound => {
-                  i += 1
                   continue
                 }
                 ScanAborted => {
@@ -2789,7 +2823,6 @@ fn rub_optimize_jump_thread_child_block_following_br(
                     "scan_body_abort",
                     "site=\{i} body_instrs=\{body.instrs.length()}",
                   )
-                  i += 1
                   continue
                 }
                 ScanFound => ()
@@ -2804,13 +2837,31 @@ fn rub_optimize_jump_thread_child_block_following_br(
                 changed = true
               }
             }
-            _ => ()
+            _ =>
+              rub_trace_log_helper_event(
+                trace_state,
+                "jump_thread_br",
+                "scan_site_skip",
+                "site=\{i} reason=next_not_br next_site=\{j} kind=\{rub_instr_kind_name(instrs[j])}",
+              )
           }
+        } else {
+          rub_trace_log_helper_event(
+            trace_state,
+            "jump_thread_br",
+            "scan_site_skip",
+            "site=\{i} reason=no_fallthrough_after_block body_instrs=\{body.instrs.length()}",
+          )
         }
       }
-      _ => ()
+      _ =>
+        rub_trace_log_helper_event(
+          trace_state,
+          "jump_thread_br",
+          "scan_site_skip",
+          "site=\{i} reason=not_void_block kind=\{rub_instr_kind_name(instrs[i])}",
+        )
     }
-    i += 1
   }
   changed
 }
@@ -2818,10 +2869,12 @@ fn rub_optimize_jump_thread_child_block_following_br(
 ///|
 fn rub_optimize_jump_thread_child_block_following_br_if(
   instrs : Array[TInstr],
+  candidate_sites : Array[Int],
   trace_state? : RUBRoundTraceState? = None,
 ) -> Bool {
   rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
     instrs,
+    candidate_sites,
     RUB_JUMP_THREAD_BR_CHILD_SCOPE_SCAN_VISIT_BUDGET,
     RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_VISIT_BUDGET,
     trace_state~,
@@ -2831,6 +2884,7 @@ fn rub_optimize_jump_thread_child_block_following_br_if(
 ///|
 fn rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
   instrs : Array[TInstr],
+  candidate_sites : Array[Int],
   scan_visit_budget : Int,
   rewrite_visit_budget : Int,
   trace_state? : RUBRoundTraceState? = None,
@@ -2844,8 +2898,10 @@ fn rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
     "start",
     "instrs=\{instrs.length()}",
   )
-  let mut i = 0
-  while i + 2 < instrs.length() {
+  for i in candidate_sites {
+    if i + 2 >= instrs.length() {
+      continue
+    }
     rub_trace_log_helper_event(
       trace_state,
       "jump_thread_br_if",
@@ -2855,7 +2911,12 @@ fn rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
     let body = match instrs[i].kind {
       TInstrKind::TBlock(VoidBlockType, body) => body
       _ => {
-        i += 1
+        rub_trace_log_helper_event(
+          trace_state,
+          "jump_thread_br_if",
+          "scan_site_skip",
+          "site=\{i} reason=not_void_block kind=\{rub_instr_kind_name(instrs[i])}",
+        )
         continue
       }
     }
@@ -2864,12 +2925,23 @@ fn rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
       j += 1
     }
     if j >= instrs.length() {
+      rub_trace_log_helper_event(
+        trace_state,
+        "jump_thread_br_if",
+        "scan_site_stop",
+        "site=\{i} reason=no_branch_after_block body_instrs=\{body.instrs.length()}",
+      )
       break
     }
     let (target_label, cond) = match instrs[j].kind {
       TInstrKind::TBrIf(target_label, cond, []) => (target_label, cond)
       _ => {
-        i += 1
+        rub_trace_log_helper_event(
+          trace_state,
+          "jump_thread_br_if",
+          "scan_site_skip",
+          "site=\{i} reason=next_not_br_if next_site=\{j} kind=\{rub_instr_kind_name(instrs[j])}",
+        )
         continue
       }
     }
@@ -2878,13 +2950,23 @@ fn rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
       k += 1
     }
     if k >= instrs.length() {
-      i += 1
+      rub_trace_log_helper_event(
+        trace_state,
+        "jump_thread_br_if",
+        "scan_site_skip",
+        "site=\{i} reason=no_default_br branch_site=\{j} body_instrs=\{body.instrs.length()}",
+      )
       continue
     }
     let default_label = match instrs[k].kind {
       TInstrKind::TBr(default_label, []) => default_label
       _ => {
-        i += 1
+        rub_trace_log_helper_event(
+          trace_state,
+          "jump_thread_br_if",
+          "scan_site_skip",
+          "site=\{i} reason=default_not_br default_site=\{k} kind=\{rub_instr_kind_name(instrs[k])}",
+        )
         continue
       }
     }
@@ -2904,8 +2986,42 @@ fn rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
         !rub_is_label_zero(target_label) && rub_is_label_zero(default_label)
       ) ||
       (rub_is_label_zero(target_label) && !rub_is_label_zero(default_label))
-    if !only_tail_nops || !is_two_target_tail || rub_instr_has_branch(cond) {
-      i += 1
+    rub_trace_log_helper_event(
+      trace_state,
+      "jump_thread_br_if",
+      "candidate",
+      "site=\{i} body_instrs=\{body.instrs.length()} branch_site=\{j} default_site=\{k} tail_nops_only=\{only_tail_nops} two_target_tail=\{is_two_target_tail} cond_kind=\{rub_instr_kind_name(cond)}",
+    )
+    if !only_tail_nops || !is_two_target_tail {
+      rub_trace_log_helper_event(
+        trace_state,
+        "jump_thread_br_if",
+        "candidate_reject",
+        "site=\{i} reason=tail_shape tail_nops_only=\{only_tail_nops} two_target_tail=\{is_two_target_tail}",
+      )
+      continue
+    }
+    let cond_scan_start_ms = sl_trace_now_ms()
+    rub_trace_log_helper_event(
+      trace_state,
+      "jump_thread_br_if",
+      "cond_has_branch:start",
+      "site=\{i} cond_kind=\{rub_instr_kind_name(cond)}",
+    )
+    let cond_has_branch = rub_instr_has_branch(cond)
+    rub_trace_log_helper_event(
+      trace_state,
+      "jump_thread_br_if",
+      "cond_has_branch:done",
+      "elapsed_ms=\{sl_trace_elapsed_ms(cond_scan_start_ms)} site=\{i} cond_kind=\{rub_instr_kind_name(cond)} result=\{cond_has_branch}",
+    )
+    if cond_has_branch {
+      rub_trace_log_helper_event(
+        trace_state,
+        "jump_thread_br_if",
+        "candidate_reject",
+        "site=\{i} reason=cond_has_branch",
+      )
       continue
     }
     let body_scan_start_ms = sl_trace_now_ms()
@@ -2922,7 +3038,6 @@ fn rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
     )
     match body_scan_result {
       ScanNotFound => {
-        i += 1
         continue
       }
       ScanAborted => {
@@ -2932,7 +3047,6 @@ fn rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
           "scan_body_abort",
           "site=\{i} body_instrs=\{body.instrs.length()}",
         )
-        i += 1
         continue
       }
       ScanFound => ()
@@ -2955,7 +3069,6 @@ fn rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
       )
       return true
     }
-    i += 1
   }
   false
 }
@@ -2963,13 +3076,29 @@ fn rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
 ///|
 fn rub_optimize_jump_thread_child_block_following_unreachable(
   instrs : Array[TInstr],
+  candidate_sites : Array[Int],
+  trace_state? : RUBRoundTraceState? = None,
 ) -> Bool {
   if instrs.length() < 2 {
     return false
   }
+  rub_trace_log_helper_event(
+    trace_state,
+    "jump_thread_unreachable",
+    "start",
+    "instrs=\{instrs.length()}",
+  )
   let mut changed = false
-  let mut i = 0
-  while i + 1 < instrs.length() {
+  for i in candidate_sites {
+    if i + 1 >= instrs.length() {
+      continue
+    }
+    rub_trace_log_helper_event(
+      trace_state,
+      "jump_thread_unreachable",
+      "scan_site",
+      "site=\{i}",
+    )
     match instrs[i].kind {
       TInstrKind::TBlock(VoidBlockType, body) => {
         let mut j = i + 1
@@ -2979,8 +3108,19 @@ fn rub_optimize_jump_thread_child_block_following_unreachable(
         if j < instrs.length() {
           match instrs[j].kind {
             TInstrKind::TUnreachable => {
+              rub_trace_log_helper_event(
+                trace_state,
+                "jump_thread_unreachable",
+                "candidate",
+                "site=\{i} body_instrs=\{body.instrs.length()} unreachable_site=\{j}",
+              )
               if !rub_has_top_level_child_scope_branch(body) {
-                i += 1
+                rub_trace_log_helper_event(
+                  trace_state,
+                  "jump_thread_unreachable",
+                  "candidate_reject",
+                  "site=\{i} reason=no_child_scope_branch",
+                )
                 continue
               }
               let (next_body, body_changed) = rub_redirect_simple_child_scope_branches_to_unreachable(
@@ -2991,13 +3131,31 @@ fn rub_optimize_jump_thread_child_block_following_unreachable(
                 changed = true
               }
             }
-            _ => ()
+            _ =>
+              rub_trace_log_helper_event(
+                trace_state,
+                "jump_thread_unreachable",
+                "scan_site_skip",
+                "site=\{i} reason=next_not_unreachable next_site=\{j} kind=\{rub_instr_kind_name(instrs[j])}",
+              )
           }
+        } else {
+          rub_trace_log_helper_event(
+            trace_state,
+            "jump_thread_unreachable",
+            "scan_site_skip",
+            "site=\{i} reason=no_next_after_block body_instrs=\{body.instrs.length()}",
+          )
         }
       }
-      _ => ()
+      _ =>
+        rub_trace_log_helper_event(
+          trace_state,
+          "jump_thread_unreachable",
+          "scan_site_skip",
+          "site=\{i} reason=not_void_block kind=\{rub_instr_kind_name(instrs[i])}",
+        )
     }
-    i += 1
   }
   changed
 }
@@ -3005,13 +3163,29 @@ fn rub_optimize_jump_thread_child_block_following_unreachable(
 ///|
 fn rub_optimize_jump_thread_child_block_following_return(
   instrs : Array[TInstr],
+  candidate_sites : Array[Int],
+  trace_state? : RUBRoundTraceState? = None,
 ) -> Bool {
   if instrs.length() < 2 {
     return false
   }
+  rub_trace_log_helper_event(
+    trace_state,
+    "jump_thread_return",
+    "start",
+    "instrs=\{instrs.length()}",
+  )
   let mut changed = false
-  let mut i = 0
-  while i + 1 < instrs.length() {
+  for i in candidate_sites {
+    if i + 1 >= instrs.length() {
+      continue
+    }
+    rub_trace_log_helper_event(
+      trace_state,
+      "jump_thread_return",
+      "scan_site",
+      "site=\{i}",
+    )
     match instrs[i].kind {
       TInstrKind::TBlock(VoidBlockType, body) => {
         let mut j = i + 1
@@ -3021,8 +3195,19 @@ fn rub_optimize_jump_thread_child_block_following_return(
         if j < instrs.length() {
           match instrs[j].kind {
             TInstrKind::TReturn([]) => {
+              rub_trace_log_helper_event(
+                trace_state,
+                "jump_thread_return",
+                "candidate",
+                "site=\{i} body_instrs=\{body.instrs.length()} return_site=\{j}",
+              )
               if !rub_has_top_level_child_scope_branch(body) {
-                i += 1
+                rub_trace_log_helper_event(
+                  trace_state,
+                  "jump_thread_return",
+                  "candidate_reject",
+                  "site=\{i} reason=no_child_scope_branch",
+                )
                 continue
               }
               let (next_body, body_changed) = rub_redirect_simple_child_scope_branches_to_return(
@@ -3033,13 +3218,31 @@ fn rub_optimize_jump_thread_child_block_following_return(
                 changed = true
               }
             }
-            _ => ()
+            _ =>
+              rub_trace_log_helper_event(
+                trace_state,
+                "jump_thread_return",
+                "scan_site_skip",
+                "site=\{i} reason=next_not_return next_site=\{j} kind=\{rub_instr_kind_name(instrs[j])}",
+              )
           }
+        } else {
+          rub_trace_log_helper_event(
+            trace_state,
+            "jump_thread_return",
+            "scan_site_skip",
+            "site=\{i} reason=no_next_after_block body_instrs=\{body.instrs.length()}",
+          )
         }
       }
-      _ => ()
+      _ =>
+        rub_trace_log_helper_event(
+          trace_state,
+          "jump_thread_return",
+          "scan_site_skip",
+          "site=\{i} reason=not_void_block kind=\{rub_instr_kind_name(instrs[i])}",
+        )
     }
-    i += 1
   }
   changed
 }
@@ -4458,8 +4661,13 @@ fn rub_optimize_instr_list(
     sl_trace_elapsed_ms(adjacent_breaks_start_ms),
     instrs.length(),
   )
+  let jump_thread_sites = rub_collect_top_level_void_block_sites(instrs)
   let jump_thread_br_if_start_ms = sl_trace_now_ms()
-  if rub_optimize_jump_thread_child_block_following_br_if(instrs, trace_state~) {
+  if rub_optimize_jump_thread_child_block_following_br_if(
+      instrs,
+      jump_thread_sites,
+      trace_state~,
+    ) {
     changed = true
   }
   rub_trace_log_slow_helper(
@@ -4469,7 +4677,11 @@ fn rub_optimize_instr_list(
     instrs.length(),
   )
   let jump_thread_br_start_ms = sl_trace_now_ms()
-  if rub_optimize_jump_thread_child_block_following_br(instrs, trace_state~) {
+  if rub_optimize_jump_thread_child_block_following_br(
+      instrs,
+      jump_thread_sites,
+      trace_state~,
+    ) {
     changed = true
   }
   rub_trace_log_slow_helper(
@@ -4479,7 +4691,11 @@ fn rub_optimize_instr_list(
     instrs.length(),
   )
   let jump_thread_unreachable_start_ms = sl_trace_now_ms()
-  if rub_optimize_jump_thread_child_block_following_unreachable(instrs) {
+  if rub_optimize_jump_thread_child_block_following_unreachable(
+      instrs,
+      jump_thread_sites,
+      trace_state~,
+    ) {
     changed = true
   }
   rub_trace_log_slow_helper(
@@ -4489,7 +4705,11 @@ fn rub_optimize_instr_list(
     instrs.length(),
   )
   let jump_thread_return_start_ms = sl_trace_now_ms()
-  if rub_optimize_jump_thread_child_block_following_return(instrs) {
+  if rub_optimize_jump_thread_child_block_following_return(
+      instrs,
+      jump_thread_sites,
+      trace_state~,
+    ) {
     changed = true
   }
   rub_trace_log_slow_helper(
@@ -10425,7 +10645,10 @@ test "remove_unused_brs jump_thread_br skips oversized child-block rewrite" {
     TInstr::block(BlockType::void_(), TExpr::new(large_body)),
     TInstr::br(LabelIdx::new(0), []),
   ]
-  let changed = rub_optimize_jump_thread_child_block_following_br(instrs)
+  let changed = rub_optimize_jump_thread_child_block_following_br(
+    instrs,
+    rub_collect_top_level_void_block_sites(instrs),
+  )
   assert_false(changed)
 }
 
@@ -11742,6 +11965,34 @@ test "remove_unused_brs detects top-level child-scope branch patterns" {
 }
 
 ///|
+test "remove_unused_brs collects top-level void block sites" {
+  let instrs : Array[TInstr] = [
+    TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+    TInstr::block(BlockType::void_(), TExpr::new([TInstr::nop()])),
+    TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([TInstr::i32_const(I32(7))]),
+    ),
+    TInstr::drop(TInstr::i32_const(I32(2))),
+    TInstr::block(BlockType::void_(), TExpr::new([TInstr::nop()])),
+  ]
+  assert_eq(rub_collect_top_level_void_block_sites(instrs), [1, 4])
+}
+
+///|
+test "remove_unused_brs collects no void block sites for flat list" {
+  let instrs : Array[TInstr] = [
+    TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+    TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([TInstr::i32_const(I32(3))]),
+    ),
+  ]
+  assert_eq(rub_collect_top_level_void_block_sites(instrs), [])
+}
+
+///|
 test "remove_unused_brs jump threads child block br_if through following br_if plus default branch" {
   let body = TExpr::new([
     TInstr::block(
@@ -11955,6 +12206,7 @@ test "remove_unused_brs jump_thread_br_if skips body scan when tail is not termi
   )
   let changed = rub_optimize_jump_thread_child_block_following_br_if(
     instrs,
+    rub_collect_top_level_void_block_sites(instrs),
     trace_state=Some(trace_state),
   )
   assert_false(changed)
@@ -11971,148 +12223,6 @@ test "remove_unused_brs jump_thread_br_if skips body scan when tail is not termi
   }
   assert_true(saw_jump_thread_site)
   assert_false(saw_jump_thread_body_scan)
-}
-
-///|
-test "remove_unused_brs jump_thread_br_if aborts child body scan when visit budget is exhausted" {
-  let trace_logs : Array[String] = []
-  let instrs : Array[TInstr] = [
-    TInstr::block(
-      BlockType::void_(),
-      TExpr::new([
-        TInstr::br_if(LabelIdx::new(0), TInstr::local_get(LocalIdx::new(0)), []),
-        TInstr::drop(TInstr::i32_const(I32(1))),
-      ]),
-    ),
-    TInstr::br_if(LabelIdx::new(1), TInstr::local_get(LocalIdx::new(1)), []),
-    TInstr::br(LabelIdx::new(0), []),
-  ]
-  let original_instrs = instrs.copy()
-  let trace_state = rub_round_trace_state(
-    true,
-    fn(msg) { trace_logs.push(msg) },
-    1,
-    1,
-    sl_trace_now_ms(),
-  )
-  let changed = rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
-    instrs,
-    0,
-    32,
-    trace_state=Some(trace_state),
-  )
-  assert_false(changed)
-  assert_eq(instrs, original_instrs)
-
-  let mut saw_scan_done_aborted = false
-  let mut saw_scan_abort = false
-  for msg in trace_logs {
-    if msg.contains("helper=jump_thread_br_if step=scan_body:done") &&
-      msg.contains("result=aborted") {
-      saw_scan_done_aborted = true
-    }
-    if msg.contains("helper=jump_thread_br_if step=scan_body_abort") {
-      saw_scan_abort = true
-    }
-  }
-  assert_true(saw_scan_done_aborted)
-  assert_true(saw_scan_abort)
-}
-
-///|
-test "remove_unused_brs jump_thread_br_if aborts branch-pair rewrite when visit budget is exhausted" {
-  let trace_logs : Array[String] = []
-  let instrs : Array[TInstr] = [
-    TInstr::block(
-      BlockType::void_(),
-      TExpr::new([
-        TInstr::br_if(LabelIdx::new(0), TInstr::local_get(LocalIdx::new(0)), []),
-        TInstr::drop(TInstr::i32_const(I32(1))),
-      ]),
-    ),
-    TInstr::br_if(LabelIdx::new(1), TInstr::local_get(LocalIdx::new(1)), []),
-    TInstr::br(LabelIdx::new(0), []),
-  ]
-  let original_instrs = instrs.copy()
-  let trace_state = rub_round_trace_state(
-    true,
-    fn(msg) { trace_logs.push(msg) },
-    1,
-    1,
-    sl_trace_now_ms(),
-  )
-  let changed = rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
-    instrs,
-    128,
-    0,
-    trace_state=Some(trace_state),
-  )
-  assert_false(changed)
-  assert_eq(instrs, original_instrs)
-
-  let mut saw_scan_done_found = false
-  let mut saw_rewrite_abort = false
-  for msg in trace_logs {
-    if msg.contains("helper=jump_thread_br_if step=scan_body:done") &&
-      msg.contains("result=found") {
-      saw_scan_done_found = true
-    }
-    if msg.contains("helper=jump_thread_br_if step=rewrite_abort") {
-      saw_rewrite_abort = true
-    }
-  }
-  assert_true(saw_scan_done_found)
-  assert_true(saw_rewrite_abort)
-}
-
-///|
-test "remove_unused_brs jump_thread_br_if rewrites branch pair when budgets allow" {
-  let instrs : Array[TInstr] = [
-    TInstr::block(
-      BlockType::void_(),
-      TExpr::new([
-        TInstr::br_if(LabelIdx::new(0), TInstr::local_get(LocalIdx::new(0)), []),
-        TInstr::drop(TInstr::i32_const(I32(1))),
-      ]),
-    ),
-    TInstr::br_if(LabelIdx::new(1), TInstr::local_get(LocalIdx::new(1)), []),
-    TInstr::br(LabelIdx::new(0), []),
-  ]
-  let changed = rub_optimize_jump_thread_child_block_following_br_if_with_budgets(
-    instrs, 128, 128,
-  )
-  assert_true(changed)
-  match instrs {
-    [
-      {
-        kind: TInstrKind::TBlock(
-          _,
-          {
-            instrs: [
-              {
-                kind: TInstrKind::TIf(
-                  _,
-                  { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
-                  _,
-                  None
-                ),
-                ..,
-              },
-              _,
-            ],
-            ..,
-          }
-        ),
-        ..,
-      },
-      _,
-      _,
-    ] => ()
-    _ =>
-      fail(
-        "expected jump_thread_br_if to rewrite the child branch to a one-armed if when scan and rewrite budgets allow",
-      )
-  }
 }
 
 ///|

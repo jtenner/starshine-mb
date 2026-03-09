@@ -19,6 +19,7 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - If optimization state is reusable, put it in `IRContext` instead of threading extra parameters.
 - Pass constructor parameters should be immutable and captured in `ModuleTransformer` event closures.
 - Please use strict TDD for both feature and regression tests. Write tests before code, and make sure they fail before writing the code.
+- Do not add tests whose only purpose is to validate tracing, debug logging, or other diagnostic output unless the user explicitly asks for that.
 - Unless explicitly instructed, do not remove or disable existing features or tests to make tests pass. Changing test expectations to meet correctness standards is fine.
 
 ## Tooling
