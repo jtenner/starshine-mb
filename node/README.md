@@ -1,30 +1,75 @@
 # Starshine Node Package
 
-This package publishes Starshine as an ESM-first Node package backed by two generated WebAssembly artifacts:
+`@jtenner/starshine` publishes Starshine as an ESM-first Node package for parsing, validating, optimizing, and re-encoding WebAssembly modules from JavaScript.
+
+Use the root barrel for discovery, or import a focused subpath when you only need one part of the toolkit.
+
+The package ships with two generated WebAssembly artifacts:
 
 - `./internal/starshine.wasm-gc.wasm` for the package-level JavaScript API.
 - `./internal/starshine.wasm-wasi.wasm` for the optimized WASI CLI artifact shipped alongside the npm package.
 
-## Requirements
-
-- Node.js 25 or newer with WebAssembly GC and JS string builtins available.
-- MoonBit on `PATH`, or `MOON_BIN` pointing at the Moon executable.
-
-## Build
+## Install
 
 ```bash
-npm --prefix node run build
+npm install @jtenner/starshine
 ```
 
-This regenerates the adapter sources, rebuilds the `wasm-gc` package adapter, rebuilds the optimized WASI CLI artifact, and copies both outputs into `node/internal/`.
+## Runtime Requirements
 
-## Use
+- Node.js 25 or newer with WebAssembly GC and JS string builtins available.
+- Consumers of the published package only need Node.js.
+- Contributors building the package from this repository also need MoonBit on `PATH`, or `MOON_BIN` pointing at the Moon executable.
+
+This package is ESM-only. Use `import` and subpath exports such as `@jtenner/starshine/wast`, not `require()`.
+
+## What You Can Do With It
+
+- Parse WAT/WAST text into Starshine's typed WebAssembly model.
+- Validate modules before or after your own transforms.
+- Run optimization passes explicitly instead of relying on a fixed default pipeline.
+- Encode modules back to binary wasm bytes.
+- Use the bundled CLI from `npx`, or call the same command runner from JavaScript.
+
+## Choose This API When...
+
+| If you want to... | Start here | Why |
+| --- | --- | --- |
+| Parse or print WAT/WAST text | `wast` | Text-format entry point for modules and scripts. |
+| Decode or encode `.wasm` bytes | `binary` | Binary codec APIs and LEB128 helpers. |
+| Validate modules before shipping or after rewriting | `validate` | Validation diagnostics and typed-IR conversion. |
+| Run optimization passes | `passes` | Explicit pass constructors and default schedulers. |
+| Build modules directly in code | `lib` | Core model types and builders. |
+| Drive the CLI from JavaScript | `cmd` | Packaged CLI runner, adapters, and host integration hooks. |
+| Parse CLI flags or config files | `cli` | Lower-level argument, glob, and config helpers. |
+
+## Where To Start
+
+- Start with `wast`, `validate`, `binary`, and `passes` if you want to parse, inspect, optimize, and re-emit modules.
+- Start with `cmd` if you want to drive the packaged CLI from JavaScript or provide custom filesystem/process adapters.
+- Start with `lib` if you want to build modules from scratch and work directly with Starshine's core model types.
+- Start with the root barrel import for exploration, then switch to subpath imports once you know which surface you need.
+
+## Result Objects
+
+Most functions that can fail return a `StarshineResult<T, E>` object instead of throwing.
+
+- Success shape: `{ ok: true, value }`
+- Failure shape: `{ ok: false, error, display? }`
+- `display` is the easiest string to show users when it is present.
+
+## Quick Starts
+
+### Parse, validate, and encode a module
 
 ```js
-import { binary, wast } from '@jtenner/starshine';
+import { binary, validate, wast } from '@jtenner/starshine';
 
-const parsed = wast.wastToBinaryModule('(module)');
+const parsed = wast.wastToBinaryModule('(module (func (export "run")))');
 if (!parsed.ok) throw new Error(parsed.display ?? 'failed to parse');
+
+const validated = validate.validateModule(parsed.value);
+if (!validated.ok) throw new Error(validated.display ?? 'failed to validate');
 
 const encoded = binary.encodeModule(parsed.value);
 if (!encoded.ok) throw new Error(encoded.display ?? 'failed to encode');
@@ -32,9 +77,139 @@ if (!encoded.ok) throw new Error(encoded.display ?? 'failed to encode');
 console.log(encoded.value instanceof Uint8Array);
 ```
 
+### Optimize a module with an explicit pass list
+
+```js
+import { passes, wast } from '@jtenner/starshine';
+
+const parsed = wast.wastToBinaryModule('(module (func (export "run") nop nop))');
+if (!parsed.ok) throw new Error(parsed.display ?? 'failed to parse');
+
+const optimized = passes.optimizeModule(parsed.value, [
+  passes.codeFolding(),
+  passes.simplifyLocals(),
+  passes.vacuum(),
+]);
+if (!optimized.ok) throw new Error(optimized.display ?? 'failed to optimize');
+```
+
+### Build a module from scratch
+
+```js
+import { binary, lib, validate } from '@jtenner/starshine';
+
+const typeSec = lib.TypeSec.new([
+  lib.RecType.new(lib.compTypeSubType(lib.CompType.func([], [lib.ValType.i32()]))),
+]);
+
+const funcSec = lib.FuncSec.new([lib.TypeIdx.new(0)]);
+const codeSec = lib.CodeSec.new([
+  lib.Func.new([], lib.Expr.new([
+    lib.Instruction.i32Const(lib.I32.new(7)),
+  ])),
+]);
+const exportSec = lib.ExportSec.new([
+  lib.Export.new(lib.Name.fromString('run'), lib.ExternIdx.func(lib.FuncIdx.new(0))),
+]);
+
+let mod = lib.Module.new();
+mod = lib.Module.withTypeSec(mod, typeSec);
+mod = lib.Module.withFuncSec(mod, funcSec);
+mod = lib.Module.withCodeSec(mod, codeSec);
+mod = lib.Module.withExportSec(mod, exportSec);
+
+const validated = validate.validateModule(mod);
+if (!validated.ok) throw new Error(validated.display ?? 'failed to validate');
+
+const encoded = binary.encodeModule(mod);
+if (!encoded.ok) throw new Error(encoded.display ?? 'failed to encode');
+```
+
+### Run the bundled CLI
+
 ```bash
 npx @jtenner/starshine --help
+npx @jtenner/starshine --vacuum --out-dir dist input.wat
 ```
+
+### Read CLI help from JavaScript
+
+```js
+import { cmd } from '@jtenner/starshine';
+
+console.log(cmd.cmdHelpText());
+```
+
+## Common Tasks
+
+### Read a `.wat` file from disk, parse it, and validate it
+
+```js
+import fs from 'node:fs';
+import { validate, wast } from '@jtenner/starshine';
+
+const text = fs.readFileSync('input.wat', 'utf8');
+const parsed = wast.wastToBinaryModule(text, 'input.wat');
+if (!parsed.ok) throw new Error(parsed.display ?? 'failed to parse');
+
+const validated = validate.validateModule(parsed.value);
+if (!validated.ok) throw new Error(validated.display ?? 'failed to validate');
+```
+
+### Read a `.wasm` file, decode it, and inspect the module
+
+```js
+import fs from 'node:fs';
+import { binary, lib } from '@jtenner/starshine';
+
+const bytes = fs.readFileSync('input.wasm');
+const decoded = binary.decodeModule(bytes);
+if (!decoded.ok) throw new Error(decoded.display ?? 'failed to decode');
+
+console.log(lib.Module.show(decoded.value));
+```
+
+### Run the CLI with a custom in-memory adapter
+
+See [examples/07-cmd-run-with-adapter.mjs](./examples/07-cmd-run-with-adapter.mjs) for the full pattern and [examples/08-cmd-run-filesystem.mjs](./examples/08-cmd-run-filesystem.mjs) for the host-filesystem version.
+
+## Import Paths
+
+- `@jtenner/starshine`: root barrel export with every public module attached as a namespace.
+- `@jtenner/starshine/binary`: binary decode/encode helpers and codec error types.
+- `@jtenner/starshine/cli`: CLI argument parsing, glob expansion, and config helpers.
+- `@jtenner/starshine/cmd`: higher-level command runner, fuzz helpers, and host integration hooks.
+- `@jtenner/starshine/lib`: core Wasm model types and builders.
+- `@jtenner/starshine/passes`: optimization pass constructors and pipeline helpers.
+- `@jtenner/starshine/validate`: module validation and typed IR conversion.
+- `@jtenner/starshine/wast` and `@jtenner/starshine/wat`: text parsing and printing.
+
+Root barrel vs subpath imports:
+
+- Start with `import { binary, wast, validate } from '@jtenner/starshine';` when you are exploring the package.
+- Switch to subpath imports such as `@jtenner/starshine/wast` when you want clearer module boundaries or only need one surface.
+
+## Build From Source
+
+```bash
+npm --prefix node run build
+```
+
+This regenerates the adapter sources, rebuilds the `wasm-gc` package adapter, rebuilds the optimized WASI CLI artifact, and copies both outputs into `node/internal/`.
+
+## Troubleshooting
+
+- `SyntaxError: Cannot use import statement outside a module` or `require()` failures: this package is ESM-only, so use `import` and `"type": "module"` where needed.
+- `StarshineResult` confusion: most fallible APIs do not throw. Check `result.ok` before reading `value`, and prefer `display` when showing errors.
+- Runtime startup failure on older Node versions: this package requires Node.js 25+ with WebAssembly GC and JS string builtins.
+- Parsing `.wat` from disk fails unexpectedly: pass the filename as the optional second argument to `wastToBinaryModule(text, filename)` so diagnostics point at the right file.
+- You need a JS callback-heavy API and see unsupported adapter messages: some higher-order MoonBit APIs are intentionally not exposed through the wasm-gc adapter; use the documented `cmd` helpers or the hand-authored overlays instead.
+
+## Current Limitations And Status
+
+- The package targets modern Node runtimes only; there is no CommonJS surface and no old-Node compatibility layer.
+- The generated wasm-gc adapter is excellent for typed data exchange, but not every higher-order MoonBit API can be surfaced directly to JavaScript.
+- The bundled CLI artifact is the same Starshine pipeline described in the root README, including the current large-artifact self-opt limitations documented there.
 
 ## Examples
 
@@ -43,6 +218,13 @@ Run any shipped example from the package root:
 ```bash
 node examples/01-barrel-roundtrip.mjs
 ```
+
+Recommended first examples:
+
+- [examples/01-barrel-roundtrip.mjs](./examples/01-barrel-roundtrip.mjs): teaches the `wast`, `binary`, and `validate` flow for a complete roundtrip.
+- [examples/07-cmd-run-with-adapter.mjs](./examples/07-cmd-run-with-adapter.mjs): teaches `cmd` and `CmdIO` for embedding the CLI in a Node program.
+- [examples/11-passes-optimize-module.mjs](./examples/11-passes-optimize-module.mjs): teaches `passes` for explicit optimization pipelines.
+- [examples/15-lib-module-from-scratch-add.mjs](./examples/15-lib-module-from-scratch-add.mjs): teaches `lib` for constructing modules directly with builders.
 
 All examples are executed by the package test suite.
 

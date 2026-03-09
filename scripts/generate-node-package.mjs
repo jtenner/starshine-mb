@@ -703,9 +703,13 @@ function parsePackageMeta(packageInfo) {
   const values = [];
   const methodsByType = new Map();
   const constants = [];
+  let previousMeaningfulLine = '';
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index].trim();
+    if (line.length === 0) {
+      continue;
+    }
     if (line.startsWith('pub const ')) {
       const match = /^pub const ([A-Za-z0-9_]+)\s*:\s*(.+?)\s*=\s*(.+)$/.exec(line);
       if (!match) {
@@ -716,10 +720,12 @@ function parsePackageMeta(packageInfo) {
         typeRaw: match[2].trim(),
         valueLiteral: match[3].trim(),
       });
+      previousMeaningfulLine = line;
       continue;
     }
     if (line.startsWith('pub fn ') || line.startsWith('pub fn[')) {
       const entry = parseFunctionLine(line, packageMeta);
+      entry.deprecated = previousMeaningfulLine === '#deprecated';
       if (entry.ownerTypeName) {
         if (!methodsByType.has(entry.ownerTypeName)) {
           methodsByType.set(entry.ownerTypeName, []);
@@ -728,7 +734,10 @@ function parsePackageMeta(packageInfo) {
       } else {
         values.push(entry);
       }
+      previousMeaningfulLine = line;
+      continue;
     }
+    previousMeaningfulLine = line;
   }
 
   return {
@@ -1163,7 +1172,18 @@ function moonWrapperExportName(entry) {
   return `${entry.packageId}__${entry.exportName}`;
 }
 
+function usesDeprecatedInnerAccessor(entry, arity) {
+  return entry.ownerTypeName
+    && entry.exportName === 'inner'
+    && entry.deprecated
+    && arity === 1
+    && entry.params.length >= 1;
+}
+
 function buildMoonCall(entry, arity) {
+  if (usesDeprecatedInnerAccessor(entry, arity)) {
+    return `${entry.params[0].generatedName}.0`;
+  }
   const callTarget = entry.ownerTypeName
     ? `@${entry.packageId}.${entry.ownerTypeName}::${entry.exportName}`
     : `@${entry.packageId}.${entry.exportName}`;
@@ -1869,35 +1889,84 @@ function renderPassesReadmeSection(lines, pkg) {
   }
 }
 
+// Keep the generated README task-oriented, not just a type dump.
+// When package workflows change, update the install/runtime notes,
+// "choose this API" guidance, quick starts, troubleshooting, and
+// recommended examples together so beginners stay on a coherent path.
 function renderReadme(packageMetas) {
   const lines = [];
   lines.push('# Starshine Node Package');
   lines.push('');
-  lines.push('This package publishes Starshine as an ESM-first Node package backed by two generated WebAssembly artifacts:');
+  lines.push('`@jtenner/starshine` publishes Starshine as an ESM-first Node package for parsing, validating, optimizing, and re-encoding WebAssembly modules from JavaScript.');
+  lines.push('');
+  lines.push('Use the root barrel for discovery, or import a focused subpath when you only need one part of the toolkit.');
+  lines.push('');
+  lines.push('The package ships with two generated WebAssembly artifacts:');
   lines.push('');
   lines.push('- `./internal/starshine.wasm-gc.wasm` for the package-level JavaScript API.');
   lines.push('- `./internal/starshine.wasm-wasi.wasm` for the optimized WASI CLI artifact shipped alongside the npm package.');
   lines.push('');
-  lines.push('## Requirements');
-  lines.push('');
-  lines.push('- Node.js 25 or newer with WebAssembly GC and JS string builtins available.');
-  lines.push('- MoonBit on `PATH`, or `MOON_BIN` pointing at the Moon executable.');
-  lines.push('');
-  lines.push('## Build');
+  lines.push('## Install');
   lines.push('');
   lines.push('```bash');
-  lines.push('npm --prefix node run build');
+  lines.push('npm install @jtenner/starshine');
   lines.push('```');
   lines.push('');
-  lines.push('This regenerates the adapter sources, rebuilds the `wasm-gc` package adapter, rebuilds the optimized WASI CLI artifact, and copies both outputs into `node/internal/`.');
+  lines.push('## Runtime Requirements');
   lines.push('');
-  lines.push('## Use');
+  lines.push('- Node.js 25 or newer with WebAssembly GC and JS string builtins available.');
+  lines.push('- Consumers of the published package only need Node.js.');
+  lines.push('- Contributors building the package from this repository also need MoonBit on `PATH`, or `MOON_BIN` pointing at the Moon executable.');
+  lines.push('');
+  lines.push('This package is ESM-only. Use `import` and subpath exports such as `@jtenner/starshine/wast`, not `require()`.');
+  lines.push('');
+  lines.push('## What You Can Do With It');
+  lines.push('');
+  lines.push('- Parse WAT/WAST text into Starshine\'s typed WebAssembly model.');
+  lines.push('- Validate modules before or after your own transforms.');
+  lines.push('- Run optimization passes explicitly instead of relying on a fixed default pipeline.');
+  lines.push('- Encode modules back to binary wasm bytes.');
+  lines.push('- Use the bundled CLI from `npx`, or call the same command runner from JavaScript.');
+  lines.push('');
+  lines.push('## Choose This API When...');
+  lines.push('');
+  lines.push('| If you want to... | Start here | Why |');
+  lines.push('| --- | --- | --- |');
+  lines.push('| Parse or print WAT/WAST text | `wast` | Text-format entry point for modules and scripts. |');
+  lines.push('| Decode or encode `.wasm` bytes | `binary` | Binary codec APIs and LEB128 helpers. |');
+  lines.push('| Validate modules before shipping or after rewriting | `validate` | Validation diagnostics and typed-IR conversion. |');
+  lines.push('| Run optimization passes | `passes` | Explicit pass constructors and default schedulers. |');
+  lines.push('| Build modules directly in code | `lib` | Core model types and builders. |');
+  lines.push('| Drive the CLI from JavaScript | `cmd` | Packaged CLI runner, adapters, and host integration hooks. |');
+  lines.push('| Parse CLI flags or config files | `cli` | Lower-level argument, glob, and config helpers. |');
+  lines.push('');
+  lines.push('## Where To Start');
+  lines.push('');
+  lines.push('- Start with `wast`, `validate`, `binary`, and `passes` if you want to parse, inspect, optimize, and re-emit modules.');
+  lines.push('- Start with `cmd` if you want to drive the packaged CLI from JavaScript or provide custom filesystem/process adapters.');
+  lines.push('- Start with `lib` if you want to build modules from scratch and work directly with Starshine\'s core model types.');
+  lines.push('- Start with the root barrel import for exploration, then switch to subpath imports once you know which surface you need.');
+  lines.push('');
+  lines.push('## Result Objects');
+  lines.push('');
+  lines.push('Most functions that can fail return a `StarshineResult<T, E>` object instead of throwing.');
+  lines.push('');
+  lines.push('- Success shape: `{ ok: true, value }`');
+  lines.push('- Failure shape: `{ ok: false, error, display? }`');
+  lines.push('- `display` is the easiest string to show users when it is present.');
+  lines.push('');
+  lines.push('## Quick Starts');
+  lines.push('');
+  lines.push('### Parse, validate, and encode a module');
   lines.push('');
   lines.push('```js');
-  lines.push("import { binary, wast } from '@jtenner/starshine';");
+  lines.push("import { binary, validate, wast } from '@jtenner/starshine';");
   lines.push('');
-  lines.push("const parsed = wast.wastToBinaryModule('(module)');");
+  lines.push("const parsed = wast.wastToBinaryModule('(module (func (export \"run\")))');");
   lines.push("if (!parsed.ok) throw new Error(parsed.display ?? 'failed to parse');");
+  lines.push('');
+  lines.push('const validated = validate.validateModule(parsed.value);');
+  lines.push("if (!validated.ok) throw new Error(validated.display ?? 'failed to validate');");
   lines.push('');
   lines.push('const encoded = binary.encodeModule(parsed.value);');
   lines.push("if (!encoded.ok) throw new Error(encoded.display ?? 'failed to encode');");
@@ -1905,9 +1974,139 @@ function renderReadme(packageMetas) {
   lines.push('console.log(encoded.value instanceof Uint8Array);');
   lines.push('```');
   lines.push('');
+  lines.push('### Optimize a module with an explicit pass list');
+  lines.push('');
+  lines.push('```js');
+  lines.push("import { passes, wast } from '@jtenner/starshine';");
+  lines.push('');
+  lines.push("const parsed = wast.wastToBinaryModule('(module (func (export \"run\") nop nop))');");
+  lines.push("if (!parsed.ok) throw new Error(parsed.display ?? 'failed to parse');");
+  lines.push('');
+  lines.push('const optimized = passes.optimizeModule(parsed.value, [');
+  lines.push('  passes.codeFolding(),');
+  lines.push('  passes.simplifyLocals(),');
+  lines.push('  passes.vacuum(),');
+  lines.push(']);');
+  lines.push("if (!optimized.ok) throw new Error(optimized.display ?? 'failed to optimize');");
+  lines.push('```');
+  lines.push('');
+  lines.push('### Build a module from scratch');
+  lines.push('');
+  lines.push('```js');
+  lines.push("import { binary, lib, validate } from '@jtenner/starshine';");
+  lines.push('');
+  lines.push('const typeSec = lib.TypeSec.new([');
+  lines.push('  lib.RecType.new(lib.compTypeSubType(lib.CompType.func([], [lib.ValType.i32()]))),');
+  lines.push(']);');
+  lines.push('');
+  lines.push('const funcSec = lib.FuncSec.new([lib.TypeIdx.new(0)]);');
+  lines.push('const codeSec = lib.CodeSec.new([');
+  lines.push('  lib.Func.new([], lib.Expr.new([');
+  lines.push('    lib.Instruction.i32Const(lib.I32.new(7)),');
+  lines.push('  ])),');
+  lines.push(']);');
+  lines.push('const exportSec = lib.ExportSec.new([');
+  lines.push("  lib.Export.new(lib.Name.fromString('run'), lib.ExternIdx.func(lib.FuncIdx.new(0))),");
+  lines.push(']);');
+  lines.push('');
+  lines.push('let mod = lib.Module.new();');
+  lines.push('mod = lib.Module.withTypeSec(mod, typeSec);');
+  lines.push('mod = lib.Module.withFuncSec(mod, funcSec);');
+  lines.push('mod = lib.Module.withCodeSec(mod, codeSec);');
+  lines.push('mod = lib.Module.withExportSec(mod, exportSec);');
+  lines.push('');
+  lines.push('const validated = validate.validateModule(mod);');
+  lines.push("if (!validated.ok) throw new Error(validated.display ?? 'failed to validate');");
+  lines.push('');
+  lines.push('const encoded = binary.encodeModule(mod);');
+  lines.push("if (!encoded.ok) throw new Error(encoded.display ?? 'failed to encode');");
+  lines.push('```');
+  lines.push('');
+  lines.push('### Run the bundled CLI');
+  lines.push('');
   lines.push('```bash');
   lines.push('npx @jtenner/starshine --help');
+  lines.push('npx @jtenner/starshine --vacuum --out-dir dist input.wat');
   lines.push('```');
+  lines.push('');
+  lines.push('### Read CLI help from JavaScript');
+  lines.push('');
+  lines.push('```js');
+  lines.push("import { cmd } from '@jtenner/starshine';");
+  lines.push('');
+  lines.push('console.log(cmd.cmdHelpText());');
+  lines.push('```');
+  lines.push('');
+  lines.push('## Common Tasks');
+  lines.push('');
+  lines.push('### Read a `.wat` file from disk, parse it, and validate it');
+  lines.push('');
+  lines.push('```js');
+  lines.push("import fs from 'node:fs';");
+  lines.push("import { validate, wast } from '@jtenner/starshine';");
+  lines.push('');
+  lines.push("const text = fs.readFileSync('input.wat', 'utf8');");
+  lines.push("const parsed = wast.wastToBinaryModule(text, 'input.wat');");
+  lines.push("if (!parsed.ok) throw new Error(parsed.display ?? 'failed to parse');");
+  lines.push('');
+  lines.push('const validated = validate.validateModule(parsed.value);');
+  lines.push("if (!validated.ok) throw new Error(validated.display ?? 'failed to validate');");
+  lines.push('```');
+  lines.push('');
+  lines.push('### Read a `.wasm` file, decode it, and inspect the module');
+  lines.push('');
+  lines.push('```js');
+  lines.push("import fs from 'node:fs';");
+  lines.push("import { binary, lib } from '@jtenner/starshine';");
+  lines.push('');
+  lines.push("const bytes = fs.readFileSync('input.wasm');");
+  lines.push('const decoded = binary.decodeModule(bytes);');
+  lines.push("if (!decoded.ok) throw new Error(decoded.display ?? 'failed to decode');");
+  lines.push('');
+  lines.push('console.log(lib.Module.show(decoded.value));');
+  lines.push('```');
+  lines.push('');
+  lines.push('### Run the CLI with a custom in-memory adapter');
+  lines.push('');
+  lines.push('See [examples/07-cmd-run-with-adapter.mjs](./examples/07-cmd-run-with-adapter.mjs) for the full pattern and [examples/08-cmd-run-filesystem.mjs](./examples/08-cmd-run-filesystem.mjs) for the host-filesystem version.');
+  lines.push('');
+  lines.push('## Import Paths');
+  lines.push('');
+  lines.push('- `@jtenner/starshine`: root barrel export with every public module attached as a namespace.');
+  lines.push('- `@jtenner/starshine/binary`: binary decode/encode helpers and codec error types.');
+  lines.push('- `@jtenner/starshine/cli`: CLI argument parsing, glob expansion, and config helpers.');
+  lines.push('- `@jtenner/starshine/cmd`: higher-level command runner, fuzz helpers, and host integration hooks.');
+  lines.push('- `@jtenner/starshine/lib`: core Wasm model types and builders.');
+  lines.push('- `@jtenner/starshine/passes`: optimization pass constructors and pipeline helpers.');
+  lines.push('- `@jtenner/starshine/validate`: module validation and typed IR conversion.');
+  lines.push('- `@jtenner/starshine/wast` and `@jtenner/starshine/wat`: text parsing and printing.');
+  lines.push('');
+  lines.push('Root barrel vs subpath imports:');
+  lines.push('');
+  lines.push('- Start with `import { binary, wast, validate } from \'@jtenner/starshine\';` when you are exploring the package.');
+  lines.push('- Switch to subpath imports such as `@jtenner/starshine/wast` when you want clearer module boundaries or only need one surface.');
+  lines.push('');
+  lines.push('## Build From Source');
+  lines.push('');
+  lines.push('```bash');
+  lines.push('npm --prefix node run build');
+  lines.push('```');
+  lines.push('');
+  lines.push('This regenerates the adapter sources, rebuilds the `wasm-gc` package adapter, rebuilds the optimized WASI CLI artifact, and copies both outputs into `node/internal/`.');
+  lines.push('');
+  lines.push('## Troubleshooting');
+  lines.push('');
+  lines.push('- `SyntaxError: Cannot use import statement outside a module` or `require()` failures: this package is ESM-only, so use `import` and `"type": "module"` where needed.');
+  lines.push('- `StarshineResult` confusion: most fallible APIs do not throw. Check `result.ok` before reading `value`, and prefer `display` when showing errors.');
+  lines.push('- Runtime startup failure on older Node versions: this package requires Node.js 25+ with WebAssembly GC and JS string builtins.');
+  lines.push('- Parsing `.wat` from disk fails unexpectedly: pass the filename as the optional second argument to `wastToBinaryModule(text, filename)` so diagnostics point at the right file.');
+  lines.push('- You need a JS callback-heavy API and see unsupported adapter messages: some higher-order MoonBit APIs are intentionally not exposed through the wasm-gc adapter; use the documented `cmd` helpers or the hand-authored overlays instead.');
+  lines.push('');
+  lines.push('## Current Limitations And Status');
+  lines.push('');
+  lines.push('- The package targets modern Node runtimes only; there is no CommonJS surface and no old-Node compatibility layer.');
+  lines.push('- The generated wasm-gc adapter is excellent for typed data exchange, but not every higher-order MoonBit API can be surfaced directly to JavaScript.');
+  lines.push('- The bundled CLI artifact is the same Starshine pipeline described in the root README, including the current large-artifact self-opt limitations documented there.');
   lines.push('');
   lines.push('## Examples');
   lines.push('');
@@ -1916,6 +2115,13 @@ function renderReadme(packageMetas) {
   lines.push('```bash');
   lines.push('node examples/01-barrel-roundtrip.mjs');
   lines.push('```');
+  lines.push('');
+  lines.push('Recommended first examples:');
+  lines.push('');
+  lines.push('- [examples/01-barrel-roundtrip.mjs](./examples/01-barrel-roundtrip.mjs): teaches the `wast`, `binary`, and `validate` flow for a complete roundtrip.');
+  lines.push('- [examples/07-cmd-run-with-adapter.mjs](./examples/07-cmd-run-with-adapter.mjs): teaches `cmd` and `CmdIO` for embedding the CLI in a Node program.');
+  lines.push('- [examples/11-passes-optimize-module.mjs](./examples/11-passes-optimize-module.mjs): teaches `passes` for explicit optimization pipelines.');
+  lines.push('- [examples/15-lib-module-from-scratch-add.mjs](./examples/15-lib-module-from-scratch-add.mjs): teaches `lib` for constructing modules directly with builders.');
   lines.push('');
   lines.push('All examples are executed by the package test suite.');
   lines.push('');

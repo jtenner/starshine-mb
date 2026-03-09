@@ -1,5 +1,193 @@
 # Starshine
 
+Starshine is a MoonBit toolkit for working with WebAssembly text, binary modules, validation, typed IR, and optimization passes.
+
+This README is MoonBit-first. If you want the JavaScript/npm package, see `node/README.md`.
+
+## Install In MoonBit
+
+The package name is `jtenner/starshine`. This project has not been released yet, so consumers usually pin a local checkout or whatever source mechanism they already use for MoonBit packages.
+
+Minimal `moon.mod.json` shape:
+
+```json
+{
+  "deps": {
+    "jtenner/starshine": "<pin-or-local-source>"
+  }
+}
+```
+
+After dependency resolution, the examples below assume package aliases such as `@wast`, `@validate`, `@passes`, and `@binary`.
+
+## What You Can Do With It
+
+- Parse WAT/WAST text into Starshine's core `Module` model.
+- Validate modules and lift function bodies to typed IR (`TExpr`).
+- Run explicit optimization pipelines or reuse the default pass schedulers.
+- Encode modules back to binary wasm.
+- Build your own analyses and rewrites on top of `IRContext` and `ModuleTransformer`.
+
+## Choose This API When...
+
+| If you want to... | Start here | Why |
+| --- | --- | --- |
+| Parse or print WAT/WAST text | `jtenner/starshine/wast` | Text-format entry point for modules and scripts. |
+| Validate modules or build typed IR | `jtenner/starshine/validate` | Validation and `Expr -> TExpr` conversion live here. |
+| Run optimization pipelines | `jtenner/starshine/passes` | Pass constructors and default schedulers live here. |
+| Decode or encode binary wasm | `jtenner/starshine/binary` | Binary codec APIs and LEB128 helpers live here. |
+| Build modules directly in code | `jtenner/starshine/lib` | Core model types, constructors, and pretty-print helpers. |
+| Inspect CFG/SSA/liveness/use-def | `jtenner/starshine/ir` | Lower-level IR utilities for analysis-heavy work. |
+| Walk and rewrite modules with hooks | `jtenner/starshine/transformer` | Event-driven traversal framework for custom rewrites. |
+| Use the packaged CLI/runtime wiring | `jtenner/starshine/cmd` and `jtenner/starshine/cli` | CLI config, argument parsing, and command execution. |
+
+## Package Map
+
+- `jtenner/starshine/wast`: parse and print WAT/WAST text.
+- `jtenner/starshine/validate`: validate modules and convert linear expressions to typed IR.
+- `jtenner/starshine/passes`: optimization passes and pass schedulers.
+- `jtenner/starshine/binary`: binary decode/encode and LEB128 helpers.
+- `jtenner/starshine/lib`: the core Wasm model types, builders, and pretty-print helpers.
+- `jtenner/starshine/ir`: CFG/SSA/use-def/liveness/GVN utilities.
+- `jtenner/starshine/transformer`: event-driven module traversal and rewriting hooks.
+
+## Recommended Learning Path
+
+1. `wast`: parse text into a `Module`.
+2. `validate`: verify the module and learn where typed IR (`TExpr`) comes from.
+3. `binary`: encode/decode real wasm bytes.
+4. `passes`: run a small explicit optimization pipeline.
+5. `lib`: build or edit modules directly with the core model constructors.
+6. `ir` and `transformer`: reach for these once you need custom analyses or rewrites.
+
+## First MoonBit Pipeline
+
+Once `jtenner/starshine` is in your dependency graph, most projects start with `@wast`, `@validate`, `@passes`, and `@binary`.
+
+```mbt
+using @binary { encode_module }
+using @passes { optimize_module, ModulePass }
+using @validate { validate_module }
+using @wast { wast_to_binary_module }
+
+fn parse_validate_optimize_encode(source : String) -> Bool {
+  let mod = match wast_to_binary_module(source, filename="input.wat") {
+    Ok(mod) => mod
+    Err(_) => return false
+  }
+
+  match validate_module(mod) {
+    Ok(()) => ()
+    Err(_) => return false
+  }
+
+  let optimized = match optimize_module(mod, [
+    ModulePass::Flatten,
+    ModulePass::SimplifyLocals,
+    ModulePass::Vacuum,
+  ]) {
+    Ok(out) => out
+    Err(_) => return false
+  }
+
+  match encode_module(optimized) {
+    Ok(_) => true
+    Err(_) => false
+  }
+}
+```
+
+## Common Task: Modify An Existing Module
+
+This is the usual transform flow for a library user: load an existing module, validate it, apply a few passes, then re-encode it.
+
+```mbt
+using @binary { decode_module, encode_module }
+using @passes { optimize_module, ModulePass }
+using @validate { validate_module, validation_error_message }
+
+fn rewrite_existing_module(bytes : Bytes) -> Result[Bytes, String] {
+  let mod = match decode_module(bytes) {
+    Ok(mod) => mod
+    Err(e) => return Err(e.show())
+  }
+
+  match validate_module(mod) {
+    Ok(()) => ()
+    Err(e) => return Err(validation_error_message(e))
+  }
+
+  let rewritten = optimize_module(mod, [
+    ModulePass::CodeFolding,
+    ModulePass::SimplifyLocals,
+    ModulePass::Vacuum,
+  ])?
+  match encode_module(rewritten) {
+    Ok(bytes) => Ok(bytes)
+    Err(e) => Err(e.show())
+  }
+}
+```
+
+## CLI Quick Start
+
+From a repository checkout:
+
+```bash
+starshine --vacuum --code-folding --out-dir out examples/modules/simple.wat
+```
+
+```bash
+starshine --config examples/config/optimize-release.json
+```
+
+```bash
+set -a
+source examples/env/starshine.env
+set +a
+starshine examples/modules/feature_mix.wat
+```
+
+For more runnable CLI inputs, see `examples/README.md`.
+
+## Project Layout For Users
+
+- `src/lib`: the core `Module`, section, instruction, and value types you manipulate directly.
+- `src/wast` and `src/wat`: text parsing and pretty-printing surfaces.
+- `src/validate`: validation and typed-IR conversion.
+- `src/passes`: optimization APIs most users reach for first when transforming modules.
+- `src/binary`: binary decode/encode.
+- `src/ir` and `src/transformer`: lower-level building blocks for custom compiler work.
+- `examples`: CLI-oriented input files and config examples you can run immediately.
+
+## Working From This Repo
+
+- Format and refresh interfaces: `moon info && moon fmt`
+- Typecheck: `moon check`
+- Run tests: `moon test`
+- Regenerate the Node package files: `node scripts/generate-node-package.mjs`
+- Build the Node package artifacts: `npm --prefix node run build`
+
+## Troubleshooting
+
+- Validation succeeds on one module but not another:
+  Starshine validates against the module features actually present in the input. If you are building modules manually, make sure section indexes, types, and exports all agree before running passes.
+- A pass pipeline returns `Err(String)`:
+  Start with a smaller pass list such as `Flatten`, `SimplifyLocals`, and `Vacuum`, then add more passes one at a time until the failing stage is obvious.
+- You need text parsing but started in `lib`:
+  `lib` is the core model layer, not the text parser. Use `wast` to parse input text, then hand the resulting `Module` to `validate`, `binary`, or `passes`.
+- CLI config, env variables, and flags seem to disagree:
+  Current precedence is `config -> env -> cli` for input globs, `config <- env <- cli` for outputs and optimization flags, and `config <- env <- cli` for trap mode.
+- `moon info` or `moon fmt` rewrites generated interfaces:
+  That is expected in this repo. Review the generated `.mbti` changes to confirm the public API still matches the README examples.
+
+## Current Limitations And Status
+
+- The project has not been released yet, so dependency pinning is still checkout- or source-specific.
+- The full self-optimize pipeline on large artifacts is still slow. In the current snapshot, `starshine --optimize` exits with status `1` for the large self-opt benchmark artifacts described below.
+- The native spec-harness run keeps explicit skip accounting for unsupported runtime/linking semantics; not every upstream testsuite behavior is modeled yet.
+- `IRContext`-driven pipelines are the intended fast path for repeated optimization work. If you build custom passes, reusing analysis state matters.
+
 ## WASM Artifact Snapshot (2026-02-25)
 
 From `tests/node/dist` after `node scripts/build-self-optimized.mjs`:
@@ -26,7 +214,7 @@ The optimizer is organized around `ModulePass` scheduling in `src/passes/optimiz
 - Spec tests: `src/wast/spec_harness.mbt` provides script-file harness APIs plus a native suite run over `tests/spec` with explicit skip accounting for unsupported runtime/linking semantics.
 - Binary section framing parity: `StartSec`, `CodeSec`, and `DataCntSec` are encoded as canonical wasm sections (`id + payload_len + payload`) and decoded with strict payload-boundary checks.
 
-## Project Layout
+## Repository Layout (Internal)
 - `src/lib`: core Wasm model (`Module`, sections, `Instruction`, `TInstr`, utility constructors/traits).
 - `src/validate`: typechecking and section/module validation.
 - `src/ir`: CFG/SSA/use-def/liveness/GVN and `IRContext` cache.
@@ -189,21 +377,21 @@ using @passes {
 }
 
 fn run_tuned_pipeline(mod : Module) -> Result[Module, String] {
-  let options : OptimizeOptions = {
-    optimize_level: 3,
-    shrink_level: 1,
-    inlining: {
-      always_inline_max_size: 2,
-      one_caller_inline_max_size: -1,
-      flexible_inline_max_size: 20,
-      max_combined_binary_size: 400 * 1024,
-      allow_functions_with_loops: false,
-      partial_inlining_ifs: 2,
-    },
-    monomorphize_min_benefit: 5,
-    low_memory_unused: true,
-    low_memory_bound: 2048UL,
-  }
+  let options = OptimizeOptions::new(
+    optimize_level=3,
+    shrink_level=1,
+    inlining=InliningOptions::new(
+      always_inline_max_size=2,
+      one_caller_inline_max_size=-1,
+      flexible_inline_max_size=20,
+      max_combined_binary_size=400 * 1024,
+      allow_functions_with_loops=false,
+      partial_inlining_ifs=2,
+    ),
+    monomorphize_min_benefit=5,
+    low_memory_unused=true,
+    low_memory_bound=2048UL,
+  )
   optimize_module_with_options(mod, [
     ModulePass::InliningOptimizing,
     ModulePass::Monomorphize,
@@ -235,24 +423,25 @@ using @passes {
   default_function_optimization_passes,
   optimize_module_with_options,
   OptimizeOptions,
+  InliningOptions,
 }
 
 fn run_default_function_opts(mod : Module) -> Result[Module, String] {
-  let options : OptimizeOptions = {
-    optimize_level: 2,
-    shrink_level: 1,
-    inlining: {
-      always_inline_max_size: 2,
-      one_caller_inline_max_size: -1,
-      flexible_inline_max_size: 20,
-      max_combined_binary_size: 400 * 1024,
-      allow_functions_with_loops: false,
-      partial_inlining_ifs: 0,
-    },
-    monomorphize_min_benefit: 5,
-    low_memory_unused: false,
-    low_memory_bound: 1024UL,
-  }
+  let options = OptimizeOptions::new(
+    optimize_level=2,
+    shrink_level=1,
+    inlining=InliningOptions::new(
+      always_inline_max_size=2,
+      one_caller_inline_max_size=-1,
+      flexible_inline_max_size=20,
+      max_combined_binary_size=400 * 1024,
+      allow_functions_with_loops=false,
+      partial_inlining_ifs=0,
+    ),
+    monomorphize_min_benefit=5,
+    low_memory_unused=false,
+    low_memory_bound=1024UL,
+  )
   let passes = default_function_optimization_passes(mod, options)
   optimize_module_with_options(mod, passes, options)
 }
@@ -282,24 +471,25 @@ using @passes {
   default_global_optimization_pre_passes,
   optimize_module_with_options,
   OptimizeOptions,
+  InliningOptions,
 }
 
 fn run_global_prepass_open_world(mod : Module) -> Result[Module, String] {
-  let options : OptimizeOptions = {
-    optimize_level: 3,
-    shrink_level: 0,
-    inlining: {
-      always_inline_max_size: 2,
-      one_caller_inline_max_size: -1,
-      flexible_inline_max_size: 20,
-      max_combined_binary_size: 400 * 1024,
-      allow_functions_with_loops: false,
-      partial_inlining_ifs: 0,
-    },
-    monomorphize_min_benefit: 5,
-    low_memory_unused: false,
-    low_memory_bound: 1024UL,
-  }
+  let options = OptimizeOptions::new(
+    optimize_level=3,
+    shrink_level=0,
+    inlining=InliningOptions::new(
+      always_inline_max_size=2,
+      one_caller_inline_max_size=-1,
+      flexible_inline_max_size=20,
+      max_combined_binary_size=400 * 1024,
+      allow_functions_with_loops=false,
+      partial_inlining_ifs=0,
+    ),
+    monomorphize_min_benefit=5,
+    low_memory_unused=false,
+    low_memory_bound=1024UL,
+  )
   let passes = default_global_optimization_pre_passes(
     mod,
     options,
@@ -1318,24 +1508,25 @@ using @passes {
   default_function_optimization_passes,
   optimize_module_with_options,
   OptimizeOptions,
+  InliningOptions,
 }
 
 fn full_default_pipeline(mod : Module) -> Result[Module, String] {
-  let options : OptimizeOptions = {
-    optimize_level: 3,
-    shrink_level: 0,
-    inlining: {
-      always_inline_max_size: 2,
-      one_caller_inline_max_size: -1,
-      flexible_inline_max_size: 20,
-      max_combined_binary_size: 400 * 1024,
-      allow_functions_with_loops: false,
-      partial_inlining_ifs: 0,
-    },
-    monomorphize_min_benefit: 5,
-    low_memory_unused: false,
-    low_memory_bound: 1024UL,
-  }
+  let options = OptimizeOptions::new(
+    optimize_level=3,
+    shrink_level=0,
+    inlining=InliningOptions::new(
+      always_inline_max_size=2,
+      one_caller_inline_max_size=-1,
+      flexible_inline_max_size=20,
+      max_combined_binary_size=400 * 1024,
+      allow_functions_with_loops=false,
+      partial_inlining_ifs=0,
+    ),
+    monomorphize_min_benefit=5,
+    low_memory_unused=false,
+    low_memory_bound=1024UL,
+  )
 
   let pre = default_global_optimization_pre_passes(mod, options)
   let post = default_function_optimization_passes(mod, options)
