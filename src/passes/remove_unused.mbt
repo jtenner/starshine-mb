@@ -579,15 +579,11 @@ fn ru_trace_used_counts(ctx : AnalysisContext) -> String {
 }
 
 ///|
-fn analyze_with_trace(ctx : AnalysisContext, trace : (String) -> Unit) -> Unit {
-  trace(
-    "analyze:start worklists funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()}",
-  )
-  analyze_roots(ctx)
-  trace(
-    "analyze:after_roots worklists funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()}",
-  )
-
+fn drain_analysis_worklists_with_trace(
+  ctx : AnalysisContext,
+  trace : (String) -> Unit,
+  stage : String,
+) -> Unit {
   // Process all worklists until empty
   // Need to iterate because processing one can add to others
   let mut rounds = 0
@@ -597,7 +593,7 @@ fn analyze_with_trace(ctx : AnalysisContext, trace : (String) -> Unit) -> Unit {
     rounds += 1
     if rounds <= 8 || rounds % 32 == 0 {
       trace(
-        "analyze:round[\{rounds}] begin funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()}",
+        "\{stage}:round[\{rounds}] begin funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()}",
       )
     }
     process_func_worklist(ctx)
@@ -605,15 +601,17 @@ fn analyze_with_trace(ctx : AnalysisContext, trace : (String) -> Unit) -> Unit {
     process_elem_worklist(ctx)
     if rounds <= 8 || rounds % 32 == 0 {
       trace(
-        "analyze:round[\{rounds}] end funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()} \{ru_trace_used_counts(ctx)}",
+        "\{stage}:round[\{rounds}] end funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()} \{ru_trace_used_counts(ctx)}",
       )
     }
   }
-  trace("analyze:worklists_done rounds=\{rounds} \{ru_trace_used_counts(ctx)}")
+  trace("\{stage}:worklists_done rounds=\{rounds} \{ru_trace_used_counts(ctx)}")
+}
 
+///|
+fn mark_used_section_type_dependencies(ctx : AnalysisContext) -> Unit {
   // Mark type dependencies from used imported externs.
   mark_used_import_type_dependencies(ctx)
-  trace("analyze:after_import_type_deps \{ru_trace_used_counts(ctx)}")
 
   // Mark types used by tables
   match ctx.mod.table_sec {
@@ -647,6 +645,20 @@ fn analyze_with_trace(ctx : AnalysisContext, trace : (String) -> Unit) -> Unit {
 
   // Mark types from type section (handle rec types and supertypes)
   analyze_type_dependencies(ctx)
+}
+
+///|
+fn analyze_with_trace(ctx : AnalysisContext, trace : (String) -> Unit) -> Unit {
+  trace(
+    "analyze:start worklists funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()}",
+  )
+  analyze_roots(ctx)
+  trace(
+    "analyze:after_roots worklists funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()}",
+  )
+
+  drain_analysis_worklists_with_trace(ctx, trace, "analyze")
+  mark_used_section_type_dependencies(ctx)
   trace("analyze:after_type_deps \{ru_trace_used_counts(ctx)}")
 }
 
@@ -1357,6 +1369,196 @@ fn scan_instr(ctx : AnalysisContext, instr : Instruction) -> Unit {
   }
 }
 
+///|
+fn collect_expr_ref_funcs(expr : Expr, out : Set[FuncIdx]) -> Unit {
+  for instr in expr.0 {
+    collect_instr_ref_funcs(instr, out)
+  }
+}
+
+///|
+fn collect_instr_ref_funcs(instr : Instruction, out : Set[FuncIdx]) -> Unit {
+  match instr {
+    RefFunc(idx) => out.add(idx)
+    Block(_, expr) | Loop(_, expr) => collect_expr_ref_funcs(expr, out)
+    If(_, then_instrs, else_instrs) => {
+      for inner in then_instrs {
+        collect_instr_ref_funcs(inner, out)
+      }
+      match else_instrs {
+        Some(instrs) =>
+          for inner in instrs {
+            collect_instr_ref_funcs(inner, out)
+          }
+        None => ()
+      }
+    }
+    TryTable(_, _, expr) => collect_expr_ref_funcs(expr, out)
+    _ => ()
+  }
+}
+
+///|
+fn collect_func_body_ref_funcs(mod : Module) -> Set[FuncIdx] {
+  let out : Set[FuncIdx] = Set::new()
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        match func {
+          Func(_, expr) => collect_expr_ref_funcs(expr, out)
+          TFunc(_, _, texpr) =>
+            collect_expr_ref_funcs(TExpr::to_expr(texpr), out)
+        }
+      }
+    None => ()
+  }
+  out
+}
+
+///|
+fn expr_declares_any_needed_func(expr : Expr, needed : Set[FuncIdx]) -> Bool {
+  for instr in expr.0 {
+    if instr_declares_any_needed_func(instr, needed) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn instr_declares_any_needed_func(
+  instr : Instruction,
+  needed : Set[FuncIdx],
+) -> Bool {
+  match instr {
+    RefFunc(idx) => needed.contains(idx)
+    Block(_, expr) | Loop(_, expr) =>
+      expr_declares_any_needed_func(expr, needed)
+    If(_, then_instrs, else_instrs) => {
+      for inner in then_instrs {
+        if instr_declares_any_needed_func(inner, needed) {
+          return true
+        }
+      }
+      match else_instrs {
+        Some(instrs) =>
+          for inner in instrs {
+            if instr_declares_any_needed_func(inner, needed) {
+              return true
+            }
+          }
+        None => ()
+      }
+      false
+    }
+    TryTable(_, _, expr) => expr_declares_any_needed_func(expr, needed)
+    _ => false
+  }
+}
+
+///|
+fn elem_declares_any_needed_func(elem : Elem, needed : Set[FuncIdx]) -> Bool {
+  match elem {
+    Elem(_, FuncsElemKind(funcs)) => {
+      for func_idx in funcs {
+        if needed.contains(func_idx) {
+          return true
+        }
+      }
+      false
+    }
+    Elem(_, FuncExprsElemKind(exprs)) | Elem(_, TypedExprsElemKind(_, exprs)) => {
+      for expr in exprs {
+        if expr_declares_any_needed_func(expr, needed) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn preserve_ref_func_declaration_sources(
+  ctx : AnalysisContext,
+  trace : (String) -> Unit,
+) -> Unit {
+  if !ctx.props.root_all_functions {
+    return
+  }
+  let needed = collect_func_body_ref_funcs(ctx.mod)
+  if needed.is_empty() {
+    return
+  }
+
+  let mut kept_globals = 0
+  match ctx.mod.global_sec {
+    Some(GlobalSec(globals)) =>
+      for i = 0; i < globals.length(); i = i + 1 {
+        let global_idx = GlobalIdx::new(
+          ctx.imports.globals + i.reinterpret_as_uint(),
+        )
+        let Global(_, init) = globals[i]
+        if !ctx.used.globals.contains(global_idx) &&
+          expr_declares_any_needed_func(init, needed) {
+          kept_globals += 1
+          mark_global(ctx, global_idx)
+        }
+      }
+    None => ()
+  }
+
+  let mut kept_tables = 0
+  match ctx.mod.table_sec {
+    Some(TableSec(tables)) =>
+      for i = 0; i < tables.length(); i = i + 1 {
+        let table_idx = TableIdx::new(
+          ctx.imports.tables + i.reinterpret_as_uint(),
+        )
+        match tables[i] {
+          Table(_, init_opt) =>
+            match init_opt {
+              Some(init) =>
+                if !ctx.used.tables.contains(table_idx) &&
+                  expr_declares_any_needed_func(init, needed) {
+                  kept_tables += 1
+                  mark_table(ctx, table_idx)
+                }
+              None => ()
+            }
+        }
+      }
+    None => ()
+  }
+
+  let mut kept_elems = 0
+  match ctx.mod.elem_sec {
+    Some(ElemSec(elems)) =>
+      for i = 0; i < elems.length(); i = i + 1 {
+        let elem_idx = ElemIdx::new(i.reinterpret_as_uint())
+        if !ctx.used.elems.contains(elem_idx) &&
+          elem_declares_any_needed_func(elems[i], needed) {
+          kept_elems += 1
+          mark_elem(ctx, elem_idx)
+        }
+      }
+    None => ()
+  }
+
+  if kept_globals == 0 && kept_tables == 0 && kept_elems == 0 {
+    return
+  }
+
+  trace(
+    "analyze:preserve_ref_func_declarations globals=\{kept_globals} tables=\{kept_tables} elems=\{kept_elems}",
+  )
+  drain_analysis_worklists_with_trace(ctx, trace, "analyze:preserve")
+  mark_used_section_type_dependencies(ctx)
+  trace(
+    "analyze:after_preserve_ref_func_declarations \{ru_trace_used_counts(ctx)}",
+  )
+}
+
 // ============================================================================
 // Build Remappings
 // ============================================================================
@@ -1544,6 +1746,7 @@ fn remove_unused_with_props(
   // Phase 1: Analysis
   let ctx = AnalysisContext::new(mod, props)
   analyze_with_trace(ctx, trace)
+  preserve_ref_func_declaration_sources(ctx, trace)
 
   let referenced_only_funcs : Set[FuncIdx] = Set::new()
   for func_idx in ctx.referenced_funcs {
@@ -3419,6 +3622,109 @@ test "root_all_functions mode keeps functions while pruning other elements" {
       match new_mod.global_sec {
         Some(sec) => assert_eq(sec.0.length(), 0)
         None => ()
+      }
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "root_all_functions preserves declaration-only globals for ref.func users" {
+  let type_sec = TypeSec::new([make_void_func_type()])
+  let func_sec = FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)])
+  let code_sec = CodeSec::new([
+    Func::t_func(
+      [],
+      [],
+      TExpr::new([
+        TInstr::drop(TInstr::ref_func(FuncIdx::new(1))),
+        TInstr::return_([]),
+      ]),
+    ),
+    make_empty_func_body(),
+  ])
+  let global_sec = GlobalSec::new([
+    Global::new(
+      GlobalType::new(ValType::funcref(), false),
+      Expr::new([Instruction::ref_func(FuncIdx::new(1))]),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_global_sec(global_sec)
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+      ]),
+    )
+
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(e) => fail("expected input module to validate: \{e}")
+  }
+
+  match remove_unused_non_function_elements(mod) {
+    Ok(new_mod) => {
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 2)
+      assert_true(new_mod.global_sec is Some(_))
+      match validate_module(new_mod) {
+        Ok(_) => ()
+        Err(e) =>
+          fail(
+            "expected root_all_functions output to keep ref.func declarations: \{e}",
+          )
+      }
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "root_all_functions preserves declaration-only elem segments for ref.func users" {
+  let type_sec = TypeSec::new([make_void_func_type()])
+  let func_sec = FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)])
+  let code_sec = CodeSec::new([
+    Func::t_func(
+      [],
+      [],
+      TExpr::new([
+        TInstr::drop(TInstr::ref_func(FuncIdx::new(1))),
+        TInstr::return_([]),
+      ]),
+    ),
+    make_empty_func_body(),
+  ])
+  let elem_sec = ElemSec::new([
+    Elem::new(ElemMode::declarative(), ElemKind::funcs([FuncIdx::new(1)])),
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_elem_sec(elem_sec)
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+      ]),
+    )
+
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(e) => fail("expected input module to validate: \{e}")
+  }
+
+  match remove_unused_non_function_elements(mod) {
+    Ok(new_mod) => {
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 2)
+      assert_true(new_mod.elem_sec is Some(_))
+      match validate_module(new_mod) {
+        Ok(_) => ()
+        Err(e) =>
+          fail(
+            "expected root_all_functions output to keep elem ref.func declarations: \{e}",
+          )
       }
     }
     Err(e) => fail("unexpected error: \{e}")
