@@ -5640,10 +5640,10 @@ test "optimize_module runs ReorderGlobalsAlways pass" {
   let imported = Import::new(
     Name::new("env"),
     Name::new("gimp"),
-    ExternType::global(GlobalType::new(ValType::i32(), true)),
+    ExternType::global(GlobalType::new(ValType::i32(), false)),
   )
   let g0 = Global::new(
-    GlobalType::new(ValType::i32(), true),
+    GlobalType::new(ValType::i32(), false),
     Expr::new([Instruction::i32_const(I32(1))]),
   )
   let g1 = Global::new(

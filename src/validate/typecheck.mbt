@@ -32,7 +32,7 @@ fn TcState::with_stack(st : TcState, stack : Array[ValType]) -> TcState {
 
 ///|
 fn TcState::set_unreachable(st : TcState) -> TcState {
-  TcState::{ ..st, reachable: false }
+  TcState::{ ..st, stack: [], reachable: false }
 }
 
 ///|
@@ -68,13 +68,17 @@ fn TcState::check_branch_args_present(
 
 ///|
 fn TcState::pop1(st : TcState) -> Result[(TcState, ValType), String] {
-  if !st.reachable {
-    // polymorphic stack when unreachable (spec “bot” behavior)
-    return Ok((st, ValType::bottom()))
-  }
   let s = st.stack.copy()
   match s.pop() {
-    None => Err("stack underflow")
+    None =>
+      if !st.reachable {
+        // In unreachable code, missing values below the current frame are
+        // polymorphic, but concrete values pushed afterward must still be
+        // consumed from the real stack first.
+        Ok((st, ValType::bottom()))
+      } else {
+        Err("stack underflow")
+      }
     Some(v) => Ok((st.with_stack(s), v))
   }
 }
@@ -84,7 +88,7 @@ fn TcState::pop_expect(st : TcState, expected : ValType) -> TcResult {
   match st.pop1() {
     Err(e) => Err(e)
     Ok((st2, actual)) => {
-      if !st.reachable {
+      if actual == ValType::bottom() {
         return Ok(st2)
       }
       if Match::matches(actual, expected, st.env) {
@@ -132,6 +136,21 @@ fn tc_stack_from_types(ts : Array[ValType]) -> Array[ValType] {
     out.push(t)
   }
   out
+}
+
+///|
+fn validate_end_stack(
+  st : TcState,
+  results : Array[ValType],
+) -> Result[Unit, String] {
+  let st_after_results = match st.pop_types(results) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  if st_after_results.stack.length() != 0 {
+    return Err("type mismatch")
+  }
+  Ok(())
 }
 
 ///|
@@ -403,15 +422,9 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     Ok(s) => s
   }
 
-  // If reachable, body must leave exactly the declared result tuple.
-  if st_body.reachable {
-    let st_after_results = match st_body.pop_types(results) {
-      Err(e) => return Err(e)
-      Ok(s) => s
-    }
-    if st_after_results.stack.length() != 0 {
-      return Err("type mismatch")
-    }
+  match validate_end_stack(st_body, results) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
 
   let out = TcState::{
@@ -478,19 +491,12 @@ fn typecheck_if(
 
   // For each reachable branch: enforce results and ensure no extra values.
   let norm_branch = fn(sb : TcState) -> Result[(Bool, Array[ValType]), String] {
-    let sb2 = if sb.reachable {
-      let st_after_results = match sb.pop_types(results) {
-        Err(e) => return Err(e)
-        Ok(s) => s
-      }
-      if st_after_results.stack.length() != 0 {
-        return Err("type mismatch")
-      }
-      st_after_results
-    } else {
-      sb
+    match validate_end_stack(sb, results) {
+      Err(e) => return Err(e)
+      Ok(_) => ()
     }
-    Ok((sb2.reachable, sb2.stack.copy()))
+    let normalized_stack = if sb.reachable { [] } else { sb.stack.copy() }
+    Ok((sb.reachable, normalized_stack))
   }
   let (then_reach, then_stack) = match norm_branch(st_then) {
     Err(e) => return Err(e)
@@ -591,7 +597,7 @@ fn typecheck_br_table(
   }
 
   // br_table always branches - code after is unreachable
-  Ok({ ..st2, reachable: false })
+  Ok(st2.set_unreachable())
 }
 
 ///|
@@ -1137,25 +1143,16 @@ fn typecheck_try_table(
     }
   }
 
-  // if reachable, enforce results on stack top
-  let st2 = if st_body.reachable {
-    let st_after_results = match st_body.pop_types(results) {
-      Err(e) => return Err(e)
-      Ok(s) => s
-    }
-    if st_after_results.stack.length() != 0 {
-      return Err("type mismatch")
-    }
-    st_after_results
-  } else {
-    st_body
+  match validate_end_stack(st_body, results) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
 
   // restore outer env (pop the try_table label scope)
   let out = TcState::{
     env: st.env,
     stack: st1.stack.copy(),
-    reachable: st2.reachable,
+    reachable: st_body.reachable,
   }
   Ok(out.push_types(results))
 }
@@ -1474,15 +1471,9 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     Ok(s) => s
   }
 
-  // if reachable, enforce results on top
-  if st_body.reachable {
-    let st_after_results = match st_body.pop_types(results) {
-      Err(e) => return Err(e)
-      Ok(s) => s
-    }
-    if st_after_results.stack.length() != 0 {
-      return Err("type mismatch")
-    }
+  match validate_end_stack(st_body, results) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
 
   // restore outer env (pop label scope)
@@ -2610,7 +2601,7 @@ fn typecheck_array_new_data(st : TcState, x : TypeIdx, y : DataIdx) -> TcResult 
 ///|
 pub impl Typecheck for Instruction with typecheck(self, st) {
   match self {
-    Unreachable => Ok(TcState::{ ..st, reachable: false })
+    Unreachable => Ok(st.set_unreachable())
     Nop => Ok(st)
     I32Const(_) => Ok(st.push1(ValType::i32()))
     I64Const(_) => Ok(st.push1(ValType::i64()))
@@ -3280,7 +3271,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       typecheck_v128_const(st)
 
     // === Nullary ===
-    TInstrKind::TUnreachable => Ok(TcState::{ ..st, reachable: false })
+    TInstrKind::TUnreachable => Ok(st.set_unreachable())
     TInstrKind::TNop => Ok(st)
     TInstrKind::TLocalGet(i) => typecheck_local_get(st, i)
     TInstrKind::TGlobalGet(i) => typecheck_global_get(st, i)
@@ -4208,16 +4199,9 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
           Ok(s) => s
         }
       }
-      let st2 = if st_body.reachable {
-        match st_body.pop_types(results) {
-          Err(e) => return Err(e)
-          Ok(s) => s
-        }
-      } else {
-        st_body
-      }
-      if st_body.reachable && st2.stack.length() != 0 {
-        return Err("type mismatch")
+      match validate_end_stack(st_body, results) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
       }
       let out = TcState::{
         env: st.env,
@@ -4244,16 +4228,9 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
           Ok(s) => s
         }
       }
-      let st2 = if st_body.reachable {
-        match st_body.pop_types(results) {
-          Err(e) => return Err(e)
-          Ok(s) => s
-        }
-      } else {
-        st_body
-      }
-      if st_body.reachable && st2.stack.length() != 0 {
-        return Err("type mismatch")
+      match validate_end_stack(st_body, results) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
       }
       let out = TcState::{
         env: st.env,
@@ -4310,19 +4287,12 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       let norm_branch = fn(
         sb : TcState,
       ) -> Result[(Bool, Array[ValType]), String] {
-        let sb2 = if sb.reachable {
-          let st_after_results = match sb.pop_types(results) {
-            Err(e) => return Err(e)
-            Ok(s) => s
-          }
-          if st_after_results.stack.length() != 0 {
-            return Err("type mismatch")
-          }
-          st_after_results
-        } else {
-          sb
+        match validate_end_stack(sb, results) {
+          Err(e) => return Err(e)
+          Ok(_) => ()
         }
-        Ok((sb2.reachable, sb2.stack.copy()))
+        let normalized_stack = if sb.reachable { [] } else { sb.stack.copy() }
+        Ok((sb.reachable, normalized_stack))
       }
       let (then_reach, then_stack) = match norm_branch(st_then) {
         Err(e) => return Err(e)
@@ -4377,21 +4347,14 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
           Ok(_) => ()
         }
       }
-      let st2 = if st_body.reachable {
-        match st_body.pop_types(results) {
-          Err(e) => return Err(e)
-          Ok(s) => s
-        }
-      } else {
-        st_body
-      }
-      if st_body.reachable && st2.stack.length() != 0 {
-        return Err("type mismatch")
+      match validate_end_stack(st_body, results) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
       }
       let out = TcState::{
         env: st.env,
         stack: st1.stack.copy(),
-        reachable: st2.reachable,
+        reachable: st_body.reachable,
       }
       Ok(out.push_types(results))
     }

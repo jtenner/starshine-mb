@@ -405,20 +405,28 @@ pub impl Validate for ExternType with validate(self, env) {
 }
 
 ///|
-fn is_const_instr(ins : Instruction) -> Bool {
+fn validate_const_instr(env : Env, ins : Instruction) -> Result[Unit, String] {
   match ins {
-    I32Const(_) => true
-    I64Const(_) => true
-    F32Const(_) => true
-    F64Const(_) => true
-    V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => true
-    RefNull(_) => true
-    RefFunc(_) => true
-    GlobalGet(_) => true
-
-    // Optional: enable later if desired/confirmed by spec subset you target
-    // RefI31 => true
-    _ => false
+    I32Const(_) => Ok(())
+    I64Const(_) => Ok(())
+    F32Const(_) => Ok(())
+    F64Const(_) => Ok(())
+    V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => Ok(())
+    RefNull(_) => Ok(())
+    RefFunc(_) => Ok(())
+    GlobalGet(idx) =>
+      match env.get_global_type(idx) {
+        None => Err("constant expression references an unknown global")
+        // This package uses extended-const global.get semantics, but only for
+        // immutable globals (imported or previously-defined in module order).
+        Some(GlobalType(_, is_mut)) =>
+          if is_mut {
+            Err("constant expression global.get requires immutable global")
+          } else {
+            Ok(())
+          }
+      }
+    _ => Err("initializer expression is not constant")
   }
 }
 
@@ -430,10 +438,11 @@ fn validate_const_expr(
 ) -> Result[Unit, String] {
   let Expr(instrs) = expr
 
-  // syntactic const restriction
+  // Explicit constant-expression gate: do not let general expression typing
+  // admit instructions that are invalid in const contexts.
   for ins in instrs {
-    if !is_const_instr(ins) {
-      return Err("initializer expression is not constant")
+    if validate_const_instr(env, ins) is Err(e) {
+      return Err(e)
     }
   }
 
@@ -654,17 +663,11 @@ fn validate_func_body_against_functype(
         Err(e) => return Err(e)
       }
 
-      // Enforce results at end if reachable
-      if st1.reachable {
-        if st1.stack.length() != results.length() {
+      match validate_end_stack(st1, results) {
+        Err("type mismatch") | Err("stack underflow") =>
           return Err("function body leaves extra values on stack")
-        }
-        // Check types match
-        for i in 0..<results.length() {
-          if !Match::matches(st1.stack[i], results[i], env1) {
-            return Err("function body result type mismatch")
-          }
-        }
+        Err(e) => return Err(e)
+        Ok(_) => ()
       }
       Ok(())
     }
@@ -689,17 +692,13 @@ fn validate_func_body_against_functype(
         Ok(s) => s
         Err(e) => return Err("typed function " + e)
       }
-      if st1.reachable {
-        if st1.stack.length() != results.length() {
+      match validate_end_stack(st1, results) {
+        Err("type mismatch") | Err("stack underflow") =>
           return Err(
             "typed function body has wrong result arity: stack=\{st1.stack} results=\{results}",
           )
-        }
-        for i in 0..<results.length() {
-          if !Match::matches(st1.stack[i], results[i], env1) {
-            return Err("typed function body result type mismatch")
-          }
-        }
+        Err(e) => return Err(e)
+        Ok(_) => ()
       }
       Ok(())
     }
@@ -1327,6 +1326,9 @@ fn mark_declared_ref_funcs_in_expr(expr : Expr, declared : Array[Bool]) -> Unit 
 fn collect_declared_funcs_bitmap(mod : Module, env : Env) -> Array[Bool] {
   let declared = Array::make(env.funcs.length(), false)
 
+  // Declaration sources are module sites outside function bodies, excluding
+  // start. This includes exports, const-expression ref.funcs in globals/tables
+  // and elem expressions, plus elem segments with raw function indices.
   match mod.export_sec {
     Some(ExportSec(exports)) =>
       for exp in exports {
@@ -1381,6 +1383,13 @@ fn collect_declared_funcs_bitmap(mod : Module, env : Env) -> Array[Bool] {
 }
 
 ///|
+fn is_declared_ref_func(declared : Array[Bool], f : FuncIdx) -> Bool {
+  let FuncIdx(i) = f
+  let ii = i.reinterpret_as_int()
+  ii >= 0 && ii < declared.length() && declared[ii]
+}
+
+///|
 fn validate_ref_func_declarations_in_instr(
   instr : Instruction,
   env : Env,
@@ -1388,12 +1397,8 @@ fn validate_ref_func_declarations_in_instr(
 ) -> Result[Unit, String] {
   match instr {
     RefFunc(f) => {
-      if env.has_func(f) {
-        let FuncIdx(i) = f
-        let ii = i.reinterpret_as_int()
-        if ii >= 0 && ii < declared.length() && !declared[ii] {
-          return Err("undeclared function reference: \{f}")
-        }
+      if env.has_func(f) && !is_declared_ref_func(declared, f) {
+        return Err("undeclared function reference: \{f}")
       }
       Ok(())
     }
@@ -1454,14 +1459,64 @@ fn validate_ref_func_declarations_in_expr(
 }
 
 ///|
-fn validate_ref_func_declarations_in_codesec(
-  codesec_opt : CodeSec?,
-  funcsec_opt : FuncSec?,
+fn validate_ref_func_declarations_in_module(
+  mod : Module,
   env : Env,
   imported_func_count : Int,
   declared : Array[Bool],
 ) -> Result[Unit, ValidationDiagnostic] {
-  match (codesec_opt, funcsec_opt) {
+  match mod.global_sec {
+    Some(GlobalSec(globals)) =>
+      for global in globals {
+        let Global(_, init) = global
+        if validate_ref_func_declarations_in_expr(init, env, declared) is Err(e) {
+          return Err(
+            ValidationDiagnostic::new(ValidationIssue::GlobalSection(e)),
+          )
+        }
+      }
+    None => ()
+  }
+
+  match mod.table_sec {
+    Some(TableSec(tables)) =>
+      for table in tables {
+        let Table(_, init_opt) = table
+        match init_opt {
+          Some(init) =>
+            if validate_ref_func_declarations_in_expr(init, env, declared)
+              is Err(e) {
+              return Err(
+                ValidationDiagnostic::new(ValidationIssue::TableSection(e)),
+              )
+            }
+          None => ()
+        }
+      }
+    None => ()
+  }
+
+  match mod.elem_sec {
+    Some(ElemSec(elems)) =>
+      for elem in elems {
+        let Elem(_, kind) = elem
+        match kind {
+          FuncsElemKind(_) => ()
+          FuncExprsElemKind(exprs) | TypedExprsElemKind(_, exprs) =>
+            for expr in exprs {
+              if validate_ref_func_declarations_in_expr(expr, env, declared)
+                is Err(e) {
+                return Err(
+                  ValidationDiagnostic::new(ValidationIssue::ElementSection(e)),
+                )
+              }
+            }
+        }
+      }
+    None => ()
+  }
+
+  match (mod.code_sec, mod.func_sec) {
     (Some(CodeSec(bodies)), Some(FuncSec(type_idxs))) => {
       if bodies.length() != type_idxs.length() {
         return Ok(())
@@ -1611,8 +1666,8 @@ fn validate_module_impl(m : Module) -> Result[Unit, ValidationDiagnostic] {
 
   let declared_funcs = collect_declared_funcs_bitmap(m, env)
   match
-    validate_ref_func_declarations_in_codesec(
-      codesec_opt, funcsec_opt, env, imported_func_count, declared_funcs,
+    validate_ref_func_declarations_in_module(
+      m, env, imported_func_count, declared_funcs,
     ) {
     Ok(_) => ()
     Err(t) => return Err(t)
@@ -1867,6 +1922,361 @@ test "validate_module accepts ref.func body when function is exported" {
 }
 
 ///|
+test "validate_module treats global initializer ref.func as declaration source" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::funcref(), false),
+          Expr::new([Instruction::ref_func(FuncIdx::new(0U))]),
+        ),
+      ]),
+    )
+    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected global initializer ref.func declaration source to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module treats table initializer ref.func as declaration source" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let table_type = TableType::new(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+    Limits::i32(1, None),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          table_type,
+          Some(Expr::new([Instruction::ref_func(FuncIdx::new(0U))])),
+        ),
+      ]),
+    )
+    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected table initializer ref.func declaration source to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module treats elem expression ref.func as declaration source" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let elem = Elem::new(
+    ElemMode::passive(),
+    ElemKind::typed_exprs(
+      RefType::new(true, HeapType::abs(AbsHeapType::func())),
+      [Expr::new([Instruction::ref_func(FuncIdx::new(0U))])],
+    ),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_elem_sec(ElemSec::new([elem]))
+    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected elem expression ref.func declaration source to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module accepts ref.func in elem expression when elem.funcs declares the function" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let decls = Elem::new(
+    ElemMode::declarative(),
+    ElemKind::funcs([FuncIdx::new(0U)]),
+  )
+  let elem_expr = Elem::new(
+    ElemMode::passive(),
+    ElemKind::typed_exprs(
+      RefType::new(true, HeapType::abs(AbsHeapType::func())),
+      [Expr::new([Instruction::ref_func(FuncIdx::new(0U))])],
+    ),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_elem_sec(ElemSec::new([decls, elem_expr]))
+    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected elem expression ref.func to validate when declared by elem.funcs: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module accepts ref.func in global initializer when function is exported" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::funcref(), false),
+          Expr::new([Instruction::ref_func(FuncIdx::new(0U))]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("f"), ExternIdx::func(FuncIdx::new(0U))),
+      ]),
+    )
+    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected exported function declaration source to allow global initializer ref.func: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module rejects mixed declared and undeclared ref.func uses in one body" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("declared"), ExternIdx::func(FuncIdx::new(0U))),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::new([], Expr::new([])),
+        Func::new(
+          [],
+          Expr::new([
+            Instruction::ref_func(FuncIdx::new(0U)),
+            Instruction::drop(),
+            Instruction::ref_func(FuncIdx::new(1U)),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) =>
+      fail(
+        "expected mixed declared/undeclared ref.func uses to fail validation",
+      )
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(1U)))
+      assert_true(
+        validation_error_message(err).contains("undeclared function reference"),
+      )
+    }
+  }
+}
+
+///|
+test "validate_module accepts global initializer global.get from earlier immutable module global" {
+  let mod = Module::new().with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), false),
+        Expr::new([Instruction::i32_const(I32(7))]),
+      ),
+      Global::new(
+        GlobalType::new(ValType::i32(), false),
+        Expr::new([Instruction::global_get(GlobalIdx::new(0U))]),
+      ),
+    ]),
+  )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected extended-const global.get from earlier immutable global to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module accepts global initializer global.get from imported immutable global" {
+  let mod = Module::new()
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("g"),
+          ExternType::global(GlobalType::new(ValType::i32(), false)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), false),
+          Expr::new([Instruction::global_get(GlobalIdx::new(0U))]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected imported immutable global.get in const expression to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module rejects global initializer global.get from imported mutable global" {
+  let mod = Module::new()
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("g"),
+          ExternType::global(GlobalType::new(ValType::i32(), true)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), false),
+          Expr::new([Instruction::global_get(GlobalIdx::new(0U))]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => fail("expected mutable imported global.get in const expr to fail")
+    Err(err) => assert_true(validation_error_message(err).contains("constant"))
+  }
+}
+
+///|
+test "validate_module rejects global initializer global.get from earlier mutable module global" {
+  let mod = Module::new().with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), true),
+        Expr::new([Instruction::i32_const(I32(7))]),
+      ),
+      Global::new(
+        GlobalType::new(ValType::i32(), false),
+        Expr::new([Instruction::global_get(GlobalIdx::new(0U))]),
+      ),
+    ]),
+  )
+  match validate_module(mod) {
+    Ok(_) =>
+      fail("expected mutable module global.get in const expression to fail")
+    Err(err) => assert_true(validation_error_message(err).contains("constant"))
+  }
+}
+
+///|
+test "validate_module accepts table initializer global.get from imported immutable ref global" {
+  let table_type = TableType::new(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+    Limits::i32(2, None),
+  )
+  let mod = Module::new()
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("g"),
+          ExternType::global(
+            GlobalType::new(
+              ValType::ref_type(
+                RefType::new(true, HeapType::abs(AbsHeapType::func())),
+              ),
+              false,
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          table_type,
+          Some(Expr::new([Instruction::global_get(GlobalIdx::new(0U))])),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected table initializer global.get from immutable imported global to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module rejects data offset with non-constant instruction sequence" {
+  let mod = Module::new()
+    .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
+    .with_data_sec(
+      DataSec::new([
+        Data::new(
+          DataMode::active(
+            MemIdx::new(0U),
+            Expr::new([
+              Instruction::i32_const(I32(1)),
+              Instruction::i32_const(I32(2)),
+              Instruction::i32_add(),
+            ]),
+          ),
+          b"x",
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => fail("expected non-constant data offset expression to fail")
+    Err(err) => assert_true(validation_error_message(err).contains("constant"))
+  }
+}
+
+///|
+test "validate_module accepts ref.null in const global initializer" {
+  let mod = Module::new().with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::funcref(), false),
+        Expr::new([Instruction::ref_null(HeapType::abs(AbsHeapType::func()))]),
+      ),
+    ]),
+  )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected ref.null const global initializer to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
 test "validate_module rejects tail loop that leaves function result missing" {
   let sig = RecType::new(
     SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
@@ -1899,6 +2309,74 @@ test "validate_module rejects tail loop that leaves function result missing" {
           "function body leaves extra values on stack",
         ),
       )
+    }
+  }
+}
+
+///|
+test "validate_module rejects concrete stack junk after return inside block" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          [],
+          Expr::new([
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([Instruction::return_(), Instruction::i32_const(I32(1))]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) =>
+      fail("expected block to reject concrete stack values left after return")
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      assert_true(validation_error_message(err).contains("type mismatch"))
+    }
+  }
+}
+
+///|
+test "validate_module rejects wrong concrete loop result after infinite inner loop" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          [],
+          Expr::new([
+            Instruction::loop_(
+              BlockType::val_type(ValType::i32()),
+              Expr::new([
+                Instruction::loop_(
+                  BlockType::void_(),
+                  Expr::new([Instruction::br(LabelIdx::new(0))]),
+                ),
+                Instruction::f32_const(0.0),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) =>
+      fail(
+        "expected loop to reject wrong concrete result left after an infinite inner loop",
+      )
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      assert_true(validation_error_message(err).contains("type mismatch"))
     }
   }
 }

@@ -756,6 +756,34 @@ fn block_type_inputs(bt : BlockType, env : Env) -> Int {
 }
 
 ///|
+fn block_label_types(
+  bt : BlockType,
+  env : Env,
+  loop_label : Bool,
+) -> Array[ValType] {
+  match env.expand_blocktype(bt) {
+    Ok((params, results)) => if loop_label { params } else { results }
+    Err(_) => []
+  }
+}
+
+///|
+fn label_arity(env : Env, label : LabelIdx) -> Int {
+  match env.get_label_types(label) {
+    Some(types) => types.length()
+    None => 0
+  }
+}
+
+///|
+fn label_prefix_arity(env : Env, label : LabelIdx) -> Int {
+  match env.get_label_types(label) {
+    Some(types) => if types.length() > 0 { types.length() - 1 } else { 0 }
+    None => 0
+  }
+}
+
+///|
 fn instr_to_tinstr(
   instr : Instruction,
   stack : Array[TInstr],
@@ -2739,8 +2767,9 @@ fn instr_to_tinstr(
       for input in inputs {
         body_stack.push(input)
       }
+      let body_env = env.with_label(block_label_types(bt, env, false))
       for instr in body.0 {
-        match instr_to_tinstr(instr, body_stack, env) {
+        match instr_to_tinstr(instr, body_stack, body_env) {
           Ok(_) => ()
           Err(t) => return Err(t)
         }
@@ -2757,8 +2786,9 @@ fn instr_to_tinstr(
       for input in inputs {
         body_stack.push(input)
       }
+      let body_env = env.with_label(block_label_types(bt, env, true))
       for instr in body.0 {
-        match instr_to_tinstr(instr, body_stack, env) {
+        match instr_to_tinstr(instr, body_stack, body_env) {
           Ok(_) => ()
           Err(t) => return Err(t)
         }
@@ -2779,8 +2809,9 @@ fn instr_to_tinstr(
       for input in inputs {
         then_stack.push(input)
       }
+      let branch_env = env.with_label(block_label_types(bt, env, false))
       for instr in then_branch {
-        match instr_to_tinstr(instr, then_stack, env) {
+        match instr_to_tinstr(instr, then_stack, branch_env) {
           Ok(_) => ()
           Err(t) => return Err(t)
         }
@@ -2792,7 +2823,7 @@ fn instr_to_tinstr(
             else_stack.push(input)
           }
           for instr in else_instrs {
-            match instr_to_tinstr(instr, else_stack, env) {
+            match instr_to_tinstr(instr, else_stack, branch_env) {
               Ok(_) => ()
               Err(t) => return Err(t)
             }
@@ -2813,8 +2844,9 @@ fn instr_to_tinstr(
       for input in inputs {
         body_stack.push(input)
       }
+      let body_env = env.with_label(block_label_types(bt, env, false))
       for instr in body.0 {
-        match instr_to_tinstr(instr, body_stack, env) {
+        match instr_to_tinstr(instr, body_stack, body_env) {
           Ok(_) => ()
           Err(t) => return Err(t)
         }
@@ -2835,11 +2867,7 @@ fn instr_to_tinstr(
 
     // === Branches ===
     Br(label) => {
-      // Get the arity from label
-      let arity = match env.get_label(label) {
-        Some(types) => types.length()
-        None => 0
-      }
+      let arity = label_arity(env, label)
       let values = match pop_n(stack, arity) {
         Ok(t) => t
         Err(t) => return Err(t)
@@ -2851,10 +2879,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      let arity = match env.get_label(label) {
-        Some(types) => types.length()
-        None => 0
-      }
+      let arity = label_arity(env, label)
       let values = match pop_n(stack, arity) {
         Ok(t) => t
         Err(t) => return Err(t)
@@ -2866,10 +2891,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      let arity = match env.get_label(default) {
-        Some(types) => types.length()
-        None => 0
-      }
+      let arity = label_arity(env, default)
       let values = match pop_n(stack, arity) {
         Ok(t) => t
         Err(t) => return Err(t)
@@ -2884,10 +2906,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      let arity = match env.get_label(label) {
-        Some(types) => types.length()
-        None => 0
-      }
+      let arity = label_arity(env, label)
       let values = match pop_n(stack, arity) {
         Ok(t) => t
         Err(t) => return Err(t)
@@ -2899,10 +2918,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      let arity = match env.get_label(label) {
-        Some(types) => types.length()
-        None => 0
-      }
+      let arity = label_prefix_arity(env, label)
       let values = match pop_n(stack, arity) {
         Ok(t) => t
         Err(t) => return Err(t)
@@ -2914,10 +2930,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      let arity = match env.get_label(label) {
-        Some(types) => types.length()
-        None => 0
-      }
+      let arity = label_prefix_arity(env, label)
       let values = match pop_n(stack, arity) {
         Ok(t) => t
         Err(t) => return Err(t)
@@ -2931,10 +2944,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      let arity = match env.get_label(label) {
-        Some(types) => types.length()
-        None => 0
-      }
+      let arity = label_prefix_arity(env, label)
       let values = match pop_n(stack, arity) {
         Ok(t) => t
         Err(t) => return Err(t)

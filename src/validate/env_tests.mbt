@@ -881,6 +881,380 @@ test "to_texpr branch-on-ref family underflows on empty stack" {
 }
 
 ///|
+test "to_texpr nested block br 0 uses innermost label result arity" {
+  let env = Env::new()
+  let expr = Expr::new([
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::br(LabelIdx::new(0)),
+      ]),
+    ),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok({ instrs, .. }) => {
+      assert_eq(instrs.length(), 1)
+      match instrs[0].kind {
+        TInstrKind::TBlock(_, { instrs: body, .. }) => {
+          assert_eq(body.length(), 1)
+          match body[0].kind {
+            TInstrKind::TBr(LabelIdx(depth), args) => {
+              assert_eq(depth, 0U)
+              assert_eq(args.length(), 1)
+            }
+            _ => fail("expected inner br in block body")
+          }
+        }
+        _ => fail("expected converted block")
+      }
+    }
+  }
+}
+
+///|
+test "to_texpr nested block br 1 resolves to outer label arity" {
+  let env = Env::new()
+  let expr = Expr::new([
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::i32_const(I32(42)),
+            Instruction::br(LabelIdx::new(1)),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok({ instrs, .. }) => {
+      assert_eq(instrs.length(), 1)
+      match instrs[0].kind {
+        TInstrKind::TBlock(_, { instrs: outer_body, .. }) => {
+          assert_eq(outer_body.length(), 1)
+          match outer_body[0].kind {
+            TInstrKind::TBlock(_, { instrs: inner_body, .. }) => {
+              assert_true(inner_body.length() > 0)
+              let last = inner_body[inner_body.length() - 1]
+              match last.kind {
+                TInstrKind::TBr(LabelIdx(depth), args) => {
+                  assert_eq(depth, 1U)
+                  assert_eq(args.length(), 1)
+                }
+                _ => fail("expected inner block to end with br 1")
+              }
+            }
+            _ => fail("expected nested block")
+          }
+        }
+        _ => fail("expected outer block")
+      }
+    }
+  }
+}
+
+///|
+test "to_texpr nested loop br 0 uses loop parameter arity" {
+  let ft = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i64()])),
+  )
+  let env = Env::new().with_rectype(ft)
+  let expr = Expr::new([
+    Instruction::i32_const(I32(9)),
+    Instruction::loop_(
+      BlockType::type_idx(TypeIdx::new(0)),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::br(LabelIdx::new(0)),
+      ]),
+    ),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok({ instrs, .. }) => {
+      assert_eq(instrs.length(), 1)
+      match instrs[0].kind {
+        TInstrKind::TLoop(_, { instrs: body, .. }) => {
+          assert_true(body.length() > 0)
+          let last = body[body.length() - 1]
+          match last.kind {
+            TInstrKind::TBr(LabelIdx(depth), args) => {
+              assert_eq(depth, 0U)
+              assert_eq(args.length(), 1)
+            }
+            _ => fail("expected loop body to end with br 0")
+          }
+        }
+        _ => fail("expected converted loop")
+      }
+    }
+  }
+}
+
+///|
+test "to_texpr nested if branches resolve outer labels for br 1" {
+  let env = Env::new()
+  let expr = Expr::new([
+    Instruction::block(
+      BlockType::val_type(ValType::i64()),
+      Expr::new([
+        Instruction::i32_const(I32(1)),
+        Instruction::if_(
+          BlockType::void_(),
+          [Instruction::i64_const(I64(7L)), Instruction::br(LabelIdx::new(1))],
+          Some([
+            Instruction::i64_const(I64(8L)),
+            Instruction::br(LabelIdx::new(1)),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok({ instrs, .. }) => {
+      assert_eq(instrs.length(), 1)
+      match instrs[0].kind {
+        TInstrKind::TBlock(_, { instrs: body, .. }) =>
+          match body[0].kind {
+            TInstrKind::TIf(
+              _,
+              _,
+              { instrs: if_true, .. },
+              Some({ instrs: if_false, .. })
+            ) => {
+              assert_eq(if_true.length(), 1)
+              assert_eq(if_false.length(), 1)
+              match if_true[0].kind {
+                TInstrKind::TBr(LabelIdx(depth), args) => {
+                  assert_eq(depth, 1U)
+                  assert_eq(args.length(), 1)
+                }
+                _ => fail("expected then branch br 1")
+              }
+              match if_false[0].kind {
+                TInstrKind::TBr(LabelIdx(depth), args) => {
+                  assert_eq(depth, 1U)
+                  assert_eq(args.length(), 1)
+                }
+                _ => fail("expected else branch br 1")
+              }
+            }
+            _ => fail("expected if in outer block")
+          }
+        _ => fail("expected outer block")
+      }
+    }
+  }
+}
+
+///|
+test "to_texpr nested br_table resolves label arity against active label stack" {
+  let env = Env::new()
+  let expr = Expr::new([
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::i32_const(I32(33)),
+            Instruction::i32_const(I32(0)),
+            Instruction::br_table([LabelIdx::new(1)], LabelIdx::new(1)),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok({ instrs, .. }) => {
+      assert_eq(instrs.length(), 1)
+      match instrs[0].kind {
+        TInstrKind::TBlock(_, { instrs: outer_body, .. }) =>
+          match outer_body[0].kind {
+            TInstrKind::TBlock(_, { instrs: inner_body, .. }) => {
+              assert_true(inner_body.length() > 0)
+              let last = inner_body[inner_body.length() - 1]
+              match last.kind {
+                TInstrKind::TBrTable(_, LabelIdx(ldef), _, args) => {
+                  assert_eq(ldef, 1U)
+                  assert_eq(args.length(), 1)
+                }
+                _ => fail("expected inner br_table")
+              }
+            }
+            _ => fail("expected nested block")
+          }
+        _ => fail("expected outer block")
+      }
+    }
+  }
+}
+
+///|
+test "to_texpr try_table body resolves label 0 arity for br 0" {
+  let env = Env::new()
+  let expr = Expr::new([
+    Instruction::try_table(
+      BlockType::val_type(ValType::i32()),
+      [],
+      Expr::new([
+        Instruction::i32_const(I32(5)),
+        Instruction::br(LabelIdx::new(0)),
+      ]),
+    ),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok({ instrs, .. }) => {
+      assert_eq(instrs.length(), 1)
+      match instrs[0].kind {
+        TInstrKind::TTryTable(_, _, { instrs: body, .. }) => {
+          assert_eq(body.length(), 1)
+          match body[0].kind {
+            TInstrKind::TBr(LabelIdx(depth), args) => {
+              assert_eq(depth, 0U)
+              assert_eq(args.length(), 1)
+            }
+            _ => fail("expected try_table body br 0")
+          }
+        }
+        _ => fail("expected converted try_table")
+      }
+    }
+  }
+}
+
+///|
+test "to_texpr br_on_non_null pops only label prefix arguments" {
+  let result_types = [
+    ValType::i32(),
+    ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
+  ]
+  let ft = RecType::new(SubType::comp_type(CompType::func([], result_types)))
+  let env = Env::new().with_rectype(ft)
+  let expr = Expr::new([
+    Instruction::block(
+      BlockType::type_idx(TypeIdx::new(0)),
+      Expr::new([
+        Instruction::i32_const(I32(9)),
+        Instruction::ref_null(HeapType::abs(AbsHeapType::func())),
+        Instruction::br_on_non_null(LabelIdx::new(0)),
+      ]),
+    ),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok({ instrs, .. }) =>
+      match instrs[0].kind {
+        TInstrKind::TBlock(_, { instrs: body, .. }) => {
+          assert_eq(body.length(), 1)
+          match body[0].kind {
+            TInstrKind::TBrOnNonNull(LabelIdx(depth), _, args) => {
+              assert_eq(depth, 0U)
+              assert_eq(args.length(), 1)
+            }
+            _ => fail("expected br_on_non_null in block body")
+          }
+        }
+        _ => fail("expected converted block")
+      }
+  }
+}
+
+///|
+test "to_texpr br_on_cast pops only label prefix arguments" {
+  let result_types = [
+    ValType::i32(),
+    ValType::ref_null(HeapType::abs(AbsHeapType::func())),
+  ]
+  let ft = RecType::new(SubType::comp_type(CompType::func([], result_types)))
+  let env = Env::new().with_rectype(ft)
+  let expr = Expr::new([
+    Instruction::block(
+      BlockType::type_idx(TypeIdx::new(0)),
+      Expr::new([
+        Instruction::i32_const(I32(9)),
+        Instruction::ref_null(HeapType::abs(AbsHeapType::any())),
+        Instruction::br_on_cast(
+          LabelIdx::new(0),
+          true,
+          HeapType::abs(AbsHeapType::any()),
+          true,
+          HeapType::abs(AbsHeapType::func()),
+        ),
+      ]),
+    ),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok({ instrs, .. }) =>
+      match instrs[0].kind {
+        TInstrKind::TBlock(_, { instrs: body, .. }) => {
+          assert_eq(body.length(), 1)
+          match body[0].kind {
+            TInstrKind::TBrOnCast(LabelIdx(depth), _, _, _, _, args) => {
+              assert_eq(depth, 0U)
+              assert_eq(args.length(), 1)
+            }
+            _ => fail("expected br_on_cast in block body")
+          }
+        }
+        _ => fail("expected converted block")
+      }
+  }
+}
+
+///|
+test "to_texpr br_on_cast_fail pops only label prefix arguments" {
+  let result_types = [
+    ValType::i32(),
+    ValType::ref_null(HeapType::abs(AbsHeapType::func())),
+  ]
+  let ft = RecType::new(SubType::comp_type(CompType::func([], result_types)))
+  let env = Env::new().with_rectype(ft)
+  let expr = Expr::new([
+    Instruction::block(
+      BlockType::type_idx(TypeIdx::new(0)),
+      Expr::new([
+        Instruction::i32_const(I32(9)),
+        Instruction::ref_null(HeapType::abs(AbsHeapType::func())),
+        Instruction::br_on_cast_fail(
+          LabelIdx::new(0),
+          true,
+          HeapType::abs(AbsHeapType::func()),
+          false,
+          HeapType::abs(AbsHeapType::func()),
+        ),
+      ]),
+    ),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok({ instrs, .. }) =>
+      match instrs[0].kind {
+        TInstrKind::TBlock(_, { instrs: body, .. }) => {
+          assert_eq(body.length(), 1)
+          match body[0].kind {
+            TInstrKind::TBrOnCastFail(LabelIdx(depth), _, _, _, _, args) => {
+              assert_eq(depth, 0U)
+              assert_eq(args.length(), 1)
+            }
+            _ => fail("expected br_on_cast_fail in block body")
+          }
+        }
+        _ => fail("expected converted block")
+      }
+  }
+}
+
+///|
 test "to_texpr ternary v128 underflow with empty stack" {
   let env = Env::new()
   let expr = Expr::new([Instruction::v128_bitselect()])
