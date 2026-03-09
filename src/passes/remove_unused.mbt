@@ -1526,7 +1526,8 @@ fn build_remappings(
 ///|
 fn make_func_unreachable(func : Func) -> Func {
   match func {
-    TFunc(_, _, _) => Func::t_func([], [], TExpr::new([TInstr::unreachable_()]))
+    TFunc(params, _, _) =>
+      Func::t_func(params, [], TExpr::new([TInstr::unreachable_()]))
     Func(_, _) => Func::new([], Expr::new([Instruction::unreachable_()]))
   }
 }
@@ -3511,6 +3512,72 @@ test "typed element expressions keep referenced funcs and rewrite body in closed
       assert_eq(new_mod.func_sec.unwrap().0.length(), 2)
       assert_eq(new_mod.elem_sec.unwrap().0.length(), 1)
       assert_true(func_body_is_unreachable(new_mod.code_sec.unwrap().0[1]))
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "closed world unreachable rewrite preserves typed function params" {
+  let type_sec = TypeSec::new([
+    make_void_func_type(),
+    RecType::new(
+      SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+    ),
+  ])
+  let func_sec = FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)])
+  let main_body = Func::t_func(
+    [],
+    [],
+    TExpr::new([
+      TInstr::drop(TInstr::ref_func(FuncIdx::new(1))),
+      TInstr::return_([]),
+    ]),
+  )
+  let referenced_body = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
+  )
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(CodeSec::new([main_body, referenced_body]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::funcref(), false),
+          Expr::new([Instruction::ref_func(FuncIdx::new(1))]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+        Export::new(
+          Name::new("keep_decl"),
+          ExternIdx::global(GlobalIdx::new(0)),
+        ),
+      ]),
+    )
+
+  match remove_unused(mod) {
+    Ok(new_mod) => {
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 2)
+      match new_mod.code_sec.unwrap().0[1] {
+        TFunc(params, locals, { instrs, .. }) => {
+          assert_eq(params, [ValType::i32()])
+          assert_eq(locals.length(), 0)
+          assert_eq(instrs.length(), 1)
+          assert_true(instrs[0].kind is TInstrKind::TUnreachable)
+        }
+        _ => fail("expected typed referenced-only function body")
+      }
+      match validate_module(new_mod) {
+        Ok(_) => ()
+        Err(e) =>
+          fail("expected closed-world rewritten module to validate: \{e}")
+      }
     }
     Err(e) => fail("unexpected error: \{e}")
   }

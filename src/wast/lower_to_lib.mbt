@@ -5542,6 +5542,7 @@ test "wast_to_binary_module reuses matching function type for implicit typeuse" 
     #|(module
     #|  (type $t (func))
     #|  (func $dummy)
+    #|  (elem declare func $dummy)
     #|  (tag $e (param (ref $t)))
     #|  (func (throw $e (ref.func $dummy))))
   let lowered = match wast_to_binary_module(src) {

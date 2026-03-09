@@ -1276,6 +1276,222 @@ fn validate_exportsec_unique(
 }
 
 ///|
+fn mark_declared_func(declared : Array[Bool], f : FuncIdx) -> Unit {
+  let FuncIdx(i) = f
+  let ii = i.reinterpret_as_int()
+  if ii >= 0 && ii < declared.length() {
+    declared[ii] = true
+  }
+}
+
+///|
+fn mark_declared_ref_funcs_in_instr(
+  instr : Instruction,
+  declared : Array[Bool],
+) -> Unit {
+  match instr {
+    RefFunc(f) => mark_declared_func(declared, f)
+    Block(_, Expr(body)) | Loop(_, Expr(body)) =>
+      for inner in body {
+        mark_declared_ref_funcs_in_instr(inner, declared)
+      }
+    If(_, then_body, else_body) => {
+      for inner in then_body {
+        mark_declared_ref_funcs_in_instr(inner, declared)
+      }
+      match else_body {
+        Some(branch) =>
+          for inner in branch {
+            mark_declared_ref_funcs_in_instr(inner, declared)
+          }
+        None => ()
+      }
+    }
+    TryTable(_, _, Expr(body)) =>
+      for inner in body {
+        mark_declared_ref_funcs_in_instr(inner, declared)
+      }
+    _ => ()
+  }
+}
+
+///|
+fn mark_declared_ref_funcs_in_expr(expr : Expr, declared : Array[Bool]) -> Unit {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    mark_declared_ref_funcs_in_instr(instr, declared)
+  }
+}
+
+///|
+fn collect_declared_funcs_bitmap(mod : Module, env : Env) -> Array[Bool] {
+  let declared = Array::make(env.funcs.length(), false)
+
+  match mod.export_sec {
+    Some(ExportSec(exports)) =>
+      for exp in exports {
+        match exp {
+          Export(_, FuncExternIdx(f)) => mark_declared_func(declared, f)
+          _ => ()
+        }
+      }
+    None => ()
+  }
+
+  match mod.global_sec {
+    Some(GlobalSec(globals)) =>
+      for global in globals {
+        let Global(_, init) = global
+        mark_declared_ref_funcs_in_expr(init, declared)
+      }
+    None => ()
+  }
+
+  match mod.table_sec {
+    Some(TableSec(tables)) =>
+      for table in tables {
+        let Table(_, init_opt) = table
+        match init_opt {
+          Some(init) => mark_declared_ref_funcs_in_expr(init, declared)
+          None => ()
+        }
+      }
+    None => ()
+  }
+
+  match mod.elem_sec {
+    Some(ElemSec(elems)) =>
+      for elem in elems {
+        let Elem(_, kind) = elem
+        match kind {
+          FuncsElemKind(funcs) =>
+            for f in funcs {
+              mark_declared_func(declared, f)
+            }
+          FuncExprsElemKind(exprs) | TypedExprsElemKind(_, exprs) =>
+            for expr in exprs {
+              mark_declared_ref_funcs_in_expr(expr, declared)
+            }
+        }
+      }
+    None => ()
+  }
+
+  declared
+}
+
+///|
+fn validate_ref_func_declarations_in_instr(
+  instr : Instruction,
+  env : Env,
+  declared : Array[Bool],
+) -> Result[Unit, String] {
+  match instr {
+    RefFunc(f) => {
+      if env.has_func(f) {
+        let FuncIdx(i) = f
+        let ii = i.reinterpret_as_int()
+        if ii >= 0 && ii < declared.length() && !declared[ii] {
+          return Err("undeclared function reference: \{f}")
+        }
+      }
+      Ok(())
+    }
+    Block(_, Expr(body)) | Loop(_, Expr(body)) => {
+      for inner in body {
+        if validate_ref_func_declarations_in_instr(inner, env, declared)
+          is Err(e) {
+          return Err(e)
+        }
+      }
+      Ok(())
+    }
+    If(_, then_body, else_body) => {
+      for inner in then_body {
+        if validate_ref_func_declarations_in_instr(inner, env, declared)
+          is Err(e) {
+          return Err(e)
+        }
+      }
+      match else_body {
+        Some(branch) =>
+          for inner in branch {
+            if validate_ref_func_declarations_in_instr(inner, env, declared)
+              is Err(e) {
+              return Err(e)
+            }
+          }
+        None => ()
+      }
+      Ok(())
+    }
+    TryTable(_, _, Expr(body)) => {
+      for inner in body {
+        if validate_ref_func_declarations_in_instr(inner, env, declared)
+          is Err(e) {
+          return Err(e)
+        }
+      }
+      Ok(())
+    }
+    _ => Ok(())
+  }
+}
+
+///|
+fn validate_ref_func_declarations_in_expr(
+  expr : Expr,
+  env : Env,
+  declared : Array[Bool],
+) -> Result[Unit, String] {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    if validate_ref_func_declarations_in_instr(instr, env, declared) is Err(e) {
+      return Err(e)
+    }
+  }
+  Ok(())
+}
+
+///|
+fn validate_ref_func_declarations_in_codesec(
+  codesec_opt : CodeSec?,
+  funcsec_opt : FuncSec?,
+  env : Env,
+  imported_func_count : Int,
+  declared : Array[Bool],
+) -> Result[Unit, ValidationDiagnostic] {
+  match (codesec_opt, funcsec_opt) {
+    (Some(CodeSec(bodies)), Some(FuncSec(type_idxs))) => {
+      if bodies.length() != type_idxs.length() {
+        return Ok(())
+      }
+      for i in 0..<bodies.length() {
+        let func_idx = FuncIdx::new(
+          (imported_func_count + i).reinterpret_as_uint(),
+        )
+        let body_expr = match bodies[i] {
+          Func(_, expr) => expr
+          TFunc(_, _, texpr) => TExpr::to_expr(texpr)
+        }
+        match validate_ref_func_declarations_in_expr(body_expr, env, declared) {
+          Ok(_) => ()
+          Err(t) =>
+            return Err(
+              ValidationDiagnostic::new(
+                ValidationIssue::FunctionBody(t),
+                func_idx=Some(func_idx),
+              ),
+            )
+        }
+      }
+      Ok(())
+    }
+    _ => Ok(())
+  }
+}
+
+///|
 /// Validates a whole module from an empty context, building its Env incrementally.
 fn validate_module_impl(m : Module) -> Result[Unit, ValidationDiagnostic] {
   let {
@@ -1391,6 +1607,15 @@ fn validate_module_impl(m : Module) -> Result[Unit, ValidationDiagnostic] {
     Ok(_) => ()
     Err(t) =>
       return Err(ValidationDiagnostic::new(ValidationIssue::ExportSection(t)))
+  }
+
+  let declared_funcs = collect_declared_funcs_bitmap(m, env)
+  match
+    validate_ref_func_declarations_in_codesec(
+      codesec_opt, funcsec_opt, env, imported_func_count, declared_funcs,
+    ) {
+    Ok(_) => ()
+    Err(t) => return Err(t)
   }
 
   // (9) Code: typecheck each function body against env.funcs
@@ -1549,6 +1774,95 @@ test "validate_module rejects legacy typed locals that duplicate param prefix" {
   match validate_module(mod) {
     Ok(_) => fail("expected duplicated param-prefix locals to fail validation")
     Err(_) => ()
+  }
+}
+
+///|
+test "validate_module rejects undeclared function reference in body" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          [],
+          Expr::new([
+            Instruction::ref_func(FuncIdx::new(0U)),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => fail("expected undeclared function reference to fail validation")
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      assert_true(
+        validation_error_message(err).contains("undeclared function reference"),
+      )
+    }
+  }
+}
+
+///|
+test "validate_module does not treat start as a ref.func declaration source" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_start_sec(StartSec::new(FuncIdx::new(0U)))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          [],
+          Expr::new([
+            Instruction::ref_func(FuncIdx::new(0U)),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) =>
+      fail(
+        "expected start entry alone to be insufficient for ref.func declaration",
+      )
+    Err(err) =>
+      assert_true(
+        validation_error_message(err).contains("undeclared function reference"),
+      )
+  }
+}
+
+///|
+test "validate_module accepts ref.func body when function is exported" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          [],
+          Expr::new([
+            Instruction::ref_func(FuncIdx::new(0U)),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("f"), ExternIdx::func(FuncIdx::new(0U))),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected exported function to count as declared for ref.func: \{validation_error_message(err)}",
+      )
   }
 }
 

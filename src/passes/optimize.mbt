@@ -4311,6 +4311,12 @@ test "optimize_module runs GUFA pass" {
       FuncSec::new([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(0)]),
     )
     .with_code_sec(CodeSec::new([root, f1, f2]))
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("f1"), ExternIdx::func(FuncIdx::new(1))),
+        Export::new(Name::new("f2"), ExternIdx::func(FuncIdx::new(2))),
+      ]),
+    )
   let optimized = match optimize_module(mod, [GUFA]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")

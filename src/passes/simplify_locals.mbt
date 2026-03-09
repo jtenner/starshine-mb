@@ -4133,6 +4133,11 @@ test "simplify_locals no-tee-no-structure preserves exact local type for untyped
         ),
       ]),
     )
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("f"), ExternIdx::func(FuncIdx::new(0))),
+      ]),
+    )
   let out = sl_run_simplify_locals(
     mod,
     allow_tee=false,
@@ -4582,6 +4587,11 @@ test "simplify_locals ID-P4 allows single-use sink from subtype value into super
             TInstr::drop(TInstr::local_get(x)),
           ]),
         ),
+      ]),
+    )
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("f"), ExternIdx::func(FuncIdx::new(0))),
       ]),
     )
   let out = sl_run_simplify_locals(

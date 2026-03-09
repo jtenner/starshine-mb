@@ -2056,6 +2056,15 @@ pub fn gen_valid_module(rnd : RandomState) -> Module {
 
   // Generate elem segments (needs func_idx to be set)
   let elem_segments = gen_elem_segments(ctx)
+  let declared_funcs : Array[FuncIdx] = []
+  for i in 0..<ctx.func_idx {
+    declared_funcs.push(FuncIdx::new(i.reinterpret_as_uint()))
+  }
+  if declared_funcs.length() > 0 {
+    elem_segments.push(
+      Elem::new(ElemMode::declarative(), ElemKind::funcs(declared_funcs)),
+    )
+  }
 
   // Generate data segments
   let data_segments = gen_data_segments(ctx)

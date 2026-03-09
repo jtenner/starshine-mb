@@ -2495,6 +2495,12 @@ test "merge similar functions parameterizes call target using call_ref" {
       ]),
     )
     .with_code_sec(CodeSec::new([callee_a, callee_b, wrap_a, wrap_b]))
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("callee_a"), ExternIdx::func(FuncIdx::new(0))),
+        Export::new(Name::new("callee_b"), ExternIdx::func(FuncIdx::new(1))),
+      ]),
+    )
   let out = msf_run(mod)
   let shared_abs = msf_shared_abs_index(out)
   match out.code_sec {
@@ -2856,6 +2862,12 @@ test "merge similar functions accepts safe call-target arity" {
       ]),
     )
     .with_code_sec(CodeSec::new([callee_a, callee_b, wrap_a, wrap_b]))
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("callee_a"), ExternIdx::func(FuncIdx::new(0))),
+        Export::new(Name::new("callee_b"), ExternIdx::func(FuncIdx::new(1))),
+      ]),
+    )
   let out = msf_run(mod)
   assert_eq(validate_module(out), Ok(()))
 }
