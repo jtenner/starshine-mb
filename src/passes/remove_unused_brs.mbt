@@ -36,6 +36,9 @@ const RUB_TRACE_NO_PROGRESS_TIMEOUT_MS : UInt64 = 2000UL
 const RUB_NO_PROGRESS_TIMEOUT : String = "__remove_unused_brs_no_progress_timeout__"
 
 ///|
+const RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED : String = "__remove_unused_brs_jump_thread_br_child_scope_rewrite_aborted__"
+
+///|
 const RUB_JUMP_THREAD_BR_CHILD_SCOPE_SCAN_VISIT_BUDGET : Int = 200000
 
 ///|
@@ -43,6 +46,15 @@ const RUB_JUMP_THREAD_BR_CHILD_SCOPE_SCAN_GUARD_INTERVAL : Int = 256
 
 ///|
 const RUB_JUMP_THREAD_BR_CHILD_SCOPE_SCAN_TIMEOUT_MS : UInt64 = 200UL
+
+///|
+const RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_VISIT_BUDGET : Int = 20000
+
+///|
+const RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_GUARD_INTERVAL : Int = 256
+
+///|
+const RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_TIMEOUT_MS : UInt64 = 200UL
 
 ///|
 fn rub_trace_noop(_ : String) -> Unit {
@@ -100,6 +112,14 @@ priv enum RUBChildScopeBranchScanResult {
 
 ///|
 priv struct RUBChildScopeBranchScanState {
+  remaining_budget : Ref[Int]
+  visits_until_guard : Ref[Int]
+  start_ms : UInt64
+  trace_state : RUBRoundTraceState?
+}
+
+///|
+priv struct RUBChildScopeBranchRewriteState {
   remaining_budget : Ref[Int]
   visits_until_guard : Ref[Int]
   start_ms : UInt64
@@ -866,13 +886,27 @@ fn rub_wrap_sinked_loop_body(expr : TExpr) -> TExpr {
 fn rub_redirect_simple_child_scope_branches(
   expr : TExpr,
   fallthrough_label : LabelIdx,
+  trace_state? : RUBRoundTraceState? = None,
 ) -> (TExpr, Bool) {
   let target_base = rub_label_to_int(fallthrough_label) + 1
+  let rewrite_state : RUBChildScopeBranchRewriteState = {
+    remaining_budget: Ref::new(
+      RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_VISIT_BUDGET,
+    ),
+    visits_until_guard: Ref::new(
+      RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_GUARD_INTERVAL,
+    ),
+    start_ms: sl_trace_now_ms(),
+    trace_state,
+  }
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     depth,
     instr,
   ) {
+    if !rub_take_child_scope_branch_rewrite_step(rewrite_state) {
+      return Err(RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED)
+    }
     let walked = match self.walk_tinstruction_default(depth, instr) {
       Ok(Some((_, updated))) => updated
       Ok(None) => instr
@@ -900,7 +934,20 @@ fn rub_redirect_simple_child_scope_branches(
   match pass.walk_texpr(0, expr) {
     Ok(Some((_, out))) => (out, true)
     Ok(None) => (expr, false)
-    Err(e) => abort("remove_unused_brs child jump-thread failed: \{e}")
+    Err(e) =>
+      if e == RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_ABORTED {
+        let visits = RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_VISIT_BUDGET -
+          rewrite_state.remaining_budget.val
+        rub_trace_log_helper_event(
+          trace_state,
+          "jump_thread_br",
+          "rewrite_abort",
+          "body_instrs=\{expr.instrs.length()} visits=\{visits}",
+        )
+        (expr, false)
+      } else {
+        abort("remove_unused_brs child jump-thread failed: \{e}")
+      }
   }
 }
 
@@ -1310,6 +1357,34 @@ fn rub_take_child_scope_branch_scan_step(
     rub_trace_check_no_progress(
       scan_state.trace_state,
       "helper=jump_thread_br:scan_body",
+    ) {
+    Ok(_) => true
+    Err(_) => false
+  }
+}
+
+///|
+fn rub_take_child_scope_branch_rewrite_step(
+  rewrite_state : RUBChildScopeBranchRewriteState,
+) -> Bool {
+  if rewrite_state.remaining_budget.val <= 0 {
+    return false
+  }
+  rewrite_state.remaining_budget.val -= 1
+  let next_visits_until_guard = rewrite_state.visits_until_guard.val - 1
+  if next_visits_until_guard > 0 {
+    rewrite_state.visits_until_guard.val = next_visits_until_guard
+    return true
+  }
+  rewrite_state.visits_until_guard.val = RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_GUARD_INTERVAL
+  if sl_trace_elapsed_ms(rewrite_state.start_ms) >=
+    RUB_JUMP_THREAD_BR_CHILD_SCOPE_REWRITE_TIMEOUT_MS {
+    return false
+  }
+  match
+    rub_trace_check_no_progress(
+      rewrite_state.trace_state,
+      "helper=jump_thread_br:rewrite_body",
     ) {
     Ok(_) => true
     Err(_) => false
@@ -2533,7 +2608,9 @@ fn rub_optimize_jump_thread_child_block_following_br(
                 ScanFound => ()
               }
               let (next_body, body_changed) = rub_redirect_simple_child_scope_branches(
-                body, fallthrough_label,
+                body,
+                fallthrough_label,
+                trace_state~,
               )
               if body_changed {
                 instrs[i] = TInstr::block(BlockType::void_(), next_body)
@@ -10111,6 +10188,22 @@ test "remove_unused_brs jump threads single-br block wrappers with leading nop" 
         "expected nested single-br wrappers with a leading nop to thread and disappear",
       )
   }
+}
+
+///|
+test "remove_unused_brs jump_thread_br skips oversized child-block rewrite" {
+  let large_body : Array[TInstr] = []
+  for _ in 0..<25000 {
+    large_body.push(TInstr::nop())
+  }
+  large_body.push(TInstr::br(LabelIdx::new(0), []))
+
+  let instrs : Array[TInstr] = [
+    TInstr::block(BlockType::void_(), TExpr::new(large_body)),
+    TInstr::br(LabelIdx::new(0), []),
+  ]
+  let changed = rub_optimize_jump_thread_child_block_following_br(instrs)
+  assert_false(changed)
 }
 
 ///|
