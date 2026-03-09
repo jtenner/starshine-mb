@@ -1918,6 +1918,60 @@ fn msf_param_value_for_member(param : ParamInfo, member_idx : Int) -> TInstr? {
 }
 
 ///|
+fn msf_has_func_idx(items : Array[FuncIdx], value : FuncIdx) -> Bool {
+  for item in items {
+    if item == value {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn msf_collect_synthesized_ref_func_targets(
+  params : Array[ParamInfo],
+) -> Array[FuncIdx] {
+  let out : Array[FuncIdx] = []
+  for param in params {
+    match param.kind {
+      CallTargetParam(_, _, _, targets) =>
+        for target in targets {
+          if !msf_has_func_idx(out, target) {
+            out.push(target)
+          }
+        }
+      LiteralParam(_, values) =>
+        for value in values {
+          match value.kind {
+            TInstrKind::TRefFunc(target) =>
+              if !msf_has_func_idx(out, target) {
+                out.push(target)
+              }
+            _ => ()
+          }
+        }
+    }
+  }
+  out
+}
+
+///|
+fn msf_append_ref_func_declaration_segment(
+  mod : Module,
+  targets : Array[FuncIdx],
+) -> Module {
+  if targets.is_empty() {
+    return mod
+  }
+  let elems = match mod.elem_sec {
+    Some(ElemSec(items)) => items.copy()
+    None => []
+  }
+  elems.push(Elem::new(ElemMode::declarative(), ElemKind::funcs(targets)))
+  mod.with_elem_sec(ElemSec::new(elems))
+}
+
+///|
 fn replace_with_thunk(
   target : Func,
   shared : FuncIdx,
@@ -1971,6 +2025,7 @@ fn msf_apply_class(
   let primary_ordinal = clazz.primary_def_idx + 1
   let import_count = msf_count_imported_funcs(mod)
   let func_types = msf_collect_func_types(mod)
+  let declared_targets = msf_collect_synthesized_ref_func_targets(params)
   let primary_abs = import_count + clazz.primary_def_idx
   if primary_abs < 0 || primary_abs >= func_types.length() {
     return Ok(mod)
@@ -2042,7 +2097,12 @@ fn msf_apply_class(
       )
     }
   }
-  Ok(mod.with_code_sec(CodeSec::new(next_funcs)))
+  Ok(
+    msf_append_ref_func_declaration_segment(
+      mod.with_code_sec(CodeSec::new(next_funcs)),
+      declared_targets,
+    ),
+  )
 }
 
 ///|
@@ -2868,6 +2928,59 @@ test "merge similar functions accepts safe call-target arity" {
         Export::new(Name::new("callee_b"), ExternIdx::func(FuncIdx::new(1))),
       ]),
     )
+  let out = msf_run(mod)
+  assert_eq(validate_module(out), Ok(()))
+}
+
+///|
+test "merge similar functions declares synthesized ref.func call targets" {
+  let t_callee = msf_make_func_type([ValType::i32()], [ValType::i32()])
+  let t_wrap = msf_make_func_type([], [])
+  let callee_a = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
+  )
+  let callee_b = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::i32_const(I32(1)),
+        ),
+      ]),
+    ]),
+  )
+  let wrap_a = Func::t_func(
+    [],
+    [],
+    TExpr::new([
+      TInstr::drop(TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(1))])),
+      TInstr::return_([]),
+    ]),
+  )
+  let wrap_b = Func::t_func(
+    [],
+    [],
+    TExpr::new([
+      TInstr::drop(TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(1))])),
+      TInstr::return_([]),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_callee, t_wrap]))
+    .with_func_sec(
+      FuncSec::new([
+        TypeIdx::new(0),
+        TypeIdx::new(0),
+        TypeIdx::new(1),
+        TypeIdx::new(1),
+      ]),
+    )
+    .with_code_sec(CodeSec::new([callee_a, callee_b, wrap_a, wrap_b]))
   let out = msf_run(mod)
   assert_eq(validate_module(out), Ok(()))
 }
