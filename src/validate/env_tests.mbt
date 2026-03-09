@@ -601,6 +601,60 @@ test "to_texpr return recovers multi-value typed try_table producer" {
 }
 
 ///|
+test "to_texpr br recovers multi-value typed if producer when stack includes zero-result instr" {
+  let env = Env::new().with_rectype(
+    RecType::new(
+      SubType::comp_type(
+        CompType::func([], [ValType::i32(), ValType::i32(), ValType::i32()]),
+      ),
+    ),
+  )
+  let expr = Expr::new([
+    Instruction::block(
+      BlockType::type_idx(TypeIdx::new(0)),
+      Expr::new([
+        Instruction::i32_const(I32(0)),
+        Instruction::drop(),
+        Instruction::i32_const(I32(1)),
+        Instruction::if_(
+          BlockType::type_idx(TypeIdx::new(0)),
+          [
+            Instruction::i32_const(I32(7)),
+            Instruction::i32_const(I32(8)),
+            Instruction::i32_const(I32(9)),
+          ],
+          Some([
+            Instruction::i32_const(I32(10)),
+            Instruction::i32_const(I32(11)),
+            Instruction::i32_const(I32(12)),
+          ]),
+        ),
+        Instruction::br(LabelIdx::new(0)),
+      ]),
+    ),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok({ instrs, .. }) => {
+      assert_eq(instrs.length(), 1)
+      match instrs[0].kind {
+        TInstrKind::TBlock(_, { instrs: body, .. }) => {
+          assert_eq(body.length(), 2)
+          match body[1].kind {
+            TInstrKind::TBr(LabelIdx(lbl), values) => {
+              assert_eq(lbl, 0U)
+              assert_eq(values.length(), 1)
+            }
+            _ => fail("expected final branch in block body")
+          }
+        }
+        _ => fail("expected converted block")
+      }
+    }
+  }
+}
+
+///|
 test "Env.resolve_heaptype_subtype projects DefType heap types" {
   let st = SubType::comp_type(CompType::struct_([]))
   let dt = DefType::new(RecType::new(st), 0)

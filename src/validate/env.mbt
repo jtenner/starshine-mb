@@ -676,34 +676,253 @@ fn pop(stack : Array[TInstr]) -> Result[TInstr, String] {
 }
 
 ///|
-fn pop_n(stack : Array[TInstr], n : Int) -> Result[Array[TInstr], String] {
+fn arity_apply(total : Int, consumed : Int, produced : Int) -> Int {
+  let out = total - consumed + produced
+  if out < 0 {
+    0
+  } else {
+    out
+  }
+}
+
+///|
+fn tinstrs_result_arity(instrs : Array[TInstr], env : Env) -> Int {
+  let mut total = 0
+  for instr in instrs {
+    total += tinstr_result_arity(instr, env)
+  }
+  total
+}
+
+///|
+fn pop_n(
+  stack : Array[TInstr],
+  n : Int,
+  env : Env,
+) -> Result[Array[TInstr], String] {
+  if n <= 0 {
+    return Ok([])
+  }
   let can_reuse_poly_bottom = stack_has_polymorphic_source(stack)
-  if stack.length() < n && !can_reuse_poly_bottom {
+  let available_values = tinstrs_result_arity(stack, env)
+  if available_values < n && !can_reuse_poly_bottom {
     return Err(
-      "Stack underflow: need \{n} values but only \{stack.length()} available",
+      "Stack underflow: need \{n} values but only \{available_values} available",
     )
   }
-  let result : Array[TInstr] = Array::make(n, TInstr::nop())
-  // Pop in reverse order, then we have them in correct order
-  for i = n - 1; i >= 0; i = i - 1 {
-    result[i] = stack.pop().unwrap()
+  let mut remaining = n
+  let rev : Array[TInstr] = []
+  while remaining > 0 {
+    if stack.length() == 0 {
+      // In polymorphic contexts, one terminating source can satisfy any demand.
+      // The concrete producer was already popped; reusing an unreachable marker
+      // preserves stack-polymorphic behavior.
+      rev.push(TInstr::unreachable_())
+      remaining -= 1
+      continue
+    }
+    let top = stack[stack.length() - 1]
+    if is_stack_polymorphic_source(top) {
+      rev.push(top)
+      remaining -= 1
+      continue
+    }
+    let popped = stack.pop().unwrap()
+    rev.push(popped)
+    remaining -= tinstr_result_arity(popped, env)
   }
-  Ok(result)
+  let out : Array[TInstr] = []
+  for instr in rev.rev_iter() {
+    out.push(instr)
+  }
+  Ok(out)
 }
 
 ///|
 fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
   match instr.kind {
-    TInstrKind::TCall(func_idx, _) =>
-      match env.get_functype_by_funcidx(func_idx) {
-        Some(FuncType(_, results)) => results.length()
-        None => 0
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TStructNewDefault(_) => 1
+    TInstrKind::TUnreachable
+    | TInstrKind::TNop
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TThrowRef(_)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TBr(_, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TReturn(_) => 0
+    TInstrKind::TUnary(_, child)
+    | TInstrKind::TLocalTee(_, child)
+    | TInstrKind::TRefIsNull(child)
+    | TInstrKind::TRefAsNonNull(child)
+    | TInstrKind::TI31GetS(child)
+    | TInstrKind::TI31GetU(child)
+    | TInstrKind::TRefI31(child)
+    | TInstrKind::TArrayLen(child)
+    | TInstrKind::TAnyConvertExtern(child)
+    | TInstrKind::TExternConvertAny(child)
+    | TInstrKind::TLoad(_, _, child)
+    | TInstrKind::TMemoryGrow(_, child)
+    | TInstrKind::TTableGet(_, child)
+    | TInstrKind::TStructGet(_, _, child)
+    | TInstrKind::TStructGetS(_, _, child)
+    | TInstrKind::TStructGetU(_, _, child)
+    | TInstrKind::TRefGetDesc(child)
+    | TInstrKind::TRefTest(_, _, child)
+    | TInstrKind::TRefCast(_, _, child)
+    | TInstrKind::TRefTestDesc(_, _, child)
+    | TInstrKind::TRefCastDescEq(_, _, child)
+    | TInstrKind::TI8x16Splat(child)
+    | TInstrKind::TI16x8Splat(child)
+    | TInstrKind::TI32x4Splat(child)
+    | TInstrKind::TI64x2Splat(child)
+    | TInstrKind::TF32x4Splat(child)
+    | TInstrKind::TF64x2Splat(child)
+    | TInstrKind::TExtractLane(_, _, child) => tinstr_result_arity(child, env)
+    TInstrKind::TDrop(child)
+    | TInstrKind::TLocalSet(_, child)
+    | TInstrKind::TGlobalSet(_, child) =>
+      arity_apply(tinstr_result_arity(child, env), 1, 0)
+    TInstrKind::TBinary(_, lhs, rhs)
+    | TInstrKind::TRefEq(lhs, rhs)
+    | TInstrKind::TAtomicRmw(_, _, lhs, rhs)
+    | TInstrKind::TTableGrow(_, lhs, rhs)
+    | TInstrKind::TArrayNew(_, lhs, rhs)
+    | TInstrKind::TArrayNewData(_, _, lhs, rhs)
+    | TInstrKind::TArrayNewElem(_, _, lhs, rhs)
+    | TInstrKind::TArrayGet(_, lhs, rhs)
+    | TInstrKind::TArrayGetS(_, lhs, rhs)
+    | TInstrKind::TArrayGetU(_, lhs, rhs)
+    | TInstrKind::TReplaceLane(_, _, lhs, rhs)
+    | TInstrKind::TI8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      lhs,
+      rhs
+    )
+    | TInstrKind::TI8x16Swizzle(lhs, rhs)
+    | TInstrKind::TI8x16RelaxedSwizzle(lhs, rhs)
+    | TInstrKind::TV128Shift(_, lhs, rhs)
+    | TInstrKind::TV128LoadLane(_, _, _, lhs, rhs)
+    | TInstrKind::TMemoryAtomicNotify(_, lhs, rhs) =>
+      arity_apply(
+        tinstr_result_arity(lhs, env) + tinstr_result_arity(rhs, env),
+        2,
+        1,
+      )
+    TInstrKind::TStore(_, _, lhs, rhs)
+    | TInstrKind::TTableSet(_, lhs, rhs)
+    | TInstrKind::TStructSet(_, _, lhs, rhs)
+    | TInstrKind::TV128StoreLane(_, _, _, lhs, rhs) =>
+      arity_apply(
+        tinstr_result_arity(lhs, env) + tinstr_result_arity(rhs, env),
+        2,
+        0,
+      )
+    TInstrKind::TMemoryFill(_, a, b, c)
+    | TInstrKind::TMemoryCopy(_, _, a, b, c)
+    | TInstrKind::TMemoryInit(_, _, a, b, c)
+    | TInstrKind::TMemoryAtomicWait32(_, a, b, c)
+    | TInstrKind::TMemoryAtomicWait64(_, a, b, c)
+    | TInstrKind::TAtomicCmpxchg(_, _, a, b, c)
+    | TInstrKind::TTableFill(_, a, b, c)
+    | TInstrKind::TTableCopy(_, _, a, b, c)
+    | TInstrKind::TTableInit(_, _, a, b, c)
+    | TInstrKind::TArraySet(_, a, b, c)
+    | TInstrKind::TV128Ternary(_, a, b, c) => {
+      let total = tinstr_result_arity(a, env) +
+        tinstr_result_arity(b, env) +
+        tinstr_result_arity(c, env)
+      let produced = match instr.kind {
+        TInstrKind::TMemoryAtomicWait32(_, _, _, _)
+        | TInstrKind::TMemoryAtomicWait64(_, _, _, _)
+        | TInstrKind::TAtomicCmpxchg(_, _, _, _, _)
+        | TInstrKind::TV128Ternary(_, _, _, _) => 1
+        _ => 0
       }
-    TInstrKind::TCallIndirect(type_idx, _, _, _)
-    | TInstrKind::TCallRef(type_idx, _, _) =>
-      match env.resolve_functype(type_idx) {
-        Some(FuncType(_, results)) => results.length()
-        None => 0
+      arity_apply(total, 3, produced)
+    }
+    TInstrKind::TArrayFill(_, a, b, c, d)
+    | TInstrKind::TArrayInitData(_, _, a, b, c, d)
+    | TInstrKind::TArrayInitElem(_, _, a, b, c, d) => {
+      let total = tinstr_result_arity(a, env) +
+        tinstr_result_arity(b, env) +
+        tinstr_result_arity(c, env) +
+        tinstr_result_arity(d, env)
+      arity_apply(total, 4, 0)
+    }
+    TInstrKind::TArrayCopy(_, _, a, b, c, d, e) => {
+      let total = tinstr_result_arity(a, env) +
+        tinstr_result_arity(b, env) +
+        tinstr_result_arity(c, env) +
+        tinstr_result_arity(d, env) +
+        tinstr_result_arity(e, env)
+      arity_apply(total, 5, 0)
+    }
+    TInstrKind::TCall(func_idx, _) =>
+      match (env.get_functype_by_funcidx(func_idx), instr.kind) {
+        (Some(FuncType(params, results)), TInstrKind::TCall(_, args)) =>
+          arity_apply(
+            tinstrs_result_arity(args, env),
+            params.length(),
+            results.length(),
+          )
+        (None, _) => 0
+        _ => 0
+      }
+    TInstrKind::TCallIndirect(type_idx, _, _, _) =>
+      match (env.resolve_functype(type_idx), instr.kind) {
+        (
+          Some(FuncType(params, results)),
+          TInstrKind::TCallIndirect(_, _, args, idx),
+        ) =>
+          arity_apply(
+            tinstrs_result_arity(args, env) + tinstr_result_arity(idx, env),
+            params.length() + 1,
+            results.length(),
+          )
+        (None, _) => 0
+        _ => 0
+      }
+    TInstrKind::TCallRef(type_idx, _, _) =>
+      match (env.resolve_functype(type_idx), instr.kind) {
+        (Some(FuncType(params, results)), TInstrKind::TCallRef(_, args, ref_)) =>
+          arity_apply(
+            tinstrs_result_arity(args, env) + tinstr_result_arity(ref_, env),
+            params.length() + 1,
+            results.length(),
+          )
+        (None, _) => 0
+        _ => 0
       }
     TInstrKind::TBlock(bt, _)
     | TInstrKind::TLoop(bt, _)
@@ -713,6 +932,40 @@ fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
         Ok((_, results)) => results.length()
         Err(_) => 0
       }
+    TInstrKind::TBrIf(_, cond, values) =>
+      arity_apply(
+        tinstr_result_arity(cond, env) + tinstrs_result_arity(values, env),
+        1,
+        0,
+      )
+    TInstrKind::TBrOnNull(_, ref_, values)
+    | TInstrKind::TBrOnCast(_, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) =>
+      arity_apply(
+        tinstr_result_arity(ref_, env) + tinstrs_result_arity(values, env),
+        1,
+        1,
+      )
+    TInstrKind::TBrOnNonNull(_, ref_, values) =>
+      arity_apply(
+        tinstr_result_arity(ref_, env) + tinstrs_result_arity(values, env),
+        1,
+        0,
+      )
+    TInstrKind::TSelect(types, cond, v1, v2) => {
+      let n_vals = match types {
+        Some(ts) => ts.length()
+        None => 1
+      }
+      let total = tinstr_result_arity(cond, env) +
+        tinstr_result_arity(v1, env) +
+        tinstr_result_arity(v2, env)
+      arity_apply(total, 1 + n_vals * 2, n_vals)
+    }
+    TInstrKind::TStructNew(_, fields) =>
+      arity_apply(tinstrs_result_arity(fields, env), fields.length(), 1)
+    TInstrKind::TArrayNewFixed(_, elems) =>
+      arity_apply(tinstrs_result_arity(elems, env), elems.length(), 1)
     _ => 0
   }
 }
@@ -723,18 +976,7 @@ fn pop_return_values(
   arity : Int,
   env : Env,
 ) -> Result[Array[TInstr], String] {
-  let can_reuse_poly_bottom = stack_has_polymorphic_source(stack)
-  if stack.length() >= arity || can_reuse_poly_bottom {
-    return pop_n(stack, arity)
-  }
-  if arity > 1 && stack.length() == 1 {
-    if tinstr_result_arity(stack[0], env) == arity {
-      return Ok([stack.pop().unwrap()])
-    }
-  }
-  Err(
-    "Stack underflow: need \{arity} values but only \{stack.length()} available",
-  )
+  pop_n(stack, arity, env)
 }
 
 ///|
@@ -2758,7 +3000,7 @@ fn instr_to_tinstr(
     // === Control flow ===
     Block(bt, body) => {
       let n_inputs = block_type_inputs(bt, env)
-      let inputs = match pop_n(stack, n_inputs) {
+      let inputs = match pop_n(stack, n_inputs, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -2778,7 +3020,7 @@ fn instr_to_tinstr(
     }
     Loop(bt, body) => {
       let n_inputs = block_type_inputs(bt, env)
-      let inputs = match pop_n(stack, n_inputs) {
+      let inputs = match pop_n(stack, n_inputs, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -2801,7 +3043,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       let n_inputs = block_type_inputs(bt, env)
-      let inputs = match pop_n(stack, n_inputs) {
+      let inputs = match pop_n(stack, n_inputs, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -2836,7 +3078,7 @@ fn instr_to_tinstr(
     }
     TryTable(bt, catches, body) => {
       let n_inputs = block_type_inputs(bt, env)
-      let inputs = match pop_n(stack, n_inputs) {
+      let inputs = match pop_n(stack, n_inputs, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -2858,7 +3100,7 @@ fn instr_to_tinstr(
         Some(FuncType(params, _)) => params.length()
         None => 0
       }
-      let args = match pop_n(stack, n_args) {
+      let args = match pop_n(stack, n_args, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -2868,7 +3110,7 @@ fn instr_to_tinstr(
     // === Branches ===
     Br(label) => {
       let arity = label_arity(env, label)
-      let values = match pop_n(stack, arity) {
+      let values = match pop_n(stack, arity, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -2880,7 +3122,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       let arity = label_arity(env, label)
-      let values = match pop_n(stack, arity) {
+      let values = match pop_n(stack, arity, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -2892,7 +3134,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       let arity = label_arity(env, default)
-      let values = match pop_n(stack, arity) {
+      let values = match pop_n(stack, arity, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -2907,7 +3149,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       let arity = label_arity(env, label)
-      let values = match pop_n(stack, arity) {
+      let values = match pop_n(stack, arity, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -2919,7 +3161,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       let arity = label_prefix_arity(env, label)
-      let values = match pop_n(stack, arity) {
+      let values = match pop_n(stack, arity, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -2931,7 +3173,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       let arity = label_prefix_arity(env, label)
-      let values = match pop_n(stack, arity) {
+      let values = match pop_n(stack, arity, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -2945,7 +3187,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       let arity = label_prefix_arity(env, label)
-      let values = match pop_n(stack, arity) {
+      let values = match pop_n(stack, arity, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -2979,7 +3221,7 @@ fn instr_to_tinstr(
         Some(FuncType(params, _)) => params.length()
         None => 0
       }
-      let args = match pop_n(stack, n_args) {
+      let args = match pop_n(stack, n_args, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -2994,7 +3236,7 @@ fn instr_to_tinstr(
         Some(FuncType(params, _)) => params.length()
         None => 0
       }
-      let args = match pop_n(stack, n_args) {
+      let args = match pop_n(stack, n_args, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -3009,7 +3251,7 @@ fn instr_to_tinstr(
         Some(FuncType(params, _)) => params.length()
         None => 0
       }
-      let args = match pop_n(stack, n_args) {
+      let args = match pop_n(stack, n_args, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -3020,7 +3262,7 @@ fn instr_to_tinstr(
         Some(FuncType(params, _)) => params.length()
         None => 0
       }
-      let args = match pop_n(stack, n_args) {
+      let args = match pop_n(stack, n_args, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -3035,7 +3277,7 @@ fn instr_to_tinstr(
         Some(FuncType(params, _)) => params.length()
         None => 0
       }
-      let args = match pop_n(stack, n_args) {
+      let args = match pop_n(stack, n_args, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -3053,7 +3295,7 @@ fn instr_to_tinstr(
         Some(FuncType(params, _)) => params.length()
         None => 0
       }
-      let args = match pop_n(stack, n_args) {
+      let args = match pop_n(stack, n_args, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -3069,7 +3311,7 @@ fn instr_to_tinstr(
         Some(StructCompType(fields)) => fields.length()
         _ => 0
       }
-      let fields = match pop_n(stack, n_fields) {
+      let fields = match pop_n(stack, n_fields, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
@@ -3130,7 +3372,7 @@ fn instr_to_tinstr(
       stack.push(TInstr::array_new_default(type_idx, len))
     }
     ArrayNewFixed(type_idx, n) => {
-      let elems = match pop_n(stack, n.0.reinterpret_as_int()) {
+      let elems = match pop_n(stack, n.0.reinterpret_as_int(), env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
