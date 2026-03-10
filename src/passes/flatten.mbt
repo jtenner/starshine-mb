@@ -1009,10 +1009,17 @@ fn fl_flatten_instr(
     return Err("flatten: value-position rewrite attempted statement extraction")
   }
 
+  // In value position we cannot emit statement preludes, so unreachable lifting
+  // and temp-wrapping are both inapplicable. Returning here avoids expensive
+  // recursive unreachable/type analysis on deep expression trees.
+  if !fl_can_emit_statement_preludes(pos) {
+    return Ok((curr, preludes))
+  }
+
   // local.set/global.set/drop are statement-only and already handled above for
   // branch-value localization. Returning early avoids expensive recursive
   // unreachable/type scans on deep child trees in pathological functions.
-  if fl_can_emit_statement_preludes(pos) && fl_is_known_void_statement(curr) {
+  if fl_is_known_void_statement(curr) {
     return Ok((curr, preludes))
   }
 
@@ -1029,9 +1036,6 @@ fn fl_flatten_instr(
   }
 
   // Final "wrap typed expr into temp" rule is statement-only.
-  if !fl_can_emit_statement_preludes(pos) {
-    return Ok((curr, preludes))
-  }
   match fl_instr_type(curr, state.env) {
     Some(vt) =>
       if !fl_is_leaf_constant_or_nop(curr) {
