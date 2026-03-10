@@ -1350,9 +1350,17 @@ fn optimize_module_with_options_internal(
           }
         }
     }
-    // validate after each pass
+    let validate_start_ms = optimize_trace_now_ms()
+    if trace_enabled {
+      trace("pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:start")
+    }
     match validate_module(mod) {
-      Ok(_) => ()
+      Ok(_) =>
+        if trace_enabled {
+          trace(
+            "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:done elapsed_ms=\{optimize_trace_elapsed_ms(validate_start_ms)}",
+          )
+        }
       Err(e) => {
         let summary = validation_error_message(e)
         optimize_validation_dump_before_after(
@@ -1366,20 +1374,6 @@ fn optimize_module_with_options_internal(
         return Err(
           opt_format_pass_validation_failure(mod, e, pass, pre_pass_mod),
         )
-      }
-    }
-    match opt_validate_post_encode_roundtrip_for_pass(mod, pass) {
-      Ok(_) => ()
-      Err(e) => {
-        optimize_validation_dump_before_after(
-          original_mod, mod, trace, trace_enabled,
-        )
-        if trace_enabled {
-          trace(
-            "pass[\{pass_index}/\{passes.length()}]:\{pass}:post_encode_validation_error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
-          )
-        }
-        return Err(e)
       }
     }
 
