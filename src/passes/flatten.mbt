@@ -443,6 +443,19 @@ fn fl_is_leaf_constant_or_nop(instr : TInstr) -> Bool {
 }
 
 ///|
+fn fl_is_known_void_statement(instr : TInstr) -> Bool {
+  match instr.kind {
+    // These opcodes are guaranteed to produce no stack result.
+    // Fast-pathing them avoids expensive recursive type inference on deep
+    // expression trees when flattening statement-position nodes.
+    TInstrKind::TLocalSet(_, _)
+    | TInstrKind::TGlobalSet(_, _)
+    | TInstrKind::TDrop(_) => true
+    _ => false
+  }
+}
+
+///|
 /// Main flattening entry for expressions: unchanged signature.
 fn fl_flatten_texpr(body : TExpr, state : FLFuncState) -> Result[TExpr, String] {
   let helper_start_ms = fl_trace_helper_start(
@@ -1010,6 +1023,9 @@ fn fl_flatten_instr(
 
   // Final "wrap typed expr into temp" rule is statement-only.
   if !fl_can_emit_statement_preludes(pos) {
+    return Ok((curr, preludes))
+  }
+  if fl_is_known_void_statement(curr) {
     return Ok((curr, preludes))
   }
   match fl_instr_type(curr, state.env) {
