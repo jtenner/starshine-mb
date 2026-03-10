@@ -246,129 +246,139 @@ fn sp_rewrite_calls(
   removed_by_type_abs : Map[Int, Set[Int]],
   new_type_idx_by_old_abs : Map[Int, TypeIdx],
 ) -> TExpr {
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    let processed = match self.walk_tinstruction_default((), instr) {
-      Ok((i, _)) => i
-      Err(e) => return error(e)
-    }
-    match processed.kind {
-      TInstrKind::TCall(target, args) => {
-        let FuncIdx(raw) = target
-        let abs_idx = raw.reinterpret_as_int()
-        if abs_idx < 0 || abs_idx >= func_type_idxs.length() {
-          return if processed != instr {
-            change((), processed)
-          } else {
-            unchanged()
-          }
-        }
-        let old_type_abs = sp_typeidx_raw(func_type_idxs[abs_idx])
-        match removed_by_type_abs.get(old_type_abs) {
-          Some(removed) =>
-            if removed.is_empty() {
-              if processed != instr {
-                change((), processed)
-              } else {
-                unchanged()
-              }
-            } else {
-              let new_args = sp_filter_call_args(args, removed)
-              if new_args != args || processed != instr {
-                change((), TInstr::call(target, new_args))
-              } else {
-                unchanged()
-              }
-            }
-          None =>
-            if processed != instr {
-              change((), processed)
-            } else {
-              unchanged()
-            }
-        }
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      let processed = match self.walk_tinstruction_default((), instr) {
+        Ok((i, _)) => i
+        Err(e) => return error(e)
       }
-      TInstrKind::TReturnCall(target, args) => {
-        let FuncIdx(raw) = target
-        let abs_idx = raw.reinterpret_as_int()
-        if abs_idx < 0 || abs_idx >= func_type_idxs.length() {
-          return if processed != instr {
-            change((), processed)
-          } else {
-            unchanged()
-          }
-        }
-        let old_type_abs = sp_typeidx_raw(func_type_idxs[abs_idx])
-        match removed_by_type_abs.get(old_type_abs) {
-          Some(removed) =>
-            if removed.is_empty() {
-              if processed != instr {
-                change((), processed)
-              } else {
-                unchanged()
-              }
-            } else {
-              let new_args = sp_filter_call_args(args, removed)
-              if new_args != args || processed != instr {
-                change((), TInstr::return_call(target, new_args))
-              } else {
-                unchanged()
-              }
-            }
-          None =>
-            if processed != instr {
-              change((), processed)
-            } else {
-              unchanged()
-            }
-        }
-      }
-      TInstrKind::TCallRef(type_idx, args, ref_) => {
-        let old_type_abs = sp_typeidx_raw(type_idx)
-        let removed = match removed_by_type_abs.get(old_type_abs) {
-          Some(v) => v
-          None =>
+      match processed.kind {
+        TInstrKind::TCall(target, args) => {
+          let FuncIdx(raw) = target
+          let abs_idx = raw.reinterpret_as_int()
+          if abs_idx < 0 || abs_idx >= func_type_idxs.length() {
             return if processed != instr {
               change((), processed)
             } else {
               unchanged()
             }
+          }
+          let old_type_abs = sp_typeidx_raw(func_type_idxs[abs_idx])
+          match removed_by_type_abs.get(old_type_abs) {
+            Some(removed) =>
+              if removed.is_empty() {
+                if processed != instr {
+                  change((), processed)
+                } else {
+                  unchanged()
+                }
+              } else {
+                let new_args = sp_filter_call_args(args, removed)
+                if new_args != args || processed != instr {
+                  change((), TInstr::call(target, new_args))
+                } else {
+                  unchanged()
+                }
+              }
+            None =>
+              if processed != instr {
+                change((), processed)
+              } else {
+                unchanged()
+              }
+          }
         }
-        let new_args = sp_filter_call_args(args, removed)
-        let new_type_idx = match new_type_idx_by_old_abs.get(old_type_abs) {
-          Some(v) => v
-          None => type_idx
-        }
-        if new_args != args || new_type_idx != type_idx || processed != instr {
-          change((), TInstr::call_ref(new_type_idx, new_args, ref_))
-        } else {
-          unchanged()
-        }
-      }
-      TInstrKind::TReturnCallRef(type_idx, args, ref_) => {
-        let old_type_abs = sp_typeidx_raw(type_idx)
-        let removed = match removed_by_type_abs.get(old_type_abs) {
-          Some(v) => v
-          None =>
+        TInstrKind::TReturnCall(target, args) => {
+          let FuncIdx(raw) = target
+          let abs_idx = raw.reinterpret_as_int()
+          if abs_idx < 0 || abs_idx >= func_type_idxs.length() {
             return if processed != instr {
               change((), processed)
             } else {
               unchanged()
             }
+          }
+          let old_type_abs = sp_typeidx_raw(func_type_idxs[abs_idx])
+          match removed_by_type_abs.get(old_type_abs) {
+            Some(removed) =>
+              if removed.is_empty() {
+                if processed != instr {
+                  change((), processed)
+                } else {
+                  unchanged()
+                }
+              } else {
+                let new_args = sp_filter_call_args(args, removed)
+                if new_args != args || processed != instr {
+                  change((), TInstr::return_call(target, new_args))
+                } else {
+                  unchanged()
+                }
+              }
+            None =>
+              if processed != instr {
+                change((), processed)
+              } else {
+                unchanged()
+              }
+          }
         }
-        let new_args = sp_filter_call_args(args, removed)
-        let new_type_idx = match new_type_idx_by_old_abs.get(old_type_abs) {
-          Some(v) => v
-          None => type_idx
+        TInstrKind::TCallRef(type_idx, args, ref_) => {
+          let old_type_abs = sp_typeidx_raw(type_idx)
+          let removed = match removed_by_type_abs.get(old_type_abs) {
+            Some(v) => v
+            None =>
+              return if processed != instr {
+                change((), processed)
+              } else {
+                unchanged()
+              }
+          }
+          let new_args = sp_filter_call_args(args, removed)
+          let new_type_idx = match new_type_idx_by_old_abs.get(old_type_abs) {
+            Some(v) => v
+            None => type_idx
+          }
+          if new_args != args || new_type_idx != type_idx || processed != instr {
+            change((), TInstr::call_ref(new_type_idx, new_args, ref_))
+          } else {
+            unchanged()
+          }
         }
-        if new_args != args || new_type_idx != type_idx || processed != instr {
-          change((), TInstr::return_call_ref(new_type_idx, new_args, ref_))
-        } else {
-          unchanged()
+        TInstrKind::TReturnCallRef(type_idx, args, ref_) => {
+          let old_type_abs = sp_typeidx_raw(type_idx)
+          let removed = match removed_by_type_abs.get(old_type_abs) {
+            Some(v) => v
+            None =>
+              return if processed != instr {
+                change((), processed)
+              } else {
+                unchanged()
+              }
+          }
+          let new_args = sp_filter_call_args(args, removed)
+          let new_type_idx = match new_type_idx_by_old_abs.get(old_type_abs) {
+            Some(v) => v
+            None => type_idx
+          }
+          if new_args != args || new_type_idx != type_idx || processed != instr {
+            change((), TInstr::return_call_ref(new_type_idx, new_args, ref_))
+          } else {
+            unchanged()
+          }
         }
+        _ =>
+          if processed != instr {
+            change((), processed)
+          } else {
+            unchanged()
+          }
       }
-      _ => if processed != instr { change((), processed) } else { unchanged() }
-    }
-  })
+    },
+  )
   match walker.walk_texpr((), body) {
     Ok((new_body, _)) => new_body
     _ => body
@@ -489,40 +499,45 @@ fn sp_run_iteration(mod : Module) -> (Module, Bool) {
     let used = used_params_by_type[type_abs]
     match funcs[def_idx] {
       TFunc(_, _, body) => {
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-          self,
-          _,
-          instr : TInstr,
-        ) {
-          match instr.kind {
-            TInstrKind::TLocalGet(LocalIdx(raw)) => {
-              let idx = raw.reinterpret_as_int()
-              if idx >= 0 && idx < param_count {
-                used.add(idx)
-              }
-            }
-            TInstrKind::TCall(target, args)
-            | TInstrKind::TReturnCall(target, args) => {
-              let FuncIdx(raw) = target
-              let target_abs = raw.reinterpret_as_int()
-              if target_abs >= 0 && target_abs < total_func_count {
-                let callee_type_abs = sp_typeidx_raw(func_type_idxs[target_abs])
-                if callee_type_abs >= 0 && callee_type_abs < total_types {
-                  calls_by_type[callee_type_abs].push(sp_callsite(args.copy()))
+        let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+            self,
+            _,
+            instr : TInstr,
+          ) {
+            match instr.kind {
+              TInstrKind::TLocalGet(LocalIdx(raw)) => {
+                let idx = raw.reinterpret_as_int()
+                if idx >= 0 && idx < param_count {
+                  used.add(idx)
                 }
               }
-            }
-            TInstrKind::TCallRef(type_idx, args, _)
-            | TInstrKind::TReturnCallRef(type_idx, args, _) => {
-              let called_type_abs = sp_typeidx_raw(type_idx)
-              if called_type_abs >= 0 && called_type_abs < total_types {
-                calls_by_type[called_type_abs].push(sp_callsite(args.copy()))
+              TInstrKind::TCall(target, args)
+              | TInstrKind::TReturnCall(target, args) => {
+                let FuncIdx(raw) = target
+                let target_abs = raw.reinterpret_as_int()
+                if target_abs >= 0 && target_abs < total_func_count {
+                  let callee_type_abs = sp_typeidx_raw(
+                    func_type_idxs[target_abs],
+                  )
+                  if callee_type_abs >= 0 && callee_type_abs < total_types {
+                    calls_by_type[callee_type_abs].push(
+                      sp_callsite(args.copy()),
+                    )
+                  }
+                }
               }
+              TInstrKind::TCallRef(type_idx, args, _)
+              | TInstrKind::TReturnCallRef(type_idx, args, _) => {
+                let called_type_abs = sp_typeidx_raw(type_idx)
+                if called_type_abs >= 0 && called_type_abs < total_types {
+                  calls_by_type[called_type_abs].push(sp_callsite(args.copy()))
+                }
+              }
+              _ => ()
             }
-            _ => ()
-          }
-          from_walk(self.walk_tinstruction_default((), instr))
-        })
+            from_walk(self.walk_tinstruction_default((), instr))
+          },
+        )
         ignore(walker.walk_texpr((), body))
       }
       _ => ()

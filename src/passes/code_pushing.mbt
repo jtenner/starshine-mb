@@ -698,13 +698,18 @@ fn count_gets_in_instr(state : PushingState, instr : TInstr) -> Unit {
     }
     _ => {
       // Use a walker to find all local.gets
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i : TInstr) {
-        match i.kind {
-          TInstrKind::TLocalGet(idx) => count_local_get(state, idx)
-          _ => ()
-        }
-        from_walk(self.walk_tinstruction_default((), i))
-      })
+      let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          i : TInstr,
+        ) {
+          match i.kind {
+            TInstrKind::TLocalGet(idx) => count_local_get(state, idx)
+            _ => ()
+          }
+          from_walk(self.walk_tinstruction_default((), i))
+        },
+      )
       ignore(walker.walk_tinstruction((), instr))
     }
   }

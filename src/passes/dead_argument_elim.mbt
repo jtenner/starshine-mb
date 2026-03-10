@@ -846,87 +846,92 @@ fn analyze_function_body(
   env : Env,
   trace_stats : DAETraceStats,
 ) -> Unit {
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    trace_stats.analysis_instrs_visited += 1
-    match instr.kind {
-      TInstrKind::TLocalGet(LocalIdx(raw)) => {
-        trace_stats.analysis_localgets_seen += 1
-        let idx = raw.reinterpret_as_int()
-        if idx >= 0 && idx < param_count {
-          used_params.add(idx)
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      trace_stats.analysis_instrs_visited += 1
+      match instr.kind {
+        TInstrKind::TLocalGet(LocalIdx(raw)) => {
+          trace_stats.analysis_localgets_seen += 1
+          let idx = raw.reinterpret_as_int()
+          if idx >= 0 && idx < param_count {
+            used_params.add(idx)
+          }
         }
-      }
-      TInstrKind::TDrop({ kind: TInstrKind::TCall(target, _), .. }) => {
-        let FuncIdx(raw) = target
-        let idx = raw.reinterpret_as_int()
-        if idx >= 0 && idx < dropped_call_counts.length() {
-          dropped_call_counts[idx] += 1
+        TInstrKind::TDrop({ kind: TInstrKind::TCall(target, _), .. }) => {
+          let FuncIdx(raw) = target
+          let idx = raw.reinterpret_as_int()
+          if idx >= 0 && idx < dropped_call_counts.length() {
+            dropped_call_counts[idx] += 1
+          }
         }
-      }
-      TInstrKind::TCall(target, args) => {
-        trace_stats.analysis_calls_seen += 1
-        let FuncIdx(raw) = target
-        let idx = raw.reinterpret_as_int()
-        if idx >= 0 && idx < call_summaries.length() {
-          direct_callees.add(idx)
-          call_counts[idx] += 1
-          note_call_summary(
-            call_summaries[idx],
-            abs_func_idx,
-            args,
-            local_types_by_abs,
-            global_types,
-            direct_result_types,
-            env,
-            trace_stats,
+        TInstrKind::TCall(target, args) => {
+          trace_stats.analysis_calls_seen += 1
+          let FuncIdx(raw) = target
+          let idx = raw.reinterpret_as_int()
+          if idx >= 0 && idx < call_summaries.length() {
+            direct_callees.add(idx)
+            call_counts[idx] += 1
+            note_call_summary(
+              call_summaries[idx],
+              abs_func_idx,
+              args,
+              local_types_by_abs,
+              global_types,
+              direct_result_types,
+              env,
+              trace_stats,
+            )
+          }
+        }
+        TInstrKind::TReturnCall(target, args) => {
+          trace_stats.analysis_calls_seen += 1
+          let FuncIdx(raw) = target
+          let idx = raw.reinterpret_as_int()
+          if idx >= 0 && idx < call_summaries.length() {
+            direct_callees.add(idx)
+            call_counts[idx] += 1
+            note_call_summary(
+              call_summaries[idx],
+              abs_func_idx,
+              args,
+              local_types_by_abs,
+              global_types,
+              direct_result_types,
+              env,
+              trace_stats,
+            )
+          }
+          if idx >= 0 && idx < tail_callee.length() {
+            tail_callee[idx] = true
+          }
+          if abs_func_idx >= 0 && abs_func_idx < has_tail_calls.length() {
+            has_tail_calls[abs_func_idx] = true
+          }
+        }
+        TInstrKind::TReturnCallIndirect(_, _, _, _)
+        | TInstrKind::TReturnCallRef(_, _, _) =>
+          if abs_func_idx >= 0 && abs_func_idx < has_tail_calls.length() {
+            has_tail_calls[abs_func_idx] = true
+          }
+        TInstrKind::TRefFunc(FuncIdx(raw)) => {
+          let idx = raw.reinterpret_as_int()
+          if idx >= 0 && idx < has_unseen_calls.length() {
+            has_unseen_calls[idx] = true
+          }
+        }
+        TInstrKind::TReturn(values) =>
+          note_return_summary(
+            return_summary, values, abs_func_idx, result_types, local_types_by_abs,
+            global_types, direct_result_types, env, trace_stats,
           )
-        }
+        _ => ()
       }
-      TInstrKind::TReturnCall(target, args) => {
-        trace_stats.analysis_calls_seen += 1
-        let FuncIdx(raw) = target
-        let idx = raw.reinterpret_as_int()
-        if idx >= 0 && idx < call_summaries.length() {
-          direct_callees.add(idx)
-          call_counts[idx] += 1
-          note_call_summary(
-            call_summaries[idx],
-            abs_func_idx,
-            args,
-            local_types_by_abs,
-            global_types,
-            direct_result_types,
-            env,
-            trace_stats,
-          )
-        }
-        if idx >= 0 && idx < tail_callee.length() {
-          tail_callee[idx] = true
-        }
-        if abs_func_idx >= 0 && abs_func_idx < has_tail_calls.length() {
-          has_tail_calls[abs_func_idx] = true
-        }
-      }
-      TInstrKind::TReturnCallIndirect(_, _, _, _)
-      | TInstrKind::TReturnCallRef(_, _, _) =>
-        if abs_func_idx >= 0 && abs_func_idx < has_tail_calls.length() {
-          has_tail_calls[abs_func_idx] = true
-        }
-      TInstrKind::TRefFunc(FuncIdx(raw)) => {
-        let idx = raw.reinterpret_as_int()
-        if idx >= 0 && idx < has_unseen_calls.length() {
-          has_unseen_calls[idx] = true
-        }
-      }
-      TInstrKind::TReturn(values) =>
-        note_return_summary(
-          return_summary, values, abs_func_idx, result_types, local_types_by_abs,
-          global_types, direct_result_types, env, trace_stats,
-        )
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
 }
 
@@ -1179,213 +1184,254 @@ fn rewrite_body(
   let func_start_us = if trace_progress { dae_trace_now_us() } else { 0UL }
   let mut func_last_emit_us = func_start_us
   let mut func_next_progress_instr = dae_trace_rewrite_progress_check_interval()
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    trace_stats.rewrite_instrs_visited += 1
-    rewrite_trace.instrs_visited += 1
-    if trace_progress &&
-      rewrite_trace.instrs_visited >= func_next_progress_instr {
-      func_last_emit_us = dae_trace_maybe_emit_rewrite_func_progress(
-        trace, trace_progress, iter, abs_func_idx, func_start_us, func_last_emit_us,
-        rewrite_trace, trace_stats,
-      )
-      func_next_progress_instr = rewrite_trace.instrs_visited +
-        dae_trace_rewrite_progress_check_interval()
-    }
-    let dropped_call_target = match instr.kind {
-      TInstrKind::TDrop({ kind: TInstrKind::TCall(target, _), .. }) =>
-        Some(target)
-      _ => None
-    }
-    let (processed, child_changed) = match
-      self.walk_tinstruction_default((), instr) {
-      Ok((i, _)) => (i, true)
-      Err(e) => return error(e)
-    }
-    match processed.kind {
-      TInstrKind::TLocalGet(LocalIdx(raw)) => {
-        if not(rewrite_locals_enabled) {
-          return if child_changed { change((), processed) } else { unchanged() }
-        }
-        let idx = raw.reinterpret_as_int()
-        match
-          rewrite_local_index(idx, old_param_count, param_remap, removed_total) {
-          Some(new_idx) =>
-            if new_idx == idx {
-              if child_changed {
-                change((), processed)
-              } else {
-                unchanged()
-              }
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      trace_stats.rewrite_instrs_visited += 1
+      rewrite_trace.instrs_visited += 1
+      if trace_progress &&
+        rewrite_trace.instrs_visited >= func_next_progress_instr {
+        func_last_emit_us = dae_trace_maybe_emit_rewrite_func_progress(
+          trace, trace_progress, iter, abs_func_idx, func_start_us, func_last_emit_us,
+          rewrite_trace, trace_stats,
+        )
+        func_next_progress_instr = rewrite_trace.instrs_visited +
+          dae_trace_rewrite_progress_check_interval()
+      }
+      let dropped_call_target = match instr.kind {
+        TInstrKind::TDrop({ kind: TInstrKind::TCall(target, _), .. }) =>
+          Some(target)
+        _ => None
+      }
+      let (processed, child_changed) = match
+        self.walk_tinstruction_default((), instr) {
+        Ok((i, _)) => (i, true)
+        Err(e) => return error(e)
+      }
+      match processed.kind {
+        TInstrKind::TLocalGet(LocalIdx(raw)) => {
+          if not(rewrite_locals_enabled) {
+            return if child_changed {
+              change((), processed)
             } else {
+              unchanged()
+            }
+          }
+          let idx = raw.reinterpret_as_int()
+          match
+            rewrite_local_index(
+              idx, old_param_count, param_remap, removed_total,
+            ) {
+            Some(new_idx) =>
+              if new_idx == idx {
+                if child_changed {
+                  change((), processed)
+                } else {
+                  unchanged()
+                }
+              } else {
+                trace_stats.local_indices_rewritten += 1
+                rewrite_trace.local_indices_rewritten += 1
+                change(
+                  (),
+                  TInstr::local_get(
+                    LocalIdx::new(new_idx.reinterpret_as_uint()),
+                  ),
+                )
+              }
+            None => {
               trace_stats.local_indices_rewritten += 1
               rewrite_trace.local_indices_rewritten += 1
-              change(
-                (),
-                TInstr::local_get(LocalIdx::new(new_idx.reinterpret_as_uint())),
-              )
+              change((), TInstr::unreachable_())
             }
-          None => {
-            trace_stats.local_indices_rewritten += 1
-            rewrite_trace.local_indices_rewritten += 1
-            change((), TInstr::unreachable_())
           }
         }
-      }
-      TInstrKind::TLocalSet(LocalIdx(raw), value) => {
-        if not(rewrite_locals_enabled) {
-          return if child_changed { change((), processed) } else { unchanged() }
-        }
-        let idx = raw.reinterpret_as_int()
-        match
-          rewrite_local_index(idx, old_param_count, param_remap, removed_total) {
-          Some(new_idx) =>
-            if new_idx == idx {
-              if child_changed {
-                change((), processed)
-              } else {
-                unchanged()
-              }
+        TInstrKind::TLocalSet(LocalIdx(raw), value) => {
+          if not(rewrite_locals_enabled) {
+            return if child_changed {
+              change((), processed)
             } else {
+              unchanged()
+            }
+          }
+          let idx = raw.reinterpret_as_int()
+          match
+            rewrite_local_index(
+              idx, old_param_count, param_remap, removed_total,
+            ) {
+            Some(new_idx) =>
+              if new_idx == idx {
+                if child_changed {
+                  change((), processed)
+                } else {
+                  unchanged()
+                }
+              } else {
+                trace_stats.local_indices_rewritten += 1
+                rewrite_trace.local_indices_rewritten += 1
+                change(
+                  (),
+                  TInstr::local_set(
+                    LocalIdx::new(new_idx.reinterpret_as_uint()),
+                    value,
+                  ),
+                )
+              }
+            None => {
               trace_stats.local_indices_rewritten += 1
               rewrite_trace.local_indices_rewritten += 1
-              change(
-                (),
-                TInstr::local_set(
-                  LocalIdx::new(new_idx.reinterpret_as_uint()),
-                  value,
-                ),
-              )
+              change((), TInstr::drop(value))
             }
-          None => {
-            trace_stats.local_indices_rewritten += 1
-            rewrite_trace.local_indices_rewritten += 1
-            change((), TInstr::drop(value))
           }
         }
-      }
-      TInstrKind::TLocalTee(LocalIdx(raw), value) => {
-        if not(rewrite_locals_enabled) {
-          return if child_changed { change((), processed) } else { unchanged() }
-        }
-        let idx = raw.reinterpret_as_int()
-        match
-          rewrite_local_index(idx, old_param_count, param_remap, removed_total) {
-          Some(new_idx) =>
-            if new_idx == idx {
-              if child_changed {
-                change((), processed)
-              } else {
-                unchanged()
-              }
+        TInstrKind::TLocalTee(LocalIdx(raw), value) => {
+          if not(rewrite_locals_enabled) {
+            return if child_changed {
+              change((), processed)
             } else {
+              unchanged()
+            }
+          }
+          let idx = raw.reinterpret_as_int()
+          match
+            rewrite_local_index(
+              idx, old_param_count, param_remap, removed_total,
+            ) {
+            Some(new_idx) =>
+              if new_idx == idx {
+                if child_changed {
+                  change((), processed)
+                } else {
+                  unchanged()
+                }
+              } else {
+                trace_stats.local_indices_rewritten += 1
+                rewrite_trace.local_indices_rewritten += 1
+                change(
+                  (),
+                  TInstr::local_tee(
+                    LocalIdx::new(new_idx.reinterpret_as_uint()),
+                    value,
+                  ),
+                )
+              }
+            None => {
               trace_stats.local_indices_rewritten += 1
               rewrite_trace.local_indices_rewritten += 1
-              change(
-                (),
-                TInstr::local_tee(
-                  LocalIdx::new(new_idx.reinterpret_as_uint()),
-                  value,
-                ),
-              )
-            }
-          None => {
-            trace_stats.local_indices_rewritten += 1
-            rewrite_trace.local_indices_rewritten += 1
-            change((), value)
-          }
-        }
-      }
-      TInstrKind::TCall(target, args) => {
-        if not(rewrite_calls_enabled) {
-          return if child_changed { change((), processed) } else { unchanged() }
-        }
-        let FuncIdx(raw) = target
-        let idx = raw.reinterpret_as_int()
-        if idx < 0 || idx >= removed_params_by_target.length() {
-          return if child_changed { change((), processed) } else { unchanged() }
-        }
-        let remapped = target_remap[idx]
-        let new_target = FuncIdx::new(remapped.reinterpret_as_uint())
-        let new_args = filter_call_args(args, removed_params_by_target[idx])
-        let removed_arg_count = args.length() - new_args.length()
-        if new_args != args || remapped != idx {
-          trace_stats.calls_rewritten += 1
-          rewrite_trace.calls_rewritten += 1
-          if removed_arg_count > 0 {
-            trace_stats.filtered_call_args_total += 1
-            trace_stats.filtered_call_args_removed_total += removed_arg_count
-            rewrite_trace.call_args_removed += removed_arg_count
-          }
-          change((), TInstr::call(new_target, new_args))
-        } else if child_changed {
-          change((), processed)
-        } else {
-          unchanged()
-        }
-      }
-      TInstrKind::TReturnCall(target, args) => {
-        if not(rewrite_calls_enabled) {
-          return if child_changed { change((), processed) } else { unchanged() }
-        }
-        let FuncIdx(raw) = target
-        let idx = raw.reinterpret_as_int()
-        if idx < 0 || idx >= removed_params_by_target.length() {
-          return if child_changed { change((), processed) } else { unchanged() }
-        }
-        let remapped = target_remap[idx]
-        let new_target = FuncIdx::new(remapped.reinterpret_as_uint())
-        let new_args = filter_call_args(args, removed_params_by_target[idx])
-        let removed_arg_count = args.length() - new_args.length()
-        if new_args != args || remapped != idx {
-          trace_stats.calls_rewritten += 1
-          rewrite_trace.calls_rewritten += 1
-          if removed_arg_count > 0 {
-            trace_stats.filtered_call_args_total += 1
-            trace_stats.filtered_call_args_removed_total += removed_arg_count
-            rewrite_trace.call_args_removed += removed_arg_count
-          }
-          change((), TInstr::return_call(new_target, new_args))
-        } else if child_changed {
-          change((), processed)
-        } else {
-          unchanged()
-        }
-      }
-      TInstrKind::TDrop(value) =>
-        match dropped_call_target {
-          Some(FuncIdx(raw)) => {
-            if not(rewrite_removed_results_enabled) {
-              return if child_changed {
-                change((), processed)
-              } else {
-                unchanged()
-              }
-            }
-            let idx = raw.reinterpret_as_int()
-            if idx >= 0 &&
-              idx < result_removed_by_target.length() &&
-              result_removed_by_target[idx] {
-              trace_stats.drops_removed_due_to_result += 1
-              rewrite_trace.drops_removed += 1
               change((), value)
-            } else if child_changed {
+            }
+          }
+        }
+        TInstrKind::TCall(target, args) => {
+          if not(rewrite_calls_enabled) {
+            return if child_changed {
               change((), processed)
             } else {
               unchanged()
             }
           }
-          None =>
-            if child_changed {
+          let FuncIdx(raw) = target
+          let idx = raw.reinterpret_as_int()
+          if idx < 0 || idx >= removed_params_by_target.length() {
+            return if child_changed {
               change((), processed)
             } else {
               unchanged()
             }
+          }
+          let remapped = target_remap[idx]
+          let new_target = FuncIdx::new(remapped.reinterpret_as_uint())
+          let new_args = filter_call_args(args, removed_params_by_target[idx])
+          let removed_arg_count = args.length() - new_args.length()
+          if new_args != args || remapped != idx {
+            trace_stats.calls_rewritten += 1
+            rewrite_trace.calls_rewritten += 1
+            if removed_arg_count > 0 {
+              trace_stats.filtered_call_args_total += 1
+              trace_stats.filtered_call_args_removed_total += removed_arg_count
+              rewrite_trace.call_args_removed += removed_arg_count
+            }
+            change((), TInstr::call(new_target, new_args))
+          } else if child_changed {
+            change((), processed)
+          } else {
+            unchanged()
+          }
         }
-      TInstrKind::TReturn(values) if remove_result && values.length() > 0 =>
-        change((), TInstr::return_([]))
-      _ => if child_changed { change((), processed) } else { unchanged() }
-    }
-  })
+        TInstrKind::TReturnCall(target, args) => {
+          if not(rewrite_calls_enabled) {
+            return if child_changed {
+              change((), processed)
+            } else {
+              unchanged()
+            }
+          }
+          let FuncIdx(raw) = target
+          let idx = raw.reinterpret_as_int()
+          if idx < 0 || idx >= removed_params_by_target.length() {
+            return if child_changed {
+              change((), processed)
+            } else {
+              unchanged()
+            }
+          }
+          let remapped = target_remap[idx]
+          let new_target = FuncIdx::new(remapped.reinterpret_as_uint())
+          let new_args = filter_call_args(args, removed_params_by_target[idx])
+          let removed_arg_count = args.length() - new_args.length()
+          if new_args != args || remapped != idx {
+            trace_stats.calls_rewritten += 1
+            rewrite_trace.calls_rewritten += 1
+            if removed_arg_count > 0 {
+              trace_stats.filtered_call_args_total += 1
+              trace_stats.filtered_call_args_removed_total += removed_arg_count
+              rewrite_trace.call_args_removed += removed_arg_count
+            }
+            change((), TInstr::return_call(new_target, new_args))
+          } else if child_changed {
+            change((), processed)
+          } else {
+            unchanged()
+          }
+        }
+        TInstrKind::TDrop(value) =>
+          match dropped_call_target {
+            Some(FuncIdx(raw)) => {
+              if not(rewrite_removed_results_enabled) {
+                return if child_changed {
+                  change((), processed)
+                } else {
+                  unchanged()
+                }
+              }
+              let idx = raw.reinterpret_as_int()
+              if idx >= 0 &&
+                idx < result_removed_by_target.length() &&
+                result_removed_by_target[idx] {
+                trace_stats.drops_removed_due_to_result += 1
+                rewrite_trace.drops_removed += 1
+                change((), value)
+              } else if child_changed {
+                change((), processed)
+              } else {
+                unchanged()
+              }
+            }
+            None =>
+              if child_changed {
+                change((), processed)
+              } else {
+                unchanged()
+              }
+          }
+        TInstrKind::TReturn(values) if remove_result && values.length() > 0 =>
+          change((), TInstr::return_([]))
+        _ => if child_changed { change((), processed) } else { unchanged() }
+      }
+    },
+  )
   match walker.walk_texpr((), body) {
     Ok((new_body, _)) =>
       if remove_result {

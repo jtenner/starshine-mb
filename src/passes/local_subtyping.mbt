@@ -369,31 +369,36 @@ fn ls_infer_tinstr_type(
 fn ls_scan_body(body : TExpr, relevant_locals : Set[Int]) -> LocalSubtypingScan {
   let scan = LocalSubtypingScan::new()
   let mut get_id = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TLocalGet(idx) => {
-        let local_idx = ls_local_idx_to_int(idx)
-        if relevant_locals.contains(local_idx) {
-          ls_push_int(scan.gets_for_local, local_idx, get_id)
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TLocalGet(idx) => {
+          let local_idx = ls_local_idx_to_int(idx)
+          if relevant_locals.contains(local_idx) {
+            ls_push_int(scan.gets_for_local, local_idx, get_id)
+          }
+          get_id += 1
         }
-        get_id += 1
-      }
-      TInstrKind::TLocalSet(idx, value) => {
-        let local_idx = ls_local_idx_to_int(idx)
-        if relevant_locals.contains(local_idx) {
-          ls_push_tinstr(scan.sets_for_local, local_idx, value)
+        TInstrKind::TLocalSet(idx, value) => {
+          let local_idx = ls_local_idx_to_int(idx)
+          if relevant_locals.contains(local_idx) {
+            ls_push_tinstr(scan.sets_for_local, local_idx, value)
+          }
         }
-      }
-      TInstrKind::TLocalTee(idx, value) => {
-        let local_idx = ls_local_idx_to_int(idx)
-        if relevant_locals.contains(local_idx) {
-          ls_push_tinstr(scan.sets_for_local, local_idx, value)
+        TInstrKind::TLocalTee(idx, value) => {
+          let local_idx = ls_local_idx_to_int(idx)
+          if relevant_locals.contains(local_idx) {
+            ls_push_tinstr(scan.sets_for_local, local_idx, value)
+          }
         }
+        _ => ()
       }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   scan
 }

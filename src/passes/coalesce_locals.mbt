@@ -893,7 +893,11 @@ fn rewrite_body_locals(
   mapping : LocalMap,
 ) -> Result[(TExpr, Int), String] {
   let max_local_used = Ref::new(-1)
-  let rewriter = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx : LocalIdx) {
+  let rewriter = ModuleTransformer::new().on_localidx_evt(fn(
+    _,
+    _,
+    idx : LocalIdx,
+  ) {
     let mapped = mapping.get(idx).unwrap_or(idx)
     let mapped_raw = cl_localidx_to_int(mapped)
     if mapped_raw > max_local_used.val {
@@ -1159,13 +1163,18 @@ fn compose_maps(
 ///|
 fn cl_max_local_used(body : TExpr) -> Int {
   let max_local_used = Ref::new(-1)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx : LocalIdx) {
-    let raw = cl_localidx_to_int(idx)
-    if raw > max_local_used.val {
-      max_local_used.val = raw
-    }
-    unchanged()
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_localidx_evt(fn(
+      _,
+      _,
+      idx : LocalIdx,
+    ) {
+      let raw = cl_localidx_to_int(idx)
+      if raw > max_local_used.val {
+        max_local_used.val = raw
+      }
+      unchanged()
+    },
+  )
   ignore(walker.walk_texpr((), body))
   max_local_used.val
 }

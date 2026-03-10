@@ -950,35 +950,36 @@ fn sr_update_param_types(
   let param_fixups : Map[Int, Int] = Map::new()
   let next_local = [old_param_types.length() + locals.length()]
 
-let scan_sets : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-    self,
-    _,
-    instr : TInstr,
-  ) {
-    match instr.kind {
-      TInstrKind::TLocalSet(idx, value) | TInstrKind::TLocalTee(idx, value) => {
-        let local_i = sr_local_idx_to_int(idx)
-        if local_i >= 0 &&
-          local_i < old_param_types.length() &&
-          !param_fixups.contains(local_i) {
-          let compatible = match
-            sr_known_instr_type(
-              value, abs_idx, local_types_by_abs, global_types, env, func_type_idxs,
-            ) {
-            Some(vt) => Match::matches(vt, new_param_types[local_i], env)
-            None => false
-          }
-          if !compatible {
-            let fixup = next_local[0]
-            next_local[0] = fixup + 1
-            param_fixups[local_i] = fixup
+  let scan_sets : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TLocalSet(idx, value) | TInstrKind::TLocalTee(idx, value) => {
+          let local_i = sr_local_idx_to_int(idx)
+          if local_i >= 0 &&
+            local_i < old_param_types.length() &&
+            !param_fixups.contains(local_i) {
+            let compatible = match
+              sr_known_instr_type(
+                value, abs_idx, local_types_by_abs, global_types, env, func_type_idxs,
+              ) {
+              Some(vt) => Match::matches(vt, new_param_types[local_i], env)
+              None => false
+            }
+            if !compatible {
+              let fixup = next_local[0]
+              next_local[0] = fixup + 1
+              param_fixups[local_i] = fixup
+            }
           }
         }
+        _ => ()
       }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(scan_sets.walk_texpr((), body))
 
   let next_locals = locals.copy()
@@ -990,39 +991,59 @@ let scan_sets : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tins
     }
   }
 
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    let walked = match self.walk_tinstruction_default((), instr) {
-      Ok((out, _)) => out
-      Err(e) => return error(e)
-    }
-    match walked.kind {
-      TInstrKind::TLocalGet(idx) => {
-        let local_i = sr_local_idx_to_int(idx)
-        match param_fixups.get(local_i) {
-          Some(fixup) =>
-            change((), TInstr::local_get(sr_local_idx_from_int(fixup)))
-          None => if walked == instr { unchanged() } else { change((), walked) }
-        }
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      let walked = match self.walk_tinstruction_default((), instr) {
+        Ok((out, _)) => out
+        Err(e) => return error(e)
       }
-      TInstrKind::TLocalSet(idx, value) => {
-        let local_i = sr_local_idx_to_int(idx)
-        match param_fixups.get(local_i) {
-          Some(fixup) =>
-            change((), TInstr::local_set(sr_local_idx_from_int(fixup), value))
-          None => if walked == instr { unchanged() } else { change((), walked) }
+      match walked.kind {
+        TInstrKind::TLocalGet(idx) => {
+          let local_i = sr_local_idx_to_int(idx)
+          match param_fixups.get(local_i) {
+            Some(fixup) =>
+              change((), TInstr::local_get(sr_local_idx_from_int(fixup)))
+            None =>
+              if walked == instr {
+                unchanged()
+              } else {
+                change((), walked)
+              }
+          }
         }
-      }
-      TInstrKind::TLocalTee(idx, value) => {
-        let local_i = sr_local_idx_to_int(idx)
-        match param_fixups.get(local_i) {
-          Some(fixup) =>
-            change((), TInstr::local_tee(sr_local_idx_from_int(fixup), value))
-          None => if walked == instr { unchanged() } else { change((), walked) }
+        TInstrKind::TLocalSet(idx, value) => {
+          let local_i = sr_local_idx_to_int(idx)
+          match param_fixups.get(local_i) {
+            Some(fixup) =>
+              change((), TInstr::local_set(sr_local_idx_from_int(fixup), value))
+            None =>
+              if walked == instr {
+                unchanged()
+              } else {
+                change((), walked)
+              }
+          }
         }
+        TInstrKind::TLocalTee(idx, value) => {
+          let local_i = sr_local_idx_to_int(idx)
+          match param_fixups.get(local_i) {
+            Some(fixup) =>
+              change((), TInstr::local_tee(sr_local_idx_from_int(fixup), value))
+            None =>
+              if walked == instr {
+                unchanged()
+              } else {
+                change((), walked)
+              }
+          }
+        }
+        _ => if walked == instr { unchanged() } else { change((), walked) }
       }
-      _ => if walked == instr { unchanged() } else { change((), walked) }
-    }
-  })
+    },
+  )
 
   let rewritten = match walker.walk_texpr((), body) {
     Ok((out, _)) => out
@@ -1282,82 +1303,85 @@ fn signature_refining(mod : Module) -> Result[Module, String] {
     let FuncType(_, old_results) = func_types[abs_idx]
     match funcs[def_idx] {
       TFunc(_, _, body) => {
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-          self,
-          _,
-          instr : TInstr,
-        ) {
-          match instr.kind {
-            TInstrKind::TCall(target, args)
-            | TInstrKind::TReturnCall(target, args) => {
-              let FuncIdx(raw) = target
-              let callee_abs_idx = raw.reinterpret_as_int()
-              if callee_abs_idx >= 0 && callee_abs_idx < total_func_count {
-                let callee_type_abs = sr_typeidx_raw(
-                  func_type_idxs[callee_abs_idx],
-                )
-                sr_record_callsite(
-                  callee_type_abs, abs_idx, args, calls_by_type,
-                )
-                if callee_abs_idx >= 0 &&
-                  callee_abs_idx < import_call_without_effects.length() &&
-                  import_call_without_effects[callee_abs_idx] &&
-                  !args.is_empty() {
-                  match
-                    sr_extract_signature_type_abs_from_instr(
-                      args[args.length() - 1],
-                      abs_idx,
-                      local_types_by_abs,
-                      global_types,
-                      env,
-                      func_type_idxs,
-                    ) {
-                    Some(extra_type_abs) =>
-                      sr_record_callsite(
-                        extra_type_abs, abs_idx, args, calls_by_type,
-                      )
-                    None => ()
-                  }
-                }
-              }
-            }
-            TInstrKind::TCallRef(type_idx, args, _)
-            | TInstrKind::TReturnCallRef(type_idx, args, _) => {
-              let called_type_abs = sr_typeidx_raw(type_idx)
-              sr_record_callsite(called_type_abs, abs_idx, args, calls_by_type)
-            }
-            TInstrKind::TReturn(values) =>
-              if old_results.length() == 1 {
-                if values.length() != 1 {
-                  result_unknown[type_abs] = true
-                } else {
-                  match
-                    sr_known_instr_type(
-                      values[0],
-                      abs_idx,
-                      local_types_by_abs,
-                      global_types,
-                      env,
-                      func_type_idxs,
-                    ) {
-                    Some(vt) =>
-                      sr_note_result_observation(
-                        type_abs,
-                        vt,
-                        old_results[0],
-                        result_candidate,
-                        result_noted,
-                        result_unknown,
+        let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+            self,
+            _,
+            instr : TInstr,
+          ) {
+            match instr.kind {
+              TInstrKind::TCall(target, args)
+              | TInstrKind::TReturnCall(target, args) => {
+                let FuncIdx(raw) = target
+                let callee_abs_idx = raw.reinterpret_as_int()
+                if callee_abs_idx >= 0 && callee_abs_idx < total_func_count {
+                  let callee_type_abs = sr_typeidx_raw(
+                    func_type_idxs[callee_abs_idx],
+                  )
+                  sr_record_callsite(
+                    callee_type_abs, abs_idx, args, calls_by_type,
+                  )
+                  if callee_abs_idx >= 0 &&
+                    callee_abs_idx < import_call_without_effects.length() &&
+                    import_call_without_effects[callee_abs_idx] &&
+                    !args.is_empty() {
+                    match
+                      sr_extract_signature_type_abs_from_instr(
+                        args[args.length() - 1],
+                        abs_idx,
+                        local_types_by_abs,
+                        global_types,
                         env,
-                      )
-                    None => result_unknown[type_abs] = true
+                        func_type_idxs,
+                      ) {
+                      Some(extra_type_abs) =>
+                        sr_record_callsite(
+                          extra_type_abs, abs_idx, args, calls_by_type,
+                        )
+                      None => ()
+                    }
                   }
                 }
               }
-            _ => ()
-          }
-          from_walk(self.walk_tinstruction_default((), instr))
-        })
+              TInstrKind::TCallRef(type_idx, args, _)
+              | TInstrKind::TReturnCallRef(type_idx, args, _) => {
+                let called_type_abs = sr_typeidx_raw(type_idx)
+                sr_record_callsite(
+                  called_type_abs, abs_idx, args, calls_by_type,
+                )
+              }
+              TInstrKind::TReturn(values) =>
+                if old_results.length() == 1 {
+                  if values.length() != 1 {
+                    result_unknown[type_abs] = true
+                  } else {
+                    match
+                      sr_known_instr_type(
+                        values[0],
+                        abs_idx,
+                        local_types_by_abs,
+                        global_types,
+                        env,
+                        func_type_idxs,
+                      ) {
+                      Some(vt) =>
+                        sr_note_result_observation(
+                          type_abs,
+                          vt,
+                          old_results[0],
+                          result_candidate,
+                          result_noted,
+                          result_unknown,
+                          env,
+                        )
+                      None => result_unknown[type_abs] = true
+                    }
+                  }
+                }
+              _ => ()
+            }
+            from_walk(self.walk_tinstruction_default((), instr))
+          },
+        )
         ignore(walker.walk_texpr((), body))
 
         if old_results.length() == 1 && !body.instrs.is_empty() {

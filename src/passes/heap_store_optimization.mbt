@@ -131,152 +131,157 @@ fn HSOEffects::has_non_control_side_effects(self : HSOEffects) -> Bool {
 ///|
 fn hso_collect_effects(instr : TInstr) -> HSOEffects {
   let effects = HSOEffects::new()
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TLocalGet(idx) => effects.locals_read.add(idx)
-      TInstrKind::TLocalSet(idx, _) => effects.locals_written.add(idx)
-      TInstrKind::TLocalTee(idx, _) => {
-        effects.locals_read.add(idx)
-        effects.locals_written.add(idx)
-      }
-      TInstrKind::TGlobalGet(_) => effects.reads_globals = true
-      TInstrKind::TGlobalSet(_, _) => effects.writes_globals = true
-      TInstrKind::TLoad(_, _, _) => {
-        effects.reads_memory = true
-        effects.traps = true
-      }
-      TInstrKind::TStore(_, _, _, _) => {
-        effects.writes_memory = true
-        effects.traps = true
-      }
-      TInstrKind::TMemoryGrow(_, _) => effects.writes_memory = true
-      TInstrKind::TMemorySize(_) => effects.reads_memory = true
-      TInstrKind::TMemoryCopy(_, _, _, _, _) => {
-        effects.reads_memory = true
-        effects.writes_memory = true
-      }
-      TInstrKind::TMemoryFill(_, _, _, _) => effects.writes_memory = true
-      TInstrKind::TMemoryInit(_, _, _, _, _) => {
-        effects.reads_memory = true
-        effects.writes_memory = true
-      }
-      TInstrKind::TDataDrop(_) => effects.writes_memory = true
-      TInstrKind::TMemoryAtomicNotify(_, _, _)
-      | TInstrKind::TMemoryAtomicWait32(_, _, _, _)
-      | TInstrKind::TMemoryAtomicWait64(_, _, _, _) => {
-        effects.reads_memory = true
-        effects.traps = true
-      }
-      TInstrKind::TAtomicRmw(_, _, _, _)
-      | TInstrKind::TAtomicCmpxchg(_, _, _, _, _) => {
-        effects.reads_memory = true
-        effects.writes_memory = true
-        effects.traps = true
-      }
-      TInstrKind::TAtomicFence =>
-        // Keep ordering-sensitive synchronization effects as memory reads.
-        effects.reads_memory = true
-      TInstrKind::TTableSet(_, _, _)
-      | TInstrKind::TTableGrow(_, _, _)
-      | TInstrKind::TTableFill(_, _, _, _) => effects.writes_memory = true
-      TInstrKind::TTableGet(_, _) | TInstrKind::TTableSize(_) =>
-        effects.reads_memory = true
-      TInstrKind::TTableCopy(_, _, _, _, _)
-      | TInstrKind::TTableInit(_, _, _, _, _)
-      | TInstrKind::TElemDrop(_) => {
-        effects.reads_memory = true
-        effects.writes_memory = true
-      }
-      TInstrKind::TCall(_, _)
-      | TInstrKind::TCallIndirect(_, _, _, _)
-      | TInstrKind::TCallRef(_, _, _) => effects.calls = true
-      TInstrKind::TReturnCall(_, _)
-      | TInstrKind::TReturnCallIndirect(_, _, _, _)
-      | TInstrKind::TReturnCallRef(_, _, _) => {
-        effects.calls = true
-        effects.branches = true
-      }
-      TInstrKind::TBr(_, _)
-      | TInstrKind::TBrIf(_, _, _)
-      | TInstrKind::TBrTable(_, _, _, _)
-      | TInstrKind::TBrOnNull(_, _, _)
-      | TInstrKind::TBrOnNonNull(_, _, _)
-      | TInstrKind::TBrOnCast(_, _, _, _, _, _)
-      | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
-      | TInstrKind::TReturn(_) => effects.branches = true
-      TInstrKind::TThrow(_, _) => {
-        effects.throws = true
-        effects.branches = true
-      }
-      TInstrKind::TThrowRef(_) => {
-        effects.throws = true
-        effects.branches = true
-      }
-      TInstrKind::TUnreachable => effects.traps = true
-      TInstrKind::TRefAsNonNull(_) | TInstrKind::TRefCast(_, _, _) =>
-        effects.traps = true
-      TInstrKind::TStructGet(_, _, _)
-      | TInstrKind::TStructGetS(_, _, _)
-      | TInstrKind::TStructGetU(_, _, _) => {
-        effects.reads_memory = true
-        effects.traps = true
-      }
-      TInstrKind::TStructSet(_, _, _, _) => {
-        effects.writes_memory = true
-        effects.traps = true
-      }
-      TInstrKind::TArrayNew(_, _, _)
-      | TInstrKind::TArrayNewDefault(_, _)
-      | TInstrKind::TArrayNewFixed(_, _)
-      | TInstrKind::TArrayNewData(_, _, _, _)
-      | TInstrKind::TArrayNewElem(_, _, _, _) => {
-        effects.writes_memory = true
-        effects.traps = true
-      }
-      TInstrKind::TArrayGet(_, _, _)
-      | TInstrKind::TArrayGetS(_, _, _)
-      | TInstrKind::TArrayGetU(_, _, _)
-      | TInstrKind::TArrayLen(_) => {
-        effects.reads_memory = true
-        effects.traps = true
-      }
-      TInstrKind::TArraySet(_, _, _, _)
-      | TInstrKind::TArrayFill(_, _, _, _, _)
-      | TInstrKind::TArrayCopy(_, _, _, _, _, _, _)
-      | TInstrKind::TArrayInitData(_, _, _, _, _, _)
-      | TInstrKind::TArrayInitElem(_, _, _, _, _, _) => {
-        effects.reads_memory = true
-        effects.writes_memory = true
-        effects.traps = true
-      }
-      TInstrKind::TBinary(op, _, _) =>
-        match op {
-          I32DivSOp
-          | I32DivUOp
-          | I32RemSOp
-          | I32RemUOp
-          | I64DivSOp
-          | I64DivUOp
-          | I64RemSOp
-          | I64RemUOp => effects.traps = true
-          _ => ()
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalGet(idx) => effects.locals_read.add(idx)
+        TInstrKind::TLocalSet(idx, _) => effects.locals_written.add(idx)
+        TInstrKind::TLocalTee(idx, _) => {
+          effects.locals_read.add(idx)
+          effects.locals_written.add(idx)
         }
-      TInstrKind::TUnary(op, _) =>
-        match op {
-          I32TruncF32SOp
-          | I32TruncF32UOp
-          | I32TruncF64SOp
-          | I32TruncF64UOp
-          | I64TruncF32SOp
-          | I64TruncF32UOp
-          | I64TruncF64SOp
-          | I64TruncF64UOp => effects.traps = true
-          _ => ()
+        TInstrKind::TGlobalGet(_) => effects.reads_globals = true
+        TInstrKind::TGlobalSet(_, _) => effects.writes_globals = true
+        TInstrKind::TLoad(_, _, _) => {
+          effects.reads_memory = true
+          effects.traps = true
         }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+        TInstrKind::TStore(_, _, _, _) => {
+          effects.writes_memory = true
+          effects.traps = true
+        }
+        TInstrKind::TMemoryGrow(_, _) => effects.writes_memory = true
+        TInstrKind::TMemorySize(_) => effects.reads_memory = true
+        TInstrKind::TMemoryCopy(_, _, _, _, _) => {
+          effects.reads_memory = true
+          effects.writes_memory = true
+        }
+        TInstrKind::TMemoryFill(_, _, _, _) => effects.writes_memory = true
+        TInstrKind::TMemoryInit(_, _, _, _, _) => {
+          effects.reads_memory = true
+          effects.writes_memory = true
+        }
+        TInstrKind::TDataDrop(_) => effects.writes_memory = true
+        TInstrKind::TMemoryAtomicNotify(_, _, _)
+        | TInstrKind::TMemoryAtomicWait32(_, _, _, _)
+        | TInstrKind::TMemoryAtomicWait64(_, _, _, _) => {
+          effects.reads_memory = true
+          effects.traps = true
+        }
+        TInstrKind::TAtomicRmw(_, _, _, _)
+        | TInstrKind::TAtomicCmpxchg(_, _, _, _, _) => {
+          effects.reads_memory = true
+          effects.writes_memory = true
+          effects.traps = true
+        }
+        TInstrKind::TAtomicFence =>
+          // Keep ordering-sensitive synchronization effects as memory reads.
+          effects.reads_memory = true
+        TInstrKind::TTableSet(_, _, _)
+        | TInstrKind::TTableGrow(_, _, _)
+        | TInstrKind::TTableFill(_, _, _, _) => effects.writes_memory = true
+        TInstrKind::TTableGet(_, _) | TInstrKind::TTableSize(_) =>
+          effects.reads_memory = true
+        TInstrKind::TTableCopy(_, _, _, _, _)
+        | TInstrKind::TTableInit(_, _, _, _, _)
+        | TInstrKind::TElemDrop(_) => {
+          effects.reads_memory = true
+          effects.writes_memory = true
+        }
+        TInstrKind::TCall(_, _)
+        | TInstrKind::TCallIndirect(_, _, _, _)
+        | TInstrKind::TCallRef(_, _, _) => effects.calls = true
+        TInstrKind::TReturnCall(_, _)
+        | TInstrKind::TReturnCallIndirect(_, _, _, _)
+        | TInstrKind::TReturnCallRef(_, _, _) => {
+          effects.calls = true
+          effects.branches = true
+        }
+        TInstrKind::TBr(_, _)
+        | TInstrKind::TBrIf(_, _, _)
+        | TInstrKind::TBrTable(_, _, _, _)
+        | TInstrKind::TBrOnNull(_, _, _)
+        | TInstrKind::TBrOnNonNull(_, _, _)
+        | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+        | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+        | TInstrKind::TReturn(_) => effects.branches = true
+        TInstrKind::TThrow(_, _) => {
+          effects.throws = true
+          effects.branches = true
+        }
+        TInstrKind::TThrowRef(_) => {
+          effects.throws = true
+          effects.branches = true
+        }
+        TInstrKind::TUnreachable => effects.traps = true
+        TInstrKind::TRefAsNonNull(_) | TInstrKind::TRefCast(_, _, _) =>
+          effects.traps = true
+        TInstrKind::TStructGet(_, _, _)
+        | TInstrKind::TStructGetS(_, _, _)
+        | TInstrKind::TStructGetU(_, _, _) => {
+          effects.reads_memory = true
+          effects.traps = true
+        }
+        TInstrKind::TStructSet(_, _, _, _) => {
+          effects.writes_memory = true
+          effects.traps = true
+        }
+        TInstrKind::TArrayNew(_, _, _)
+        | TInstrKind::TArrayNewDefault(_, _)
+        | TInstrKind::TArrayNewFixed(_, _)
+        | TInstrKind::TArrayNewData(_, _, _, _)
+        | TInstrKind::TArrayNewElem(_, _, _, _) => {
+          effects.writes_memory = true
+          effects.traps = true
+        }
+        TInstrKind::TArrayGet(_, _, _)
+        | TInstrKind::TArrayGetS(_, _, _)
+        | TInstrKind::TArrayGetU(_, _, _)
+        | TInstrKind::TArrayLen(_) => {
+          effects.reads_memory = true
+          effects.traps = true
+        }
+        TInstrKind::TArraySet(_, _, _, _)
+        | TInstrKind::TArrayFill(_, _, _, _, _)
+        | TInstrKind::TArrayCopy(_, _, _, _, _, _, _)
+        | TInstrKind::TArrayInitData(_, _, _, _, _, _)
+        | TInstrKind::TArrayInitElem(_, _, _, _, _, _) => {
+          effects.reads_memory = true
+          effects.writes_memory = true
+          effects.traps = true
+        }
+        TInstrKind::TBinary(op, _, _) =>
+          match op {
+            I32DivSOp
+            | I32DivUOp
+            | I32RemSOp
+            | I32RemUOp
+            | I64DivSOp
+            | I64DivUOp
+            | I64RemSOp
+            | I64RemUOp => effects.traps = true
+            _ => ()
+          }
+        TInstrKind::TUnary(op, _) =>
+          match op {
+            I32TruncF32SOp
+            | I32TruncF32UOp
+            | I32TruncF64SOp
+            | I32TruncF64UOp
+            | I64TruncF32SOp
+            | I64TruncF32UOp
+            | I64TruncF64SOp
+            | I64TruncF64UOp => effects.traps = true
+            _ => ()
+          }
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_tinstruction((), instr))
   effects
 }
@@ -358,18 +363,19 @@ fn hso_local_get_infos(list : Array[TInstr]) -> Array[HSOLocalGetInfo] {
   let infos : Array[HSOLocalGetInfo] = []
   for i = 0; i < flat.length(); i = i + 1 {
     let origin = origins[i]
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-      self,
-      _,
-      curr : TInstr,
-    ) {
-      match curr.kind {
-        TInstrKind::TLocalGet(local_idx) =>
-          infos.push({ local_idx, top_instr_idx: origin })
-        _ => ()
-      }
-      from_walk(self.walk_tinstruction_default((), curr))
-    })
+    let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+        self,
+        _,
+        curr : TInstr,
+      ) {
+        match curr.kind {
+          TInstrKind::TLocalGet(local_idx) =>
+            infos.push({ local_idx, top_instr_idx: origin })
+          _ => ()
+        }
+        from_walk(self.walk_tinstruction_default((), curr))
+      },
+    )
     ignore(walker.walk_texpr((), TExpr::new([flat[i]])))
   }
   infos
@@ -749,13 +755,18 @@ fn run_heap_store_optimization(mod : Module) -> Module {
 ///|
 fn hso_count_struct_sets(body : TExpr) -> Int {
   let mut count = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TStructSet(_, _, _, _) => count += 1
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TStructSet(_, _, _, _) => count += 1
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   count
 }

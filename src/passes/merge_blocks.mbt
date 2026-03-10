@@ -663,10 +663,15 @@ fn mb_rewrite_preserves_stack_sig(
 ///|
 fn compute_effects(expr : TInstr) -> MBEffects {
   let effects = MBEffects::new()
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    mb_collect_shallow_effects(curr, effects)
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      mb_collect_shallow_effects(curr, effects)
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_tinstruction((), expr))
   effects
 }
@@ -3193,26 +3198,31 @@ fn mb_local_chain_sig(instr : TInstr, env : Env) -> (Int, Int, ValType)? {
 ///|
 fn mb_has_bad_single_arg_local_chain_call(body : TExpr, env : Env) -> Bool {
   let mut bad = false
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TCall(func_idx, [arg]) =>
-        match env.get_functype_by_funcidx(func_idx) {
-          Some(FuncType([param_ty], _)) =>
-            if mb_is_local_set_or_tee_chain(arg) {
-              match mb_local_chain_sig(arg, env) {
-                Some((_, produced, got_ty)) =>
-                  if produced != 1 || got_ty != param_ty {
-                    bad = true
-                  }
-                _ => bad = true
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TCall(func_idx, [arg]) =>
+          match env.get_functype_by_funcidx(func_idx) {
+            Some(FuncType([param_ty], _)) =>
+              if mb_is_local_set_or_tee_chain(arg) {
+                match mb_local_chain_sig(arg, env) {
+                  Some((_, produced, got_ty)) =>
+                    if produced != 1 || got_ty != param_ty {
+                      bad = true
+                    }
+                  _ => bad = true
+                }
               }
-            }
-          _ => ()
-        }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+            _ => ()
+          }
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   bad
 }
@@ -3678,13 +3688,18 @@ test "merge blocks: named dropped block removes break values when safe" {
   ])
   let out = mb_run_on_body(body)
   let mut saw_value_br = false
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TBr(_, values) if !values.is_empty() => saw_value_br = true
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TBr(_, values) if !values.is_empty() => saw_value_br = true
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), out))
   assert_false(saw_value_br)
 }
@@ -3766,19 +3781,24 @@ test "merge blocks: try_table catch_all_ref targeting origin is allowed" {
   ])
   let out = mb_run_on_body(body)
   let mut saw_ref_catch = false
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TTryTable(_, catches, _) =>
-        for catch_ in catches {
-          match catch_ {
-            CatchAllRef(_) | CatchRef(_, _) => saw_ref_catch = true
-            _ => ()
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TTryTable(_, catches, _) =>
+          for catch_ in catches {
+            match catch_ {
+              CatchAllRef(_) | CatchRef(_, _) => saw_ref_catch = true
+              _ => ()
+            }
           }
-        }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), out))
   assert_false(saw_ref_catch)
 }
@@ -3834,14 +3854,19 @@ test "merge blocks: restructure pulls operand block outward with effect checks" 
   ])
   let out = mb_run_on_body(body)
   let mut wrapped = false
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TBlock(_, { instrs: items, .. }) if items.length() >= 2 =>
-        wrapped = true
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TBlock(_, { instrs: items, .. }) if items.length() >= 2 =>
+          wrapped = true
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), out))
   assert_true(wrapped)
 }

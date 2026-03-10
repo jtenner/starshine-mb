@@ -576,10 +576,15 @@ fn measure_with_trace(
   // Simple heuristic: count 1 for each instruction node
   // This is a simplified version of Binaryen's Measurer
   let mut count = 1
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, c, i : TInstr) {
-    count += 1
-    from_walk(self.walk_tinstruction_default(c, i))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      c,
+      i : TInstr,
+    ) {
+      count += 1
+      from_walk(self.walk_tinstruction_default(c, i))
+    },
+  )
   ignore(walker.walk_tinstruction((), instr))
   if trace_enabled {
     trace_stats.measure_nodes += count
@@ -626,24 +631,29 @@ fn get_branch_targets_with_trace(
     trace_stats.branch_target_calls += 1
   }
   let targets = Set::new()
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i : TInstr) {
-    match i.kind {
-      TInstrKind::TBr(label, _) => targets.add(label)
-      TInstrKind::TBrIf(label, _, _) => targets.add(label)
-      TInstrKind::TBrTable(labels, default, _, _) => {
-        for label in labels {
-          targets.add(label)
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      i : TInstr,
+    ) {
+      match i.kind {
+        TInstrKind::TBr(label, _) => targets.add(label)
+        TInstrKind::TBrIf(label, _, _) => targets.add(label)
+        TInstrKind::TBrTable(labels, default, _, _) => {
+          for label in labels {
+            targets.add(label)
+          }
+          targets.add(default)
         }
-        targets.add(default)
+        TInstrKind::TBrOnNull(label, _, _) => targets.add(label)
+        TInstrKind::TBrOnNonNull(label, _, _) => targets.add(label)
+        TInstrKind::TBrOnCast(label, _, _, _, _, _) => targets.add(label)
+        TInstrKind::TBrOnCastFail(label, _, _, _, _, _) => targets.add(label)
+        _ => ()
       }
-      TInstrKind::TBrOnNull(label, _, _) => targets.add(label)
-      TInstrKind::TBrOnNonNull(label, _, _) => targets.add(label)
-      TInstrKind::TBrOnCast(label, _, _, _, _, _) => targets.add(label)
-      TInstrKind::TBrOnCastFail(label, _, _, _, _, _) => targets.add(label)
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), i))
-  })
+      from_walk(self.walk_tinstruction_default((), i))
+    },
+  )
   ignore(walker.walk_tinstruction((), instr))
   if trace_enabled {
     trace_stats.branch_target_us = trace_stats.branch_target_us +
@@ -987,18 +997,23 @@ fn cf_collect_move_target_uids(
 ///|
 fn cf_instr_has_try_table(instr : TInstr) -> Bool {
   let mut found = false
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    if found {
-      return unchanged()
-    }
-    match curr.kind {
-      TInstrKind::TTryTable(_, _, _) => {
-        found = true
-        unchanged()
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      if found {
+        return unchanged()
       }
-      _ => from_walk(self.walk_tinstruction_default((), curr))
-    }
-  })
+      match curr.kind {
+        TInstrKind::TTryTable(_, _, _) => {
+          found = true
+          unchanged()
+        }
+        _ => from_walk(self.walk_tinstruction_default((), curr))
+      }
+    },
+  )
   ignore(walker.walk_tinstruction((), instr))
   found
 }
@@ -1006,25 +1021,30 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn cf_instr_may_throw(instr : TInstr) -> Bool {
   let mut may_throw = false
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    if may_throw {
-      return unchanged()
-    }
-    match curr.kind {
-      TInstrKind::TThrow(_, _)
-      | TInstrKind::TThrowRef(_)
-      | TInstrKind::TCall(_, _)
-      | TInstrKind::TCallIndirect(_, _, _, _)
-      | TInstrKind::TCallRef(_, _, _)
-      | TInstrKind::TReturnCall(_, _)
-      | TInstrKind::TReturnCallIndirect(_, _, _, _)
-      | TInstrKind::TReturnCallRef(_, _, _) => {
-        may_throw = true
-        unchanged()
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      if may_throw {
+        return unchanged()
       }
-      _ => from_walk(self.walk_tinstruction_default((), curr))
-    }
-  })
+      match curr.kind {
+        TInstrKind::TThrow(_, _)
+        | TInstrKind::TThrowRef(_)
+        | TInstrKind::TCall(_, _)
+        | TInstrKind::TCallIndirect(_, _, _, _)
+        | TInstrKind::TCallRef(_, _, _)
+        | TInstrKind::TReturnCall(_, _)
+        | TInstrKind::TReturnCallIndirect(_, _, _, _)
+        | TInstrKind::TReturnCallRef(_, _, _) => {
+          may_throw = true
+          unchanged()
+        }
+        _ => from_walk(self.walk_tinstruction_default((), curr))
+      }
+    },
+  )
   ignore(walker.walk_tinstruction((), instr))
   may_throw
 }

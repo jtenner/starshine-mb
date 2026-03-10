@@ -2094,12 +2094,17 @@ fn sg_run_propagate_globals_globally(mod : Module) -> Module {
 ///|
 fn sg_count_tinstr(body : TExpr, pred : (TInstr) -> Bool) -> Int {
   let mut count = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    if pred(instr) {
-      count += 1
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      if pred(instr) {
+        count += 1
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   count
 }

@@ -3541,12 +3541,17 @@ test "i64_to_i32_lowering handles implicit i64 return from typeidx block" {
   match lowered.code_sec {
     Some(CodeSec([TFunc(_, _, { instrs, .. })])) => {
       let mut saw_high_set = false
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i : TInstr) {
-        if i.kind is TInstrKind::TGlobalSet(GlobalIdx(0), _) {
-          saw_high_set = true
-        }
-        from_walk(self.walk_tinstruction_default((), i))
-      })
+      let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          i : TInstr,
+        ) {
+          if i.kind is TInstrKind::TGlobalSet(GlobalIdx(0), _) {
+            saw_high_set = true
+          }
+          from_walk(self.walk_tinstruction_default((), i))
+        },
+      )
       ignore(walker.walk_texpr((), TExpr::new(instrs)))
       assert_true(saw_high_set)
     }

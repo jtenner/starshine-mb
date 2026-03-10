@@ -79,26 +79,27 @@ fn build_subtypes(mod : Module) -> SubTypes {
 ///|
 fn collect_created_types(mod : Module) -> HeapTypeSet {
   let set = Set::new()
-let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-    _,
-    _,
-    instr : TInstr,
-  ) {
-    match instr.kind {
-      // ---- structs ----
-      TInstrKind::TStructNew(type_idx, _) => set.add(HeapType::new(type_idx))
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      _,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        // ---- structs ----
+        TInstrKind::TStructNew(type_idx, _) => set.add(HeapType::new(type_idx))
 
-      // ---- arrays ----
-      TInstrKind::TArrayNew(type_idx, _, _)
-      | TInstrKind::TArrayNewDefault(type_idx, _)
-      | TInstrKind::TArrayNewFixed(type_idx, _)
-      | TInstrKind::TArrayNewData(type_idx, _, _, _)
-      | TInstrKind::TArrayNewElem(type_idx, _, _, _) =>
-        set.add(HeapType::new(type_idx))
-      _ => ()
-    }
-    unchanged()
-  })
+        // ---- arrays ----
+        TInstrKind::TArrayNew(type_idx, _, _)
+        | TInstrKind::TArrayNewDefault(type_idx, _)
+        | TInstrKind::TArrayNewFixed(type_idx, _)
+        | TInstrKind::TArrayNewData(type_idx, _, _, _)
+        | TInstrKind::TArrayNewElem(type_idx, _, _, _) =>
+          set.add(HeapType::new(type_idx))
+        _ => ()
+      }
+      unchanged()
+    },
+  )
   ignore(transformer.walk_module((), mod))
   set
 }
@@ -1924,16 +1925,21 @@ fn atr_handler_throwing_validator_clean_module() -> Module {
 ///|
 fn atr_count_handler_try_tables(body : TExpr) -> Int {
   let mut count = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TTryTable(_, catches, _) =>
-        if !catches.is_empty() {
-          count += 1
-        }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TTryTable(_, catches, _) =>
+          if !catches.is_empty() {
+            count += 1
+          }
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   count
 }
@@ -1941,13 +1947,18 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn atr_count_throw_instrs(body : TExpr) -> Int {
   let mut count = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TThrow(_, _) => count += 1
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TThrow(_, _) => count += 1
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   count
 }
@@ -1955,13 +1966,18 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn atr_count_ref_cast_instrs(body : TExpr) -> Int {
   let mut count = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TRefCast(_, _, _) => count += 1
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TRefCast(_, _, _) => count += 1
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   count
 }
@@ -1969,19 +1985,24 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn atr_count_catch_new(body : TExpr) -> Int {
   let mut count = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TTryTable(_, catches, _) =>
-        for c in catches {
-          match c {
-            Catch(_, _) => count += 1
-            _ => ()
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TTryTable(_, catches, _) =>
+          for c in catches {
+            match c {
+              Catch(_, _) => count += 1
+              _ => ()
+            }
           }
-        }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   count
 }
@@ -1989,19 +2010,24 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn atr_count_catch_ref(body : TExpr) -> Int {
   let mut count = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TTryTable(_, catches, _) =>
-        for c in catches {
-          match c {
-            CatchRef(_, _) => count += 1
-            _ => ()
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TTryTable(_, catches, _) =>
+          for c in catches {
+            match c {
+              CatchRef(_, _) => count += 1
+              _ => ()
+            }
           }
-        }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   count
 }
@@ -2009,13 +2035,18 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn atr_collect_throw_arg_counts(body : TExpr) -> Array[Int] {
   let out : Array[Int] = []
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TThrow(_, args) => out.push(args.length())
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TThrow(_, args) => out.push(args.length())
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   out
 }
@@ -2023,14 +2054,19 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn atr_count_drop_void_block(body : TExpr) -> Int {
   let mut count = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TDrop({ kind: TInstrKind::TBlock(VoidBlockType, _), .. }) =>
-        count += 1
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TDrop({ kind: TInstrKind::TBlock(VoidBlockType, _), .. }) =>
+          count += 1
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   count
 }

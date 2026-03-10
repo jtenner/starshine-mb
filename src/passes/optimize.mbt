@@ -4704,20 +4704,21 @@ test "optimize_module runs Inlining pass" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, _, body), _])) => {
       let mut direct_calls = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-        self,
-        _,
-        instr : TInstr,
-      ) {
-        match instr.kind {
-          TInstrKind::TCall(FuncIdx(raw), _) =>
-            if raw.reinterpret_as_int() == 1 {
-              direct_calls += 1
-            }
-          _ => ()
-        }
-        from_walk(self.walk_tinstruction_default((), instr))
-      })
+      let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          instr : TInstr,
+        ) {
+          match instr.kind {
+            TInstrKind::TCall(FuncIdx(raw), _) =>
+              if raw.reinterpret_as_int() == 1 {
+                direct_calls += 1
+              }
+            _ => ()
+          }
+          from_walk(self.walk_tinstruction_default((), instr))
+        },
+      )
       ignore(walker.walk_texpr((), body))
       assert_eq(direct_calls, 0)
     }
@@ -4753,20 +4754,21 @@ test "optimize_module runs InlineMain pass" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, _, body), _])) => {
       let mut direct_calls = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-        self,
-        _,
-        instr : TInstr,
-      ) {
-        match instr.kind {
-          TInstrKind::TCall(FuncIdx(raw), _) =>
-            if raw.reinterpret_as_int() == 1 {
-              direct_calls += 1
-            }
-          _ => ()
-        }
-        from_walk(self.walk_tinstruction_default((), instr))
-      })
+      let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          instr : TInstr,
+        ) {
+          match instr.kind {
+            TInstrKind::TCall(FuncIdx(raw), _) =>
+              if raw.reinterpret_as_int() == 1 {
+                direct_calls += 1
+              }
+            _ => ()
+          }
+          from_walk(self.walk_tinstruction_default((), instr))
+        },
+      )
       ignore(walker.walk_texpr((), body))
       assert_eq(direct_calls, 0)
     }

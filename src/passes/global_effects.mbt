@@ -244,10 +244,15 @@ fn ge_collect_shallow_effects(instr : TInstr) -> GEEffects {
 ///|
 fn ge_collect_effects_texpr(body : TExpr) -> GEEffects {
   let effects = GEEffects::new()
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    ge_collect_shallow_effects_into(curr, effects)
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      ge_collect_shallow_effects_into(curr, effects)
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   effects
 }
@@ -267,32 +272,34 @@ fn ge_scan_defined_func(func : Func, total_funcs : Int) -> GEFuncInfo {
           }
           None => ()
         }
-let scanner : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-          self,
-          _,
-          curr : TInstr,
-        ) {
-          match curr.kind {
-            TInstrKind::TCall(target, _) | TInstrKind::TReturnCall(target, _) => {
-              let called = ge_funcidx_to_int(target)
-              if ge_in_func_range(called, total_funcs) {
-                info.called_functions.add(called)
+        let scanner : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+            self,
+            _,
+            curr : TInstr,
+          ) {
+            match curr.kind {
+              TInstrKind::TCall(target, _)
+              | TInstrKind::TReturnCall(target, _) => {
+                let called = ge_funcidx_to_int(target)
+                if ge_in_func_range(called, total_funcs) {
+                  info.called_functions.add(called)
+                }
               }
-            }
-            _ => {
-              let shallow = ge_collect_shallow_effects(curr)
-              if shallow.calls {
-                effects_opt = None
-              } else if shallow.throws {
-                match effects_opt {
-                  Some(effects) => effects.throws = true
-                  None => ()
+              _ => {
+                let shallow = ge_collect_shallow_effects(curr)
+                if shallow.calls {
+                  effects_opt = None
+                } else if shallow.throws {
+                  match effects_opt {
+                    Some(effects) => effects.throws = true
+                    None => ()
+                  }
                 }
               }
             }
-          }
-          from_walk(self.walk_tinstruction_default((), curr))
-        })
+            from_walk(self.walk_tinstruction_default((), curr))
+          },
+        )
         ignore(scanner.walk_texpr((), body))
       }
       info.effects = effects_opt

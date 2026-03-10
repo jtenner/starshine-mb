@@ -27,6 +27,18 @@ const FL_TRACE_PROGRESS_INTERVAL : Int = 2048
 const FL_TRACE_PROGRESS_INTERVAL_MS : UInt64 = 250UL
 
 ///|
+const FL_UNSUPPORTED_BRANCH_SCAN_PROGRESS_INTERVAL : Int = 1024
+
+///|
+const FL_UNSUPPORTED_BRANCH_SCAN_PROGRESS_INTERVAL_MS : UInt64 = 250UL
+
+///|
+const FL_REWRITE_LABEL_FLOW_PROGRESS_INTERVAL : Int = 1024
+
+///|
+const FL_REWRITE_LABEL_FLOW_PROGRESS_INTERVAL_MS : UInt64 = 250UL
+
+///|
 fn fl_trace_noop(_ : String) -> Unit {
   ()
 }
@@ -553,21 +565,27 @@ fn fl_flatten_instr(
       } else {
         match bt {
           VoidBlockType => curr = TInstr::block(bt, next_body)
-          _ =>
+          _ => {
             // block has a result type (possibly val_type or type index); we only support single ValType here
-            if fl_has_unsupported_targeting_branch_in_texpr(
-                next_body, state, my_uid,
-              ) {
+            let branch_scan = fl_scan_unsupported_targeting_branch_in_texpr(
+              next_body, state, my_uid,
+            )
+            if branch_scan.blocked {
               curr = TInstr::block(bt, next_body)
             } else {
               match fl_lowerable_single_result_blocktype(bt, state.env) {
                 Some(vt) => {
                   let temp = fl_add_temp_local(state, vt)
 
-                  // IMPORTANT: rewrite branch value flow targeting this block
-                  let rewritten1 = fl_rewrite_label_value_flow_in_texpr(
-                    next_body, state, my_uid, temp,
-                  )
+                  // Only run the full rewrite walk if there are actually target branches to rewrite.
+                  let rewritten1 = if branch_scan.rewritable_targeting_branches >
+                    0 {
+                    fl_rewrite_label_value_flow_in_texpr(
+                      next_body, state, my_uid, temp,
+                    )
+                  } else {
+                    next_body
+                  }
 
                   // Handle fallthrough result
                   let rewritten2 = fl_rewrite_fallthrough_value_to_set(
@@ -587,6 +605,7 @@ fn fl_flatten_instr(
                   curr = TInstr::block(bt, next_body)
               }
             }
+          }
         }
       }
 
@@ -609,18 +628,24 @@ fn fl_flatten_instr(
       } else {
         match bt {
           VoidBlockType => curr = TInstr::loop_(bt, next_body)
-          _ =>
-            if fl_has_unsupported_targeting_branch_in_texpr(
-                next_body, state, my_uid,
-              ) {
+          _ => {
+            let branch_scan = fl_scan_unsupported_targeting_branch_in_texpr(
+              next_body, state, my_uid,
+            )
+            if branch_scan.blocked {
               curr = TInstr::loop_(bt, next_body)
             } else {
               match fl_lowerable_single_result_blocktype(bt, state.env) {
                 Some(vt) => {
                   let temp = fl_add_temp_local(state, vt)
-                  let rewritten1 = fl_rewrite_label_value_flow_in_texpr(
-                    next_body, state, my_uid, temp,
-                  )
+                  let rewritten1 = if branch_scan.rewritable_targeting_branches >
+                    0 {
+                    fl_rewrite_label_value_flow_in_texpr(
+                      next_body, state, my_uid, temp,
+                    )
+                  } else {
+                    next_body
+                  }
                   let rewritten2 = fl_rewrite_fallthrough_value_to_set(
                     rewritten1,
                     temp,
@@ -636,6 +661,7 @@ fn fl_flatten_instr(
                 None => curr = TInstr::loop_(bt, next_body)
               }
             }
+          }
         }
       }
 
@@ -657,18 +683,24 @@ fn fl_flatten_instr(
       } else {
         match bt {
           VoidBlockType => curr = TInstr::try_table(bt, catches, next_body)
-          _ =>
-            if fl_has_unsupported_targeting_branch_in_texpr(
-                next_body, state, my_uid,
-              ) {
+          _ => {
+            let branch_scan = fl_scan_unsupported_targeting_branch_in_texpr(
+              next_body, state, my_uid,
+            )
+            if branch_scan.blocked {
               curr = TInstr::try_table(bt, catches, next_body)
             } else {
               match fl_lowerable_single_result_blocktype(bt, state.env) {
                 Some(vt) => {
                   let temp = fl_add_temp_local(state, vt)
-                  let rewritten1 = fl_rewrite_label_value_flow_in_texpr(
-                    next_body, state, my_uid, temp,
-                  )
+                  let rewritten1 = if branch_scan.rewritable_targeting_branches >
+                    0 {
+                    fl_rewrite_label_value_flow_in_texpr(
+                      next_body, state, my_uid, temp,
+                    )
+                  } else {
+                    next_body
+                  }
                   let rewritten2 = fl_rewrite_fallthrough_value_to_set(
                     rewritten1,
                     temp,
@@ -686,6 +718,7 @@ fn fl_flatten_instr(
                 None => curr = TInstr::try_table(bt, catches, next_body)
               }
             }
+          }
         }
       }
 
@@ -732,14 +765,21 @@ fn fl_flatten_instr(
       let mut rewritten_if = TInstr::if_(bt, next_cond, next_then, next_else)
 
       // Lower if result properly if it has a value:
-      let else_has_unsupported_if_target = match next_else {
+      let then_branch_scan = fl_scan_unsupported_targeting_branch_in_texpr(
+        next_then, state, my_uid,
+      )
+      let else_branch_scan = match next_else {
         Some(body) =>
-          fl_has_unsupported_targeting_branch_in_texpr(body, state, my_uid)
+          Some(
+            fl_scan_unsupported_targeting_branch_in_texpr(body, state, my_uid),
+          )
+        None => None
+      }
+      let else_has_unsupported_if_target = match else_branch_scan {
+        Some(scan) => scan.blocked
         None => false
       }
-      let has_unsupported_if_target = fl_has_unsupported_targeting_branch_in_texpr(
-          next_then, state, my_uid,
-        ) ||
+      let has_unsupported_if_target = then_branch_scan.blocked ||
         else_has_unsupported_if_target
       if !fl_can_emit_statement_preludes(pos) || has_unsupported_if_target {
         curr = rewritten_if
@@ -747,9 +787,13 @@ fn fl_flatten_instr(
         match fl_lowerable_single_result_blocktype(bt, state.env) {
           Some(vt) => {
             let temp = fl_add_temp_local(state, vt)
-            let then1 = fl_rewrite_label_value_flow_in_texpr(
-              next_then, state, my_uid, temp,
-            )
+            let then1 = if then_branch_scan.rewritable_targeting_branches > 0 {
+              fl_rewrite_label_value_flow_in_texpr(
+                next_then, state, my_uid, temp,
+              )
+            } else {
+              next_then
+            }
             let then2 = fl_rewrite_fallthrough_value_to_set(
               then1,
               temp,
@@ -758,9 +802,17 @@ fn fl_flatten_instr(
 
             let else2 = match next_else {
               Some(b) => {
-                let else1 = fl_rewrite_label_value_flow_in_texpr(
-                  b, state, my_uid, temp,
-                )
+                let else1 = match else_branch_scan {
+                  Some(scan) =>
+                    if scan.rewritable_targeting_branches > 0 {
+                      fl_rewrite_label_value_flow_in_texpr(
+                        b, state, my_uid, temp,
+                      )
+                    } else {
+                      b
+                    }
+                  _ => b
+                }
                 fl_rewrite_fallthrough_value_to_set(else1, temp, state.env)
               }
               None =>
@@ -1159,13 +1211,18 @@ fn run_flatten(mod : Module) -> Result[Module, String] {
 ///|
 fn fl_count_local_tees(body : TExpr) -> Int {
   let count = Ref::new(0)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TLocalTee(_, _) => count.update(fn(v) { v + 1 })
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TLocalTee(_, _) => count.update(fn(v) { v + 1 })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   count.val
 }
@@ -1311,17 +1368,22 @@ test "flatten preserves value-position if result form" {
 ///|
 fn fl_count_br_on_family(body : TExpr) -> Int {
   let count = Ref::new(0)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TBrOnNull(_, _, _)
-      | TInstrKind::TBrOnNonNull(_, _, _)
-      | TInstrKind::TBrOnCast(_, _, _, _, _, _)
-      | TInstrKind::TBrOnCastFail(_, _, _, _, _, _) =>
-        count.update(fn(v) { v + 1 })
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TBrOnNull(_, _, _)
+        | TInstrKind::TBrOnNonNull(_, _, _)
+        | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+        | TInstrKind::TBrOnCastFail(_, _, _, _, _, _) =>
+          count.update(fn(v) { v + 1 })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   count.val
 }
@@ -1329,17 +1391,22 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn fl_find_try_table_result_blocktype(body : TExpr) -> BlockType? {
   let found = Ref::new(None)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TTryTable(bt, _, _) =>
-        match found.val {
-          None => found.update(fn(_) { Some(bt) })
-          Some(_) => ()
-        }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TTryTable(bt, _, _) =>
+          match found.val {
+            None => found.update(fn(_) { Some(bt) })
+            Some(_) => ()
+          }
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   found.val
 }
@@ -1378,50 +1445,163 @@ fn fl_rewrite_fallthrough_value_to_set(
 /// That’s why it’s a separate walk that pushes/pops label uids as it descends.
 
 ///|
-fn fl_rewrite_label_value_flow_in_instr(
+priv struct FLRewriteLabelFlowScanState {
+  start_ms : UInt64
+  visited_exprs : Ref[Int]
+  visited_instrs : Ref[Int]
+  max_depth : Ref[Int]
+  next_progress_at : Ref[Int]
+  last_progress_ms : Ref[UInt64]
+}
+
+///|
+fn FLRewriteLabelFlowScanState::new(
+  start_ms : UInt64,
+) -> FLRewriteLabelFlowScanState {
+  {
+    start_ms,
+    visited_exprs: Ref::new(0),
+    visited_instrs: Ref::new(0),
+    max_depth: Ref::new(0),
+    next_progress_at: Ref::new(FL_REWRITE_LABEL_FLOW_PROGRESS_INTERVAL),
+    last_progress_ms: Ref::new(start_ms),
+  }
+}
+
+///|
+fn fl_note_rewrite_label_flow_expr_visit(
+  scan_state : FLRewriteLabelFlowScanState,
+  depth : Int,
+) -> Unit {
+  scan_state.visited_exprs.val = scan_state.visited_exprs.val + 1
+  if depth > scan_state.max_depth.val {
+    scan_state.max_depth.val = depth
+  }
+}
+
+///|
+fn fl_note_rewrite_label_flow_instr_visit(
+  state : FLFuncState,
+  scan_state : FLRewriteLabelFlowScanState,
+  target_uid : Int,
+  depth : Int,
+  instr : TInstr,
+) -> Unit {
+  scan_state.visited_instrs.val = scan_state.visited_instrs.val + 1
+  if depth > scan_state.max_depth.val {
+    scan_state.max_depth.val = depth
+  }
+  match state.trace_state {
+    Some(ts) =>
+      if ts.log_func {
+        let now_ms = fl_trace_now_ms()
+        let should_log_count = scan_state.visited_instrs.val >=
+          scan_state.next_progress_at.val
+        let should_log_time = now_ms >=
+          scan_state.last_progress_ms.val +
+          FL_REWRITE_LABEL_FLOW_PROGRESS_INTERVAL_MS
+        if should_log_count || should_log_time {
+          fl_trace_helper_event(
+            state,
+            "fl_rewrite_label_value_flow_in_texpr",
+            "progress",
+            "scan_ms=\{fl_trace_elapsed_ms(scan_state.start_ms)} visited_exprs=\{scan_state.visited_exprs.val} visited_instrs=\{scan_state.visited_instrs.val} max_depth=\{scan_state.max_depth.val} depth=\{depth} kind=\{fl_instr_kind_name(instr)} target_uid=\{target_uid}",
+          )
+          if should_log_count {
+            scan_state.next_progress_at.val = scan_state.next_progress_at.val +
+              FL_REWRITE_LABEL_FLOW_PROGRESS_INTERVAL
+          }
+          scan_state.last_progress_ms.val = now_ms
+        }
+      }
+    None => ()
+  }
+}
+
+///|
+fn fl_rewrite_label_value_flow_in_instr_scan(
   instr : TInstr,
   state : FLFuncState,
   target_uid : Int,
   temp : LocalIdx,
+  scan_state : FLRewriteLabelFlowScanState,
+  depth : Int,
 ) -> TInstr {
+  fl_note_rewrite_label_flow_instr_visit(
+    state, scan_state, target_uid, depth, instr,
+  )
   // Push labels for control constructs before walking into their bodies, so
   // LabelIdx resolution is correct inside.
   match instr.kind {
     TInstrKind::TBlock(bt, body) => {
       let _uid = fl_push_label(state)
-      let next_body = fl_rewrite_label_value_flow_in_texpr(
-        body, state, target_uid, temp,
+      let next_body = fl_rewrite_label_value_flow_in_texpr_scan(
+        body,
+        state,
+        target_uid,
+        temp,
+        scan_state,
+        depth + 1,
       )
       fl_pop_label(state)
       TInstr::block(bt, next_body)
     }
     TInstrKind::TLoop(bt, body) => {
       let _uid = fl_push_label(state)
-      let next_body = fl_rewrite_label_value_flow_in_texpr(
-        body, state, target_uid, temp,
+      let next_body = fl_rewrite_label_value_flow_in_texpr_scan(
+        body,
+        state,
+        target_uid,
+        temp,
+        scan_state,
+        depth + 1,
       )
       fl_pop_label(state)
       TInstr::loop_(bt, next_body)
     }
     TInstrKind::TTryTable(bt, catches, body) => {
       let _uid = fl_push_label(state)
-      let next_body = fl_rewrite_label_value_flow_in_texpr(
-        body, state, target_uid, temp,
+      let next_body = fl_rewrite_label_value_flow_in_texpr_scan(
+        body,
+        state,
+        target_uid,
+        temp,
+        scan_state,
+        depth + 1,
       )
       fl_pop_label(state)
       TInstr::try_table(bt, catches, next_body)
     }
     TInstrKind::TIf(bt, cond, then_body, else_body) => {
-      let next_cond = fl_rewrite_label_value_flow_in_instr(
-        cond, state, target_uid, temp,
+      let next_cond = fl_rewrite_label_value_flow_in_instr_scan(
+        cond,
+        state,
+        target_uid,
+        temp,
+        scan_state,
+        depth + 1,
       )
       let _uid = fl_push_label(state)
-      let next_then = fl_rewrite_label_value_flow_in_texpr(
-        then_body, state, target_uid, temp,
+      let next_then = fl_rewrite_label_value_flow_in_texpr_scan(
+        then_body,
+        state,
+        target_uid,
+        temp,
+        scan_state,
+        depth + 1,
       )
       let next_else = match else_body {
         Some(b) =>
-          Some(fl_rewrite_label_value_flow_in_texpr(b, state, target_uid, temp))
+          Some(
+            fl_rewrite_label_value_flow_in_texpr_scan(
+              b,
+              state,
+              target_uid,
+              temp,
+              scan_state,
+              depth + 1,
+            ),
+          )
         None => None
       }
       fl_pop_label(state)
@@ -1435,7 +1615,14 @@ fn fl_rewrite_label_value_flow_in_instr(
         let rebuilt : Array[TInstr] = []
         for child in children {
           rebuilt.push(
-            fl_rewrite_label_value_flow_in_instr(child, state, target_uid, temp),
+            fl_rewrite_label_value_flow_in_instr_scan(
+              child,
+              state,
+              target_uid,
+              temp,
+              scan_state,
+              depth + 1,
+            ),
           )
         }
         let instr2 = mb_rebuild_non_control(instr, rebuilt)
@@ -1450,6 +1637,32 @@ fn fl_rewrite_label_value_flow_in_instr(
 }
 
 ///|
+fn fl_rewrite_label_value_flow_in_texpr_scan(
+  body : TExpr,
+  state : FLFuncState,
+  target_uid : Int,
+  temp : LocalIdx,
+  scan_state : FLRewriteLabelFlowScanState,
+  depth : Int,
+) -> TExpr {
+  fl_note_rewrite_label_flow_expr_visit(scan_state, depth)
+  let out : Array[TInstr] = []
+  for instr in body.instrs {
+    out.push(
+      fl_rewrite_label_value_flow_in_instr_scan(
+        instr,
+        state,
+        target_uid,
+        temp,
+        scan_state,
+        depth + 1,
+      ),
+    )
+  }
+  TExpr::new(out)
+}
+
+///|
 fn fl_rewrite_label_value_flow_in_texpr(
   body : TExpr,
   state : FLFuncState,
@@ -1461,19 +1674,17 @@ fn fl_rewrite_label_value_flow_in_texpr(
     "fl_rewrite_label_value_flow_in_texpr",
     "instrs=\{body.instrs.length()} target_uid=\{target_uid}",
   )
-  let out : Array[TInstr] = []
-  for instr in body.instrs {
-    out.push(
-      fl_rewrite_label_value_flow_in_instr(instr, state, target_uid, temp),
-    )
-  }
+  let scan_state = FLRewriteLabelFlowScanState::new(helper_start_ms)
+  let out = fl_rewrite_label_value_flow_in_texpr_scan(
+    body, state, target_uid, temp, scan_state, 0,
+  )
   fl_trace_helper_done(
     state,
     "fl_rewrite_label_value_flow_in_texpr",
     helper_start_ms,
-    "instrs=\{body.instrs.length()} out_instrs=\{out.length()} target_uid=\{target_uid}",
+    "instrs=\{body.instrs.length()} out_instrs=\{out.instrs.length()} target_uid=\{target_uid} visited_exprs=\{scan_state.visited_exprs.val} visited_instrs=\{scan_state.visited_instrs.val} max_depth=\{scan_state.max_depth.val}",
   )
-  TExpr::new(out)
+  out
 }
 
 ///|
@@ -1507,80 +1718,244 @@ fn fl_br_table_targets_uid(
 }
 
 ///|
-fn fl_has_unsupported_targeting_branch_in_instr(
+priv struct FLUnsupportedBranchScanState {
+  start_ms : UInt64
+  visited_exprs : Ref[Int]
+  visited_instrs : Ref[Int]
+  max_depth : Ref[Int]
+  rewritable_targeting_branches : Ref[Int]
+  next_progress_at : Ref[Int]
+  last_progress_ms : Ref[UInt64]
+}
+
+///|
+fn FLUnsupportedBranchScanState::new(
+  start_ms : UInt64,
+) -> FLUnsupportedBranchScanState {
+  {
+    start_ms,
+    visited_exprs: Ref::new(0),
+    visited_instrs: Ref::new(0),
+    max_depth: Ref::new(0),
+    rewritable_targeting_branches: Ref::new(0),
+    next_progress_at: Ref::new(FL_UNSUPPORTED_BRANCH_SCAN_PROGRESS_INTERVAL),
+    last_progress_ms: Ref::new(start_ms),
+  }
+}
+
+///|
+priv struct FLUnsupportedBranchScanSummary {
+  blocked : Bool
+  rewritable_targeting_branches : Int
+}
+
+///|
+fn fl_note_unsupported_branch_scan_expr_visit(
+  scan_state : FLUnsupportedBranchScanState,
+  depth : Int,
+) -> Unit {
+  scan_state.visited_exprs.val = scan_state.visited_exprs.val + 1
+  if depth > scan_state.max_depth.val {
+    scan_state.max_depth.val = depth
+  }
+}
+
+///|
+fn fl_note_unsupported_branch_scan_instr_visit(
+  state : FLFuncState,
+  scan_state : FLUnsupportedBranchScanState,
+  target_uid : Int,
+  depth : Int,
+  instr : TInstr,
+) -> Unit {
+  scan_state.visited_instrs.val = scan_state.visited_instrs.val + 1
+  if depth > scan_state.max_depth.val {
+    scan_state.max_depth.val = depth
+  }
+  match state.trace_state {
+    Some(ts) =>
+      if ts.log_func {
+        let now_ms = fl_trace_now_ms()
+        let should_log_count = scan_state.visited_instrs.val >=
+          scan_state.next_progress_at.val
+        let should_log_time = now_ms >=
+          scan_state.last_progress_ms.val +
+          FL_UNSUPPORTED_BRANCH_SCAN_PROGRESS_INTERVAL_MS
+        if should_log_count || should_log_time {
+          fl_trace_helper_event(
+            state,
+            "fl_has_unsupported_targeting_branch_in_texpr",
+            "progress",
+            "scan_ms=\{fl_trace_elapsed_ms(scan_state.start_ms)} visited_exprs=\{scan_state.visited_exprs.val} visited_instrs=\{scan_state.visited_instrs.val} max_depth=\{scan_state.max_depth.val} depth=\{depth} kind=\{fl_instr_kind_name(instr)} target_uid=\{target_uid}",
+          )
+          if should_log_count {
+            scan_state.next_progress_at.val = scan_state.next_progress_at.val +
+              FL_UNSUPPORTED_BRANCH_SCAN_PROGRESS_INTERVAL
+          }
+          scan_state.last_progress_ms.val = now_ms
+        }
+      }
+    None => ()
+  }
+}
+
+///|
+fn fl_has_unsupported_targeting_branch_in_instr_scan(
   instr : TInstr,
   state : FLFuncState,
   target_uid : Int,
+  scan_state : FLUnsupportedBranchScanState,
+  depth : Int,
 ) -> Bool {
+  fl_note_unsupported_branch_scan_instr_visit(
+    state, scan_state, target_uid, depth, instr,
+  )
   match instr.kind {
     TInstrKind::TBlock(_, body) => {
       let _uid = fl_push_label(state)
-      let blocked = fl_has_unsupported_targeting_branch_in_texpr(
-        body, state, target_uid,
+      let blocked = fl_has_unsupported_targeting_branch_in_texpr_scan(
+        body,
+        state,
+        target_uid,
+        scan_state,
+        depth + 1,
       )
       fl_pop_label(state)
       blocked
     }
     TInstrKind::TLoop(_, body) => {
       let _uid = fl_push_label(state)
-      let blocked = fl_has_unsupported_targeting_branch_in_texpr(
-        body, state, target_uid,
+      let blocked = fl_has_unsupported_targeting_branch_in_texpr_scan(
+        body,
+        state,
+        target_uid,
+        scan_state,
+        depth + 1,
       )
       fl_pop_label(state)
       blocked
     }
     TInstrKind::TTryTable(_, _, body) => {
       let _uid = fl_push_label(state)
-      let blocked = fl_has_unsupported_targeting_branch_in_texpr(
-        body, state, target_uid,
+      let blocked = fl_has_unsupported_targeting_branch_in_texpr_scan(
+        body,
+        state,
+        target_uid,
+        scan_state,
+        depth + 1,
       )
       fl_pop_label(state)
       blocked
     }
     TInstrKind::TIf(_, _, then_body, else_body) => {
       let _uid = fl_push_label(state)
-      let then_blocked = fl_has_unsupported_targeting_branch_in_texpr(
-        then_body, state, target_uid,
+      let then_blocked = fl_has_unsupported_targeting_branch_in_texpr_scan(
+        then_body,
+        state,
+        target_uid,
+        scan_state,
+        depth + 1,
       )
       let else_blocked = match else_body {
         Some(body) =>
-          fl_has_unsupported_targeting_branch_in_texpr(body, state, target_uid)
+          fl_has_unsupported_targeting_branch_in_texpr_scan(
+            body,
+            state,
+            target_uid,
+            scan_state,
+            depth + 1,
+          )
         None => false
       }
       fl_pop_label(state)
       then_blocked || else_blocked
     }
     TInstrKind::TBr(label, values) =>
-      fl_label_targets_uid(state, label, target_uid) && values.length() != 1
+      if fl_label_targets_uid(state, label, target_uid) {
+        if values.length() != 1 {
+          true
+        } else {
+          scan_state.rewritable_targeting_branches.val = scan_state.rewritable_targeting_branches.val +
+            1
+          false
+        }
+      } else {
+        false
+      }
     TInstrKind::TBrIf(label, _, values) =>
-      fl_label_targets_uid(state, label, target_uid) && values.length() != 1
+      if fl_label_targets_uid(state, label, target_uid) {
+        if values.length() != 1 {
+          true
+        } else {
+          scan_state.rewritable_targeting_branches.val = scan_state.rewritable_targeting_branches.val +
+            1
+          false
+        }
+      } else {
+        false
+      }
     TInstrKind::TBrOnNull(label, _, values) =>
-      fl_label_targets_uid(state, label, target_uid) &&
-      (
-        values.length() != 1 ||
-        fl_branch_fallthrough_type(instr, state.env) == None
-      )
+      if fl_label_targets_uid(state, label, target_uid) {
+        if values.length() != 1 ||
+          fl_branch_fallthrough_type(instr, state.env) == None {
+          true
+        } else {
+          scan_state.rewritable_targeting_branches.val = scan_state.rewritable_targeting_branches.val +
+            1
+          false
+        }
+      } else {
+        false
+      }
     TInstrKind::TBrOnNonNull(label, _, values) =>
-      fl_label_targets_uid(state, label, target_uid) && values.length() != 1
+      if fl_label_targets_uid(state, label, target_uid) {
+        if values.length() != 1 {
+          true
+        } else {
+          scan_state.rewritable_targeting_branches.val = scan_state.rewritable_targeting_branches.val +
+            1
+          false
+        }
+      } else {
+        false
+      }
     TInstrKind::TBrOnCast(label, _, _, _, _, values) =>
-      fl_label_targets_uid(state, label, target_uid) &&
-      (
-        values.length() != 1 ||
-        fl_branch_fallthrough_type(instr, state.env) == None
-      )
+      if fl_label_targets_uid(state, label, target_uid) {
+        if values.length() != 1 ||
+          fl_branch_fallthrough_type(instr, state.env) == None {
+          true
+        } else {
+          scan_state.rewritable_targeting_branches.val = scan_state.rewritable_targeting_branches.val +
+            1
+          false
+        }
+      } else {
+        false
+      }
     TInstrKind::TBrOnCastFail(label, _, _, _, _, values) =>
-      fl_label_targets_uid(state, label, target_uid) &&
-      (
-        values.length() != 1 ||
-        fl_branch_fallthrough_type(instr, state.env) == None
-      )
+      if fl_label_targets_uid(state, label, target_uid) {
+        if values.length() != 1 ||
+          fl_branch_fallthrough_type(instr, state.env) == None {
+          true
+        } else {
+          scan_state.rewritable_targeting_branches.val = scan_state.rewritable_targeting_branches.val +
+            1
+          false
+        }
+      } else {
+        false
+      }
     TInstrKind::TBrTable(labels, default_label, _, _) =>
       fl_br_table_targets_uid(state, labels, default_label, target_uid)
     _ => {
       let children = eval_children(instr)
       for child in children {
-        if fl_has_unsupported_targeting_branch_in_instr(
-            child, state, target_uid,
+        if fl_has_unsupported_targeting_branch_in_instr_scan(
+            child,
+            state,
+            target_uid,
+            scan_state,
+            depth + 1,
           ) {
           return true
         }
@@ -1591,34 +1966,53 @@ fn fl_has_unsupported_targeting_branch_in_instr(
 }
 
 ///|
-fn fl_has_unsupported_targeting_branch_in_texpr(
+fn fl_has_unsupported_targeting_branch_in_texpr_scan(
   body : TExpr,
   state : FLFuncState,
   target_uid : Int,
+  scan_state : FLUnsupportedBranchScanState,
+  depth : Int,
 ) -> Bool {
+  fl_note_unsupported_branch_scan_expr_visit(scan_state, depth)
+  for instr in body.instrs {
+    if fl_has_unsupported_targeting_branch_in_instr_scan(
+        instr,
+        state,
+        target_uid,
+        scan_state,
+        depth + 1,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn fl_scan_unsupported_targeting_branch_in_texpr(
+  body : TExpr,
+  state : FLFuncState,
+  target_uid : Int,
+) -> FLUnsupportedBranchScanSummary {
   let helper_start_ms = fl_trace_helper_start(
     state,
     "fl_has_unsupported_targeting_branch_in_texpr",
     "instrs=\{body.instrs.length()} target_uid=\{target_uid}",
   )
-  for instr in body.instrs {
-    if fl_has_unsupported_targeting_branch_in_instr(instr, state, target_uid) {
-      fl_trace_helper_done(
-        state,
-        "fl_has_unsupported_targeting_branch_in_texpr",
-        helper_start_ms,
-        "blocked=true target_uid=\{target_uid}",
-      )
-      return true
-    }
-  }
+  let scan_state = FLUnsupportedBranchScanState::new(helper_start_ms)
+  let blocked = fl_has_unsupported_targeting_branch_in_texpr_scan(
+    body, state, target_uid, scan_state, 0,
+  )
   fl_trace_helper_done(
     state,
     "fl_has_unsupported_targeting_branch_in_texpr",
     helper_start_ms,
-    "blocked=false target_uid=\{target_uid}",
+    "blocked=\{blocked} target_uid=\{target_uid} rewritable_targeting_branches=\{scan_state.rewritable_targeting_branches.val} visited_exprs=\{scan_state.visited_exprs.val} visited_instrs=\{scan_state.visited_instrs.val} max_depth=\{scan_state.max_depth.val}",
   )
-  false
+  {
+    blocked,
+    rewritable_targeting_branches: scan_state.rewritable_targeting_branches.val,
+  }
 }
 
 ///|
@@ -1929,23 +2323,26 @@ test "flatten keeps br_on value flow in value position" {
     Some(CodeSec([TFunc(_, _, body)])) => {
       let saw_const_value = Ref::new(false)
       let saw_set_of_const = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-        self,
-        _,
-        instr : TInstr,
-      ) {
-        match instr.kind {
-          TInstrKind::TBrOnNull(
-            _,
-            _,
-            [{ kind: TInstrKind::TI32Const(I32(v)), .. }]
-          ) if v == 17 => saw_const_value.update(fn(_) { true })
-          TInstrKind::TLocalSet(_, { kind: TInstrKind::TI32Const(I32(v)), .. }) if v ==
-            17 => saw_set_of_const.update(fn(_) { true })
-          _ => ()
-        }
-        from_walk(self.walk_tinstruction_default((), instr))
-      })
+      let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          instr : TInstr,
+        ) {
+          match instr.kind {
+            TInstrKind::TBrOnNull(
+              _,
+              _,
+              [{ kind: TInstrKind::TI32Const(I32(v)), .. }]
+            ) if v == 17 => saw_const_value.update(fn(_) { true })
+            TInstrKind::TLocalSet(
+              _,
+              { kind: TInstrKind::TI32Const(I32(v)), .. }
+            ) if v == 17 => saw_set_of_const.update(fn(_) { true })
+            _ => ()
+          }
+          from_walk(self.walk_tinstruction_default((), instr))
+        },
+      )
       ignore(walker.walk_texpr((), body))
       assert_true(saw_const_value.val)
       assert_true(!saw_set_of_const.val)
@@ -2006,42 +2403,43 @@ test "flatten preserves carried values for br_on variants in value position" {
   match out.code_sec {
     Some(CodeSec([TFunc(_, _, body)])) => {
       let carried_const_count = Ref::new(0)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-        self,
-        _,
-        instr : TInstr,
-      ) {
-        match instr.kind {
-          TInstrKind::TBrOnNull(
-            _,
-            _,
-            [{ kind: TInstrKind::TI32Const(I32(_)), .. }]
-          )
-          | TInstrKind::TBrOnNonNull(
-            _,
-            _,
-            [{ kind: TInstrKind::TI32Const(I32(_)), .. }]
-          )
-          | TInstrKind::TBrOnCast(
-            _,
-            _,
-            _,
-            _,
-            _,
-            [{ kind: TInstrKind::TI32Const(I32(_)), .. }]
-          )
-          | TInstrKind::TBrOnCastFail(
-            _,
-            _,
-            _,
-            _,
-            _,
-            [{ kind: TInstrKind::TI32Const(I32(_)), .. }]
-          ) => carried_const_count.update(fn(v) { v + 1 })
-          _ => ()
-        }
-        from_walk(self.walk_tinstruction_default((), instr))
-      })
+      let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          instr : TInstr,
+        ) {
+          match instr.kind {
+            TInstrKind::TBrOnNull(
+              _,
+              _,
+              [{ kind: TInstrKind::TI32Const(I32(_)), .. }]
+            )
+            | TInstrKind::TBrOnNonNull(
+              _,
+              _,
+              [{ kind: TInstrKind::TI32Const(I32(_)), .. }]
+            )
+            | TInstrKind::TBrOnCast(
+              _,
+              _,
+              _,
+              _,
+              _,
+              [{ kind: TInstrKind::TI32Const(I32(_)), .. }]
+            )
+            | TInstrKind::TBrOnCastFail(
+              _,
+              _,
+              _,
+              _,
+              _,
+              [{ kind: TInstrKind::TI32Const(I32(_)), .. }]
+            ) => carried_const_count.update(fn(v) { v + 1 })
+            _ => ()
+          }
+          from_walk(self.walk_tinstruction_default((), instr))
+        },
+      )
       ignore(walker.walk_texpr((), body))
       assert_eq(carried_const_count.val, 4)
     }
@@ -2372,18 +2770,19 @@ test "flatten: br_table value targeting result block remains valid" {
   match out.code_sec {
     Some(CodeSec([TFunc(_, _, body)])) => {
       let saw_value_block = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-        self,
-        _,
-        instr : TInstr,
-      ) {
-        match instr.kind {
-          TInstrKind::TBlock(ValTypeBlockType(NumTypeValType(I32NumType)), _) =>
-            saw_value_block.update(fn(_) { true })
-          _ => ()
-        }
-        from_walk(self.walk_tinstruction_default((), instr))
-      })
+      let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          instr : TInstr,
+        ) {
+          match instr.kind {
+            TInstrKind::TBlock(ValTypeBlockType(NumTypeValType(I32NumType)), _) =>
+              saw_value_block.update(fn(_) { true })
+            _ => ()
+          }
+          from_walk(self.walk_tinstruction_default((), instr))
+        },
+      )
       ignore(walker.walk_texpr((), body))
       assert_true(saw_value_block.val)
     }
@@ -2445,4 +2844,111 @@ test "flatten: br_on_non_null targeting ref result block remains valid" {
         "expected flatten to preserve validity for br_on_non_null targeting a ref result block; got: \{e}",
       )
   }
+}
+
+///|
+test "flatten trace includes helper scan counters in done log" {
+  let mod = fl_mk_valid_one_func_module(
+    [],
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(1))),
+          TInstr::drop(TInstr::i32_const(I32(2))),
+          TInstr::i32_const(I32(0)),
+        ]),
+      ),
+    ]),
+  )
+  let trace_logs : Array[String] = []
+  match
+    run_flatten_with_trace(
+      mod,
+      trace=fn(msg) { trace_logs.push(msg) },
+      trace_all_funcs=true,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail("unexpected flatten trace error: \{e}")
+  }
+  let saw_done_with_scan_counts = trace_logs.any(fn(msg) {
+    msg.contains(
+      "helper=fl_has_unsupported_targeting_branch_in_texpr step=done",
+    ) &&
+    msg.contains("visited_exprs=") &&
+    msg.contains("visited_instrs=") &&
+    msg.contains("max_depth=")
+  })
+  assert_true(saw_done_with_scan_counts)
+}
+
+///|
+test "flatten trace includes rewrite helper scan counters in done log" {
+  let mod = fl_mk_valid_one_func_module(
+    [],
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(1))),
+          TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(2))]),
+          TInstr::drop(TInstr::i32_const(I32(2))),
+          TInstr::i32_const(I32(0)),
+        ]),
+      ),
+    ]),
+  )
+  let trace_logs : Array[String] = []
+  match
+    run_flatten_with_trace(
+      mod,
+      trace=fn(msg) { trace_logs.push(msg) },
+      trace_all_funcs=true,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail("unexpected flatten trace error: \{e}")
+  }
+  let saw_done_with_scan_counts = trace_logs.any(fn(msg) {
+    msg.contains("helper=fl_rewrite_label_value_flow_in_texpr step=done") &&
+    msg.contains("visited_exprs=") &&
+    msg.contains("visited_instrs=") &&
+    msg.contains("max_depth=")
+  })
+  assert_true(saw_done_with_scan_counts)
+}
+
+///|
+test "flatten skips rewrite helper when result label has no targeting branch values" {
+  let mod = fl_mk_valid_one_func_module(
+    [],
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(1))),
+          TInstr::i32_const(I32(0)),
+        ]),
+      ),
+    ]),
+  )
+  let trace_logs : Array[String] = []
+  match
+    run_flatten_with_trace(
+      mod,
+      trace=fn(msg) { trace_logs.push(msg) },
+      trace_all_funcs=true,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail("unexpected flatten trace error: \{e}")
+  }
+  let saw_rewrite_helper_start = trace_logs.any(fn(msg) {
+    msg.contains("helper=fl_rewrite_label_value_flow_in_texpr step=start")
+  })
+  assert_false(saw_rewrite_helper_start)
 }

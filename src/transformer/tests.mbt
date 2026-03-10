@@ -15,17 +15,18 @@ test "change and unchanged helpers return expected visit actions" {
 
 ///|
 test "walk_module applies on_tinstruction rewrite" {
-let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-    self,
-    _,
-    instr : TInstr,
-  ) {
-    match instr.kind {
-      TInstrKind::TLocalGet(LocalIdx(i)) if i == 0U =>
-        change((), TInstr::local_get(LocalIdx::new(1)))
-      _ => from_walk(self.walk_tinstruction_default((), instr))
-    }
-  })
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TLocalGet(LocalIdx(i)) if i == 0U =>
+          change((), TInstr::local_get(LocalIdx::new(1)))
+        _ => from_walk(self.walk_tinstruction_default((), instr))
+      }
+    },
+  )
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func([], [], TExpr::new([TInstr::local_get(LocalIdx::new(0))])),
@@ -134,14 +135,19 @@ test "walk_module falls through on_module Ok(_) to default traversal" {
 
 ///|
 test "walk_module invokes on_module event hook" {
-let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_module_evt(fn(_, _, mod : Module) {
-    change(
-      (),
-      mod.with_code_sec(
-        CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
-      ),
-    )
-  })
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_module_evt(fn(
+      _,
+      _,
+      mod : Module,
+    ) {
+      change(
+        (),
+        mod.with_code_sec(
+          CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+        ),
+      )
+    },
+  )
   let mod = Module::new()
   let rewritten = match transformer.walk_module((), mod) {
     Ok((m, _)) => m
@@ -860,7 +866,7 @@ test "walk_tinstruction forwards callback errors for less-used variants" {
 
 ///|
 test "walk_tinstruction preserves array_copy final operand when unchanged" {
-let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
   let i0 = TInstr::i32_const(I32(10))
   let i1 = TInstr::i32_const(I32(11))
   let i2 = TInstr::i32_const(I32(12))
@@ -918,12 +924,17 @@ test "walk_expr_default forwards instruction walker errors" {
 
 ///|
 test "walk_array rewrites only changed typed items" {
-let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx : LocalIdx) {
-    match idx {
-      LocalIdx(i) if i == 1U => change((), LocalIdx::new(9))
-      _ => unchanged()
-    }
-  })
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_localidx_evt(fn(
+      _,
+      _,
+      idx : LocalIdx,
+    ) {
+      match idx {
+        LocalIdx(i) if i == 1U => change((), LocalIdx::new(9))
+        _ => unchanged()
+      }
+    },
+  )
   let items = [
     TInstr::local_get(LocalIdx::new(0)),
     TInstr::local_get(LocalIdx::new(1)),
@@ -971,9 +982,14 @@ test "walk_tinstruction_default forwards index child and heaptype errors" {
     _ => fail("expected child localidx error propagation")
   }
 
-let heap_rewrite : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_heaptype_evt(fn(_, _, _) {
-    change((), HeapType::new(TypeIdx::new(3)))
-  })
+  let heap_rewrite : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_heaptype_evt(fn(
+      _,
+      _,
+      _,
+    ) {
+      change((), HeapType::new(TypeIdx::new(3)))
+    },
+  )
   match
     heap_rewrite.walk_tinstruction_default(
       (),
@@ -1694,7 +1710,7 @@ fn transformer_tinstruction_corpus() -> Array[TInstr] {
 
 ///|
 test "walk_tinstruction traverses broad constructor corpus without remaps" {
-let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
   for instr in transformer_tinstruction_corpus() {
     match transformer.walk_tinstruction((), instr) {
       Ok(_) => ()

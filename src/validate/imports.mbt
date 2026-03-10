@@ -89,12 +89,7 @@ using @lib {
 }
 
 ///|
-using @transformer {
-  type ModuleTransformer,
-  type VisitAction,
-  change,
-  unchanged,
-}
+using @transformer {type ModuleTransformer, type VisitAction, change, unchanged}
 
 ///|
 using @splitmix {type RandomState}

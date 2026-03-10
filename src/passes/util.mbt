@@ -96,13 +96,18 @@ fn[T] SquareMatrix::get_or(
 ///|
 fn uses(instr : TInstr) -> Set[LocalIdx] {
   let result = Set::new()
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i : TInstr) {
-    match i.kind {
-      TInstrKind::TLocalGet(idx) => result.add(idx)
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), i))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      i : TInstr,
+    ) {
+      match i.kind {
+        TInstrKind::TLocalGet(idx) => result.add(idx)
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), i))
+    },
+  )
   ignore(walker.walk_texpr_default((), TExpr::new([instr])))
   result
 }

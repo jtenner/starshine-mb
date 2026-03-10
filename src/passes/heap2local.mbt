@@ -299,397 +299,402 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
     has_sync_atomic: false,
   }
   let walker : ModuleTransformer[H2LAnalyzeState, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-    self,
-    s : H2LAnalyzeState,
-    instr : TInstr,
-  ) {
-    match instr.kind {
-      TInstrKind::TLoad(op, _, _) =>
-        if h2l_load_is_atomic(op) {
-          s.has_sync_atomic = true
-        }
-      TInstrKind::TStore(op, _, _, _) =>
-        if h2l_store_is_atomic(op) {
-          s.has_sync_atomic = true
-        }
-      TInstrKind::TMemoryAtomicNotify(_, _, _)
-      | TInstrKind::TMemoryAtomicWait32(_, _, _, _)
-      | TInstrKind::TMemoryAtomicWait64(_, _, _, _)
-      | TInstrKind::TAtomicFence
-      | TInstrKind::TAtomicRmw(_, _, _, _)
-      | TInstrKind::TAtomicCmpxchg(_, _, _, _, _) => s.has_sync_atomic = true
-      TInstrKind::TLocalSet(loc, value) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.set_counts, idx)
-        match h2l_extract_shape(s.env, value) {
-          Some(shape) => h2l_note_set_shape(s, idx, shape)
-          None => h2l_mark_invalid(s, idx)
-        }
-      }
-      TInstrKind::TLocalTee(loc, _) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.set_counts, idx)
-        h2l_mark_invalid(s, idx)
-      }
-      TInstrKind::TLocalGet(loc) =>
-        h2l_inc_count(s.total_get_counts, h2l_local_to_int(loc))
-      TInstrKind::TStructGet(
-        type_idx,
-        field_idx,
-        { kind: TInstrKind::TLocalGet(loc), .. }
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::StructGet(type_idx, field_idx))
-      }
-      TInstrKind::TStructGet(
-        type_idx,
-        field_idx,
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        }
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::StructGet(type_idx, field_idx))
-      }
-      TInstrKind::TStructGetS(
-        type_idx,
-        field_idx,
-        { kind: TInstrKind::TLocalGet(loc), .. }
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::StructGetS(type_idx, field_idx))
-      }
-      TInstrKind::TStructGetS(
-        type_idx,
-        field_idx,
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        }
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::StructGetS(type_idx, field_idx))
-      }
-      TInstrKind::TStructGetU(
-        type_idx,
-        field_idx,
-        { kind: TInstrKind::TLocalGet(loc), .. }
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::StructGetU(type_idx, field_idx))
-      }
-      TInstrKind::TStructGetU(
-        type_idx,
-        field_idx,
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        }
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::StructGetU(type_idx, field_idx))
-      }
-      TInstrKind::TStructSet(
-        type_idx,
-        field_idx,
-        { kind: TInstrKind::TLocalGet(loc), .. },
-        _
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::StructSet(type_idx, field_idx))
-      }
-      TInstrKind::TStructSet(
-        type_idx,
-        field_idx,
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        },
-        _
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::StructSet(type_idx, field_idx))
-      }
-      TInstrKind::TArrayGet(
-        type_idx,
-        { kind: TInstrKind::TLocalGet(loc), .. },
-        index
-      ) =>
-        match h2l_const_i32_nonneg(index) {
-          Some(i) => {
-            let idx = h2l_local_to_int(loc)
-            h2l_inc_count(s.safe_get_counts, idx)
-            h2l_add_use(s.uses, idx, H2LUse::ArrayGet(type_idx, i))
+      self,
+      s : H2LAnalyzeState,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TLoad(op, _, _) =>
+          if h2l_load_is_atomic(op) {
+            s.has_sync_atomic = true
           }
-          None => ()
-        }
-      TInstrKind::TArrayGet(
-        type_idx,
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        },
-        index
-      ) =>
-        match h2l_const_i32_nonneg(index) {
-          Some(i) => {
-            let idx = h2l_local_to_int(loc)
-            h2l_inc_count(s.safe_get_counts, idx)
-            h2l_add_use(s.uses, idx, H2LUse::ArrayGet(type_idx, i))
+        TInstrKind::TStore(op, _, _, _) =>
+          if h2l_store_is_atomic(op) {
+            s.has_sync_atomic = true
           }
-          None => ()
-        }
-      TInstrKind::TArrayGetS(
-        type_idx,
-        { kind: TInstrKind::TLocalGet(loc), .. },
-        index
-      ) =>
-        match h2l_const_i32_nonneg(index) {
-          Some(i) => {
-            let idx = h2l_local_to_int(loc)
-            h2l_inc_count(s.safe_get_counts, idx)
-            h2l_add_use(s.uses, idx, H2LUse::ArrayGetS(type_idx, i))
-          }
-          None => ()
-        }
-      TInstrKind::TArrayGetS(
-        type_idx,
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        },
-        index
-      ) =>
-        match h2l_const_i32_nonneg(index) {
-          Some(i) => {
-            let idx = h2l_local_to_int(loc)
-            h2l_inc_count(s.safe_get_counts, idx)
-            h2l_add_use(s.uses, idx, H2LUse::ArrayGetS(type_idx, i))
-          }
-          None => ()
-        }
-      TInstrKind::TArrayGetU(
-        type_idx,
-        { kind: TInstrKind::TLocalGet(loc), .. },
-        index
-      ) =>
-        match h2l_const_i32_nonneg(index) {
-          Some(i) => {
-            let idx = h2l_local_to_int(loc)
-            h2l_inc_count(s.safe_get_counts, idx)
-            h2l_add_use(s.uses, idx, H2LUse::ArrayGetU(type_idx, i))
-          }
-          None => ()
-        }
-      TInstrKind::TArrayGetU(
-        type_idx,
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        },
-        index
-      ) =>
-        match h2l_const_i32_nonneg(index) {
-          Some(i) => {
-            let idx = h2l_local_to_int(loc)
-            h2l_inc_count(s.safe_get_counts, idx)
-            h2l_add_use(s.uses, idx, H2LUse::ArrayGetU(type_idx, i))
-          }
-          None => ()
-        }
-      TInstrKind::TArraySet(
-        type_idx,
-        { kind: TInstrKind::TLocalGet(loc), .. },
-        index,
-        _
-      ) =>
-        match h2l_const_i32_nonneg(index) {
-          Some(i) => {
-            let idx = h2l_local_to_int(loc)
-            h2l_inc_count(s.safe_get_counts, idx)
-            h2l_add_use(s.uses, idx, H2LUse::ArraySet(type_idx, i))
-          }
-          None => ()
-        }
-      TInstrKind::TArraySet(
-        type_idx,
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        },
-        index,
-        _
-      ) =>
-        match h2l_const_i32_nonneg(index) {
-          Some(i) => {
-            let idx = h2l_local_to_int(loc)
-            h2l_inc_count(s.safe_get_counts, idx)
-            h2l_add_use(s.uses, idx, H2LUse::ArraySet(type_idx, i))
-          }
-          None => ()
-        }
-      TInstrKind::TArrayLen({ kind: TInstrKind::TLocalGet(loc), .. }) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::ArrayLen)
-      }
-      TInstrKind::TArrayLen(
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        }
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::ArrayLen)
-      }
-      TInstrKind::TDrop({ kind: TInstrKind::TLocalGet(loc), .. }) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::DropOnly)
-      }
-      TInstrKind::TDrop(
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        }
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::DropOnly)
-      }
-      TInstrKind::TRefIsNull({ kind: TInstrKind::TLocalGet(loc), .. }) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::RefIsNull)
-      }
-      TInstrKind::TRefIsNull(
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        }
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::RefIsNull)
-      }
-      TInstrKind::TRefTest(_, _, { kind: TInstrKind::TLocalGet(loc), .. }) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::RefTest)
-      }
-      TInstrKind::TRefGetDesc({ kind: TInstrKind::TLocalGet(loc), .. }) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::RefGetDesc)
-      }
-      TInstrKind::TRefGetDesc(
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        }
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::RefGetDesc)
-      }
-      TInstrKind::TRefTestDesc(_, _, { kind: TInstrKind::TLocalGet(loc), .. }) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::RefTestDesc)
-      }
-      TInstrKind::TRefTestDesc(
-        _,
-        _,
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        }
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::RefTestDesc)
-      }
-      TInstrKind::TRefCastDescEq(_, _, { kind: TInstrKind::TLocalGet(loc), .. }) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::RefCastDescEq)
-      }
-      TInstrKind::TRefCastDescEq(
-        _,
-        _,
-        {
-          kind: TInstrKind::TRefAsNonNull(
-            { kind: TInstrKind::TLocalGet(loc), .. }
-          ),
-          ..,
-        }
-      ) => {
-        let idx = h2l_local_to_int(loc)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::RefCastDescEq)
-      }
-      TInstrKind::TRefEq({ kind: TInstrKind::TLocalGet(left), .. }, right) => {
-        let idx = h2l_local_to_int(left)
-        h2l_inc_count(s.safe_get_counts, idx)
-        h2l_add_use(s.uses, idx, H2LUse::RefEq)
-        match right.kind {
-          TInstrKind::TLocalGet(right_loc) => {
-            let right_idx = h2l_local_to_int(right_loc)
-            h2l_inc_count(s.safe_get_counts, right_idx)
-            h2l_add_use(s.uses, right_idx, H2LUse::RefEq)
-          }
-          _ => ()
-        }
-      }
-      TInstrKind::TRefEq(left, { kind: TInstrKind::TLocalGet(right), .. }) =>
-        match left.kind {
-          TInstrKind::TLocalGet(_) => ()
-          _ => {
-            let idx = h2l_local_to_int(right)
-            h2l_inc_count(s.safe_get_counts, idx)
-            h2l_add_use(s.uses, idx, H2LUse::RefEq)
+        TInstrKind::TMemoryAtomicNotify(_, _, _)
+        | TInstrKind::TMemoryAtomicWait32(_, _, _, _)
+        | TInstrKind::TMemoryAtomicWait64(_, _, _, _)
+        | TInstrKind::TAtomicFence
+        | TInstrKind::TAtomicRmw(_, _, _, _)
+        | TInstrKind::TAtomicCmpxchg(_, _, _, _, _) => s.has_sync_atomic = true
+        TInstrKind::TLocalSet(loc, value) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.set_counts, idx)
+          match h2l_extract_shape(s.env, value) {
+            Some(shape) => h2l_note_set_shape(s, idx, shape)
+            None => h2l_mark_invalid(s, idx)
           }
         }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default(s, instr))
-  })
+        TInstrKind::TLocalTee(loc, _) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.set_counts, idx)
+          h2l_mark_invalid(s, idx)
+        }
+        TInstrKind::TLocalGet(loc) =>
+          h2l_inc_count(s.total_get_counts, h2l_local_to_int(loc))
+        TInstrKind::TStructGet(
+          type_idx,
+          field_idx,
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::StructGet(type_idx, field_idx))
+        }
+        TInstrKind::TStructGet(
+          type_idx,
+          field_idx,
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          }
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::StructGet(type_idx, field_idx))
+        }
+        TInstrKind::TStructGetS(
+          type_idx,
+          field_idx,
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::StructGetS(type_idx, field_idx))
+        }
+        TInstrKind::TStructGetS(
+          type_idx,
+          field_idx,
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          }
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::StructGetS(type_idx, field_idx))
+        }
+        TInstrKind::TStructGetU(
+          type_idx,
+          field_idx,
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::StructGetU(type_idx, field_idx))
+        }
+        TInstrKind::TStructGetU(
+          type_idx,
+          field_idx,
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          }
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::StructGetU(type_idx, field_idx))
+        }
+        TInstrKind::TStructSet(
+          type_idx,
+          field_idx,
+          { kind: TInstrKind::TLocalGet(loc), .. },
+          _
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::StructSet(type_idx, field_idx))
+        }
+        TInstrKind::TStructSet(
+          type_idx,
+          field_idx,
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          },
+          _
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::StructSet(type_idx, field_idx))
+        }
+        TInstrKind::TArrayGet(
+          type_idx,
+          { kind: TInstrKind::TLocalGet(loc), .. },
+          index
+        ) =>
+          match h2l_const_i32_nonneg(index) {
+            Some(i) => {
+              let idx = h2l_local_to_int(loc)
+              h2l_inc_count(s.safe_get_counts, idx)
+              h2l_add_use(s.uses, idx, H2LUse::ArrayGet(type_idx, i))
+            }
+            None => ()
+          }
+        TInstrKind::TArrayGet(
+          type_idx,
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          },
+          index
+        ) =>
+          match h2l_const_i32_nonneg(index) {
+            Some(i) => {
+              let idx = h2l_local_to_int(loc)
+              h2l_inc_count(s.safe_get_counts, idx)
+              h2l_add_use(s.uses, idx, H2LUse::ArrayGet(type_idx, i))
+            }
+            None => ()
+          }
+        TInstrKind::TArrayGetS(
+          type_idx,
+          { kind: TInstrKind::TLocalGet(loc), .. },
+          index
+        ) =>
+          match h2l_const_i32_nonneg(index) {
+            Some(i) => {
+              let idx = h2l_local_to_int(loc)
+              h2l_inc_count(s.safe_get_counts, idx)
+              h2l_add_use(s.uses, idx, H2LUse::ArrayGetS(type_idx, i))
+            }
+            None => ()
+          }
+        TInstrKind::TArrayGetS(
+          type_idx,
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          },
+          index
+        ) =>
+          match h2l_const_i32_nonneg(index) {
+            Some(i) => {
+              let idx = h2l_local_to_int(loc)
+              h2l_inc_count(s.safe_get_counts, idx)
+              h2l_add_use(s.uses, idx, H2LUse::ArrayGetS(type_idx, i))
+            }
+            None => ()
+          }
+        TInstrKind::TArrayGetU(
+          type_idx,
+          { kind: TInstrKind::TLocalGet(loc), .. },
+          index
+        ) =>
+          match h2l_const_i32_nonneg(index) {
+            Some(i) => {
+              let idx = h2l_local_to_int(loc)
+              h2l_inc_count(s.safe_get_counts, idx)
+              h2l_add_use(s.uses, idx, H2LUse::ArrayGetU(type_idx, i))
+            }
+            None => ()
+          }
+        TInstrKind::TArrayGetU(
+          type_idx,
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          },
+          index
+        ) =>
+          match h2l_const_i32_nonneg(index) {
+            Some(i) => {
+              let idx = h2l_local_to_int(loc)
+              h2l_inc_count(s.safe_get_counts, idx)
+              h2l_add_use(s.uses, idx, H2LUse::ArrayGetU(type_idx, i))
+            }
+            None => ()
+          }
+        TInstrKind::TArraySet(
+          type_idx,
+          { kind: TInstrKind::TLocalGet(loc), .. },
+          index,
+          _
+        ) =>
+          match h2l_const_i32_nonneg(index) {
+            Some(i) => {
+              let idx = h2l_local_to_int(loc)
+              h2l_inc_count(s.safe_get_counts, idx)
+              h2l_add_use(s.uses, idx, H2LUse::ArraySet(type_idx, i))
+            }
+            None => ()
+          }
+        TInstrKind::TArraySet(
+          type_idx,
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          },
+          index,
+          _
+        ) =>
+          match h2l_const_i32_nonneg(index) {
+            Some(i) => {
+              let idx = h2l_local_to_int(loc)
+              h2l_inc_count(s.safe_get_counts, idx)
+              h2l_add_use(s.uses, idx, H2LUse::ArraySet(type_idx, i))
+            }
+            None => ()
+          }
+        TInstrKind::TArrayLen({ kind: TInstrKind::TLocalGet(loc), .. }) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::ArrayLen)
+        }
+        TInstrKind::TArrayLen(
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          }
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::ArrayLen)
+        }
+        TInstrKind::TDrop({ kind: TInstrKind::TLocalGet(loc), .. }) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::DropOnly)
+        }
+        TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          }
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::DropOnly)
+        }
+        TInstrKind::TRefIsNull({ kind: TInstrKind::TLocalGet(loc), .. }) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::RefIsNull)
+        }
+        TInstrKind::TRefIsNull(
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          }
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::RefIsNull)
+        }
+        TInstrKind::TRefTest(_, _, { kind: TInstrKind::TLocalGet(loc), .. }) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::RefTest)
+        }
+        TInstrKind::TRefGetDesc({ kind: TInstrKind::TLocalGet(loc), .. }) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::RefGetDesc)
+        }
+        TInstrKind::TRefGetDesc(
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          }
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::RefGetDesc)
+        }
+        TInstrKind::TRefTestDesc(_, _, { kind: TInstrKind::TLocalGet(loc), .. }) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::RefTestDesc)
+        }
+        TInstrKind::TRefTestDesc(
+          _,
+          _,
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          }
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::RefTestDesc)
+        }
+        TInstrKind::TRefCastDescEq(
+          _,
+          _,
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::RefCastDescEq)
+        }
+        TInstrKind::TRefCastDescEq(
+          _,
+          _,
+          {
+            kind: TInstrKind::TRefAsNonNull(
+              { kind: TInstrKind::TLocalGet(loc), .. }
+            ),
+            ..,
+          }
+        ) => {
+          let idx = h2l_local_to_int(loc)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::RefCastDescEq)
+        }
+        TInstrKind::TRefEq({ kind: TInstrKind::TLocalGet(left), .. }, right) => {
+          let idx = h2l_local_to_int(left)
+          h2l_inc_count(s.safe_get_counts, idx)
+          h2l_add_use(s.uses, idx, H2LUse::RefEq)
+          match right.kind {
+            TInstrKind::TLocalGet(right_loc) => {
+              let right_idx = h2l_local_to_int(right_loc)
+              h2l_inc_count(s.safe_get_counts, right_idx)
+              h2l_add_use(s.uses, right_idx, H2LUse::RefEq)
+            }
+            _ => ()
+          }
+        }
+        TInstrKind::TRefEq(left, { kind: TInstrKind::TLocalGet(right), .. }) =>
+          match left.kind {
+            TInstrKind::TLocalGet(_) => ()
+            _ => {
+              let idx = h2l_local_to_int(right)
+              h2l_inc_count(s.safe_get_counts, idx)
+              h2l_add_use(s.uses, idx, H2LUse::RefEq)
+            }
+          }
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default(s, instr))
+    },
+  )
   match walker.walk_texpr(state, body) {
     Ok((_, out)) => out
     Err(_) => state
@@ -827,17 +832,18 @@ fn h2l_local_graph_get_order(body : TExpr) -> Array[LocalIdx] {
   let out : Array[LocalIdx] = []
   let flat = h2l_flatten_instrs(body.instrs)
   for instr in flat {
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-      self,
-      _,
-      curr : TInstr,
-    ) {
-      match curr.kind {
-        TInstrKind::TLocalGet(idx) => out.push(idx)
-        _ => ()
-      }
-      from_walk(self.walk_tinstruction_default((), curr))
-    })
+    let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+        self,
+        _,
+        curr : TInstr,
+      ) {
+        match curr.kind {
+          TInstrKind::TLocalGet(idx) => out.push(idx)
+          _ => ()
+        }
+        from_walk(self.walk_tinstruction_default((), curr))
+      },
+    )
     ignore(walker.walk_texpr((), TExpr::new([instr])))
   }
   out
@@ -863,17 +869,22 @@ fn h2l_root_has_matching_set(
   shape : H2LShape,
 ) -> Bool {
   let found = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TLocalSet(idx, value) =>
-        if idx == target &&
-          h2l_shape_matches_allocation_value(env, shape, value) {
-          found.update(fn(_) { true })
-        }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalSet(idx, value) =>
+          if idx == target &&
+            h2l_shape_matches_allocation_value(env, shape, value) {
+            found.update(fn(_) { true })
+          }
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), TExpr::new([root])))
   found.val
 }
@@ -928,14 +939,19 @@ fn h2l_filter_by_local_graph(
 ///|
 fn h2l_texpr_has_local_set(expr : TExpr, target : LocalIdx) -> Bool {
   let found = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TLocalSet(idx, _) if idx == target =>
-        found.update(fn(_) { true })
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalSet(idx, _) if idx == target =>
+          found.update(fn(_) { true })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), expr))
   found.val
 }
@@ -991,25 +1007,31 @@ fn h2l_filter_nonuniform_if_sets(
 ///|
 fn h2l_instr_transfers_control_flow(instr : TInstr) -> Bool {
   let transfers = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TBr(_, _)
-      | TInstrKind::TBrIf(_, _, _)
-      | TInstrKind::TBrTable(_, _, _, _)
-      | TInstrKind::TBrOnNull(_, _, _)
-      | TInstrKind::TBrOnNonNull(_, _, _)
-      | TInstrKind::TBrOnCast(_, _, _, _, _, _)
-      | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
-      | TInstrKind::TReturn(_)
-      | TInstrKind::TThrow(_, _)
-      | TInstrKind::TThrowRef(_)
-      | TInstrKind::TReturnCall(_, _)
-      | TInstrKind::TReturnCallIndirect(_, _, _, _)
-      | TInstrKind::TReturnCallRef(_, _, _) => transfers.update(fn(_) { true })
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TBr(_, _)
+        | TInstrKind::TBrIf(_, _, _)
+        | TInstrKind::TBrTable(_, _, _, _)
+        | TInstrKind::TBrOnNull(_, _, _)
+        | TInstrKind::TBrOnNonNull(_, _, _)
+        | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+        | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+        | TInstrKind::TReturn(_)
+        | TInstrKind::TThrow(_, _)
+        | TInstrKind::TThrowRef(_)
+        | TInstrKind::TReturnCall(_, _)
+        | TInstrKind::TReturnCallIndirect(_, _, _, _)
+        | TInstrKind::TReturnCallRef(_, _, _) =>
+          transfers.update(fn(_) { true })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), TExpr::new([instr])))
   transfers.val
 }
@@ -1017,14 +1039,19 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn h2l_tinstr_has_local_get_for(instr : TInstr, target : LocalIdx) -> Bool {
   let found = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TLocalGet(idx) if idx == target =>
-        found.update(fn(_) { true })
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalGet(idx) if idx == target =>
+          found.update(fn(_) { true })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), TExpr::new([instr])))
   found.val
 }
@@ -1037,18 +1064,23 @@ fn h2l_tinstr_has_branchy_set_for(
   env : Env,
 ) -> Bool {
   let found = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TLocalSet(idx, value) =>
-        if idx == target &&
-          h2l_shape_matches_allocation_value(env, shape, value) &&
-          h2l_instr_transfers_control_flow(value) {
-          found.update(fn(_) { true })
-        }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalSet(idx, value) =>
+          if idx == target &&
+            h2l_shape_matches_allocation_value(env, shape, value) &&
+            h2l_instr_transfers_control_flow(value) {
+            found.update(fn(_) { true })
+          }
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), TExpr::new([instr])))
   found.val
 }
@@ -2800,26 +2832,31 @@ fn run_heap2local(mod : Module) -> Module {
 ///|
 fn h2l_count_gc_ops(body : TExpr) -> Int {
   let mut count = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TStructNew(_, _)
-      | TInstrKind::TStructNewDefault(_)
-      | TInstrKind::TStructGet(_, _, _)
-      | TInstrKind::TStructGetS(_, _, _)
-      | TInstrKind::TStructGetU(_, _, _)
-      | TInstrKind::TStructSet(_, _, _, _)
-      | TInstrKind::TArrayNew(_, _, _)
-      | TInstrKind::TArrayNewDefault(_, _)
-      | TInstrKind::TArrayNewFixed(_, _)
-      | TInstrKind::TArrayGet(_, _, _)
-      | TInstrKind::TArrayGetS(_, _, _)
-      | TInstrKind::TArrayGetU(_, _, _)
-      | TInstrKind::TArraySet(_, _, _, _)
-      | TInstrKind::TArrayLen(_) => count += 1
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TStructNew(_, _)
+        | TInstrKind::TStructNewDefault(_)
+        | TInstrKind::TStructGet(_, _, _)
+        | TInstrKind::TStructGetS(_, _, _)
+        | TInstrKind::TStructGetU(_, _, _)
+        | TInstrKind::TStructSet(_, _, _, _)
+        | TInstrKind::TArrayNew(_, _, _)
+        | TInstrKind::TArrayNewDefault(_, _)
+        | TInstrKind::TArrayNewFixed(_, _)
+        | TInstrKind::TArrayGet(_, _, _)
+        | TInstrKind::TArrayGetS(_, _, _)
+        | TInstrKind::TArrayGetU(_, _, _)
+        | TInstrKind::TArraySet(_, _, _, _)
+        | TInstrKind::TArrayLen(_) => count += 1
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   count
 }
@@ -2827,14 +2864,19 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn h2l_has_unary(body : TExpr, op : UnaryOp) -> Bool {
   let found = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TUnary(found_op, _) if found_op == op =>
-        found.update(fn(_) { true })
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TUnary(found_op, _) if found_op == op =>
+          found.update(fn(_) { true })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   found.val
 }
@@ -2842,14 +2884,19 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn h2l_has_binary(body : TExpr, op : BinaryOp) -> Bool {
   let found = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TBinary(found_op, _, _) if found_op == op =>
-        found.update(fn(_) { true })
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TBinary(found_op, _, _) if found_op == op =>
+          found.update(fn(_) { true })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   found.val
 }
@@ -2857,13 +2904,18 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn h2l_has_unreachable(body : TExpr) -> Bool {
   let found = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TUnreachable => found.update(fn(_) { true })
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TUnreachable => found.update(fn(_) { true })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   found.val
 }
@@ -2871,14 +2923,19 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn h2l_has_i32_const(body : TExpr, target : Int) -> Bool {
   let found = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TI32Const(I32(v)) if v == target =>
-        found.update(fn(_) { true })
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TI32Const(I32(v)) if v == target =>
+          found.update(fn(_) { true })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   found.val
 }
@@ -2886,14 +2943,19 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn h2l_has_local_get(body : TExpr, idx : UInt) -> Bool {
   let found = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TLocalGet(LocalIdx(i)) if i == idx =>
-        found.update(fn(_) { true })
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TLocalGet(LocalIdx(i)) if i == idx =>
+          found.update(fn(_) { true })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   found.val
 }
@@ -2901,13 +2963,18 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn h2l_has_ref_get_desc(body : TExpr) -> Bool {
   let found = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TRefGetDesc(_) => found.update(fn(_) { true })
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TRefGetDesc(_) => found.update(fn(_) { true })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   found.val
 }

@@ -1042,20 +1042,25 @@ fn vq_simplify_block_to_contents(
 ///|
 fn vq_texpr_throws(expr : TExpr) -> Bool {
   let mut throws = false
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TThrow(_, _)
-      | TInstrKind::TThrowRef(_)
-      | TInstrKind::TCall(_, _)
-      | TInstrKind::TCallIndirect(_, _, _, _)
-      | TInstrKind::TCallRef(_, _, _)
-      | TInstrKind::TReturnCall(_, _)
-      | TInstrKind::TReturnCallIndirect(_, _, _, _)
-      | TInstrKind::TReturnCallRef(_, _, _) => throws = true
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TThrow(_, _)
+        | TInstrKind::TThrowRef(_)
+        | TInstrKind::TCall(_, _)
+        | TInstrKind::TCallIndirect(_, _, _, _)
+        | TInstrKind::TCallRef(_, _, _)
+        | TInstrKind::TReturnCall(_, _)
+        | TInstrKind::TReturnCallIndirect(_, _, _, _)
+        | TInstrKind::TReturnCallRef(_, _, _) => throws = true
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), expr))
   throws
 }
@@ -1063,22 +1068,27 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn vq_texpr_has_control_transfer(expr : TExpr) -> Bool {
   let mut has_control_transfer = false
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TBr(_, _)
-      | TInstrKind::TBrIf(_, _, _)
-      | TInstrKind::TBrTable(_, _, _, _)
-      | TInstrKind::TReturn(_)
-      | TInstrKind::TReturnCall(_, _)
-      | TInstrKind::TReturnCallIndirect(_, _, _, _)
-      | TInstrKind::TReturnCallRef(_, _, _)
-      | TInstrKind::TThrow(_, _)
-      | TInstrKind::TThrowRef(_)
-      | TInstrKind::TUnreachable => has_control_transfer = true
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TBr(_, _)
+        | TInstrKind::TBrIf(_, _, _)
+        | TInstrKind::TBrTable(_, _, _, _)
+        | TInstrKind::TReturn(_)
+        | TInstrKind::TReturnCall(_, _)
+        | TInstrKind::TReturnCallIndirect(_, _, _, _)
+        | TInstrKind::TReturnCallRef(_, _, _)
+        | TInstrKind::TThrow(_, _)
+        | TInstrKind::TThrowRef(_)
+        | TInstrKind::TUnreachable => has_control_transfer = true
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), expr))
   has_control_transfer
 }

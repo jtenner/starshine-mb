@@ -1305,23 +1305,24 @@ fn pc_replace_gets_with_constants(
     return body
   }
   let next_get_id = Ref::new(0)
-let replacer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-    self,
-    _,
-    curr : TInstr,
-  ) {
-    match curr.kind {
-      TInstrKind::TLocalGet(_) => {
-        let current_id = next_get_id.val
-        next_get_id.update(fn(n) { n + 1 })
-        match get_values.get(current_id) {
-          Some(v) => change((), pc_instr_from_literal(v))
-          None => unchanged()
+  let replacer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalGet(_) => {
+          let current_id = next_get_id.val
+          next_get_id.update(fn(n) { n + 1 })
+          match get_values.get(current_id) {
+            Some(v) => change((), pc_instr_from_literal(v))
+            None => unchanged()
+          }
         }
+        _ => from_walk(self.walk_tinstruction_default((), curr))
       }
-      _ => from_walk(self.walk_tinstruction_default((), curr))
-    }
-  })
+    },
+  )
   match replacer.walk_texpr((), body) {
     Ok((out, _)) => out
     _ => body

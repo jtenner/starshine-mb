@@ -180,24 +180,25 @@ fn visit_local_set(curr : TInstr) -> (TInstr, Bool) {
 ///|
 fn ml_instrument_copies(body : TExpr) -> (TExpr, Bool) {
   let changed = Ref::new(false)
-let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-    self,
-    _,
-    instr : TInstr,
-  ) {
-    match instr.kind {
-      TInstrKind::TLocalSet(_, _) => {
-        let (next, did_change) = visit_local_set(instr)
-        if did_change {
-          changed.update(fn(_) { true })
-          change((), next)
-        } else {
-          from_walk(self.walk_tinstruction_default((), instr))
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TLocalSet(_, _) => {
+          let (next, did_change) = visit_local_set(instr)
+          if did_change {
+            changed.update(fn(_) { true })
+            change((), next)
+          } else {
+            from_walk(self.walk_tinstruction_default((), instr))
+          }
         }
+        _ => from_walk(self.walk_tinstruction_default((), instr))
       }
-      _ => from_walk(self.walk_tinstruction_default((), instr))
-    }
-  })
+    },
+  )
   match transformer.walk_texpr((), body) {
     Ok((out, _)) => (out, changed.val)
     Err(_) => (body, false)
@@ -598,22 +599,27 @@ fn ml_rewrite_get_indices(
   }
   let get_id = Ref::new(0)
   let changed = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TLocalGet(curr_idx) => {
-        let id = get_id.val
-        get_id.update(fn(n) { n + 1 })
-        match rewrites.get(id) {
-          Some(next_idx) if next_idx != curr_idx => {
-            changed.update(fn(_) { true })
-            change((), TInstr::local_get(next_idx))
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TLocalGet(curr_idx) => {
+          let id = get_id.val
+          get_id.update(fn(n) { n + 1 })
+          match rewrites.get(id) {
+            Some(next_idx) if next_idx != curr_idx => {
+              changed.update(fn(_) { true })
+              change((), TInstr::local_get(next_idx))
+            }
+            _ => unchanged()
           }
-          _ => unchanged()
         }
+        _ => from_walk(self.walk_tinstruction_default((), instr))
       }
-      _ => from_walk(self.walk_tinstruction_default((), instr))
-    }
-  })
+    },
+  )
   match walker.walk_texpr((), body) {
     Ok((out, _)) => (out, changed.val)
     Err(_) => (body, false)
@@ -623,24 +629,29 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn ml_cleanup_instrumentation(body : TExpr) -> (TExpr, Bool) {
   let changed = Ref::new(false)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TLocalSet(
-        dst,
-        {
-          kind: TInstrKind::TLocalTee(
-            src,
-            { kind: TInstrKind::TLocalGet(src_get), .. }
-          ),
-          ..,
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TLocalSet(
+          dst,
+          {
+            kind: TInstrKind::TLocalTee(
+              src,
+              { kind: TInstrKind::TLocalGet(src_get), .. }
+            ),
+            ..,
+          }
+        ) if src == src_get => {
+          changed.update(fn(_) { true })
+          change((), TInstr::local_set(dst, TInstr::local_get(src)))
         }
-      ) if src == src_get => {
-        changed.update(fn(_) { true })
-        change((), TInstr::local_set(dst, TInstr::local_get(src)))
+        _ => from_walk(self.walk_tinstruction_default((), instr))
       }
-      _ => from_walk(self.walk_tinstruction_default((), instr))
-    }
-  })
+    },
+  )
   match walker.walk_texpr((), body) {
     Ok((out, _)) => (out, changed.val)
     Err(_) => (body, false)

@@ -27,23 +27,28 @@ fn GetParents::new(body : TExpr) -> GetParents {
   let parent_map = Map::new()
   let parent_stack : Array[TInstr] = []
   let next_get_id = Ref::new(0)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TLocalGet(_) =>
-        match parent_stack.last() {
-          Some(parent) => {
-            parent_map[next_get_id.val] = parent
-            next_get_id.update(fn(n) { n + 1 })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalGet(_) =>
+          match parent_stack.last() {
+            Some(parent) => {
+              parent_map[next_get_id.val] = parent
+              next_get_id.update(fn(n) { n + 1 })
+            }
+            None => abort("GetParents expected local.get to have a parent")
           }
-          None => abort("GetParents expected local.get to have a parent")
-        }
-      _ => ()
-    }
-    parent_stack.push(curr)
-    let out = self.walk_tinstruction_default((), curr)
-    ignore(parent_stack.pop())
-    from_walk(out)
-  })
+        _ => ()
+      }
+      parent_stack.push(curr)
+      let out = self.walk_tinstruction_default((), curr)
+      ignore(parent_stack.pop())
+      from_walk(out)
+    },
+  )
   ignore(walker.walk_texpr((), body))
   GetParents::{ parent_map, }
 }
@@ -101,16 +106,21 @@ priv struct MemoryAccessOptimizer {
 fn oac_collect_local_get_infos(body : TExpr) -> Array[OACLocalGetInfo] {
   let infos : Array[OACLocalGetInfo] = []
   let next_get_id = Ref::new(0)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TLocalGet(local_idx) => {
-        infos.push({ get_id: next_get_id.val, local_idx })
-        next_get_id.update(fn(n) { n + 1 })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalGet(local_idx) => {
+          infos.push({ get_id: next_get_id.val, local_idx })
+          next_get_id.update(fn(n) { n + 1 })
+        }
+        _ => ()
       }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   infos
 }
@@ -118,14 +128,19 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn oac_collect_all_sets(body : TExpr) -> Array[OACSetKey] {
   let sets : Array[OACSetKey] = []
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TLocalSet(local_idx, value) =>
-        sets.push({ local_idx, root: TInstr::local_set(local_idx, value) })
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalSet(local_idx, value) =>
+          sets.push({ local_idx, root: TInstr::local_set(local_idx, value) })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   sets
 }
@@ -169,13 +184,18 @@ fn oac_build_local_get_id_map(
 ///|
 fn oac_collect_tee_locals(body : TExpr) -> Set[LocalIdx] {
   let out = Set::new()
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TLocalTee(local_idx, _) => out.add(local_idx)
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalTee(local_idx, _) => out.add(local_idx)
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   out
 }
@@ -183,17 +203,22 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn oac_collect_set_counts(body : TExpr) -> Map[LocalIdx, Int] {
   let counts : Map[LocalIdx, Int] = Map::new()
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TLocalSet(local_idx, _)
-      | TInstrKind::TLocalTee(local_idx, _) => {
-        let current = counts.get(local_idx).unwrap_or(0)
-        counts[local_idx] = current + 1
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalSet(local_idx, _)
+        | TInstrKind::TLocalTee(local_idx, _) => {
+          let current = counts.get(local_idx).unwrap_or(0)
+          counts[local_idx] = current + 1
+        }
+        _ => ()
       }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   counts
 }
@@ -610,45 +635,57 @@ fn oac_insert_helper_indexes(
   if helper_indexes.is_empty() {
     return body
   }
-let pass : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TLocalSet(
-        local_idx,
-        { kind: TInstrKind::TBinary(op, left, right), .. }
-      ) if oac_is_i32_add(op) =>
-        match
-          helper_indexes.get(OACSetKey::{
-            local_idx,
-            root: TInstr::local_set(local_idx, TInstr::binary(op, left, right)),
-          }) {
-          Some(helper_idx) => {
-            let maybe_target = match (left, right) {
-              (a, b) if oac_is_const(a) && !oac_is_const(b) =>
-                Some((b, TInstr::binary(op, a, TInstr::local_get(helper_idx))))
-              (a, b) if !oac_is_const(a) && oac_is_const(b) =>
-                Some((a, TInstr::binary(op, TInstr::local_get(helper_idx), b)))
-              _ => None
+  let pass : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalSet(
+          local_idx,
+          { kind: TInstrKind::TBinary(op, left, right), .. }
+        ) if oac_is_i32_add(op) =>
+          match
+            helper_indexes.get(OACSetKey::{
+              local_idx,
+              root: TInstr::local_set(
+                local_idx,
+                TInstr::binary(op, left, right),
+              ),
+            }) {
+            Some(helper_idx) => {
+              let maybe_target = match (left, right) {
+                (a, b) if oac_is_const(a) && !oac_is_const(b) =>
+                  Some(
+                    (b, TInstr::binary(op, a, TInstr::local_get(helper_idx))),
+                  )
+                (a, b) if !oac_is_const(a) && oac_is_const(b) =>
+                  Some(
+                    (a, TInstr::binary(op, TInstr::local_get(helper_idx), b)),
+                  )
+                _ => None
+              }
+              match maybe_target {
+                Some((target, rewritten_add)) =>
+                  change(
+                    (),
+                    TInstr::block(
+                      BlockType::void_(),
+                      TExpr::new([
+                        TInstr::local_set(helper_idx, target),
+                        TInstr::local_set(local_idx, rewritten_add),
+                      ]),
+                    ),
+                  )
+                None => from_walk(self.walk_tinstruction_default((), curr))
+              }
             }
-            match maybe_target {
-              Some((target, rewritten_add)) =>
-                change(
-                  (),
-                  TInstr::block(
-                    BlockType::void_(),
-                    TExpr::new([
-                      TInstr::local_set(helper_idx, target),
-                      TInstr::local_set(local_idx, rewritten_add),
-                    ]),
-                  ),
-                )
-              None => from_walk(self.walk_tinstruction_default((), curr))
-            }
+            None => from_walk(self.walk_tinstruction_default((), curr))
           }
-          None => from_walk(self.walk_tinstruction_default((), curr))
-        }
-      _ => from_walk(self.walk_tinstruction_default((), curr))
-    }
-  })
+        _ => from_walk(self.walk_tinstruction_default((), curr))
+      }
+    },
+  )
   match pass.walk_texpr((), body) {
     Ok((updated, _)) => updated
     Err(_) => body
@@ -699,13 +736,18 @@ fn oac_has_side_effects(instr : TInstr) -> Bool {
 ///|
 fn oac_collect_used_locals(body : TExpr) -> Set[LocalIdx] {
   let used = Set::new()
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TLocalGet(local_idx) => used.add(local_idx)
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalGet(local_idx) => used.add(local_idx)
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   used
 }
@@ -716,33 +758,34 @@ fn oac_cleanup_unneeded_sets(body : TExpr) -> TExpr {
   while true {
     let used = oac_collect_used_locals(curr_body)
     let changed = Ref::new(false)
-let remover : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-      self,
-      _,
-      curr : TInstr,
-    ) {
-      match curr.kind {
-        TInstrKind::TLocalSet(local_idx, value) => {
-          let next_value = match self.walk_tinstruction((), value) {
-            Ok((updated, _)) => updated
-            Err(_) => value
-          }
-          if !used.contains(local_idx) {
-            changed.update(fn(_) { true })
-            if oac_has_side_effects(next_value) {
-              change((), TInstr::drop(next_value))
-            } else {
-              change((), TInstr::nop())
+    let remover : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+        self,
+        _,
+        curr : TInstr,
+      ) {
+        match curr.kind {
+          TInstrKind::TLocalSet(local_idx, value) => {
+            let next_value = match self.walk_tinstruction((), value) {
+              Ok((updated, _)) => updated
+              Err(_) => value
             }
-          } else if next_value == value {
-            unchanged()
-          } else {
-            change((), TInstr::local_set(local_idx, next_value))
+            if !used.contains(local_idx) {
+              changed.update(fn(_) { true })
+              if oac_has_side_effects(next_value) {
+                change((), TInstr::drop(next_value))
+              } else {
+                change((), TInstr::nop())
+              }
+            } else if next_value == value {
+              unchanged()
+            } else {
+              change((), TInstr::local_set(local_idx, next_value))
+            }
           }
+          _ => from_walk(self.walk_tinstruction_default((), curr))
         }
-        _ => from_walk(self.walk_tinstruction_default((), curr))
-      }
-    })
+      },
+    )
     curr_body = match remover.walk_texpr((), curr_body) {
       Ok((updated, _)) => updated
       Err(_) => curr_body
@@ -760,7 +803,11 @@ fn oac_rewrite_body(
   state : OACIterationState,
 ) -> Result[TExpr, String] {
   let next_get_id = Ref::new(0)
-  let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
+  let pass = ModuleTransformer::new().on_tinstruction_evt(fn(
+    self,
+    _,
+    curr : TInstr,
+  ) {
     match curr.kind {
       TInstrKind::TLocalGet(_) => {
         next_get_id.update(fn(n) { n + 1 })

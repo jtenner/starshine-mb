@@ -777,60 +777,65 @@ fn ensure_drop_state_global(mod : Module) -> (Module, GlobalIdx) {
 ///|
 fn collect_segment_referrers(mod : Module) -> Map[Int, MPSegmentReferrers] {
   let out : Map[Int, MPSegmentReferrers] = Map::new()
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    fn update_ref(
-      out : Map[Int, MPSegmentReferrers],
-      idx : Int,
-      f : (MPSegmentReferrers) -> MPSegmentReferrers,
-    ) -> Unit {
-      let curr = out.get(idx).unwrap_or(mp_empty_referrers())
-      out[idx] = f(curr)
-    }
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      fn update_ref(
+        out : Map[Int, MPSegmentReferrers],
+        idx : Int,
+        f : (MPSegmentReferrers) -> MPSegmentReferrers,
+      ) -> Unit {
+        let curr = out.get(idx).unwrap_or(mp_empty_referrers())
+        out[idx] = f(curr)
+      }
 
-    match instr.kind {
-      TInstrKind::TMemoryInit(di, _, _, src, len) => {
-        let idx = mp_data_idx_to_int(di)
-        update_ref(out, idx, fn(r) {
-          {
-            memory_init_refs: r.memory_init_refs + 1,
-            data_drop_refs: r.data_drop_refs,
-            gc_data_refs: r.gc_data_refs,
-            passive_has_non_const_meminit: r.passive_has_non_const_meminit ||
-            !(mp_const_u64(src) is Some(_)) ||
-            !(mp_const_u64(len) is Some(_)),
-            has_any_non_drop_ref: true,
-          }
-        })
+      match instr.kind {
+        TInstrKind::TMemoryInit(di, _, _, src, len) => {
+          let idx = mp_data_idx_to_int(di)
+          update_ref(out, idx, fn(r) {
+            {
+              memory_init_refs: r.memory_init_refs + 1,
+              data_drop_refs: r.data_drop_refs,
+              gc_data_refs: r.gc_data_refs,
+              passive_has_non_const_meminit: r.passive_has_non_const_meminit ||
+              !(mp_const_u64(src) is Some(_)) ||
+              !(mp_const_u64(len) is Some(_)),
+              has_any_non_drop_ref: true,
+            }
+          })
+        }
+        TInstrKind::TDataDrop(di) => {
+          let idx = mp_data_idx_to_int(di)
+          update_ref(out, idx, fn(r) {
+            {
+              memory_init_refs: r.memory_init_refs,
+              data_drop_refs: r.data_drop_refs + 1,
+              gc_data_refs: r.gc_data_refs,
+              passive_has_non_const_meminit: r.passive_has_non_const_meminit,
+              has_any_non_drop_ref: r.has_any_non_drop_ref,
+            }
+          })
+        }
+        TInstrKind::TArrayNewData(_, di, _, _)
+        | TInstrKind::TArrayInitData(_, di, _, _, _, _) => {
+          let idx = mp_data_idx_to_int(di)
+          update_ref(out, idx, fn(r) {
+            {
+              memory_init_refs: r.memory_init_refs,
+              data_drop_refs: r.data_drop_refs,
+              gc_data_refs: r.gc_data_refs + 1,
+              passive_has_non_const_meminit: r.passive_has_non_const_meminit,
+              has_any_non_drop_ref: true,
+            }
+          })
+        }
+        _ => ()
       }
-      TInstrKind::TDataDrop(di) => {
-        let idx = mp_data_idx_to_int(di)
-        update_ref(out, idx, fn(r) {
-          {
-            memory_init_refs: r.memory_init_refs,
-            data_drop_refs: r.data_drop_refs + 1,
-            gc_data_refs: r.gc_data_refs,
-            passive_has_non_const_meminit: r.passive_has_non_const_meminit,
-            has_any_non_drop_ref: r.has_any_non_drop_ref,
-          }
-        })
-      }
-      TInstrKind::TArrayNewData(_, di, _, _)
-      | TInstrKind::TArrayInitData(_, di, _, _, _, _) => {
-        let idx = mp_data_idx_to_int(di)
-        update_ref(out, idx, fn(r) {
-          {
-            memory_init_refs: r.memory_init_refs,
-            data_drop_refs: r.data_drop_refs,
-            gc_data_refs: r.gc_data_refs + 1,
-            passive_has_non_const_meminit: r.passive_has_non_const_meminit,
-            has_any_non_drop_ref: true,
-          }
-        })
-      }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_module((), mod))
   out
 }
@@ -928,97 +933,98 @@ fn optimize_segment_ops(
   memories : Array[Limits],
   data_segments : Array[Data],
 ) -> (Module, Bool) {
-let rewriter : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-    self,
-    _,
-    instr : TInstr,
-  ) {
-    let walked = match self.walk_tinstruction_default((), instr) {
-      Ok((out, _)) => out
-      Err(e) => return error(e)
-    }
-    match walked.kind {
-      TInstrKind::TDataDrop(di) =>
-        if active.contains(mp_data_idx_to_int(di)) {
-          change((), TInstr::nop())
-        } else {
-          unchanged()
-        }
-      TInstrKind::TMemoryInit(di, mi, dest, src, len) => {
-        let idx = mp_data_idx_to_int(di)
-        if idx < 0 || idx >= data_segments.length() {
-          return unchanged()
-        }
-        let seg_len = match data_segments[idx] {
-          Data(_, bytes) => bytes.length()
-        }
-        match (mp_const_u64(src), mp_const_u64(len)) {
-          (Some(src_u), Some(len_u)) => {
-            let seg_len_u = seg_len.reinterpret_as_uint().to_uint64()
-            let must_trap = src_u > seg_len_u ||
-              len_u > seg_len_u ||
-              src_u + len_u < src_u ||
-              src_u + len_u > seg_len_u
-            if must_trap {
-              change((), mp_drop_and_unreachable(dest, src, len))
-            } else if active.contains(idx) {
-              let mem_limits = match mp_get_memory_limits(memories, mi) {
-                Some(l) => l
-                None => Limits::i32(0, None)
-              }
-              // Active segment refs are lowered to an explicit trap predicate.
-              let src_non_zero = if src_u == 0UL {
-                TInstr::i32_const(I32(0))
-              } else {
-                TInstr::i32_const(I32(1))
-              }
-              let len_non_zero = if len_u == 0UL {
-                TInstr::i32_const(I32(0))
-              } else {
-                TInstr::i32_const(I32(1))
-              }
-              let cond = TInstr::binary(
-                BinaryOp::i32_or(),
-                make_gt_shifted_memory_size(mi, dest, mem_limits),
-                TInstr::binary(BinaryOp::i32_or(), src_non_zero, len_non_zero),
-              )
-              change(
-                (),
-                TInstr::if_(
-                  BlockType::void_(),
-                  cond,
-                  TExpr::new([TInstr::unreachable_()]),
-                  None,
-                ),
-              )
-            } else if len_u == 0UL {
-              let refs = referrers.get(idx).unwrap_or(mp_empty_referrers())
-              if refs.data_drop_refs > 0 {
-                return unchanged()
-              }
-              let mem_limits = match mp_get_memory_limits(memories, mi) {
-                Some(l) => l
-                None => Limits::i32(0, None)
-              }
-              change(
-                (),
-                TInstr::if_(
-                  BlockType::void_(),
-                  make_gt_shifted_memory_size(mi, dest, mem_limits),
-                  TExpr::new([TInstr::unreachable_()]),
-                  None,
-                ),
-              )
-            } else {
-              unchanged()
-            }
-          }
-          _ => unchanged()
-        }
+  let rewriter : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      let walked = match self.walk_tinstruction_default((), instr) {
+        Ok((out, _)) => out
+        Err(e) => return error(e)
       }
-      _ => unchanged()
-    }
-  })
+      match walked.kind {
+        TInstrKind::TDataDrop(di) =>
+          if active.contains(mp_data_idx_to_int(di)) {
+            change((), TInstr::nop())
+          } else {
+            unchanged()
+          }
+        TInstrKind::TMemoryInit(di, mi, dest, src, len) => {
+          let idx = mp_data_idx_to_int(di)
+          if idx < 0 || idx >= data_segments.length() {
+            return unchanged()
+          }
+          let seg_len = match data_segments[idx] {
+            Data(_, bytes) => bytes.length()
+          }
+          match (mp_const_u64(src), mp_const_u64(len)) {
+            (Some(src_u), Some(len_u)) => {
+              let seg_len_u = seg_len.reinterpret_as_uint().to_uint64()
+              let must_trap = src_u > seg_len_u ||
+                len_u > seg_len_u ||
+                src_u + len_u < src_u ||
+                src_u + len_u > seg_len_u
+              if must_trap {
+                change((), mp_drop_and_unreachable(dest, src, len))
+              } else if active.contains(idx) {
+                let mem_limits = match mp_get_memory_limits(memories, mi) {
+                  Some(l) => l
+                  None => Limits::i32(0, None)
+                }
+                // Active segment refs are lowered to an explicit trap predicate.
+                let src_non_zero = if src_u == 0UL {
+                  TInstr::i32_const(I32(0))
+                } else {
+                  TInstr::i32_const(I32(1))
+                }
+                let len_non_zero = if len_u == 0UL {
+                  TInstr::i32_const(I32(0))
+                } else {
+                  TInstr::i32_const(I32(1))
+                }
+                let cond = TInstr::binary(
+                  BinaryOp::i32_or(),
+                  make_gt_shifted_memory_size(mi, dest, mem_limits),
+                  TInstr::binary(BinaryOp::i32_or(), src_non_zero, len_non_zero),
+                )
+                change(
+                  (),
+                  TInstr::if_(
+                    BlockType::void_(),
+                    cond,
+                    TExpr::new([TInstr::unreachable_()]),
+                    None,
+                  ),
+                )
+              } else if len_u == 0UL {
+                let refs = referrers.get(idx).unwrap_or(mp_empty_referrers())
+                if refs.data_drop_refs > 0 {
+                  return unchanged()
+                }
+                let mem_limits = match mp_get_memory_limits(memories, mi) {
+                  Some(l) => l
+                  None => Limits::i32(0, None)
+                }
+                change(
+                  (),
+                  TInstr::if_(
+                    BlockType::void_(),
+                    make_gt_shifted_memory_size(mi, dest, mem_limits),
+                    TExpr::new([TInstr::unreachable_()]),
+                    None,
+                  ),
+                )
+              } else {
+                unchanged()
+              }
+            }
+            _ => unchanged()
+          }
+        }
+        _ => unchanged()
+      }
+    },
+  )
   match rewriter.walk_module((), mod) {
     Ok((out, _)) => (out, true)
     _ => (mod, false)
@@ -1138,37 +1144,38 @@ fn mp_needs_drop_state_global(
   transforms : Map[Int, MPSegmentTransform],
 ) -> Bool {
   let walker : ModuleTransformer[Bool, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-    self,
-    state,
-    instr : TInstr,
-  ) {
-    let mut needed = state
-    match instr.kind {
-      TInstrKind::TMemoryInit(di, _, _, src, len) => {
-        let idx = mp_data_idx_to_int(di)
-        match transforms.get(idx) {
-          Some(transform) if transform.transformed =>
-            match (mp_const_u64(src), mp_const_u64(len)) {
-              (Some(src_u), Some(len_u)) =>
-                if len_u == 0UL ||
-                  mp_transformed_intersections_start_zero(
-                    transform, src_u, len_u,
-                  ) {
-                  needed = true
-                }
-              _ => if mp_segment_has_zero_range(transform) { needed = true }
-            }
-          _ => ()
+      self,
+      state,
+      instr : TInstr,
+    ) {
+      let mut needed = state
+      match instr.kind {
+        TInstrKind::TMemoryInit(di, _, _, src, len) => {
+          let idx = mp_data_idx_to_int(di)
+          match transforms.get(idx) {
+            Some(transform) if transform.transformed =>
+              match (mp_const_u64(src), mp_const_u64(len)) {
+                (Some(src_u), Some(len_u)) =>
+                  if len_u == 0UL ||
+                    mp_transformed_intersections_start_zero(
+                      transform, src_u, len_u,
+                    ) {
+                    needed = true
+                  }
+                _ => if mp_segment_has_zero_range(transform) { needed = true }
+              }
+            _ => ()
+          }
         }
+        _ => ()
       }
-      _ => ()
-    }
-    if needed {
-      change(true, instr)
-    } else {
-      from_walk(self.walk_tinstruction_default(needed, instr))
-    }
-  })
+      if needed {
+        change(true, instr)
+      } else {
+        from_walk(self.walk_tinstruction_default(needed, instr))
+      }
+    },
+  )
   match walker.walk_module(false, mod) {
     Ok((_, needed)) => needed
     Err(_) => false
@@ -1825,12 +1832,17 @@ fn mp_first_body(mod : Module) -> TExpr {
 ///|
 fn mp_count_instr(body : TExpr, pred : (TInstr) -> Bool) -> Int {
   let mut n = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    if pred(instr) {
-      n += 1
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      if pred(instr) {
+        n += 1
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   n
 }

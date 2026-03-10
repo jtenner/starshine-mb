@@ -42,14 +42,19 @@ fn ml_single_func_body(mod : Module) -> TExpr {
 ///|
 fn ml_trivial_tee_count(body : TExpr) -> Int {
   let mut count = 0
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TLocalTee(idx, { kind: TInstrKind::TLocalGet(src), .. }) if idx ==
-        src => count += 1
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TLocalTee(idx, { kind: TInstrKind::TLocalGet(src), .. }) if idx ==
+          src => count += 1
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   count
 }
@@ -57,16 +62,21 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn ml_drop_get_indices(body : TExpr) -> Array[Int] {
   let out = Array::new()
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TDrop({ kind: TInstrKind::TLocalGet(idx), .. }) => {
-        let LocalIdx(raw) = idx
-        out.push(raw.reinterpret_as_int())
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TDrop({ kind: TInstrKind::TLocalGet(idx), .. }) => {
+          let LocalIdx(raw) = idx
+          out.push(raw.reinterpret_as_int())
+        }
+        _ => ()
       }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   out
 }

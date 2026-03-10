@@ -430,18 +430,23 @@ fn rt_has_gc_types(flat : RTFlatTypes) -> Bool {
 
 ///|
 fn rt_collect_non_type_use_counts(mod : Module, counts : Array[Int]) -> Unit {
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_typeidx_evt(fn(_, _, tidx : TypeIdx) {
-    match tidx {
-      TypeIdx(i) => {
-        let raw = i.reinterpret_as_int()
-        if raw >= 0 && raw < counts.length() {
-          counts[raw] = counts[raw] + 1
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_typeidx_evt(fn(
+      _,
+      _,
+      tidx : TypeIdx,
+    ) {
+      match tidx {
+        TypeIdx(i) => {
+          let raw = i.reinterpret_as_int()
+          if raw >= 0 && raw < counts.length() {
+            counts[raw] = counts[raw] + 1
+          }
         }
+        RecIdx(_) => ()
       }
-      RecIdx(_) => ()
-    }
-    unchanged()
-  })
+      unchanged()
+    },
+  )
   match mod.import_sec {
     Some(sec) => ignore(walker.walk_importsec((), sec))
     None => ()

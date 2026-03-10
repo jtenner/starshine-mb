@@ -553,27 +553,32 @@ fn EarlyCastFinder::has_casts_to_move(self : EarlyCastFinder) -> Bool {
 ///|
 fn oc_apply_early_casts(body : TExpr, finder : EarlyCastFinder) -> TExpr {
   let get_id = Ref::new(0)
-let pass : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TLocalGet(_) => {
-        let this_id = get_id.val
-        get_id.update(fn(i) { i + 1 })
-        let casted : TInstr = match finder.ref_cast_to_apply.get(this_id) {
-          Some(rt) =>
-            TInstr::ref_cast(rt.is_nullable(), rt.get_heap_type(), curr)
-          None => curr
+  let pass : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalGet(_) => {
+          let this_id = get_id.val
+          get_id.update(fn(i) { i + 1 })
+          let casted : TInstr = match finder.ref_cast_to_apply.get(this_id) {
+            Some(rt) =>
+              TInstr::ref_cast(rt.is_nullable(), rt.get_heap_type(), curr)
+            None => curr
+          }
+          if finder.ref_as_to_apply.contains(this_id) {
+            change((), TInstr::ref_as_non_null(casted))
+          } else if casted == curr {
+            unchanged()
+          } else {
+            change((), casted)
+          }
         }
-        if finder.ref_as_to_apply.contains(this_id) {
-          change((), TInstr::ref_as_non_null(casted))
-        } else if casted == curr {
-          unchanged()
-        } else {
-          change((), casted)
-        }
+        _ => from_walk(self.walk_tinstruction_default((), curr))
       }
-      _ => from_walk(self.walk_tinstruction_default((), curr))
-    }
-  })
+    },
+  )
   match pass.walk_texpr((), body) {
     Ok((updated, _)) => updated
     _ => body
@@ -803,93 +808,95 @@ fn oc_apply_best_casts(
   }
   let next_local = Ref::new(new_locals.length())
   let next_refinement_id = Ref::new(0)
-let pass_refinement : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-    self,
-    _,
-    curr : TInstr,
-  ) {
-    match curr.kind {
-      TInstrKind::TRefCast(nullable, ht, _) => {
-        let rid = next_refinement_id.val
-        next_refinement_id.update(fn(i) { i + 1 })
-        let walked = match self.walk_tinstruction_default((), curr) {
-          Ok((updated, _)) => updated
-          _ => curr
-        }
-        match finder.less_casted_gets.get(rid) {
-          Some(gets) if gets.length() > 0 => {
-            let temp = LocalIdx::new(next_local.val.reinterpret_as_uint())
-            next_local.update(fn(i) { i + 1 })
-            new_locals.push(ValType::ref_type(RefType::new(nullable, ht)))
-            refinement_temps[rid] = temp
-            change((), TInstr::local_tee(temp, walked))
+  let pass_refinement : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TRefCast(nullable, ht, _) => {
+          let rid = next_refinement_id.val
+          next_refinement_id.update(fn(i) { i + 1 })
+          let walked = match self.walk_tinstruction_default((), curr) {
+            Ok((updated, _)) => updated
+            _ => curr
           }
-          _ => change((), walked)
-        }
-      }
-      TInstrKind::TRefAsNonNull(_) => {
-        let rid = next_refinement_id.val
-        next_refinement_id.update(fn(i) { i + 1 })
-        let walked = match self.walk_tinstruction_default((), curr) {
-          Ok((updated, _)) => updated
-          _ => curr
-        }
-        match finder.less_casted_gets.get(rid) {
-          Some(gets) if gets.length() > 0 => {
-            let temp = LocalIdx::new(next_local.val.reinterpret_as_uint())
-            next_local.update(fn(i) { i + 1 })
-            // Non-nullable by construction of ref.as_non_null.
-            let temp_ty = match walked.kind {
-              TInstrKind::TRefAsNonNull(inner) =>
-                match oc_refinement_target(inner) {
-                  Some(idx) =>
-                    match finder.env.get_local_type(idx) {
-                      Some(RefTypeValType(rt)) =>
-                        ValType::ref_type(
-                          RefType::new(false, rt.get_heap_type()),
-                        )
-                      _ => ValType::anyref()
-                    }
-                  None => ValType::anyref()
-                }
-              _ => ValType::anyref()
+          match finder.less_casted_gets.get(rid) {
+            Some(gets) if gets.length() > 0 => {
+              let temp = LocalIdx::new(next_local.val.reinterpret_as_uint())
+              next_local.update(fn(i) { i + 1 })
+              new_locals.push(ValType::ref_type(RefType::new(nullable, ht)))
+              refinement_temps[rid] = temp
+              change((), TInstr::local_tee(temp, walked))
             }
-            new_locals.push(temp_ty)
-            refinement_temps[rid] = temp
-            change((), TInstr::local_tee(temp, walked))
+            _ => change((), walked)
           }
-          _ => change((), walked)
         }
+        TInstrKind::TRefAsNonNull(_) => {
+          let rid = next_refinement_id.val
+          next_refinement_id.update(fn(i) { i + 1 })
+          let walked = match self.walk_tinstruction_default((), curr) {
+            Ok((updated, _)) => updated
+            _ => curr
+          }
+          match finder.less_casted_gets.get(rid) {
+            Some(gets) if gets.length() > 0 => {
+              let temp = LocalIdx::new(next_local.val.reinterpret_as_uint())
+              next_local.update(fn(i) { i + 1 })
+              // Non-nullable by construction of ref.as_non_null.
+              let temp_ty = match walked.kind {
+                TInstrKind::TRefAsNonNull(inner) =>
+                  match oc_refinement_target(inner) {
+                    Some(idx) =>
+                      match finder.env.get_local_type(idx) {
+                        Some(RefTypeValType(rt)) =>
+                          ValType::ref_type(
+                            RefType::new(false, rt.get_heap_type()),
+                          )
+                        _ => ValType::anyref()
+                      }
+                    None => ValType::anyref()
+                  }
+                _ => ValType::anyref()
+              }
+              new_locals.push(temp_ty)
+              refinement_temps[rid] = temp
+              change((), TInstr::local_tee(temp, walked))
+            }
+            _ => change((), walked)
+          }
+        }
+        _ => from_walk(self.walk_tinstruction_default((), curr))
       }
-      _ => from_walk(self.walk_tinstruction_default((), curr))
-    }
-  })
+    },
+  )
   let body_with_tees = match pass_refinement.walk_texpr((), body) {
     Ok((updated, _)) => updated
     _ => body
   }
   let get_id = Ref::new(0)
-let pass_gets : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-    self,
-    _,
-    curr : TInstr,
-  ) {
-    match curr.kind {
-      TInstrKind::TLocalGet(_) => {
-        let id = get_id.val
-        get_id.update(fn(i) { i + 1 })
-        match match_get_to_refinement.get(id) {
-          Some(rid) =>
-            match refinement_temps.get(rid) {
-              Some(temp) => change((), TInstr::local_get(temp))
-              None => unchanged()
-            }
-          None => unchanged()
+  let pass_gets : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TLocalGet(_) => {
+          let id = get_id.val
+          get_id.update(fn(i) { i + 1 })
+          match match_get_to_refinement.get(id) {
+            Some(rid) =>
+              match refinement_temps.get(rid) {
+                Some(temp) => change((), TInstr::local_get(temp))
+                None => unchanged()
+              }
+            None => unchanged()
+          }
         }
+        _ => from_walk(self.walk_tinstruction_default((), curr))
       }
-      _ => from_walk(self.walk_tinstruction_default((), curr))
-    }
-  })
+    },
+  )
   let final_body = match pass_gets.walk_texpr((), body_with_tees) {
     Ok((updated, _)) => updated
     _ => body_with_tees
@@ -1070,18 +1077,19 @@ test "optimize casts uses most refined cast" {
   match oc_get_func(out) {
     Some(TFunc(_, _, new_body)) => {
       let mut saw_refined = false
-let walk : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-        self,
-        _,
-        curr : TInstr,
-      ) {
-        match curr.kind {
-          TInstrKind::TRefCast(_, HeapType(TypeIdx(i)), _) if i.reinterpret_as_int() ==
-            2 => saw_refined = true
-          _ => ()
-        }
-        from_walk(self.walk_tinstruction_default((), curr))
-      })
+      let walk : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          curr : TInstr,
+        ) {
+          match curr.kind {
+            TInstrKind::TRefCast(_, HeapType(TypeIdx(i)), _) if i.reinterpret_as_int() ==
+              2 => saw_refined = true
+            _ => ()
+          }
+          from_walk(self.walk_tinstruction_default((), curr))
+        },
+      )
       ignore(walk.walk_texpr((), new_body))
       assert_true(saw_refined)
     }
@@ -1105,17 +1113,18 @@ test "optimize casts handles ref.as_non_null movement" {
   match oc_get_func(out) {
     Some(TFunc(_, _, new_body)) => {
       let mut count_non_null = 0
-let walk : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-        self,
-        _,
-        curr : TInstr,
-      ) {
-        match curr.kind {
-          TInstrKind::TRefAsNonNull(_) => count_non_null += 1
-          _ => ()
-        }
-        from_walk(self.walk_tinstruction_default((), curr))
-      })
+      let walk : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          curr : TInstr,
+        ) {
+          match curr.kind {
+            TInstrKind::TRefAsNonNull(_) => count_non_null += 1
+            _ => ()
+          }
+          from_walk(self.walk_tinstruction_default((), curr))
+        },
+      )
       ignore(walk.walk_texpr((), new_body))
       assert_true(count_non_null >= 1)
     }

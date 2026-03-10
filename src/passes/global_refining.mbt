@@ -438,29 +438,30 @@ fn global_refining(mod : Module) -> Result[Module, String] {
   }
   let candidates : Map[GlobalIdx, ValType] = Map::new()
   let set_walker : ModuleTransformer[Env, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-    self,
-    env : Env,
-    instr : TInstr,
-  ) {
-    match instr.kind {
-      TInstrKind::TGlobalSet(idx, value) =>
-        if optimizable.contains(idx) {
-          match env.get_global_type(idx) {
-            Some(GlobalType(old_type, _)) => {
-              let observed = match
-                gr_infer_tinstr_type(value, env, func_type_idx_by_func) {
-                Some(vt) if Match::matches(vt, old_type, env) => vt
-                _ => old_type
+      self,
+      env : Env,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TGlobalSet(idx, value) =>
+          if optimizable.contains(idx) {
+            match env.get_global_type(idx) {
+              Some(GlobalType(old_type, _)) => {
+                let observed = match
+                  gr_infer_tinstr_type(value, env, func_type_idx_by_func) {
+                  Some(vt) if Match::matches(vt, old_type, env) => vt
+                  _ => old_type
+                }
+                gr_note_observed_type(candidates, idx, observed, old_type, env)
               }
-              gr_note_observed_type(candidates, idx, observed, old_type, env)
+              None => ()
             }
-            None => ()
           }
-        }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default(env, instr))
-  })
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default(env, instr))
+    },
+  )
   match mod.code_sec {
     Some(CodeSec(funcs)) =>
       for i, func in funcs {

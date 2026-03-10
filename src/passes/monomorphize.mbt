@@ -273,10 +273,15 @@ fn mn_collect_shallow_effects(instr : TInstr) -> MonoEffects {
 ///|
 fn mn_collect_effects(instr : TInstr) -> MonoEffects {
   let effects = MonoEffects::new()
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    mn_collect_shallow_effects_into(curr, effects)
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      mn_collect_shallow_effects_into(curr, effects)
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_tinstruction((), instr))
   effects
 }
@@ -766,19 +771,21 @@ fn find_return_callers(mod : Module) -> Array[Bool] {
         match funcs[i] {
           TFunc(_, _, body) => {
             let mut has_return_call = false
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-              self,
-              _,
-              instr : TInstr,
-            ) {
-              match instr.kind {
-                TInstrKind::TReturnCall(_, _)
-                | TInstrKind::TReturnCallIndirect(_, _, _, _)
-                | TInstrKind::TReturnCallRef(_, _, _) => has_return_call = true
-                _ => ()
-              }
-              from_walk(self.walk_tinstruction_default((), instr))
-            })
+            let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+                self,
+                _,
+                instr : TInstr,
+              ) {
+                match instr.kind {
+                  TInstrKind::TReturnCall(_, _)
+                  | TInstrKind::TReturnCallIndirect(_, _, _, _)
+                  | TInstrKind::TReturnCallRef(_, _, _) =>
+                    has_return_call = true
+                  _ => ()
+                }
+                from_walk(self.walk_tinstruction_default((), instr))
+              },
+            )
             ignore(walker.walk_texpr((), body))
             return_callers[abs_idx] = has_return_call
           }
@@ -896,11 +903,16 @@ fn mn_shift_local_indices(body : TExpr, shift : Int) -> TExpr {
   if shift == 0 {
     return body
   }
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx : LocalIdx) {
-    let LocalIdx(raw) = idx
-    let next_idx = raw.reinterpret_as_int() + shift
-    change((), LocalIdx::new(next_idx.reinterpret_as_uint()))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_localidx_evt(fn(
+      _,
+      _,
+      idx : LocalIdx,
+    ) {
+      let LocalIdx(raw) = idx
+      let next_idx = raw.reinterpret_as_int() + shift
+      change((), LocalIdx::new(next_idx.reinterpret_as_uint()))
+    },
+  )
   match walker.walk_texpr((), body) {
     Ok((out, _)) => out
     _ => body
@@ -909,58 +921,68 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_localid
 
 ///|
 fn mn_remove_returns_for_dropped(body : TExpr) -> TExpr {
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    let processed = match self.walk_tinstruction_default((), instr) {
-      Ok((i, _)) => i
-      Err(e) => return error(e)
-    }
-    match processed.kind {
-      TInstrKind::TReturn(values) if values.length() > 0 => {
-        let seq : Array[TInstr] = []
-        for value in values {
-          seq.push(TInstr::drop(value))
-        }
-        seq.push(TInstr::return_([]))
-        change((), TInstr::block(BlockType::void_(), TExpr::new(seq)))
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      let processed = match self.walk_tinstruction_default((), instr) {
+        Ok((i, _)) => i
+        Err(e) => return error(e)
       }
-      TInstrKind::TReturnCall(target, args) =>
-        change(
-          (),
-          TInstr::block(
-            BlockType::void_(),
-            TExpr::new([
-              TInstr::drop(TInstr::call(target, args)),
-              TInstr::return_([]),
-            ]),
-          ),
-        )
-      TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, index) =>
-        change(
-          (),
-          TInstr::block(
-            BlockType::void_(),
-            TExpr::new([
-              TInstr::drop(
-                TInstr::call_indirect(type_idx, table_idx, args, index),
-              ),
-              TInstr::return_([]),
-            ]),
-          ),
-        )
-      TInstrKind::TReturnCallRef(type_idx, args, ref_) =>
-        change(
-          (),
-          TInstr::block(
-            BlockType::void_(),
-            TExpr::new([
-              TInstr::drop(TInstr::call_ref(type_idx, args, ref_)),
-              TInstr::return_([]),
-            ]),
-          ),
-        )
-      _ => if processed != instr { change((), processed) } else { unchanged() }
-    }
-  })
+      match processed.kind {
+        TInstrKind::TReturn(values) if values.length() > 0 => {
+          let seq : Array[TInstr] = []
+          for value in values {
+            seq.push(TInstr::drop(value))
+          }
+          seq.push(TInstr::return_([]))
+          change((), TInstr::block(BlockType::void_(), TExpr::new(seq)))
+        }
+        TInstrKind::TReturnCall(target, args) =>
+          change(
+            (),
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::drop(TInstr::call(target, args)),
+                TInstr::return_([]),
+              ]),
+            ),
+          )
+        TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, index) =>
+          change(
+            (),
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::drop(
+                  TInstr::call_indirect(type_idx, table_idx, args, index),
+                ),
+                TInstr::return_([]),
+              ]),
+            ),
+          )
+        TInstrKind::TReturnCallRef(type_idx, args, ref_) =>
+          change(
+            (),
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::drop(TInstr::call_ref(type_idx, args, ref_)),
+                TInstr::return_([]),
+              ]),
+            ),
+          )
+        _ =>
+          if processed != instr {
+            change((), processed)
+          } else {
+            unchanged()
+          }
+      }
+    },
+  )
   let rewritten = match walker.walk_texpr((), body) {
     Ok((out, _)) => out
     _ => body
@@ -1128,13 +1150,18 @@ fn cost(body : TExpr) -> Int {
 ///|
 fn mn_collect_read_locals(body : TExpr) -> Set[LocalIdx] {
   let reads : Set[LocalIdx] = Set::new()
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TLocalGet(idx) => reads.add(idx)
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TLocalGet(idx) => reads.add(idx)
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   reads
 }
@@ -1142,43 +1169,53 @@ let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstru
 ///|
 fn mn_cleanup_body(body : TExpr) -> TExpr {
   let reads = mn_collect_read_locals(body)
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    let processed = match self.walk_tinstruction_default((), instr) {
-      Ok((i, _)) => i
-      Err(e) => return error(e)
-    }
-    match processed.kind {
-      TInstrKind::TDrop(value) => {
-        let effects = mn_collect_effects(value)
-        if effects.has_unremovable_side_effects() {
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      let processed = match self.walk_tinstruction_default((), instr) {
+        Ok((i, _)) => i
+        Err(e) => return error(e)
+      }
+      match processed.kind {
+        TInstrKind::TDrop(value) => {
+          let effects = mn_collect_effects(value)
+          if effects.has_unremovable_side_effects() {
+            if processed != instr {
+              change((), processed)
+            } else {
+              unchanged()
+            }
+          } else {
+            change((), TInstr::nop())
+          }
+        }
+        TInstrKind::TLocalSet(idx, value) if !reads.contains(idx) => {
+          let effects = mn_collect_effects(value)
+          if effects.has_unremovable_side_effects() {
+            change((), TInstr::drop(value))
+          } else {
+            change((), TInstr::nop())
+          }
+        }
+        TInstrKind::TLocalTee(idx, value) if !reads.contains(idx) => {
+          let effects = mn_collect_effects(value)
+          if effects.has_unremovable_side_effects() {
+            change((), value)
+          } else {
+            change((), TInstr::nop())
+          }
+        }
+        _ =>
           if processed != instr {
             change((), processed)
           } else {
             unchanged()
           }
-        } else {
-          change((), TInstr::nop())
-        }
       }
-      TInstrKind::TLocalSet(idx, value) if !reads.contains(idx) => {
-        let effects = mn_collect_effects(value)
-        if effects.has_unremovable_side_effects() {
-          change((), TInstr::drop(value))
-        } else {
-          change((), TInstr::nop())
-        }
-      }
-      TInstrKind::TLocalTee(idx, value) if !reads.contains(idx) => {
-        let effects = mn_collect_effects(value)
-        if effects.has_unremovable_side_effects() {
-          change((), value)
-        } else {
-          change((), TInstr::nop())
-        }
-      }
-      _ => if processed != instr { change((), processed) } else { unchanged() }
-    }
-  })
+    },
+  )
   match walker.walk_texpr((), body) {
     Ok((out, _)) => out
     _ => body
@@ -1590,15 +1627,20 @@ fn mono_run_pass(
 ///|
 fn mono_call_targets_in_body(body : TExpr) -> Array[FuncIdx] {
   let out : Array[FuncIdx] = []
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TCall(target, _) => out.push(target)
-      TInstrKind::TDrop({ kind: TInstrKind::TCall(target, _), .. }) =>
-        out.push(target)
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TCall(target, _) => out.push(target)
+        TInstrKind::TDrop({ kind: TInstrKind::TCall(target, _), .. }) =>
+          out.push(target)
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
   out
 }
@@ -1715,27 +1757,28 @@ test "monomorphize always keeps immovable operand as call argument for partial m
     ) => {
       assert_eq(args.length(), 1)
       let mut saw_binary_prelude = false
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-        self,
-        _,
-        instr : TInstr,
-      ) {
-        match instr.kind {
-          TInstrKind::TLocalSet(
-            _,
-            {
-              kind: TInstrKind::TBinary(
-                BinaryOp::I32AddOp,
-                { kind: TInstrKind::TLocalGet(_), .. },
-                { kind: TInstrKind::TI32Const(I32(1)), .. }
-              ),
-              ..,
-            }
-          ) => saw_binary_prelude = true
-          _ => ()
-        }
-        from_walk(self.walk_tinstruction_default((), instr))
-      })
+      let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          instr : TInstr,
+        ) {
+          match instr.kind {
+            TInstrKind::TLocalSet(
+              _,
+              {
+                kind: TInstrKind::TBinary(
+                  BinaryOp::I32AddOp,
+                  { kind: TInstrKind::TLocalGet(_), .. },
+                  { kind: TInstrKind::TI32Const(I32(1)), .. }
+                ),
+                ..,
+              }
+            ) => saw_binary_prelude = true
+            _ => ()
+          }
+          from_walk(self.walk_tinstruction_default((), instr))
+        },
+      )
       ignore(walker.walk_texpr((), mono_body))
       assert_true(saw_binary_prelude)
     }

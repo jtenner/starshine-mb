@@ -225,20 +225,25 @@ fn tr_analyze_function_body(
   calls_by_target : Array[Array[TRCallSite]],
   has_unseen_calls : Array[Bool],
 ) -> Unit {
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    match instr.kind {
-      TInstrKind::TCall(target, args) =>
-        tr_record_call(abs_func_idx, target, args, calls_by_target)
-      TInstrKind::TRefFunc(FuncIdx(raw)) => {
-        let idx = raw.reinterpret_as_int()
-        if idx >= 0 && idx < has_unseen_calls.length() {
-          has_unseen_calls[idx] = true
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TCall(target, args) =>
+          tr_record_call(abs_func_idx, target, args, calls_by_target)
+        TInstrKind::TRefFunc(FuncIdx(raw)) => {
+          let idx = raw.reinterpret_as_int()
+          if idx >= 0 && idx < has_unseen_calls.length() {
+            has_unseen_calls[idx] = true
+          }
         }
+        _ => ()
       }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(walker.walk_texpr((), body))
 }
 
@@ -450,35 +455,36 @@ fn tr_update_param_types(
   let param_fixups : Map[Int, Int] = Map::new()
   let next_local = [old_param_types.length() + locals.length()]
 
-let scan_sets : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-    self,
-    _,
-    instr : TInstr,
-  ) {
-    match instr.kind {
-      TInstrKind::TLocalSet(idx, value) | TInstrKind::TLocalTee(idx, value) => {
-        let local_i = tr_local_idx_to_int(idx)
-        if local_i >= 0 &&
-          local_i < old_param_types.length() &&
-          !param_fixups.contains(local_i) {
-          let compatible = match
-            tr_known_instr_type(
-              value, abs_idx, local_types_by_abs, global_types, env,
-            ) {
-            Some(vt) => Match::matches(vt, new_param_types[local_i], env)
-            None => false
-          }
-          if !compatible {
-            let fixup = next_local[0]
-            next_local[0] = fixup + 1
-            param_fixups[local_i] = fixup
+  let scan_sets : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TLocalSet(idx, value) | TInstrKind::TLocalTee(idx, value) => {
+          let local_i = tr_local_idx_to_int(idx)
+          if local_i >= 0 &&
+            local_i < old_param_types.length() &&
+            !param_fixups.contains(local_i) {
+            let compatible = match
+              tr_known_instr_type(
+                value, abs_idx, local_types_by_abs, global_types, env,
+              ) {
+              Some(vt) => Match::matches(vt, new_param_types[local_i], env)
+              None => false
+            }
+            if !compatible {
+              let fixup = next_local[0]
+              next_local[0] = fixup + 1
+              param_fixups[local_i] = fixup
+            }
           }
         }
+        _ => ()
       }
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), instr))
-  })
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
   ignore(scan_sets.walk_texpr((), body))
 
   let next_locals = locals.copy()
@@ -490,39 +496,59 @@ let scan_sets : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tins
     }
   }
 
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr : TInstr) {
-    let walked = match self.walk_tinstruction_default((), instr) {
-      Ok((out, _)) => out
-      Err(e) => return error(e)
-    }
-    match walked.kind {
-      TInstrKind::TLocalGet(idx) => {
-        let local_i = tr_local_idx_to_int(idx)
-        match param_fixups.get(local_i) {
-          Some(fixup) =>
-            change((), TInstr::local_get(tr_local_idx_from_int(fixup)))
-          None => if walked == instr { unchanged() } else { change((), walked) }
-        }
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      let walked = match self.walk_tinstruction_default((), instr) {
+        Ok((out, _)) => out
+        Err(e) => return error(e)
       }
-      TInstrKind::TLocalSet(idx, value) => {
-        let local_i = tr_local_idx_to_int(idx)
-        match param_fixups.get(local_i) {
-          Some(fixup) =>
-            change((), TInstr::local_set(tr_local_idx_from_int(fixup), value))
-          None => if walked == instr { unchanged() } else { change((), walked) }
+      match walked.kind {
+        TInstrKind::TLocalGet(idx) => {
+          let local_i = tr_local_idx_to_int(idx)
+          match param_fixups.get(local_i) {
+            Some(fixup) =>
+              change((), TInstr::local_get(tr_local_idx_from_int(fixup)))
+            None =>
+              if walked == instr {
+                unchanged()
+              } else {
+                change((), walked)
+              }
+          }
         }
-      }
-      TInstrKind::TLocalTee(idx, value) => {
-        let local_i = tr_local_idx_to_int(idx)
-        match param_fixups.get(local_i) {
-          Some(fixup) =>
-            change((), TInstr::local_tee(tr_local_idx_from_int(fixup), value))
-          None => if walked == instr { unchanged() } else { change((), walked) }
+        TInstrKind::TLocalSet(idx, value) => {
+          let local_i = tr_local_idx_to_int(idx)
+          match param_fixups.get(local_i) {
+            Some(fixup) =>
+              change((), TInstr::local_set(tr_local_idx_from_int(fixup), value))
+            None =>
+              if walked == instr {
+                unchanged()
+              } else {
+                change((), walked)
+              }
+          }
         }
+        TInstrKind::TLocalTee(idx, value) => {
+          let local_i = tr_local_idx_to_int(idx)
+          match param_fixups.get(local_i) {
+            Some(fixup) =>
+              change((), TInstr::local_tee(tr_local_idx_from_int(fixup), value))
+            None =>
+              if walked == instr {
+                unchanged()
+              } else {
+                change((), walked)
+              }
+          }
+        }
+        _ => if walked == instr { unchanged() } else { change((), walked) }
       }
-      _ => if walked == instr { unchanged() } else { change((), walked) }
-    }
-  })
+    },
+  )
 
   let rewritten = match walker.walk_texpr((), body) {
     Ok((out, _)) => out

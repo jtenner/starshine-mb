@@ -93,27 +93,37 @@ fn gsi_collect_struct_types_in_tinstr(
   instr : TInstr,
   out : Set[TypeIdx],
 ) -> Unit {
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TStructNew(type_idx, _)
-      | TInstrKind::TStructNewDefault(type_idx) => out.add(type_idx)
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TStructNew(type_idx, _)
+        | TInstrKind::TStructNewDefault(type_idx) => out.add(type_idx)
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_tinstruction((), instr))
 }
 
 ///|
 fn gsi_collect_struct_types_in_texpr(expr : TExpr, out : Set[TypeIdx]) -> Unit {
-let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr : TInstr) {
-    match curr.kind {
-      TInstrKind::TStructNew(type_idx, _)
-      | TInstrKind::TStructNewDefault(type_idx) => out.add(type_idx)
-      _ => ()
-    }
-    from_walk(self.walk_tinstruction_default((), curr))
-  })
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      curr : TInstr,
+    ) {
+      match curr.kind {
+        TInstrKind::TStructNew(type_idx, _)
+        | TInstrKind::TStructNewDefault(type_idx) => out.add(type_idx)
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), curr))
+    },
+  )
   ignore(walker.walk_texpr((), expr))
 }
 
