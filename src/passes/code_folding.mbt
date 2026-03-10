@@ -434,14 +434,6 @@ fn CodeFoldingState::prepare_func(
 }
 
 ///|
-fn cf_full_locals(
-  params : Array[ValType],
-  locals : Array[ValType],
-) -> Array[ValType] {
-  FunctionLocals::new(params, locals).all_locals()
-}
-
-///|
 fn cf_non_param_locals(
   full_locals : Array[ValType],
   param_count : Int,
@@ -3578,8 +3570,22 @@ fn code_folding_pass_with_trace(
         }
         unchanged()
       }
-      TFunc(_, locals, body) => {
-        state.prepare_func(cf_full_locals(state.param_types, locals))
+      TFunc(func_params, locals, body) => {
+        let function_locals = match
+          FunctionLocals::from_typed_func_for_pass(
+            state.param_types,
+            func_params,
+            locals,
+          ) {
+          Ok(ls) => ls
+          Err(e) =>
+            return error(
+              "code_folding: malformed typed function locals for func[\{ordinal}]: \{e}",
+            )
+        }
+        let active_params = function_locals.params()
+        let active_body_locals = function_locals.body_locals()
+        state.prepare_func(function_locals.all_locals())
         let func_start_us = cf_trace_now_us()
         let start_top_instrs = body.instrs.length()
         if log_func {
@@ -3603,7 +3609,9 @@ fn code_folding_pass_with_trace(
           total_stats.set_enabled(log_func)
 
           // Run multiple passes until no more changes
-          let mut current_func = Func::t_func(state.param_types, locals, body)
+          let mut current_func = Func::t_func(
+            active_params, active_body_locals, body,
+          )
           let mut current_locals = state.func_locals
           let mut current_body = body
           let mut rounds = 0
@@ -3692,9 +3700,7 @@ fn code_folding_pass_with_trace(
                 current_body = TExpr::new(new_body_instrs)
                 current_locals = state.func_locals
                 current_func = cf_build_tfunc(
-                  state.param_types,
-                  current_locals,
-                  current_body,
+                  active_params, current_locals, current_body,
                 )
                 // Unreachable folding may wrap/rebase paths; refresh tail
                 // collections so return folding cannot operate on stale paths.
@@ -3773,9 +3779,7 @@ fn code_folding_pass_with_trace(
                 current_body = TExpr::new(new_body_instrs)
                 current_locals = state.func_locals
                 current_func = cf_build_tfunc(
-                  state.param_types,
-                  current_locals,
-                  current_body,
+                  active_params, current_locals, current_body,
                 )
                 // Return folding rewrites control paths aggressively; refresh
                 // collected tails before we consider expression folding again.
@@ -3845,9 +3849,7 @@ fn code_folding_pass_with_trace(
                       current_locals = state.func_locals
                       current_body = b
                       current_func = cf_build_tfunc(
-                        state.param_types,
-                        current_locals,
-                        current_body,
+                        active_params, current_locals, current_body,
                       )
                     }
                     _ => ()
@@ -3944,19 +3946,38 @@ fn code_folding_ir_pass_with_trace(
     defined_func_ordinal += 1
     let param_types = next_params
     let result_types = next_results
-    let (func_locals, normalized_func) = match func {
-      TFunc(_, locals, body) => {
-        let func_locals = cf_full_locals(param_types, locals)
-        (func_locals, Func::t_func(param_types, locals.copy(), body))
-      }
-      _ => ([], func)
+    let (resolved_params, func_locals, normalized_func) = match func {
+      TFunc(tfunc_params, locals, body) =>
+        match
+          FunctionLocals::from_typed_func_for_pass(
+            param_types, tfunc_params, locals,
+          ) {
+          Ok(function_locals) => {
+            let resolved_params = function_locals.params()
+            let resolved_body_locals = function_locals.body_locals()
+            (
+              resolved_params.copy(),
+              function_locals.all_locals(),
+              Func::t_func(resolved_params, resolved_body_locals, body),
+            )
+          }
+          Err(e) =>
+            return error(
+              "code_folding_ir_pass: malformed typed function locals for function ordinal \{defined_func_ordinal}: \{e}",
+            )
+        }
+      _ => (param_types, [], func)
     }
     let func_env = base_env
       .with_locals(func_locals)
       .with_return_type(Some(result_types))
     match
       pass.walk_func(
-        CodeFoldingState::new(env=func_env, param_types~, func_locals~),
+        CodeFoldingState::new(
+          env=func_env,
+          param_types=resolved_params,
+          func_locals~,
+        ),
         normalized_func,
       ) {
       Ok((new_func, _)) => change(ctx, new_func)
@@ -4070,6 +4091,58 @@ test "code_folding_pass_with_trace fast skips trivial leaf function" {
   }
   assert_true(saw_skip)
   assert_true(saw_done)
+}
+
+///|
+test "code_folding_pass keeps typed params when state param_types is stale" {
+  let pass = code_folding_pass()
+  let typed_params = [ValType::i32(), ValType::i32(), ValType::i32()]
+  let common = TInstr::local_get(LocalIdx::new(0))
+  let func = Func::t_func(
+    typed_params,
+    [],
+    TExpr::new([
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::if_(
+            BlockType::void_(),
+            TInstr::local_get(LocalIdx::new(1)),
+            TExpr::new([TInstr::nop(), TInstr::br(LabelIdx::new(1), [common])]),
+            Some(TExpr::new([])),
+          ),
+          common,
+        ]),
+      ),
+    ]),
+  )
+  let state = CodeFoldingState::{
+    ..CodeFoldingState::new(
+      env=Env::new().with_locals(typed_params),
+      param_types=[],
+      func_locals=typed_params,
+    ),
+    another_pass: false,
+  }
+  let folded = match pass.walk_func(state, func) {
+    Ok((next, _)) => next
+    Err(e) => fail("expected code_folding_pass success, got \{e}")
+  }
+  match folded {
+    TFunc(params, _, _) => assert_eq(params, typed_params)
+    _ => fail("expected typed function")
+  }
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(CompType::func(typed_params, [ValType::i32()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([folded]))
+  assert_eq(validate_module(mod), Ok(()))
 }
 
 ///|
@@ -6846,6 +6919,103 @@ test "code folding module pass keeps temp local indices stable with mixed typed 
                   TInstr::return_([TInstr::local_get(LocalIdx::new(1))]),
                 ]),
               ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let folded = cf_run_fold_module(mod)
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding module pass keeps block-hoist temp locals valid with params" {
+  let shared = TInstr::local_get(LocalIdx::new(0))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(
+            CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], [
+              ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::val_type(ValType::i32()),
+              TExpr::new([
+                TInstr::if_(
+                  BlockType::void_(),
+                  TInstr::local_get(LocalIdx::new(1)),
+                  TExpr::new([
+                    TInstr::nop(),
+                    TInstr::br(LabelIdx::new(1), [shared]),
+                  ]),
+                  Some(TExpr::new([])),
+                ),
+                shared,
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let folded = cf_run_fold_module(mod)
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding module pass keeps nested block-hoist temp locals valid with params" {
+  let shared = TInstr::local_get(LocalIdx::new(0))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(
+            CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], [
+              ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::val_type(ValType::i32()),
+              TExpr::new([
+                TInstr::if_(
+                  BlockType::void_(),
+                  TInstr::block(
+                    BlockType::val_type(ValType::i32()),
+                    TExpr::new([
+                      TInstr::br(LabelIdx::new(1), [
+                        TInstr::local_get(LocalIdx::new(2)),
+                      ]),
+                    ]),
+                  ),
+                  TExpr::new([
+                    TInstr::nop(),
+                    TInstr::br(LabelIdx::new(1), [shared]),
+                  ]),
+                  Some(TExpr::new([])),
+                ),
+                shared,
+              ]),
             ),
           ]),
         ),
