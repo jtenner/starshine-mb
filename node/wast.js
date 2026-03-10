@@ -3,15 +3,15 @@ import { countProvidedArgs, getWasmGcExports, liftValue, lowerValue, unsupported
 const wasm = await getWasmGcExports();
 
 export function lookupKeyword(arg0) {
-  return liftValue({ kind: "option", helper: {"none":"__js_option_43_none","some":"__js_option_43_some","isSome":"__js_option_43_is_some","unwrap":"__js_option_43_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wast__lookup_keyword"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "option", helper: {"none":"__js_option_44_none","some":"__js_option_44_some","isSome":"__js_option_44_is_some","unwrap":"__js_option_44_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wast__lookup_keyword"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
 }
 
 export function moduleToWast(arg0) {
-  return liftValue({ kind: "result", helper: {"isOk":"__js_result_20_is_ok","unwrapOk":"__js_result_20_unwrap_ok","unwrapErr":"__js_result_20_unwrap_err"}, ok: { kind: "string" }, err: { kind: "string" } }, wasm["wast__module_to_wast"](lowerValue({ kind: "named", brand: "wast.Module", showExport: "__js_show_wast_Module" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "result", helper: {"isOk":"__js_result_21_is_ok","unwrapOk":"__js_result_21_unwrap_ok","unwrapErr":"__js_result_21_unwrap_err"}, ok: { kind: "string" }, err: { kind: "string" } }, wasm["wast__module_to_wast"](lowerValue({ kind: "named", brand: "wast.Module", showExport: "__js_show_wast_Module" }, arg0, wasm)), wasm);
 }
 
 export function moduleToWastWithContext(arg0, arg1) {
-  return liftValue({ kind: "result", helper: {"isOk":"__js_result_20_is_ok","unwrapOk":"__js_result_20_unwrap_ok","unwrapErr":"__js_result_20_unwrap_err"}, ok: { kind: "string" }, err: { kind: "string" } }, wasm["wast__module_to_wast_with_context"](lowerValue({ kind: "named", brand: "wast.Module", showExport: "__js_show_wast_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: "__js_show_lib_PrettyPrintContext" }, arg1, wasm)), wasm);
+  return liftValue({ kind: "result", helper: {"isOk":"__js_result_21_is_ok","unwrapOk":"__js_result_21_unwrap_ok","unwrapErr":"__js_result_21_unwrap_err"}, ok: { kind: "string" }, err: { kind: "string" } }, wasm["wast__module_to_wast_with_context"](lowerValue({ kind: "named", brand: "wast.Module", showExport: "__js_show_wast_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: "__js_show_lib_PrettyPrintContext" }, arg1, wasm)), wasm);
 }
 
 export function runWastSpecFile(arg0, arg1) {
@@ -23,24 +23,24 @@ export function runWastSpecSuite(arg0) {
 }
 
 export function scriptToWast(arg0) {
-  return liftValue({ kind: "result", helper: {"isOk":"__js_result_20_is_ok","unwrapOk":"__js_result_20_unwrap_ok","unwrapErr":"__js_result_20_unwrap_err"}, ok: { kind: "string" }, err: { kind: "string" } }, wasm["wast__script_to_wast"](lowerValue({ kind: "named", brand: "wast.WastScript", showExport: "__js_show_wast_WastScript" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "result", helper: {"isOk":"__js_result_21_is_ok","unwrapOk":"__js_result_21_unwrap_ok","unwrapErr":"__js_result_21_unwrap_err"}, ok: { kind: "string" }, err: { kind: "string" } }, wasm["wast__script_to_wast"](lowerValue({ kind: "named", brand: "wast.WastScript", showExport: "__js_show_wast_WastScript" }, arg0, wasm)), wasm);
 }
 
 export function scriptToWastWithContext(arg0, arg1) {
-  return liftValue({ kind: "result", helper: {"isOk":"__js_result_20_is_ok","unwrapOk":"__js_result_20_unwrap_ok","unwrapErr":"__js_result_20_unwrap_err"}, ok: { kind: "string" }, err: { kind: "string" } }, wasm["wast__script_to_wast_with_context"](lowerValue({ kind: "named", brand: "wast.WastScript", showExport: "__js_show_wast_WastScript" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: "__js_show_lib_PrettyPrintContext" }, arg1, wasm)), wasm);
+  return liftValue({ kind: "result", helper: {"isOk":"__js_result_21_is_ok","unwrapOk":"__js_result_21_unwrap_ok","unwrapErr":"__js_result_21_unwrap_err"}, ok: { kind: "string" }, err: { kind: "string" } }, wasm["wast__script_to_wast_with_context"](lowerValue({ kind: "named", brand: "wast.WastScript", showExport: "__js_show_wast_WastScript" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: "__js_show_lib_PrettyPrintContext" }, arg1, wasm)), wasm);
 }
 
 export function wastAstToBinaryModule(arg0) {
-  return liftValue({ kind: "result", helper: {"isOk":"__js_result_13_is_ok","unwrapOk":"__js_result_13_unwrap_ok","unwrapErr":"__js_result_13_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["wast__wast_ast_to_binary_module"](lowerValue({ kind: "named", brand: "wast.Module", showExport: "__js_show_wast_Module" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "result", helper: {"isOk":"__js_result_14_is_ok","unwrapOk":"__js_result_14_unwrap_ok","unwrapErr":"__js_result_14_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["wast__wast_ast_to_binary_module"](lowerValue({ kind: "named", brand: "wast.Module", showExport: "__js_show_wast_Module" }, arg0, wasm)), wasm);
 }
 
 export function wastTextBinaryRoundtrip(arg0, filename) {
   const provided = countProvidedArgs(arguments);
   switch (provided) {
     case 1:
-      return liftValue({ kind: "result", helper: {"isOk":"__js_result_21_is_ok","unwrapOk":"__js_result_21_unwrap_ok","unwrapErr":"__js_result_21_unwrap_err"}, ok: { kind: "tuple", helper: {"make":"__js_tuple_9_new","getters":["__js_tuple_9_get_0","__js_tuple_9_get_1"]}, items: [{ kind: "string" }, { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }] }, err: { kind: "string" } }, wasm["wast__wast_text_binary_roundtrip__arity_1"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
+      return liftValue({ kind: "result", helper: {"isOk":"__js_result_22_is_ok","unwrapOk":"__js_result_22_unwrap_ok","unwrapErr":"__js_result_22_unwrap_err"}, ok: { kind: "tuple", helper: {"make":"__js_tuple_9_new","getters":["__js_tuple_9_get_0","__js_tuple_9_get_1"]}, items: [{ kind: "string" }, { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }] }, err: { kind: "string" } }, wasm["wast__wast_text_binary_roundtrip__arity_1"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
     case 2:
-      return liftValue({ kind: "result", helper: {"isOk":"__js_result_21_is_ok","unwrapOk":"__js_result_21_unwrap_ok","unwrapErr":"__js_result_21_unwrap_err"}, ok: { kind: "tuple", helper: {"make":"__js_tuple_9_new","getters":["__js_tuple_9_get_0","__js_tuple_9_get_1"]}, items: [{ kind: "string" }, { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }] }, err: { kind: "string" } }, wasm["wast__wast_text_binary_roundtrip"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "string" }, filename, wasm)), wasm);
+      return liftValue({ kind: "result", helper: {"isOk":"__js_result_22_is_ok","unwrapOk":"__js_result_22_unwrap_ok","unwrapErr":"__js_result_22_unwrap_err"}, ok: { kind: "tuple", helper: {"make":"__js_tuple_9_new","getters":["__js_tuple_9_get_0","__js_tuple_9_get_1"]}, items: [{ kind: "string" }, { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }] }, err: { kind: "string" } }, wasm["wast__wast_text_binary_roundtrip"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "string" }, filename, wasm)), wasm);
     default:
       throw new TypeError("Invalid argument count for wast.wastTextBinaryRoundtrip.");
   }
@@ -50,9 +50,9 @@ export function wastToBinaryModule(arg0, filename) {
   const provided = countProvidedArgs(arguments);
   switch (provided) {
     case 1:
-      return liftValue({ kind: "result", helper: {"isOk":"__js_result_13_is_ok","unwrapOk":"__js_result_13_unwrap_ok","unwrapErr":"__js_result_13_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["wast__wast_to_binary_module__arity_1"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
+      return liftValue({ kind: "result", helper: {"isOk":"__js_result_14_is_ok","unwrapOk":"__js_result_14_unwrap_ok","unwrapErr":"__js_result_14_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["wast__wast_to_binary_module__arity_1"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
     case 2:
-      return liftValue({ kind: "result", helper: {"isOk":"__js_result_13_is_ok","unwrapOk":"__js_result_13_unwrap_ok","unwrapErr":"__js_result_13_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["wast__wast_to_binary_module"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "string" }, filename, wasm)), wasm);
+      return liftValue({ kind: "result", helper: {"isOk":"__js_result_14_is_ok","unwrapOk":"__js_result_14_unwrap_ok","unwrapErr":"__js_result_14_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["wast__wast_to_binary_module"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "string" }, filename, wasm)), wasm);
     default:
       throw new TypeError("Invalid argument count for wast.wastToBinaryModule.");
   }
@@ -62,9 +62,9 @@ export function wastToModule(arg0, filename) {
   const provided = countProvidedArgs(arguments);
   switch (provided) {
     case 1:
-      return liftValue({ kind: "result", helper: {"isOk":"__js_result_22_is_ok","unwrapOk":"__js_result_22_unwrap_ok","unwrapErr":"__js_result_22_unwrap_err"}, ok: { kind: "named", brand: "wast.Module", showExport: "__js_show_wast_Module" }, err: { kind: "string" } }, wasm["wast__wast_to_module__arity_1"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
+      return liftValue({ kind: "result", helper: {"isOk":"__js_result_23_is_ok","unwrapOk":"__js_result_23_unwrap_ok","unwrapErr":"__js_result_23_unwrap_err"}, ok: { kind: "named", brand: "wast.Module", showExport: "__js_show_wast_Module" }, err: { kind: "string" } }, wasm["wast__wast_to_module__arity_1"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
     case 2:
-      return liftValue({ kind: "result", helper: {"isOk":"__js_result_22_is_ok","unwrapOk":"__js_result_22_unwrap_ok","unwrapErr":"__js_result_22_unwrap_err"}, ok: { kind: "named", brand: "wast.Module", showExport: "__js_show_wast_Module" }, err: { kind: "string" } }, wasm["wast__wast_to_module"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "string" }, filename, wasm)), wasm);
+      return liftValue({ kind: "result", helper: {"isOk":"__js_result_23_is_ok","unwrapOk":"__js_result_23_unwrap_ok","unwrapErr":"__js_result_23_unwrap_err"}, ok: { kind: "named", brand: "wast.Module", showExport: "__js_show_wast_Module" }, err: { kind: "string" } }, wasm["wast__wast_to_module"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "string" }, filename, wasm)), wasm);
     default:
       throw new TypeError("Invalid argument count for wast.wastToModule.");
   }
@@ -74,9 +74,9 @@ export function wastToScript(arg0, filename) {
   const provided = countProvidedArgs(arguments);
   switch (provided) {
     case 1:
-      return liftValue({ kind: "result", helper: {"isOk":"__js_result_23_is_ok","unwrapOk":"__js_result_23_unwrap_ok","unwrapErr":"__js_result_23_unwrap_err"}, ok: { kind: "named", brand: "wast.WastScript", showExport: "__js_show_wast_WastScript" }, err: { kind: "string" } }, wasm["wast__wast_to_script__arity_1"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
+      return liftValue({ kind: "result", helper: {"isOk":"__js_result_24_is_ok","unwrapOk":"__js_result_24_unwrap_ok","unwrapErr":"__js_result_24_unwrap_err"}, ok: { kind: "named", brand: "wast.WastScript", showExport: "__js_show_wast_WastScript" }, err: { kind: "string" } }, wasm["wast__wast_to_script__arity_1"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
     case 2:
-      return liftValue({ kind: "result", helper: {"isOk":"__js_result_23_is_ok","unwrapOk":"__js_result_23_unwrap_ok","unwrapErr":"__js_result_23_unwrap_err"}, ok: { kind: "named", brand: "wast.WastScript", showExport: "__js_show_wast_WastScript" }, err: { kind: "string" } }, wasm["wast__wast_to_script"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "string" }, filename, wasm)), wasm);
+      return liftValue({ kind: "result", helper: {"isOk":"__js_result_24_is_ok","unwrapOk":"__js_result_24_unwrap_ok","unwrapErr":"__js_result_24_unwrap_err"}, ok: { kind: "named", brand: "wast.WastScript", showExport: "__js_show_wast_WastScript" }, err: { kind: "string" } }, wasm["wast__wast_to_script"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "string" }, filename, wasm)), wasm);
     default:
       throw new TypeError("Invalid argument count for wast.wastToScript.");
   }
@@ -192,7 +192,7 @@ export const Instruction = Object.freeze({
 
 export const KeywordTable = Object.freeze({
   lookup(arg0, arg1) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_43_none","some":"__js_option_43_some","isSome":"__js_option_43_is_some","unwrap":"__js_option_43_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wast__KeywordTable__lookup"](lowerValue({ kind: "named", brand: "wast.KeywordTable", showExport: null }, arg0, wasm), lowerValue({ kind: "string" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_44_none","some":"__js_option_44_some","isSome":"__js_option_44_is_some","unwrap":"__js_option_44_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wast__KeywordTable__lookup"](lowerValue({ kind: "named", brand: "wast.KeywordTable", showExport: null }, arg0, wasm), lowerValue({ kind: "string" }, arg1, wasm)), wasm);
   },
 });
 

@@ -87,6 +87,28 @@ pub fn TrapMode::never() -> TrapMode {
 }
 
 ///|
+pub enum CliTracingLevel {
+  Pass
+  Phase
+  Helper
+} derive(Eq, Show, Debug)
+
+///|
+pub fn CliTracingLevel::pass() -> CliTracingLevel {
+  Pass
+}
+
+///|
+pub fn CliTracingLevel::phase() -> CliTracingLevel {
+  Phase
+}
+
+///|
+pub fn CliTracingLevel::helper() -> CliTracingLevel {
+  Helper
+}
+
+///|
 pub enum CliParseError {
   MissingFlagValue(String)
   InvalidInputFormat(String)
@@ -96,6 +118,7 @@ pub enum CliParseError {
   UnexpectedFlagValue(String)
   InvalidOptimizationFlag(String)
   InvalidTrapMode(String)
+  InvalidTracingLevel(String)
 } derive(Eq, Show, Debug)
 
 ///|
@@ -139,6 +162,11 @@ pub fn CliParseError::invalid_trap_mode(mode : String) -> CliParseError {
 }
 
 ///|
+pub fn CliParseError::invalid_tracing_level(level : String) -> CliParseError {
+  InvalidTracingLevel(level)
+}
+
+///|
 pub struct CliParseResult {
   mut config_path : String?
   input_globs : Array[String]
@@ -154,6 +182,7 @@ pub struct CliParseResult {
   mut monomorphize_min_benefit : Int?
   mut low_memory_unused : Bool?
   mut low_memory_bound : UInt64?
+  mut tracing : CliTracingLevel?
 } derive(Eq, Show, Debug)
 
 ///|
@@ -172,6 +201,7 @@ pub fn CliParseResult::new(
   monomorphize_min_benefit? : Int? = None,
   low_memory_unused? : Bool? = None,
   low_memory_bound? : UInt64? = None,
+  tracing? : CliTracingLevel? = None,
 ) -> CliParseResult {
   {
     config_path,
@@ -188,6 +218,7 @@ pub fn CliParseResult::new(
     monomorphize_min_benefit,
     low_memory_unused,
     low_memory_bound,
+    tracing,
   }
 }
 
@@ -221,6 +252,16 @@ fn parse_trap_mode(raw : String) -> TrapMode? {
     "never" => Some(TrapMode::never())
     "traps-may-happen" => Some(TrapMode::allow())
     "traps-never-happen" => Some(TrapMode::never())
+    _ => None
+  }
+}
+
+///|
+fn parse_tracing_level(raw : String) -> CliTracingLevel? {
+  match ascii_lower(raw) {
+    "pass" => Some(CliTracingLevel::pass())
+    "phase" => Some(CliTracingLevel::phase())
+    "helper" => Some(CliTracingLevel::helper())
     _ => None
   }
 }
@@ -487,6 +528,7 @@ pub fn cli_config_schema_json() -> String {
     #|    "outDir": null
     #|  },
     #|  "passes": ["validate"],
+    #|  "tracing": "phase",
     #|  "optimize": {
     #|    "preset": "optimize",
     #|    "olevel": "O2",
@@ -829,6 +871,25 @@ pub fn parse_cli_args(
             }
             parsed.trap_mode = Some(TrapMode::allow())
             index += 1
+          }
+          "tracing" => {
+            let (value, consumed_next) = match inline_value {
+              Some(v) if v.length() > 0 => (v, false)
+              Some(_) =>
+                return Err(CliParseError::missing_flag_value("--tracing"))
+              None =>
+                if index + 1 < args.length() &&
+                  !looks_like_option_token(args[index + 1]) {
+                  (args[index + 1], true)
+                } else {
+                  return Err(CliParseError::missing_flag_value("--tracing"))
+                }
+            }
+            match parse_tracing_level(value) {
+              Some(level) => parsed.tracing = Some(level)
+              None => return Err(CliParseError::invalid_tracing_level(value))
+            }
+            index += if consumed_next { 2 } else { 1 }
           }
           _ => {
             if inline_value is Some(_) {

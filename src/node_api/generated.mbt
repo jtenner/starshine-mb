@@ -1045,17 +1045,19 @@ pub fn __js_option_6_unwrap(value : UInt64?) -> UInt64 {
 }
 
 ///|
-pub fn __js_option_7_none() -> Bytes? {
+pub fn __js_option_7_none() -> @cli.CliTracingLevel? {
   None
 }
 
 ///|
-pub fn __js_option_7_some(value : Bytes) -> Bytes? {
+pub fn __js_option_7_some(
+  value : @cli.CliTracingLevel,
+) -> @cli.CliTracingLevel? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_7_is_some(value : Bytes?) -> Bool {
+pub fn __js_option_7_is_some(value : @cli.CliTracingLevel?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1063,7 +1065,9 @@ pub fn __js_option_7_is_some(value : Bytes?) -> Bool {
 }
 
 ///|
-pub fn __js_option_7_unwrap(value : Bytes?) -> Bytes {
+pub fn __js_option_7_unwrap(
+  value : @cli.CliTracingLevel?,
+) -> @cli.CliTracingLevel {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1071,17 +1075,17 @@ pub fn __js_option_7_unwrap(value : Bytes?) -> Bytes {
 }
 
 ///|
-pub fn __js_option_8_none() -> @ir.BasicBlock? {
+pub fn __js_option_8_none() -> Bytes? {
   None
 }
 
 ///|
-pub fn __js_option_8_some(value : @ir.BasicBlock) -> @ir.BasicBlock? {
+pub fn __js_option_8_some(value : Bytes) -> Bytes? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_8_is_some(value : @ir.BasicBlock?) -> Bool {
+pub fn __js_option_8_is_some(value : Bytes?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1089,7 +1093,7 @@ pub fn __js_option_8_is_some(value : @ir.BasicBlock?) -> Bool {
 }
 
 ///|
-pub fn __js_option_8_unwrap(value : @ir.BasicBlock?) -> @ir.BasicBlock {
+pub fn __js_option_8_unwrap(value : Bytes?) -> Bytes {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1097,17 +1101,17 @@ pub fn __js_option_8_unwrap(value : @ir.BasicBlock?) -> @ir.BasicBlock {
 }
 
 ///|
-pub fn __js_option_9_none() -> @lib.Module? {
+pub fn __js_option_9_none() -> @ir.BasicBlock? {
   None
 }
 
 ///|
-pub fn __js_option_9_some(value : @lib.Module) -> @lib.Module? {
+pub fn __js_option_9_some(value : @ir.BasicBlock) -> @ir.BasicBlock? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_9_is_some(value : @lib.Module?) -> Bool {
+pub fn __js_option_9_is_some(value : @ir.BasicBlock?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1115,7 +1119,7 @@ pub fn __js_option_9_is_some(value : @lib.Module?) -> Bool {
 }
 
 ///|
-pub fn __js_option_9_unwrap(value : @lib.Module?) -> @lib.Module {
+pub fn __js_option_9_unwrap(value : @ir.BasicBlock?) -> @ir.BasicBlock {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1123,17 +1127,17 @@ pub fn __js_option_9_unwrap(value : @lib.Module?) -> @lib.Module {
 }
 
 ///|
-pub fn __js_option_10_none() -> @ir.SSATypeInfo? {
+pub fn __js_option_10_none() -> @lib.Module? {
   None
 }
 
 ///|
-pub fn __js_option_10_some(value : @ir.SSATypeInfo) -> @ir.SSATypeInfo? {
+pub fn __js_option_10_some(value : @lib.Module) -> @lib.Module? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_10_is_some(value : @ir.SSATypeInfo?) -> Bool {
+pub fn __js_option_10_is_some(value : @lib.Module?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1141,7 +1145,7 @@ pub fn __js_option_10_is_some(value : @ir.SSATypeInfo?) -> Bool {
 }
 
 ///|
-pub fn __js_option_10_unwrap(value : @ir.SSATypeInfo?) -> @ir.SSATypeInfo {
+pub fn __js_option_10_unwrap(value : @lib.Module?) -> @lib.Module {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1149,19 +1153,45 @@ pub fn __js_option_10_unwrap(value : @ir.SSATypeInfo?) -> @ir.SSATypeInfo {
 }
 
 ///|
-pub fn __js_option_11_none() -> (Array[@lib.ValType], @ir.CFG)? {
+pub fn __js_option_11_none() -> @ir.SSATypeInfo? {
   None
 }
 
 ///|
-pub fn __js_option_11_some(
+pub fn __js_option_11_some(value : @ir.SSATypeInfo) -> @ir.SSATypeInfo? {
+  Some(value)
+}
+
+///|
+pub fn __js_option_11_is_some(value : @ir.SSATypeInfo?) -> Bool {
+  match value {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+pub fn __js_option_11_unwrap(value : @ir.SSATypeInfo?) -> @ir.SSATypeInfo {
+  match value {
+    Some(inner) => inner
+    None => abort("Attempted to unwrap None inside the Node adapter.")
+  }
+}
+
+///|
+pub fn __js_option_12_none() -> (Array[@lib.ValType], @ir.CFG)? {
+  None
+}
+
+///|
+pub fn __js_option_12_some(
   value : (Array[@lib.ValType], @ir.CFG),
 ) -> (Array[@lib.ValType], @ir.CFG)? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_11_is_some(value : (Array[@lib.ValType], @ir.CFG)?) -> Bool {
+pub fn __js_option_12_is_some(value : (Array[@lib.ValType], @ir.CFG)?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1169,7 +1199,7 @@ pub fn __js_option_11_is_some(value : (Array[@lib.ValType], @ir.CFG)?) -> Bool {
 }
 
 ///|
-pub fn __js_option_11_unwrap(
+pub fn __js_option_12_unwrap(
   value : (Array[@lib.ValType], @ir.CFG)?,
 ) -> (Array[@lib.ValType], @ir.CFG) {
   match value {
@@ -1179,17 +1209,17 @@ pub fn __js_option_11_unwrap(
 }
 
 ///|
-pub fn __js_option_12_none() -> @lib.TExpr? {
+pub fn __js_option_13_none() -> @lib.TExpr? {
   None
 }
 
 ///|
-pub fn __js_option_12_some(value : @lib.TExpr) -> @lib.TExpr? {
+pub fn __js_option_13_some(value : @lib.TExpr) -> @lib.TExpr? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_12_is_some(value : @lib.TExpr?) -> Bool {
+pub fn __js_option_13_is_some(value : @lib.TExpr?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1197,7 +1227,7 @@ pub fn __js_option_12_is_some(value : @lib.TExpr?) -> Bool {
 }
 
 ///|
-pub fn __js_option_12_unwrap(value : @lib.TExpr?) -> @lib.TExpr {
+pub fn __js_option_13_unwrap(value : @lib.TExpr?) -> @lib.TExpr {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1205,19 +1235,19 @@ pub fn __js_option_12_unwrap(value : @lib.TExpr?) -> @lib.TExpr {
 }
 
 ///|
-pub fn __js_option_13_none() -> (Array[@lib.ValType], @lib.TExpr)? {
+pub fn __js_option_14_none() -> (Array[@lib.ValType], @lib.TExpr)? {
   None
 }
 
 ///|
-pub fn __js_option_13_some(
+pub fn __js_option_14_some(
   value : (Array[@lib.ValType], @lib.TExpr),
 ) -> (Array[@lib.ValType], @lib.TExpr)? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_13_is_some(
+pub fn __js_option_14_is_some(
   value : (Array[@lib.ValType], @lib.TExpr)?,
 ) -> Bool {
   match value {
@@ -1227,7 +1257,7 @@ pub fn __js_option_13_is_some(
 }
 
 ///|
-pub fn __js_option_13_unwrap(
+pub fn __js_option_14_unwrap(
   value : (Array[@lib.ValType], @lib.TExpr)?,
 ) -> (Array[@lib.ValType], @lib.TExpr) {
   match value {
@@ -1237,17 +1267,17 @@ pub fn __js_option_13_unwrap(
 }
 
 ///|
-pub fn __js_option_14_none() -> @lib.ValType? {
+pub fn __js_option_15_none() -> @lib.ValType? {
   None
 }
 
 ///|
-pub fn __js_option_14_some(value : @lib.ValType) -> @lib.ValType? {
+pub fn __js_option_15_some(value : @lib.ValType) -> @lib.ValType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_14_is_some(value : @lib.ValType?) -> Bool {
+pub fn __js_option_15_is_some(value : @lib.ValType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1255,7 +1285,7 @@ pub fn __js_option_14_is_some(value : @lib.ValType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_14_unwrap(value : @lib.ValType?) -> @lib.ValType {
+pub fn __js_option_15_unwrap(value : @lib.ValType?) -> @lib.ValType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1263,19 +1293,19 @@ pub fn __js_option_14_unwrap(value : @lib.ValType?) -> @lib.ValType {
 }
 
 ///|
-pub fn __js_option_15_none() -> (@ir.BlockId, @ir.SSADef)? {
+pub fn __js_option_16_none() -> (@ir.BlockId, @ir.SSADef)? {
   None
 }
 
 ///|
-pub fn __js_option_15_some(
+pub fn __js_option_16_some(
   value : (@ir.BlockId, @ir.SSADef),
 ) -> (@ir.BlockId, @ir.SSADef)? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_15_is_some(value : (@ir.BlockId, @ir.SSADef)?) -> Bool {
+pub fn __js_option_16_is_some(value : (@ir.BlockId, @ir.SSADef)?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1283,7 +1313,7 @@ pub fn __js_option_15_is_some(value : (@ir.BlockId, @ir.SSADef)?) -> Bool {
 }
 
 ///|
-pub fn __js_option_15_unwrap(
+pub fn __js_option_16_unwrap(
   value : (@ir.BlockId, @ir.SSADef)?,
 ) -> (@ir.BlockId, @ir.SSADef) {
   match value {
@@ -1293,17 +1323,17 @@ pub fn __js_option_15_unwrap(
 }
 
 ///|
-pub fn __js_option_16_none() -> @lib.SubType? {
+pub fn __js_option_17_none() -> @lib.SubType? {
   None
 }
 
 ///|
-pub fn __js_option_16_some(value : @lib.SubType) -> @lib.SubType? {
+pub fn __js_option_17_some(value : @lib.SubType) -> @lib.SubType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_16_is_some(value : @lib.SubType?) -> Bool {
+pub fn __js_option_17_is_some(value : @lib.SubType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1311,7 +1341,7 @@ pub fn __js_option_16_is_some(value : @lib.SubType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_16_unwrap(value : @lib.SubType?) -> @lib.SubType {
+pub fn __js_option_17_unwrap(value : @lib.SubType?) -> @lib.SubType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1319,19 +1349,19 @@ pub fn __js_option_16_unwrap(value : @lib.SubType?) -> @lib.SubType {
 }
 
 ///|
-pub fn __js_option_17_none() -> Array[@lib.Instruction]? {
+pub fn __js_option_18_none() -> Array[@lib.Instruction]? {
   None
 }
 
 ///|
-pub fn __js_option_17_some(
+pub fn __js_option_18_some(
   value : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction]? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_17_is_some(value : Array[@lib.Instruction]?) -> Bool {
+pub fn __js_option_18_is_some(value : Array[@lib.Instruction]?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1339,7 +1369,7 @@ pub fn __js_option_17_is_some(value : Array[@lib.Instruction]?) -> Bool {
 }
 
 ///|
-pub fn __js_option_17_unwrap(
+pub fn __js_option_18_unwrap(
   value : Array[@lib.Instruction]?,
 ) -> Array[@lib.Instruction] {
   match value {
@@ -1349,17 +1379,17 @@ pub fn __js_option_17_unwrap(
 }
 
 ///|
-pub fn __js_option_18_none() -> Array[@lib.ValType]? {
+pub fn __js_option_19_none() -> Array[@lib.ValType]? {
   None
 }
 
 ///|
-pub fn __js_option_18_some(value : Array[@lib.ValType]) -> Array[@lib.ValType]? {
+pub fn __js_option_19_some(value : Array[@lib.ValType]) -> Array[@lib.ValType]? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_18_is_some(value : Array[@lib.ValType]?) -> Bool {
+pub fn __js_option_19_is_some(value : Array[@lib.ValType]?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1367,7 +1397,7 @@ pub fn __js_option_18_is_some(value : Array[@lib.ValType]?) -> Bool {
 }
 
 ///|
-pub fn __js_option_18_unwrap(
+pub fn __js_option_19_unwrap(
   value : Array[@lib.ValType]?,
 ) -> Array[@lib.ValType] {
   match value {
@@ -1377,17 +1407,17 @@ pub fn __js_option_18_unwrap(
 }
 
 ///|
-pub fn __js_option_19_none() -> @lib.MemIdx? {
+pub fn __js_option_20_none() -> @lib.MemIdx? {
   None
 }
 
 ///|
-pub fn __js_option_19_some(value : @lib.MemIdx) -> @lib.MemIdx? {
+pub fn __js_option_20_some(value : @lib.MemIdx) -> @lib.MemIdx? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_19_is_some(value : @lib.MemIdx?) -> Bool {
+pub fn __js_option_20_is_some(value : @lib.MemIdx?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1395,7 +1425,7 @@ pub fn __js_option_19_is_some(value : @lib.MemIdx?) -> Bool {
 }
 
 ///|
-pub fn __js_option_19_unwrap(value : @lib.MemIdx?) -> @lib.MemIdx {
+pub fn __js_option_20_unwrap(value : @lib.MemIdx?) -> @lib.MemIdx {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1403,17 +1433,17 @@ pub fn __js_option_19_unwrap(value : @lib.MemIdx?) -> @lib.MemIdx {
 }
 
 ///|
-pub fn __js_option_20_none() -> @lib.TypeSec? {
+pub fn __js_option_21_none() -> @lib.TypeSec? {
   None
 }
 
 ///|
-pub fn __js_option_20_some(value : @lib.TypeSec) -> @lib.TypeSec? {
+pub fn __js_option_21_some(value : @lib.TypeSec) -> @lib.TypeSec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_20_is_some(value : @lib.TypeSec?) -> Bool {
+pub fn __js_option_21_is_some(value : @lib.TypeSec?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1421,7 +1451,7 @@ pub fn __js_option_20_is_some(value : @lib.TypeSec?) -> Bool {
 }
 
 ///|
-pub fn __js_option_20_unwrap(value : @lib.TypeSec?) -> @lib.TypeSec {
+pub fn __js_option_21_unwrap(value : @lib.TypeSec?) -> @lib.TypeSec {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1429,17 +1459,17 @@ pub fn __js_option_20_unwrap(value : @lib.TypeSec?) -> @lib.TypeSec {
 }
 
 ///|
-pub fn __js_option_21_none() -> @lib.ImportSec? {
+pub fn __js_option_22_none() -> @lib.ImportSec? {
   None
 }
 
 ///|
-pub fn __js_option_21_some(value : @lib.ImportSec) -> @lib.ImportSec? {
+pub fn __js_option_22_some(value : @lib.ImportSec) -> @lib.ImportSec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_21_is_some(value : @lib.ImportSec?) -> Bool {
+pub fn __js_option_22_is_some(value : @lib.ImportSec?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1447,7 +1477,7 @@ pub fn __js_option_21_is_some(value : @lib.ImportSec?) -> Bool {
 }
 
 ///|
-pub fn __js_option_21_unwrap(value : @lib.ImportSec?) -> @lib.ImportSec {
+pub fn __js_option_22_unwrap(value : @lib.ImportSec?) -> @lib.ImportSec {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1455,17 +1485,17 @@ pub fn __js_option_21_unwrap(value : @lib.ImportSec?) -> @lib.ImportSec {
 }
 
 ///|
-pub fn __js_option_22_none() -> @lib.FuncSec? {
+pub fn __js_option_23_none() -> @lib.FuncSec? {
   None
 }
 
 ///|
-pub fn __js_option_22_some(value : @lib.FuncSec) -> @lib.FuncSec? {
+pub fn __js_option_23_some(value : @lib.FuncSec) -> @lib.FuncSec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_22_is_some(value : @lib.FuncSec?) -> Bool {
+pub fn __js_option_23_is_some(value : @lib.FuncSec?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1473,7 +1503,7 @@ pub fn __js_option_22_is_some(value : @lib.FuncSec?) -> Bool {
 }
 
 ///|
-pub fn __js_option_22_unwrap(value : @lib.FuncSec?) -> @lib.FuncSec {
+pub fn __js_option_23_unwrap(value : @lib.FuncSec?) -> @lib.FuncSec {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1481,17 +1511,17 @@ pub fn __js_option_22_unwrap(value : @lib.FuncSec?) -> @lib.FuncSec {
 }
 
 ///|
-pub fn __js_option_23_none() -> @lib.TableSec? {
+pub fn __js_option_24_none() -> @lib.TableSec? {
   None
 }
 
 ///|
-pub fn __js_option_23_some(value : @lib.TableSec) -> @lib.TableSec? {
+pub fn __js_option_24_some(value : @lib.TableSec) -> @lib.TableSec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_23_is_some(value : @lib.TableSec?) -> Bool {
+pub fn __js_option_24_is_some(value : @lib.TableSec?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1499,7 +1529,7 @@ pub fn __js_option_23_is_some(value : @lib.TableSec?) -> Bool {
 }
 
 ///|
-pub fn __js_option_23_unwrap(value : @lib.TableSec?) -> @lib.TableSec {
+pub fn __js_option_24_unwrap(value : @lib.TableSec?) -> @lib.TableSec {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1507,17 +1537,17 @@ pub fn __js_option_23_unwrap(value : @lib.TableSec?) -> @lib.TableSec {
 }
 
 ///|
-pub fn __js_option_24_none() -> @lib.MemSec? {
+pub fn __js_option_25_none() -> @lib.MemSec? {
   None
 }
 
 ///|
-pub fn __js_option_24_some(value : @lib.MemSec) -> @lib.MemSec? {
+pub fn __js_option_25_some(value : @lib.MemSec) -> @lib.MemSec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_24_is_some(value : @lib.MemSec?) -> Bool {
+pub fn __js_option_25_is_some(value : @lib.MemSec?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1525,7 +1555,7 @@ pub fn __js_option_24_is_some(value : @lib.MemSec?) -> Bool {
 }
 
 ///|
-pub fn __js_option_24_unwrap(value : @lib.MemSec?) -> @lib.MemSec {
+pub fn __js_option_25_unwrap(value : @lib.MemSec?) -> @lib.MemSec {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1533,17 +1563,17 @@ pub fn __js_option_24_unwrap(value : @lib.MemSec?) -> @lib.MemSec {
 }
 
 ///|
-pub fn __js_option_25_none() -> @lib.TagSec? {
+pub fn __js_option_26_none() -> @lib.TagSec? {
   None
 }
 
 ///|
-pub fn __js_option_25_some(value : @lib.TagSec) -> @lib.TagSec? {
+pub fn __js_option_26_some(value : @lib.TagSec) -> @lib.TagSec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_25_is_some(value : @lib.TagSec?) -> Bool {
+pub fn __js_option_26_is_some(value : @lib.TagSec?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1551,7 +1581,7 @@ pub fn __js_option_25_is_some(value : @lib.TagSec?) -> Bool {
 }
 
 ///|
-pub fn __js_option_25_unwrap(value : @lib.TagSec?) -> @lib.TagSec {
+pub fn __js_option_26_unwrap(value : @lib.TagSec?) -> @lib.TagSec {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1559,17 +1589,17 @@ pub fn __js_option_25_unwrap(value : @lib.TagSec?) -> @lib.TagSec {
 }
 
 ///|
-pub fn __js_option_26_none() -> @lib.GlobalSec? {
+pub fn __js_option_27_none() -> @lib.GlobalSec? {
   None
 }
 
 ///|
-pub fn __js_option_26_some(value : @lib.GlobalSec) -> @lib.GlobalSec? {
+pub fn __js_option_27_some(value : @lib.GlobalSec) -> @lib.GlobalSec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_26_is_some(value : @lib.GlobalSec?) -> Bool {
+pub fn __js_option_27_is_some(value : @lib.GlobalSec?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1577,7 +1607,7 @@ pub fn __js_option_26_is_some(value : @lib.GlobalSec?) -> Bool {
 }
 
 ///|
-pub fn __js_option_26_unwrap(value : @lib.GlobalSec?) -> @lib.GlobalSec {
+pub fn __js_option_27_unwrap(value : @lib.GlobalSec?) -> @lib.GlobalSec {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1585,17 +1615,17 @@ pub fn __js_option_26_unwrap(value : @lib.GlobalSec?) -> @lib.GlobalSec {
 }
 
 ///|
-pub fn __js_option_27_none() -> @lib.ExportSec? {
+pub fn __js_option_28_none() -> @lib.ExportSec? {
   None
 }
 
 ///|
-pub fn __js_option_27_some(value : @lib.ExportSec) -> @lib.ExportSec? {
+pub fn __js_option_28_some(value : @lib.ExportSec) -> @lib.ExportSec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_27_is_some(value : @lib.ExportSec?) -> Bool {
+pub fn __js_option_28_is_some(value : @lib.ExportSec?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1603,7 +1633,7 @@ pub fn __js_option_27_is_some(value : @lib.ExportSec?) -> Bool {
 }
 
 ///|
-pub fn __js_option_27_unwrap(value : @lib.ExportSec?) -> @lib.ExportSec {
+pub fn __js_option_28_unwrap(value : @lib.ExportSec?) -> @lib.ExportSec {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1611,17 +1641,17 @@ pub fn __js_option_27_unwrap(value : @lib.ExportSec?) -> @lib.ExportSec {
 }
 
 ///|
-pub fn __js_option_28_none() -> @lib.StartSec? {
+pub fn __js_option_29_none() -> @lib.StartSec? {
   None
 }
 
 ///|
-pub fn __js_option_28_some(value : @lib.StartSec) -> @lib.StartSec? {
+pub fn __js_option_29_some(value : @lib.StartSec) -> @lib.StartSec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_28_is_some(value : @lib.StartSec?) -> Bool {
+pub fn __js_option_29_is_some(value : @lib.StartSec?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1629,7 +1659,7 @@ pub fn __js_option_28_is_some(value : @lib.StartSec?) -> Bool {
 }
 
 ///|
-pub fn __js_option_28_unwrap(value : @lib.StartSec?) -> @lib.StartSec {
+pub fn __js_option_29_unwrap(value : @lib.StartSec?) -> @lib.StartSec {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1637,17 +1667,17 @@ pub fn __js_option_28_unwrap(value : @lib.StartSec?) -> @lib.StartSec {
 }
 
 ///|
-pub fn __js_option_29_none() -> @lib.ElemSec? {
+pub fn __js_option_30_none() -> @lib.ElemSec? {
   None
 }
 
 ///|
-pub fn __js_option_29_some(value : @lib.ElemSec) -> @lib.ElemSec? {
+pub fn __js_option_30_some(value : @lib.ElemSec) -> @lib.ElemSec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_29_is_some(value : @lib.ElemSec?) -> Bool {
+pub fn __js_option_30_is_some(value : @lib.ElemSec?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1655,7 +1685,7 @@ pub fn __js_option_29_is_some(value : @lib.ElemSec?) -> Bool {
 }
 
 ///|
-pub fn __js_option_29_unwrap(value : @lib.ElemSec?) -> @lib.ElemSec {
+pub fn __js_option_30_unwrap(value : @lib.ElemSec?) -> @lib.ElemSec {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1663,17 +1693,17 @@ pub fn __js_option_29_unwrap(value : @lib.ElemSec?) -> @lib.ElemSec {
 }
 
 ///|
-pub fn __js_option_30_none() -> @lib.DataCntSec? {
+pub fn __js_option_31_none() -> @lib.DataCntSec? {
   None
 }
 
 ///|
-pub fn __js_option_30_some(value : @lib.DataCntSec) -> @lib.DataCntSec? {
+pub fn __js_option_31_some(value : @lib.DataCntSec) -> @lib.DataCntSec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_30_is_some(value : @lib.DataCntSec?) -> Bool {
+pub fn __js_option_31_is_some(value : @lib.DataCntSec?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1681,7 +1711,7 @@ pub fn __js_option_30_is_some(value : @lib.DataCntSec?) -> Bool {
 }
 
 ///|
-pub fn __js_option_30_unwrap(value : @lib.DataCntSec?) -> @lib.DataCntSec {
+pub fn __js_option_31_unwrap(value : @lib.DataCntSec?) -> @lib.DataCntSec {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1689,17 +1719,17 @@ pub fn __js_option_30_unwrap(value : @lib.DataCntSec?) -> @lib.DataCntSec {
 }
 
 ///|
-pub fn __js_option_31_none() -> @lib.CodeSec? {
+pub fn __js_option_32_none() -> @lib.CodeSec? {
   None
 }
 
 ///|
-pub fn __js_option_31_some(value : @lib.CodeSec) -> @lib.CodeSec? {
+pub fn __js_option_32_some(value : @lib.CodeSec) -> @lib.CodeSec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_31_is_some(value : @lib.CodeSec?) -> Bool {
+pub fn __js_option_32_is_some(value : @lib.CodeSec?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1707,7 +1737,7 @@ pub fn __js_option_31_is_some(value : @lib.CodeSec?) -> Bool {
 }
 
 ///|
-pub fn __js_option_31_unwrap(value : @lib.CodeSec?) -> @lib.CodeSec {
+pub fn __js_option_32_unwrap(value : @lib.CodeSec?) -> @lib.CodeSec {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1715,17 +1745,17 @@ pub fn __js_option_31_unwrap(value : @lib.CodeSec?) -> @lib.CodeSec {
 }
 
 ///|
-pub fn __js_option_32_none() -> @lib.DataSec? {
+pub fn __js_option_33_none() -> @lib.DataSec? {
   None
 }
 
 ///|
-pub fn __js_option_32_some(value : @lib.DataSec) -> @lib.DataSec? {
+pub fn __js_option_33_some(value : @lib.DataSec) -> @lib.DataSec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_32_is_some(value : @lib.DataSec?) -> Bool {
+pub fn __js_option_33_is_some(value : @lib.DataSec?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1733,7 +1763,7 @@ pub fn __js_option_32_is_some(value : @lib.DataSec?) -> Bool {
 }
 
 ///|
-pub fn __js_option_32_unwrap(value : @lib.DataSec?) -> @lib.DataSec {
+pub fn __js_option_33_unwrap(value : @lib.DataSec?) -> @lib.DataSec {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1741,17 +1771,17 @@ pub fn __js_option_32_unwrap(value : @lib.DataSec?) -> @lib.DataSec {
 }
 
 ///|
-pub fn __js_option_33_none() -> @lib.Expr? {
+pub fn __js_option_34_none() -> @lib.Expr? {
   None
 }
 
 ///|
-pub fn __js_option_33_some(value : @lib.Expr) -> @lib.Expr? {
+pub fn __js_option_34_some(value : @lib.Expr) -> @lib.Expr? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_33_is_some(value : @lib.Expr?) -> Bool {
+pub fn __js_option_34_is_some(value : @lib.Expr?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1759,7 +1789,7 @@ pub fn __js_option_33_is_some(value : @lib.Expr?) -> Bool {
 }
 
 ///|
-pub fn __js_option_33_unwrap(value : @lib.Expr?) -> @lib.Expr {
+pub fn __js_option_34_unwrap(value : @lib.Expr?) -> @lib.Expr {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1767,17 +1797,17 @@ pub fn __js_option_33_unwrap(value : @lib.Expr?) -> @lib.Expr {
 }
 
 ///|
-pub fn __js_option_34_none() -> @lib.FuncIdx? {
+pub fn __js_option_35_none() -> @lib.FuncIdx? {
   None
 }
 
 ///|
-pub fn __js_option_34_some(value : @lib.FuncIdx) -> @lib.FuncIdx? {
+pub fn __js_option_35_some(value : @lib.FuncIdx) -> @lib.FuncIdx? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_34_is_some(value : @lib.FuncIdx?) -> Bool {
+pub fn __js_option_35_is_some(value : @lib.FuncIdx?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1785,7 +1815,7 @@ pub fn __js_option_34_is_some(value : @lib.FuncIdx?) -> Bool {
 }
 
 ///|
-pub fn __js_option_34_unwrap(value : @lib.FuncIdx?) -> @lib.FuncIdx {
+pub fn __js_option_35_unwrap(value : @lib.FuncIdx?) -> @lib.FuncIdx {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1793,17 +1823,17 @@ pub fn __js_option_34_unwrap(value : @lib.FuncIdx?) -> @lib.FuncIdx {
 }
 
 ///|
-pub fn __js_option_35_none() -> @lib.Elem? {
+pub fn __js_option_36_none() -> @lib.Elem? {
   None
 }
 
 ///|
-pub fn __js_option_35_some(value : @lib.Elem) -> @lib.Elem? {
+pub fn __js_option_36_some(value : @lib.Elem) -> @lib.Elem? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_35_is_some(value : @lib.Elem?) -> Bool {
+pub fn __js_option_36_is_some(value : @lib.Elem?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1811,7 +1841,7 @@ pub fn __js_option_35_is_some(value : @lib.Elem?) -> Bool {
 }
 
 ///|
-pub fn __js_option_35_unwrap(value : @lib.Elem?) -> @lib.Elem {
+pub fn __js_option_36_unwrap(value : @lib.Elem?) -> @lib.Elem {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1819,17 +1849,17 @@ pub fn __js_option_35_unwrap(value : @lib.Elem?) -> @lib.Elem {
 }
 
 ///|
-pub fn __js_option_36_none() -> @lib.FuncType? {
+pub fn __js_option_37_none() -> @lib.FuncType? {
   None
 }
 
 ///|
-pub fn __js_option_36_some(value : @lib.FuncType) -> @lib.FuncType? {
+pub fn __js_option_37_some(value : @lib.FuncType) -> @lib.FuncType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_36_is_some(value : @lib.FuncType?) -> Bool {
+pub fn __js_option_37_is_some(value : @lib.FuncType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1837,7 +1867,7 @@ pub fn __js_option_36_is_some(value : @lib.FuncType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_36_unwrap(value : @lib.FuncType?) -> @lib.FuncType {
+pub fn __js_option_37_unwrap(value : @lib.FuncType?) -> @lib.FuncType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1845,17 +1875,17 @@ pub fn __js_option_36_unwrap(value : @lib.FuncType?) -> @lib.FuncType {
 }
 
 ///|
-pub fn __js_option_37_none() -> @lib.TypeIdx? {
+pub fn __js_option_38_none() -> @lib.TypeIdx? {
   None
 }
 
 ///|
-pub fn __js_option_37_some(value : @lib.TypeIdx) -> @lib.TypeIdx? {
+pub fn __js_option_38_some(value : @lib.TypeIdx) -> @lib.TypeIdx? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_37_is_some(value : @lib.TypeIdx?) -> Bool {
+pub fn __js_option_38_is_some(value : @lib.TypeIdx?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1863,7 +1893,7 @@ pub fn __js_option_37_is_some(value : @lib.TypeIdx?) -> Bool {
 }
 
 ///|
-pub fn __js_option_37_unwrap(value : @lib.TypeIdx?) -> @lib.TypeIdx {
+pub fn __js_option_38_unwrap(value : @lib.TypeIdx?) -> @lib.TypeIdx {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1871,17 +1901,17 @@ pub fn __js_option_37_unwrap(value : @lib.TypeIdx?) -> @lib.TypeIdx {
 }
 
 ///|
-pub fn __js_option_38_none() -> @lib.GlobalType? {
+pub fn __js_option_39_none() -> @lib.GlobalType? {
   None
 }
 
 ///|
-pub fn __js_option_38_some(value : @lib.GlobalType) -> @lib.GlobalType? {
+pub fn __js_option_39_some(value : @lib.GlobalType) -> @lib.GlobalType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_38_is_some(value : @lib.GlobalType?) -> Bool {
+pub fn __js_option_39_is_some(value : @lib.GlobalType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1889,7 +1919,7 @@ pub fn __js_option_38_is_some(value : @lib.GlobalType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_38_unwrap(value : @lib.GlobalType?) -> @lib.GlobalType {
+pub fn __js_option_39_unwrap(value : @lib.GlobalType?) -> @lib.GlobalType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1897,17 +1927,17 @@ pub fn __js_option_38_unwrap(value : @lib.GlobalType?) -> @lib.GlobalType {
 }
 
 ///|
-pub fn __js_option_39_none() -> @lib.MemType? {
+pub fn __js_option_40_none() -> @lib.MemType? {
   None
 }
 
 ///|
-pub fn __js_option_39_some(value : @lib.MemType) -> @lib.MemType? {
+pub fn __js_option_40_some(value : @lib.MemType) -> @lib.MemType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_39_is_some(value : @lib.MemType?) -> Bool {
+pub fn __js_option_40_is_some(value : @lib.MemType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1915,7 +1945,7 @@ pub fn __js_option_39_is_some(value : @lib.MemType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_39_unwrap(value : @lib.MemType?) -> @lib.MemType {
+pub fn __js_option_40_unwrap(value : @lib.MemType?) -> @lib.MemType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1923,17 +1953,17 @@ pub fn __js_option_39_unwrap(value : @lib.MemType?) -> @lib.MemType {
 }
 
 ///|
-pub fn __js_option_40_none() -> @lib.TableType? {
+pub fn __js_option_41_none() -> @lib.TableType? {
   None
 }
 
 ///|
-pub fn __js_option_40_some(value : @lib.TableType) -> @lib.TableType? {
+pub fn __js_option_41_some(value : @lib.TableType) -> @lib.TableType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_40_is_some(value : @lib.TableType?) -> Bool {
+pub fn __js_option_41_is_some(value : @lib.TableType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1941,7 +1971,7 @@ pub fn __js_option_40_is_some(value : @lib.TableType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_40_unwrap(value : @lib.TableType?) -> @lib.TableType {
+pub fn __js_option_41_unwrap(value : @lib.TableType?) -> @lib.TableType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1949,17 +1979,17 @@ pub fn __js_option_40_unwrap(value : @lib.TableType?) -> @lib.TableType {
 }
 
 ///|
-pub fn __js_option_41_none() -> @lib.TagType? {
+pub fn __js_option_42_none() -> @lib.TagType? {
   None
 }
 
 ///|
-pub fn __js_option_41_some(value : @lib.TagType) -> @lib.TagType? {
+pub fn __js_option_42_some(value : @lib.TagType) -> @lib.TagType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_41_is_some(value : @lib.TagType?) -> Bool {
+pub fn __js_option_42_is_some(value : @lib.TagType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1967,7 +1997,7 @@ pub fn __js_option_41_is_some(value : @lib.TagType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_41_unwrap(value : @lib.TagType?) -> @lib.TagType {
+pub fn __js_option_42_unwrap(value : @lib.TagType?) -> @lib.TagType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -1975,17 +2005,17 @@ pub fn __js_option_41_unwrap(value : @lib.TagType?) -> @lib.TagType {
 }
 
 ///|
-pub fn __js_option_42_none() -> @lib.CompType? {
+pub fn __js_option_43_none() -> @lib.CompType? {
   None
 }
 
 ///|
-pub fn __js_option_42_some(value : @lib.CompType) -> @lib.CompType? {
+pub fn __js_option_43_some(value : @lib.CompType) -> @lib.CompType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_42_is_some(value : @lib.CompType?) -> Bool {
+pub fn __js_option_43_is_some(value : @lib.CompType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -1993,7 +2023,7 @@ pub fn __js_option_42_is_some(value : @lib.CompType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_42_unwrap(value : @lib.CompType?) -> @lib.CompType {
+pub fn __js_option_43_unwrap(value : @lib.CompType?) -> @lib.CompType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -2001,17 +2031,17 @@ pub fn __js_option_42_unwrap(value : @lib.CompType?) -> @lib.CompType {
 }
 
 ///|
-pub fn __js_option_43_none() -> @wast.TokenType? {
+pub fn __js_option_44_none() -> @wast.TokenType? {
   None
 }
 
 ///|
-pub fn __js_option_43_some(value : @wast.TokenType) -> @wast.TokenType? {
+pub fn __js_option_44_some(value : @wast.TokenType) -> @wast.TokenType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_43_is_some(value : @wast.TokenType?) -> Bool {
+pub fn __js_option_44_is_some(value : @wast.TokenType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -2019,7 +2049,7 @@ pub fn __js_option_43_is_some(value : @wast.TokenType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_43_unwrap(value : @wast.TokenType?) -> @wast.TokenType {
+pub fn __js_option_44_unwrap(value : @wast.TokenType?) -> @wast.TokenType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -2373,7 +2403,9 @@ pub fn __js_result_12_unwrap_err(
 }
 
 ///|
-pub fn __js_result_13_is_ok(value : Result[@lib.Module, String]) -> Bool {
+pub fn __js_result_13_is_ok(
+  value : Result[@lib.FunctionLocals, String],
+) -> Bool {
   match value {
     Ok(_) => true
     Err(_) => false
@@ -2382,6 +2414,34 @@ pub fn __js_result_13_is_ok(value : Result[@lib.Module, String]) -> Bool {
 
 ///|
 pub fn __js_result_13_unwrap_ok(
+  value : Result[@lib.FunctionLocals, String],
+) -> @lib.FunctionLocals {
+  match value {
+    Ok(inner) => inner
+    Err(_) => abort("Attempted to unwrap Err as Ok inside the Node adapter.")
+  }
+}
+
+///|
+pub fn __js_result_13_unwrap_err(
+  value : Result[@lib.FunctionLocals, String],
+) -> String {
+  match value {
+    Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
+    Err(inner) => inner
+  }
+}
+
+///|
+pub fn __js_result_14_is_ok(value : Result[@lib.Module, String]) -> Bool {
+  match value {
+    Ok(_) => true
+    Err(_) => false
+  }
+}
+
+///|
+pub fn __js_result_14_unwrap_ok(
   value : Result[@lib.Module, String],
 ) -> @lib.Module {
   match value {
@@ -2391,7 +2451,7 @@ pub fn __js_result_13_unwrap_ok(
 }
 
 ///|
-pub fn __js_result_13_unwrap_err(value : Result[@lib.Module, String]) -> String {
+pub fn __js_result_14_unwrap_err(value : Result[@lib.Module, String]) -> String {
   match value {
     Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
     Err(inner) => inner
@@ -2399,7 +2459,7 @@ pub fn __js_result_13_unwrap_err(value : Result[@lib.Module, String]) -> String 
 }
 
 ///|
-pub fn __js_result_14_is_ok(value : Result[@lib.RefType, String]) -> Bool {
+pub fn __js_result_15_is_ok(value : Result[@lib.RefType, String]) -> Bool {
   match value {
     Ok(_) => true
     Err(_) => false
@@ -2407,7 +2467,7 @@ pub fn __js_result_14_is_ok(value : Result[@lib.RefType, String]) -> Bool {
 }
 
 ///|
-pub fn __js_result_14_unwrap_ok(
+pub fn __js_result_15_unwrap_ok(
   value : Result[@lib.RefType, String],
 ) -> @lib.RefType {
   match value {
@@ -2417,7 +2477,7 @@ pub fn __js_result_14_unwrap_ok(
 }
 
 ///|
-pub fn __js_result_14_unwrap_err(
+pub fn __js_result_15_unwrap_err(
   value : Result[@lib.RefType, String],
 ) -> String {
   match value {
@@ -2427,7 +2487,7 @@ pub fn __js_result_14_unwrap_err(
 }
 
 ///|
-pub fn __js_result_15_is_ok(value : Result[@lib.TExpr, String]) -> Bool {
+pub fn __js_result_16_is_ok(value : Result[@lib.TExpr, String]) -> Bool {
   match value {
     Ok(_) => true
     Err(_) => false
@@ -2435,7 +2495,7 @@ pub fn __js_result_15_is_ok(value : Result[@lib.TExpr, String]) -> Bool {
 }
 
 ///|
-pub fn __js_result_15_unwrap_ok(
+pub fn __js_result_16_unwrap_ok(
   value : Result[@lib.TExpr, String],
 ) -> @lib.TExpr {
   match value {
@@ -2445,7 +2505,7 @@ pub fn __js_result_15_unwrap_ok(
 }
 
 ///|
-pub fn __js_result_15_unwrap_err(value : Result[@lib.TExpr, String]) -> String {
+pub fn __js_result_16_unwrap_err(value : Result[@lib.TExpr, String]) -> String {
   match value {
     Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
     Err(inner) => inner
@@ -2453,7 +2513,7 @@ pub fn __js_result_15_unwrap_err(value : Result[@lib.TExpr, String]) -> String {
 }
 
 ///|
-pub fn __js_result_16_is_ok(value : Result[@validate.Env, String]) -> Bool {
+pub fn __js_result_17_is_ok(value : Result[@validate.Env, String]) -> Bool {
   match value {
     Ok(_) => true
     Err(_) => false
@@ -2461,7 +2521,7 @@ pub fn __js_result_16_is_ok(value : Result[@validate.Env, String]) -> Bool {
 }
 
 ///|
-pub fn __js_result_16_unwrap_ok(
+pub fn __js_result_17_unwrap_ok(
   value : Result[@validate.Env, String],
 ) -> @validate.Env {
   match value {
@@ -2471,7 +2531,7 @@ pub fn __js_result_16_unwrap_ok(
 }
 
 ///|
-pub fn __js_result_16_unwrap_err(
+pub fn __js_result_17_unwrap_err(
   value : Result[@validate.Env, String],
 ) -> String {
   match value {
@@ -2481,38 +2541,8 @@ pub fn __js_result_16_unwrap_err(
 }
 
 ///|
-pub fn __js_result_17_is_ok(
-  value : Result[Unit, @validate.ValidationError],
-) -> Bool {
-  match value {
-    Ok(_) => true
-    Err(_) => false
-  }
-}
-
-///|
-pub fn __js_result_17_unwrap_ok(
-  value : Result[Unit, @validate.ValidationError],
-) -> Unit {
-  match value {
-    Ok(inner) => inner
-    Err(_) => abort("Attempted to unwrap Err as Ok inside the Node adapter.")
-  }
-}
-
-///|
-pub fn __js_result_17_unwrap_err(
-  value : Result[Unit, @validate.ValidationError],
-) -> @validate.ValidationError {
-  match value {
-    Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
-    Err(inner) => inner
-  }
-}
-
-///|
 pub fn __js_result_18_is_ok(
-  value : Result[(Array[@lib.ValType], Array[@lib.ValType]), String],
+  value : Result[Unit, @validate.ValidationError],
 ) -> Bool {
   match value {
     Ok(_) => true
@@ -2522,8 +2552,8 @@ pub fn __js_result_18_is_ok(
 
 ///|
 pub fn __js_result_18_unwrap_ok(
-  value : Result[(Array[@lib.ValType], Array[@lib.ValType]), String],
-) -> (Array[@lib.ValType], Array[@lib.ValType]) {
+  value : Result[Unit, @validate.ValidationError],
+) -> Unit {
   match value {
     Ok(inner) => inner
     Err(_) => abort("Attempted to unwrap Err as Ok inside the Node adapter.")
@@ -2532,8 +2562,8 @@ pub fn __js_result_18_unwrap_ok(
 
 ///|
 pub fn __js_result_18_unwrap_err(
-  value : Result[(Array[@lib.ValType], Array[@lib.ValType]), String],
-) -> String {
+  value : Result[Unit, @validate.ValidationError],
+) -> @validate.ValidationError {
   match value {
     Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
     Err(inner) => inner
@@ -2542,7 +2572,7 @@ pub fn __js_result_18_unwrap_err(
 
 ///|
 pub fn __js_result_19_is_ok(
-  value : Result[Array[@lib.FieldType], String],
+  value : Result[(Array[@lib.ValType], Array[@lib.ValType]), String],
 ) -> Bool {
   match value {
     Ok(_) => true
@@ -2552,6 +2582,36 @@ pub fn __js_result_19_is_ok(
 
 ///|
 pub fn __js_result_19_unwrap_ok(
+  value : Result[(Array[@lib.ValType], Array[@lib.ValType]), String],
+) -> (Array[@lib.ValType], Array[@lib.ValType]) {
+  match value {
+    Ok(inner) => inner
+    Err(_) => abort("Attempted to unwrap Err as Ok inside the Node adapter.")
+  }
+}
+
+///|
+pub fn __js_result_19_unwrap_err(
+  value : Result[(Array[@lib.ValType], Array[@lib.ValType]), String],
+) -> String {
+  match value {
+    Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
+    Err(inner) => inner
+  }
+}
+
+///|
+pub fn __js_result_20_is_ok(
+  value : Result[Array[@lib.FieldType], String],
+) -> Bool {
+  match value {
+    Ok(_) => true
+    Err(_) => false
+  }
+}
+
+///|
+pub fn __js_result_20_unwrap_ok(
   value : Result[Array[@lib.FieldType], String],
 ) -> Array[@lib.FieldType] {
   match value {
@@ -2561,7 +2621,7 @@ pub fn __js_result_19_unwrap_ok(
 }
 
 ///|
-pub fn __js_result_19_unwrap_err(
+pub fn __js_result_20_unwrap_err(
   value : Result[Array[@lib.FieldType], String],
 ) -> String {
   match value {
@@ -2571,7 +2631,7 @@ pub fn __js_result_19_unwrap_err(
 }
 
 ///|
-pub fn __js_result_20_is_ok(value : Result[String, String]) -> Bool {
+pub fn __js_result_21_is_ok(value : Result[String, String]) -> Bool {
   match value {
     Ok(_) => true
     Err(_) => false
@@ -2579,7 +2639,7 @@ pub fn __js_result_20_is_ok(value : Result[String, String]) -> Bool {
 }
 
 ///|
-pub fn __js_result_20_unwrap_ok(value : Result[String, String]) -> String {
+pub fn __js_result_21_unwrap_ok(value : Result[String, String]) -> String {
   match value {
     Ok(inner) => inner
     Err(_) => abort("Attempted to unwrap Err as Ok inside the Node adapter.")
@@ -2587,7 +2647,7 @@ pub fn __js_result_20_unwrap_ok(value : Result[String, String]) -> String {
 }
 
 ///|
-pub fn __js_result_20_unwrap_err(value : Result[String, String]) -> String {
+pub fn __js_result_21_unwrap_err(value : Result[String, String]) -> String {
   match value {
     Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
     Err(inner) => inner
@@ -2595,7 +2655,7 @@ pub fn __js_result_20_unwrap_err(value : Result[String, String]) -> String {
 }
 
 ///|
-pub fn __js_result_21_is_ok(
+pub fn __js_result_22_is_ok(
   value : Result[(String, @lib.Module), String],
 ) -> Bool {
   match value {
@@ -2605,7 +2665,7 @@ pub fn __js_result_21_is_ok(
 }
 
 ///|
-pub fn __js_result_21_unwrap_ok(
+pub fn __js_result_22_unwrap_ok(
   value : Result[(String, @lib.Module), String],
 ) -> (String, @lib.Module) {
   match value {
@@ -2615,7 +2675,7 @@ pub fn __js_result_21_unwrap_ok(
 }
 
 ///|
-pub fn __js_result_21_unwrap_err(
+pub fn __js_result_22_unwrap_err(
   value : Result[(String, @lib.Module), String],
 ) -> String {
   match value {
@@ -2625,7 +2685,7 @@ pub fn __js_result_21_unwrap_err(
 }
 
 ///|
-pub fn __js_result_22_is_ok(value : Result[@wast.Module, String]) -> Bool {
+pub fn __js_result_23_is_ok(value : Result[@wast.Module, String]) -> Bool {
   match value {
     Ok(_) => true
     Err(_) => false
@@ -2633,7 +2693,7 @@ pub fn __js_result_22_is_ok(value : Result[@wast.Module, String]) -> Bool {
 }
 
 ///|
-pub fn __js_result_22_unwrap_ok(
+pub fn __js_result_23_unwrap_ok(
   value : Result[@wast.Module, String],
 ) -> @wast.Module {
   match value {
@@ -2643,7 +2703,7 @@ pub fn __js_result_22_unwrap_ok(
 }
 
 ///|
-pub fn __js_result_22_unwrap_err(
+pub fn __js_result_23_unwrap_err(
   value : Result[@wast.Module, String],
 ) -> String {
   match value {
@@ -2653,7 +2713,7 @@ pub fn __js_result_22_unwrap_err(
 }
 
 ///|
-pub fn __js_result_23_is_ok(value : Result[@wast.WastScript, String]) -> Bool {
+pub fn __js_result_24_is_ok(value : Result[@wast.WastScript, String]) -> Bool {
   match value {
     Ok(_) => true
     Err(_) => false
@@ -2661,7 +2721,7 @@ pub fn __js_result_23_is_ok(value : Result[@wast.WastScript, String]) -> Bool {
 }
 
 ///|
-pub fn __js_result_23_unwrap_ok(
+pub fn __js_result_24_unwrap_ok(
   value : Result[@wast.WastScript, String],
 ) -> @wast.WastScript {
   match value {
@@ -2671,7 +2731,7 @@ pub fn __js_result_23_unwrap_ok(
 }
 
 ///|
-pub fn __js_result_23_unwrap_err(
+pub fn __js_result_24_unwrap_err(
   value : Result[@wast.WastScript, String],
 ) -> String {
   match value {
@@ -2913,6 +2973,11 @@ pub fn __js_show_cli_CliParseError(value : @cli.CliParseError) -> String {
 
 ///|
 pub fn __js_show_cli_CliParseResult(value : @cli.CliParseResult) -> String {
+  value.to_string()
+}
+
+///|
+pub fn __js_show_cli_CliTracingLevel(value : @cli.CliTracingLevel) -> String {
   value.to_string()
 }
 
@@ -3552,6 +3617,13 @@ pub fn __js_show_passes_ModulePass(value : @passes.ModulePass) -> String {
 }
 
 ///|
+pub fn __js_show_passes_OptimizeTracingLevel(
+  value : @passes.OptimizeTracingLevel,
+) -> String {
+  value.to_string()
+}
+
+///|
 pub fn __js_show_passes_ParamInfo(value : @passes.ParamInfo) -> String {
   value.to_string()
 }
@@ -4051,6 +4123,13 @@ pub fn cli__CliParseError__invalid_optimization_flag(
 }
 
 ///|
+pub fn cli__CliParseError__invalid_tracing_level(
+  arg0 : String,
+) -> @cli.CliParseError {
+  @cli.CliParseError::invalid_tracing_level(arg0)
+}
+
+///|
 pub fn cli__CliParseError__invalid_trap_mode(
   arg0 : String,
 ) -> @cli.CliParseError {
@@ -4355,7 +4434,7 @@ pub fn cli__CliParseResult__new__arity_13(
 }
 
 ///|
-pub fn cli__CliParseResult__new(
+pub fn cli__CliParseResult__new__arity_14(
   arg0 : String?,
   arg1 : Array[String],
   arg2 : Bool,
@@ -4387,6 +4466,58 @@ pub fn cli__CliParseResult__new(
     low_memory_unused=arg12,
     low_memory_bound=arg13,
   )
+}
+
+///|
+pub fn cli__CliParseResult__new(
+  arg0 : String?,
+  arg1 : Array[String],
+  arg2 : Bool,
+  arg3 : Bool,
+  arg4 : Bool,
+  arg5 : Bool,
+  arg6 : @cli.CliInputFormat?,
+  arg7 : Array[@cli.CliOutputTarget],
+  arg8 : Array[String],
+  arg9 : Array[@cli.CliOptimizationFlag],
+  arg10 : @cli.TrapMode?,
+  arg11 : Int?,
+  arg12 : Bool?,
+  arg13 : UInt64?,
+  arg14 : @cli.CliTracingLevel?,
+) -> @cli.CliParseResult {
+  @cli.CliParseResult::new(
+    config_path=arg0,
+    input_globs=arg1,
+    glob_enabled=arg2,
+    help_requested=arg3,
+    version_requested=arg4,
+    read_stdin=arg5,
+    input_format=arg6,
+    output_targets=arg7,
+    pass_flags=arg8,
+    optimize_flags=arg9,
+    trap_mode=arg10,
+    monomorphize_min_benefit=arg11,
+    low_memory_unused=arg12,
+    low_memory_bound=arg13,
+    tracing=arg14,
+  )
+}
+
+///|
+pub fn cli__CliTracingLevel__helper() -> @cli.CliTracingLevel {
+  @cli.CliTracingLevel::helper()
+}
+
+///|
+pub fn cli__CliTracingLevel__pass() -> @cli.CliTracingLevel {
+  @cli.CliTracingLevel::pass()
+}
+
+///|
+pub fn cli__CliTracingLevel__phase() -> @cli.CliTracingLevel {
+  @cli.CliTracingLevel::phase()
 }
 
 ///|
@@ -7167,6 +7298,74 @@ pub fn lib__FuncType__new(
   arg1 : Array[@lib.ValType],
 ) -> @lib.FuncType {
   @lib.FuncType::new(arg0, arg1)
+}
+
+///|
+pub fn lib__FunctionLocals__all_locals(
+  arg0 : @lib.FunctionLocals,
+) -> Array[@lib.ValType] {
+  @lib.FunctionLocals::all_locals(arg0)
+}
+
+///|
+pub fn lib__FunctionLocals__body_locals(
+  arg0 : @lib.FunctionLocals,
+) -> Array[@lib.ValType] {
+  @lib.FunctionLocals::body_locals(arg0)
+}
+
+///|
+pub fn lib__FunctionLocals__from_local_decls(
+  arg0 : Array[@lib.ValType],
+  arg1 : Array[@lib.Locals],
+) -> Result[@lib.FunctionLocals, String] {
+  @lib.FunctionLocals::from_local_decls(arg0, arg1)
+}
+
+///|
+pub fn lib__FunctionLocals__from_typed_func(
+  arg0 : Array[@lib.ValType],
+  arg1 : Array[@lib.ValType],
+  arg2 : Array[@lib.ValType],
+) -> Result[@lib.FunctionLocals, String] {
+  @lib.FunctionLocals::from_typed_func(arg0, arg1, arg2)
+}
+
+///|
+pub fn lib__FunctionLocals__from_typed_func_for_pass(
+  arg0 : Array[@lib.ValType],
+  arg1 : Array[@lib.ValType],
+  arg2 : Array[@lib.ValType],
+) -> Result[@lib.FunctionLocals, String] {
+  @lib.FunctionLocals::from_typed_func_for_pass(arg0, arg1, arg2)
+}
+
+///|
+pub fn lib__FunctionLocals__local_type(
+  arg0 : @lib.FunctionLocals,
+  arg1 : @lib.LocalIdx,
+) -> @lib.ValType? {
+  @lib.FunctionLocals::local_type(arg0, arg1)
+}
+
+///|
+pub fn lib__FunctionLocals__new(
+  arg0 : Array[@lib.ValType],
+  arg1 : Array[@lib.ValType],
+) -> @lib.FunctionLocals {
+  @lib.FunctionLocals::new(arg0, arg1)
+}
+
+///|
+pub fn lib__FunctionLocals__param_count(arg0 : @lib.FunctionLocals) -> Int {
+  @lib.FunctionLocals::param_count(arg0)
+}
+
+///|
+pub fn lib__FunctionLocals__params(
+  arg0 : @lib.FunctionLocals,
+) -> Array[@lib.ValType] {
+  @lib.FunctionLocals::params(arg0)
 }
 
 ///|
@@ -13309,6 +13508,21 @@ pub fn passes__OptimizeOptions__new(
     low_memory_bound=arg5,
     traps_never_happen=arg6,
   )
+}
+
+///|
+pub fn passes__OptimizeTracingLevel__helper() -> @passes.OptimizeTracingLevel {
+  @passes.OptimizeTracingLevel::helper()
+}
+
+///|
+pub fn passes__OptimizeTracingLevel__pass() -> @passes.OptimizeTracingLevel {
+  @passes.OptimizeTracingLevel::pass()
+}
+
+///|
+pub fn passes__OptimizeTracingLevel__phase() -> @passes.OptimizeTracingLevel {
+  @passes.OptimizeTracingLevel::phase()
 }
 
 ///|

@@ -7,6 +7,7 @@ export type CliOptimizationFlag = OpaqueHandle<"cli.CliOptimizationFlag">;
 export type CliOutputTarget = OpaqueHandle<"cli.CliOutputTarget">;
 export type CliParseError = OpaqueHandle<"cli.CliParseError">;
 export type CliParseResult = OpaqueHandle<"cli.CliParseResult">;
+export type CliTracingLevel = OpaqueHandle<"cli.CliTracingLevel">;
 export type TrapMode = OpaqueHandle<"cli.TrapMode">;
 
 export function cliConfigSchemaJson(): string;
@@ -45,6 +46,7 @@ export const CliParseError: {
   invalidInputFormat(arg0: string): CliParseError;
   invalidLongFlag(arg0: string): CliParseError;
   invalidOptimizationFlag(arg0: string): CliParseError;
+  invalidTracingLevel(arg0: string): CliParseError;
   invalidTrapMode(arg0: string): CliParseError;
   missingFlagValue(arg0: string): CliParseError;
   stdinNeedsFormat(): CliParseError;
@@ -54,8 +56,15 @@ export const CliParseError: {
 };
 
 export const CliParseResult: {
-  new(configPath?: string | null, inputGlobs?: Array<string>, globEnabled?: boolean, helpRequested?: boolean, versionRequested?: boolean, readStdin?: boolean, inputFormat?: CliInputFormat | null, outputTargets?: Array<CliOutputTarget>, passFlags?: Array<string>, optimizeFlags?: Array<CliOptimizationFlag>, trapMode?: TrapMode | null, monomorphizeMinBenefit?: number | null, lowMemoryUnused?: boolean | null, lowMemoryBound?: bigint | null): CliParseResult;
+  new(configPath?: string | null, inputGlobs?: Array<string>, globEnabled?: boolean, helpRequested?: boolean, versionRequested?: boolean, readStdin?: boolean, inputFormat?: CliInputFormat | null, outputTargets?: Array<CliOutputTarget>, passFlags?: Array<string>, optimizeFlags?: Array<CliOptimizationFlag>, trapMode?: TrapMode | null, monomorphizeMinBenefit?: number | null, lowMemoryUnused?: boolean | null, lowMemoryBound?: bigint | null, tracing?: CliTracingLevel | null): CliParseResult;
   show(value: CliParseResult): string;
+};
+
+export const CliTracingLevel: {
+  helper(): CliTracingLevel;
+  pass(): CliTracingLevel;
+  phase(): CliTracingLevel;
+  show(value: CliTracingLevel): string;
 };
 
 export const TrapMode: {

@@ -47,7 +47,7 @@ export const BlockId = Object.freeze({
 
 export const CFG = Object.freeze({
   block(arg0, arg1) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_8_none","some":"__js_option_8_some","isSome":"__js_option_8_is_some","unwrap":"__js_option_8_unwrap"}, item: { kind: "named", brand: "ir.BasicBlock", showExport: "__js_show_ir_BasicBlock" } }, wasm["ir__CFG__block"](lowerValue({ kind: "named", brand: "ir.CFG", showExport: "__js_show_ir_CFG" }, arg0, wasm), lowerValue({ kind: "named", brand: "ir.BlockId", showExport: "__js_show_ir_BlockId" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_9_none","some":"__js_option_9_some","isSome":"__js_option_9_is_some","unwrap":"__js_option_9_unwrap"}, item: { kind: "named", brand: "ir.BasicBlock", showExport: "__js_show_ir_BasicBlock" } }, wasm["ir__CFG__block"](lowerValue({ kind: "named", brand: "ir.CFG", showExport: "__js_show_ir_CFG" }, arg0, wasm), lowerValue({ kind: "named", brand: "ir.BlockId", showExport: "__js_show_ir_BlockId" }, arg1, wasm)), wasm);
   },
   build(arg0) {
     return liftValue({ kind: "named", brand: "ir.CFG", showExport: "__js_show_ir_CFG" }, wasm["ir__CFG__build"](lowerValue({ kind: "named", brand: "lib.TExpr", showExport: "__js_show_lib_TExpr" }, arg0, wasm)), wasm);
@@ -113,7 +113,7 @@ export const IRContext = Object.freeze({
     return liftValue({ kind: "named", brand: "ir.LocalGraph", showExport: null }, wasm["ir__IRContext__get_local_graph"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
   },
   getMod(arg0) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_9_none","some":"__js_option_9_some","isSome":"__js_option_9_is_some","unwrap":"__js_option_9_unwrap"}, item: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" } }, wasm["ir__IRContext__get_mod"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_10_none","some":"__js_option_10_some","isSome":"__js_option_10_is_some","unwrap":"__js_option_10_unwrap"}, item: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" } }, wasm["ir__IRContext__get_mod"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
   },
   getSsa(arg0) {
     return liftValue({ kind: "named", brand: "ir.SSACFG", showExport: "__js_show_ir_SSACFG" }, wasm["ir__IRContext__get_ssa"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
@@ -122,7 +122,7 @@ export const IRContext = Object.freeze({
     return liftValue({ kind: "result", helper: {"isOk":"__js_result_10_is_ok","unwrapOk":"__js_result_10_unwrap_ok","unwrapErr":"__js_result_10_unwrap_err"}, ok: { kind: "named", brand: "ir.TypeContext", showExport: null }, err: { kind: "string" } }, wasm["ir__IRContext__get_type_ctx"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
   },
   getTypes(arg0) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_10_none","some":"__js_option_10_some","isSome":"__js_option_10_is_some","unwrap":"__js_option_10_unwrap"}, item: { kind: "named", brand: "ir.SSATypeInfo", showExport: null } }, wasm["ir__IRContext__get_types"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_11_none","some":"__js_option_11_some","isSome":"__js_option_11_is_some","unwrap":"__js_option_11_unwrap"}, item: { kind: "named", brand: "ir.SSATypeInfo", showExport: null } }, wasm["ir__IRContext__get_types"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
   },
   getUsedef(arg0) {
     return liftValue({ kind: "named", brand: "ir.UseDefInfo", showExport: null }, wasm["ir__IRContext__get_usedef"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
@@ -140,18 +140,18 @@ export const IRContext = Object.freeze({
     return liftValue({ kind: "named", brand: "ir.CFG", showExport: "__js_show_ir_CFG" }, wasm["ir__IRContext__lower_to_cfg"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
   },
   lowerToCfgWithLocals(arg0) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_11_none","some":"__js_option_11_some","isSome":"__js_option_11_is_some","unwrap":"__js_option_11_unwrap"}, item: { kind: "tuple", helper: {"make":"__js_tuple_5_new","getters":["__js_tuple_5_get_0","__js_tuple_5_get_1"]}, items: [{ kind: "array", helper: {"new":"__js_array_6_new","push":"__js_array_6_push","length":"__js_array_6_length","get":"__js_array_6_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, { kind: "named", brand: "ir.CFG", showExport: "__js_show_ir_CFG" }] } }, wasm["ir__IRContext__lower_to_cfg_with_locals"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_12_none","some":"__js_option_12_some","isSome":"__js_option_12_is_some","unwrap":"__js_option_12_unwrap"}, item: { kind: "tuple", helper: {"make":"__js_tuple_5_new","getters":["__js_tuple_5_get_0","__js_tuple_5_get_1"]}, items: [{ kind: "array", helper: {"new":"__js_array_6_new","push":"__js_array_6_push","length":"__js_array_6_length","get":"__js_array_6_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, { kind: "named", brand: "ir.CFG", showExport: "__js_show_ir_CFG" }] } }, wasm["ir__IRContext__lower_to_cfg_with_locals"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
   },
   new() {
     return liftValue({ kind: "named", brand: "ir.IRContext", showExport: null }, wasm["ir__IRContext__new"](), wasm);
   },
   optimizeBodyWithSsa(arg0) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_12_none","some":"__js_option_12_some","isSome":"__js_option_12_is_some","unwrap":"__js_option_12_unwrap"}, item: { kind: "named", brand: "lib.TExpr", showExport: "__js_show_lib_TExpr" } }, wasm["ir__IRContext__optimize_body_with_ssa"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_13_none","some":"__js_option_13_some","isSome":"__js_option_13_is_some","unwrap":"__js_option_13_unwrap"}, item: { kind: "named", brand: "lib.TExpr", showExport: "__js_show_lib_TExpr" } }, wasm["ir__IRContext__optimize_body_with_ssa"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
   },
   optimizeBodyWithSsaTrace: unsupportedExport("ir.IRContext.optimizeBodyWithSsaTrace", "Higher-order function parameters are not available through the wasm-gc adapter."),
   optimizeBodyWithSsaTraceWithLocals: unsupportedExport("ir.IRContext.optimizeBodyWithSsaTraceWithLocals", "Higher-order function parameters are not available through the wasm-gc adapter."),
   optimizeBodyWithSsaWithLocals(arg0) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_13_none","some":"__js_option_13_some","isSome":"__js_option_13_is_some","unwrap":"__js_option_13_unwrap"}, item: { kind: "tuple", helper: {"make":"__js_tuple_6_new","getters":["__js_tuple_6_get_0","__js_tuple_6_get_1"]}, items: [{ kind: "array", helper: {"new":"__js_array_6_new","push":"__js_array_6_push","length":"__js_array_6_length","get":"__js_array_6_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, { kind: "named", brand: "lib.TExpr", showExport: "__js_show_lib_TExpr" }] } }, wasm["ir__IRContext__optimize_body_with_ssa_with_locals"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_14_none","some":"__js_option_14_some","isSome":"__js_option_14_is_some","unwrap":"__js_option_14_unwrap"}, item: { kind: "tuple", helper: {"make":"__js_tuple_6_new","getters":["__js_tuple_6_get_0","__js_tuple_6_get_1"]}, items: [{ kind: "array", helper: {"new":"__js_array_6_new","push":"__js_array_6_push","length":"__js_array_6_length","get":"__js_array_6_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, { kind: "named", brand: "lib.TExpr", showExport: "__js_show_lib_TExpr" }] } }, wasm["ir__IRContext__optimize_body_with_ssa_with_locals"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm)), wasm);
   },
   setBody(arg0, arg1) {
     return liftValue({ kind: "unit" }, wasm["ir__IRContext__set_body"](lowerValue({ kind: "named", brand: "ir.IRContext", showExport: null }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TExpr", showExport: "__js_show_lib_TExpr" }, arg1, wasm)), wasm);
@@ -279,7 +279,7 @@ export const SSATerminator = Object.freeze({
 
 export const SSATypeInfo = Object.freeze({
   get(arg0, arg1) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_14_none","some":"__js_option_14_some","isSome":"__js_option_14_is_some","unwrap":"__js_option_14_unwrap"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, wasm["ir__SSATypeInfo__get"](lowerValue({ kind: "named", brand: "ir.SSATypeInfo", showExport: null }, arg0, wasm), lowerValue({ kind: "named", brand: "ir.SSAValue", showExport: "__js_show_ir_SSAValue" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_15_none","some":"__js_option_15_some","isSome":"__js_option_15_is_some","unwrap":"__js_option_15_unwrap"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, wasm["ir__SSATypeInfo__get"](lowerValue({ kind: "named", brand: "ir.SSATypeInfo", showExport: null }, arg0, wasm), lowerValue({ kind: "named", brand: "ir.SSAValue", showExport: "__js_show_ir_SSAValue" }, arg1, wasm)), wasm);
   },
 });
 
@@ -318,7 +318,7 @@ export const TypeContext = Object.freeze({
 
 export const UseDefInfo = Object.freeze({
   getDef(arg0, arg1) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_15_none","some":"__js_option_15_some","isSome":"__js_option_15_is_some","unwrap":"__js_option_15_unwrap"}, item: { kind: "tuple", helper: {"make":"__js_tuple_7_new","getters":["__js_tuple_7_get_0","__js_tuple_7_get_1"]}, items: [{ kind: "named", brand: "ir.BlockId", showExport: "__js_show_ir_BlockId" }, { kind: "named", brand: "ir.SSADef", showExport: null }] } }, wasm["ir__UseDefInfo__get_def"](lowerValue({ kind: "named", brand: "ir.UseDefInfo", showExport: null }, arg0, wasm), lowerValue({ kind: "named", brand: "ir.SSAValue", showExport: "__js_show_ir_SSAValue" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_16_none","some":"__js_option_16_some","isSome":"__js_option_16_is_some","unwrap":"__js_option_16_unwrap"}, item: { kind: "tuple", helper: {"make":"__js_tuple_7_new","getters":["__js_tuple_7_get_0","__js_tuple_7_get_1"]}, items: [{ kind: "named", brand: "ir.BlockId", showExport: "__js_show_ir_BlockId" }, { kind: "named", brand: "ir.SSADef", showExport: null }] } }, wasm["ir__UseDefInfo__get_def"](lowerValue({ kind: "named", brand: "ir.UseDefInfo", showExport: null }, arg0, wasm), lowerValue({ kind: "named", brand: "ir.SSAValue", showExport: "__js_show_ir_SSAValue" }, arg1, wasm)), wasm);
   },
   getUses(arg0, arg1) {
     return liftValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "ir.SSAUse", showExport: null } }, wasm["ir__UseDefInfo__get_uses"](lowerValue({ kind: "named", brand: "ir.UseDefInfo", showExport: null }, arg0, wasm), lowerValue({ kind: "named", brand: "ir.SSAValue", showExport: "__js_show_ir_SSAValue" }, arg1, wasm)), wasm);

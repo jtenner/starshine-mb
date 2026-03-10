@@ -6,6 +6,14 @@ export const change = unsupportedExport("transformer.change", "Generic exports a
 
 export const error = unsupportedExport("transformer.error", "Generic exports are not available through the wasm-gc adapter.");
 
+export const fromWalk = unsupportedExport("transformer.fromWalk", "Generic exports are not available through the wasm-gc adapter.");
+
+export const mutate = unsupportedExport("transformer.mutate", "Generic exports are not available through the wasm-gc adapter.");
+
+export const replace = unsupportedExport("transformer.replace", "Generic exports are not available through the wasm-gc adapter.");
+
+export const skip = unsupportedExport("transformer.skip", "Generic exports are not available through the wasm-gc adapter.");
+
 export const unchanged = unsupportedExport("transformer.unchanged", "Generic exports are not available through the wasm-gc adapter.");
 
 export const ModuleTransformer = Object.freeze({
@@ -186,4 +194,7 @@ export const ModuleTransformer = Object.freeze({
 });
 
 export const TransformerResult = Object.freeze({
+});
+
+export const VisitAction = Object.freeze({
 });

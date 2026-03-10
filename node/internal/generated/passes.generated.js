@@ -23,11 +23,11 @@ export function defaultGlobalOptimizationPrePasses(arg0, arg1, closedWorld) {
 }
 
 export function optimizeModule(arg0, arg1) {
-  return liftValue({ kind: "result", helper: {"isOk":"__js_result_13_is_ok","unwrapOk":"__js_result_13_unwrap_ok","unwrapErr":"__js_result_13_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["passes__optimize_module"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_29_new","push":"__js_array_29_push","length":"__js_array_29_length","get":"__js_array_29_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, arg1, wasm)), wasm);
+  return liftValue({ kind: "result", helper: {"isOk":"__js_result_14_is_ok","unwrapOk":"__js_result_14_unwrap_ok","unwrapErr":"__js_result_14_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["passes__optimize_module"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_29_new","push":"__js_array_29_push","length":"__js_array_29_length","get":"__js_array_29_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, arg1, wasm)), wasm);
 }
 
 export function optimizeModuleWithOptions(arg0, arg1, arg2) {
-  return liftValue({ kind: "result", helper: {"isOk":"__js_result_13_is_ok","unwrapOk":"__js_result_13_unwrap_ok","unwrapErr":"__js_result_13_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["passes__optimize_module_with_options"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_29_new","push":"__js_array_29_push","length":"__js_array_29_length","get":"__js_array_29_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, arg1, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, arg2, wasm)), wasm);
+  return liftValue({ kind: "result", helper: {"isOk":"__js_result_14_is_ok","unwrapOk":"__js_result_14_unwrap_ok","unwrapErr":"__js_result_14_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["passes__optimize_module_with_options"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_29_new","push":"__js_array_29_push","length":"__js_array_29_length","get":"__js_array_29_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, arg1, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, arg2, wasm)), wasm);
 }
 
 export const optimizeModuleWithOptionsTrace = unsupportedExport("passes.optimizeModuleWithOptionsTrace", "Higher-order function parameters are not available through the wasm-gc adapter.");
@@ -181,6 +181,21 @@ export const OptimizeOptions = Object.freeze({
       default:
         throw new TypeError("Invalid argument count for passes.OptimizeOptions.new.");
     }
+  },
+});
+
+export const OptimizeTracingLevel = Object.freeze({
+  helper() {
+    return liftValue({ kind: "named", brand: "passes.OptimizeTracingLevel", showExport: "__js_show_passes_OptimizeTracingLevel" }, wasm["passes__OptimizeTracingLevel__helper"](), wasm);
+  },
+  pass() {
+    return liftValue({ kind: "named", brand: "passes.OptimizeTracingLevel", showExport: "__js_show_passes_OptimizeTracingLevel" }, wasm["passes__OptimizeTracingLevel__pass"](), wasm);
+  },
+  phase() {
+    return liftValue({ kind: "named", brand: "passes.OptimizeTracingLevel", showExport: "__js_show_passes_OptimizeTracingLevel" }, wasm["passes__OptimizeTracingLevel__phase"](), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_passes_OptimizeTracingLevel"](value);
   },
 });
 

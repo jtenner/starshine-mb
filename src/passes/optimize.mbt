@@ -104,6 +104,28 @@ pub(all) enum ModulePass {
 } derive(Show, Eq)
 
 ///|
+pub enum OptimizeTracingLevel {
+  Pass
+  Phase
+  Helper
+} derive(Show, Eq)
+
+///|
+pub fn OptimizeTracingLevel::pass() -> OptimizeTracingLevel {
+  Pass
+}
+
+///|
+pub fn OptimizeTracingLevel::phase() -> OptimizeTracingLevel {
+  Phase
+}
+
+///|
+pub fn OptimizeTracingLevel::helper() -> OptimizeTracingLevel {
+  Helper
+}
+
+///|
 pub struct InliningOptions {
   always_inline_max_size : Int
   one_caller_inline_max_size : Int
@@ -1255,17 +1277,64 @@ fn optimize_trace_context_label(kind : SchedulerPassContextKind) -> String {
 }
 
 ///|
-fn optimize_trace_pass_enabled(
-  trace_pass_details : Bool,
-  trace_module_stats : Bool,
-) -> Bool {
-  if trace_pass_details {
-    return true
+fn optimize_trace_phase_enabled(level : OptimizeTracingLevel) -> Bool {
+  match level {
+    Pass => false
+    Phase | Helper => true
   }
-  if !trace_module_stats {
-    return false
+}
+
+///|
+fn optimize_trace_helper_enabled(level : OptimizeTracingLevel) -> Bool {
+  match level {
+    Helper => true
+    _ => false
   }
-  true
+}
+
+///|
+fn optimize_trace_detail_is_phase(msg : String) -> Bool {
+  msg.contains("phase=") ||
+  msg.contains("func[") ||
+  msg.contains("iter=") ||
+  msg.contains("round[") ||
+  msg.contains(":start") ||
+  msg.contains(":done")
+}
+
+///|
+fn optimize_trace_emit_pass(
+  trace : (String) -> Unit,
+  trace_enabled : Bool,
+  msg : String,
+) -> Unit {
+  if trace_enabled {
+    trace(msg)
+  }
+}
+
+///|
+fn optimize_trace_emit_phase(
+  trace : (String) -> Unit,
+  trace_enabled : Bool,
+  level : OptimizeTracingLevel,
+  msg : String,
+) -> Unit {
+  if trace_enabled && optimize_trace_phase_enabled(level) {
+    trace(msg)
+  }
+}
+
+///|
+fn optimize_trace_emit_helper(
+  trace : (String) -> Unit,
+  trace_enabled : Bool,
+  level : OptimizeTracingLevel,
+  msg : String,
+) -> Unit {
+  if trace_enabled && optimize_trace_helper_enabled(level) {
+    trace(msg)
+  }
 }
 
 ///|
@@ -1275,49 +1344,58 @@ fn optimize_module_with_options_internal(
   options : OptimizeOptions,
   trace : (String) -> Unit,
   trace_enabled : Bool,
-  trace_pass_details : Bool,
-  trace_module_stats : Bool,
+  trace_level : OptimizeTracingLevel,
   dump_failed_module_state : Bool,
 ) -> Result[Module, String] {
   ignore(dump_failed_module_state)
   let original_mod = mod
   let optimize_start_ms = optimize_trace_now_ms()
-  if trace_enabled {
-    trace("start passes=\{passes.length()}")
-  }
+  optimize_trace_emit_pass(
+    trace,
+    trace_enabled,
+    "start passes=\{passes.length()}",
+  )
   if passes.length() == 0 {
-    if trace_enabled {
-      trace("done elapsed_ms=\{optimize_trace_elapsed_ms(optimize_start_ms)}")
-    }
+    optimize_trace_emit_pass(
+      trace,
+      trace_enabled,
+      "done elapsed_ms=\{optimize_trace_elapsed_ms(optimize_start_ms)}",
+    )
     return Ok(mod)
   }
   let mut mod = mod
   let ctx = IRContext::new()
   ctx.set_mod(mod)
   let lift_start_ms = optimize_trace_now_ms()
-  if trace_enabled {
-    trace("lift_to_texpr:start")
-  }
-  let lift_trace = if trace_enabled && trace_pass_details {
-    fn(msg) { trace("lift_to_texpr:\{msg}") }
+  optimize_trace_emit_phase(
+    trace, trace_enabled, trace_level, "lift_to_texpr:start",
+  )
+  let lift_trace = if trace_enabled && optimize_trace_phase_enabled(trace_level) {
+    fn(msg) {
+      if optimize_trace_helper_enabled(trace_level) ||
+        optimize_trace_detail_is_phase(msg) {
+        trace("lift_to_texpr:\{msg}")
+      }
+    }
   } else {
     optimize_trace_noop
   }
   mod = match lift_to_texpr_module_with_trace(mod, lift_trace) {
     Ok(new_mod) => {
-      if trace_enabled {
-        trace(
-          "lift_to_texpr:done elapsed_ms=\{optimize_trace_elapsed_ms(lift_start_ms)}",
-        )
-      }
+      optimize_trace_emit_phase(
+        trace,
+        trace_enabled,
+        trace_level,
+        "lift_to_texpr:done elapsed_ms=\{optimize_trace_elapsed_ms(lift_start_ms)}",
+      )
       new_mod
     }
     Err(e) => {
-      if trace_enabled {
-        trace(
-          "lift_to_texpr:error elapsed_ms=\{optimize_trace_elapsed_ms(lift_start_ms)} \{e}",
-        )
-      }
+      optimize_trace_emit_pass(
+        trace,
+        trace_enabled,
+        "lift_to_texpr:error elapsed_ms=\{optimize_trace_elapsed_ms(lift_start_ms)} \{e}",
+      )
       return Err(e)
     }
   }
@@ -1328,21 +1406,31 @@ fn optimize_module_with_options_internal(
     let pass_start_ms = optimize_trace_now_ms()
     pass_index += 1
     let kind = module_pass_context_kind(pass)
-    if trace_enabled {
-      trace(
-        "pass[\{pass_index}/\{passes.length()}]:start pass=\{pass} kind=\{optimize_trace_context_label(kind)}",
-      )
-    }
-    ctx.set_mod(mod)
-    let pass_trace_enabled = optimize_trace_pass_enabled(
-      trace_pass_details, trace_module_stats,
+    optimize_trace_emit_pass(
+      trace,
+      trace_enabled,
+      "pass[\{pass_index}/\{passes.length()}]:start pass=\{pass} kind=\{optimize_trace_context_label(kind)}",
     )
-    let pass_trace_all_funcs = trace_enabled && trace_pass_details
-    let pass_trace = if trace_enabled && pass_trace_enabled {
-      fn(msg) { trace("pass[\{pass_index}/\{passes.length()}]:\{msg}") }
+    ctx.set_mod(mod)
+    let pass_trace_all_funcs = trace_enabled &&
+      optimize_trace_phase_enabled(trace_level)
+    let pass_trace = if trace_enabled &&
+      optimize_trace_phase_enabled(trace_level) {
+      fn(msg) {
+        if optimize_trace_helper_enabled(trace_level) ||
+          optimize_trace_detail_is_phase(msg) {
+          trace("pass[\{pass_index}/\{passes.length()}]:\{msg}")
+        }
+      }
     } else {
       optimize_trace_noop
     }
+    optimize_trace_emit_helper(
+      trace,
+      trace_enabled,
+      trace_level,
+      "pass[\{pass_index}/\{passes.length()}]:scheduler:start kind=\{optimize_trace_context_label(kind)}",
+    )
     mod = match kind {
       IRContextTransformerPass =>
         match
@@ -1351,11 +1439,11 @@ fn optimize_module_with_options_internal(
           ) {
           Ok(new_mod) => new_mod
           Err(e) => {
-            if trace_enabled {
-              trace(
-                "pass[\{pass_index}/\{passes.length()}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
-              )
-            }
+            optimize_trace_emit_pass(
+              trace,
+              trace_enabled,
+              "pass[\{pass_index}/\{passes.length()}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
+            )
             return Err(e)
           }
         }
@@ -1366,11 +1454,11 @@ fn optimize_module_with_options_internal(
           ) {
           Ok(new_mod) => new_mod
           Err(e) => {
-            if trace_enabled {
-              trace(
-                "pass[\{pass_index}/\{passes.length()}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
-              )
-            }
+            optimize_trace_emit_pass(
+              trace,
+              trace_enabled,
+              "pass[\{pass_index}/\{passes.length()}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
+            )
             return Err(e)
           }
         }
@@ -1381,59 +1469,82 @@ fn optimize_module_with_options_internal(
           ) {
           Ok(new_mod) => new_mod
           Err(e) => {
-            if trace_enabled {
-              trace(
-                "pass[\{pass_index}/\{passes.length()}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
-              )
-            }
+            optimize_trace_emit_pass(
+              trace,
+              trace_enabled,
+              "pass[\{pass_index}/\{passes.length()}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
+            )
             return Err(e)
           }
         }
     }
+    optimize_trace_emit_helper(
+      trace,
+      trace_enabled,
+      trace_level,
+      "pass[\{pass_index}/\{passes.length()}]:scheduler:done kind=\{optimize_trace_context_label(kind)}",
+    )
     let validate_start_ms = optimize_trace_now_ms()
-    if trace_enabled {
-      trace("pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:start")
-    }
+    optimize_trace_emit_phase(
+      trace,
+      trace_enabled,
+      trace_level,
+      "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:start",
+    )
     match validate_module(mod) {
       Ok(_) =>
-        if trace_enabled {
-          trace(
-            "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:done elapsed_ms=\{optimize_trace_elapsed_ms(validate_start_ms)}",
-          )
-        }
+        optimize_trace_emit_phase(
+          trace,
+          trace_enabled,
+          trace_level,
+          "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:done elapsed_ms=\{optimize_trace_elapsed_ms(validate_start_ms)}",
+        )
       Err(e) => {
         let summary = validation_error_message(e)
         optimize_validation_dump_before_after(
           original_mod, mod, trace, trace_enabled,
         )
-        if trace_enabled {
-          trace(
-            "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation_error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{summary}",
-          )
-        }
+        optimize_trace_emit_pass(
+          trace,
+          trace_enabled,
+          "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation_error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{summary}",
+        )
         return Err(
           opt_format_pass_validation_failure(mod, e, pass, pre_pass_mod),
         )
       }
     }
 
-    if trace_enabled {
-      trace(
-        "pass[\{pass_index}/\{passes.length()}]:returned pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
-      )
-      trace("pass[\{pass_index}/\{passes.length()}]:commit:start pass=\{pass}")
-    }
+    optimize_trace_emit_phase(
+      trace,
+      trace_enabled,
+      trace_level,
+      "pass[\{pass_index}/\{passes.length()}]:returned pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
+    )
+    optimize_trace_emit_helper(
+      trace,
+      trace_enabled,
+      trace_level,
+      "pass[\{pass_index}/\{passes.length()}]:commit:start pass=\{pass}",
+    )
     ctx.set_mod(mod)
-    if trace_enabled {
-      trace("pass[\{pass_index}/\{passes.length()}]:commit:done pass=\{pass}")
-      trace(
-        "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
-      )
-    }
+    optimize_trace_emit_helper(
+      trace,
+      trace_enabled,
+      trace_level,
+      "pass[\{pass_index}/\{passes.length()}]:commit:done pass=\{pass}",
+    )
+    optimize_trace_emit_pass(
+      trace,
+      trace_enabled,
+      "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
+    )
   }
-  if trace_enabled {
-    trace("done elapsed_ms=\{optimize_trace_elapsed_ms(optimize_start_ms)}")
-  }
+  optimize_trace_emit_pass(
+    trace,
+    trace_enabled,
+    "done elapsed_ms=\{optimize_trace_elapsed_ms(optimize_start_ms)}",
+  )
   Ok(mod)
 }
 
@@ -1444,7 +1555,13 @@ pub fn optimize_module_with_options(
   options : OptimizeOptions,
 ) -> Result[Module, String] {
   optimize_module_with_options_internal(
-    mod, passes, options, optimize_trace_noop, false, false, false, false,
+    mod,
+    passes,
+    options,
+    optimize_trace_noop,
+    false,
+    OptimizeTracingLevel::pass(),
+    false,
   )
 }
 
@@ -1454,12 +1571,11 @@ pub fn optimize_module_with_options_trace(
   passes : Array[ModulePass],
   options : OptimizeOptions,
   trace : (String) -> Unit,
-  trace_pass_details? : Bool = true,
-  trace_module_stats? : Bool = false,
+  trace_level? : OptimizeTracingLevel = OptimizeTracingLevel::helper(),
   dump_failed_module_state? : Bool = false,
 ) -> Result[Module, String] {
   optimize_module_with_options_internal(
-    mod, passes, options, trace, true, trace_pass_details, trace_module_stats, dump_failed_module_state,
+    mod, passes, options, trace, true, trace_level, dump_failed_module_state,
   )
 }
 
@@ -6167,4 +6283,106 @@ test "optimize handles loop typeidx params through duplicate function eliminatio
     Ok(_) => ()
     Err(e) => fail("expected optimized fixture to validate: \{e}")
   }
+}
+
+///|
+fn opt_trace_fixture_module() -> Module {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([t_void]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([TInstr::drop(TInstr::i32_const(I32(9))), TInstr::nop()]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn opt_trace_has_line(lines : Array[String], needle : String) -> Bool {
+  for line in lines {
+    if line.contains(needle) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+test "optimize tracing pass emits pass runtimes only" {
+  let lines : Array[String] = []
+  let mod = opt_trace_fixture_module()
+  match
+    optimize_module_with_options_trace(
+      mod,
+      [CodeFolding],
+      OptimizeOptions::new(),
+      fn(msg) { lines.push(msg) },
+      trace_level=OptimizeTracingLevel::pass(),
+    ) {
+    Ok(_) => ()
+    Err(e) => fail("expected optimize trace pass success, got \{e}")
+  }
+  assert_true(opt_trace_has_line(lines, "pass[1/1]:start pass=CodeFolding"))
+  assert_true(opt_trace_has_line(lines, "pass[1/1]:done pass=CodeFolding"))
+  assert_true(opt_trace_has_line(lines, "done elapsed_ms="))
+  assert_false(opt_trace_has_line(lines, "code_folding:func["))
+}
+
+///|
+test "optimize tracing phase includes per-function checkpoints" {
+  let lines : Array[String] = []
+  let mod = opt_trace_fixture_module()
+  match
+    optimize_module_with_options_trace(
+      mod,
+      [CodeFolding],
+      OptimizeOptions::new(),
+      fn(msg) { lines.push(msg) },
+      trace_level=OptimizeTracingLevel::phase(),
+    ) {
+    Ok(_) => ()
+    Err(e) => fail("expected optimize trace phase success, got \{e}")
+  }
+  assert_true(opt_trace_has_line(lines, "pass[1/1]:start pass=CodeFolding"))
+  assert_true(opt_trace_has_line(lines, "code_folding:func[1] start"))
+}
+
+///|
+test "optimize tracing helper includes more detail than phase" {
+  let phase_lines : Array[String] = []
+  let helper_lines : Array[String] = []
+  let mod = opt_trace_fixture_module()
+  match
+    optimize_module_with_options_trace(
+      mod,
+      [CodeFolding],
+      OptimizeOptions::new(),
+      fn(msg) { phase_lines.push(msg) },
+      trace_level=OptimizeTracingLevel::phase(),
+    ) {
+    Ok(_) => ()
+    Err(e) => fail("expected optimize trace phase success, got \{e}")
+  }
+  match
+    optimize_module_with_options_trace(
+      mod,
+      [CodeFolding],
+      OptimizeOptions::new(),
+      fn(msg) { helper_lines.push(msg) },
+      trace_level=OptimizeTracingLevel::helper(),
+    ) {
+    Ok(_) => ()
+    Err(e) => fail("expected optimize trace helper success, got \{e}")
+  }
+  assert_true(helper_lines.length() > phase_lines.length())
 }

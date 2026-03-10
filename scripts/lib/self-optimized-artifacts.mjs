@@ -131,7 +131,7 @@ export function optimizeDebugWasm({
       cwd: repoRoot,
       env: {
         ...process.env,
-        STARSHINE_TRACE_OPTIMIZE: '1',
+        STARSHINE_TRACING: 'PASS',
       },
       stdio: ['ignore', 'inherit', 'pipe'],
     });

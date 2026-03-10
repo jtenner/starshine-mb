@@ -36,20 +36,24 @@ export function optimizeModuleWithOptionsTrace(
   passes,
   options,
   trace = () => {},
-  tracePassDetails = true,
-  traceModuleStats = true,
+  tracing = 'helper',
 ) {
   const emit = trace ?? (() => {});
   if (typeof emit !== 'function') {
     throw new TypeError('Expected trace to be a function.');
+  }
+  const normalizedTracing = typeof tracing === 'string'
+    ? tracing.toLowerCase()
+    : '';
+  if (!['pass', 'phase', 'helper'].includes(normalizedTracing)) {
+    throw new TypeError('Expected tracing to be one of: pass, phase, helper.');
   }
 
   const run = wasm.__node_passes_optimize_module_with_options_trace_run(
     lowerValue(moduleDescriptor, mod, wasm),
     lowerValue(modulePassArrayDescriptor, passes, wasm),
     lowerValue(optimizeOptionsDescriptor, options, wasm),
-    Boolean(tracePassDetails),
-    Boolean(traceModuleStats),
+    lowerValue({ kind: 'string' }, normalizedTracing, wasm),
   );
 
   const logLength = wasm.__node_passes_optimize_trace_run_logs_length(run);

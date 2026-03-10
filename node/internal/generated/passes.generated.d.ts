@@ -24,6 +24,7 @@ export type MSFSiteValue = OpaqueHandle<"passes.MSFSiteValue">;
 export type MemoryPackingPassProps = OpaqueHandle<"passes.MemoryPackingPassProps">;
 export type ModulePass = OpaqueHandle<"passes.ModulePass">;
 export type OptimizeOptions = OpaqueHandle<"passes.OptimizeOptions">;
+export type OptimizeTracingLevel = OpaqueHandle<"passes.OptimizeTracingLevel">;
 export type ParamInfo = OpaqueHandle<"passes.ParamInfo">;
 export type SquareMatrix = OpaqueHandle<"passes.SquareMatrix">;
 export type Tail = OpaqueHandle<"passes.Tail">;
@@ -117,6 +118,13 @@ export const ModulePass: {
 
 export const OptimizeOptions: {
   new(optimizeLevel?: number, shrinkLevel?: number, inlining?: InliningOptions, monomorphizeMinBenefit?: number, lowMemoryUnused?: boolean, lowMemoryBound?: bigint, trapsNeverHappen?: boolean): OptimizeOptions;
+};
+
+export const OptimizeTracingLevel: {
+  helper(): OptimizeTracingLevel;
+  pass(): OptimizeTracingLevel;
+  phase(): OptimizeTracingLevel;
+  show(value: OptimizeTracingLevel): string;
 };
 
 export const ParamInfo: {

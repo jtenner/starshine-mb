@@ -34,6 +34,7 @@ export type Func = OpaqueHandle<"lib.Func">;
 export type FuncIdx = OpaqueHandle<"lib.FuncIdx">;
 export type FuncSec = OpaqueHandle<"lib.FuncSec">;
 export type FuncType = OpaqueHandle<"lib.FuncType">;
+export type FunctionLocals = OpaqueHandle<"lib.FunctionLocals">;
 export type Global = OpaqueHandle<"lib.Global">;
 export type GlobalIdx = OpaqueHandle<"lib.GlobalIdx">;
 export type GlobalSec = OpaqueHandle<"lib.GlobalSec">;
@@ -602,6 +603,18 @@ export const FuncSec: {
 export const FuncType: {
   new(arg0: Array<ValType>, arg1: Array<ValType>): FuncType;
   show(value: FuncType): string;
+};
+
+export const FunctionLocals: {
+  allLocals(arg0: FunctionLocals): Array<ValType>;
+  bodyLocals(arg0: FunctionLocals): Array<ValType>;
+  fromLocalDecls(arg0: Array<ValType>, arg1: Array<Locals>): StarshineResult<FunctionLocals, string>;
+  fromTypedFunc(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Array<ValType>): StarshineResult<FunctionLocals, string>;
+  fromTypedFuncForPass(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Array<ValType>): StarshineResult<FunctionLocals, string>;
+  localType(arg0: FunctionLocals, arg1: LocalIdx): ValType | null;
+  new(arg0: Array<ValType>, arg1: Array<ValType>): FunctionLocals;
+  paramCount(arg0: FunctionLocals): number;
+  params(arg0: FunctionLocals): Array<ValType>;
 };
 
 export const Global: {

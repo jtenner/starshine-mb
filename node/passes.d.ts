@@ -9,8 +9,7 @@ export function optimizeModuleWithOptionsTrace(
   arg1: Array<ModulePass>,
   arg2: OptimizeOptions,
   trace?: (msg: string) => void,
-  tracePassDetails?: boolean,
-  traceModuleStats?: boolean,
+  tracing?: 'pass' | 'phase' | 'helper',
 ): StarshineResult<Module, string>;
 export function alignmentLowering(): ModulePass;
 export function avoidReinterprets(): ModulePass;

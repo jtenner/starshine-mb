@@ -17,7 +17,7 @@ pub fn optimize_module(@lib.Module, Array[ModulePass]) -> Result[@lib.Module, St
 
 pub fn optimize_module_with_options(@lib.Module, Array[ModulePass], OptimizeOptions) -> Result[@lib.Module, String]
 
-pub fn optimize_module_with_options_trace(@lib.Module, Array[ModulePass], OptimizeOptions, (String) -> Unit, trace_pass_details? : Bool, trace_module_stats? : Bool, dump_failed_module_state? : Bool) -> Result[@lib.Module, String]
+pub fn optimize_module_with_options_trace(@lib.Module, Array[ModulePass], OptimizeOptions, (String) -> Unit, trace_level? : OptimizeTracingLevel, dump_failed_module_state? : Bool) -> Result[@lib.Module, String]
 
 // Errors
 
@@ -248,6 +248,17 @@ pub struct OptimizeOptions {
   traps_never_happen : Bool
 }
 pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool) -> Self
+
+pub enum OptimizeTracingLevel {
+  Pass
+  Phase
+  Helper
+}
+pub fn OptimizeTracingLevel::helper() -> Self
+pub fn OptimizeTracingLevel::pass() -> Self
+pub fn OptimizeTracingLevel::phase() -> Self
+pub impl Eq for OptimizeTracingLevel
+pub impl Show for OptimizeTracingLevel
 
 type ParamInfo
 pub impl Eq for ParamInfo

@@ -361,6 +361,8 @@ Type namespace `CliParseError`
   Call CliParseError.invalidLongFlag.
 - `CliParseError.invalidOptimizationFlag(arg0: string): CliParseError`
   Call CliParseError.invalidOptimizationFlag.
+- `CliParseError.invalidTracingLevel(arg0: string): CliParseError`
+  Call CliParseError.invalidTracingLevel.
 - `CliParseError.invalidTrapMode(arg0: string): CliParseError`
   Call CliParseError.invalidTrapMode.
 - `CliParseError.missingFlagValue(arg0: string): CliParseError`
@@ -375,9 +377,19 @@ Type namespace `CliParseError`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `CliParseResult`
-- `CliParseResult.new(configPath?: string | null, inputGlobs?: Array<string>, globEnabled?: boolean, helpRequested?: boolean, versionRequested?: boolean, readStdin?: boolean, inputFormat?: CliInputFormat | null, outputTargets?: Array<CliOutputTarget>, passFlags?: Array<string>, optimizeFlags?: Array<CliOptimizationFlag>, trapMode?: TrapMode | null, monomorphizeMinBenefit?: number | null, lowMemoryUnused?: boolean | null, lowMemoryBound?: bigint | null): CliParseResult`
+- `CliParseResult.new(configPath?: string | null, inputGlobs?: Array<string>, globEnabled?: boolean, helpRequested?: boolean, versionRequested?: boolean, readStdin?: boolean, inputFormat?: CliInputFormat | null, outputTargets?: Array<CliOutputTarget>, passFlags?: Array<string>, optimizeFlags?: Array<CliOptimizationFlag>, trapMode?: TrapMode | null, monomorphizeMinBenefit?: number | null, lowMemoryUnused?: boolean | null, lowMemoryBound?: bigint | null, tracing?: CliTracingLevel | null): CliParseResult`
   Create a CliParseResult value.
 - `CliParseResult.show(value: CliParseResult): string`
+  Format the value with its MoonBit `Show` implementation.
+
+Type namespace `CliTracingLevel`
+- `CliTracingLevel.helper(): CliTracingLevel`
+  Call CliTracingLevel.helper.
+- `CliTracingLevel.pass(): CliTracingLevel`
+  Call CliTracingLevel.pass.
+- `CliTracingLevel.phase(): CliTracingLevel`
+  Call CliTracingLevel.phase.
+- `CliTracingLevel.show(value: CliTracingLevel): string`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `TrapMode`
@@ -1568,6 +1580,26 @@ Type namespace `FuncType`
   Create a FuncType value.
 - `FuncType.show(value: FuncType): string`
   Format the value with its MoonBit `Show` implementation.
+
+Type namespace `FunctionLocals`
+- `FunctionLocals.allLocals(arg0: FunctionLocals): Array<ValType>`
+  Call FunctionLocals.allLocals.
+- `FunctionLocals.bodyLocals(arg0: FunctionLocals): Array<ValType>`
+  Call FunctionLocals.bodyLocals.
+- `FunctionLocals.fromLocalDecls(arg0: Array<ValType>, arg1: Array<Locals>): StarshineResult<FunctionLocals, string>`
+  Call FunctionLocals.fromLocalDecls.
+- `FunctionLocals.fromTypedFunc(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Array<ValType>): StarshineResult<FunctionLocals, string>`
+  Call FunctionLocals.fromTypedFunc.
+- `FunctionLocals.fromTypedFuncForPass(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Array<ValType>): StarshineResult<FunctionLocals, string>`
+  Call FunctionLocals.fromTypedFuncForPass.
+- `FunctionLocals.localType(arg0: FunctionLocals, arg1: LocalIdx): ValType | null`
+  Call FunctionLocals.localType.
+- `FunctionLocals.new(arg0: Array<ValType>, arg1: Array<ValType>): FunctionLocals`
+  Create a FunctionLocals value.
+- `FunctionLocals.paramCount(arg0: FunctionLocals): number`
+  Call FunctionLocals.paramCount.
+- `FunctionLocals.params(arg0: FunctionLocals): Array<ValType>`
+  Call FunctionLocals.params.
 
 Type namespace `Global`
 - `Global.new(arg0: GlobalType, arg1: Expr): Global`
@@ -3745,7 +3777,7 @@ pipeline.push(passes.vacuum());
 
 - `modulePass(name: string): ModulePass`
   Resolve one of the canonical explicit pass names into a `ModulePass` value.
-- `optimizeModuleWithOptionsTrace(arg0: Module, arg1: Array<ModulePass>, arg2: OptimizeOptions, trace?: (msg: string) => void, tracePassDetails?: boolean, traceModuleStats?: boolean): StarshineResult<Module, string>`
+- `optimizeModuleWithOptionsTrace(arg0: Module, arg1: Array<ModulePass>, arg2: OptimizeOptions, trace?: (msg: string) => void, tracing?: 'pass' | 'phase' | 'helper'): StarshineResult<Module, string>`
   Call `optimizeModuleWithOptionsTrace`, replaying trace lines through the provided JS callback.
 - `deadArgumentElimination(): ModulePass`
   Create `ModulePass::DeadArgumentElimination` for manual ordered pipelines.
@@ -3825,6 +3857,16 @@ Type namespace `OptimizeOptions`
 - `OptimizeOptions.new(optimizeLevel?: number, shrinkLevel?: number, inlining?: InliningOptions, monomorphizeMinBenefit?: number, lowMemoryUnused?: boolean, lowMemoryBound?: bigint, trapsNeverHappen?: boolean): OptimizeOptions`
   Create a OptimizeOptions value.
 
+Type namespace `OptimizeTracingLevel`
+- `OptimizeTracingLevel.helper(): OptimizeTracingLevel`
+  Call OptimizeTracingLevel.helper.
+- `OptimizeTracingLevel.pass(): OptimizeTracingLevel`
+  Call OptimizeTracingLevel.pass.
+- `OptimizeTracingLevel.phase(): OptimizeTracingLevel`
+  Call OptimizeTracingLevel.phase.
+- `OptimizeTracingLevel.show(value: OptimizeTracingLevel): string`
+  Format the value with its MoonBit `Show` implementation.
+
 Type namespace `ParamInfo`
 - `ParamInfo.show(value: ParamInfo): string`
   Format the value with its MoonBit `Show` implementation.
@@ -3836,6 +3878,14 @@ Import directly with `import * as transformer from '@jtenner/starshine/transform
 - `change(...args: never[]): never`
   Generic exports are not available through the wasm-gc adapter.
 - `error(...args: never[]): never`
+  Generic exports are not available through the wasm-gc adapter.
+- `fromWalk(...args: never[]): never`
+  Generic exports are not available through the wasm-gc adapter.
+- `mutate(...args: never[]): never`
+  Generic exports are not available through the wasm-gc adapter.
+- `replace(...args: never[]): never`
+  Generic exports are not available through the wasm-gc adapter.
+- `skip(...args: never[]): never`
   Generic exports are not available through the wasm-gc adapter.
 - `unchanged(...args: never[]): never`
   Generic exports are not available through the wasm-gc adapter.

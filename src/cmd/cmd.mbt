@@ -178,6 +178,16 @@ fn parse_trap_mode_name(raw : String) -> TrapMode? {
 }
 
 ///|
+fn parse_tracing_level_name(raw : String) -> CliTracingLevel? {
+  match ascii_lower(raw.trim().to_string()) {
+    "pass" => Some(CliTracingLevel::pass())
+    "phase" => Some(CliTracingLevel::phase())
+    "helper" => Some(CliTracingLevel::helper())
+    _ => None
+  }
+}
+
+///|
 fn append_unique_string(out : Array[String], value : String) -> Unit {
   if !out.contains(value) {
     out.push(value)
@@ -304,6 +314,7 @@ fn cmd_cli_parse_error_message(err : CliParseError) -> String {
     UnexpectedFlagValue(flag) => "unexpected value for flag \{flag}"
     InvalidOptimizationFlag(flag) => "invalid optimization flag: \{flag}"
     InvalidTrapMode(mode) => "invalid trap mode: \{mode}"
+    InvalidTracingLevel(level) => "invalid tracing level: \{level}"
   }
 }
 
@@ -458,6 +469,7 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
   let mut monomorphize_min_benefit : Int? = None
   let mut low_memory_unused : Bool? = None
   let mut low_memory_bound : UInt64? = None
+  let mut tracing : CliTracingLevel? = None
   let root_obj = match root {
     Object(obj) => obj
     _ => return Err(CmdError::InvalidConfig("config root must be an object"))
@@ -565,6 +577,15 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
           }
           _ => ()
         }
+      }
+    _ => ()
+  }
+
+  match root_obj.get("tracing") {
+    Some(String(raw)) =>
+      match parse_tracing_level_name(raw) {
+        Some(level) => tracing = Some(level)
+        None => ()
       }
     _ => ()
   }
@@ -725,6 +746,7 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
       monomorphize_min_benefit~,
       low_memory_unused~,
       low_memory_bound~,
+      tracing~,
     ),
   )
 }
@@ -739,6 +761,7 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
   let mut monomorphize_min_benefit : Int? = None
   let mut low_memory_unused : Bool? = None
   let mut low_memory_bound : UInt64? = None
+  let mut tracing : CliTracingLevel? = None
 
   match (io.get_env)("STARSHINE_FORMAT") {
     Some(raw) =>
@@ -865,6 +888,14 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
       }
     None => ()
   }
+  match (io.get_env)("STARSHINE_TRACING") {
+    Some(raw) =>
+      match parse_tracing_level_name(raw) {
+        Some(level) => tracing = Some(level)
+        None => ()
+      }
+    None => ()
+  }
   CliParseResult::new(
     input_format~,
     output_targets~,
@@ -874,6 +905,7 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
     monomorphize_min_benefit~,
     low_memory_unused~,
     low_memory_bound~,
+    tracing~,
   )
 }
 
@@ -983,6 +1015,14 @@ fn merge_parse_results(
         None => config.low_memory_bound
       }
   }
+  let tracing = match cli.tracing {
+    Some(level) => Some(level)
+    None =>
+      match env.tracing {
+        Some(level) => Some(level)
+        None => config.tracing
+      }
+  }
   CliParseResult::new(
     config_path~,
     input_globs~,
@@ -996,6 +1036,7 @@ fn merge_parse_results(
     monomorphize_min_benefit~,
     low_memory_unused~,
     low_memory_bound~,
+    tracing~,
   )
 }
 
@@ -1534,34 +1575,20 @@ fn string_to_bytes(text : String) -> Bytes {
 }
 
 ///|
-fn cmd_trace_optimize_enabled(io : CmdIO) -> Bool {
-  let raw = match (io.get_env)("STARSHINE_TRACE_OPTIMIZE") {
-    Some(raw) => Some(raw)
-    None => (io.get_env)("STARSHINE_TRACE_OPTIMIZATION")
-  }
-  match raw {
-    Some(v) =>
-      match parse_bool_string(v) {
-        Some(enabled) => enabled
-        None => false
-      }
-    None => false
+fn cmd_optimize_trace_level_to_string(level : CliTracingLevel) -> String {
+  match level {
+    Pass => "pass"
+    Phase => "phase"
+    Helper => "helper"
   }
 }
 
 ///|
-fn cmd_trace_optimize_verbose(io : CmdIO) -> Bool {
-  let raw = match (io.get_env)("STARSHINE_TRACE_OPTIMIZE_VERBOSE") {
-    Some(raw) => Some(raw)
-    None => (io.get_env)("STARSHINE_TRACE_OPTIMIZATION_VERBOSE")
-  }
-  match raw {
-    Some(v) =>
-      match parse_bool_string(v) {
-        Some(enabled) => enabled
-        None => false
-      }
-    None => false
+fn cmd_to_optimize_trace_level(level : CliTracingLevel) -> OptimizeTracingLevel {
+  match level {
+    Pass => OptimizeTracingLevel::pass()
+    Phase => OptimizeTracingLevel::phase()
+    Helper => OptimizeTracingLevel::helper()
   }
 }
 
@@ -1581,6 +1608,16 @@ fn cmd_optimize_dump_failed_module_state(io : CmdIO) -> Bool {
 fn cmd_trace_optimize_max_passes(io : CmdIO) -> Int? {
   match (io.get_env)("STARSHINE_OPTIMIZE_MAX_PASSES") {
     Some(raw) => parse_non_negative_decimal(raw)
+    None => None
+  }
+}
+
+///|
+fn cmd_resolve_optimize_trace_level(
+  level : CliTracingLevel?,
+) -> OptimizeTracingLevel? {
+  match level {
+    Some(level) => Some(cmd_to_optimize_trace_level(level))
     None => None
   }
 }
@@ -1689,6 +1726,9 @@ pub fn cmd_help_text() -> String {
   )
   append_help_line(out, "--traps-never-happen", "Alias for --trap-mode never.")
   append_help_line(out, "--traps-may-happen", "Alias for --trap-mode allow.")
+  append_help_line(
+    out, "--tracing <pass|phase|helper>", "Set optimization tracing level.",
+  )
   append_help_line(
     out, "--monomorphize-min-benefit <N>", "Set monomorphization benefit threshold.",
   )
@@ -2225,9 +2265,9 @@ pub fn run_cmd_with_adapter(
 
   let env = parse_env_overlay(io)
   let merged = merge_parse_results(config, env, cli)
-  let trace_optimize_verbose = cmd_trace_optimize_verbose(io)
   let dump_failed_module_state = cmd_optimize_dump_failed_module_state(io)
-  let trace_optimize = cmd_trace_optimize_enabled(io) || trace_optimize_verbose
+  let trace_level = cmd_resolve_optimize_trace_level(merged.tracing)
+  let trace_optimize = trace_level is Some(_)
   let input_files = resolve_input_files_with_glob(
     merged.input_globs,
     io,
@@ -2284,9 +2324,16 @@ pub fn run_cmd_with_adapter(
     trace_optimize,
     "options o=\{optimize_level} z=\{shrink_level} traps_never=\{traps_never_happen}",
   )
-  let trace_mode = if trace_optimize_verbose { "verbose" } else { "regular" }
-  cmd_trace_emit(io, trace_optimize, "trace_mode=\{trace_mode}")
-  if trace_optimize_verbose {
+  match merged.tracing {
+    Some(level) =>
+      cmd_trace_emit(
+        io,
+        true,
+        "trace_mode=\{cmd_optimize_trace_level_to_string(level)}",
+      )
+    None => ()
+  }
+  if trace_optimize {
     cmd_trace_emit(
       io,
       true,
@@ -2363,14 +2410,17 @@ pub fn run_cmd_with_adapter(
     )
 
     let optimized = if trace_optimize {
+      let resolved_trace_level = match trace_level {
+        Some(level) => level
+        None => OptimizeTracingLevel::pass()
+      }
       match
         optimize_module_with_options_trace(
           mod,
           passes,
           options,
           fn(msg) { cmd_trace_emit(io, true, "input \{input_path}:opt \{msg}") },
-          trace_pass_details=trace_optimize_verbose,
-          trace_module_stats=trace_optimize,
+          trace_level=resolved_trace_level,
           dump_failed_module_state~,
         ) {
         Ok(out) => out
@@ -2383,8 +2433,7 @@ pub fn run_cmd_with_adapter(
           passes,
           options,
           fn(_) {  },
-          trace_pass_details=false,
-          trace_module_stats=false,
+          trace_level=OptimizeTracingLevel::pass(),
           dump_failed_module_state=true,
         ) {
         Ok(out) => out

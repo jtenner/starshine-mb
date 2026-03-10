@@ -16,6 +16,7 @@ function toCodePoints(value) {
 export function createMoonbitFsHost({ args = [], cwd = process.cwd() } = {}) {
   let nextHandle = 1;
   const handles = new Map();
+  const errors = new Map();
 
   function alloc(data) {
     const handle = nextHandle;
@@ -34,6 +35,39 @@ export function createMoonbitFsHost({ args = [], cwd = process.cwd() } = {}) {
 
   function allocExternString(value) {
     return alloc({ type: 'extern-string', value });
+  }
+
+  function allocError(error) {
+    const handle = nextHandle;
+    nextHandle += 1;
+    errors.set(handle, String(error));
+    return handle;
+  }
+
+  function readString(value) {
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (typeof value === 'number' && handles.has(value)) {
+      const handleData = handles.get(value);
+      if (handleData?.type === 'extern-string') {
+        return handleData.value;
+      }
+    }
+    return String(value);
+  }
+
+  function readBytes(value) {
+    if (value instanceof Uint8Array) {
+      return value;
+    }
+    if (typeof value === 'number' && handles.has(value)) {
+      const handleData = handles.get(value);
+      if (handleData?.type === 'byte-array') {
+        return Uint8Array.from(handleData.values);
+      }
+    }
+    return new Uint8Array();
   }
 
   function collectCandidates(rootDir) {
@@ -77,6 +111,9 @@ export function createMoonbitFsHost({ args = [], cwd = process.cwd() } = {}) {
   }
 
   return {
+    get_error_message(errorHandle) {
+      return errors.get(errorHandle) ?? '';
+    },
     args_get() {
       return alloc({ type: 'extern-string-array', values: [...args] });
     },
@@ -107,6 +144,46 @@ export function createMoonbitFsHost({ args = [], cwd = process.cwd() } = {}) {
       return codepoint;
     },
     finish_read_string(_readerHandle) {},
+    begin_create_string() {
+      return alloc({ type: 'string-builder', codepoints: [] });
+    },
+    string_append_char(builderHandle, codepoint) {
+      const builder = get(builderHandle, 'string-builder');
+      builder.codepoints.push(codepoint >>> 0);
+    },
+    finish_create_string(builderHandle) {
+      const builder = get(builderHandle, 'string-builder');
+      handles.delete(builderHandle);
+      return String.fromCodePoint(...builder.codepoints);
+    },
+    begin_create_byte_array() {
+      return alloc({ type: 'byte-array', values: [] });
+    },
+    byte_array_append_byte(arrayHandle, byte) {
+      const array = get(arrayHandle, 'byte-array');
+      array.values.push(byte & 0xff);
+    },
+    finish_create_byte_array(arrayHandle) {
+      const array = get(arrayHandle, 'byte-array');
+      handles.delete(arrayHandle);
+      return Uint8Array.from(array.values);
+    },
+    write_bytes_to_file_new(pathValue, bytesValue) {
+      try {
+        fs.writeFileSync(readString(pathValue), readBytes(bytesValue));
+        return 0;
+      } catch (error) {
+        return allocError(error);
+      }
+    },
+    remove_file_new(pathValue) {
+      try {
+        fs.rmSync(readString(pathValue), { force: true });
+        return 0;
+      } catch (error) {
+        return allocError(error);
+      }
+    },
     begin_read_string_array(externStringArrayHandle) {
       const arrayData = get(externStringArrayHandle, 'extern-string-array');
       return alloc({

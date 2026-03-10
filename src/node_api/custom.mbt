@@ -451,21 +451,45 @@ pub fn __node_passes_directize(always : Bool) -> @passes.ModulePass {
 }
 
 ///|
+fn __node_ascii_lower(input : String) -> String {
+  let out = StringBuilder::new()
+  for c in input {
+    if c >= 'A' && c <= 'Z' {
+      out.write_char((c.to_int() + 32).unsafe_to_char())
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn __node_parse_optimize_tracing_level(
+  level : String,
+) -> @passes.OptimizeTracingLevel {
+  match __node_ascii_lower(level.trim().to_string()) {
+    "pass" => @passes.OptimizeTracingLevel::pass()
+    "phase" => @passes.OptimizeTracingLevel::phase()
+    "helper" => @passes.OptimizeTracingLevel::helper()
+    _ => @passes.OptimizeTracingLevel::helper()
+  }
+}
+
+///|
 pub fn __node_passes_optimize_module_with_options_trace_run(
   mod : @lib.Module,
   passes : Array[@passes.ModulePass],
   options : @passes.OptimizeOptions,
-  trace_pass_details? : Bool = true,
-  trace_module_stats? : Bool = true,
+  trace_level : String,
 ) -> (Result[@lib.Module, String], Array[String]) {
   let trace_logs : Array[String] = []
+  let resolved_trace_level = __node_parse_optimize_tracing_level(trace_level)
   let result = @passes.optimize_module_with_options_trace(
     mod,
     passes,
     options,
     fn(msg) { trace_logs.push(msg) },
-    trace_pass_details~,
-    trace_module_stats~,
+    trace_level=resolved_trace_level,
   )
   (result, trace_logs)
 }

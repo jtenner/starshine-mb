@@ -2,9 +2,14 @@ import type { OpaqueHandle, StarshineResult } from "./internal/shared.js";
 
 export type ModuleTransformer = OpaqueHandle<"transformer.ModuleTransformer">;
 export type TransformerResult = OpaqueHandle<"transformer.TransformerResult">;
+export type VisitAction = OpaqueHandle<"transformer.VisitAction">;
 
 export function change(...args: never[]): never;
 export function error(...args: never[]): never;
+export function fromWalk(...args: never[]): never;
+export function mutate(...args: never[]): never;
+export function replace(...args: never[]): never;
+export function skip(...args: never[]): never;
 export function unchanged(...args: never[]): never;
 
 export const ModuleTransformer: {
@@ -185,4 +190,7 @@ export const ModuleTransformer: {
 };
 
 export const TransformerResult: {
+};
+
+export const VisitAction: {
 };

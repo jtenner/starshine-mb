@@ -21,6 +21,7 @@ using @cli {
   type CliParseError,
   type CliParseResult,
   type TrapMode,
+  type CliTracingLevel,
 }
 
 ///|
@@ -36,6 +37,7 @@ using @passes {
   type ModulePass,
   type InliningOptions,
   type OptimizeOptions,
+  type OptimizeTracingLevel,
 }
 
 ///|

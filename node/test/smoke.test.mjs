@@ -39,7 +39,7 @@ test('binary adapter lifts bigint arguments', () => {
 });
 
 test('passes module exposes ordered manual pass constructors', () => {
-  const parsed = wast.wastToBinaryModule('(module (func (export "run") nop drop unreachable))');
+  const parsed = wast.wastToBinaryModule('(module (func (export "run") i32.const 0 drop unreachable))');
   assert.equal(parsed.ok, true);
 
   const options = passes.OptimizeOptions.new();
@@ -75,6 +75,7 @@ test('passes module replays optimize trace logs through a JS callback', () => {
     (msg) => {
       traceLogs.push(msg);
     },
+    'phase',
   );
 
   assert.equal(optimized.ok, true);
@@ -82,6 +83,23 @@ test('passes module replays optimize trace logs through a JS callback', () => {
   assert(traceLogs.some((line) => line.includes('pass[1/1]:start pass=CodeFolding')));
   assert(traceLogs.some((line) => line.includes('pass[1/1]:code_folding:func[1] start')));
   assert(traceLogs.some((line) => line.includes('pass[1/1]:code_folding:func[1] done elapsed_ms=')));
+});
+
+test('passes module rejects invalid tracing level values', () => {
+  const parsed = wast.wastToBinaryModule('(module (func (export "run") nop))');
+  assert.equal(parsed.ok, true);
+
+  assert.throws(
+    () =>
+      passes.optimizeModuleWithOptionsTrace(
+        parsed.value,
+        [passes.vacuum()],
+        passes.OptimizeOptions.new(),
+        () => {},
+        'chatty',
+      ),
+    /tracing/i,
+  );
 });
 
 test('cmd bridge minimizes pass lists with a JS callback', () => {

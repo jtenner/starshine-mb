@@ -76,10 +76,12 @@ pub enum CliParseError {
   UnexpectedFlagValue(String)
   InvalidOptimizationFlag(String)
   InvalidTrapMode(String)
+  InvalidTracingLevel(String)
 }
 pub fn CliParseError::invalid_input_format(String) -> Self
 pub fn CliParseError::invalid_long_flag(String) -> Self
 pub fn CliParseError::invalid_optimization_flag(String) -> Self
+pub fn CliParseError::invalid_tracing_level(String) -> Self
 pub fn CliParseError::invalid_trap_mode(String) -> Self
 pub fn CliParseError::missing_flag_value(String) -> Self
 pub fn CliParseError::stdin_needs_format() -> Self
@@ -104,11 +106,24 @@ pub struct CliParseResult {
   mut monomorphize_min_benefit : Int?
   mut low_memory_unused : Bool?
   mut low_memory_bound : UInt64?
+  mut tracing : CliTracingLevel?
 }
-pub fn CliParseResult::new(config_path? : String?, input_globs? : Array[String], glob_enabled? : Bool, help_requested? : Bool, version_requested? : Bool, read_stdin? : Bool, input_format? : CliInputFormat?, output_targets? : Array[CliOutputTarget], pass_flags? : Array[String], optimize_flags? : Array[CliOptimizationFlag], trap_mode? : TrapMode?, monomorphize_min_benefit? : Int?, low_memory_unused? : Bool?, low_memory_bound? : UInt64?) -> Self
+pub fn CliParseResult::new(config_path? : String?, input_globs? : Array[String], glob_enabled? : Bool, help_requested? : Bool, version_requested? : Bool, read_stdin? : Bool, input_format? : CliInputFormat?, output_targets? : Array[CliOutputTarget], pass_flags? : Array[String], optimize_flags? : Array[CliOptimizationFlag], trap_mode? : TrapMode?, monomorphize_min_benefit? : Int?, low_memory_unused? : Bool?, low_memory_bound? : UInt64?, tracing? : CliTracingLevel?) -> Self
 pub impl Eq for CliParseResult
 pub impl Show for CliParseResult
 pub impl @debug.Debug for CliParseResult
+
+pub enum CliTracingLevel {
+  Pass
+  Phase
+  Helper
+}
+pub fn CliTracingLevel::helper() -> Self
+pub fn CliTracingLevel::pass() -> Self
+pub fn CliTracingLevel::phase() -> Self
+pub impl Eq for CliTracingLevel
+pub impl Show for CliTracingLevel
+pub impl @debug.Debug for CliTracingLevel
 
 pub enum TrapMode {
   Allow
