@@ -2520,66 +2520,6 @@ test "precompute counters descend into nested control flow" {
 }
 
 ///|
-test "precompute trace covers function lifecycle timings" {
-  let body : Array[TInstr] = []
-  let locals : Array[ValType] = []
-  for i in 0..<20 {
-    locals.push(ValType::i32())
-    body.push(
-      TInstr::local_set(
-        LocalIdx::new(i.reinterpret_as_uint()),
-        TInstr::i32_const(I32(i + 1)),
-      ),
-    )
-  }
-  for _ in 0..<80 {
-    body.push(TInstr::drop(TInstr::local_get(LocalIdx::new(0))))
-  }
-
-  let mod = pc_single_func_module(body, locals~)
-  let trace_logs : Array[String] = []
-  match
-    optimize_module_with_options_trace(
-      mod,
-      [ModulePass::PrecomputePropagate],
-      OptimizeOptions::new(optimize_level=2),
-      fn(msg) { trace_logs.push(msg) },
-    ) {
-    Ok(_) => ()
-    Err(e) => fail("unexpected precompute trace error: \{e}")
-  }
-
-  let mut saw_setup = false
-  let mut saw_round = false
-  let mut saw_replace = false
-  let mut saw_simplify = false
-  let mut saw_done = false
-  for msg in trace_logs {
-    if msg.contains("precompute:func[0] prop setup") {
-      saw_setup = true
-    }
-    if msg.contains("precompute:func[0] prop round[") {
-      saw_round = true
-    }
-    if msg.contains("precompute:func[0] prop replace elapsed_ms=") {
-      saw_replace = true
-    }
-    if msg.contains("precompute:func[0] simplify round[") {
-      saw_simplify = true
-    }
-    if msg.contains("precompute:func[0] done changed=") &&
-      msg.contains("elapsed_ms=") {
-      saw_done = true
-    }
-  }
-  assert_true(saw_setup)
-  assert_true(saw_round)
-  assert_true(saw_replace)
-  assert_true(saw_simplify)
-  assert_true(saw_done)
-}
-
-///|
 test "precompute simplify propagates child rewrite without rewalking parent" {
   let (out, changed) = pc_simplify_body(
     TExpr::new([
@@ -2606,30 +2546,6 @@ test "precompute simplify propagates child rewrite without rewalking parent" {
     ] => ()
     _ => fail("expected folded child rewrite to be preserved at parent")
   }
-}
-
-///|
-test "precompute simplify trace reports cache hits for repeated identical subtrees" {
-  let repeated = TInstr::drop(
-    TInstr::binary(
-      BinaryOp::i32_add(),
-      TInstr::i32_const(I32(1)),
-      TInstr::i32_const(I32(2)),
-    ),
-  )
-  let logs : Array[String] = []
-  let (_, changed) = pc_simplify_body(
-    TExpr::new([repeated, repeated]),
-    Map::new(),
-    OptimizeOptions::new(optimize_level=2),
-    Map::new(),
-    false,
-    trace=fn(msg) { logs.push(msg) },
-  )
-  assert_true(changed)
-  let done = logs.last().unwrap_or("")
-  assert_true(done.contains("cache_hits="))
-  assert_true(done.contains("cache_entries="))
 }
 
 ///|

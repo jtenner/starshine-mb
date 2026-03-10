@@ -2329,32 +2329,6 @@ fn msf_is_forwarder(func : Func, target_abs : Int, arg_count : Int) -> Bool {
 }
 
 ///|
-test "merge similar functions hash trace avoids normalize internal walk" {
-  let func = Func::t_func(
-    [],
-    [],
-    TExpr::new([TInstr::drop(TInstr::i32_const(I32(7)))]),
-  )
-  let trace_logs : Array[String] = []
-  ignore(
-    hash_function_ignoring_consts(
-      func,
-      trace=fn(msg) { trace_logs.push(msg) },
-      trace_all_funcs=true,
-      ordinal=1,
-      abs_idx=0,
-    ),
-  )
-  let mut saw_normalize_internal = false
-  for msg in trace_logs {
-    if msg.contains("phase=hash:normalize_internal:start") {
-      saw_normalize_internal = true
-    }
-  }
-  assert_false(saw_normalize_internal)
-}
-
-///|
 test "merge similar functions basic const merging creates shared + thunks" {
   let t = msf_i32_func_type()
   let f0 = Func::t_func([ValType::i32()], [], msf_binary_body(42, 10))

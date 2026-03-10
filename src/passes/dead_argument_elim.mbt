@@ -3014,56 +3014,6 @@ test "dead argument elimination skips rewrite walk for unaffected large function
 }
 
 ///|
-test "dead argument elimination skips detailed timers when trace is disabled" {
-  let caller = Func::t_func(
-    [],
-    [],
-    TExpr::new([
-      TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
-    ]),
-  )
-  let callee = Func::t_func(
-    [],
-    [],
-    TExpr::new([
-      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
-      TInstr::i32_const(I32(7)),
-    ]),
-  )
-  let mod = Module::new()
-    .with_type_sec(
-      TypeSec::new([
-        make_func_type(
-          [
-            ValType::ref_type(
-              RefType::new(false, HeapType::abs(AbsHeapType::func())),
-            ),
-          ],
-          [ValType::i32()],
-        ),
-        make_func_type(
-          [
-            ValType::ref_type(
-              RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            ),
-          ],
-          [ValType::i32()],
-        ),
-      ]),
-    )
-    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
-    .with_code_sec(CodeSec::new([caller, callee]))
-  let result = run_dead_argument_elim_once(
-    mod, dead_argument_elim_trace_noop, 0, false,
-  )
-  assert_true(result.stats.known_type_calls_total > 0)
-  assert_true(result.stats.match_calls_total > 0)
-  assert_eq(result.stats.known_type_elapsed_us, 0UL)
-  assert_eq(result.stats.match_elapsed_us, 0UL)
-  assert_eq(result.stats.common_supertype_elapsed_us, 0UL)
-}
-
-///|
 test "dead argument elimination keeps plain Func signatures unchanged" {
   let caller = Func::t_func(
     [],

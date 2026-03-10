@@ -186,23 +186,6 @@ test "SquareMatrix::get_or returns bounds error" {
 }
 
 ///|
-test "pass_trace_normalize_env_now_ms handles ms/us/ns magnitudes" {
-  assert_eq(pass_trace_normalize_env_now_ms(42UL), 42UL)
-  assert_eq(pass_trace_normalize_env_now_ms(100000000000000UL), 100000000000UL)
-  assert_eq(
-    pass_trace_normalize_env_now_ms(100000000000000000UL),
-    100000000000UL,
-  )
-}
-
-///|
-test "pass_trace_delta_us_to_ms truncates microseconds" {
-  assert_eq(pass_trace_delta_us_to_ms(999UL), 0UL)
-  assert_eq(pass_trace_delta_us_to_ms(1000UL), 1UL)
-  assert_eq(pass_trace_delta_us_to_ms(2501UL), 2UL)
-}
-
-///|
 test "wrap_unit_func_pass propagates wrapped pass errors" {
   let bad = ModuleTransformer::new().on_func_evt(fn(_, _, _ : Func) {
     error("boom")

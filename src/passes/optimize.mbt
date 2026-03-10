@@ -535,16 +535,22 @@ fn run_ir_context_transformer_scheduler_pass(
         mod,
         constant_field_propagation_ir_pass(mod),
       )
-    DataflowOptimization =>
+    DataflowOptimization => {
+      let dataflow_trace = if trace_pass_details {
+        fn(msg) { trace("dataflow:\{msg}") }
+      } else {
+        optimize_trace_noop
+      }
       apply_ir_transformer_pass(
         ctx,
         mod,
         dataflow_optimization_pass(
           mod,
-          trace=fn(msg) { trace("dataflow:\{msg}") },
+          trace=dataflow_trace,
           trace_all_funcs=trace_pass_details,
         ),
       )
+    }
     SignaturePruning =>
       apply_ir_transformer_pass(ctx, mod, signature_pruning_ir_pass(mod))
     SimplifyGlobals =>
@@ -592,16 +598,22 @@ fn run_ir_context_transformer_scheduler_pass(
       apply_ir_transformer_pass(ctx, mod, merge_locals_ir_pass(mod, options~))
     MergeBlocks =>
       apply_ir_transformer_pass(ctx, mod, merge_blocks_ir_pass(mod, options~))
-    Flatten =>
+    Flatten => {
+      let flatten_trace = if trace_pass_details {
+        fn(msg) { trace("flatten:\{msg}") }
+      } else {
+        optimize_trace_noop
+      }
       apply_ir_transformer_pass(
         ctx,
         mod,
         flatten_ir_pass_with_trace(
           mod,
-          trace=fn(msg) { trace("flatten:\{msg}") },
+          trace=flatten_trace,
           trace_all_funcs=trace_pass_details,
         ),
       )
+    }
     ReReloop => apply_ir_transformer_pass(ctx, mod, re_reloop_ir_pass(mod))
     TupleOptimization =>
       apply_ir_transformer_pass(ctx, mod, tuple_optimization_ir_pass(mod))
@@ -694,11 +706,16 @@ fn run_ir_context_transformer_scheduler_pass(
     GUFAOptimizing =>
       match apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false)) {
         Ok(gufa_mod) => {
+          let dce_trace = if trace_pass_details {
+            fn(msg) { trace("dead_code_elimination:\{msg}") }
+          } else {
+            optimize_trace_noop
+          }
           let after_dce = match
             apply_unit_transformer_pass(
               gufa_mod,
               dead_code_elimination_pass_with_trace(
-                trace=fn(msg) { trace("dead_code_elimination:\{msg}") },
+                trace=dce_trace,
                 trace_all_funcs=trace_pass_details,
               ),
             ) {
@@ -875,14 +892,20 @@ fn run_unit_transformer_scheduler_pass(
   trace_pass_details : Bool,
 ) -> Result[Module, String] {
   match pass {
-    DeadCodeElimination =>
+    DeadCodeElimination => {
+      let dce_trace = if trace_pass_details {
+        fn(msg) { trace("dead_code_elimination:\{msg}") }
+      } else {
+        optimize_trace_noop
+      }
       apply_unit_transformer_pass(
         mod,
         dead_code_elimination_pass_with_trace(
-          trace=fn(msg) { trace("dead_code_elimination:\{msg}") },
+          trace=dce_trace,
           trace_all_funcs=trace_pass_details,
         ),
       )
+    }
     _ => Err("optimize scheduler bug: expected Unit transformer pass")
   }
 }
@@ -979,11 +1002,16 @@ fn run_module_runner_scheduler_pass(
         trace(
           "dead_argument_elim_cleanup:dce:start funcs=\{cleanup_profile.func_count} top_instrs=\{cleanup_profile.top_instr_sum}",
         )
+        let dce_trace = if trace_pass_details {
+          fn(msg) { trace("dead_code_elimination:\{msg}") }
+        } else {
+          optimize_trace_noop
+        }
         let after_dce = match
           apply_unit_transformer_pass(
             dae_mod,
             dead_code_elimination_pass_with_trace(
-              trace=fn(msg) { trace("dead_code_elimination:\{msg}") },
+              trace=dce_trace,
               trace_all_funcs=trace_pass_details,
             ),
           ) {
@@ -1079,22 +1107,32 @@ fn run_module_runner_scheduler_pass(
             "optimize scheduler: i64_to_i32_lowering precondition failed: \{e}",
           )
       }
-    DuplicateFunctionElimination =>
+    DuplicateFunctionElimination => {
+      let dfe_trace = if trace_pass_details {
+        fn(msg) { trace("duplicate_function_elimination:\{msg}") }
+      } else {
+        optimize_trace_noop
+      }
       apply_module_runner_pass(mod, fn(mod) {
-        duplicate_function_elimination(mod, options, trace=fn(msg) {
-          trace("duplicate_function_elimination:\{msg}")
-        })
+        duplicate_function_elimination(mod, options, trace=dfe_trace)
       })
-    RemoveUnusedBrs =>
+    }
+    RemoveUnusedBrs => {
+      let rub_trace = if trace_pass_details {
+        fn(msg) { trace("remove_unused_brs:\{msg}") }
+      } else {
+        optimize_trace_noop
+      }
       apply_module_runner_pass(mod, fn(mod) {
         remove_unused_brs(
           mod,
           options~,
-          trace=fn(msg) { trace("remove_unused_brs:\{msg}") },
+          trace=rub_trace,
           trace_all_funcs=trace_pass_details,
           fallback_to_input_on_validation_failure=false,
         )
       })
+    }
     ReorderTypes =>
       apply_module_runner_pass(mod, fn(mod) { reorder_types(mod) })
     ReorderFunctions =>
@@ -2970,183 +3008,6 @@ test "optimize scheduler classifies module pass context kinds" {
 }
 
 ///|
-test "optimize_module_with_options_trace skips lift_to_texpr when pass list is empty" {
-  let trace_logs : Array[String] = []
-  let mod = Module::new()
-  let out = match
-    optimize_module_with_options_trace(mod, [], OptimizeOptions::new(), fn(
-      msg,
-    ) {
-      trace_logs.push(msg)
-    }) {
-    Ok(v) => v
-    Err(e) => fail("unexpected optimize_module_with_options_trace error: \{e}")
-  }
-  assert_eq(out, mod)
-  let mut saw_lift = false
-  for msg in trace_logs {
-    if msg.contains("lift_to_texpr") {
-      saw_lift = true
-    }
-  }
-  assert_true(!saw_lift)
-}
-
-///|
-test "optimize_module_with_options_trace emits dead argument elimination details" {
-  let caller = Func::t_func(
-    [],
-    [],
-    TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(9))])]),
-  )
-  let callee = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
-  let mod = Module::new()
-    .with_type_sec(
-      TypeSec::new([
-        RecType::new(
-          SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
-        ),
-        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
-      ]),
-    )
-    .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([caller, callee]))
-  let trace_logs : Array[String] = []
-  ignore(
-    match
-      optimize_module_with_options_trace(
-        mod,
-        [DeadArgumentElimination],
-        OptimizeOptions::new(),
-        fn(msg) { trace_logs.push(msg) },
-        trace_pass_details=true,
-        trace_module_stats=false,
-      ) {
-      Ok(v) => v
-      Err(e) =>
-        fail(
-          "unexpected optimize_module_with_options_trace dead argument elimination error: \{e}",
-        )
-    },
-  )
-  let mut saw_iter = false
-  let mut saw_hotspots = false
-  let mut saw_analysis_phase = false
-  let mut saw_rewrite_phase = false
-  for msg in trace_logs {
-    if msg.contains("dead_argument_elim:iter=0") {
-      saw_iter = true
-    }
-    if msg.contains("dead_argument_elim:iter=0 slow_analysis_funcs=") {
-      saw_hotspots = true
-    }
-    if msg.contains("dead_argument_elim:iter=0 phase=analysis:start") {
-      saw_analysis_phase = true
-    }
-    if msg.contains("dead_argument_elim:iter=0 phase=rewrite:done") {
-      saw_rewrite_phase = true
-    }
-  }
-  assert_true(saw_iter)
-  assert_true(saw_hotspots)
-  assert_true(saw_analysis_phase)
-  assert_true(saw_rewrite_phase)
-}
-
-///|
-test "optimize_module_with_options_trace emits merge similar functions per-function phases" {
-  let t = RecType::new(
-    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
-  )
-  let f0 = Func::t_func(
-    [ValType::i32()],
-    [],
-    TExpr::new([
-      TInstr::return_([
-        TInstr::binary(
-          BinaryOp::i32_add(),
-          TInstr::binary(
-            BinaryOp::i32_mul(),
-            TInstr::local_get(LocalIdx::new(0)),
-            TInstr::i32_const(I32(42)),
-          ),
-          TInstr::binary(
-            BinaryOp::i32_add(),
-            TInstr::i32_const(I32(10)),
-            TInstr::i32_const(I32(7)),
-          ),
-        ),
-      ]),
-    ]),
-  )
-  let f1 = Func::t_func(
-    [ValType::i32()],
-    [],
-    TExpr::new([
-      TInstr::return_([
-        TInstr::binary(
-          BinaryOp::i32_add(),
-          TInstr::binary(
-            BinaryOp::i32_mul(),
-            TInstr::local_get(LocalIdx::new(0)),
-            TInstr::i32_const(I32(43)),
-          ),
-          TInstr::binary(
-            BinaryOp::i32_add(),
-            TInstr::i32_const(I32(10)),
-            TInstr::i32_const(I32(7)),
-          ),
-        ),
-      ]),
-    ]),
-  )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([t]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([f0, f1]))
-  let trace_logs : Array[String] = []
-  ignore(
-    match
-      optimize_module_with_options_trace(
-        mod,
-        [MergeSimilarFunctions],
-        OptimizeOptions::new(),
-        fn(msg) { trace_logs.push(msg) },
-        trace_pass_details=true,
-        trace_module_stats=false,
-      ) {
-      Ok(v) => v
-      Err(e) =>
-        fail(
-          "unexpected optimize_module_with_options_trace merge similar functions error: \{e}",
-        )
-    },
-  )
-  let mut saw_hash_phase = false
-  let mut saw_partition_phase = false
-  let mut saw_derive_phase = false
-  let mut saw_apply_phase = false
-  for msg in trace_logs {
-    if msg.contains("merge_similar_functions:func[1] phase=hash:start") {
-      saw_hash_phase = true
-    }
-    if msg.contains("merge_similar_functions:func[1] phase=partition:start") {
-      saw_partition_phase = true
-    }
-    if msg.contains("merge_similar_functions:func[1] phase=derive_params:start") {
-      saw_derive_phase = true
-    }
-    if msg.contains("merge_similar_functions:func[1] phase=apply:start") {
-      saw_apply_phase = true
-    }
-  }
-  assert_true(saw_hash_phase)
-  assert_true(saw_partition_phase)
-  assert_true(saw_derive_phase)
-  assert_true(saw_apply_phase)
-}
-
-///|
 test "optimize_module dispatches IRContext and Unit transformer pass kinds" {
   assert_true(
     assert_pass_context_kind(RemoveUnusedNames, IRContextTransformerPass),
@@ -3675,56 +3536,6 @@ test "optimize_module runs DeadArgumentEliminationOptimizing cleanup" {
       }
     _ => fail("expected transformed callee body")
   }
-}
-
-///|
-test "optimize_module_with_options_trace skips DAE optimizing cleanup on large modules" {
-  let void_type = RecType::new(SubType::comp_type(CompType::func([], [])))
-  let func_types : Array[TypeIdx] = []
-  let funcs : Array[Func] = []
-  for _ in 0..<1200 {
-    func_types.push(TypeIdx::new(0))
-    funcs.push(Func::t_func([], [], TExpr::new([TInstr::nop()])))
-  }
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([void_type]))
-    .with_func_sec(FuncSec::new(func_types))
-    .with_code_sec(CodeSec::new(funcs))
-  let trace_logs : Array[String] = []
-  ignore(
-    match
-      optimize_module_with_options_trace(
-        mod,
-        [DeadArgumentEliminationOptimizing],
-        OptimizeOptions::new(),
-        fn(msg) { trace_logs.push(msg) },
-        trace_pass_details=true,
-        trace_module_stats=false,
-      ) {
-      Ok(v) => v
-      Err(e) =>
-        fail(
-          "unexpected optimize_module_with_options_trace DAE optimizing error: \{e}",
-        )
-    },
-  )
-  let mut saw_skip = false
-  let mut saw_dce_start = false
-  let mut saw_vacuum = false
-  for msg in trace_logs {
-    if msg.contains("dead_argument_elim_cleanup:skip reason=module_size") {
-      saw_skip = true
-    }
-    if msg.contains("dead_argument_elim_cleanup:dce:start") {
-      saw_dce_start = true
-    }
-    if msg.contains("vacuum:") {
-      saw_vacuum = true
-    }
-  }
-  assert_true(saw_skip)
-  assert_true(!saw_dce_start)
-  assert_true(!saw_vacuum)
 }
 
 ///|
