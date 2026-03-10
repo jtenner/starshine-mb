@@ -499,16 +499,10 @@ fn fl_flatten_non_control_children(
   instr : TInstr,
   state : FLFuncState,
 ) -> Result[(TInstr, Array[TInstr]), String] {
-  let helper_start_ms = fl_trace_helper_start(
-    state,
-    "fl_flatten_non_control_children",
-    "kind=\{fl_instr_kind_name(instr)}",
-  )
+  let helper_start_ms = fl_trace_now_ms()
+  let helper_kind = fl_instr_kind_name(instr)
   let children = eval_children(instr)
   if children.is_empty() {
-    fl_trace_helper_done(
-      state, "fl_flatten_non_control_children", helper_start_ms, "children=0 changed=false",
-    )
     return Ok((instr, []))
   }
   let rebuilt_children : Array[TInstr] = []
@@ -545,22 +539,28 @@ fn fl_flatten_non_control_children(
     fl_trace_mark_rewrite(
       state,
       "fl_flatten_non_control_children",
-      "kind=\{fl_instr_kind_name(instr)} children=\{children.length()}",
+      "kind=\{helper_kind} children=\{children.length()}",
     )
     fl_trace_helper_done(
       state,
       "fl_flatten_non_control_children",
       helper_start_ms,
-      "children=\{children.length()} changed=true preludes=\{preludes.length()}",
+      "kind=\{helper_kind} children=\{children.length()} changed=true preludes=\{preludes.length()}",
     )
     Ok((mb_rebuild_non_control(instr, rebuilt_children), preludes))
   } else {
-    fl_trace_helper_done(
-      state,
-      "fl_flatten_non_control_children",
-      helper_start_ms,
-      "children=\{children.length()} changed=false preludes=\{preludes.length()}",
-    )
+    // Avoid trace-sink saturation from hot unchanged unary nodes.
+    // The expensive cases still log via changed=true, multi-child, or non-zero elapsed time.
+    if children.length() != 1 ||
+      !preludes.is_empty() ||
+      fl_trace_elapsed_ms(helper_start_ms) > 0 {
+      fl_trace_helper_done(
+        state,
+        "fl_flatten_non_control_children",
+        helper_start_ms,
+        "kind=\{helper_kind} children=\{children.length()} changed=false preludes=\{preludes.length()}",
+      )
+    }
     Ok((instr, preludes))
   }
 }
