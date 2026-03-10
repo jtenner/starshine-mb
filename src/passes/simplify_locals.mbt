@@ -35,6 +35,14 @@ priv struct SLPerfSnapshot {
 }
 
 ///|
+priv struct SLRewriteValidationSnapshot {
+  raw_candidates_attempted : Int
+  candidates_accepted : Int
+  candidates_rejected_local_validation : Int
+  rejection_reason_buckets : Map[String, Int]
+}
+
+///|
 let sl_perf_effect_collect_calls : Ref[Int] = Ref::new(0)
 
 ///|
@@ -45,6 +53,22 @@ let sl_perf_get_count_scans : Ref[Int] = Ref::new(0)
 
 ///|
 let sl_perf_late_state_clones : Ref[Int] = Ref::new(0)
+
+///|
+let sl_rewrite_validation_raw_candidates_attempted : Ref[Int] = Ref::new(0)
+
+///|
+let sl_rewrite_validation_candidates_accepted : Ref[Int] = Ref::new(0)
+
+///|
+let sl_rewrite_validation_candidates_rejected_local_validation : Ref[Int] = Ref::new(
+  0,
+)
+
+///|
+let sl_rewrite_validation_rejection_reason_buckets : Ref[Map[String, Int]] = Ref::new(
+  Map::new(),
+)
 
 ///|
 fn sl_perf_reset() -> Unit {
@@ -61,6 +85,50 @@ fn sl_perf_snapshot() -> SLPerfSnapshot {
     invalidation_entry_checks: sl_perf_invalidation_entry_checks.val,
     get_count_scans: sl_perf_get_count_scans.val,
     late_state_clones: sl_perf_late_state_clones.val,
+  }
+}
+
+///|
+fn sl_rewrite_validation_bucket_for_error(err : String) -> String {
+  if err.contains("result type mismatch") {
+    return "result_type_mismatch"
+  }
+  if err.contains("wrong result arity") {
+    return "result_arity_mismatch"
+  }
+  if err.contains("FunctionLocals::from_typed_func") ||
+    err.contains("typed locals") {
+    return "typed_locals_mismatch"
+  }
+  "other"
+}
+
+///|
+fn sl_rewrite_validation_record_rejection_reason(err : String) -> Unit {
+  let bucket = sl_rewrite_validation_bucket_for_error(err)
+  let buckets = sl_rewrite_validation_rejection_reason_buckets.val
+  match buckets.get(bucket) {
+    Some(count) => buckets[bucket] = count + 1
+    None => buckets[bucket] = 1
+  }
+  sl_rewrite_validation_rejection_reason_buckets.val = buckets
+}
+
+///|
+fn sl_rewrite_validation_reset() -> Unit {
+  sl_rewrite_validation_raw_candidates_attempted.val = 0
+  sl_rewrite_validation_candidates_accepted.val = 0
+  sl_rewrite_validation_candidates_rejected_local_validation.val = 0
+  sl_rewrite_validation_rejection_reason_buckets.val = Map::new()
+}
+
+///|
+fn sl_rewrite_validation_snapshot() -> SLRewriteValidationSnapshot {
+  {
+    raw_candidates_attempted: sl_rewrite_validation_raw_candidates_attempted.val,
+    candidates_accepted: sl_rewrite_validation_candidates_accepted.val,
+    candidates_rejected_local_validation: sl_rewrite_validation_candidates_rejected_local_validation.val,
+    rejection_reason_buckets: sl_rewrite_validation_rejection_reason_buckets.val.copy(),
   }
 }
 
@@ -423,6 +491,45 @@ fn sl_has_br_if_with_tee_value_instr(instr : TInstr, idx : Int) -> Bool {
 fn sl_has_br_if_with_tee_value_texpr(expr : TExpr, idx : Int) -> Bool {
   for instr in expr.instrs {
     if sl_has_br_if_with_tee_value_instr(instr, idx) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn sl_has_any_br_if_with_tee_value_instr(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TBrIf(_, _, [{ kind: TInstrKind::TLocalTee(_, _), .. }]) => true
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      sl_has_any_br_if_with_tee_value_texpr(body)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      if sl_has_any_br_if_with_tee_value_instr(cond) ||
+        sl_has_any_br_if_with_tee_value_texpr(then_body) {
+        return true
+      }
+      match else_body {
+        Some(other) => sl_has_any_br_if_with_tee_value_texpr(other)
+        None => false
+      }
+    }
+    _ => {
+      for child in eval_children(instr) {
+        if sl_has_any_br_if_with_tee_value_instr(child) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn sl_has_any_br_if_with_tee_value_texpr(expr : TExpr) -> Bool {
+  for instr in expr.instrs {
+    if sl_has_any_br_if_with_tee_value_instr(instr) {
       return true
     }
   }
@@ -1011,15 +1118,41 @@ fn sl_take_terminal_local_set(
   if n == 0 {
     return None
   }
-  match body.instrs[n - 1].kind {
+  let mut end = n - 1
+  while end >= 0 && body.instrs[end] == TInstr::nop() {
+    end -= 1
+  }
+  if end < 0 {
+    return None
+  }
+  let terminal = body.instrs[end]
+  let extracted = match terminal.kind {
     TInstrKind::TLocalSet(idx, value) => {
+      let no_prefix : Array[TInstr] = []
+      Some((no_prefix, idx, value))
+    }
+    TInstrKind::TBlock(VoidBlockType, nested) => {
+      let effects = sl_collect_effects_counted(terminal)
+      if effects.branches {
+        None
+      } else {
+        sl_take_terminal_local_set(nested)
+      }
+    }
+    _ => None
+  }
+  match extracted {
+    Some((inner_prefix, idx, value)) => {
       let prefix : Array[TInstr] = []
-      for i = 0; i < n - 1; i = i + 1 {
+      for i = 0; i < end; i = i + 1 {
         prefix.push(body.instrs[i])
+      }
+      for instr in inner_prefix {
+        prefix.push(instr)
       }
       Some((prefix, idx, value))
     }
-    _ => None
+    None => None
   }
 }
 
@@ -1136,6 +1269,87 @@ fn sl_branch_value_candidate_idx(values : Array[TInstr]) -> Int? {
 }
 
 ///|
+fn sl_br_table_target_profile(
+  labels : Array[LabelIdx],
+  default_ : LabelIdx,
+  target_depth : Int,
+) -> (Bool, Bool) {
+  let default_hits = sl_labelidx_to_int(default_) == target_depth
+  let mut hits_target = default_hits
+  let mut all_targets_are_target_depth = default_hits
+  for label in labels {
+    let hit = sl_labelidx_to_int(label) == target_depth
+    if hit {
+      hits_target = true
+    }
+    all_targets_are_target_depth = all_targets_are_target_depth && hit
+  }
+  (hits_target, all_targets_are_target_depth)
+}
+
+///|
+priv struct SLCondCarriedValueInfo {
+  idx : Int
+  value : TInstr
+  next_cond : TInstr
+}
+
+///|
+fn sl_cond_carried_value_move_is_safe(
+  shared_idx : LocalIdx,
+  value : TInstr,
+  next_cond : TInstr,
+) -> Bool {
+  let value_effects = sl_collect_effects_counted(value)
+  let cond_effects = sl_collect_effects_counted(next_cond)
+  if cond_effects.locals_written.contains(shared_idx) {
+    return false
+  }
+  !cond_effects.invalidates(value_effects)
+}
+
+///|
+fn sl_extract_br_if_cond_carried_value(
+  cond : TInstr,
+) -> SLCondCarriedValueInfo? {
+  match cond.kind {
+    TInstrKind::TLocalTee(idx, value) => {
+      let next_cond = TInstr::local_get(idx)
+      if sl_cond_carried_value_move_is_safe(idx, value, next_cond) {
+        Some({ idx: sl_localidx_to_int(idx), value, next_cond })
+      } else {
+        None
+      }
+    }
+    TInstrKind::TBlock(bt, body) =>
+      match bt {
+        ValTypeBlockType(_) =>
+          if body.instrs.length() >= 2 {
+            match body.instrs[0].kind {
+              TInstrKind::TLocalSet(idx, value) => {
+                let next_instrs : Array[TInstr] = []
+                for i = 1; i < body.instrs.length(); i = i + 1 {
+                  next_instrs.push(body.instrs[i])
+                }
+                let next_cond = TInstr::block(bt, TExpr::new(next_instrs))
+                if sl_cond_carried_value_move_is_safe(idx, value, next_cond) {
+                  Some({ idx: sl_localidx_to_int(idx), value, next_cond })
+                } else {
+                  None
+                }
+              }
+              _ => None
+            }
+          } else {
+            None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn sl_collect_block_exit_candidates_texpr(
   body : TExpr,
   target_depth : Int,
@@ -1179,7 +1393,15 @@ fn sl_collect_block_exit_candidates_texpr(
                   Some({ kind: TInstrKind::TLocalSet(prev_idx, _), .. }) if values.length() ==
                     0 =>
                     sl_collect_shared_idx(state, sl_localidx_to_int(prev_idx))
-                  _ => state.unoptimizable = true
+                  _ =>
+                    if values.length() == 0 {
+                      match sl_extract_br_if_cond_carried_value(cond) {
+                        Some(info) => sl_collect_shared_idx(state, info.idx)
+                        None => state.unoptimizable = true
+                      }
+                    } else {
+                      state.unoptimizable = true
+                    }
                 }
             }
           }
@@ -1200,15 +1422,25 @@ fn sl_collect_block_exit_candidates_texpr(
             state,
           )
         }
-        let mut hits_target = sl_labelidx_to_int(default_) == target_depth
-        for label in labels {
-          if sl_labelidx_to_int(label) == target_depth {
-            hits_target = true
-          }
-        }
+        let (hits_target, all_targets_are_target_depth) = sl_br_table_target_profile(
+          labels, default_, target_depth,
+        )
         if hits_target {
           state.saw_exit = true
-          state.unoptimizable = true
+          if !all_targets_are_target_depth {
+            state.unoptimizable = true
+          } else {
+            match sl_branch_value_candidate_idx(values) {
+              Some(idx) => sl_collect_shared_idx(state, idx)
+              None =>
+                match prev {
+                  Some({ kind: TInstrKind::TLocalSet(prev_idx, _), .. }) if values.length() ==
+                    0 =>
+                    sl_collect_shared_idx(state, sl_localidx_to_int(prev_idx))
+                  _ => state.unoptimizable = true
+                }
+            }
+          }
         }
       }
       TInstrKind::TBrOnNull(label, ref_, values)
@@ -1388,6 +1620,18 @@ fn sl_rewrite_block_exits_texpr(
                   }
                   _ => curr
                 }
+              } else if values.length() == 0 {
+                match sl_extract_br_if_cond_carried_value(cond) {
+                  Some(info) if info.idx == shared_idx => {
+                    changed.val = true
+                    TInstr::drop(
+                      TInstr::br_if(label, info.next_cond, [
+                        TInstr::local_tee(shared_local, info.value),
+                      ]),
+                    )
+                  }
+                  _ => curr
+                }
               } else {
                 curr
               }
@@ -1395,6 +1639,44 @@ fn sl_rewrite_block_exits_texpr(
         } else {
           curr
         }
+      TInstrKind::TBrTable(labels, default_, idx, values) => {
+        let (hits_target, all_targets_are_target_depth) = sl_br_table_target_profile(
+          labels, default_, target_depth,
+        )
+        if hits_target && all_targets_are_target_depth {
+          match sl_branch_value_candidate_idx(values) {
+            Some(value_idx) if value_idx == shared_idx =>
+              match values[0].kind {
+                TInstrKind::TLocalSet(_, value)
+                | TInstrKind::TLocalTee(_, value) => {
+                  changed.val = true
+                  TInstr::br_table(labels, default_, idx, [value])
+                }
+                _ => curr
+              }
+            _ =>
+              if values.length() == 0 &&
+                out.length() > 0 &&
+                sl_instr_is_direct_local_set_for_idx(
+                  out[out.length() - 1],
+                  shared_idx,
+                ) {
+                match out[out.length() - 1].kind {
+                  TInstrKind::TLocalSet(_, value) => {
+                    out[out.length() - 1] = TInstr::nop()
+                    changed.val = true
+                    TInstr::br_table(labels, default_, idx, [value])
+                  }
+                  _ => curr
+                }
+              } else {
+                curr
+              }
+          }
+        } else {
+          curr
+        }
+      }
       TInstrKind::TBlock(bt, nested) =>
         TInstr::block(
           bt,
@@ -1955,12 +2237,34 @@ fn sl_simplify_texpr_main(
       _ => ()
     }
     out.push(curr)
-    if lcs_is_non_linear_boundary(curr) || is_unreachable_instr(curr) {
+    let reached_unreachable = is_unreachable_instr(curr)
+    let reached_non_linear_boundary = lcs_is_non_linear_boundary(curr)
+    let keep_sinkables_across_boundary = if reached_non_linear_boundary &&
+      !reached_unreachable {
+      match curr.kind {
+        TInstrKind::TBlock(VoidBlockType, _) => {
+          let effects = sl_collect_effects_cached(curr, effects_cache)
+          !effects.branches &&
+          !effects.calls &&
+          !effects.traps &&
+          !effects.throws &&
+          !effects.reads_memory &&
+          !effects.writes_memory &&
+          !effects.reads_globals &&
+          !effects.writes_globals
+        }
+        _ => false
+      }
+    } else {
+      false
+    }
+    if reached_unreachable ||
+      (reached_non_linear_boundary && !keep_sinkables_across_boundary) {
       sinkables.clear()
       sinkable_indexes.reads_by_local.clear()
       sinkable_indexes.writes_by_local.clear()
     }
-    if is_unreachable_instr(curr) {
+    if reached_unreachable {
       break
     }
   }
@@ -2703,6 +3007,44 @@ fn sl_run_late_optimizations_with_counts(
 }
 
 ///|
+fn sl_tee_required_by_structure_path(
+  tee_body : TExpr,
+  no_tee_body : TExpr,
+  no_tee_changed : Bool,
+) -> Bool {
+  if !sl_has_any_br_if_with_tee_value_texpr(tee_body) {
+    return false
+  }
+  let tee_has_structure = sl_has_result_block_texpr(tee_body) ||
+    sl_has_result_if_texpr(tee_body)
+  if !tee_has_structure {
+    return false
+  }
+  if !no_tee_changed {
+    return true
+  }
+  let no_tee_has_structure = sl_has_result_block_texpr(no_tee_body) ||
+    sl_has_result_if_texpr(no_tee_body)
+  !no_tee_has_structure
+}
+
+///|
+fn sl_should_keep_tee_candidate(
+  tee_changed : Bool,
+  tee_shrank : Bool,
+  no_tee_changed : Bool,
+  tee_required_by_structure : Bool,
+) -> Bool {
+  if !tee_changed {
+    return false
+  }
+  if tee_shrank {
+    return true
+  }
+  tee_required_by_structure && !no_tee_changed
+}
+
+///|
 fn sl_run_main_phase(
   body : TExpr,
   env : Env,
@@ -2921,6 +3263,71 @@ fn sl_validate_typed_function_candidate(
 }
 
 ///|
+fn sl_try_repair_duplicated_param_prefix_locals(
+  env : Env,
+  abs_func_idx : FuncIdx,
+  candidate : Func,
+) -> Func? {
+  let FuncType(declared_params, _) = match
+    env.get_functype_by_funcidx(abs_func_idx) {
+    Some(ft) => ft
+    None => return None
+  }
+  match candidate {
+    TFunc(tfunc_params, local_vals, body) => {
+      if tfunc_params != declared_params ||
+        local_vals.length() < declared_params.length() {
+        return None
+      }
+      for i = 0; i < declared_params.length(); i = i + 1 {
+        if local_vals[i] != declared_params[i] {
+          return None
+        }
+      }
+      let repaired_locals : Array[ValType] = []
+      for i = declared_params.length(); i < local_vals.length(); i = i + 1 {
+        repaired_locals.push(local_vals[i])
+      }
+      Some(Func::t_func(tfunc_params, repaired_locals, body))
+    }
+    _ => None
+  }
+}
+
+///|
+fn sl_try_salvage_typed_candidate(
+  env : Env,
+  abs_func_idx : FuncIdx,
+  candidate : Func,
+  trace : (String) -> Unit,
+) -> Func? {
+  match
+    sl_try_repair_duplicated_param_prefix_locals(env, abs_func_idx, candidate) {
+    Some(repaired) =>
+      if repaired == candidate {
+        None
+      } else {
+        match
+          sl_validate_typed_function_candidate(env, abs_func_idx, repaired) {
+          Ok(_) => {
+            trace(
+              "func_idx=\{abs_func_idx.to_string()} rewrite accepted after duplicated param-prefix local repair",
+            )
+            Some(repaired)
+          }
+          Err(err) => {
+            trace(
+              "func_idx=\{abs_func_idx.to_string()} rewrite repair attempt failed local validation: \{err}",
+            )
+            None
+          }
+        }
+      }
+    None => None
+  }
+}
+
+///|
 fn sl_keep_validated_rewrite(
   env : Env,
   abs_func_idx : FuncIdx,
@@ -2928,14 +3335,32 @@ fn sl_keep_validated_rewrite(
   candidate : Func,
   trace : (String) -> Unit,
 ) -> (Func, Bool) {
+  sl_rewrite_validation_raw_candidates_attempted.val = sl_rewrite_validation_raw_candidates_attempted.val +
+    1
   match sl_validate_typed_function_candidate(env, abs_func_idx, candidate) {
-    Ok(_) => (candidate, true)
-    Err(err) => {
-      trace(
-        "func_idx=\{abs_func_idx.to_string()} rewrite rejected after local validation: \{err}",
-      )
-      (original, false)
+    Ok(_) => {
+      sl_rewrite_validation_candidates_accepted.val = sl_rewrite_validation_candidates_accepted.val +
+        1
+      (candidate, true)
     }
+    Err(err) =>
+      match
+        sl_try_salvage_typed_candidate(env, abs_func_idx, candidate, trace) {
+        Some(repaired) => {
+          sl_rewrite_validation_candidates_accepted.val = sl_rewrite_validation_candidates_accepted.val +
+            1
+          (repaired, true)
+        }
+        None => {
+          sl_rewrite_validation_candidates_rejected_local_validation.val = sl_rewrite_validation_candidates_rejected_local_validation.val +
+            1
+          sl_rewrite_validation_record_rejection_reason(err)
+          trace(
+            "func_idx=\{abs_func_idx.to_string()} rewrite rejected after local validation: \{err}",
+          )
+          (original, false)
+        }
+      }
   }
 }
 
@@ -2978,16 +3403,56 @@ fn sl_simplify_function(
         } else {
           options
         }
-        let (after_main, main_changed, _, next_get_counts) = sl_run_main_phase(
+        let measure_for_tee = cycle_options.allow_tee
+        let (raw_after_main, raw_main_changed, raw_shrank, raw_get_counts) = sl_run_main_phase(
           body,
           env,
           local_types,
           cycle_options,
-          false,
+          measure_for_tee,
           initial_get_counts=reusable_get_counts,
           trace~,
           trace_verbose~,
         )
+        let mut after_main = raw_after_main
+        let mut main_changed = raw_main_changed
+        let mut next_get_counts = raw_get_counts
+        if cycle_options.allow_tee && raw_main_changed && !raw_shrank {
+          let no_tee_options = {
+            allow_tee: false,
+            allow_structure: cycle_options.allow_structure,
+            allow_nesting: cycle_options.allow_nesting,
+          }
+          let (no_tee_body, no_tee_changed, _, no_tee_get_counts) = sl_run_main_phase(
+            body,
+            env,
+            local_types,
+            no_tee_options,
+            false,
+            initial_get_counts=reusable_get_counts,
+            trace~,
+            trace_verbose~,
+          )
+          let tee_required_by_structure = sl_tee_required_by_structure_path(
+            raw_after_main, no_tee_body, no_tee_changed,
+          )
+          if !sl_should_keep_tee_candidate(
+              raw_main_changed, raw_shrank, no_tee_changed, tee_required_by_structure,
+            ) {
+            after_main = no_tee_body
+            main_changed = no_tee_changed
+            next_get_counts = no_tee_get_counts
+            if trace_verbose {
+              trace(
+                "cycle=\{cycle} phase=main:tee_policy action=prefer_no_tee shrank=\{raw_shrank} no_tee_changed=\{no_tee_changed} structure_win=\{tee_required_by_structure}",
+              )
+            }
+          } else if trace_verbose && tee_required_by_structure {
+            trace(
+              "cycle=\{cycle} phase=main:tee_policy action=keep_tee shrank=\{raw_shrank} structure_win=\{tee_required_by_structure}",
+            )
+          }
+        }
         if trace_verbose {
           trace(
             "cycle=\{cycle} phase=main:done changed=\{main_changed} top_instrs=\{after_main.instrs.length()}",
@@ -3319,6 +3784,60 @@ test "simplify_locals no-tee mode keeps original set for multi-use local" {
 }
 
 ///|
+test "simplify_locals tee profitability keeps shrinking tee rewrites" {
+  let body = TExpr::new([
+    TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(9))),
+    TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+  ])
+  let (rewritten, changed, shrank, _) = sl_run_main_phase(
+    body,
+    sl_test_env([ValType::i32()]),
+    [ValType::i32()],
+    { allow_tee: true, allow_structure: false, allow_nesting: true },
+    true,
+  )
+  ignore(rewritten)
+  assert_true(changed)
+  assert_true(shrank)
+  assert_true(sl_should_keep_tee_candidate(changed, shrank, false, false))
+}
+
+///|
+test "simplify_locals tee profitability skips non-shrinking tee rewrites without structure win" {
+  assert_false(sl_should_keep_tee_candidate(true, false, false, false))
+}
+
+///|
+test "simplify_locals tee profitability does not affect no-tee simplification path" {
+  let func = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(11))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let (next_func, changed) = sl_simplify_function(
+    func,
+    sl_test_env([ValType::i32()]),
+    [],
+    { allow_tee: false, allow_structure: false, allow_nesting: true },
+  )
+  assert_false(changed)
+  match next_func {
+    TFunc(_, _, body) => {
+      let stats = SLLocalStats::new()
+      sl_collect_local_stats_texpr(body, stats)
+      assert_true(stats.sets >= 1)
+      assert_eq(stats.tees, 0)
+    }
+    _ => fail("expected typed function")
+  }
+}
+
+///|
 test "simplify_locals structure mode creates result if from branch-local sets" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
@@ -3349,6 +3868,204 @@ test "simplify_locals structure mode creates result if from branch-local sets" {
       assert_true(sl_has_result_if_texpr(body))
     _ => fail("expected one typed function")
   }
+}
+
+///|
+test "simplify_locals structures if when terminal local.set is wrapped with trailing nops" {
+  let x = LocalIdx::new(0)
+  let instr = TInstr::if_(
+    BlockType::void_(),
+    TInstr::i32_const(I32(1)),
+    TExpr::new([
+      TInstr::block(
+        BlockType::void_(),
+        TExpr::new([
+          TInstr::nop(),
+          TInstr::local_set(x, TInstr::i32_const(I32(3))),
+          TInstr::nop(),
+        ]),
+      ),
+      TInstr::nop(),
+    ]),
+    Some(
+      TExpr::new([
+        TInstr::block(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::local_set(x, TInstr::i32_const(I32(5))),
+            TInstr::nop(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let changed = Ref::new(false)
+  let out = sl_try_structure_if(
+    instr,
+    sl_test_env([ValType::i32()]),
+    [ValType::i32()],
+    [0],
+    { allow_tee: false, allow_structure: true, allow_nesting: true },
+    false,
+    changed,
+  )
+  assert_true(changed.val)
+  match out.kind {
+    TInstrKind::TLocalSet(
+      _,
+      { kind: TInstrKind::TIf(ValTypeBlockType(_), _, _, _), .. }
+    ) => ()
+    _ => fail("expected wrapped terminal local.set form to structure")
+  }
+}
+
+///|
+test "simplify_locals keeps if unstructured when trailing effectful instruction follows local.set" {
+  let x = LocalIdx::new(0)
+  let instr = TInstr::if_(
+    BlockType::void_(),
+    TInstr::i32_const(I32(1)),
+    TExpr::new([
+      TInstr::local_set(x, TInstr::i32_const(I32(3))),
+      TInstr::drop(TInstr::i32_const(I32(0))),
+    ]),
+    Some(TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(5)))])),
+  )
+  let changed = Ref::new(false)
+  let out = sl_try_structure_if(
+    instr,
+    sl_test_env([ValType::i32()]),
+    [ValType::i32()],
+    [0],
+    { allow_tee: false, allow_structure: true, allow_nesting: true },
+    false,
+    changed,
+  )
+  assert_false(changed.val)
+  assert_eq(out, instr)
+}
+
+///|
+test "simplify_locals still structures plain terminal local.set branches" {
+  let x = LocalIdx::new(0)
+  let instr = TInstr::if_(
+    BlockType::void_(),
+    TInstr::i32_const(I32(1)),
+    TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(3)))]),
+    Some(TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(5)))])),
+  )
+  let changed = Ref::new(false)
+  let out = sl_try_structure_if(
+    instr,
+    sl_test_env([ValType::i32()]),
+    [ValType::i32()],
+    [0],
+    { allow_tee: false, allow_structure: true, allow_nesting: true },
+    false,
+    changed,
+  )
+  assert_true(changed.val)
+  match out.kind {
+    TInstrKind::TLocalSet(
+      _,
+      { kind: TInstrKind::TIf(ValTypeBlockType(_), _, _, _), .. }
+    ) => ()
+    _ => fail("expected plain terminal local.set pattern to keep structuring")
+  }
+}
+
+///|
+test "simplify_locals sinks across adjacent transparent block boundary" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [ValType::i32()],
+        TExpr::new([
+          TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7))),
+          TInstr::block(BlockType::void_(), TExpr::new([TInstr::nop()])),
+          TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+        ]),
+      ),
+    ]),
+  )
+  let out = sl_run_simplify_locals(
+    mod,
+    allow_tee=false,
+    allow_structure=false,
+    allow_nesting=true,
+  )
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, _, body)])) => {
+      let stats = SLLocalStats::new()
+      sl_collect_local_stats_texpr(body, stats)
+      assert_eq(stats.sets, 0)
+      assert_eq(stats.gets, 0)
+    }
+    _ => fail("expected one typed function")
+  }
+}
+
+///|
+test "simplify_locals keeps sink boundary clear across branchy block" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [ValType::i32()],
+        TExpr::new([
+          TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7))),
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
+          ),
+          TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+        ]),
+      ),
+    ]),
+  )
+  let out = sl_run_simplify_locals(
+    mod,
+    allow_tee=false,
+    allow_structure=false,
+    allow_nesting=true,
+  )
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, _, body)])) => {
+      let stats = SLLocalStats::new()
+      sl_collect_local_stats_texpr(body, stats)
+      assert_true(stats.sets >= 1)
+    }
+    _ => fail("expected one typed function")
+  }
+}
+
+///|
+test "simplify_locals adjacent-boundary merge converges without rewrite oscillation" {
+  let base = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7))),
+      TInstr::block(BlockType::void_(), TExpr::new([TInstr::nop()])),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let (once, changed_once) = sl_simplify_function(
+    base,
+    sl_test_env([ValType::i32()]),
+    [],
+    { allow_tee: false, allow_structure: false, allow_nesting: true },
+  )
+  assert_true(changed_once)
+  let (twice, changed_twice) = sl_simplify_function(
+    once,
+    sl_test_env([ValType::i32()]),
+    [],
+    { allow_tee: false, allow_structure: false, allow_nesting: true },
+  )
+  assert_false(changed_twice)
+  assert_eq(twice, once)
 }
 
 ///|
@@ -3576,6 +4293,180 @@ test "simplify_locals block-exit collector finds shared local in nested if break
   assert_true(st.saw_exit)
   assert_false(st.unoptimizable)
   assert_eq(st.shared_idx.unwrap_or(-1), 0)
+}
+
+///|
+test "simplify_locals structures br_if when carried value is contained in condition tee" {
+  let x = LocalIdx::new(0)
+  let block = TInstr::block(
+    BlockType::void_(),
+    TExpr::new([
+      TInstr::br_if(
+        LabelIdx::new(0),
+        TInstr::local_tee(x, TInstr::i32_const(I32(11))),
+        [],
+      ),
+      TInstr::local_set(x, TInstr::i32_const(I32(22))),
+    ]),
+  )
+  let changed = Ref::new(false)
+  let out = sl_try_structure_block(
+    block,
+    sl_test_env([ValType::i32()]),
+    [ValType::i32()],
+    { allow_tee: true, allow_structure: true, allow_nesting: true },
+    false,
+    changed,
+  )
+  assert_true(changed.val)
+  match out.kind {
+    TInstrKind::TLocalSet(_, { kind: TInstrKind::TBlock(_, body), .. }) =>
+      assert_true(sl_has_br_if_with_tee_value_texpr(body, 0))
+    _ => fail("expected local.set(block(...)) from cond-carried br_if rewrite")
+  }
+}
+
+///|
+test "simplify_locals skips cond-carried br_if rewrite when effect-order proof fails" {
+  let x = LocalIdx::new(0)
+  let y = LocalIdx::new(1)
+  let cond = TInstr::block(
+    BlockType::val_type(ValType::i32()),
+    TExpr::new([
+      TInstr::local_set(x, TInstr::local_get(y)),
+      TInstr::local_set(y, TInstr::i32_const(I32(5))),
+      TInstr::i32_const(I32(1)),
+    ]),
+  )
+  let block = TInstr::block(
+    BlockType::void_(),
+    TExpr::new([
+      TInstr::br_if(LabelIdx::new(0), cond, []),
+      TInstr::local_set(x, TInstr::i32_const(I32(22))),
+    ]),
+  )
+  let changed = Ref::new(false)
+  let out = sl_try_structure_block(
+    block,
+    sl_test_env([ValType::i32(), ValType::i32()]),
+    [ValType::i32(), ValType::i32()],
+    { allow_tee: true, allow_structure: true, allow_nesting: true },
+    false,
+    changed,
+  )
+  assert_false(changed.val)
+  assert_eq(out, block)
+}
+
+///|
+test "simplify_locals skips cond-carried br_if rewrite when carried value is type-invalid" {
+  let x = LocalIdx::new(0)
+  let cond = TInstr::block(
+    BlockType::val_type(ValType::i32()),
+    TExpr::new([
+      TInstr::local_set(x, TInstr::i64_const(I64(7))),
+      TInstr::i32_const(I32(1)),
+    ]),
+  )
+  let block = TInstr::block(
+    BlockType::void_(),
+    TExpr::new([
+      TInstr::br_if(LabelIdx::new(0), cond, []),
+      TInstr::local_set(x, TInstr::i32_const(I32(22))),
+    ]),
+  )
+  let changed = Ref::new(false)
+  let out = sl_try_structure_block(
+    block,
+    sl_test_env([ValType::i32()]),
+    [ValType::i32()],
+    { allow_tee: true, allow_structure: true, allow_nesting: true },
+    false,
+    changed,
+  )
+  assert_false(changed.val)
+  assert_eq(out, block)
+}
+
+///|
+test "simplify_locals block-exit collector supports single-target br_table subset" {
+  let x = LocalIdx::new(0)
+  let body = TExpr::new([
+    TInstr::local_set(x, TInstr::i32_const(I32(11))),
+    TInstr::br_table([], LabelIdx::new(0), TInstr::i32_const(I32(0)), []),
+    TInstr::local_set(x, TInstr::i32_const(I32(22))),
+  ])
+  let st = SLBlockCollectState::new()
+  sl_collect_block_exit_candidates_texpr(body, 0, false, st)
+  assert_true(st.saw_exit)
+  assert_false(st.unoptimizable)
+  assert_eq(st.shared_idx.unwrap_or(-1), 0)
+}
+
+///|
+test "simplify_locals block-exit collector keeps mixed-target br_table unoptimizable" {
+  let x = LocalIdx::new(0)
+  let body = TExpr::new([
+    TInstr::local_set(x, TInstr::i32_const(I32(11))),
+    TInstr::br_table(
+      [LabelIdx::new(1)],
+      LabelIdx::new(0),
+      TInstr::i32_const(I32(0)),
+      [],
+    ),
+    TInstr::local_set(x, TInstr::i32_const(I32(22))),
+  ])
+  let st = SLBlockCollectState::new()
+  sl_collect_block_exit_candidates_texpr(body, 0, false, st)
+  assert_true(st.saw_exit)
+  assert_true(st.unoptimizable)
+}
+
+///|
+test "simplify_locals block-exit collector keeps br_table value-arity mismatch unoptimizable" {
+  let x = LocalIdx::new(0)
+  let y = LocalIdx::new(1)
+  let body = TExpr::new([
+    TInstr::br_table([], LabelIdx::new(0), TInstr::i32_const(I32(0)), [
+      TInstr::local_set(x, TInstr::i32_const(I32(11))),
+      TInstr::local_set(y, TInstr::i32_const(I32(22))),
+    ]),
+    TInstr::local_set(x, TInstr::i32_const(I32(33))),
+  ])
+  let st = SLBlockCollectState::new()
+  sl_collect_block_exit_candidates_texpr(body, 0, false, st)
+  assert_true(st.saw_exit)
+  assert_true(st.unoptimizable)
+}
+
+///|
+test "simplify_locals structures supported single-target br_table subset" {
+  let x = LocalIdx::new(0)
+  let block = TInstr::block(
+    BlockType::void_(),
+    TExpr::new([
+      TInstr::local_set(x, TInstr::i32_const(I32(11))),
+      TInstr::br_table([], LabelIdx::new(0), TInstr::i32_const(I32(0)), []),
+      TInstr::local_set(x, TInstr::i32_const(I32(22))),
+    ]),
+  )
+  let changed = Ref::new(false)
+  let out = sl_try_structure_block(
+    block,
+    sl_test_env([ValType::i32()]),
+    [ValType::i32()],
+    { allow_tee: false, allow_structure: true, allow_nesting: true },
+    false,
+    changed,
+  )
+  assert_true(changed.val)
+  match out.kind {
+    TInstrKind::TLocalSet(
+      _,
+      { kind: TInstrKind::TBlock(ValTypeBlockType(_), _), .. }
+    ) => ()
+    _ => fail("expected supported br_table subset to structure")
+  }
 }
 
 ///|
@@ -4352,6 +5243,158 @@ test "simplify_locals rewrite finalizer keeps original invalid candidate out" {
   )
   assert_false(changed)
   assert_eq(kept, original)
+}
+
+///|
+test "simplify_locals rewrite finalizer salvages repairable duplicated param-prefix locals" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  let env = Env::new().with_module(mod)
+  let original = Func::t_func(
+    [ValType::i32()],
+    [ValType::i64()],
+    TExpr::new([TInstr::local_set(LocalIdx::new(1), TInstr::i64_const(I64(7)))]),
+  )
+  let repairable_candidate = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32(), ValType::i64()],
+    TExpr::new([TInstr::local_set(LocalIdx::new(1), TInstr::i64_const(I64(7)))]),
+  )
+  let (kept, changed) = sl_keep_validated_rewrite(
+    env,
+    FuncIdx::new(0),
+    original,
+    repairable_candidate,
+    fn(_) { () },
+  )
+  assert_true(changed)
+  match kept {
+    TFunc(params, locals, _) => {
+      assert_eq(params, [ValType::i32()])
+      assert_eq(locals, [ValType::i64()])
+    }
+    _ => fail("expected typed function after salvage")
+  }
+}
+
+///|
+test "simplify_locals rewrite finalizer keeps original when duplicated param-prefix candidate is irreparable" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  let env = Env::new().with_module(mod)
+  let original = Func::t_func([ValType::i32()], [], TExpr::new([]))
+  let irreparable_candidate = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::if_(
+          BlockType::val_type(ValType::i64()),
+          TInstr::i32_const(I32(1)),
+          TExpr::new([TInstr::i64_const(I64(2))]),
+          Some(TExpr::new([TInstr::i64_const(I64(3))])),
+        ),
+      ),
+    ]),
+  )
+  let (kept, changed) = sl_keep_validated_rewrite(
+    env,
+    FuncIdx::new(0),
+    original,
+    irreparable_candidate,
+    fn(_) { () },
+  )
+  assert_false(changed)
+  assert_eq(kept, original)
+}
+
+///|
+test "simplify_locals validation counters record accepted rewrite candidates" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  let env = Env::new().with_module(mod)
+  let original = Func::t_func([], [ValType::i32()], TExpr::new([]))
+  let candidate = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7)))]),
+  )
+  sl_rewrite_validation_reset()
+  let (_, changed) = sl_keep_validated_rewrite(
+    env,
+    FuncIdx::new(0),
+    original,
+    candidate,
+    fn(_) { () },
+  )
+  let stats = sl_rewrite_validation_snapshot()
+  assert_true(changed)
+  assert_eq(stats.raw_candidates_attempted, 1)
+  assert_eq(stats.candidates_accepted, 1)
+  assert_eq(stats.candidates_rejected_local_validation, 0)
+}
+
+///|
+test "simplify_locals validation counters record rejected rewrite candidates with reason bucket" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  let env = Env::new().with_module(mod)
+  let original = Func::t_func([], [ValType::i64()], TExpr::new([]))
+  let invalid_candidate = Func::t_func(
+    [],
+    [ValType::i64()],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::if_(
+          BlockType::val_type(ValType::i32()),
+          TInstr::i32_const(I32(1)),
+          TExpr::new([TInstr::i32_const(I32(2))]),
+          Some(TExpr::new([TInstr::i32_const(I32(3))])),
+        ),
+      ),
+    ]),
+  )
+  let expected_bucket = match
+    sl_validate_typed_function_candidate(
+      env,
+      FuncIdx::new(0),
+      invalid_candidate,
+    ) {
+    Ok(_) => fail("expected invalid candidate to fail local validation")
+    Err(err) => sl_rewrite_validation_bucket_for_error(err)
+  }
+  sl_rewrite_validation_reset()
+  let (_, changed) = sl_keep_validated_rewrite(
+    env,
+    FuncIdx::new(0),
+    original,
+    invalid_candidate,
+    fn(_) { () },
+  )
+  let stats = sl_rewrite_validation_snapshot()
+  assert_false(changed)
+  assert_eq(stats.raw_candidates_attempted, 1)
+  assert_eq(stats.candidates_accepted, 0)
+  assert_eq(stats.candidates_rejected_local_validation, 1)
+  assert_true(stats.rejection_reason_buckets.get(expected_bucket) != None)
 }
 
 ///|
