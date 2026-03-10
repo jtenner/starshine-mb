@@ -295,6 +295,26 @@ fn fl_trace_mark_rewrite(
 }
 
 ///|
+fn fl_rewrite_counter(state : FLFuncState) -> Int? {
+  match state.trace_state {
+    Some(ts) => Some(ts.rewrites.val)
+    None => None
+  }
+}
+
+///|
+fn fl_rewrite_counter_changed(state : FLFuncState, before : Int?) -> Bool? {
+  match before {
+    Some(prev) =>
+      match state.trace_state {
+        Some(ts) => Some(ts.rewrites.val != prev)
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
 fn fl_label_depth(label : LabelIdx) -> Int {
   let LabelIdx(raw) = label
   raw.reinterpret_as_int()
@@ -482,6 +502,7 @@ fn fl_flatten_non_control_children(
   let preludes : Array[TInstr] = []
   let mut any_child_change = false
   for child in children {
+    let rewrite_before = fl_rewrite_counter(state)
     let (next_child, child_preludes) = match
       fl_flatten_instr(child, state, ValuePos) {
       Ok(v) => v
@@ -495,8 +516,15 @@ fn fl_flatten_non_control_children(
     for p in child_preludes {
       preludes.push(p)
     }
-    if next_child != child {
-      any_child_change = true
+    match fl_rewrite_counter_changed(state, rewrite_before) {
+      // Use rewrite-counter deltas to detect child changes without deep structural equality.
+      // Deep `next_child != child` checks are pathological on huge unchanged expression trees.
+      Some(changed) => if changed { any_child_change = true }
+      None =>
+        // Fallback keeps correctness when no trace state is attached.
+        if next_child != child {
+          any_child_change = true
+        }
     }
     rebuilt_children.push(next_child)
   }
