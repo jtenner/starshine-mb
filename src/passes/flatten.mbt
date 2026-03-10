@@ -1194,7 +1194,7 @@ fn flatten_ir_pass_with_trace(
               None => ()
             }
           }
-          unchanged()
+          skip()
         }
       }
       _ => {
@@ -1203,7 +1203,7 @@ fn flatten_ir_pass_with_trace(
             "func[\{ordinal}] phase=function:skip reason=non-typed-func elapsed_ms=\{fl_trace_elapsed_ms(func_start_ms)}",
           )
         }
-        unchanged()
+        skip()
       }
     }
   })
