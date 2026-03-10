@@ -26,20 +26,15 @@ pub trait Typecheck {
 }
 
 ///|
-fn TcState::with_stack(st : TcState, stack : Array[ValType]) -> TcState {
-  TcState::{ ..st, stack, }
-}
-
-///|
 fn TcState::set_unreachable(st : TcState) -> TcState {
-  TcState::{ ..st, stack: [], reachable: false }
+  st.stack.clear()
+  TcState::{ ..st, reachable: false }
 }
 
 ///|
 fn TcState::push1(st : TcState, vt : ValType) -> TcState {
-  let s = st.stack.copy()
-  s.push(vt)
-  st.with_stack(s)
+  st.stack.push(vt)
+  st
 }
 
 ///|
@@ -68,8 +63,7 @@ fn TcState::check_branch_args_present(
 
 ///|
 fn TcState::pop1(st : TcState) -> Result[(TcState, ValType), String] {
-  let s = st.stack.copy()
-  match s.pop() {
+  match st.stack.pop() {
     None =>
       if !st.reachable {
         // In unreachable code, missing values below the current frame are
@@ -79,7 +73,7 @@ fn TcState::pop1(st : TcState) -> Result[(TcState, ValType), String] {
       } else {
         Err("stack underflow")
       }
-    Some(v) => Ok((st.with_stack(s), v))
+    Some(v) => Ok((st, v))
   }
 }
 
@@ -110,11 +104,10 @@ fn typecheck_drop(st : TcState) -> TcResult {
 
 ///|
 fn TcState::push_types(st : TcState, ts : Array[ValType]) -> TcState {
-  let mut out = st
   for t in ts {
-    out = out.push1(t)
+    st.stack.push(t)
   }
-  out
+  st
 }
 
 ///|
@@ -130,6 +123,56 @@ fn TcState::pop_types(st : TcState, ts : Array[ValType]) -> TcResult {
 }
 
 ///|
+fn check_pop_types_from_top(
+  st : TcState,
+  ts : Array[ValType],
+  count : Int,
+) -> Result[Int, String] {
+  let mut stack_i = st.stack.length() - 1
+  let mut i = count - 1
+  while i >= 0 {
+    let expected = ts[i]
+    if stack_i < 0 {
+      if st.reachable {
+        return Err("stack underflow")
+      }
+    } else {
+      let actual = st.stack[stack_i]
+      if actual != ValType::bottom() &&
+        !Match::matches(actual, expected, st.env) {
+        return Err("type mismatch")
+      }
+      stack_i -= 1
+    }
+    i -= 1
+  }
+  Ok(stack_i)
+}
+
+///|
+fn TcState::check_pop_types(
+  st : TcState,
+  ts : Array[ValType],
+) -> Result[Unit, String] {
+  match check_pop_types_from_top(st, ts, ts.length()) {
+    Ok(_) => Ok(())
+    Err(e) => Err(e)
+  }
+}
+
+///|
+fn TcState::check_pop_types_prefix(
+  st : TcState,
+  ts : Array[ValType],
+  prefix_len : Int,
+) -> Result[Unit, String] {
+  match check_pop_types_from_top(st, ts, prefix_len) {
+    Ok(_) => Ok(())
+    Err(e) => Err(e)
+  }
+}
+
+///|
 fn tc_stack_from_types(ts : Array[ValType]) -> Array[ValType] {
   ts.copy()
 }
@@ -139,11 +182,12 @@ fn validate_end_stack(
   st : TcState,
   results : Array[ValType],
 ) -> Result[Unit, String] {
-  let st_after_results = match st.pop_types(results) {
+  let top_after_results = match
+    check_pop_types_from_top(st, results, results.length()) {
     Err(e) => return Err(e)
-    Ok(s) => s
+    Ok(i) => i
   }
-  if st_after_results.stack.length() != 0 {
+  if top_after_results != -1 {
     return Err("type mismatch")
   }
   Ok(())
@@ -423,11 +467,7 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     Ok(_) => ()
   }
 
-  let out = TcState::{
-    env: st.env,
-    stack: st1.stack.copy(),
-    reachable: st.reachable,
-  }
+  let out = TcState::{ env: st.env, stack: st1.stack, reachable: st.reachable }
   Ok( // reachability after block is same as entry unless you model merges
     out.push_types(results),
   )
@@ -491,7 +531,7 @@ fn typecheck_if(
       Err(e) => return Err(e)
       Ok(_) => ()
     }
-    let normalized_stack = if sb.reachable { [] } else { sb.stack.copy() }
+    let normalized_stack = if sb.reachable { [] } else { sb.stack }
     Ok((sb.reachable, normalized_stack))
   }
   let (then_reach, then_stack) = match norm_branch(st_then) {
@@ -522,7 +562,7 @@ fn typecheck_if(
   }
   let out = TcState::{
     env: st.env,
-    stack: st1.stack.copy(),
+    stack: st1.stack,
     reachable: merged_reachable,
   }
   Ok(out.push_types(results))
@@ -548,7 +588,7 @@ fn typecheck_br_if(st : TcState, l : LabelIdx) -> TcResult {
 
   // Check that branch arguments are present.
   // Important: do NOT keep the popped state; this is only a type check.
-  let _ = match st1.pop_types(ts) {
+  let _ = match st1.check_pop_types(ts) {
     Err(e) => return Err(e)
     Ok(_) => ()
   }
@@ -812,7 +852,7 @@ fn typecheck_br_on_null(st : TcState, l : LabelIdx) -> TcResult {
 
   // Branch target label has type t*
   if st.reachable {
-    let _ = match st1.pop_types(ts) {
+    let _ = match st1.check_pop_types(ts) {
       Err(e) => return Err(e)
       Ok(_) => ()
     }
@@ -852,8 +892,7 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
   }
   if st.reachable {
     let end = label_ts.length() - 1
-    let prefix = label_ts[0:end].to_array()
-    if st1.pop_types(prefix) is Err(t) {
+    if st1.check_pop_types_prefix(label_ts, end) is Err(t) {
       return Err(t)
     }
   }
@@ -906,8 +945,7 @@ fn typecheck_br_on_cast(
     // Check label args excluding rt_label (because branch keeps rt2 / rt_label)
     // Per spec, label is t* rt, so the remaining stack must have t*
     let end = label_ts.length() - 1
-    let prefix = label_ts[0:end].to_array()
-    let _ = match st1.pop_types(prefix) {
+    let _ = match st1.check_pop_types_prefix(label_ts, end) {
       Err(e) => return Err(e)
       Ok(_) => ()
     }
@@ -967,8 +1005,7 @@ fn typecheck_br_on_cast_fail(
   }
   if st.reachable {
     let end = label_ts.length() - 1
-    let prefix = label_ts[0:end].to_array()
-    let _ = match st1.pop_types(prefix) {
+    let _ = match st1.check_pop_types_prefix(label_ts, end) {
       Err(e) => return Err(e)
       Ok(_) => ()
     }
@@ -1147,7 +1184,7 @@ fn typecheck_try_table(
   // restore outer env (pop the try_table label scope)
   let out = TcState::{
     env: st.env,
-    stack: st1.stack.copy(),
+    stack: st1.stack,
     reachable: st_body.reachable,
   }
   Ok(out.push_types(results))
@@ -1475,7 +1512,7 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
   // restore outer env (pop label scope)
   let out = TcState::{
     env: st.env,
-    stack: st1.stack.copy(),
+    stack: st1.stack,
     // A loop does not make outer control-flow unreachable by itself.
     // Preserve entry reachability at the merge point.
     reachable: st.reachable,
@@ -4201,7 +4238,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       let out = TcState::{
         env: st.env,
-        stack: st.stack.copy(),
+        stack: st.stack,
         reachable: st.reachable,
       }
       Ok(out.push_types(results))
@@ -4230,7 +4267,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       let out = TcState::{
         env: st.env,
-        stack: st.stack.copy(),
+        stack: st.stack,
         // Typed loop merge mirrors untyped loop reachability semantics.
         reachable: st.reachable,
       }
@@ -4287,7 +4324,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
           Err(e) => return Err(e)
           Ok(_) => ()
         }
-        let normalized_stack = if sb.reachable { [] } else { sb.stack.copy() }
+        let normalized_stack = if sb.reachable { [] } else { sb.stack }
         Ok((sb.reachable, normalized_stack))
       }
       let (then_reach, then_stack) = match norm_branch(st_then) {
@@ -4315,7 +4352,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       let out = TcState::{
         env: st.env,
-        stack: st1.stack.copy(),
+        stack: st1.stack,
         reachable: merged_reachable,
       }
       Ok(out.push_types(results))
@@ -4356,7 +4393,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       let out = TcState::{
         env: st.env,
-        stack: st1.stack.copy(),
+        stack: st1.stack,
         reachable: st_body.reachable,
       }
       Ok(out.push_types(results))
@@ -5043,7 +5080,7 @@ fn non_nullable_externref() -> ValType {
 
 ///|
 pub fn make_state(env : Env, stack : Array[ValType]) -> TcState {
-  { env, stack, reachable: true }
+  { env, stack: stack.copy(), reachable: true }
 }
 
 // =============================================================================
