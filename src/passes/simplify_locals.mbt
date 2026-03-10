@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -35,6 +35,45 @@ priv struct SLPerfSnapshot {
 }
 
 ///|
+priv struct SLHelperTimingSnapshot {
+  collect_get_counts_texpr_us : UInt64
+  collect_get_counts_texpr_calls : Int
+  simplify_texpr_main_us : UInt64
+  simplify_texpr_main_calls : Int
+  remove_unneeded_sets_texpr_us : UInt64
+  remove_unneeded_sets_texpr_calls : Int
+  strip_nops_texpr_us : UInt64
+  strip_nops_texpr_calls : Int
+  run_late_optimizations_us : UInt64
+  run_late_optimizations_calls : Int
+  run_main_phase_us : UInt64
+  run_main_phase_calls : Int
+  run_cleanup_phase_us : UInt64
+  run_cleanup_phase_calls : Int
+}
+
+///|
+priv struct SLHotspotEntry {
+  ordinal : Int
+  main_ticks : UInt64
+  rewrite_ticks : UInt64
+  locals : Int
+  top_instrs : Int
+}
+
+///|
+const SL_PATHOLOGICAL_FASTPATH_MIN_LOCALS : Int = 2048
+
+///|
+const SL_PATHOLOGICAL_FASTPATH_MAX_INSTRS : Int = 64
+
+///|
+const SL_PATHOLOGICAL_FUNC_TICK_BUDGET : UInt64 = 8000UL
+
+///|
+const SL_HOTSPOT_SUMMARY_LIMIT : Int = 8
+
+///|
 priv struct SLRewriteValidationSnapshot {
   raw_candidates_attempted : Int
   candidates_accepted : Int
@@ -53,6 +92,51 @@ let sl_perf_get_count_scans : Ref[Int] = Ref::new(0)
 
 ///|
 let sl_perf_late_state_clones : Ref[Int] = Ref::new(0)
+
+///|
+let sl_helper_timing_collect_get_counts_texpr_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let sl_helper_timing_collect_get_counts_texpr_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_helper_timing_simplify_texpr_main_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let sl_helper_timing_simplify_texpr_main_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_helper_timing_remove_unneeded_sets_texpr_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let sl_helper_timing_remove_unneeded_sets_texpr_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_helper_timing_strip_nops_texpr_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let sl_helper_timing_strip_nops_texpr_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_helper_timing_run_late_optimizations_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let sl_helper_timing_run_late_optimizations_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_helper_timing_run_main_phase_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let sl_helper_timing_run_main_phase_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_helper_timing_run_cleanup_phase_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let sl_helper_timing_run_cleanup_phase_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_hotspot_entries : Ref[Array[SLHotspotEntry]] = Ref::new([])
 
 ///|
 let sl_rewrite_validation_raw_candidates_attempted : Ref[Int] = Ref::new(0)
@@ -87,6 +171,20 @@ fn sl_perf_reset() -> Unit {
   sl_perf_invalidation_entry_checks.val = 0
   sl_perf_get_count_scans.val = 0
   sl_perf_late_state_clones.val = 0
+  sl_helper_timing_collect_get_counts_texpr_us.val = 0UL
+  sl_helper_timing_collect_get_counts_texpr_calls.val = 0
+  sl_helper_timing_simplify_texpr_main_us.val = 0UL
+  sl_helper_timing_simplify_texpr_main_calls.val = 0
+  sl_helper_timing_remove_unneeded_sets_texpr_us.val = 0UL
+  sl_helper_timing_remove_unneeded_sets_texpr_calls.val = 0
+  sl_helper_timing_strip_nops_texpr_us.val = 0UL
+  sl_helper_timing_strip_nops_texpr_calls.val = 0
+  sl_helper_timing_run_late_optimizations_us.val = 0UL
+  sl_helper_timing_run_late_optimizations_calls.val = 0
+  sl_helper_timing_run_main_phase_us.val = 0UL
+  sl_helper_timing_run_main_phase_calls.val = 0
+  sl_helper_timing_run_cleanup_phase_us.val = 0UL
+  sl_helper_timing_run_cleanup_phase_calls.val = 0
 }
 
 ///|
@@ -97,6 +195,206 @@ fn sl_perf_snapshot() -> SLPerfSnapshot {
     get_count_scans: sl_perf_get_count_scans.val,
     late_state_clones: sl_perf_late_state_clones.val,
   }
+}
+
+///|
+fn sl_helper_timing_snapshot() -> SLHelperTimingSnapshot {
+  {
+    collect_get_counts_texpr_us: sl_helper_timing_collect_get_counts_texpr_us.val,
+    collect_get_counts_texpr_calls: sl_helper_timing_collect_get_counts_texpr_calls.val,
+    simplify_texpr_main_us: sl_helper_timing_simplify_texpr_main_us.val,
+    simplify_texpr_main_calls: sl_helper_timing_simplify_texpr_main_calls.val,
+    remove_unneeded_sets_texpr_us: sl_helper_timing_remove_unneeded_sets_texpr_us.val,
+    remove_unneeded_sets_texpr_calls: sl_helper_timing_remove_unneeded_sets_texpr_calls.val,
+    strip_nops_texpr_us: sl_helper_timing_strip_nops_texpr_us.val,
+    strip_nops_texpr_calls: sl_helper_timing_strip_nops_texpr_calls.val,
+    run_late_optimizations_us: sl_helper_timing_run_late_optimizations_us.val,
+    run_late_optimizations_calls: sl_helper_timing_run_late_optimizations_calls.val,
+    run_main_phase_us: sl_helper_timing_run_main_phase_us.val,
+    run_main_phase_calls: sl_helper_timing_run_main_phase_calls.val,
+    run_cleanup_phase_us: sl_helper_timing_run_cleanup_phase_us.val,
+    run_cleanup_phase_calls: sl_helper_timing_run_cleanup_phase_calls.val,
+  }
+}
+
+///|
+fn sl_helper_timing_zero() -> SLHelperTimingSnapshot {
+  {
+    collect_get_counts_texpr_us: 0UL,
+    collect_get_counts_texpr_calls: 0,
+    simplify_texpr_main_us: 0UL,
+    simplify_texpr_main_calls: 0,
+    remove_unneeded_sets_texpr_us: 0UL,
+    remove_unneeded_sets_texpr_calls: 0,
+    strip_nops_texpr_us: 0UL,
+    strip_nops_texpr_calls: 0,
+    run_late_optimizations_us: 0UL,
+    run_late_optimizations_calls: 0,
+    run_main_phase_us: 0UL,
+    run_main_phase_calls: 0,
+    run_cleanup_phase_us: 0UL,
+    run_cleanup_phase_calls: 0,
+  }
+}
+
+///|
+fn sl_helper_timing_delta_u64(after : UInt64, before : UInt64) -> UInt64 {
+  if after >= before {
+    after - before
+  } else {
+    0UL
+  }
+}
+
+///|
+fn sl_helper_timing_diff(
+  after : SLHelperTimingSnapshot,
+  before : SLHelperTimingSnapshot,
+) -> SLHelperTimingSnapshot {
+  {
+    collect_get_counts_texpr_us: sl_helper_timing_delta_u64(
+      after.collect_get_counts_texpr_us,
+      before.collect_get_counts_texpr_us,
+    ),
+    collect_get_counts_texpr_calls: after.collect_get_counts_texpr_calls -
+    before.collect_get_counts_texpr_calls,
+    simplify_texpr_main_us: sl_helper_timing_delta_u64(
+      after.simplify_texpr_main_us,
+      before.simplify_texpr_main_us,
+    ),
+    simplify_texpr_main_calls: after.simplify_texpr_main_calls -
+    before.simplify_texpr_main_calls,
+    remove_unneeded_sets_texpr_us: sl_helper_timing_delta_u64(
+      after.remove_unneeded_sets_texpr_us,
+      before.remove_unneeded_sets_texpr_us,
+    ),
+    remove_unneeded_sets_texpr_calls: after.remove_unneeded_sets_texpr_calls -
+    before.remove_unneeded_sets_texpr_calls,
+    strip_nops_texpr_us: sl_helper_timing_delta_u64(
+      after.strip_nops_texpr_us,
+      before.strip_nops_texpr_us,
+    ),
+    strip_nops_texpr_calls: after.strip_nops_texpr_calls -
+    before.strip_nops_texpr_calls,
+    run_late_optimizations_us: sl_helper_timing_delta_u64(
+      after.run_late_optimizations_us,
+      before.run_late_optimizations_us,
+    ),
+    run_late_optimizations_calls: after.run_late_optimizations_calls -
+    before.run_late_optimizations_calls,
+    run_main_phase_us: sl_helper_timing_delta_u64(
+      after.run_main_phase_us,
+      before.run_main_phase_us,
+    ),
+    run_main_phase_calls: after.run_main_phase_calls -
+    before.run_main_phase_calls,
+    run_cleanup_phase_us: sl_helper_timing_delta_u64(
+      after.run_cleanup_phase_us,
+      before.run_cleanup_phase_us,
+    ),
+    run_cleanup_phase_calls: after.run_cleanup_phase_calls -
+    before.run_cleanup_phase_calls,
+  }
+}
+
+///|
+fn sl_helper_timing_has_nonzero(snapshot : SLHelperTimingSnapshot) -> Bool {
+  snapshot.collect_get_counts_texpr_calls > 0 ||
+  snapshot.simplify_texpr_main_calls > 0 ||
+  snapshot.remove_unneeded_sets_texpr_calls > 0 ||
+  snapshot.strip_nops_texpr_calls > 0 ||
+  snapshot.run_late_optimizations_calls > 0 ||
+  snapshot.run_main_phase_calls > 0 ||
+  snapshot.run_cleanup_phase_calls > 0
+}
+
+///|
+fn sl_is_pathological_fastpath_candidate(
+  local_count : Int,
+  top_instrs : Int,
+) -> Bool {
+  local_count >= SL_PATHOLOGICAL_FASTPATH_MIN_LOCALS &&
+  top_instrs <= SL_PATHOLOGICAL_FASTPATH_MAX_INSTRS
+}
+
+///|
+fn sl_pathological_budget_exceeded(start_tick : UInt64) -> Bool {
+  sl_trace_elapsed_us_since(start_tick) >= SL_PATHOLOGICAL_FUNC_TICK_BUDGET
+}
+
+///|
+fn sl_hotspot_reset() -> Unit {
+  sl_hotspot_entries.val = []
+}
+
+///|
+fn sl_hotspot_record(
+  ordinal : Int,
+  main_ticks : UInt64,
+  rewrite_ticks : UInt64,
+  locals : Int,
+  top_instrs : Int,
+) -> Unit {
+  if main_ticks == 0UL && rewrite_ticks == 0UL {
+    return
+  }
+  let entries = sl_hotspot_entries.val
+  entries.push({ ordinal, main_ticks, rewrite_ticks, locals, top_instrs })
+  if entries.length() <= SL_HOTSPOT_SUMMARY_LIMIT {
+    sl_hotspot_entries.val = entries
+    return
+  }
+  let mut min_idx = 0
+  let mut min_ticks = entries[0].main_ticks
+  for i = 1; i < entries.length(); i = i + 1 {
+    if entries[i].main_ticks < min_ticks {
+      min_idx = i
+      min_ticks = entries[i].main_ticks
+    }
+  }
+  let trimmed : Array[SLHotspotEntry] = []
+  for i = 0; i < entries.length(); i = i + 1 {
+    if i != min_idx {
+      trimmed.push(entries[i])
+    }
+  }
+  sl_hotspot_entries.val = trimmed
+}
+
+///|
+fn sl_hotspot_summary_line() -> String? {
+  let entries = sl_hotspot_entries.val
+  if entries.is_empty() {
+    return None
+  }
+  let ordered = entries.copy()
+  let mut i = 0
+  while i < ordered.length() {
+    let mut j = i + 1
+    while j < ordered.length() {
+      if ordered[j].main_ticks > ordered[i].main_ticks {
+        let tmp = ordered[i]
+        ordered[i] = ordered[j]
+        ordered[j] = tmp
+      }
+      j += 1
+    }
+    i += 1
+  }
+  let out = StringBuilder::new()
+  out.write_string("hotspots ")
+  let mut idx = 0
+  while idx < ordered.length() {
+    if idx > 0 {
+      out.write_string(" ")
+    }
+    let entry = ordered[idx]
+    out.write_string(
+      "f\{entry.ordinal}:main=\{entry.main_ticks}:rewrite=\{entry.rewrite_ticks}:locals=\{entry.locals}:top=\{entry.top_instrs}",
+    )
+    idx += 1
+  }
+  Some(out.to_string())
 }
 
 ///|
@@ -198,8 +496,51 @@ fn sl_trace_now_ms() -> UInt64 {
 }
 
 ///|
+fn sl_trace_now_us() -> UInt64 {
+  pass_trace_now_us()
+}
+
+///|
 fn sl_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
   pass_trace_elapsed_ms(start_ms)
+}
+
+///|
+fn sl_trace_elapsed_us_since(start_us : UInt64) -> UInt64 {
+  pass_trace_elapsed_us_since(start_us)
+}
+
+///|
+fn sl_trace_delta_us_to_ms(delta_us : UInt64) -> UInt64 {
+  pass_trace_delta_us_to_ms(delta_us)
+}
+
+///|
+fn sl_helper_timing_commit(
+  enabled : Bool,
+  elapsed_us : Ref[UInt64],
+  calls : Ref[Int],
+  start_us : UInt64,
+) -> Unit {
+  if !enabled {
+    return
+  }
+  elapsed_us.val = elapsed_us.val + sl_trace_elapsed_us_since(start_us)
+  calls.val = calls.val + 1
+}
+
+///|
+fn sl_trace_emit_helper_timing(
+  trace : (String) -> Unit,
+  ordinal : Int,
+  timing : SLHelperTimingSnapshot,
+) -> Unit {
+  if !sl_helper_timing_has_nonzero(timing) {
+    return
+  }
+  trace(
+    "func[\{ordinal}] helper_timing count_gets_ms=\{sl_trace_delta_us_to_ms(timing.collect_get_counts_texpr_us)} count_gets_calls=\{timing.collect_get_counts_texpr_calls} rewrite_ms=\{sl_trace_delta_us_to_ms(timing.simplify_texpr_main_us)} rewrite_calls=\{timing.simplify_texpr_main_calls} remove_sets_ms=\{sl_trace_delta_us_to_ms(timing.remove_unneeded_sets_texpr_us)} remove_sets_calls=\{timing.remove_unneeded_sets_texpr_calls} strip_nops_ms=\{sl_trace_delta_us_to_ms(timing.strip_nops_texpr_us)} strip_nops_calls=\{timing.strip_nops_texpr_calls} late_ms=\{sl_trace_delta_us_to_ms(timing.run_late_optimizations_us)} late_calls=\{timing.run_late_optimizations_calls} main_phase_ms=\{sl_trace_delta_us_to_ms(timing.run_main_phase_us)} main_phase_calls=\{timing.run_main_phase_calls} cleanup_phase_ms=\{sl_trace_delta_us_to_ms(timing.run_cleanup_phase_us)} cleanup_phase_calls=\{timing.run_cleanup_phase_calls}",
+  )
 }
 
 ///|
@@ -582,6 +923,123 @@ priv struct SLSimplifyOptions {
   allow_tee : Bool
   allow_structure : Bool
   allow_nesting : Bool
+}
+
+///|
+priv enum SLMainGetCountsStorage {
+  Dense(Array[Int])
+  Sparse(Map[Int, Int])
+}
+
+///|
+priv struct SLMainGetCounts {
+  local_count : Int
+  storage : SLMainGetCountsStorage
+}
+
+///|
+fn sl_main_get_counts_new(local_count : Int, sparse : Bool) -> SLMainGetCounts {
+  if sparse {
+    { local_count, storage: Sparse(Map::new()) }
+  } else {
+    { local_count, storage: Dense(Array::make(local_count, 0)) }
+  }
+}
+
+///|
+fn sl_main_get_counts_get(counts : SLMainGetCounts, idx : Int) -> Int {
+  if idx < 0 || idx >= counts.local_count {
+    return 0
+  }
+  match counts.storage {
+    Dense(values) => values[idx]
+    Sparse(values) =>
+      match values.get(idx) {
+        Some(v) => v
+        None => 0
+      }
+  }
+}
+
+///|
+fn sl_main_get_counts_has_any(counts : SLMainGetCounts) -> Bool {
+  match counts.storage {
+    Dense(values) =>
+      for v in values {
+        if v > 0 {
+          return true
+        }
+      }
+    Sparse(values) => return values.length() > 0
+  }
+  false
+}
+
+///|
+fn sl_main_get_counts_adjust_idx(
+  counts : SLMainGetCounts,
+  idx : LocalIdx,
+  delta : Int,
+) -> Unit {
+  let i = sl_localidx_to_int(idx)
+  if i < 0 || i >= counts.local_count {
+    return
+  }
+  match counts.storage {
+    Dense(values) => {
+      let next = values[i] + delta
+      values[i] = if next < 0 { 0 } else { next }
+    }
+    Sparse(values) => {
+      let curr = match values.get(i) {
+        Some(v) => v
+        None => 0
+      }
+      let next = curr + delta
+      if next <= 0 {
+        values.remove(i)
+      } else {
+        values[i] = next
+      }
+    }
+  }
+}
+
+///|
+fn sl_main_collect_get_counts_instr(
+  instr : TInstr,
+  counts : SLMainGetCounts,
+) -> Unit {
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => sl_main_get_counts_adjust_idx(counts, idx, 1)
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      sl_main_collect_get_counts_texpr(body, counts)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      sl_main_collect_get_counts_instr(cond, counts)
+      sl_main_collect_get_counts_texpr(then_body, counts)
+      match else_body {
+        Some(other) => sl_main_collect_get_counts_texpr(other, counts)
+        None => ()
+      }
+    }
+    _ =>
+      for child in eval_children(instr) {
+        sl_main_collect_get_counts_instr(child, counts)
+      }
+  }
+}
+
+///|
+fn sl_main_collect_get_counts_texpr(
+  expr : TExpr,
+  counts : SLMainGetCounts,
+) -> Unit {
+  sl_perf_get_count_scans.val = sl_perf_get_count_scans.val + 1
+  for instr in expr.instrs {
+    sl_main_collect_get_counts_instr(instr, counts)
+  }
 }
 
 ///|
@@ -1001,20 +1459,20 @@ fn sl_try_sink_local_get(
   sinkables : Map[Int, SLSinkableInfo],
   sinkable_indexes : SLSinkableIndexes,
   out : Array[TInstr],
-  get_counts : Array[Int],
+  get_counts : SLMainGetCounts,
   local_types : Array[ValType],
   options : SLSimplifyOptions,
   in_value_position : Bool,
   changed : Ref[Bool],
 ) -> TInstr {
   let key = sl_localidx_to_int(idx)
-  if key < 0 || key >= get_counts.length() {
+  if key < 0 || key >= get_counts.local_count {
     return TInstr::local_get(idx)
   }
   match sinkables.get(key) {
     None => TInstr::local_get(idx)
     Some(info) => {
-      let one_use = get_counts[key] == 1
+      let one_use = sl_main_get_counts_get(get_counts, key) == 1
       let sink_value = info.value
       let sink_is_get = match sink_value.kind {
         TInstrKind::TLocalGet(_) => true
@@ -1043,8 +1501,8 @@ fn sl_try_sink_local_get(
               if other_i >= 0 &&
                 other_i < local_types.length() &&
                 Match::matches(local_types[other_i], local_types[key], env) {
-                sl_adjust_get_count_for_idx(get_counts, idx, -1)
-                sl_adjust_get_count_for_idx(get_counts, other, 1)
+                sl_main_get_counts_adjust_idx(get_counts, idx, -1)
+                sl_main_get_counts_adjust_idx(get_counts, other, 1)
                 changed.val = true
                 TInstr::local_get(other)
               } else {
@@ -1065,7 +1523,7 @@ fn sl_try_sink_local_get(
           out[info.out_index] = TInstr::nop()
         }
         sl_sinkables_remove(sinkables, sinkable_indexes, key)
-        sl_adjust_get_count_for_idx(get_counts, idx, -1)
+        sl_main_get_counts_adjust_idx(get_counts, idx, -1)
         changed.val = true
         sink_value
       } else {
@@ -1073,7 +1531,7 @@ fn sl_try_sink_local_get(
           out[info.out_index] = TInstr::nop()
         }
         sl_sinkables_remove(sinkables, sinkable_indexes, key)
-        sl_adjust_get_count_for_idx(get_counts, idx, -1)
+        sl_main_get_counts_adjust_idx(get_counts, idx, -1)
         changed.val = true
         TInstr::local_tee(idx, sink_value)
       }
@@ -1939,7 +2397,7 @@ fn sl_try_structure_if(
   instr : TInstr,
   env : Env,
   local_types : Array[ValType],
-  get_counts : Array[Int],
+  get_counts : SLMainGetCounts,
   options : SLSimplifyOptions,
   in_value_position : Bool,
   changed : Ref[Bool],
@@ -2076,7 +2534,7 @@ fn sl_try_structure_if(
                         then_idx, local_type, result_value, env,
                       ) {
                       let candidate = TInstr::local_set(then_idx, result_value)
-                      sl_adjust_get_count_for_idx(get_counts, then_idx, 1)
+                      sl_main_get_counts_adjust_idx(get_counts, then_idx, 1)
                       changed.val = true
                       candidate
                     } else {
@@ -2104,7 +2562,7 @@ fn sl_rewrite_instr_main(
   effects_cache : Map[TInstr, LCSEffects],
   out : Array[TInstr],
   local_types : Array[ValType],
-  get_counts : Array[Int],
+  get_counts : SLMainGetCounts,
   options : SLSimplifyOptions,
   in_value_position : Bool,
   changed : Ref[Bool],
@@ -2118,7 +2576,7 @@ fn sl_rewrite_instr_main(
     TInstrKind::TBlock(bt, body) => {
       let body_env = sl_block_body_env(env, bt)
       let (next_body, body_changed) = sl_simplify_texpr_main(
-        body, body_env, local_types, get_counts, options,
+        body, body_env, local_types, get_counts, options, effects_cache,
       )
       if body_changed {
         changed.val = true
@@ -2135,7 +2593,7 @@ fn sl_rewrite_instr_main(
     TInstrKind::TLoop(bt, body) => {
       let body_env = sl_loop_body_env(env, bt)
       let (next_body, body_changed) = sl_simplify_texpr_main(
-        body, body_env, local_types, get_counts, options,
+        body, body_env, local_types, get_counts, options, effects_cache,
       )
       if body_changed {
         changed.val = true
@@ -2145,7 +2603,7 @@ fn sl_rewrite_instr_main(
     TInstrKind::TTryTable(bt, catches, body) => {
       let body_env = sl_block_body_env(env, bt)
       let (next_body, body_changed) = sl_simplify_texpr_main(
-        body, body_env, local_types, get_counts, options,
+        body, body_env, local_types, get_counts, options, effects_cache,
       )
       if body_changed {
         changed.val = true
@@ -2159,13 +2617,13 @@ fn sl_rewrite_instr_main(
         get_counts, options, true, changed,
       )
       let (next_then, then_changed) = sl_simplify_texpr_main(
-        then_body, branch_env, local_types, get_counts, options,
+        then_body, branch_env, local_types, get_counts, options, effects_cache,
       )
       let mut branch_changed = then_changed
       let next_else = match else_body {
         Some(other) => {
           let (rewritten, else_changed) = sl_simplify_texpr_main(
-            other, branch_env, local_types, get_counts, options,
+            other, branch_env, local_types, get_counts, options, effects_cache,
           )
           branch_changed = branch_changed || else_changed
           Some(rewritten)
@@ -2220,13 +2678,13 @@ fn sl_simplify_texpr_main(
   expr : TExpr,
   env : Env,
   local_types : Array[ValType],
-  get_counts : Array[Int],
+  get_counts : SLMainGetCounts,
   options : SLSimplifyOptions,
+  effects_cache : Map[TInstr, LCSEffects],
 ) -> (TExpr, Bool) {
   let out : Array[TInstr] = []
   let sinkables : Map[Int, SLSinkableInfo] = Map::new()
   let sinkable_indexes = sl_sinkable_indexes_new()
-  let effects_cache : Map[TInstr, LCSEffects] = Map::new()
   let changed = Ref::new(false)
 
   for instr in expr.instrs {
@@ -2251,7 +2709,7 @@ fn sl_simplify_texpr_main(
     match curr.kind {
       TInstrKind::TLocalSet(idx, value) => {
         let key = sl_localidx_to_int(idx)
-        if key >= 0 && key < get_counts.length() {
+        if key >= 0 && key < get_counts.local_count {
           match sinkables.get(key) {
             Some(previous) => {
               if previous.out_index >= 0 && previous.out_index < out.length() {
@@ -2262,7 +2720,7 @@ fn sl_simplify_texpr_main(
             }
             None => ()
           }
-          let uses = get_counts[key]
+          let uses = sl_main_get_counts_get(get_counts, key)
           if uses > 0 && (options.allow_tee || uses == 1) {
             sl_sinkables_add(sinkables, sinkable_indexes, key, {
               out_index: out.length(),
@@ -3092,10 +3550,17 @@ fn sl_run_main_phase(
   local_types : Array[ValType],
   options : SLSimplifyOptions,
   measure_for_tee : Bool,
-  initial_get_counts? : Array[Int]? = None,
+  initial_get_counts? : SLMainGetCounts? = None,
+  effects_cache? : Map[TInstr, LCSEffects]? = None,
+  force_sparse_counts? : Bool = false,
   trace? : (String) -> Unit = sl_trace_noop,
   trace_verbose? : Bool = false,
-) -> (TExpr, Bool, Bool, Array[Int]) {
+) -> (TExpr, Bool, Bool, SLMainGetCounts) {
+  let helper_timing_enabled = trace_verbose
+  let shared_effects_cache = match effects_cache {
+    Some(cache) => cache
+    None => Map::new()
+  }
   let count_start_ms = sl_trace_now_ms()
   let get_counts = match initial_get_counts {
     Some(existing) => {
@@ -3110,8 +3575,20 @@ fn sl_run_main_phase(
       if trace_verbose {
         trace("phase=main:count:start locals=\{local_types.length()}")
       }
-      let fresh = Array::make(local_types.length(), 0)
-      sl_collect_get_counts_texpr(body, fresh)
+      let fresh = sl_main_get_counts_new(
+        local_types.length(),
+        force_sparse_counts,
+      )
+      let collect_gets_start_us = if helper_timing_enabled {
+        sl_trace_now_us()
+      } else {
+        0UL
+      }
+      sl_main_collect_get_counts_texpr(body, fresh)
+      sl_helper_timing_commit(
+        helper_timing_enabled, sl_helper_timing_collect_get_counts_texpr_us, sl_helper_timing_collect_get_counts_texpr_calls,
+        collect_gets_start_us,
+      )
       if trace_verbose {
         trace(
           "phase=main:count:done locals=\{local_types.length()} elapsed_ms=\{sl_trace_elapsed_ms(count_start_ms)}",
@@ -3122,14 +3599,7 @@ fn sl_run_main_phase(
   }
   let rewrite_start_ms = sl_trace_now_ms()
   if !options.allow_structure {
-    let mut has_any_get = false
-    for n in get_counts {
-      if n > 0 {
-        has_any_get = true
-        break
-      }
-    }
-    if !has_any_get {
+    if !sl_main_get_counts_has_any(get_counts) {
       if trace_verbose {
         trace("phase=main:rewrite:skip reason=no_local_gets")
       }
@@ -3139,8 +3609,17 @@ fn sl_run_main_phase(
   if trace_verbose {
     trace("phase=main:rewrite:start top_instrs=\{body.instrs.length()}")
   }
+  let rewrite_start_us = if helper_timing_enabled {
+    sl_trace_now_us()
+  } else {
+    0UL
+  }
   let (next_body, changed) = sl_simplify_texpr_main(
-    body, env, local_types, get_counts, options,
+    body, env, local_types, get_counts, options, shared_effects_cache,
+  )
+  sl_helper_timing_commit(
+    helper_timing_enabled, sl_helper_timing_simplify_texpr_main_us, sl_helper_timing_simplify_texpr_main_calls,
+    rewrite_start_us,
   )
   if trace_verbose {
     trace(
@@ -3164,6 +3643,7 @@ fn sl_run_cleanup_phase(
   trace? : (String) -> Unit = sl_trace_noop,
   trace_verbose? : Bool = false,
 ) -> (TExpr, Bool) {
+  let helper_timing_enabled = trace_verbose
   let removed_changed = Ref::new(false)
   let strip_changed = Ref::new(false)
   let pre_counts = Array::make(local_types.length(), 0)
@@ -3178,10 +3658,29 @@ fn sl_run_cleanup_phase(
     sl_collect_get_counts_and_late_candidate_texpr(
       body, pre_counts, pre_saw_late_candidate,
     )
+    let remove_sets_start_us = if helper_timing_enabled {
+      sl_trace_now_us()
+    } else {
+      0UL
+    }
     let after_removed = sl_remove_unneeded_sets_texpr(
       body, pre_counts, removed_changed,
     )
-    sl_strip_nops_texpr(after_removed, strip_changed)
+    sl_helper_timing_commit(
+      helper_timing_enabled, sl_helper_timing_remove_unneeded_sets_texpr_us, sl_helper_timing_remove_unneeded_sets_texpr_calls,
+      remove_sets_start_us,
+    )
+    let strip_nops_start_us = if helper_timing_enabled {
+      sl_trace_now_us()
+    } else {
+      0UL
+    }
+    let after_stripped = sl_strip_nops_texpr(after_removed, strip_changed)
+    sl_helper_timing_commit(
+      helper_timing_enabled, sl_helper_timing_strip_nops_texpr_us, sl_helper_timing_strip_nops_texpr_calls,
+      strip_nops_start_us,
+    )
+    after_stripped
   } else {
     body
   }
@@ -3194,6 +3693,11 @@ fn sl_run_cleanup_phase(
   if trace_verbose {
     trace("phase=cleanup:late:start top_instrs=\{after_strip.instrs.length()}")
   }
+  let late_start_us = if helper_timing_enabled {
+    sl_trace_now_us()
+  } else {
+    0UL
+  }
   let (after_late, late_changed) = if had_prior_changes && after_strip == body {
     sl_run_late_optimizations_with_counts(
       after_strip,
@@ -3205,6 +3709,10 @@ fn sl_run_cleanup_phase(
   } else {
     sl_run_late_optimizations(after_strip, local_types, remove_equivalent_sets)
   }
+  sl_helper_timing_commit(
+    helper_timing_enabled, sl_helper_timing_run_late_optimizations_us, sl_helper_timing_run_late_optimizations_calls,
+    late_start_us,
+  )
   if trace_verbose {
     trace(
       "phase=cleanup:late:done changed=\{late_changed} top_instrs=\{after_late.instrs.length()} elapsed_ms=\{sl_trace_elapsed_ms(late_start_ms)}",
@@ -3438,20 +3946,35 @@ fn sl_simplify_function(
       if local_types.length() == 0 {
         return (func, false)
       }
+      let pathological_profile = sl_is_pathological_fastpath_candidate(
+        local_types.length(),
+        body.instrs.length(),
+      )
+      let func_tick_start = sl_trace_now_us()
+      let shared_effects_cache : Map[TInstr, LCSEffects] = Map::new()
       let mut body = body
       let mut changed_any = false
       let mut first_cycle = true
       let mut continue_cycles = true
-      let mut reusable_get_counts : Array[Int]? = None
+      let mut reusable_get_counts : SLMainGetCounts? = None
       let mut cycle = 0
       while continue_cycles {
+        if pathological_profile &&
+          sl_pathological_budget_exceeded(func_tick_start) {
+          if trace_verbose {
+            trace(
+              "summary cycles=\{cycle} changed_any=\{changed_any} final_top_instrs=\{body.instrs.length()} budget_exceeded=true action=revert_original budget_ticks=\{SL_PATHOLOGICAL_FUNC_TICK_BUDGET}",
+            )
+          }
+          return (func, false)
+        }
         cycle += 1
         if trace_verbose {
           trace(
             "cycle=\{cycle} phase=main:start first_cycle=\{first_cycle} top_instrs=\{body.instrs.length()}",
           )
         }
-        let cycle_options = if first_cycle {
+        let cycle_options = if first_cycle || pathological_profile {
           {
             allow_tee: false,
             allow_structure: options.allow_structure,
@@ -3461,6 +3984,11 @@ fn sl_simplify_function(
           options
         }
         let measure_for_tee = cycle_options.allow_tee
+        let main_phase_start_us = if trace_verbose {
+          sl_trace_now_us()
+        } else {
+          0UL
+        }
         let (raw_after_main, raw_main_changed, raw_shrank, raw_get_counts) = sl_run_main_phase(
           body,
           env,
@@ -3468,9 +3996,24 @@ fn sl_simplify_function(
           cycle_options,
           measure_for_tee,
           initial_get_counts=reusable_get_counts,
+          effects_cache=Some(shared_effects_cache),
+          force_sparse_counts=pathological_profile,
           trace~,
           trace_verbose~,
         )
+        sl_helper_timing_commit(
+          trace_verbose, sl_helper_timing_run_main_phase_us, sl_helper_timing_run_main_phase_calls,
+          main_phase_start_us,
+        )
+        if pathological_profile &&
+          sl_pathological_budget_exceeded(func_tick_start) {
+          if trace_verbose {
+            trace(
+              "summary cycles=\{cycle} changed_any=\{changed_any} final_top_instrs=\{body.instrs.length()} budget_exceeded=true action=revert_original budget_ticks=\{SL_PATHOLOGICAL_FUNC_TICK_BUDGET}",
+            )
+          }
+          return (func, false)
+        }
         let mut after_main = raw_after_main
         let mut main_changed = raw_main_changed
         let mut next_get_counts = raw_get_counts
@@ -3494,6 +4037,11 @@ fn sl_simplify_function(
             allow_structure: cycle_options.allow_structure,
             allow_nesting: cycle_options.allow_nesting,
           }
+          let no_tee_main_phase_start_us = if trace_verbose {
+            sl_trace_now_us()
+          } else {
+            0UL
+          }
           let (no_tee_body, no_tee_changed, _, no_tee_get_counts) = sl_run_main_phase(
             body,
             env,
@@ -3501,8 +4049,14 @@ fn sl_simplify_function(
             no_tee_options,
             false,
             initial_get_counts=reusable_get_counts,
+            effects_cache=Some(shared_effects_cache),
+            force_sparse_counts=pathological_profile,
             trace~,
             trace_verbose~,
+          )
+          sl_helper_timing_commit(
+            trace_verbose, sl_helper_timing_run_main_phase_us, sl_helper_timing_run_main_phase_calls,
+            no_tee_main_phase_start_us,
           )
           let tee_required_by_structure = sl_tee_required_by_structure_path(
             raw_after_main, no_tee_body, no_tee_changed,
@@ -3537,15 +4091,15 @@ fn sl_simplify_function(
         if first_cycle {
           if trace_verbose {
             trace(
-              "cycle=\{cycle} phase=first_cycle:advance allow_tee_next=\{options.allow_tee}",
+              "cycle=\{cycle} phase=first_cycle:advance allow_tee_next=\{options.allow_tee && !pathological_profile}",
             )
           }
           first_cycle = false
-          if options.allow_tee {
+          if options.allow_tee && !pathological_profile {
             continue
           }
         }
-        if main_changed {
+        if main_changed && !pathological_profile {
           if trace_verbose {
             trace("cycle=\{cycle} phase=main:repeat reason=changed")
           }
@@ -3556,6 +4110,11 @@ fn sl_simplify_function(
             "cycle=\{cycle} phase=cleanup:start top_instrs=\{body.instrs.length()}",
           )
         }
+        let cleanup_phase_start_us = if trace_verbose {
+          sl_trace_now_us()
+        } else {
+          0UL
+        }
         let (after_cleanup, cleanup_changed) = sl_run_cleanup_phase(
           body,
           local_types,
@@ -3564,6 +4123,19 @@ fn sl_simplify_function(
           trace~,
           trace_verbose~,
         )
+        sl_helper_timing_commit(
+          trace_verbose, sl_helper_timing_run_cleanup_phase_us, sl_helper_timing_run_cleanup_phase_calls,
+          cleanup_phase_start_us,
+        )
+        if pathological_profile &&
+          sl_pathological_budget_exceeded(func_tick_start) {
+          if trace_verbose {
+            trace(
+              "summary cycles=\{cycle} changed_any=\{changed_any} final_top_instrs=\{body.instrs.length()} budget_exceeded=true action=revert_original budget_ticks=\{SL_PATHOLOGICAL_FUNC_TICK_BUDGET}",
+            )
+          }
+          return (func, false)
+        }
         if trace_verbose {
           trace(
             "cycle=\{cycle} phase=cleanup:done changed=\{cleanup_changed} top_instrs=\{after_cleanup.instrs.length()}",
@@ -3573,10 +4145,24 @@ fn sl_simplify_function(
         if cleanup_changed {
           changed_any = true
           reusable_get_counts = None
+          if pathological_profile {
+            if trace_verbose {
+              trace(
+                "cycle=\{cycle} phase=done reason=pathological_single_cycle",
+              )
+            }
+            continue_cycles = false
+            continue
+          }
           if trace_verbose {
             trace(
               "cycle=\{cycle} phase=late_main:start top_instrs=\{body.instrs.length()}",
             )
+          }
+          let late_main_phase_start_us = if trace_verbose {
+            sl_trace_now_us()
+          } else {
+            0UL
           }
           let (after_late_main, late_main_changed, _, late_get_counts) = sl_run_main_phase(
             body,
@@ -3584,8 +4170,14 @@ fn sl_simplify_function(
             local_types,
             options,
             false,
+            effects_cache=Some(shared_effects_cache),
+            force_sparse_counts=pathological_profile,
             trace~,
             trace_verbose~,
+          )
+          sl_helper_timing_commit(
+            trace_verbose, sl_helper_timing_run_main_phase_us, sl_helper_timing_run_main_phase_calls,
+            late_main_phase_start_us,
           )
           if trace_verbose {
             trace(
@@ -3636,6 +4228,7 @@ fn simplify_locals_ir_pass(
   trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[IRContext, String] {
   sl_rewrite_validation_reset()
+  sl_hotspot_reset()
   let options = { allow_tee, allow_structure, allow_nesting }
   let param_types = sl_collect_param_types(mod)
   let base_env = Env::new().with_module(mod)
@@ -3652,6 +4245,19 @@ fn simplify_locals_ir_pass(
     let ordinal = def_idx + 1
     let log_func = trace_all_funcs
     let func_start_ms = sl_trace_now_ms()
+    let func_locals = match func {
+      TFunc(_, locals, _) => locals.length()
+      _ => 0
+    }
+    let func_top_instrs = match func {
+      TFunc(_, _, body) => body.instrs.length()
+      _ => 0
+    }
+    let helper_timing_start = if log_func {
+      sl_helper_timing_snapshot()
+    } else {
+      sl_helper_timing_zero()
+    }
     let params = param_types.get(def_idx).unwrap_or([])
     let abs_func_idx = FuncIdx::new(
       (imported_func_count + def_idx).reinterpret_as_uint(),
@@ -3672,9 +4278,9 @@ fn simplify_locals_ir_pass(
     }
     if log_func {
       match func {
-        TFunc(_, locals, body) =>
+        TFunc(_, _, body) =>
           trace(
-            "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{body.instrs.length()} instrs=\{sl_count_all_instrs_texpr(body)} allow_tee=\{allow_tee} allow_structure=\{allow_structure} allow_nesting=\{allow_nesting} validate=\{validate_each_rewrite && can_validate_rewrites}",
+            "func[\{ordinal}] start locals=\{func_locals} top_instrs=\{body.instrs.length()} instrs=\{sl_count_all_instrs_texpr(body)} allow_tee=\{allow_tee} allow_structure=\{allow_structure} allow_nesting=\{allow_nesting} validate=\{validate_each_rewrite && can_validate_rewrites}",
           )
         _ => trace("func[\{ordinal}] skip non-typed-func")
       }
@@ -3694,7 +4300,25 @@ fn simplify_locals_ir_pass(
     } else {
       (raw_next_func, false)
     }
-    if changed {
+    let helper_timing_delta = if log_func {
+      Some(
+        sl_helper_timing_diff(sl_helper_timing_snapshot(), helper_timing_start),
+      )
+    } else {
+      None
+    }
+    match helper_timing_delta {
+      Some(timing) =>
+        sl_hotspot_record(
+          ordinal,
+          timing.run_main_phase_us,
+          timing.simplify_texpr_main_us,
+          func_locals,
+          func_top_instrs,
+        )
+      None => ()
+    }
+    let action = if changed {
       if validate_each_rewrite &&
         can_validate_rewrites &&
         def_idx >= 0 &&
@@ -3715,6 +4339,10 @@ fn simplify_locals_ir_pass(
         }
       }
       if log_func {
+        match helper_timing_delta {
+          Some(timing) => sl_trace_emit_helper_timing(trace, ordinal, timing)
+          None => ()
+        }
         let elapsed_ms = sl_trace_elapsed_ms(func_start_ms)
         match (func, next_func) {
           (TFunc(_, locals, body), TFunc(_, _, next_body)) =>
@@ -3728,6 +4356,10 @@ fn simplify_locals_ir_pass(
       change(ctx, next_func)
     } else {
       if log_func {
+        match helper_timing_delta {
+          Some(timing) => sl_trace_emit_helper_timing(trace, ordinal, timing)
+          None => ()
+        }
         let elapsed_ms = sl_trace_elapsed_ms(func_start_ms)
         match func {
           TFunc(_, locals, body) =>
@@ -3742,6 +4374,13 @@ fn simplify_locals_ir_pass(
       }
       unchanged()
     }
+    if log_func && def_idx + 1 >= current_funcs.length() {
+      match sl_hotspot_summary_line() {
+        Some(summary) => trace(summary)
+        None => ()
+      }
+    }
+    action
   })
 }
 
@@ -3981,7 +4620,7 @@ test "simplify_locals structures if when terminal local.set is wrapped with trai
     instr,
     sl_test_env([ValType::i32()]),
     [ValType::i32()],
-    [0],
+    sl_main_get_counts_new(1, false),
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     false,
     changed,
@@ -4013,7 +4652,7 @@ test "simplify_locals keeps if unstructured when trailing effectful instruction 
     instr,
     sl_test_env([ValType::i32()]),
     [ValType::i32()],
-    [0],
+    sl_main_get_counts_new(1, false),
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     false,
     changed,
@@ -4036,7 +4675,7 @@ test "simplify_locals still structures plain terminal local.set branches" {
     instr,
     sl_test_env([ValType::i32()]),
     [ValType::i32()],
-    [0],
+    sl_main_get_counts_new(1, false),
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     false,
     changed,
@@ -4651,14 +5290,15 @@ test "simplify_locals main-step rewrite applies block coalescing pattern" {
     TInstr::drop(TInstr::local_get(idx)),
     TInstr::drop(TInstr::local_get(idx)),
   ])
-  let counts = Array::make(2, 0)
-  sl_collect_get_counts_texpr(body, counts)
+  let counts = sl_main_get_counts_new(2, false)
+  sl_main_collect_get_counts_texpr(body, counts)
   let (next_body, changed) = sl_simplify_texpr_main(
     body,
     sl_test_env([ValType::i32(), ValType::i32()]),
     [ValType::i32(), ValType::i32()],
     counts,
     { allow_tee: false, allow_structure: true, allow_nesting: true },
+    Map::new(),
   )
   assert_true(changed)
   assert_true(sl_has_result_block_texpr(next_body))
@@ -4696,7 +5336,7 @@ test "simplify_locals instruction-level rewrite applies block coalescing pattern
     effects_cache,
     out,
     [ValType::i32(), ValType::i32()],
-    [2, 1],
+    { local_count: 2, storage: Dense([2, 1]) },
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     false,
     changed,
@@ -4997,6 +5637,9 @@ test "simplify_locals sink helper keeps multi-use local.get when local types dif
     value: TInstr::local_get(other),
     effects: lcs_collect_effects(TInstr::local_get(other)),
   }
+  let get_counts = sl_main_get_counts_new(2, false)
+  sl_main_get_counts_adjust_idx(get_counts, LocalIdx::new(0), 2)
+  sl_main_get_counts_adjust_idx(get_counts, LocalIdx::new(1), 1)
   let rewritten = sl_try_sink_local_get(
     LocalIdx::new(0),
     sl_test_env([
@@ -5006,7 +5649,7 @@ test "simplify_locals sink helper keeps multi-use local.get when local types dif
     sinkables,
     sinkable_indexes,
     out,
-    [2, 1],
+    get_counts,
     [
       ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
       ValType::funcref(),
@@ -5030,13 +5673,15 @@ test "simplify_locals sink helper allows single-use local.get to sink narrowing 
     value: TInstr::ref_func(FuncIdx::new(0)),
     effects: lcs_collect_effects(TInstr::ref_func(FuncIdx::new(0))),
   }
+  let get_counts = sl_main_get_counts_new(1, false)
+  sl_main_get_counts_adjust_idx(get_counts, LocalIdx::new(0), 1)
   let rewritten = sl_try_sink_local_get(
     LocalIdx::new(0),
     sl_test_env([ValType::funcref()]),
     sinkables,
     sinkable_indexes,
     out,
-    [1],
+    get_counts,
     [ValType::funcref()],
     { allow_tee: false, allow_structure: false, allow_nesting: true },
     false,
@@ -5580,19 +6225,20 @@ test "simplify_locals ID-C2 updates get counts after one-sided if introduces new
     ),
     TInstr::drop(TInstr::local_get(x)),
   ])
-  let counts = Array::make(1, 0)
-  sl_collect_get_counts_texpr(body, counts)
+  let counts = sl_main_get_counts_new(1, false)
+  sl_main_collect_get_counts_texpr(body, counts)
   let (next_body, changed) = sl_simplify_texpr_main(
     body,
     sl_test_env([ValType::i32()]),
     [ValType::i32()],
     counts,
     { allow_tee: false, allow_structure: true, allow_nesting: false },
+    Map::new(),
   )
   assert_true(changed)
   let actual = Array::make(1, 0)
   sl_collect_get_counts_texpr(next_body, actual)
-  assert_eq(counts[0], actual[0])
+  assert_eq(sl_main_get_counts_get(counts, 0), actual[0])
   assert_eq(actual[0], 2)
 }
 
@@ -5610,7 +6256,7 @@ test "simplify_locals ID-P1 structures if-else when one arm is unreachable" {
     instr,
     sl_test_env([ValType::i32()]),
     [ValType::i32()],
-    [0],
+    sl_main_get_counts_new(1, false),
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     false,
     changed,

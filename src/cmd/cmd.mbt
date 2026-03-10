@@ -1645,6 +1645,28 @@ fn limit_pass_flags_by_max_passes(
 }
 
 ///|
+fn limit_module_passes_by_max_passes(
+  passes : Array[ModulePass],
+  max_passes : Int?,
+) -> (Array[ModulePass], Bool) {
+  match max_passes {
+    Some(limit) =>
+      if limit < passes.length() {
+        let out : Array[ModulePass] = []
+        let mut i = 0
+        while i < limit {
+          out.push(passes[i])
+          i += 1
+        }
+        (out, true)
+      } else {
+        (passes, false)
+      }
+    None => (passes, false)
+  }
+}
+
+///|
 fn cmd_trace_join_pass_flags(flags : Array[String]) -> String {
   let out = StringBuilder::new()
   let mut i = 0
@@ -2299,7 +2321,7 @@ pub fn run_cmd_with_adapter(
       cmd_trace_emit(
         io,
         trace_optimize,
-        "pass_limit max_passes=\{limit} truncated=\{pass_flags_truncated}",
+        "pass_limit max_passes=\{limit} scheduled_flag_truncated=\{pass_flags_truncated}",
       )
     None => ()
   }
@@ -2399,9 +2421,22 @@ pub fn run_cmd_with_adapter(
     }
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:decode done")
 
-    let passes = match expand_passes_for_module(resolved_passes, mod, options) {
+    let expanded_passes = match
+      expand_passes_for_module(resolved_passes, mod, options) {
       Ok(passes) => passes
       Err(e) => return Err(e)
+    }
+    let (passes, expanded_passes_truncated) = limit_module_passes_by_max_passes(
+      expanded_passes, max_passes,
+    )
+    match max_passes {
+      Some(limit) =>
+        cmd_trace_emit(
+          io,
+          trace_optimize,
+          "input \{input_path}:pass_limit max_passes=\{limit} expanded_truncated=\{expanded_passes_truncated} expanded_pass_count=\{expanded_passes.length()} effective_pass_count=\{passes.length()}",
+        )
+      None => ()
     }
     cmd_trace_emit(
       io,

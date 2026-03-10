@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,19 +15,8 @@
 ///
 
 ///|
-fn pass_trace_normalize_env_now_ms(raw : UInt64) -> UInt64 {
-  if raw >= 100000000000000000UL {
-    raw / 1000000UL
-  } else if raw >= 100000000000000UL {
-    raw / 1000UL
-  } else {
-    raw
-  }
-}
-
-///|
 fn pass_trace_now_ms() -> UInt64 {
-  pass_trace_normalize_env_now_ms(@env.now())
+  @env.now()
 }
 
 ///|
@@ -42,7 +31,7 @@ fn pass_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
 
 ///|
 fn pass_trace_now_us() -> UInt64 {
-  pass_trace_now_ms() * 1000UL
+  @env.now()
 }
 
 ///|
@@ -57,7 +46,7 @@ fn pass_trace_elapsed_us_since(start_us : UInt64) -> UInt64 {
 
 ///|
 fn pass_trace_delta_us_to_ms(delta_us : UInt64) -> UInt64 {
-  delta_us / 1000UL
+  delta_us
 }
 
 ///|
