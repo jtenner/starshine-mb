@@ -854,6 +854,7 @@ fn run_ir_context_transformer_scheduler_pass(
           mod,
           fn(msg) { trace("vacuum:\{msg}") },
           trace_all_funcs=trace_pass_details,
+          traps_never_happen=options.traps_never_happen,
         ),
       )
     ReorderLocals =>
@@ -1038,6 +1039,7 @@ fn run_module_runner_scheduler_pass(
               after_dce,
               fn(msg) { trace("vacuum:\{msg}") },
               trace_all_funcs=trace_pass_details,
+              traps_never_happen=options.traps_never_happen,
             ),
           ) {
           Ok(new_mod) => {

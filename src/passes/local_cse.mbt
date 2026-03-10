@@ -361,6 +361,13 @@ fn lcs_has_shallow_nontrap_side_effects(instr : TInstr) -> Bool {
 }
 
 ///|
+fn lcs_has_unremovable_nontrap_side_effects(instr : TInstr) -> Bool {
+  let effects = lcs_collect_effects(instr)
+  effects.traps = false
+  effects.has_unremovable_side_effects()
+}
+
+///|
 fn lcs_is_shallowly_generative(instr : TInstr) -> Bool {
   match instr.kind {
     TInstrKind::TStructNew(_, _)
