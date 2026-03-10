@@ -95,6 +95,7 @@ priv struct FLFuncState {
   locals : Array[ValType]
   break_temps : Map[FLBreakTempKey, LocalIdx]
   mut changed : Bool
+  localize_branch_values : Bool
 
   // Label identity stack: each control construct with a label gets a unique uid.
   label_uids : Array[Int]
@@ -106,6 +107,7 @@ priv struct FLFuncState {
 fn FLFuncState::new(
   env : Env,
   locals : Array[ValType],
+  localize_branch_values? : Bool = false,
   trace_state? : FLFuncTraceState? = None,
 ) -> FLFuncState {
   {
@@ -113,6 +115,7 @@ fn FLFuncState::new(
     locals,
     break_temps: Map::new(),
     changed: false,
+    localize_branch_values,
     label_uids: [],
     next_label_uid: Ref::new(1),
     trace_state,
@@ -903,7 +906,7 @@ fn fl_flatten_instr(
       if fl_can_emit_statement_preludes(pos) {
         match curr.kind {
           TInstrKind::TBr(label, values) =>
-            if values.length() == 1 {
+            if state.localize_branch_values && values.length() == 1 {
               match fl_instr_type(values[0], state.env) {
                 Some(vt) => {
                   let temp = fl_get_break_temp(state, label, vt)
@@ -917,7 +920,7 @@ fn fl_flatten_instr(
               }
             }
           TInstrKind::TBrIf(label, cond, values) =>
-            if values.length() == 1 {
+            if state.localize_branch_values && values.length() == 1 {
               match fl_instr_type(values[0], state.env) {
                 Some(vt) => {
                   let temp = fl_get_break_temp(state, label, vt)
@@ -931,7 +934,7 @@ fn fl_flatten_instr(
               }
             }
           TInstrKind::TBrOnNull(label, ref_, values) =>
-            if values.length() == 1 {
+            if state.localize_branch_values && values.length() == 1 {
               match fl_instr_type(values[0], state.env) {
                 Some(vt) => {
                   let temp = fl_get_break_temp(state, label, vt)
@@ -947,7 +950,7 @@ fn fl_flatten_instr(
               }
             }
           TInstrKind::TBrOnNonNull(label, ref_, values) =>
-            if values.length() == 1 {
+            if state.localize_branch_values && values.length() == 1 {
               match fl_instr_type(values[0], state.env) {
                 Some(vt) => {
                   let temp = fl_get_break_temp(state, label, vt)
@@ -963,7 +966,7 @@ fn fl_flatten_instr(
               }
             }
           TInstrKind::TBrOnCast(label, castop, ht1, ht2, ref_, values) =>
-            if values.length() == 1 {
+            if state.localize_branch_values && values.length() == 1 {
               match fl_instr_type(values[0], state.env) {
                 Some(vt) => {
                   let temp = fl_get_break_temp(state, label, vt)
@@ -985,7 +988,7 @@ fn fl_flatten_instr(
               }
             }
           TInstrKind::TBrOnCastFail(label, castop, ht1, ht2, ref_, values) =>
-            if values.length() == 1 {
+            if state.localize_branch_values && values.length() == 1 {
               match fl_instr_type(values[0], state.env) {
                 Some(vt) => {
                   let temp = fl_get_break_temp(state, label, vt)
@@ -1091,6 +1094,7 @@ fn flatten_ir_pass_with_trace(
   mod : Module,
   trace? : (String) -> Unit = fl_trace_noop,
   trace_all_funcs? : Bool = false,
+  localize_branch_values? : Bool = false,
 ) -> ModuleTransformer[IRContext, String] {
   let params_start_ms = fl_trace_now_ms()
   trace("phase=flatten:collect_param_types:start")
@@ -1138,6 +1142,7 @@ fn flatten_ir_pass_with_trace(
         let state = FLFuncState::new(
           base_env.with_locals(all_locals),
           all_locals,
+          localize_branch_values~,
           trace_state=Some(trace_state),
         )
         let flatten_start_ms = fl_trace_now_ms()
@@ -1208,12 +1213,18 @@ fn run_flatten_with_trace(
   mod : Module,
   trace? : (String) -> Unit = fl_trace_noop,
   trace_all_funcs? : Bool = false,
+  localize_branch_values? : Bool = false,
 ) -> Result[Module, String] {
   let pass_start_ms = fl_trace_now_ms()
   trace(
     "phase=flatten:pass:start funcs=\{fl_defined_func_count(mod)} trace_all_funcs=\{trace_all_funcs}",
   )
-  let pass = flatten_ir_pass_with_trace(mod, trace~, trace_all_funcs~)
+  let pass = flatten_ir_pass_with_trace(
+    mod,
+    trace~,
+    trace_all_funcs~,
+    localize_branch_values~,
+  )
   let validate_output = match validate_module(mod) {
     Ok(_) => true
     Err(_) => false
@@ -2684,6 +2695,146 @@ test "flatten: idempotent on atomic local.get" {
   match validate_module(twice) {
     Ok(_) => ()
     Err(e) => fail("expected flattened module to validate: \{e}")
+  }
+}
+
+///|
+test "flatten: direct local.get branch value does not allocate temp local" {
+  let mod = fl_mk_valid_one_func_module(
+    [ValType::i32()],
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::br(LabelIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
+      TInstr::i32_const(I32(0)),
+    ]),
+  )
+
+  let out = run_flatten(mod).unwrap()
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, locals, body)])) => {
+      assert_eq(locals.length(), 0)
+      let saw_local_set = Ref::new(false)
+      let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          instr : TInstr,
+        ) {
+          match instr.kind {
+            TInstrKind::TLocalSet(_, _) => saw_local_set.update(fn(_) { true })
+            _ => ()
+          }
+          from_walk(self.walk_tinstruction_default((), instr))
+        },
+      )
+      ignore(walker.walk_texpr((), body))
+      assert_false(saw_local_set.val)
+    }
+    _ => fail("expected flattened function output")
+  }
+
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected flatten to keep direct local.get branch value valid without temp locals; got: \{e}",
+      )
+  }
+}
+
+///|
+test "flatten: direct local.tee branch value does not allocate temp local" {
+  let mod = fl_mk_valid_one_func_module(
+    [ValType::i32()],
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::br(LabelIdx::new(0), [
+        TInstr::local_tee(LocalIdx::new(0), TInstr::local_get(LocalIdx::new(0))),
+      ]),
+      TInstr::i32_const(I32(0)),
+    ]),
+  )
+
+  let out = run_flatten(mod).unwrap()
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, locals, body)])) => {
+      assert_eq(locals.length(), 0)
+      let saw_local_set = Ref::new(false)
+      let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          instr : TInstr,
+        ) {
+          match instr.kind {
+            TInstrKind::TLocalSet(_, _) => saw_local_set.update(fn(_) { true })
+            _ => ()
+          }
+          from_walk(self.walk_tinstruction_default((), instr))
+        },
+      )
+      ignore(walker.walk_texpr((), body))
+      assert_false(saw_local_set.val)
+    }
+    _ => fail("expected flattened function output")
+  }
+
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected flatten to keep direct local.tee branch value valid without temp locals; got: \{e}",
+      )
+  }
+}
+
+///|
+test "flatten: direct computed branch value does not allocate temp local" {
+  let mod = fl_mk_valid_one_func_module(
+    [ValType::i32()],
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::br(LabelIdx::new(0), [
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::i32_const(I32(1)),
+        ),
+      ]),
+      TInstr::i32_const(I32(0)),
+    ]),
+  )
+
+  let out = run_flatten(mod).unwrap()
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, locals, body)])) => {
+      assert_eq(locals.length(), 0)
+      let saw_local_set = Ref::new(false)
+      let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          instr : TInstr,
+        ) {
+          match instr.kind {
+            TInstrKind::TLocalSet(_, _) => saw_local_set.update(fn(_) { true })
+            _ => ()
+          }
+          from_walk(self.walk_tinstruction_default((), instr))
+        },
+      )
+      ignore(walker.walk_texpr((), body))
+      assert_false(saw_local_set.val)
+    }
+    _ => fail("expected flattened function output")
+  }
+
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected flatten to keep direct computed branch value valid without temp locals; got: \{e}",
+      )
   }
 }
 
