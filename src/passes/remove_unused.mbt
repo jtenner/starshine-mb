@@ -591,19 +591,15 @@ fn drain_analysis_worklists_with_trace(
         ctx.global_worklist.length() > 0 ||
         ctx.elem_worklist.length() > 0 {
     rounds += 1
-    if rounds <= 8 || rounds % 32 == 0 {
-      trace(
-        "\{stage}:round[\{rounds}] begin funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()}",
-      )
-    }
+    trace(
+      "\{stage}:round[\{rounds}] begin funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()}",
+    )
     process_func_worklist(ctx)
     process_global_worklist(ctx)
     process_elem_worklist(ctx)
-    if rounds <= 8 || rounds % 32 == 0 {
-      trace(
-        "\{stage}:round[\{rounds}] end funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()} \{ru_trace_used_counts(ctx)}",
-      )
-    }
+    trace(
+      "\{stage}:round[\{rounds}] end funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()} \{ru_trace_used_counts(ctx)}",
+    )
   }
   trace("\{stage}:worklists_done rounds=\{rounds} \{ru_trace_used_counts(ctx)}")
 }

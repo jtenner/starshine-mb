@@ -63,7 +63,7 @@ fn rub_trace_noop(_ : String) -> Unit {
 
 ///|
 fn rub_trace_should_log_func(ordinal : Int, trace_all_funcs : Bool) -> Bool {
-  trace_all_funcs || ordinal <= 5 || ordinal % 250 == 0
+  pass_trace_log_enabled(ordinal, trace_all_funcs)
 }
 
 ///|
@@ -159,6 +159,10 @@ fn rub_trace_emit_round_start(
   trace_state : RUBRoundTraceState,
   top_instrs : Int,
 ) -> Unit {
+  let now_ms = sl_trace_now_ms()
+  trace_state.last_progress_ms.val = now_ms
+  trace_state.no_progress_deadline_ms.val = now_ms +
+    RUB_TRACE_NO_PROGRESS_TIMEOUT_MS
   if !trace_state.log_func {
     return
   }
@@ -168,10 +172,6 @@ fn rub_trace_emit_round_start(
   (trace_state.trace)(
     "func[\{trace_state.ordinal}] round[\{trace_state.round}] progress phase=walk:start elapsed_ms=\{sl_trace_elapsed_ms(trace_state.func_start_ms)} round_ms=\{sl_trace_elapsed_ms(trace_state.round_start_ms)} exprs=0 instrs=0 rewrites=0",
   )
-  let now_ms = sl_trace_now_ms()
-  trace_state.last_progress_ms.val = now_ms
-  trace_state.no_progress_deadline_ms.val = now_ms +
-    RUB_TRACE_NO_PROGRESS_TIMEOUT_MS
 }
 
 ///|
@@ -179,10 +179,6 @@ fn rub_trace_maybe_emit_progress(
   trace_state : RUBRoundTraceState,
   phase : String,
 ) -> Unit {
-  if !trace_state.log_func {
-    return
-  }
-
   let now_ms = sl_trace_now_ms()
   let expr_visits = trace_state.expr_visits.val
   let instr_visits = trace_state.instr_visits.val
@@ -217,12 +213,15 @@ fn rub_trace_maybe_emit_progress(
     return
   }
 
-  (trace_state.trace)(
-    "func[\{trace_state.ordinal}] round[\{trace_state.round}] progress phase=\{phase} elapsed_ms=\{sl_trace_elapsed_ms(trace_state.func_start_ms)} round_ms=\{sl_trace_elapsed_ms(trace_state.round_start_ms)} exprs=\{expr_visits} instrs=\{instr_visits} rewrites=\{rewrites}",
-  )
   trace_state.last_progress_ms.val = now_ms
   trace_state.no_progress_deadline_ms.val = now_ms +
     RUB_TRACE_NO_PROGRESS_TIMEOUT_MS
+  if !trace_state.log_func {
+    return
+  }
+  (trace_state.trace)(
+    "func[\{trace_state.ordinal}] round[\{trace_state.round}] progress phase=\{phase} elapsed_ms=\{sl_trace_elapsed_ms(trace_state.func_start_ms)} round_ms=\{sl_trace_elapsed_ms(trace_state.round_start_ms)} exprs=\{expr_visits} instrs=\{instr_visits} rewrites=\{rewrites}",
+  )
 }
 
 ///|
@@ -232,16 +231,15 @@ fn rub_trace_check_no_progress(
 ) -> Result[Unit, String] {
   match trace_state {
     Some(trace_state) => {
-      if !trace_state.log_func {
-        return Ok(())
-      }
       let now_ms = sl_trace_now_ms()
       if now_ms <= trace_state.no_progress_deadline_ms.val {
         return Ok(())
       }
-      (trace_state.trace)(
-        "func[\{trace_state.ordinal}] round[\{trace_state.round}] abort reason=no_progress_timeout phase=\{phase} elapsed_ms=\{sl_trace_elapsed_ms(trace_state.func_start_ms)} round_ms=\{sl_trace_elapsed_ms(trace_state.round_start_ms)} exprs=\{trace_state.expr_visits.val} instrs=\{trace_state.instr_visits.val} rewrites=\{trace_state.rewrites.val}",
-      )
+      if trace_state.log_func {
+        (trace_state.trace)(
+          "func[\{trace_state.ordinal}] round[\{trace_state.round}] abort reason=no_progress_timeout phase=\{phase} elapsed_ms=\{sl_trace_elapsed_ms(trace_state.func_start_ms)} round_ms=\{sl_trace_elapsed_ms(trace_state.round_start_ms)} exprs=\{trace_state.expr_visits.val} instrs=\{trace_state.instr_visits.val} rewrites=\{trace_state.rewrites.val}",
+        )
+      }
       Err(RUB_NO_PROGRESS_TIMEOUT)
     }
     None => Ok(())
@@ -337,9 +335,6 @@ fn rub_trace_note_expr(
 ) -> Result[Unit, String] {
   match trace_state {
     Some(trace_state) => {
-      if !trace_state.log_func {
-        return Ok(())
-      }
       match rub_trace_check_no_progress(Some(trace_state), phase) {
         Ok(_) => ()
         Err(e) => return Err(e)
@@ -359,9 +354,6 @@ fn rub_trace_note_instr(
 ) -> Result[Unit, String] {
   match trace_state {
     Some(trace_state) => {
-      if !trace_state.log_func {
-        return Ok(())
-      }
       match rub_trace_check_no_progress(Some(trace_state), phase) {
         Ok(_) => ()
         Err(e) => return Err(e)
@@ -381,9 +373,6 @@ fn rub_trace_note_rewrite(
 ) -> Result[Unit, String] {
   match trace_state {
     Some(trace_state) => {
-      if !trace_state.log_func {
-        return Ok(())
-      }
       match rub_trace_check_no_progress(Some(trace_state), phase) {
         Ok(_) => ()
         Err(e) => return Err(e)

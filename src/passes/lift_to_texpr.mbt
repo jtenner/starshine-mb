@@ -90,9 +90,7 @@ fn lift_to_texpr_module_with_trace(
       let new_funcs : Array[Func] = []
       for def_idx in 0..<funcs.length() {
         let seen_funcs = def_idx + 1
-        if seen_funcs <= 5 || seen_funcs % 500 == 0 {
-          trace("func[\{seen_funcs}] visit")
-        }
+        trace("func[\{seen_funcs}] visit")
         match funcs[def_idx] {
           Func(locals_grouped, body) =>
             match expand_locals(locals_grouped) {
@@ -112,25 +110,19 @@ fn lift_to_texpr_module_with_trace(
                   .with_return_type(Some(results))
                 let Expr(body_instrs) = body
                 if lt_instrs_have_parametric_blocktypes(body_instrs, env) {
-                  if seen_funcs <= 20 || seen_funcs % 500 == 0 {
-                    trace(
-                      "func[\{seen_funcs}] skip_lift reason=parametric_blocktype_inputs",
-                    )
-                  }
+                  trace(
+                    "func[\{seen_funcs}] skip_lift reason=parametric_blocktype_inputs",
+                  )
                   new_funcs.push(funcs[def_idx])
                   continue
                 }
                 match to_texpr(body, env) {
                   Ok(texpr) => {
-                    if seen_funcs <= 5 || seen_funcs % 500 == 0 {
-                      trace("func[\{seen_funcs}] lifted")
-                    }
+                    trace("func[\{seen_funcs}] lifted")
                     new_funcs.push(Func::t_func(params, expanded_locals, texpr))
                   }
                   Err(e) => {
-                    if seen_funcs <= 20 || seen_funcs % 500 == 0 {
-                      trace("func[\{seen_funcs}] to_texpr failed: \{e}")
-                    }
+                    trace("func[\{seen_funcs}] to_texpr failed: \{e}")
                     return Err(
                       "lift_to_texpr failed at function \{abs_idx}: \{e}",
                     )
@@ -143,9 +135,7 @@ fn lift_to_texpr_module_with_trace(
               }
             }
           TFunc(_, _, _) => {
-            if seen_funcs <= 5 || seen_funcs % 500 == 0 {
-              trace("func[\{seen_funcs}] already-tfunc")
-            }
+            trace("func[\{seen_funcs}] already-tfunc")
             new_funcs.push(funcs[def_idx])
           }
         }
@@ -167,18 +157,14 @@ fn lift_to_texpr_pass_with_trace(
     f : Func,
   ) -> VisitAction[Unit, Func, String] {
     seen_funcs += 1
-    if seen_funcs <= 5 || seen_funcs % 500 == 0 {
-      trace("func[\{seen_funcs}] visit")
-    }
+    trace("func[\{seen_funcs}] visit")
     match f {
       Func(l, t) =>
         match to_texpr(t, Env::new()) {
           Ok(t) =>
             match expand_locals(l) {
               Ok(l) => {
-                if seen_funcs <= 5 || seen_funcs % 500 == 0 {
-                  trace("func[\{seen_funcs}] lifted")
-                }
+                trace("func[\{seen_funcs}] lifted")
                 change((), Func::t_func([], l, t))
               }
               Err(err) => {
@@ -187,16 +173,12 @@ fn lift_to_texpr_pass_with_trace(
               }
             }
           Err(e) => {
-            if seen_funcs <= 20 || seen_funcs % 500 == 0 {
-              trace("func[\{seen_funcs}] to_texpr failed: \{e}")
-            }
+            trace("func[\{seen_funcs}] to_texpr failed: \{e}")
             unchanged()
           }
         }
       TFunc(_, _, _) => {
-        if seen_funcs <= 5 || seen_funcs % 500 == 0 {
-          trace("func[\{seen_funcs}] already-tfunc")
-        }
+        trace("func[\{seen_funcs}] already-tfunc")
         unchanged()
       }
     }

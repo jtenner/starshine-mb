@@ -199,7 +199,7 @@ fn dataflow_optimization_pass(
   ) -> VisitAction[IRContext, Func, String] {
     seen_funcs += 1
     let ordinal = seen_funcs
-    let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
+    let log_func = pass_trace_log_enabled(ordinal, trace_all_funcs)
     let abs_idx = imported_funcs + ordinal - 1
     let was_plain_func = func is Func(_, _)
     let normalized = match

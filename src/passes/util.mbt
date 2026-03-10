@@ -61,6 +61,12 @@ fn pass_trace_delta_us_to_ms(delta_us : UInt64) -> UInt64 {
 }
 
 ///|
+fn pass_trace_log_enabled(ordinal : Int, trace_all_funcs : Bool) -> Bool {
+  ignore(ordinal)
+  trace_all_funcs
+}
+
+///|
 pub struct SquareMatrix[T] {
   storage : Map[UInt64, T]
   n : UInt

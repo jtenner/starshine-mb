@@ -3560,7 +3560,7 @@ fn code_folding_pass_with_trace(
   .on_func_evt(fn(self, state, func : Func) {
     seen_funcs += 1
     let ordinal = seen_funcs
-    let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 50 == 0
+    let log_func = pass_trace_log_enabled(ordinal, trace_all_funcs)
     match func {
       Func(_) => {
         if log_func {

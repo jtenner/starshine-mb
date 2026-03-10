@@ -1847,7 +1847,7 @@ fn vq_optimize_function(
       let top_instrs = body.instrs.length()
       let num_locals = all_locals.length()
 
-      if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
+      if trace_all_funcs {
         trace(
           "func[\{ordinal}] vacuum start instrs=\{top_instrs} locals=\{num_locals}",
         )
@@ -1862,7 +1862,7 @@ fn vq_optimize_function(
       let budget = Ref::new(if top_instrs > 200 { 80000 } else { 12000 })
       if vq_should_fast_skip_function(body, sig, env, analysis_cache) {
         stats.fast_skips.val += 1
-        if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
+        if trace_all_funcs {
           trace("func[\{ordinal}] vacuum fast_skip=true")
         }
         return (func, false)
@@ -1904,13 +1904,13 @@ fn vq_optimize_function(
           TExpr::new([TInstr::nop()]),
         )
         changed = true
-        if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
+        if trace_all_funcs {
           trace("func[\{ordinal}] vacuum nopped=true budget_left=\{budget.val}")
         }
         (nopped, changed)
       } else {
         let next_func = Func::t_func(tfunc_params, locals, next_body)
-        if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
+        if trace_all_funcs {
           trace(
             "func[\{ordinal}] vacuum done changed=\{changed} budget_left=\{budget.val}",
           )
@@ -1948,7 +1948,7 @@ fn vacuum_ir_pass_with_trace(
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
     let ordinal = def_idx + 1
-    let log_func = trace_all_funcs || ordinal <= 50 || ordinal % 500 == 0
+    let log_func = pass_trace_log_enabled(ordinal, trace_all_funcs)
     let start_instrs = match func {
       TFunc(_, _, body) => body.instrs.length()
       _ => 0

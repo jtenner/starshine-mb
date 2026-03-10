@@ -43,7 +43,7 @@ fn rg_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
 
 ///|
 fn rg_trace_should_log_func(ordinal : Int, trace_all_funcs : Bool) -> Bool {
-  trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
+  pass_trace_log_enabled(ordinal, trace_all_funcs)
 }
 
 ///|

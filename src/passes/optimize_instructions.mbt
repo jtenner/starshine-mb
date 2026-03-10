@@ -4386,7 +4386,7 @@ fn optimize_instructions_ir_pass(
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     seen_funcs += 1
     let ordinal = seen_funcs
-    let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 50 == 0
+    let log_func = pass_trace_log_enabled(ordinal, trace_all_funcs)
     let top_instrs = match func {
       TFunc(_, _, body) => body.instrs.length()
       _ => 0

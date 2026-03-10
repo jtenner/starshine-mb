@@ -45,7 +45,7 @@ fn fl_trace_noop(_ : String) -> Unit {
 
 ///|
 fn fl_trace_should_log_func(ordinal : Int, trace_all_funcs : Bool) -> Bool {
-  trace_all_funcs || ordinal <= 5 || ordinal % 250 == 0
+  pass_trace_log_enabled(ordinal, trace_all_funcs)
 }
 
 ///|
@@ -562,18 +562,12 @@ fn fl_flatten_non_control_children(
     )
     Ok((mb_rebuild_non_control(instr, rebuilt_children), preludes))
   } else {
-    // Avoid trace-sink saturation from hot unchanged unary nodes.
-    // The expensive cases still log via changed=true, multi-child, or non-zero elapsed time.
-    if children.length() != 1 ||
-      !preludes.is_empty() ||
-      fl_trace_elapsed_ms(helper_start_ms) > 0 {
-      fl_trace_helper_done(
-        state,
-        "fl_flatten_non_control_children",
-        helper_start_ms,
-        "kind=\{helper_kind} children=\{children.length()} changed=false preludes=\{preludes.length()}",
-      )
-    }
+    fl_trace_helper_done(
+      state,
+      "fl_flatten_non_control_children",
+      helper_start_ms,
+      "kind=\{helper_kind} children=\{children.length()} changed=false preludes=\{preludes.length()}",
+    )
     Ok((instr, preludes))
   }
 }

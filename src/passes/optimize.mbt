@@ -508,7 +508,13 @@ fn run_ir_context_transformer_scheduler_pass(
   trace : (String) -> Unit,
   trace_pass_details : Bool,
 ) -> Result[Module, String] {
-  match pass {
+  let scheduler_kind = "ir-context-transformer"
+  let scheduler_start_ms = pass_trace_now_ms()
+  if trace_pass_details {
+    trace("\{pass}:phase=scheduler:start kind=\{scheduler_kind}")
+    trace("\{pass}:helper kind=\{scheduler_kind} event=invoke")
+  }
+  let result = match pass {
     AbstractTypeRefining(props) =>
       apply_ir_transformer_pass(
         ctx,
@@ -733,7 +739,7 @@ fn run_ir_context_transformer_scheduler_pass(
           } else {
             optimize_trace_noop
           }
-          let after_dce = match
+          match
             apply_unit_transformer_pass(
               gufa_mod,
               dead_code_elimination_pass_with_trace(
@@ -741,19 +747,20 @@ fn run_ir_context_transformer_scheduler_pass(
                 trace_all_funcs=trace_pass_details,
               ),
             ) {
-            Ok(new_mod) => new_mod
-            Err(e) => return Err(e)
+            Ok(after_dce) => {
+              ctx.set_mod(after_dce)
+              apply_ir_transformer_pass(
+                ctx,
+                after_dce,
+                code_folding_ir_pass_with_trace(
+                  after_dce,
+                  trace=fn(msg) { trace("code_folding:\{msg}") },
+                  trace_all_funcs=trace_pass_details,
+                ),
+              )
+            }
+            Err(e) => Err(e)
           }
-          ctx.set_mod(after_dce)
-          apply_ir_transformer_pass(
-            ctx,
-            after_dce,
-            code_folding_ir_pass_with_trace(
-              after_dce,
-              trace=fn(msg) { trace("code_folding:\{msg}") },
-              trace_all_funcs=trace_pass_details,
-            ),
-          )
         }
         Err(e) => Err(e)
       }
@@ -905,6 +912,23 @@ fn run_ir_context_transformer_scheduler_pass(
       )
     _ => Err("optimize scheduler bug: expected IRContext transformer pass")
   }
+  if trace_pass_details {
+    match result {
+      Ok(_) => {
+        trace(
+          "\{pass}:phase=scheduler:done kind=\{scheduler_kind} elapsed_ms=\{pass_trace_elapsed_ms(scheduler_start_ms)}",
+        )
+        trace("\{pass}:helper kind=\{scheduler_kind} result=ok")
+      }
+      Err(e) => {
+        trace(
+          "\{pass}:phase=scheduler:error kind=\{scheduler_kind} elapsed_ms=\{pass_trace_elapsed_ms(scheduler_start_ms)} \{e}",
+        )
+        trace("\{pass}:helper kind=\{scheduler_kind} result=err")
+      }
+    }
+  }
+  result
 }
 
 ///|
@@ -914,7 +938,13 @@ fn run_unit_transformer_scheduler_pass(
   trace : (String) -> Unit,
   trace_pass_details : Bool,
 ) -> Result[Module, String] {
-  match pass {
+  let scheduler_kind = "unit-transformer"
+  let scheduler_start_ms = pass_trace_now_ms()
+  if trace_pass_details {
+    trace("\{pass}:phase=scheduler:start kind=\{scheduler_kind}")
+    trace("\{pass}:helper kind=\{scheduler_kind} event=invoke")
+  }
+  let result = match pass {
     DeadCodeElimination => {
       let dce_trace = if trace_pass_details {
         fn(msg) { trace("dead_code_elimination:\{msg}") }
@@ -931,6 +961,23 @@ fn run_unit_transformer_scheduler_pass(
     }
     _ => Err("optimize scheduler bug: expected Unit transformer pass")
   }
+  if trace_pass_details {
+    match result {
+      Ok(_) => {
+        trace(
+          "\{pass}:phase=scheduler:done kind=\{scheduler_kind} elapsed_ms=\{pass_trace_elapsed_ms(scheduler_start_ms)}",
+        )
+        trace("\{pass}:helper kind=\{scheduler_kind} result=ok")
+      }
+      Err(e) => {
+        trace(
+          "\{pass}:phase=scheduler:error kind=\{scheduler_kind} elapsed_ms=\{pass_trace_elapsed_ms(scheduler_start_ms)} \{e}",
+        )
+        trace("\{pass}:helper kind=\{scheduler_kind} result=err")
+      }
+    }
+  }
+  result
 }
 
 ///|
@@ -941,7 +988,13 @@ fn run_module_runner_scheduler_pass(
   trace : (String) -> Unit,
   trace_pass_details : Bool,
 ) -> Result[Module, String] {
-  match pass {
+  let scheduler_kind = "module-runner"
+  let scheduler_start_ms = pass_trace_now_ms()
+  if trace_pass_details {
+    trace("\{pass}:phase=scheduler:start kind=\{scheduler_kind}")
+    trace("\{pass}:helper kind=\{scheduler_kind} event=invoke")
+  }
+  let result = match pass {
     SignatureRefining =>
       apply_module_runner_pass(mod, fn(mod) { signature_refining(mod) })
     DuplicateImportElimination =>
@@ -1167,6 +1220,23 @@ fn run_module_runner_scheduler_pass(
       apply_module_runner_pass(mod, fn(mod) { remove_unused_types(mod) })
     _ => Err("optimize scheduler bug: expected module-runner pass")
   }
+  if trace_pass_details {
+    match result {
+      Ok(_) => {
+        trace(
+          "\{pass}:phase=scheduler:done kind=\{scheduler_kind} elapsed_ms=\{pass_trace_elapsed_ms(scheduler_start_ms)}",
+        )
+        trace("\{pass}:helper kind=\{scheduler_kind} result=ok")
+      }
+      Err(e) => {
+        trace(
+          "\{pass}:phase=scheduler:error kind=\{scheduler_kind} elapsed_ms=\{pass_trace_elapsed_ms(scheduler_start_ms)} \{e}",
+        )
+        trace("\{pass}:helper kind=\{scheduler_kind} result=err")
+      }
+    }
+  }
+  result
 }
 
 ///|

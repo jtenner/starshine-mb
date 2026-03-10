@@ -855,7 +855,7 @@ fn cl_trace_noop(_ : String) -> Unit {
 
 ///|
 fn cl_trace_should_log_func(ordinal : Int, trace_all_funcs : Bool) -> Bool {
-  trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
+  pass_trace_log_enabled(ordinal, trace_all_funcs)
 }
 
 ///|

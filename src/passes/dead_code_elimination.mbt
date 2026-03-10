@@ -101,10 +101,9 @@ fn dce_trace_elapsed_us_since(start_us : UInt64) -> UInt64 {
 ///|
 fn dce_trace_should_log_func(trace_state : DCEPassTraceState) -> Bool {
   trace_state.enabled &&
-  (
-    trace_state.trace_all_funcs ||
-    trace_state.func_ordinal.val <= 5 ||
-    trace_state.func_ordinal.val % 250 == 0
+  pass_trace_log_enabled(
+    trace_state.func_ordinal.val,
+    trace_state.trace_all_funcs,
   )
 }
 
@@ -235,14 +234,10 @@ fn dce_trace_record_rewrite(
     return
   }
   trace_state.rewrites.val += 1
-  if trace_state.trace_all_funcs ||
-    trace_state.rewrites.val <= 5 ||
-    trace_state.rewrites.val % 32 == 0 {
-    (trace_state.trace)(
-      "func[\{trace_state.func_ordinal.val}]:rewrite phase=\{phase} count=\{trace_state.rewrites.val} instrs=\{trace_state.instr_visits.val} break_checks=\{trace_state.break_checks.val} budget=\{break_scan_budget.val}",
-    )
-    trace_state.last_progress_us.val = dce_trace_now_us()
-  }
+  (trace_state.trace)(
+    "func[\{trace_state.func_ordinal.val}]:rewrite phase=\{phase} count=\{trace_state.rewrites.val} instrs=\{trace_state.instr_visits.val} break_checks=\{trace_state.break_checks.val} budget=\{break_scan_budget.val}",
+  )
+  trace_state.last_progress_us.val = dce_trace_now_us()
 }
 
 ///|

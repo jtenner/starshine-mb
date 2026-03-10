@@ -57,7 +57,7 @@ fn remove_unused_names_ir_pass(
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
     let ordinal = def_idx + 1
-    let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
+    let log_func = pass_trace_log_enabled(ordinal, trace_all_funcs)
     match func {
       TFunc(params, locals, body) => {
         let func_start_ms = sl_trace_now_ms()
