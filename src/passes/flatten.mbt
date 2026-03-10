@@ -450,7 +450,20 @@ fn fl_is_known_void_statement(instr : TInstr) -> Bool {
     // expression trees when flattening statement-position nodes.
     TInstrKind::TLocalSet(_, _)
     | TInstrKind::TGlobalSet(_, _)
-    | TInstrKind::TDrop(_) => true
+    | TInstrKind::TDrop(_)
+    | TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_) => true
     _ => false
   }
 }
