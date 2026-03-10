@@ -3105,7 +3105,7 @@ fn cf_preview_block_temp_local(
   tails : Array[ScopedTail],
   merged_instrs : Array[TInstr],
   results : Array[ValType],
-) -> (CodeFoldingTempLocal, Env)? {
+) -> (CodeFoldingTempLocal, Array[ValType], Env)? {
   let value_instr = match cf_find_block_tail_value(tails) {
     Some(value_instr) => value_instr
     None => return None
@@ -3116,8 +3116,10 @@ fn cf_preview_block_temp_local(
   if merged_instrs[merged_instrs.length() - 1] != value_instr {
     return None
   }
-  let (local_idx, _, preview_env) = state.preview_appended_local(results[0])
-  Some(({ local_idx, value_instr }, preview_env))
+  let (local_idx, preview_locals, preview_env) = state.preview_appended_local(
+    results[0],
+  )
+  Some(({ local_idx, value_instr }, preview_locals, preview_env))
 }
 
 ///|
@@ -3129,7 +3131,7 @@ fn process_block(
   instrs : Array[TInstr],
   trace_stats : CodeFoldingRoundTraceStats,
   trace_ctx : CodeFoldingExprTraceCtx,
-) -> TInstr? {
+) -> (TInstr, Array[ValType]?)? {
   trace_stats.block_visits += 1
   ignore(label)
   if instrs.is_empty() {
@@ -3176,15 +3178,16 @@ fn process_block(
     ) {
     Some(plan) => {
       let empty_stack : Array[ValType] = []
-      let (temp_local, local_env) = match
+      let (temp_local, committed_locals, local_env) = match
         cf_preview_block_temp_local(
           state,
           rewrite_tails,
           plan.merged_instrs,
           results,
         ) {
-        Some((temp_local, local_env)) => (Some(temp_local), local_env)
-        None => (None, state.env)
+        Some((temp_local, preview_locals, local_env)) =>
+          (Some(temp_local), Some(preview_locals), local_env)
+        None => (None, None, state.env)
       }
       let wrapper_env = local_env.with_label(results)
       let merged_instrs = cf_rewrite_merged_instrs_with_temp_local(
@@ -3232,16 +3235,11 @@ fn process_block(
       if wrapper_stack != results {
         return None
       }
-      match temp_local {
-        Some(_) => ignore(state.append_local(results[0]))
-        None => ()
-      }
-      state.another_pass = true
       trace_stats.expr_successes += 1
       trace_stats.expr_merged_instrs += plan.merged_instrs.length()
       trace_stats.expr_saved += plan.saved
       trace_stats.block_successes += 1
-      Some(wrapper)
+      Some((wrapper, committed_locals))
     }
     None => None
   }
@@ -3438,7 +3436,14 @@ fn code_folding_pass_with_trace(
             round_stats,
             expr_trace_ctx,
           ) {
-          Some(changed_instr) => change(restored_state, changed_instr)
+          Some((changed_instr, committed_locals)) => {
+            match committed_locals {
+              Some(locals) => restored_state.prepare_func(locals)
+              None => ()
+            }
+            restored_state.another_pass = true
+            change(restored_state, changed_instr)
+          }
           None =>
             if bt_changed || body_changed {
               change(restored_state, rewritten)
@@ -3895,17 +3900,45 @@ fn code_folding_pass_with_trace(
             total_stats.merge_from(round_stats)
           }
           let elapsed_us = cf_trace_elapsed_us_since(func_start_us)
-          let changed = current_func != func
+          let mut final_state = state
+          let mut final_func = match current_func {
+            TFunc(_, _, final_body) => {
+              current_locals = final_state.func_locals
+              current_body = final_body
+              cf_build_tfunc(active_params, current_locals, current_body)
+            }
+            _ => current_func
+          }
+          // If the custom fixed-point loop made no top-level changes, run one
+          // default walk pass so nested value-position control surfaces still
+          // get folded while keeping locals in sync with emitted indices.
+          if final_func == func {
+            match self.walk_func_default(final_state, final_func) {
+              Ok((walked_func, walked_state)) => {
+                final_state = walked_state
+                final_func = match walked_func {
+                  TFunc(_, _, walked_body) => {
+                    current_locals = final_state.func_locals
+                    current_body = walked_body
+                    cf_build_tfunc(active_params, current_locals, current_body)
+                  }
+                  _ => walked_func
+                }
+              }
+              Err(e) => return error(e)
+            }
+          }
+          let final_body = match final_func {
+            TFunc(_, _, b) => b
+            _ => current_body
+          }
+          let changed = final_func != func
           if log_func {
             trace(
-              "func[\{ordinal}] done elapsed_ms=\{cf_trace_delta_us_to_ms(elapsed_us)} elapsed_us=\{elapsed_us} rounds=\{rounds} changed=\{changed} top_instrs=\{start_top_instrs}->\{current_body.instrs.length()} collect_ms=\{cf_trace_delta_us_to_ms(total_stats.collect_us)} return_ms=\{cf_trace_delta_us_to_ms(total_stats.return_phase_us)} unreachable_ms=\{cf_trace_delta_us_to_ms(total_stats.unreachable_phase_us)} walk_ms=\{cf_trace_delta_us_to_ms(total_stats.walk_us)} return_changed=\{total_stats.return_phase_successes} unreachable_changed=\{total_stats.unreachable_phase_successes} blocks=\{total_stats.block_visits} ifs=\{total_stats.if_visits} expr_calls=\{total_stats.expr_calls} expr_changed=\{total_stats.expr_successes} expr_saved=\{total_stats.expr_saved} expr_match_ms=\{cf_trace_delta_us_to_ms(total_stats.expr_match_us)} expr_can_move_ms=\{cf_trace_delta_us_to_ms(total_stats.expr_can_move_us)} expr_measure_ms=\{cf_trace_delta_us_to_ms(total_stats.expr_measure_us)} term_group_checks=\{total_stats.terminating_group_pair_checks} measure_ms=\{cf_trace_delta_us_to_ms(total_stats.measure_us)} branch_ms=\{cf_trace_delta_us_to_ms(total_stats.branch_target_us)} can_move_ms=\{cf_trace_delta_us_to_ms(total_stats.can_move_us)}",
+              "func[\{ordinal}] done elapsed_ms=\{cf_trace_delta_us_to_ms(elapsed_us)} elapsed_us=\{elapsed_us} rounds=\{rounds} changed=\{changed} top_instrs=\{start_top_instrs}->\{final_body.instrs.length()} collect_ms=\{cf_trace_delta_us_to_ms(total_stats.collect_us)} return_ms=\{cf_trace_delta_us_to_ms(total_stats.return_phase_us)} unreachable_ms=\{cf_trace_delta_us_to_ms(total_stats.unreachable_phase_us)} walk_ms=\{cf_trace_delta_us_to_ms(total_stats.walk_us)} return_changed=\{total_stats.return_phase_successes} unreachable_changed=\{total_stats.unreachable_phase_successes} blocks=\{total_stats.block_visits} ifs=\{total_stats.if_visits} expr_calls=\{total_stats.expr_calls} expr_changed=\{total_stats.expr_successes} expr_saved=\{total_stats.expr_saved} expr_match_ms=\{cf_trace_delta_us_to_ms(total_stats.expr_match_us)} expr_can_move_ms=\{cf_trace_delta_us_to_ms(total_stats.expr_can_move_us)} expr_measure_ms=\{cf_trace_delta_us_to_ms(total_stats.expr_measure_us)} term_group_checks=\{total_stats.terminating_group_pair_checks} measure_ms=\{cf_trace_delta_us_to_ms(total_stats.measure_us)} branch_ms=\{cf_trace_delta_us_to_ms(total_stats.branch_target_us)} can_move_ms=\{cf_trace_delta_us_to_ms(total_stats.can_move_us)}",
             )
           }
-          if current_func == func {
-            unchanged()
-          } else {
-            change(state, current_func)
-          }
+          change(final_state, final_func)
         }
       }
     }
@@ -6652,6 +6685,68 @@ test "code folding module pass keeps nested block-hoist temp locals valid with p
       ]),
     )
   let folded = cf_run_fold_module(mod)
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding module pass declares block-tail temp local in param-only funcs" {
+  let shared = TInstr::local_get(LocalIdx::new(0))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(
+            CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], [
+              ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::block(
+                BlockType::val_type(ValType::i32()),
+                TExpr::new([
+                  TInstr::if_(
+                    BlockType::void_(),
+                    TInstr::local_get(LocalIdx::new(1)),
+                    TExpr::new([
+                      TInstr::nop(),
+                      TInstr::br(LabelIdx::new(1), [shared]),
+                    ]),
+                    Some(TExpr::new([TInstr::drop(TInstr::i32_const(I32(10)))])),
+                  ),
+                  shared,
+                ]),
+              ),
+            ),
+            TInstr::return_([TInstr::local_get(LocalIdx::new(2))]),
+          ]),
+        ),
+      ]),
+    )
+  let folded = cf_run_fold_module(mod)
+  match folded.code_sec {
+    Some(CodeSec([folded_func])) => {
+      assert_true(cf_test_func_has_local_set(folded_func, LocalIdx::new(3)))
+      assert_true(cf_test_func_has_local_get(folded_func, LocalIdx::new(3)))
+      match folded_func {
+        TFunc(params, locals, _) => {
+          assert_eq(params.length(), 3)
+          assert_true(locals.length() >= 1)
+        }
+        _ => fail("expected folded module to contain one typed function")
+      }
+    }
+    _ => fail("expected folded module to contain one typed function")
+  }
   assert_eq(validate_module(folded), Ok(()))
 }
 
