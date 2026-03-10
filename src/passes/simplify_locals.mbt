@@ -74,6 +74,12 @@ const SL_PATHOLOGICAL_FUNC_TICK_BUDGET : UInt64 = 8000UL
 const SL_HOTSPOT_SUMMARY_LIMIT : Int = 8
 
 ///|
+const SL_WIDE_LOCALS_NO_NESTING_MIN_LOCALS : Int = 768
+
+///|
+const SL_WIDE_LOCALS_NO_NESTING_MAX_INSTRS : Int = 16
+
+///|
 priv struct SLRewriteValidationSnapshot {
   raw_candidates_attempted : Int
   candidates_accepted : Int
@@ -315,6 +321,15 @@ fn sl_is_pathological_fastpath_candidate(
 ) -> Bool {
   local_count >= SL_PATHOLOGICAL_FASTPATH_MIN_LOCALS &&
   top_instrs <= SL_PATHOLOGICAL_FASTPATH_MAX_INSTRS
+}
+
+///|
+fn sl_is_wide_locals_no_nesting_candidate(
+  local_count : Int,
+  top_instrs : Int,
+) -> Bool {
+  local_count >= SL_WIDE_LOCALS_NO_NESTING_MIN_LOCALS &&
+  top_instrs <= SL_WIDE_LOCALS_NO_NESTING_MAX_INSTRS
 }
 
 ///|
@@ -2567,6 +2582,9 @@ fn sl_rewrite_instr_main(
   in_value_position : Bool,
   changed : Ref[Bool],
 ) -> TInstr {
+  if in_value_position && !options.allow_nesting {
+    return instr
+  }
   match instr.kind {
     TInstrKind::TLocalGet(idx) =>
       sl_try_sink_local_get(
@@ -3950,6 +3968,10 @@ fn sl_simplify_function(
         local_types.length(),
         body.instrs.length(),
       )
+      let disable_nesting_profile = sl_is_wide_locals_no_nesting_candidate(
+        local_types.length(),
+        body.instrs.length(),
+      )
       let func_tick_start = sl_trace_now_us()
       let shared_effects_cache : Map[TInstr, LCSEffects] = Map::new()
       let mut body = body
@@ -3978,10 +4000,22 @@ fn sl_simplify_function(
           {
             allow_tee: false,
             allow_structure: options.allow_structure,
-            allow_nesting: options.allow_nesting,
+            allow_nesting: if disable_nesting_profile {
+              false
+            } else {
+              options.allow_nesting
+            },
           }
         } else {
-          options
+          {
+            allow_tee: options.allow_tee,
+            allow_structure: options.allow_structure,
+            allow_nesting: if disable_nesting_profile {
+              false
+            } else {
+              options.allow_nesting
+            },
+          }
         }
         let measure_for_tee = cycle_options.allow_tee
         let main_phase_start_us = if trace_verbose {
@@ -4168,7 +4202,15 @@ fn sl_simplify_function(
             body,
             env,
             local_types,
-            options,
+            {
+              allow_tee: options.allow_tee,
+              allow_structure: options.allow_structure,
+              allow_nesting: if disable_nesting_profile {
+                false
+              } else {
+                options.allow_nesting
+              },
+            },
             false,
             effects_cache=Some(shared_effects_cache),
             force_sparse_counts=pathological_profile,
