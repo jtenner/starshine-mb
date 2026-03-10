@@ -1480,6 +1480,9 @@ fn sl_try_sink_local_get(
   in_value_position : Bool,
   changed : Ref[Bool],
 ) -> TInstr {
+  if !options.allow_nesting {
+    return TInstr::local_get(idx)
+  }
   let key = sl_localidx_to_int(idx)
   if key < 0 || key >= get_counts.local_count {
     return TInstr::local_get(idx)
@@ -2704,6 +2707,7 @@ fn sl_simplify_texpr_main(
   let sinkables : Map[Int, SLSinkableInfo] = Map::new()
   let sinkable_indexes = sl_sinkable_indexes_new()
   let changed = Ref::new(false)
+  let enable_sinking = options.allow_nesting
 
   for instr in expr.instrs {
     let rewritten = sl_rewrite_instr_main(
@@ -2717,17 +2721,21 @@ fn sl_simplify_texpr_main(
       }
       _ => rewritten
     }
-    let curr = sl_try_structure_loop_sink(
-      curr, env, sinkables, sinkable_indexes, out, local_types, options, changed,
-    )
-    if !sinkables.is_empty() {
+    let curr = if enable_sinking {
+      sl_try_structure_loop_sink(
+        curr, env, sinkables, sinkable_indexes, out, local_types, options, changed,
+      )
+    } else {
+      curr
+    }
+    if enable_sinking && !sinkables.is_empty() {
       let curr_effects = sl_collect_effects_cached(curr, effects_cache)
       sl_invalidate_sinkables(sinkables, sinkable_indexes, curr_effects)
     }
     match curr.kind {
       TInstrKind::TLocalSet(idx, value) => {
         let key = sl_localidx_to_int(idx)
-        if key >= 0 && key < get_counts.local_count {
+        if enable_sinking && key >= 0 && key < get_counts.local_count {
           match sinkables.get(key) {
             Some(previous) => {
               if previous.out_index >= 0 && previous.out_index < out.length() {
@@ -2756,7 +2764,8 @@ fn sl_simplify_texpr_main(
     out.push(curr)
     let reached_unreachable = is_unreachable_instr(curr)
     let reached_non_linear_boundary = lcs_is_non_linear_boundary(curr)
-    let keep_sinkables_across_boundary = if reached_non_linear_boundary &&
+    let keep_sinkables_across_boundary = if enable_sinking &&
+      reached_non_linear_boundary &&
       !reached_unreachable {
       match curr.kind {
         TInstrKind::TBlock(VoidBlockType, _) => {
@@ -2775,8 +2784,11 @@ fn sl_simplify_texpr_main(
     } else {
       false
     }
-    if reached_unreachable ||
-      (reached_non_linear_boundary && !keep_sinkables_across_boundary) {
+    if enable_sinking &&
+      (
+        reached_unreachable ||
+        (reached_non_linear_boundary && !keep_sinkables_across_boundary)
+      ) {
       sinkables.clear()
       sinkable_indexes.reads_by_local.clear()
       sinkable_indexes.writes_by_local.clear()
