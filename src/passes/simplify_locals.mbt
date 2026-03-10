@@ -71,6 +71,17 @@ let sl_rewrite_validation_rejection_reason_buckets : Ref[Map[String, Int]] = Ref
 )
 
 ///|
+let sl_rewrite_validation_rejection_trace_limit = 3
+
+///|
+let sl_rewrite_validation_rejection_trace_count : Ref[Int] = Ref::new(0)
+
+///|
+let sl_rewrite_validation_rejection_trace_suppressed : Ref[Bool] = Ref::new(
+  false,
+)
+
+///|
 fn sl_perf_reset() -> Unit {
   sl_perf_effect_collect_calls.val = 0
   sl_perf_invalidation_entry_checks.val = 0
@@ -90,6 +101,9 @@ fn sl_perf_snapshot() -> SLPerfSnapshot {
 
 ///|
 fn sl_rewrite_validation_bucket_for_error(err : String) -> String {
+  if err.contains("invalid local index") {
+    return "invalid_local_index"
+  }
   if err.contains("result type mismatch") {
     return "result_type_mismatch"
   }
@@ -120,6 +134,26 @@ fn sl_rewrite_validation_reset() -> Unit {
   sl_rewrite_validation_candidates_accepted.val = 0
   sl_rewrite_validation_candidates_rejected_local_validation.val = 0
   sl_rewrite_validation_rejection_reason_buckets.val = Map::new()
+  sl_rewrite_validation_rejection_trace_count.val = 0
+  sl_rewrite_validation_rejection_trace_suppressed.val = false
+}
+
+///|
+fn sl_trace_rewrite_validation_failure(
+  trace : (String) -> Unit,
+  msg : String,
+) -> Unit {
+  if sl_rewrite_validation_rejection_trace_count.val <
+    sl_rewrite_validation_rejection_trace_limit {
+    sl_rewrite_validation_rejection_trace_count.val = sl_rewrite_validation_rejection_trace_count.val +
+      1
+    trace(msg)
+    return
+  }
+  if !sl_rewrite_validation_rejection_trace_suppressed.val {
+    sl_rewrite_validation_rejection_trace_suppressed.val = true
+    trace("additional rewrite rejection logs suppressed")
+  }
 }
 
 ///|
@@ -204,6 +238,13 @@ fn sl_collect_local_stats_texpr(expr : TExpr, stats : SLLocalStats) -> Unit {
   for instr in expr.instrs {
     sl_collect_local_stats_instr(instr, stats)
   }
+}
+
+///|
+fn sl_count_local_tees_texpr(expr : TExpr) -> Int {
+  let stats = SLLocalStats::new()
+  sl_collect_local_stats_texpr(expr, stats)
+  stats.tees
 }
 
 ///|
@@ -3266,6 +3307,7 @@ fn sl_validate_typed_function_candidate(
 fn sl_try_repair_duplicated_param_prefix_locals(
   env : Env,
   abs_func_idx : FuncIdx,
+  original : Func,
   candidate : Func,
 ) -> Func? {
   let FuncType(declared_params, _) = match
@@ -3273,23 +3315,31 @@ fn sl_try_repair_duplicated_param_prefix_locals(
     Some(ft) => ft
     None => return None
   }
+  let (original_params, original_local_vals) = match original {
+    TFunc(params, local_vals, _) => (params, local_vals)
+    _ => return None
+  }
   match candidate {
-    TFunc(tfunc_params, local_vals, body) => {
+    TFunc(tfunc_params, local_vals, body) =>
       if tfunc_params != declared_params ||
-        local_vals.length() < declared_params.length() {
-        return None
-      }
-      for i = 0; i < declared_params.length(); i = i + 1 {
-        if local_vals[i] != declared_params[i] {
-          return None
+        tfunc_params != original_params ||
+        local_vals.length() !=
+        declared_params.length() + original_local_vals.length() {
+        None
+      } else {
+        for i = 0; i < declared_params.length(); i = i + 1 {
+          if local_vals[i] != declared_params[i] {
+            return None
+          }
         }
+        for i = 0; i < original_local_vals.length(); i = i + 1 {
+          if local_vals[declared_params.length() + i] != original_local_vals[i] {
+            return None
+          }
+        }
+        let repaired_locals = original_local_vals.copy()
+        Some(Func::t_func(tfunc_params, repaired_locals, body))
       }
-      let repaired_locals : Array[ValType] = []
-      for i = declared_params.length(); i < local_vals.length(); i = i + 1 {
-        repaired_locals.push(local_vals[i])
-      }
-      Some(Func::t_func(tfunc_params, repaired_locals, body))
-    }
     _ => None
   }
 }
@@ -3298,11 +3348,14 @@ fn sl_try_repair_duplicated_param_prefix_locals(
 fn sl_try_salvage_typed_candidate(
   env : Env,
   abs_func_idx : FuncIdx,
+  original : Func,
   candidate : Func,
   trace : (String) -> Unit,
 ) -> Func? {
   match
-    sl_try_repair_duplicated_param_prefix_locals(env, abs_func_idx, candidate) {
+    sl_try_repair_duplicated_param_prefix_locals(
+      env, abs_func_idx, original, candidate,
+    ) {
     Some(repaired) =>
       if repaired == candidate {
         None
@@ -3316,7 +3369,8 @@ fn sl_try_salvage_typed_candidate(
             Some(repaired)
           }
           Err(err) => {
-            trace(
+            sl_trace_rewrite_validation_failure(
+              trace,
               "func_idx=\{abs_func_idx.to_string()} rewrite repair attempt failed local validation: \{err}",
             )
             None
@@ -3345,7 +3399,9 @@ fn sl_keep_validated_rewrite(
     }
     Err(err) =>
       match
-        sl_try_salvage_typed_candidate(env, abs_func_idx, candidate, trace) {
+        sl_try_salvage_typed_candidate(
+          env, abs_func_idx, original, candidate, trace,
+        ) {
         Some(repaired) => {
           sl_rewrite_validation_candidates_accepted.val = sl_rewrite_validation_candidates_accepted.val +
             1
@@ -3355,7 +3411,8 @@ fn sl_keep_validated_rewrite(
           sl_rewrite_validation_candidates_rejected_local_validation.val = sl_rewrite_validation_candidates_rejected_local_validation.val +
             1
           sl_rewrite_validation_record_rejection_reason(err)
-          trace(
+          sl_trace_rewrite_validation_failure(
+            trace,
             "func_idx=\{abs_func_idx.to_string()} rewrite rejected after local validation: \{err}",
           )
           (original, false)
@@ -3417,7 +3474,21 @@ fn sl_simplify_function(
         let mut after_main = raw_after_main
         let mut main_changed = raw_main_changed
         let mut next_get_counts = raw_get_counts
-        if cycle_options.allow_tee && raw_main_changed && !raw_shrank {
+        let should_compare_no_tee = cycle_options.allow_tee &&
+          raw_main_changed &&
+          !raw_shrank
+        let should_run_no_tee = if should_compare_no_tee {
+          sl_count_local_tees_texpr(raw_after_main) >
+          sl_count_local_tees_texpr(body)
+        } else {
+          false
+        }
+        if should_compare_no_tee && !should_run_no_tee && trace_verbose {
+          trace(
+            "cycle=\{cycle} phase=main:tee_policy action=skip_no_tee_compare reason=no_new_tee",
+          )
+        }
+        if should_run_no_tee {
           let no_tee_options = {
             allow_tee: false,
             allow_structure: cycle_options.allow_structure,
@@ -3465,10 +3536,14 @@ fn sl_simplify_function(
         }
         if first_cycle {
           if trace_verbose {
-            trace("cycle=\{cycle} phase=first_cycle:advance")
+            trace(
+              "cycle=\{cycle} phase=first_cycle:advance allow_tee_next=\{options.allow_tee}",
+            )
           }
           first_cycle = false
-          continue
+          if options.allow_tee {
+            continue
+          }
         }
         if main_changed {
           if trace_verbose {
@@ -3539,8 +3614,9 @@ fn sl_simplify_function(
           "summary cycles=\{cycle} changed_any=\{changed_any} final_top_instrs=\{body.instrs.length()}",
         )
       }
-      if changed_any {
-        (Func::t_func(tfunc_params, locals, body), true)
+      let final_func = Func::t_func(tfunc_params, locals, body)
+      if changed_any && final_func != func {
+        (final_func, true)
       } else {
         (func, false)
       }
@@ -3559,6 +3635,7 @@ fn simplify_locals_ir_pass(
   trace? : (String) -> Unit = sl_trace_noop,
   trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[IRContext, String] {
+  sl_rewrite_validation_reset()
   let options = { allow_tee, allow_structure, allow_nesting }
   let param_types = sl_collect_param_types(mod)
   let base_env = Env::new().with_module(mod)
@@ -3610,7 +3687,7 @@ fn simplify_locals_ir_pass(
       trace=func_trace,
       trace_verbose=log_func,
     )
-    let (next_func, changed) = if raw_changed {
+    let (next_func, changed) = if raw_changed && raw_next_func != func {
       sl_keep_validated_rewrite(
         base_env, abs_func_idx, func, raw_next_func, trace,
       )
@@ -5879,4 +5956,110 @@ test "simplify_locals ID-F4 avoids cloning late-phase state for every nested bra
   if perf.late_state_clones > 3 {
     fail("expected <=3 late-state clones, got \{perf.late_state_clones}")
   }
+}
+
+///|
+test "simplify_locals ID-P6 does not force redundant second main cycle when tee mode is disabled" {
+  let logs : Array[String] = []
+  ignore(
+    sl_simplify_function(
+      Func::t_func(
+        [],
+        [ValType::i32()],
+        TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(0)))]),
+      ),
+      sl_test_env([ValType::i32()]),
+      [],
+      { allow_tee: false, allow_structure: false, allow_nesting: true },
+      trace=fn(msg) { logs.push(msg) },
+      trace_verbose=true,
+    ),
+  )
+  let mut main_start_count = 0
+  for msg in logs {
+    if msg.contains("phase=main:start") {
+      main_start_count += 1
+    }
+  }
+  assert_eq(main_start_count, 1)
+}
+
+///|
+test "simplify_locals rewrite finalizer skips duplicated-prefix salvage when proof is absent" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  let env = Env::new().with_module(mod)
+  let original = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32(), ValType::i64()],
+    TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+  )
+  let invalid_candidate = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32(), ValType::i64()],
+    TExpr::new([]),
+  )
+  let logs : Array[String] = []
+  let (kept, changed) = sl_keep_validated_rewrite(
+    env,
+    FuncIdx::new(0),
+    original,
+    invalid_candidate,
+    fn(msg) { logs.push(msg) },
+  )
+  assert_false(changed)
+  assert_eq(kept, original)
+  for msg in logs {
+    assert_false(msg.contains("rewrite repair attempt failed local validation"))
+  }
+}
+
+///|
+test "simplify_locals rejection tracing suppresses repeated local-validation spam" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  let env = Env::new().with_module(mod)
+  let original = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(1))]))
+  let invalid_candidate = Func::t_func([], [], TExpr::new([]))
+  sl_rewrite_validation_reset()
+  let logs : Array[String] = []
+  for _ in 0..<12 {
+    ignore(
+      sl_keep_validated_rewrite(
+        env,
+        FuncIdx::new(0),
+        original,
+        invalid_candidate,
+        fn(msg) { logs.push(msg) },
+      ),
+    )
+  }
+  let mut rejection_logs = 0
+  let mut saw_suppressed_notice = false
+  for msg in logs {
+    if msg.contains("rewrite rejected after local validation") {
+      rejection_logs += 1
+    }
+    if msg.contains("additional rewrite rejection logs suppressed") {
+      saw_suppressed_notice = true
+    }
+  }
+  if rejection_logs > 4 {
+    fail(
+      "expected rejection trace suppression, got \{rejection_logs} rejection logs",
+    )
+  }
+  assert_true(saw_suppressed_notice)
 }
