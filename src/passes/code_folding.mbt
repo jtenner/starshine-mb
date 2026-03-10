@@ -705,6 +705,31 @@ fn cf_add_uid_to_sets(
 }
 
 ///|
+/// Sentinel target uid used when a branch exits the analyzed container.
+const CF_EXTERNAL_TARGET_UID : Int = 0
+
+///|
+fn cf_add_label_target_uid(
+  label_uids : Array[Int],
+  label : LabelIdx,
+  all_targets : Set[Int],
+  active_focuses : Array[Int],
+  focus_targets : Array[Set[Int]],
+) -> Unit {
+  match cf_resolve_label_uid(label_uids, label) {
+    Some(target_uid) =>
+      cf_add_uid_to_sets(target_uid, all_targets, active_focuses, focus_targets)
+    None =>
+      cf_add_uid_to_sets(
+        CF_EXTERNAL_TARGET_UID,
+        all_targets,
+        active_focuses,
+        focus_targets,
+      )
+  }
+}
+
+///|
 fn cf_walk_branch_targets_with_focus(
   instr : TInstr,
   label_uids : Array[Int],
@@ -726,13 +751,9 @@ fn cf_walk_branch_targets_with_focus(
 
   match instr.kind {
     TInstrKind::TBr(label, _) =>
-      match cf_resolve_label_uid(label_uids, label) {
-        Some(target_uid) =>
-          cf_add_uid_to_sets(
-            target_uid, all_targets, next_focuses, focus_targets,
-          )
-        None => ()
-      }
+      cf_add_label_target_uid(
+        label_uids, label, all_targets, next_focuses, focus_targets,
+      )
     TInstrKind::TBrIf(label, cond, values) => {
       cf_walk_branch_targets_with_focus(
         cond, label_uids, next_uid, all_targets, focus_items, focus_targets, focus_labels,
@@ -744,13 +765,9 @@ fn cf_walk_branch_targets_with_focus(
           next_focuses,
         )
       }
-      match cf_resolve_label_uid(label_uids, label) {
-        Some(target_uid) =>
-          cf_add_uid_to_sets(
-            target_uid, all_targets, next_focuses, focus_targets,
-          )
-        None => ()
-      }
+      cf_add_label_target_uid(
+        label_uids, label, all_targets, next_focuses, focus_targets,
+      )
     }
     TInstrKind::TBrTable(labels, default, index, values) => {
       cf_walk_branch_targets_with_focus(
@@ -764,21 +781,13 @@ fn cf_walk_branch_targets_with_focus(
         )
       }
       for label in labels {
-        match cf_resolve_label_uid(label_uids, label) {
-          Some(target_uid) =>
-            cf_add_uid_to_sets(
-              target_uid, all_targets, next_focuses, focus_targets,
-            )
-          None => ()
-        }
+        cf_add_label_target_uid(
+          label_uids, label, all_targets, next_focuses, focus_targets,
+        )
       }
-      match cf_resolve_label_uid(label_uids, default) {
-        Some(target_uid) =>
-          cf_add_uid_to_sets(
-            target_uid, all_targets, next_focuses, focus_targets,
-          )
-        None => ()
-      }
+      cf_add_label_target_uid(
+        label_uids, default, all_targets, next_focuses, focus_targets,
+      )
     }
     TInstrKind::TBrOnNull(label, ref_, values) => {
       cf_walk_branch_targets_with_focus(
@@ -791,13 +800,9 @@ fn cf_walk_branch_targets_with_focus(
           next_focuses,
         )
       }
-      match cf_resolve_label_uid(label_uids, label) {
-        Some(target_uid) =>
-          cf_add_uid_to_sets(
-            target_uid, all_targets, next_focuses, focus_targets,
-          )
-        None => ()
-      }
+      cf_add_label_target_uid(
+        label_uids, label, all_targets, next_focuses, focus_targets,
+      )
     }
     TInstrKind::TBrOnNonNull(label, ref_, values) => {
       cf_walk_branch_targets_with_focus(
@@ -810,13 +815,9 @@ fn cf_walk_branch_targets_with_focus(
           next_focuses,
         )
       }
-      match cf_resolve_label_uid(label_uids, label) {
-        Some(target_uid) =>
-          cf_add_uid_to_sets(
-            target_uid, all_targets, next_focuses, focus_targets,
-          )
-        None => ()
-      }
+      cf_add_label_target_uid(
+        label_uids, label, all_targets, next_focuses, focus_targets,
+      )
     }
     TInstrKind::TBrOnCast(label, cast_op, source_ht, target_ht, ref_, values) => {
       ignore(cast_op)
@@ -832,13 +833,9 @@ fn cf_walk_branch_targets_with_focus(
           next_focuses,
         )
       }
-      match cf_resolve_label_uid(label_uids, label) {
-        Some(target_uid) =>
-          cf_add_uid_to_sets(
-            target_uid, all_targets, next_focuses, focus_targets,
-          )
-        None => ()
-      }
+      cf_add_label_target_uid(
+        label_uids, label, all_targets, next_focuses, focus_targets,
+      )
     }
     TInstrKind::TBrOnCastFail(
       label,
@@ -861,13 +858,9 @@ fn cf_walk_branch_targets_with_focus(
           next_focuses,
         )
       }
-      match cf_resolve_label_uid(label_uids, label) {
-        Some(target_uid) =>
-          cf_add_uid_to_sets(
-            target_uid, all_targets, next_focuses, focus_targets,
-          )
-        None => ()
-      }
+      cf_add_label_target_uid(
+        label_uids, label, all_targets, next_focuses, focus_targets,
+      )
     }
     TInstrKind::TBlock(bt, body) => {
       ignore(bt)
@@ -4554,6 +4547,18 @@ test "can_move rejects branches to container labels outside moved item" {
 }
 
 ///|
+test "can_move rejects branches that exit the container entirely" {
+  let item = TInstr::br(LabelIdx::new(1), [])
+  let container = TInstr::if_(
+    BlockType::void_(),
+    TInstr::i32_const(I32(1)),
+    TExpr::new([item]),
+    Some(TExpr::new([TInstr::br(LabelIdx::new(1), [])])),
+  )
+  assert_false(can_move([item], container))
+}
+
+///|
 test "can_move rejects moving throwing code across try_table" {
   let item = TInstr::throw_(TagIdx::new(0), [])
   let container = TInstr::try_table(BlockType::void_(), [], TExpr::new([item]))
@@ -4825,6 +4830,110 @@ test "code folding collapses empty-arm if to drop of condition" {
       }
     }),
   )
+}
+
+///|
+test "code folding keeps typed if valid when collapsing identical branch-only void arms" {
+  let local0 = LocalIdx::new(0)
+  let original = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(local0, TInstr::i32_const(I32(1))),
+      TInstr::block(
+        BlockType::void_(),
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::return_([
+                TInstr::if_(
+                  BlockType::val_type(ValType::i32()),
+                  TInstr::i32_const(I32(0)),
+                  TExpr::new([TInstr::i32_const(I32(7))]),
+                  Some(
+                    TExpr::new([
+                      TInstr::if_(
+                        BlockType::void_(),
+                        TInstr::binary(
+                          BinaryOp::i32_eq(),
+                          TInstr::local_get(local0),
+                          TInstr::i32_const(I32(1)),
+                        ),
+                        TExpr::new([
+                          TInstr::drop(TInstr::local_get(local0)),
+                          TInstr::br(LabelIdx::new(3), []),
+                        ]),
+                        Some(
+                          TExpr::new([
+                            TInstr::drop(TInstr::local_get(local0)),
+                            TInstr::br(LabelIdx::new(3), []),
+                          ]),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+              ]),
+            ]),
+          ),
+        ]),
+      ),
+      TInstr::i32_const(I32(2)),
+    ]),
+  )
+  assert_eq(
+    validate_module(cf_test_module_for_func(original, [ValType::i32()])),
+    Ok(()),
+  )
+  let folded = run_fold_with_env(
+    original,
+    env=Env::new()
+      .with_locals([ValType::i32()])
+      .with_return_type(Some([ValType::i32()])),
+  )
+  cf_assert_func_body_typechecks(folded, [ValType::i32()])
+  assert_eq(
+    validate_module(cf_test_module_for_func(folded, [ValType::i32()])),
+    Ok(()),
+  )
+}
+
+///|
+test "code folding does not collapse empty-arm if when merged tail branches outward" {
+  let folded = run_fold(
+    Func::t_func(
+      [],
+      [],
+      TExpr::new([
+        TInstr::block(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::i32_const(I32(1)),
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(9))),
+                TInstr::br(LabelIdx::new(1), []),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::drop(TInstr::i32_const(I32(9))),
+                  TInstr::br(LabelIdx::new(1), []),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  assert_true(
+    cf_test_func_any_instr(folded, fn(instr) {
+      instr.kind is TInstrKind::TIf(_, _, _, _)
+    }),
+  )
+  assert_eq(validate_module(cf_test_module_for_func(folded, [])), Ok(()))
 }
 
 ///|
