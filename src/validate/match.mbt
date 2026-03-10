@@ -233,7 +233,7 @@ fn heap_vs_typeidx_fuel(
   match h {
     AbsHeapTypeHeapType(_) => false
     HeapType(tidx1) =>
-      typeidx_leq_typeidx_fuel(tidx1, target, env, fuel - 1, [])
+      typeidx_leq_typeidx_with_fuel(tidx1, target, env, fuel - 1)
     DefTypeHeapType(dt1) =>
       match dt1.project() {
         None => false
@@ -247,7 +247,7 @@ fn heap_vs_typeidx_fuel(
                 return false
               }
               for tu in supers {
-                if typeidx_leq_typeidx_fuel(tu, target, env1, fuel - 1, []) {
+                if typeidx_leq_typeidx_with_fuel(tu, target, env1, fuel - 1) {
                   return true
                 }
               }
@@ -423,7 +423,18 @@ pub impl Match for TagType with matches(self, other, env) {
 ///|
 fn typeidx_leq_typeidx(a : TypeIdx, b : TypeIdx, env : Env) -> Bool {
   let fuel = env.global_types.length() + 16
-  typeidx_leq_typeidx_fuel(a, b, env, fuel, [])
+  typeidx_leq_typeidx_with_fuel(a, b, env, fuel)
+}
+
+///|
+fn typeidx_leq_typeidx_with_fuel(
+  a : TypeIdx,
+  b : TypeIdx,
+  env : Env,
+  fuel : Int,
+) -> Bool {
+  let visited : Array[TypeIdx] = []
+  typeidx_leq_typeidx_fuel(a, b, env, fuel, visited)
 }
 
 ///|
@@ -456,13 +467,14 @@ fn typeidx_leq_typeidx_fuel(
           if is_final {
             return false
           }
-          let visited2 = visited.copy()
-          visited2.push(a)
+          visited.push(a)
           for s in st.super_types() {
-            if typeidx_leq_typeidx_fuel(s, b, env, fuel - 1, visited2) {
+            if typeidx_leq_typeidx_fuel(s, b, env, fuel - 1, visited) {
+              let _ = visited.pop()
               return true
             }
           }
+          let _ = visited.pop()
           false
         }
       }

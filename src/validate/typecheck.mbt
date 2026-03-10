@@ -131,11 +131,7 @@ fn TcState::pop_types(st : TcState, ts : Array[ValType]) -> TcResult {
 
 ///|
 fn tc_stack_from_types(ts : Array[ValType]) -> Array[ValType] {
-  let out : Array[ValType] = []
-  for t in ts {
-    out.push(t)
-  }
-  out
+  ts.copy()
 }
 
 ///|

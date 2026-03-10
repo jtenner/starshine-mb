@@ -549,12 +549,14 @@ pub fn validate_memsec(memsec : MemSec?, env0 : Env) -> Result[Env, String] {
     None => Ok(env0)
     Some(MemSec(ms)) => {
       let mut env = env0
+      let mems = env.mems.copy()
       for mt in ms {
         match Validate::validate(mt, env) {
           Ok(_) => ()
           Err(e) => return Err(e)
         }
-        env = env.push_mem(mt)
+        mems.push(mt)
+        env = env.with_mems(mems)
       }
       Ok(env)
     }
@@ -591,12 +593,14 @@ pub fn validate_tablesec(
     None => Ok(env0)
     Some(TableSec(ts)) => {
       let mut env = env0
+      let tables = env.tables.copy()
       for t in ts {
         let tt = match validate_table(env, t) {
           Ok(x) => x
           Err(e) => return Err(e)
         }
-        env = env.push_table(tt)
+        tables.push(tt)
+        env = env.with_tables(tables)
       }
       Ok(env)
     }
@@ -801,13 +805,17 @@ pub fn validate_funcsec(funcsec : FuncSec?, env0 : Env) -> Result[Env, String] {
     None => Ok(env0)
     Some(FuncSec(type_idxs)) => {
       let mut env = env0
+      let funcs = env.funcs.copy()
+      let func_type_idxs = env.func_type_idxs.copy()
       for tidx in type_idxs {
         // Each TypeIdx must resolve to a function type
         let ft = match env.resolve_functype(tidx) {
           Some(x) => x
           None => return Err("funcsec: typeidx does not resolve to functype")
         }
-        env = env.push_func_with_typeidx(ft, Some(tidx))
+        funcs.push(ft)
+        func_type_idxs.push(Some(tidx))
+        env = Env::{ ..env, funcs, func_type_idxs }
       }
       Ok(env)
     }
@@ -846,12 +854,14 @@ pub fn validate_datasec(datasec : DataSec?, env0 : Env) -> Result[Env, String] {
     None => Ok(env0)
     Some(DataSec(ds)) => {
       let mut env = env0
+      let datas = env.datas.copy()
       for d in ds {
         // validate under env that includes previous data segments
         if Validate::validate(d, env) is Err(e) {
           return Err(e)
         }
-        env = env.push_data(d)
+        datas.push(d)
+        env = Env::{ ..env, datas, }
       }
       Ok(env)
     }
@@ -958,11 +968,11 @@ pub fn validate_elemsec(elemsec : ElemSec?, env0 : Env) -> Result[Env, String] {
     None => Ok(env0)
     Some(ElemSec(es)) => {
       let mut env = env0
+      let elems = env.elems.copy()
       for e in es {
         if Validate::validate(e, env) is Err(t) {
           return Err(t)
         }
-        let elems = env.elems.copy()
         elems.push(e)
         env = env.with_elems(elems)
       }
@@ -986,6 +996,12 @@ pub fn validate_importsec(
     None => Ok(env0)
     Some(ImportSec(imps)) => {
       let mut env = env0
+      let funcs = env.funcs.copy()
+      let func_type_idxs = env.func_type_idxs.copy()
+      let tables = env.tables.copy()
+      let mems = env.mems.copy()
+      let globals = env.globals.copy()
+      let tags = env.tags.copy()
       for imp in imps {
         if Validate::validate(imp, env) is Err(e) {
           return Err(e)
@@ -997,13 +1013,15 @@ pub fn validate_importsec(
               Some(x) => x
               None => return Err("import func: type index is not a functype")
             }
-            env = env.push_func_with_typeidx(ft, Some(tidx))
+            funcs.push(ft)
+            func_type_idxs.push(Some(tidx))
           }
-          TableExternType(tt) => env = env.push_table(tt)
-          MemExternType(mt) => env = env.push_mem(mt)
-          GlobalExternType(gt) => env = env.push_global(gt)
-          TagExternType(tt) => env = env.push_tag(tt)
+          TableExternType(tt) => tables.push(tt)
+          MemExternType(mt) => mems.push(mt)
+          GlobalExternType(gt) => globals.push(gt)
+          TagExternType(tt) => tags.push(tt)
         }
+        env = Env::{ ..env, funcs, func_type_idxs, tables, mems, globals, tags }
       }
       Ok(env)
     }
