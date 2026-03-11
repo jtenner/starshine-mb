@@ -56,6 +56,15 @@ const RUN_WALK_VERBOSE_REBASE_LABEL_INTERVAL : Int = 4096
 const RUN_WALK_VERBOSE_PEEL_NOOP_INTERVAL : Int = 512
 
 ///|
+const RUN_CANDIDATE_SCAN_VISIT_BUDGET : Int = 20000
+
+///|
+const RUN_WALK_INSTR_VISIT_BUDGET : Int = 20000
+
+///|
+const RUN_ERR_WALK_BUDGET_EXHAUSTED : String = "remove_unused_names_walk_budget_exhausted"
+
+///|
 priv struct RUNWalkOnceVerboseState {
   enabled : Bool
   walk_instr_visits : Ref[Int]
@@ -866,7 +875,31 @@ fn run_peel_single_child_same_blocks(
 }
 
 ///|
-fn run_has_remove_unused_names_candidate_instr(instr : TInstr) -> Bool {
+fn run_candidate_scan_budget_step(
+  scan_visits : Ref[Int],
+  scan_budget_exhausted : Ref[Bool],
+) -> Bool {
+  if scan_budget_exhausted.val {
+    return false
+  }
+  scan_visits.val = scan_visits.val + 1
+  if scan_visits.val > RUN_CANDIDATE_SCAN_VISIT_BUDGET {
+    scan_budget_exhausted.val = true
+    false
+  } else {
+    true
+  }
+}
+
+///|
+fn run_has_remove_unused_names_candidate_instr(
+  instr : TInstr,
+  scan_visits : Ref[Int],
+  scan_budget_exhausted : Ref[Bool],
+) -> Bool {
+  if !run_candidate_scan_budget_step(scan_visits, scan_budget_exhausted) {
+    return false
+  }
   match instr.kind {
     TInstrKind::TBlock(bt, body) => {
       match body.instrs {
@@ -876,29 +909,42 @@ fn run_has_remove_unused_names_candidate_instr(instr : TInstr) -> Bool {
           }
         _ => ()
       }
-      run_has_remove_unused_names_candidate_texpr(body)
+      run_has_remove_unused_names_candidate_texpr(
+        body, scan_visits, scan_budget_exhausted,
+      )
     }
     // Loops may be rewritten to blocks when there is no continue branch.
     TInstrKind::TLoop(_, _) => true
     TInstrKind::TIf(_, cond, then_body, else_body) => {
-      if run_has_remove_unused_names_candidate_instr(cond) ||
-        run_has_remove_unused_names_candidate_texpr(then_body) {
+      if run_has_remove_unused_names_candidate_instr(
+          cond, scan_visits, scan_budget_exhausted,
+        ) ||
+        run_has_remove_unused_names_candidate_texpr(
+          then_body, scan_visits, scan_budget_exhausted,
+        ) {
         return true
       }
       match else_body {
-        Some(other) => run_has_remove_unused_names_candidate_texpr(other)
+        Some(other) =>
+          run_has_remove_unused_names_candidate_texpr(
+            other, scan_visits, scan_budget_exhausted,
+          )
         None => false
       }
     }
     TInstrKind::TTryTable(_, _, body) =>
-      run_has_remove_unused_names_candidate_texpr(body)
+      run_has_remove_unused_names_candidate_texpr(
+        body, scan_visits, scan_budget_exhausted,
+      )
     _ => {
       let mut found = false
       oi_for_each_non_control_child(instr, fn(child) {
-        if found {
+        if found || scan_budget_exhausted.val {
           return
         }
-        if run_has_remove_unused_names_candidate_instr(child) {
+        if run_has_remove_unused_names_candidate_instr(
+            child, scan_visits, scan_budget_exhausted,
+          ) {
           found = true
         }
       })
@@ -908,9 +954,18 @@ fn run_has_remove_unused_names_candidate_instr(instr : TInstr) -> Bool {
 }
 
 ///|
-fn run_has_remove_unused_names_candidate_texpr(body : TExpr) -> Bool {
+fn run_has_remove_unused_names_candidate_texpr(
+  body : TExpr,
+  scan_visits : Ref[Int],
+  scan_budget_exhausted : Ref[Bool],
+) -> Bool {
   for instr in body.instrs {
-    if run_has_remove_unused_names_candidate_instr(instr) {
+    if scan_budget_exhausted.val {
+      return false
+    }
+    if run_has_remove_unused_names_candidate_instr(
+        instr, scan_visits, scan_budget_exhausted,
+      ) {
       return true
     }
   }
@@ -1223,7 +1278,30 @@ fn run_remove_unused_names_once(
     walk_trace_state,
     "start body_instrs=\{body.instrs.length()}",
   )
-  if !run_has_remove_unused_names_candidate_texpr(body) {
+  let candidate_scan_visits = Ref::new(0)
+  let candidate_scan_budget_exhausted = Ref::new(false)
+  let has_candidate = run_has_remove_unused_names_candidate_texpr(
+    body, candidate_scan_visits, candidate_scan_budget_exhausted,
+  )
+  if candidate_scan_budget_exhausted.val {
+    run_walk_verbose_emit(
+      helper_trace,
+      walk_trace_state,
+      "skip:candidate_scan_budget_exhausted body_instrs=\{body.instrs.length()} candidate_scan_visits=\{candidate_scan_visits.val} candidate_scan_budget=\{RUN_CANDIDATE_SCAN_VISIT_BUDGET}",
+    )
+    let out = Ok((body, false))
+    run_helper_timing_commit(
+      helper_timing_enabled, run_helper_timing_walk_once_us, run_helper_timing_walk_once_calls,
+      helper_start_us,
+    )
+    run_walk_verbose_emit(
+      helper_trace,
+      walk_trace_state,
+      "done changed=false walk_instrs=\{walk_trace_state.walk_instr_visits.val} peel_calls=\{walk_trace_state.peel_calls.val} peel_removed=\{walk_trace_state.peel_removed_scopes.val} peel_noop=\{walk_trace_state.peel_noop_calls.val} peel_noop_arity=\{walk_trace_state.peel_noop_not_single_child.val} peel_noop_non_block=\{walk_trace_state.peel_noop_single_child_non_block.val} peel_noop_type_mismatch=\{walk_trace_state.peel_noop_type_mismatch.val} peel_noop_max_body_instrs=\{walk_trace_state.peel_noop_max_body_instrs.val} rebase_calls=\{walk_trace_state.rebase_calls.val} rebase_removed=\{walk_trace_state.rebase_removed_scopes.val} rebase_labels=\{walk_trace_state.rebase_label_visits.val} branch_scan_instrs=\{walk_trace_state.branch_scan_instr_visits.val} branch_hits=\{walk_trace_state.branch_scan_hits.val}",
+    )
+    return out
+  }
+  if !has_candidate {
     run_walk_verbose_emit(
       helper_trace,
       walk_trace_state,
@@ -1241,7 +1319,14 @@ fn run_remove_unused_names_once(
     )
     return out
   }
+  let walk_budget_exhausted = Ref::new(false)
+  let walk_instr_visits = Ref::new(0)
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    walk_instr_visits.val = walk_instr_visits.val + 1
+    if walk_instr_visits.val > RUN_WALK_INSTR_VISIT_BUDGET {
+      walk_budget_exhausted.val = true
+      return error(RUN_ERR_WALK_BUDGET_EXHAUSTED)
+    }
     run_walk_verbose_note_walk_instr(helper_trace, walk_trace_state)
     let walked = match self.walk_tinstruction_default((), instr) {
       Ok((out, _)) => out
@@ -1297,7 +1382,17 @@ fn run_remove_unused_names_once(
 
   let out = match pass.walk_texpr((), body) {
     Ok((out, _)) => Ok((out, out != body))
-    Err(e) => Err(e)
+    Err(e) =>
+      if e == RUN_ERR_WALK_BUDGET_EXHAUSTED && walk_budget_exhausted.val {
+        run_walk_verbose_emit(
+          helper_trace,
+          walk_trace_state,
+          "skip:walk_budget_exhausted body_instrs=\{body.instrs.length()} walk_instrs=\{walk_instr_visits.val} walk_instr_budget=\{RUN_WALK_INSTR_VISIT_BUDGET}",
+        )
+        Ok((body, false))
+      } else {
+        Err(e)
+      }
   }
   run_helper_timing_commit(
     helper_timing_enabled, run_helper_timing_walk_once_us, run_helper_timing_walk_once_calls,

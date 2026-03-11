@@ -1840,9 +1840,7 @@ pub fn default_function_optimization_passes(
   }
 
   passes.push(DeadCodeElimination)
-  passes.push(RemoveUnusedNames)
   passes.push(RemoveUnusedBrs)
-  passes.push(RemoveUnusedNames)
   passes.push(OptimizeInstructions)
   if has_gc {
     passes.push(HeapStoreOptimization)
@@ -1898,7 +1896,6 @@ pub fn default_function_optimization_passes(
   }
   passes.push(MergeBlocks)
   passes.push(RemoveUnusedBrs)
-  passes.push(RemoveUnusedNames)
   passes.push(MergeBlocks)
   if options.optimize_level >= 3 || options.shrink_level >= 2 {
     passes.push(PrecomputePropagate)
