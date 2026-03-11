@@ -5,6 +5,6 @@ OPTIMIZE_DUMP_FAILED_MODULE_STATE=1 \
   --target native \
   --release \
   -- \
-  --tracing helper \
+  --tracing pass \
   --optimize -O4z \
   --out tests/node/dist/starshine-self-optimized-wasi.wasm ./_build/wasm/debug/build/cmd/cmd.wasm > output.log 2>&1

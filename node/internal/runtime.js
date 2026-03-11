@@ -215,6 +215,12 @@ function buildImportObject(module) {
       now() {
         return BigInt(Date.now());
       },
+      now_us() {
+        if (typeof process.hrtime?.bigint === 'function') {
+          return process.hrtime.bigint() / 1000n;
+        }
+        return BigInt(Date.now()) * 1000n;
+      },
     },
     console: {
       log(...args) {
