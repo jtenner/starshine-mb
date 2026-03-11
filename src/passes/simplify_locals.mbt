@@ -67,7 +67,14 @@ priv struct SLMainRewriteHelperSnapshot {
   collect_effects_cached_hits : Int
   collect_effects_cached_misses : Int
   texpr_instrs_seen : Int
+  texpr_depth_max : Int
+  texpr_single_instr_calls : Int
+  block_instr_calls : Int
+  loop_instr_calls : Int
+  if_instr_calls : Int
+  try_table_instr_calls : Int
   max_sinkables : Int
+  progress_logs_emitted : Int
 }
 
 ///|
@@ -96,6 +103,27 @@ const SL_WIDE_LOCALS_NO_NESTING_MIN_LOCALS : Int = 512
 
 ///|
 const SL_WIDE_LOCALS_NO_NESTING_MAX_INSTRS : Int = 24
+
+///|
+const SL_MAIN_REWRITE_PROGRESS_INITIAL_REWRITE_CALLS : Int = 128
+
+///|
+const SL_MAIN_REWRITE_PROGRESS_INITIAL_TEXPR_CALLS : Int = 64
+
+///|
+const SL_MAIN_REWRITE_PROGRESS_INITIAL_DEPTH : Int = 16
+
+///|
+const SL_MAIN_REWRITE_DEEP_CONTROL_MIN_DEPTH : Int = 96
+
+///|
+const SL_MAIN_REWRITE_DEEP_CONTROL_MIN_CONTROL_NODES : Int = 96
+
+///|
+const SL_MAIN_REWRITE_DEEP_CONTROL_MAX_TOP_INSTRS : Int = 2
+
+///|
+const SL_MAIN_REWRITE_DEEP_CONTROL_MAX_LOCALS : Int = 16
 
 ///|
 priv struct SLRewriteValidationSnapshot {
@@ -206,7 +234,53 @@ let sl_main_rewrite_helper_collect_effects_cached_misses : Ref[Int] = Ref::new(
 let sl_main_rewrite_helper_texpr_instrs_seen : Ref[Int] = Ref::new(0)
 
 ///|
+let sl_main_rewrite_helper_texpr_depth_current : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_texpr_depth_max : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_texpr_single_instr_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_block_instr_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_loop_instr_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_if_instr_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_try_table_instr_calls : Ref[Int] = Ref::new(0)
+
+///|
 let sl_main_rewrite_helper_max_sinkables : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_progress_trace : Ref[(String) -> Unit] = Ref::new(fn(
+  _ : String,
+) {
+  ()
+})
+
+///|
+let sl_main_rewrite_helper_progress_next_rewrite_calls : Ref[Int] = Ref::new(
+  SL_MAIN_REWRITE_PROGRESS_INITIAL_REWRITE_CALLS,
+)
+
+///|
+let sl_main_rewrite_helper_progress_next_texpr_calls : Ref[Int] = Ref::new(
+  SL_MAIN_REWRITE_PROGRESS_INITIAL_TEXPR_CALLS,
+)
+
+///|
+let sl_main_rewrite_helper_progress_next_depth : Ref[Int] = Ref::new(
+  SL_MAIN_REWRITE_PROGRESS_INITIAL_DEPTH,
+)
+
+///|
+let sl_main_rewrite_helper_progress_emits : Ref[Int] = Ref::new(0)
 
 ///|
 let sl_hotspot_entries : Ref[Array[SLHotspotEntry]] = Ref::new([])
@@ -272,7 +346,19 @@ fn sl_perf_reset() -> Unit {
   sl_main_rewrite_helper_collect_effects_cached_hits.val = 0
   sl_main_rewrite_helper_collect_effects_cached_misses.val = 0
   sl_main_rewrite_helper_texpr_instrs_seen.val = 0
+  sl_main_rewrite_helper_texpr_depth_current.val = 0
+  sl_main_rewrite_helper_texpr_depth_max.val = 0
+  sl_main_rewrite_helper_texpr_single_instr_calls.val = 0
+  sl_main_rewrite_helper_block_instr_calls.val = 0
+  sl_main_rewrite_helper_loop_instr_calls.val = 0
+  sl_main_rewrite_helper_if_instr_calls.val = 0
+  sl_main_rewrite_helper_try_table_instr_calls.val = 0
   sl_main_rewrite_helper_max_sinkables.val = 0
+  sl_main_rewrite_helper_progress_trace.val = fn(_ : String) { () }
+  sl_main_rewrite_helper_progress_next_rewrite_calls.val = SL_MAIN_REWRITE_PROGRESS_INITIAL_REWRITE_CALLS
+  sl_main_rewrite_helper_progress_next_texpr_calls.val = SL_MAIN_REWRITE_PROGRESS_INITIAL_TEXPR_CALLS
+  sl_main_rewrite_helper_progress_next_depth.val = SL_MAIN_REWRITE_PROGRESS_INITIAL_DEPTH
+  sl_main_rewrite_helper_progress_emits.val = 0
 }
 
 ///|
@@ -411,7 +497,18 @@ fn sl_main_rewrite_helper_trace_reset() -> Unit {
   sl_main_rewrite_helper_collect_effects_cached_hits.val = 0
   sl_main_rewrite_helper_collect_effects_cached_misses.val = 0
   sl_main_rewrite_helper_texpr_instrs_seen.val = 0
+  sl_main_rewrite_helper_texpr_depth_current.val = 0
+  sl_main_rewrite_helper_texpr_depth_max.val = 0
+  sl_main_rewrite_helper_texpr_single_instr_calls.val = 0
+  sl_main_rewrite_helper_block_instr_calls.val = 0
+  sl_main_rewrite_helper_loop_instr_calls.val = 0
+  sl_main_rewrite_helper_if_instr_calls.val = 0
+  sl_main_rewrite_helper_try_table_instr_calls.val = 0
   sl_main_rewrite_helper_max_sinkables.val = 0
+  sl_main_rewrite_helper_progress_next_rewrite_calls.val = SL_MAIN_REWRITE_PROGRESS_INITIAL_REWRITE_CALLS
+  sl_main_rewrite_helper_progress_next_texpr_calls.val = SL_MAIN_REWRITE_PROGRESS_INITIAL_TEXPR_CALLS
+  sl_main_rewrite_helper_progress_next_depth.val = SL_MAIN_REWRITE_PROGRESS_INITIAL_DEPTH
+  sl_main_rewrite_helper_progress_emits.val = 0
 }
 
 ///|
@@ -430,7 +527,14 @@ fn sl_main_rewrite_helper_trace_snapshot() -> SLMainRewriteHelperSnapshot {
     collect_effects_cached_hits: sl_main_rewrite_helper_collect_effects_cached_hits.val,
     collect_effects_cached_misses: sl_main_rewrite_helper_collect_effects_cached_misses.val,
     texpr_instrs_seen: sl_main_rewrite_helper_texpr_instrs_seen.val,
+    texpr_depth_max: sl_main_rewrite_helper_texpr_depth_max.val,
+    texpr_single_instr_calls: sl_main_rewrite_helper_texpr_single_instr_calls.val,
+    block_instr_calls: sl_main_rewrite_helper_block_instr_calls.val,
+    loop_instr_calls: sl_main_rewrite_helper_loop_instr_calls.val,
+    if_instr_calls: sl_main_rewrite_helper_if_instr_calls.val,
+    try_table_instr_calls: sl_main_rewrite_helper_try_table_instr_calls.val,
     max_sinkables: sl_main_rewrite_helper_max_sinkables.val,
+    progress_logs_emitted: sl_main_rewrite_helper_progress_emits.val,
   }
 }
 
@@ -452,6 +556,120 @@ fn sl_main_rewrite_helper_trace_note_sinkables(count : Int) -> Unit {
   }
   if count > sl_main_rewrite_helper_max_sinkables.val {
     sl_main_rewrite_helper_max_sinkables.val = count
+  }
+}
+
+///|
+fn sl_main_rewrite_helper_trace_next_threshold(current : Int) -> Int {
+  if current < 1 {
+    1
+  } else if current >= 1_073_741_824 {
+    current + 1_073_741_824
+  } else {
+    current * 2
+  }
+}
+
+///|
+fn sl_main_rewrite_helper_trace_progress_reset(
+  trace : (String) -> Unit,
+) -> Unit {
+  sl_main_rewrite_helper_progress_trace.val = trace
+  sl_main_rewrite_helper_progress_next_rewrite_calls.val = SL_MAIN_REWRITE_PROGRESS_INITIAL_REWRITE_CALLS
+  sl_main_rewrite_helper_progress_next_texpr_calls.val = SL_MAIN_REWRITE_PROGRESS_INITIAL_TEXPR_CALLS
+  sl_main_rewrite_helper_progress_next_depth.val = SL_MAIN_REWRITE_PROGRESS_INITIAL_DEPTH
+  sl_main_rewrite_helper_progress_emits.val = 0
+}
+
+///|
+fn sl_main_rewrite_helper_trace_progress_disable() -> Unit {
+  sl_main_rewrite_helper_progress_trace.val = fn(_ : String) { () }
+}
+
+///|
+fn sl_main_rewrite_helper_trace_progress_maybe_emit(trigger : String) -> Unit {
+  if !sl_main_rewrite_helper_trace_enabled.val {
+    return
+  }
+  let rewrite_calls = sl_main_rewrite_helper_rewrite_instr_calls.val
+  let texpr_calls = sl_main_rewrite_helper_simplify_texpr_calls.val
+  let depth_max = sl_main_rewrite_helper_texpr_depth_max.val
+  let mut should_emit = false
+  while rewrite_calls >= sl_main_rewrite_helper_progress_next_rewrite_calls.val {
+    should_emit = true
+    sl_main_rewrite_helper_progress_next_rewrite_calls.val = sl_main_rewrite_helper_trace_next_threshold(
+      sl_main_rewrite_helper_progress_next_rewrite_calls.val,
+    )
+  }
+  while texpr_calls >= sl_main_rewrite_helper_progress_next_texpr_calls.val {
+    should_emit = true
+    sl_main_rewrite_helper_progress_next_texpr_calls.val = sl_main_rewrite_helper_trace_next_threshold(
+      sl_main_rewrite_helper_progress_next_texpr_calls.val,
+    )
+  }
+  while depth_max >= sl_main_rewrite_helper_progress_next_depth.val {
+    should_emit = true
+    sl_main_rewrite_helper_progress_next_depth.val = sl_main_rewrite_helper_trace_next_threshold(
+      sl_main_rewrite_helper_progress_next_depth.val,
+    )
+  }
+  if !should_emit {
+    return
+  }
+  sl_main_rewrite_helper_progress_emits.val = sl_main_rewrite_helper_progress_emits.val +
+    1
+  (sl_main_rewrite_helper_progress_trace.val)(
+    "phase=main:rewrite:progress trigger=\{trigger} rewrite_instr_calls=\{rewrite_calls} texpr_calls=\{texpr_calls} texpr_depth_max=\{depth_max} single_instr_texprs=\{sl_main_rewrite_helper_texpr_single_instr_calls.val} control_blocks=\{sl_main_rewrite_helper_block_instr_calls.val} control_loops=\{sl_main_rewrite_helper_loop_instr_calls.val} control_ifs=\{sl_main_rewrite_helper_if_instr_calls.val} control_try_tables=\{sl_main_rewrite_helper_try_table_instr_calls.val} emits=\{sl_main_rewrite_helper_progress_emits.val}",
+  )
+}
+
+///|
+fn sl_main_rewrite_helper_trace_note_instr_kind(instr : TInstr) -> Unit {
+  if !sl_main_rewrite_helper_trace_enabled.val {
+    return
+  }
+  match instr.kind {
+    TInstrKind::TBlock(_, _) =>
+      sl_main_rewrite_helper_block_instr_calls.val = sl_main_rewrite_helper_block_instr_calls.val +
+        1
+    TInstrKind::TLoop(_, _) =>
+      sl_main_rewrite_helper_loop_instr_calls.val = sl_main_rewrite_helper_loop_instr_calls.val +
+        1
+    TInstrKind::TIf(_, _, _, _) =>
+      sl_main_rewrite_helper_if_instr_calls.val = sl_main_rewrite_helper_if_instr_calls.val +
+        1
+    TInstrKind::TTryTable(_, _, _) =>
+      sl_main_rewrite_helper_try_table_instr_calls.val = sl_main_rewrite_helper_try_table_instr_calls.val +
+        1
+    _ => ()
+  }
+}
+
+///|
+fn sl_main_rewrite_helper_trace_note_texpr_enter(expr : TExpr) -> Unit {
+  if !sl_main_rewrite_helper_trace_enabled.val {
+    return
+  }
+  sl_main_rewrite_helper_texpr_depth_current.val = sl_main_rewrite_helper_texpr_depth_current.val +
+    1
+  let depth = sl_main_rewrite_helper_texpr_depth_current.val
+  if depth > sl_main_rewrite_helper_texpr_depth_max.val {
+    sl_main_rewrite_helper_texpr_depth_max.val = depth
+  }
+  if expr.instrs.length() == 1 {
+    sl_main_rewrite_helper_texpr_single_instr_calls.val = sl_main_rewrite_helper_texpr_single_instr_calls.val +
+      1
+  }
+}
+
+///|
+fn sl_main_rewrite_helper_trace_note_texpr_exit() -> Unit {
+  if !sl_main_rewrite_helper_trace_enabled.val {
+    return
+  }
+  if sl_main_rewrite_helper_texpr_depth_current.val > 0 {
+    sl_main_rewrite_helper_texpr_depth_current.val = sl_main_rewrite_helper_texpr_depth_current.val -
+      1
   }
 }
 
@@ -729,7 +947,7 @@ fn sl_trace_emit_main_rewrite_helper_timing(
     return
   }
   trace(
-    "phase=main:rewrite:helpers texpr_ms=\{sl_trace_delta_us_to_ms(snapshot.simplify_texpr_us)} texpr_calls=\{snapshot.simplify_texpr_calls} texpr_instrs=\{snapshot.texpr_instrs_seen} rewrite_instr_ms=\{sl_trace_delta_us_to_ms(snapshot.rewrite_instr_us)} rewrite_instr_calls=\{snapshot.rewrite_instr_calls} sink_get_ms=\{sl_trace_delta_us_to_ms(snapshot.try_sink_local_get_us)} sink_get_calls=\{snapshot.try_sink_local_get_calls} invalidate_ms=\{sl_trace_delta_us_to_ms(snapshot.invalidate_sinkables_us)} invalidate_calls=\{snapshot.invalidate_sinkables_calls} effects_cached_ms=\{sl_trace_delta_us_to_ms(snapshot.collect_effects_cached_us)} effects_cached_calls=\{snapshot.collect_effects_cached_calls} effects_hits=\{snapshot.collect_effects_cached_hits} effects_misses=\{snapshot.collect_effects_cached_misses} max_sinkables=\{snapshot.max_sinkables}",
+    "phase=main:rewrite:helpers texpr_ms=\{sl_trace_delta_us_to_ms(snapshot.simplify_texpr_us)} texpr_calls=\{snapshot.simplify_texpr_calls} texpr_instrs=\{snapshot.texpr_instrs_seen} texpr_depth_max=\{snapshot.texpr_depth_max} texpr_single_instr_calls=\{snapshot.texpr_single_instr_calls} rewrite_instr_ms=\{sl_trace_delta_us_to_ms(snapshot.rewrite_instr_us)} rewrite_instr_calls=\{snapshot.rewrite_instr_calls} control_blocks=\{snapshot.block_instr_calls} control_loops=\{snapshot.loop_instr_calls} control_ifs=\{snapshot.if_instr_calls} control_try_tables=\{snapshot.try_table_instr_calls} sink_get_ms=\{sl_trace_delta_us_to_ms(snapshot.try_sink_local_get_us)} sink_get_calls=\{snapshot.try_sink_local_get_calls} invalidate_ms=\{sl_trace_delta_us_to_ms(snapshot.invalidate_sinkables_us)} invalidate_calls=\{snapshot.invalidate_sinkables_calls} effects_cached_ms=\{sl_trace_delta_us_to_ms(snapshot.collect_effects_cached_us)} effects_cached_calls=\{snapshot.collect_effects_cached_calls} effects_hits=\{snapshot.collect_effects_cached_hits} effects_misses=\{snapshot.collect_effects_cached_misses} max_sinkables=\{snapshot.max_sinkables} progress_logs=\{snapshot.progress_logs_emitted}",
   )
 }
 
@@ -1113,6 +1331,84 @@ priv struct SLSimplifyOptions {
   allow_tee : Bool
   allow_structure : Bool
   allow_nesting : Bool
+}
+
+///|
+priv struct SLDeepControlShapeStats {
+  mut max_depth : Int
+  mut control_nodes : Int
+}
+
+///|
+fn SLDeepControlShapeStats::new() -> SLDeepControlShapeStats {
+  { max_depth: 0, control_nodes: 0 }
+}
+
+///|
+fn sl_collect_deep_control_shape_stats_instr(
+  instr : TInstr,
+  depth : Int,
+  stats : SLDeepControlShapeStats,
+) -> Unit {
+  if depth > stats.max_depth {
+    stats.max_depth = depth
+  }
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => {
+      stats.control_nodes += 1
+      sl_collect_deep_control_shape_stats_texpr(body, depth + 1, stats)
+    }
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      stats.control_nodes += 1
+      sl_collect_deep_control_shape_stats_instr(cond, depth + 1, stats)
+      sl_collect_deep_control_shape_stats_texpr(then_body, depth + 1, stats)
+      match else_body {
+        Some(other) =>
+          sl_collect_deep_control_shape_stats_texpr(other, depth + 1, stats)
+        None => ()
+      }
+    }
+    _ =>
+      for child in eval_children(instr) {
+        sl_collect_deep_control_shape_stats_instr(child, depth, stats)
+      }
+  }
+}
+
+///|
+fn sl_collect_deep_control_shape_stats_texpr(
+  expr : TExpr,
+  depth : Int,
+  stats : SLDeepControlShapeStats,
+) -> Unit {
+  for instr in expr.instrs {
+    sl_collect_deep_control_shape_stats_instr(instr, depth, stats)
+  }
+}
+
+///|
+fn sl_main_is_pathological_deep_control_candidate(
+  body : TExpr,
+  local_count : Int,
+  options : SLSimplifyOptions,
+) -> (Bool, Int, Int) {
+  if options.allow_tee || options.allow_structure || !options.allow_nesting {
+    return (false, 0, 0)
+  }
+  if body.instrs.length() > SL_MAIN_REWRITE_DEEP_CONTROL_MAX_TOP_INSTRS ||
+    local_count > SL_MAIN_REWRITE_DEEP_CONTROL_MAX_LOCALS {
+    return (false, 0, 0)
+  }
+  let stats = SLDeepControlShapeStats::new()
+  sl_collect_deep_control_shape_stats_texpr(body, 0, stats)
+  (
+    stats.max_depth >= SL_MAIN_REWRITE_DEEP_CONTROL_MIN_DEPTH &&
+    stats.control_nodes >= SL_MAIN_REWRITE_DEEP_CONTROL_MIN_CONTROL_NODES,
+    stats.max_depth,
+    stats.control_nodes,
+  )
 }
 
 ///|
@@ -3036,6 +3332,8 @@ fn sl_rewrite_instr_main_traced(
   if trace_main_rewrite {
     sl_main_rewrite_helper_rewrite_instr_calls.val = sl_main_rewrite_helper_rewrite_instr_calls.val +
       1
+    sl_main_rewrite_helper_trace_note_instr_kind(instr)
+    sl_main_rewrite_helper_trace_progress_maybe_emit("rewrite_instr")
   }
   let rewritten = sl_rewrite_instr_main(
     instr, env, sinkables, sinkable_indexes, effects_cache, out, local_types, get_counts,
@@ -3064,6 +3362,8 @@ fn sl_simplify_texpr_main(
       1
     sl_main_rewrite_helper_texpr_instrs_seen.val = sl_main_rewrite_helper_texpr_instrs_seen.val +
       expr.instrs.length()
+    sl_main_rewrite_helper_trace_note_texpr_enter(expr)
+    sl_main_rewrite_helper_trace_progress_maybe_emit("texpr_enter")
   }
   let out : Array[TInstr] = []
   let sinkables : Map[Int, SLSinkableInfo] = Map::new()
@@ -3165,6 +3465,7 @@ fn sl_simplify_texpr_main(
   if trace_main_rewrite {
     sl_main_rewrite_helper_simplify_texpr_us.val = sl_main_rewrite_helper_simplify_texpr_us.val +
       sl_trace_elapsed_us_since(start_us)
+    sl_main_rewrite_helper_trace_note_texpr_exit()
   }
   (TExpr::new(out), changed.val)
 }
@@ -4015,6 +4316,19 @@ fn sl_run_main_phase(
       }
       return (body, false, false, get_counts)
     }
+    let (pathological_deep_control, max_depth, control_nodes) = sl_main_is_pathological_deep_control_candidate(
+      body,
+      local_types.length(),
+      options,
+    )
+    if pathological_deep_control {
+      if trace_verbose {
+        trace(
+          "phase=main:rewrite:skip reason=pathological_deep_control max_depth=\{max_depth} control_nodes=\{control_nodes} top_instrs=\{body.instrs.length()} locals=\{local_types.length()}",
+        )
+      }
+      return (body, false, false, get_counts)
+    }
   }
   if trace_verbose {
     trace("phase=main:rewrite:start top_instrs=\{body.instrs.length()}")
@@ -4027,12 +4341,14 @@ fn sl_run_main_phase(
   if trace_verbose {
     sl_main_rewrite_helper_trace_reset()
     sl_main_rewrite_helper_trace_enabled.val = true
+    sl_main_rewrite_helper_trace_progress_reset(trace)
   }
   let (next_body, changed) = sl_simplify_texpr_main(
     body, env, local_types, get_counts, options, shared_effects_cache,
   )
   if trace_verbose {
     sl_main_rewrite_helper_trace_enabled.val = false
+    sl_main_rewrite_helper_trace_progress_disable()
   }
   sl_helper_timing_commit(
     helper_timing_enabled, sl_helper_timing_simplify_texpr_main_us, sl_helper_timing_simplify_texpr_main_calls,
@@ -7073,6 +7389,85 @@ test "simplify_locals ID-P6 does not force redundant second main cycle when tee 
     }
   }
   assert_eq(main_start_count, 1)
+}
+
+///|
+test "simplify_locals emits main rewrite progress traces for deeply nested rewrite trees" {
+  let logs : Array[String] = []
+  let mut nested_value = TInstr::local_get(LocalIdx::new(0))
+  for _ in 0..<80 {
+    nested_value = TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([nested_value]),
+    )
+  }
+  ignore(
+    sl_simplify_function(
+      Func::t_func(
+        [],
+        [ValType::i32(), ValType::i32()],
+        TExpr::new([
+          TInstr::local_set(LocalIdx::new(1), nested_value),
+          TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
+        ]),
+      ),
+      sl_test_env([ValType::i32(), ValType::i32()]),
+      [],
+      { allow_tee: false, allow_structure: false, allow_nesting: true },
+      trace=fn(msg) { logs.push(msg) },
+      trace_verbose=true,
+    ),
+  )
+  let mut saw_progress = false
+  let mut saw_depth_summary = false
+  for msg in logs {
+    if msg.contains("phase=main:rewrite:progress") {
+      saw_progress = true
+    }
+    if msg.contains("phase=main:rewrite:helpers") &&
+      msg.contains("texpr_depth_max=") {
+      saw_depth_summary = true
+    }
+  }
+  assert_true(saw_progress)
+  assert_true(saw_depth_summary)
+}
+
+///|
+test "simplify_locals short-circuits pathological deep-control rewrite in no-tee mode" {
+  let logs : Array[String] = []
+  let mut nested_value = TInstr::local_get(LocalIdx::new(0))
+  for _ in 0..<120 {
+    nested_value = TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([nested_value]),
+    )
+  }
+  let (_, changed, _, _) = sl_run_main_phase(
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(1), nested_value),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
+    ]),
+    sl_test_env([ValType::i32(), ValType::i32()]),
+    [ValType::i32(), ValType::i32()],
+    { allow_tee: false, allow_structure: false, allow_nesting: true },
+    false,
+    trace=fn(msg) { logs.push(msg) },
+    trace_verbose=true,
+  )
+  assert_false(changed)
+  let mut saw_pathological_skip = false
+  let mut saw_progress = false
+  for msg in logs {
+    if msg.contains("phase=main:rewrite:skip reason=pathological_deep_control") {
+      saw_pathological_skip = true
+    }
+    if msg.contains("phase=main:rewrite:progress") {
+      saw_progress = true
+    }
+  }
+  assert_true(saw_pathological_skip)
+  assert_false(saw_progress)
 }
 
 ///|
