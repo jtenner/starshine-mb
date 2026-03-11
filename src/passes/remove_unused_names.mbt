@@ -44,6 +44,31 @@ priv struct RUNHotspotEntry {
 const RUN_HOTSPOT_SUMMARY_LIMIT : Int = 8
 
 ///|
+const RUN_WALK_VERBOSE_WALK_INTERVAL : Int = 2048
+
+///|
+const RUN_WALK_VERBOSE_BRANCH_SCAN_INTERVAL : Int = 4096
+
+///|
+const RUN_WALK_VERBOSE_REBASE_LABEL_INTERVAL : Int = 4096
+
+///|
+priv struct RUNWalkOnceVerboseState {
+  enabled : Bool
+  walk_instr_visits : Ref[Int]
+  next_walk_report_at : Ref[Int]
+  peel_calls : Ref[Int]
+  peel_removed_scopes : Ref[Int]
+  rebase_calls : Ref[Int]
+  rebase_removed_scopes : Ref[Int]
+  rebase_label_visits : Ref[Int]
+  next_rebase_label_report_at : Ref[Int]
+  branch_scan_instr_visits : Ref[Int]
+  next_branch_scan_report_at : Ref[Int]
+  branch_scan_hits : Ref[Int]
+}
+
+///|
 let run_helper_timing_walk_once_us : Ref[UInt64] = Ref::new(0UL)
 
 ///|
@@ -300,6 +325,179 @@ fn run_trace_emit_totals(trace : (String) -> Unit) -> Unit {
 }
 
 ///|
+fn run_walk_verbose_state(enabled : Bool) -> RUNWalkOnceVerboseState {
+  {
+    enabled,
+    walk_instr_visits: Ref::new(0),
+    next_walk_report_at: Ref::new(RUN_WALK_VERBOSE_WALK_INTERVAL),
+    peel_calls: Ref::new(0),
+    peel_removed_scopes: Ref::new(0),
+    rebase_calls: Ref::new(0),
+    rebase_removed_scopes: Ref::new(0),
+    rebase_label_visits: Ref::new(0),
+    next_rebase_label_report_at: Ref::new(
+      RUN_WALK_VERBOSE_REBASE_LABEL_INTERVAL,
+    ),
+    branch_scan_instr_visits: Ref::new(0),
+    next_branch_scan_report_at: Ref::new(RUN_WALK_VERBOSE_BRANCH_SCAN_INTERVAL),
+    branch_scan_hits: Ref::new(0),
+  }
+}
+
+///|
+fn run_walk_verbose_emit(
+  trace : (String) -> Unit,
+  state : RUNWalkOnceVerboseState,
+  msg : String,
+) -> Unit {
+  if !state.enabled {
+    return
+  }
+  trace("phase=walk_once:helper \{msg}")
+}
+
+///|
+fn run_walk_verbose_note_walk_instr(
+  trace : (String) -> Unit,
+  state : RUNWalkOnceVerboseState,
+) -> Unit {
+  if !state.enabled {
+    return
+  }
+  state.walk_instr_visits.val = state.walk_instr_visits.val + 1
+  if state.walk_instr_visits.val < state.next_walk_report_at.val {
+    return
+  }
+  run_walk_verbose_emit(
+    trace,
+    state,
+    "progress walk_instrs=\{state.walk_instr_visits.val} peel_calls=\{state.peel_calls.val} peel_removed=\{state.peel_removed_scopes.val} rebase_calls=\{state.rebase_calls.val} rebase_removed=\{state.rebase_removed_scopes.val} branch_scan_instrs=\{state.branch_scan_instr_visits.val} branch_hits=\{state.branch_scan_hits.val}",
+  )
+  state.next_walk_report_at.val = state.next_walk_report_at.val +
+    RUN_WALK_VERBOSE_WALK_INTERVAL
+}
+
+///|
+fn run_walk_verbose_note_peel(
+  trace : (String) -> Unit,
+  state : RUNWalkOnceVerboseState,
+  removed_scopes : Int,
+  body_instrs : Int,
+) -> Unit {
+  if !state.enabled {
+    return
+  }
+  state.peel_calls.val = state.peel_calls.val + 1
+  if removed_scopes > 0 {
+    state.peel_removed_scopes.val = state.peel_removed_scopes.val +
+      removed_scopes
+    run_walk_verbose_emit(
+      trace,
+      state,
+      "peel removed_scopes=\{removed_scopes} body_instrs=\{body_instrs} peel_calls=\{state.peel_calls.val} peel_removed=\{state.peel_removed_scopes.val}",
+    )
+  }
+}
+
+///|
+fn run_walk_verbose_note_rebase_start(
+  trace : (String) -> Unit,
+  state : RUNWalkOnceVerboseState,
+  removed_scopes : Int,
+  body_instrs : Int,
+) -> Unit {
+  if !state.enabled {
+    return
+  }
+  state.rebase_calls.val = state.rebase_calls.val + 1
+  state.rebase_removed_scopes.val = state.rebase_removed_scopes.val +
+    removed_scopes
+  run_walk_verbose_emit(
+    trace,
+    state,
+    "rebase:start removed_scopes=\{removed_scopes} body_instrs=\{body_instrs} rebase_calls=\{state.rebase_calls.val} rebase_removed=\{state.rebase_removed_scopes.val}",
+  )
+}
+
+///|
+fn run_walk_verbose_note_rebase_label_visit(
+  trace : (String) -> Unit,
+  state : RUNWalkOnceVerboseState,
+) -> Unit {
+  if !state.enabled {
+    return
+  }
+  state.rebase_label_visits.val = state.rebase_label_visits.val + 1
+  if state.rebase_label_visits.val < state.next_rebase_label_report_at.val {
+    return
+  }
+  run_walk_verbose_emit(
+    trace,
+    state,
+    "progress rebase_labels=\{state.rebase_label_visits.val} rebase_calls=\{state.rebase_calls.val} rebase_removed=\{state.rebase_removed_scopes.val}",
+  )
+  state.next_rebase_label_report_at.val = state.next_rebase_label_report_at.val +
+    RUN_WALK_VERBOSE_REBASE_LABEL_INTERVAL
+}
+
+///|
+fn run_walk_verbose_note_rebase_done(
+  trace : (String) -> Unit,
+  state : RUNWalkOnceVerboseState,
+  removed_scopes : Int,
+  out_instrs : Int,
+) -> Unit {
+  if !state.enabled {
+    return
+  }
+  run_walk_verbose_emit(
+    trace,
+    state,
+    "rebase:done removed_scopes=\{removed_scopes} out_instrs=\{out_instrs} rebase_labels=\{state.rebase_label_visits.val}",
+  )
+}
+
+///|
+fn run_walk_verbose_note_branch_scan_visit(
+  trace : (String) -> Unit,
+  state : RUNWalkOnceVerboseState,
+  depth : Int,
+) -> Unit {
+  if !state.enabled {
+    return
+  }
+  state.branch_scan_instr_visits.val = state.branch_scan_instr_visits.val + 1
+  if state.branch_scan_instr_visits.val < state.next_branch_scan_report_at.val {
+    return
+  }
+  run_walk_verbose_emit(
+    trace,
+    state,
+    "progress branch_scan_instrs=\{state.branch_scan_instr_visits.val} depth=\{depth} branch_hits=\{state.branch_scan_hits.val}",
+  )
+  state.next_branch_scan_report_at.val = state.next_branch_scan_report_at.val +
+    RUN_WALK_VERBOSE_BRANCH_SCAN_INTERVAL
+}
+
+///|
+fn run_walk_verbose_note_branch_scan_hit(
+  trace : (String) -> Unit,
+  state : RUNWalkOnceVerboseState,
+  depth : Int,
+  kind : String,
+) -> Unit {
+  if !state.enabled {
+    return
+  }
+  state.branch_scan_hits.val = state.branch_scan_hits.val + 1
+  run_walk_verbose_emit(
+    trace,
+    state,
+    "branch_scan:hit kind=\{kind} depth=\{depth} instrs=\{state.branch_scan_instr_visits.val} hits=\{state.branch_scan_hits.val}",
+  )
+}
+
+///|
 fn run_hotspot_reset() -> Unit {
   run_hotspot_entries.val = []
 }
@@ -484,17 +682,36 @@ fn run_rebase_labels_for_removed_scopes(
   body : TExpr,
   removed_scopes : Int,
   helper_timing_enabled? : Bool = false,
+  walk_trace_state? : RUNWalkOnceVerboseState? = None,
+  walk_trace? : (String) -> Unit = run_trace_noop,
 ) -> Result[TExpr, String] {
   let helper_start_us = if helper_timing_enabled {
     run_trace_now_us()
   } else {
     0UL
   }
+  match walk_trace_state {
+    Some(state) =>
+      if removed_scopes > 0 {
+        run_walk_verbose_note_rebase_start(
+          walk_trace,
+          state,
+          removed_scopes,
+          body.instrs.length(),
+        )
+      }
+    None => ()
+  }
   let out = if removed_scopes <= 0 {
     Ok(body)
   } else {
     let pass = ModuleTransformer::new()
       .on_labelidx_evt(fn(_, depth, label) {
+        match walk_trace_state {
+          Some(state) =>
+            run_walk_verbose_note_rebase_label_visit(walk_trace, state)
+          None => ()
+        }
         let next = run_rebase_label_for_removed_scopes(
           label, depth, removed_scopes,
         )
@@ -516,6 +733,16 @@ fn run_rebase_labels_for_removed_scopes(
     helper_timing_enabled, run_helper_timing_rebase_labels_us, run_helper_timing_rebase_labels_calls,
     helper_start_us,
   )
+  match (walk_trace_state, out) {
+    (Some(state), Ok(rewritten)) =>
+      run_walk_verbose_note_rebase_done(
+        walk_trace,
+        state,
+        removed_scopes,
+        rewritten.instrs.length(),
+      )
+    _ => ()
+  }
   out
 }
 
@@ -524,6 +751,8 @@ fn run_peel_single_child_same_blocks(
   bt : BlockType,
   body : TExpr,
   helper_timing_enabled? : Bool = false,
+  walk_trace_state? : RUNWalkOnceVerboseState? = None,
+  walk_trace? : (String) -> Unit = run_trace_noop,
 ) -> (Int, TExpr) {
   let helper_start_us = if helper_timing_enabled {
     run_trace_now_us()
@@ -548,6 +777,16 @@ fn run_peel_single_child_same_blocks(
     helper_timing_enabled, run_helper_timing_peel_same_blocks_us, run_helper_timing_peel_same_blocks_calls,
     helper_start_us,
   )
+  match walk_trace_state {
+    Some(state) =>
+      run_walk_verbose_note_peel(
+        walk_trace,
+        state,
+        removed,
+        body.instrs.length(),
+      )
+    None => ()
+  }
   (removed, curr)
 }
 
@@ -567,36 +806,94 @@ fn run_catch_targets_depth(c : Catch, depth : Int) -> Bool {
 }
 
 ///|
-fn run_has_branch_to_depth_in_instr(instr : TInstr, depth : Int) -> Bool {
+fn run_has_branch_to_depth_in_instr(
+  instr : TInstr,
+  depth : Int,
+  walk_trace_state? : RUNWalkOnceVerboseState? = None,
+  walk_trace? : (String) -> Unit = run_trace_noop,
+) -> Bool {
+  match walk_trace_state {
+    Some(state) =>
+      run_walk_verbose_note_branch_scan_visit(walk_trace, state, depth)
+    None => ()
+  }
   match instr.kind {
     TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
-      run_has_branch_to_depth_in_texpr(body, depth + 1)
+      run_has_branch_to_depth_in_texpr(
+        body,
+        depth + 1,
+        walk_trace_state~,
+        walk_trace~,
+      )
     TInstrKind::TIf(_, cond, then_body, else_body) => {
-      if run_has_branch_to_depth_in_instr(cond, depth) {
+      if run_has_branch_to_depth_in_instr(
+          cond,
+          depth,
+          walk_trace_state~,
+          walk_trace~,
+        ) {
         return true
       }
-      if run_has_branch_to_depth_in_texpr(then_body, depth + 1) {
+      if run_has_branch_to_depth_in_texpr(
+          then_body,
+          depth + 1,
+          walk_trace_state~,
+          walk_trace~,
+        ) {
         return true
       }
       match else_body {
-        Some(other) => run_has_branch_to_depth_in_texpr(other, depth + 1)
+        Some(other) =>
+          run_has_branch_to_depth_in_texpr(
+            other,
+            depth + 1,
+            walk_trace_state~,
+            walk_trace~,
+          )
         None => false
       }
     }
     TInstrKind::TTryTable(_, catches, body) => {
       for c in catches {
         if run_catch_targets_depth(c, depth + 1) {
+          match walk_trace_state {
+            Some(state) =>
+              run_walk_verbose_note_branch_scan_hit(
+                walk_trace,
+                state,
+                depth + 1,
+                "catch",
+              )
+            None => ()
+          }
           return true
         }
       }
-      run_has_branch_to_depth_in_texpr(body, depth + 1)
+      run_has_branch_to_depth_in_texpr(
+        body,
+        depth + 1,
+        walk_trace_state~,
+        walk_trace~,
+      )
     }
     TInstrKind::TBr(label, values) => {
       if run_label_matches_depth(label, depth) {
+        match walk_trace_state {
+          Some(state) =>
+            run_walk_verbose_note_branch_scan_hit(
+              walk_trace, state, depth, "br",
+            )
+          None => ()
+        }
         return true
       }
       for value in values {
-        if run_has_branch_to_depth_in_instr(value, depth) {
+        if run_has_branch_to_depth_in_instr(
+            value,
+            depth,
+            walk_trace_state~,
+            walk_trace~,
+          ) {
           return true
         }
       }
@@ -604,44 +901,102 @@ fn run_has_branch_to_depth_in_instr(instr : TInstr, depth : Int) -> Bool {
     }
     TInstrKind::TBrIf(label, cond, values) => {
       if run_label_matches_depth(label, depth) {
+        match walk_trace_state {
+          Some(state) =>
+            run_walk_verbose_note_branch_scan_hit(
+              walk_trace, state, depth, "br_if",
+            )
+          None => ()
+        }
         return true
       }
       for value in values {
-        if run_has_branch_to_depth_in_instr(value, depth) {
+        if run_has_branch_to_depth_in_instr(
+            value,
+            depth,
+            walk_trace_state~,
+            walk_trace~,
+          ) {
           return true
         }
       }
-      run_has_branch_to_depth_in_instr(cond, depth)
+      run_has_branch_to_depth_in_instr(
+        cond,
+        depth,
+        walk_trace_state~,
+        walk_trace~,
+      )
     }
     TInstrKind::TBrTable(labels, default_label, index, values) => {
       for label in labels {
         if run_label_matches_depth(label, depth) {
+          match walk_trace_state {
+            Some(state) =>
+              run_walk_verbose_note_branch_scan_hit(
+                walk_trace, state, depth, "br_table",
+              )
+            None => ()
+          }
           return true
         }
       }
       if run_label_matches_depth(default_label, depth) {
+        match walk_trace_state {
+          Some(state) =>
+            run_walk_verbose_note_branch_scan_hit(
+              walk_trace, state, depth, "br_table_default",
+            )
+          None => ()
+        }
         return true
       }
       for value in values {
-        if run_has_branch_to_depth_in_instr(value, depth) {
+        if run_has_branch_to_depth_in_instr(
+            value,
+            depth,
+            walk_trace_state~,
+            walk_trace~,
+          ) {
           return true
         }
       }
-      run_has_branch_to_depth_in_instr(index, depth)
+      run_has_branch_to_depth_in_instr(
+        index,
+        depth,
+        walk_trace_state~,
+        walk_trace~,
+      )
     }
     TInstrKind::TBrOnNull(label, ref_, values)
     | TInstrKind::TBrOnNonNull(label, ref_, values)
     | TInstrKind::TBrOnCast(label, _, _, _, ref_, values)
     | TInstrKind::TBrOnCastFail(label, _, _, _, ref_, values) => {
       if run_label_matches_depth(label, depth) {
+        match walk_trace_state {
+          Some(state) =>
+            run_walk_verbose_note_branch_scan_hit(
+              walk_trace, state, depth, "br_on*",
+            )
+          None => ()
+        }
         return true
       }
       for value in values {
-        if run_has_branch_to_depth_in_instr(value, depth) {
+        if run_has_branch_to_depth_in_instr(
+            value,
+            depth,
+            walk_trace_state~,
+            walk_trace~,
+          ) {
           return true
         }
       }
-      run_has_branch_to_depth_in_instr(ref_, depth)
+      run_has_branch_to_depth_in_instr(
+        ref_,
+        depth,
+        walk_trace_state~,
+        walk_trace~,
+      )
     }
     _ => {
       let mut found = false
@@ -649,7 +1004,12 @@ fn run_has_branch_to_depth_in_instr(instr : TInstr, depth : Int) -> Bool {
         if found {
           return
         }
-        if run_has_branch_to_depth_in_instr(child, depth) {
+        if run_has_branch_to_depth_in_instr(
+            child,
+            depth,
+            walk_trace_state~,
+            walk_trace~,
+          ) {
           found = true
         }
       })
@@ -659,9 +1019,19 @@ fn run_has_branch_to_depth_in_instr(instr : TInstr, depth : Int) -> Bool {
 }
 
 ///|
-fn run_has_branch_to_depth_in_texpr(body : TExpr, depth : Int) -> Bool {
+fn run_has_branch_to_depth_in_texpr(
+  body : TExpr,
+  depth : Int,
+  walk_trace_state? : RUNWalkOnceVerboseState? = None,
+  walk_trace? : (String) -> Unit = run_trace_noop,
+) -> Bool {
   for instr in body.instrs {
-    if run_has_branch_to_depth_in_instr(instr, depth) {
+    if run_has_branch_to_depth_in_instr(
+        instr,
+        depth,
+        walk_trace_state~,
+        walk_trace~,
+      ) {
       return true
     }
   }
@@ -672,17 +1042,39 @@ fn run_has_branch_to_depth_in_texpr(body : TExpr, depth : Int) -> Bool {
 fn run_has_branch_to_current_scope(
   body : TExpr,
   helper_timing_enabled? : Bool = false,
+  walk_trace_state? : RUNWalkOnceVerboseState? = None,
+  walk_trace? : (String) -> Unit = run_trace_noop,
 ) -> Result[Bool, String] {
   let helper_start_us = if helper_timing_enabled {
     run_trace_now_us()
   } else {
     0UL
   }
-  let out = Ok(run_has_branch_to_depth_in_texpr(body, 0))
+  match walk_trace_state {
+    Some(state) =>
+      run_walk_verbose_emit(
+        walk_trace,
+        state,
+        "branch_scan:start body_instrs=\{body.instrs.length()}",
+      )
+    None => ()
+  }
+  let out = Ok(
+    run_has_branch_to_depth_in_texpr(body, 0, walk_trace_state~, walk_trace~),
+  )
   run_helper_timing_commit(
     helper_timing_enabled, run_helper_timing_branch_scope_scan_us, run_helper_timing_branch_scope_scan_calls,
     helper_start_us,
   )
+  match (walk_trace_state, out) {
+    (Some(state), Ok(found)) =>
+      run_walk_verbose_emit(
+        walk_trace,
+        state,
+        "branch_scan:done found=\{found} body_instrs=\{body.instrs.length()} instrs=\{state.branch_scan_instr_visits.val} hits=\{state.branch_scan_hits.val}",
+      )
+    _ => ()
+  }
   out
 }
 
@@ -690,13 +1082,22 @@ fn run_has_branch_to_current_scope(
 fn run_remove_unused_names_once(
   body : TExpr,
   helper_timing_enabled? : Bool = false,
+  helper_verbose_enabled? : Bool = false,
+  helper_trace? : (String) -> Unit = run_trace_noop,
 ) -> Result[(TExpr, Bool), String] {
   let helper_start_us = if helper_timing_enabled {
     run_trace_now_us()
   } else {
     0UL
   }
+  let walk_trace_state = run_walk_verbose_state(helper_verbose_enabled)
+  run_walk_verbose_emit(
+    helper_trace,
+    walk_trace_state,
+    "start body_instrs=\{body.instrs.length()}",
+  )
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    run_walk_verbose_note_walk_instr(helper_trace, walk_trace_state)
     let walked = match self.walk_tinstruction_default((), instr) {
       Ok((out, _)) => out
       Err(e) => return error(e)
@@ -708,6 +1109,8 @@ fn run_remove_unused_names_once(
           bt,
           block_body,
           helper_timing_enabled~,
+          walk_trace_state=Some(walk_trace_state),
+          walk_trace=helper_trace,
         )
         if removed > 0 {
           match
@@ -715,6 +1118,8 @@ fn run_remove_unused_names_once(
               peeled,
               removed,
               helper_timing_enabled~,
+              walk_trace_state=Some(walk_trace_state),
+              walk_trace=helper_trace,
             ) {
             Ok(rebased) => TInstr::block(bt, rebased)
             Err(e) => return error(e)
@@ -725,7 +1130,12 @@ fn run_remove_unused_names_once(
       }
       TInstrKind::TLoop(bt, loop_body) =>
         match
-          run_has_branch_to_current_scope(loop_body, helper_timing_enabled~) {
+          run_has_branch_to_current_scope(
+            loop_body,
+            helper_timing_enabled~,
+            walk_trace_state=Some(walk_trace_state),
+            walk_trace=helper_trace,
+          ) {
           Ok(true) => walked
           Ok(false) => TInstr::block(bt, loop_body)
           Err(e) => return error(e)
@@ -748,6 +1158,20 @@ fn run_remove_unused_names_once(
     helper_timing_enabled, run_helper_timing_walk_once_us, run_helper_timing_walk_once_calls,
     helper_start_us,
   )
+  match out {
+    Ok((_, changed)) =>
+      run_walk_verbose_emit(
+        helper_trace,
+        walk_trace_state,
+        "done changed=\{changed} walk_instrs=\{walk_trace_state.walk_instr_visits.val} peel_calls=\{walk_trace_state.peel_calls.val} peel_removed=\{walk_trace_state.peel_removed_scopes.val} rebase_calls=\{walk_trace_state.rebase_calls.val} rebase_removed=\{walk_trace_state.rebase_removed_scopes.val} rebase_labels=\{walk_trace_state.rebase_label_visits.val} branch_scan_instrs=\{walk_trace_state.branch_scan_instr_visits.val} branch_hits=\{walk_trace_state.branch_scan_hits.val}",
+      )
+    Err(e) =>
+      run_walk_verbose_emit(
+        helper_trace,
+        walk_trace_state,
+        "error \{e} walk_instrs=\{walk_trace_state.walk_instr_visits.val} peel_calls=\{walk_trace_state.peel_calls.val} rebase_calls=\{walk_trace_state.rebase_calls.val} branch_scan_instrs=\{walk_trace_state.branch_scan_instr_visits.val}",
+      )
+  }
   out
 }
 
@@ -810,6 +1234,8 @@ fn run_remove_unused_names_module(
               run_remove_unused_names_once(
                 body,
                 helper_timing_enabled=trace_enabled,
+                helper_verbose_enabled=log_func,
+                helper_trace=func_trace,
               ) {
               Ok((next_body, func_changed)) => {
                 let end_top_instrs = next_body.instrs.length()
