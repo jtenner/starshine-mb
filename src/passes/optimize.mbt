@@ -1580,6 +1580,7 @@ fn optimize_module_with_options_internal(
     )
     let validate_result = if trace_enabled &&
       optimize_trace_phase_enabled(trace_level) {
+      let validate_trace_all_funcs = optimize_trace_helper_enabled(trace_level)
       validate_module_with_trace(
         mod,
         fn(msg) {
@@ -1590,7 +1591,7 @@ fn optimize_module_with_options_internal(
             )
           }
         },
-        trace_all_funcs=pass_trace_all_funcs,
+        trace_all_funcs=validate_trace_all_funcs,
       )
     } else {
       validate_module(mod)

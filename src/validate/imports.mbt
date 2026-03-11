@@ -36,7 +36,6 @@ using @lib {
   type ExternIdx,
   type ExternType,
   type FieldType,
-  type FunctionLocals,
   type Func,
   type FuncIdx,
   type FuncSec,

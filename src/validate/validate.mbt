@@ -130,6 +130,9 @@ priv struct ValidateHotspotEntry {
 const VALIDATE_HOTSPOT_SUMMARY_LIMIT : Int = 8
 
 ///|
+const VALIDATE_REF_FUNC_DECL_TRACE_HEARTBEAT : Int = 256
+
+///|
 let validate_helper_timing_validate_func_body_us : Ref[UInt64] = Ref::new(0UL)
 
 ///|
@@ -958,6 +961,33 @@ fn validate_locals_decls(
 }
 
 ///|
+fn validate_append_all_locals_from_decls(
+  params : Array[ValType],
+  decls : Array[Locals],
+) -> Array[ValType] {
+  let all = params.copy()
+  for d in decls {
+    let Locals(n, vt) = d
+    for _ in 0..<n.reinterpret_as_int() {
+      all.push(vt)
+    }
+  }
+  all
+}
+
+///|
+fn validate_append_all_locals_from_typed(
+  params : Array[ValType],
+  local_vals : Array[ValType],
+) -> Array[ValType] {
+  let all = params.copy()
+  for vt in local_vals {
+    all.push(vt)
+  }
+  all
+}
+
+///|
 fn validate_func_body_against_functype(
   env : Env,
   ft : FuncType,
@@ -971,17 +1001,12 @@ fn validate_func_body_against_functype(
         return Err(e)
       }
 
-      let locals = match FunctionLocals::from_local_decls(params, local_decls) {
-        Ok(ls) => ls
-        Err(e) => return Err(e)
-      }
-
       // Extend context:
       // - locals
       // - labels appended by results (function label)
       // - return appended by results
       let env1 = env
-        .with_locals(locals.all_locals())
+        .with_locals(validate_append_all_locals_from_decls(params, local_decls))
         .with_labels(
           {
             let ls = env.labels.copy()
@@ -1005,13 +1030,13 @@ fn validate_func_body_against_functype(
       Ok(())
     }
     TFunc(tfunc_params, local_vals, texpr) => {
-      let locals = match
-        FunctionLocals::from_typed_func(params, tfunc_params, local_vals) {
-        Ok(ls) => ls
-        Err(e) => return Err(e)
+      if tfunc_params != params {
+        return Err(
+          "typed function params must match declared signature exactly",
+        )
       }
       let env1 = env
-        .with_locals(locals.all_locals())
+        .with_locals(validate_append_all_locals_from_typed(params, local_vals))
         .with_labels(
           {
             let ls = env.labels.copy()
@@ -1883,7 +1908,20 @@ fn validate_ref_func_declarations_in_module(
   env : Env,
   imported_func_count : Int,
   declared : Array[Bool],
+  trace? : (String) -> Unit = validate_trace_noop,
+  trace_all_funcs? : Bool = false,
+  trace_enabled? : Bool = false,
 ) -> Result[Unit, ValidationDiagnostic] {
+  let globals_count = match mod.global_sec {
+    Some(GlobalSec(globals)) => globals.length()
+    None => 0
+  }
+  let globals_start_ms = if trace_enabled {
+    trace("phase=ref_func_declarations:globals:start count=\{globals_count}")
+    validate_trace_now_ms()
+  } else {
+    0UL
+  }
   match mod.global_sec {
     Some(GlobalSec(globals)) =>
       for global in globals {
@@ -1896,7 +1934,22 @@ fn validate_ref_func_declarations_in_module(
       }
     None => ()
   }
+  if trace_enabled {
+    trace(
+      "phase=ref_func_declarations:globals:done elapsed_ms=\{validate_trace_elapsed_ms(globals_start_ms)}",
+    )
+  }
 
+  let tables_count = match mod.table_sec {
+    Some(TableSec(tables)) => tables.length()
+    None => 0
+  }
+  let tables_start_ms = if trace_enabled {
+    trace("phase=ref_func_declarations:tables:start count=\{tables_count}")
+    validate_trace_now_ms()
+  } else {
+    0UL
+  }
   match mod.table_sec {
     Some(TableSec(tables)) =>
       for table in tables {
@@ -1914,7 +1967,22 @@ fn validate_ref_func_declarations_in_module(
       }
     None => ()
   }
+  if trace_enabled {
+    trace(
+      "phase=ref_func_declarations:tables:done elapsed_ms=\{validate_trace_elapsed_ms(tables_start_ms)}",
+    )
+  }
 
+  let elems_count = match mod.elem_sec {
+    Some(ElemSec(elems)) => elems.length()
+    None => 0
+  }
+  let elems_start_ms = if trace_enabled {
+    trace("phase=ref_func_declarations:elems:start count=\{elems_count}")
+    validate_trace_now_ms()
+  } else {
+    0UL
+  }
   match mod.elem_sec {
     Some(ElemSec(elems)) =>
       for elem in elems {
@@ -1934,13 +2002,37 @@ fn validate_ref_func_declarations_in_module(
       }
     None => ()
   }
+  if trace_enabled {
+    trace(
+      "phase=ref_func_declarations:elems:done elapsed_ms=\{validate_trace_elapsed_ms(elems_start_ms)}",
+    )
+  }
 
+  let code_func_count = match mod.code_sec {
+    Some(CodeSec(bodies)) => bodies.length()
+    None => 0
+  }
+  let codesec_start_ms = if trace_enabled {
+    trace("phase=ref_func_declarations:codesec:start funcs=\{code_func_count}")
+    validate_trace_now_ms()
+  } else {
+    0UL
+  }
   match (mod.code_sec, mod.func_sec) {
     (Some(CodeSec(bodies)), Some(FuncSec(type_idxs))) => {
       if bodies.length() != type_idxs.length() {
         return Ok(())
       }
       for i in 0..<bodies.length() {
+        let ordinal = i + 1
+        let log_func = if trace_enabled {
+          validate_trace_log_enabled(ordinal, trace_all_funcs)
+        } else {
+          false
+        }
+        if log_func {
+          trace("phase=ref_func_declarations:codesec func[\{ordinal}] start")
+        }
         let func_idx = FuncIdx::new(
           (imported_func_count + i).reinterpret_as_uint(),
         )
@@ -1958,10 +2050,35 @@ fn validate_ref_func_declarations_in_module(
               ),
             )
         }
+        if log_func {
+          trace("phase=ref_func_declarations:codesec func[\{ordinal}] done")
+        }
+        let scanned = i + 1
+        if trace_enabled &&
+          (
+            scanned % VALIDATE_REF_FUNC_DECL_TRACE_HEARTBEAT == 0 ||
+            scanned == bodies.length()
+          ) {
+          trace(
+            "phase=ref_func_declarations:codesec:progress scanned=\{scanned} total=\{bodies.length()} elapsed_ms=\{validate_trace_elapsed_ms(codesec_start_ms)}",
+          )
+        }
+      }
+      if trace_enabled {
+        trace(
+          "phase=ref_func_declarations:codesec:done elapsed_ms=\{validate_trace_elapsed_ms(codesec_start_ms)}",
+        )
       }
       Ok(())
     }
-    _ => Ok(())
+    _ => {
+      if trace_enabled {
+        trace(
+          "phase=ref_func_declarations:codesec:done elapsed_ms=\{validate_trace_elapsed_ms(codesec_start_ms)}",
+        )
+      }
+      Ok(())
+    }
   }
 }
 
@@ -2317,7 +2434,13 @@ fn validate_module_impl(
   let declared_funcs = collect_declared_funcs_bitmap(m, env)
   match
     validate_ref_func_declarations_in_module(
-      m, env, imported_func_count, declared_funcs,
+      m,
+      env,
+      imported_func_count,
+      declared_funcs,
+      trace~,
+      trace_all_funcs~,
+      trace_enabled~,
     ) {
     Ok(_) =>
       validate_trace_phase_done(
