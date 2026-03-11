@@ -162,7 +162,11 @@ This ensures each pass follows the same top-level tracing contract and trace ver
 
 ## 8. Validation Expectations
 
-Tracing should be validated through existing functional/integration test coverage unless explicitly requested otherwise. Avoid adding or keeping dedicated trace-only tests by default.
+**Dedicated tracing tests are strictly forbidden.**
+
+Tracing should be validated through existing functional/integration coverage only. Do not add, keep, or expand trace-only tests.
+
+**Trace-only tests add no value and should not be used as a quality gate for tracing changes.**
 
 ## 9. Implementation Checklist (Copy/Paste)
 
