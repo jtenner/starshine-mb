@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,6 +24,325 @@ priv struct HashedExpression {
 priv struct RequestInfo {
   original : Int
   requests : Int
+}
+
+///|
+fn local_cse_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn local_cse_trace_should_log_func(
+  ordinal : Int,
+  trace_all_funcs : Bool,
+) -> Bool {
+  pass_trace_log_enabled(ordinal, trace_all_funcs)
+}
+
+///|
+fn local_cse_trace_now_ms() -> UInt64 {
+  pass_trace_now_ms()
+}
+
+///|
+fn local_cse_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
+  pass_trace_elapsed_ms(start_ms)
+}
+
+///|
+fn local_cse_trace_now_us() -> UInt64 {
+  pass_trace_now_us()
+}
+
+///|
+fn local_cse_trace_elapsed_us_since(start_us : UInt64) -> UInt64 {
+  pass_trace_elapsed_us_since(start_us)
+}
+
+///|
+fn local_cse_trace_delta_us_to_ms(delta_us : UInt64) -> UInt64 {
+  pass_trace_delta_us_to_ms(delta_us)
+}
+
+///|
+priv struct LCSHelperTimingSnapshot {
+  scan_texpr_us : UInt64
+  scan_texpr_calls : Int
+  check_texpr_us : UInt64
+  check_texpr_calls : Int
+  apply_texpr_us : UInt64
+  apply_texpr_calls : Int
+}
+
+///|
+priv struct LCSHotspotEntry {
+  ordinal : Int
+  total_ticks : UInt64
+  apply_ticks : UInt64
+  locals : Int
+  top_instrs : Int
+}
+
+///|
+const LCS_HOTSPOT_SUMMARY_LIMIT : Int = 8
+
+///|
+let lcs_helper_timing_scan_texpr_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let lcs_helper_timing_scan_texpr_calls : Ref[Int] = Ref::new(0)
+
+///|
+let lcs_helper_timing_check_texpr_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let lcs_helper_timing_check_texpr_calls : Ref[Int] = Ref::new(0)
+
+///|
+let lcs_helper_timing_apply_texpr_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let lcs_helper_timing_apply_texpr_calls : Ref[Int] = Ref::new(0)
+
+///|
+let lcs_hotspot_entries : Ref[Array[LCSHotspotEntry]] = Ref::new([])
+
+///|
+let lcs_phase_totals_ms : Ref[Map[String, UInt64]] = Ref::new(Map::new())
+
+///|
+let lcs_phase_totals_calls : Ref[Map[String, Int]] = Ref::new(Map::new())
+
+///|
+fn lcs_phase_timing_reset() -> Unit {
+  lcs_phase_totals_ms.val = Map::new()
+  lcs_phase_totals_calls.val = Map::new()
+}
+
+///|
+fn lcs_phase_timing_commit(phase : String, elapsed_ms : UInt64) -> Unit {
+  let totals_ms = lcs_phase_totals_ms.val
+  let totals_calls = lcs_phase_totals_calls.val
+  let current_ms = totals_ms.get(phase).unwrap_or(0UL)
+  let current_calls = totals_calls.get(phase).unwrap_or(0)
+  totals_ms.set(phase, current_ms + elapsed_ms)
+  totals_calls.set(phase, current_calls + 1)
+}
+
+///|
+fn lcs_phase_timing_total_ms(phase : String) -> UInt64 {
+  lcs_phase_totals_ms.val.get(phase).unwrap_or(0UL)
+}
+
+///|
+fn lcs_phase_timing_total_calls(phase : String) -> Int {
+  lcs_phase_totals_calls.val.get(phase).unwrap_or(0)
+}
+
+///|
+fn lcs_phase_totals_line() -> String {
+  let phases = ["collect_func_params", "walk_funcs"]
+  let out = StringBuilder::new()
+  out.write_string("phase_totals")
+  for phase in phases {
+    let calls = lcs_phase_timing_total_calls(phase)
+    if calls > 0 {
+      out.write_string(
+        " \{phase}_ms=\{lcs_phase_timing_total_ms(phase)} \{phase}_calls=\{calls}",
+      )
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn lcs_helper_timing_reset() -> Unit {
+  lcs_helper_timing_scan_texpr_us.val = 0UL
+  lcs_helper_timing_scan_texpr_calls.val = 0
+  lcs_helper_timing_check_texpr_us.val = 0UL
+  lcs_helper_timing_check_texpr_calls.val = 0
+  lcs_helper_timing_apply_texpr_us.val = 0UL
+  lcs_helper_timing_apply_texpr_calls.val = 0
+}
+
+///|
+fn lcs_helper_timing_commit(
+  enabled : Bool,
+  elapsed_us : Ref[UInt64],
+  calls : Ref[Int],
+  start_us : UInt64,
+) -> Unit {
+  if !enabled || start_us == 0UL {
+    return
+  }
+  elapsed_us.val = elapsed_us.val + local_cse_trace_elapsed_us_since(start_us)
+  calls.val = calls.val + 1
+}
+
+///|
+fn lcs_helper_timing_snapshot() -> LCSHelperTimingSnapshot {
+  {
+    scan_texpr_us: lcs_helper_timing_scan_texpr_us.val,
+    scan_texpr_calls: lcs_helper_timing_scan_texpr_calls.val,
+    check_texpr_us: lcs_helper_timing_check_texpr_us.val,
+    check_texpr_calls: lcs_helper_timing_check_texpr_calls.val,
+    apply_texpr_us: lcs_helper_timing_apply_texpr_us.val,
+    apply_texpr_calls: lcs_helper_timing_apply_texpr_calls.val,
+  }
+}
+
+///|
+fn lcs_helper_timing_zero() -> LCSHelperTimingSnapshot {
+  {
+    scan_texpr_us: 0UL,
+    scan_texpr_calls: 0,
+    check_texpr_us: 0UL,
+    check_texpr_calls: 0,
+    apply_texpr_us: 0UL,
+    apply_texpr_calls: 0,
+  }
+}
+
+///|
+fn lcs_helper_timing_delta_u64(after : UInt64, before : UInt64) -> UInt64 {
+  if after >= before {
+    after - before
+  } else {
+    0UL
+  }
+}
+
+///|
+fn lcs_helper_timing_diff(
+  after : LCSHelperTimingSnapshot,
+  before : LCSHelperTimingSnapshot,
+) -> LCSHelperTimingSnapshot {
+  {
+    scan_texpr_us: lcs_helper_timing_delta_u64(
+      after.scan_texpr_us,
+      before.scan_texpr_us,
+    ),
+    scan_texpr_calls: after.scan_texpr_calls - before.scan_texpr_calls,
+    check_texpr_us: lcs_helper_timing_delta_u64(
+      after.check_texpr_us,
+      before.check_texpr_us,
+    ),
+    check_texpr_calls: after.check_texpr_calls - before.check_texpr_calls,
+    apply_texpr_us: lcs_helper_timing_delta_u64(
+      after.apply_texpr_us,
+      before.apply_texpr_us,
+    ),
+    apply_texpr_calls: after.apply_texpr_calls - before.apply_texpr_calls,
+  }
+}
+
+///|
+fn lcs_helper_timing_has_nonzero(snapshot : LCSHelperTimingSnapshot) -> Bool {
+  snapshot.scan_texpr_calls > 0 ||
+  snapshot.check_texpr_calls > 0 ||
+  snapshot.apply_texpr_calls > 0
+}
+
+///|
+fn lcs_helper_timing_total_ticks(snapshot : LCSHelperTimingSnapshot) -> UInt64 {
+  snapshot.scan_texpr_us + snapshot.check_texpr_us + snapshot.apply_texpr_us
+}
+
+///|
+fn lcs_trace_emit_helper_timing(
+  trace : (String) -> Unit,
+  ordinal : Int,
+  timing : LCSHelperTimingSnapshot,
+) -> Unit {
+  if !lcs_helper_timing_has_nonzero(timing) {
+    return
+  }
+  trace(
+    "func[\{ordinal}] helper_timing scan_ms=\{local_cse_trace_delta_us_to_ms(timing.scan_texpr_us)} scan_calls=\{timing.scan_texpr_calls} check_ms=\{local_cse_trace_delta_us_to_ms(timing.check_texpr_us)} check_calls=\{timing.check_texpr_calls} apply_ms=\{local_cse_trace_delta_us_to_ms(timing.apply_texpr_us)} apply_calls=\{timing.apply_texpr_calls}",
+  )
+}
+
+///|
+fn lcs_helper_totals_line() -> String {
+  "helper_totals scan_ms=\{local_cse_trace_delta_us_to_ms(lcs_helper_timing_scan_texpr_us.val)} scan_calls=\{lcs_helper_timing_scan_texpr_calls.val} check_ms=\{local_cse_trace_delta_us_to_ms(lcs_helper_timing_check_texpr_us.val)} check_calls=\{lcs_helper_timing_check_texpr_calls.val} apply_ms=\{local_cse_trace_delta_us_to_ms(lcs_helper_timing_apply_texpr_us.val)} apply_calls=\{lcs_helper_timing_apply_texpr_calls.val}"
+}
+
+///|
+fn lcs_trace_emit_totals(trace : (String) -> Unit) -> Unit {
+  trace(lcs_phase_totals_line())
+  trace(lcs_helper_totals_line())
+}
+
+///|
+fn lcs_hotspot_reset() -> Unit {
+  lcs_hotspot_entries.val = []
+}
+
+///|
+fn lcs_hotspot_record(
+  ordinal : Int,
+  total_ticks : UInt64,
+  apply_ticks : UInt64,
+  locals : Int,
+  top_instrs : Int,
+) -> Unit {
+  let entries = lcs_hotspot_entries.val
+  entries.push({ ordinal, total_ticks, apply_ticks, locals, top_instrs })
+  if entries.length() <= LCS_HOTSPOT_SUMMARY_LIMIT {
+    lcs_hotspot_entries.val = entries
+    return
+  }
+  let mut min_idx = 0
+  let mut min_ticks = entries[0].total_ticks
+  for i = 1; i < entries.length(); i = i + 1 {
+    if entries[i].total_ticks < min_ticks {
+      min_idx = i
+      min_ticks = entries[i].total_ticks
+    }
+  }
+  let trimmed : Array[LCSHotspotEntry] = []
+  for i = 0; i < entries.length(); i = i + 1 {
+    if i != min_idx {
+      trimmed.push(entries[i])
+    }
+  }
+  lcs_hotspot_entries.val = trimmed
+}
+
+///|
+fn lcs_hotspot_summary_line() -> String? {
+  let entries = lcs_hotspot_entries.val
+  if entries.is_empty() {
+    return None
+  }
+  let ordered = entries.copy()
+  let mut i = 0
+  while i < ordered.length() {
+    let mut j = i + 1
+    while j < ordered.length() {
+      if ordered[j].total_ticks > ordered[i].total_ticks {
+        let tmp = ordered[i]
+        ordered[i] = ordered[j]
+        ordered[j] = tmp
+      }
+      j += 1
+    }
+    i += 1
+  }
+  let out = StringBuilder::new()
+  out.write_string("hotspots ")
+  let mut idx = 0
+  while idx < ordered.length() {
+    if idx > 0 {
+      out.write_string(" ")
+    }
+    let entry = ordered[idx]
+    out.write_string(
+      "f\{entry.ordinal}:total=\{entry.total_ticks}:apply=\{entry.apply_ticks}:locals=\{entry.locals}:top=\{entry.top_instrs}",
+    )
+    idx += 1
+  }
+  Some(out.to_string())
 }
 
 ///|
@@ -1840,14 +2159,33 @@ fn run_local_cse_on_func(
   locals : Array[ValType],
   body : TExpr,
   shrink_level : Int,
+  helper_timing_enabled? : Bool = false,
 ) -> (Array[ValType], TExpr, Bool) {
   let scanner = Scanner::new(env, shrink_level)
+  let scan_start_us = if helper_timing_enabled {
+    local_cse_trace_now_us()
+  } else {
+    0UL
+  }
   lcs_scan_texpr(scanner, body)
+  lcs_helper_timing_commit(
+    helper_timing_enabled, lcs_helper_timing_scan_texpr_us, lcs_helper_timing_scan_texpr_calls,
+    scan_start_us,
+  )
   if !lcs_has_live_requests(scanner.request_infos) {
     return (locals, body, false)
   }
   let checker = Checker::new(scanner.request_infos.copy())
+  let check_start_us = if helper_timing_enabled {
+    local_cse_trace_now_us()
+  } else {
+    0UL
+  }
   lcs_check_texpr(checker, body)
+  lcs_helper_timing_commit(
+    helper_timing_enabled, lcs_helper_timing_check_texpr_us, lcs_helper_timing_check_texpr_calls,
+    check_start_us,
+  )
   if !lcs_has_live_requests(checker.request_infos) {
     return (locals, body, false)
   }
@@ -1858,7 +2196,16 @@ fn run_local_cse_on_func(
     checker.request_infos,
     locals.copy(),
   )
+  let apply_start_us = if helper_timing_enabled {
+    local_cse_trace_now_us()
+  } else {
+    0UL
+  }
   let new_body = lcs_apply_texpr(applier, body)
+  lcs_helper_timing_commit(
+    helper_timing_enabled, lcs_helper_timing_apply_texpr_us, lcs_helper_timing_apply_texpr_calls,
+    apply_start_us,
+  )
   (applier.locals, new_body, applier.changed)
 }
 
@@ -1879,44 +2226,255 @@ fn local_cse_count_imported_funcs(mod : Module) -> Int {
 }
 
 ///|
-fn local_cse_ir_pass(
+fn local_cse_defined_func_count(mod : Module) -> Int {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => funcs.length()
+    None => 0
+  }
+}
+
+///|
+fn local_cse_collect_func_params(
+  mod : Module,
+  imported_funcs : Int,
+) -> Array[Array[ValType]] {
+  let base_env = Env::new().with_module(mod)
+  let out : Array[Array[ValType]] = []
+  let funcs = local_cse_defined_func_count(mod)
+  for def_idx = 0; def_idx < funcs; def_idx = def_idx + 1 {
+    let abs_idx = imported_funcs + def_idx
+    let params = match
+      base_env.get_functype_by_funcidx(
+        FuncIdx::new(abs_idx.reinterpret_as_uint()),
+      ) {
+      Some(FuncType(params, _)) => params
+      None => []
+    }
+    out.push(params)
+  }
+  out
+}
+
+///|
+fn local_cse_run_module_with_trace(
   mod : Module,
   options : OptimizeOptions,
-) -> ModuleTransformer[IRContext, String] {
-  let base_env = Env::new().with_module(mod)
+  trace : (String) -> Unit,
+  trace_all_funcs : Bool,
+  trace_enabled : Bool,
+) -> Result[Module, String] {
+  let funcs = local_cse_defined_func_count(mod)
+  let pass_start_ms = if trace_enabled { local_cse_trace_now_ms() } else { 0UL }
+  if trace_enabled {
+    lcs_helper_timing_reset()
+    lcs_phase_timing_reset()
+    lcs_hotspot_reset()
+    trace(
+      "pass[local_cse]:start funcs=\{funcs} shrink_level=\{options.shrink_level} trace_all_funcs=\{trace_all_funcs}",
+    )
+  }
+
+  let collect_start_ms = if trace_enabled {
+    trace("phase=collect_func_params:start funcs=\{funcs}")
+    local_cse_trace_now_ms()
+  } else {
+    0UL
+  }
   let imported_funcs = local_cse_count_imported_funcs(mod)
-  let mut seen_funcs = 0
-  ModuleTransformer::new().on_func_evt(fn(_, ctx, func : Func) {
-    seen_funcs += 1
-    match func {
-      TFunc(_, locals, body) => {
-        let abs_idx = imported_funcs + seen_funcs - 1
-        let params = match
-          base_env.get_functype_by_funcidx(
-            FuncIdx::new(abs_idx.reinterpret_as_uint()),
-          ) {
-          Some(FuncType(params, _)) => params
-          None => []
+  let param_types = local_cse_collect_func_params(mod, imported_funcs)
+  if trace_enabled {
+    let collect_elapsed_ms = local_cse_trace_elapsed_ms(collect_start_ms)
+    lcs_phase_timing_commit("collect_func_params", collect_elapsed_ms)
+    trace(
+      "phase=collect_func_params:done elapsed_ms=\{collect_elapsed_ms} funcs=\{param_types.length()} imported_funcs=\{imported_funcs}",
+    )
+  }
+
+  let base_env = Env::new().with_module(mod)
+  let walk_start_ms = if trace_enabled {
+    trace("phase=walk_funcs:start funcs=\{funcs}")
+    local_cse_trace_now_ms()
+  } else {
+    0UL
+  }
+  let transformed = match mod.code_sec {
+    Some(CodeSec(curr_funcs)) => {
+      if param_types.length() != curr_funcs.length() {
+        let e = "local_cse: internal parameter map mismatch"
+        if trace_enabled {
+          let walk_elapsed_ms = local_cse_trace_elapsed_ms(walk_start_ms)
+          lcs_phase_timing_commit("walk_funcs", walk_elapsed_ms)
+          trace("phase=walk_funcs:error elapsed_ms=\{walk_elapsed_ms} \{e}")
+          if trace_all_funcs {
+            match lcs_hotspot_summary_line() {
+              Some(summary) => trace(summary)
+              None => ()
+            }
+          }
+          lcs_trace_emit_totals(trace)
+          trace(
+            "pass[local_cse]:error elapsed_ms=\{local_cse_trace_elapsed_ms(pass_start_ms)} \{e}",
+          )
         }
-        let env = base_env.with_locals(
-          FunctionLocals::new(params, locals).all_locals(),
-        )
-        let (new_locals, new_body, changed) = run_local_cse_on_func(
-          env,
-          params,
-          locals,
-          body,
-          options.shrink_level,
-        )
-        if changed {
-          change(ctx, Func::t_func(params, new_locals, new_body))
+        return Err(e)
+      }
+      let next_funcs : Array[Func] = []
+      let mut changed = false
+      for i = 0; i < curr_funcs.length(); i = i + 1 {
+        let ordinal = i + 1
+        let log_func = trace_enabled &&
+          local_cse_trace_should_log_func(ordinal, trace_all_funcs)
+        let func_trace = if log_func {
+          fn(msg) { trace("func[\{ordinal}] \{msg}") }
         } else {
-          unchanged()
+          local_cse_trace_noop
+        }
+        let curr = curr_funcs[i]
+        match curr {
+          TFunc(tfunc_params, locals, body) => {
+            let start_top_instrs = body.instrs.length()
+            let locals_count = locals.length()
+            let params = param_types[i]
+            let func_start_ms = if log_func {
+              local_cse_trace_now_ms()
+            } else {
+              0UL
+            }
+            let helper_timing_start = if log_func {
+              lcs_helper_timing_snapshot()
+            } else {
+              lcs_helper_timing_zero()
+            }
+            func_trace(
+              "start params=\{tfunc_params.length()} locals=\{locals_count} top_instrs=\{start_top_instrs}",
+            )
+            let env = base_env.with_locals(
+              FunctionLocals::new(params, locals).all_locals(),
+            )
+            let (new_locals, new_body, func_changed) = run_local_cse_on_func(
+              env,
+              params,
+              locals,
+              body,
+              options.shrink_level,
+              helper_timing_enabled=trace_enabled,
+            )
+            let end_top_instrs = new_body.instrs.length()
+            if log_func {
+              let helper_timing_delta = lcs_helper_timing_diff(
+                lcs_helper_timing_snapshot(),
+                helper_timing_start,
+              )
+              lcs_hotspot_record(
+                ordinal,
+                lcs_helper_timing_total_ticks(helper_timing_delta),
+                helper_timing_delta.apply_texpr_us,
+                locals_count,
+                start_top_instrs,
+              )
+              lcs_trace_emit_helper_timing(trace, ordinal, helper_timing_delta)
+              func_trace(
+                "done elapsed_ms=\{local_cse_trace_elapsed_ms(func_start_ms)} changed=\{func_changed} top_instrs=\{start_top_instrs}->\{end_top_instrs} locals=\{locals.length()}->\{new_locals.length()}",
+              )
+            }
+            if func_changed {
+              changed = true
+              next_funcs.push(Func::t_func(params, new_locals, new_body))
+            } else {
+              next_funcs.push(curr)
+            }
+          }
+          _ => {
+            func_trace("skip reason=non-typed-func")
+            next_funcs.push(curr)
+          }
         }
       }
-      _ => unchanged()
+      Ok(
+        if changed {
+          (mod.with_code_sec(CodeSec::new(next_funcs)), true)
+        } else {
+          (mod, false)
+        },
+      )
+    }
+    None => Ok((mod, false))
+  }
+
+  let (next_mod, changed) = match transformed {
+    Ok(v) => v
+    Err(e) => {
+      if trace_enabled {
+        let walk_elapsed_ms = local_cse_trace_elapsed_ms(walk_start_ms)
+        lcs_phase_timing_commit("walk_funcs", walk_elapsed_ms)
+        trace("phase=walk_funcs:error elapsed_ms=\{walk_elapsed_ms} \{e}")
+        if trace_all_funcs {
+          match lcs_hotspot_summary_line() {
+            Some(summary) => trace(summary)
+            None => ()
+          }
+        }
+        lcs_trace_emit_totals(trace)
+        trace(
+          "pass[local_cse]:error elapsed_ms=\{local_cse_trace_elapsed_ms(pass_start_ms)} \{e}",
+        )
+      }
+      return Err(e)
+    }
+  }
+
+  if trace_enabled {
+    let walk_elapsed_ms = local_cse_trace_elapsed_ms(walk_start_ms)
+    lcs_phase_timing_commit("walk_funcs", walk_elapsed_ms)
+    trace(
+      "phase=walk_funcs:done elapsed_ms=\{walk_elapsed_ms} changed=\{changed}",
+    )
+    if trace_all_funcs {
+      match lcs_hotspot_summary_line() {
+        Some(summary) => trace(summary)
+        None => ()
+      }
+    }
+    lcs_trace_emit_totals(trace)
+    trace(
+      "pass[local_cse]:done elapsed_ms=\{local_cse_trace_elapsed_ms(pass_start_ms)} changed=\{changed}",
+    )
+  }
+
+  Ok(next_mod)
+}
+
+///|
+fn local_cse_ir_pass_with_trace(
+  _mod : Module,
+  options : OptimizeOptions,
+  trace? : (String) -> Unit = local_cse_trace_noop,
+  trace_all_funcs? : Bool = false,
+  trace_enabled? : Bool = true,
+) -> ModuleTransformer[IRContext, String] {
+  ignore(_mod)
+  ModuleTransformer::new().on_module_evt(fn(_, ctx, mod) {
+    match
+      local_cse_run_module_with_trace(
+        mod, options, trace, trace_all_funcs, trace_enabled,
+      ) {
+      Ok(out) => if out == mod { unchanged() } else { change(ctx, out) }
+      Err(e) => error(e)
     }
   })
+}
+
+///|
+fn run_local_cse_with_trace(
+  mod : Module,
+  options? : OptimizeOptions = OptimizeOptions::new(),
+  trace? : (String) -> Unit = local_cse_trace_noop,
+  trace_all_funcs? : Bool = false,
+  trace_enabled? : Bool = true,
+) -> Result[Module, String] {
+  local_cse_run_module_with_trace(
+    mod, options, trace, trace_all_funcs, trace_enabled,
+  )
 }
 
 ///|
@@ -1924,10 +2482,9 @@ fn run_local_cse(
   mod : Module,
   options? : OptimizeOptions = OptimizeOptions::new(),
 ) -> Module {
-  let pass = local_cse_ir_pass(mod, options)
-  match pass.walk_module(IRContext::new(), mod) {
-    Ok((out, _)) => out
-    _ => mod
+  match run_local_cse_with_trace(mod, options~, trace_enabled=false) {
+    Ok(out) => out
+    Err(_) => mod
   }
 }
 

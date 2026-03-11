@@ -614,8 +614,24 @@ fn run_ir_context_transformer_scheduler_pass(
     Heap2Local => apply_ir_transformer_pass(ctx, mod, heap2local_ir_pass(mod))
     HeapStoreOptimization =>
       apply_ir_transformer_pass(ctx, mod, heap_store_optimization_ir_pass(mod))
-    LocalCSE =>
-      apply_ir_transformer_pass(ctx, mod, local_cse_ir_pass(mod, options))
+    LocalCSE => {
+      let local_cse_trace = if trace_pass_details {
+        fn(msg) { trace("local_cse:\{msg}") }
+      } else {
+        optimize_trace_noop
+      }
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        local_cse_ir_pass_with_trace(
+          mod,
+          options,
+          trace=local_cse_trace,
+          trace_all_funcs=trace_pass_details,
+          trace_enabled=trace_pass_details,
+        ),
+      )
+    }
     LoopInvariantCodeMotion =>
       apply_ir_transformer_pass(
         ctx,

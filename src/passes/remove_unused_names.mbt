@@ -372,9 +372,6 @@ fn run_hotspot_summary_line() -> String? {
 }
 
 ///|
-const RUN_BRANCH_TO_SCOPE_FOUND : String = "__remove_unused_names_branch_to_scope_found__"
-
-///|
 fn run_label_to_int(label : LabelIdx) -> Int {
   let LabelIdx(raw) = label
   raw.reinterpret_as_int()
@@ -555,6 +552,123 @@ fn run_peel_single_child_same_blocks(
 }
 
 ///|
+fn run_label_matches_depth(label : LabelIdx, depth : Int) -> Bool {
+  run_label_to_int(label) == depth
+}
+
+///|
+fn run_catch_targets_depth(c : Catch, depth : Int) -> Bool {
+  match c {
+    Catch(_, label)
+    | CatchRef(_, label)
+    | CatchAll(label)
+    | CatchAllRef(label) => run_label_matches_depth(label, depth)
+  }
+}
+
+///|
+fn run_has_branch_to_depth_in_instr(instr : TInstr, depth : Int) -> Bool {
+  match instr.kind {
+    TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
+      run_has_branch_to_depth_in_texpr(body, depth + 1)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      if run_has_branch_to_depth_in_instr(cond, depth) {
+        return true
+      }
+      if run_has_branch_to_depth_in_texpr(then_body, depth + 1) {
+        return true
+      }
+      match else_body {
+        Some(other) => run_has_branch_to_depth_in_texpr(other, depth + 1)
+        None => false
+      }
+    }
+    TInstrKind::TTryTable(_, catches, body) => {
+      for c in catches {
+        if run_catch_targets_depth(c, depth + 1) {
+          return true
+        }
+      }
+      run_has_branch_to_depth_in_texpr(body, depth + 1)
+    }
+    TInstrKind::TBr(label, values) => {
+      if run_label_matches_depth(label, depth) {
+        return true
+      }
+      for value in values {
+        if run_has_branch_to_depth_in_instr(value, depth) {
+          return true
+        }
+      }
+      false
+    }
+    TInstrKind::TBrIf(label, cond, values) => {
+      if run_label_matches_depth(label, depth) {
+        return true
+      }
+      for value in values {
+        if run_has_branch_to_depth_in_instr(value, depth) {
+          return true
+        }
+      }
+      run_has_branch_to_depth_in_instr(cond, depth)
+    }
+    TInstrKind::TBrTable(labels, default_label, index, values) => {
+      for label in labels {
+        if run_label_matches_depth(label, depth) {
+          return true
+        }
+      }
+      if run_label_matches_depth(default_label, depth) {
+        return true
+      }
+      for value in values {
+        if run_has_branch_to_depth_in_instr(value, depth) {
+          return true
+        }
+      }
+      run_has_branch_to_depth_in_instr(index, depth)
+    }
+    TInstrKind::TBrOnNull(label, ref_, values)
+    | TInstrKind::TBrOnNonNull(label, ref_, values)
+    | TInstrKind::TBrOnCast(label, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(label, _, _, _, ref_, values) => {
+      if run_label_matches_depth(label, depth) {
+        return true
+      }
+      for value in values {
+        if run_has_branch_to_depth_in_instr(value, depth) {
+          return true
+        }
+      }
+      run_has_branch_to_depth_in_instr(ref_, depth)
+    }
+    _ => {
+      let mut found = false
+      oi_for_each_non_control_child(instr, fn(child) {
+        if found {
+          return
+        }
+        if run_has_branch_to_depth_in_instr(child, depth) {
+          found = true
+        }
+      })
+      found
+    }
+  }
+}
+
+///|
+fn run_has_branch_to_depth_in_texpr(body : TExpr, depth : Int) -> Bool {
+  for instr in body.instrs {
+    if run_has_branch_to_depth_in_instr(instr, depth) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn run_has_branch_to_current_scope(
   body : TExpr,
   helper_timing_enabled? : Bool = false,
@@ -564,20 +678,7 @@ fn run_has_branch_to_current_scope(
   } else {
     0UL
   }
-  let pass = ModuleTransformer::new()
-    .on_labelidx_evt(fn(_, depth, label) {
-      if run_label_to_int(label) == depth {
-        return error(RUN_BRANCH_TO_SCOPE_FOUND)
-      }
-      unchanged()
-    })
-    .on_tinstruction_evt(fn(self, depth, instr) {
-      run_walk_tinstruction_with_depth(self, depth, instr)
-    })
-  let out = match pass.walk_texpr(0, body) {
-    Ok(_) => Ok(false)
-    Err(e) => if e == RUN_BRANCH_TO_SCOPE_FOUND { Ok(true) } else { Err(e) }
-  }
+  let out = Ok(run_has_branch_to_depth_in_texpr(body, 0))
   run_helper_timing_commit(
     helper_timing_enabled, run_helper_timing_branch_scope_scan_us, run_helper_timing_branch_scope_scan_calls,
     helper_start_us,
@@ -596,31 +697,7 @@ fn run_remove_unused_names_once(
     0UL
   }
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    let mut seed = instr
-    match instr.kind {
-      TInstrKind::TBlock(bt, block_body) => {
-        let (removed, peeled) = run_peel_single_child_same_blocks(
-          bt,
-          block_body,
-          helper_timing_enabled~,
-        )
-        if removed > 0 {
-          let rebased = match
-            run_rebase_labels_for_removed_scopes(
-              peeled,
-              removed,
-              helper_timing_enabled~,
-            ) {
-            Ok(out) => out
-            Err(e) => return error(e)
-          }
-          seed = TInstr::block(bt, rebased)
-        }
-      }
-      _ => ()
-    }
-
-    let walked = match self.walk_tinstruction_default((), seed) {
+    let walked = match self.walk_tinstruction_default((), instr) {
       Ok((out, _)) => out
       Err(e) => return error(e)
     }
