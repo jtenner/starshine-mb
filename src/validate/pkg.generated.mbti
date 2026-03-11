@@ -52,6 +52,8 @@ pub fn validate_memsec(@lib.MemSec?, Env) -> Result[Env, String]
 
 pub fn validate_module(@lib.Module) -> Result[Unit, ValidationError]
 
+pub fn validate_module_with_trace(@lib.Module, (String) -> Unit, trace_all_funcs? : Bool) -> Result[Unit, ValidationError]
+
 pub fn validate_startsec(@lib.StartSec?, Env) -> Result[Unit, String]
 
 pub fn validate_tablesec(@lib.TableSec?, Env) -> Result[Env, String]

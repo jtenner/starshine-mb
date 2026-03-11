@@ -113,6 +113,335 @@ pub fn validation_error_func_idx(err : ValidationError) -> FuncIdx? {
 }
 
 ///|
+priv struct ValidateHelperTimingSnapshot {
+  validate_func_body_us : UInt64
+  validate_func_body_calls : Int
+}
+
+///|
+priv struct ValidateHotspotEntry {
+  ordinal : Int
+  body_ticks : UInt64
+  locals : Int
+  top_instrs : Int
+}
+
+///|
+const VALIDATE_HOTSPOT_SUMMARY_LIMIT : Int = 8
+
+///|
+let validate_helper_timing_validate_func_body_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let validate_helper_timing_validate_func_body_calls : Ref[Int] = Ref::new(0)
+
+///|
+let validate_hotspot_entries : Ref[Array[ValidateHotspotEntry]] = Ref::new([])
+
+///|
+let validate_phase_totals_ms : Ref[Map[String, UInt64]] = Ref::new(Map::new())
+
+///|
+let validate_phase_totals_calls : Ref[Map[String, Int]] = Ref::new(Map::new())
+
+///|
+fn validate_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn validate_trace_now_us() -> UInt64 {
+  trace_now_us()
+}
+
+///|
+fn validate_trace_now_ms() -> UInt64 {
+  trace_now_ms()
+}
+
+///|
+fn validate_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
+  trace_elapsed_ms(start_ms)
+}
+
+///|
+fn validate_trace_elapsed_us_since(start_us : UInt64) -> UInt64 {
+  trace_elapsed_us_since(start_us)
+}
+
+///|
+fn validate_trace_delta_us_to_ms(delta_us : UInt64) -> UInt64 {
+  trace_delta_us_to_ms(delta_us)
+}
+
+///|
+fn validate_trace_log_enabled(ordinal : Int, trace_all_funcs : Bool) -> Bool {
+  ignore(ordinal)
+  trace_all_funcs
+}
+
+///|
+fn validate_trace_phase_start(
+  trace : (String) -> Unit,
+  phase : String,
+  enabled : Bool,
+) -> UInt64 {
+  if !enabled {
+    return 0UL
+  }
+  let start_ms = validate_trace_now_ms()
+  trace("phase=\{phase}:start")
+  start_ms
+}
+
+///|
+fn validate_trace_phase_done(
+  trace : (String) -> Unit,
+  phase : String,
+  start_ms : UInt64,
+  enabled : Bool,
+) -> Unit {
+  if !enabled {
+    return
+  }
+  let elapsed_ms = validate_trace_elapsed_ms(start_ms)
+  validate_phase_timing_commit(phase, elapsed_ms)
+  trace("phase=\{phase}:done elapsed_ms=\{elapsed_ms}")
+}
+
+///|
+fn validate_phase_timing_reset() -> Unit {
+  validate_phase_totals_ms.val = Map::new()
+  validate_phase_totals_calls.val = Map::new()
+}
+
+///|
+fn validate_phase_timing_commit(phase : String, elapsed_ms : UInt64) -> Unit {
+  let totals_ms = validate_phase_totals_ms.val
+  let totals_calls = validate_phase_totals_calls.val
+  let current_ms = totals_ms.get(phase).unwrap_or(0UL)
+  let current_calls = totals_calls.get(phase).unwrap_or(0)
+  totals_ms.set(phase, current_ms + elapsed_ms)
+  totals_calls.set(phase, current_calls + 1)
+}
+
+///|
+fn validate_phase_timing_total_ms(phase : String) -> UInt64 {
+  validate_phase_totals_ms.val.get(phase).unwrap_or(0UL)
+}
+
+///|
+fn validate_phase_timing_total_calls(phase : String) -> Int {
+  validate_phase_totals_calls.val.get(phase).unwrap_or(0)
+}
+
+///|
+fn validate_phase_totals_line() -> String {
+  let phases = [
+    "typesec", "importsec", "funcsec", "tablesec", "memsec", "tagsec", "globalsec",
+    "elemsec", "datasec", "datacnt", "datacnt_requirement", "startsec", "exportsec",
+    "ref_func_declarations", "codesec",
+  ]
+  let out = StringBuilder::new()
+  out.write_string("phase_totals")
+  for phase in phases {
+    let calls = validate_phase_timing_total_calls(phase)
+    if calls > 0 {
+      out.write_string(
+        " \{phase}_ms=\{validate_phase_timing_total_ms(phase)} \{phase}_calls=\{calls}",
+      )
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn validate_helper_timing_reset() -> Unit {
+  validate_helper_timing_validate_func_body_us.val = 0UL
+  validate_helper_timing_validate_func_body_calls.val = 0
+}
+
+///|
+fn validate_helper_timing_commit(
+  enabled : Bool,
+  elapsed_us : Ref[UInt64],
+  calls : Ref[Int],
+  start_us : UInt64,
+) -> Unit {
+  if !enabled {
+    return
+  }
+  elapsed_us.val = elapsed_us.val + validate_trace_elapsed_us_since(start_us)
+  calls.val = calls.val + 1
+}
+
+///|
+fn validate_helper_timing_snapshot() -> ValidateHelperTimingSnapshot {
+  {
+    validate_func_body_us: validate_helper_timing_validate_func_body_us.val,
+    validate_func_body_calls: validate_helper_timing_validate_func_body_calls.val,
+  }
+}
+
+///|
+fn validate_helper_timing_zero() -> ValidateHelperTimingSnapshot {
+  { validate_func_body_us: 0UL, validate_func_body_calls: 0 }
+}
+
+///|
+fn validate_helper_timing_delta_u64(after : UInt64, before : UInt64) -> UInt64 {
+  if after >= before {
+    after - before
+  } else {
+    0UL
+  }
+}
+
+///|
+fn validate_helper_timing_diff(
+  after : ValidateHelperTimingSnapshot,
+  before : ValidateHelperTimingSnapshot,
+) -> ValidateHelperTimingSnapshot {
+  {
+    validate_func_body_us: validate_helper_timing_delta_u64(
+      after.validate_func_body_us,
+      before.validate_func_body_us,
+    ),
+    validate_func_body_calls: after.validate_func_body_calls -
+    before.validate_func_body_calls,
+  }
+}
+
+///|
+fn validate_helper_timing_has_nonzero(
+  snapshot : ValidateHelperTimingSnapshot,
+) -> Bool {
+  snapshot.validate_func_body_calls > 0
+}
+
+///|
+fn validate_trace_emit_helper_timing(
+  trace : (String) -> Unit,
+  ordinal : Int,
+  timing : ValidateHelperTimingSnapshot,
+) -> Unit {
+  if !validate_helper_timing_has_nonzero(timing) {
+    return
+  }
+  trace(
+    "func[\{ordinal}] helper_timing body_ms=\{validate_trace_delta_us_to_ms(timing.validate_func_body_us)} body_calls=\{timing.validate_func_body_calls}",
+  )
+}
+
+///|
+fn validate_helper_totals_line() -> String {
+  "helper_totals body_ms=\{validate_trace_delta_us_to_ms(validate_helper_timing_validate_func_body_us.val)} body_calls=\{validate_helper_timing_validate_func_body_calls.val}"
+}
+
+///|
+fn validate_trace_emit_totals(trace : (String) -> Unit) -> Unit {
+  trace(validate_phase_totals_line())
+  trace(validate_helper_totals_line())
+}
+
+///|
+fn validate_hotspot_reset() -> Unit {
+  validate_hotspot_entries.val = []
+}
+
+///|
+fn validate_hotspot_record(
+  ordinal : Int,
+  body_ticks : UInt64,
+  locals : Int,
+  top_instrs : Int,
+) -> Unit {
+  let entries = validate_hotspot_entries.val
+  entries.push({ ordinal, body_ticks, locals, top_instrs })
+  if entries.length() <= VALIDATE_HOTSPOT_SUMMARY_LIMIT {
+    validate_hotspot_entries.val = entries
+    return
+  }
+  let mut min_idx = 0
+  let mut min_ticks = entries[0].body_ticks
+  for i = 1; i < entries.length(); i = i + 1 {
+    if entries[i].body_ticks < min_ticks {
+      min_idx = i
+      min_ticks = entries[i].body_ticks
+    }
+  }
+  let trimmed : Array[ValidateHotspotEntry] = []
+  for i = 0; i < entries.length(); i = i + 1 {
+    if i != min_idx {
+      trimmed.push(entries[i])
+    }
+  }
+  validate_hotspot_entries.val = trimmed
+}
+
+///|
+fn validate_hotspot_summary_line() -> String? {
+  let entries = validate_hotspot_entries.val
+  if entries.is_empty() {
+    return None
+  }
+  let ordered = entries.copy()
+  let mut i = 0
+  while i < ordered.length() {
+    let mut j = i + 1
+    while j < ordered.length() {
+      if ordered[j].body_ticks > ordered[i].body_ticks {
+        let tmp = ordered[i]
+        ordered[i] = ordered[j]
+        ordered[j] = tmp
+      }
+      j += 1
+    }
+    i += 1
+  }
+  let out = StringBuilder::new()
+  out.write_string("hotspots ")
+  let mut idx = 0
+  while idx < ordered.length() {
+    if idx > 0 {
+      out.write_string(" ")
+    }
+    let entry = ordered[idx]
+    out.write_string(
+      "f\{entry.ordinal}:body=\{entry.body_ticks}:locals=\{entry.locals}:top=\{entry.top_instrs}",
+    )
+    idx += 1
+  }
+  Some(out.to_string())
+}
+
+///|
+fn validate_func_trace_locals_count(func : Func) -> Int {
+  match func {
+    Func(decls, _) => {
+      let mut total = 0
+      for d in decls {
+        let Locals(n, _) = d
+        let count = n.reinterpret_as_int()
+        if count > 0 {
+          total += count
+        }
+      }
+      total
+    }
+    TFunc(_, locals, _) => locals.length()
+  }
+}
+
+///|
+fn validate_func_trace_top_instrs(func : Func) -> Int {
+  match func {
+    Func(_, Expr(instrs)) => instrs.length()
+    TFunc(_, _, body) => body.instrs.length()
+  }
+}
+
+///|
 pub trait Validate {
   validate(Self, Env) -> Result[Unit, String]
 }
@@ -714,6 +1043,9 @@ fn validate_codesec_diag(
   codesec : CodeSec?,
   funcsec : FuncSec?,
   env : Env,
+  trace? : (String) -> Unit = validate_trace_noop,
+  trace_all_funcs? : Bool = false,
+  helper_timing_enabled? : Bool = false,
 ) -> Result[Unit, ValidationDiagnostic] {
   match (codesec, funcsec) {
     (None, None) => Ok(())
@@ -760,10 +1092,39 @@ fn validate_codesec_diag(
         )
       }
       for i in 0..<bodies.length() {
+        let ordinal = i + 1
+        let log_func = validate_trace_log_enabled(ordinal, trace_all_funcs)
+        let func = bodies[i]
+        let func_locals = if log_func {
+          validate_func_trace_locals_count(func)
+        } else {
+          0
+        }
+        let func_top_instrs = if log_func {
+          validate_func_trace_top_instrs(func)
+        } else {
+          0
+        }
+        let func_start_ms = if log_func { validate_trace_now_ms() } else { 0UL }
+        let helper_timing_start = if log_func {
+          validate_helper_timing_snapshot()
+        } else {
+          validate_helper_timing_zero()
+        }
+        if log_func {
+          trace(
+            "func[\{ordinal}] start locals=\{func_locals} top_instrs=\{func_top_instrs}",
+          )
+        }
         let func_idx = FuncIdx::new((n_imported + i).reinterpret_as_uint())
         let ft = match env.funcs.get(n_imported + i) {
           Some(x) => x
-          None =>
+          None => {
+            if log_func {
+              trace(
+                "func[\{ordinal}] done elapsed_ms=\{validate_trace_elapsed_ms(func_start_ms)} valid=false reason=missing_functype",
+              )
+            }
             return Err(
               ValidationDiagnostic::new(
                 ValidationIssue::CodeSection(
@@ -772,14 +1133,54 @@ fn validate_codesec_diag(
                 func_idx=Some(func_idx),
               ),
             )
+          }
         }
-        if validate_func_body_against_functype(env, ft, bodies[i]) is Err(e) {
+        let body_start_us = if helper_timing_enabled {
+          validate_trace_now_us()
+        } else {
+          0UL
+        }
+        let body_result = validate_func_body_against_functype(env, ft, func)
+        validate_helper_timing_commit(
+          helper_timing_enabled, validate_helper_timing_validate_func_body_us, validate_helper_timing_validate_func_body_calls,
+          body_start_us,
+        )
+        if log_func {
+          let helper_timing_delta = validate_helper_timing_diff(
+            validate_helper_timing_snapshot(),
+            helper_timing_start,
+          )
+          validate_hotspot_record(
+            ordinal,
+            helper_timing_delta.validate_func_body_us,
+            func_locals,
+            func_top_instrs,
+          )
+          validate_trace_emit_helper_timing(trace, ordinal, helper_timing_delta)
+        }
+        if body_result is Err(e) {
+          if log_func {
+            trace(
+              "func[\{ordinal}] done elapsed_ms=\{validate_trace_elapsed_ms(func_start_ms)} valid=false",
+            )
+          }
           return Err(
             ValidationDiagnostic::new(
               ValidationIssue::FunctionBody(e),
               func_idx=Some(func_idx),
             ),
           )
+        }
+        if log_func {
+          trace(
+            "func[\{ordinal}] done elapsed_ms=\{validate_trace_elapsed_ms(func_start_ms)} valid=true",
+          )
+        }
+      }
+      if trace_all_funcs {
+        match validate_hotspot_summary_line() {
+          Some(summary) => trace(summary)
+          None => ()
         }
       }
       Ok(())
@@ -1566,7 +1967,40 @@ fn validate_ref_func_declarations_in_module(
 
 ///|
 /// Validates a whole module from an empty context, building its Env incrementally.
-fn validate_module_impl(m : Module) -> Result[Unit, ValidationDiagnostic] {
+fn validate_trace_module_error(
+  trace : (String) -> Unit,
+  validate_start_ms : UInt64,
+  phase : String,
+  phase_start_ms : UInt64,
+  diag : ValidationDiagnostic,
+  trace_enabled : Bool,
+) -> Result[Unit, ValidationDiagnostic] {
+  if !trace_enabled {
+    return Err(diag)
+  }
+  let phase_elapsed_ms = validate_trace_elapsed_ms(phase_start_ms)
+  validate_phase_timing_commit(phase, phase_elapsed_ms)
+  trace("phase=\{phase}:error elapsed_ms=\{phase_elapsed_ms} \{diag}")
+  validate_trace_emit_totals(trace)
+  trace(
+    "pass[validate_module]:error elapsed_ms=\{validate_trace_elapsed_ms(validate_start_ms)} \{diag}",
+  )
+  Err(diag)
+}
+
+///|
+/// Validates a whole module from an empty context, building its Env incrementally.
+fn validate_module_impl(
+  m : Module,
+  trace? : (String) -> Unit = validate_trace_noop,
+  trace_all_funcs? : Bool = false,
+  trace_enabled? : Bool = false,
+) -> Result[Unit, ValidationDiagnostic] {
+  if trace_enabled {
+    validate_helper_timing_reset()
+    validate_phase_timing_reset()
+    validate_hotspot_reset()
+  }
   let {
     type_sec: typesec_opt,
     import_sec: importsec_opt,
@@ -1584,79 +2018,250 @@ fn validate_module_impl(m : Module) -> Result[Unit, ValidationDiagnostic] {
     ..,
   } = m
 
+  let declared_funcs = match funcsec_opt {
+    Some(FuncSec(type_idxs)) => type_idxs.length()
+    None => 0
+  }
+  let code_bodies = match codesec_opt {
+    Some(CodeSec(bodies)) => bodies.length()
+    None => 0
+  }
+  let validate_start_ms = if trace_enabled {
+    validate_trace_now_ms()
+  } else {
+    0UL
+  }
+  if trace_enabled {
+    trace(
+      "pass[validate_module]:start declared_funcs=\{declared_funcs} code_bodies=\{code_bodies}",
+    )
+  }
+
   // Start from empty env (module validation does not take an external env)
   let mut env = empty_env()
 
   // (1) Types: defines global type index space
+  let typesec_start_ms = validate_trace_phase_start(
+    trace, "typesec", trace_enabled,
+  )
   env = match validate_typesec(typesec_opt, env) {
-    Ok(e) => e
+    Ok(e) => {
+      validate_trace_phase_done(
+        trace, "typesec", typesec_start_ms, trace_enabled,
+      )
+      e
+    }
     Err(t) =>
-      return Err(ValidationDiagnostic::new(ValidationIssue::TypeSection(t)))
+      return validate_trace_module_error(
+        trace,
+        validate_start_ms,
+        "typesec",
+        typesec_start_ms,
+        ValidationDiagnostic::new(ValidationIssue::TypeSection(t)),
+        trace_enabled,
+      )
   }
 
   // (2) Imports: extend funcs/tables/mems/globals/tags index spaces
+  let importsec_start_ms = validate_trace_phase_start(
+    trace, "importsec", trace_enabled,
+  )
   env = match validate_importsec(importsec_opt, env) {
-    Ok(e) => e
+    Ok(e) => {
+      validate_trace_phase_done(
+        trace, "importsec", importsec_start_ms, trace_enabled,
+      )
+      e
+    }
     Err(t) =>
-      return Err(ValidationDiagnostic::new(ValidationIssue::ImportSection(t)))
+      return validate_trace_module_error(
+        trace,
+        validate_start_ms,
+        "importsec",
+        importsec_start_ms,
+        ValidationDiagnostic::new(ValidationIssue::ImportSection(t)),
+        trace_enabled,
+      )
   }
   let imported_func_count = env.funcs.length()
 
   // (3) Function declarations (defined funcs): extend env.funcs
+  let funcsec_start_ms = validate_trace_phase_start(
+    trace, "funcsec", trace_enabled,
+  )
   env = match validate_funcsec(funcsec_opt, env) {
-    Ok(e) => e
+    Ok(e) => {
+      validate_trace_phase_done(
+        trace, "funcsec", funcsec_start_ms, trace_enabled,
+      )
+      e
+    }
     Err(t) =>
-      return Err(ValidationDiagnostic::new(ValidationIssue::FunctionSection(t)))
+      return validate_trace_module_error(
+        trace,
+        validate_start_ms,
+        "funcsec",
+        funcsec_start_ms,
+        ValidationDiagnostic::new(ValidationIssue::FunctionSection(t)),
+        trace_enabled,
+      )
   }
 
   // (4) Tables / Memories / Tags / Globals: extend their index spaces
+  let tablesec_start_ms = validate_trace_phase_start(
+    trace, "tablesec", trace_enabled,
+  )
   env = match validate_tablesec(tablesec_opt, env) {
-    Ok(e) => e
+    Ok(e) => {
+      validate_trace_phase_done(
+        trace, "tablesec", tablesec_start_ms, trace_enabled,
+      )
+      e
+    }
     Err(t) =>
-      return Err(ValidationDiagnostic::new(ValidationIssue::TableSection(t)))
+      return validate_trace_module_error(
+        trace,
+        validate_start_ms,
+        "tablesec",
+        tablesec_start_ms,
+        ValidationDiagnostic::new(ValidationIssue::TableSection(t)),
+        trace_enabled,
+      )
   }
+  let memsec_start_ms = validate_trace_phase_start(
+    trace, "memsec", trace_enabled,
+  )
   env = match validate_memsec(memsec_opt, env) {
-    Ok(e) => e
+    Ok(e) => {
+      validate_trace_phase_done(trace, "memsec", memsec_start_ms, trace_enabled)
+      e
+    }
     Err(t) =>
-      return Err(ValidationDiagnostic::new(ValidationIssue::MemorySection(t)))
+      return validate_trace_module_error(
+        trace,
+        validate_start_ms,
+        "memsec",
+        memsec_start_ms,
+        ValidationDiagnostic::new(ValidationIssue::MemorySection(t)),
+        trace_enabled,
+      )
   }
+  let tagsec_start_ms = validate_trace_phase_start(
+    trace, "tagsec", trace_enabled,
+  )
   env = match validate_tagsec(tagsec_opt, env) {
-    Ok(e) => e
+    Ok(e) => {
+      validate_trace_phase_done(trace, "tagsec", tagsec_start_ms, trace_enabled)
+      e
+    }
     Err(t) =>
-      return Err(ValidationDiagnostic::new(ValidationIssue::TagSection(t)))
+      return validate_trace_module_error(
+        trace,
+        validate_start_ms,
+        "tagsec",
+        tagsec_start_ms,
+        ValidationDiagnostic::new(ValidationIssue::TagSection(t)),
+        trace_enabled,
+      )
   }
+  let globalsec_start_ms = validate_trace_phase_start(
+    trace, "globalsec", trace_enabled,
+  )
   env = match validate_globalsec(globalsec_opt, env) {
-    Ok(e) => e
+    Ok(e) => {
+      validate_trace_phase_done(
+        trace, "globalsec", globalsec_start_ms, trace_enabled,
+      )
+      e
+    }
     Err(t) =>
-      return Err(ValidationDiagnostic::new(ValidationIssue::GlobalSection(t)))
+      return validate_trace_module_error(
+        trace,
+        validate_start_ms,
+        "globalsec",
+        globalsec_start_ms,
+        ValidationDiagnostic::new(ValidationIssue::GlobalSection(t)),
+        trace_enabled,
+      )
   }
 
   // (5) Elements / Data: extend elems/datas (needed by instructions)
+  let elemsec_start_ms = validate_trace_phase_start(
+    trace, "elemsec", trace_enabled,
+  )
   env = match validate_elemsec(elemsec_opt, env) {
-    Ok(e) => e
+    Ok(e) => {
+      validate_trace_phase_done(
+        trace, "elemsec", elemsec_start_ms, trace_enabled,
+      )
+      e
+    }
     Err(t) =>
-      return Err(ValidationDiagnostic::new(ValidationIssue::ElementSection(t)))
+      return validate_trace_module_error(
+        trace,
+        validate_start_ms,
+        "elemsec",
+        elemsec_start_ms,
+        ValidationDiagnostic::new(ValidationIssue::ElementSection(t)),
+        trace_enabled,
+      )
   }
+  let datasec_start_ms = validate_trace_phase_start(
+    trace, "datasec", trace_enabled,
+  )
   env = match validate_datasec(datasec_opt, env) {
-    Ok(e) => e
+    Ok(e) => {
+      validate_trace_phase_done(
+        trace, "datasec", datasec_start_ms, trace_enabled,
+      )
+      e
+    }
     Err(t) =>
-      return Err(ValidationDiagnostic::new(ValidationIssue::DataSection(t)))
+      return validate_trace_module_error(
+        trace,
+        validate_start_ms,
+        "datasec",
+        datasec_start_ms,
+        ValidationDiagnostic::new(ValidationIssue::DataSection(t)),
+        trace_enabled,
+      )
   }
 
   // (6) DataCount section cross-check
+  let datacnt_start_ms = validate_trace_phase_start(
+    trace, "datacnt", trace_enabled,
+  )
   match validate_datacnt(datacntsec_opt, datasec_opt) {
-    Ok(_) => ()
+    Ok(_) =>
+      validate_trace_phase_done(
+        trace, "datacnt", datacnt_start_ms, trace_enabled,
+      )
     Err(t) =>
-      return Err(
+      return validate_trace_module_error(
+        trace,
+        validate_start_ms,
+        "datacnt",
+        datacnt_start_ms,
         ValidationDiagnostic::new(ValidationIssue::DataCountSection(t)),
+        trace_enabled,
       )
   }
+  let datacnt_required_start_ms = validate_trace_phase_start(
+    trace, "datacnt_requirement", trace_enabled,
+  )
   match
     validate_bulk_memory_data_count_requirement(
       codesec_opt, datacntsec_opt, imported_func_count,
     ) {
-    Ok(_) => ()
-    Err(t) => return Err(t)
+    Ok(_) =>
+      validate_trace_phase_done(
+        trace, "datacnt_requirement", datacnt_required_start_ms, trace_enabled,
+      )
+    Err(t) =>
+      return validate_trace_module_error(
+        trace, validate_start_ms, "datacnt_requirement", datacnt_required_start_ms,
+        t, trace_enabled,
+      )
   }
 
   // (7) Start function validation
@@ -1664,39 +2269,108 @@ fn validate_module_impl(m : Module) -> Result[Unit, ValidationDiagnostic] {
     Some(StartSec(fidx)) => Some(fidx)
     None => None
   }
+  let startsec_start_ms = validate_trace_phase_start(
+    trace, "startsec", trace_enabled,
+  )
   match validate_startsec(startsec_opt, env) {
-    Ok(_) => ()
+    Ok(_) =>
+      validate_trace_phase_done(
+        trace, "startsec", startsec_start_ms, trace_enabled,
+      )
     Err(t) =>
-      return Err(
+      return validate_trace_module_error(
+        trace,
+        validate_start_ms,
+        "startsec",
+        startsec_start_ms,
         ValidationDiagnostic::new(
           ValidationIssue::StartSection(t),
           func_idx=start_func_idx,
         ),
+        trace_enabled,
       )
   }
 
   // (8) Exports: validate indices and check name uniqueness
+  let exportsec_start_ms = validate_trace_phase_start(
+    trace, "exportsec", trace_enabled,
+  )
   match validate_exportsec_unique(exportsec_opt, env) {
-    Ok(_) => ()
+    Ok(_) =>
+      validate_trace_phase_done(
+        trace, "exportsec", exportsec_start_ms, trace_enabled,
+      )
     Err(t) =>
-      return Err(ValidationDiagnostic::new(ValidationIssue::ExportSection(t)))
+      return validate_trace_module_error(
+        trace,
+        validate_start_ms,
+        "exportsec",
+        exportsec_start_ms,
+        ValidationDiagnostic::new(ValidationIssue::ExportSection(t)),
+        trace_enabled,
+      )
   }
 
+  let ref_func_decl_start_ms = validate_trace_phase_start(
+    trace, "ref_func_declarations", trace_enabled,
+  )
   let declared_funcs = collect_declared_funcs_bitmap(m, env)
   match
     validate_ref_func_declarations_in_module(
       m, env, imported_func_count, declared_funcs,
     ) {
-    Ok(_) => ()
-    Err(t) => return Err(t)
+    Ok(_) =>
+      validate_trace_phase_done(
+        trace, "ref_func_declarations", ref_func_decl_start_ms, trace_enabled,
+      )
+    Err(t) =>
+      return validate_trace_module_error(
+        trace, validate_start_ms, "ref_func_declarations", ref_func_decl_start_ms,
+        t, trace_enabled,
+      )
   }
 
   // (9) Code: typecheck each function body against env.funcs
-  match validate_codesec_diag(codesec_opt, funcsec_opt, env) {
-    Ok(_) => ()
-    Err(t) => return Err(t)
+  let codesec_start_ms = validate_trace_phase_start(
+    trace, "codesec", trace_enabled,
+  )
+  match
+    validate_codesec_diag(
+      codesec_opt,
+      funcsec_opt,
+      env,
+      trace~,
+      trace_all_funcs~,
+      helper_timing_enabled=trace_enabled,
+    ) {
+    Ok(_) =>
+      validate_trace_phase_done(
+        trace, "codesec", codesec_start_ms, trace_enabled,
+      )
+    Err(t) =>
+      return validate_trace_module_error(
+        trace, validate_start_ms, "codesec", codesec_start_ms, t, trace_enabled,
+      )
+  }
+  if trace_enabled {
+    validate_trace_emit_totals(trace)
+    trace(
+      "pass[validate_module]:done elapsed_ms=\{validate_trace_elapsed_ms(validate_start_ms)}",
+    )
   }
   Ok(())
+}
+
+///|
+pub fn validate_module_with_trace(
+  m : Module,
+  trace : (String) -> Unit,
+  trace_all_funcs? : Bool = false,
+) -> Result[Unit, ValidationError] {
+  match validate_module_impl(m, trace~, trace_all_funcs~, trace_enabled=true) {
+    Ok(_) => Ok(())
+    Err(diag) => Err(ValidationError::Validation(diag))
+  }
 }
 
 ///|

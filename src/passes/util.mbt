@@ -13,119 +13,28 @@
 /// See the License for the specific language governing permissions and
 /// limitations under the License.
 ///
-
-///|
-#cfg(target="native")
-#borrow(tv)
-extern "c" fn pass_trace_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
-
-///|
-#cfg(target="llvm")
-#borrow(tv)
-extern "c" fn pass_trace_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
-
-///|
-#cfg(target="native")
-fn pass_trace_read_u64_timeval(bytes : Bytes, start : Int) -> UInt64 {
-  let mut out = 0UL
-  let mut i = 0
-  while i < 8 {
-    out = out | (bytes[start + i].to_uint64() << (i * 8))
-    i += 1
-  }
-  out
-}
-
-///|
-#cfg(target="llvm")
-fn pass_trace_read_u64_timeval(bytes : Bytes, start : Int) -> UInt64 {
-  let mut out = 0UL
-  let mut i = 0
-  while i < 8 {
-    out = out | (bytes[start + i].to_uint64() << (i * 8))
-    i += 1
-  }
-  out
-}
-
-///|
-#cfg(target="native")
 fn pass_trace_now_us() -> UInt64 {
-  let tv = Bytes::new(16)
-  if pass_trace_native_gettimeofday(tv, 0UL) != 0 {
-    return @env.now() * 1000UL
-  }
-  let sec = pass_trace_read_u64_timeval(tv, 0)
-  let usec = pass_trace_read_u64_timeval(tv, 8)
-  sec * 1000000UL + usec
-}
-
-///|
-#cfg(target="llvm")
-fn pass_trace_now_us() -> UInt64 {
-  let tv = Bytes::new(16)
-  if pass_trace_native_gettimeofday(tv, 0UL) != 0 {
-    return @env.now() * 1000UL
-  }
-  let sec = pass_trace_read_u64_timeval(tv, 0)
-  let usec = pass_trace_read_u64_timeval(tv, 8)
-  sec * 1000000UL + usec
-}
-
-///|
-#cfg(target="wasm")
-fn pass_trace_wasm_now_ms() -> UInt64 = "__moonbit_time_unstable" "now"
-
-///|
-#cfg(target="wasm-gc")
-fn pass_trace_wasm_now_ms() -> UInt64 = "__moonbit_time_unstable" "now"
-
-///|
-#cfg(target="wasm")
-fn pass_trace_now_us() -> UInt64 {
-  pass_trace_wasm_now_ms() * 1000UL
-}
-
-///|
-#cfg(target="wasm-gc")
-fn pass_trace_now_us() -> UInt64 {
-  pass_trace_wasm_now_ms() * 1000UL
-}
-
-///|
-#cfg(target="js")
-fn pass_trace_now_us() -> UInt64 {
-  @env.now() * 1000UL
+  trace_now_us()
 }
 
 ///|
 fn pass_trace_now_ms() -> UInt64 {
-  pass_trace_now_us() / 1000UL
+  trace_now_ms()
 }
 
 ///|
 fn pass_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
-  let end_ms = pass_trace_now_ms()
-  if end_ms >= start_ms {
-    end_ms - start_ms
-  } else {
-    0UL
-  }
+  trace_elapsed_ms(start_ms)
 }
 
 ///|
 fn pass_trace_elapsed_us_since(start_us : UInt64) -> UInt64 {
-  let end_us = pass_trace_now_us()
-  if end_us >= start_us {
-    end_us - start_us
-  } else {
-    0UL
-  }
+  trace_elapsed_us_since(start_us)
 }
 
 ///|
 fn pass_trace_delta_us_to_ms(delta_us : UInt64) -> UInt64 {
-  delta_us / 1000UL
+  trace_delta_us_to_ms(delta_us)
 }
 
 ///|

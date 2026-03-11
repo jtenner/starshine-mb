@@ -1,20 +1,26 @@
 # Pass Tracing Playbook
 
-This document captures a reusable tracing strategy for optimization/lowering passes, based on the current `simplify_locals` implementation and optimizer pipeline wiring.
+This document captures a reusable tracing strategy for optimization/lowering passes and validation flows, based on the current `simplify_locals` implementation and `validate_module_with_trace` wiring.
 
 ## Goals
 
 - Keep tracing cheap when disabled.
 - Make logs machine-parseable and easy to grep.
 - Provide enough detail to diagnose phase behavior, regressions, and hotspots.
+- Track cumulative time per phase/helper for end-of-run summaries.
 - Prevent runaway log spam from repeated failures.
 
 ## 1. Standard Trace Interface
 
-Expose optional trace controls on the pass entrypoint:
+Expose optional trace controls on the traced entrypoint:
 
 - `trace? : (String) -> Unit = <pass>_trace_noop`
 - `trace_all_funcs? : Bool = false`
+
+For APIs that already have a non-traced call path, prefer a dedicated traced wrapper:
+
+- `validate_module(...)` (no tracing overhead path)
+- `validate_module_with_trace(..., trace, trace_all_funcs?)` (tracing enabled)
 
 Inside per-function traversal, compute:
 
@@ -22,7 +28,7 @@ Inside per-function traversal, compute:
 - `log_func = pass_trace_log_enabled(ordinal, trace_all_funcs)` (or direct `trace_all_funcs` if you truly want all functions)
 - `func_trace = if log_func { fn(msg) { trace("func[\{ordinal}] \{msg}") } } else { <pass>_trace_noop }`
 
-This keeps call sites simple and avoids repeated `if trace_all_funcs` checks everywhere.
+This keeps call sites simple and avoids repeated `if trace_all_funcs` checks everywhere. For module-level phase tracing, use an explicit internal `trace_enabled` gate so non-traced calls skip timing work.
 
 ## 2. Log Taxonomy (Keep It Structured)
 
@@ -44,7 +50,17 @@ Recommended required keys:
 
 ## 3. Timing + Counters Pattern
 
-Use shared timer helpers (for example from `src/passes/util.mbt`) behind pass-local wrappers:
+Use shared timer helpers from util modules and avoid re-implementing clock logic in each pass/package.
+
+Prefer the canonical helpers in `src/lib/util.mbt`:
+
+- `trace_now_ms/us`
+- `trace_elapsed_ms/us_since`
+- `trace_delta_us_to_ms`
+
+If a package has pass-local wrappers (for naming or compatibility), those wrappers should delegate to shared util helpers instead of duplicating timing internals.
+
+Typical wrapper surface:
 
 - `<pass>_trace_now_ms/us`
 - `<pass>_trace_elapsed_ms/us_since`
@@ -72,6 +88,20 @@ Pattern:
 4. emit only the delta for this function
 
 This avoids expensive resets while keeping per-function timing attribution clear.
+
+### Totals Pattern (Now Required)
+
+In addition to per-function helper deltas, maintain run-level totals:
+
+- phase totals: `Map[String, UInt64]` for `*_ms`, plus `Map[String, Int]` for `*_calls`
+- helper totals: ref-backed `*_us` and `*_calls` counters
+
+Emit both success and error summaries:
+
+- `phase_totals <phase>_ms=<...> <phase>_calls=<...> ...`
+- `helper_totals <helper>_ms=<...> <helper>_calls=<...> ...`
+
+If a phase fails, commit that phase’s partial elapsed time before returning `...:error`.
 
 ## 4. Hotspot Tracking
 
@@ -109,26 +139,39 @@ When wiring pass tracing in `optimize.mbt`:
 
 This ensures each pass follows the same top-level tracing contract and trace verbosity knobs.
 
-## 7. Trace-Test Expectations
+## 7. Validate Module Integration
 
-Add focused tests for tracing behavior, not full log snapshots:
+`src/validate/validate.mbt` now follows the same contract:
 
-- when verbose tracing is enabled, expected phase markers appear
-- redundant iterations are not logged when optimization path should short-circuit
-- suppression logic caps repeated rejection logs and emits suppression notice
-- counters/snapshots reflect expected increments in representative scenarios
+- lifecycle:
+  - `pass[validate_module]:start ...`
+  - `pass[validate_module]:done ...`
+  - `pass[validate_module]:error ...`
+- phases:
+  - `phase=<name>:start`
+  - `phase=<name>:done elapsed_ms=...`
+  - `phase=<name>:error elapsed_ms=...`
+- function detail (when `trace_all_funcs=true`):
+  - `func[N] start ...`
+  - `func[N] helper_timing ...`
+  - `func[N] done ...`
+  - final `hotspots ...`
+- totals:
+  - final `phase_totals ...`
+  - final `helper_totals ...`
 
-Prefer targeted `contains(...)` assertions over brittle whole-log equality.
+## 8. Validation Expectations
 
-## 8. Implementation Checklist (Copy/Paste)
+Tracing should be validated through existing functional/integration test coverage unless explicitly requested otherwise. Avoid adding or keeping dedicated trace-only tests by default.
+
+## 9. Implementation Checklist (Copy/Paste)
 
 1. Add pass-local trace noop + time wrappers.
-2. Add optional `trace` and `trace_all_funcs` params to pass entrypoint.
+2. Add optional `trace` and `trace_all_funcs` params to traced entrypoint.
 3. Add per-function `ordinal` and `log_func` gating.
 4. Emit structured `start`, phase, and `done` logs with stable keys.
-5. Add helper timing snapshot/diff + delta emission.
-6. Add bounded hotspot collector + final summary.
-7. Add rejection/failure suppression guard if pass can emit repeated errors.
-8. Wire pass through `optimize.mbt` with pass-name prefix.
-9. Add tracing-focused tests for verbosity, suppression, and critical counters.
-
+5. Add helper timing snapshot/diff + per-function delta emission.
+6. Add phase/helper total counters and emit `phase_totals` + `helper_totals`.
+7. Add bounded hotspot collector + final summary.
+8. Ensure error paths emit `...:error` and still commit/emit totals.
+9. Wire pass through `optimize.mbt` (or traced entry wrapper) with pass-name prefix when applicable.

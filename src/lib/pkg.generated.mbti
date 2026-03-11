@@ -82,6 +82,16 @@ pub fn tag_type(TypeIdx) -> TagType
 
 pub fn tlocals_to_locals(Array[ValType]) -> Array[Locals]
 
+pub fn trace_delta_us_to_ms(UInt64) -> UInt64
+
+pub fn trace_elapsed_ms(UInt64) -> UInt64
+
+pub fn trace_elapsed_us_since(UInt64) -> UInt64
+
+pub fn trace_now_ms() -> UInt64
+
+pub fn trace_now_us() -> UInt64
+
 // Errors
 
 // Types and methods
