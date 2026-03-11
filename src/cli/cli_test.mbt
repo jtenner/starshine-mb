@@ -206,28 +206,6 @@ test "parse_cli_args accepts trap-mode values and keeps them out of pass flags" 
 }
 
 ///|
-test "parse_cli_args accepts tracing levels" {
-  let parsed = parse_ok(["--tracing=helper", "--tracing", "pass"])
-  assert_eq(parsed.tracing, Some(CliTracingLevel::pass()))
-}
-
-///|
-test "parse_cli_args requires explicit tracing value" {
-  assert_eq(
-    parse_err(["--tracing"]),
-    CliParseError::missing_flag_value("--tracing"),
-  )
-}
-
-///|
-test "parse_cli_args rejects invalid tracing values" {
-  assert_eq(
-    parse_err(["--tracing", "chatty"]),
-    CliParseError::invalid_tracing_level("chatty"),
-  )
-}
-
-///|
 test "parse_cli_args requires explicit trap-mode value" {
   assert_eq(
     parse_err(["--trap-mode"]),

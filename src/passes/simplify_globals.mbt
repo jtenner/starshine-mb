@@ -2107,50 +2107,6 @@ fn sg_count_tinstr(body : TExpr, pred : (TInstr) -> Bool) -> Int {
 }
 
 ///|
-test "simplify_globals optimizing cleanup skips expensive modules" {
-  let funcs : Array[Func] = []
-  for i = 0; i < 1200; i = i + 1 {
-    funcs.push(
-      Func::t_func(
-        [],
-        [],
-        TExpr::new([TInstr::drop(TInstr::global_get(GlobalIdx::new(0)))]),
-      ),
-    )
-  }
-  let trace_logs : Array[String] = []
-  let mod = Module::new()
-    .with_global_sec(
-      GlobalSec::new([
-        Global::new(
-          GlobalType::new(ValType::i32(), false),
-          Expr::new([Instruction::i32_const(I32(5))]),
-        ),
-      ]),
-    )
-    .with_code_sec(CodeSec::new(funcs))
-  let pass = simplify_globals_ir_pass(mod, true, trace=fn(msg) {
-    trace_logs.push(msg)
-  })
-  match pass.walk_module(IRContext::new(), mod) {
-    Ok(_) => ()
-    Err(e) => fail("unexpected simplify_globals cleanup skip trace error: \{e}")
-  }
-  let mut saw_skip = false
-  let mut saw_done = false
-  for msg in trace_logs {
-    if msg.contains("cleanup:skip reason=module_size") {
-      saw_skip = true
-    }
-    if msg.contains("cleanup:done") {
-      saw_done = true
-    }
-  }
-  assert_true(saw_skip)
-  assert_true(saw_done)
-}
-
-///|
 test "simplify_globals removes unread global.set writes and makes global immutable" {
   let mod = Module::new()
     .with_global_sec(

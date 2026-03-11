@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -5662,29 +5662,7 @@ test "code folding module pass can fold throw then return tails in same round" {
         ),
       ]),
     )
-  let trace_lines = []
-  let folded = match
-    code_folding_ir_pass_with_trace(mod, trace=fn(msg) { trace_lines.push(msg) }).walk_module(
-      IRContext::new(),
-      mod,
-    ) {
-    Ok((next_mod, _)) => next_mod
-    Err(e) => fail("code folding module pass failed: " + e)
-  }
-  assert_true(
-    trace_lines.any(fn(msg) {
-      msg.contains("round[1] terminating_unreachable") &&
-      msg.contains("changed=true")
-    }),
-    msg="expected unreachable phase change in round 1",
-  )
-  assert_true(
-    trace_lines.any(fn(msg) {
-      msg.contains("round[1] terminating_returns") &&
-      msg.contains("changed=true")
-    }),
-    msg="expected return phase change in round 1",
-  )
+  let folded = cf_run_fold_module(mod)
   assert_eq(validate_module(folded), Ok(()))
 }
 

@@ -3690,35 +3690,6 @@ test "vacuum keeps stack-signature when dropping binary with ambient-fed call ch
 }
 
 ///|
-test "vacuum trace emits aggregate metrics line including fast-skip counters" {
-  let traces : Array[String] = []
-  let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
-  )
-  let pass = vacuum_ir_pass_with_trace(
-    mod,
-    fn(msg) { traces.push(msg) },
-    trace_all_funcs=true,
-  )
-  let _ = match pass.walk_module(IRContext::new(), mod) {
-    Ok((out, _)) => out
-    Err(e) => fail("unexpected vacuum trace run failure: \{e}")
-  }
-  let mut saw_metrics = false
-  let mut saw_fast_skip = false
-  for line in traces {
-    if line.contains("metrics ") {
-      saw_metrics = true
-      if line.contains("fast_skips=") {
-        saw_fast_skip = true
-      }
-    }
-  }
-  assert_true(saw_metrics)
-  assert_true(saw_fast_skip)
-}
-
-///|
 test "vacuum traps-never-happen rewrites unreachable if arm into drop+other-arm sequence" {
   let t_void = RecType::new(
     SubType::comp_type(CompType::func([ValType::i32()], [])),

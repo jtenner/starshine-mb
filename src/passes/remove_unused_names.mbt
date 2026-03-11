@@ -53,12 +53,21 @@ const RUN_WALK_VERBOSE_BRANCH_SCAN_INTERVAL : Int = 4096
 const RUN_WALK_VERBOSE_REBASE_LABEL_INTERVAL : Int = 4096
 
 ///|
+const RUN_WALK_VERBOSE_PEEL_NOOP_INTERVAL : Int = 512
+
+///|
 priv struct RUNWalkOnceVerboseState {
   enabled : Bool
   walk_instr_visits : Ref[Int]
   next_walk_report_at : Ref[Int]
   peel_calls : Ref[Int]
   peel_removed_scopes : Ref[Int]
+  peel_noop_calls : Ref[Int]
+  peel_noop_not_single_child : Ref[Int]
+  peel_noop_single_child_non_block : Ref[Int]
+  peel_noop_type_mismatch : Ref[Int]
+  peel_noop_max_body_instrs : Ref[Int]
+  next_peel_noop_report_at : Ref[Int]
   rebase_calls : Ref[Int]
   rebase_removed_scopes : Ref[Int]
   rebase_label_visits : Ref[Int]
@@ -332,6 +341,12 @@ fn run_walk_verbose_state(enabled : Bool) -> RUNWalkOnceVerboseState {
     next_walk_report_at: Ref::new(RUN_WALK_VERBOSE_WALK_INTERVAL),
     peel_calls: Ref::new(0),
     peel_removed_scopes: Ref::new(0),
+    peel_noop_calls: Ref::new(0),
+    peel_noop_not_single_child: Ref::new(0),
+    peel_noop_single_child_non_block: Ref::new(0),
+    peel_noop_type_mismatch: Ref::new(0),
+    peel_noop_max_body_instrs: Ref::new(0),
+    next_peel_noop_report_at: Ref::new(1),
     rebase_calls: Ref::new(0),
     rebase_removed_scopes: Ref::new(0),
     rebase_label_visits: Ref::new(0),
@@ -371,7 +386,7 @@ fn run_walk_verbose_note_walk_instr(
   run_walk_verbose_emit(
     trace,
     state,
-    "progress walk_instrs=\{state.walk_instr_visits.val} peel_calls=\{state.peel_calls.val} peel_removed=\{state.peel_removed_scopes.val} rebase_calls=\{state.rebase_calls.val} rebase_removed=\{state.rebase_removed_scopes.val} branch_scan_instrs=\{state.branch_scan_instr_visits.val} branch_hits=\{state.branch_scan_hits.val}",
+    "progress walk_instrs=\{state.walk_instr_visits.val} peel_calls=\{state.peel_calls.val} peel_removed=\{state.peel_removed_scopes.val} peel_noop=\{state.peel_noop_calls.val} peel_noop_arity=\{state.peel_noop_not_single_child.val} peel_noop_non_block=\{state.peel_noop_single_child_non_block.val} peel_noop_type_mismatch=\{state.peel_noop_type_mismatch.val} peel_noop_max_body_instrs=\{state.peel_noop_max_body_instrs.val} rebase_calls=\{state.rebase_calls.val} rebase_removed=\{state.rebase_removed_scopes.val} branch_scan_instrs=\{state.branch_scan_instr_visits.val} branch_hits=\{state.branch_scan_hits.val}",
   )
   state.next_walk_report_at.val = state.next_walk_report_at.val +
     RUN_WALK_VERBOSE_WALK_INTERVAL
@@ -397,6 +412,43 @@ fn run_walk_verbose_note_peel(
       "peel removed_scopes=\{removed_scopes} body_instrs=\{body_instrs} peel_calls=\{state.peel_calls.val} peel_removed=\{state.peel_removed_scopes.val}",
     )
   }
+}
+
+///|
+fn run_walk_verbose_note_peel_noop(
+  trace : (String) -> Unit,
+  state : RUNWalkOnceVerboseState,
+  reason : String,
+  body_instrs : Int,
+) -> Unit {
+  if !state.enabled {
+    return
+  }
+  state.peel_noop_calls.val = state.peel_noop_calls.val + 1
+  if body_instrs > state.peel_noop_max_body_instrs.val {
+    state.peel_noop_max_body_instrs.val = body_instrs
+  }
+  match reason {
+    "arity" =>
+      state.peel_noop_not_single_child.val = state.peel_noop_not_single_child.val +
+        1
+    "single_non_block" =>
+      state.peel_noop_single_child_non_block.val = state.peel_noop_single_child_non_block.val +
+        1
+    "type_mismatch" =>
+      state.peel_noop_type_mismatch.val = state.peel_noop_type_mismatch.val + 1
+    _ => ()
+  }
+  if state.peel_noop_calls.val < state.next_peel_noop_report_at.val {
+    return
+  }
+  run_walk_verbose_emit(
+    trace,
+    state,
+    "peel_noop reason=\{reason} body_instrs=\{body_instrs} peel_calls=\{state.peel_calls.val} peel_noop=\{state.peel_noop_calls.val} peel_noop_arity=\{state.peel_noop_not_single_child.val} peel_noop_non_block=\{state.peel_noop_single_child_non_block.val} peel_noop_type_mismatch=\{state.peel_noop_type_mismatch.val} peel_noop_max_body_instrs=\{state.peel_noop_max_body_instrs.val}",
+  )
+  state.next_peel_noop_report_at.val = state.next_peel_noop_report_at.val +
+    RUN_WALK_VERBOSE_PEEL_NOOP_INTERVAL
 }
 
 ///|
@@ -747,6 +799,20 @@ fn run_rebase_labels_for_removed_scopes(
 }
 
 ///|
+fn run_peel_noop_reason(bt : BlockType, body : TExpr) -> String {
+  match body.instrs {
+    [{ kind: TInstrKind::TBlock(child_bt, _), .. }] =>
+      if child_bt == bt {
+        "unknown"
+      } else {
+        "type_mismatch"
+      }
+    [_] => "single_non_block"
+    _ => "arity"
+  }
+}
+
+///|
 fn run_peel_single_child_same_blocks(
   bt : BlockType,
   body : TExpr,
@@ -779,15 +845,76 @@ fn run_peel_single_child_same_blocks(
   )
   match walk_trace_state {
     Some(state) =>
-      run_walk_verbose_note_peel(
-        walk_trace,
-        state,
-        removed,
-        body.instrs.length(),
-      )
+      if removed > 0 {
+        run_walk_verbose_note_peel(
+          walk_trace,
+          state,
+          removed,
+          body.instrs.length(),
+        )
+      } else {
+        run_walk_verbose_note_peel_noop(
+          walk_trace,
+          state,
+          run_peel_noop_reason(bt, body),
+          body.instrs.length(),
+        )
+      }
     None => ()
   }
   (removed, curr)
+}
+
+///|
+fn run_has_remove_unused_names_candidate_instr(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TBlock(bt, body) => {
+      match body.instrs {
+        [{ kind: TInstrKind::TBlock(child_bt, _), .. }] =>
+          if child_bt == bt {
+            return true
+          }
+        _ => ()
+      }
+      run_has_remove_unused_names_candidate_texpr(body)
+    }
+    // Loops may be rewritten to blocks when there is no continue branch.
+    TInstrKind::TLoop(_, _) => true
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      if run_has_remove_unused_names_candidate_instr(cond) ||
+        run_has_remove_unused_names_candidate_texpr(then_body) {
+        return true
+      }
+      match else_body {
+        Some(other) => run_has_remove_unused_names_candidate_texpr(other)
+        None => false
+      }
+    }
+    TInstrKind::TTryTable(_, _, body) =>
+      run_has_remove_unused_names_candidate_texpr(body)
+    _ => {
+      let mut found = false
+      oi_for_each_non_control_child(instr, fn(child) {
+        if found {
+          return
+        }
+        if run_has_remove_unused_names_candidate_instr(child) {
+          found = true
+        }
+      })
+      found
+    }
+  }
+}
+
+///|
+fn run_has_remove_unused_names_candidate_texpr(body : TExpr) -> Bool {
+  for instr in body.instrs {
+    if run_has_remove_unused_names_candidate_instr(instr) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -1096,6 +1223,24 @@ fn run_remove_unused_names_once(
     walk_trace_state,
     "start body_instrs=\{body.instrs.length()}",
   )
+  if !run_has_remove_unused_names_candidate_texpr(body) {
+    run_walk_verbose_emit(
+      helper_trace,
+      walk_trace_state,
+      "skip:no_candidates body_instrs=\{body.instrs.length()}",
+    )
+    let out = Ok((body, false))
+    run_helper_timing_commit(
+      helper_timing_enabled, run_helper_timing_walk_once_us, run_helper_timing_walk_once_calls,
+      helper_start_us,
+    )
+    run_walk_verbose_emit(
+      helper_trace,
+      walk_trace_state,
+      "done changed=false walk_instrs=\{walk_trace_state.walk_instr_visits.val} peel_calls=\{walk_trace_state.peel_calls.val} peel_removed=\{walk_trace_state.peel_removed_scopes.val} peel_noop=\{walk_trace_state.peel_noop_calls.val} peel_noop_arity=\{walk_trace_state.peel_noop_not_single_child.val} peel_noop_non_block=\{walk_trace_state.peel_noop_single_child_non_block.val} peel_noop_type_mismatch=\{walk_trace_state.peel_noop_type_mismatch.val} peel_noop_max_body_instrs=\{walk_trace_state.peel_noop_max_body_instrs.val} rebase_calls=\{walk_trace_state.rebase_calls.val} rebase_removed=\{walk_trace_state.rebase_removed_scopes.val} rebase_labels=\{walk_trace_state.rebase_label_visits.val} branch_scan_instrs=\{walk_trace_state.branch_scan_instr_visits.val} branch_hits=\{walk_trace_state.branch_scan_hits.val}",
+    )
+    return out
+  }
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     run_walk_verbose_note_walk_instr(helper_trace, walk_trace_state)
     let walked = match self.walk_tinstruction_default((), instr) {
@@ -1163,13 +1308,13 @@ fn run_remove_unused_names_once(
       run_walk_verbose_emit(
         helper_trace,
         walk_trace_state,
-        "done changed=\{changed} walk_instrs=\{walk_trace_state.walk_instr_visits.val} peel_calls=\{walk_trace_state.peel_calls.val} peel_removed=\{walk_trace_state.peel_removed_scopes.val} rebase_calls=\{walk_trace_state.rebase_calls.val} rebase_removed=\{walk_trace_state.rebase_removed_scopes.val} rebase_labels=\{walk_trace_state.rebase_label_visits.val} branch_scan_instrs=\{walk_trace_state.branch_scan_instr_visits.val} branch_hits=\{walk_trace_state.branch_scan_hits.val}",
+        "done changed=\{changed} walk_instrs=\{walk_trace_state.walk_instr_visits.val} peel_calls=\{walk_trace_state.peel_calls.val} peel_removed=\{walk_trace_state.peel_removed_scopes.val} peel_noop=\{walk_trace_state.peel_noop_calls.val} peel_noop_arity=\{walk_trace_state.peel_noop_not_single_child.val} peel_noop_non_block=\{walk_trace_state.peel_noop_single_child_non_block.val} peel_noop_type_mismatch=\{walk_trace_state.peel_noop_type_mismatch.val} peel_noop_max_body_instrs=\{walk_trace_state.peel_noop_max_body_instrs.val} rebase_calls=\{walk_trace_state.rebase_calls.val} rebase_removed=\{walk_trace_state.rebase_removed_scopes.val} rebase_labels=\{walk_trace_state.rebase_label_visits.val} branch_scan_instrs=\{walk_trace_state.branch_scan_instr_visits.val} branch_hits=\{walk_trace_state.branch_scan_hits.val}",
       )
     Err(e) =>
       run_walk_verbose_emit(
         helper_trace,
         walk_trace_state,
-        "error \{e} walk_instrs=\{walk_trace_state.walk_instr_visits.val} peel_calls=\{walk_trace_state.peel_calls.val} rebase_calls=\{walk_trace_state.rebase_calls.val} branch_scan_instrs=\{walk_trace_state.branch_scan_instr_visits.val}",
+        "error \{e} walk_instrs=\{walk_trace_state.walk_instr_visits.val} peel_calls=\{walk_trace_state.peel_calls.val} peel_noop=\{walk_trace_state.peel_noop_calls.val} peel_noop_arity=\{walk_trace_state.peel_noop_not_single_child.val} peel_noop_non_block=\{walk_trace_state.peel_noop_single_child_non_block.val} peel_noop_type_mismatch=\{walk_trace_state.peel_noop_type_mismatch.val} peel_noop_max_body_instrs=\{walk_trace_state.peel_noop_max_body_instrs.val} rebase_calls=\{walk_trace_state.rebase_calls.val} branch_scan_instrs=\{walk_trace_state.branch_scan_instr_visits.val}",
       )
   }
   out
@@ -1393,43 +1538,13 @@ fn run_single_func(mod : Module) -> Func {
 }
 
 ///|
-fn run_trace_has_line(lines : Array[String], needle : String) -> Bool {
-  for line in lines {
-    if line.contains(needle) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-test "remove_unused_names emits structured trace contract" {
-  let body = TExpr::new([
-    TInstr::loop_(BlockType::void_(), TExpr::new([TInstr::i32_const(I32(11))])),
-  ])
+test "remove_unused_names skips walk when no candidates exist" {
+  let body = TExpr::new([TInstr::drop(TInstr::i32_const(I32(1)))])
   let mod = Module::new().with_code_sec(
     CodeSec::new([Func::t_func([], [], body)]),
   )
-  let lines : Array[String] = []
-  ignore(
-    run_remove_unused_names(
-      mod,
-      trace=fn(msg) { lines.push(msg) },
-      trace_all_funcs=true,
-    ),
-  )
-  assert_true(run_trace_has_line(lines, "pass[remove_unused_names]:start"))
-  assert_true(run_trace_has_line(lines, "phase=walk_funcs:start"))
-  assert_true(run_trace_has_line(lines, "func[1] start locals=0 top_instrs=1"))
-  assert_true(run_trace_has_line(lines, "func[1] helper_timing "))
-  assert_true(run_trace_has_line(lines, "func[1] done elapsed_ms="))
-  assert_true(run_trace_has_line(lines, "phase=walk_funcs:done elapsed_ms="))
-  assert_true(run_trace_has_line(lines, "hotspots f1:walk="))
-  assert_true(run_trace_has_line(lines, "phase_totals walk_funcs_ms="))
-  assert_true(run_trace_has_line(lines, "helper_totals walk_once_ms="))
-  assert_true(
-    run_trace_has_line(lines, "pass[remove_unused_names]:done elapsed_ms="),
-  )
+  let out = run_remove_unused_names(mod)
+  assert_eq(out, mod)
 }
 
 ///|

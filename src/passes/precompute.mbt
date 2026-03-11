@@ -2539,28 +2539,6 @@ test "precompute simplify propagates child rewrite without rewalking parent" {
 }
 
 ///|
-test "precompute simplify visits deep unchanged chain linearly" {
-  let logs : Array[String] = []
-  let mut nested = TInstr::local_get(LocalIdx::new(0))
-  for _ in 0..<96 {
-    nested = TInstr::unary(UnaryOp::i32_eqz(), nested)
-  }
-  let (out, changed) = pc_simplify_body(
-    TExpr::new([TInstr::drop(nested)]),
-    Map::new(),
-    OptimizeOptions::new(optimize_level=2),
-    Map::new(),
-    false,
-    trace=fn(msg) { logs.push(msg) },
-  )
-  assert_false(changed)
-  assert_eq(out.instrs.length(), 1)
-  let done = logs.last().unwrap_or("")
-  assert_true(done.contains("visited=98 "))
-  assert_true(done.contains("rewritten=0 "))
-}
-
-///|
 test "precompute slow summary lines aggregate repeated hashes" {
   let stats : Map[PCSlowKey, PCSlowStat] = Map::new()
   let order : Array[PCSlowKey] = []

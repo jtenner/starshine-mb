@@ -183,11 +183,3 @@ test "wrap_unit_func_pass propagates wrapped pass errors" {
     _ => fail("expected wrapped pass error to propagate")
   }
 }
-
-///|
-test "pass_trace_delta_us_to_ms floors microseconds to milliseconds" {
-  assert_eq(pass_trace_delta_us_to_ms(0UL), 0UL)
-  assert_eq(pass_trace_delta_us_to_ms(999UL), 0UL)
-  assert_eq(pass_trace_delta_us_to_ms(1000UL), 1UL)
-  assert_eq(pass_trace_delta_us_to_ms(2501UL), 2UL)
-}

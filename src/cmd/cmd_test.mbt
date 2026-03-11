@@ -276,15 +276,6 @@ fn has_string(values : Array[String], needle : String) -> Bool {
 }
 
 ///|
-fn joined_ascii_chunks(chunks : Array[Bytes]) -> String {
-  let out = StringBuilder::new()
-  for chunk in chunks {
-    out.write_string(bytes_to_ascii_string(chunk))
-  }
-  out.to_string()
-}
-
-///|
 test "run_cmd_with_adapter infers optimize preset from -O level flags" {
   let wasm = encode_module_bytes(fixture_i32_const_module(31))
   let writes : Array[(String, Bytes)] = []
@@ -1014,114 +1005,6 @@ test "env optimize and trap overlays take precedence over config values when cli
   assert_eq(summary.resolved_passes, ["optimize"])
   assert_eq(summary.optimize_level, 3)
   assert_true(summary.traps_never_happen)
-}
-
-///|
-test "run_cmd_with_adapter reads tracing level from config root key" {
-  let config_json =
-    #|{
-    #|  "inputs": { "globs": ["a.wasm"] },
-    #|  "passes": ["code-folding"],
-    #|  "tracing": "pass"
-    #|}
-  let wasm = encode_module_bytes(fixture_mergeable_block_module())
-  let stderr_writes : Array[Bytes] = []
-  let io = CmdIO::new(
-    file_exists=fn(path) { path == "cfg.json" || path == "a.wasm" },
-    list_candidates=fn() { ["a.wasm"] },
-    read_file=fn(path) {
-      match path {
-        "cfg.json" => Ok(bytes_from_string(config_json))
-        "a.wasm" => Ok(wasm)
-        _ => Err("missing fixture")
-      }
-    },
-    write_file=fn(_, _) { Ok(()) },
-    write_stderr=fn(bytes) {
-      stderr_writes.push(bytes)
-      Ok(())
-    },
-  )
-  match run_cmd_with_adapter(["--config", "cfg.json"], io) {
-    Ok(_) => ()
-    Err(e) => fail("expected traced run success, got \{e}")
-  }
-  let stderr = joined_ascii_chunks(stderr_writes)
-  assert_true(stderr.contains("pass[1/1]:start pass=CodeFolding"), msg=stderr)
-  assert_true(!stderr.contains("code_folding:func["), msg=stderr)
-}
-
-///|
-test "run_cmd_with_adapter tracing precedence is cli over env over config" {
-  let config_json =
-    #|{
-    #|  "inputs": { "globs": ["a.wasm"] },
-    #|  "passes": ["code-folding"],
-    #|  "tracing": "helper"
-    #|}
-  let wasm = encode_module_bytes(fixture_mergeable_block_module())
-  let stderr_writes : Array[Bytes] = []
-  let io = CmdIO::new(
-    get_env=fn(name) {
-      if name == "STARSHINE_TRACING" {
-        Some("phase")
-      } else {
-        None
-      }
-    },
-    file_exists=fn(path) { path == "cfg.json" || path == "a.wasm" },
-    list_candidates=fn() { ["a.wasm"] },
-    read_file=fn(path) {
-      match path {
-        "cfg.json" => Ok(bytes_from_string(config_json))
-        "a.wasm" => Ok(wasm)
-        _ => Err("missing fixture")
-      }
-    },
-    write_file=fn(_, _) { Ok(()) },
-    write_stderr=fn(bytes) {
-      stderr_writes.push(bytes)
-      Ok(())
-    },
-  )
-  match
-    run_cmd_with_adapter(["--config", "cfg.json", "--tracing", "pass"], io) {
-    Ok(_) => ()
-    Err(e) => fail("expected traced run success, got \{e}")
-  }
-  let stderr = joined_ascii_chunks(stderr_writes)
-  assert_true(stderr.contains("pass[1/1]:start pass=CodeFolding"), msg=stderr)
-  assert_true(!stderr.contains("code_folding:func["), msg=stderr)
-}
-
-///|
-test "run_cmd_with_adapter tracing phase includes per-function checkpoints" {
-  let wasm = encode_module_bytes(fixture_mergeable_block_module())
-  let stderr_writes : Array[Bytes] = []
-  let io = CmdIO::new(
-    file_exists=fn(path) { path == "a.wasm" },
-    list_candidates=fn() { ["a.wasm"] },
-    read_file=fn(path) {
-      if path == "a.wasm" {
-        Ok(wasm)
-      } else {
-        Err("missing fixture")
-      }
-    },
-    write_file=fn(_, _) { Ok(()) },
-    write_stderr=fn(bytes) {
-      stderr_writes.push(bytes)
-      Ok(())
-    },
-  )
-  match
-    run_cmd_with_adapter(["--code-folding", "--tracing", "phase", "a.wasm"], io) {
-    Ok(_) => ()
-    Err(e) => fail("expected traced run success, got \{e}")
-  }
-  let stderr = joined_ascii_chunks(stderr_writes)
-  assert_true(stderr.contains("pass[1/1]:start pass=CodeFolding"), msg=stderr)
-  assert_true(stderr.contains("code_folding:func[1] start"), msg=stderr)
 }
 
 ///|

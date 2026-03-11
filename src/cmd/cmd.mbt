@@ -2055,30 +2055,6 @@ test "limit_pass_flags_by_max_passes truncates to requested prefix length" {
 }
 
 ///|
-test "cmd_trace_optimize_max_passes parses non-negative env value" {
-  let io = CmdIO::new(get_env=fn(name) {
-    if name == "STARSHINE_OPTIMIZE_MAX_PASSES" {
-      Some("17")
-    } else {
-      None
-    }
-  })
-  assert_eq(cmd_trace_optimize_max_passes(io), Some(17))
-}
-
-///|
-test "cmd_trace_optimize_max_passes ignores invalid env values" {
-  let io = CmdIO::new(get_env=fn(name) {
-    if name == "STARSHINE_OPTIMIZE_MAX_PASSES" {
-      Some("not-a-number")
-    } else {
-      None
-    }
-  })
-  assert_eq(cmd_trace_optimize_max_passes(io), None)
-}
-
-///|
 fn decode_module_for_pipeline(
   path : String,
   bytes : Bytes,

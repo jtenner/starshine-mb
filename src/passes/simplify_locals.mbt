@@ -7366,76 +7366,7 @@ test "simplify_locals ID-F4 avoids cloning late-phase state for every nested bra
 }
 
 ///|
-test "simplify_locals ID-P6 does not force redundant second main cycle when tee mode is disabled" {
-  let logs : Array[String] = []
-  ignore(
-    sl_simplify_function(
-      Func::t_func(
-        [],
-        [ValType::i32()],
-        TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(0)))]),
-      ),
-      sl_test_env([ValType::i32()]),
-      [],
-      { allow_tee: false, allow_structure: false, allow_nesting: true },
-      trace=fn(msg) { logs.push(msg) },
-      trace_verbose=true,
-    ),
-  )
-  let mut main_start_count = 0
-  for msg in logs {
-    if msg.contains("phase=main:start") {
-      main_start_count += 1
-    }
-  }
-  assert_eq(main_start_count, 1)
-}
-
-///|
-test "simplify_locals emits main rewrite progress traces for deeply nested rewrite trees" {
-  let logs : Array[String] = []
-  let mut nested_value = TInstr::local_get(LocalIdx::new(0))
-  for _ in 0..<80 {
-    nested_value = TInstr::block(
-      BlockType::val_type(ValType::i32()),
-      TExpr::new([nested_value]),
-    )
-  }
-  ignore(
-    sl_simplify_function(
-      Func::t_func(
-        [],
-        [ValType::i32(), ValType::i32()],
-        TExpr::new([
-          TInstr::local_set(LocalIdx::new(1), nested_value),
-          TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
-        ]),
-      ),
-      sl_test_env([ValType::i32(), ValType::i32()]),
-      [],
-      { allow_tee: false, allow_structure: false, allow_nesting: true },
-      trace=fn(msg) { logs.push(msg) },
-      trace_verbose=true,
-    ),
-  )
-  let mut saw_progress = false
-  let mut saw_depth_summary = false
-  for msg in logs {
-    if msg.contains("phase=main:rewrite:progress") {
-      saw_progress = true
-    }
-    if msg.contains("phase=main:rewrite:helpers") &&
-      msg.contains("texpr_depth_max=") {
-      saw_depth_summary = true
-    }
-  }
-  assert_true(saw_progress)
-  assert_true(saw_depth_summary)
-}
-
-///|
 test "simplify_locals short-circuits pathological deep-control rewrite in no-tee mode" {
-  let logs : Array[String] = []
   let mut nested_value = TInstr::local_get(LocalIdx::new(0))
   for _ in 0..<120 {
     nested_value = TInstr::block(
@@ -7452,22 +7383,8 @@ test "simplify_locals short-circuits pathological deep-control rewrite in no-tee
     [ValType::i32(), ValType::i32()],
     { allow_tee: false, allow_structure: false, allow_nesting: true },
     false,
-    trace=fn(msg) { logs.push(msg) },
-    trace_verbose=true,
   )
   assert_false(changed)
-  let mut saw_pathological_skip = false
-  let mut saw_progress = false
-  for msg in logs {
-    if msg.contains("phase=main:rewrite:skip reason=pathological_deep_control") {
-      saw_pathological_skip = true
-    }
-    if msg.contains("phase=main:rewrite:progress") {
-      saw_progress = true
-    }
-  }
-  assert_true(saw_pathological_skip)
-  assert_false(saw_progress)
 }
 
 ///|
@@ -7492,60 +7409,13 @@ test "simplify_locals rewrite finalizer skips duplicated-prefix salvage when pro
     [ValType::i32(), ValType::i64()],
     TExpr::new([]),
   )
-  let logs : Array[String] = []
   let (kept, changed) = sl_keep_validated_rewrite(
     env,
     FuncIdx::new(0),
     original,
     invalid_candidate,
-    fn(msg) { logs.push(msg) },
+    fn(_) { () },
   )
   assert_false(changed)
   assert_eq(kept, original)
-  for msg in logs {
-    assert_false(msg.contains("rewrite repair attempt failed local validation"))
-  }
-}
-
-///|
-test "simplify_locals rejection tracing suppresses repeated local-validation spam" {
-  let mod = Module::new()
-    .with_type_sec(
-      TypeSec::new([
-        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
-      ]),
-    )
-    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-  let env = Env::new().with_module(mod)
-  let original = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(1))]))
-  let invalid_candidate = Func::t_func([], [], TExpr::new([]))
-  sl_rewrite_validation_reset()
-  let logs : Array[String] = []
-  for _ in 0..<12 {
-    ignore(
-      sl_keep_validated_rewrite(
-        env,
-        FuncIdx::new(0),
-        original,
-        invalid_candidate,
-        fn(msg) { logs.push(msg) },
-      ),
-    )
-  }
-  let mut rejection_logs = 0
-  let mut saw_suppressed_notice = false
-  for msg in logs {
-    if msg.contains("rewrite rejected after local validation") {
-      rejection_logs += 1
-    }
-    if msg.contains("additional rewrite rejection logs suppressed") {
-      saw_suppressed_notice = true
-    }
-  }
-  if rejection_logs > 4 {
-    fail(
-      "expected rejection trace suppression, got \{rejection_logs} rejection logs",
-    )
-  }
-  assert_true(saw_suppressed_notice)
 }

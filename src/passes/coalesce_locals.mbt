@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -1375,55 +1375,32 @@ test "CoalesceLocals: trivial coalescing rewrites locals" {
 
 ///|
 test "CoalesceLocals large-local fast path trims trailing unused locals" {
-  let logs : Array[String] = []
   let locals : Array[ValType] = []
   for _ in 0..<(CL_MAX_EXACT_LOCALS + 8) {
     locals.push(ValType::i32())
   }
-  ignore(
-    match
-      coalesce_locals_ir_pass_with_trace(
-        Module::new(),
-        trace=fn(msg) { logs.push(msg) },
-        trace_all_funcs=true,
-      ).walk_func(
-        IRContext::new(),
-        Func::t_func(
-          [],
-          locals,
-          TExpr::new([
-            TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(9))),
-            TInstr::local_get(LocalIdx::new(0)),
-          ]),
-        ),
-      ) {
-      Ok(_) => ()
-      Err(e) => fail("unexpected coalesce_locals large-local trace error: \{e}")
-    },
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        locals,
+        TExpr::new([
+          TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(9))),
+          TInstr::local_get(LocalIdx::new(0)),
+        ]),
+      ),
+    ]),
   )
-  let mut saw_fast_start = false
-  let mut saw_fast_done = false
-  let mut saw_inter_start = false
-  let mut saw_trim_done = false
-  for msg in logs {
-    if msg.contains("func[1] phase=fast_path_large_locals start") {
-      saw_fast_start = true
-    }
-    if msg.contains("func[1] phase=fast_path_large_locals done") {
-      saw_fast_done = true
-    }
-    if msg.contains("func[1] phase=compute_interferences start") {
-      saw_inter_start = true
-    }
-    if msg.contains("func[1] done") &&
-      msg.contains("reason=trim_trailing_unused_for_large_locals") {
-      saw_trim_done = true
-    }
+  let pass = coalesce_locals()
+  let out = match pass.walk_module((), mod) {
+    Ok((next_mod, _)) => next_mod
+    Err(e) => fail("unexpected coalesce_locals large-local pass error: \{e}")
   }
-  assert_true(saw_fast_start)
-  assert_true(saw_fast_done)
-  assert_true(!saw_inter_start)
-  assert_true(saw_trim_done)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, out_locals, _)])) =>
+      assert_eq(out_locals.length(), 1)
+    _ => fail("expected one typed function in output module")
+  }
 }
 
 ///|

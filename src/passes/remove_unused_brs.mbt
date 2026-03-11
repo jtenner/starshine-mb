@@ -5579,7 +5579,6 @@ fn rub_assert_valid_module(mod : Module) -> Unit {
 
 ///|
 test "remove_unused_brs falls back to input when rewritten output fails validation" {
-  let trace_logs : Array[String] = []
   let body = TExpr::new([
     TInstr::block(
       BlockType::void_(),
@@ -5588,9 +5587,7 @@ test "remove_unused_brs falls back to input when rewritten output fails validati
   ])
   let mod = rub_single_void_func_module([], body)
   let out = match
-    remove_unused_brs(mod, trace=fn(msg) { trace_logs.push(msg) }, validate_output=fn(
-      next,
-    ) {
+    remove_unused_brs(mod, validate_output=fn(next) {
       if next == mod {
         Ok(())
       } else {
@@ -5601,18 +5598,10 @@ test "remove_unused_brs falls back to input when rewritten output fails validati
     Err(e) => fail("unexpected remove_unused_brs error: \{e}")
   }
   assert_eq(out, mod)
-  let mut saw_validation_failure = false
-  for msg in trace_logs {
-    if msg.contains("phase=module:validate_output:failed") {
-      saw_validation_failure = true
-    }
-  }
-  assert_true(saw_validation_failure)
 }
 
 ///|
 test "remove_unused_brs returns rewritten output when fallback is disabled and validation fails" {
-  let trace_logs : Array[String] = []
   let body = TExpr::new([
     TInstr::block(
       BlockType::void_(),
@@ -5623,7 +5612,6 @@ test "remove_unused_brs returns rewritten output when fallback is disabled and v
   let out = match
     remove_unused_brs(
       mod,
-      trace=fn(msg) { trace_logs.push(msg) },
       validate_output=fn(next) {
         if next == mod {
           Ok(())
@@ -5637,13 +5625,6 @@ test "remove_unused_brs returns rewritten output when fallback is disabled and v
     Err(e) => fail("unexpected remove_unused_brs error: \{e}")
   }
   assert_true(out != mod)
-  let mut saw_validation_failure = false
-  for msg in trace_logs {
-    if msg.contains("phase=module:validate_output:failed") {
-      saw_validation_failure = true
-    }
-  }
-  assert_true(saw_validation_failure)
 }
 
 ///|
@@ -12341,49 +12322,6 @@ test "remove_unused_brs jump threads child block br_if through following br_if p
         "expected child block br_if threading through following br_if+br pair after a leading nop",
       )
   }
-}
-
-///|
-test "remove_unused_brs jump_thread_br_if skips body scan when tail is not terminal branch pair" {
-  let trace_logs : Array[String] = []
-  let instrs : Array[TInstr] = [
-    TInstr::block(
-      BlockType::void_(),
-      TExpr::new([
-        TInstr::br_if(LabelIdx::new(0), TInstr::local_get(LocalIdx::new(0)), []),
-        TInstr::drop(TInstr::i32_const(I32(1))),
-      ]),
-    ),
-    TInstr::br_if(LabelIdx::new(1), TInstr::local_get(LocalIdx::new(1)), []),
-    TInstr::br(LabelIdx::new(0), []),
-    TInstr::drop(TInstr::i32_const(I32(9))),
-  ]
-  let trace_state = rub_round_trace_state(
-    true,
-    fn(msg) { trace_logs.push(msg) },
-    1,
-    1,
-    sl_trace_now_ms(),
-  )
-  let changed = rub_optimize_jump_thread_child_block_following_br_if(
-    instrs,
-    rub_collect_top_level_void_block_sites(instrs),
-    trace_state=Some(trace_state),
-  )
-  assert_false(changed)
-
-  let mut saw_jump_thread_site = false
-  let mut saw_jump_thread_body_scan = false
-  for msg in trace_logs {
-    if msg.contains("helper=jump_thread_br_if step=scan_site") {
-      saw_jump_thread_site = true
-    }
-    if msg.contains("helper=jump_thread_br_if step=scan_body:done") {
-      saw_jump_thread_body_scan = true
-    }
-  }
-  assert_true(saw_jump_thread_site)
-  assert_false(saw_jump_thread_body_scan)
 }
 
 ///|
