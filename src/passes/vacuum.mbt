@@ -198,8 +198,11 @@ fn vq_has_unremovable_effects_cached(
     }
     None => {
       analysis_cache.stats.effect_cache_misses.val += 1
-      let v = lcs_collect_effects(instr).has_unremovable_side_effects()
+      let effects = lcs_collect_effects(instr)
+      let v = effects.has_unremovable_side_effects()
       analysis_cache.effect_cache[instr] = v
+      analysis_cache.calls_cache[instr] = effects.calls
+      analysis_cache.effect_control_transfer_cache[instr] = effects.transfers_control_flow()
       v
     }
   }
@@ -232,8 +235,11 @@ fn vq_instr_has_calls_cached(
   match analysis_cache.calls_cache.get(instr) {
     Some(has_calls) => has_calls
     None => {
-      let has_calls = lcs_collect_effects(instr).calls
+      let effects = lcs_collect_effects(instr)
+      let has_calls = effects.calls
       analysis_cache.calls_cache[instr] = has_calls
+      analysis_cache.effect_cache[instr] = effects.has_unremovable_side_effects()
+      analysis_cache.effect_control_transfer_cache[instr] = effects.transfers_control_flow()
       has_calls
     }
   }
@@ -247,9 +253,27 @@ fn vq_instr_effect_transfers_control_flow_cached(
   match analysis_cache.effect_control_transfer_cache.get(instr) {
     Some(transfers) => transfers
     None => {
-      let transfers = lcs_collect_effects(instr).transfers_control_flow()
+      let effects = lcs_collect_effects(instr)
+      let transfers = effects.transfers_control_flow()
       analysis_cache.effect_control_transfer_cache[instr] = transfers
+      analysis_cache.effect_cache[instr] = effects.has_unremovable_side_effects()
+      analysis_cache.calls_cache[instr] = effects.calls
       transfers
+    }
+  }
+}
+
+///|
+fn vq_instr_has_control_transfer_cached(
+  instr : TInstr,
+  analysis_cache : VQAnalysisCache,
+) -> Bool {
+  match analysis_cache.instr_control_transfer_cache.get(instr) {
+    Some(has_control_transfer) => has_control_transfer
+    None => {
+      let has_control_transfer = vq_instr_has_control_transfer(instr)
+      analysis_cache.instr_control_transfer_cache[instr] = has_control_transfer
+      has_control_transfer
     }
   }
 }
@@ -665,6 +689,7 @@ priv struct VQAnalysisCache {
   control_transfer_cache : Map[TExpr, Bool]
   throws_cache : Map[TExpr, Bool]
   explicit_unreachable_cache : Map[TExpr, Bool]
+  value_break_lub_depth0_cache : Map[TExpr, Bool]
   may_not_return_cache : Map[TInstr, Bool]
   call_without_effects_intrinsics : Array[Bool]
   stats : VQRunStats
@@ -688,6 +713,7 @@ fn VQAnalysisCache::new(
     control_transfer_cache: Map::new(),
     throws_cache: Map::new(),
     explicit_unreachable_cache: Map::new(),
+    value_break_lub_depth0_cache: Map::new(),
     may_not_return_cache: Map::new(),
     call_without_effects_intrinsics,
     stats,
@@ -807,11 +833,13 @@ fn vq_instr_seed_facts_from_cache(
 }
 
 ///|
-fn vq_instr_recursive_children(instr : TInstr) -> Array[TInstr] {
-  let children : Array[TInstr] = []
+fn vq_visit_instr_recursive_children(
+  instr : TInstr,
+  visit : (TInstr) -> Unit,
+) -> Unit {
   for child in eval_children(instr) {
     if child != instr {
-      children.push(child)
+      visit(child)
     }
   }
   match instr.kind {
@@ -819,40 +847,17 @@ fn vq_instr_recursive_children(instr : TInstr) -> Array[TInstr] {
     | TInstrKind::TLoop(_, body)
     | TInstrKind::TTryTable(_, _, body) =>
       for child in body.instrs {
-        children.push(child)
+        visit(child)
       }
     TInstrKind::TIf(_, _, then_body, else_body) => {
       for child in then_body.instrs {
-        children.push(child)
+        visit(child)
       }
       match else_body {
         Some(other) =>
           for child in other.instrs {
-            children.push(child)
+            visit(child)
           }
-        None => ()
-      }
-    }
-    _ => ()
-  }
-  children
-}
-
-///|
-fn vq_seed_child_expr_facts(
-  instr : TInstr,
-  env : Env,
-  analysis_cache : VQAnalysisCache,
-) -> Unit {
-  match instr.kind {
-    TInstrKind::TBlock(_, body)
-    | TInstrKind::TLoop(_, body)
-    | TInstrKind::TTryTable(_, _, body) =>
-      ignore(vq_seed_texpr_facts(body, env, analysis_cache))
-    TInstrKind::TIf(_, _, then_body, else_body) => {
-      ignore(vq_seed_texpr_facts(then_body, env, analysis_cache))
-      match else_body {
-        Some(other) => ignore(vq_seed_texpr_facts(other, env, analysis_cache))
         None => ()
       }
     }
@@ -879,7 +884,7 @@ fn vq_seed_instr_facts(
   let mut explicit_unreachable = false
   let mut may_not_return = false
 
-  for child in vq_instr_recursive_children(instr) {
+  vq_visit_instr_recursive_children(instr, fn(child) {
     let child_facts = vq_seed_instr_facts(child, env, analysis_cache)
     has_unremovable_effects = has_unremovable_effects ||
       child_facts.has_unremovable_effects
@@ -892,7 +897,7 @@ fn vq_seed_instr_facts(
     explicit_unreachable = explicit_unreachable ||
       child_facts.explicit_unreachable
     may_not_return = may_not_return || child_facts.may_not_return
-  }
+  })
 
   let shallow_effects = lcs_collect_shallow_effects(instr)
   let shallow_has_unremovable = shallow_effects.has_unremovable_side_effects()
@@ -920,7 +925,6 @@ fn vq_seed_instr_facts(
   analysis_cache.may_not_return_cache[instr] = may_not_return
 
   ignore(vq_stack_sig_instr_seeded(instr, env, analysis_cache))
-  vq_seed_child_expr_facts(instr, env, analysis_cache)
 
   VQInstrSeedFacts::new(
     has_unremovable_effects, has_calls, effect_transfers_control_flow, has_control_transfer,
@@ -952,6 +956,20 @@ fn vq_seed_texpr_facts(
   let mut throws = false
   let mut explicit_unreachable = false
   for instr in expr.instrs {
+    match instr.kind {
+      TInstrKind::TBlock(_, body)
+      | TInstrKind::TLoop(_, body)
+      | TInstrKind::TTryTable(_, _, body) =>
+        ignore(vq_seed_texpr_facts(body, env, analysis_cache))
+      TInstrKind::TIf(_, _, then_body, else_body) => {
+        ignore(vq_seed_texpr_facts(then_body, env, analysis_cache))
+        match else_body {
+          Some(other) => ignore(vq_seed_texpr_facts(other, env, analysis_cache))
+          None => ()
+        }
+      }
+      _ => ()
+    }
     let facts = vq_seed_instr_facts(instr, env, analysis_cache)
     has_control_transfer = has_control_transfer || facts.has_control_transfer
     throws = throws || facts.throws
@@ -1632,11 +1650,15 @@ fn vq_optimize_sequence(
             has_sequence_control_transfer_opt {
             Some(cached) => cached
             None => {
-              let computed = has_ambient_stack_terminator ||
-                vq_texpr_has_control_transfer_cached(
-                  TExpr::new(items),
-                  analysis_cache,
-                )
+              let mut computed = has_ambient_stack_terminator
+              if !computed {
+                for item in items {
+                  if vq_instr_has_control_transfer_cached(item, analysis_cache) {
+                    computed = true
+                    break
+                  }
+                }
+              }
               has_sequence_control_transfer_opt = Some(computed)
               computed
             }
@@ -1776,10 +1798,14 @@ fn vq_instr_throws(instr : TInstr) -> Bool {
   if vq_instr_throws_local(instr) {
     return true
   }
-  for child in vq_instr_recursive_children(instr) {
-    if vq_instr_throws(child) {
-      return true
+  let found = Ref::new(false)
+  vq_visit_instr_recursive_children(instr, fn(child) {
+    if !found.val && vq_instr_throws(child) {
+      found.val = true
     }
+  })
+  if found.val {
+    return true
   }
   false
 }
@@ -1850,10 +1876,14 @@ fn vq_instr_has_control_transfer(instr : TInstr) -> Bool {
   if vq_instr_has_control_transfer_local(instr) {
     return true
   }
-  for child in vq_instr_recursive_children(instr) {
-    if vq_instr_has_control_transfer(child) {
-      return true
+  let found = Ref::new(false)
+  vq_visit_instr_recursive_children(instr, fn(child) {
+    if !found.val && vq_instr_has_control_transfer(child) {
+      found.val = true
     }
+  })
+  if found.val {
+    return true
   }
   false
 }
@@ -1863,10 +1893,14 @@ fn vq_instr_may_not_return(instr : TInstr) -> Bool {
   if vq_instr_may_not_return_local(instr) {
     return true
   }
-  for child in vq_instr_recursive_children(instr) {
-    if vq_instr_may_not_return(child) {
-      return true
+  let found = Ref::new(false)
+  vq_visit_instr_recursive_children(instr, fn(child) {
+    if !found.val && vq_instr_may_not_return(child) {
+      found.val = true
     }
+  })
+  if found.val {
+    return true
   }
   false
 }
@@ -1954,10 +1988,14 @@ fn vq_instr_has_explicit_unreachable(instr : TInstr) -> Bool {
   if vq_is_explicit_unreachable_instr(instr) {
     return true
   }
-  for child in vq_instr_recursive_children(instr) {
-    if vq_instr_has_explicit_unreachable(child) {
-      return true
+  let found = Ref::new(false)
+  vq_visit_instr_recursive_children(instr, fn(child) {
+    if !found.val && vq_instr_has_explicit_unreachable(child) {
+      found.val = true
     }
+  })
+  if found.val {
+    return true
   }
   false
 }
@@ -2269,12 +2307,12 @@ fn vq_collect_value_break_types_to_depth(
         has_unsupported_multivalue_break,
       )
     _ =>
-      for child in vq_instr_recursive_children(instr) {
+      vq_visit_instr_recursive_children(instr, fn(child) {
         vq_collect_value_break_types_to_depth(
           child, depth, env, analysis_cache, collected_types, found_value_break,
           has_unknown_value_type, has_unsupported_multivalue_break,
         )
-      }
+      })
   }
 }
 
@@ -2285,6 +2323,12 @@ fn vq_value_break_to_depth_has_lub(
   env : Env,
   analysis_cache : VQAnalysisCache,
 ) -> Bool {
+  if depth == 0 {
+    match analysis_cache.value_break_lub_depth0_cache.get(expr) {
+      Some(cached) => return cached
+      None => ()
+    }
+  }
   let collected_types : Array[ValType] = []
   let found_value_break = Ref::new(false)
   let has_unknown_value_type = Ref::new(false)
@@ -2293,24 +2337,27 @@ fn vq_value_break_to_depth_has_lub(
     expr, depth, env, analysis_cache, collected_types, found_value_break, has_unknown_value_type,
     has_unsupported_multivalue_break,
   )
-  if !found_value_break.val {
-    return false
-  }
-  if has_unsupported_multivalue_break.val || has_unknown_value_type.val {
-    return true
-  }
-  if collected_types.is_empty() {
-    return false
-  }
-  let mut candidate : ValType? = Some(collected_types[0])
-  for i = 1; i < collected_types.length(); i = i + 1 {
-    match candidate {
-      Some(prev) =>
-        candidate = vq_common_val_supertype(prev, collected_types[i], env)
-      None => ()
+  let has_lub = if !found_value_break.val {
+    false
+  } else if has_unsupported_multivalue_break.val || has_unknown_value_type.val {
+    true
+  } else if collected_types.is_empty() {
+    false
+  } else {
+    let mut candidate : ValType? = Some(collected_types[0])
+    for i = 1; i < collected_types.length(); i = i + 1 {
+      match candidate {
+        Some(prev) =>
+          candidate = vq_common_val_supertype(prev, collected_types[i], env)
+        None => ()
+      }
     }
+    candidate is Some(_)
   }
-  candidate is Some(_)
+  if depth == 0 {
+    analysis_cache.value_break_lub_depth0_cache[expr] = has_lub
+  }
+  has_lub
 }
 
 ///|

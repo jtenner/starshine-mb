@@ -1654,11 +1654,13 @@ fn optimize_module_with_options_internal(
       trace_level,
       "pass[\{pass_index}/\{passes.length()}]:commit:done pass=\{pass}",
     )
-    let pass_changed = mod != pre_pass_mod
     if pass is Vacuum {
+      let pass_changed = mod != pre_pass_mod
       previous_vacuum_no_change = !pass_changed
       changed_since_last_vacuum = false
-    } else if pass_changed {
+    } else {
+      // Conservatively assume non-vacuum passes may have changed the module.
+      // This avoids deep module equality checks on every pass.
       changed_since_last_vacuum = true
     }
     optimize_trace_emit_pass(
