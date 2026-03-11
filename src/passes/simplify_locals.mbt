@@ -105,13 +105,13 @@ const SL_WIDE_LOCALS_NO_NESTING_MIN_LOCALS : Int = 512
 const SL_WIDE_LOCALS_NO_NESTING_MAX_INSTRS : Int = 24
 
 ///|
-const SL_MAIN_REWRITE_PROGRESS_INITIAL_REWRITE_CALLS : Int = 128
+const SL_MAIN_REWRITE_PROGRESS_INITIAL_REWRITE_CALLS : Int = 1
 
 ///|
-const SL_MAIN_REWRITE_PROGRESS_INITIAL_TEXPR_CALLS : Int = 64
+const SL_MAIN_REWRITE_PROGRESS_INITIAL_TEXPR_CALLS : Int = 1
 
 ///|
-const SL_MAIN_REWRITE_PROGRESS_INITIAL_DEPTH : Int = 16
+const SL_MAIN_REWRITE_PROGRESS_INITIAL_DEPTH : Int = 1
 
 ///|
 const SL_MAIN_REWRITE_DEEP_CONTROL_MIN_DEPTH : Int = 96
@@ -124,6 +124,18 @@ const SL_MAIN_REWRITE_DEEP_CONTROL_MAX_TOP_INSTRS : Int = 2
 
 ///|
 const SL_MAIN_REWRITE_DEEP_CONTROL_MAX_LOCALS : Int = 16
+
+///|
+const SL_MAIN_REWRITE_DEEP_CONTROL_WIDE_LOCALS_MIN_DEPTH : Int = 192
+
+///|
+const SL_MAIN_REWRITE_DEEP_CONTROL_WIDE_LOCALS_MIN_CONTROL_NODES : Int = 192
+
+///|
+const SL_MAIN_REWRITE_DEEP_CONTROL_WIDE_LOCALS_MAX_TOP_INSTRS : Int = 8
+
+///|
+const SL_MAIN_REWRITE_DEEP_CONTROL_WIDE_LOCALS_MIN_LOCALS : Int = 64
 
 ///|
 priv struct SLRewriteValidationSnapshot {
@@ -563,10 +575,8 @@ fn sl_main_rewrite_helper_trace_note_sinkables(count : Int) -> Unit {
 fn sl_main_rewrite_helper_trace_next_threshold(current : Int) -> Int {
   if current < 1 {
     1
-  } else if current >= 1_073_741_824 {
-    current + 1_073_741_824
   } else {
-    current * 2
+    current + 1
   }
 }
 
@@ -1397,15 +1407,26 @@ fn sl_main_is_pathological_deep_control_candidate(
   if options.allow_tee || options.allow_structure || !options.allow_nesting {
     return (false, 0, 0)
   }
-  if body.instrs.length() > SL_MAIN_REWRITE_DEEP_CONTROL_MAX_TOP_INSTRS ||
-    local_count > SL_MAIN_REWRITE_DEEP_CONTROL_MAX_LOCALS {
+  let top_instrs = body.instrs.length()
+  let narrow_shape = top_instrs <= SL_MAIN_REWRITE_DEEP_CONTROL_MAX_TOP_INSTRS &&
+    local_count <= SL_MAIN_REWRITE_DEEP_CONTROL_MAX_LOCALS
+  let wide_shape = top_instrs <=
+    SL_MAIN_REWRITE_DEEP_CONTROL_WIDE_LOCALS_MAX_TOP_INSTRS &&
+    local_count >= SL_MAIN_REWRITE_DEEP_CONTROL_WIDE_LOCALS_MIN_LOCALS
+  if !narrow_shape && !wide_shape {
     return (false, 0, 0)
   }
   let stats = SLDeepControlShapeStats::new()
   sl_collect_deep_control_shape_stats_texpr(body, 0, stats)
-  (
+  let narrow_pathological = narrow_shape &&
     stats.max_depth >= SL_MAIN_REWRITE_DEEP_CONTROL_MIN_DEPTH &&
-    stats.control_nodes >= SL_MAIN_REWRITE_DEEP_CONTROL_MIN_CONTROL_NODES,
+    stats.control_nodes >= SL_MAIN_REWRITE_DEEP_CONTROL_MIN_CONTROL_NODES
+  let wide_pathological = wide_shape &&
+    stats.max_depth >= SL_MAIN_REWRITE_DEEP_CONTROL_WIDE_LOCALS_MIN_DEPTH &&
+    stats.control_nodes >=
+    SL_MAIN_REWRITE_DEEP_CONTROL_WIDE_LOCALS_MIN_CONTROL_NODES
+  (
+    narrow_pathological || wide_pathological,
     stats.max_depth,
     stats.control_nodes,
   )
@@ -7385,6 +7406,40 @@ test "simplify_locals short-circuits pathological deep-control rewrite in no-tee
     false,
   )
   assert_false(changed)
+}
+
+///|
+test "simplify_locals detects pathological deep-control with wide locals" {
+  let mut nested_value = TInstr::local_get(LocalIdx::new(0))
+  for _ in 0..<220 {
+    nested_value = TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([nested_value]),
+    )
+  }
+  let body = TExpr::new([
+    TInstr::local_set(LocalIdx::new(1), nested_value),
+    TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
+    TInstr::drop(TInstr::i32_const(I32(0))),
+    TInstr::drop(TInstr::i32_const(I32(1))),
+    TInstr::nop(),
+    TInstr::nop(),
+  ])
+  let (is_pathological, max_depth, control_nodes) = sl_main_is_pathological_deep_control_candidate(
+    body,
+    245,
+    { allow_tee: false, allow_structure: false, allow_nesting: true },
+  )
+  assert_true(is_pathological)
+  assert_true(max_depth >= 192)
+  assert_true(control_nodes >= 192)
+}
+
+///|
+test "simplify_locals rewrite progress thresholds advance one step in verbose mode" {
+  assert_eq(sl_main_rewrite_helper_trace_next_threshold(0), 1)
+  assert_eq(sl_main_rewrite_helper_trace_next_threshold(1), 2)
+  assert_eq(sl_main_rewrite_helper_trace_next_threshold(128), 129)
 }
 
 ///|

@@ -133,7 +133,9 @@ export function optimizeDebugWasm({
         ...process.env,
         STARSHINE_TRACING: 'PASS',
       },
-      stdio: ['ignore', 'inherit', 'pipe'],
+      // Keep stderr inherited so trace output is streamed live instead of buffered
+      // in Node's child-process capture path.
+      stdio: ['ignore', 'inherit', 'inherit'],
     });
   } catch (error) {
     const status = error?.status ?? 'unknown';
