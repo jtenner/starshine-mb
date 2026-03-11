@@ -1578,7 +1578,24 @@ fn optimize_module_with_options_internal(
       trace_level,
       "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:start",
     )
-    match validate_module(mod) {
+    let validate_result = if trace_enabled &&
+      optimize_trace_phase_enabled(trace_level) {
+      validate_module_with_trace(
+        mod,
+        fn(msg) {
+          if optimize_trace_helper_enabled(trace_level) ||
+            optimize_trace_detail_is_phase(msg) {
+            trace(
+              "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:\{msg}",
+            )
+          }
+        },
+        trace_all_funcs=pass_trace_all_funcs,
+      )
+    } else {
+      validate_module(mod)
+    }
+    match validate_result {
       Ok(_) =>
         optimize_trace_emit_phase(
           trace,

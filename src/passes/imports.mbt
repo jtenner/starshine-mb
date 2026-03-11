@@ -128,6 +128,7 @@ using @validate {
   make_state,
   to_texpr,
   validate_module,
+  validate_module_with_trace,
   validation_error_func_idx,
   validation_error_message,
   trait Match,
