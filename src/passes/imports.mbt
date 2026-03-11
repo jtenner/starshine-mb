@@ -117,7 +117,6 @@ using @transformer {
   change,
   error,
   from_walk,
-  skip,
   unchanged,
 }
 
