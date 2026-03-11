@@ -1488,8 +1488,9 @@ fn optimize_module_with_options_internal(
   }
   ctx.set_mod(mod)
   let mut pass_index = 0
+  let mut previous_vacuum_no_change = false
+  let mut changed_since_last_vacuum = false
   for pass in passes {
-    let pre_pass_mod = mod
     let pass_start_ms = optimize_trace_now_ms()
     pass_index += 1
     let kind = module_pass_context_kind(pass)
@@ -1498,6 +1499,20 @@ fn optimize_module_with_options_internal(
       trace_enabled,
       "pass[\{pass_index}/\{passes.length()}]:start pass=\{pass} kind=\{optimize_trace_context_label(kind)}",
     )
+    if pass is Vacuum && previous_vacuum_no_change && !changed_since_last_vacuum {
+      optimize_trace_emit_pass(
+        trace,
+        trace_enabled,
+        "pass[\{pass_index}/\{passes.length()}]:skip pass=\{pass} reason=previous_vacuum_no_change",
+      )
+      optimize_trace_emit_pass(
+        trace,
+        trace_enabled,
+        "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} skipped=true elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
+      )
+      continue
+    }
+    let pre_pass_mod = mod
     ctx.set_mod(mod)
     let pass_trace_all_funcs = trace_enabled &&
       optimize_trace_phase_enabled(trace_level)
@@ -1639,6 +1654,13 @@ fn optimize_module_with_options_internal(
       trace_level,
       "pass[\{pass_index}/\{passes.length()}]:commit:done pass=\{pass}",
     )
+    let pass_changed = mod != pre_pass_mod
+    if pass is Vacuum {
+      previous_vacuum_no_change = !pass_changed
+      changed_since_last_vacuum = false
+    } else if pass_changed {
+      changed_since_last_vacuum = true
+    }
     optimize_trace_emit_pass(
       trace,
       trace_enabled,
@@ -2026,6 +2048,20 @@ fn default_count_module_passes(
   let mut count = 0
   for pass in passes {
     if pred(pass) {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
+fn optimize_trace_count_lines_containing(
+  lines : Array[String],
+  pattern : String,
+) -> Int {
+  let mut count = 0
+  for line in lines {
+    if line.contains(pattern) {
       count += 1
     }
   }
@@ -4922,6 +4958,76 @@ test "optimize_module runs Vacuum pass" {
     ) => ()
     _ => fail("expected vacuum to remove pure dropped const")
   }
+}
+
+///|
+test "optimize_module trace skips redundant no-op vacuum pass" {
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+    ),
+  )
+  let trace_lines : Array[String] = []
+  let out = match
+    optimize_module_with_options_trace(
+      mod,
+      [Vacuum, Vacuum],
+      OptimizeOptions::new(),
+      fn(msg) { trace_lines.push(msg) },
+      trace_level=OptimizeTracingLevel::helper(),
+    ) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module_with_options_trace error: \{e}")
+  }
+  assert_eq(validate_module(out), Ok(()))
+  assert_eq(
+    optimize_trace_count_lines_containing(trace_lines, "vacuum:metrics funcs="),
+    1,
+  )
+  assert_eq(
+    optimize_trace_count_lines_containing(
+      trace_lines, "skip pass=Vacuum reason=previous_vacuum_no_change",
+    ),
+    1,
+  )
+}
+
+///|
+test "optimize_module trace runs second vacuum when first vacuum changed module" {
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([TInstr::drop(TInstr::i32_const(I32(3)))]),
+        ),
+      ]),
+    ),
+  )
+  let trace_lines : Array[String] = []
+  let out = match
+    optimize_module_with_options_trace(
+      mod,
+      [Vacuum, Vacuum],
+      OptimizeOptions::new(),
+      fn(msg) { trace_lines.push(msg) },
+      trace_level=OptimizeTracingLevel::helper(),
+    ) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module_with_options_trace error: \{e}")
+  }
+  assert_eq(validate_module(out), Ok(()))
+  assert_eq(
+    optimize_trace_count_lines_containing(trace_lines, "vacuum:metrics funcs="),
+    2,
+  )
+  assert_eq(
+    optimize_trace_count_lines_containing(
+      trace_lines, "skip pass=Vacuum reason=previous_vacuum_no_change",
+    ),
+    0,
+  )
 }
 
 ///|

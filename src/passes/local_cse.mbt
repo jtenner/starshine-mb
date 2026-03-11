@@ -556,6 +556,20 @@ fn lcs_collect_shallow_effects_into(
     }
     TInstrKind::TMemoryGrow(_, _) => effects.writes_memory = true
     TInstrKind::TMemorySize(_) => effects.reads_memory = true
+    TInstrKind::TAtomicFence => effects.calls = true
+    TInstrKind::TMemoryAtomicNotify(_, _, _)
+    | TInstrKind::TMemoryAtomicWait32(_, _, _, _)
+    | TInstrKind::TMemoryAtomicWait64(_, _, _, _) => {
+      effects.reads_memory = true
+      effects.calls = true
+      effects.traps = true
+    }
+    TInstrKind::TAtomicRmw(_, _, _, _)
+    | TInstrKind::TAtomicCmpxchg(_, _, _, _, _) => {
+      effects.reads_memory = true
+      effects.writes_memory = true
+      effects.traps = true
+    }
     TInstrKind::TMemoryCopy(_, _, _, _, _) => {
       effects.reads_memory = true
       effects.writes_memory = true
@@ -2904,6 +2918,51 @@ test "local cse measurement and utility helpers cover unreachable and bottom loc
   assert_true(measured > 0)
   assert_eq(lcs_cost(TInstr::unreachable_()), 0)
   assert_false(lcs_can_handle_as_local(ValType::bottom()))
+}
+
+///|
+test "local cse shallow effects treat atomic instructions as unremovable side effects" {
+  let memarg = MemArg::new(U32(2), Some(MemIdx::new(0)), U64(0))
+
+  let notify = lcs_collect_shallow_effects(
+    TInstr::memory_atomic_notify(
+      memarg,
+      TInstr::i32_const(I32(0)),
+      TInstr::i32_const(I32(1)),
+    ),
+  )
+  assert_true(notify.has_unremovable_side_effects())
+
+  let wait32 = lcs_collect_shallow_effects(
+    TInstr::memory_atomic_wait32(
+      memarg,
+      TInstr::i32_const(I32(0)),
+      TInstr::i32_const(I32(7)),
+      TInstr::i64_const(I64(100L)),
+    ),
+  )
+  assert_true(wait32.has_unremovable_side_effects())
+
+  let rmw = lcs_collect_shallow_effects(
+    TInstr::atomic_rmw(
+      AtomicRmwOp::i32_add(),
+      memarg,
+      TInstr::i32_const(I32(0)),
+      TInstr::i32_const(I32(9)),
+    ),
+  )
+  assert_true(rmw.has_unremovable_side_effects())
+
+  let cmpxchg = lcs_collect_shallow_effects(
+    TInstr::atomic_cmpxchg(
+      AtomicCmpxchgOp::i32(),
+      memarg,
+      TInstr::i32_const(I32(0)),
+      TInstr::i32_const(I32(1)),
+      TInstr::i32_const(I32(2)),
+    ),
+  )
+  assert_true(cmpxchg.has_unremovable_side_effects())
 }
 
 ///|

@@ -118,11 +118,6 @@ fn vq_type_of(instr : TInstr, env : Env) -> ValType? {
 }
 
 ///|
-fn vq_instr_hash_u64(instr : TInstr) -> UInt64 {
-  instr.hash().reinterpret_as_uint().to_uint64()
-}
-
-///|
 fn vq_name_to_string(name : Name) -> String {
   let Name(sv) = name
   sv.to_string()
@@ -177,8 +172,7 @@ fn vq_type_of_cached(
   env : Env,
   analysis_cache : VQAnalysisCache,
 ) -> ValType? {
-  let h = vq_instr_hash_u64(instr)
-  match analysis_cache.type_cache.get(h) {
+  match analysis_cache.type_cache.get(instr) {
     Some(v) => {
       analysis_cache.stats.type_cache_hits.val += 1
       v
@@ -186,7 +180,7 @@ fn vq_type_of_cached(
     None => {
       analysis_cache.stats.type_cache_misses.val += 1
       let v = vq_type_of(instr, env)
-      analysis_cache.type_cache[h] = v
+      analysis_cache.type_cache[instr] = v
       v
     }
   }
@@ -197,8 +191,7 @@ fn vq_has_unremovable_effects_cached(
   instr : TInstr,
   analysis_cache : VQAnalysisCache,
 ) -> Bool {
-  let h = vq_instr_hash_u64(instr)
-  match analysis_cache.effect_cache.get(h) {
+  match analysis_cache.effect_cache.get(instr) {
     Some(v) => {
       analysis_cache.stats.effect_cache_hits.val += 1
       v
@@ -206,7 +199,7 @@ fn vq_has_unremovable_effects_cached(
     None => {
       analysis_cache.stats.effect_cache_misses.val += 1
       let v = lcs_collect_effects(instr).has_unremovable_side_effects()
-      analysis_cache.effect_cache[h] = v
+      analysis_cache.effect_cache[instr] = v
       v
     }
   }
@@ -217,8 +210,7 @@ fn vq_has_unremovable_shallow_effects_cached(
   instr : TInstr,
   analysis_cache : VQAnalysisCache,
 ) -> Bool {
-  let h = vq_instr_hash_u64(instr)
-  match analysis_cache.shallow_effect_cache.get(h) {
+  match analysis_cache.shallow_effect_cache.get(instr) {
     Some(v) => {
       analysis_cache.stats.shallow_effect_cache_hits.val += 1
       v
@@ -226,8 +218,38 @@ fn vq_has_unremovable_shallow_effects_cached(
     None => {
       analysis_cache.stats.shallow_effect_cache_misses.val += 1
       let v = lcs_collect_shallow_effects(instr).has_unremovable_side_effects()
-      analysis_cache.shallow_effect_cache[h] = v
+      analysis_cache.shallow_effect_cache[instr] = v
       v
+    }
+  }
+}
+
+///|
+fn vq_instr_has_calls_cached(
+  instr : TInstr,
+  analysis_cache : VQAnalysisCache,
+) -> Bool {
+  match analysis_cache.calls_cache.get(instr) {
+    Some(has_calls) => has_calls
+    None => {
+      let has_calls = lcs_collect_effects(instr).calls
+      analysis_cache.calls_cache[instr] = has_calls
+      has_calls
+    }
+  }
+}
+
+///|
+fn vq_instr_effect_transfers_control_flow_cached(
+  instr : TInstr,
+  analysis_cache : VQAnalysisCache,
+) -> Bool {
+  match analysis_cache.effect_control_transfer_cache.get(instr) {
+    Some(transfers) => transfers
+    None => {
+      let transfers = lcs_collect_effects(instr).transfers_control_flow()
+      analysis_cache.effect_control_transfer_cache[instr] = transfers
+      transfers
     }
   }
 }
@@ -480,20 +502,6 @@ fn vq_must_keep_unused_parent(
 }
 
 ///|
-fn vq_children_with_effects(
-  curr : TInstr,
-  analysis_cache : VQAnalysisCache,
-) -> Array[TInstr] {
-  let out : Array[TInstr] = []
-  for child in eval_children(curr) {
-    if vq_has_unremovable_effects_cached(child, analysis_cache) {
-      out.push(child)
-    }
-  }
-  out
-}
-
-///|
 fn vq_get_dropped_children_and_append_from_children(
   children_with_effects : Array[TInstr],
   env : Env,
@@ -568,12 +576,26 @@ fn vq_optimize(
     if vq_must_keep_unused_parent(curr, analysis_cache) {
       return Some(curr)
     }
-    let children = vq_children_with_effects(curr, analysis_cache)
-    if children.is_empty() {
+    let mut first_effectful_child : TInstr? = None
+    let mut many_effectful_children : Array[TInstr]? = None
+    for child in eval_children(curr) {
+      if !vq_has_unremovable_effects_cached(child, analysis_cache) {
+        continue
+      }
+      match first_effectful_child {
+        None => first_effectful_child = Some(child)
+        Some(existing) =>
+          match many_effectful_children {
+            None => many_effectful_children = Some([existing, child])
+            Some(collected) => collected.push(child)
+          }
+      }
+    }
+    if first_effectful_child is None {
       return None
     }
-    if children.length() == 1 {
-      curr = children[0]
+    if many_effectful_children is None {
+      curr = first_effectful_child.unwrap()
       if is_unreachable_instr(curr) {
         return Some(curr)
       }
@@ -585,7 +607,10 @@ fn vq_optimize(
           Some(dummy) =>
             return Some(
               vq_get_dropped_children_and_append_from_children(
-                children, env, dummy, analysis_cache,
+                many_effectful_children.unwrap(),
+                env,
+                dummy,
+                analysis_cache,
               ),
             )
           None => return Some(curr)
@@ -628,11 +653,19 @@ fn VQStackSig::new(
 
 ///|
 priv struct VQAnalysisCache {
-  type_cache : Map[UInt64, ValType?]
-  effect_cache : Map[UInt64, Bool]
-  shallow_effect_cache : Map[UInt64, Bool]
+  type_cache : Map[TInstr, ValType?]
+  effect_cache : Map[TInstr, Bool]
+  shallow_effect_cache : Map[TInstr, Bool]
+  calls_cache : Map[TInstr, Bool]
+  effect_control_transfer_cache : Map[TInstr, Bool]
+  instr_control_transfer_cache : Map[TInstr, Bool]
+  instr_throws_cache : Map[TInstr, Bool]
+  instr_explicit_unreachable_cache : Map[TInstr, Bool]
   stack_sig_cache : Map[TInstr, VQStackSig?]
   control_transfer_cache : Map[TExpr, Bool]
+  throws_cache : Map[TExpr, Bool]
+  explicit_unreachable_cache : Map[TExpr, Bool]
+  may_not_return_cache : Map[TInstr, Bool]
   call_without_effects_intrinsics : Array[Bool]
   stats : VQRunStats
 }
@@ -646,11 +679,287 @@ fn VQAnalysisCache::new(
     type_cache: Map::new(),
     effect_cache: Map::new(),
     shallow_effect_cache: Map::new(),
+    calls_cache: Map::new(),
+    effect_control_transfer_cache: Map::new(),
+    instr_control_transfer_cache: Map::new(),
+    instr_throws_cache: Map::new(),
+    instr_explicit_unreachable_cache: Map::new(),
     stack_sig_cache: Map::new(),
     control_transfer_cache: Map::new(),
+    throws_cache: Map::new(),
+    explicit_unreachable_cache: Map::new(),
+    may_not_return_cache: Map::new(),
     call_without_effects_intrinsics,
     stats,
   }
+}
+
+///|
+priv struct VQInstrSeedFacts {
+  has_unremovable_effects : Bool
+  has_calls : Bool
+  effect_transfers_control_flow : Bool
+  has_control_transfer : Bool
+  throws : Bool
+  explicit_unreachable : Bool
+  may_not_return : Bool
+}
+
+///|
+fn VQInstrSeedFacts::new(
+  has_unremovable_effects : Bool,
+  has_calls : Bool,
+  effect_transfers_control_flow : Bool,
+  has_control_transfer : Bool,
+  throws : Bool,
+  explicit_unreachable : Bool,
+  may_not_return : Bool,
+) -> VQInstrSeedFacts {
+  {
+    has_unremovable_effects,
+    has_calls,
+    effect_transfers_control_flow,
+    has_control_transfer,
+    throws,
+    explicit_unreachable,
+    may_not_return,
+  }
+}
+
+///|
+fn vq_instr_has_control_transfer_local(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_)
+    | TInstrKind::TUnreachable => true
+    _ => false
+  }
+}
+
+///|
+fn vq_instr_throws_local(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_)
+    | TInstrKind::TCall(_, _)
+    | TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _) => true
+    _ => false
+  }
+}
+
+///|
+fn vq_instr_may_not_return_local(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TLoop(_, _)
+    | TInstrKind::TCall(_, _)
+    | TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _) => true
+    _ => false
+  }
+}
+
+///|
+fn vq_instr_seed_facts_from_cache(
+  instr : TInstr,
+  analysis_cache : VQAnalysisCache,
+) -> VQInstrSeedFacts? {
+  match
+    (
+      analysis_cache.effect_cache.get(instr),
+      analysis_cache.calls_cache.get(instr),
+      analysis_cache.effect_control_transfer_cache.get(instr),
+      analysis_cache.instr_control_transfer_cache.get(instr),
+      analysis_cache.instr_throws_cache.get(instr),
+      analysis_cache.instr_explicit_unreachable_cache.get(instr),
+      analysis_cache.may_not_return_cache.get(instr),
+    ) {
+    (
+      Some(has_unremovable_effects),
+      Some(has_calls),
+      Some(effect_transfers_control_flow),
+      Some(has_control_transfer),
+      Some(throws),
+      Some(explicit_unreachable),
+      Some(may_not_return),
+    ) =>
+      Some(
+        VQInstrSeedFacts::new(
+          has_unremovable_effects, has_calls, effect_transfers_control_flow, has_control_transfer,
+          throws, explicit_unreachable, may_not_return,
+        ),
+      )
+    _ => None
+  }
+}
+
+///|
+fn vq_instr_recursive_children(instr : TInstr) -> Array[TInstr] {
+  let children : Array[TInstr] = []
+  for child in eval_children(instr) {
+    if child != instr {
+      children.push(child)
+    }
+  }
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      for child in body.instrs {
+        children.push(child)
+      }
+    TInstrKind::TIf(_, _, then_body, else_body) => {
+      for child in then_body.instrs {
+        children.push(child)
+      }
+      match else_body {
+        Some(other) =>
+          for child in other.instrs {
+            children.push(child)
+          }
+        None => ()
+      }
+    }
+    _ => ()
+  }
+  children
+}
+
+///|
+fn vq_seed_child_expr_facts(
+  instr : TInstr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> Unit {
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      ignore(vq_seed_texpr_facts(body, env, analysis_cache))
+    TInstrKind::TIf(_, _, then_body, else_body) => {
+      ignore(vq_seed_texpr_facts(then_body, env, analysis_cache))
+      match else_body {
+        Some(other) => ignore(vq_seed_texpr_facts(other, env, analysis_cache))
+        None => ()
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn vq_seed_instr_facts(
+  instr : TInstr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> VQInstrSeedFacts {
+  match vq_instr_seed_facts_from_cache(instr, analysis_cache) {
+    Some(facts) => return facts
+    None => ()
+  }
+
+  let mut has_unremovable_effects = false
+  let mut has_calls = false
+  let mut effect_transfers_control_flow = false
+  let mut has_control_transfer = false
+  let mut throws = false
+  let mut explicit_unreachable = false
+  let mut may_not_return = false
+
+  for child in vq_instr_recursive_children(instr) {
+    let child_facts = vq_seed_instr_facts(child, env, analysis_cache)
+    has_unremovable_effects = has_unremovable_effects ||
+      child_facts.has_unremovable_effects
+    has_calls = has_calls || child_facts.has_calls
+    effect_transfers_control_flow = effect_transfers_control_flow ||
+      child_facts.effect_transfers_control_flow
+    has_control_transfer = has_control_transfer ||
+      child_facts.has_control_transfer
+    throws = throws || child_facts.throws
+    explicit_unreachable = explicit_unreachable ||
+      child_facts.explicit_unreachable
+    may_not_return = may_not_return || child_facts.may_not_return
+  }
+
+  let shallow_effects = lcs_collect_shallow_effects(instr)
+  let shallow_has_unremovable = shallow_effects.has_unremovable_side_effects()
+  has_unremovable_effects = has_unremovable_effects || shallow_has_unremovable
+  has_calls = has_calls || shallow_effects.calls
+  effect_transfers_control_flow = effect_transfers_control_flow ||
+    shallow_effects.transfers_control_flow()
+  has_control_transfer = has_control_transfer ||
+    vq_instr_has_control_transfer_local(instr)
+  throws = throws || vq_instr_throws_local(instr)
+  explicit_unreachable = explicit_unreachable ||
+    vq_is_explicit_unreachable_instr(instr)
+  may_not_return = may_not_return || vq_instr_may_not_return_local(instr)
+
+  if analysis_cache.type_cache.get(instr) is None {
+    analysis_cache.type_cache[instr] = vq_type_of(instr, env)
+  }
+  analysis_cache.shallow_effect_cache[instr] = shallow_has_unremovable
+  analysis_cache.effect_cache[instr] = has_unremovable_effects
+  analysis_cache.calls_cache[instr] = has_calls
+  analysis_cache.effect_control_transfer_cache[instr] = effect_transfers_control_flow
+  analysis_cache.instr_control_transfer_cache[instr] = has_control_transfer
+  analysis_cache.instr_throws_cache[instr] = throws
+  analysis_cache.instr_explicit_unreachable_cache[instr] = explicit_unreachable
+  analysis_cache.may_not_return_cache[instr] = may_not_return
+
+  ignore(vq_stack_sig_instr_seeded(instr, env, analysis_cache))
+  vq_seed_child_expr_facts(instr, env, analysis_cache)
+
+  VQInstrSeedFacts::new(
+    has_unremovable_effects, has_calls, effect_transfers_control_flow, has_control_transfer,
+    throws, explicit_unreachable, may_not_return,
+  )
+}
+
+///|
+fn vq_seed_texpr_facts(
+  expr : TExpr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> Unit {
+  match
+    (
+      analysis_cache.control_transfer_cache.get(expr),
+      analysis_cache.throws_cache.get(expr),
+      analysis_cache.explicit_unreachable_cache.get(expr),
+    ) {
+    (Some(has_control_transfer), Some(throws), Some(explicit_unreachable)) => {
+      ignore(has_control_transfer)
+      ignore(throws)
+      ignore(explicit_unreachable)
+      return ()
+    }
+    _ => ()
+  }
+  let mut has_control_transfer = false
+  let mut throws = false
+  let mut explicit_unreachable = false
+  for instr in expr.instrs {
+    let facts = vq_seed_instr_facts(instr, env, analysis_cache)
+    has_control_transfer = has_control_transfer || facts.has_control_transfer
+    throws = throws || facts.throws
+    explicit_unreachable = explicit_unreachable || facts.explicit_unreachable
+  }
+  analysis_cache.control_transfer_cache[expr] = has_control_transfer
+  analysis_cache.throws_cache[expr] = throws
+  analysis_cache.explicit_unreachable_cache[expr] = explicit_unreachable
 }
 
 ///|
@@ -790,6 +1099,27 @@ fn vq_stack_sig_list(items : Array[TInstr], env : Env) -> VQStackSig? {
 }
 
 ///|
+fn vq_stack_sig_list_seeded(
+  items : Array[TInstr],
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> VQStackSig? {
+  let mut acc = VQStackSig::new(0, 0, true)
+  for item in items {
+    match vq_stack_sig_instr_seeded(item, env, analysis_cache) {
+      Some(sig) => {
+        acc = vq_stack_seq(acc, sig)
+        if !acc.reachable {
+          break
+        }
+      }
+      None => return None
+    }
+  }
+  Some(acc)
+}
+
+///|
 fn vq_stack_sig_if(
   cond_sig : VQStackSig,
   then_sig : VQStackSig,
@@ -822,6 +1152,159 @@ fn vq_stack_sig_if(
     branch_produced,
     branch_reachable,
   )
+}
+
+///|
+fn vq_stack_sig_instr_seeded(
+  instr : TInstr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> VQStackSig? {
+  match analysis_cache.stack_sig_cache.get(instr) {
+    Some(sig) => return sig
+    None => ()
+  }
+  let sig = match instr.kind {
+    TInstrKind::TNop => Some(VQStackSig::new(0, 0, true))
+    TInstrKind::TUnreachable => Some(VQStackSig::new(0, 0, false))
+    TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_) => Some(VQStackSig::new(0, 1, true))
+    TInstrKind::TDrop(value)
+    | TInstrKind::TLocalSet(_, value)
+    | TInstrKind::TGlobalSet(_, value) =>
+      vq_stack_sig_instr_seeded(value, env, analysis_cache).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 1, 0)
+      })
+    TInstrKind::TLocalTee(_, value) =>
+      vq_stack_sig_instr_seeded(value, env, analysis_cache).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 1, 1)
+      })
+    TInstrKind::TUnary(_, value)
+    | TInstrKind::TLoad(_, _, value)
+    | TInstrKind::TRefIsNull(value)
+    | TInstrKind::TRefAsNonNull(value)
+    | TInstrKind::TAnyConvertExtern(value)
+    | TInstrKind::TExternConvertAny(value)
+    | TInstrKind::TI31GetS(value)
+    | TInstrKind::TI31GetU(value)
+    | TInstrKind::TArrayLen(value) =>
+      vq_stack_sig_instr_seeded(value, env, analysis_cache).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 1, 1)
+      })
+    TInstrKind::TBinary(_, left, right) | TInstrKind::TRefEq(left, right) =>
+      vq_stack_sig_list_seeded([left, right], env, analysis_cache).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 2, 1)
+      })
+    TInstrKind::TStore(_, _, addr, value) =>
+      vq_stack_sig_list_seeded([addr, value], env, analysis_cache).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 2, 0)
+      })
+    TInstrKind::TSelect(_, cond, if_true, if_false) =>
+      vq_stack_sig_list_seeded([if_true, if_false, cond], env, analysis_cache).map(fn(
+          sig,
+        ) {
+          vq_stack_sig_pop_push(sig, 3, 1)
+        },
+      )
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      vq_stack_sig_list_seeded(body.instrs, env, analysis_cache)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      let else_sig = match else_body {
+        Some(other) =>
+          vq_stack_sig_list_seeded(other.instrs, env, analysis_cache)
+        None => Some(VQStackSig::new(0, 0, true))
+      }
+      match
+        (
+          vq_stack_sig_instr_seeded(cond, env, analysis_cache),
+          vq_stack_sig_list_seeded(then_body.instrs, env, analysis_cache),
+          else_sig,
+        ) {
+        (Some(cond_sig), Some(then_sig), Some(other_sig)) =>
+          Some(vq_stack_sig_if(cond_sig, then_sig, other_sig))
+        _ => None
+      }
+    }
+    TInstrKind::TCall(func_idx, args) =>
+      match
+        (
+          vq_stack_sig_list_seeded(args, env, analysis_cache),
+          env.get_functype_by_funcidx(func_idx),
+        ) {
+        (Some(sig), Some(FuncType(params, results))) =>
+          Some(vq_stack_sig_pop_push(sig, params.length(), results.length()))
+        _ => None
+      }
+    TInstrKind::TCallIndirect(type_idx, _, args, callee)
+    | TInstrKind::TCallRef(type_idx, args, callee) =>
+      match
+        (
+          vq_stack_sig_list_seeded(args + [callee], env, analysis_cache),
+          env.resolve_functype(type_idx),
+        ) {
+        (Some(sig), Some(FuncType(params, results))) =>
+          Some(
+            vq_stack_sig_pop_push(sig, params.length() + 1, results.length()),
+          )
+        _ => None
+      }
+    TInstrKind::TReturn(values) | TInstrKind::TThrow(_, values) =>
+      vq_stack_sig_list_seeded(values, env, analysis_cache).map(fn(sig) {
+        vq_stack_sig_terminate(sig, 0)
+      })
+    TInstrKind::TThrowRef(value) =>
+      vq_stack_sig_instr_seeded(value, env, analysis_cache).map(fn(sig) {
+        vq_stack_sig_terminate(sig, 1)
+      })
+    TInstrKind::TBr(_, values) =>
+      vq_stack_sig_list_seeded(values, env, analysis_cache).map(fn(sig) {
+        vq_stack_sig_terminate(sig, 0)
+      })
+    TInstrKind::TBrIf(_, cond, values) =>
+      vq_stack_sig_list_seeded(values + [cond], env, analysis_cache).map(fn(
+        sig,
+      ) {
+        vq_stack_sig_pop_push(sig, 1, 0)
+      })
+    TInstrKind::TBrTable(_, _, index, values) =>
+      vq_stack_sig_list_seeded(values + [index], env, analysis_cache).map(fn(
+        sig,
+      ) {
+        vq_stack_sig_terminate(sig, 1)
+      })
+    TInstrKind::TReturnCall(func_idx, args) =>
+      match
+        (
+          vq_stack_sig_list_seeded(args, env, analysis_cache),
+          env.get_functype_by_funcidx(func_idx),
+        ) {
+        (Some(sig), Some(FuncType(params, _))) =>
+          Some(vq_stack_sig_terminate(sig, params.length()))
+        _ => None
+      }
+    TInstrKind::TReturnCallIndirect(type_idx, _, args, callee)
+    | TInstrKind::TReturnCallRef(type_idx, args, callee) =>
+      match
+        (
+          vq_stack_sig_list_seeded(args + [callee], env, analysis_cache),
+          env.resolve_functype(type_idx),
+        ) {
+        (Some(sig), Some(FuncType(params, _))) =>
+          Some(vq_stack_sig_terminate(sig, params.length() + 1))
+        _ => None
+      }
+    _ => None
+  }
+  analysis_cache.stack_sig_cache[instr] = sig
+  sig
 }
 
 ///|
@@ -966,9 +1449,7 @@ fn vq_stack_sig_instr_cached(
     }
     None => {
       analysis_cache.stats.stack_sig_cache_misses.val += 1
-      let sig = vq_stack_sig_instr(instr, env)
-      analysis_cache.stack_sig_cache[instr] = sig
-      sig
+      vq_stack_sig_instr_seeded(instr, env, analysis_cache)
     }
   }
 }
@@ -1052,18 +1533,8 @@ fn vq_optimize_sequence(
   let size = items.length()
   let multi_value_results = result_types.length() > 1
   let has_ambient_stack_terminator = vq_has_ambient_stack_terminator(items)
-  let has_sequence_control_transfer = has_ambient_stack_terminator ||
-    vq_texpr_has_control_transfer_cached(TExpr::new(items), analysis_cache)
-  let prefix_needs = vq_required_prefixes(
-    items,
-    env,
-    if result_used {
-      result_types.length()
-    } else {
-      0
-    },
-    analysis_cache,
-  )
+  let mut has_sequence_control_transfer_opt : Bool? = None
+  let mut prefix_needs_opt : Array[Int?]? = None
   for i = 0; i < size; i = i + 1 {
     let child = items[i]
     if preserve_next_unreachable {
@@ -1114,6 +1585,23 @@ fn vq_optimize_sequence(
             _ => changed = true
           }
         } else {
+          let prefix_needs = match prefix_needs_opt {
+            Some(cached) => cached
+            None => {
+              let computed = vq_required_prefixes(
+                items,
+                env,
+                if result_used {
+                  result_types.length()
+                } else {
+                  0
+                },
+                analysis_cache,
+              )
+              prefix_needs_opt = Some(computed)
+              computed
+            }
+          }
           match
             (
               vq_stack_sig_instr_cached(child, env, analysis_cache),
@@ -1140,6 +1628,19 @@ fn vq_optimize_sequence(
         }
       Some(next) => {
         if next != child {
+          let has_sequence_control_transfer = match
+            has_sequence_control_transfer_opt {
+            Some(cached) => cached
+            None => {
+              let computed = has_ambient_stack_terminator ||
+                vq_texpr_has_control_transfer_cached(
+                  TExpr::new(items),
+                  analysis_cache,
+                )
+              has_sequence_control_transfer_opt = Some(computed)
+              computed
+            }
+          }
           if has_sequence_control_transfer &&
             child.kind is TInstrKind::TDrop(_) &&
             next.kind is TInstrKind::TNop {
@@ -1247,56 +1748,50 @@ fn vq_simplify_block_to_contents(
 
 ///|
 fn vq_texpr_throws(expr : TExpr) -> Bool {
-  let mut throws = false
-  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-      self,
-      _,
-      curr : TInstr,
-    ) {
-      match curr.kind {
-        TInstrKind::TThrow(_, _)
-        | TInstrKind::TThrowRef(_)
-        | TInstrKind::TCall(_, _)
-        | TInstrKind::TCallIndirect(_, _, _, _)
-        | TInstrKind::TCallRef(_, _, _)
-        | TInstrKind::TReturnCall(_, _)
-        | TInstrKind::TReturnCallIndirect(_, _, _, _)
-        | TInstrKind::TReturnCallRef(_, _, _) => throws = true
-        _ => ()
-      }
-      from_walk(self.walk_tinstruction_default((), curr))
-    },
-  )
-  ignore(walker.walk_texpr((), expr))
-  throws
+  for instr in expr.instrs {
+    if vq_instr_throws(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn vq_texpr_throws_cached(
+  expr : TExpr,
+  analysis_cache : VQAnalysisCache,
+) -> Bool {
+  match analysis_cache.throws_cache.get(expr) {
+    Some(throws) => throws
+    None => {
+      let throws = vq_texpr_throws(expr)
+      analysis_cache.throws_cache[expr] = throws
+      throws
+    }
+  }
+}
+
+///|
+fn vq_instr_throws(instr : TInstr) -> Bool {
+  if vq_instr_throws_local(instr) {
+    return true
+  }
+  for child in vq_instr_recursive_children(instr) {
+    if vq_instr_throws(child) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
 fn vq_texpr_has_control_transfer(expr : TExpr) -> Bool {
-  let mut has_control_transfer = false
-  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-      self,
-      _,
-      curr : TInstr,
-    ) {
-      match curr.kind {
-        TInstrKind::TBr(_, _)
-        | TInstrKind::TBrIf(_, _, _)
-        | TInstrKind::TBrTable(_, _, _, _)
-        | TInstrKind::TReturn(_)
-        | TInstrKind::TReturnCall(_, _)
-        | TInstrKind::TReturnCallIndirect(_, _, _, _)
-        | TInstrKind::TReturnCallRef(_, _, _)
-        | TInstrKind::TThrow(_, _)
-        | TInstrKind::TThrowRef(_)
-        | TInstrKind::TUnreachable => has_control_transfer = true
-        _ => ()
-      }
-      from_walk(self.walk_tinstruction_default((), curr))
-    },
-  )
-  ignore(walker.walk_texpr((), expr))
-  has_control_transfer
+  for instr in expr.instrs {
+    if vq_instr_has_control_transfer(instr) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -1351,27 +1846,44 @@ fn vq_is_single_explicit_unreachable_texpr(expr : TExpr) -> Bool {
 }
 
 ///|
-fn vq_instr_has_call(instr : TInstr) -> Bool {
-  let mut has_call = false
-  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-      self,
-      _,
-      curr : TInstr,
-    ) {
-      match curr.kind {
-        TInstrKind::TCall(_, _)
-        | TInstrKind::TCallIndirect(_, _, _, _)
-        | TInstrKind::TCallRef(_, _, _)
-        | TInstrKind::TReturnCall(_, _)
-        | TInstrKind::TReturnCallIndirect(_, _, _, _)
-        | TInstrKind::TReturnCallRef(_, _, _) => has_call = true
-        _ => ()
-      }
-      from_walk(self.walk_tinstruction_default((), curr))
-    },
-  )
-  ignore(walker.walk_tinstruction((), instr))
-  has_call
+fn vq_instr_has_control_transfer(instr : TInstr) -> Bool {
+  if vq_instr_has_control_transfer_local(instr) {
+    return true
+  }
+  for child in vq_instr_recursive_children(instr) {
+    if vq_instr_has_control_transfer(child) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn vq_instr_may_not_return(instr : TInstr) -> Bool {
+  if vq_instr_may_not_return_local(instr) {
+    return true
+  }
+  for child in vq_instr_recursive_children(instr) {
+    if vq_instr_may_not_return(child) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn vq_instr_may_not_return_cached(
+  instr : TInstr,
+  analysis_cache : VQAnalysisCache,
+) -> Bool {
+  match analysis_cache.may_not_return_cache.get(instr) {
+    Some(may_not_return) => may_not_return
+    None => {
+      let may_not_return = vq_instr_may_not_return(instr)
+      analysis_cache.may_not_return_cache[instr] = may_not_return
+      may_not_return
+    }
+  }
 }
 
 ///|
@@ -1395,8 +1907,9 @@ fn vq_tnh_cleanup_block_items(
     if !heading_to_explicit_trap {
       continue
     }
-    let effects = lcs_collect_effects(curr)
-    if effects.transfers_control_flow() || vq_instr_has_call(curr) {
+    if vq_instr_effect_transfers_control_flow_cached(curr, analysis_cache) ||
+      vq_instr_has_calls_cached(curr, analysis_cache) ||
+      vq_instr_may_not_return_cached(curr, analysis_cache) {
       heading_to_explicit_trap = false
       continue
     }
@@ -1413,20 +1926,40 @@ fn vq_tnh_cleanup_block_items(
 
 ///|
 fn vq_texpr_has_explicit_unreachable(expr : TExpr) -> Bool {
-  let mut has_unreachable = false
-  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-      self,
-      _,
-      curr : TInstr,
-    ) {
-      if curr.kind is TInstrKind::TUnreachable {
-        has_unreachable = true
-      }
-      from_walk(self.walk_tinstruction_default((), curr))
-    },
-  )
-  ignore(walker.walk_texpr((), expr))
-  has_unreachable
+  for instr in expr.instrs {
+    if vq_instr_has_explicit_unreachable(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn vq_texpr_has_explicit_unreachable_cached(
+  expr : TExpr,
+  analysis_cache : VQAnalysisCache,
+) -> Bool {
+  match analysis_cache.explicit_unreachable_cache.get(expr) {
+    Some(has_unreachable) => has_unreachable
+    None => {
+      let has_unreachable = vq_texpr_has_explicit_unreachable(expr)
+      analysis_cache.explicit_unreachable_cache[expr] = has_unreachable
+      has_unreachable
+    }
+  }
+}
+
+///|
+fn vq_instr_has_explicit_unreachable(instr : TInstr) -> Bool {
+  if vq_is_explicit_unreachable_instr(instr) {
+    return true
+  }
+  for child in vq_instr_recursive_children(instr) {
+    if vq_instr_has_explicit_unreachable(child) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -1435,6 +1968,349 @@ fn vq_sequence_to_instr(items : Array[TInstr]) -> TInstr {
     [single] => single
     _ => TInstr::block(BlockType::void_(), TExpr::new(items))
   }
+}
+
+///|
+fn vq_tnh_rewrite_unreachable_if_arm(
+  bt : BlockType,
+  condition : TInstr,
+  live_arm : TExpr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> TInstr {
+  let seq_items = [TInstr::drop(condition)] + live_arm.instrs
+  let result_types = vq_block_result_types(bt, env)
+  if result_types.is_empty() {
+    vq_sequence_to_instr(seq_items)
+  } else {
+    vq_simplify_block_to_contents(
+      bt,
+      TExpr::new(seq_items),
+      env,
+      analysis_cache,
+    )
+  }
+}
+
+///|
+fn vq_common_ref_heap_supertype(
+  a : HeapType,
+  b : HeapType,
+  env : Env,
+) -> HeapType? {
+  fn is_func_heap(ht : HeapType) -> Bool {
+    match ht {
+      AbsHeapTypeHeapType(FuncAbsHeapType) => true
+      HeapType(tidx) =>
+        match env.resolve_comptype(tidx) {
+          Some(FuncCompType(_, _)) => true
+          _ => false
+        }
+      _ => false
+    }
+  }
+  if Match::matches(a, b, env) {
+    return Some(b)
+  }
+  if Match::matches(b, a, env) {
+    return Some(a)
+  }
+  let candidates = [
+    AbsHeapType::i31(),
+    AbsHeapType::struct_(),
+    AbsHeapType::array(),
+    AbsHeapType::eq(),
+    AbsHeapType::func(),
+    AbsHeapType::extern_(),
+    AbsHeapType::exn(),
+    AbsHeapType::any(),
+  ]
+  for abs in candidates {
+    let super_ht = HeapType::abs(abs)
+    if Match::matches(a, super_ht, env) && Match::matches(b, super_ht, env) {
+      return Some(super_ht)
+    }
+  }
+  if is_func_heap(a) && is_func_heap(b) {
+    return Some(HeapType::abs(AbsHeapType::func()))
+  }
+  None
+}
+
+///|
+fn vq_common_ref_type_supertype(
+  a : RefType,
+  b : RefType,
+  env : Env,
+) -> RefType? {
+  if Match::matches(a, b, env) {
+    return Some(b)
+  }
+  if Match::matches(b, a, env) {
+    return Some(a)
+  }
+  match
+    vq_common_ref_heap_supertype(a.get_heap_type(), b.get_heap_type(), env) {
+    Some(ht) => Some(RefType::new(a.is_nullable() || b.is_nullable(), ht))
+    None => None
+  }
+}
+
+///|
+fn vq_common_val_supertype(a : ValType, b : ValType, env : Env) -> ValType? {
+  if Match::matches(a, b, env) {
+    return Some(b)
+  }
+  if Match::matches(b, a, env) {
+    return Some(a)
+  }
+  match (a, b) {
+    (RefTypeValType(r0), RefTypeValType(r1)) =>
+      match vq_common_ref_type_supertype(r0, r1, env) {
+        Some(rt) => Some(ValType::ref_type(rt))
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn vq_collect_value_break_types_to_depth_in_texpr(
+  expr : TExpr,
+  depth : Int,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  collected_types : Array[ValType],
+  found_value_break : Ref[Bool],
+  has_unknown_value_type : Ref[Bool],
+  has_unsupported_multivalue_break : Ref[Bool],
+) -> Unit {
+  for instr in expr.instrs {
+    vq_collect_value_break_types_to_depth(
+      instr, depth, env, analysis_cache, collected_types, found_value_break, has_unknown_value_type,
+      has_unsupported_multivalue_break,
+    )
+  }
+}
+
+///|
+fn vq_collect_break_value_types(
+  target_matches_depth : Bool,
+  values : Array[TInstr],
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  collected_types : Array[ValType],
+  found_value_break : Ref[Bool],
+  has_unknown_value_type : Ref[Bool],
+  has_unsupported_multivalue_break : Ref[Bool],
+) -> Unit {
+  if target_matches_depth && !values.is_empty() {
+    found_value_break.val = true
+    if values.length() != 1 {
+      has_unsupported_multivalue_break.val = true
+    } else {
+      match vq_type_of_cached(values[0], env, analysis_cache) {
+        Some(vt) => collected_types.push(vt)
+        None => has_unknown_value_type.val = true
+      }
+    }
+  }
+}
+
+///|
+fn vq_collect_value_break_types_to_depth(
+  instr : TInstr,
+  depth : Int,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  collected_types : Array[ValType],
+  found_value_break : Ref[Bool],
+  has_unknown_value_type : Ref[Bool],
+  has_unsupported_multivalue_break : Ref[Bool],
+) -> Unit {
+  match instr.kind {
+    TInstrKind::TBr(label, values) => {
+      vq_collect_break_value_types(
+        vq_label_to_int(label) == depth,
+        values,
+        env,
+        analysis_cache,
+        collected_types,
+        found_value_break,
+        has_unknown_value_type,
+        has_unsupported_multivalue_break,
+      )
+      for value in values {
+        vq_collect_value_break_types_to_depth(
+          value, depth, env, analysis_cache, collected_types, found_value_break,
+          has_unknown_value_type, has_unsupported_multivalue_break,
+        )
+      }
+    }
+    TInstrKind::TBrIf(label, cond, values) => {
+      vq_collect_break_value_types(
+        vq_label_to_int(label) == depth,
+        values,
+        env,
+        analysis_cache,
+        collected_types,
+        found_value_break,
+        has_unknown_value_type,
+        has_unsupported_multivalue_break,
+      )
+      vq_collect_value_break_types_to_depth(
+        cond, depth, env, analysis_cache, collected_types, found_value_break, has_unknown_value_type,
+        has_unsupported_multivalue_break,
+      )
+      for value in values {
+        vq_collect_value_break_types_to_depth(
+          value, depth, env, analysis_cache, collected_types, found_value_break,
+          has_unknown_value_type, has_unsupported_multivalue_break,
+        )
+      }
+    }
+    TInstrKind::TBrTable(labels, default, index, values) => {
+      let mut target_matches_depth = vq_label_to_int(default) == depth
+      for label in labels {
+        if vq_label_to_int(label) == depth {
+          target_matches_depth = true
+        }
+      }
+      vq_collect_break_value_types(
+        target_matches_depth, values, env, analysis_cache, collected_types, found_value_break,
+        has_unknown_value_type, has_unsupported_multivalue_break,
+      )
+      vq_collect_value_break_types_to_depth(
+        index, depth, env, analysis_cache, collected_types, found_value_break, has_unknown_value_type,
+        has_unsupported_multivalue_break,
+      )
+      for value in values {
+        vq_collect_value_break_types_to_depth(
+          value, depth, env, analysis_cache, collected_types, found_value_break,
+          has_unknown_value_type, has_unsupported_multivalue_break,
+        )
+      }
+    }
+    TInstrKind::TBrOnNull(label, ref_, values)
+    | TInstrKind::TBrOnNonNull(label, ref_, values)
+    | TInstrKind::TBrOnCast(label, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(label, _, _, _, ref_, values) => {
+      vq_collect_break_value_types(
+        vq_label_to_int(label) == depth,
+        values,
+        env,
+        analysis_cache,
+        collected_types,
+        found_value_break,
+        has_unknown_value_type,
+        has_unsupported_multivalue_break,
+      )
+      vq_collect_value_break_types_to_depth(
+        ref_, depth, env, analysis_cache, collected_types, found_value_break, has_unknown_value_type,
+        has_unsupported_multivalue_break,
+      )
+      for value in values {
+        vq_collect_value_break_types_to_depth(
+          value, depth, env, analysis_cache, collected_types, found_value_break,
+          has_unknown_value_type, has_unsupported_multivalue_break,
+        )
+      }
+    }
+    TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
+      vq_collect_value_break_types_to_depth_in_texpr(
+        body,
+        depth + 1,
+        env,
+        analysis_cache,
+        collected_types,
+        found_value_break,
+        has_unknown_value_type,
+        has_unsupported_multivalue_break,
+      )
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      vq_collect_value_break_types_to_depth(
+        cond, depth, env, analysis_cache, collected_types, found_value_break, has_unknown_value_type,
+        has_unsupported_multivalue_break,
+      )
+      vq_collect_value_break_types_to_depth_in_texpr(
+        then_body,
+        depth + 1,
+        env,
+        analysis_cache,
+        collected_types,
+        found_value_break,
+        has_unknown_value_type,
+        has_unsupported_multivalue_break,
+      )
+      match else_body {
+        Some(other) =>
+          vq_collect_value_break_types_to_depth_in_texpr(
+            other,
+            depth + 1,
+            env,
+            analysis_cache,
+            collected_types,
+            found_value_break,
+            has_unknown_value_type,
+            has_unsupported_multivalue_break,
+          )
+        None => ()
+      }
+    }
+    TInstrKind::TTryTable(_, _, body) =>
+      vq_collect_value_break_types_to_depth_in_texpr(
+        body,
+        depth + 1,
+        env,
+        analysis_cache,
+        collected_types,
+        found_value_break,
+        has_unknown_value_type,
+        has_unsupported_multivalue_break,
+      )
+    _ =>
+      for child in vq_instr_recursive_children(instr) {
+        vq_collect_value_break_types_to_depth(
+          child, depth, env, analysis_cache, collected_types, found_value_break,
+          has_unknown_value_type, has_unsupported_multivalue_break,
+        )
+      }
+  }
+}
+
+///|
+fn vq_value_break_to_depth_has_lub(
+  expr : TExpr,
+  depth : Int,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> Bool {
+  let collected_types : Array[ValType] = []
+  let found_value_break = Ref::new(false)
+  let has_unknown_value_type = Ref::new(false)
+  let has_unsupported_multivalue_break = Ref::new(false)
+  vq_collect_value_break_types_to_depth_in_texpr(
+    expr, depth, env, analysis_cache, collected_types, found_value_break, has_unknown_value_type,
+    has_unsupported_multivalue_break,
+  )
+  if !found_value_break.val {
+    return false
+  }
+  if has_unsupported_multivalue_break.val || has_unknown_value_type.val {
+    return true
+  }
+  if collected_types.is_empty() {
+    return false
+  }
+  let mut candidate : ValType? = Some(collected_types[0])
+  for i = 1; i < collected_types.length(); i = i + 1 {
+    match candidate {
+      Some(prev) =>
+        candidate = vq_common_val_supertype(prev, collected_types[i], env)
+      None => ()
+    }
+  }
+  candidate is Some(_)
 }
 
 ///|
@@ -1548,19 +2424,19 @@ fn vq_process_instr(
       if is_unreachable_instr(next_condition) {
         return Some(next_condition)
       }
-      if pass_options.traps_never_happen && arm_result_types.is_empty() {
+      if pass_options.traps_never_happen {
         match next_else {
           Some(other) =>
             if vq_is_single_explicit_unreachable_texpr(next_then) {
               return Some(
-                vq_sequence_to_instr(
-                  [TInstr::drop(next_condition)] + other.instrs,
+                vq_tnh_rewrite_unreachable_if_arm(
+                  bt, next_condition, other, env, analysis_cache,
                 ),
               )
             } else if vq_is_single_explicit_unreachable_texpr(other) {
               return Some(
-                vq_sequence_to_instr(
-                  [TInstr::drop(next_condition)] + next_then.instrs,
+                vq_tnh_rewrite_unreachable_if_arm(
+                  bt, next_condition, next_then, env, analysis_cache,
                 ),
               )
             }
@@ -1658,9 +2534,20 @@ fn vq_process_instr(
         return Some(instr)
       }
       match next_value.kind {
-        TInstrKind::TDrop(inner) => return Some(TInstr::drop(inner))
-        TInstrKind::TLocalTee(idx, inner) =>
-          return Some(TInstr::local_set(idx, inner))
+        TInstrKind::TDrop(inner) => {
+          let rewrite = TInstr::drop(inner)
+          if vq_rewrite_preserves_stack_sig(instr, rewrite, env) {
+            return Some(rewrite)
+          }
+          return Some(dropped)
+        }
+        TInstrKind::TLocalTee(idx, inner) => {
+          let rewrite = TInstr::local_set(idx, inner)
+          if vq_rewrite_preserves_stack_sig(instr, rewrite, env) {
+            return Some(rewrite)
+          }
+          return Some(dropped)
+        }
         _ => ()
       }
       if !vq_has_unremovable_effects_cached(dropped, analysis_cache) {
@@ -1681,7 +2568,9 @@ fn vq_process_instr(
                 match
                   vq_optimize(last, false, false, env, budget, analysis_cache) {
                   None =>
-                    if !has_break_to_depth_in_texpr(body, 0) {
+                    if !vq_value_break_to_depth_has_lub(
+                        body, 0, env, analysis_cache,
+                      ) {
                       let next_items = items.copy()
                       ignore(next_items.pop())
                       if next_items.length() > 1 {
@@ -1752,7 +2641,7 @@ fn vq_process_instr(
         analysis_cache,
         pass_options,
       )
-      if !vq_texpr_throws(next_body) {
+      if !vq_texpr_throws_cached(next_body, analysis_cache) {
         Some(vq_simplify_block_to_contents(bt, next_body, env, analysis_cache))
       } else {
         Some(TInstr::try_table(bt, catches, next_body))
@@ -1760,19 +2649,26 @@ fn vq_process_instr(
     }
     _ => {
       let next_children : Array[TInstr] = []
+      let mut changed_child = false
       for child in eval_children(instr) {
-        next_children.push(
-          vq_process_child_preserving_stack_sig(
-            child, env, budget, analysis_cache, pass_options,
-          ),
+        let next_child = vq_process_child_preserving_stack_sig(
+          child, env, budget, analysis_cache, pass_options,
         )
+        if next_child != child {
+          changed_child = true
+        }
+        next_children.push(next_child)
       }
       if next_children.is_empty() {
         return vq_optimize(
           instr, result_used, type_matters, env, budget, analysis_cache,
         )
       }
-      let rebuilt = mb_rebuild_non_control(instr, next_children)
+      let rebuilt = if changed_child {
+        mb_rebuild_non_control(instr, next_children)
+      } else {
+        instr
+      }
       vq_optimize(
         rebuilt, result_used, type_matters, env, budget, analysis_cache,
       )
@@ -1866,6 +2762,7 @@ fn vq_optimize_function(
         }
         return (func, false)
       }
+      ignore(vq_seed_texpr_facts(body, env, analysis_cache))
 
       let sequence = vq_optimize_sequence(
         body.instrs,
@@ -1892,7 +2789,7 @@ fn vq_optimize_function(
           !lcs_has_unremovable_nontrap_side_effects(
             TInstr::block(BlockType::void_(), next_body),
           ) &&
-          !vq_texpr_has_explicit_unreachable(next_body) {
+          !vq_texpr_has_explicit_unreachable_cached(next_body, analysis_cache) {
           can_nop_body = true
         }
       }
@@ -2513,7 +3410,7 @@ test "vacuum keeps explicit unreachable sentinel after br tail" {
 }
 
 ///|
-test "vacuum turns drop(if drop(..) else drop(..)) into drop(if value else value)" {
+test "vacuum rewrites dropped if-arm drops into value-producing if while preserving stack signature" {
   let t_i32 = RecType::new(
     SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
@@ -2545,14 +3442,28 @@ test "vacuum turns drop(if drop(..) else drop(..)) into drop(if value else value
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], [ValType::i32()], TExpr::new([dropped_if])),
+        Func::t_func(
+          [],
+          [ValType::i32()],
+          TExpr::new([TInstr::local_get(LocalIdx::new(0)), dropped_if]),
+        ),
       ]),
     )
   let out = run_vacuum(mod)
+  assert_eq(validate_module(out), Ok(()))
   match vq_first_func_body(out).instrs {
     [
-      {
-        kind: TInstrKind::TDrop(
+      { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+      { kind: TInstrKind::TDrop(value), .. },
+    ] => {
+      let (then_, else_) = match value.kind {
+        TInstrKind::TIf(
+          ValTypeBlockType(NumTypeValType(I32NumType)),
+          _,
+          then_,
+          Some(else_)
+        ) => (then_, else_)
+        TInstrKind::TDrop(
           {
             kind: TInstrKind::TIf(
               ValTypeBlockType(NumTypeValType(I32NumType)),
@@ -2562,10 +3473,12 @@ test "vacuum turns drop(if drop(..) else drop(..)) into drop(if value else value
             ),
             ..,
           }
-        ),
-        ..,
-      },
-    ] =>
+        ) => (then_, else_)
+        _ =>
+          fail(
+            "expected dropped if to contain value-producing if after rewrite: \{vq_first_func_body(out)}",
+          )
+      }
       match (then_.instrs, else_.instrs) {
         (
           [{ kind: TInstrKind::TCall(FuncIdx(a), []), .. }],
@@ -2576,7 +3489,11 @@ test "vacuum turns drop(if drop(..) else drop(..)) into drop(if value else value
         }
         _ => fail("expected value arms")
       }
-    _ => fail("expected dropped arms rewrite")
+    }
+    _ =>
+      fail(
+        "expected dropped-if rewrite output shape to preserve stack signature: \{vq_first_func_body(out)}",
+      )
   }
 }
 
@@ -3883,4 +4800,155 @@ test "vacuum treats binaryen-intrinsics call.without.effects as removable if unu
         "expected unused binaryen-intrinsics call.without.effects to be removable in vacuum",
       )
   }
+}
+
+///|
+test "vacuum traps-never-happen rewrites value-typed unreachable if arm into drop+live-arm value sequence" {
+  let t_i32_result = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let t_i32_cond = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32_result, t_i32_cond]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("cond"),
+          ExternType::func(TypeIdx::new(1)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::if_(
+              BlockType::val_type(ValType::i32()),
+              TInstr::call(FuncIdx::new(0), []),
+              TExpr::new([TInstr::unreachable_()]),
+              Some(TExpr::new([TInstr::i32_const(I32(9))])),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum_with_options(mod, true)
+  assert_eq(validate_module(out), Ok(()))
+  match vq_first_func_body(out).instrs {
+    [
+      {
+        kind: TInstrKind::TBlock(
+          ValTypeBlockType(NumTypeValType(I32NumType)),
+          {
+            instrs: [
+              {
+                kind: TInstrKind::TDrop(
+                  { kind: TInstrKind::TCall(FuncIdx(cond_idx), []), .. }
+                ),
+                ..,
+              },
+              { kind: TInstrKind::TI32Const(I32(v)), .. },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      },
+    ] => {
+      assert_eq(cond_idx, 0U)
+      assert_eq(v, 9)
+    }
+    _ =>
+      fail(
+        "expected TNH value-typed if-arm rewrite to keep drop(condition) and live arm result",
+      )
+  }
+}
+
+///|
+test "vacuum preserves nested drop stack signature when inner drop is effectful" {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void, t_i32]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("effectful"),
+          ExternType::func(TypeIdx::new(1)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::drop(TInstr::drop(TInstr::call(FuncIdx::new(0), []))),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  assert_eq(validate_module(out), Ok(()))
+  match vq_first_func_body(out).instrs {
+    [
+      { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TDrop(
+              { kind: TInstrKind::TCall(FuncIdx(call_idx), []), .. }
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
+    ] => assert_eq(call_idx, 0U)
+    _ =>
+      fail(
+        "expected nested drop over effectful call to preserve ambient stack-consuming shape",
+      )
+  }
+}
+
+///|
+test "vacuum value-break lub detector reports true for compatible break value types" {
+  let env = Env::new().with_module(Module::new())
+  let analysis_cache = VQAnalysisCache::new([], VQRunStats::new())
+  let expr = TExpr::new([
+    TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(1))]),
+    TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(2))]),
+  ])
+  assert_true(vq_value_break_to_depth_has_lub(expr, 0, env, analysis_cache))
+}
+
+///|
+test "vacuum value-break lub detector reports false for incompatible reference break value types" {
+  let env = Env::new().with_module(Module::new())
+  let analysis_cache = VQAnalysisCache::new([], VQRunStats::new())
+  let expr = TExpr::new([
+    TInstr::br(LabelIdx::new(0), [
+      TInstr::ref_null(HeapType::abs(AbsHeapType::func())),
+    ]),
+    TInstr::br(LabelIdx::new(0), [
+      TInstr::ref_null(HeapType::abs(AbsHeapType::extern_())),
+    ]),
+  ])
+  assert_false(vq_value_break_to_depth_has_lub(expr, 0, env, analysis_cache))
 }
