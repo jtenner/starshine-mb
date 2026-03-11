@@ -1233,6 +1233,108 @@ fn sl_main_collect_get_counts_texpr(
 }
 
 ///|
+fn sl_main_collect_no_tee_rewrite_opportunity_instr(
+  instr : TInstr,
+  get_counts : SLMainGetCounts,
+  saw_single_use_set : Ref[Bool],
+  saw_drop_local_tee : Ref[Bool],
+) -> Unit {
+  if saw_single_use_set.val && saw_drop_local_tee.val {
+    return
+  }
+  match instr.kind {
+    TInstrKind::TLocalSet(idx, value) | TInstrKind::TLocalTee(idx, value) => {
+      if !saw_single_use_set.val {
+        let key = sl_localidx_to_int(idx)
+        if key >= 0 &&
+          key < get_counts.local_count &&
+          sl_main_get_counts_get(get_counts, key) == 1 {
+          saw_single_use_set.val = true
+        }
+      }
+      sl_main_collect_no_tee_rewrite_opportunity_instr(
+        value, get_counts, saw_single_use_set, saw_drop_local_tee,
+      )
+    }
+    TInstrKind::TDrop(value) => {
+      if !saw_drop_local_tee.val {
+        match value.kind {
+          TInstrKind::TLocalTee(_, _) => saw_drop_local_tee.val = true
+          _ => ()
+        }
+      }
+      sl_main_collect_no_tee_rewrite_opportunity_instr(
+        value, get_counts, saw_single_use_set, saw_drop_local_tee,
+      )
+    }
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      sl_main_collect_no_tee_rewrite_opportunity_texpr(
+        body, get_counts, saw_single_use_set, saw_drop_local_tee,
+      )
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      sl_main_collect_no_tee_rewrite_opportunity_instr(
+        cond, get_counts, saw_single_use_set, saw_drop_local_tee,
+      )
+      sl_main_collect_no_tee_rewrite_opportunity_texpr(
+        then_body, get_counts, saw_single_use_set, saw_drop_local_tee,
+      )
+      match else_body {
+        Some(other) =>
+          sl_main_collect_no_tee_rewrite_opportunity_texpr(
+            other, get_counts, saw_single_use_set, saw_drop_local_tee,
+          )
+        None => ()
+      }
+    }
+    _ =>
+      for child in eval_children(instr) {
+        sl_main_collect_no_tee_rewrite_opportunity_instr(
+          child, get_counts, saw_single_use_set, saw_drop_local_tee,
+        )
+      }
+  }
+}
+
+///|
+fn sl_main_collect_no_tee_rewrite_opportunity_texpr(
+  expr : TExpr,
+  get_counts : SLMainGetCounts,
+  saw_single_use_set : Ref[Bool],
+  saw_drop_local_tee : Ref[Bool],
+) -> Unit {
+  if saw_single_use_set.val && saw_drop_local_tee.val {
+    return
+  }
+  for instr in expr.instrs {
+    sl_main_collect_no_tee_rewrite_opportunity_instr(
+      instr, get_counts, saw_single_use_set, saw_drop_local_tee,
+    )
+    if saw_single_use_set.val && saw_drop_local_tee.val {
+      return
+    }
+  }
+}
+
+///|
+fn sl_main_has_no_tee_rewrite_opportunity(
+  expr : TExpr,
+  get_counts : SLMainGetCounts,
+) -> (Bool, Bool, Bool) {
+  let saw_single_use_set = Ref::new(false)
+  let saw_drop_local_tee = Ref::new(false)
+  sl_main_collect_no_tee_rewrite_opportunity_texpr(
+    expr, get_counts, saw_single_use_set, saw_drop_local_tee,
+  )
+  (
+    saw_single_use_set.val || saw_drop_local_tee.val,
+    saw_single_use_set.val,
+    saw_drop_local_tee.val,
+  )
+}
+
+///|
 priv struct SLSinkableInfo {
   out_index : Int
   value : TInstr
@@ -3902,6 +4004,23 @@ fn sl_run_main_phase(
     if !sl_main_get_counts_has_any(get_counts) {
       if trace_verbose {
         trace("phase=main:rewrite:skip reason=no_local_gets")
+      }
+      return (body, false, false, get_counts)
+    }
+  }
+  if !options.allow_tee && !options.allow_structure {
+    let precheck_start_ms = sl_trace_now_ms()
+    let (has_no_tee_opportunity, saw_single_use_set, saw_drop_local_tee) = sl_main_has_no_tee_rewrite_opportunity(
+      body, get_counts,
+    )
+    if trace_verbose {
+      trace(
+        "phase=main:rewrite:precheck mode=no_tee_no_structure opportunity=\{has_no_tee_opportunity} single_use_set=\{saw_single_use_set} drop_local_tee=\{saw_drop_local_tee} elapsed_ms=\{sl_trace_elapsed_ms(precheck_start_ms)}",
+      )
+    }
+    if !has_no_tee_opportunity {
+      if trace_verbose {
+        trace("phase=main:rewrite:skip reason=no_tee_opportunity")
       }
       return (body, false, false, get_counts)
     }
