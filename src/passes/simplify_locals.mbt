@@ -53,6 +53,24 @@ priv struct SLHelperTimingSnapshot {
 }
 
 ///|
+priv struct SLMainRewriteHelperSnapshot {
+  simplify_texpr_calls : Int
+  simplify_texpr_us : UInt64
+  rewrite_instr_calls : Int
+  rewrite_instr_us : UInt64
+  try_sink_local_get_calls : Int
+  try_sink_local_get_us : UInt64
+  invalidate_sinkables_calls : Int
+  invalidate_sinkables_us : UInt64
+  collect_effects_cached_calls : Int
+  collect_effects_cached_us : UInt64
+  collect_effects_cached_hits : Int
+  collect_effects_cached_misses : Int
+  texpr_instrs_seen : Int
+  max_sinkables : Int
+}
+
+///|
 priv struct SLHotspotEntry {
   ordinal : Int
   main_ticks : UInt64
@@ -142,6 +160,55 @@ let sl_helper_timing_run_cleanup_phase_us : Ref[UInt64] = Ref::new(0UL)
 let sl_helper_timing_run_cleanup_phase_calls : Ref[Int] = Ref::new(0)
 
 ///|
+let sl_main_rewrite_helper_trace_enabled : Ref[Bool] = Ref::new(false)
+
+///|
+let sl_main_rewrite_helper_simplify_texpr_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_simplify_texpr_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let sl_main_rewrite_helper_rewrite_instr_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_rewrite_instr_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let sl_main_rewrite_helper_try_sink_local_get_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_try_sink_local_get_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let sl_main_rewrite_helper_invalidate_sinkables_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_invalidate_sinkables_us : Ref[UInt64] = Ref::new(0UL)
+
+///|
+let sl_main_rewrite_helper_collect_effects_cached_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_collect_effects_cached_us : Ref[UInt64] = Ref::new(
+  0UL,
+)
+
+///|
+let sl_main_rewrite_helper_collect_effects_cached_hits : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_collect_effects_cached_misses : Ref[Int] = Ref::new(
+  0,
+)
+
+///|
+let sl_main_rewrite_helper_texpr_instrs_seen : Ref[Int] = Ref::new(0)
+
+///|
+let sl_main_rewrite_helper_max_sinkables : Ref[Int] = Ref::new(0)
+
+///|
 let sl_hotspot_entries : Ref[Array[SLHotspotEntry]] = Ref::new([])
 
 ///|
@@ -191,6 +258,21 @@ fn sl_perf_reset() -> Unit {
   sl_helper_timing_run_main_phase_calls.val = 0
   sl_helper_timing_run_cleanup_phase_us.val = 0UL
   sl_helper_timing_run_cleanup_phase_calls.val = 0
+  sl_main_rewrite_helper_trace_enabled.val = false
+  sl_main_rewrite_helper_simplify_texpr_calls.val = 0
+  sl_main_rewrite_helper_simplify_texpr_us.val = 0UL
+  sl_main_rewrite_helper_rewrite_instr_calls.val = 0
+  sl_main_rewrite_helper_rewrite_instr_us.val = 0UL
+  sl_main_rewrite_helper_try_sink_local_get_calls.val = 0
+  sl_main_rewrite_helper_try_sink_local_get_us.val = 0UL
+  sl_main_rewrite_helper_invalidate_sinkables_calls.val = 0
+  sl_main_rewrite_helper_invalidate_sinkables_us.val = 0UL
+  sl_main_rewrite_helper_collect_effects_cached_calls.val = 0
+  sl_main_rewrite_helper_collect_effects_cached_us.val = 0UL
+  sl_main_rewrite_helper_collect_effects_cached_hits.val = 0
+  sl_main_rewrite_helper_collect_effects_cached_misses.val = 0
+  sl_main_rewrite_helper_texpr_instrs_seen.val = 0
+  sl_main_rewrite_helper_max_sinkables.val = 0
 }
 
 ///|
@@ -312,6 +394,65 @@ fn sl_helper_timing_has_nonzero(snapshot : SLHelperTimingSnapshot) -> Bool {
   snapshot.run_late_optimizations_calls > 0 ||
   snapshot.run_main_phase_calls > 0 ||
   snapshot.run_cleanup_phase_calls > 0
+}
+
+///|
+fn sl_main_rewrite_helper_trace_reset() -> Unit {
+  sl_main_rewrite_helper_simplify_texpr_calls.val = 0
+  sl_main_rewrite_helper_simplify_texpr_us.val = 0UL
+  sl_main_rewrite_helper_rewrite_instr_calls.val = 0
+  sl_main_rewrite_helper_rewrite_instr_us.val = 0UL
+  sl_main_rewrite_helper_try_sink_local_get_calls.val = 0
+  sl_main_rewrite_helper_try_sink_local_get_us.val = 0UL
+  sl_main_rewrite_helper_invalidate_sinkables_calls.val = 0
+  sl_main_rewrite_helper_invalidate_sinkables_us.val = 0UL
+  sl_main_rewrite_helper_collect_effects_cached_calls.val = 0
+  sl_main_rewrite_helper_collect_effects_cached_us.val = 0UL
+  sl_main_rewrite_helper_collect_effects_cached_hits.val = 0
+  sl_main_rewrite_helper_collect_effects_cached_misses.val = 0
+  sl_main_rewrite_helper_texpr_instrs_seen.val = 0
+  sl_main_rewrite_helper_max_sinkables.val = 0
+}
+
+///|
+fn sl_main_rewrite_helper_trace_snapshot() -> SLMainRewriteHelperSnapshot {
+  {
+    simplify_texpr_calls: sl_main_rewrite_helper_simplify_texpr_calls.val,
+    simplify_texpr_us: sl_main_rewrite_helper_simplify_texpr_us.val,
+    rewrite_instr_calls: sl_main_rewrite_helper_rewrite_instr_calls.val,
+    rewrite_instr_us: sl_main_rewrite_helper_rewrite_instr_us.val,
+    try_sink_local_get_calls: sl_main_rewrite_helper_try_sink_local_get_calls.val,
+    try_sink_local_get_us: sl_main_rewrite_helper_try_sink_local_get_us.val,
+    invalidate_sinkables_calls: sl_main_rewrite_helper_invalidate_sinkables_calls.val,
+    invalidate_sinkables_us: sl_main_rewrite_helper_invalidate_sinkables_us.val,
+    collect_effects_cached_calls: sl_main_rewrite_helper_collect_effects_cached_calls.val,
+    collect_effects_cached_us: sl_main_rewrite_helper_collect_effects_cached_us.val,
+    collect_effects_cached_hits: sl_main_rewrite_helper_collect_effects_cached_hits.val,
+    collect_effects_cached_misses: sl_main_rewrite_helper_collect_effects_cached_misses.val,
+    texpr_instrs_seen: sl_main_rewrite_helper_texpr_instrs_seen.val,
+    max_sinkables: sl_main_rewrite_helper_max_sinkables.val,
+  }
+}
+
+///|
+fn sl_main_rewrite_helper_trace_has_nonzero(
+  snapshot : SLMainRewriteHelperSnapshot,
+) -> Bool {
+  snapshot.simplify_texpr_calls > 0 ||
+  snapshot.rewrite_instr_calls > 0 ||
+  snapshot.try_sink_local_get_calls > 0 ||
+  snapshot.invalidate_sinkables_calls > 0 ||
+  snapshot.collect_effects_cached_calls > 0
+}
+
+///|
+fn sl_main_rewrite_helper_trace_note_sinkables(count : Int) -> Unit {
+  if !sl_main_rewrite_helper_trace_enabled.val {
+    return
+  }
+  if count > sl_main_rewrite_helper_max_sinkables.val {
+    sl_main_rewrite_helper_max_sinkables.val = count
+  }
 }
 
 ///|
@@ -490,14 +631,35 @@ fn sl_collect_effects_cached(
   instr : TInstr,
   effects_cache : Map[TInstr, LCSEffects],
 ) -> LCSEffects {
-  match effects_cache.get(instr) {
-    Some(cached) => cached
+  let trace_main_rewrite = sl_main_rewrite_helper_trace_enabled.val
+  let start_us = if trace_main_rewrite { sl_trace_now_us() } else { 0UL }
+  if trace_main_rewrite {
+    sl_main_rewrite_helper_collect_effects_cached_calls.val = sl_main_rewrite_helper_collect_effects_cached_calls.val +
+      1
+  }
+  let effects = match effects_cache.get(instr) {
+    Some(cached) => {
+      if trace_main_rewrite {
+        sl_main_rewrite_helper_collect_effects_cached_hits.val = sl_main_rewrite_helper_collect_effects_cached_hits.val +
+          1
+      }
+      cached
+    }
     None => {
-      let effects = sl_collect_effects_counted(instr)
-      effects_cache[instr] = effects
-      effects
+      if trace_main_rewrite {
+        sl_main_rewrite_helper_collect_effects_cached_misses.val = sl_main_rewrite_helper_collect_effects_cached_misses.val +
+          1
+      }
+      let computed = sl_collect_effects_counted(instr)
+      effects_cache[instr] = computed
+      computed
     }
   }
+  if trace_main_rewrite {
+    sl_main_rewrite_helper_collect_effects_cached_us.val = sl_main_rewrite_helper_collect_effects_cached_us.val +
+      sl_trace_elapsed_us_since(start_us)
+  }
+  effects
 }
 
 ///|
@@ -555,6 +717,19 @@ fn sl_trace_emit_helper_timing(
   }
   trace(
     "func[\{ordinal}] helper_timing count_gets_ms=\{sl_trace_delta_us_to_ms(timing.collect_get_counts_texpr_us)} count_gets_calls=\{timing.collect_get_counts_texpr_calls} rewrite_ms=\{sl_trace_delta_us_to_ms(timing.simplify_texpr_main_us)} rewrite_calls=\{timing.simplify_texpr_main_calls} remove_sets_ms=\{sl_trace_delta_us_to_ms(timing.remove_unneeded_sets_texpr_us)} remove_sets_calls=\{timing.remove_unneeded_sets_texpr_calls} strip_nops_ms=\{sl_trace_delta_us_to_ms(timing.strip_nops_texpr_us)} strip_nops_calls=\{timing.strip_nops_texpr_calls} late_ms=\{sl_trace_delta_us_to_ms(timing.run_late_optimizations_us)} late_calls=\{timing.run_late_optimizations_calls} main_phase_ms=\{sl_trace_delta_us_to_ms(timing.run_main_phase_us)} main_phase_calls=\{timing.run_main_phase_calls} cleanup_phase_ms=\{sl_trace_delta_us_to_ms(timing.run_cleanup_phase_us)} cleanup_phase_calls=\{timing.run_cleanup_phase_calls}",
+  )
+}
+
+///|
+fn sl_trace_emit_main_rewrite_helper_timing(
+  trace : (String) -> Unit,
+  snapshot : SLMainRewriteHelperSnapshot,
+) -> Unit {
+  if !sl_main_rewrite_helper_trace_has_nonzero(snapshot) {
+    return
+  }
+  trace(
+    "phase=main:rewrite:helpers texpr_ms=\{sl_trace_delta_us_to_ms(snapshot.simplify_texpr_us)} texpr_calls=\{snapshot.simplify_texpr_calls} texpr_instrs=\{snapshot.texpr_instrs_seen} rewrite_instr_ms=\{sl_trace_delta_us_to_ms(snapshot.rewrite_instr_us)} rewrite_instr_calls=\{snapshot.rewrite_instr_calls} sink_get_ms=\{sl_trace_delta_us_to_ms(snapshot.try_sink_local_get_us)} sink_get_calls=\{snapshot.try_sink_local_get_calls} invalidate_ms=\{sl_trace_delta_us_to_ms(snapshot.invalidate_sinkables_us)} invalidate_calls=\{snapshot.invalidate_sinkables_calls} effects_cached_ms=\{sl_trace_delta_us_to_ms(snapshot.collect_effects_cached_us)} effects_cached_calls=\{snapshot.collect_effects_cached_calls} effects_hits=\{snapshot.collect_effects_cached_hits} effects_misses=\{snapshot.collect_effects_cached_misses} max_sinkables=\{snapshot.max_sinkables}",
   )
 }
 
@@ -1558,6 +1733,36 @@ fn sl_try_sink_local_get(
 }
 
 ///|
+fn sl_try_sink_local_get_traced(
+  idx : LocalIdx,
+  env : Env,
+  sinkables : Map[Int, SLSinkableInfo],
+  sinkable_indexes : SLSinkableIndexes,
+  out : Array[TInstr],
+  get_counts : SLMainGetCounts,
+  local_types : Array[ValType],
+  options : SLSimplifyOptions,
+  in_value_position : Bool,
+  changed : Ref[Bool],
+) -> TInstr {
+  let trace_main_rewrite = sl_main_rewrite_helper_trace_enabled.val
+  let start_us = if trace_main_rewrite { sl_trace_now_us() } else { 0UL }
+  if trace_main_rewrite {
+    sl_main_rewrite_helper_try_sink_local_get_calls.val = sl_main_rewrite_helper_try_sink_local_get_calls.val +
+      1
+  }
+  let rewritten = sl_try_sink_local_get(
+    idx, env, sinkables, sinkable_indexes, out, get_counts, local_types, options,
+    in_value_position, changed,
+  )
+  if trace_main_rewrite {
+    sl_main_rewrite_helper_try_sink_local_get_us.val = sl_main_rewrite_helper_try_sink_local_get_us.val +
+      sl_trace_elapsed_us_since(start_us)
+  }
+  rewritten
+}
+
+///|
 fn sl_invalidate_sinkables(
   sinkables : Map[Int, SLSinkableInfo],
   sinkable_indexes : SLSinkableIndexes,
@@ -1624,6 +1829,25 @@ fn sl_invalidate_sinkables(
   }
   for idx in to_remove {
     sl_sinkables_remove(sinkables, sinkable_indexes, idx)
+  }
+}
+
+///|
+fn sl_invalidate_sinkables_traced(
+  sinkables : Map[Int, SLSinkableInfo],
+  sinkable_indexes : SLSinkableIndexes,
+  effects : LCSEffects,
+) -> Unit {
+  let trace_main_rewrite = sl_main_rewrite_helper_trace_enabled.val
+  let start_us = if trace_main_rewrite { sl_trace_now_us() } else { 0UL }
+  if trace_main_rewrite {
+    sl_main_rewrite_helper_invalidate_sinkables_calls.val = sl_main_rewrite_helper_invalidate_sinkables_calls.val +
+      1
+  }
+  sl_invalidate_sinkables(sinkables, sinkable_indexes, effects)
+  if trace_main_rewrite {
+    sl_main_rewrite_helper_invalidate_sinkables_us.val = sl_main_rewrite_helper_invalidate_sinkables_us.val +
+      sl_trace_elapsed_us_since(start_us)
   }
 }
 
@@ -2590,7 +2814,7 @@ fn sl_rewrite_instr_main(
   }
   match instr.kind {
     TInstrKind::TLocalGet(idx) =>
-      sl_try_sink_local_get(
+      sl_try_sink_local_get_traced(
         idx, env, sinkables, sinkable_indexes, out, get_counts, local_types, options,
         in_value_position, changed,
       )
@@ -2633,7 +2857,7 @@ fn sl_rewrite_instr_main(
     }
     TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let branch_env = sl_block_body_env(env, bt)
-      let next_cond = sl_rewrite_instr_main(
+      let next_cond = sl_rewrite_instr_main_traced(
         cond, env, sinkables, sinkable_indexes, effects_cache, out, local_types,
         get_counts, options, true, changed,
       )
@@ -2668,7 +2892,7 @@ fn sl_rewrite_instr_main(
       let mut any = false
       for i = 0; i < children.length(); i = i + 1 {
         let child = children[i]
-        let next_child = sl_rewrite_instr_main(
+        let next_child = sl_rewrite_instr_main_traced(
           child, env, sinkables, sinkable_indexes, effects_cache, out, local_types,
           get_counts, options, true, changed,
         )
@@ -2677,7 +2901,7 @@ fn sl_rewrite_instr_main(
           any = true
         }
         if !sinkables.is_empty() {
-          sl_invalidate_sinkables(
+          sl_invalidate_sinkables_traced(
             sinkables,
             sinkable_indexes,
             sl_collect_effects_cached(next_child, effects_cache),
@@ -2695,6 +2919,37 @@ fn sl_rewrite_instr_main(
 }
 
 ///|
+fn sl_rewrite_instr_main_traced(
+  instr : TInstr,
+  env : Env,
+  sinkables : Map[Int, SLSinkableInfo],
+  sinkable_indexes : SLSinkableIndexes,
+  effects_cache : Map[TInstr, LCSEffects],
+  out : Array[TInstr],
+  local_types : Array[ValType],
+  get_counts : SLMainGetCounts,
+  options : SLSimplifyOptions,
+  in_value_position : Bool,
+  changed : Ref[Bool],
+) -> TInstr {
+  let trace_main_rewrite = sl_main_rewrite_helper_trace_enabled.val
+  let start_us = if trace_main_rewrite { sl_trace_now_us() } else { 0UL }
+  if trace_main_rewrite {
+    sl_main_rewrite_helper_rewrite_instr_calls.val = sl_main_rewrite_helper_rewrite_instr_calls.val +
+      1
+  }
+  let rewritten = sl_rewrite_instr_main(
+    instr, env, sinkables, sinkable_indexes, effects_cache, out, local_types, get_counts,
+    options, in_value_position, changed,
+  )
+  if trace_main_rewrite {
+    sl_main_rewrite_helper_rewrite_instr_us.val = sl_main_rewrite_helper_rewrite_instr_us.val +
+      sl_trace_elapsed_us_since(start_us)
+  }
+  rewritten
+}
+
+///|
 fn sl_simplify_texpr_main(
   expr : TExpr,
   env : Env,
@@ -2703,6 +2958,14 @@ fn sl_simplify_texpr_main(
   options : SLSimplifyOptions,
   effects_cache : Map[TInstr, LCSEffects],
 ) -> (TExpr, Bool) {
+  let trace_main_rewrite = sl_main_rewrite_helper_trace_enabled.val
+  let start_us = if trace_main_rewrite { sl_trace_now_us() } else { 0UL }
+  if trace_main_rewrite {
+    sl_main_rewrite_helper_simplify_texpr_calls.val = sl_main_rewrite_helper_simplify_texpr_calls.val +
+      1
+    sl_main_rewrite_helper_texpr_instrs_seen.val = sl_main_rewrite_helper_texpr_instrs_seen.val +
+      expr.instrs.length()
+  }
   let out : Array[TInstr] = []
   let sinkables : Map[Int, SLSinkableInfo] = Map::new()
   let sinkable_indexes = sl_sinkable_indexes_new()
@@ -2710,7 +2973,7 @@ fn sl_simplify_texpr_main(
   let enable_sinking = options.allow_nesting
 
   for instr in expr.instrs {
-    let rewritten = sl_rewrite_instr_main(
+    let rewritten = sl_rewrite_instr_main_traced(
       instr, env, sinkables, sinkable_indexes, effects_cache, out, local_types, get_counts,
       options, false, changed,
     )
@@ -2730,7 +2993,7 @@ fn sl_simplify_texpr_main(
     }
     if enable_sinking && !sinkables.is_empty() {
       let curr_effects = sl_collect_effects_cached(curr, effects_cache)
-      sl_invalidate_sinkables(sinkables, sinkable_indexes, curr_effects)
+      sl_invalidate_sinkables_traced(sinkables, sinkable_indexes, curr_effects)
     }
     match curr.kind {
       TInstrKind::TLocalSet(idx, value) => {
@@ -2746,6 +3009,7 @@ fn sl_simplify_texpr_main(
             }
             None => ()
           }
+          sl_main_rewrite_helper_trace_note_sinkables(sinkables.length())
           let uses = sl_main_get_counts_get(get_counts, key)
           if uses > 0 && (options.allow_tee || uses == 1) {
             sl_sinkables_add(sinkables, sinkable_indexes, key, {
@@ -2756,6 +3020,7 @@ fn sl_simplify_texpr_main(
                 effects_cache,
               ),
             })
+            sl_main_rewrite_helper_trace_note_sinkables(sinkables.length())
           }
         }
       }
@@ -2792,10 +3057,15 @@ fn sl_simplify_texpr_main(
       sinkables.clear()
       sinkable_indexes.reads_by_local.clear()
       sinkable_indexes.writes_by_local.clear()
+      sl_main_rewrite_helper_trace_note_sinkables(0)
     }
     if reached_unreachable {
       break
     }
+  }
+  if trace_main_rewrite {
+    sl_main_rewrite_helper_simplify_texpr_us.val = sl_main_rewrite_helper_simplify_texpr_us.val +
+      sl_trace_elapsed_us_since(start_us)
   }
   (TExpr::new(out), changed.val)
 }
@@ -3644,14 +3914,25 @@ fn sl_run_main_phase(
   } else {
     0UL
   }
+  if trace_verbose {
+    sl_main_rewrite_helper_trace_reset()
+    sl_main_rewrite_helper_trace_enabled.val = true
+  }
   let (next_body, changed) = sl_simplify_texpr_main(
     body, env, local_types, get_counts, options, shared_effects_cache,
   )
+  if trace_verbose {
+    sl_main_rewrite_helper_trace_enabled.val = false
+  }
   sl_helper_timing_commit(
     helper_timing_enabled, sl_helper_timing_simplify_texpr_main_us, sl_helper_timing_simplify_texpr_main_calls,
     rewrite_start_us,
   )
   if trace_verbose {
+    sl_trace_emit_main_rewrite_helper_timing(
+      trace,
+      sl_main_rewrite_helper_trace_snapshot(),
+    )
     trace(
       "phase=main:rewrite:done changed=\{changed} top_instrs=\{next_body.instrs.length()} elapsed_ms=\{sl_trace_elapsed_ms(rewrite_start_ms)}",
     )
