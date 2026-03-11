@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -698,10 +698,8 @@ fn dce_has_unreachable_child(
   break_scan_budget : Ref[Int],
   trace_state : DCEPassTraceState,
 ) -> Bool {
-  let children = eval_children(instr)
-
   // Fast path: syntactic terminators in children require no analysis budget.
-  for child in children {
+  for child in eval_children(instr) {
     match child.kind {
       TInstrKind::TUnreachable
       | TInstrKind::TBr(_, _)
@@ -719,7 +717,7 @@ fn dce_has_unreachable_child(
   // Budgeted path: ensure we don't starve later children.
   // Use a small per-child slice so we can examine multiple children even when
   // the caller gave us a small budget.
-  for child in children {
+  for child in eval_children(instr) {
     let local_budget = dce_alloc_break_budget(break_scan_budget, 32)
     if dce_is_unreachable_instr(child, local_budget, trace_state) {
       return true
@@ -828,49 +826,14 @@ fn dce_is_unreachable_instr(
 /// Fast(ish) nested instruction counter with a hard cap.
 /// Returns a count >= limit+1 when it exceeds the limit.
 ///
-/// NOTE: This does allocate via eval_children for non-control instructions,
-/// but runs only once per function, and is massively cheaper than 20M+ visits.
 fn dce_count_instrs_capped(body : TExpr, limit : Int) -> Int {
   let mut count = 0
-  let stack : Array[TInstr] = body.instrs.copy()
-
-  while !stack.is_empty() {
-    let instr = stack.pop().unwrap()
-
-    count += 1
+  for instr in body.instrs {
+    count += instr.size
     if count > limit {
       return count
     }
-
-    match instr.kind {
-      TInstrKind::TBlock(_, b)
-      | TInstrKind::TLoop(_, b)
-      | TInstrKind::TTryTable(_, _, b) =>
-        // push body instrs
-        for item in b.instrs {
-          stack.push(item)
-        }
-      TInstrKind::TIf(_, cond, then_body, else_body) => {
-        stack.push(cond)
-        for item in then_body.instrs {
-          stack.push(item)
-        }
-        match else_body {
-          Some(other) =>
-            for item in other.instrs {
-              stack.push(item)
-            }
-          None => ()
-        }
-      }
-      _ =>
-        // non-control children
-        for child in eval_children(instr) {
-          stack.push(child)
-        }
-    }
   }
-
   count
 }
 
@@ -880,11 +843,10 @@ fn dce_rewrite_non_control_unreachable(
   break_scan_budget : Ref[Int],
   trace_state : DCEPassTraceState,
 ) -> TInstr {
-  let children = eval_children(instr)
   let remaining : Array[TInstr] = []
   let mut after_unreachable = false
 
-  for child in children {
+  for child in eval_children(instr) {
     if after_unreachable {
       continue
     }
@@ -920,7 +882,43 @@ fn is_unreachable_instr(instr : TInstr) -> Bool {
 }
 
 ///|
-fn eval_children(instr : TInstr) -> Array[TInstr] {
+fn eval_children(instr : TInstr) -> Iter[TInstr] {
+  fn pair(a : TInstr, b : TInstr) -> Iter[TInstr] {
+    let mut i = 0
+    Iter::new(fn() {
+      match i {
+        0 => {
+          i += 1
+          Some(a)
+        }
+        1 => {
+          i += 1
+          Some(b)
+        }
+        _ => None
+      }
+    })
+  }
+  fn triple(a : TInstr, b : TInstr, c : TInstr) -> Iter[TInstr] {
+    let mut i = 0
+    Iter::new(fn() {
+      match i {
+        0 => {
+          i += 1
+          Some(a)
+        }
+        1 => {
+          i += 1
+          Some(b)
+        }
+        2 => {
+          i += 1
+          Some(c)
+        }
+        _ => None
+      }
+    })
+  }
   match instr.kind {
     // Zero-operand instructions.
     TInstrKind::TI32Const(_)
@@ -939,7 +937,7 @@ fn eval_children(instr : TInstr) -> Array[TInstr] {
     | TInstrKind::TTableSize(_)
     | TInstrKind::TDataDrop(_)
     | TInstrKind::TElemDrop(_)
-    | TInstrKind::TStructNewDefault(_) => []
+    | TInstrKind::TStructNewDefault(_) => Iter::empty()
 
     // Unary operands.
     TInstrKind::TUnary(_, child)
@@ -974,7 +972,7 @@ fn eval_children(instr : TInstr) -> Array[TInstr] {
     | TInstrKind::TRefCast(_, _, child)
     | TInstrKind::TRefGetDesc(child)
     | TInstrKind::TRefTestDesc(_, _, child)
-    | TInstrKind::TRefCastDescEq(_, _, child) => [child]
+    | TInstrKind::TRefCastDescEq(_, _, child) => Iter::singleton(child)
 
     // Two operands.
     TInstrKind::TBinary(_, left, right)
@@ -996,7 +994,7 @@ fn eval_children(instr : TInstr) -> Array[TInstr] {
     | TInstrKind::TI8x16RelaxedSwizzle(left, right)
     | TInstrKind::TV128Shift(_, left, right)
     | TInstrKind::TV128LoadLane(_, _, _, left, right)
-    | TInstrKind::TV128StoreLane(_, _, _, left, right) => [left, right]
+    | TInstrKind::TV128StoreLane(_, _, _, left, right) => pair(left, right)
 
     // Three operands.
     TInstrKind::TMemoryFill(_, a, b, c)
@@ -1009,7 +1007,7 @@ fn eval_children(instr : TInstr) -> Array[TInstr] {
     | TInstrKind::TTableCopy(_, _, a, b, c)
     | TInstrKind::TTableInit(_, _, a, b, c)
     | TInstrKind::TSelect(_, c, a, b)
-    | TInstrKind::TV128Ternary(_, a, b, c) => [a, b, c]
+    | TInstrKind::TV128Ternary(_, a, b, c) => triple(a, b, c)
 
     // Variable-length operands.
     TInstrKind::TCall(_, args)
@@ -1018,42 +1016,26 @@ fn eval_children(instr : TInstr) -> Array[TInstr] {
     | TInstrKind::TBr(_, args)
     | TInstrKind::TReturn(args)
     | TInstrKind::TStructNew(_, args)
-    | TInstrKind::TArrayNewFixed(_, args) => args.copy()
+    | TInstrKind::TArrayNewFixed(_, args) => args.iter()
     TInstrKind::TCallIndirect(_, _, args, index)
-    | TInstrKind::TReturnCallIndirect(_, _, args, index) => {
-      let out = args.copy()
-      out.push(index)
-      out
-    }
+    | TInstrKind::TReturnCallIndirect(_, _, args, index) =>
+      args.iter() + Iter::singleton(index)
     TInstrKind::TCallRef(_, args, ref_)
-    | TInstrKind::TReturnCallRef(_, args, ref_) => {
-      let out = args.copy()
-      out.push(ref_)
-      out
-    }
-    TInstrKind::TBrIf(_, cond, values) => {
-      let out = values.copy()
-      out.push(cond)
-      out
-    }
-    TInstrKind::TBrTable(_, _, index, values) => {
-      let out = values.copy()
-      out.push(index)
-      out
-    }
+    | TInstrKind::TReturnCallRef(_, args, ref_) =>
+      args.iter() + Iter::singleton(ref_)
+    TInstrKind::TBrIf(_, cond, values) => values.iter() + Iter::singleton(cond)
+    TInstrKind::TBrTable(_, _, index, values) =>
+      values.iter() + Iter::singleton(index)
     TInstrKind::TBrOnNull(_, ref_, values)
     | TInstrKind::TBrOnNonNull(_, ref_, values)
     | TInstrKind::TBrOnCast(_, _, _, _, ref_, values)
-    | TInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) => {
-      let out = values.copy()
-      out.push(ref_)
-      out
-    }
-    TInstrKind::TArraySet(_, a, b, c) => [a, b, c]
-    TInstrKind::TArrayFill(_, a, b, c, d) => [a, b, c, d]
-    TInstrKind::TArrayCopy(_, _, a, b, c, d, e) => [a, b, c, d, e]
-    TInstrKind::TArrayInitData(_, _, a, b, c, d) => [a, b, c, d]
-    TInstrKind::TArrayInitElem(_, _, a, b, c, d) => [a, b, c, d]
+    | TInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) =>
+      values.iter() + Iter::singleton(ref_)
+    TInstrKind::TArraySet(_, a, b, c) => triple(a, b, c)
+    TInstrKind::TArrayFill(_, a, b, c, d) => pair(a, b) + pair(c, d)
+    TInstrKind::TArrayCopy(_, _, a, b, c, d, e) => triple(a, b, c) + pair(d, e)
+    TInstrKind::TArrayInitData(_, _, a, b, c, d) => pair(a, b) + pair(c, d)
+    TInstrKind::TArrayInitElem(_, _, a, b, c, d) => pair(a, b) + pair(c, d)
     TInstrKind::TI8x16Shuffle(
       _,
       _,
@@ -1073,14 +1055,204 @@ fn eval_children(instr : TInstr) -> Array[TInstr] {
       _,
       left,
       right
-    ) => [left, right]
+    ) => pair(left, right)
 
     // Control-flow structures are handled directly by control-flow logic.
     TInstrKind::TBlock(_, _)
     | TInstrKind::TLoop(_, _)
     | TInstrKind::TIf(_, _, _, _)
-    | TInstrKind::TTryTable(_, _, _) => []
+    | TInstrKind::TTryTable(_, _, _) => Iter::empty()
   }
+}
+
+///|
+fn eval_children_reversed(instr : TInstr) -> Iter[TInstr] {
+  fn pair(a : TInstr, b : TInstr) -> Iter[TInstr] {
+    let mut i = 0
+    Iter::new(fn() {
+      match i {
+        0 => {
+          i += 1
+          Some(b)
+        }
+        1 => {
+          i += 1
+          Some(a)
+        }
+        _ => None
+      }
+    })
+  }
+  fn triple(a : TInstr, b : TInstr, c : TInstr) -> Iter[TInstr] {
+    let mut i = 0
+    Iter::new(fn() {
+      match i {
+        0 => {
+          i += 1
+          Some(c)
+        }
+        1 => {
+          i += 1
+          Some(b)
+        }
+        2 => {
+          i += 1
+          Some(a)
+        }
+        _ => None
+      }
+    })
+  }
+  match instr.kind {
+    // Zero-operand instructions.
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TNop
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TStructNewDefault(_) => Iter::empty()
+
+    // Unary operands.
+    TInstrKind::TUnary(_, child)
+    | TInstrKind::TDrop(child)
+    | TInstrKind::TLocalSet(_, child)
+    | TInstrKind::TLocalTee(_, child)
+    | TInstrKind::TGlobalSet(_, child)
+    | TInstrKind::TRefIsNull(child)
+    | TInstrKind::TRefAsNonNull(child)
+    | TInstrKind::TI31GetS(child)
+    | TInstrKind::TI31GetU(child)
+    | TInstrKind::TRefI31(child)
+    | TInstrKind::TArrayLen(child)
+    | TInstrKind::TAnyConvertExtern(child)
+    | TInstrKind::TExternConvertAny(child)
+    | TInstrKind::TThrowRef(child)
+    | TInstrKind::TMemoryGrow(_, child)
+    | TInstrKind::TTableGet(_, child)
+    | TInstrKind::TLoad(_, _, child)
+    | TInstrKind::TArrayNewDefault(_, child)
+    | TInstrKind::TStructGet(_, _, child)
+    | TInstrKind::TStructGetS(_, _, child)
+    | TInstrKind::TStructGetU(_, _, child)
+    | TInstrKind::TI8x16Splat(child)
+    | TInstrKind::TI16x8Splat(child)
+    | TInstrKind::TI32x4Splat(child)
+    | TInstrKind::TI64x2Splat(child)
+    | TInstrKind::TF32x4Splat(child)
+    | TInstrKind::TF64x2Splat(child)
+    | TInstrKind::TExtractLane(_, _, child)
+    | TInstrKind::TRefTest(_, _, child)
+    | TInstrKind::TRefCast(_, _, child)
+    | TInstrKind::TRefGetDesc(child)
+    | TInstrKind::TRefTestDesc(_, _, child)
+    | TInstrKind::TRefCastDescEq(_, _, child) => Iter::singleton(child)
+
+    // Two operands.
+    TInstrKind::TBinary(_, left, right)
+    | TInstrKind::TRefEq(left, right)
+    | TInstrKind::TStore(_, _, left, right)
+    | TInstrKind::TMemoryAtomicNotify(_, left, right)
+    | TInstrKind::TAtomicRmw(_, _, left, right)
+    | TInstrKind::TTableSet(_, left, right)
+    | TInstrKind::TTableGrow(_, left, right)
+    | TInstrKind::TStructSet(_, _, left, right)
+    | TInstrKind::TArrayNew(_, left, right)
+    | TInstrKind::TArrayNewData(_, _, left, right)
+    | TInstrKind::TArrayNewElem(_, _, left, right)
+    | TInstrKind::TArrayGet(_, left, right)
+    | TInstrKind::TArrayGetS(_, left, right)
+    | TInstrKind::TArrayGetU(_, left, right)
+    | TInstrKind::TReplaceLane(_, _, left, right)
+    | TInstrKind::TI8x16Swizzle(left, right)
+    | TInstrKind::TI8x16RelaxedSwizzle(left, right)
+    | TInstrKind::TV128Shift(_, left, right)
+    | TInstrKind::TV128LoadLane(_, _, _, left, right)
+    | TInstrKind::TV128StoreLane(_, _, _, left, right) => pair(left, right)
+
+    // Three operands.
+    TInstrKind::TMemoryFill(_, a, b, c)
+    | TInstrKind::TMemoryCopy(_, _, a, b, c)
+    | TInstrKind::TMemoryInit(_, _, a, b, c)
+    | TInstrKind::TMemoryAtomicWait32(_, a, b, c)
+    | TInstrKind::TMemoryAtomicWait64(_, a, b, c)
+    | TInstrKind::TAtomicCmpxchg(_, _, a, b, c)
+    | TInstrKind::TTableFill(_, a, b, c)
+    | TInstrKind::TTableCopy(_, _, a, b, c)
+    | TInstrKind::TTableInit(_, _, a, b, c)
+    | TInstrKind::TSelect(_, c, a, b)
+    | TInstrKind::TV128Ternary(_, a, b, c) => triple(a, b, c)
+
+    // Variable-length operands.
+    TInstrKind::TCall(_, args)
+    | TInstrKind::TReturnCall(_, args)
+    | TInstrKind::TThrow(_, args)
+    | TInstrKind::TBr(_, args)
+    | TInstrKind::TReturn(args)
+    | TInstrKind::TStructNew(_, args)
+    | TInstrKind::TArrayNewFixed(_, args) => args.rev_iter()
+    TInstrKind::TCallIndirect(_, _, args, index)
+    | TInstrKind::TReturnCallIndirect(_, _, args, index) =>
+      Iter::singleton(index) + args.rev_iter()
+    TInstrKind::TCallRef(_, args, ref_)
+    | TInstrKind::TReturnCallRef(_, args, ref_) =>
+      Iter::singleton(ref_) + args.rev_iter()
+    TInstrKind::TBrIf(_, cond, values) =>
+      Iter::singleton(cond) + values.rev_iter()
+    TInstrKind::TBrTable(_, _, index, values) =>
+      Iter::singleton(index) + values.rev_iter()
+    TInstrKind::TBrOnNull(_, ref_, values)
+    | TInstrKind::TBrOnNonNull(_, ref_, values)
+    | TInstrKind::TBrOnCast(_, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) =>
+      Iter::singleton(ref_) + values.rev_iter()
+    TInstrKind::TArraySet(_, a, b, c) => triple(a, b, c)
+    TInstrKind::TArrayFill(_, a, b, c, d) => pair(c, d) + pair(a, b)
+    TInstrKind::TArrayCopy(_, _, a, b, c, d, e) => pair(d, e) + triple(a, b, c)
+    TInstrKind::TArrayInitData(_, _, a, b, c, d) => pair(c, d) + pair(a, b)
+    TInstrKind::TArrayInitElem(_, _, a, b, c, d) => pair(c, d) + pair(a, b)
+    TInstrKind::TI8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      left,
+      right
+    ) => pair(left, right)
+
+    // Control-flow structures are handled directly by control-flow logic.
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => Iter::empty()
+  }
+}
+
+///|
+fn eval_children_len(instr : TInstr) -> Int {
+  eval_children(instr).count()
 }
 
 ///|
@@ -1108,6 +1280,19 @@ fn dce_test_void_module(body : TExpr) -> Module {
   .with_type_sec(TypeSec::new([sig]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+}
+
+///|
+test "eval_children iterator preserves non-control operand order" {
+  let cond = TInstr::local_get(LocalIdx::new(0))
+  let if_true = TInstr::local_get(LocalIdx::new(1))
+  let if_false = TInstr::i32_const(I32(7))
+  let select = TInstr::select(None, cond, if_true, if_false)
+  let visited : Array[TInstr] = []
+  for child in eval_children(select) {
+    visited.push(child)
+  }
+  assert_eq(visited, [if_true, if_false, cond])
 }
 
 ///|

@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -228,16 +228,9 @@ fn il_compute_used_globally(mod : Module, total_funcs : Int) -> Array[Bool] {
 ///|
 fn il_measure_body(body : TExpr) -> Int {
   let mut count = 0
-  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-      self,
-      _,
-      instr : TInstr,
-    ) {
-      count += 1
-      from_walk(self.walk_tinstruction_default((), instr))
-    },
-  )
-  ignore(walker.walk_texpr((), body))
+  for instr in body.instrs {
+    count += instr.size
+  }
   count
 }
 
@@ -289,13 +282,11 @@ fn il_is_shrink_wrapper(instr : TInstr, _param_count : Int) -> Bool {
   if !il_is_non_control(instr) {
     return false
   }
-  let children = eval_children(instr)
-  if children.is_empty() {
-    return false
-  }
   let seen : Set[Int] = Set::new()
   let mut last_idx = -1
-  for child in children {
+  let mut saw_child = false
+  for child in eval_children(instr) {
+    saw_child = true
     match child.kind {
       TInstrKind::TLocalGet(LocalIdx(raw)) => {
         let idx = raw.reinterpret_as_int()
@@ -308,7 +299,7 @@ fn il_is_shrink_wrapper(instr : TInstr, _param_count : Int) -> Bool {
       _ => return false
     }
   }
-  true
+  saw_child
 }
 
 ///|

@@ -160,3 +160,34 @@ test "constructor shorthands map to expected variants" {
     PackTypeStorageType(I8PackType),
   )
 }
+
+///|
+test "tinstr size caches subtree instruction counts" {
+  let add = TInstr::binary(
+    BinaryOp::i32_add(),
+    TInstr::i32_const(I32(1)),
+    TInstr::i32_const(I32(2)),
+  )
+  assert_eq(add.size, 3)
+
+  let blk = TInstr::block(
+    BlockType::void_(),
+    TExpr::new([TInstr::nop(), TInstr::drop(add)]),
+  )
+  assert_eq(blk.size, 6)
+}
+
+///|
+test "tinstr size accounts for if condition and both branches" {
+  let cond = TInstr::local_get(LocalIdx::new(0))
+  let then_body = TExpr::new([TInstr::i32_const(I32(1))])
+  let else_body = TExpr::new([TInstr::i32_const(I32(0))])
+  let if_instr = TInstr::if_(
+    BlockType::val_type(ValType::i32()),
+    cond,
+    then_body,
+    Some(else_body),
+  )
+  // if + cond + then const + else const
+  assert_eq(if_instr.size, 4)
+}

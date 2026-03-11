@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -150,11 +150,7 @@ fn dae_trace_elapsed_us_since(start_us : UInt64) -> UInt64 {
 
 ///|
 fn dae_count_instr(instr : TInstr) -> Int {
-  let mut total = 1
-  for child in eval_children(instr) {
-    total += dae_count_instr(child)
-  }
-  total
+  instr.size
 }
 
 ///|

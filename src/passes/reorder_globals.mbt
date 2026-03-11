@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -154,26 +154,19 @@ fn rg_scan_typed_func_for_globals(
   ordinal : Int,
   log_func : Bool,
 ) -> RGLegacyScanSummary {
-  let stack_instrs : Array[Array[TInstr]] = [body.instrs]
-  let stack_next_idx : Array[Int] = [0]
+  let stack : Array[TInstr] = []
+  for i = body.instrs.length() - 1; i >= 0; i = i - 1 {
+    stack.push(body.instrs[i])
+  }
   let scan_start_ms = if log_func { rg_trace_now_ms() } else { 0UL }
   let mut last_progress_ms = scan_start_ms
   let mut next_progress_at = RG_TRACE_PROGRESS_INTERVAL
   let mut visited = 0
   let mut global_gets = 0
   let mut global_sets = 0
-  while !stack_instrs.is_empty() {
-    let top = stack_instrs.length() - 1
-    let curr_instrs = stack_instrs[top]
-    let curr_idx = stack_next_idx[top]
-    if curr_idx >= curr_instrs.length() {
-      ignore(stack_instrs.pop())
-      ignore(stack_next_idx.pop())
-      continue
-    }
-    stack_next_idx[top] = curr_idx + 1
+  while !stack.is_empty() {
+    let instr = stack.pop().unwrap()
     visited += 1
-    let instr = curr_instrs[curr_idx]
     match instr.kind {
       TInstrKind::TGlobalGet(idx) => {
         global_gets += 1
@@ -185,30 +178,27 @@ fn rg_scan_typed_func_for_globals(
       }
       TInstrKind::TBlock(_, body)
       | TInstrKind::TLoop(_, body)
-      | TInstrKind::TTryTable(_, _, body) => {
-        stack_instrs.push(body.instrs)
-        stack_next_idx.push(0)
-      }
+      | TInstrKind::TTryTable(_, _, body) =>
+        for i = body.instrs.length() - 1; i >= 0; i = i - 1 {
+          stack.push(body.instrs[i])
+        }
       TInstrKind::TIf(_, cond, then_body, else_body) => {
         match else_body {
-          Some(other) => {
-            stack_instrs.push(other.instrs)
-            stack_next_idx.push(0)
-          }
+          Some(other) =>
+            for i = other.instrs.length() - 1; i >= 0; i = i - 1 {
+              stack.push(other.instrs[i])
+            }
           None => ()
         }
-        stack_instrs.push(then_body.instrs)
-        stack_next_idx.push(0)
-        stack_instrs.push([cond])
-        stack_next_idx.push(0)
-      }
-      _ => {
-        let children = eval_children(instr)
-        if !children.is_empty() {
-          stack_instrs.push(children)
-          stack_next_idx.push(0)
+        for i = then_body.instrs.length() - 1; i >= 0; i = i - 1 {
+          stack.push(then_body.instrs[i])
         }
+        stack.push(cond)
       }
+      _ =>
+        for child in eval_children_reversed(instr) {
+          stack.push(child)
+        }
     }
     if log_func && visited >= next_progress_at {
       let elapsed_ms = rg_trace_elapsed_ms(scan_start_ms)

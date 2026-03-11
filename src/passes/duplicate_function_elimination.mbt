@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -532,12 +532,12 @@ fn dfe_non_control_shallow_equal_under_map(
       dfe_canonical_func_idx_abs(canonical_abs_of_abs, right_idx) &&
       left_args.length() == right_args.length()
     _ => {
-      let left_children = eval_children(left)
-      let right_children = eval_children(right)
-      if left_children.length() != right_children.length() {
+      let left_child_count = eval_children_len(left)
+      let right_child_count = eval_children_len(right)
+      if left_child_count != right_child_count {
         return false
       }
-      let dummy = dfe_dummy_children(left_children.length())
+      let dummy = dfe_dummy_children(left_child_count)
       oi_rebuild_non_control(left, dummy) ==
       oi_rebuild_non_control(right, dummy)
     }
@@ -589,16 +589,16 @@ fn dfe_tinstr_equal_under_map(
       }
       let left_children = eval_children(left)
       let right_children = eval_children(right)
-      if left_children.length() != right_children.length() {
-        return false
-      }
-      for i = 0; i < left_children.length(); i = i + 1 {
-        if !dfe_tinstr_equal_under_map(
-            canonical_abs_of_abs,
-            left_children[i],
-            right_children[i],
-          ) {
-          return false
+      while true {
+        match (left_children.next(), right_children.next()) {
+          (Some(left_child), Some(right_child)) =>
+            if !dfe_tinstr_equal_under_map(
+                canonical_abs_of_abs, left_child, right_child,
+              ) {
+              return false
+            }
+          (None, None) => break
+          _ => return false
         }
       }
       true

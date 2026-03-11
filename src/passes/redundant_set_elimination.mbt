@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -686,12 +686,16 @@ fn rse_rewrite_instr(state : RSERewriteState, instr : TInstr) -> TInstr {
     | TInstrKind::TLoop(_, _)
     | TInstrKind::TTryTable(_, _, _) => instr
     _ => {
-      let children = eval_children(instr)
-      if children.is_empty() {
-        return instr
+      let next_children : Array[TInstr] = []
+      let mut changed = false
+      for child in eval_children(instr) {
+        let next_child = rse_rewrite_instr(state, child)
+        if next_child != child {
+          changed = true
+        }
+        next_children.push(next_child)
       }
-      let (next_children, changed) = rse_rewrite_children(state, children)
-      if !changed {
+      if next_children.is_empty() || !changed {
         instr
       } else {
         mb_rebuild_non_control(instr, next_children)

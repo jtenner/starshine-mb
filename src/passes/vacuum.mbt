@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -1759,18 +1759,17 @@ fn vq_process_instr(
       }
     }
     _ => {
-      let children = eval_children(instr)
-      if children.is_empty() {
-        return vq_optimize(
-          instr, result_used, type_matters, env, budget, analysis_cache,
-        )
-      }
       let next_children : Array[TInstr] = []
-      for child in children {
+      for child in eval_children(instr) {
         next_children.push(
           vq_process_child_preserving_stack_sig(
             child, env, budget, analysis_cache, pass_options,
           ),
+        )
+      }
+      if next_children.is_empty() {
+        return vq_optimize(
+          instr, result_used, type_matters, env, budget, analysis_cache,
         )
       }
       let rebuilt = mb_rebuild_non_control(instr, next_children)

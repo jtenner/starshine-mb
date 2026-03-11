@@ -2657,6 +2657,7 @@ pub impl @debug.Debug for TExpr
 
 pub struct TInstr {
   kind : TInstrKind
+  size : Int
   mut hash : Int?
 }
 pub fn TInstr::any_convert_extern(Self) -> Self

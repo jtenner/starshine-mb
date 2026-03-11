@@ -2986,14 +2986,9 @@ fn sl_rewrite_instr_main(
       )
     }
     _ => {
-      let children = eval_children(instr)
-      if children.is_empty() {
-        return instr
-      }
       let next_children : Array[TInstr] = []
       let mut any = false
-      for i = 0; i < children.length(); i = i + 1 {
-        let child = children[i]
+      for child in eval_children(instr) {
         let next_child = sl_rewrite_instr_main_traced(
           child, env, sinkables, sinkable_indexes, effects_cache, out, local_types,
           get_counts, options, true, changed,
@@ -3010,7 +3005,9 @@ fn sl_rewrite_instr_main(
           )
         }
       }
-      if any {
+      if next_children.is_empty() {
+        instr
+      } else if any {
         changed.val = true
         mb_rebuild_non_control(instr, next_children)
       } else {
@@ -3264,13 +3261,9 @@ fn sl_remove_unneeded_sets_instr(
       }
     }
     _ => {
-      let children = eval_children(instr)
-      if children.is_empty() {
-        return instr
-      }
       let next_children : Array[TInstr] = []
       let mut any = false
-      for child in children {
+      for child in eval_children(instr) {
         let next_child = sl_remove_unneeded_sets_instr(
           child, get_counts, changed, true,
         )
@@ -3279,7 +3272,9 @@ fn sl_remove_unneeded_sets_instr(
         }
         next_children.push(next_child)
       }
-      if any {
+      if next_children.is_empty() {
+        instr
+      } else if any {
         changed.val = true
         mb_rebuild_non_control(instr, next_children)
       } else {
@@ -3344,20 +3339,18 @@ fn sl_strip_nops_instr(instr : TInstr, changed : Ref[Bool]) -> TInstr {
       }
     }
     _ => {
-      let children = eval_children(instr)
-      if children.is_empty() {
-        return instr
-      }
       let next_children : Array[TInstr] = []
       let mut any = false
-      for child in children {
+      for child in eval_children(instr) {
         let next_child = sl_strip_nops_instr(child, changed)
         if next_child != child {
           any = true
         }
         next_children.push(next_child)
       }
-      if any {
+      if next_children.is_empty() {
+        instr
+      } else if any {
         changed.val = true
         mb_rebuild_non_control(instr, next_children)
       } else {
@@ -3779,20 +3772,18 @@ fn sl_late_rewrite_instr(
       }
     }
     _ => {
-      let children = eval_children(instr)
-      if children.is_empty() {
-        return instr
-      }
       let next_children : Array[TInstr] = []
       let mut changed_children = false
-      for child in children {
+      for child in eval_children(instr) {
         let next_child = sl_late_rewrite_instr(child, state, true)
         if next_child != child {
           changed_children = true
         }
         next_children.push(next_child)
       }
-      if changed_children {
+      if next_children.is_empty() {
+        instr
+      } else if changed_children {
         state.changed.val = true
         mb_rebuild_non_control(instr, next_children)
       } else {

@@ -859,19 +859,19 @@ fn fl_flatten_non_control_children(
   state : FLFuncState,
 ) -> Result[(TInstr, Array[TInstr]), String] {
   let helper_kind = fl_instr_kind_name(instr)
-  let children = eval_children(instr)
-  if children.is_empty() {
+  let child_count = eval_children_len(instr)
+  if child_count == 0 {
     return Ok((instr, []))
   }
   let helper_start_us = fl_trace_helper_start(
     state,
     "fl_flatten_non_control_children",
-    "kind=\{helper_kind} children=\{children.length()}",
+    "kind=\{helper_kind} children=\{child_count}",
   )
   let rebuilt_children : Array[TInstr] = []
   let preludes : Array[TInstr] = []
   let mut any_child_change = false
-  for child in children {
+  for child in eval_children(instr) {
     let rewrite_before = fl_rewrite_counter(state)
     let (next_child, child_preludes) = match
       fl_flatten_instr(child, state, ValuePos) {
@@ -881,7 +881,7 @@ fn fl_flatten_non_control_children(
           state,
           "fl_flatten_non_control_children",
           helper_start_us,
-          "kind=\{helper_kind} children=\{children.length()} error=true",
+          "kind=\{helper_kind} children=\{child_count} error=true",
         )
         return Err(e)
       }
@@ -891,7 +891,7 @@ fn fl_flatten_non_control_children(
         state,
         "fl_flatten_non_control_children",
         helper_start_us,
-        "kind=\{helper_kind} children=\{children.length()} error=value_position_prelude",
+        "kind=\{helper_kind} children=\{child_count} error=value_position_prelude",
       )
       return Err(
         "flatten: value-position rewrite attempted statement extraction",
@@ -916,13 +916,13 @@ fn fl_flatten_non_control_children(
     fl_trace_mark_rewrite(
       state,
       "fl_flatten_non_control_children",
-      "kind=\{helper_kind} children=\{children.length()}",
+      "kind=\{helper_kind} children=\{child_count}",
     )
     fl_trace_helper_done(
       state,
       "fl_flatten_non_control_children",
       helper_start_us,
-      "kind=\{helper_kind} children=\{children.length()} changed=true preludes=\{preludes.length()}",
+      "kind=\{helper_kind} children=\{child_count} changed=true preludes=\{preludes.length()}",
     )
     Ok((mb_rebuild_non_control(instr, rebuilt_children), preludes))
   } else {
@@ -930,7 +930,7 @@ fn fl_flatten_non_control_children(
       state,
       "fl_flatten_non_control_children",
       helper_start_us,
-      "kind=\{helper_kind} children=\{children.length()} changed=false preludes=\{preludes.length()}",
+      "kind=\{helper_kind} children=\{child_count} changed=false preludes=\{preludes.length()}",
     )
     Ok((instr, preludes))
   }
@@ -2198,21 +2198,20 @@ fn fl_rewrite_label_value_flow_in_instr_scan(
     _ => {
       // First, recursively rewrite children in non-control instructions.
       // (Control instructions are handled above.)
-      let children = eval_children(instr)
-      if !children.is_empty() {
-        let rebuilt : Array[TInstr] = []
-        for child in children {
-          rebuilt.push(
-            fl_rewrite_label_value_flow_in_instr_scan(
-              child,
-              state,
-              target_uid,
-              temp,
-              scan_state,
-              depth + 1,
-            ),
-          )
-        }
+      let rebuilt : Array[TInstr] = []
+      for child in eval_children(instr) {
+        rebuilt.push(
+          fl_rewrite_label_value_flow_in_instr_scan(
+            child,
+            state,
+            target_uid,
+            temp,
+            scan_state,
+            depth + 1,
+          ),
+        )
+      }
+      if !rebuilt.is_empty() {
         let instr2 = mb_rebuild_non_control(instr, rebuilt)
 
         // Now rewrite branch-like forms at this node.
@@ -2536,8 +2535,7 @@ fn fl_has_unsupported_targeting_branch_in_instr_scan(
     TInstrKind::TBrTable(labels, default_label, _, _) =>
       fl_br_table_targets_uid(state, labels, default_label, target_uid)
     _ => {
-      let children = eval_children(instr)
-      for child in children {
+      for child in eval_children(instr) {
         if fl_has_unsupported_targeting_branch_in_instr_scan(
             child,
             state,

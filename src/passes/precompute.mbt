@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -238,12 +238,10 @@ fn pc_push_full_children_reversed(
     }
     TInstrKind::TTryTable(_, _, expr) =>
       pc_push_texpr_instrs_reversed(stack, expr)
-    _ => {
-      let children = eval_children(instr)
-      for i = children.length() - 1; i >= 0; i = i - 1 {
-        stack.push(children[i])
+    _ =>
+      for child in eval_children_reversed(instr) {
+        stack.push(child)
       }
-    }
   }
 }
 
@@ -797,11 +795,8 @@ fn pc_eval_const_expr_cached(
       continue
     }
     stack.push((curr, true))
-    let children = eval_children(curr)
-    let mut i = children.length() - 1
-    while i >= 0 {
-      stack.push((children[i], false))
-      i = i - 1
+    for child in eval_children_reversed(curr) {
+      stack.push((child, false))
     }
   }
 
@@ -1188,12 +1183,10 @@ fn pc_collect_analysis_data(
         for i = expr.instrs.length() - 1; i >= 0; i = i - 1 {
           stack.push((expr.instrs[i], false, new_in_if))
         }
-      _ => {
-        let children = eval_children(curr)
-        for i = children.length() - 1; i >= 0; i = i - 1 {
-          stack.push((children[i], false, new_in_if))
+      _ =>
+        for child in eval_children_reversed(curr) {
+          stack.push((child, false, new_in_if))
         }
-      }
     }
   }
 
@@ -2027,28 +2020,25 @@ fn pc_simplify_instr(
           }
         }
         _ => {
-          let children = eval_children(curr)
-          if children.is_empty() {
+          let next_children : Array[TInstr] = []
+          let mut child_changed = false
+          for child in eval_children(curr) {
+            let next_child = pc_simplify_instr(
+              child, imm_globals, options, eval_cache, allow_partial_precompute,
+              simplify_cache, changed, visited, rewritten, cache_hits, body_start_ms,
+              last_progress_ms, slow_stats, slow_order, trace,
+            )
+            if next_child != child {
+              child_changed = true
+            }
+            next_children.push(next_child)
+          }
+          if next_children.is_empty() {
             curr
+          } else if child_changed {
+            pc_rebuild_non_control(curr, next_children)
           } else {
-            let next_children : Array[TInstr] = []
-            let mut child_changed = false
-            for child in children {
-              let next_child = pc_simplify_instr(
-                child, imm_globals, options, eval_cache, allow_partial_precompute,
-                simplify_cache, changed, visited, rewritten, cache_hits, body_start_ms,
-                last_progress_ms, slow_stats, slow_order, trace,
-              )
-              if next_child != child {
-                child_changed = true
-              }
-              next_children.push(next_child)
-            }
-            if child_changed {
-              pc_rebuild_non_control(curr, next_children)
-            } else {
-              curr
-            }
+            curr
           }
         }
       }

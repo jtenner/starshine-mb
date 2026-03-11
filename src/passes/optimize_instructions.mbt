@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -1732,9 +1732,9 @@ fn oi_register_instr(instr : TInstr, cache : OIRewriteCache) -> Int {
       node_id
     }
     None => {
-      let (size, summary) = aggregate.finish(cache)
+      let (_, summary) = aggregate.finish(cache)
       let node_id = cache.size_by_id.length()
-      cache.size_by_id.push(size)
+      cache.size_by_id.push(instr.size)
       cache.effects_by_id.push(summary)
       cache.fingerprint_by_id.push(fingerprint)
       oi_node_id_put(instr, node_id, fingerprint, cache)

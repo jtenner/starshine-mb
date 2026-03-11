@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -1606,8 +1606,19 @@ fn sg_replace_gets_in_tinstr(
       }
     }
     _ => {
-      let children = eval_children(instr)
-      if children.is_empty() {
+      let rewritten_children : Array[TInstr] = []
+      let mut summary = sg_rewrite_summary(
+        has_call=sg_instr_is_call(instr),
+        writes_global=instr.kind is TInstrKind::TGlobalSet(_, _),
+      )
+      for child in eval_children(instr) {
+        let (next_child, child_summary) = sg_replace_gets_in_tinstr(
+          child, trace_constants, constant_globals, stats,
+        )
+        rewritten_children.push(next_child)
+        summary = sg_merge_rewrite_summary(summary, child_summary)
+      }
+      if rewritten_children.is_empty() {
         (
           instr,
           sg_rewrite_summary(
@@ -1615,24 +1626,10 @@ fn sg_replace_gets_in_tinstr(
             writes_global=instr.kind is TInstrKind::TGlobalSet(_, _),
           ),
         )
+      } else if summary.changed {
+        (lcs_rebuild_non_control(instr, rewritten_children), summary)
       } else {
-        let rewritten_children : Array[TInstr] = []
-        let mut summary = sg_rewrite_summary(
-          has_call=sg_instr_is_call(instr),
-          writes_global=instr.kind is TInstrKind::TGlobalSet(_, _),
-        )
-        for child in children {
-          let (next_child, child_summary) = sg_replace_gets_in_tinstr(
-            child, trace_constants, constant_globals, stats,
-          )
-          rewritten_children.push(next_child)
-          summary = sg_merge_rewrite_summary(summary, child_summary)
-        }
-        if summary.changed {
-          (lcs_rebuild_non_control(instr, rewritten_children), summary)
-        } else {
-          (instr, summary)
-        }
+        (instr, summary)
       }
     }
   }

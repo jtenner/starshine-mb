@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -260,7 +260,7 @@ fn rub_trace_log_slow_instr(
     Some(trace_state) =>
       if trace_state.log_func {
         (trace_state.trace)(
-          "func[\{trace_state.ordinal}] round[\{trace_state.round}] slow phase=\{phase} kind=\{rub_instr_kind_name(instr)} elapsed_ms=\{elapsed_ms} children=\{eval_children(instr).length()}",
+          "func[\{trace_state.ordinal}] round[\{trace_state.round}] slow phase=\{phase} kind=\{rub_instr_kind_name(instr)} elapsed_ms=\{elapsed_ms} children=\{eval_children_len(instr)}",
         )
       }
     None => ()

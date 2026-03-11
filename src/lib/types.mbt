@@ -1418,12 +1418,161 @@ pub type HashResult = Int
 ///|
 pub struct TInstr {
   kind : TInstrKind
+  size : Int
   mut hash : HashResult?
 } derive(Show, Debug)
 
 ///|
+fn tinstr_array_size(instrs : Array[TInstr]) -> Int {
+  let mut total = 0
+  for instr in instrs {
+    total += instr.size
+  }
+  total
+}
+
+///|
+fn texpr_tree_size(expr : TExpr) -> Int {
+  tinstr_array_size(expr.instrs)
+}
+
+///|
+fn tinstr_size(kind : TInstrKind) -> Int {
+  1 +
+  (match kind {
+    // Zero-operand instructions.
+    TI32Const(_)
+    | TI64Const(_)
+    | TF32Const(_)
+    | TF64Const(_)
+    | TRefNull(_)
+    | TRefFunc(_)
+    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TUnreachable
+    | TNop
+    | TLocalGet(_)
+    | TGlobalGet(_)
+    | TMemorySize(_)
+    | TAtomicFence
+    | TTableSize(_)
+    | TDataDrop(_)
+    | TElemDrop(_)
+    | TStructNewDefault(_) => 0
+
+    // Unary operands.
+    TUnary(_, child)
+    | TDrop(child)
+    | TLocalSet(_, child)
+    | TLocalTee(_, child)
+    | TGlobalSet(_, child)
+    | TRefIsNull(child)
+    | TRefAsNonNull(child)
+    | TI31GetS(child)
+    | TI31GetU(child)
+    | TRefI31(child)
+    | TArrayLen(child)
+    | TAnyConvertExtern(child)
+    | TExternConvertAny(child)
+    | TThrowRef(child)
+    | TMemoryGrow(_, child)
+    | TTableGet(_, child)
+    | TLoad(_, _, child)
+    | TArrayNewDefault(_, child)
+    | TStructGet(_, _, child)
+    | TStructGetS(_, _, child)
+    | TStructGetU(_, _, child)
+    | TI8x16Splat(child)
+    | TI16x8Splat(child)
+    | TI32x4Splat(child)
+    | TI64x2Splat(child)
+    | TF32x4Splat(child)
+    | TF64x2Splat(child)
+    | TExtractLane(_, _, child)
+    | TRefTest(_, _, child)
+    | TRefCast(_, _, child)
+    | TRefGetDesc(child)
+    | TRefTestDesc(_, _, child)
+    | TRefCastDescEq(_, _, child) => child.size
+
+    // Two operands.
+    TBinary(_, left, right)
+    | TRefEq(left, right)
+    | TStore(_, _, left, right)
+    | TMemoryAtomicNotify(_, left, right)
+    | TAtomicRmw(_, _, left, right)
+    | TTableSet(_, left, right)
+    | TTableGrow(_, left, right)
+    | TStructSet(_, _, left, right)
+    | TArrayNew(_, left, right)
+    | TArrayNewData(_, _, left, right)
+    | TArrayNewElem(_, _, left, right)
+    | TArrayGet(_, left, right)
+    | TArrayGetS(_, left, right)
+    | TArrayGetU(_, left, right)
+    | TReplaceLane(_, _, left, right)
+    | TI8x16Swizzle(left, right)
+    | TI8x16RelaxedSwizzle(left, right)
+    | TV128Shift(_, left, right)
+    | TV128LoadLane(_, _, _, left, right)
+    | TV128StoreLane(_, _, _, left, right) => left.size + right.size
+
+    // Three operands.
+    TMemoryFill(_, a, b, c)
+    | TMemoryCopy(_, _, a, b, c)
+    | TMemoryInit(_, _, a, b, c)
+    | TMemoryAtomicWait32(_, a, b, c)
+    | TMemoryAtomicWait64(_, a, b, c)
+    | TAtomicCmpxchg(_, _, a, b, c)
+    | TTableFill(_, a, b, c)
+    | TTableCopy(_, _, a, b, c)
+    | TTableInit(_, _, a, b, c)
+    | TSelect(_, c, a, b)
+    | TV128Ternary(_, a, b, c) => a.size + b.size + c.size
+
+    // Variable-length operands.
+    TCall(_, args)
+    | TReturnCall(_, args)
+    | TThrow(_, args)
+    | TBr(_, args)
+    | TReturn(args)
+    | TStructNew(_, args)
+    | TArrayNewFixed(_, args) => tinstr_array_size(args)
+    TCallIndirect(_, _, args, index) | TReturnCallIndirect(_, _, args, index) =>
+      tinstr_array_size(args) + index.size
+    TCallRef(_, args, ref_) | TReturnCallRef(_, args, ref_) =>
+      tinstr_array_size(args) + ref_.size
+    TBrIf(_, cond, values) => tinstr_array_size(values) + cond.size
+    TBrTable(_, _, index, values) => tinstr_array_size(values) + index.size
+    TBrOnNull(_, ref_, values)
+    | TBrOnNonNull(_, ref_, values)
+    | TBrOnCast(_, _, _, _, ref_, values)
+    | TBrOnCastFail(_, _, _, _, ref_, values) =>
+      tinstr_array_size(values) + ref_.size
+    TArraySet(_, a, b, c) => a.size + b.size + c.size
+    TArrayFill(_, a, b, c, d)
+    | TArrayInitData(_, _, a, b, c, d)
+    | TArrayInitElem(_, _, a, b, c, d) => a.size + b.size + c.size + d.size
+    TArrayCopy(_, _, a, b, c, d, e) =>
+      a.size + b.size + c.size + d.size + e.size
+    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, left, right) =>
+      left.size + right.size
+
+    // Control-flow structures.
+    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+      texpr_tree_size(body)
+    TIf(_, cond, then_body, else_body) =>
+      cond.size +
+      texpr_tree_size(then_body) +
+      (match else_body {
+        Some(other) => texpr_tree_size(other)
+        None => 0
+      })
+  })
+}
+
+///|
 fn tinstr(kind : TInstrKind) -> TInstr {
-  { kind, hash: None }
+  { kind, size: tinstr_size(kind), hash: None }
 }
 
 ///|
