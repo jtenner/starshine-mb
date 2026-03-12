@@ -12,7 +12,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Finish `Vacuum` Stage 3 fallback cleanup: eliminate remaining unindexed depth-0 break scans in `vq_has_break_to_depth0_cached(...)` for non-trivial rewritten trees by reusing indexed/control metadata or equivalent bounded local summaries.
 - [ ] Finish `Vacuum` Stage 3 value-break work: avoid full recursive fallback collection in `vq_value_break_to_depth_has_lub(...)` for rewritten trees by carrying/reusing precomputed block-level value-break summaries where possible.
 - [ ] Finish `Vacuum` Stage 3 fallback metadata specialization: reduce generic helper fallback calls (`vq_type_of_timed`, `vq_collect_effects_timed`) on unindexed rewrite paths by using rewrite-shape-local formulas or bounded metadata reuse.
-- [ ] Finish `Vacuum` Stage 3 rewrite-guard optimization: narrow hot-path use of `vq_rewrite_preserves_stack_sig_cached(...)` in drop rewrites by preferring indexed signatures/local formulas and keeping generic checks as uncommon fallback.
 - [ ] Performance issue in Flatten (use helper level tracing with timing stats to diagnose)
 - [ ] Performance issue in Validate package
 - [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
@@ -42,6 +41,7 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Long-horizon platform/features: Component Model/WIT, streaming decoder API, custom sections/source maps, plugin system.
 
 ## Recently completed
+- [x] Continue `Vacuum` Stage 3 rewrite-guard optimization by replacing hot-path drop-rewrite uses of `vq_rewrite_preserves_stack_sig_cached(...)` with a child-signature local formula guard and using generic rewrite-stack checks only as uncommon fallback when the local guard rejects.
 - [x] Continue `Vacuum` Stage 3 fallback-scan reduction by adding expression-level unindexed fast paths in `vq_has_break_to_depth0_cached(...)` and `vq_has_value_break_lub_depth0_cached(...)`, so multi-item label-free rewritten trees skip generic fallback collectors.
 - [x] Continue pathological `Vacuum` fallback cleanup by adding an unindexed single-item fast path in `vq_has_value_break_lub_depth0_cached` so label-free trees skip expensive value-break LUB collection, with regression coverage on helper-call counters.
 - [x] Continue pathological `Vacuum` fallback cleanup by deduplicating unindexed wrapper-collapse rebase-score analysis across break-check and rebase-gate paths, and by adding explicit helper-level rebase-score timing/call metrics.

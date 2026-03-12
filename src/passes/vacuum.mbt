@@ -2725,6 +2725,7 @@ fn vq_rewrite_preserves_stack_sig_cached(
   analysis_cache : VQAnalysisCache,
   before_id? : Int? = None,
 ) -> Bool {
+  let start_us = vacuum_trace_now_us()
   let before_sig = vq_stack_sig_instr_cached(
     before,
     env,
@@ -2732,7 +2733,7 @@ fn vq_rewrite_preserves_stack_sig_cached(
     instr_id=before_id,
   )
   let after_sig = vq_stack_sig_instr_cached(after, env, analysis_cache)
-  match (before_sig, after_sig) {
+  let out = match (before_sig, after_sig) {
     (Some(before_cached), Some(after_cached)) =>
       if vq_same_stack_sig(before_cached, after_cached) {
         true
@@ -2751,6 +2752,50 @@ fn vq_rewrite_preserves_stack_sig_cached(
           None => false
         }
       }
+    _ => true
+  }
+  ignore(
+    vq_commit_helper_timing(
+      analysis_cache.stats.rewrite_stack_us,
+      analysis_cache.stats.rewrite_stack_calls,
+      start_us,
+    ),
+  )
+  out
+}
+
+///|
+fn vq_drop_stack_sig_from_child_sig(child_sig : VQStackSig) -> VQStackSig {
+  vq_stack_sig_pop_push(child_sig, 1, 0)
+}
+
+///|
+fn vq_drop_rewrite_preserves_stack_sig_from_children(
+  before_child : TInstr,
+  after_child : TInstr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  before_child_id? : Int? = None,
+  after_child_id? : Int? = None,
+) -> Bool {
+  let before_child_sig = vq_stack_sig_instr_cached(
+    before_child,
+    env,
+    analysis_cache,
+    instr_id=before_child_id,
+  )
+  let after_child_sig = vq_stack_sig_instr_cached(
+    after_child,
+    env,
+    analysis_cache,
+    instr_id=after_child_id,
+  )
+  match (before_child_sig, after_child_sig) {
+    (Some(before_sig), Some(after_sig)) =>
+      vq_same_stack_sig(
+        vq_drop_stack_sig_from_child_sig(before_sig),
+        vq_drop_stack_sig_from_child_sig(after_sig),
+      )
     _ => true
   }
 }
@@ -5233,12 +5278,32 @@ fn vq_process_instr(
         Some(v) => v
         None => return Some(TInstr::nop())
       }
+      let original_value_instr_id = vq_indexed_eval_child_id(instr_node, 0)
+      let original_value_instr_node = vq_indexed_instr_node(
+        analysis_cache, original_value_instr_id,
+      )
+      let value_instr_id = if physical_equal(next_value, value) {
+        original_value_instr_id
+      } else {
+        None
+      }
+      let value_instr_node = vq_indexed_instr_node(
+        analysis_cache, value_instr_id,
+      )
       let dropped = if physical_equal(next_value, value) {
         instr
       } else {
         TInstr::drop(next_value)
       }
       if !physical_equal(dropped, instr) &&
+        !vq_drop_rewrite_preserves_stack_sig_from_children(
+          value,
+          next_value,
+          env,
+          analysis_cache,
+          before_child_id=original_value_instr_id,
+          after_child_id=value_instr_id,
+        ) &&
         !vq_rewrite_preserves_stack_sig_cached(
           instr,
           dropped,
@@ -5251,7 +5316,16 @@ fn vq_process_instr(
       match next_value.kind {
         TInstrKind::TDrop(inner) => {
           let rewrite = TInstr::drop(inner)
-          if vq_rewrite_preserves_stack_sig_cached(
+          if vq_drop_rewrite_preserves_stack_sig_from_children(
+              value,
+              inner,
+              env,
+              analysis_cache,
+              before_child_id=original_value_instr_id,
+              after_child_id=vq_indexed_eval_child_id(value_instr_node, 0),
+            ) {
+            return Some(rewrite)
+          } else if vq_rewrite_preserves_stack_sig_cached(
               instr,
               rewrite,
               env,
@@ -5264,7 +5338,16 @@ fn vq_process_instr(
         }
         TInstrKind::TLocalTee(idx, inner) => {
           let rewrite = TInstr::local_set(idx, inner)
-          if vq_rewrite_preserves_stack_sig_cached(
+          if vq_drop_rewrite_preserves_stack_sig_from_children(
+              value,
+              inner,
+              env,
+              analysis_cache,
+              before_child_id=original_value_instr_id,
+              after_child_id=vq_indexed_eval_child_id(value_instr_node, 0),
+            ) {
+            return Some(rewrite)
+          } else if vq_rewrite_preserves_stack_sig_cached(
               instr,
               rewrite,
               env,
@@ -5280,19 +5363,6 @@ fn vq_process_instr(
       if !vq_has_unremovable_effects_cached(dropped, analysis_cache) {
         return Some(TInstr::nop())
       }
-      let original_value_instr_id = vq_indexed_eval_child_id(instr_node, 0)
-      let original_value_instr_node = vq_indexed_instr_node(
-        analysis_cache, original_value_instr_id,
-      )
-      let value_instr_id = if physical_equal(next_value, value) {
-        original_value_instr_id
-      } else {
-        None
-      }
-      let value_instr_node = vq_indexed_instr_node(
-        analysis_cache, value_instr_id,
-      )
-
       match next_value.kind {
         TInstrKind::TBlock(bt, body) => {
           let { instrs: items, .. } = body
@@ -6214,6 +6284,40 @@ test "vacuum indexed drop(local.tee) rewrite avoids generic stack-preservation h
     None => fail("expected drop(local.tee) rewrite result")
   }
   vq_active_stats.val = None
+  match out.kind {
+    TInstrKind::TLocalSet(
+      LocalIdx(i),
+      { kind: TInstrKind::TI32Const(I32(v)), .. }
+    ) => {
+      assert_eq(i, 0U)
+      assert_eq(v, 9)
+    }
+    _ => fail("expected drop(local.tee) to rewrite to local.set")
+  }
+  assert_eq(cache.stats.rewrite_stack_calls.val, 0)
+}
+
+///|
+test "vacuum unindexed drop(local.tee) rewrite avoids generic stack-preservation helper" {
+  let instr = TInstr::drop(
+    TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(9))),
+  )
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let process_budget = Ref::new(64)
+  let out = match
+    vq_process_instr(
+      instr,
+      env,
+      false,
+      false,
+      process_budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected drop(local.tee) rewrite result")
+  }
   match out.kind {
     TInstrKind::TLocalSet(
       LocalIdx(i),

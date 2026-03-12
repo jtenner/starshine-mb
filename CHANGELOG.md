@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-03-12 Vacuum Follow-up: narrowed drop-rewrite stack-signature guarding to local child-signature formulas and kept generic rewrite checks as fallback only
+
+This follow-up continues the remaining `Vacuum` Stage 3 rewrite-guard blocker work in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). The hot `TDrop` rewrite path previously invoked `vq_rewrite_preserves_stack_sig_cached(...)` directly for candidate transitions like `drop(next_value)`, `drop(drop(inner)) -> drop(inner)`, and `drop(local.tee(...)) -> local.set(...)`, even when a cheaper local stack-signature equivalence check was available from the drop wrapper shape itself.
+
+The drop rewrite path now uses a dedicated local guard, `vq_drop_rewrite_preserves_stack_sig_from_children(...)`, which compares wrapper-equivalent stack signatures via child signatures (`drop(child)` formula) using indexed ids when available. Generic `vq_rewrite_preserves_stack_sig_cached(...)` checks are still retained, but only as uncommon fallback when the local guard rejects a candidate. This keeps correctness safety for conservative indexed mismatches while removing generic rewrite-stack checks from the hot successful local-rewrite path.
+
+As part of this change, `vq_rewrite_preserves_stack_sig_cached(...)` is now explicitly timed/count-tracked through `rewrite_stack_ms` / `rewrite_stack_calls`, so fallback usage is observable in helper summaries.
+
+Regression coverage in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) now includes:
+- Existing indexed test still asserting `rewrite_stack_calls == 0` for `drop(local.tee)` rewrite
+- New unindexed counterpart:
+  - `vacuum unindexed drop(local.tee) rewrite avoids generic stack-preservation helper`
+
+Verification: `moon test src/passes` (red first after instrumentation showed `1 != 0`, then green after local-guard rewrite), `moon info && moon fmt`, and full `moon test` (3041 passing, 0 failing).
+
 ## 2026-03-12 Vacuum Follow-up: expanded unindexed fallback-scan fast paths to expression-level break/value-break helpers for multi-item label-free rewritten trees
 
 This follow-up continues the `Vacuum` Stage 3 fallback-scan reductions in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). Earlier changes skipped expensive fallback scans for trivial unindexed single-instruction cases. Two helper paths were still scanning for multi-item rewritten expressions even when label metadata proved no depth-0 targets were possible:
