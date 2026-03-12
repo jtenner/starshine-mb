@@ -792,26 +792,68 @@ fn fuzz_all_strategies_with_coverage(
 }
 
 ///|
-test "invalidation fuzzing with coverage" {
-  let rnd = @splitmix.new()
-  let tested_count : Map[String, Int] = {}
-  let rejected_count : Map[String, Int] = {}
-  let strategy_names = [
+fn validate_invalid_fuzz_ascii_lower(input : String) -> String {
+  let out = StringBuilder::new()
+  for c in input {
+    if c >= 'A' && c <= 'Z' {
+      out.write_char((c.to_int() + 32).unsafe_to_char())
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn validate_invalid_fuzz_strategy_names() -> Array[String] {
+  [
     "FuncIdxOOB", "TypeIdxOOB", "LocalIdxOOB", "GlobalIdxOOB", "LabelIdxOOB", "TableIdxOOB",
     "MemIdxOOB", "DataIdxOOB", "ElemIdxOOB", "TagIdxOOB", "StartIdxOOB", "DuplicateExportName",
     "NumTypeSwap", "NullabilityFlip", "HeapTypeSwap", "InstructionTypeMismatch",
     "BlockTypeMismatch", "DropInsertion", "BlockCorruption", "SignatureCorruption",
     "GlobalInitMismatch", "TableInitMismatch",
   ]
+}
+
+///|
+pub struct ValidateInvalidFuzzStats {
+  profile : String
+  seed : UInt64
+  module_attempts : Int
+  modules_tested : Int
+  strategies_with_low_rejection : Array[String]
+} derive(Eq, Show, Debug)
+
+///|
+pub fn run_validate_invalid_fuzz(
+  profile : String,
+  seed : UInt64,
+) -> Result[ValidateInvalidFuzzStats, String] {
+  let normalized = validate_invalid_fuzz_ascii_lower(profile.trim().to_string())
+  let module_attempts = match normalized {
+    "smoke" => 24
+    "ci" => 200
+    "stress" => 2000
+    _ =>
+      return Err(
+        "unknown validate-invalid fuzz profile '\{profile}'; expected smoke|ci|stress",
+      )
+  }
+  let rnd = @splitmix.new(seed~)
+  let tested_count : Map[String, Int] = {}
+  let rejected_count : Map[String, Int] = {}
+  let strategy_names = validate_invalid_fuzz_strategy_names()
   for s in strategy_names {
     tested_count[s] = 0
     rejected_count[s] = 0
   }
-  for _ in 0..<200 {
+  let mut modules_tested = 0
+  for _ in 0..<module_attempts {
     let valid_module = gen_valid_module(rnd)
     if validate_module(valid_module) is Err(_) {
       continue
     }
+    modules_tested += 1
     let results = fuzz_all_strategies_with_coverage(valid_module)
     for result in results {
       let (strategy_name, was_tested, passed) = result
@@ -836,18 +878,40 @@ test "invalidation fuzzing with coverage" {
     if tested >= 10 {
       let reject_rate = rejected * 100 / tested
       if reject_rate < 80 {
-        problems.push(
-          "\{s}: only \{reject_rate}% rejected (\{rejected}/\{tested})",
-        )
+        problems.push("\{s}: \{reject_rate}% (\{rejected}/\{tested})")
       }
     }
   }
+  let stats = ValidateInvalidFuzzStats::{
+    profile: normalized,
+    seed,
+    module_attempts,
+    modules_tested,
+    strategies_with_low_rejection: problems,
+  }
   if problems.length() > 0 {
-    fail(
-      "Strategies with low rejection rate (potential validator bugs):\n  " +
-      problems.iter().intersperse("\n  ").fold(init="", fn(a, b) { a + b }),
+    return Err(
+      "validate-invalid fuzz found low rejection strategies: \{problems}",
     )
   }
+  Ok(stats)
+}
+
+///|
+test "invalidation fuzzing with coverage" {
+  let stats = run_validate_invalid_fuzz("smoke", 0x5eedUL).unwrap()
+  assert_true(stats.modules_tested > 0)
+  assert_true(stats.strategies_with_low_rejection.length() == 0)
+}
+
+///|
+test "run_validate_invalid_fuzz smoke profile succeeds" {
+  let stats = match run_validate_invalid_fuzz("smoke", 0x5eedUL) {
+    Ok(v) => v
+    Err(e) => fail("expected smoke invalid fuzz runner success, got \{e}")
+  }
+  assert_true(stats.modules_tested > 0)
+  assert_true(stats.strategies_with_low_rejection.length() == 0)
 }
 
 ///|

@@ -11,30 +11,51 @@ fn normalize_text_for_compare(text : String) -> String {
 }
 
 ///|
-test "wast module conversion basic roundtrip" {
-  let src =
-    #| (module
-    #| )
-  let mod1 = match wat_to_module(src) {
-    Ok(m) => m
-    Err(msg) => fail(msg)
+fn wat_ascii_lower(input : String) -> String {
+  let out = StringBuilder::new()
+  for c in input {
+    if c >= 'A' && c <= 'Z' {
+      out.write_char((c.to_int() + 32).unsafe_to_char())
+    } else {
+      out.write_char(c)
+    }
   }
-  let text1 = module_to_wat(mod1).unwrap()
-  let mod2 = wat_to_module(text1).unwrap()
-  let text2 = module_to_wat(mod2).unwrap()
-  assert_eq(
-    normalize_text_for_compare(text1),
-    normalize_text_for_compare(text2),
-  )
+  out.to_string()
 }
 
 ///|
-test "wast module text fuzz roundtrip" {
-  let state = @splitmix.new(seed=0x5eedUL)
+pub struct WatRoundtripFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  successes : Int
+  stable : Int
+  script_iterations : Int
+  module_commands : Int
+  rendered_scripts : Int
+} derive(Eq, Show, Debug)
+
+///|
+pub fn run_wat_roundtrip_fuzz(
+  profile : String,
+  seed : UInt64,
+) -> Result[WatRoundtripFuzzStats, String] {
+  let normalized = wat_ascii_lower(profile.trim().to_string())
+  let (max_attempts, success_target, min_successes, min_stable, script_iters) = match
+    normalized {
+    "smoke" => (120, 16, 8, 1, 24)
+    "ci" => (600, 80, 20, 2, 64)
+    "stress" => (2400, 320, 80, 8, 256)
+    _ =>
+      return Err(
+        "unknown wat fuzz profile '\{profile}'; expected smoke|ci|stress",
+      )
+  }
+  let state = @splitmix.new(seed~)
   let mut successes = 0
   let mut stable = 0
   let mut attempts = 0
-  while attempts < 600 && successes < 80 {
+  while attempts < max_attempts && successes < success_target {
     attempts += 1
     let wmod : Module = Arbitrary::arbitrary(5, state)
     match module_to_wat(wmod) {
@@ -56,17 +77,22 @@ test "wast module text fuzz roundtrip" {
       }
     }
   }
-  assert_true(successes >= 20)
-  assert_true(stable >= 2)
-}
+  if successes < min_successes {
+    return Err(
+      "wat fuzz produced too few successful roundtrips: profile=\{normalized} successes=\{successes} min=\{min_successes} attempts=\{attempts}",
+    )
+  }
+  if stable < min_stable {
+    return Err(
+      "wat fuzz produced too few stable roundtrips: profile=\{normalized} stable=\{stable} min=\{min_stable} successes=\{successes}",
+    )
+  }
 
-///|
-test "wast arbitrary script smoke" {
-  let state = @splitmix.new(seed=0xabcUL)
+  let script_state = @splitmix.new(seed=seed ^ 0xABCUL)
   let mut module_commands = 0
   let mut rendered_scripts = 0
-  for _ in 0..<64 {
-    let script : WastScript = Arbitrary::arbitrary(5, state)
+  for _ in 0..<script_iters {
+    let script : WastScript = Arbitrary::arbitrary(5, script_state)
     for cmd in script.commands {
       if cmd is Module(_) {
         module_commands += 1
@@ -80,6 +106,66 @@ test "wast arbitrary script smoke" {
       Err(_) => ()
     }
   }
-  assert_true(module_commands > 0)
-  assert_true(rendered_scripts > 0)
+  if module_commands <= 0 {
+    return Err(
+      "wat fuzz generated no module commands: profile=\{normalized} script_iterations=\{script_iters}",
+    )
+  }
+  if rendered_scripts <= 0 {
+    return Err(
+      "wat fuzz rendered no scripts: profile=\{normalized} script_iterations=\{script_iters}",
+    )
+  }
+  Ok(WatRoundtripFuzzStats::{
+    profile: normalized,
+    seed,
+    attempts,
+    successes,
+    stable,
+    script_iterations: script_iters,
+    module_commands,
+    rendered_scripts,
+  })
+}
+
+///|
+test "wast module conversion basic roundtrip" {
+  let src =
+    #| (module
+    #| )
+  let mod1 = match wat_to_module(src) {
+    Ok(m) => m
+    Err(msg) => fail(msg)
+  }
+  let text1 = module_to_wat(mod1).unwrap()
+  let mod2 = wat_to_module(text1).unwrap()
+  let text2 = module_to_wat(mod2).unwrap()
+  assert_eq(
+    normalize_text_for_compare(text1),
+    normalize_text_for_compare(text2),
+  )
+}
+
+///|
+test "run_wat_roundtrip_fuzz smoke profile succeeds" {
+  let stats = match run_wat_roundtrip_fuzz("smoke", 0x5eedUL) {
+    Ok(v) => v
+    Err(e) => fail("expected smoke fuzz runner success, got \{e}")
+  }
+  assert_true(stats.successes > 0)
+  assert_true(stats.module_commands > 0)
+}
+
+///|
+test "wast module text fuzz roundtrip" {
+  let stats = run_wat_roundtrip_fuzz("smoke", 0x5eedUL).unwrap()
+  assert_true(stats.successes >= 8)
+  assert_true(stats.stable >= 1)
+}
+
+///|
+test "wast arbitrary script smoke" {
+  let stats = run_wat_roundtrip_fuzz("smoke", 0xabcUL).unwrap()
+  assert_true(stats.module_commands > 0)
+  assert_true(stats.rendered_scripts > 0)
 }

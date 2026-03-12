@@ -11,6 +11,7 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 ## Publishing blockers
 - [ ] Performance issue in Flatten (use helper level tracing with timing stats to diagnose)
 - [ ] Performance issue in Validate package
+- [ ] Finish fuzz migration for `src/binary/tests.mbt` by extracting `run_binary_roundtrip_fuzz(profile, seed)` into the new `src/fuzz` runner flow and removing high-iteration loops from default `moon test`.
 - [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
 - [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
 - [ ] Harden pathological cleanup handling beyond the current no-op `Vacuum` skip heuristic, especially for the first expensive `Vacuum` on deep-tree functions.

@@ -1,0 +1,39 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/fuzz"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn parse_fuzz_cli_args(Array[String]) -> FuzzCliArgs
+
+pub fn run_fuzz_suite(String, String, UInt64) -> Result[Array[FuzzSuiteResult], String]
+
+// Errors
+
+// Types and methods
+pub struct FuzzCliArgs {
+  suite : String
+  profile : String
+  seed : UInt64
+}
+pub impl Eq for FuzzCliArgs
+pub impl Show for FuzzCliArgs
+pub impl @debug.Debug for FuzzCliArgs
+
+pub struct FuzzSuiteResult {
+  suite : String
+  profile : String
+  seed : UInt64
+  attempts : Int
+  elapsed_ms : UInt64
+}
+pub impl Eq for FuzzSuiteResult
+pub impl Show for FuzzSuiteResult
+pub impl @debug.Debug for FuzzSuiteResult
+
+// Type aliases
+
+// Traits
+

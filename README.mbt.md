@@ -165,6 +165,10 @@ For more runnable CLI inputs, see `examples/README.md`.
 - Format and refresh interfaces: `moon info && moon fmt`
 - Typecheck: `moon check`
 - Run tests: `moon test`
+- Run dedicated fuzz suites: `moon run src/fuzz all smoke`
+- Run CI-scale fuzz suites: `bash scripts/run-fuzz.sh ci`
+- Run native stress fuzz suites: `bash scripts/run-fuzz.sh stress all 0x5eed5eed native`
+- Note: default `moon test` intentionally keeps only smoke-level fuzz coverage; heavier fuzzing lives under `src/fuzz`.
 - Regenerate the Node package files: `node scripts/generate-node-package.mjs`
 - Build the Node package artifacts: `npm --prefix node run build`
 

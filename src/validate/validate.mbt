@@ -2505,20 +2505,75 @@ pub fn validate_module(m : Module) -> Result[Unit, ValidationError] {
 }
 
 ///|
-test "Fuzz Modules" {
-  let rnd = @splitmix.new()
-  loop 100000 {
+fn validate_fuzz_ascii_lower(input : String) -> String {
+  let out = StringBuilder::new()
+  for c in input {
+    if c >= 'A' && c <= 'Z' {
+      out.write_char((c.to_int() + 32).unsafe_to_char())
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+pub struct ValidateValidFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  validated : Int
+} derive(Eq, Show, Debug)
+
+///|
+pub fn run_validate_valid_fuzz(
+  profile : String,
+  seed : UInt64,
+) -> Result[ValidateValidFuzzStats, String] {
+  let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
+  let attempts = match normalized {
+    "smoke" => 128
+    "ci" => 5000
+    "stress" => 100000
+    _ =>
+      return Err(
+        "unknown validate-valid fuzz profile '\{profile}'; expected smoke|ci|stress",
+      )
+  }
+  let rnd = @splitmix.new(seed~)
+  let mut validated = 0
+  let mut iteration = 0
+  loop attempts {
     0 => break ()
     n => {
+      iteration += 1
       let mod = gen_valid_module(rnd)
-      let result = validate_module(mod)
-      if result is Err(err) {
-        let msg = validation_error_message(err)
-        assert_true(false, msg~)
+      match validate_module(mod) {
+        Ok(_) => validated += 1
+        Err(err) =>
+          return Err(
+            "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} error=\{validation_error_message(err)}",
+          )
       }
       continue n - 1
     }
   }
+  Ok(ValidateValidFuzzStats::{ profile: normalized, seed, attempts, validated })
+}
+
+///|
+test "Fuzz Modules" {
+  let stats = run_validate_valid_fuzz("smoke", 0x5eedUL).unwrap()
+  assert_eq(stats.validated, stats.attempts)
+}
+
+///|
+test "run_validate_valid_fuzz smoke profile succeeds" {
+  let stats = match run_validate_valid_fuzz("smoke", 0x5eedUL) {
+    Ok(v) => v
+    Err(e) => fail("expected smoke valid fuzz runner success, got \{e}")
+  }
+  assert_true(stats.validated > 0)
 }
 
 ///|

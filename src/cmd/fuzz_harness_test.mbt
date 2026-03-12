@@ -66,6 +66,16 @@ test "run_wasm_smith_fuzz_harness smoke covers full pipeline" {
 }
 
 ///|
+test "run_wasm_smith_fuzz_harness_profile smoke covers full pipeline" {
+  let stats = match run_wasm_smith_fuzz_harness_profile("smoke", 0x5eedUL) {
+    Ok(v) => v
+    Err(e) => fail("expected profile smoke harness success, got \{e}")
+  }
+  assert_true(stats.generated_valid > 0)
+  assert_eq(stats.pipeline_validated, stats.generated_valid)
+}
+
+///|
 test "minimize_fuzz_passes greedily removes non-essential pass names" {
   let minimized = minimize_fuzz_passes(
     ["flatten", "vacuum", "de-nan", "vacuum"],
@@ -212,13 +222,12 @@ test "differential_validate_wasm agrees with installed wasm-tools and binaryen v
 
 ///|
 #cfg(target="native")
-test "run_wasm_smith_fuzz_harness validates one hundred thousand generated modules" {
-  let stats = match
-    run_wasm_smith_fuzz_harness(100000, seed=0x5eed5eedUL, optimize_passes=[]) {
+test "run_wasm_smith_fuzz_harness_profile smoke runs natively" {
+  let stats = match run_wasm_smith_fuzz_harness_profile("smoke", 0x5eed5eedUL) {
     Ok(v) => v
-    Err(e) => fail("expected 100k fuzz harness success, got \{e}")
+    Err(e) => fail("expected native smoke fuzz harness success, got \{e}")
   }
-  assert_true(stats.generated_valid >= 100000)
+  assert_true(stats.generated_valid >= 128)
   assert_eq(stats.pipeline_validated, stats.generated_valid)
   assert_eq(stats.optimized, stats.generated_valid)
   assert_eq(stats.roundtripped, stats.generated_valid)

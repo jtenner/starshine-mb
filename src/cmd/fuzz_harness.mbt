@@ -597,6 +597,37 @@ pub fn run_wasm_smith_fuzz_harness(
 }
 
 ///|
+fn fuzz_profile_ascii_lower(input : String) -> String {
+  let out = StringBuilder::new()
+  for c in input {
+    if c >= 'A' && c <= 'Z' {
+      out.write_char((c.to_int() + 32).unsafe_to_char())
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+pub fn run_wasm_smith_fuzz_harness_profile(
+  profile : String,
+  seed : UInt64,
+) -> Result[WasmSmithFuzzStats, String] {
+  let normalized = fuzz_profile_ascii_lower(profile.trim().to_string())
+  let valid_target = match normalized {
+    "smoke" => 128
+    "ci" => 4096
+    "stress" => 100000
+    _ =>
+      return Err(
+        "unknown cmd-harness fuzz profile '\{profile}'; expected smoke|ci|stress",
+      )
+  }
+  run_wasm_smith_fuzz_harness(valid_target, seed~, optimize_passes=[])
+}
+
+///|
 #cfg(target="native")
 fn cmd_native_has_command(name : String) -> Bool {
   let command = "command -v \{cmd_native_shell_quote(name)} >/dev/null 2>&1"

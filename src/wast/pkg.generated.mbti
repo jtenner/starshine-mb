@@ -16,6 +16,8 @@ pub fn module_to_wast(Module) -> Result[String, String]
 
 pub fn module_to_wast_with_context(Module, @lib.PrettyPrintContext) -> Result[String, String]
 
+pub fn run_wast_roundtrip_fuzz(String, UInt64) -> Result[WastRoundtripFuzzStats, String]
+
 pub fn run_wast_spec_file(String, String) -> WastSpecFileReport
 
 pub fn run_wast_spec_suite(Array[(String, String)]) -> WastSpecRunSummary
@@ -1280,6 +1282,20 @@ pub impl Eq for WastResult
 pub impl Show for WastResult
 pub impl @debug.Debug for WastResult
 pub impl @quickcheck.Arbitrary for WastResult
+
+pub struct WastRoundtripFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  successes : Int
+  stable : Int
+  script_iterations : Int
+  module_commands : Int
+  rendered_scripts : Int
+}
+pub impl Eq for WastRoundtripFuzzStats
+pub impl Show for WastRoundtripFuzzStats
+pub impl @debug.Debug for WastRoundtripFuzzStats
 
 pub struct WastScript {
   commands : Array[WastCommand]

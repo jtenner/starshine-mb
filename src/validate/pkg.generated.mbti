@@ -30,6 +30,10 @@ pub fn gen_valid_valtype(GenValidContext) -> @lib.ValType
 
 pub fn make_state(Env, Array[@lib.ValType]) -> TcState
 
+pub fn run_validate_invalid_fuzz(String, UInt64) -> Result[ValidateInvalidFuzzStats, String]
+
+pub fn run_validate_valid_fuzz(String, UInt64) -> Result[ValidateValidFuzzStats, String]
+
 pub fn to_texpr(@lib.Expr, Env) -> Result[@lib.TExpr, String]
 
 pub fn validate_codesec(@lib.CodeSec?, @lib.FuncSec?, Env) -> Result[Unit, String]
@@ -154,6 +158,27 @@ pub struct TcState {
 pub impl Show for TcState
 
 type TypeGenerationStrategy
+
+pub struct ValidateInvalidFuzzStats {
+  profile : String
+  seed : UInt64
+  module_attempts : Int
+  modules_tested : Int
+  strategies_with_low_rejection : Array[String]
+}
+pub impl Eq for ValidateInvalidFuzzStats
+pub impl Show for ValidateInvalidFuzzStats
+pub impl @debug.Debug for ValidateInvalidFuzzStats
+
+pub struct ValidateValidFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  validated : Int
+}
+pub impl Eq for ValidateValidFuzzStats
+pub impl Show for ValidateValidFuzzStats
+pub impl @debug.Debug for ValidateValidFuzzStats
 
 pub struct ValidationDiagnostic {
   issue : ValidationIssue

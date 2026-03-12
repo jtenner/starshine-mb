@@ -1,0 +1,12 @@
+import {
+  "jtenner/starshine/cmd" @cmd,
+  "jtenner/starshine/lib" @lib,
+  "jtenner/starshine/validate" @validate,
+  "jtenner/starshine/wast" @wast,
+  "jtenner/starshine/wat" @wat,
+  "moonbitlang/core/env" @env,
+}
+
+options(
+  "is-main": true,
+)

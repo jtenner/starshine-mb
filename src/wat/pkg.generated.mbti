@@ -4,6 +4,7 @@ package "jtenner/starshine/wat"
 import {
   "jtenner/starshine/lib",
   "jtenner/starshine/wast",
+  "moonbitlang/core/debug",
 }
 
 // Values
@@ -12,6 +13,8 @@ pub fn lookup_keyword(String) -> @wast.TokenType?
 pub fn module_to_wat(@wast.Module) -> Result[String, String]
 
 pub fn module_to_wat_with_context(@wast.Module, @lib.PrettyPrintContext) -> Result[String, String]
+
+pub fn run_wat_roundtrip_fuzz(String, UInt64) -> Result[WatRoundtripFuzzStats, String]
 
 pub fn script_to_wat(@wast.WastScript) -> Result[String, String]
 
@@ -24,6 +27,19 @@ pub fn wat_to_script(String, filename? : String) -> Result[@wast.WastScript, Str
 // Errors
 
 // Types and methods
+pub struct WatRoundtripFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  successes : Int
+  stable : Int
+  script_iterations : Int
+  module_commands : Int
+  rendered_scripts : Int
+}
+pub impl Eq for WatRoundtripFuzzStats
+pub impl Show for WatRoundtripFuzzStats
+pub impl @debug.Debug for WatRoundtripFuzzStats
 
 // Type aliases
 
