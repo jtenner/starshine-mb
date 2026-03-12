@@ -573,23 +573,171 @@ fn vq_type_of_timed(instr : TInstr, env : Env, stats : VQRunStats) -> ValType? {
 }
 
 ///|
-fn vq_collect_effects_timed(instr : TInstr, stats : VQRunStats) -> LCSEffects {
-  let start_us = vacuum_trace_now_us()
-  let out = lcs_collect_effects(instr)
-  ignore(
-    vq_commit_helper_timing(
-      stats.collect_effects_us,
-      stats.collect_effects_calls,
-      start_us,
-    ),
-  )
-  out
-}
-
-///|
 fn vq_name_to_string(name : Name) -> String {
   let Name(sv) = name
   sv.to_string()
+}
+
+///|
+fn vq_type_of_fallback_structural(
+  instr : TInstr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> ValType? {
+  fn infer_texpr_type(
+    texpr : TExpr,
+    env : Env,
+    analysis_cache : VQAnalysisCache,
+  ) -> ValType? {
+    let { instrs, .. } = texpr
+    if instrs.is_empty() {
+      None
+    } else {
+      vq_type_of_cached(instrs[instrs.length() - 1], env, analysis_cache)
+    }
+  }
+
+  match instr.kind {
+    TInstrKind::TTableGet(idx, _) =>
+      match env.get_table_type(idx) {
+        Some(TableType(ref_type, _)) => Some(ValType::ref_type(ref_type))
+        None => None
+      }
+    TInstrKind::TLocalTee(_, value) =>
+      vq_type_of_cached(value, env, analysis_cache)
+    TInstrKind::TUnary(op, value) =>
+      lcs_unary_result_type(op, vq_type_of_cached(value, env, analysis_cache))
+    TInstrKind::TBinary(op, lhs, _) =>
+      lcs_binary_result_type(op, vq_type_of_cached(lhs, env, analysis_cache))
+    TInstrKind::TRefEq(_, _)
+    | TInstrKind::TRefIsNull(_)
+    | TInstrKind::TRefTest(_, _, _)
+    | TInstrKind::TRefTestDesc(_, _, _) => Some(ValType::i32())
+    TInstrKind::TLoad(op, _, _) => Some(lcs_load_result_type(op))
+    TInstrKind::TMemorySize(_) | TInstrKind::TTableSize(_) =>
+      Some(ValType::i32())
+    TInstrKind::TRefAsNonNull(value) =>
+      match vq_type_of_cached(value, env, analysis_cache) {
+        Some(RefTypeValType(rt)) =>
+          Some(ValType::ref_type(RefType::new(false, rt.get_heap_type())))
+        _ => None
+      }
+    TInstrKind::TRefCast(nullable, ht, _) =>
+      Some(ValType::ref_type(RefType::new(nullable, ht)))
+    TInstrKind::TStructNew(type_idx, _)
+    | TInstrKind::TStructNewDefault(type_idx)
+    | TInstrKind::TArrayNew(type_idx, _, _)
+    | TInstrKind::TArrayNewDefault(type_idx, _)
+    | TInstrKind::TArrayNewFixed(type_idx, _)
+    | TInstrKind::TArrayNewData(type_idx, _, _, _)
+    | TInstrKind::TArrayNewElem(type_idx, _, _, _) =>
+      Some(ValType::ref_type(RefType::new(false, HeapType::new(type_idx))))
+    TInstrKind::TStructGet(type_idx, field_idx, _)
+    | TInstrKind::TStructGetS(type_idx, field_idx, _)
+    | TInstrKind::TStructGetU(type_idx, field_idx, _) =>
+      match env.resolve_struct_fields(type_idx) {
+        Ok(fields) =>
+          match field_idx {
+            U32(raw_idx) =>
+              match fields.get(raw_idx.reinterpret_as_int()) {
+                Some(field_ty) => Some(field_ty.unpack())
+                None => None
+              }
+          }
+        Err(_) => None
+      }
+    TInstrKind::TArrayGet(type_idx, _, _)
+    | TInstrKind::TArrayGetS(type_idx, _, _)
+    | TInstrKind::TArrayGetU(type_idx, _, _) =>
+      match env.resolve_array_field(type_idx) {
+        Ok(field_ty) => Some(field_ty.unpack())
+        Err(_) => None
+      }
+    TInstrKind::TArrayLen(_) => Some(ValType::i32())
+    TInstrKind::TExtractLane(op, _, _) =>
+      match op {
+        I8x16ExtractLaneSOp
+        | I8x16ExtractLaneUOp
+        | I16x8ExtractLaneSOp
+        | I16x8ExtractLaneUOp
+        | I32x4ExtractLaneOp => Some(ValType::i32())
+        I64x2ExtractLaneOp => Some(ValType::i64())
+        F32x4ExtractLaneOp => Some(ValType::f32())
+        F64x2ExtractLaneOp => Some(ValType::f64())
+      }
+    TInstrKind::TI31GetS(_) | TInstrKind::TI31GetU(_) => Some(ValType::i32())
+    TInstrKind::TRefI31(_) =>
+      Some(
+        ValType::ref_type(
+          RefType::new(false, HeapType::abs(AbsHeapType::i31())),
+        ),
+      )
+    TInstrKind::TAnyConvertExtern(_) => Some(ValType::anyref())
+    TInstrKind::TExternConvertAny(_) => Some(ValType::externref())
+    TInstrKind::TSelect(types, _, if_true, if_false) => {
+      let from_decl = match types {
+        Some(vts) if vts.length() == 1 => Some(vts[0])
+        _ => None
+      }
+      let from_branches = match
+        (
+          vq_type_of_cached(if_true, env, analysis_cache),
+          vq_type_of_cached(if_false, env, analysis_cache),
+        ) {
+        (Some(t), Some(f)) if t == f => Some(t)
+        _ => None
+      }
+      match (from_branches, from_decl) {
+        (Some(t), _) => Some(t)
+        (_, Some(vt)) => Some(vt)
+        _ => None
+      }
+    }
+    TInstrKind::TCall(target, _) =>
+      match env.get_functype_by_funcidx(target) {
+        Some(FuncType(_, [r])) => Some(r)
+        _ => None
+      }
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
+      match env.resolve_functype(type_idx) {
+        Some(FuncType(_, [r])) => Some(r)
+        _ => None
+      }
+    TInstrKind::TBlock(bt, body)
+    | TInstrKind::TLoop(bt, body)
+    | TInstrKind::TTryTable(bt, _, body) =>
+      match
+        (
+          infer_texpr_type(body, env, analysis_cache),
+          vq_block_result_type(bt, env),
+        ) {
+        (Some(t), _) => Some(t)
+        (_, Some(vt)) => Some(vt)
+        _ => None
+      }
+    TInstrKind::TIf(bt, _, then_, else_) => {
+      let from_bt = vq_block_result_type(bt, env)
+      let from_branches = match else_ {
+        Some(else_expr) =>
+          match
+            (
+              infer_texpr_type(then_, env, analysis_cache),
+              infer_texpr_type(else_expr, env, analysis_cache),
+            ) {
+            (Some(t), Some(e)) if t == e => Some(t)
+            _ => None
+          }
+        None => None
+      }
+      match (from_branches, from_bt) {
+        (Some(t), _) => Some(t)
+        (_, Some(vt)) => Some(vt)
+        _ => None
+      }
+    }
+    _ => None
+  }
 }
 
 ///|
@@ -668,7 +816,7 @@ fn vq_type_of_cached(
     TInstrKind::TRefFunc(_) => return Some(ValType::funcref())
     _ => ()
   }
-  vq_type_of_timed(instr, env, analysis_cache.stats)
+  vq_type_of_fallback_structural(instr, env, analysis_cache)
 }
 
 ///|
@@ -688,6 +836,110 @@ fn vq_is_pure_leaf_no_effects(instr : TInstr) -> Bool {
 }
 
 ///|
+fn vq_instr_has_unremovable_effects_local(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TLocalSet(_, _)
+    | TInstrKind::TLocalTee(_, _)
+    | TInstrKind::TGlobalSet(_, _)
+    | TInstrKind::TStore(_, _, _, _)
+    | TInstrKind::TMemoryGrow(_, _)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TMemoryAtomicNotify(_, _, _)
+    | TInstrKind::TMemoryAtomicWait32(_, _, _, _)
+    | TInstrKind::TMemoryAtomicWait64(_, _, _, _)
+    | TInstrKind::TAtomicRmw(_, _, _, _)
+    | TInstrKind::TAtomicCmpxchg(_, _, _, _, _)
+    | TInstrKind::TMemoryCopy(_, _, _, _, _)
+    | TInstrKind::TMemoryFill(_, _, _, _)
+    | TInstrKind::TMemoryInit(_, _, _, _, _)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TTableSet(_, _, _)
+    | TInstrKind::TTableGrow(_, _, _)
+    | TInstrKind::TTableFill(_, _, _, _)
+    | TInstrKind::TTableCopy(_, _, _, _, _)
+    | TInstrKind::TTableInit(_, _, _, _, _)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TCall(_, _)
+    | TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TRefAsNonNull(_)
+    | TInstrKind::TRefCast(_, _, _)
+    | TInstrKind::TStructGet(_, _, _)
+    | TInstrKind::TStructGetS(_, _, _)
+    | TInstrKind::TStructGetU(_, _, _)
+    | TInstrKind::TStructSet(_, _, _, _)
+    | TInstrKind::TArrayNew(_, _, _)
+    | TInstrKind::TArrayNewDefault(_, _)
+    | TInstrKind::TArrayNewFixed(_, _)
+    | TInstrKind::TArrayNewData(_, _, _, _)
+    | TInstrKind::TArrayNewElem(_, _, _, _)
+    | TInstrKind::TArrayGet(_, _, _)
+    | TInstrKind::TArrayGetS(_, _, _)
+    | TInstrKind::TArrayGetU(_, _, _)
+    | TInstrKind::TArrayLen(_)
+    | TInstrKind::TArraySet(_, _, _, _)
+    | TInstrKind::TArrayFill(_, _, _, _, _)
+    | TInstrKind::TArrayCopy(_, _, _, _, _, _, _)
+    | TInstrKind::TArrayInitData(_, _, _, _, _, _)
+    | TInstrKind::TArrayInitElem(_, _, _, _, _, _) => true
+    TInstrKind::TLoad(_, _, _) => true
+    TInstrKind::TBinary(op, _, _) =>
+      match op {
+        I32DivSOp
+        | I32DivUOp
+        | I32RemSOp
+        | I32RemUOp
+        | I64DivSOp
+        | I64DivUOp
+        | I64RemSOp
+        | I64RemUOp => true
+        _ => false
+      }
+    TInstrKind::TUnary(op, _) =>
+      match op {
+        I32TruncF32SOp
+        | I32TruncF32UOp
+        | I32TruncF64SOp
+        | I32TruncF64UOp
+        | I64TruncF32SOp
+        | I64TruncF32UOp
+        | I64TruncF64SOp
+        | I64TruncF64UOp => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn vq_instr_has_unremovable_effects_structural(instr : TInstr) -> Bool {
+  if vq_instr_has_unremovable_effects_local(instr) {
+    return true
+  }
+  let found = Ref::new(false)
+  vq_visit_instr_recursive_children(instr, fn(child) {
+    if !found.val && vq_instr_has_unremovable_effects_structural(child) {
+      found.val = true
+    }
+  })
+  found.val
+}
+
+///|
 fn vq_has_unremovable_effects_cached(
   instr : TInstr,
   analysis_cache : VQAnalysisCache,
@@ -704,7 +956,7 @@ fn vq_has_unremovable_effects_cached(
     return false
   }
   analysis_cache.stats.effect_cache_misses.val += 1
-  vq_collect_effects_timed(instr, analysis_cache.stats).has_unremovable_side_effects()
+  vq_instr_has_unremovable_effects_structural(instr)
 }
 
 ///|
@@ -11474,11 +11726,43 @@ test "vacuum fallback pure leaf type metadata skips generic type inference" {
 }
 
 ///|
+test "vacuum fallback wrapped local.tee type metadata skips generic type inference" {
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let instr = TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(3)))
+
+  assert_eq(vq_type_of_cached(instr, env, cache), Some(ValType::i32()))
+  assert_eq(cache.stats.infer_type_calls.val, 0)
+}
+
+///|
+test "vacuum fallback typed block metadata skips generic type inference" {
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let instr = TInstr::block(
+    BlockType::val_type(ValType::i32()),
+    TExpr::new([TInstr::i32_const(I32(7))]),
+  )
+
+  assert_eq(vq_type_of_cached(instr, env, cache), Some(ValType::i32()))
+  assert_eq(cache.stats.infer_type_calls.val, 0)
+}
+
+///|
 test "vacuum fallback wrapped call metadata skips generic collector" {
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let instr = TInstr::drop(TInstr::i32_const(I32(1)))
 
   assert_false(vq_instr_has_calls_cached(instr, cache))
+  assert_eq(cache.stats.collect_effects_calls.val, 0)
+}
+
+///|
+test "vacuum fallback wrapped local.set effect metadata skips generic collector" {
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let instr = TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1)))
+
+  assert_true(vq_has_unremovable_effects_cached(instr, cache))
   assert_eq(cache.stats.collect_effects_calls.val, 0)
 }
 

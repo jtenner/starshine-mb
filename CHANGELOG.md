@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-03-12 Vacuum Follow-up: completed Stage 3 fallback metadata specialization by replacing remaining unindexed type/effect generic-helper fallbacks with structural formulas
+
+This follow-up closes the last open `Vacuum` Stage 3 fallback-metadata blocker in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). After previous pure-leaf and structural-call/control-transfer work, unindexed fallback paths still delegated to generic helper wrappers in two places:
+- `vq_type_of_cached(...)` still fell back to `vq_type_of_timed(...)`
+- `vq_has_unremovable_effects_cached(...)` still fell back to `vq_collect_effects_timed(...)`
+
+`vq_type_of_cached(...)` now uses a structural inference path (`vq_type_of_fallback_structural(...)`) for unindexed rewrites, reusing local shape formulas plus environment metadata for wrapper/control/call/aggregate cases instead of the generic timed helper. `vq_has_unremovable_effects_cached(...)` now uses a structural recursive detector (`vq_instr_has_unremovable_effects_structural(...)`) backed by a shallow side-effect/trap classifier (`vq_instr_has_unremovable_effects_local(...)`), removing unindexed generic effect-collector fallback usage.
+
+As a result, unindexed fallback metadata no longer calls `vq_collect_effects_timed(...)`, and `vq_type_of_timed(...)` remains only in seeded/indexed analysis construction.
+
+Regression coverage in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) was expanded with red-first tests:
+- `vacuum fallback wrapped local.tee type metadata skips generic type inference`
+- `vacuum fallback typed block metadata skips generic type inference`
+- `vacuum fallback wrapped local.set effect metadata skips generic collector`
+
+Verification: `moon test src/passes` (red first, then green), `moon info && moon fmt`, and full `moon test` (3053 passing, 0 failing).
+
 ## 2026-03-12 Vacuum Follow-up: replaced remaining unindexed depth-0 break/value-break fallback scans with structural summaries, fixed `try_table` catch-label depth targeting, and switched control-transfer fallback metadata to structural detection
 
 This follow-up continues and closes the remaining Stage 3 unindexed depth-0 fallback-scan blockers in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt), and further narrows fallback metadata specialization.
