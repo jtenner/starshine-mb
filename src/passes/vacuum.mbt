@@ -1072,6 +1072,7 @@ fn vq_wrap_texpr(
   expr : TExpr,
   env : Env,
   analysis_cache : VQAnalysisCache,
+  expr_id? : Int? = None,
 ) -> TInstr {
   let { instrs: items, .. } = expr
   if items.length() == 0 {
@@ -1080,7 +1081,7 @@ fn vq_wrap_texpr(
   if items.length() == 1 {
     return items[0]
   }
-  match vq_texpr_result_type(expr, env, analysis_cache) {
+  match vq_texpr_result_type(expr, env, analysis_cache, expr_id~) {
     Some(vt) => TInstr::block(BlockType::val_type(vt), expr)
     None => TInstr::block(BlockType::void_(), expr)
   }
@@ -1091,9 +1092,10 @@ fn vq_drop_texpr_value(
   expr : TExpr,
   env : Env,
   analysis_cache : VQAnalysisCache,
+  expr_id? : Int? = None,
 ) -> TExpr {
-  let wrapped = vq_wrap_texpr(expr, env, analysis_cache)
-  match vq_type_of_cached(wrapped, env, analysis_cache) {
+  let wrapped = vq_wrap_texpr(expr, env, analysis_cache, expr_id~)
+  match vq_texpr_result_type(expr, env, analysis_cache, expr_id~) {
     Some(_) => TExpr::new([TInstr::drop(wrapped)])
     None => TExpr::new([wrapped])
   }
@@ -1530,6 +1532,48 @@ fn vq_last_original_instr_id(
     Some(node) if node.instr_ids.length() == body.instrs.length() =>
       Some(node.instr_ids[node.instr_ids.length() - 1])
     _ => None
+  }
+}
+
+///|
+fn vq_only_original_eval_child_id(
+  body : TExpr,
+  analysis_cache : VQAnalysisCache,
+  child_idx : Int,
+  expr_id? : Int? = None,
+) -> Int? {
+  match vq_only_original_instr_id(body, analysis_cache, expr_id~) {
+    Some(instr_id) =>
+      vq_indexed_eval_child_id(
+        vq_indexed_instr_node(analysis_cache, Some(instr_id)),
+        child_idx,
+      )
+    None => None
+  }
+}
+
+///|
+fn vq_preserve_original_if_unchanged(
+  original : TInstr,
+  original_condition : TInstr,
+  original_then : TExpr,
+  original_else : TExpr?,
+  bt : BlockType,
+  next_condition : TInstr,
+  next_then : TExpr,
+  next_else : TExpr?,
+) -> TInstr {
+  let unchanged_else = match (next_else, original_else) {
+    (Some(next), Some(curr)) => physical_equal(next, curr)
+    (None, None) => true
+    _ => false
+  }
+  if physical_equal(next_condition, original_condition) &&
+    physical_equal(next_then, original_then) &&
+    unchanged_else {
+    original
+  } else {
+    TInstr::if_(bt, next_condition, next_then, next_else)
   }
 }
 
@@ -2376,31 +2420,6 @@ fn vq_same_stack_sig(a : VQStackSig, b : VQStackSig) -> Bool {
   a.required == b.required &&
   a.produced == b.produced &&
   a.reachable == b.reachable
-}
-
-///|
-fn vq_rewrite_preserves_type_and_stack_sig_cached(
-  before : TInstr,
-  after : TInstr,
-  env : Env,
-  analysis_cache : VQAnalysisCache,
-  before_id? : Int? = None,
-) -> Bool {
-  if !vq_same_type(
-      vq_type_of_cached(before, env, analysis_cache, instr_id=before_id),
-      vq_type_of_cached(after, env, analysis_cache),
-    ) {
-    return false
-  }
-  match
-    (
-      vq_stack_sig_instr_cached(before, env, analysis_cache, instr_id=before_id),
-      vq_stack_sig_instr_cached(after, env, analysis_cache),
-    ) {
-    (Some(before_sig), Some(after_sig)) =>
-      vq_same_stack_sig(before_sig, after_sig)
-    _ => false
-  }
 }
 
 ///|
@@ -3266,7 +3285,7 @@ fn vq_simplify_block_to_contents(
     let only_id = vq_only_original_instr_id(body, analysis_cache, expr_id~)
     match result_types {
       [vt] =>
-        match vq_type_of_cached(only, env, analysis_cache) {
+        match vq_type_of_cached(only, env, analysis_cache, instr_id=only_id) {
           Some(t) if t == vt => {
             let out = vq_rebase_labels_for_collapsed_wrapper_if_needed(
               only,
@@ -3285,7 +3304,8 @@ fn vq_simplify_block_to_contents(
           _ => ()
         }
       [] =>
-        if vq_type_of_cached(only, env, analysis_cache) is None ||
+        if vq_type_of_cached(only, env, analysis_cache, instr_id=only_id)
+          is None ||
           is_unreachable_instr(only) {
           let out = vq_rebase_labels_for_collapsed_wrapper_if_needed(
             only,
@@ -4372,6 +4392,11 @@ fn vq_process_instr(
       } else {
         None
       }
+      let condition_instr_id = if physical_equal(next_condition, condition) {
+        vq_indexed_eval_child_id(instr_node, 0)
+      } else {
+        None
+      }
 
       match next_condition.kind {
         TInstrKind::TI32Const(I32(v)) =>
@@ -4487,8 +4512,23 @@ fn vq_process_instr(
               analysis_cache,
               expr_id=other_expr_id,
             ) {
-            let before = TInstr::if_(bt, next_condition, next_then, Some(other))
-            match vq_type_of_cached(next_condition, env, analysis_cache) {
+            let before = vq_preserve_original_if_unchanged(
+              instr,
+              condition,
+              then_body,
+              else_body,
+              bt,
+              next_condition,
+              next_then,
+              Some(other),
+            )
+            match
+              vq_type_of_cached(
+                next_condition,
+                env,
+                analysis_cache,
+                instr_id=condition_instr_id,
+              ) {
               Some(vt) if vt == ValType::i32() => {
                 let after = TInstr::if_(
                   bt,
@@ -4496,19 +4536,7 @@ fn vq_process_instr(
                   other,
                   None,
                 )
-                if vq_rewrite_preserves_type_and_stack_sig_cached(
-                    before,
-                    after,
-                    env,
-                    analysis_cache,
-                    before_id=if physical_equal(before, instr) {
-                      instr_id
-                    } else {
-                      None
-                    },
-                  ) {
-                  return Some(after)
-                }
+                return Some(after)
               }
               _ => ()
             }
@@ -4518,11 +4546,33 @@ fn vq_process_instr(
             (
               [{ kind: TInstrKind::TDrop(left), .. }],
               [{ kind: TInstrKind::TDrop(right), .. }],
-            ) =>
+            ) => {
+              let left_instr_id = vq_only_original_eval_child_id(
+                next_then,
+                analysis_cache,
+                0,
+                expr_id=then_simplify_expr_id,
+              )
+              let right_instr_id = vq_only_original_eval_child_id(
+                other,
+                analysis_cache,
+                0,
+                expr_id=other_expr_id,
+              )
               match
                 (
-                  vq_type_of_cached(left, env, analysis_cache),
-                  vq_type_of_cached(right, env, analysis_cache),
+                  vq_type_of_cached(
+                    left,
+                    env,
+                    analysis_cache,
+                    instr_id=left_instr_id,
+                  ),
+                  vq_type_of_cached(
+                    right,
+                    env,
+                    analysis_cache,
+                    instr_id=right_instr_id,
+                  ),
                 ) {
                 (Some(lt), Some(rt)) if lt == rt =>
                   Some(
@@ -4536,16 +4586,51 @@ fn vq_process_instr(
                     ),
                   )
                 _ =>
-                  Some(TInstr::if_(bt, next_condition, next_then, Some(other)))
+                  Some(
+                    vq_preserve_original_if_unchanged(
+                      instr,
+                      condition,
+                      then_body,
+                      else_body,
+                      bt,
+                      next_condition,
+                      next_then,
+                      Some(other),
+                    ),
+                  )
               }
-            _ => Some(TInstr::if_(bt, next_condition, next_then, Some(other)))
+            }
+            _ =>
+              Some(
+                vq_preserve_original_if_unchanged(
+                  instr,
+                  condition,
+                  then_body,
+                  else_body,
+                  bt,
+                  next_condition,
+                  next_then,
+                  Some(other),
+                ),
+              )
           }
         }
         None =>
           if vq_is_nop_texpr(next_then) {
             Some(TInstr::drop(next_condition))
           } else {
-            Some(TInstr::if_(bt, next_condition, next_then, None))
+            Some(
+              vq_preserve_original_if_unchanged(
+                instr,
+                condition,
+                then_body,
+                else_body,
+                bt,
+                next_condition,
+                next_then,
+                None,
+              ),
+            )
           }
       }
     }
@@ -4585,8 +4670,13 @@ fn vq_process_instr(
         Some(v) => v
         None => return Some(TInstr::nop())
       }
-      let dropped = TInstr::drop(next_value)
-      if !vq_rewrite_preserves_stack_sig_cached(
+      let dropped = if physical_equal(next_value, value) {
+        instr
+      } else {
+        TInstr::drop(next_value)
+      }
+      if !physical_equal(dropped, instr) &&
+        !vq_rewrite_preserves_stack_sig_cached(
           instr,
           dropped,
           env,
@@ -4627,6 +4717,14 @@ fn vq_process_instr(
       if !vq_has_unremovable_effects_cached(dropped, analysis_cache) {
         return Some(TInstr::nop())
       }
+      let value_instr_id = if physical_equal(next_value, value) {
+        vq_indexed_eval_child_id(instr_node, 0)
+      } else {
+        None
+      }
+      let value_instr_node = vq_indexed_instr_node(
+        analysis_cache, value_instr_id,
+      )
 
       match next_value.kind {
         TInstrKind::TBlock(bt, body) => {
@@ -4724,25 +4822,57 @@ fn vq_process_instr(
       match next_value.kind {
         TInstrKind::TIf(bt, cond, then_body, Some(other_body)) => {
           let if_type = vq_block_result_type(bt, env)
+          let then_expr_id = match value_instr_node {
+            Some(node) => node.then_expr_id
+            None => None
+          }
+          let other_expr_id = match value_instr_node {
+            Some(node) => node.else_expr_id
+            None => None
+          }
           match if_type {
             Some(_) =>
               if vq_texpr_is_unreachable(then_body) &&
-                vq_texpr_result_type(other_body, env, analysis_cache) is Some(_) {
+                vq_texpr_result_type(
+                  other_body,
+                  env,
+                  analysis_cache,
+                  expr_id=other_expr_id,
+                )
+                is Some(_) {
                 return Some(
                   TInstr::if_(
                     BlockType::void_(),
                     cond,
                     then_body,
-                    Some(vq_drop_texpr_value(other_body, env, analysis_cache)),
+                    Some(
+                      vq_drop_texpr_value(
+                        other_body,
+                        env,
+                        analysis_cache,
+                        expr_id=other_expr_id,
+                      ),
+                    ),
                   ),
                 )
               } else if vq_texpr_is_unreachable(other_body) &&
-                vq_texpr_result_type(then_body, env, analysis_cache) is Some(_) {
+                vq_texpr_result_type(
+                  then_body,
+                  env,
+                  analysis_cache,
+                  expr_id=then_expr_id,
+                )
+                is Some(_) {
                 return Some(
                   TInstr::if_(
                     BlockType::void_(),
                     cond,
-                    vq_drop_texpr_value(then_body, env, analysis_cache),
+                    vq_drop_texpr_value(
+                      then_body,
+                      env,
+                      analysis_cache,
+                      expr_id=then_expr_id,
+                    ),
                     Some(other_body),
                   ),
                 )
@@ -5312,6 +5442,7 @@ test "vacuum simplify_block uses indexed metadata to skip break scan and label r
   assert_eq(out, TInstr::i32_const(I32(7)))
   assert_eq(cache.stats.break_scan_calls.val, 0)
   assert_eq(cache.stats.rebase_labels_calls.val, 0)
+  assert_eq(cache.type_cache.get(body.instrs[0]), None)
 }
 
 ///|
@@ -5361,12 +5492,13 @@ test "vacuum indexed drop(local.tee) rewrite avoids generic stack-preservation h
 
 ///|
 test "vacuum indexed if-arm inversion avoids generic type-and-stack helper" {
+  let original_condition = TInstr::local_get(LocalIdx::new(0))
   let original_else = TExpr::new([
     TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(9))),
   ])
   let instr = TInstr::if_(
     BlockType::void_(),
-    TInstr::local_get(LocalIdx::new(0)),
+    original_condition,
     TExpr::new([TInstr::nop()]),
     Some(original_else),
   )
@@ -5500,6 +5632,130 @@ test "vacuum indexed dropped-result block avoids generic value-break helper" {
   }
   assert_eq(cache.stats.value_break_lub_calls.val, 0)
   assert_eq(cache.type_cache.get(original_last), None)
+}
+
+///|
+test "vacuum indexed dropped-if arm result check avoids generic type cache" {
+  let original_else_value = TInstr::local_tee(
+    LocalIdx::new(1),
+    TInstr::i32_const(I32(9)),
+  )
+  let instr = TInstr::drop(
+    TInstr::if_(
+      BlockType::val_type(ValType::i32()),
+      TInstr::local_get(LocalIdx::new(0)),
+      TExpr::new([TInstr::unreachable_()]),
+      Some(TExpr::new([original_else_value])),
+    ),
+  )
+  let body = TExpr::new([instr])
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals([ValType::i32(), ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let seed_budget = Ref::new(96)
+  assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
+  let expr_id = match cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected root expr id")
+  }
+  let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
+  let process_budget = Ref::new(96)
+  let out = match
+    vq_process_instr(
+      instr,
+      env,
+      false,
+      false,
+      process_budget,
+      cache,
+      VQPassOptions::new(),
+      instr_id=Some(instr_id),
+    ) {
+    Some(next) => next
+    None => fail("expected dropped if rewrite result")
+  }
+  match out.kind {
+    TInstrKind::TIf(VoidBlockType, cond, then_body, Some(other_body)) => {
+      assert_eq(cond, TInstr::local_get(LocalIdx::new(0)))
+      assert_eq(then_body, TExpr::new([TInstr::unreachable_()]))
+      assert_eq(other_body, TExpr::new([TInstr::drop(original_else_value)]))
+    }
+    _ =>
+      fail(
+        "expected dropped-if rewrite to move drop into reachable arm: \{out}",
+      )
+  }
+  assert_eq(cache.type_cache.get(original_else_value), None)
+}
+
+///|
+test "vacuum indexed merged drop-if arms avoid generic type cache" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("left"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+        Import::new(
+          Name::new("env"),
+          Name::new("right"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+  let original_left = TInstr::call(FuncIdx::new(0), [])
+  let original_right = TInstr::call(FuncIdx::new(1), [])
+  let instr = TInstr::if_(
+    BlockType::void_(),
+    TInstr::local_get(LocalIdx::new(0)),
+    TExpr::new([TInstr::drop(original_left)]),
+    Some(TExpr::new([TInstr::drop(original_right)])),
+  )
+  let body = TExpr::new([instr])
+  let env = Env::new().with_module(mod).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let seed_budget = Ref::new(96)
+  assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
+  let expr_id = match cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected root expr id")
+  }
+  let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
+  let process_budget = Ref::new(96)
+  let out = match
+    vq_process_instr(
+      instr,
+      env,
+      false,
+      false,
+      process_budget,
+      cache,
+      VQPassOptions::new(),
+      instr_id=Some(instr_id),
+    ) {
+    Some(next) => next
+    None => fail("expected merged dropped if rewrite result")
+  }
+  assert_eq(
+    out,
+    TInstr::drop(
+      TInstr::if_(
+        BlockType::val_type(ValType::i32()),
+        TInstr::local_get(LocalIdx::new(0)),
+        TExpr::new([original_left]),
+        Some(TExpr::new([original_right])),
+      ),
+    ),
+  )
+  assert_eq(cache.type_cache.get(original_left), None)
+  assert_eq(cache.type_cache.get(original_right), None)
 }
 
 ///|
