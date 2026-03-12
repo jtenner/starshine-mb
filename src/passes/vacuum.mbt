@@ -3727,16 +3727,18 @@ fn vq_degraded_simplify_drop_value(
   analysis_cache : VQAnalysisCache,
 ) -> TInstr {
   match value.kind {
-    // Numeric unary wrappers, ref.is_null, ref.i31, the i31 projections, and
-    // the GC extern/any reference conversions are pure 1-to-1 stack shuffles;
-    // ref.test predicates and SIMD splats/extract_lane wrappers are total
-    // child-only wrappers, so when their result is immediately dropped we can
-    // peel them cheaply in degraded mode.
+    // Numeric unary wrappers, ref.is_null, ref.i31, ref.get_desc, the i31
+    // projections, and the GC extern/any reference conversions are pure 1-to-1
+    // stack shuffles; ref.test predicates and SIMD splats/extract_lane wrappers
+    // are total child-only wrappers, so when their result is immediately
+    // dropped we can peel them cheaply in degraded mode.
     TInstrKind::TUnary(_, inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TRefIsNull(inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TRefI31(inner) =>
+      vq_degraded_simplify_drop_value(inner, analysis_cache)
+    TInstrKind::TRefGetDesc(inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TI31GetS(inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
@@ -7042,6 +7044,76 @@ test "vacuum degraded mode keeps drop around effectful child under ref.i31" {
     ) {
     Some(next) => next
     None => fail("expected degraded ref.i31 drop result")
+  }
+  assert_eq(out, TInstr::drop(condition))
+}
+
+///|
+test "vacuum degraded mode peels dropped ref.get_desc around pure local.get" {
+  let instr = TInstr::drop(
+    TInstr::ref_get_desc(TInstr::local_get(LocalIdx::new(0))),
+  )
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals([
+      ValType::ref_type(RefType::new(true, HeapType::abs(AbsHeapType::func()))),
+    ])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded ref.get_desc drop result")
+  }
+  assert_eq(out, TInstr::nop())
+}
+
+///|
+test "vacuum degraded mode keeps drop around effectful child under ref.get_desc" {
+  let t_ref = RecType::new(
+    SubType::comp_type(
+      CompType::func([], [
+        ValType::ref_type(
+          RefType::new(true, HeapType::abs(AbsHeapType::func())),
+        ),
+      ]),
+    ),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_ref]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([TInstr::ref_null(HeapType::abs(AbsHeapType::func()))]),
+        ),
+      ]),
+    )
+  let condition = TInstr::call(FuncIdx::new(0), [])
+  let instr = TInstr::drop(TInstr::ref_get_desc(condition))
+  let env = Env::new().with_module(mod)
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded ref.get_desc drop result")
   }
   assert_eq(out, TInstr::drop(condition))
 }
