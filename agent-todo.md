@@ -14,7 +14,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
 - [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
 - [ ] Harden pathological cleanup handling beyond the current no-op `Vacuum` skip heuristic, especially for the first expensive `Vacuum` on deep-tree functions.
-- [ ] Add parity tests proving `ConstantFieldPropagation` fully covers Binaryen's `cfp-reftest` cases, or split the behavior.
 - [ ] Implement `StringGathering` in the global post pipeline under the appropriate feature/optimization gates.
 - [ ] Publish the first release and MoonBit registry package (`moon publish` plus GitHub Release binaries).
 
@@ -34,3 +33,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Broad Binaryen pass parity backlog (medium/low priority pass list).
 - [ ] Large refactors: file splits (`typecheck`/`env`/`transformer`/`optimize`/`remove_unused`/`parser`) and `decode_instruction` helper decomposition.
 - [ ] Long-horizon platform/features: Component Model/WIT, streaming decoder API, custom sections/source maps, plugin system.
+
+## Recently completed
+- [x] Split the local `ConstantFieldPropagation` / `cfp-reftest` behavior so plain CFP now only handles constant field reads and the narrower known-null `ref.test` cleanup lives in `ConstantFieldNullTestFolding` with explicit scheduler/docs coverage.

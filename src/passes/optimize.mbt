@@ -26,6 +26,7 @@ pub(all) enum ModulePass {
   CodePushing
   ConstHoisting
   ConstantFieldPropagation
+  ConstantFieldNullTestFolding
   DataflowOptimization
   DeadCodeElimination
   DeadArgumentElimination
@@ -581,6 +582,12 @@ fn run_ir_context_transformer_scheduler_pass(
         ctx,
         mod,
         constant_field_propagation_ir_pass(mod),
+      )
+    ConstantFieldNullTestFolding =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        constant_field_null_test_folding_ir_pass(mod),
       )
     DataflowOptimization => {
       let dataflow_trace = if trace_pass_details {
@@ -2072,11 +2079,12 @@ pub fn default_global_optimization_pre_passes(
     passes.push(RemoveUnusedModuleElements)
     if closed_world {
       passes.push(RemoveUnusedTypes)
-      if options.optimize_level >= 3 {
-        // Binaryen parity mode: cfp-reftest.
-        // The current CFP implementation already handles ref.test patterns.
-      }
       passes.push(ConstantFieldPropagation)
+      if options.optimize_level >= 3 {
+        // Binaryen's wider cfp-reftest transform is not implemented here.
+        // The local pipeline only adds a narrower known-null ref.test folder.
+        passes.push(ConstantFieldNullTestFolding)
+      }
     }
     passes.push(GlobalStructInference)
     if closed_world {
@@ -3003,7 +3011,7 @@ test "default global optimization pre passes include once reduction at optimize_
 }
 
 ///|
-test "default global optimization pre passes map cfp-reftest mode to constant field propagation" {
+test "default global optimization pre passes split constant field propagation from null-test folding" {
   let gc_mod = Module::new().with_type_sec(
     TypeSec::new([
       RecType::new(
@@ -3015,11 +3023,15 @@ test "default global optimization pre passes map cfp-reftest mode to constant fi
       ),
     ]),
   )
-  let passes = default_global_optimization_pre_passes(
+  let passes_o2 = default_global_optimization_pre_passes(
+    gc_mod,
+    OptimizeOptions::new(optimize_level=2),
+  )
+  let passes_o3 = default_global_optimization_pre_passes(
     gc_mod,
     OptimizeOptions::new(optimize_level=3),
   )
-  let remove_unused_types_idx = default_first_module_pass_index(passes, fn(
+  let remove_unused_types_idx = default_first_module_pass_index(passes_o3, fn(
     pass,
   ) {
     match pass {
@@ -3027,15 +3039,32 @@ test "default global optimization pre passes map cfp-reftest mode to constant fi
       _ => false
     }
   })
-  let cfp_idx = default_first_module_pass_index(passes, fn(pass) {
+  let cfp_idx = default_first_module_pass_index(passes_o3, fn(pass) {
     match pass {
       ConstantFieldPropagation => true
       _ => false
     }
   })
+  let null_fold_idx = default_first_module_pass_index(passes_o3, fn(pass) {
+    match pass {
+      ConstantFieldNullTestFolding => true
+      _ => false
+    }
+  })
   assert_true(remove_unused_types_idx >= 0)
   assert_true(cfp_idx >= 0)
+  assert_true(null_fold_idx >= 0)
   assert_true(remove_unused_types_idx < cfp_idx)
+  assert_true(cfp_idx < null_fold_idx)
+  assert_eq(
+    default_count_module_passes(passes_o2, fn(pass) {
+      match pass {
+        ConstantFieldNullTestFolding => true
+        _ => false
+      }
+    }),
+    0,
+  )
 }
 
 ///|

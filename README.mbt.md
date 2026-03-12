@@ -461,7 +461,7 @@ Builds the canonical whole-module pre-pass list for global/type/callgraph optimi
 
 Current parity-mode mappings in this scheduler are:
 - `remove-unused-module-elements` (open-world mode) -> `RemoveUnusedModuleElements`
-- `cfp-reftest` -> `ConstantFieldPropagation`
+- `cfp-reftest` -> no direct local equivalent; the default closed-world pipeline now uses `ConstantFieldPropagation` plus the narrower `ConstantFieldNullTestFolding`
 - `unsubtyping` -> `MinimizeRecGroups`
 - `generate-global-effects` -> `PropagateGlobalsGlobally`
 
@@ -1298,6 +1298,9 @@ Refines abstract heap typing relationships and cast/test forms to tighter safe r
 
 #### `ConstantFieldPropagation`
 Propagates known constant struct/array field values through typed IR/global flows when reads can be proven to observe those constants.
+
+#### `ConstantFieldNullTestFolding`
+Folds `ref.test` / `ref.test_desc` over field reads only when constant-field analysis proves the loaded field is always `ref.null`; this is intentionally narrower than Binaryen's broader `cfp-reftest` transform.
 
 #### `GlobalRefining`
 Refines global usage and (where legal) global value typing to reduce dynamic checks and enable stronger downstream simplifications.

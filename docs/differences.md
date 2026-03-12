@@ -179,17 +179,22 @@ Relevant local range:
 
 - [src/passes/optimize.mbt#L1965](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1965)
 
-The main recorded difference here is around Binaryen's `cfp-reftest` choice at higher optimize levels:
+Binaryen's `cfp-reftest` choice is still broader than the local implementation:
 
 - [src/passes/optimize.mbt#L1982](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1982)
 
-The local comment states that the current constant field propagation implementation already handles `ref.test` patterns, so the pipeline always pushes `ConstantFieldPropagation` rather than splitting behavior into separate `cfp` / `cfp-reftest` pass variants.
+The local scheduler now splits the previously conflated behavior into two passes:
+
+- `ConstantFieldPropagation` for direct constant-field read replacement.
+- `ConstantFieldNullTestFolding` for the narrow case where a field read is proven to be `ref.null` and a surrounding `ref.test` / `ref.test_desc` can be folded to `i32.const 0` or `i32.const 1`.
+
+This is an honest split, not full parity with Binaryen's broader `cfp-reftest` transform.
 
 Impact:
 
-- This is a modest parity difference.
+- The misleading one-pass parity claim is gone.
+- The remaining difference is narrower and explicit: the local `ConstantFieldNullTestFolding` pass only covers the known-null subcase rather than Binaryen's wider subtype-selection rewrites.
 - It is unlikely to be central to the currently observed stall.
-- It is still worth recording because it means the local pipeline is normalizing two Binaryen variants into one pass implementation.
 
 ## 7. The Local Global Post Pipeline Now Includes `InliningOptimizing` at the Binaryen-Parity Gate
 
@@ -352,7 +357,7 @@ These matter for accuracy of the comparison, but are less likely to explain the 
 
 - missing `RemoveUnusedNames` in the function pipeline
 - missing `StringGathering`
-- local CFP handling folding `cfp` and `cfp-reftest` behavior together
+- local `cfp-reftest` parity remains partial, but the narrower known-null handling is now split into `ConstantFieldNullTestFolding`
 - explicit `Directize(true)` mode selection
 
 ### Performance-relevant differences

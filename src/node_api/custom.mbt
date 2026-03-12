@@ -327,6 +327,8 @@ fn __node_cmd_resolve_explicit_pass(flag : String) -> @passes.ModulePass? {
     "const-hoisting" => Some(@passes.ModulePass::ConstHoisting)
     "constant-field-propagation" =>
       Some(@passes.ModulePass::ConstantFieldPropagation)
+    "constant-field-null-test-folding" =>
+      Some(@passes.ModulePass::ConstantFieldNullTestFolding)
     "dataflow-optimization" => Some(@passes.ModulePass::DataflowOptimization)
     "dead-code-elimination" => Some(@passes.ModulePass::DeadCodeElimination)
     "dead-argument-elimination" =>

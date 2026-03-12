@@ -1201,6 +1201,11 @@ fn explicit_pass_entries() -> Array[(String, String, ModulePass)] {
       ModulePass::ConstantFieldPropagation,
     ),
     (
+      "constant-field-null-test-folding",
+      "Fold ref.test/ref.test_desc on known-null constant fields.",
+      ModulePass::ConstantFieldNullTestFolding,
+    ),
+    (
       "dataflow-optimization",
       "General dataflow simplification and cleanup.",
       ModulePass::DataflowOptimization,

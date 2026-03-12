@@ -1,12 +1,12 @@
-///| 
+///|
 /// Copyright 2023 WebAssembly Community Group participants
-/// 
+///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
-/// 
+///
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -34,7 +34,8 @@
 /// - Does not handle struct.set (only struct.new)
 /// - Does not handle type hierarchies/subtypes
 /// - Does not handle field copies
-/// - Does not use ref.test optimization
+/// - Companion pass `ConstantFieldNullTestFolding` handles the narrow
+///   ref.test/ref.test_desc folding on known ref.null fields
 /// - Assumes closed world
 
 ///|
@@ -330,8 +331,21 @@ fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit, String] {
           None => from_walk(self.walk_tinstruction_default((), instr))
         }
       }
-      // Optimize ref.test when the input is a struct.get from a known ref.null field
-      TInstrKind::TRefTest(_, _, inner) =>
+      _ => from_walk(self.walk_tinstruction_default((), instr))
+    }
+  })
+}
+
+///|
+/// Create an optimizer that folds ref.test/ref.test_desc when the input comes
+/// from a known-null constant field.
+fn make_cfp_null_test_optimizer(
+  state : CFPState,
+) -> ModuleTransformer[Unit, String] {
+  ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr.kind {
+      TInstrKind::TRefTest(nullable, _, inner)
+      | TInstrKind::TRefTestDesc(nullable, _, inner) =>
         match inner.kind {
           TInstrKind::TStructGet(type_idx, field_idx, ref_instr)
           | TInstrKind::TStructGetS(type_idx, field_idx, ref_instr)
@@ -343,11 +357,11 @@ fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit, String] {
             match field_value.get_constant() {
               Some(constant) =>
                 if is_ref_null(constant) {
-                  // ref.test on ref.null always returns 0 (false)
+                  let result_value = if nullable { 1 } else { 0 }
                   let drop_ref = TInstr::drop(ref_instr)
                   let result = TInstr::block(
                     BlockType::void_(),
-                    TExpr::new([drop_ref, TInstr::i32_const(I32(0))]),
+                    TExpr::new([drop_ref, TInstr::i32_const(I32(result_value))]),
                   )
                   change((), result)
                 } else {
@@ -364,9 +378,7 @@ fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit, String] {
 }
 
 ///|
-fn constant_field_propagation_ir_pass(
-  mod : Module,
-) -> ModuleTransformer[IRContext, String] {
+fn analyze_constant_field_values(mod : Module) -> CFPState {
   let state = CFPState::from_module(mod)
   match mod.code_sec {
     None => ()
@@ -379,7 +391,23 @@ fn constant_field_propagation_ir_pass(
       }
   }
   propagate_to_supertypes(state)
+  state
+}
+
+///|
+fn constant_field_propagation_ir_pass(
+  mod : Module,
+) -> ModuleTransformer[IRContext, String] {
+  let state = analyze_constant_field_values(mod)
   wrap_unit_func_pass(make_cfp_optimizer(state))
+}
+
+///|
+fn constant_field_null_test_folding_ir_pass(
+  mod : Module,
+) -> ModuleTransformer[IRContext, String] {
+  let state = analyze_constant_field_values(mod)
+  wrap_unit_func_pass(make_cfp_null_test_optimizer(state))
 }
 
 ///|
@@ -1108,7 +1136,7 @@ test "ref.test optimization with ref.null field" {
   note_field_write(state, 0, 0, TInstr::ref_null(heap_type))
 
   // Create an optimizer
-  let optimizer = make_cfp_optimizer(state)
+  let optimizer = make_cfp_null_test_optimizer(state)
 
   // Create a ref.test instruction that tests a struct.get from the ref.null field
   let type_idx = TypeIdx::new(0)
@@ -1139,13 +1167,122 @@ test "ref.test optimization with ref.null field" {
 }
 
 ///|
+test "make_cfp_optimizer leaves ref.test folding to the dedicated null-test pass" {
+  let state = CFPState::new()
+  let heap_type = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  note_field_write(state, 0, 0, TInstr::ref_null(heap_type))
+
+  let optimizer = make_cfp_optimizer(state)
+
+  let type_idx = TypeIdx::new(0)
+  let field_idx : @lib.U32 = @lib.U32(0)
+  let ref_instr = TInstr::local_get(LocalIdx::new(0))
+  let get_instr = TInstr::struct_get(type_idx, field_idx, ref_instr)
+  let test_instr = TInstr::ref_test(false, heap_type, get_instr)
+
+  let result = optimizer.walk_tinstruction((), test_instr)
+
+  match result {
+    Ok((new_instr, _)) =>
+      assert_true(new_instr.kind is TInstrKind::TRefTest(_, _, _))
+    Err(err) => fail("Optimizer should not error: \{err}")
+  }
+}
+
+///|
+test "ref.test optimization with ref.null field honors nullable targets" {
+  let state = CFPState::new()
+  let heap_type = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  note_field_write(state, 0, 0, TInstr::ref_null(heap_type))
+
+  let optimizer = make_cfp_null_test_optimizer(state)
+
+  let type_idx = TypeIdx::new(0)
+  let field_idx : @lib.U32 = @lib.U32(0)
+  let ref_instr = TInstr::local_get(LocalIdx::new(0))
+  let get_instr = TInstr::struct_get(type_idx, field_idx, ref_instr)
+  let test_instr = TInstr::ref_test(true, heap_type, get_instr)
+
+  let result = optimizer.walk_tinstruction((), test_instr)
+
+  match result {
+    Ok((new_instr, _)) =>
+      match new_instr.kind {
+        TInstrKind::TBlock(_, body) => {
+          assert_eq(body.instrs.length(), 2)
+          assert_true(body.instrs[0].kind is TInstrKind::TDrop(_))
+          match body.instrs[1].kind {
+            TInstrKind::TI32Const(I32(val)) => assert_eq(val, 1)
+            _ => fail("Expected i32.const 1")
+          }
+        }
+        _ => fail("Expected TInstrKind::TBlock but got something else")
+      }
+    _ => fail("Optimizer should have transformed nullable ref.test")
+  }
+}
+
+///|
+test "ref.test_desc optimization with ref.null field honors target nullability" {
+  let state = CFPState::new()
+  let heap_type = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  note_field_write(state, 0, 0, TInstr::ref_null(heap_type))
+
+  let optimizer = make_cfp_null_test_optimizer(state)
+
+  let type_idx = TypeIdx::new(0)
+  let field_idx : @lib.U32 = @lib.U32(0)
+  let non_null_ref = TInstr::local_get(LocalIdx::new(0))
+  let non_null_get = TInstr::struct_get(type_idx, field_idx, non_null_ref)
+  let non_null_test = TInstr::ref_test_desc(false, heap_type, non_null_get)
+  let nullable_ref = TInstr::local_get(LocalIdx::new(0))
+  let nullable_get = TInstr::struct_get(type_idx, field_idx, nullable_ref)
+  let nullable_test = TInstr::ref_test_desc(true, heap_type, nullable_get)
+
+  let non_null_result = optimizer.walk_tinstruction((), non_null_test)
+  let nullable_result = optimizer.walk_tinstruction((), nullable_test)
+
+  match non_null_result {
+    Ok((new_instr, _)) =>
+      match new_instr.kind {
+        TInstrKind::TBlock(_, body) => {
+          assert_eq(body.instrs.length(), 2)
+          assert_true(body.instrs[0].kind is TInstrKind::TDrop(_))
+          match body.instrs[1].kind {
+            TInstrKind::TI32Const(I32(val)) => assert_eq(val, 0)
+            _ => fail("Expected i32.const 0")
+          }
+        }
+        _ => fail("Expected TInstrKind::TBlock but got something else")
+      }
+    _ => fail("Optimizer should have transformed non-null ref.test_desc")
+  }
+
+  match nullable_result {
+    Ok((new_instr, _)) =>
+      match new_instr.kind {
+        TInstrKind::TBlock(_, body) => {
+          assert_eq(body.instrs.length(), 2)
+          assert_true(body.instrs[0].kind is TInstrKind::TDrop(_))
+          match body.instrs[1].kind {
+            TInstrKind::TI32Const(I32(val)) => assert_eq(val, 1)
+            _ => fail("Expected i32.const 1")
+          }
+        }
+        _ => fail("Expected TInstrKind::TBlock but got something else")
+      }
+    _ => fail("Optimizer should have transformed nullable ref.test_desc")
+  }
+}
+
+///|
 test "ref.test not optimized for non-null constant" {
   // Create a state with a known non-null constant for type 0, field 0
   let state = CFPState::new()
   note_field_write(state, 0, 0, TInstr::i32_const(I32(42)))
 
   // Create an optimizer
-  let optimizer = make_cfp_optimizer(state)
+  let optimizer = make_cfp_null_test_optimizer(state)
 
   // Create a ref.test instruction
   let type_idx = TypeIdx::new(0)
