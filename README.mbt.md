@@ -165,6 +165,7 @@ For more runnable CLI inputs, see `examples/README.md`.
 - Format and refresh interfaces: `moon info && moon fmt`
 - Typecheck: `moon check`
 - Run tests: `moon test`
+- Run full local gate (check + tests + fuzz): `bash scripts/run-full-test.sh ci 0x5eed wasm-gc`
 - Run dedicated fuzz suites: `moon run src/fuzz all smoke`
 - Run CI-scale fuzz suites: `bash scripts/run-fuzz.sh ci`
 - Run native stress fuzz suites: `bash scripts/run-fuzz.sh stress all 0x5eed5eed native`
