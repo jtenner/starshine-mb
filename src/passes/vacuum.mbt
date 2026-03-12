@@ -3728,9 +3728,9 @@ fn vq_degraded_simplify_drop_value(
 ) -> TInstr {
   match value.kind {
     // Numeric unary wrappers, ref.is_null, and the GC extern/any reference
-    // conversions are pure 1-to-1 stack shuffles, and SIMD splats are total
-    // child-only wrappers, so when their result is immediately dropped we can
-    // peel them cheaply in degraded mode.
+    // conversions are pure 1-to-1 stack shuffles, and SIMD splats/extract_lane
+    // wrappers are total child-only wrappers, so when their result is
+    // immediately dropped we can peel them cheaply in degraded mode.
     TInstrKind::TUnary(_, inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TRefIsNull(inner) =>
@@ -3745,6 +3745,8 @@ fn vq_degraded_simplify_drop_value(
     | TInstrKind::TI64x2Splat(inner)
     | TInstrKind::TF32x4Splat(inner)
     | TInstrKind::TF64x2Splat(inner) =>
+      vq_degraded_simplify_drop_value(inner, analysis_cache)
+    TInstrKind::TExtractLane(_, _, inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TLocalTee(idx, inner) => TInstr::local_set(idx, inner)
     _ if vq_degraded_can_remove_unused_instr(value, analysis_cache) =>
@@ -6555,6 +6557,154 @@ test "vacuum degraded mode keeps drop around effectful child under f64x2.splat" 
     ) {
     Some(next) => next
     None => fail("expected degraded f64x2.splat drop result")
+  }
+  assert_eq(out, TInstr::drop(condition))
+}
+
+///|
+test "vacuum degraded mode peels dropped i8x16.extract_lane_u around pure local.get" {
+  let instr = TInstr::drop(
+    TInstr::extract_lane(
+      @lib.ExtractLaneOp::i8x16_extract_lane_u(),
+      LaneIdx::new(3),
+      TInstr::local_get(LocalIdx::new(0)),
+    ),
+  )
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::v128()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded i8x16.extract_lane_u drop result")
+  }
+  assert_eq(out, TInstr::nop())
+}
+
+///|
+test "vacuum degraded mode keeps drop around effectful child under i8x16.extract_lane_u" {
+  let t_ref = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::v128()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_ref]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::v128_const(
+              0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let condition = TInstr::call(FuncIdx::new(0), [])
+  let instr = TInstr::drop(
+    TInstr::extract_lane(
+      @lib.ExtractLaneOp::i8x16_extract_lane_u(),
+      LaneIdx::new(3),
+      condition,
+    ),
+  )
+  let env = Env::new().with_module(mod)
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded i8x16.extract_lane_u drop result")
+  }
+  assert_eq(out, TInstr::drop(condition))
+}
+
+///|
+test "vacuum degraded mode peels dropped f64x2.extract_lane around pure local.get" {
+  let instr = TInstr::drop(
+    TInstr::extract_lane(
+      @lib.ExtractLaneOp::f64x2_extract_lane(),
+      LaneIdx::new(1),
+      TInstr::local_get(LocalIdx::new(0)),
+    ),
+  )
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::v128()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded f64x2.extract_lane drop result")
+  }
+  assert_eq(out, TInstr::nop())
+}
+
+///|
+test "vacuum degraded mode keeps drop around effectful child under f64x2.extract_lane" {
+  let t_ref = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::v128()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_ref]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::v128_const(
+              0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let condition = TInstr::call(FuncIdx::new(0), [])
+  let instr = TInstr::drop(
+    TInstr::extract_lane(
+      @lib.ExtractLaneOp::f64x2_extract_lane(),
+      LaneIdx::new(1),
+      condition,
+    ),
+  )
+  let env = Env::new().with_module(mod)
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded f64x2.extract_lane drop result")
   }
   assert_eq(out, TInstr::drop(condition))
 }
