@@ -758,7 +758,7 @@ fn vq_instr_has_calls_cached(
   if vq_is_pure_leaf_no_effects(instr) {
     return false
   }
-  vq_collect_effects_timed(instr, analysis_cache.stats).calls
+  vq_instr_has_calls_structural(instr)
 }
 
 ///|
@@ -775,6 +775,52 @@ fn vq_instr_effect_transfers_control_flow_cached(
     return false
   }
   vq_collect_effects_timed(instr, analysis_cache.stats).transfers_control_flow()
+}
+
+///|
+fn vq_instr_has_calls_structural(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TCall(_, _)
+    | TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _) => return true
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      for item in body.instrs {
+        if vq_instr_has_calls_structural(item) {
+          return true
+        }
+      }
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      if vq_instr_has_calls_structural(cond) {
+        return true
+      }
+      for item in then_body.instrs {
+        if vq_instr_has_calls_structural(item) {
+          return true
+        }
+      }
+      match else_body {
+        Some(other) =>
+          for item in other.instrs {
+            if vq_instr_has_calls_structural(item) {
+              return true
+            }
+          }
+        None => ()
+      }
+    }
+    _ =>
+      for child in eval_children(instr) {
+        if child != instr && vq_instr_has_calls_structural(child) {
+          return true
+        }
+      }
+  }
+  false
 }
 
 ///|
@@ -11152,6 +11198,15 @@ test "vacuum fallback pure leaf type metadata skips generic type inference" {
     Some(ValType::i64()),
   )
   assert_eq(cache.stats.infer_type_calls.val, 0)
+}
+
+///|
+test "vacuum fallback wrapped call metadata skips generic collector" {
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let instr = TInstr::drop(TInstr::i32_const(I32(1)))
+
+  assert_false(vq_instr_has_calls_cached(instr, cache))
+  assert_eq(cache.stats.collect_effects_calls.val, 0)
 }
 
 ///|

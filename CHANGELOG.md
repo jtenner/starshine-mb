@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-03-12 Vacuum Follow-up: switched unindexed fallback call-presence metadata to a structural detector so wrapped non-call trees avoid generic effect collection
+
+This follow-up continues the remaining `Vacuum` Stage 3 fallback metadata specialization in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). Even after pure-leaf fast paths, unindexed fallback `vq_instr_has_calls_cached(...)` still delegated to `vq_collect_effects_timed(...)` for wrapper-shaped non-call trees (for example `drop(i32.const ...)`), paying generic effect-collector cost to answer a pure structural question: whether any call instruction exists in the subtree.
+
+`vq_instr_has_calls_cached(...)` now uses `vq_instr_has_calls_structural(...)` on unindexed fallback paths instead of `vq_collect_effects_timed(...).calls`. The new structural helper directly recognizes call kinds and recursively walks child/control bodies, preserving exact call-presence semantics without invoking the generic effect collector for this metadata query.
+
+Regression coverage in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) was expanded with a red-first test:
+- `vacuum fallback wrapped call metadata skips generic collector`
+
+The test failed before this change with `collect_effects_calls` incrementing on `drop(i32.const)` and now asserts `collect_effects_calls == 0`.
+
+Verification: `moon test src/passes` (red first, then green), `moon info && moon fmt`, and full `moon test` (3046 passing, 0 failing).
+
 ## 2026-03-12 Vacuum Follow-up: added bounded unindexed depth-0 target summaries so break/value-break fallback helpers skip scans when labels cannot match
 
 This follow-up continues the remaining `Vacuum` Stage 3 fallback-scan/value-break blockers in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). After earlier label-score fast paths, fallback helpers still ran full collectors when labels were present but structurally unable to match the queried depth/value shape:
