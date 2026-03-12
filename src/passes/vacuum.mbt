@@ -975,6 +975,19 @@ fn vq_has_break_to_depth0_cached(
 }
 
 ///|
+fn vq_has_value_break_lub_depth0_cached(
+  expr : TExpr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  expr_id? : Int? = None,
+) -> Bool {
+  match vq_indexed_expr_value_break_lub_depth0(analysis_cache, expr_id) {
+    Some(cached) => cached
+    None => vq_value_break_to_depth_has_lub(expr, 0, env, analysis_cache)
+  }
+}
+
+///|
 fn vq_only_original_instr_id(
   body : TExpr,
   analysis_cache : VQAnalysisCache,
@@ -4267,21 +4280,30 @@ fn vq_process_instr(
           }
         }
       }
+      let simplified = vq_simplify_block_to_contents(
+        bt,
+        next_body,
+        env,
+        analysis_cache,
+        expr_id=if physical_equal(next_body, body) {
+          match instr_node {
+            Some(node) => node.body_expr_id
+            None => None
+          }
+        } else {
+          None
+        },
+      )
       Some(
-        vq_simplify_block_to_contents(
-          bt,
-          next_body,
-          env,
-          analysis_cache,
-          expr_id=if physical_equal(next_body, body) {
-            match instr_node {
-              Some(node) => node.body_expr_id
-              None => None
+        match simplified.kind {
+          TInstrKind::TBlock(next_bt, next_body) =>
+            if bt == next_bt && physical_equal(next_body, body) {
+              instr
+            } else {
+              simplified
             }
-          } else {
-            None
-          },
-        ),
+          _ => simplified
+        },
       )
     }
     TInstrKind::TIf(bt, condition, then_body, else_body) => {
@@ -4580,17 +4602,21 @@ fn vq_process_instr(
       match next_value.kind {
         TInstrKind::TBlock(bt, body) => {
           let { instrs: items, .. } = body
-          let body_expr_id = if physical_equal(next_value, value) {
-            match
-              vq_indexed_instr_node(
-                analysis_cache,
-                vq_indexed_eval_child_id(instr_node, 0),
-              ) {
-              Some(node) => node.body_expr_id
-              None => None
-            }
-          } else {
-            None
+          let body_expr_id = match value.kind {
+            TInstrKind::TBlock(original_bt, original_body) =>
+              if bt == original_bt && physical_equal(body, original_body) {
+                match
+                  vq_indexed_instr_node(
+                    analysis_cache,
+                    vq_indexed_eval_child_id(instr_node, 0),
+                  ) {
+                  Some(node) => node.body_expr_id
+                  None => None
+                }
+              } else {
+                None
+              }
+            _ => None
           }
           if items.length() > 0 {
             let last = items[items.length() - 1]
@@ -4603,9 +4629,8 @@ fn vq_process_instr(
                 match
                   vq_optimize(last, false, false, env, budget, analysis_cache) {
                   None =>
-                    if !vq_value_break_to_depth_has_lub(
+                    if !vq_has_value_break_lub_depth0_cached(
                         body,
-                        0,
                         env,
                         analysis_cache,
                         expr_id=body_expr_id,
@@ -5334,6 +5359,168 @@ test "vacuum indexed if-arm inversion avoids generic type-and-stack helper" {
     _ => fail("expected if-arm inversion rewrite result")
   }
   assert_eq(cache.stats.rewrite_type_stack_calls.val, 0)
+}
+
+///|
+test "vacuum indexed dropped-result block avoids generic value-break helper" {
+  let instr = TInstr::drop(
+    TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([
+        TInstr::br_if(LabelIdx::new(0), TInstr::local_get(LocalIdx::new(0)), [
+          TInstr::i32_const(I32(2)),
+        ]),
+        TInstr::i32_const(I32(3)),
+      ]),
+    ),
+  )
+  let body = TExpr::new([instr])
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let seed_budget = Ref::new(64)
+  assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
+  let expr_id = match cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected root expr id")
+  }
+  let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
+  let process_budget = Ref::new(64)
+  let out = match
+    vq_process_instr(
+      instr,
+      env,
+      false,
+      false,
+      process_budget,
+      cache,
+      VQPassOptions::new(),
+      instr_id=Some(instr_id),
+    ) {
+    Some(next) => next
+    None => fail("expected dropped result block rewrite result")
+  }
+  match out.kind {
+    TInstrKind::TDrop(
+      {
+        kind: TInstrKind::TBlock(
+          ValTypeBlockType(NumTypeValType(I32NumType)),
+          {
+            instrs: [
+              {
+                kind: TInstrKind::TBrIf(
+                  LabelIdx(depth),
+                  { kind: TInstrKind::TLocalGet(LocalIdx(local_idx)), .. },
+                  [{ kind: TInstrKind::TI32Const(I32(v)), .. }]
+                ),
+                ..,
+              },
+              { kind: TInstrKind::TI32Const(I32(last)), .. },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      }
+    ) => {
+      assert_eq(depth, 0U)
+      assert_eq(local_idx, 0U)
+      assert_eq(v, 2)
+      assert_eq(last, 3)
+    }
+    _ =>
+      fail(
+        "expected dropped result block with value break to remain intact: \{out}",
+      )
+  }
+  assert_eq(cache.stats.value_break_lub_calls.val, 0)
+}
+
+///|
+test "vacuum changed dropped-result block falls back to generic value-break helper" {
+  let instr = TInstr::drop(
+    TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([
+        TInstr::drop(
+          TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+        ),
+        TInstr::br_if(LabelIdx::new(0), TInstr::local_get(LocalIdx::new(1)), [
+          TInstr::i32_const(I32(2)),
+        ]),
+        TInstr::i32_const(I32(3)),
+      ]),
+    ),
+  )
+  let body = TExpr::new([instr])
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals([ValType::i32(), ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let seed_budget = Ref::new(96)
+  assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
+  let expr_id = match cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected root expr id")
+  }
+  let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
+  let process_budget = Ref::new(96)
+  let out = match
+    vq_process_instr(
+      instr,
+      env,
+      false,
+      false,
+      process_budget,
+      cache,
+      VQPassOptions::new(),
+      instr_id=Some(instr_id),
+    ) {
+    Some(next) => next
+    None => fail("expected dropped result block rewrite result")
+  }
+  match out.kind {
+    TInstrKind::TDrop(
+      {
+        kind: TInstrKind::TBlock(
+          ValTypeBlockType(NumTypeValType(I32NumType)),
+          {
+            instrs: [
+              {
+                kind: TInstrKind::TLocalSet(
+                  LocalIdx(local_idx),
+                  { kind: TInstrKind::TI32Const(I32(set_v)), .. }
+                ),
+                ..,
+              },
+              {
+                kind: TInstrKind::TBrIf(
+                  LabelIdx(depth),
+                  { kind: TInstrKind::TLocalGet(LocalIdx(cond_idx)), .. },
+                  [{ kind: TInstrKind::TI32Const(I32(br_v)), .. }]
+                ),
+                ..,
+              },
+              { kind: TInstrKind::TI32Const(I32(last)), .. },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      }
+    ) => {
+      assert_eq(local_idx, 0U)
+      assert_eq(set_v, 1)
+      assert_eq(depth, 0U)
+      assert_eq(cond_idx, 1U)
+      assert_eq(br_v, 2)
+      assert_eq(last, 3)
+    }
+    _ =>
+      fail(
+        "expected dropped result block fallback path to keep block and rewrite inner tee: \{out}",
+      )
+  }
+  assert_eq(cache.stats.value_break_lub_calls.val, 1)
 }
 
 ///|
