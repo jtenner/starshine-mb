@@ -5251,6 +5251,10 @@ fn vq_process_instr(
     }
     TInstrKind::TTryTable(bt, catches, body) => {
       let result_types = vq_block_result_types(bt, env)
+      let original_body_expr_id = match instr_node {
+        Some(node) => node.body_expr_id
+        None => None
+      }
       let next_body = vq_optimize_texpr(
         body,
         env,
@@ -5259,16 +5263,17 @@ fn vq_process_instr(
         budget,
         analysis_cache,
         pass_options,
-        expr_id=match instr_node {
-          Some(node) => node.body_expr_id
-          None => None
-        },
+        expr_id=original_body_expr_id,
       )
       let body_expr_id = if physical_equal(next_body, body) {
-        match instr_node {
-          Some(node) => node.body_expr_id
-          None => None
-        }
+        original_body_expr_id
+      } else if vq_can_reuse_original_expr_control_metadata(
+          body,
+          next_body,
+          analysis_cache,
+          expr_id=original_body_expr_id,
+        ) {
+        original_body_expr_id
       } else {
         None
       }
@@ -6461,6 +6466,72 @@ test "vacuum indexed try_table removal avoids generic throws cache" {
     None => fail("expected try_table rewrite result")
   }
   assert_eq(out, TInstr::i32_const(I32(77)))
+  assert_eq(cache.throws_cache.get(original_body), None)
+}
+
+///|
+test "vacuum changed try_table body reuses indexed metadata for throws and break checks" {
+  let original_body = TExpr::new([
+    TInstr::drop(TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(9)))),
+    TInstr::i32_const(I32(77)),
+  ])
+  let instr = TInstr::try_table(
+    BlockType::val_type(ValType::i32()),
+    [Catch::all(LabelIdx::new(0))],
+    original_body,
+  )
+  let body = TExpr::new([instr])
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let seed_budget = Ref::new(96)
+  assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
+  let expr_id = match cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected root expr id")
+  }
+  let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
+  let process_budget = Ref::new(96)
+  let out = match
+    vq_process_instr(
+      instr,
+      env,
+      true,
+      true,
+      process_budget,
+      cache,
+      VQPassOptions::new(),
+      instr_id=Some(instr_id),
+    ) {
+    Some(next) => next
+    None => fail("expected try_table rewrite result")
+  }
+  match out.kind {
+    TInstrKind::TBlock(
+      ValTypeBlockType(NumTypeValType(I32NumType)),
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLocalSet(
+              LocalIdx(local_idx),
+              { kind: TInstrKind::TI32Const(I32(set_v)), .. }
+            ),
+            ..,
+          },
+          { kind: TInstrKind::TI32Const(I32(last_v)), .. },
+        ],
+        ..,
+      }
+    ) => {
+      assert_eq(local_idx, 0U)
+      assert_eq(set_v, 9)
+      assert_eq(last_v, 77)
+    }
+    _ =>
+      fail(
+        "expected changed try_table body to simplify to value block with rewritten local.set: \{out}",
+      )
+  }
+  assert_eq(cache.stats.break_scan_calls.val, 0)
   assert_eq(cache.throws_cache.get(original_body), None)
 }
 
