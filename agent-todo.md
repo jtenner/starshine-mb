@@ -9,6 +9,10 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - Recent completed items are retained at the bottom until the next audit pass.
 
 ## Publishing blockers
+- [ ] Finish `Vacuum` Stage 3 fallback cleanup: eliminate remaining unindexed depth-0 break scans in `vq_has_break_to_depth0_cached(...)` for non-trivial rewritten trees by reusing indexed/control metadata or equivalent bounded local summaries.
+- [ ] Finish `Vacuum` Stage 3 value-break work: avoid full recursive fallback collection in `vq_value_break_to_depth_has_lub(...)` for rewritten trees by carrying/reusing precomputed block-level value-break summaries where possible.
+- [ ] Finish `Vacuum` Stage 3 fallback metadata specialization: reduce generic helper fallback calls (`vq_type_of_timed`, `vq_collect_effects_timed`) on unindexed rewrite paths by using rewrite-shape-local formulas or bounded metadata reuse.
+- [ ] Finish `Vacuum` Stage 3 rewrite-guard optimization: narrow hot-path use of `vq_rewrite_preserves_stack_sig_cached(...)` in drop rewrites by preferring indexed signatures/local formulas and keeping generic checks as uncommon fallback.
 - [ ] Performance issue in Flatten (use helper level tracing with timing stats to diagnose)
 - [ ] Performance issue in Validate package
 - [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
