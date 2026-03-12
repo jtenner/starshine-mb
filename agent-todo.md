@@ -15,9 +15,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
 - [ ] Harden pathological cleanup handling beyond the current no-op `Vacuum` skip heuristic, especially for the first expensive `Vacuum` on deep-tree functions.
 - [ ] Implement `StringGathering` in the global post pipeline under the appropriate feature/optimization gates.
-- [ ] Fuzz runner UX hardening: add `--help`/`--list-suites` (and profile list) in `src/fuzz` so invocation errors do not require reading docs/source.
-- [ ] Make `scripts/run-fuzz.sh` and `scripts/run-full-test.sh` treat seed as optional and only pass `--seed` when provided, so default runs exercise generated seeds instead of pinning to `0x5eed`.
-- [ ] Add `jsonl` output mode for `src/fuzz` summary lines to make CI artifact parsing/stats collection deterministic.
 - [ ] Publish the first release and MoonBit registry package (`moon publish` plus GitHub Release binaries).
 
 ## Post 0.1.0 Features
@@ -42,4 +39,7 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Long-horizon platform/features: Component Model/WIT, streaming decoder API, custom sections/source maps, plugin system.
 
 ## Recently completed
+- [x] Complete fuzz runner usability blockers: add `src/fuzz` control commands (`--help`/`--list-suites`/`--list-profiles`) so users can discover suites/profiles directly from the binary.
+- [x] Complete fuzz output blocker: add `jsonl` output mode in `src/fuzz` (`--output jsonl` / `--jsonl`) with machine-readable per-suite summary lines.
+- [x] Complete fuzz script-seed blocker: make `scripts/run-fuzz.sh` and `scripts/run-full-test.sh` treat seed as optional and only pass `--seed` when explicitly provided.
 - [x] Split the local `ConstantFieldPropagation` / `cfp-reftest` behavior so plain CFP now only handles constant field reads and the narrower known-null `ref.test` cleanup lives in `ConstantFieldNullTestFolding` with explicit scheduler/docs coverage.

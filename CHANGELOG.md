@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-03-12 Publishing Blocker Closed: completed the fuzz runner usability/output/script blockers by adding discoverable CLI control commands, machine-readable JSONL summaries, and optional-seed script forwarding
+
+This change completes the remaining low-hanging fuzz workflow blockers tracked in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): (1) control-command discoverability in the fuzz binary, (2) deterministic machine-readable summary output mode, and (3) optional seed forwarding in helper scripts so default runs exercise generated seeds.
+
+In [`src/fuzz/main.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/main.mbt), the CLI now supports control commands through `parse_fuzz_cli_command(...)`: `--help`/`-h`, `--list-suites`, and `--list-profiles`. This makes supported suite/profile discovery available directly from the binary without requiring doc/source lookup. The same parser path now supports output mode flags in the runnable command flow (`--output text|jsonl` and `--jsonl`), and result rendering is centralized in `format_fuzz_suite_result(...)` with `FuzzOutputMode` so text and JSONL output share one source of truth.
+
+JSON output is emitted as one object per line (`jsonl`) with stable fields (`suite`, `profile`, `seed`, `attempts`, `pass`, `elapsed_ms`) to support CI parsing and metrics aggregation. The new mode still preserves existing text-mode output as default, and existing suite execution semantics are unchanged.
+
+Helper scripts were updated to make seeds optional by default. [`scripts/run-fuzz.sh`](/home/jtenner/Projects/starshine-mb/scripts/run-fuzz.sh) now accepts `[profile] [suite] [seed|target] [target]` and only forwards `--seed` when a seed value is explicitly supplied. [`scripts/run-full-test.sh`](/home/jtenner/Projects/starshine-mb/scripts/run-full-test.sh) now mirrors that behavior with `[fuzz_profile] [seed|target] [target]`, prints `seed=auto` when no seed is provided, and delegates to `run-fuzz.sh` without a seed argument in that case.
+
+Regression/verification coverage was extended in [`src/fuzz/main_test.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/main_test.mbt) for output-mode parsing, control-command parsing, and JSONL formatting behavior. Validation was performed with `moon test src/fuzz`, direct command checks (`moon run src/fuzz -- --help`, `--list-suites`, and JSONL mode with explicit seed), and a full gate run via `bash scripts/run-full-test.sh smoke wasm-gc`.
+
 ## 2026-03-12 Fuzz Harness Migration Completed: moved randomized fuzz workloads out of `moon test` into the dedicated `src/fuzz` binary, wired CI/full-test gates to execute fuzz explicitly, and added reproducible signed seed controls for reruns
 
 This changelog entry summarizes the fuzz-harness migration chain landed on `2026-03-12` across commits `fad5f6e`, `3772c24`, `357c650`, and `4a1b7a6`. The core shift is architectural: heavy randomized workloads are no longer hosted in the default `moon test` harness path, and instead run through a dedicated executable fuzz entrypoint in [`src/fuzz/main.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/main.mbt) via `moon run src/fuzz ...`. That binary dispatches suite/profile combinations, prints reproducibility metadata, and routes into extracted package-level fuzz runner APIs.

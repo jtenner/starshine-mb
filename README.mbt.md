@@ -165,9 +165,12 @@ For more runnable CLI inputs, see `examples/README.md`.
 - Format and refresh interfaces: `moon info && moon fmt`
 - Typecheck: `moon check`
 - Run tests: `moon test`
-- Run full local gate (check + tests + fuzz): `bash scripts/run-full-test.sh ci 0x5eed wasm-gc`
+- Run full local gate (check + tests + fuzz, auto-generated seed): `bash scripts/run-full-test.sh ci wasm-gc`
+- Run full local gate with explicit reproducible seed: `bash scripts/run-full-test.sh ci 0x5eed wasm-gc`
 - Run dedicated fuzz suites: `moon run src/fuzz all smoke`
+- List fuzz suites/profiles from the binary: `moon run src/fuzz -- --list-suites` and `moon run src/fuzz -- --list-profiles`
 - Run one suite with an explicit seed: `moon run src/fuzz -- validate-valid ci --seed 0x5eed`
+- Emit machine-readable summary lines: `moon run src/fuzz -- cmd-harness smoke --jsonl`
 - Run CI-scale fuzz suites: `bash scripts/run-fuzz.sh ci`
 - Run native stress fuzz suites: `bash scripts/run-fuzz.sh stress all 0x5eed5eed native`
 - Note: fuzz workloads are run through `src/fuzz` (`moon run ...`), not the `moon test` harness path.

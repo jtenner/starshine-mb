@@ -1,9 +1,24 @@
 ///|
+pub enum FuzzOutputMode {
+  Text
+  Jsonl
+} derive(Eq, Show, Debug)
+
+///|
 pub struct FuzzCliArgs {
   suite : String
   profile : String
   seed : UInt64
   seed_i64 : Int64
+  output_mode : FuzzOutputMode
+} derive(Eq, Show, Debug)
+
+///|
+pub enum FuzzCliCommand {
+  Run(FuzzCliArgs)
+  Help
+  ListSuites
+  ListProfiles
 } derive(Eq, Show, Debug)
 
 ///|
@@ -26,6 +41,40 @@ fn fuzz_ascii_lower(input : String) -> String {
     }
   }
   out.to_string()
+}
+
+///|
+fn fuzz_suite_names() -> Array[String] {
+  [
+    "wast-roundtrip", "wat-roundtrip", "validate-valid", "validate-invalid", "binary-roundtrip",
+    "cmd-harness",
+  ]
+}
+
+///|
+fn fuzz_profile_names() -> Array[String] {
+  ["smoke", "ci", "stress"]
+}
+
+///|
+fn fuzz_join(values : Array[String], sep : String) -> String {
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < values.length() {
+    if i > 0 {
+      out.write_string(sep)
+    }
+    out.write_string(values[i])
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+fn fuzz_usage_text() -> String {
+  let suites = fuzz_join(fuzz_suite_names(), ", ")
+  let profiles = fuzz_join(fuzz_profile_names(), ", ")
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles\nsuites: \{suites}\nprofiles: \{profiles}"
 }
 
 ///|
@@ -110,6 +159,16 @@ fn fuzz_parse_seed(raw : String) -> Result[Int64, String] {
 }
 
 ///|
+fn fuzz_parse_output_mode(raw : String) -> Result[FuzzOutputMode, String] {
+  let normalized = fuzz_ascii_lower(raw.trim().to_string())
+  match normalized {
+    "text" => Ok(FuzzOutputMode::Text)
+    "jsonl" => Ok(FuzzOutputMode::Jsonl)
+    _ => Err("unknown output mode '\{raw}'; expected text|jsonl")
+  }
+}
+
+///|
 fn fuzz_generate_seed_i64() -> Int64 {
   trace_now_us().reinterpret_as_int64()
 }
@@ -124,6 +183,20 @@ fn fuzz_has_seed_equals_flag(arg : String) -> Bool {
   arg[4] == 'e' &&
   arg[5] == 'd' &&
   arg[6] == '='
+}
+
+///|
+fn fuzz_has_output_equals_flag(arg : String) -> Bool {
+  arg.length() >= 9 &&
+  arg[0] == '-' &&
+  arg[1] == '-' &&
+  arg[2] == 'o' &&
+  arg[3] == 'u' &&
+  arg[4] == 't' &&
+  arg[5] == 'p' &&
+  arg[6] == 'u' &&
+  arg[7] == 't' &&
+  arg[8] == '='
 }
 
 ///|
@@ -146,9 +219,57 @@ fn fuzz_parse_seed_or_abort(raw : String) -> Int64 {
 }
 
 ///|
+fn fuzz_parse_output_or_abort(raw : String) -> FuzzOutputMode {
+  match fuzz_parse_output_mode(raw) {
+    Ok(v) => v
+    Err(e) => abort(e)
+  }
+}
+
+///|
+fn fuzz_parse_control_command(arg : String) -> FuzzCliCommand? {
+  let normalized = fuzz_ascii_lower(arg.trim().to_string())
+  match normalized {
+    "--help" => Some(FuzzCliCommand::Help)
+    "-h" => Some(FuzzCliCommand::Help)
+    "--list-suites" => Some(FuzzCliCommand::ListSuites)
+    "--list-profiles" => Some(FuzzCliCommand::ListProfiles)
+    _ => None
+  }
+}
+
+///|
+pub fn parse_fuzz_cli_command(args : Array[String]) -> FuzzCliCommand {
+  let mut control : FuzzCliCommand? = None
+  let mut i = 0
+  while i < args.length() {
+    match fuzz_parse_control_command(args[i]) {
+      Some(cmd) => {
+        if control is Some(_) {
+          abort("control flags must be provided alone")
+        }
+        control = Some(cmd)
+      }
+      None => ()
+    }
+    i += 1
+  }
+  match control {
+    Some(cmd) => {
+      if args.length() != 1 {
+        abort("control flags must be provided alone")
+      }
+      cmd
+    }
+    None => FuzzCliCommand::Run(parse_fuzz_cli_args(args))
+  }
+}
+
+///|
 pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
   let positional : Array[String] = []
   let mut flag_seed : Int64? = None
+  let mut output_mode : FuzzOutputMode? = None
   let mut i = 0
   while i < args.length() {
     let arg = args[i].trim().to_string()
@@ -171,6 +292,33 @@ pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
       i += 1
       continue
     }
+    if arg == "--output" {
+      if i + 1 >= args.length() {
+        abort("missing value for --output")
+      }
+      if output_mode is Some(_) {
+        abort("duplicate output mode flag")
+      }
+      output_mode = Some(fuzz_parse_output_or_abort(args[i + 1]))
+      i += 2
+      continue
+    }
+    if fuzz_has_output_equals_flag(arg) {
+      if output_mode is Some(_) {
+        abort("duplicate output mode flag")
+      }
+      output_mode = Some(fuzz_parse_output_or_abort(fuzz_tail_string(arg, 9)))
+      i += 1
+      continue
+    }
+    if arg == "--jsonl" {
+      if output_mode is Some(_) {
+        abort("duplicate output mode flag")
+      }
+      output_mode = Some(FuzzOutputMode::Jsonl)
+      i += 1
+      continue
+    }
     if arg.length() >= 2 && arg[0] == '-' && arg[1] == '-' {
       abort("unknown flag '\{arg}'")
     }
@@ -178,9 +326,7 @@ pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
     i += 1
   }
   if positional.length() > 3 {
-    abort(
-      "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>]",
-    )
+    abort("\{fuzz_usage_text()}")
   }
   let suite = if positional.length() >= 1 {
     fuzz_ascii_lower(positional[0].trim().to_string())
@@ -205,7 +351,11 @@ pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
     (None, None) => fuzz_generate_seed_i64()
   }
   let seed = seed_i64.reinterpret_as_uint64()
-  FuzzCliArgs::{ suite, profile, seed, seed_i64 }
+  let out_mode = match output_mode {
+    Some(mode) => mode
+    None => FuzzOutputMode::Text
+  }
+  FuzzCliArgs::{ suite, profile, seed, seed_i64, output_mode: out_mode }
 }
 
 ///|
@@ -273,10 +423,7 @@ pub fn run_fuzz_suite(
   let suite_name = fuzz_ascii_lower(suite.trim().to_string())
   let profile_name = fuzz_ascii_lower(profile.trim().to_string())
   if suite_name == "all" {
-    let suites = [
-      "wast-roundtrip", "wat-roundtrip", "validate-valid", "validate-invalid", "binary-roundtrip",
-      "cmd-harness",
-    ]
+    let suites = fuzz_suite_names()
     let out : Array[FuzzSuiteResult] = []
     for name in suites {
       match run_single_suite(name, profile_name, seed_i64) {
@@ -293,10 +440,40 @@ pub fn run_fuzz_suite(
 }
 
 ///|
-fn print_fuzz_suite_result(result : FuzzSuiteResult) -> Unit {
-  println(
-    "suite=\{result.suite} profile=\{result.profile} seed=\{result.seed} attempts=\{result.attempts} pass=true elapsed_ms=\{result.elapsed_ms}",
-  )
+fn fuzz_json_escape(input : String) -> String {
+  let out = StringBuilder::new()
+  for c in input {
+    match c {
+      '"' => out.write_string("\\\"")
+      '\\' => out.write_string("\\\\")
+      '\n' => out.write_string("\\n")
+      '\r' => out.write_string("\\r")
+      '\t' => out.write_string("\\t")
+      _ => out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+pub fn format_fuzz_suite_result(
+  result : FuzzSuiteResult,
+  output_mode : FuzzOutputMode,
+) -> String {
+  match output_mode {
+    FuzzOutputMode::Text =>
+      "suite=\{result.suite} profile=\{result.profile} seed=\{result.seed} attempts=\{result.attempts} pass=true elapsed_ms=\{result.elapsed_ms}"
+    FuzzOutputMode::Jsonl =>
+      "{\"suite\":\"\{fuzz_json_escape(result.suite)}\",\"profile\":\"\{fuzz_json_escape(result.profile)}\",\"seed\":\{result.seed},\"attempts\":\{result.attempts},\"pass\":true,\"elapsed_ms\":\{result.elapsed_ms}}"
+  }
+}
+
+///|
+fn print_fuzz_suite_result(
+  result : FuzzSuiteResult,
+  output_mode : FuzzOutputMode,
+) -> Unit {
+  println(format_fuzz_suite_result(result, output_mode))
 }
 
 ///|
@@ -323,12 +500,26 @@ fn fuzz_trim_program_name(argv : Array[String]) -> Array[String] {
 
 ///|
 fn main {
-  let parsed = parse_fuzz_cli_args(fuzz_trim_program_name(@env.args()))
-  match run_fuzz_suite(parsed.suite, parsed.profile, parsed.seed_i64) {
-    Ok(results) =>
-      for result in results {
-        print_fuzz_suite_result(result)
+  let args = fuzz_trim_program_name(@env.args())
+  match parse_fuzz_cli_command(args) {
+    FuzzCliCommand::Help => println(fuzz_usage_text())
+    FuzzCliCommand::ListSuites =>
+      for suite in fuzz_suite_names() {
+        println(suite)
       }
-    Err(e) => abort(e)
+    FuzzCliCommand::ListProfiles =>
+      for profile in fuzz_profile_names() {
+        println(profile)
+      }
+    FuzzCliCommand::Run(parsed) => {
+      let output_mode = parsed.output_mode
+      match run_fuzz_suite(parsed.suite, parsed.profile, parsed.seed_i64) {
+        Ok(results) =>
+          for result in results {
+            print_fuzz_suite_result(result, output_mode)
+          }
+        Err(e) => abort(e)
+      }
+    }
   }
 }

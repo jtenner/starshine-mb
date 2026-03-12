@@ -6,7 +6,11 @@ import {
 }
 
 // Values
+pub fn format_fuzz_suite_result(FuzzSuiteResult, FuzzOutputMode) -> String
+
 pub fn parse_fuzz_cli_args(Array[String]) -> FuzzCliArgs
+
+pub fn parse_fuzz_cli_command(Array[String]) -> FuzzCliCommand
 
 pub fn run_fuzz_suite(String, String, Int64) -> Result[Array[FuzzSuiteResult], String]
 
@@ -18,10 +22,29 @@ pub struct FuzzCliArgs {
   profile : String
   seed : UInt64
   seed_i64 : Int64
+  output_mode : FuzzOutputMode
 }
 pub impl Eq for FuzzCliArgs
 pub impl Show for FuzzCliArgs
 pub impl @debug.Debug for FuzzCliArgs
+
+pub enum FuzzCliCommand {
+  Run(FuzzCliArgs)
+  Help
+  ListSuites
+  ListProfiles
+}
+pub impl Eq for FuzzCliCommand
+pub impl Show for FuzzCliCommand
+pub impl @debug.Debug for FuzzCliCommand
+
+pub enum FuzzOutputMode {
+  Text
+  Jsonl
+}
+pub impl Eq for FuzzOutputMode
+pub impl Show for FuzzOutputMode
+pub impl @debug.Debug for FuzzOutputMode
 
 pub struct FuzzSuiteResult {
   suite : String

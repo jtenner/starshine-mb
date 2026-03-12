@@ -72,6 +72,13 @@ moon run src/fuzz all smoke
 # Run one suite with explicit seed
 moon run src/fuzz -- validate-valid ci --seed 0x5eed
 
+# List supported suites/profiles from the binary
+moon run src/fuzz -- --list-suites
+moon run src/fuzz -- --list-profiles
+
+# Emit machine-readable suite summaries
+moon run src/fuzz -- cmd-harness smoke --jsonl
+
 # Native-only stress cases
 moon run --target native src/fuzz -- cmd-harness stress --seed 0x5eed5eed
 ```
@@ -122,7 +129,7 @@ Recommended output contract (single-line summary per suite):
   - `moon run src/fuzz all ci`
 - [x] Add optional scheduled stress lane:
   - `moon run --target native src/fuzz all stress`
-- [x] Add helper script `scripts/run-fuzz.sh`.
+- [x] Add helper script `scripts/run-fuzz.sh` (seed optional; forwarded only when provided).
 
 ### Package E: Documentation + onboarding
 - [x] Update `README.mbt.md` with new fuzz commands and profile definitions.

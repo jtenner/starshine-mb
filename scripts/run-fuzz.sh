@@ -3,18 +3,40 @@ set -euo pipefail
 
 profile="${1:-ci}"
 suite="${2:-all}"
-seed="${3:-0x5eed}"
-target="${4:-wasm-gc}"
+seed=""
+target="wasm-gc"
+
+if [[ $# -gt 4 ]]; then
+  echo "usage: scripts/run-fuzz.sh [profile] [suite] [seed|target] [target]" >&2
+  echo "target must be one of: native, wasm, wasm-gc, llvm, js" >&2
+  exit 1
+fi
+
+if [[ $# -ge 3 ]]; then
+  case "${3}" in
+    native|wasm|wasm-gc|llvm|js)
+      target="${3}"
+      ;;
+    *)
+      seed="${3}"
+      ;;
+  esac
+fi
+
+if [[ $# -ge 4 ]]; then
+  target="${4}"
+fi
 
 case "${target}" in
-  native)
-    moon run --target native src/fuzz -- "${suite}" "${profile}" --seed "${seed}"
-    ;;
-  wasm|wasm-gc|llvm|js)
-    moon run --target "${target}" src/fuzz -- "${suite}" "${profile}" --seed "${seed}"
+  native|wasm|wasm-gc|llvm|js)
+    args=(--target "${target}" src/fuzz -- "${suite}" "${profile}")
+    if [[ -n "${seed}" ]]; then
+      args+=(--seed "${seed}")
+    fi
+    moon run "${args[@]}"
     ;;
   *)
-    echo "usage: scripts/run-fuzz.sh [profile] [suite] [seed] [target]" >&2
+    echo "usage: scripts/run-fuzz.sh [profile] [suite] [seed|target] [target]" >&2
     echo "target must be one of: native, wasm, wasm-gc, llvm, js" >&2
     exit 1
     ;;
