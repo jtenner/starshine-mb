@@ -1169,7 +1169,13 @@ fn vq_optimize(
   instr_id? : Int? = None,
 ) -> TInstr? {
   if !vq_take_budget(budget) {
-    return Some(instr)
+    return vq_try_midpass_degraded_fallback(
+      instr,
+      env,
+      result_used,
+      analysis_cache,
+      VQPassOptions::new(),
+    )
   }
   let initial_type = vq_type_of_cached(instr, env, analysis_cache, instr_id~)
   let mut type_matters = type_matters
@@ -6178,6 +6184,27 @@ test "vacuum sequence uses cheap-tier fallback for remaining items after full bu
   assert_true(seq.changed)
   assert_true(cache.stats.tier_fallback_calls.val >= 1)
   assert_true(cache.stats.tier_fallback_changes.val >= 1)
+}
+
+///|
+test "vacuum vq_optimize budget exhaustion falls back to cheap-tier rewrite" {
+  let instr = TInstr::drop(
+    TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(11))),
+  )
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  cache.midpass_degraded_budget = Some(Ref::new(8))
+  let budget = Ref::new(0)
+  let out = match vq_optimize(instr, false, false, env, budget, cache) {
+    Some(next) => next
+    None => fail("expected fallback optimize result")
+  }
+  assert_eq(
+    out,
+    TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(11))),
+  )
+  assert_eq(cache.stats.tier_fallback_calls.val, 1)
+  assert_eq(cache.stats.tier_fallback_changes.val, 1)
 }
 
 ///|
