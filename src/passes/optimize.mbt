@@ -1864,7 +1864,9 @@ pub fn default_function_optimization_passes(
   }
 
   passes.push(DeadCodeElimination)
+  passes.push(RemoveUnusedNames)
   passes.push(RemoveUnusedBrs)
+  passes.push(RemoveUnusedNames)
   passes.push(OptimizeInstructions)
   if has_gc {
     passes.push(HeapStoreOptimization)
@@ -1920,6 +1922,7 @@ pub fn default_function_optimization_passes(
   }
   passes.push(MergeBlocks)
   passes.push(RemoveUnusedBrs)
+  passes.push(RemoveUnusedNames)
   passes.push(MergeBlocks)
   if options.optimize_level >= 3 || options.shrink_level >= 2 {
     passes.push(PrecomputePropagate)
@@ -2707,6 +2710,64 @@ test "default function optimization passes map tuple-optimization mode for multi
   assert_true(tuple_opt_idx >= 0)
   assert_true(simplify_no_structure_idx >= 0)
   assert_true(tuple_opt_idx < simplify_no_structure_idx)
+}
+
+///|
+test "default function optimization passes include binaryen-parity remove-unused-names cleanup points" {
+  let passes = default_function_optimization_passes(
+    Module::new(),
+    OptimizeOptions::new(optimize_level=2),
+  )
+  let remove_unused_names_idxs : Array[Int] = []
+  let mut idx = 0
+  for pass in passes {
+    match pass {
+      RemoveUnusedNames => remove_unused_names_idxs.push(idx)
+      _ => ()
+    }
+    idx += 1
+  }
+  assert_eq(remove_unused_names_idxs.length(), 3)
+
+  let dce_idx = default_first_module_pass_index(passes, fn(pass) {
+    match pass {
+      DeadCodeElimination => true
+      _ => false
+    }
+  })
+  let first_remove_unused_brs_idx = default_first_module_pass_index(passes, fn(
+    pass,
+  ) {
+    match pass {
+      RemoveUnusedBrs => true
+      _ => false
+    }
+  })
+  let merge_blocks_idxs : Array[Int] = []
+  idx = 0
+  for pass in passes {
+    match pass {
+      MergeBlocks => merge_blocks_idxs.push(idx)
+      _ => ()
+    }
+    idx += 1
+  }
+  let remove_unused_brs_count = default_count_module_passes(passes, fn(pass) {
+    match pass {
+      RemoveUnusedBrs => true
+      _ => false
+    }
+  })
+  assert_true(dce_idx >= 0)
+  assert_true(first_remove_unused_brs_idx >= 0)
+  assert_eq(merge_blocks_idxs.length(), 2)
+  assert_eq(remove_unused_brs_count, 3)
+
+  assert_true(dce_idx < remove_unused_names_idxs[0])
+  assert_true(remove_unused_names_idxs[0] < first_remove_unused_brs_idx)
+  assert_true(first_remove_unused_brs_idx < remove_unused_names_idxs[1])
+  assert_true(merge_blocks_idxs[0] < remove_unused_names_idxs[2])
+  assert_true(remove_unused_names_idxs[2] < merge_blocks_idxs[1])
 }
 
 ///|

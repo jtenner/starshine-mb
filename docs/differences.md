@@ -73,9 +73,9 @@ By contrast, the local pipeline runs `DataflowOptimization`, which is a real opt
 
 This difference is important enough that it should be treated as a semantic divergence, not a naming divergence.
 
-## 3. `RemoveUnusedNames` Is Missing from the Default Function Pipeline
+## 3. `RemoveUnusedNames` Cleanup Points in the Default Function Pipeline
 
-Binaryen runs `remove-unused-names` multiple times in the function pipeline. The local pipeline does not currently insert it at all.
+Binaryen runs `remove-unused-names` multiple times in the function pipeline. The local pipeline now mirrors those cleanup points in the default path.
 
 Relevant local sequence:
 
@@ -90,23 +90,23 @@ What Binaryen does conceptually:
 - `remove-unused-names`
 - later, after `merge-blocks` and `remove-unused-brs`, another `remove-unused-names`
 
-What the local pipeline does:
+What the local pipeline now does:
 
 - `DeadCodeElimination`
+- `RemoveUnusedNames`
 - `RemoveUnusedBrs`
+- `RemoveUnusedNames`
 - later cleanup passes
 - `MergeBlocks`
 - `RemoveUnusedBrs`
+- `RemoveUnusedNames`
 - `MergeBlocks`
-
-No `RemoveUnusedNames` is present in that path.
 
 Impact:
 
-- This is a real parity gap.
-- It is probably not a primary runtime cause of the observed optimizer stall.
-- It does mean the pass order is not a faithful copy of Binaryen's cleanup choreography.
-- It may leave some branch-name cleanup opportunities unrealized, which can slightly alter later structural cleanup behavior.
+- This parity gap is now closed.
+- It is still probably not a primary runtime cause of the observed optimizer stall.
+- The function cleanup choreography now better matches Binaryen's repeated branch-name cleanup pattern.
 
 This difference matters for correctness of the comparison, but it is probably second-order for performance.
 
