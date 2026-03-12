@@ -652,7 +652,15 @@ fn vq_type_of_cached(
   instr : TInstr,
   env : Env,
   analysis_cache : VQAnalysisCache,
+  instr_id? : Int? = None,
 ) -> ValType? {
+  match vq_indexed_instr_node(analysis_cache, instr_id) {
+    Some(node) => {
+      analysis_cache.stats.type_cache_hits.val += 1
+      return node.type_
+    }
+    None => ()
+  }
   match analysis_cache.type_cache.get(instr) {
     Some(v) => {
       analysis_cache.stats.type_cache_hits.val += 1
@@ -671,7 +679,15 @@ fn vq_type_of_cached(
 fn vq_has_unremovable_effects_cached(
   instr : TInstr,
   analysis_cache : VQAnalysisCache,
+  instr_id? : Int? = None,
 ) -> Bool {
+  match vq_indexed_instr_node(analysis_cache, instr_id) {
+    Some(node) => {
+      analysis_cache.stats.effect_cache_hits.val += 1
+      return node.has_unremovable_effects
+    }
+    None => ()
+  }
   match analysis_cache.effect_cache.get(instr) {
     Some(v) => {
       analysis_cache.stats.effect_cache_hits.val += 1
@@ -693,7 +709,15 @@ fn vq_has_unremovable_effects_cached(
 fn vq_has_unremovable_shallow_effects_cached(
   instr : TInstr,
   analysis_cache : VQAnalysisCache,
+  instr_id? : Int? = None,
 ) -> Bool {
+  match vq_indexed_instr_node(analysis_cache, instr_id) {
+    Some(node) => {
+      analysis_cache.stats.shallow_effect_cache_hits.val += 1
+      return node.shallow_has_unremovable_effects
+    }
+    None => ()
+  }
   match analysis_cache.shallow_effect_cache.get(instr) {
     Some(v) => {
       analysis_cache.stats.shallow_effect_cache_hits.val += 1
@@ -712,7 +736,12 @@ fn vq_has_unremovable_shallow_effects_cached(
 fn vq_instr_has_calls_cached(
   instr : TInstr,
   analysis_cache : VQAnalysisCache,
+  instr_id? : Int? = None,
 ) -> Bool {
+  match vq_indexed_instr_node(analysis_cache, instr_id) {
+    Some(node) => return node.has_calls
+    None => ()
+  }
   match analysis_cache.calls_cache.get(instr) {
     Some(has_calls) => has_calls
     None => {
@@ -730,7 +759,12 @@ fn vq_instr_has_calls_cached(
 fn vq_instr_effect_transfers_control_flow_cached(
   instr : TInstr,
   analysis_cache : VQAnalysisCache,
+  instr_id? : Int? = None,
 ) -> Bool {
+  match vq_indexed_instr_node(analysis_cache, instr_id) {
+    Some(node) => return node.effect_transfers_control_flow
+    None => ()
+  }
   match analysis_cache.effect_control_transfer_cache.get(instr) {
     Some(transfers) => transfers
     None => {
@@ -748,7 +782,12 @@ fn vq_instr_effect_transfers_control_flow_cached(
 fn vq_instr_has_control_transfer_cached(
   instr : TInstr,
   analysis_cache : VQAnalysisCache,
+  instr_id? : Int? = None,
 ) -> Bool {
+  match vq_indexed_instr_node(analysis_cache, instr_id) {
+    Some(node) => return node.has_control_transfer
+    None => ()
+  }
   match analysis_cache.instr_control_transfer_cache.get(instr) {
     Some(has_control_transfer) => has_control_transfer
     None => {
@@ -921,12 +960,29 @@ fn vq_texpr_result_type(
   expr : TExpr,
   env : Env,
   analysis_cache : VQAnalysisCache,
+  expr_id? : Int? = None,
 ) -> ValType? {
-  let { instrs: items, .. } = expr
-  if items.is_empty() {
-    None
-  } else {
-    vq_type_of_cached(items[items.length() - 1], env, analysis_cache)
+  match vq_indexed_expr_node(analysis_cache, expr_id) {
+    Some(node) =>
+      if node.instr_ids.is_empty() {
+        None
+      } else {
+        let last_id = node.instr_ids[node.instr_ids.length() - 1]
+        vq_type_of_cached(
+          expr.instrs[expr.instrs.length() - 1],
+          env,
+          analysis_cache,
+          instr_id=Some(last_id),
+        )
+      }
+    None => {
+      let { instrs: items, .. } = expr
+      if items.is_empty() {
+        None
+      } else {
+        vq_type_of_cached(items[items.length() - 1], env, analysis_cache)
+      }
+    }
   }
 }
 
@@ -1000,6 +1056,7 @@ fn vq_drop_texpr_value(
 fn vq_must_keep_unused_parent(
   curr : TInstr,
   analysis_cache : VQAnalysisCache,
+  instr_id? : Int? = None,
 ) -> Bool {
   match curr.kind {
     TInstrKind::TCall(func_idx, _) =>
@@ -1011,7 +1068,7 @@ fn vq_must_keep_unused_parent(
       }
     _ => ()
   }
-  vq_has_unremovable_shallow_effects_cached(curr, analysis_cache)
+  vq_has_unremovable_shallow_effects_cached(curr, analysis_cache, instr_id~)
 }
 
 ///|
@@ -1054,11 +1111,12 @@ fn vq_optimize(
   env : Env,
   budget : Ref[Int],
   analysis_cache : VQAnalysisCache,
+  instr_id? : Int? = None,
 ) -> TInstr? {
   if !vq_take_budget(budget) {
     return Some(instr)
   }
-  let initial_type = vq_type_of_cached(instr, env, analysis_cache)
+  let initial_type = vq_type_of_cached(instr, env, analysis_cache, instr_id~)
   let mut type_matters = type_matters
   if initial_type is None {
     type_matters = true
@@ -1073,7 +1131,11 @@ fn vq_optimize(
   let mut prev = instr
   let mut curr = instr
   for _ in 0..<64 {
-    let curr_type = vq_type_of_cached(curr, env, analysis_cache)
+    let curr_type = if curr == instr {
+      vq_type_of_cached(curr, env, analysis_cache, instr_id~)
+    } else {
+      vq_type_of_cached(curr, env, analysis_cache)
+    }
     if type_matters && !vq_same_type(curr_type, initial_type) {
       return Some(prev)
     }
@@ -1086,7 +1148,11 @@ fn vq_optimize(
       | TInstrKind::TTryTable(_, _, _) => return Some(curr)
       _ => ()
     }
-    if vq_must_keep_unused_parent(curr, analysis_cache) {
+    if curr == instr &&
+      vq_must_keep_unused_parent(curr, analysis_cache, instr_id~) {
+      return Some(curr)
+    }
+    if curr != instr && vq_must_keep_unused_parent(curr, analysis_cache) {
       return Some(curr)
     }
     let mut first_effectful_child : TInstr? = None
@@ -1165,7 +1231,81 @@ fn VQStackSig::new(
 }
 
 ///|
+priv struct VQIndexedInstrNode {
+  eval_child_ids : Array[Int]
+  body_expr_id : Int?
+  then_expr_id : Int?
+  else_expr_id : Int?
+  type_ : ValType?
+  shallow_has_unremovable_effects : Bool
+  has_unremovable_effects : Bool
+  has_calls : Bool
+  effect_transfers_control_flow : Bool
+  has_control_transfer : Bool
+  throws : Bool
+  explicit_unreachable : Bool
+  may_not_return : Bool
+  stack_sig : VQStackSig?
+}
+
+///|
+fn VQIndexedInstrNode::new(
+  eval_child_ids : Array[Int],
+  body_expr_id : Int?,
+  then_expr_id : Int?,
+  else_expr_id : Int?,
+  type_ : ValType?,
+  shallow_has_unremovable_effects : Bool,
+  has_unremovable_effects : Bool,
+  has_calls : Bool,
+  effect_transfers_control_flow : Bool,
+  has_control_transfer : Bool,
+  throws : Bool,
+  explicit_unreachable : Bool,
+  may_not_return : Bool,
+  stack_sig : VQStackSig?,
+) -> VQIndexedInstrNode {
+  {
+    eval_child_ids,
+    body_expr_id,
+    then_expr_id,
+    else_expr_id,
+    type_,
+    shallow_has_unremovable_effects,
+    has_unremovable_effects,
+    has_calls,
+    effect_transfers_control_flow,
+    has_control_transfer,
+    throws,
+    explicit_unreachable,
+    may_not_return,
+    stack_sig,
+  }
+}
+
+///|
+priv struct VQIndexedExprNode {
+  instr_ids : Array[Int]
+  has_control_transfer : Bool
+  throws : Bool
+  explicit_unreachable : Bool
+}
+
+///|
+fn VQIndexedExprNode::new(
+  instr_ids : Array[Int],
+  has_control_transfer : Bool,
+  throws : Bool,
+  explicit_unreachable : Bool,
+) -> VQIndexedExprNode {
+  { instr_ids, has_control_transfer, throws, explicit_unreachable }
+}
+
+///|
 priv struct VQAnalysisCache {
+  indexed_instr_nodes : Array[VQIndexedInstrNode]
+  indexed_expr_nodes : Array[VQIndexedExprNode]
+  mut indexed_root_expr_id : Int?
   type_cache : Map[TInstr, ValType?]
   effect_cache : Map[TInstr, Bool]
   shallow_effect_cache : Map[TInstr, Bool]
@@ -1190,6 +1330,9 @@ fn VQAnalysisCache::new(
   stats : VQRunStats,
 ) -> VQAnalysisCache {
   {
+    indexed_instr_nodes: [],
+    indexed_expr_nodes: [],
+    indexed_root_expr_id: None,
     type_cache: Map::new(),
     effect_cache: Map::new(),
     shallow_effect_cache: Map::new(),
@@ -1247,7 +1390,7 @@ fn vq_analysis_cache_instr_entry_count(cache : VQAnalysisCache) -> Int {
   for key in cache.may_not_return_cache.keys() {
     seen[key] = true
   }
-  vq_map_size(seen)
+  cache.indexed_instr_nodes.length() + vq_map_size(seen)
 }
 
 ///|
@@ -1265,39 +1408,487 @@ fn vq_analysis_cache_expr_entry_count(cache : VQAnalysisCache) -> Int {
   for key in cache.value_break_lub_depth0_cache.keys() {
     seen[key] = true
   }
-  vq_map_size(seen)
+  cache.indexed_expr_nodes.length() + vq_map_size(seen)
 }
 
 ///|
-priv struct VQInstrSeedFacts {
-  has_unremovable_effects : Bool
-  has_calls : Bool
-  effect_transfers_control_flow : Bool
-  has_control_transfer : Bool
-  throws : Bool
-  explicit_unreachable : Bool
-  may_not_return : Bool
-}
-
-///|
-fn VQInstrSeedFacts::new(
-  has_unremovable_effects : Bool,
-  has_calls : Bool,
-  effect_transfers_control_flow : Bool,
-  has_control_transfer : Bool,
-  throws : Bool,
-  explicit_unreachable : Bool,
-  may_not_return : Bool,
-) -> VQInstrSeedFacts {
-  {
-    has_unremovable_effects,
-    has_calls,
-    effect_transfers_control_flow,
-    has_control_transfer,
-    throws,
-    explicit_unreachable,
-    may_not_return,
+fn vq_indexed_instr_node(
+  analysis_cache : VQAnalysisCache,
+  instr_id : Int?,
+) -> VQIndexedInstrNode? {
+  match instr_id {
+    Some(id) => analysis_cache.indexed_instr_nodes.get(id)
+    None => None
   }
+}
+
+///|
+fn vq_indexed_expr_node(
+  analysis_cache : VQAnalysisCache,
+  expr_id : Int?,
+) -> VQIndexedExprNode? {
+  match expr_id {
+    Some(id) => analysis_cache.indexed_expr_nodes.get(id)
+    None => None
+  }
+}
+
+///|
+fn vq_indexed_expr_instr_id(expr_node : VQIndexedExprNode?, idx : Int) -> Int? {
+  match expr_node {
+    Some(node) => node.instr_ids.get(idx)
+    None => None
+  }
+}
+
+///|
+fn vq_indexed_eval_child_id(
+  instr_node : VQIndexedInstrNode?,
+  idx : Int,
+) -> Int? {
+  match instr_node {
+    Some(node) => node.eval_child_ids.get(idx)
+    None => None
+  }
+}
+
+///|
+fn vq_stack_sig_list_indexed(
+  item_ids : Array[Int],
+  analysis_cache : VQAnalysisCache,
+) -> VQStackSig? {
+  let mut acc = VQStackSig::new(0, 0, true)
+  for item_id in item_ids {
+    match analysis_cache.indexed_instr_nodes[item_id].stack_sig {
+      Some(sig) => {
+        acc = vq_stack_seq(acc, sig)
+        if !acc.reachable {
+          break
+        }
+      }
+      None => return None
+    }
+  }
+  Some(acc)
+}
+
+///|
+fn vq_stack_sig_expr_indexed(
+  expr_id : Int,
+  analysis_cache : VQAnalysisCache,
+) -> VQStackSig? {
+  vq_stack_sig_list_indexed(
+    analysis_cache.indexed_expr_nodes[expr_id].instr_ids,
+    analysis_cache,
+  )
+}
+
+///|
+fn vq_indexed_expr_any_instr(
+  expr_id : Int?,
+  analysis_cache : VQAnalysisCache,
+  pred : (VQIndexedInstrNode) -> Bool,
+) -> Bool {
+  match expr_id {
+    Some(id) =>
+      for instr_id in analysis_cache.indexed_expr_nodes[id].instr_ids {
+        if pred(analysis_cache.indexed_instr_nodes[instr_id]) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn vq_indexed_child_any(
+  child_ids : Array[Int],
+  analysis_cache : VQAnalysisCache,
+  pred : (VQIndexedInstrNode) -> Bool,
+) -> Bool {
+  for child_id in child_ids {
+    if pred(analysis_cache.indexed_instr_nodes[child_id]) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn vq_stack_sig_instr_indexed(
+  instr : TInstr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  eval_child_ids : Array[Int],
+  body_expr_id : Int?,
+  then_expr_id : Int?,
+  else_expr_id : Int?,
+) -> VQStackSig? {
+  match instr.kind {
+    TInstrKind::TNop => Some(VQStackSig::new(0, 0, true))
+    TInstrKind::TUnreachable => Some(VQStackSig::new(0, 0, false))
+    TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_) => Some(VQStackSig::new(0, 1, true))
+    TInstrKind::TDrop(_)
+    | TInstrKind::TLocalSet(_, _)
+    | TInstrKind::TGlobalSet(_, _) =>
+      vq_stack_sig_list_indexed(eval_child_ids, analysis_cache).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 1, 0)
+      })
+    TInstrKind::TLocalTee(_, _) =>
+      vq_stack_sig_list_indexed(eval_child_ids, analysis_cache).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 1, 1)
+      })
+    TInstrKind::TUnary(_, _)
+    | TInstrKind::TLoad(_, _, _)
+    | TInstrKind::TRefIsNull(_)
+    | TInstrKind::TRefAsNonNull(_)
+    | TInstrKind::TAnyConvertExtern(_)
+    | TInstrKind::TExternConvertAny(_)
+    | TInstrKind::TI31GetS(_)
+    | TInstrKind::TI31GetU(_)
+    | TInstrKind::TArrayLen(_) =>
+      vq_stack_sig_list_indexed(eval_child_ids, analysis_cache).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 1, 1)
+      })
+    TInstrKind::TBinary(_, _, _) | TInstrKind::TRefEq(_, _) =>
+      vq_stack_sig_list_indexed(eval_child_ids, analysis_cache).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 2, 1)
+      })
+    TInstrKind::TStore(_, _, _, _) =>
+      vq_stack_sig_list_indexed(eval_child_ids, analysis_cache).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 2, 0)
+      })
+    TInstrKind::TSelect(_, _, _, _) =>
+      vq_stack_sig_list_indexed(eval_child_ids, analysis_cache).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 3, 1)
+      })
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TTryTable(_, _, _) =>
+      match body_expr_id {
+        Some(id) => vq_stack_sig_expr_indexed(id, analysis_cache)
+        None => None
+      }
+    TInstrKind::TIf(_, _, _, _) => {
+      let else_sig = match else_expr_id {
+        Some(id) => vq_stack_sig_expr_indexed(id, analysis_cache)
+        None => Some(VQStackSig::new(0, 0, true))
+      }
+      match
+        (
+          vq_stack_sig_list_indexed(eval_child_ids, analysis_cache),
+          then_expr_id.bind(fn(id) {
+            vq_stack_sig_expr_indexed(id, analysis_cache)
+          }),
+          else_sig,
+        ) {
+        (Some(cond_sig), Some(then_sig), Some(other_sig)) =>
+          Some(vq_stack_sig_if(cond_sig, then_sig, other_sig))
+        _ => None
+      }
+    }
+    TInstrKind::TCall(func_idx, _) =>
+      match
+        (
+          vq_stack_sig_list_indexed(eval_child_ids, analysis_cache),
+          env.get_functype_by_funcidx(func_idx),
+        ) {
+        (Some(sig), Some(FuncType(params, results))) =>
+          Some(vq_stack_sig_pop_push(sig, params.length(), results.length()))
+        _ => None
+      }
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
+      match
+        (
+          vq_stack_sig_list_indexed(eval_child_ids, analysis_cache),
+          env.resolve_functype(type_idx),
+        ) {
+        (Some(sig), Some(FuncType(params, results))) =>
+          Some(
+            vq_stack_sig_pop_push(sig, params.length() + 1, results.length()),
+          )
+        _ => None
+      }
+    TInstrKind::TReturn(_) | TInstrKind::TThrow(_, _) =>
+      vq_stack_sig_list_indexed(eval_child_ids, analysis_cache).map(fn(sig) {
+        vq_stack_sig_terminate(sig, 0)
+      })
+    TInstrKind::TThrowRef(_) =>
+      vq_stack_sig_list_indexed(eval_child_ids, analysis_cache).map(fn(sig) {
+        vq_stack_sig_terminate(sig, 1)
+      })
+    TInstrKind::TBr(_, _) =>
+      vq_stack_sig_list_indexed(eval_child_ids, analysis_cache).map(fn(sig) {
+        vq_stack_sig_terminate(sig, 0)
+      })
+    TInstrKind::TBrIf(_, _, _) =>
+      vq_stack_sig_list_indexed(eval_child_ids, analysis_cache).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 1, 0)
+      })
+    TInstrKind::TBrTable(_, _, _, _) =>
+      vq_stack_sig_list_indexed(eval_child_ids, analysis_cache).map(fn(sig) {
+        vq_stack_sig_terminate(sig, 1)
+      })
+    TInstrKind::TReturnCall(func_idx, _) =>
+      match
+        (
+          vq_stack_sig_list_indexed(eval_child_ids, analysis_cache),
+          env.get_functype_by_funcidx(func_idx),
+        ) {
+        (Some(sig), Some(FuncType(params, _))) =>
+          Some(vq_stack_sig_terminate(sig, params.length()))
+        _ => None
+      }
+    TInstrKind::TReturnCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TReturnCallRef(type_idx, _, _) =>
+      match
+        (
+          vq_stack_sig_list_indexed(eval_child_ids, analysis_cache),
+          env.resolve_functype(type_idx),
+        ) {
+        (Some(sig), Some(FuncType(params, _))) =>
+          Some(vq_stack_sig_terminate(sig, params.length() + 1))
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn vq_build_indexed_instr_analysis_bounded(
+  instr : TInstr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  budget : Ref[Int],
+) -> Int? {
+  let start_us = vacuum_trace_now_us()
+  if !vq_take_budget(budget) {
+    ignore(
+      vq_commit_helper_timing(
+        analysis_cache.stats.seed_instr_us,
+        analysis_cache.stats.seed_instr_calls,
+        start_us,
+      ),
+    )
+    return None
+  }
+  let eval_child_ids : Array[Int] = []
+  for child in eval_children(instr) {
+    match
+      vq_build_indexed_instr_analysis_bounded(
+        child, env, analysis_cache, budget,
+      ) {
+      Some(id) => eval_child_ids.push(id)
+      None => return None
+    }
+  }
+  let body_expr_id = match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      vq_build_indexed_expr_analysis_bounded(body, env, analysis_cache, budget)
+    _ => None
+  }
+  match instr.kind {
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TTryTable(_, _, _) => if body_expr_id is None { return None }
+    _ => ()
+  }
+  let then_expr_id = match instr.kind {
+    TInstrKind::TIf(_, _, then_body, _) =>
+      vq_build_indexed_expr_analysis_bounded(
+        then_body, env, analysis_cache, budget,
+      )
+    _ => None
+  }
+  match instr.kind {
+    TInstrKind::TIf(_, _, _, _) if then_expr_id is None => return None
+    _ => ()
+  }
+  let else_expr_id = match instr.kind {
+    TInstrKind::TIf(_, _, _, Some(other)) =>
+      vq_build_indexed_expr_analysis_bounded(other, env, analysis_cache, budget)
+    _ => None
+  }
+  let shallow_effects = lcs_collect_shallow_effects(instr)
+  let shallow_has_unremovable = shallow_effects.has_unremovable_side_effects()
+  let mut has_unremovable_effects = shallow_has_unremovable
+  let mut has_calls = shallow_effects.calls
+  let mut effect_transfers_control_flow = shallow_effects.transfers_control_flow()
+  for child_id in eval_child_ids {
+    let child = analysis_cache.indexed_instr_nodes[child_id]
+    has_unremovable_effects = has_unremovable_effects ||
+      child.has_unremovable_effects
+    has_calls = has_calls || child.has_calls
+    effect_transfers_control_flow = effect_transfers_control_flow ||
+      child.effect_transfers_control_flow
+  }
+  has_unremovable_effects = has_unremovable_effects ||
+    vq_indexed_expr_any_instr(body_expr_id, analysis_cache, fn(node) {
+      node.has_unremovable_effects
+    }) ||
+    vq_indexed_expr_any_instr(then_expr_id, analysis_cache, fn(node) {
+      node.has_unremovable_effects
+    }) ||
+    vq_indexed_expr_any_instr(else_expr_id, analysis_cache, fn(node) {
+      node.has_unremovable_effects
+    })
+  has_calls = has_calls ||
+    vq_indexed_expr_any_instr(body_expr_id, analysis_cache, fn(node) {
+      node.has_calls
+    }) ||
+    vq_indexed_expr_any_instr(then_expr_id, analysis_cache, fn(node) {
+      node.has_calls
+    }) ||
+    vq_indexed_expr_any_instr(else_expr_id, analysis_cache, fn(node) {
+      node.has_calls
+    })
+  effect_transfers_control_flow = effect_transfers_control_flow ||
+    vq_indexed_expr_any_instr(body_expr_id, analysis_cache, fn(node) {
+      node.effect_transfers_control_flow
+    }) ||
+    vq_indexed_expr_any_instr(then_expr_id, analysis_cache, fn(node) {
+      node.effect_transfers_control_flow
+    }) ||
+    vq_indexed_expr_any_instr(else_expr_id, analysis_cache, fn(node) {
+      node.effect_transfers_control_flow
+    })
+  let body_throws = match body_expr_id {
+    Some(id) => analysis_cache.indexed_expr_nodes[id].throws
+    None => false
+  }
+  let then_throws = match then_expr_id {
+    Some(id) => analysis_cache.indexed_expr_nodes[id].throws
+    None => false
+  }
+  let else_throws = match else_expr_id {
+    Some(id) => analysis_cache.indexed_expr_nodes[id].throws
+    None => false
+  }
+  let body_explicit_unreachable = match body_expr_id {
+    Some(id) => analysis_cache.indexed_expr_nodes[id].explicit_unreachable
+    None => false
+  }
+  let then_explicit_unreachable = match then_expr_id {
+    Some(id) => analysis_cache.indexed_expr_nodes[id].explicit_unreachable
+    None => false
+  }
+  let else_explicit_unreachable = match else_expr_id {
+    Some(id) => analysis_cache.indexed_expr_nodes[id].explicit_unreachable
+    None => false
+  }
+  let has_control_transfer = effect_transfers_control_flow ||
+    vq_instr_has_control_transfer_local(instr)
+  let throws = vq_instr_throws_local(instr) ||
+    body_throws ||
+    then_throws ||
+    else_throws ||
+    vq_indexed_child_any(eval_child_ids, analysis_cache, fn(node) {
+      node.throws
+    })
+  let explicit_unreachable = vq_is_explicit_unreachable_instr(instr) ||
+    body_explicit_unreachable ||
+    then_explicit_unreachable ||
+    else_explicit_unreachable ||
+    vq_indexed_child_any(eval_child_ids, analysis_cache, fn(node) {
+      node.explicit_unreachable
+    })
+  let may_not_return = vq_instr_may_not_return_local(instr) ||
+    vq_indexed_expr_any_instr(body_expr_id, analysis_cache, fn(node) {
+      node.may_not_return
+    }) ||
+    vq_indexed_expr_any_instr(then_expr_id, analysis_cache, fn(node) {
+      node.may_not_return
+    }) ||
+    vq_indexed_expr_any_instr(else_expr_id, analysis_cache, fn(node) {
+      node.may_not_return
+    }) ||
+    vq_indexed_child_any(eval_child_ids, analysis_cache, fn(node) {
+      node.may_not_return
+    })
+  let type_ = vq_type_of_timed(instr, env, analysis_cache.stats)
+  let stack_sig = vq_stack_sig_instr_indexed(
+    instr, env, analysis_cache, eval_child_ids, body_expr_id, then_expr_id, else_expr_id,
+  )
+  let instr_id = analysis_cache.indexed_instr_nodes.length()
+  analysis_cache.indexed_instr_nodes.push(
+    VQIndexedInstrNode::new(
+      eval_child_ids, body_expr_id, then_expr_id, else_expr_id, type_, shallow_has_unremovable,
+      has_unremovable_effects, has_calls, effect_transfers_control_flow, has_control_transfer,
+      throws, explicit_unreachable, may_not_return, stack_sig,
+    ),
+  )
+  ignore(
+    vq_commit_helper_timing(
+      analysis_cache.stats.seed_instr_us,
+      analysis_cache.stats.seed_instr_calls,
+      start_us,
+    ),
+  )
+  Some(instr_id)
+}
+
+///|
+fn vq_build_indexed_expr_analysis_bounded(
+  expr : TExpr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  budget : Ref[Int],
+) -> Int? {
+  let start_us = vacuum_trace_now_us()
+  if !vq_take_budget(budget) {
+    ignore(
+      vq_commit_helper_timing(
+        analysis_cache.stats.seed_texpr_us,
+        analysis_cache.stats.seed_texpr_calls,
+        start_us,
+      ),
+    )
+    return None
+  }
+  let instr_ids : Array[Int] = []
+  let mut has_control_transfer = false
+  let mut throws = false
+  let mut explicit_unreachable = false
+  for instr in expr.instrs {
+    match
+      vq_build_indexed_instr_analysis_bounded(
+        instr, env, analysis_cache, budget,
+      ) {
+      Some(id) => {
+        instr_ids.push(id)
+        let node = analysis_cache.indexed_instr_nodes[id]
+        has_control_transfer = has_control_transfer || node.has_control_transfer
+        throws = throws || node.throws
+        explicit_unreachable = explicit_unreachable || node.explicit_unreachable
+      }
+      None => return None
+    }
+  }
+  let expr_id = analysis_cache.indexed_expr_nodes.length()
+  analysis_cache.indexed_expr_nodes.push(
+    VQIndexedExprNode::new(
+      instr_ids, has_control_transfer, throws, explicit_unreachable,
+    ),
+  )
+  ignore(
+    vq_commit_helper_timing(
+      analysis_cache.stats.seed_texpr_us,
+      analysis_cache.stats.seed_texpr_calls,
+      start_us,
+    ),
+  )
+  Some(expr_id)
 }
 
 ///|
@@ -1347,40 +1938,6 @@ fn vq_instr_may_not_return_local(instr : TInstr) -> Bool {
 }
 
 ///|
-fn vq_instr_seed_facts_from_cache(
-  instr : TInstr,
-  analysis_cache : VQAnalysisCache,
-) -> VQInstrSeedFacts? {
-  match
-    (
-      analysis_cache.effect_cache.get(instr),
-      analysis_cache.calls_cache.get(instr),
-      analysis_cache.effect_control_transfer_cache.get(instr),
-      analysis_cache.instr_control_transfer_cache.get(instr),
-      analysis_cache.instr_throws_cache.get(instr),
-      analysis_cache.instr_explicit_unreachable_cache.get(instr),
-      analysis_cache.may_not_return_cache.get(instr),
-    ) {
-    (
-      Some(has_unremovable_effects),
-      Some(has_calls),
-      Some(effect_transfers_control_flow),
-      Some(has_control_transfer),
-      Some(throws),
-      Some(explicit_unreachable),
-      Some(may_not_return),
-    ) =>
-      Some(
-        VQInstrSeedFacts::new(
-          has_unremovable_effects, has_calls, effect_transfers_control_flow, has_control_transfer,
-          throws, explicit_unreachable, may_not_return,
-        ),
-      )
-    _ => None
-  }
-}
-
-///|
 fn vq_visit_instr_recursive_children(
   instr : TInstr,
   visit : (TInstr) -> Unit,
@@ -1414,262 +1971,20 @@ fn vq_visit_instr_recursive_children(
 }
 
 ///|
-fn vq_seed_instr_facts(
-  instr : TInstr,
-  env : Env,
-  analysis_cache : VQAnalysisCache,
-) -> VQInstrSeedFacts {
-  match vq_instr_seed_facts_from_cache(instr, analysis_cache) {
-    Some(facts) => return facts
-    None => ()
-  }
-
-  let mut has_unremovable_effects = false
-  let mut has_calls = false
-  let mut effect_transfers_control_flow = false
-  let mut has_control_transfer = false
-  let mut throws = false
-  let mut explicit_unreachable = false
-  let mut may_not_return = false
-
-  vq_visit_instr_recursive_children(instr, fn(child) {
-    let child_facts = vq_seed_instr_facts(child, env, analysis_cache)
-    has_unremovable_effects = has_unremovable_effects ||
-      child_facts.has_unremovable_effects
-    has_calls = has_calls || child_facts.has_calls
-    effect_transfers_control_flow = effect_transfers_control_flow ||
-      child_facts.effect_transfers_control_flow
-    has_control_transfer = has_control_transfer ||
-      child_facts.has_control_transfer
-    throws = throws || child_facts.throws
-    explicit_unreachable = explicit_unreachable ||
-      child_facts.explicit_unreachable
-    may_not_return = may_not_return || child_facts.may_not_return
-  })
-
-  let shallow_effects = lcs_collect_shallow_effects(instr)
-  let shallow_has_unremovable = shallow_effects.has_unremovable_side_effects()
-  has_unremovable_effects = has_unremovable_effects || shallow_has_unremovable
-  has_calls = has_calls || shallow_effects.calls
-  effect_transfers_control_flow = effect_transfers_control_flow ||
-    shallow_effects.transfers_control_flow()
-  has_control_transfer = has_control_transfer ||
-    vq_instr_has_control_transfer_local(instr)
-  throws = throws || vq_instr_throws_local(instr)
-  explicit_unreachable = explicit_unreachable ||
-    vq_is_explicit_unreachable_instr(instr)
-  may_not_return = may_not_return || vq_instr_may_not_return_local(instr)
-
-  if analysis_cache.type_cache.get(instr) is None {
-    analysis_cache.type_cache[instr] = vq_type_of_timed(
-      instr,
-      env,
-      analysis_cache.stats,
-    )
-  }
-  analysis_cache.shallow_effect_cache[instr] = shallow_has_unremovable
-  analysis_cache.effect_cache[instr] = has_unremovable_effects
-  analysis_cache.calls_cache[instr] = has_calls
-  analysis_cache.effect_control_transfer_cache[instr] = effect_transfers_control_flow
-  analysis_cache.instr_control_transfer_cache[instr] = has_control_transfer
-  analysis_cache.instr_throws_cache[instr] = throws
-  analysis_cache.instr_explicit_unreachable_cache[instr] = explicit_unreachable
-  analysis_cache.may_not_return_cache[instr] = may_not_return
-
-  ignore(vq_stack_sig_instr_seeded(instr, env, analysis_cache))
-
-  VQInstrSeedFacts::new(
-    has_unremovable_effects, has_calls, effect_transfers_control_flow, has_control_transfer,
-    throws, explicit_unreachable, may_not_return,
-  )
-}
-
-///|
-fn vq_seed_instr_facts_bounded(
-  instr : TInstr,
-  env : Env,
-  analysis_cache : VQAnalysisCache,
-  budget : Ref[Int],
-) -> Bool {
-  let start_us = vacuum_trace_now_us()
-  if !vq_take_budget(budget) {
-    ignore(
-      vq_commit_helper_timing(
-        analysis_cache.stats.seed_instr_us,
-        analysis_cache.stats.seed_instr_calls,
-        start_us,
-      ),
-    )
-    return false
-  }
-  match vq_instr_seed_facts_from_cache(instr, analysis_cache) {
-    Some(_) => {
-      ignore(
-        vq_commit_helper_timing(
-          analysis_cache.stats.seed_instr_us,
-          analysis_cache.stats.seed_instr_calls,
-          start_us,
-        ),
-      )
-      return true
-    }
-    None => ()
-  }
-
-  let mut has_unremovable_effects = false
-  let mut has_calls = false
-  let mut effect_transfers_control_flow = false
-  let mut has_control_transfer = false
-  let mut throws = false
-  let mut explicit_unreachable = false
-  let mut may_not_return = false
-  let seeded_children = Ref::new(true)
-
-  vq_visit_instr_recursive_children(instr, fn(child) {
-    if !seeded_children.val {
-      return ()
-    }
-    if !vq_seed_instr_facts_bounded(child, env, analysis_cache, budget) {
-      seeded_children.val = false
-      return ()
-    }
-    let child_facts = vq_seed_instr_facts(child, env, analysis_cache)
-    has_unremovable_effects = has_unremovable_effects ||
-      child_facts.has_unremovable_effects
-    has_calls = has_calls || child_facts.has_calls
-    effect_transfers_control_flow = effect_transfers_control_flow ||
-      child_facts.effect_transfers_control_flow
-    has_control_transfer = has_control_transfer ||
-      child_facts.has_control_transfer
-    throws = throws || child_facts.throws
-    explicit_unreachable = explicit_unreachable ||
-      child_facts.explicit_unreachable
-    may_not_return = may_not_return || child_facts.may_not_return
-  })
-  if !seeded_children.val {
-    return false
-  }
-
-  let shallow_effects = lcs_collect_shallow_effects(instr)
-  let shallow_has_unremovable = shallow_effects.has_unremovable_side_effects()
-  has_unremovable_effects = has_unremovable_effects || shallow_has_unremovable
-  has_calls = has_calls || shallow_effects.calls
-  effect_transfers_control_flow = effect_transfers_control_flow ||
-    shallow_effects.transfers_control_flow()
-  has_control_transfer = has_control_transfer ||
-    vq_instr_has_control_transfer_local(instr)
-  throws = throws || vq_instr_throws_local(instr)
-  explicit_unreachable = explicit_unreachable ||
-    vq_is_explicit_unreachable_instr(instr)
-  may_not_return = may_not_return || vq_instr_may_not_return_local(instr)
-
-  if analysis_cache.type_cache.get(instr) is None {
-    analysis_cache.type_cache[instr] = vq_type_of_timed(
-      instr,
-      env,
-      analysis_cache.stats,
-    )
-  }
-  analysis_cache.shallow_effect_cache[instr] = shallow_has_unremovable
-  analysis_cache.effect_cache[instr] = has_unremovable_effects
-  analysis_cache.calls_cache[instr] = has_calls
-  analysis_cache.effect_control_transfer_cache[instr] = effect_transfers_control_flow
-  analysis_cache.instr_control_transfer_cache[instr] = has_control_transfer
-  analysis_cache.instr_throws_cache[instr] = throws
-  analysis_cache.instr_explicit_unreachable_cache[instr] = explicit_unreachable
-  analysis_cache.may_not_return_cache[instr] = may_not_return
-
-  ignore(vq_stack_sig_instr_seeded(instr, env, analysis_cache))
-  ignore(
-    vq_commit_helper_timing(
-      analysis_cache.stats.seed_instr_us,
-      analysis_cache.stats.seed_instr_calls,
-      start_us,
-    ),
-  )
-  true
-}
-
-///|
 fn vq_seed_texpr_facts_bounded(
   expr : TExpr,
   env : Env,
   analysis_cache : VQAnalysisCache,
   budget : Ref[Int],
 ) -> Bool {
-  let start_us = vacuum_trace_now_us()
-  if !vq_take_budget(budget) {
-    ignore(
-      vq_commit_helper_timing(
-        analysis_cache.stats.seed_texpr_us,
-        analysis_cache.stats.seed_texpr_calls,
-        start_us,
-      ),
-    )
-    return false
-  }
   match
-    (
-      analysis_cache.control_transfer_cache.get(expr),
-      analysis_cache.throws_cache.get(expr),
-      analysis_cache.explicit_unreachable_cache.get(expr),
-    ) {
-    (Some(_), Some(_), Some(_)) => {
-      ignore(
-        vq_commit_helper_timing(
-          analysis_cache.stats.seed_texpr_us,
-          analysis_cache.stats.seed_texpr_calls,
-          start_us,
-        ),
-      )
-      return true
+    vq_build_indexed_expr_analysis_bounded(expr, env, analysis_cache, budget) {
+    Some(expr_id) => {
+      analysis_cache.indexed_root_expr_id = Some(expr_id)
+      true
     }
-    _ => ()
+    None => false
   }
-  let mut has_control_transfer = false
-  let mut throws = false
-  let mut explicit_unreachable = false
-  for instr in expr.instrs {
-    match instr.kind {
-      TInstrKind::TBlock(_, body)
-      | TInstrKind::TLoop(_, body)
-      | TInstrKind::TTryTable(_, _, body) =>
-        if !vq_seed_texpr_facts_bounded(body, env, analysis_cache, budget) {
-          return false
-        }
-      TInstrKind::TIf(_, _, then_body, else_body) => {
-        if !vq_seed_texpr_facts_bounded(then_body, env, analysis_cache, budget) {
-          return false
-        }
-        match else_body {
-          Some(other) =>
-            if !vq_seed_texpr_facts_bounded(other, env, analysis_cache, budget) {
-              return false
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-    if !vq_seed_instr_facts_bounded(instr, env, analysis_cache, budget) {
-      return false
-    }
-    let facts = vq_seed_instr_facts(instr, env, analysis_cache)
-    has_control_transfer = has_control_transfer || facts.has_control_transfer
-    throws = throws || facts.throws
-    explicit_unreachable = explicit_unreachable || facts.explicit_unreachable
-  }
-  analysis_cache.control_transfer_cache[expr] = has_control_transfer
-  analysis_cache.throws_cache[expr] = throws
-  analysis_cache.explicit_unreachable_cache[expr] = explicit_unreachable
-  ignore(
-    vq_commit_helper_timing(
-      analysis_cache.stats.seed_texpr_us,
-      analysis_cache.stats.seed_texpr_calls,
-      start_us,
-    ),
-  )
-  true
 }
 
 ///|
@@ -2169,8 +2484,16 @@ fn vq_stack_sig_instr_cached(
   instr : TInstr,
   env : Env,
   analysis_cache : VQAnalysisCache,
+  instr_id? : Int? = None,
 ) -> VQStackSig? {
   analysis_cache.stats.stack_sig_calls.val += 1
+  match vq_indexed_instr_node(analysis_cache, instr_id) {
+    Some(node) => {
+      analysis_cache.stats.stack_sig_cache_hits.val += 1
+      return node.stack_sig
+    }
+    None => ()
+  }
   match analysis_cache.stack_sig_cache.get(instr) {
     Some(sig) => {
       analysis_cache.stats.stack_sig_cache_hits.val += 1
@@ -2187,7 +2510,15 @@ fn vq_stack_sig_instr_cached(
 fn vq_texpr_has_control_transfer_cached(
   expr : TExpr,
   analysis_cache : VQAnalysisCache,
+  expr_id? : Int? = None,
 ) -> Bool {
+  match vq_indexed_expr_node(analysis_cache, expr_id) {
+    Some(node) => {
+      analysis_cache.stats.control_transfer_cache_hits.val += 1
+      return node.has_control_transfer
+    }
+    None => ()
+  }
   match analysis_cache.control_transfer_cache.get(expr) {
     Some(has_control_transfer) => {
       analysis_cache.stats.control_transfer_cache_hits.val += 1
@@ -2209,6 +2540,7 @@ fn vq_required_prefixes(
   env : Env,
   terminal_need : Int,
   analysis_cache : VQAnalysisCache,
+  item_ids? : Array[Int]? = None,
 ) -> Array[Int?] {
   let size = items.length()
   let needs : Array[Int?] = []
@@ -2220,8 +2552,20 @@ fn vq_required_prefixes(
     return needs
   }
   for i = size - 1; i >= 0; i = i - 1 {
+    let item_id = match item_ids {
+      Some(ids) => ids.get(i)
+      None => None
+    }
     match
-      (vq_stack_sig_instr_cached(items[i], env, analysis_cache), needs[i + 1]) {
+      (
+        vq_stack_sig_instr_cached(
+          items[i],
+          env,
+          analysis_cache,
+          instr_id=item_id,
+        ),
+        needs[i + 1],
+      ) {
       (Some(sig), Some(need_after)) =>
         needs[i] = Some(vq_stack_need_before(sig, need_after))
       _ => needs[i] = None
@@ -2255,6 +2599,7 @@ fn vq_optimize_sequence(
   budget : Ref[Int],
   analysis_cache : VQAnalysisCache,
   pass_options : VQPassOptions,
+  expr_id? : Int? = None,
 ) -> VQSequenceResult {
   let out : Array[TInstr] = []
   let mut changed = false
@@ -2264,8 +2609,10 @@ fn vq_optimize_sequence(
   let has_ambient_stack_terminator = vq_has_ambient_stack_terminator(items)
   let mut has_sequence_control_transfer_opt : Bool? = None
   let mut prefix_needs_opt : Array[Int?]? = None
+  let expr_node = vq_indexed_expr_node(analysis_cache, expr_id)
   for i = 0; i < size; i = i + 1 {
     let child = items[i]
+    let child_id = vq_indexed_expr_instr_id(expr_node, i)
     if preserve_next_unreachable {
       preserve_next_unreachable = false
       if vq_is_explicit_unreachable_instr(child) {
@@ -2283,7 +2630,14 @@ fn vq_optimize_sequence(
       i == size - 1 && result_used
     }
     let mut optimized = vq_process_instr(
-      child, env, used, true, budget, analysis_cache, pass_options,
+      child,
+      env,
+      used,
+      true,
+      budget,
+      analysis_cache,
+      pass_options,
+      instr_id=child_id,
     )
     if optimized is None {
       if multi_value_results {
@@ -2306,8 +2660,13 @@ fn vq_optimize_sequence(
         if has_ambient_stack_terminator {
           match
             (
-              vq_type_of_cached(child, env, analysis_cache),
-              vq_stack_sig_instr_cached(child, env, analysis_cache),
+              vq_type_of_cached(child, env, analysis_cache, instr_id=child_id),
+              vq_stack_sig_instr_cached(
+                child,
+                env,
+                analysis_cache,
+                instr_id=child_id,
+              ),
             ) {
             (Some(_), _) => out.push(child)
             (_, Some(sig)) if !sig.reachable => out.push(child)
@@ -2326,6 +2685,10 @@ fn vq_optimize_sequence(
                   0
                 },
                 analysis_cache,
+                item_ids=match expr_node {
+                  Some(node) => Some(node.instr_ids)
+                  None => None
+                },
               )
               prefix_needs_opt = Some(computed)
               computed
@@ -2333,7 +2696,12 @@ fn vq_optimize_sequence(
           }
           match
             (
-              vq_stack_sig_instr_cached(child, env, analysis_cache),
+              vq_stack_sig_instr_cached(
+                child,
+                env,
+                analysis_cache,
+                instr_id=child_id,
+              ),
               prefix_needs[i],
               prefix_needs[i + 1],
             ) {
@@ -2346,8 +2714,18 @@ fn vq_optimize_sequence(
             _ =>
               match
                 (
-                  vq_type_of_cached(child, env, analysis_cache),
-                  vq_stack_sig_instr_cached(child, env, analysis_cache),
+                  vq_type_of_cached(
+                    child,
+                    env,
+                    analysis_cache,
+                    instr_id=child_id,
+                  ),
+                  vq_stack_sig_instr_cached(
+                    child,
+                    env,
+                    analysis_cache,
+                    instr_id=child_id,
+                  ),
                 ) {
                 (Some(_), _) => out.push(child)
                 (_, Some(sig)) if !sig.reachable => out.push(child)
@@ -2363,8 +2741,12 @@ fn vq_optimize_sequence(
             None => {
               let mut computed = has_ambient_stack_terminator
               if !computed {
-                for item in items {
-                  if vq_instr_has_control_transfer_cached(item, analysis_cache) {
+                for j = 0; j < items.length(); j = j + 1 {
+                  if vq_instr_has_control_transfer_cached(
+                      items[j],
+                      analysis_cache,
+                      instr_id=vq_indexed_expr_instr_id(expr_node, j),
+                    ) {
                     computed = true
                     break
                   }
@@ -2384,7 +2766,12 @@ fn vq_optimize_sequence(
             let mut preserves_stack_shape = true
             match
               (
-                vq_stack_sig_instr_cached(child, env, analysis_cache),
+                vq_stack_sig_instr_cached(
+                  child,
+                  env,
+                  analysis_cache,
+                  instr_id=child_id,
+                ),
                 vq_stack_sig_instr_cached(next, env, analysis_cache),
               ) {
               (Some(before), Some(after)) =>
@@ -2394,7 +2781,7 @@ fn vq_optimize_sequence(
               _ => ()
             }
             let preserves_type = vq_same_type(
-              vq_type_of_cached(child, env, analysis_cache),
+              vq_type_of_cached(child, env, analysis_cache, instr_id=child_id),
               vq_type_of_cached(next, env, analysis_cache),
             )
             if !preserves_stack_shape || !preserves_type {
@@ -2430,10 +2817,18 @@ fn vq_optimize_texpr(
   budget : Ref[Int],
   analysis_cache : VQAnalysisCache,
   pass_options : VQPassOptions,
+  expr_id? : Int? = None,
 ) -> TExpr {
   let { instrs: items, .. } = expr
   let sequence = vq_optimize_sequence(
-    items, env, result_types, result_used, budget, analysis_cache, pass_options,
+    items,
+    env,
+    result_types,
+    result_used,
+    budget,
+    analysis_cache,
+    pass_options,
+    expr_id~,
   )
   TExpr::new(sequence.items)
 }
@@ -2551,7 +2946,12 @@ fn vq_texpr_throws(expr : TExpr) -> Bool {
 fn vq_texpr_throws_cached(
   expr : TExpr,
   analysis_cache : VQAnalysisCache,
+  expr_id? : Int? = None,
 ) -> Bool {
+  match vq_indexed_expr_node(analysis_cache, expr_id) {
+    Some(node) => return node.throws
+    None => ()
+  }
   match analysis_cache.throws_cache.get(expr) {
     Some(throws) => throws
     None => {
@@ -2610,10 +3010,18 @@ fn vq_process_child_preserving_stack_sig(
   budget : Ref[Int],
   analysis_cache : VQAnalysisCache,
   pass_options : VQPassOptions,
+  child_id? : Int? = None,
 ) -> TInstr {
   let next_child = match
     vq_process_instr(
-      child, env, true, true, budget, analysis_cache, pass_options,
+      child,
+      env,
+      true,
+      true,
+      budget,
+      analysis_cache,
+      pass_options,
+      instr_id=child_id,
     ) {
     Some(next) => next
     None => return child
@@ -2623,7 +3031,7 @@ fn vq_process_child_preserving_stack_sig(
   }
   match
     (
-      vq_stack_sig_instr_cached(child, env, analysis_cache),
+      vq_stack_sig_instr_cached(child, env, analysis_cache, instr_id=child_id),
       vq_stack_sig_instr_cached(next_child, env, analysis_cache),
     ) {
     (Some(before), Some(after)) if vq_same_stack_sig(before, after) =>
@@ -2678,7 +3086,12 @@ fn vq_instr_may_not_return(instr : TInstr) -> Bool {
 fn vq_instr_may_not_return_cached(
   instr : TInstr,
   analysis_cache : VQAnalysisCache,
+  instr_id? : Int? = None,
 ) -> Bool {
+  match vq_indexed_instr_node(analysis_cache, instr_id) {
+    Some(node) => return node.may_not_return
+    None => ()
+  }
   match analysis_cache.may_not_return_cache.get(instr) {
     Some(may_not_return) => may_not_return
     None => {
@@ -2741,7 +3154,12 @@ fn vq_texpr_has_explicit_unreachable(expr : TExpr) -> Bool {
 fn vq_texpr_has_explicit_unreachable_cached(
   expr : TExpr,
   analysis_cache : VQAnalysisCache,
+  expr_id? : Int? = None,
 ) -> Bool {
+  match vq_indexed_expr_node(analysis_cache, expr_id) {
+    Some(node) => return node.explicit_unreachable
+    None => ()
+  }
   match analysis_cache.explicit_unreachable_cache.get(expr) {
     Some(has_unreachable) => has_unreachable
     None => {
@@ -3421,10 +3839,12 @@ fn vq_process_instr(
   budget : Ref[Int],
   analysis_cache : VQAnalysisCache,
   pass_options : VQPassOptions,
+  instr_id? : Int? = None,
 ) -> TInstr? {
   if !vq_take_budget(budget) {
     return Some(instr)
   }
+  let instr_node = vq_indexed_instr_node(analysis_cache, instr_id)
   match instr.kind {
     TInstrKind::TBlock(bt, body) => {
       let result_types = vq_block_result_types(bt, env)
@@ -3436,6 +3856,10 @@ fn vq_process_instr(
         budget,
         analysis_cache,
         pass_options,
+        expr_id=match instr_node {
+          Some(node) => node.body_expr_id
+          None => None
+        },
       )
       if pass_options.traps_never_happen {
         let tnh_cleanup = vq_tnh_cleanup_block_items(
@@ -3460,7 +3884,12 @@ fn vq_process_instr(
     }
     TInstrKind::TIf(bt, condition, then_body, else_body) => {
       let next_condition = vq_process_child_preserving_stack_sig(
-        condition, env, budget, analysis_cache, pass_options,
+        condition,
+        env,
+        budget,
+        analysis_cache,
+        pass_options,
+        child_id=vq_indexed_eval_child_id(instr_node, 0),
       )
       let arm_result_types = vq_block_result_types(bt, env)
       let next_then = vq_optimize_texpr(
@@ -3471,6 +3900,10 @@ fn vq_process_instr(
         budget,
         analysis_cache,
         pass_options,
+        expr_id=match instr_node {
+          Some(node) => node.then_expr_id
+          None => None
+        },
       )
       let next_else = match else_body {
         Some(other) =>
@@ -3483,6 +3916,10 @@ fn vq_process_instr(
               budget,
               analysis_cache,
               pass_options,
+              expr_id=match instr_node {
+                Some(node) => node.else_expr_id
+                None => None
+              },
             ),
           )
         None => None
@@ -3613,6 +4050,10 @@ fn vq_process_instr(
         budget,
         analysis_cache,
         pass_options,
+        expr_id=match instr_node {
+          Some(node) => node.body_expr_id
+          None => None
+        },
       )
       if result_types.is_empty() && vq_is_nop_texpr(next_body) {
         Some(TInstr::nop())
@@ -3623,7 +4064,14 @@ fn vq_process_instr(
     TInstrKind::TDrop(value) => {
       let next_value = match
         vq_process_instr(
-          value, env, false, false, budget, analysis_cache, pass_options,
+          value,
+          env,
+          false,
+          false,
+          budget,
+          analysis_cache,
+          pass_options,
+          instr_id=vq_indexed_eval_child_id(instr_node, 0),
         ) {
         Some(v) => v
         None => return Some(TInstr::nop())
@@ -3739,6 +4187,10 @@ fn vq_process_instr(
         budget,
         analysis_cache,
         pass_options,
+        expr_id=match instr_node {
+          Some(node) => node.body_expr_id
+          None => None
+        },
       )
       if !vq_texpr_throws_cached(next_body, analysis_cache) {
         Some(vq_simplify_block_to_contents(bt, next_body, env, analysis_cache))
@@ -3751,7 +4203,12 @@ fn vq_process_instr(
       let mut changed_child = false
       for child in eval_children(instr) {
         let next_child = vq_process_child_preserving_stack_sig(
-          child, env, budget, analysis_cache, pass_options,
+          child,
+          env,
+          budget,
+          analysis_cache,
+          pass_options,
+          child_id=vq_indexed_eval_child_id(instr_node, next_children.length()),
         )
         if next_child != child {
           changed_child = true
@@ -3760,7 +4217,13 @@ fn vq_process_instr(
       }
       if next_children.is_empty() {
         return vq_optimize(
-          instr, result_used, type_matters, env, budget, analysis_cache,
+          instr,
+          result_used,
+          type_matters,
+          env,
+          budget,
+          analysis_cache,
+          instr_id~,
         )
       }
       let rebuilt = if changed_child {
@@ -3769,7 +4232,13 @@ fn vq_process_instr(
         instr
       }
       vq_optimize(
-        rebuilt, result_used, type_matters, env, budget, analysis_cache,
+        rebuilt,
+        result_used,
+        type_matters,
+        env,
+        budget,
+        analysis_cache,
+        instr_id=if changed_child { None } else { instr_id },
       )
     }
   }
@@ -3916,6 +4385,7 @@ fn vq_optimize_function(
           budget,
           analysis_cache,
           pass_options,
+          expr_id=analysis_cache.indexed_root_expr_id,
         )
       }
       let optimize_elapsed_ms = vq_commit_phase_timing(
@@ -4152,6 +4622,50 @@ test "vacuum bounded seed phase reports exhaustion without failing" {
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(4)
   assert_false(vq_seed_texpr_facts_bounded(body, env, cache, budget))
+}
+
+///|
+test "vacuum indexed analysis keeps duplicate subtree occurrences distinct" {
+  let body = TExpr::new([
+    TInstr::drop(TInstr::i32_const(I32(1))),
+    TInstr::drop(TInstr::i32_const(I32(1))),
+  ])
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(128)
+  let expr_id = match
+    vq_build_indexed_expr_analysis_bounded(body, env, cache, budget) {
+    Some(id) => id
+    None => fail("expected indexed analysis to succeed")
+  }
+  let expr_node = cache.indexed_expr_nodes[expr_id]
+  assert_eq(expr_node.instr_ids.length(), 2)
+  assert_true(expr_node.instr_ids[0] != expr_node.instr_ids[1])
+  let left = cache.indexed_instr_nodes[expr_node.instr_ids[0]]
+  let right = cache.indexed_instr_nodes[expr_node.instr_ids[1]]
+  match (left.eval_child_ids, right.eval_child_ids) {
+    ([left_child], [right_child]) => assert_true(left_child != right_child)
+    _ => fail("expected both drop nodes to keep distinct child ids")
+  }
+}
+
+///|
+test "vacuum indexed lookup does not populate fallback type cache for original nodes" {
+  let body = TExpr::new([TInstr::local_get(LocalIdx::new(0))])
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let expr_id = match
+    vq_build_indexed_expr_analysis_bounded(body, env, cache, budget) {
+    Some(id) => id
+    None => fail("expected indexed analysis to succeed")
+  }
+  let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
+  assert_eq(
+    vq_type_of_cached(body.instrs[0], env, cache, instr_id=Some(instr_id)),
+    Some(ValType::i32()),
+  )
+  assert_eq(cache.type_cache.get(body.instrs[0]), None)
 }
 
 ///|
