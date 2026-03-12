@@ -15,6 +15,9 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
 - [ ] Harden pathological cleanup handling beyond the current no-op `Vacuum` skip heuristic, especially for the first expensive `Vacuum` on deep-tree functions.
 - [ ] Implement `StringGathering` in the global post pipeline under the appropriate feature/optimization gates.
+- [ ] Fuzz runner UX hardening: add `--help`/`--list-suites` (and profile list) in `src/fuzz` so invocation errors do not require reading docs/source.
+- [ ] Make `scripts/run-fuzz.sh` and `scripts/run-full-test.sh` treat seed as optional and only pass `--seed` when provided, so default runs exercise generated seeds instead of pinning to `0x5eed`.
+- [ ] Add `jsonl` output mode for `src/fuzz` summary lines to make CI artifact parsing/stats collection deterministic.
 - [ ] Publish the first release and MoonBit registry package (`moon publish` plus GitHub Release binaries).
 
 ## Post 0.1.0 Features
@@ -27,6 +30,10 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Audit asyncify-generated `MemArg` alignments across all rewritten instruction paths (including non-tail-call entrypoints) and add validator-backed tests per pointer width (`i32`/`i64` memory).
 - [ ] Add `re_reloop` end-to-end coverage for internal loop-target `br_table` cases carrying branch values (non-empty `values`) to lock in typed value-flow behavior.
 - [ ] Tune or replace `gen_valid_module` candidate generation for harness throughput so fewer candidates are discarded before the 100k valid target.
+- [ ] Add persistent corpus replay workflow (`src/fuzz --replay-corpus <dir>`) and baseline corpus curation for deterministic regression locking.
+- [ ] Add automatic testcase reduction for non-pass failures (module minimization + structured repro bundle beyond pass-list minimization).
+- [ ] Add first-class differential-validation fuzz profiles in CI (toolchain install, adapters enabled, and mismatch triage artifacts).
+- [ ] Introduce runtime-budgeted/adaptive fuzz profiles (target wall-clock budgets per suite instead of fixed iteration counts only).
 - [ ] Replace conservative legacy-exception lowering with semantic-preserving lowering to `try_table`/`throw_ref` (the current path is static-validation oriented).
 - [ ] `Poppify`.
 - [ ] `Outlining` as a standalone pass (beyond current inlining partial-splitting behavior).
