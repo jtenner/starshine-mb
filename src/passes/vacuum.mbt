@@ -3727,12 +3727,16 @@ fn vq_degraded_simplify_drop_value(
   analysis_cache : VQAnalysisCache,
 ) -> TInstr {
   match value.kind {
-    // Numeric unary wrappers and ref.is_null are pure 1-to-1 stack shuffles,
-    // so when their result is immediately dropped we can peel them cheaply in
-    // degraded mode.
+    // Numeric unary wrappers, ref.is_null, and the GC extern/any reference
+    // conversions are pure 1-to-1 stack shuffles, so when their result is
+    // immediately dropped we can peel them cheaply in degraded mode.
     TInstrKind::TUnary(_, inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TRefIsNull(inner) =>
+      vq_degraded_simplify_drop_value(inner, analysis_cache)
+    TInstrKind::TAnyConvertExtern(inner) =>
+      vq_degraded_simplify_drop_value(inner, analysis_cache)
+    TInstrKind::TExternConvertAny(inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TLocalTee(idx, inner) => TInstr::local_set(idx, inner)
     _ if vq_degraded_can_remove_unused_instr(value, analysis_cache) =>
@@ -6303,6 +6307,134 @@ test "vacuum degraded mode keeps drop around effectful child under ref.is_null" 
     ) {
     Some(next) => next
     None => fail("expected degraded ref.is_null drop result")
+  }
+  assert_eq(out, TInstr::drop(condition))
+}
+
+///|
+test "vacuum degraded mode peels dropped any.convert_extern around pure local.get" {
+  let instr = TInstr::drop(
+    TInstr::any_convert_extern(TInstr::local_get(LocalIdx::new(0))),
+  )
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals([ValType::externref()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded any.convert_extern drop result")
+  }
+  assert_eq(out, TInstr::nop())
+}
+
+///|
+test "vacuum degraded mode keeps drop around effectful child under any.convert_extern" {
+  let t_ref = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::externref()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_ref]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([TInstr::ref_null(HeapType::abs(AbsHeapType::extern_()))]),
+        ),
+      ]),
+    )
+  let condition = TInstr::call(FuncIdx::new(0), [])
+  let instr = TInstr::drop(TInstr::any_convert_extern(condition))
+  let env = Env::new().with_module(mod)
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded any.convert_extern drop result")
+  }
+  assert_eq(out, TInstr::drop(condition))
+}
+
+///|
+test "vacuum degraded mode peels dropped extern.convert_any around pure local.get" {
+  let instr = TInstr::drop(
+    TInstr::extern_convert_any(TInstr::local_get(LocalIdx::new(0))),
+  )
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals([ValType::anyref()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded extern.convert_any drop result")
+  }
+  assert_eq(out, TInstr::nop())
+}
+
+///|
+test "vacuum degraded mode keeps drop around effectful child under extern.convert_any" {
+  let t_ref = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::anyref()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_ref]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::any_convert_extern(
+              TInstr::ref_null(HeapType::abs(AbsHeapType::extern_())),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let condition = TInstr::call(FuncIdx::new(0), [])
+  let instr = TInstr::drop(TInstr::extern_convert_any(condition))
+  let env = Env::new().with_module(mod)
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded extern.convert_any drop result")
   }
   assert_eq(out, TInstr::drop(condition))
 }
