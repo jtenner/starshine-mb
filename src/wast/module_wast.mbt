@@ -104,8 +104,8 @@ fn split_first_underscore(s : String) -> (String, String?) {
   let mut i = 0
   while i < s.length() {
     if s[i] == '_' {
-      let head = s.sub(end=i).to_string() catch { _ => s }
-      let tail = s.sub(start=i + 1).to_string() catch { _ => "" }
+      let head = s.sub(end=i).to_string()
+      let tail = s.sub(start=i + 1).to_string()
       return (head, Some(tail))
     }
     i += 1

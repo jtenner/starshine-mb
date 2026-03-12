@@ -156,7 +156,7 @@ fn fuzz_has_prefix(text : String, prefix : String) -> Bool {
   if text.length() < prefix.length() {
     return false
   }
-  let head = text.sub(end=prefix.length()).to_string() catch { _ => "" }
+  let head = text.sub(end=prefix.length()).to_string()
   head == prefix
 }
 
@@ -166,7 +166,7 @@ fn fuzz_has_suffix(text : String, suffix : String) -> Bool {
     return false
   }
   let start = text.length() - suffix.length()
-  let tail = text.sub(start~).to_string() catch { _ => "" }
+  let tail = text.sub(start~).to_string()
   tail == suffix
 }
 
@@ -228,16 +228,12 @@ fn fuzz_slug(value : String) -> String {
   }
   let raw = out.to_string()
   let trimmed = if fuzz_has_prefix(raw, "-") {
-    raw.sub(start=1).to_string() catch {
-      _ => raw
-    }
+    raw.sub(start=1).to_string()
   } else {
     raw
   }
   let cleaned = if fuzz_has_suffix(trimmed, "-") {
-    trimmed.sub(end=trimmed.length() - 1).to_string() catch {
-      _ => trimmed
-    }
+    trimmed.sub(end=trimmed.length() - 1).to_string()
   } else {
     trimmed
   }

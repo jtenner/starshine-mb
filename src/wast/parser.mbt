@@ -1944,9 +1944,7 @@ fn WastParser::parse_inline_exports(
       let name = self.get_text(name_token)
       // Remove quotes from string
       let cleaned = if name.length() >= 2 {
-        name.sub(start=1, end=name.length() - 1).to_string() catch {
-          _ => name
-        }
+        name.sub(start=1, end=name.length() - 1).to_string()
       } else {
         name
       }
@@ -3388,9 +3386,7 @@ pub fn WastParser::parse_module(self : WastParser) -> Module raise ParserError {
 ///|
 fn WastParser::strip_quotes(_ : WastParser, s : String) -> String {
   if s.length() >= 2 && s[0] == '"' && s[s.length() - 1] == '"' {
-    s.sub(start=1, end=s.length() - 1).to_string() catch {
-      _ => s
-    }
+    s.sub(start=1, end=s.length() - 1).to_string()
   } else {
     s
   }

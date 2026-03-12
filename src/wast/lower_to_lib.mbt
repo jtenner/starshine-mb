@@ -704,10 +704,10 @@ fn wt_parse_nan_payload_bits(
   let mut negative = false
   let mut body = trimmed
   if body[0] == '+' {
-    body = body.sub(start=1, end=body.length()).to_string() catch { _ => "" }
+    body = body.sub(start=1, end=body.length()).to_string()
   } else if body[0] == '-' {
     negative = true
-    body = body.sub(start=1, end=body.length()).to_string() catch { _ => "" }
+    body = body.sub(start=1, end=body.length()).to_string()
   }
   if body == "nan" {
     let mut bits = exp_bits | quiet_payload
@@ -717,9 +717,7 @@ fn wt_parse_nan_payload_bits(
     return Ok(Some(bits))
   }
   if body.has_prefix("nan:") {
-    let payload_text = body.sub(start=4, end=body.length()).to_string() catch {
-        _ => ""
-      }
+    let payload_text = body.sub(start=4, end=body.length()).to_string()
     let payload = match wt_parse_hex_u64(payload_text, "\{kind} NaN payload") {
       Ok(v) => v
       Err(_) => return Err("invalid \{kind} NaN payload literal: \{text}")

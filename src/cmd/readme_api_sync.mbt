@@ -17,7 +17,7 @@ fn ras_has_prefix(text : String, prefix : String) -> Bool {
   if text.length() < prefix.length() {
     return false
   }
-  let head = text.sub(end=prefix.length()).to_string() catch { _ => "" }
+  let head = text.sub(end=prefix.length()).to_string()
   head == prefix
 }
 
@@ -27,7 +27,7 @@ fn ras_has_suffix(text : String, suffix : String) -> Bool {
     return false
   }
   let start = text.length() - suffix.length()
-  let tail = text.sub(start~).to_string() catch { _ => "" }
+  let tail = text.sub(start~).to_string()
   tail == suffix
 }
 
@@ -47,7 +47,7 @@ fn ras_extract_marker_path(line : String) -> String? {
   if end <= start {
     return None
   }
-  let path = marker.sub(start~, end~).to_string() catch { _ => "" }
+  let path = marker.sub(start~, end~).to_string()
   let normalized = path.trim().to_string()
   if normalized.length() == 0 {
     None

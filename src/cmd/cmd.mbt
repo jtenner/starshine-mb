@@ -226,9 +226,7 @@ fn basename_of_path(path : String) -> String {
   if last_sep < 0 {
     return normalized
   }
-  normalized.sub(start=last_sep + 1).to_string() catch {
-    _ => normalized
-  }
+  normalized.sub(start=last_sep + 1).to_string()
 }
 
 ///|
@@ -245,9 +243,7 @@ fn path_with_wasm_extension(path : String) -> String {
     i += 1
   }
   if last_dot >= 0 {
-    let stem = normalized.sub(end=last_dot).to_string() catch {
-        _ => normalized
-      }
+    let stem = normalized.sub(end=last_dot).to_string()
     "\{stem}.wasm"
   } else {
     "\{normalized}.wasm"
@@ -1813,11 +1809,7 @@ fn parse_spec_cmd_args(
         if arg.length() > 0 && arg[0] == '-' {
           return Err(
             CmdError::CliParse(
-              CliParseError::invalid_long_flag(
-                arg.sub(start=1).to_string() catch {
-                  _ => arg
-                },
-              ),
+              CliParseError::invalid_long_flag(arg.sub(start=1).to_string()),
             ),
           )
         }

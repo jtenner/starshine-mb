@@ -317,12 +317,12 @@ fn is_kebab_case_flag_name(name : String) -> Bool {
 
 ///|
 fn split_long_flag_token(token : String) -> (String, String?) {
-  let body = token.sub(start=2).to_string() catch { _ => "" }
+  let body = token.sub(start=2).to_string()
   let mut i = 0
   while i < body.length() {
     if body[i] == '=' {
-      let name = body.sub(end=i).to_string() catch { _ => body }
-      let value = body.sub(start=i + 1).to_string() catch { _ => "" }
+      let name = body.sub(end=i).to_string()
+      let value = body.sub(start=i + 1).to_string()
       return (name, Some(value))
     }
     i += 1
@@ -342,7 +342,7 @@ fn parse_opt_level_flag(
   if flag.length() < 2 || flag[0] != '-' || flag[1] != 'O' {
     return Err(CliParseError::invalid_optimization_flag(flag))
   }
-  let body = flag.sub(start=2).to_string() catch { _ => "" }
+  let body = flag.sub(start=2).to_string()
   let mut i = 0
   let mut saw_digit = false
   let mut level = 2
@@ -396,7 +396,7 @@ fn parse_short_option_cluster(
   index : Int,
   parsed : CliParseResult,
 ) -> Result[Int, CliParseError] {
-  let cluster = args[index].sub(start=1).to_string() catch { _ => "" }
+  let cluster = args[index].sub(start=1).to_string()
   let mut i = 0
   while i < cluster.length() {
     let flag = cluster[i]
@@ -421,7 +421,7 @@ fn parse_short_option_cluster(
         i += 1
       }
       'c' => {
-        let attached = cluster.sub(start=i + 1).to_string() catch { _ => "" }
+        let attached = cluster.sub(start=i + 1).to_string()
         if attached.length() > 0 {
           parsed.config_path = Some(attached)
           return Ok(index + 1)
@@ -435,7 +435,7 @@ fn parse_short_option_cluster(
         return Ok(index + 1)
       }
       'o' => {
-        let attached = cluster.sub(start=i + 1).to_string() catch { _ => "" }
+        let attached = cluster.sub(start=i + 1).to_string()
         if attached.length() > 0 {
           push_unique_output_target(
             parsed.output_targets,
@@ -454,7 +454,7 @@ fn parse_short_option_cluster(
         return Err(CliParseError::missing_flag_value("-o"))
       }
       'd' => {
-        let attached = cluster.sub(start=i + 1).to_string() catch { _ => "" }
+        let attached = cluster.sub(start=i + 1).to_string()
         if attached.length() > 0 {
           push_unique_output_target(
             parsed.output_targets,
@@ -508,7 +508,7 @@ pub fn infer_input_format(path : String) -> CliInputFormat? {
   if last_dot < 0 || last_dot <= last_sep || last_dot + 1 >= normalized.length() {
     return None
   }
-  let ext = normalized.sub(start=last_dot + 1).to_string() catch { _ => "" }
+  let ext = normalized.sub(start=last_dot + 1).to_string()
   parse_input_format(ext)
 }
 
