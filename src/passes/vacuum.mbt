@@ -1518,6 +1518,22 @@ fn vq_indexed_eval_child_id(
 }
 
 ///|
+fn vq_last_original_instr_id(
+  body : TExpr,
+  analysis_cache : VQAnalysisCache,
+  expr_id? : Int? = None,
+) -> Int? {
+  if body.instrs.is_empty() {
+    return None
+  }
+  match vq_indexed_expr_node(analysis_cache, expr_id) {
+    Some(node) if node.instr_ids.length() == body.instrs.length() =>
+      Some(node.instr_ids[node.instr_ids.length() - 1])
+    _ => None
+  }
+}
+
+///|
 fn vq_stack_sig_list_indexed(
   item_ids : Array[Int],
   analysis_cache : VQAnalysisCache,
@@ -4633,14 +4649,32 @@ fn vq_process_instr(
           }
           if items.length() > 0 {
             let last = items[items.length() - 1]
+            let last_instr_id = vq_last_original_instr_id(
+              body,
+              analysis_cache,
+              expr_id=body_expr_id,
+            )
             match
               (
                 vq_block_result_type(bt, env),
-                vq_type_of_cached(last, env, analysis_cache),
+                vq_type_of_cached(
+                  last,
+                  env,
+                  analysis_cache,
+                  instr_id=last_instr_id,
+                ),
               ) {
               (Some(block_vt), Some(last_vt)) if block_vt == last_vt =>
                 match
-                  vq_optimize(last, false, false, env, budget, analysis_cache) {
+                  vq_optimize(
+                    last,
+                    false,
+                    false,
+                    env,
+                    budget,
+                    analysis_cache,
+                    instr_id=last_instr_id,
+                  ) {
                   None =>
                     if !vq_has_value_break_lub_depth0_cached(
                         body,
@@ -5382,6 +5416,11 @@ test "vacuum indexed if-arm inversion avoids generic type-and-stack helper" {
 
 ///|
 test "vacuum indexed dropped-result block avoids generic value-break helper" {
+  let original_last = TInstr::binary(
+    BinaryOp::i32_add(),
+    TInstr::i32_const(I32(1)),
+    TInstr::i32_const(I32(2)),
+  )
   let instr = TInstr::drop(
     TInstr::block(
       BlockType::val_type(ValType::i32()),
@@ -5389,7 +5428,7 @@ test "vacuum indexed dropped-result block avoids generic value-break helper" {
         TInstr::br_if(LabelIdx::new(0), TInstr::local_get(LocalIdx::new(0)), [
           TInstr::i32_const(I32(2)),
         ]),
-        TInstr::i32_const(I32(3)),
+        original_last,
       ]),
     ),
   )
@@ -5433,7 +5472,14 @@ test "vacuum indexed dropped-result block avoids generic value-break helper" {
                 ),
                 ..,
               },
-              { kind: TInstrKind::TI32Const(I32(last)), .. },
+              {
+                kind: TInstrKind::TBinary(
+                  I32AddOp,
+                  { kind: TInstrKind::TI32Const(I32(left)), .. },
+                  { kind: TInstrKind::TI32Const(I32(right)), .. }
+                ),
+                ..,
+              },
             ],
             ..,
           }
@@ -5444,7 +5490,8 @@ test "vacuum indexed dropped-result block avoids generic value-break helper" {
       assert_eq(depth, 0U)
       assert_eq(local_idx, 0U)
       assert_eq(v, 2)
-      assert_eq(last, 3)
+      assert_eq(left, 1)
+      assert_eq(right, 2)
     }
     _ =>
       fail(
@@ -5452,6 +5499,7 @@ test "vacuum indexed dropped-result block avoids generic value-break helper" {
       )
   }
   assert_eq(cache.stats.value_break_lub_calls.val, 0)
+  assert_eq(cache.type_cache.get(original_last), None)
 }
 
 ///|
