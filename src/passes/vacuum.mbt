@@ -3781,6 +3781,11 @@ fn vq_degraded_simplify_drop_value(
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TRefEq(left, right) =>
       vq_degraded_sequence_dropped_values([left, right], analysis_cache)
+    TInstrKind::TSelect(_, cond, if_true, if_false) =>
+      vq_degraded_sequence_dropped_values(
+        [if_true, if_false, cond],
+        analysis_cache,
+      )
     TInstrKind::TExtractLane(_, _, inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TLocalTee(idx, inner) => TInstr::local_set(idx, inner)
@@ -7255,6 +7260,85 @@ test "vacuum degraded mode preserves effectful ref.eq child order" {
     TInstr::block(
       BlockType::void_(),
       TExpr::new([TInstr::drop(lhs), TInstr::drop(rhs)]),
+    ),
+  )
+}
+
+///|
+test "vacuum degraded mode nops dropped select around pure locals" {
+  let instr = TInstr::drop(
+    TInstr::select(
+      None,
+      TInstr::local_get(LocalIdx::new(2)),
+      TInstr::local_get(LocalIdx::new(0)),
+      TInstr::local_get(LocalIdx::new(1)),
+    ),
+  )
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals([ValType::i32(), ValType::i32(), ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded select drop result")
+  }
+  assert_eq(out, TInstr::nop())
+}
+
+///|
+test "vacuum degraded mode preserves dropped select child order" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(0)]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(10))])),
+        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(20))])),
+        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(1))])),
+      ]),
+    )
+  let if_true = TInstr::call(FuncIdx::new(0), [])
+  let if_false = TInstr::call(FuncIdx::new(1), [])
+  let condition = TInstr::call(FuncIdx::new(2), [])
+  let instr = TInstr::drop(TInstr::select(None, condition, if_true, if_false))
+  let env = Env::new().with_module(mod)
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded select drop result")
+  }
+  assert_eq(
+    out,
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::drop(if_true),
+        TInstr::drop(if_false),
+        TInstr::drop(condition),
+      ]),
     ),
   )
 }
