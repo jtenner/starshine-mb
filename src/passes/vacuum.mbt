@@ -4614,6 +4614,14 @@ fn vq_process_instr(
       )
     }
     TInstrKind::TIf(bt, condition, then_body, else_body) => {
+      let original_then_expr_id = match instr_node {
+        Some(node) => node.then_expr_id
+        None => None
+      }
+      let original_else_expr_id = match instr_node {
+        Some(node) => node.else_expr_id
+        None => None
+      }
       let next_condition = vq_process_child_preserving_stack_sig(
         condition,
         env,
@@ -4631,10 +4639,7 @@ fn vq_process_instr(
         budget,
         analysis_cache,
         pass_options,
-        expr_id=match instr_node {
-          Some(node) => node.then_expr_id
-          None => None
-        },
+        expr_id=original_then_expr_id,
       )
       let next_else = match else_body {
         Some(other) =>
@@ -4647,21 +4652,36 @@ fn vq_process_instr(
               budget,
               analysis_cache,
               pass_options,
-              expr_id=match instr_node {
-                Some(node) => node.else_expr_id
-                None => None
-              },
+              expr_id=original_else_expr_id,
             ),
           )
         None => None
       }
-      let then_simplify_expr_id = if physical_equal(next_then, then_body) {
-        match instr_node {
-          Some(node) => node.then_expr_id
-          None => None
-        }
+      let then_simplify_expr_id = if physical_equal(next_then, then_body) ||
+        vq_can_reuse_original_expr_control_metadata(
+          then_body,
+          next_then,
+          analysis_cache,
+          expr_id=original_then_expr_id,
+        ) {
+        original_then_expr_id
       } else {
         None
+      }
+      let else_simplify_expr_id = match (next_else, else_body) {
+        (Some(other), Some(original_other)) =>
+          if physical_equal(other, original_other) ||
+            vq_can_reuse_original_expr_control_metadata(
+              original_other,
+              other,
+              analysis_cache,
+              expr_id=original_else_expr_id,
+            ) {
+            original_else_expr_id
+          } else {
+            None
+          }
+        _ => None
       }
       let condition_instr_id = if physical_equal(next_condition, condition) {
         vq_indexed_eval_child_id(instr_node, 0)
@@ -4684,20 +4704,13 @@ fn vq_process_instr(
           } else {
             return Some(
               match (next_else, else_body) {
-                (Some(other), Some(original_other)) =>
+                (Some(other), Some(_)) =>
                   vq_simplify_block_to_contents(
                     bt,
                     other,
                     env,
                     analysis_cache,
-                    expr_id=if physical_equal(other, original_other) {
-                      match instr_node {
-                        Some(node) => node.else_expr_id
-                        None => None
-                      }
-                    } else {
-                      None
-                    },
+                    expr_id=else_simplify_expr_id,
                   )
                 _ => TInstr::nop()
               },
@@ -4717,20 +4730,13 @@ fn vq_process_instr(
           } else {
             return Some(
               match (next_else, else_body) {
-                (Some(other), Some(original_other)) =>
+                (Some(other), Some(_)) =>
                   vq_simplify_block_to_contents(
                     bt,
                     other,
                     env,
                     analysis_cache,
-                    expr_id=if physical_equal(other, original_other) {
-                      match instr_node {
-                        Some(node) => node.else_expr_id
-                        None => None
-                      }
-                    } else {
-                      None
-                    },
+                    expr_id=else_simplify_expr_id,
                   )
                 _ => TInstr::nop()
               },
@@ -4767,21 +4773,7 @@ fn vq_process_instr(
           if arm_result_types.is_empty() && vq_is_nop_texpr(other) {
             return Some(TInstr::if_(bt, next_condition, next_then, None))
           }
-          let other_expr_id = match (else_body, instr_node) {
-            (Some(original_other), Some(node)) =>
-              if physical_equal(other, original_other) ||
-                vq_can_reuse_original_expr_control_metadata(
-                  original_other,
-                  other,
-                  analysis_cache,
-                  expr_id=node.else_expr_id,
-                ) {
-                node.else_expr_id
-              } else {
-                None
-              }
-            _ => None
-          }
+          let other_expr_id = else_simplify_expr_id
           if arm_result_types.is_empty() &&
             vq_is_nop_texpr(next_then) &&
             !vq_texpr_has_control_transfer_cached(
@@ -5973,6 +5965,47 @@ test "vacuum changed if-else arm reuses indexed control metadata for inversion g
     _ => fail("expected if-arm inversion result with rewritten else arm")
   }
   assert_eq(cache.stats.control_transfer_scans.val, 0)
+}
+
+///|
+test "vacuum changed constant-if chosen arm reuses indexed break metadata" {
+  let instr = TInstr::if_(
+    BlockType::void_(),
+    TInstr::i32_const(I32(1)),
+    TExpr::new([
+      TInstr::drop(
+        TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(9))),
+      ),
+    ]),
+    Some(TExpr::new([TInstr::nop()])),
+  )
+  let body = TExpr::new([instr])
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let seed_budget = Ref::new(96)
+  assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
+  let expr_id = match cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected root expr id")
+  }
+  let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
+  let process_budget = Ref::new(96)
+  let out = match
+    vq_process_instr(
+      instr,
+      env,
+      false,
+      false,
+      process_budget,
+      cache,
+      VQPassOptions::new(),
+      instr_id=Some(instr_id),
+    ) {
+    Some(next) => next
+    None => fail("expected constant-if simplification result")
+  }
+  assert_eq(out, TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(9))))
+  assert_eq(cache.stats.break_scan_calls.val, 0)
 }
 
 ///|
