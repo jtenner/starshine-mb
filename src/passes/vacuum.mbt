@@ -1166,15 +1166,12 @@ fn vq_optimize(
   env : Env,
   budget : Ref[Int],
   analysis_cache : VQAnalysisCache,
+  pass_options : VQPassOptions,
   instr_id? : Int? = None,
 ) -> TInstr? {
   if !vq_take_budget(budget) {
     return vq_try_midpass_degraded_fallback(
-      instr,
-      env,
-      result_used,
-      analysis_cache,
-      VQPassOptions::new(),
+      instr, env, result_used, analysis_cache, pass_options,
     )
   }
   let initial_type = vq_type_of_cached(instr, env, analysis_cache, instr_id~)
@@ -3947,6 +3944,26 @@ fn vq_process_instr_degraded(
         _ => ()
       }
 
+      if pass_options.traps_never_happen {
+        match next_else {
+          Some(other) =>
+            if vq_is_single_explicit_unreachable_texpr(next_then) {
+              return Some(
+                vq_tnh_rewrite_unreachable_if_arm(
+                  bt, next_condition, other, env, analysis_cache,
+                ),
+              )
+            } else if vq_is_single_explicit_unreachable_texpr(other) {
+              return Some(
+                vq_tnh_rewrite_unreachable_if_arm(
+                  bt, next_condition, next_then, env, analysis_cache,
+                ),
+              )
+            }
+          None => ()
+        }
+      }
+
       match next_else {
         Some(other) =>
           if arm_result_types.is_empty() && vq_is_nop_texpr(other) {
@@ -4966,6 +4983,7 @@ fn vq_process_instr(
                     env,
                     budget,
                     analysis_cache,
+                    pass_options,
                     instr_id=last_instr_id,
                   ) {
                   None =>
@@ -5145,6 +5163,7 @@ fn vq_process_instr(
           env,
           budget,
           analysis_cache,
+          pass_options,
           instr_id~,
         )
       }
@@ -5160,6 +5179,7 @@ fn vq_process_instr(
         env,
         budget,
         analysis_cache,
+        pass_options,
         instr_id=if changed_child { None } else { instr_id },
       )
     }
@@ -6195,7 +6215,8 @@ test "vacuum vq_optimize budget exhaustion falls back to cheap-tier rewrite" {
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   cache.midpass_degraded_budget = Some(Ref::new(8))
   let budget = Ref::new(0)
-  let out = match vq_optimize(instr, false, false, env, budget, cache) {
+  let out = match
+    vq_optimize(instr, false, false, env, budget, cache, VQPassOptions::new()) {
     Some(next) => next
     None => fail("expected fallback optimize result")
   }
@@ -6205,6 +6226,92 @@ test "vacuum vq_optimize budget exhaustion falls back to cheap-tier rewrite" {
   )
   assert_eq(cache.stats.tier_fallback_calls.val, 1)
   assert_eq(cache.stats.tier_fallback_changes.val, 1)
+}
+
+///|
+test "vacuum degraded mode traps-never-happen rewrites unreachable if arm" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))])),
+      ]),
+    )
+  let cond = TInstr::local_get(LocalIdx::new(0))
+  let live = TInstr::drop(TInstr::call(FuncIdx::new(0), []))
+  let instr = TInstr::if_(
+    BlockType::void_(),
+    cond,
+    TExpr::new([TInstr::unreachable_()]),
+    Some(TExpr::new([live])),
+  )
+  let env = Env::new().with_module(mod).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(128)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(traps_never_happen=true),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded traps-never-happen rewrite result")
+  }
+  assert_eq(
+    out,
+    TInstr::block(BlockType::void_(), TExpr::new([TInstr::drop(cond), live])),
+  )
+}
+
+///|
+test "vacuum vq_optimize fallback forwards traps-never-happen options" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))])),
+      ]),
+    )
+  let cond = TInstr::local_get(LocalIdx::new(0))
+  let live = TInstr::drop(TInstr::call(FuncIdx::new(0), []))
+  let instr = TInstr::if_(
+    BlockType::void_(),
+    cond,
+    TExpr::new([TInstr::unreachable_()]),
+    Some(TExpr::new([live])),
+  )
+  let env = Env::new().with_module(mod).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  cache.midpass_degraded_budget = Some(Ref::new(64))
+  let budget = Ref::new(0)
+  let out = match
+    vq_optimize(
+      instr,
+      false,
+      false,
+      env,
+      budget,
+      cache,
+      VQPassOptions::new(traps_never_happen=true),
+    ) {
+    Some(next) => next
+    None => fail("expected traps-never-happen fallback optimize result")
+  }
+  assert_eq(
+    out,
+    TInstr::block(BlockType::void_(), TExpr::new([TInstr::drop(cond), live])),
+  )
 }
 
 ///|
