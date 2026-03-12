@@ -668,7 +668,41 @@ fn vq_type_of_cached(
     None => ()
   }
   analysis_cache.stats.type_cache_misses.val += 1
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => return env.get_local_type(idx)
+    TInstrKind::TGlobalGet(idx) =>
+      return match env.get_global_type(idx) {
+        Some(GlobalType(vt, _)) => Some(vt)
+        None => None
+      }
+    TInstrKind::TI32Const(_) => return Some(ValType::i32())
+    TInstrKind::TI64Const(_) => return Some(ValType::i64())
+    TInstrKind::TF32Const(_) => return Some(ValType::f32())
+    TInstrKind::TF64Const(_) => return Some(ValType::f64())
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      return Some(ValType::v128())
+    TInstrKind::TRefNull(ht) =>
+      return Some(ValType::ref_type(RefType::new(true, ht)))
+    TInstrKind::TRefFunc(_) => return Some(ValType::funcref())
+    _ => ()
+  }
   vq_type_of_timed(instr, env, analysis_cache.stats)
+}
+
+///|
+fn vq_is_pure_leaf_no_effects(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TNop
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_) => true
+    _ => false
+  }
 }
 
 ///|
@@ -683,6 +717,9 @@ fn vq_has_unremovable_effects_cached(
       return node.has_unremovable_effects
     }
     None => ()
+  }
+  if vq_is_pure_leaf_no_effects(instr) {
+    return false
   }
   analysis_cache.stats.effect_cache_misses.val += 1
   vq_collect_effects_timed(instr, analysis_cache.stats).has_unremovable_side_effects()
@@ -701,6 +738,9 @@ fn vq_has_unremovable_shallow_effects_cached(
     }
     None => ()
   }
+  if vq_is_pure_leaf_no_effects(instr) {
+    return false
+  }
   analysis_cache.stats.shallow_effect_cache_misses.val += 1
   lcs_collect_shallow_effects(instr).has_unremovable_side_effects()
 }
@@ -715,6 +755,9 @@ fn vq_instr_has_calls_cached(
     Some(node) => return node.has_calls
     None => ()
   }
+  if vq_is_pure_leaf_no_effects(instr) {
+    return false
+  }
   vq_collect_effects_timed(instr, analysis_cache.stats).calls
 }
 
@@ -727,6 +770,9 @@ fn vq_instr_effect_transfers_control_flow_cached(
   match vq_indexed_instr_node(analysis_cache, instr_id) {
     Some(node) => return node.effect_transfers_control_flow
     None => ()
+  }
+  if vq_is_pure_leaf_no_effects(instr) {
+    return false
   }
   vq_collect_effects_timed(instr, analysis_cache.stats).transfers_control_flow()
 }
@@ -10845,6 +10891,34 @@ test "vacuum cached value-break helper skips unindexed label-free multi-item fal
   assert_false(vq_has_value_break_lub_depth0_cached(expr, env, cache))
   assert_eq(cache.stats.value_break_lub_calls.val, 0)
   assert_eq(cache.stats.rebase_score_calls.val, 1)
+}
+
+///|
+test "vacuum fallback pure leaf effect metadata skips generic collector" {
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let leaf = TInstr::i32_const(I32(1))
+
+  assert_false(vq_has_unremovable_effects_cached(leaf, cache))
+  assert_false(vq_has_unremovable_shallow_effects_cached(leaf, cache))
+  assert_false(vq_instr_has_calls_cached(leaf, cache))
+  assert_false(vq_instr_effect_transfers_control_flow_cached(leaf, cache))
+  assert_eq(cache.stats.collect_effects_calls.val, 0)
+}
+
+///|
+test "vacuum fallback pure leaf type metadata skips generic type inference" {
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+
+  assert_eq(
+    vq_type_of_cached(TInstr::local_get(LocalIdx::new(0)), env, cache),
+    Some(ValType::i32()),
+  )
+  assert_eq(
+    vq_type_of_cached(TInstr::i64_const(I64(7L)), env, cache),
+    Some(ValType::i64()),
+  )
+  assert_eq(cache.stats.infer_type_calls.val, 0)
 }
 
 ///|

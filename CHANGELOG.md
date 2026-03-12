@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-03-12 Vacuum Follow-up: added pure-leaf unindexed metadata fast paths to avoid generic type/effect fallback helpers
+
+This follow-up continues the remaining `Vacuum` Stage 3 fallback metadata specialization work in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). On unindexed rewritten instructions, metadata helpers still delegated to generic collectors/inference even for trivial pure leaves (`const`, `local.get`, etc.), which inflated helper-level fallback cost in hot rewrite churn.
+
+`vq_type_of_cached(...)` now short-circuits common leaf kinds without calling `vq_type_of_timed(...)` (`local.get`, `global.get`, scalar/vector consts, `ref.null`, `ref.func`). Effect-side helpers now also short-circuit pure leaves without invoking `vq_collect_effects_timed(...)` (or shallow-effect collection): `vq_has_unremovable_effects_cached(...)`, `vq_has_unremovable_shallow_effects_cached(...)`, `vq_instr_has_calls_cached(...)`, and `vq_instr_effect_transfers_control_flow_cached(...)`.
+
+Regression coverage in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) was expanded with red-first tests:
+- `vacuum fallback pure leaf effect metadata skips generic collector` (asserts `collect_effects_calls == 0`)
+- `vacuum fallback pure leaf type metadata skips generic type inference` (asserts `infer_type_calls == 0`)
+
+Verification: `moon test src/passes` (red first on the new type-metadata assertion, then green), `moon info && moon fmt`, and full `moon test` (3042 passing, 0 failing).
+
 ## 2026-03-12 Vacuum Follow-up: narrowed drop-rewrite stack-signature guarding to local child-signature formulas and kept generic rewrite checks as fallback only
 
 This follow-up continues the remaining `Vacuum` Stage 3 rewrite-guard blocker work in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). The hot `TDrop` rewrite path previously invoked `vq_rewrite_preserves_stack_sig_cached(...)` directly for candidate transitions like `drop(next_value)`, `drop(drop(inner)) -> drop(inner)`, and `drop(local.tee(...)) -> local.set(...)`, even when a cheaper local stack-signature equivalence check was available from the drop wrapper shape itself.
