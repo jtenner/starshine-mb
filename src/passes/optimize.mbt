@@ -126,6 +126,22 @@ pub fn OptimizeTracingLevel::helper() -> OptimizeTracingLevel {
 }
 
 ///|
+pub enum OptimizeValidationPolicy {
+  FinalModuleOnly
+  AfterEveryPass
+} derive(Show, Eq)
+
+///|
+pub fn OptimizeValidationPolicy::final_module_only() -> OptimizeValidationPolicy {
+  FinalModuleOnly
+}
+
+///|
+pub fn OptimizeValidationPolicy::after_every_pass() -> OptimizeValidationPolicy {
+  AfterEveryPass
+}
+
+///|
 pub struct InliningOptions {
   always_inline_max_size : Int
   one_caller_inline_max_size : Int
@@ -163,6 +179,7 @@ pub struct OptimizeOptions {
   low_memory_unused : Bool
   low_memory_bound : UInt64
   traps_never_happen : Bool
+  validation_policy : OptimizeValidationPolicy
 }
 
 ///|
@@ -181,6 +198,7 @@ pub fn OptimizeOptions::new(
   low_memory_unused? : Bool = false,
   low_memory_bound? : UInt64 = 1024UL,
   traps_never_happen? : Bool = false,
+  validation_policy? : OptimizeValidationPolicy = OptimizeValidationPolicy::final_module_only(),
 ) -> OptimizeOptions {
   {
     optimize_level,
@@ -190,6 +208,7 @@ pub fn OptimizeOptions::new(
     low_memory_unused,
     low_memory_bound,
     traps_never_happen,
+    validation_policy,
   }
 }
 
@@ -1453,6 +1472,10 @@ fn optimize_module_with_options_internal(
   let mut mod = mod
   let ctx = IRContext::new()
   ctx.set_mod(mod)
+  let validate_after_every_pass = match options.validation_policy {
+    AfterEveryPass => true
+    FinalModuleOnly => false
+  }
   let lift_start_ms = optimize_trace_now_ms()
   optimize_trace_emit_phase(
     trace, trace_enabled, trace_level, "lift_to_texpr:start",
@@ -1490,6 +1513,8 @@ fn optimize_module_with_options_internal(
   let mut pass_index = 0
   let mut previous_vacuum_no_change = false
   let mut changed_since_last_vacuum = false
+  let mut last_pass : ModulePass? = None
+  let mut last_pre_pass_mod : Module? = None
   for pass in passes {
     let pass_start_ms = optimize_trace_now_ms()
     pass_index += 1
@@ -1586,52 +1611,58 @@ fn optimize_module_with_options_internal(
       trace_level,
       "pass[\{pass_index}/\{passes.length()}]:scheduler:done kind=\{optimize_trace_context_label(kind)}",
     )
-    let validate_start_ms = optimize_trace_now_ms()
-    optimize_trace_emit_phase(
-      trace,
-      trace_enabled,
-      trace_level,
-      "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:start",
-    )
-    let validate_result = if trace_enabled &&
-      optimize_trace_phase_enabled(trace_level) {
-      let validate_trace_all_funcs = optimize_trace_helper_enabled(trace_level)
-      validate_module_with_trace(
-        mod,
-        fn(msg) {
-          if optimize_trace_helper_enabled(trace_level) ||
-            optimize_trace_detail_is_phase(msg) {
-            trace(
-              "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:\{msg}",
-            )
-          }
-        },
-        trace_all_funcs=validate_trace_all_funcs,
+    last_pass = Some(pass)
+    last_pre_pass_mod = Some(pre_pass_mod)
+    if validate_after_every_pass {
+      let validate_start_ms = optimize_trace_now_ms()
+      optimize_trace_emit_phase(
+        trace,
+        trace_enabled,
+        trace_level,
+        "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:start",
       )
-    } else {
-      validate_module(mod)
-    }
-    match validate_result {
-      Ok(_) =>
-        optimize_trace_emit_phase(
-          trace,
-          trace_enabled,
+      let validate_result = if trace_enabled &&
+        optimize_trace_phase_enabled(trace_level) {
+        let validate_trace_all_funcs = optimize_trace_helper_enabled(
           trace_level,
-          "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:done elapsed_ms=\{optimize_trace_elapsed_ms(validate_start_ms)}",
         )
-      Err(e) => {
-        let summary = validation_error_message(e)
-        optimize_validation_dump_before_after(
-          original_mod, mod, trace, trace_enabled,
+        validate_module_with_trace(
+          mod,
+          fn(msg) {
+            if optimize_trace_helper_enabled(trace_level) ||
+              optimize_trace_detail_is_phase(msg) {
+              trace(
+                "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:\{msg}",
+              )
+            }
+          },
+          trace_all_funcs=validate_trace_all_funcs,
         )
-        optimize_trace_emit_pass(
-          trace,
-          trace_enabled,
-          "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation_error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{summary}",
-        )
-        return Err(
-          opt_format_pass_validation_failure(mod, e, pass, pre_pass_mod),
-        )
+      } else {
+        validate_module(mod)
+      }
+      match validate_result {
+        Ok(_) =>
+          optimize_trace_emit_phase(
+            trace,
+            trace_enabled,
+            trace_level,
+            "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:done elapsed_ms=\{optimize_trace_elapsed_ms(validate_start_ms)}",
+          )
+        Err(e) => {
+          let summary = validation_error_message(e)
+          optimize_validation_dump_before_after(
+            original_mod, mod, trace, trace_enabled,
+          )
+          optimize_trace_emit_pass(
+            trace,
+            trace_enabled,
+            "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation_error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{summary}",
+          )
+          return Err(
+            opt_format_pass_validation_failure(mod, e, pass, pre_pass_mod),
+          )
+        }
       }
     }
 
@@ -1668,6 +1699,55 @@ fn optimize_module_with_options_internal(
       trace_enabled,
       "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
     )
+  }
+  if !validate_after_every_pass {
+    let validate_start_ms = optimize_trace_now_ms()
+    optimize_trace_emit_phase(
+      trace, trace_enabled, trace_level, "validation:final:start",
+    )
+    let validate_result = if trace_enabled &&
+      optimize_trace_phase_enabled(trace_level) {
+      let validate_trace_all_funcs = optimize_trace_helper_enabled(trace_level)
+      validate_module_with_trace(
+        mod,
+        fn(msg) {
+          if optimize_trace_helper_enabled(trace_level) ||
+            optimize_trace_detail_is_phase(msg) {
+            trace("validation:final:\{msg}")
+          }
+        },
+        trace_all_funcs=validate_trace_all_funcs,
+      )
+    } else {
+      validate_module(mod)
+    }
+    match validate_result {
+      Ok(_) =>
+        optimize_trace_emit_phase(
+          trace,
+          trace_enabled,
+          trace_level,
+          "validation:final:done elapsed_ms=\{optimize_trace_elapsed_ms(validate_start_ms)}",
+        )
+      Err(e) => {
+        let summary = validation_error_message(e)
+        optimize_validation_dump_before_after(
+          original_mod, mod, trace, trace_enabled,
+        )
+        optimize_trace_emit_pass(
+          trace,
+          trace_enabled,
+          "validation:final:error elapsed_ms=\{optimize_trace_elapsed_ms(validate_start_ms)} \{summary}",
+        )
+        return Err(
+          match (last_pass, last_pre_pass_mod) {
+            (Some(pass), Some(pre_pass_mod)) =>
+              opt_format_pass_validation_failure(mod, e, pass, pre_pass_mod)
+            _ => opt_format_validation_error(mod, e)
+          },
+        )
+      }
+    }
   }
   optimize_trace_emit_pass(
     trace,
@@ -6469,24 +6549,65 @@ test "opt_format_validation_error reports root-level underflow context" {
 }
 
 ///|
-test "optimize_module validation errors include before and after snapshots" {
+fn opt_invalid_drop_nop_module() -> Module {
   let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([t_void]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [],
-          [],
-          TExpr::new([
-            TInstr::drop(TInstr::i32_const(I32(1))),
-            TInstr::drop(TInstr::nop()),
-            TInstr::nop(),
-          ]),
-        ),
-      ]),
-    )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_void]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(1))),
+          TInstr::drop(TInstr::nop()),
+          TInstr::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "optimize_module defaults to validating once after the last pass" {
+  let msg = match
+    optimize_module_with_options(
+      opt_invalid_drop_nop_module(),
+      [RemoveUnusedNames, DuplicateImportElimination],
+      OptimizeOptions::new(),
+    ) {
+    Ok(_) => fail("expected final validation failure after scheduling passes")
+    Err(msg) => msg
+  }
+  assert_true(
+    msg.contains("validation error after pass DuplicateImportElimination"),
+  )
+  assert_false(msg.contains("validation error after pass RemoveUnusedNames"))
+}
+
+///|
+test "optimize_module can opt into validation after every pass" {
+  let msg = match
+    optimize_module_with_options(
+      opt_invalid_drop_nop_module(),
+      [RemoveUnusedNames, DuplicateImportElimination],
+      OptimizeOptions::new(
+        validation_policy=OptimizeValidationPolicy::after_every_pass(),
+      ),
+    ) {
+    Ok(_) => fail("expected per-pass validation failure after first pass")
+    Err(msg) => msg
+  }
+  assert_true(msg.contains("validation error after pass RemoveUnusedNames"))
+  assert_false(
+    msg.contains("validation error after pass DuplicateImportElimination"),
+  )
+}
+
+///|
+test "optimize_module validation errors include before and after snapshots" {
+  let mod = opt_invalid_drop_nop_module()
   let msg = match optimize_module(mod, [RemoveUnusedNames]) {
     Ok(_) => fail("expected validation failure after scheduling pass")
     Err(msg) => msg

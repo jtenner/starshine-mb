@@ -295,28 +295,22 @@ Impact:
 
 For performance analysis, this finding is at least as important as any individual pass substitution.
 
-## 11. The Local Optimizer Validates After Every Pass
+## 11. The Local Optimizer Validation Policy Is Now Configurable
 
-The local pass loop performs validation after every pass:
+The local optimizer no longer validates unconditionally after every pass in the default non-debug path.
 
-- validation start: [src/passes/optimize.mbt#L1589](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1589)
-- non-traced validation call: [src/passes/optimize.mbt#L1612](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1612)
+- validation policy definition: [src/passes/optimize.mbt](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt)
+- final-only validation path: [src/passes/optimize.mbt#L1683](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1683)
+- explicit per-pass validation path: [src/passes/optimize.mbt#L1603](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1603)
 
-Binaryen does not do this unconditionally in normal operation. In the reference runner, validation is tied to debug / validation settings rather than being mandatory after every pass in the default non-debug path.
+`OptimizeOptions` now carries an `OptimizeValidationPolicy` value. The default is final-module validation only, which is closer to Binaryen's normal non-debug behavior. The stricter old behavior still exists behind an explicit `AfterEveryPass` opt-in for debugging, pass-development, and targeted validation-heavy workflows.
 
 Impact:
 
-- This is a major throughput difference.
-- It adds guaranteed extra work after every pass, including expensive ones.
-- It amplifies the wall-clock cost of long pipelines on large modules.
-- It is not the root cause of a pathologically expensive `Vacuum` transformation, but it widens the observed runtime gap between this implementation and Binaryen.
-
-This means any total runtime comparison must separate:
-
-- optimization work done by the passes themselves
-- validation work imposed by the local runner
-
-Failing to separate those can misattribute cost to the wrong pass.
+- The default optimization runner no longer adds a mandatory full-module validation walk after every pass.
+- Runtime comparisons against Binaryen are less distorted by runner-imposed validation overhead.
+- The optimizer still preserves useful failure diagnostics by attributing a final validation error to the last executed pass and including before/after snapshots when available.
+- Users who want the previous validation cadence can still request it directly through `OptimizeOptions`.
 
 ## 12. The Local Runner Has a `Vacuum` Skip Heuristic That Binaryen Does Not
 

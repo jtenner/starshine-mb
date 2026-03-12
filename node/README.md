@@ -3854,7 +3854,7 @@ Type namespace `ModulePass`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `OptimizeOptions`
-- `OptimizeOptions.new(optimizeLevel?: number, shrinkLevel?: number, inlining?: InliningOptions, monomorphizeMinBenefit?: number, lowMemoryUnused?: boolean, lowMemoryBound?: bigint, trapsNeverHappen?: boolean): OptimizeOptions`
+- `OptimizeOptions.new(optimizeLevel?: number, shrinkLevel?: number, inlining?: InliningOptions, monomorphizeMinBenefit?: number, lowMemoryUnused?: boolean, lowMemoryBound?: bigint, trapsNeverHappen?: boolean, validationPolicy?: OptimizeValidationPolicy): OptimizeOptions`
   Create a OptimizeOptions value.
 
 Type namespace `OptimizeTracingLevel`
@@ -3865,6 +3865,14 @@ Type namespace `OptimizeTracingLevel`
 - `OptimizeTracingLevel.phase(): OptimizeTracingLevel`
   Call OptimizeTracingLevel.phase.
 - `OptimizeTracingLevel.show(value: OptimizeTracingLevel): string`
+  Format the value with its MoonBit `Show` implementation.
+
+Type namespace `OptimizeValidationPolicy`
+- `OptimizeValidationPolicy.afterEveryPass(): OptimizeValidationPolicy`
+  Call OptimizeValidationPolicy.after_every_pass.
+- `OptimizeValidationPolicy.finalModuleOnly(): OptimizeValidationPolicy`
+  Call OptimizeValidationPolicy.final_module_only.
+- `OptimizeValidationPolicy.show(value: OptimizeValidationPolicy): string`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `ParamInfo`

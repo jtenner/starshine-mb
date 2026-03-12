@@ -13,7 +13,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Performance issue in Validate package
 - [ ] Split optimize profiling so pass-transform time and post-pass validation time are measured separately on pathological modules.
 - [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
-- [ ] Make optimizer validation policy configurable so default non-debug optimization does not validate after every pass.
 - [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
 - [ ] Harden pathological cleanup handling beyond the current no-op `Vacuum` skip heuristic, especially for the first expensive `Vacuum` on deep-tree functions.
 - [ ] Resolve the known inlining-option mismatches so `InliningOptimizing` can be enabled in the global post pipeline.

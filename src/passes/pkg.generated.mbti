@@ -93,8 +93,6 @@ pub struct InliningOptions {
 pub fn InliningOptions::new(always_inline_max_size? : Int, one_caller_inline_max_size? : Int, flexible_inline_max_size? : Int, max_combined_binary_size? : Int, allow_functions_with_loops? : Bool, partial_inlining_ifs? : Int) -> Self
 
 pub struct Literal(LiteralKind, Bytes)
-
-
 pub impl Compare for Literal
 pub impl Eq for Literal
 pub impl Hash for Literal
@@ -246,8 +244,9 @@ pub struct OptimizeOptions {
   low_memory_unused : Bool
   low_memory_bound : UInt64
   traps_never_happen : Bool
+  validation_policy : OptimizeValidationPolicy
 }
-pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool) -> Self
+pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool, validation_policy? : OptimizeValidationPolicy) -> Self
 
 pub enum OptimizeTracingLevel {
   Pass
@@ -259,6 +258,15 @@ pub fn OptimizeTracingLevel::pass() -> Self
 pub fn OptimizeTracingLevel::phase() -> Self
 pub impl Eq for OptimizeTracingLevel
 pub impl Show for OptimizeTracingLevel
+
+pub enum OptimizeValidationPolicy {
+  FinalModuleOnly
+  AfterEveryPass
+}
+pub fn OptimizeValidationPolicy::after_every_pass() -> Self
+pub fn OptimizeValidationPolicy::final_module_only() -> Self
+pub impl Eq for OptimizeValidationPolicy
+pub impl Show for OptimizeValidationPolicy
 
 type ParamInfo
 pub impl Eq for ParamInfo
