@@ -11,6 +11,17 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 ## Publishing blockers
 - [ ] Performance issue in Flatten (use helper level tracing with timing stats to diagnose)
 - [ ] Performance issue in Validate package
+- [ ] Split optimize profiling so pass-transform time and post-pass validation time are measured separately on pathological modules.
+- [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
+- [ ] Make optimizer validation policy configurable so default non-debug optimization does not validate after every pass.
+- [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
+- [ ] Harden pathological cleanup handling beyond the current no-op `Vacuum` skip heuristic, especially for the first expensive `Vacuum` on deep-tree functions.
+- [ ] Compare closed-world `RemoveUnused` against Binaryen's `RemoveUnusedModuleElements` and align the default pre-pass choice/cost model.
+- [ ] Resolve the known inlining-option mismatches so `InliningOptimizing` can be enabled in the global post pipeline.
+- [ ] Add `RemoveUnusedNames` at the Binaryen parity points in the default function pipeline.
+- [ ] Revisit the late `OptimizeInstructions` cleanup-cost heuristic and decide the intended parity/runtime policy for the second pass.
+- [ ] Add parity tests proving `ConstantFieldPropagation` fully covers Binaryen's `cfp-reftest` cases, or split the behavior.
+- [ ] Implement `StringGathering` in the global post pipeline under the appropriate feature/optimization gates.
 - [ ] Replace the wasm wildcard stub (`wasi_list_candidates`) with directory enumeration via WASI readdir so glob expansion works under default WASI I/O.
 - [ ] Publish the first release and MoonBit registry package (`moon publish` plus GitHub Release binaries).
 
