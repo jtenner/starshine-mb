@@ -849,6 +849,20 @@ fn vq_instr_rebase_label_score_timed(instr : TInstr, stats : VQRunStats) -> Int 
 }
 
 ///|
+fn vq_texpr_rebase_label_score_timed(expr : TExpr, stats : VQRunStats) -> Int {
+  let start_us = vacuum_trace_now_us()
+  let out = vq_texpr_rebase_label_score(expr)
+  ignore(
+    vq_commit_helper_timing(
+      stats.rebase_score_us,
+      stats.rebase_score_calls,
+      start_us,
+    ),
+  )
+  out
+}
+
+///|
 fn vq_texpr_rebase_label_score(expr : TExpr) -> Int {
   let mut score = vq_no_label_score()
   for instr in expr.instrs {
@@ -1199,8 +1213,8 @@ fn vq_has_break_to_depth0_cached(
   match vq_indexed_expr_node(analysis_cache, expr_id) {
     Some(_) => vq_indexed_expr_has_break_to_depth0(analysis_cache, expr_id)
     None => {
-      if expr.instrs.length() == 1 {
-        let score = match single_instr_rebase_label_score {
+      let score = if expr.instrs.length() == 1 {
+        match single_instr_rebase_label_score {
           Some(cached) => cached
           None =>
             vq_instr_rebase_label_score_timed(
@@ -1208,9 +1222,11 @@ fn vq_has_break_to_depth0_cached(
               analysis_cache.stats,
             )
         }
-        if score < 0 {
-          return false
-        }
+      } else {
+        vq_texpr_rebase_label_score_timed(expr, analysis_cache.stats)
+      }
+      if score < 0 {
+        return false
       }
       vq_has_break_to_depth_in_texpr_timed(expr, 0, analysis_cache.stats)
     }
@@ -1228,8 +1244,8 @@ fn vq_has_value_break_lub_depth0_cached(
   match vq_indexed_expr_value_break_lub_depth0(analysis_cache, expr_id) {
     Some(cached) => cached
     None => {
-      if expr.instrs.length() == 1 {
-        let score = match single_instr_rebase_label_score {
+      let score = if expr.instrs.length() == 1 {
+        match single_instr_rebase_label_score {
           Some(cached_score) => cached_score
           None =>
             vq_instr_rebase_label_score_timed(
@@ -1237,9 +1253,11 @@ fn vq_has_value_break_lub_depth0_cached(
               analysis_cache.stats,
             )
         }
-        if score < 0 {
-          return false
-        }
+      } else {
+        vq_texpr_rebase_label_score_timed(expr, analysis_cache.stats)
+      }
+      if score < 0 {
+        return false
       }
       vq_value_break_to_depth_has_lub(expr, 0, env, analysis_cache)
     }
@@ -10698,6 +10716,27 @@ test "vacuum cached value-break helper skips unindexed label-free fallback scan"
   let env = Env::new().with_module(Module::new())
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let expr = TExpr::new([TInstr::i32_const(I32(1))])
+
+  assert_false(vq_has_value_break_lub_depth0_cached(expr, env, cache))
+  assert_eq(cache.stats.value_break_lub_calls.val, 0)
+  assert_eq(cache.stats.rebase_score_calls.val, 1)
+}
+
+///|
+test "vacuum cached break helper skips unindexed label-free multi-item fallback scan" {
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let expr = TExpr::new([TInstr::i32_const(I32(1)), TInstr::i32_const(I32(2))])
+
+  assert_false(vq_has_break_to_depth0_cached(expr, cache))
+  assert_eq(cache.stats.break_scan_calls.val, 0)
+  assert_eq(cache.stats.rebase_score_calls.val, 1)
+}
+
+///|
+test "vacuum cached value-break helper skips unindexed label-free multi-item fallback scan" {
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let expr = TExpr::new([TInstr::i32_const(I32(1)), TInstr::i32_const(I32(2))])
 
   assert_false(vq_has_value_break_lub_depth0_cached(expr, env, cache))
   assert_eq(cache.stats.value_break_lub_calls.val, 0)

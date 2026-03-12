@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-03-12 Vacuum Follow-up: expanded unindexed fallback-scan fast paths to expression-level break/value-break helpers for multi-item label-free rewritten trees
+
+This follow-up continues the `Vacuum` Stage 3 fallback-scan reductions in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). Earlier changes skipped expensive fallback scans for trivial unindexed single-instruction cases. Two helper paths were still scanning for multi-item rewritten expressions even when label metadata proved no depth-0 targets were possible:
+- `vq_has_break_to_depth0_cached(...)` still called `vq_has_break_to_depth_in_texpr_timed(...)`
+- `vq_has_value_break_lub_depth0_cached(...)` still called `vq_value_break_to_depth_has_lub(...)`
+
+Both helpers now use expression-level rebase-score gating on unindexed fallback paths. They compute or reuse a score and short-circuit when the score is `< 0`, which proves no depth-0 wrapper-targeted labels exist for the queried expression. A new timed helper, `vq_texpr_rebase_label_score_timed(...)`, was added so this fallback work remains visible through `rebase_score_calls` / `rebase_score_ms`.
+
+Regression coverage was expanded in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) with red-first tests:
+- `vacuum cached break helper skips unindexed label-free multi-item fallback scan`
+- `vacuum cached value-break helper skips unindexed label-free multi-item fallback scan`
+
+Both tests assert that generic collectors are skipped (`break_scan_calls == 0` / `value_break_lub_calls == 0`) and that exactly one rebase-score pass runs (`rebase_score_calls == 1`).
+
+Verification: `moon test src/passes` (red first on both new tests, then green), `moon info && moon fmt`, and full `moon test` (3040 passing, 0 failing).
+
 ## 2026-03-12 Vacuum Follow-up: added an unindexed single-item fast path for cached value-break LUB queries to skip unnecessary fallback collection
 
 This follow-up continues the pathological-`Vacuum` fallback optimization work in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). `vq_has_value_break_lub_depth0_cached(...)` already used indexed depth-0 metadata when `expr_id` was available, but for unindexed rewritten expressions it always delegated to `vq_value_break_to_depth_has_lub(...)`, even for single-instruction label-free trees where a depth-0 value break is impossible.
