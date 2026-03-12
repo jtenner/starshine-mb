@@ -1457,10 +1457,6 @@ priv struct VQAnalysisCache {
   instr_throws_cache : Map[TInstr, Bool]
   instr_explicit_unreachable_cache : Map[TInstr, Bool]
   stack_sig_cache : Map[TInstr, VQStackSig?]
-  control_transfer_cache : Map[TExpr, Bool]
-  throws_cache : Map[TExpr, Bool]
-  explicit_unreachable_cache : Map[TExpr, Bool]
-  value_break_lub_depth0_cache : Map[TExpr, Bool]
   may_not_return_cache : Map[TInstr, Bool]
   call_without_effects_intrinsics : Array[Bool]
   stats : VQRunStats
@@ -1485,10 +1481,6 @@ fn VQAnalysisCache::new(
     instr_throws_cache: Map::new(),
     instr_explicit_unreachable_cache: Map::new(),
     stack_sig_cache: Map::new(),
-    control_transfer_cache: Map::new(),
-    throws_cache: Map::new(),
-    explicit_unreachable_cache: Map::new(),
-    value_break_lub_depth0_cache: Map::new(),
     may_not_return_cache: Map::new(),
     call_without_effects_intrinsics,
     stats,
@@ -1538,20 +1530,7 @@ fn vq_analysis_cache_instr_entry_count(cache : VQAnalysisCache) -> Int {
 
 ///|
 fn vq_analysis_cache_expr_entry_count(cache : VQAnalysisCache) -> Int {
-  let seen : Map[TExpr, Bool] = Map::new()
-  for key in cache.control_transfer_cache.keys() {
-    seen[key] = true
-  }
-  for key in cache.throws_cache.keys() {
-    seen[key] = true
-  }
-  for key in cache.explicit_unreachable_cache.keys() {
-    seen[key] = true
-  }
-  for key in cache.value_break_lub_depth0_cache.keys() {
-    seen[key] = true
-  }
-  cache.indexed_expr_nodes.length() + vq_map_size(seen)
+  cache.indexed_expr_nodes.length()
 }
 
 ///|
@@ -3080,19 +3059,9 @@ fn vq_texpr_has_control_transfer_cached(
     }
     None => ()
   }
-  match analysis_cache.control_transfer_cache.get(expr) {
-    Some(has_control_transfer) => {
-      analysis_cache.stats.control_transfer_cache_hits.val += 1
-      has_control_transfer
-    }
-    None => {
-      analysis_cache.stats.control_transfer_cache_misses.val += 1
-      analysis_cache.stats.control_transfer_scans.val += 1
-      let has_control_transfer = vq_texpr_has_control_transfer(expr)
-      analysis_cache.control_transfer_cache[expr] = has_control_transfer
-      has_control_transfer
-    }
-  }
+  analysis_cache.stats.control_transfer_cache_misses.val += 1
+  analysis_cache.stats.control_transfer_scans.val += 1
+  vq_texpr_has_control_transfer(expr)
 }
 
 ///|
@@ -3556,14 +3525,7 @@ fn vq_texpr_throws_cached(
     Some(node) => return node.throws
     None => ()
   }
-  match analysis_cache.throws_cache.get(expr) {
-    Some(throws) => throws
-    None => {
-      let throws = vq_texpr_throws(expr)
-      analysis_cache.throws_cache[expr] = throws
-      throws
-    }
-  }
+  vq_texpr_throws(expr)
 }
 
 ///|
@@ -3793,14 +3755,7 @@ fn vq_texpr_has_explicit_unreachable_cached(
     Some(node) => return node.explicit_unreachable
     None => ()
   }
-  match analysis_cache.explicit_unreachable_cache.get(expr) {
-    Some(has_unreachable) => has_unreachable
-    None => {
-      let has_unreachable = vq_texpr_has_explicit_unreachable(expr)
-      analysis_cache.explicit_unreachable_cache[expr] = has_unreachable
-      has_unreachable
-    }
-  }
+  vq_texpr_has_explicit_unreachable(expr)
 }
 
 ///|
@@ -4599,19 +4554,6 @@ fn vq_value_break_to_depth_has_lub(
       }
       None => ()
     }
-    match analysis_cache.value_break_lub_depth0_cache.get(expr) {
-      Some(cached) => {
-        ignore(
-          vq_commit_helper_timing(
-            analysis_cache.stats.value_break_lub_us,
-            analysis_cache.stats.value_break_lub_calls,
-            start_us,
-          ),
-        )
-        return cached
-      }
-      None => ()
-    }
   }
   let collected_types : Array[ValType] = []
   let found_value_break = Ref::new(false)
@@ -4637,9 +4579,6 @@ fn vq_value_break_to_depth_has_lub(
       }
     }
     candidate is Some(_)
-  }
-  if depth == 0 {
-    analysis_cache.value_break_lub_depth0_cache[expr] = has_lub
   }
   ignore(
     vq_commit_helper_timing(
@@ -6725,7 +6664,6 @@ test "vacuum indexed try_table removal avoids generic throws cache" {
     None => fail("expected try_table rewrite result")
   }
   assert_eq(out, TInstr::i32_const(I32(77)))
-  assert_eq(cache.throws_cache.get(original_body), None)
 }
 
 ///|
@@ -6791,7 +6729,6 @@ test "vacuum changed try_table body reuses indexed metadata for throws and break
       )
   }
   assert_eq(cache.stats.break_scan_calls.val, 0)
-  assert_eq(cache.throws_cache.get(original_body), None)
 }
 
 ///|
@@ -10490,6 +10427,7 @@ test "vacuum value-break lub detector reports true for compatible break value ty
     Some(id) => id
     None => fail("expected indexed expr id")
   }
+  let expr_entries_before = vq_analysis_cache_expr_entry_count(analysis_cache)
   assert_true(
     vq_value_break_to_depth_has_lub(
       expr,
@@ -10499,7 +10437,48 @@ test "vacuum value-break lub detector reports true for compatible break value ty
       expr_id=Some(expr_id),
     ),
   )
-  assert_eq(analysis_cache.value_break_lub_depth0_cache.get(expr), None)
+  assert_eq(
+    vq_analysis_cache_expr_entry_count(analysis_cache),
+    expr_entries_before,
+  )
+}
+
+///|
+test "vacuum fallback expr metadata queries avoid value-keyed expr cache entries" {
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+
+  assert_true(
+    vq_texpr_has_control_transfer_cached(
+      TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
+      cache,
+    ),
+  )
+  assert_true(
+    vq_texpr_throws_cached(
+      TExpr::new([TInstr::throw_(TagIdx::new(0), [])]),
+      cache,
+    ),
+  )
+  assert_true(
+    vq_texpr_has_explicit_unreachable_cached(
+      TExpr::new([TInstr::unreachable_()]),
+      cache,
+    ),
+  )
+
+  assert_eq(vq_analysis_cache_expr_entry_count(cache), 0)
+}
+
+///|
+test "vacuum fallback value-break lub query avoids value-keyed expr cache entries" {
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let expr = TExpr::new([
+    TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(1))]),
+  ])
+
+  assert_true(vq_value_break_to_depth_has_lub(expr, 0, env, cache))
+  assert_eq(vq_analysis_cache_expr_entry_count(cache), 0)
 }
 
 ///|
@@ -10520,6 +10499,7 @@ test "vacuum value-break lub detector reports false for incompatible reference b
     Some(id) => id
     None => fail("expected indexed expr id")
   }
+  let expr_entries_before = vq_analysis_cache_expr_entry_count(analysis_cache)
   assert_false(
     vq_value_break_to_depth_has_lub(
       expr,
@@ -10529,5 +10509,8 @@ test "vacuum value-break lub detector reports false for incompatible reference b
       expr_id=Some(expr_id),
     ),
   )
-  assert_eq(analysis_cache.value_break_lub_depth0_cache.get(expr), None)
+  assert_eq(
+    vq_analysis_cache_expr_entry_count(analysis_cache),
+    expr_entries_before,
+  )
 }
