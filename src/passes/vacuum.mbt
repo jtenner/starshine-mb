@@ -662,18 +662,8 @@ fn vq_type_of_cached(
     }
     None => ()
   }
-  match analysis_cache.type_cache.get(instr) {
-    Some(v) => {
-      analysis_cache.stats.type_cache_hits.val += 1
-      v
-    }
-    None => {
-      analysis_cache.stats.type_cache_misses.val += 1
-      let v = vq_type_of_timed(instr, env, analysis_cache.stats)
-      analysis_cache.type_cache[instr] = v
-      v
-    }
-  }
+  analysis_cache.stats.type_cache_misses.val += 1
+  vq_type_of_timed(instr, env, analysis_cache.stats)
 }
 
 ///|
@@ -689,21 +679,8 @@ fn vq_has_unremovable_effects_cached(
     }
     None => ()
   }
-  match analysis_cache.effect_cache.get(instr) {
-    Some(v) => {
-      analysis_cache.stats.effect_cache_hits.val += 1
-      v
-    }
-    None => {
-      analysis_cache.stats.effect_cache_misses.val += 1
-      let effects = vq_collect_effects_timed(instr, analysis_cache.stats)
-      let v = effects.has_unremovable_side_effects()
-      analysis_cache.effect_cache[instr] = v
-      analysis_cache.calls_cache[instr] = effects.calls
-      analysis_cache.effect_control_transfer_cache[instr] = effects.transfers_control_flow()
-      v
-    }
-  }
+  analysis_cache.stats.effect_cache_misses.val += 1
+  vq_collect_effects_timed(instr, analysis_cache.stats).has_unremovable_side_effects()
 }
 
 ///|
@@ -719,18 +696,8 @@ fn vq_has_unremovable_shallow_effects_cached(
     }
     None => ()
   }
-  match analysis_cache.shallow_effect_cache.get(instr) {
-    Some(v) => {
-      analysis_cache.stats.shallow_effect_cache_hits.val += 1
-      v
-    }
-    None => {
-      analysis_cache.stats.shallow_effect_cache_misses.val += 1
-      let v = lcs_collect_shallow_effects(instr).has_unremovable_side_effects()
-      analysis_cache.shallow_effect_cache[instr] = v
-      v
-    }
-  }
+  analysis_cache.stats.shallow_effect_cache_misses.val += 1
+  lcs_collect_shallow_effects(instr).has_unremovable_side_effects()
 }
 
 ///|
@@ -743,17 +710,7 @@ fn vq_instr_has_calls_cached(
     Some(node) => return node.has_calls
     None => ()
   }
-  match analysis_cache.calls_cache.get(instr) {
-    Some(has_calls) => has_calls
-    None => {
-      let effects = vq_collect_effects_timed(instr, analysis_cache.stats)
-      let has_calls = effects.calls
-      analysis_cache.calls_cache[instr] = has_calls
-      analysis_cache.effect_cache[instr] = effects.has_unremovable_side_effects()
-      analysis_cache.effect_control_transfer_cache[instr] = effects.transfers_control_flow()
-      has_calls
-    }
-  }
+  vq_collect_effects_timed(instr, analysis_cache.stats).calls
 }
 
 ///|
@@ -766,17 +723,7 @@ fn vq_instr_effect_transfers_control_flow_cached(
     Some(node) => return node.effect_transfers_control_flow
     None => ()
   }
-  match analysis_cache.effect_control_transfer_cache.get(instr) {
-    Some(transfers) => transfers
-    None => {
-      let effects = vq_collect_effects_timed(instr, analysis_cache.stats)
-      let transfers = effects.transfers_control_flow()
-      analysis_cache.effect_control_transfer_cache[instr] = transfers
-      analysis_cache.effect_cache[instr] = effects.has_unremovable_side_effects()
-      analysis_cache.calls_cache[instr] = effects.calls
-      transfers
-    }
-  }
+  vq_collect_effects_timed(instr, analysis_cache.stats).transfers_control_flow()
 }
 
 ///|
@@ -789,14 +736,7 @@ fn vq_instr_has_control_transfer_cached(
     Some(node) => return node.has_control_transfer
     None => ()
   }
-  match analysis_cache.instr_control_transfer_cache.get(instr) {
-    Some(has_control_transfer) => has_control_transfer
-    None => {
-      let has_control_transfer = vq_instr_has_control_transfer(instr)
-      analysis_cache.instr_control_transfer_cache[instr] = has_control_transfer
-      has_control_transfer
-    }
-  }
+  vq_instr_has_control_transfer(instr)
 }
 
 ///|
@@ -1448,16 +1388,6 @@ priv struct VQAnalysisCache {
   indexed_expr_nodes : Array[VQIndexedExprNode]
   mut indexed_root_expr_id : Int?
   mut midpass_degraded_budget : Ref[Int]?
-  type_cache : Map[TInstr, ValType?]
-  effect_cache : Map[TInstr, Bool]
-  shallow_effect_cache : Map[TInstr, Bool]
-  calls_cache : Map[TInstr, Bool]
-  effect_control_transfer_cache : Map[TInstr, Bool]
-  instr_control_transfer_cache : Map[TInstr, Bool]
-  instr_throws_cache : Map[TInstr, Bool]
-  instr_explicit_unreachable_cache : Map[TInstr, Bool]
-  stack_sig_cache : Map[TInstr, VQStackSig?]
-  may_not_return_cache : Map[TInstr, Bool]
   call_without_effects_intrinsics : Array[Bool]
   stats : VQRunStats
 }
@@ -1472,60 +1402,14 @@ fn VQAnalysisCache::new(
     indexed_expr_nodes: [],
     indexed_root_expr_id: None,
     midpass_degraded_budget: None,
-    type_cache: Map::new(),
-    effect_cache: Map::new(),
-    shallow_effect_cache: Map::new(),
-    calls_cache: Map::new(),
-    effect_control_transfer_cache: Map::new(),
-    instr_control_transfer_cache: Map::new(),
-    instr_throws_cache: Map::new(),
-    instr_explicit_unreachable_cache: Map::new(),
-    stack_sig_cache: Map::new(),
-    may_not_return_cache: Map::new(),
     call_without_effects_intrinsics,
     stats,
   }
 }
 
 ///|
-fn[K, V] vq_map_size(map : Map[K, V]) -> Int {
-  map.keys().fold(init=0, fn(acc, _) { acc + 1 })
-}
-
-///|
 fn vq_analysis_cache_instr_entry_count(cache : VQAnalysisCache) -> Int {
-  let seen : Map[TInstr, Bool] = Map::new()
-  for key in cache.type_cache.keys() {
-    seen[key] = true
-  }
-  for key in cache.effect_cache.keys() {
-    seen[key] = true
-  }
-  for key in cache.shallow_effect_cache.keys() {
-    seen[key] = true
-  }
-  for key in cache.calls_cache.keys() {
-    seen[key] = true
-  }
-  for key in cache.effect_control_transfer_cache.keys() {
-    seen[key] = true
-  }
-  for key in cache.instr_control_transfer_cache.keys() {
-    seen[key] = true
-  }
-  for key in cache.instr_throws_cache.keys() {
-    seen[key] = true
-  }
-  for key in cache.instr_explicit_unreachable_cache.keys() {
-    seen[key] = true
-  }
-  for key in cache.stack_sig_cache.keys() {
-    seen[key] = true
-  }
-  for key in cache.may_not_return_cache.keys() {
-    seen[key] = true
-  }
-  cache.indexed_instr_nodes.length() + vq_map_size(seen)
+  cache.indexed_instr_nodes.length()
 }
 
 ///|
@@ -2744,11 +2628,7 @@ fn vq_stack_sig_instr_seeded(
   env : Env,
   analysis_cache : VQAnalysisCache,
 ) -> VQStackSig? {
-  match analysis_cache.stack_sig_cache.get(instr) {
-    Some(sig) => return sig
-    None => ()
-  }
-  let sig = match instr.kind {
+  match instr.kind {
     TInstrKind::TNop => Some(VQStackSig::new(0, 0, true))
     TInstrKind::TUnreachable => Some(VQStackSig::new(0, 0, false))
     TInstrKind::TLocalGet(_)
@@ -2887,8 +2767,6 @@ fn vq_stack_sig_instr_seeded(
       }
     _ => None
   }
-  analysis_cache.stack_sig_cache[instr] = sig
-  sig
 }
 
 ///|
@@ -3034,16 +2912,8 @@ fn vq_stack_sig_instr_cached(
     }
     None => ()
   }
-  match analysis_cache.stack_sig_cache.get(instr) {
-    Some(sig) => {
-      analysis_cache.stats.stack_sig_cache_hits.val += 1
-      sig
-    }
-    None => {
-      analysis_cache.stats.stack_sig_cache_misses.val += 1
-      vq_stack_sig_instr_seeded(instr, env, analysis_cache)
-    }
-  }
+  analysis_cache.stats.stack_sig_cache_misses.val += 1
+  vq_stack_sig_instr_seeded(instr, env, analysis_cache)
 }
 
 ///|
@@ -3687,14 +3557,7 @@ fn vq_instr_may_not_return_cached(
     Some(node) => return node.may_not_return
     None => ()
   }
-  match analysis_cache.may_not_return_cache.get(instr) {
-    Some(may_not_return) => may_not_return
-    None => {
-      let may_not_return = vq_instr_may_not_return(instr)
-      analysis_cache.may_not_return_cache[instr] = may_not_return
-      may_not_return
-    }
-  }
+  vq_instr_may_not_return(instr)
 }
 
 ///|
@@ -5864,11 +5727,12 @@ test "vacuum indexed lookup does not populate fallback type cache for original n
     None => fail("expected indexed analysis to succeed")
   }
   let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
+  let instr_entries_before = vq_analysis_cache_instr_entry_count(cache)
   assert_eq(
     vq_type_of_cached(body.instrs[0], env, cache, instr_id=Some(instr_id)),
     Some(ValType::i32()),
   )
-  assert_eq(cache.type_cache.get(body.instrs[0]), None)
+  assert_eq(vq_analysis_cache_instr_entry_count(cache), instr_entries_before)
 }
 
 ///|
@@ -5918,7 +5782,10 @@ test "vacuum simplify_block uses indexed metadata to skip break scan and label r
   assert_eq(out, TInstr::i32_const(I32(7)))
   assert_eq(cache.stats.break_scan_calls.val, 0)
   assert_eq(cache.stats.rebase_labels_calls.val, 0)
-  assert_eq(cache.type_cache.get(body.instrs[0]), None)
+  assert_eq(
+    vq_analysis_cache_instr_entry_count(cache),
+    cache.indexed_instr_nodes.length(),
+  )
 }
 
 ///|
@@ -6298,6 +6165,7 @@ test "vacuum indexed dropped-result block avoids generic value-break helper" {
   }
   let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
   let process_budget = Ref::new(64)
+  let instr_entries_before = vq_analysis_cache_instr_entry_count(cache)
   let out = match
     vq_process_instr(
       instr,
@@ -6354,7 +6222,7 @@ test "vacuum indexed dropped-result block avoids generic value-break helper" {
       )
   }
   assert_eq(cache.stats.value_break_lub_calls.val, 0)
-  assert_eq(cache.type_cache.get(original_last), None)
+  assert_eq(vq_analysis_cache_instr_entry_count(cache), instr_entries_before)
 }
 
 ///|
@@ -6384,6 +6252,7 @@ test "vacuum indexed dropped-if arm result check avoids generic type cache" {
   }
   let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
   let process_budget = Ref::new(96)
+  let instr_entries_before = vq_analysis_cache_instr_entry_count(cache)
   let out = match
     vq_process_instr(
       instr,
@@ -6409,7 +6278,7 @@ test "vacuum indexed dropped-if arm result check avoids generic type cache" {
         "expected dropped-if rewrite to move drop into reachable arm: \{out}",
       )
   }
-  assert_eq(cache.type_cache.get(original_else_value), None)
+  assert_eq(vq_analysis_cache_instr_entry_count(cache), instr_entries_before)
 }
 
 ///|
@@ -6439,6 +6308,7 @@ test "vacuum changed dropped-if arm result check reuses indexed arm metadata" {
   }
   let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
   let process_budget = Ref::new(128)
+  let instr_entries_before = vq_analysis_cache_instr_entry_count(cache)
   let out = match
     vq_process_instr(
       instr,
@@ -6470,7 +6340,7 @@ test "vacuum changed dropped-if arm result check reuses indexed arm metadata" {
         "expected dropped-if rewrite to keep unreachable then and drop rewritten else value: \{out}",
       )
   }
-  assert_eq(cache.type_cache.get(original_else_tail), None)
+  assert_eq(vq_analysis_cache_instr_entry_count(cache), instr_entries_before)
 }
 
 ///|
@@ -6513,6 +6383,7 @@ test "vacuum indexed merged drop-if arms avoid generic type cache" {
   }
   let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
   let process_budget = Ref::new(96)
+  let instr_entries_before = vq_analysis_cache_instr_entry_count(cache)
   let out = match
     vq_process_instr(
       instr,
@@ -6538,8 +6409,7 @@ test "vacuum indexed merged drop-if arms avoid generic type cache" {
       ),
     ),
   )
-  assert_eq(cache.type_cache.get(original_left), None)
-  assert_eq(cache.type_cache.get(original_right), None)
+  assert_eq(vq_analysis_cache_instr_entry_count(cache), instr_entries_before)
 }
 
 ///|
@@ -10479,6 +10349,35 @@ test "vacuum fallback value-break lub query avoids value-keyed expr cache entrie
 
   assert_true(vq_value_break_to_depth_has_lub(expr, 0, env, cache))
   assert_eq(vq_analysis_cache_expr_entry_count(cache), 0)
+}
+
+///|
+test "vacuum fallback instr metadata queries avoid value-keyed instr cache entries" {
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+
+  let local_get = TInstr::local_get(LocalIdx::new(0))
+  let pure_const = TInstr::i32_const(I32(1))
+  let br = TInstr::br(LabelIdx::new(0), [])
+  let loop_ = TInstr::loop_(BlockType::void_(), TExpr::new([]))
+
+  assert_eq(vq_type_of_cached(local_get, env, cache), Some(ValType::i32()))
+  assert_false(vq_has_unremovable_effects_cached(pure_const, cache))
+  assert_false(vq_has_unremovable_shallow_effects_cached(pure_const, cache))
+  assert_false(vq_instr_has_calls_cached(pure_const, cache))
+  assert_true(vq_instr_effect_transfers_control_flow_cached(br, cache))
+  assert_true(vq_instr_has_control_transfer_cached(br, cache))
+  match vq_stack_sig_instr_cached(local_get, env, cache) {
+    Some(sig) => {
+      assert_eq(sig.required, 0)
+      assert_eq(sig.produced, 1)
+      assert_true(sig.reachable)
+    }
+    None => fail("expected local.get stack signature")
+  }
+  assert_true(vq_instr_may_not_return_cached(loop_, cache))
+
+  assert_eq(vq_analysis_cache_instr_entry_count(cache), 0)
 }
 
 ///|

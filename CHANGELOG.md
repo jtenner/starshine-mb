@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-03-12 Vacuum Follow-up: removed remaining value-keyed `TInstr` fallback caches from `Vacuum` metadata paths so both instruction and expression fallback queries now avoid structural-key map churn
+
+This follow-up continues the same pathological-`Vacuum` hardening track by removing the rest of the value-keyed fallback cache surface in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). After the previous expression-cache cleanup, fallback instruction metadata still used `Map[TInstr, ...]` for type/effect/shallow-effect/call/control-transfer/stack-signature/may-not-return queries. Those maps have now been removed from `VQAnalysisCache`.
+
+All affected helper paths keep the existing indexed-node fast path for seeded/original instructions and now do direct fallback computation when no `instr_id` is available. This keeps correctness behavior while eliminating value-keyed cache insert/lookups for rewritten instruction trees. `vq_analysis_cache_instr_entry_count(...)` now reports indexed instruction-node entries only.
+
+Regression coverage was expanded in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) with a red-first test that exercises fallback instruction metadata helpers (`type`, `effect`, `shallow effect`, `calls`, `control transfer`, `stack signature`, `may-not-return`) and asserts no fallback instruction cache-entry growth. Existing indexed tests that previously inspected internal type-cache maps were updated to assert instruction cache cardinality stability instead.
+
+Verification: `moon test src/passes`, `moon info && moon fmt`, and full `moon test` (3034 passing, 0 failing).
+
 ## 2026-03-12 Publishing Blocker Closed: hardened pathological `Vacuum` metadata paths by removing value-keyed `TExpr` fallback caches, keeping seeded-node lookups indexed, and proving fallback queries no longer allocate expression-cache entries
 
 This change closes the remaining `Vacuum` pathological-cleanup blocker in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) by tightening the metadata paths that still relied on value-keyed expression maps after the earlier shape-classifier and degraded-tier work. The pass had already moved its hot original-node lookups onto integer-indexed analysis tables, but fallback metadata queries for rewritten/non-indexed expressions still maintained `Map[TExpr, ...]` caches (`control_transfer`, `throws`, `explicit_unreachable`, and depth-0 value-break LUB). Those value-keyed maps are now removed from [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt), so fallback expression metadata is computed directly when no indexed `expr_id` is available instead of re-hashing/re-comparing recursive expression values in map operations.
