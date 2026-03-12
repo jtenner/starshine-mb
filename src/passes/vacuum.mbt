@@ -3707,6 +3707,21 @@ fn vq_optimize_texpr_degraded(
 }
 
 ///|
+fn vq_degraded_fold_constant_if(
+  bt : BlockType,
+  arm_result_types : Array[ValType],
+  chosen_body : TExpr,
+) -> TInstr {
+  if arm_result_types.is_empty() && vq_is_nop_texpr(chosen_body) {
+    TInstr::nop()
+  } else {
+    // Keep a block wrapper so depth-0 branches inside the chosen arm still
+    // target the original if-equivalent label in degraded mode.
+    TInstr::block(bt, chosen_body)
+  }
+}
+
+///|
 fn vq_process_instr_degraded(
   instr : TInstr,
   env : Env,
@@ -3772,12 +3787,32 @@ fn vq_process_instr_degraded(
 
       match next_condition.kind {
         TInstrKind::TI32Const(I32(v)) =>
-          if arm_result_types.is_empty() && v == 0 && next_else is None {
-            return Some(TInstr::nop())
+          if v != 0 {
+            return Some(
+              vq_degraded_fold_constant_if(bt, arm_result_types, next_then),
+            )
+          } else {
+            return Some(
+              match next_else {
+                Some(other) =>
+                  vq_degraded_fold_constant_if(bt, arm_result_types, other)
+                None => TInstr::nop()
+              },
+            )
           }
         TInstrKind::TI64Const(I64(v)) =>
-          if arm_result_types.is_empty() && v == 0L && next_else is None {
-            return Some(TInstr::nop())
+          if v != 0L {
+            return Some(
+              vq_degraded_fold_constant_if(bt, arm_result_types, next_then),
+            )
+          } else {
+            return Some(
+              match next_else {
+                Some(other) =>
+                  vq_degraded_fold_constant_if(bt, arm_result_types, other)
+                None => TInstr::nop()
+              },
+            )
           }
         _ => ()
       }
@@ -5919,6 +5954,110 @@ test "vacuum degraded mode keeps deep wrapper blocks while still rewriting local
       }
     _ =>
       fail("expected degraded vacuum output to keep a single deep wrapper tree")
+  }
+}
+
+///|
+test "vacuum degraded mode folds constant true if into chosen then arm" {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [ValType::i32()],
+          TExpr::new([
+            vq_make_nested_void_blocks(
+              48,
+              TInstr::if_(
+                BlockType::void_(),
+                TInstr::i32_const(I32(1)),
+                TExpr::new([
+                  TInstr::drop(
+                    TInstr::local_tee(
+                      LocalIdx::new(0),
+                      TInstr::i32_const(I32(9)),
+                    ),
+                  ),
+                ]),
+                None,
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  assert_eq(validate_module(out), Ok(()))
+  match vq_first_func_body(out).instrs {
+    [single] =>
+      match vq_nested_void_block_depth_to_local_set(single) {
+        Some(depth) => assert_true(depth >= 24)
+        None =>
+          fail(
+            "expected degraded vacuum to fold constant true if down to rewritten local.set",
+          )
+      }
+    _ =>
+      fail(
+        "expected degraded constant-true output to keep a single deep wrapper tree",
+      )
+  }
+}
+
+///|
+test "vacuum degraded mode folds constant false if into chosen else arm" {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [ValType::i32()],
+          TExpr::new([
+            vq_make_nested_void_blocks(
+              48,
+              TInstr::if_(
+                BlockType::void_(),
+                TInstr::i32_const(I32(0)),
+                TExpr::new([TInstr::drop(TInstr::i32_const(I32(1)))]),
+                Some(
+                  TExpr::new([
+                    TInstr::drop(
+                      TInstr::local_tee(
+                        LocalIdx::new(0),
+                        TInstr::i32_const(I32(9)),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  assert_eq(validate_module(out), Ok(()))
+  match vq_first_func_body(out).instrs {
+    [single] =>
+      match vq_nested_void_block_depth_to_local_set(single) {
+        Some(depth) => assert_true(depth >= 24)
+        None =>
+          fail(
+            "expected degraded vacuum to fold constant false if down to rewritten local.set",
+          )
+      }
+    _ =>
+      fail(
+        "expected degraded constant-false output to keep a single deep wrapper tree",
+      )
   }
 }
 
