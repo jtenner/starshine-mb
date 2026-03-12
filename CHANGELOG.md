@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-03-12 Vacuum Follow-up: skipped unnecessary wrapper-collapse label rebasing for unindexed rewritten bodies by adding a local rebase-score fast path
+
+This follow-up continues the same pathological-`Vacuum` blocker track in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). The previous change replaced the generic `ModuleTransformer` rebase with a custom recursive walker, but `vq_simplify_block_to_contents(...)` still had one expensive fallback path: when collapsing a single-item wrapper whose body no longer had an indexed `instr_id`, `vq_rebase_labels_for_collapsed_wrapper_if_needed(...)` always ran the full rebase walk even when the rewritten subtree had no labels (or only depth-local labels that do not change under one-level wrapper collapse).
+
+The fallback gate now uses a new local recursive score helper (`vq_instr_rebase_label_score(...)` plus `vq_texpr_rebase_label_score(...)`) that mirrors the indexed `max_rebase_label_score` semantics. For indexed nodes, behavior is unchanged and still uses precomputed metadata. For unindexed rewritten nodes, rebasing now runs only when the local score is `>= 0`; otherwise the instruction is returned directly. This avoids unnecessary subtree rewrites in hot collapse paths without changing correctness for branch/catch label adjustment cases that actually need rebasing.
+
+Regression coverage was expanded in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) with two red-first tests that enabled active helper stats and proved `vq_simplify_block_to_contents(...)` no longer calls label rebasing for unindexed single-item collapses when labels are either absent or depth-local only:
+- `vacuum simplify_block skips label rebasing for unindexed label-free body`
+- `vacuum simplify_block skips label rebasing for unindexed depth-local branch`
+
+Verification: `moon test src/passes` (red first on both new tests, then green), `moon info && moon fmt`, and full `moon test` (3036 passing, 0 failing).
+
 ## 2026-03-12 Vacuum Follow-up: removed remaining value-keyed `TInstr` fallback caches from `Vacuum` metadata paths so both instruction and expression fallback queries now avoid structural-key map churn
 
 This follow-up continues the same pathological-`Vacuum` hardening track by removing the rest of the value-keyed fallback cache surface in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). After the previous expression-cache cleanup, fallback instruction metadata still used `Map[TInstr, ...]` for type/effect/shallow-effect/call/control-transfer/stack-signature/may-not-return queries. Those maps have now been removed from `VQAnalysisCache`.

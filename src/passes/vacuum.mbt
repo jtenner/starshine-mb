@@ -830,111 +830,321 @@ fn vq_local_rebase_label_score(instr : TInstr) -> Int {
 }
 
 ///|
-fn vq_walk_tinstruction_with_depth(
-  transformer : ModuleTransformer[Int, String],
-  depth : Int,
-  instr : TInstr,
-) -> VisitAction[Int, TInstr, String] {
+fn vq_texpr_rebase_label_score(expr : TExpr) -> Int {
+  let mut score = vq_no_label_score()
+  for instr in expr.instrs {
+    score = vq_max_int(score, vq_instr_rebase_label_score(instr))
+  }
+  score
+}
+
+///|
+fn vq_instr_rebase_label_score(instr : TInstr) -> Int {
+  let mut score = vq_local_rebase_label_score(instr)
+  for child in eval_children(instr) {
+    if child == instr {
+      continue
+    }
+    score = vq_max_int(score, vq_instr_rebase_label_score(child))
+  }
   match instr.kind {
-    TInstrKind::TBlock(bt, body) => {
-      let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok((out, _)) => out
-        Err(e) => return error(e)
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      score = vq_max_int(score, vq_texpr_rebase_label_score(body) - 1)
+    TInstrKind::TIf(_, _, then_body, else_body) => {
+      score = vq_max_int(score, vq_texpr_rebase_label_score(then_body) - 1)
+      match else_body {
+        Some(other) =>
+          score = vq_max_int(score, vq_texpr_rebase_label_score(other) - 1)
+        None => ()
       }
-      let next_instr = TInstr::block(bt, next_body)
-      if next_instr == instr {
-        unchanged()
+    }
+    _ => ()
+  }
+  score
+}
+
+///|
+fn vq_rebase_labels_for_collapsed_wrapper_catch(
+  catch_ : Catch,
+  depth : Int,
+) -> (Catch, Bool) {
+  let curr_label = vq_catch_label(catch_)
+  let next_label = vq_adjust_label_for_collapsed_wrapper(curr_label, depth)
+  if next_label == curr_label {
+    return (catch_, false)
+  }
+  (
+    match catch_ {
+      Catch(tag_idx, _) => Catch::new(tag_idx, next_label)
+      CatchRef(tag_idx, _) => Catch::ref_(tag_idx, next_label)
+      CatchAll(_) => Catch::all(next_label)
+      CatchAllRef(_) => Catch::all_ref(next_label)
+    },
+    true,
+  )
+}
+
+///|
+fn vq_rebase_labels_for_collapsed_wrapper_catches(
+  catches : Array[Catch],
+  depth : Int,
+) -> (Array[Catch], Bool) {
+  let next_catches : Array[Catch] = []
+  let mut changed = false
+  for catch_ in catches {
+    let (next_catch, catch_changed) = vq_rebase_labels_for_collapsed_wrapper_catch(
+      catch_, depth,
+    )
+    if catch_changed {
+      changed = true
+    }
+    next_catches.push(next_catch)
+  }
+  if changed {
+    (next_catches, true)
+  } else {
+    (catches, false)
+  }
+}
+
+///|
+fn vq_rebase_labels_for_collapsed_wrapper_instr_with_depth(
+  instr : TInstr,
+  depth : Int,
+) -> (TInstr, Bool) {
+  fn rewrite_instrs(
+    items : Array[TInstr],
+    depth : Int,
+  ) -> (Array[TInstr], Bool) {
+    let next_items : Array[TInstr] = []
+    let mut changed = false
+    for item in items {
+      let (next_item, item_changed) = vq_rebase_labels_for_collapsed_wrapper_instr_with_depth(
+        item, depth,
+      )
+      if item_changed {
+        changed = true
+      }
+      next_items.push(next_item)
+    }
+    if changed {
+      (next_items, true)
+    } else {
+      (items, false)
+    }
+  }
+
+  fn rewrite_texpr(expr : TExpr, depth : Int) -> (TExpr, Bool) {
+    let (next_items, changed) = rewrite_instrs(expr.instrs, depth)
+    if changed {
+      (TExpr::new(next_items), true)
+    } else {
+      (expr, false)
+    }
+  }
+
+  match instr.kind {
+    TInstrKind::TBr(label, values) => {
+      let next_label = vq_adjust_label_for_collapsed_wrapper(label, depth)
+      let (next_values, values_changed) = rewrite_instrs(values, depth)
+      if next_label == label && !values_changed {
+        (instr, false)
       } else {
-        change(depth, next_instr)
+        (TInstr::br(next_label, next_values), true)
+      }
+    }
+    TInstrKind::TBrIf(label, cond, values) => {
+      let next_label = vq_adjust_label_for_collapsed_wrapper(label, depth)
+      let (next_cond, cond_changed) = vq_rebase_labels_for_collapsed_wrapper_instr_with_depth(
+        cond, depth,
+      )
+      let (next_values, values_changed) = rewrite_instrs(values, depth)
+      if next_label == label && !cond_changed && !values_changed {
+        (instr, false)
+      } else {
+        (TInstr::br_if(next_label, next_cond, next_values), true)
+      }
+    }
+    TInstrKind::TBrTable(labels, default, index, values) => {
+      let next_labels : Array[LabelIdx] = []
+      let mut labels_changed = false
+      for target in labels {
+        let next_target = vq_adjust_label_for_collapsed_wrapper(target, depth)
+        if next_target != target {
+          labels_changed = true
+        }
+        next_labels.push(next_target)
+      }
+      let next_default = vq_adjust_label_for_collapsed_wrapper(default, depth)
+      let (next_index, index_changed) = vq_rebase_labels_for_collapsed_wrapper_instr_with_depth(
+        index, depth,
+      )
+      let (next_values, values_changed) = rewrite_instrs(values, depth)
+      if !labels_changed &&
+        next_default == default &&
+        !index_changed &&
+        !values_changed {
+        (instr, false)
+      } else {
+        (
+          TInstr::br_table(next_labels, next_default, next_index, next_values),
+          true,
+        )
+      }
+    }
+    TInstrKind::TBrOnNull(label, ref_, values) => {
+      let next_label = vq_adjust_label_for_collapsed_wrapper(label, depth)
+      let (next_ref, ref_changed) = vq_rebase_labels_for_collapsed_wrapper_instr_with_depth(
+        ref_, depth,
+      )
+      let (next_values, values_changed) = rewrite_instrs(values, depth)
+      if next_label == label && !ref_changed && !values_changed {
+        (instr, false)
+      } else {
+        (TInstr::br_on_null(next_label, next_ref, next_values), true)
+      }
+    }
+    TInstrKind::TBrOnNonNull(label, ref_, values) => {
+      let next_label = vq_adjust_label_for_collapsed_wrapper(label, depth)
+      let (next_ref, ref_changed) = vq_rebase_labels_for_collapsed_wrapper_instr_with_depth(
+        ref_, depth,
+      )
+      let (next_values, values_changed) = rewrite_instrs(values, depth)
+      if next_label == label && !ref_changed && !values_changed {
+        (instr, false)
+      } else {
+        (TInstr::br_on_non_null(next_label, next_ref, next_values), true)
+      }
+    }
+    TInstrKind::TBrOnCast(
+      label,
+      CastOp(src_null, target_null),
+      ht0,
+      ht1,
+      ref_,
+      values
+    ) => {
+      let next_label = vq_adjust_label_for_collapsed_wrapper(label, depth)
+      let (next_ref, ref_changed) = vq_rebase_labels_for_collapsed_wrapper_instr_with_depth(
+        ref_, depth,
+      )
+      let (next_values, values_changed) = rewrite_instrs(values, depth)
+      if next_label == label && !ref_changed && !values_changed {
+        (instr, false)
+      } else {
+        (
+          TInstr::br_on_cast(
+            next_label, src_null, ht0, target_null, ht1, next_ref, next_values,
+          ),
+          true,
+        )
+      }
+    }
+    TInstrKind::TBrOnCastFail(
+      label,
+      CastOp(src_null, target_null),
+      ht0,
+      ht1,
+      ref_,
+      values
+    ) => {
+      let next_label = vq_adjust_label_for_collapsed_wrapper(label, depth)
+      let (next_ref, ref_changed) = vq_rebase_labels_for_collapsed_wrapper_instr_with_depth(
+        ref_, depth,
+      )
+      let (next_values, values_changed) = rewrite_instrs(values, depth)
+      if next_label == label && !ref_changed && !values_changed {
+        (instr, false)
+      } else {
+        (
+          TInstr::br_on_cast_fail(
+            next_label, src_null, ht0, target_null, ht1, next_ref, next_values,
+          ),
+          true,
+        )
+      }
+    }
+    TInstrKind::TBlock(bt, body) => {
+      let (next_body, body_changed) = rewrite_texpr(body, depth + 1)
+      if body_changed {
+        (TInstr::block(bt, next_body), true)
+      } else {
+        (instr, false)
       }
     }
     TInstrKind::TLoop(bt, body) => {
-      let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok((out, _)) => out
-        Err(e) => return error(e)
-      }
-      let next_instr = TInstr::loop_(bt, next_body)
-      if next_instr == instr {
-        unchanged()
+      let (next_body, body_changed) = rewrite_texpr(body, depth + 1)
+      if body_changed {
+        (TInstr::loop_(bt, next_body), true)
       } else {
-        change(depth, next_instr)
+        (instr, false)
       }
     }
     TInstrKind::TIf(bt, cond, then_body, else_body) => {
-      let next_cond = match transformer.walk_tinstruction(depth, cond) {
-        Ok((out, _)) => out
-        Err(e) => return error(e)
+      let (next_cond, cond_changed) = vq_rebase_labels_for_collapsed_wrapper_instr_with_depth(
+        cond, depth,
+      )
+      let (next_then, then_changed) = rewrite_texpr(then_body, depth + 1)
+      let (next_else, else_changed) = match else_body {
+        Some(other) => {
+          let (next, changed) = rewrite_texpr(other, depth + 1)
+          (Some(next), changed)
+        }
+        None => (None, false)
       }
-      let next_then = match transformer.walk_texpr(depth + 1, then_body) {
-        Ok((out, _)) => out
-        Err(e) => return error(e)
-      }
-      let next_else = match else_body {
-        Some(other) =>
-          match transformer.walk_texpr(depth + 1, other) {
-            Ok((out, _)) => Some(out)
-            Err(e) => return error(e)
-          }
-        None => None
-      }
-      let next_instr = TInstr::if_(bt, next_cond, next_then, next_else)
-      if next_instr == instr {
-        unchanged()
+      if cond_changed || then_changed || else_changed {
+        (TInstr::if_(bt, next_cond, next_then, next_else), true)
       } else {
-        change(depth, next_instr)
+        (instr, false)
       }
     }
     TInstrKind::TTryTable(bt, catches, body) => {
-      let next_catches = match
-        transformer.walk_array(
-          depth + 1,
-          ModuleTransformer::walk_catch,
-          catches,
-        ) {
-        Ok((out, _)) => out
-        Err(e) => return error(e)
-      }
-      let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok((out, _)) => out
-        Err(e) => return error(e)
-      }
-      let next_instr = TInstr::try_table(bt, next_catches, next_body)
-      if next_instr == instr {
-        unchanged()
+      let (next_catches, catches_changed) = vq_rebase_labels_for_collapsed_wrapper_catches(
+        catches,
+        depth + 1,
+      )
+      let (next_body, body_changed) = rewrite_texpr(body, depth + 1)
+      if catches_changed || body_changed {
+        (TInstr::try_table(bt, next_catches, next_body), true)
       } else {
-        change(depth, next_instr)
+        (instr, false)
       }
     }
-    _ => from_walk(transformer.walk_tinstruction_default(depth, instr))
+    _ => {
+      let children : Array[TInstr] = []
+      let mut changed = false
+      for child in eval_children(instr) {
+        let (next_child, child_changed) = vq_rebase_labels_for_collapsed_wrapper_instr_with_depth(
+          child, depth,
+        )
+        if child_changed {
+          changed = true
+        }
+        children.push(next_child)
+      }
+      if changed {
+        (mb_rebuild_non_control(instr, children), true)
+      } else {
+        (instr, false)
+      }
+    }
   }
 }
 
 ///|
 fn vq_rebase_labels_for_collapsed_wrapper(instr : TInstr) -> TInstr {
   let start_us = vacuum_trace_now_us()
-  let pass = ModuleTransformer::new()
-    .on_labelidx_evt(fn(_, depth, label : LabelIdx) {
-      let next = vq_adjust_label_for_collapsed_wrapper(label, depth)
-      if next == label {
-        unchanged()
-      } else {
-        change(depth, next)
-      }
-    })
-    .on_tinstruction_evt(fn(self, depth, curr : TInstr) {
-      vq_walk_tinstruction_with_depth(self, depth, curr)
-    })
-  match pass.walk_tinstruction(0, instr) {
-    Ok((out, _)) => {
-      vq_commit_active_helper(start_us, fn(stats) { stats.rebase_labels_us }, fn(
-        stats,
-      ) {
-        stats.rebase_labels_calls
-      })
-      out
-    }
-    Err(e) => abort("vacuum label rebase failed: \{e}")
-  }
+  let (out, _) = vq_rebase_labels_for_collapsed_wrapper_instr_with_depth(
+    instr, 0,
+  )
+  vq_commit_active_helper(start_us, fn(stats) { stats.rebase_labels_us }, fn(
+    stats,
+  ) {
+    stats.rebase_labels_calls
+  })
+  out
 }
 
 ///|
@@ -943,10 +1153,14 @@ fn vq_rebase_labels_for_collapsed_wrapper_if_needed(
   analysis_cache : VQAnalysisCache,
   instr_id? : Int? = None,
 ) -> TInstr {
-  match vq_indexed_instr_node(analysis_cache, instr_id) {
-    Some(node) if !node.has_any_labelidx || node.max_rebase_label_score < 0 =>
-      instr
-    _ => vq_rebase_labels_for_collapsed_wrapper(instr)
+  let needs_rebase = match vq_indexed_instr_node(analysis_cache, instr_id) {
+    Some(node) => node.has_any_labelidx && node.max_rebase_label_score >= 0
+    None => vq_instr_rebase_label_score(instr) >= 0
+  }
+  if needs_rebase {
+    vq_rebase_labels_for_collapsed_wrapper(instr)
+  } else {
+    instr
   }
 }
 
@@ -5820,6 +6034,39 @@ test "vacuum simplify_block skips no-op label rebasing for depth-local loop bran
   assert_eq(out, inner)
   assert_eq(cache.stats.rebase_labels_calls.val, 0)
   assert_eq(cache.stats.break_scan_calls.val, 0)
+}
+
+///|
+test "vacuum simplify_block skips label rebasing for unindexed label-free body" {
+  let body = TExpr::new([TInstr::i32_const(I32(3))])
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  vq_active_stats.val = Some(cache.stats)
+  let out = vq_simplify_block_to_contents(
+    BlockType::val_type(ValType::i32()),
+    body,
+    env,
+    cache,
+  )
+  vq_active_stats.val = None
+  assert_eq(out, TInstr::i32_const(I32(3)))
+  assert_eq(cache.stats.rebase_labels_calls.val, 0)
+}
+
+///|
+test "vacuum simplify_block skips label rebasing for unindexed depth-local branch" {
+  let inner = TInstr::loop_(
+    BlockType::void_(),
+    TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
+  )
+  let body = TExpr::new([inner])
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  vq_active_stats.val = Some(cache.stats)
+  let out = vq_simplify_block_to_contents(BlockType::void_(), body, env, cache)
+  vq_active_stats.val = None
+  assert_eq(out, inner)
+  assert_eq(cache.stats.rebase_labels_calls.val, 0)
 }
 
 ///|
