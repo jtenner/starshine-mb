@@ -849,6 +849,47 @@ fn vq_adjust_label_for_collapsed_wrapper(
 }
 
 ///|
+fn vq_no_label_score() -> Int {
+  -1_000_000
+}
+
+///|
+fn vq_catch_label(c : Catch) -> LabelIdx {
+  match c {
+    Catch(_, label)
+    | CatchRef(_, label)
+    | CatchAll(label)
+    | CatchAllRef(label) => label
+  }
+}
+
+///|
+fn vq_local_rebase_label_score(instr : TInstr) -> Int {
+  let mut score = vq_no_label_score()
+  match instr.kind {
+    TInstrKind::TBr(label, _)
+    | TInstrKind::TBrIf(label, _, _)
+    | TInstrKind::TBrOnNull(label, _, _)
+    | TInstrKind::TBrOnNonNull(label, _, _)
+    | TInstrKind::TBrOnCast(label, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(label, _, _, _, _, _) =>
+      score = vq_max_int(score, vq_label_to_int(label))
+    TInstrKind::TBrTable(labels, default, _, _) => {
+      for label in labels {
+        score = vq_max_int(score, vq_label_to_int(label))
+      }
+      score = vq_max_int(score, vq_label_to_int(default))
+    }
+    TInstrKind::TTryTable(_, catches, _) =>
+      for item in catches {
+        score = vq_max_int(score, vq_label_to_int(vq_catch_label(item)) - 1)
+      }
+    _ => ()
+  }
+  score
+}
+
+///|
 fn vq_walk_tinstruction_with_depth(
   transformer : ModuleTransformer[Int, String],
   depth : Int,
@@ -963,7 +1004,8 @@ fn vq_rebase_labels_for_collapsed_wrapper_if_needed(
   instr_id? : Int? = None,
 ) -> TInstr {
   match vq_indexed_instr_node(analysis_cache, instr_id) {
-    Some(node) if !node.has_any_labelidx => instr
+    Some(node) if !node.has_any_labelidx || node.max_rebase_label_score < 0 =>
+      instr
     _ => vq_rebase_labels_for_collapsed_wrapper(instr)
   }
 }
@@ -1295,6 +1337,7 @@ priv struct VQIndexedInstrNode {
   then_expr_id : Int?
   else_expr_id : Int?
   has_any_labelidx : Bool
+  max_rebase_label_score : Int
   type_ : ValType?
   shallow_has_unremovable_effects : Bool
   has_unremovable_effects : Bool
@@ -1314,6 +1357,7 @@ fn VQIndexedInstrNode::new(
   then_expr_id : Int?,
   else_expr_id : Int?,
   has_any_labelidx : Bool,
+  max_rebase_label_score : Int,
   type_ : ValType?,
   shallow_has_unremovable_effects : Bool,
   has_unremovable_effects : Bool,
@@ -1331,6 +1375,7 @@ fn VQIndexedInstrNode::new(
     then_expr_id,
     else_expr_id,
     has_any_labelidx,
+    max_rebase_label_score,
     type_,
     shallow_has_unremovable_effects,
     has_unremovable_effects,
@@ -1350,6 +1395,7 @@ priv struct VQIndexedExprNode {
   has_control_transfer : Bool
   throws : Bool
   explicit_unreachable : Bool
+  max_rebase_label_score : Int
   mut has_break_to_depth0 : Bool
   value_break_types : Array[ValType]
   mut has_unknown_value_break_type : Bool
@@ -1363,12 +1409,14 @@ fn VQIndexedExprNode::new(
   has_control_transfer : Bool,
   throws : Bool,
   explicit_unreachable : Bool,
+  max_rebase_label_score : Int,
 ) -> VQIndexedExprNode {
   {
     instr_ids,
     has_control_transfer,
     throws,
     explicit_unreachable,
+    max_rebase_label_score,
     has_break_to_depth0: false,
     value_break_types: [],
     has_unknown_value_break_type: false,
@@ -1999,6 +2047,37 @@ fn vq_build_indexed_instr_analysis_bounded(
     vq_indexed_expr_any_instr(else_expr_id, analysis_cache, fn(node) {
       node.has_any_labelidx
     })
+  let mut max_rebase_label_score = vq_local_rebase_label_score(instr)
+  for child_id in eval_child_ids {
+    max_rebase_label_score = vq_max_int(
+      max_rebase_label_score,
+      analysis_cache.indexed_instr_nodes[child_id].max_rebase_label_score,
+    )
+  }
+  match body_expr_id {
+    Some(id) =>
+      max_rebase_label_score = vq_max_int(
+        max_rebase_label_score,
+        analysis_cache.indexed_expr_nodes[id].max_rebase_label_score - 1,
+      )
+    None => ()
+  }
+  match then_expr_id {
+    Some(id) =>
+      max_rebase_label_score = vq_max_int(
+        max_rebase_label_score,
+        analysis_cache.indexed_expr_nodes[id].max_rebase_label_score - 1,
+      )
+    None => ()
+  }
+  match else_expr_id {
+    Some(id) =>
+      max_rebase_label_score = vq_max_int(
+        max_rebase_label_score,
+        analysis_cache.indexed_expr_nodes[id].max_rebase_label_score - 1,
+      )
+    None => ()
+  }
   let has_control_transfer = effect_transfers_control_flow ||
     vq_instr_has_control_transfer_local(instr)
   let throws = vq_instr_throws_local(instr) ||
@@ -2036,8 +2115,9 @@ fn vq_build_indexed_instr_analysis_bounded(
   analysis_cache.indexed_instr_nodes.push(
     VQIndexedInstrNode::new(
       eval_child_ids, body_expr_id, then_expr_id, else_expr_id, has_any_labelidx,
-      type_, shallow_has_unremovable, has_unremovable_effects, has_calls, effect_transfers_control_flow,
-      has_control_transfer, throws, explicit_unreachable, may_not_return, stack_sig,
+      max_rebase_label_score, type_, shallow_has_unremovable, has_unremovable_effects,
+      has_calls, effect_transfers_control_flow, has_control_transfer, throws, explicit_unreachable,
+      may_not_return, stack_sig,
     ),
   )
   ignore(
@@ -2072,6 +2152,7 @@ fn vq_build_indexed_expr_analysis_bounded(
   let mut has_control_transfer = false
   let mut throws = false
   let mut explicit_unreachable = false
+  let mut max_rebase_label_score = vq_no_label_score()
   for instr in expr.instrs {
     match
       vq_build_indexed_instr_analysis_bounded(
@@ -2083,6 +2164,10 @@ fn vq_build_indexed_expr_analysis_bounded(
         has_control_transfer = has_control_transfer || node.has_control_transfer
         throws = throws || node.throws
         explicit_unreachable = explicit_unreachable || node.explicit_unreachable
+        max_rebase_label_score = vq_max_int(
+          max_rebase_label_score,
+          node.max_rebase_label_score,
+        )
       }
       None => return None
     }
@@ -2090,7 +2175,7 @@ fn vq_build_indexed_expr_analysis_bounded(
   let expr_id = analysis_cache.indexed_expr_nodes.length()
   analysis_cache.indexed_expr_nodes.push(
     VQIndexedExprNode::new(
-      instr_ids, has_control_transfer, throws, explicit_unreachable,
+      instr_ids, has_control_transfer, throws, explicit_unreachable, max_rebase_label_score,
     ),
   )
   ignore(
@@ -5749,6 +5834,40 @@ test "vacuum simplify_block uses indexed metadata to skip break scan and label r
   assert_eq(cache.stats.break_scan_calls.val, 0)
   assert_eq(cache.stats.rebase_labels_calls.val, 0)
   assert_eq(cache.type_cache.get(body.instrs[0]), None)
+}
+
+///|
+test "vacuum simplify_block skips no-op label rebasing for depth-local loop branch" {
+  let inner = TInstr::block(
+    BlockType::void_(),
+    TExpr::new([
+      TInstr::loop_(
+        BlockType::void_(),
+        TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
+      ),
+    ]),
+  )
+  let body = TExpr::new([inner])
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(128)
+  assert_true(vq_seed_texpr_facts_bounded(body, env, cache, budget))
+  let root_expr_id = match cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected root expr id")
+  }
+  vq_active_stats.val = Some(cache.stats)
+  let out = vq_simplify_block_to_contents(
+    BlockType::void_(),
+    body,
+    env,
+    cache,
+    expr_id=Some(root_expr_id),
+  )
+  vq_active_stats.val = None
+  assert_eq(out, inner)
+  assert_eq(cache.stats.rebase_labels_calls.val, 0)
+  assert_eq(cache.stats.break_scan_calls.val, 0)
 }
 
 ///|
