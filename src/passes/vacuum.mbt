@@ -3722,6 +3722,25 @@ fn vq_degraded_fold_constant_if(
 }
 
 ///|
+fn vq_degraded_sequence_dropped_values(
+  values : Array[TInstr],
+  analysis_cache : VQAnalysisCache,
+) -> TInstr {
+  let kept : Array[TInstr] = []
+  for value in values {
+    let next = vq_degraded_simplify_drop_value(value, analysis_cache)
+    if next.kind is TInstrKind::TNop {
+      continue
+    }
+    kept.push(next)
+  }
+  match kept {
+    [] => TInstr::nop()
+    _ => vq_sequence_to_instr(kept)
+  }
+}
+
+///|
 fn vq_degraded_simplify_drop_value(
   value : TInstr,
   analysis_cache : VQAnalysisCache,
@@ -3730,8 +3749,9 @@ fn vq_degraded_simplify_drop_value(
     // Numeric unary wrappers, ref.is_null, ref.i31, ref.get_desc, the i31
     // projections, and the GC extern/any reference conversions are pure 1-to-1
     // stack shuffles; ref.test predicates and SIMD splats/extract_lane wrappers
-    // are total child-only wrappers, so when their result is immediately
-    // dropped we can peel them cheaply in degraded mode.
+    // are total child-only wrappers; ref.eq is a pure non-trapping predicate.
+    // When their result is immediately dropped we can peel them cheaply in
+    // degraded mode while preserving child evaluation order.
     TInstrKind::TUnary(_, inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TRefIsNull(inner) =>
@@ -3759,6 +3779,8 @@ fn vq_degraded_simplify_drop_value(
     | TInstrKind::TF32x4Splat(inner)
     | TInstrKind::TF64x2Splat(inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
+    TInstrKind::TRefEq(left, right) =>
+      vq_degraded_sequence_dropped_values([left, right], analysis_cache)
     TInstrKind::TExtractLane(_, _, inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TLocalTee(idx, inner) => TInstr::local_set(idx, inner)
@@ -7116,6 +7138,125 @@ test "vacuum degraded mode keeps drop around effectful child under ref.get_desc"
     None => fail("expected degraded ref.get_desc drop result")
   }
   assert_eq(out, TInstr::drop(condition))
+}
+
+///|
+test "vacuum degraded mode nops dropped ref.eq around pure locals" {
+  let ref_t = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+  let instr = TInstr::drop(
+    TInstr::ref_eq(
+      TInstr::local_get(LocalIdx::new(0)),
+      TInstr::local_get(LocalIdx::new(1)),
+    ),
+  )
+  let env = Env::new().with_module(Module::new()).with_locals([ref_t, ref_t])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded ref.eq drop result")
+  }
+  assert_eq(out, TInstr::nop())
+}
+
+///|
+test "vacuum degraded mode keeps one dropped effectful ref.eq child" {
+  let ref_t = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+  let t_ref = RecType::new(SubType::comp_type(CompType::func([], [ref_t])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_ref]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([TInstr::ref_null(HeapType::abs(AbsHeapType::func()))]),
+        ),
+      ]),
+    )
+  let lhs = TInstr::call(FuncIdx::new(0), [])
+  let instr = TInstr::drop(
+    TInstr::ref_eq(lhs, TInstr::local_get(LocalIdx::new(0))),
+  )
+  let env = Env::new().with_module(mod).with_locals([ref_t])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded ref.eq drop result")
+  }
+  assert_eq(out, TInstr::drop(lhs))
+}
+
+///|
+test "vacuum degraded mode preserves effectful ref.eq child order" {
+  let ref_t = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+  let t_ref = RecType::new(SubType::comp_type(CompType::func([], [ref_t])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_ref]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([TInstr::ref_null(HeapType::abs(AbsHeapType::func()))]),
+        ),
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([TInstr::ref_null(HeapType::abs(AbsHeapType::func()))]),
+        ),
+      ]),
+    )
+  let lhs = TInstr::call(FuncIdx::new(0), [])
+  let rhs = TInstr::call(FuncIdx::new(1), [])
+  let instr = TInstr::drop(TInstr::ref_eq(lhs, rhs))
+  let env = Env::new().with_module(mod)
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded ref.eq drop result")
+  }
+  assert_eq(
+    out,
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([TInstr::drop(lhs), TInstr::drop(rhs)]),
+    ),
+  )
 }
 
 ///|
