@@ -4546,6 +4546,10 @@ fn vq_process_instr(
   match instr.kind {
     TInstrKind::TBlock(bt, body) => {
       let result_types = vq_block_result_types(bt, env)
+      let original_body_expr_id = match instr_node {
+        Some(node) => node.body_expr_id
+        None => None
+      }
       let mut next_body = vq_optimize_texpr(
         body,
         env,
@@ -4554,10 +4558,7 @@ fn vq_process_instr(
         budget,
         analysis_cache,
         pass_options,
-        expr_id=match instr_node {
-          Some(node) => node.body_expr_id
-          None => None
-        },
+        expr_id=original_body_expr_id,
       )
       if pass_options.traps_never_happen {
         let tnh_cleanup = vq_tnh_cleanup_block_items(
@@ -4588,10 +4589,14 @@ fn vq_process_instr(
         env,
         analysis_cache,
         expr_id=if physical_equal(next_body, body) {
-          match instr_node {
-            Some(node) => node.body_expr_id
-            None => None
-          }
+          original_body_expr_id
+        } else if vq_can_reuse_original_expr_control_metadata(
+            body,
+            next_body,
+            analysis_cache,
+            expr_id=original_body_expr_id,
+          ) {
+          original_body_expr_id
         } else {
           None
         },
@@ -5791,6 +5796,45 @@ test "vacuum indexed drop(local.tee) rewrite avoids generic stack-preservation h
     _ => fail("expected drop(local.tee) to rewrite to local.set")
   }
   assert_eq(cache.stats.rewrite_stack_calls.val, 0)
+}
+
+///|
+test "vacuum changed block body reuses indexed break metadata when control-flow is unchanged" {
+  let instr = TInstr::block(
+    BlockType::void_(),
+    TExpr::new([
+      TInstr::drop(
+        TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(9))),
+      ),
+    ]),
+  )
+  let body = TExpr::new([instr])
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let seed_budget = Ref::new(64)
+  assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
+  let expr_id = match cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected root expr id")
+  }
+  let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
+  let process_budget = Ref::new(64)
+  let out = match
+    vq_process_instr(
+      instr,
+      env,
+      false,
+      false,
+      process_budget,
+      cache,
+      VQPassOptions::new(),
+      instr_id=Some(instr_id),
+    ) {
+    Some(next) => next
+    None => fail("expected rewritten block result")
+  }
+  assert_eq(out, TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(9))))
+  assert_eq(cache.stats.break_scan_calls.val, 0)
 }
 
 ///|
