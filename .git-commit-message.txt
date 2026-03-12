@@ -1,0 +1,114 @@
+Vacuum: use indexed control metadata in hot wrapper rewrites
+
+This commit implements the next Stage 3 slice from docs/vacuum-plan.md by
+teaching the hot block-collapsing and drop/block rewrite paths to consume the
+node-indexed original-tree metadata added in the previous phase instead of
+re-running whole-subtree scans on original input.
+
+What changed
+
+- Extend the indexed analysis nodes with the extra metadata needed for
+  control-sensitive wrapper rewrites.
+  - `VQIndexedInstrNode` now records `has_any_labelidx`, which acts as a cheap
+    summary for whether label rebasing could possibly matter for that original
+    subtree.
+  - `VQIndexedExprNode` now records:
+    - whether any branch in the original subtree targets that expression at
+      depth 0
+    - the accumulated single-value break result types that target the
+      expression at depth 0
+    - whether any targeted break had unknown type information
+    - whether any targeted break used an unsupported multivalue form
+    - the finalized `value_break_lub_depth0` answer
+
+- Populate the new control metadata once, immediately after the bounded indexed
+  seed succeeds.
+  - Added a dedicated traversal over the indexed original tree that walks the
+    expression nesting stack, resolves each branch/catch label to its targeted
+    original expression, and records metadata directly onto the indexed nodes.
+  - This makes the expensive “does this expression have a break to depth 0?”
+    and “do the value-carrying breaks to depth 0 have a common supertype?”
+    questions answerable without another recursive subtree walk for original
+    nodes.
+
+- Preserve original expression identity through `vq_optimize_texpr` when the
+  sequence result is unchanged.
+  - Previously the helper always constructed a fresh `TExpr`, which prevented
+    downstream wrapper rewrites from reliably recognizing that they were still
+    looking at the original indexed subtree.
+  - The helper now returns the original `TExpr` object when the optimized
+    sequence is unchanged, allowing later code to gate indexed fast paths on
+    original-node identity instead of optimistic structural equality.
+
+- Add wrapper-specific helpers that consume the indexed metadata conservatively.
+  - `vq_has_break_to_depth0_cached` uses the indexed depth-0 break flag when an
+    original expression id is available and otherwise falls back to the old
+    recursive break scan.
+  - `vq_rebase_labels_for_collapsed_wrapper_if_needed` skips the generic
+    `ModuleTransformer` rebasing pass entirely when the original indexed
+    subtree proves there are no labels to rebase, and falls back to the old
+    rebasing helper otherwise.
+  - `vq_only_original_instr_id` recovers the single original instruction id for
+    one-instruction wrapper bodies so the label-rebase fast path can still be
+    applied after collapsing a block wrapper.
+
+- Thread original expression ids into the hot rewrite call sites only when the
+  optimizer can prove it still has the original subtree.
+  - `TBlock` simplification now passes the original body expression id only
+    when the optimized body object is still the original body.
+  - Constant-folded `if` arm collapse now passes the original then/else
+    expression ids only when those arm bodies are still the original indexed
+    bodies.
+  - `try_table` simplification does the same for its body expression.
+  - The `drop(block ...)` rewrite now passes the original block-body expression
+    id into the value-break LUB helper only when the optimized block value is
+    still the original block instruction.
+
+- Replace original-tree fallback scans in the affected helpers.
+  - `vq_simplify_block_to_contents` now uses the indexed depth-0 break metadata
+    for original expressions, which avoids calling
+    `has_break_to_depth_in_texpr(body, 0)` on original wrapper bodies.
+  - `vq_simplify_block_to_contents` also uses the new label-summary fast path
+    to avoid running the generic label rebasing transformer for label-free
+    original wrappers.
+  - `vq_value_break_to_depth_has_lub` now checks the precomputed indexed
+    `value_break_lub_depth0` answer first for original expressions and only
+    falls back to the old recursive scan and structural cache when no original
+    expression id is available.
+  - The `drop(block ...)` rewrite reuses the same label-summary fast path when
+    it peels the trailing value out of a single-item original block body.
+
+Why this matters
+
+- The previous Stage 2 work moved type/effect/control facts for original nodes
+  onto indexed arrays, but several Stage 3 hot wrapper rewrites still paid for
+  fresh whole-subtree scans even when they were operating on untouched original
+  trees.
+- This change removes those extra scans for the original-tree cases that show
+  up in pathological nested-wrapper workloads:
+  - block simplification no longer recursively scans the original body just to
+    answer the depth-0 break question
+  - depth-0 value-break LUB checks no longer recursively rescan original block
+    bodies
+  - label rebasing now skips the generic tree walk entirely for original
+    wrappers that cannot contain labels
+
+Tests
+
+- Added a metadata regression proving the indexed control traversal marks only
+  the expression actually targeted at depth 0 by a nested branch.
+- Added a simplification regression proving an original one-instruction block
+  can collapse without incrementing either the recursive break-scan counter or
+  the generic label-rebase counter.
+- Updated the value-break LUB helper tests to seed indexed metadata first and
+  assert that original-node depth-0 queries return the expected result without
+  populating the fallback structural cache.
+
+Validation
+
+- `moon test src/passes/vacuum.mbt`
+- `moon info`
+- `moon fmt`
+- `moon test`
+
+All checks passed.

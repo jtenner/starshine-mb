@@ -956,6 +956,45 @@ fn vq_rebase_labels_for_collapsed_wrapper(instr : TInstr) -> TInstr {
 }
 
 ///|
+fn vq_rebase_labels_for_collapsed_wrapper_if_needed(
+  instr : TInstr,
+  analysis_cache : VQAnalysisCache,
+  instr_id? : Int? = None,
+) -> TInstr {
+  match vq_indexed_instr_node(analysis_cache, instr_id) {
+    Some(node) if !node.has_any_labelidx => instr
+    _ => vq_rebase_labels_for_collapsed_wrapper(instr)
+  }
+}
+
+///|
+fn vq_has_break_to_depth0_cached(
+  expr : TExpr,
+  analysis_cache : VQAnalysisCache,
+  expr_id? : Int? = None,
+) -> Bool {
+  match vq_indexed_expr_node(analysis_cache, expr_id) {
+    Some(_) => vq_indexed_expr_has_break_to_depth0(analysis_cache, expr_id)
+    None => vq_has_break_to_depth_in_texpr_timed(expr, 0, analysis_cache.stats)
+  }
+}
+
+///|
+fn vq_only_original_instr_id(
+  body : TExpr,
+  analysis_cache : VQAnalysisCache,
+  expr_id? : Int? = None,
+) -> Int? {
+  if body.instrs.length() != 1 {
+    return None
+  }
+  match vq_indexed_expr_node(analysis_cache, expr_id) {
+    Some(node) if node.instr_ids.length() == 1 => Some(node.instr_ids[0])
+    _ => None
+  }
+}
+
+///|
 fn vq_texpr_result_type(
   expr : TExpr,
   env : Env,
@@ -1236,6 +1275,7 @@ priv struct VQIndexedInstrNode {
   body_expr_id : Int?
   then_expr_id : Int?
   else_expr_id : Int?
+  has_any_labelidx : Bool
   type_ : ValType?
   shallow_has_unremovable_effects : Bool
   has_unremovable_effects : Bool
@@ -1254,6 +1294,7 @@ fn VQIndexedInstrNode::new(
   body_expr_id : Int?,
   then_expr_id : Int?,
   else_expr_id : Int?,
+  has_any_labelidx : Bool,
   type_ : ValType?,
   shallow_has_unremovable_effects : Bool,
   has_unremovable_effects : Bool,
@@ -1270,6 +1311,7 @@ fn VQIndexedInstrNode::new(
     body_expr_id,
     then_expr_id,
     else_expr_id,
+    has_any_labelidx,
     type_,
     shallow_has_unremovable_effects,
     has_unremovable_effects,
@@ -1289,6 +1331,11 @@ priv struct VQIndexedExprNode {
   has_control_transfer : Bool
   throws : Bool
   explicit_unreachable : Bool
+  mut has_break_to_depth0 : Bool
+  value_break_types : Array[ValType]
+  mut has_unknown_value_break_type : Bool
+  mut has_unsupported_multivalue_break : Bool
+  mut value_break_lub_depth0 : Bool?
 }
 
 ///|
@@ -1298,7 +1345,17 @@ fn VQIndexedExprNode::new(
   throws : Bool,
   explicit_unreachable : Bool,
 ) -> VQIndexedExprNode {
-  { instr_ids, has_control_transfer, throws, explicit_unreachable }
+  {
+    instr_ids,
+    has_control_transfer,
+    throws,
+    explicit_unreachable,
+    has_break_to_depth0: false,
+    value_break_types: [],
+    has_unknown_value_break_type: false,
+    has_unsupported_multivalue_break: false,
+    value_break_lub_depth0: None,
+  }
 }
 
 ///|
@@ -1513,6 +1570,28 @@ fn vq_indexed_child_any(
     }
   }
   false
+}
+
+///|
+fn vq_indexed_expr_has_break_to_depth0(
+  analysis_cache : VQAnalysisCache,
+  expr_id : Int?,
+) -> Bool {
+  match vq_indexed_expr_node(analysis_cache, expr_id) {
+    Some(node) => node.has_break_to_depth0
+    None => false
+  }
+}
+
+///|
+fn vq_indexed_expr_value_break_lub_depth0(
+  analysis_cache : VQAnalysisCache,
+  expr_id : Int?,
+) -> Bool? {
+  match vq_indexed_expr_node(analysis_cache, expr_id) {
+    Some(node) => node.value_break_lub_depth0
+    None => None
+  }
 }
 
 ///|
@@ -1787,6 +1866,30 @@ fn vq_build_indexed_instr_analysis_bounded(
     Some(id) => analysis_cache.indexed_expr_nodes[id].explicit_unreachable
     None => false
   }
+  let local_has_labelidx = match instr.kind {
+    TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _) => true
+    TInstrKind::TTryTable(_, catches, _) => !catches.is_empty()
+    _ => false
+  }
+  let has_any_labelidx = local_has_labelidx ||
+    vq_indexed_child_any(eval_child_ids, analysis_cache, fn(node) {
+      node.has_any_labelidx
+    }) ||
+    vq_indexed_expr_any_instr(body_expr_id, analysis_cache, fn(node) {
+      node.has_any_labelidx
+    }) ||
+    vq_indexed_expr_any_instr(then_expr_id, analysis_cache, fn(node) {
+      node.has_any_labelidx
+    }) ||
+    vq_indexed_expr_any_instr(else_expr_id, analysis_cache, fn(node) {
+      node.has_any_labelidx
+    })
   let has_control_transfer = effect_transfers_control_flow ||
     vq_instr_has_control_transfer_local(instr)
   let throws = vq_instr_throws_local(instr) ||
@@ -1823,9 +1926,9 @@ fn vq_build_indexed_instr_analysis_bounded(
   let instr_id = analysis_cache.indexed_instr_nodes.length()
   analysis_cache.indexed_instr_nodes.push(
     VQIndexedInstrNode::new(
-      eval_child_ids, body_expr_id, then_expr_id, else_expr_id, type_, shallow_has_unremovable,
-      has_unremovable_effects, has_calls, effect_transfers_control_flow, has_control_transfer,
-      throws, explicit_unreachable, may_not_return, stack_sig,
+      eval_child_ids, body_expr_id, then_expr_id, else_expr_id, has_any_labelidx,
+      type_, shallow_has_unremovable, has_unremovable_effects, has_calls, effect_transfers_control_flow,
+      has_control_transfer, throws, explicit_unreachable, may_not_return, stack_sig,
     ),
   )
   ignore(
@@ -1889,6 +1992,262 @@ fn vq_build_indexed_expr_analysis_bounded(
     ),
   )
   Some(expr_id)
+}
+
+///|
+fn vq_indexed_target_expr_id(expr_stack : Array[Int], label : LabelIdx) -> Int? {
+  let idx = expr_stack.length() - 1 - vq_label_to_int(label)
+  if idx < 0 || idx >= expr_stack.length() {
+    None
+  } else {
+    Some(expr_stack[idx])
+  }
+}
+
+///|
+fn vq_record_indexed_value_break_target(
+  target_expr_id : Int,
+  values : Array[TInstr],
+  value_ids : Array[Int],
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> Unit {
+  let target = analysis_cache.indexed_expr_nodes[target_expr_id]
+  target.has_break_to_depth0 = true
+  if values.is_empty() {
+    return
+  }
+  if values.length() != 1 || value_ids.length() != 1 {
+    target.has_unsupported_multivalue_break = true
+    return
+  }
+  match
+    vq_type_of_cached(
+      values[0],
+      env,
+      analysis_cache,
+      instr_id=Some(value_ids[0]),
+    ) {
+    Some(vt) => target.value_break_types.push(vt)
+    None => target.has_unknown_value_break_type = true
+  }
+}
+
+///|
+fn vq_indexed_collect_branch_targets(
+  labels : Array[LabelIdx],
+  values : Array[TInstr],
+  value_ids : Array[Int],
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  expr_stack : Array[Int],
+) -> Unit {
+  let seen_expr_ids : Array[Int] = []
+  for label in labels {
+    match vq_indexed_target_expr_id(expr_stack, label) {
+      Some(target_expr_id) => {
+        let mut seen = false
+        for existing in seen_expr_ids {
+          if existing == target_expr_id {
+            seen = true
+            break
+          }
+        }
+        if seen {
+          continue
+        }
+        seen_expr_ids.push(target_expr_id)
+        vq_record_indexed_value_break_target(
+          target_expr_id, values, value_ids, env, analysis_cache,
+        )
+      }
+      None => ()
+    }
+  }
+}
+
+///|
+fn vq_indexed_branch_value_ids(
+  instr : TInstr,
+  instr_node : VQIndexedInstrNode,
+) -> Array[Int] {
+  match instr.kind {
+    TInstrKind::TBr(_, _) => instr_node.eval_child_ids
+    TInstrKind::TBrIf(_, _, values)
+    | TInstrKind::TBrTable(_, _, _, values)
+    | TInstrKind::TBrOnNull(_, _, values)
+    | TInstrKind::TBrOnNonNull(_, _, values)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, values)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, values) => {
+      let ids : Array[Int] = []
+      for i = 0; i < values.length(); i = i + 1 {
+        ids.push(instr_node.eval_child_ids[i])
+      }
+      ids
+    }
+    _ => []
+  }
+}
+
+///|
+fn vq_collect_indexed_control_metadata_for_instr(
+  instr : TInstr,
+  instr_id : Int,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  expr_stack : Array[Int],
+) -> Unit {
+  let instr_node = analysis_cache.indexed_instr_nodes[instr_id]
+  match instr.kind {
+    TInstrKind::TBr(label, values) =>
+      vq_indexed_collect_branch_targets(
+        [label],
+        values,
+        vq_indexed_branch_value_ids(instr, instr_node),
+        env,
+        analysis_cache,
+        expr_stack,
+      )
+    TInstrKind::TBrIf(label, _, values) =>
+      vq_indexed_collect_branch_targets(
+        [label],
+        values,
+        vq_indexed_branch_value_ids(instr, instr_node),
+        env,
+        analysis_cache,
+        expr_stack,
+      )
+    TInstrKind::TBrTable(labels, default, _, values) =>
+      vq_indexed_collect_branch_targets(
+        labels + [default],
+        values,
+        vq_indexed_branch_value_ids(instr, instr_node),
+        env,
+        analysis_cache,
+        expr_stack,
+      )
+    TInstrKind::TBrOnNull(label, _, values)
+    | TInstrKind::TBrOnNonNull(label, _, values)
+    | TInstrKind::TBrOnCast(label, _, _, _, _, values)
+    | TInstrKind::TBrOnCastFail(label, _, _, _, _, values) =>
+      vq_indexed_collect_branch_targets(
+        [label],
+        values,
+        vq_indexed_branch_value_ids(instr, instr_node),
+        env,
+        analysis_cache,
+        expr_stack,
+      )
+    _ => ()
+  }
+
+  let mut child_idx = 0
+  for child in eval_children(instr) {
+    vq_collect_indexed_control_metadata_for_instr(
+      child,
+      instr_node.eval_child_ids[child_idx],
+      env,
+      analysis_cache,
+      expr_stack,
+    )
+    child_idx += 1
+  }
+
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      match instr_node.body_expr_id {
+        Some(body_expr_id) =>
+          vq_collect_indexed_control_metadata_for_expr(
+            body, body_expr_id, env, analysis_cache, expr_stack,
+          )
+        None => ()
+      }
+    TInstrKind::TIf(_, _, then_body, else_body) => {
+      match instr_node.then_expr_id {
+        Some(then_expr_id) =>
+          vq_collect_indexed_control_metadata_for_expr(
+            then_body, then_expr_id, env, analysis_cache, expr_stack,
+          )
+        None => ()
+      }
+      match (else_body, instr_node.else_expr_id) {
+        (Some(other), Some(other_expr_id)) =>
+          vq_collect_indexed_control_metadata_for_expr(
+            other, other_expr_id, env, analysis_cache, expr_stack,
+          )
+        _ => ()
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn vq_collect_indexed_control_metadata_for_expr(
+  expr : TExpr,
+  expr_id : Int,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  expr_stack : Array[Int],
+) -> Unit {
+  expr_stack.push(expr_id)
+  let expr_node = analysis_cache.indexed_expr_nodes[expr_id]
+  for i = 0; i < expr.instrs.length(); i = i + 1 {
+    vq_collect_indexed_control_metadata_for_instr(
+      expr.instrs[i],
+      expr_node.instr_ids[i],
+      env,
+      analysis_cache,
+      expr_stack,
+    )
+  }
+  ignore(expr_stack.pop())
+}
+
+///|
+fn vq_finalize_indexed_control_metadata(
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> Unit {
+  for expr_node in analysis_cache.indexed_expr_nodes {
+    let has_lub = if expr_node.has_unsupported_multivalue_break ||
+      expr_node.has_unknown_value_break_type {
+      true
+    } else if expr_node.value_break_types.is_empty() {
+      false
+    } else {
+      let mut candidate : ValType? = Some(expr_node.value_break_types[0])
+      for i = 1; i < expr_node.value_break_types.length(); i = i + 1 {
+        match candidate {
+          Some(prev) =>
+            candidate = vq_common_val_supertype(
+              prev,
+              expr_node.value_break_types[i],
+              env,
+            )
+          None => ()
+        }
+      }
+      candidate is Some(_)
+    }
+    expr_node.value_break_lub_depth0 = Some(has_lub)
+  }
+}
+
+///|
+fn vq_populate_indexed_control_metadata(
+  expr : TExpr,
+  expr_id : Int,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> Unit {
+  let expr_stack : Array[Int] = []
+  vq_collect_indexed_control_metadata_for_expr(
+    expr, expr_id, env, analysis_cache, expr_stack,
+  )
+  vq_finalize_indexed_control_metadata(env, analysis_cache)
 }
 
 ///|
@@ -1981,6 +2340,7 @@ fn vq_seed_texpr_facts_bounded(
     vq_build_indexed_expr_analysis_bounded(expr, env, analysis_cache, budget) {
     Some(expr_id) => {
       analysis_cache.indexed_root_expr_id = Some(expr_id)
+      vq_populate_indexed_control_metadata(expr, expr_id, env, analysis_cache)
       true
     }
     None => false
@@ -2830,7 +3190,11 @@ fn vq_optimize_texpr(
     pass_options,
     expr_id~,
   )
-  TExpr::new(sequence.items)
+  if sequence.changed {
+    TExpr::new(sequence.items)
+  } else {
+    expr
+  }
 }
 
 ///|
@@ -2839,10 +3203,11 @@ fn vq_simplify_block_to_contents(
   body : TExpr,
   env : Env,
   analysis_cache : VQAnalysisCache,
+  expr_id? : Int? = None,
 ) -> TInstr {
   let start_us = vacuum_trace_now_us()
   let result_types = vq_block_result_types(bt, env)
-  if vq_has_break_to_depth_in_texpr_timed(body, 0, analysis_cache.stats) {
+  if vq_has_break_to_depth0_cached(body, analysis_cache, expr_id~) {
     let out = TInstr::block(bt, body)
     ignore(
       vq_commit_helper_timing(
@@ -2878,11 +3243,16 @@ fn vq_simplify_block_to_contents(
   }
   if items.length() == 1 {
     let only = items[0]
+    let only_id = vq_only_original_instr_id(body, analysis_cache, expr_id~)
     match result_types {
       [vt] =>
         match vq_type_of_cached(only, env, analysis_cache) {
           Some(t) if t == vt => {
-            let out = vq_rebase_labels_for_collapsed_wrapper(only)
+            let out = vq_rebase_labels_for_collapsed_wrapper_if_needed(
+              only,
+              analysis_cache,
+              instr_id=only_id,
+            )
             ignore(
               vq_commit_helper_timing(
                 analysis_cache.stats.simplify_block_us,
@@ -2897,7 +3267,11 @@ fn vq_simplify_block_to_contents(
       [] =>
         if vq_type_of_cached(only, env, analysis_cache) is None ||
           is_unreachable_instr(only) {
-          let out = vq_rebase_labels_for_collapsed_wrapper(only)
+          let out = vq_rebase_labels_for_collapsed_wrapper_if_needed(
+            only,
+            analysis_cache,
+            instr_id=only_id,
+          )
           ignore(
             vq_commit_helper_timing(
               analysis_cache.stats.simplify_block_us,
@@ -2909,7 +3283,11 @@ fn vq_simplify_block_to_contents(
         }
       _ =>
         if is_unreachable_instr(only) {
-          let out = vq_rebase_labels_for_collapsed_wrapper(only)
+          let out = vq_rebase_labels_for_collapsed_wrapper_if_needed(
+            only,
+            analysis_cache,
+            instr_id=only_id,
+          )
           ignore(
             vq_commit_helper_timing(
               analysis_cache.stats.simplify_block_us,
@@ -3775,9 +4153,23 @@ fn vq_value_break_to_depth_has_lub(
   depth : Int,
   env : Env,
   analysis_cache : VQAnalysisCache,
+  expr_id? : Int? = None,
 ) -> Bool {
   let start_us = vacuum_trace_now_us()
   if depth == 0 {
+    match vq_indexed_expr_value_break_lub_depth0(analysis_cache, expr_id) {
+      Some(cached) => {
+        ignore(
+          vq_commit_helper_timing(
+            analysis_cache.stats.value_break_lub_us,
+            analysis_cache.stats.value_break_lub_calls,
+            start_us,
+          ),
+        )
+        return cached
+      }
+      None => ()
+    }
     match analysis_cache.value_break_lub_depth0_cache.get(expr) {
       Some(cached) => {
         ignore(
@@ -3877,10 +4269,29 @@ fn vq_process_instr(
             analysis_cache,
             pass_options,
           )
-          next_body = TExpr::new(cleaned.items)
+          next_body = if cleaned.changed {
+            TExpr::new(cleaned.items)
+          } else {
+            next_body
+          }
         }
       }
-      Some(vq_simplify_block_to_contents(bt, next_body, env, analysis_cache))
+      Some(
+        vq_simplify_block_to_contents(
+          bt,
+          next_body,
+          env,
+          analysis_cache,
+          expr_id=if physical_equal(next_body, body) {
+            match instr_node {
+              Some(node) => node.body_expr_id
+              None => None
+            }
+          } else {
+            None
+          },
+        ),
+      )
     }
     TInstrKind::TIf(bt, condition, then_body, else_body) => {
       let next_condition = vq_process_child_preserving_stack_sig(
@@ -3924,33 +4335,79 @@ fn vq_process_instr(
           )
         None => None
       }
+      let then_simplify_expr_id = if physical_equal(next_then, then_body) {
+        match instr_node {
+          Some(node) => node.then_expr_id
+          None => None
+        }
+      } else {
+        None
+      }
 
       match next_condition.kind {
         TInstrKind::TI32Const(I32(v)) =>
           if v != 0 {
             return Some(
-              vq_simplify_block_to_contents(bt, next_then, env, analysis_cache),
+              vq_simplify_block_to_contents(
+                bt,
+                next_then,
+                env,
+                analysis_cache,
+                expr_id=then_simplify_expr_id,
+              ),
             )
           } else {
             return Some(
-              match next_else {
-                Some(other) =>
-                  vq_simplify_block_to_contents(bt, other, env, analysis_cache)
-                None => TInstr::nop()
+              match (next_else, else_body) {
+                (Some(other), Some(original_other)) =>
+                  vq_simplify_block_to_contents(
+                    bt,
+                    other,
+                    env,
+                    analysis_cache,
+                    expr_id=if physical_equal(other, original_other) {
+                      match instr_node {
+                        Some(node) => node.else_expr_id
+                        None => None
+                      }
+                    } else {
+                      None
+                    },
+                  )
+                _ => TInstr::nop()
               },
             )
           }
         TInstrKind::TI64Const(I64(v)) =>
           if v != 0L {
             return Some(
-              vq_simplify_block_to_contents(bt, next_then, env, analysis_cache),
+              vq_simplify_block_to_contents(
+                bt,
+                next_then,
+                env,
+                analysis_cache,
+                expr_id=then_simplify_expr_id,
+              ),
             )
           } else {
             return Some(
-              match next_else {
-                Some(other) =>
-                  vq_simplify_block_to_contents(bt, other, env, analysis_cache)
-                None => TInstr::nop()
+              match (next_else, else_body) {
+                (Some(other), Some(original_other)) =>
+                  vq_simplify_block_to_contents(
+                    bt,
+                    other,
+                    env,
+                    analysis_cache,
+                    expr_id=if physical_equal(other, original_other) {
+                      match instr_node {
+                        Some(node) => node.else_expr_id
+                        None => None
+                      }
+                    } else {
+                      None
+                    },
+                  )
+                _ => TInstr::nop()
               },
             )
           }
@@ -4104,6 +4561,18 @@ fn vq_process_instr(
       match next_value.kind {
         TInstrKind::TBlock(bt, body) => {
           let { instrs: items, .. } = body
+          let body_expr_id = if physical_equal(next_value, value) {
+            match
+              vq_indexed_instr_node(
+                analysis_cache,
+                vq_indexed_eval_child_id(instr_node, 0),
+              ) {
+              Some(node) => node.body_expr_id
+              None => None
+            }
+          } else {
+            None
+          }
           if items.length() > 0 {
             let last = items[items.length() - 1]
             match
@@ -4116,7 +4585,11 @@ fn vq_process_instr(
                   vq_optimize(last, false, false, env, budget, analysis_cache) {
                   None =>
                     if !vq_value_break_to_depth_has_lub(
-                        body, 0, env, analysis_cache,
+                        body,
+                        0,
+                        env,
+                        analysis_cache,
+                        expr_id=body_expr_id,
                       ) {
                       let next_items = items.copy()
                       ignore(next_items.pop())
@@ -4129,8 +4602,21 @@ fn vq_process_instr(
                         )
                       }
                       if next_items.length() == 1 {
+                        let next_item_id = match body_expr_id {
+                          Some(id) =>
+                            match
+                              vq_indexed_expr_node(analysis_cache, Some(id)) {
+                              Some(node) => node.instr_ids.get(0)
+                              None => None
+                            }
+                          None => None
+                        }
                         return Some(
-                          vq_rebase_labels_for_collapsed_wrapper(next_items[0]),
+                          vq_rebase_labels_for_collapsed_wrapper_if_needed(
+                            next_items[0],
+                            analysis_cache,
+                            instr_id=next_item_id,
+                          ),
                         )
                       }
                       return Some(TInstr::nop())
@@ -4193,7 +4679,22 @@ fn vq_process_instr(
         },
       )
       if !vq_texpr_throws_cached(next_body, analysis_cache) {
-        Some(vq_simplify_block_to_contents(bt, next_body, env, analysis_cache))
+        Some(
+          vq_simplify_block_to_contents(
+            bt,
+            next_body,
+            env,
+            analysis_cache,
+            expr_id=if physical_equal(next_body, body) {
+              match instr_node {
+                Some(node) => node.body_expr_id
+                None => None
+              }
+            } else {
+              None
+            },
+          ),
+        )
       } else {
         Some(TInstr::try_table(bt, catches, next_body))
       }
@@ -4666,6 +5167,55 @@ test "vacuum indexed lookup does not populate fallback type cache for original n
     Some(ValType::i32()),
   )
   assert_eq(cache.type_cache.get(body.instrs[0]), None)
+}
+
+///|
+test "vacuum indexed control metadata marks only the targeted depth-0 wrapper" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([TInstr::br(LabelIdx::new(1), [])]),
+    ),
+  ])
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(128)
+  assert_true(vq_seed_texpr_facts_bounded(body, env, cache, budget))
+  let root_expr_id = match cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected root expr id")
+  }
+  let root_instr_id = cache.indexed_expr_nodes[root_expr_id].instr_ids[0]
+  let inner_expr_id = match
+    cache.indexed_instr_nodes[root_instr_id].body_expr_id {
+    Some(id) => id
+    None => fail("expected inner block body id")
+  }
+  assert_false(vq_indexed_expr_has_break_to_depth0(cache, Some(inner_expr_id)))
+  assert_true(vq_indexed_expr_has_break_to_depth0(cache, Some(root_expr_id)))
+}
+
+///|
+test "vacuum simplify_block uses indexed metadata to skip break scan and label rebase" {
+  let body = TExpr::new([TInstr::i32_const(I32(7))])
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(128)
+  assert_true(vq_seed_texpr_facts_bounded(body, env, cache, budget))
+  let root_expr_id = match cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected root expr id")
+  }
+  let out = vq_simplify_block_to_contents(
+    BlockType::val_type(ValType::i32()),
+    body,
+    env,
+    cache,
+    expr_id=Some(root_expr_id),
+  )
+  assert_eq(out, TInstr::i32_const(I32(7)))
+  assert_eq(cache.stats.break_scan_calls.val, 0)
+  assert_eq(cache.stats.rebase_labels_calls.val, 0)
 }
 
 ///|
@@ -6724,7 +7274,22 @@ test "vacuum value-break lub detector reports true for compatible break value ty
     TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(1))]),
     TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(2))]),
   ])
-  assert_true(vq_value_break_to_depth_has_lub(expr, 0, env, analysis_cache))
+  let budget = Ref::new(128)
+  assert_true(vq_seed_texpr_facts_bounded(expr, env, analysis_cache, budget))
+  let expr_id = match analysis_cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected indexed expr id")
+  }
+  assert_true(
+    vq_value_break_to_depth_has_lub(
+      expr,
+      0,
+      env,
+      analysis_cache,
+      expr_id=Some(expr_id),
+    ),
+  )
+  assert_eq(analysis_cache.value_break_lub_depth0_cache.get(expr), None)
 }
 
 ///|
@@ -6739,5 +7304,20 @@ test "vacuum value-break lub detector reports false for incompatible reference b
       TInstr::ref_null(HeapType::abs(AbsHeapType::extern_())),
     ]),
   ])
-  assert_false(vq_value_break_to_depth_has_lub(expr, 0, env, analysis_cache))
+  let budget = Ref::new(128)
+  assert_true(vq_seed_texpr_facts_bounded(expr, env, analysis_cache, budget))
+  let expr_id = match analysis_cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected indexed expr id")
+  }
+  assert_false(
+    vq_value_break_to_depth_has_lub(
+      expr,
+      0,
+      env,
+      analysis_cache,
+      expr_id=Some(expr_id),
+    ),
+  )
+  assert_eq(analysis_cache.value_break_lub_depth0_cache.get(expr), None)
 }
