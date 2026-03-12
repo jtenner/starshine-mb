@@ -110,23 +110,25 @@ Impact:
 
 This difference matters for correctness of the comparison, but it is probably second-order for performance.
 
-## 4. The Second `OptimizeInstructions` Pass Is Conditionally Skipped Locally
+## 4. The Second `OptimizeInstructions` Pass Uses a Large-Module Runtime Guard Instead of Unconditional Binaryen Parity
 
 Binaryen always runs a late `optimize-instructions` pass near the end of the function pipeline.
 
 The local pipeline may skip that pass:
 
 - [cleanup cost heuristic](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1836)
-- [conditional insertion](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1929)
+- [policy gate](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1928)
+- [conditional insertion](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1934)
 
-The local logic computes a cleanup cost profile and suppresses the second `OptimizeInstructions` pass when the module looks too expensive.
+The local logic computes a cleanup cost profile and suppresses the second `OptimizeInstructions` pass when the module looks too expensive, but only for the throughput-oriented default path. When the caller explicitly asks for stronger size cleanup with `shrink_level >= 2`, the late `OptimizeInstructions` pass is retained even on large modules.
 
 Impact:
 
 - This is a deliberate divergence from Binaryen.
-- It reduces work, so it is not a candidate explanation for the slowdown by itself.
-- It means the tail of the local pipeline is explicitly trading Binaryen parity for runtime protection.
-- It also means any comparison of late-pipeline output or late cleanup opportunities must account for the fact that Binaryen always executes that cleanup stage and the local implementation may not.
+- It still reduces work on very large throughput-focused modules, so it is not a candidate explanation for the slowdown by itself.
+- It means the tail of the local pipeline is explicitly trading Binaryen parity for runtime protection on the default throughput path.
+- It also means size-focused runs intentionally opt back into the late cleanup stage instead of letting the large-module heuristic silently override explicit shrink intent.
+- Any comparison of late-pipeline output or late cleanup opportunities must account for the fact that Binaryen always executes that cleanup stage and the local implementation now does so only when the module is not considered too expensive or when size-focused optimization was explicitly requested.
 
 This is an optimization-policy difference, not just an implementation detail.
 

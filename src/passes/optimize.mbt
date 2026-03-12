@@ -1925,7 +1925,13 @@ fn opt_scheduler_with_default_void_func_type(mod : Module) -> Module {
 }
 
 ///|
-fn default_opts_skip_second_optimize_instructions(mod : Module) -> Bool {
+fn default_opts_skip_second_optimize_instructions(
+  mod : Module,
+  options : OptimizeOptions,
+) -> Bool {
+  if options.shrink_level >= 2 {
+    return false
+  }
   optimize_should_skip_expensive_cleanup(optimize_cleanup_cost_profile(mod))
 }
 
@@ -1938,7 +1944,7 @@ pub fn default_function_optimization_passes(
   let has_gc = default_opts_has_gc_aggregates(mod)
   let has_multivalue = default_opts_has_multivalue(mod)
   let skip_second_optimize_instructions = default_opts_skip_second_optimize_instructions(
-    mod,
+    mod, options,
   )
   let passes : Array[ModulePass] = []
 
@@ -2181,6 +2187,28 @@ fn default_extract_atr_traps_never_happen(passes : Array[ModulePass]) -> Bool? {
     }
   }
   None
+}
+
+///|
+fn default_make_large_void_module(
+  func_count : Int,
+  top_instrs_per_func : Int,
+) -> Module {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let type_idxs : Array[TypeIdx] = []
+  let funcs : Array[Func] = []
+  for _ in 0..<func_count {
+    let instrs : Array[TInstr] = []
+    for _ in 0..<top_instrs_per_func {
+      instrs.push(TInstr::nop())
+    }
+    type_idxs.push(TypeIdx::new(0))
+    funcs.push(Func::t_func([], [], TExpr::new(instrs)))
+  }
+  Module::new()
+  .with_type_sec(TypeSec::new([t_void]))
+  .with_func_sec(FuncSec::new(type_idxs))
+  .with_code_sec(CodeSec::new(funcs))
 }
 
 ///|
@@ -2852,6 +2880,42 @@ test "default function optimization passes include binaryen-parity remove-unused
   assert_true(first_remove_unused_brs_idx < remove_unused_names_idxs[1])
   assert_true(merge_blocks_idxs[0] < remove_unused_names_idxs[2])
   assert_true(remove_unused_names_idxs[2] < merge_blocks_idxs[1])
+}
+
+///|
+test "default function optimization passes keep late optimize-instructions for large size-focused modules" {
+  let large_mod = default_make_large_void_module(1200, 1)
+  let passes = default_function_optimization_passes(
+    large_mod,
+    OptimizeOptions::new(optimize_level=2, shrink_level=2),
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        OptimizeInstructions => true
+        _ => false
+      }
+    }),
+    2,
+  )
+}
+
+///|
+test "default function optimization passes still skip late optimize-instructions for large throughput-focused modules" {
+  let large_mod = default_make_large_void_module(1200, 1)
+  let passes = default_function_optimization_passes(
+    large_mod,
+    OptimizeOptions::new(optimize_level=2, shrink_level=0),
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        OptimizeInstructions => true
+        _ => false
+      }
+    }),
+    1,
+  )
 }
 
 ///|

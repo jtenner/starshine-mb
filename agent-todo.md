@@ -15,7 +15,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
 - [ ] Harden pathological cleanup handling beyond the current no-op `Vacuum` skip heuristic, especially for the first expensive `Vacuum` on deep-tree functions.
 - [ ] Resolve the known inlining-option mismatches so `InliningOptimizing` can be enabled in the global post pipeline.
-- [ ] Revisit the late `OptimizeInstructions` cleanup-cost heuristic and decide the intended parity/runtime policy for the second pass.
 - [ ] Add parity tests proving `ConstantFieldPropagation` fully covers Binaryen's `cfp-reftest` cases, or split the behavior.
 - [ ] Implement `StringGathering` in the global post pipeline under the appropriate feature/optimization gates.
 - [ ] Publish the first release and MoonBit registry package (`moon publish` plus GitHub Release binaries).
