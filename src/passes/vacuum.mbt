@@ -3879,22 +3879,23 @@ fn vq_process_instr_degraded(
       }
       Some(vq_degraded_simplify_drop_value(next_value, analysis_cache))
     }
-    TInstrKind::TTryTable(bt, catches, body) =>
-      Some(
-        TInstr::try_table(
-          bt,
-          catches,
-          vq_optimize_texpr_degraded(
-            body,
-            env,
-            vq_block_result_types(bt, env),
-            !vq_block_result_types(bt, env).is_empty(),
-            budget,
-            analysis_cache,
-            pass_options,
-          ),
-        ),
+    TInstrKind::TTryTable(bt, catches, body) => {
+      let result_types = vq_block_result_types(bt, env)
+      let next_body = vq_optimize_texpr_degraded(
+        body,
+        env,
+        result_types,
+        !result_types.is_empty(),
+        budget,
+        analysis_cache,
+        pass_options,
       )
+      if result_types.is_empty() && vq_is_nop_texpr(next_body) {
+        Some(TInstr::nop())
+      } else {
+        Some(TInstr::try_table(bt, catches, next_body))
+      }
+    }
     _ => {
       let next_children : Array[TInstr] = []
       let mut changed_child = false
@@ -6127,6 +6128,31 @@ test "vacuum degraded mode peels dropped unary wrappers around calls" {
         "expected degraded vacuum to peel dropped unary wrapper down to dropped call",
       )
   }
+}
+
+///|
+test "vacuum degraded mode removes try_table with empty optimized void body" {
+  let instr = TInstr::try_table(
+    BlockType::void_(),
+    [Catch::all(LabelIdx::new(0))],
+    TExpr::new([TInstr::i32_const(I32(7))]),
+  )
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded try_table rewrite result")
+  }
+  assert_eq(out, TInstr::nop())
 }
 
 ///|
