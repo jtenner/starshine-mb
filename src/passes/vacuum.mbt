@@ -3748,7 +3748,7 @@ fn vq_degraded_rebuild_if_without_else(
 ) -> TInstr {
   if vq_is_nop_texpr(then_body) {
     match vq_type_of_cached(condition, env, analysis_cache) {
-      Some(_) => TInstr::drop(condition)
+      Some(_) => vq_degraded_simplify_drop_value(condition, analysis_cache)
       None => TInstr::if_(bt, condition, then_body, None)
     }
   } else {
@@ -6179,7 +6179,7 @@ test "vacuum degraded mode removes try_table with empty optimized void body" {
 }
 
 ///|
-test "vacuum degraded mode drops typed condition when both if arms optimize to nop" {
+test "vacuum degraded mode nops pure typed condition when both if arms optimize to nop" {
   let instr = TInstr::if_(
     BlockType::void_(),
     TInstr::local_get(LocalIdx::new(0)),
@@ -6201,7 +6201,45 @@ test "vacuum degraded mode drops typed condition when both if arms optimize to n
     Some(next) => next
     None => fail("expected degraded if cleanup result")
   }
-  assert_eq(out, TInstr::drop(TInstr::local_get(LocalIdx::new(0))))
+  assert_eq(out, TInstr::nop())
+}
+
+///|
+test "vacuum degraded mode keeps drop around effectful typed condition when both if arms optimize to nop" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))])),
+      ]),
+    )
+  let condition = TInstr::call(FuncIdx::new(0), [])
+  let instr = TInstr::if_(
+    BlockType::void_(),
+    condition,
+    TExpr::new([TInstr::nop()]),
+    Some(TExpr::new([TInstr::drop(TInstr::i32_const(I32(7)))])),
+  )
+  let env = Env::new().with_module(mod)
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded if cleanup result")
+  }
+  assert_eq(out, TInstr::drop(condition))
 }
 
 ///|
