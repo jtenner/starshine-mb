@@ -4455,9 +4455,22 @@ fn vq_process_instr(
           if arm_result_types.is_empty() && vq_is_nop_texpr(other) {
             return Some(TInstr::if_(bt, next_condition, next_then, None))
           }
+          let other_expr_id = match (else_body, instr_node) {
+            (Some(original_other), Some(node)) =>
+              if physical_equal(other, original_other) {
+                node.else_expr_id
+              } else {
+                None
+              }
+            _ => None
+          }
           if arm_result_types.is_empty() &&
             vq_is_nop_texpr(next_then) &&
-            !vq_texpr_has_control_transfer_cached(other, analysis_cache) {
+            !vq_texpr_has_control_transfer_cached(
+              other,
+              analysis_cache,
+              expr_id=other_expr_id,
+            ) {
             let before = TInstr::if_(bt, next_condition, next_then, Some(other))
             match vq_type_of_cached(next_condition, env, analysis_cache) {
               Some(vt) if vt == ValType::i32() => {
@@ -5359,6 +5372,7 @@ test "vacuum indexed if-arm inversion avoids generic type-and-stack helper" {
     _ => fail("expected if-arm inversion rewrite result")
   }
   assert_eq(cache.stats.rewrite_type_stack_calls.val, 0)
+  assert_eq(cache.stats.control_transfer_scans.val, 0)
 }
 
 ///|
