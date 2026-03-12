@@ -3722,6 +3722,23 @@ fn vq_degraded_fold_constant_if(
 }
 
 ///|
+fn vq_degraded_simplify_drop_value(
+  value : TInstr,
+  analysis_cache : VQAnalysisCache,
+) -> TInstr {
+  match value.kind {
+    // Numeric unary wrappers are pure 1-to-1 stack shuffles, so when their
+    // result is immediately dropped we can peel them cheaply in degraded mode.
+    TInstrKind::TUnary(_, inner) =>
+      vq_degraded_simplify_drop_value(inner, analysis_cache)
+    TInstrKind::TLocalTee(idx, inner) => TInstr::local_set(idx, inner)
+    _ if vq_degraded_can_remove_unused_instr(value, analysis_cache) =>
+      TInstr::nop()
+    _ => TInstr::drop(value)
+  }
+}
+
+///|
 fn vq_process_instr_degraded(
   instr : TInstr,
   env : Env,
@@ -3860,12 +3877,7 @@ fn vq_process_instr_degraded(
         Some(next) => next
         None => value
       }
-      match next_value.kind {
-        TInstrKind::TLocalTee(idx, inner) => Some(TInstr::local_set(idx, inner))
-        _ if vq_degraded_can_remove_unused_instr(next_value, analysis_cache) =>
-          Some(TInstr::nop())
-        _ => Some(TInstr::drop(next_value))
-      }
+      Some(vq_degraded_simplify_drop_value(next_value, analysis_cache))
     }
     TInstrKind::TTryTable(bt, catches, body) =>
       Some(
@@ -5354,6 +5366,19 @@ fn vq_nested_void_block_depth_to_local_set(instr : TInstr) -> Int? {
 }
 
 ///|
+fn vq_nested_void_block_depth_to_dropped_call(instr : TInstr) -> Int? {
+  match instr.kind {
+    TInstrKind::TDrop({ kind: TInstrKind::TCall(_, []), .. }) => Some(0)
+    TInstrKind::TBlock(VoidBlockType, { instrs: [inner], .. }) =>
+      match vq_nested_void_block_depth_to_dropped_call(inner) {
+        Some(depth) => Some(depth + 1)
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
 test "vacuum shape scan flags deep single-item block chain for degraded mode" {
   let body = TExpr::new([
     vq_make_nested_void_blocks(
@@ -6057,6 +6082,49 @@ test "vacuum degraded mode folds constant false if into chosen else arm" {
     _ =>
       fail(
         "expected degraded constant-false output to keep a single deep wrapper tree",
+      )
+  }
+}
+
+///|
+test "vacuum degraded mode peels dropped unary wrappers around calls" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))])),
+      ]),
+    )
+  let instr = vq_make_nested_void_blocks(
+    32,
+    TInstr::drop(
+      TInstr::unary(UnaryOp::i32_eqz(), TInstr::call(FuncIdx::new(0), [])),
+    ),
+  )
+  let env = Env::new().with_module(mod)
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(512)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded dropped-unary rewrite result")
+  }
+  match vq_nested_void_block_depth_to_dropped_call(out) {
+    Some(depth) => assert_true(depth >= 16)
+    None =>
+      fail(
+        "expected degraded vacuum to peel dropped unary wrapper down to dropped call",
       )
   }
 }
