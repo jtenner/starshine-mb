@@ -1,8 +1,8 @@
-import fs from 'node:fs';
-import fsPromises from 'node:fs/promises';
-import process from 'node:process';
+import fs from "node:fs";
+import fsPromises from "node:fs/promises";
+import process from "node:process";
 
-const ARRAY_SENTINEL = 'ffi_end_of_/string_array';
+const ARRAY_SENTINEL = "ffi_end_of_/string_array";
 
 function toCodePoints(value) {
   const out = [];
@@ -15,7 +15,9 @@ function toCodePoints(value) {
 function createMoonbitFsHost({ cwd = process.cwd(), args = [] } = {}) {
   let nextHandle = 1;
   const handles = new Map();
-  const errors = new Map();
+  let lastError = "";
+  let lastFileContent = new Uint8Array();
+  let lastDirFiles = [];
 
   function alloc(data) {
     const handle = nextHandle;
@@ -27,29 +29,24 @@ function createMoonbitFsHost({ cwd = process.cwd(), args = [] } = {}) {
   function get(handle, expectedType) {
     const data = handles.get(handle);
     if (!data || data.type !== expectedType) {
-      throw new Error(`Invalid MoonBit host handle ${handle} (expected ${expectedType})`);
+      throw new Error(
+        `Invalid MoonBit host handle ${handle} (expected ${expectedType})`,
+      );
     }
     return data;
   }
 
-  function allocError(error) {
-    const handle = nextHandle;
-    nextHandle += 1;
-    errors.set(handle, String(error));
-    return handle;
-  }
-
   function allocExternString(value) {
-    return alloc({ type: 'extern-string', value });
+    return alloc({ type: "extern-string", value });
   }
 
   function readString(value) {
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       return value;
     }
-    if (typeof value === 'number' && handles.has(value)) {
+    if (typeof value === "number" && handles.has(value)) {
       const handleData = handles.get(value);
-      if (handleData?.type === 'extern-string') {
+      if (handleData?.type === "extern-string") {
         return handleData.value;
       }
     }
@@ -60,30 +57,35 @@ function createMoonbitFsHost({ cwd = process.cwd(), args = [] } = {}) {
     if (value instanceof Uint8Array) {
       return value;
     }
-    if (typeof value === 'number' && handles.has(value)) {
+    if (typeof value === "number" && handles.has(value)) {
       const handleData = handles.get(value);
-      if (handleData?.type === 'byte-array') {
+      if (handleData?.type === "byte-array") {
         return Uint8Array.from(handleData.values);
       }
     }
     return new Uint8Array();
   }
 
+  function setError(error) {
+    lastError = String(error);
+    return -1;
+  }
+
   function collectCandidates(rootDir) {
     const out = [];
 
     function walk(currentRelative) {
-      const currentAbsolute = currentRelative === '.'
-        ? rootDir
-        : `${rootDir}/${currentRelative}`;
+      const currentAbsolute =
+        currentRelative === "." ? rootDir : `${rootDir}/${currentRelative}`;
       const entries = fs.readdirSync(currentAbsolute, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.name === '.' || entry.name === '..') {
+        if (entry.name === "." || entry.name === "..") {
           continue;
         }
-        const nextRelative = currentRelative === '.'
-          ? entry.name
-          : `${currentRelative}/${entry.name}`;
+        const nextRelative =
+          currentRelative === "."
+            ? entry.name
+            : `${currentRelative}/${entry.name}`;
         const nextAbsolute = `${currentAbsolute}/${entry.name}`;
         if (entry.isDirectory()) {
           walk(nextRelative);
@@ -104,24 +106,30 @@ function createMoonbitFsHost({ cwd = process.cwd(), args = [] } = {}) {
       }
     }
 
-    walk('.');
+    walk(".");
     out.sort();
     return out;
   }
 
   return {
-    get_error_message(errorHandle) {
-      return errors.get(errorHandle) ?? '';
+    get_error_message() {
+      return allocExternString(lastError);
+    },
+    get_file_content() {
+      return lastFileContent;
+    },
+    get_dir_files() {
+      return alloc({ type: "extern-string-array", values: [...lastDirFiles] });
     },
     begin_read_string(value) {
       return alloc({
-        type: 'string-reader',
+        type: "string-reader",
         codepoints: toCodePoints(readString(value)),
         index: 0,
       });
     },
     string_read_char(readerHandle) {
-      const reader = get(readerHandle, 'string-reader');
+      const reader = get(readerHandle, "string-reader");
       if (reader.index >= reader.codepoints.length) {
         return -1;
       }
@@ -131,35 +139,97 @@ function createMoonbitFsHost({ cwd = process.cwd(), args = [] } = {}) {
     },
     finish_read_string(_readerHandle) {},
     begin_create_string() {
-      return alloc({ type: 'string-builder', codepoints: [] });
+      return alloc({ type: "string-builder", codepoints: [] });
     },
     string_append_char(builderHandle, codepoint) {
-      const builder = get(builderHandle, 'string-builder');
+      const builder = get(builderHandle, "string-builder");
       builder.codepoints.push(codepoint >>> 0);
     },
     finish_create_string(builderHandle) {
-      const builder = get(builderHandle, 'string-builder');
+      const builder = get(builderHandle, "string-builder");
       handles.delete(builderHandle);
       return String.fromCodePoint(...builder.codepoints);
     },
     begin_create_byte_array() {
-      return alloc({ type: 'byte-array', values: [] });
+      return alloc({ type: "byte-array", values: [] });
     },
     byte_array_append_byte(arrayHandle, byte) {
-      const array = get(arrayHandle, 'byte-array');
+      const array = get(arrayHandle, "byte-array");
       array.values.push(byte & 0xff);
     },
     finish_create_byte_array(arrayHandle) {
-      const array = get(arrayHandle, 'byte-array');
+      const array = get(arrayHandle, "byte-array");
       handles.delete(arrayHandle);
       return Uint8Array.from(array.values);
+    },
+    begin_read_byte_array(externByteArrayHandle) {
+      return alloc({
+        type: "byte-array-reader",
+        values: Array.from(readBytes(externByteArrayHandle)),
+        index: 0,
+      });
+    },
+    byte_array_read_byte(readerHandle) {
+      const reader = get(readerHandle, "byte-array-reader");
+      if (reader.index >= reader.values.length) {
+        return -1;
+      }
+      const value = reader.values[reader.index];
+      reader.index += 1;
+      return value;
+    },
+    finish_read_byte_array(_readerHandle) {},
+    read_file_to_bytes_new(pathValue) {
+      try {
+        lastFileContent = Uint8Array.from(
+          fs.readFileSync(readString(pathValue)),
+        );
+        lastError = "";
+        return 0;
+      } catch (error) {
+        return setError(error);
+      }
     },
     write_bytes_to_file_new(pathValue, bytesValue) {
       try {
         fs.writeFileSync(readString(pathValue), readBytes(bytesValue));
         return 0;
       } catch (error) {
-        return allocError(error);
+        return setError(error);
+      }
+    },
+    path_exists(pathValue) {
+      return fs.existsSync(readString(pathValue));
+    },
+    create_dir_new(pathValue) {
+      try {
+        fs.mkdirSync(readString(pathValue), { recursive: true });
+        return 0;
+      } catch (error) {
+        return setError(error);
+      }
+    },
+    read_dir_new(pathValue) {
+      try {
+        lastDirFiles = fs.readdirSync(readString(pathValue));
+        lastError = "";
+        return 0;
+      } catch (error) {
+        return setError(error);
+      }
+    },
+    is_file_new(pathValue) {
+      try {
+        return fs.statSync(readString(pathValue)).isFile() ? 1 : 0;
+      } catch (error) {
+        return setError(error);
+      }
+    },
+    is_dir_new(pathValue) {
+      try {
+        return fs.statSync(readString(pathValue)).isDirectory() ? 1 : 0;
+      } catch (error) {
+        return setError(error);
       }
     },
     remove_file_new(pathValue) {
@@ -167,15 +237,23 @@ function createMoonbitFsHost({ cwd = process.cwd(), args = [] } = {}) {
         fs.rmSync(readString(pathValue), { force: true });
         return 0;
       } catch (error) {
-        return allocError(error);
+        return setError(error);
+      }
+    },
+    remove_dir_new(pathValue) {
+      try {
+        fs.rmSync(readString(pathValue), { recursive: true, force: true });
+        return 0;
+      } catch (error) {
+        return setError(error);
       }
     },
     args_get() {
-      return alloc({ type: 'extern-string-array', values: [...args] });
+      return alloc({ type: "extern-string-array", values: [...args] });
     },
     list_candidates() {
       return alloc({
-        type: 'extern-string-array',
+        type: "extern-string-array",
         values: collectCandidates(cwd),
       });
     },
@@ -183,15 +261,15 @@ function createMoonbitFsHost({ cwd = process.cwd(), args = [] } = {}) {
       return allocExternString(cwd);
     },
     begin_read_string_array(externStringArrayHandle) {
-      const arrayData = get(externStringArrayHandle, 'extern-string-array');
+      const arrayData = get(externStringArrayHandle, "extern-string-array");
       return alloc({
-        type: 'string-array-reader',
+        type: "string-array-reader",
         values: arrayData.values,
         index: 0,
       });
     },
     string_array_read_string(readerHandle) {
-      const reader = get(readerHandle, 'string-array-reader');
+      const reader = get(readerHandle, "string-array-reader");
       if (reader.index >= reader.values.length) {
         return allocExternString(ARRAY_SENTINEL);
       }
@@ -216,7 +294,7 @@ function buildImportObject(module) {
         return BigInt(Date.now());
       },
       now_us() {
-        if (typeof process.hrtime?.bigint === 'function') {
+        if (typeof process.hrtime?.bigint === "function") {
           return process.hrtime.bigint() / 1000n;
         }
         return BigInt(Date.now()) * 1000n;
@@ -230,17 +308,17 @@ function buildImportObject(module) {
   };
 
   for (const entry of imports) {
-    if (entry.module === '_') {
+    if (entry.module === "_") {
       stringConstants[entry.name] = entry.name;
       continue;
     }
-    if (entry.module === '__moonbit_time_unstable') {
+    if (entry.module === "__moonbit_time_unstable") {
       continue;
     }
-    if (entry.module === '__moonbit_fs_unstable') {
+    if (entry.module === "__moonbit_fs_unstable") {
       continue;
     }
-    if (entry.module === 'console') {
+    if (entry.module === "console") {
       continue;
     }
     throw new Error(`Unsupported wasm-gc import module: ${entry.module}`);
@@ -254,10 +332,16 @@ function buildImportObject(module) {
 }
 
 async function instantiateWasmGc() {
-  const wasmBytes = await fsPromises.readFile(new URL('./starshine.wasm-gc.wasm', import.meta.url));
-  const module = await WebAssembly.compile(wasmBytes, { builtins: ['js-string'] });
+  const wasmBytes = await fsPromises.readFile(
+    new URL("./starshine.wasm-gc.wasm", import.meta.url),
+  );
+  const module = await WebAssembly.compile(wasmBytes, {
+    builtins: ["js-string"],
+  });
   const importObject = buildImportObject(module);
-  const instance = await WebAssembly.instantiate(module, importObject, { builtins: ['js-string'] });
+  const instance = await WebAssembly.instantiate(module, importObject, {
+    builtins: ["js-string"],
+  });
   return instance.exports;
 }
 
@@ -278,7 +362,9 @@ export function countProvidedArgs(argsLike) {
 
 export function unsupportedExport(name, reason) {
   return function unsupported() {
-    throw new Error(`${name} is unsupported in the generated JS adapter. ${reason}`);
+    throw new Error(
+      `${name} is unsupported in the generated JS adapter. ${reason}`,
+    );
   };
 }
 
@@ -290,12 +376,12 @@ function expectArray(value, descriptor) {
 
 function expectUint8Array(value) {
   if (!(value instanceof Uint8Array)) {
-    throw new TypeError('Expected a Uint8Array.');
+    throw new TypeError("Expected a Uint8Array.");
   }
 }
 
 function maybeDisplay(descriptor, value, wasm) {
-  if (descriptor.kind === 'named' && descriptor.showExport) {
+  if (descriptor.kind === "named" && descriptor.showExport) {
     return wasm[descriptor.showExport](value);
   }
   return undefined;
@@ -303,48 +389,50 @@ function maybeDisplay(descriptor, value, wasm) {
 
 export function lowerValue(descriptor, value, wasm) {
   switch (descriptor.kind) {
-    case 'bool':
-      if (typeof value !== 'boolean') {
-        throw new TypeError('Expected a boolean.');
+    case "bool":
+      if (typeof value !== "boolean") {
+        throw new TypeError("Expected a boolean.");
       }
       return value;
-    case 'string':
-      if (typeof value !== 'string') {
-        throw new TypeError('Expected a string.');
+    case "string":
+      if (typeof value !== "string") {
+        throw new TypeError("Expected a string.");
       }
       return value;
-    case 'number':
-      if (typeof value !== 'number') {
-        throw new TypeError('Expected a number.');
+    case "number":
+      if (typeof value !== "number") {
+        throw new TypeError("Expected a number.");
       }
       return value;
-    case 'bigint':
-      if (typeof value === 'bigint') {
+    case "bigint":
+      if (typeof value === "bigint") {
         return value;
       }
-      if (typeof value === 'number' && Number.isInteger(value)) {
+      if (typeof value === "number" && Number.isInteger(value)) {
         return BigInt(value);
       }
-      throw new TypeError('Expected a bigint.');
-    case 'byte':
-      if (typeof value !== 'number' || !Number.isInteger(value)) {
-        throw new TypeError('Expected an integer byte.');
+      throw new TypeError("Expected a bigint.");
+    case "byte":
+      if (typeof value !== "number" || !Number.isInteger(value)) {
+        throw new TypeError("Expected an integer byte.");
       }
       return value & 0xff;
-    case 'char':
-      if (typeof value === 'string') {
+    case "char":
+      if (typeof value === "string") {
         if (value.length === 0) {
-          throw new TypeError('Expected a non-empty string for Char.');
+          throw new TypeError("Expected a non-empty string for Char.");
         }
         return value.codePointAt(0);
       }
-      if (typeof value === 'number' && Number.isInteger(value)) {
+      if (typeof value === "number" && Number.isInteger(value)) {
         return value;
       }
-      throw new TypeError('Expected a numeric code point or single-character string.');
-    case 'unit':
+      throw new TypeError(
+        "Expected a numeric code point or single-character string.",
+      );
+    case "unit":
       return undefined;
-    case 'bytes': {
+    case "bytes": {
       expectUint8Array(value);
       const byteArray = wasm[descriptor.helper.byteArray.new]();
       for (let index = 0; index < value.length; index += 1) {
@@ -352,32 +440,47 @@ export function lowerValue(descriptor, value, wasm) {
       }
       return wasm[descriptor.helper.fromArray](byteArray);
     }
-    case 'array': {
+    case "array": {
       expectArray(value, descriptor);
       const arrayValue = wasm[descriptor.helper.new]();
       for (const item of value) {
-        wasm[descriptor.helper.push](arrayValue, lowerValue(descriptor.item, item, wasm));
+        wasm[descriptor.helper.push](
+          arrayValue,
+          lowerValue(descriptor.item, item, wasm),
+        );
       }
       return arrayValue;
     }
-    case 'option':
+    case "option":
       if (value === null || value === undefined) {
         return wasm[descriptor.helper.none]();
       }
-      return wasm[descriptor.helper.some](lowerValue(descriptor.item, value, wasm));
-    case 'tuple':
+      return wasm[descriptor.helper.some](
+        lowerValue(descriptor.item, value, wasm),
+      );
+    case "tuple":
       expectArray(value, descriptor);
       if (value.length !== descriptor.items.length) {
-        throw new TypeError(`Expected a tuple with ${descriptor.items.length} items.`);
+        throw new TypeError(
+          `Expected a tuple with ${descriptor.items.length} items.`,
+        );
       }
-      return wasm[descriptor.helper.make](...descriptor.items.map((item, index) => lowerValue(item, value[index], wasm)));
-    case 'named':
-    case 'opaque':
+      return wasm[descriptor.helper.make](
+        ...descriptor.items.map((item, index) =>
+          lowerValue(item, value[index], wasm),
+        ),
+      );
+    case "named":
+    case "opaque":
       return value;
-    case 'result':
-      throw new Error('Lowering JS result objects back into MoonBit Result values is not supported.');
-    case 'function':
-      throw new Error(`Function values are unsupported for ${descriptor.brand ?? 'this export'}.`);
+    case "result":
+      throw new Error(
+        "Lowering JS result objects back into MoonBit Result values is not supported.",
+      );
+    case "function":
+      throw new Error(
+        `Function values are unsupported for ${descriptor.brand ?? "this export"}.`,
+      );
     default:
       throw new Error(`Unknown descriptor kind: ${descriptor.kind}`);
   }
@@ -385,19 +488,19 @@ export function lowerValue(descriptor, value, wasm) {
 
 export function liftValue(descriptor, value, wasm) {
   switch (descriptor.kind) {
-    case 'bool':
+    case "bool":
       return Boolean(value);
-    case 'string':
+    case "string":
       return value;
-    case 'number':
-    case 'byte':
-    case 'char':
+    case "number":
+    case "byte":
+    case "char":
       return Number(value);
-    case 'bigint':
+    case "bigint":
       return BigInt(value);
-    case 'unit':
+    case "unit":
       return undefined;
-    case 'bytes': {
+    case "bytes": {
       const length = wasm[descriptor.helper.length](value);
       const out = new Uint8Array(length);
       for (let index = 0; index < length; index += 1) {
@@ -405,24 +508,36 @@ export function liftValue(descriptor, value, wasm) {
       }
       return out;
     }
-    case 'array': {
+    case "array": {
       const length = wasm[descriptor.helper.length](value);
       const out = new Array(length);
       for (let index = 0; index < length; index += 1) {
-        out[index] = liftValue(descriptor.item, wasm[descriptor.helper.get](value, index), wasm);
+        out[index] = liftValue(
+          descriptor.item,
+          wasm[descriptor.helper.get](value, index),
+          wasm,
+        );
       }
       return out;
     }
-    case 'option':
+    case "option":
       if (!wasm[descriptor.helper.isSome](value)) {
         return null;
       }
-      return liftValue(descriptor.item, wasm[descriptor.helper.unwrap](value), wasm);
-    case 'result':
+      return liftValue(
+        descriptor.item,
+        wasm[descriptor.helper.unwrap](value),
+        wasm,
+      );
+    case "result":
       if (wasm[descriptor.helper.isOk](value)) {
         return {
           ok: true,
-          value: liftValue(descriptor.ok, wasm[descriptor.helper.unwrapOk](value), wasm),
+          value: liftValue(
+            descriptor.ok,
+            wasm[descriptor.helper.unwrapOk](value),
+            wasm,
+          ),
         };
       }
       {
@@ -433,13 +548,15 @@ export function liftValue(descriptor, value, wasm) {
           ? { ok: false, error }
           : { ok: false, error, display };
       }
-    case 'tuple':
-      return descriptor.items.map((item, index) => liftValue(item, wasm[descriptor.helper.getters[index]](value), wasm));
-    case 'named':
-    case 'opaque':
+    case "tuple":
+      return descriptor.items.map((item, index) =>
+        liftValue(item, wasm[descriptor.helper.getters[index]](value), wasm),
+      );
+    case "named":
+    case "opaque":
       return value;
-    case 'function':
-      throw new Error('Function values cannot be lifted into JavaScript.');
+    case "function":
+      throw new Error("Function values cannot be lifted into JavaScript.");
     default:
       throw new Error(`Unknown descriptor kind: ${descriptor.kind}`);
   }

@@ -22,7 +22,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Revisit the late `OptimizeInstructions` cleanup-cost heuristic and decide the intended parity/runtime policy for the second pass.
 - [ ] Add parity tests proving `ConstantFieldPropagation` fully covers Binaryen's `cfp-reftest` cases, or split the behavior.
 - [ ] Implement `StringGathering` in the global post pipeline under the appropriate feature/optimization gates.
-- [ ] Replace the wasm wildcard stub (`wasi_list_candidates`) with directory enumeration via WASI readdir so glob expansion works under default WASI I/O.
 - [ ] Publish the first release and MoonBit registry package (`moon publish` plus GitHub Release binaries).
 
 ## Post 0.1.0 Features

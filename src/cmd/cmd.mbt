@@ -2866,60 +2866,17 @@ fn cmd_native_tmp_path(prefix : String, suffix : String) -> String {
 }
 
 ///|
+fn cmd_default_list_candidates() -> Array[String] {
+  match @sfs.list_files_recursive(".") {
+    Ok(files) => files
+    Err(_) => []
+  }
+}
+
+///|
 #cfg(target="native")
 fn cmd_native_list_candidates() -> Array[String] {
-  let c_command = cmd_native_c_string("find . -type f -print")
-  let c_mode = cmd_native_c_string("r")
-  let pipe = cmd_native_popen(c_command, c_mode)
-  if pipe == 0UL {
-    return []
-  }
-
-  let buf = Bytes::new(4096)
-  let output = StringBuilder::new()
-  while true {
-    let read = cmd_native_fread(buf, 1UL, buf.length().to_uint64(), pipe)
-    if read == 0UL {
-      break
-    }
-    let read_i = read.to_int()
-    let mut i = 0
-    while i < read_i {
-      let b = buf[i].to_int()
-      if b >= 0 && b <= 127 {
-        output.write_char(b.unsafe_to_char())
-      } else {
-        output.write_char('?')
-      }
-      i += 1
-    }
-  }
-  ignore(cmd_native_pclose(pipe))
-
-  let out : Array[String] = []
-  for line in output.to_string().split("\n") {
-    let raw = line.to_string().trim().to_string()
-    if raw.length() == 0 {
-      continue
-    }
-    let normalized = normalize_cli_path(raw)
-    if normalized.length() == 0 || normalized == "." {
-      continue
-    }
-    let candidate = if normalized.length() >= 2 &&
-      normalized[0] == '.' &&
-      normalized[1] == '/' {
-      normalized.sub(start=2).to_string() catch {
-        _ => normalized
-      }
-    } else {
-      normalized
-    }
-    if candidate.length() > 0 && candidate != "." {
-      out.push(candidate)
-    }
-  }
-  out
+  cmd_default_list_candidates()
 }
 
 ///|
@@ -2999,6 +2956,7 @@ fn default_cmd_io() -> CmdIO {
 #cfg(target="js")
 fn default_cmd_io() -> CmdIO {
   let _ = @sfs.remove_file
+  let _ = cmd_default_list_candidates
   CmdIO::new()
 }
 
@@ -3006,6 +2964,7 @@ fn default_cmd_io() -> CmdIO {
 #cfg(target="llvm")
 fn default_cmd_io() -> CmdIO {
   let _ = @sfs.remove_file
+  let _ = cmd_default_list_candidates
   CmdIO::new()
 }
 
@@ -3013,6 +2972,7 @@ fn default_cmd_io() -> CmdIO {
 #cfg(target="wasm-gc")
 fn default_cmd_io() -> CmdIO {
   let _ = @sfs.remove_file
+  let _ = cmd_default_list_candidates
   CmdIO::new()
 }
 
@@ -3103,16 +3063,6 @@ priv type CmdStringReadHandle
 
 ///|
 #cfg(target="wasm")
-#external
-priv type CmdExternStringArray
-
-///|
-#cfg(target="wasm")
-#external
-priv type CmdStringArrayReadHandle
-
-///|
-#cfg(target="wasm")
 fn cmd_wasm_begin_read_string(s : CmdExternString) -> CmdStringReadHandle = "__moonbit_fs_unstable" "begin_read_string"
 
 ///|
@@ -3122,26 +3072,6 @@ fn cmd_wasm_string_read_char(handle : CmdStringReadHandle) -> Int = "__moonbit_f
 ///|
 #cfg(target="wasm")
 fn cmd_wasm_finish_read_string(handle : CmdStringReadHandle) = "__moonbit_fs_unstable" "finish_read_string"
-
-///|
-#cfg(target="wasm")
-fn cmd_wasm_begin_read_string_array(
-  sa : CmdExternStringArray,
-) -> CmdStringArrayReadHandle = "__moonbit_fs_unstable" "begin_read_string_array"
-
-///|
-#cfg(target="wasm")
-fn cmd_wasm_string_array_read_string(
-  handle : CmdStringArrayReadHandle,
-) -> CmdExternString = "__moonbit_fs_unstable" "string_array_read_string"
-
-///|
-#cfg(target="wasm")
-fn cmd_wasm_finish_read_string_array(handle : CmdStringArrayReadHandle) = "__moonbit_fs_unstable" "finish_read_string_array"
-
-///|
-#cfg(target="wasm")
-fn cmd_wasm_list_candidates_ffi() -> CmdExternStringArray = "__moonbit_fs_unstable" "list_candidates"
 
 ///|
 #cfg(target="wasm")
@@ -3162,20 +3092,8 @@ fn cmd_wasm_string_from_extern(extern_str : CmdExternString) -> String {
 ///|
 #cfg(target="wasm")
 fn cmd_wasm_list_candidates() -> Array[String] {
-  let out : Array[String] = []
-  let handle = cmd_wasm_begin_read_string_array(cmd_wasm_list_candidates_ffi())
-  while true {
-    let item = cmd_wasm_string_from_extern(
-      cmd_wasm_string_array_read_string(handle),
-    )
-    if item == "ffi_end_of_/string_array" {
-      break
-    }
-    append_unique_string(out, normalize_cli_path(item))
-  }
-  cmd_wasm_finish_read_string_array(handle)
-  out.sort()
-  out
+  let _ = cmd_wasm_string_from_extern
+  cmd_default_list_candidates()
 }
 
 ///|
