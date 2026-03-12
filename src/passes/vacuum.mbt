@@ -120,6 +120,8 @@ priv struct VQRunStats {
   infer_type_calls : Ref[Int]
   break_scan_us : Ref[UInt64]
   break_scan_calls : Ref[Int]
+  rebase_score_us : Ref[UInt64]
+  rebase_score_calls : Ref[Int]
   instr_cache_entries : Ref[Int]
   expr_cache_entries : Ref[Int]
   hotspots : Ref[Array[VQHotspotEntry]]
@@ -175,6 +177,8 @@ fn VQRunStats::new() -> VQRunStats {
     infer_type_calls: Ref::new(0),
     break_scan_us: Ref::new(0UL),
     break_scan_calls: Ref::new(0),
+    rebase_score_us: Ref::new(0UL),
+    rebase_score_calls: Ref::new(0),
     instr_cache_entries: Ref::new(0),
     expr_cache_entries: Ref::new(0),
     hotspots: Ref::new([]),
@@ -229,7 +233,8 @@ fn vq_helper_totals_line(stats : VQRunStats) -> String {
   "rewrite_stack_ms=\{vacuum_trace_delta_us_to_ms(stats.rewrite_stack_us.val)} rewrite_stack_calls=\{stats.rewrite_stack_calls.val} " +
   "collect_effects_ms=\{vacuum_trace_delta_us_to_ms(stats.collect_effects_us.val)} collect_effects_calls=\{stats.collect_effects_calls.val} " +
   "infer_type_ms=\{vacuum_trace_delta_us_to_ms(stats.infer_type_us.val)} infer_type_calls=\{stats.infer_type_calls.val} " +
-  "break_scan_ms=\{vacuum_trace_delta_us_to_ms(stats.break_scan_us.val)} break_scan_calls=\{stats.break_scan_calls.val}"
+  "break_scan_ms=\{vacuum_trace_delta_us_to_ms(stats.break_scan_us.val)} break_scan_calls=\{stats.break_scan_calls.val} " +
+  "rebase_score_ms=\{vacuum_trace_delta_us_to_ms(stats.rebase_score_us.val)} rebase_score_calls=\{stats.rebase_score_calls.val}"
 }
 
 ///|
@@ -830,6 +835,20 @@ fn vq_local_rebase_label_score(instr : TInstr) -> Int {
 }
 
 ///|
+fn vq_instr_rebase_label_score_timed(instr : TInstr, stats : VQRunStats) -> Int {
+  let start_us = vacuum_trace_now_us()
+  let out = vq_instr_rebase_label_score(instr)
+  ignore(
+    vq_commit_helper_timing(
+      stats.rebase_score_us,
+      stats.rebase_score_calls,
+      start_us,
+    ),
+  )
+  out
+}
+
+///|
 fn vq_texpr_rebase_label_score(expr : TExpr) -> Int {
   let mut score = vq_no_label_score()
   for instr in expr.instrs {
@@ -1152,10 +1171,16 @@ fn vq_rebase_labels_for_collapsed_wrapper_if_needed(
   instr : TInstr,
   analysis_cache : VQAnalysisCache,
   instr_id? : Int? = None,
+  rebase_label_score? : Int? = None,
 ) -> TInstr {
   let needs_rebase = match vq_indexed_instr_node(analysis_cache, instr_id) {
     Some(node) => node.has_any_labelidx && node.max_rebase_label_score >= 0
-    None => vq_instr_rebase_label_score(instr) >= 0
+    None =>
+      match rebase_label_score {
+        Some(score) => score >= 0
+        None =>
+          vq_instr_rebase_label_score_timed(instr, analysis_cache.stats) >= 0
+      }
   }
   if needs_rebase {
     vq_rebase_labels_for_collapsed_wrapper(instr)
@@ -1169,13 +1194,23 @@ fn vq_has_break_to_depth0_cached(
   expr : TExpr,
   analysis_cache : VQAnalysisCache,
   expr_id? : Int? = None,
+  single_instr_rebase_label_score? : Int? = None,
 ) -> Bool {
   match vq_indexed_expr_node(analysis_cache, expr_id) {
     Some(_) => vq_indexed_expr_has_break_to_depth0(analysis_cache, expr_id)
     None => {
-      if expr.instrs.length() == 1 &&
-        vq_instr_rebase_label_score(expr.instrs[0]) < 0 {
-        return false
+      if expr.instrs.length() == 1 {
+        let score = match single_instr_rebase_label_score {
+          Some(cached) => cached
+          None =>
+            vq_instr_rebase_label_score_timed(
+              expr.instrs[0],
+              analysis_cache.stats,
+            )
+        }
+        if score < 0 {
+          return false
+        }
       }
       vq_has_break_to_depth_in_texpr_timed(expr, 0, analysis_cache.stats)
     }
@@ -3525,7 +3560,19 @@ fn vq_simplify_block_to_contents(
     )
     return out
   }
-  if vq_has_break_to_depth0_cached(body, analysis_cache, expr_id~) {
+  let only = items[0]
+  let only_id = vq_only_original_instr_id(body, analysis_cache, expr_id~)
+  let only_rebase_label_score = match
+    vq_indexed_instr_node(analysis_cache, only_id) {
+    Some(node) => Some(node.max_rebase_label_score)
+    None => Some(vq_instr_rebase_label_score_timed(only, analysis_cache.stats))
+  }
+  if vq_has_break_to_depth0_cached(
+      body,
+      analysis_cache,
+      expr_id~,
+      single_instr_rebase_label_score=only_rebase_label_score,
+    ) {
     let out = TInstr::block(bt, body)
     ignore(
       vq_commit_helper_timing(
@@ -3536,8 +3583,6 @@ fn vq_simplify_block_to_contents(
     )
     return out
   }
-  let only = items[0]
-  let only_id = vq_only_original_instr_id(body, analysis_cache, expr_id~)
   match result_types {
     [vt] =>
       match vq_type_of_cached(only, env, analysis_cache, instr_id=only_id) {
@@ -3546,6 +3591,7 @@ fn vq_simplify_block_to_contents(
             only,
             analysis_cache,
             instr_id=only_id,
+            rebase_label_score=only_rebase_label_score,
           )
           ignore(
             vq_commit_helper_timing(
@@ -3565,6 +3611,7 @@ fn vq_simplify_block_to_contents(
           only,
           analysis_cache,
           instr_id=only_id,
+          rebase_label_score=only_rebase_label_score,
         )
         ignore(
           vq_commit_helper_timing(
@@ -3581,6 +3628,7 @@ fn vq_simplify_block_to_contents(
           only,
           analysis_cache,
           instr_id=only_id,
+          rebase_label_score=only_rebase_label_score,
         )
         ignore(
           vq_commit_helper_timing(
@@ -6065,6 +6113,7 @@ test "vacuum simplify_block skips label rebasing for unindexed label-free body" 
   vq_active_stats.val = None
   assert_eq(out, TInstr::i32_const(I32(3)))
   assert_eq(cache.stats.break_scan_calls.val, 0)
+  assert_eq(cache.stats.rebase_score_calls.val, 1)
   assert_eq(cache.stats.rebase_labels_calls.val, 0)
 }
 
@@ -6082,6 +6131,7 @@ test "vacuum simplify_block skips label rebasing for unindexed depth-local branc
   vq_active_stats.val = None
   assert_eq(out, inner)
   assert_eq(cache.stats.break_scan_calls.val, 0)
+  assert_eq(cache.stats.rebase_score_calls.val, 1)
   assert_eq(cache.stats.rebase_labels_calls.val, 0)
 }
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-03-12 Vacuum Follow-up: deduplicated unindexed rebase-score analysis across simplify-block break checks and rebase gating, with explicit helper timing counters
+
+This follow-up continues the pathological-`Vacuum` fallback optimization track in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). After the prior block-simplify reshaping, unindexed single-item wrapper-collapse candidates still scored label metadata twice: once in `vq_has_break_to_depth0_cached(...)` to decide whether depth-0 break scanning could be skipped, and again in `vq_rebase_labels_for_collapsed_wrapper_if_needed(...)` to decide whether rebasing was needed. On rewritten trees this duplicated recursive score traversal in a hot path.
+
+The simplify path now computes one score per single-item candidate and threads it through both decision points. `vq_has_break_to_depth0_cached(...)` gained an optional `single_instr_rebase_label_score` input, and `vq_rebase_labels_for_collapsed_wrapper_if_needed(...)` gained an optional `rebase_label_score` input for unindexed fallback gating. `vq_simplify_block_to_contents(...)` now supplies a shared score (indexed-node score when available, otherwise one timed local score computation) so unindexed single-item candidates avoid repeated recursive scoring.
+
+Helper instrumentation was also extended so this cost is observable in traces: `VQRunStats` now records `rebase_score_ms` and `rebase_score_calls`, and helper-summary output reports both fields in `helper_totals`.
+
+Regression coverage in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) now locks in the dedupe behavior by asserting `rebase_score_calls == 1` for two unindexed simplify-block collapse cases that previously scored twice:
+- `vacuum simplify_block skips label rebasing for unindexed label-free body`
+- `vacuum simplify_block skips label rebasing for unindexed depth-local branch`
+
+Verification: `moon test src/passes`, `moon info && moon fmt`, and full `moon test` (3037 passing, 0 failing).
+
 ## 2026-03-12 Vacuum Follow-up: removed unconditional depth-0 break scans from block simplification and gated unindexed fallback scans behind label-score checks
 
 This follow-up continues the pathological-`Vacuum` hot-path cleanup in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). `vq_simplify_block_to_contents(...)` previously called `vq_has_break_to_depth0_cached(...)` up front for every block body, even when simplification could not collapse the wrapper (empty or multi-item bodies). That forced avoidable fallback scans on rewritten/unindexed trees and kept `break_scan_calls` active in cases where the function would return the original block shape either way.
