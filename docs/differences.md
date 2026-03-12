@@ -191,28 +191,21 @@ Impact:
 - It is unlikely to be central to the currently observed stall.
 - It is still worth recording because it means the local pipeline is normalizing two Binaryen variants into one pass implementation.
 
-## 7. The Local Global Post Pipeline Intentionally Skips `InliningOptimizing`
+## 7. The Local Global Post Pipeline Now Includes `InliningOptimizing` at the Binaryen-Parity Gate
 
 The local post-pass sequence is in [src/passes/optimize.mbt#L2006](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L2006).
 
 Binaryen normally includes `inlining-optimizing` in this phase under the right optimize / shrink settings.
 
-The local pipeline explicitly does not:
+The local pipeline now does the same:
 
 - [src/passes/optimize.mbt#L2015](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L2015)
 
-The local comment explains why:
-
-- there are known inlining option mismatches on some valid modules
-
 Impact:
 
-- This is not accidental drift. It is an intentional compatibility gap.
-- It means the global post-pipeline is not equivalent to Binaryen's default post-cleanup behavior.
-- It may reduce both compile time and optimization opportunity.
-- It also means later duplicate-function elimination and simplify-globals behavior are operating on a less aggressively inlined program than Binaryen would typically produce.
-
-This difference matters whenever someone assumes "we run Binaryen's default post-pass strategy." The local code does not currently do that.
+- This scheduler gap is no longer an open parity blocker.
+- The global post-pipeline now inlines before duplicate-function elimination and simplify-globals cleanup the same way Binaryen's default post sequence expects.
+- Remaining differences in this phase are now the feature-specific missing `StringGathering` pass and any behavior differences inside the local inliner itself rather than a missing scheduler hook.
 
 ## 8. `StringGathering` Is Not Implemented in the Local Post Pipeline
 
@@ -344,7 +337,7 @@ The reasons are:
 
 - `DataflowOptimization` is not equivalent to `ssa-nomerge`.
 - the local pipeline omits some Binaryen cleanup passes such as repeated `remove-unused-names`
-- the local pipeline intentionally skips some Binaryen passes such as `inlining-optimizing`
+- the local pipeline still omits some feature-specific passes such as `string-gathering`
 - the local runner executes passes differently
 - the local runner validates after every pass
 - the pass implementations themselves are local implementations, not Binaryen's implementations

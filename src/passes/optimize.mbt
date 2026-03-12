@@ -2106,9 +2106,8 @@ pub fn default_global_optimization_post_passes(
     passes.push(DeadArgumentEliminationOptimizing)
   }
   if options.optimize_level >= 2 || options.shrink_level >= 2 {
-    // Binaryen parity mode: inlining-optimizing (currently skipped because
-    // high optimization levels still have known inlining option mismatches on
-    // some valid modules).
+    // Binaryen parity mode: inlining-optimizing.
+    passes.push(InliningOptimizing)
   }
 
   passes.push(DuplicateFunctionElimination)
@@ -3131,6 +3130,8 @@ test "default global optimization post passes include binaryen-parity defaults" 
     Module::new(),
     OptimizeOptions::new(optimize_level=2, shrink_level=2),
   )
+  assert_eq(passes[0], DeadArgumentEliminationOptimizing)
+  assert_eq(passes[1], InliningOptimizing)
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
       match pass {
@@ -3156,7 +3157,7 @@ test "default global optimization post passes include binaryen-parity defaults" 
         _ => false
       }
     }),
-    0,
+    1,
   )
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
