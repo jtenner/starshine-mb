@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-03-12 Vacuum Follow-up: replaced remaining unindexed depth-0 break/value-break fallback scans with structural summaries, fixed `try_table` catch-label depth targeting, and switched control-transfer fallback metadata to structural detection
+
+This follow-up continues and closes the remaining Stage 3 unindexed depth-0 fallback-scan blockers in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt), and further narrows fallback metadata specialization.
+
+`vq_has_break_to_depth0_cached(...)` no longer falls back to the generic `has_break_to_depth_in_texpr(...)` scan path on unindexed rewritten trees. Instead it now uses the local structural depth-target summary directly (`vq_texpr_may_target_break_to_depth0(...)`). As part of this, `try_table` handling was corrected to include catch-label targets (`depth + 1`) in the same structural break analysis, matching the original break-target semantics.
+
+`vq_has_value_break_lub_depth0_cached(...)` now avoids delegating to the full recursive fallback collector on unindexed depth-0 queries. A dedicated structural fallback accumulator (`vq_has_value_break_lub_depth0_fallback(...)`) computes depth-targeted value-break compatibility directly from rewrite-local shape/type facts, including unknown/multi-value conservative behavior.
+
+Fallback metadata specialization was also extended: `vq_instr_effect_transfers_control_flow_cached(...)` now uses a structural branch/throw detector (`vq_instr_effect_transfers_control_flow_structural(...)`) instead of `vq_collect_effects_timed(...).transfers_control_flow()` on unindexed paths, so wrapped branch-transfer trees no longer pay generic effect-collector cost for this metadata question.
+
+Related cleanup: the now-unused `has_break_to_depth_in_texpr(...)` wrapper was removed from [`src/passes/dead_code_elimination.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/dead_code_elimination.mbt) after Vacuum stopped using it.
+
+Regression coverage in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) was expanded with red-first tests:
+- `vacuum cached break helper skips generic break scan for unindexed targeted branch fallback`
+- `vacuum cached break helper detects unindexed try_table catch target to depth0 without generic scan`
+- `vacuum cached value-break helper skips generic collector for unindexed targeted branch fallback`
+- `vacuum fallback wrapped branch-transfer metadata skips generic collector`
+
+Verification: `moon test src/passes` (red first, then green), `moon info && moon fmt`, and full `moon test` (3050 passing, 0 failing).
+
 ## 2026-03-12 Vacuum Follow-up: switched unindexed fallback call-presence metadata to a structural detector so wrapped non-call trees avoid generic effect collection
 
 This follow-up continues the remaining `Vacuum` Stage 3 fallback metadata specialization in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). Even after pure-leaf fast paths, unindexed fallback `vq_instr_has_calls_cached(...)` still delegated to `vq_collect_effects_timed(...)` for wrapper-shaped non-call trees (for example `drop(i32.const ...)`), paying generic effect-collector cost to answer a pure structural question: whether any call instruction exists in the subtree.

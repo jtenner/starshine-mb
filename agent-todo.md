@@ -9,8 +9,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - Recent completed items are retained at the bottom until the next audit pass.
 
 ## Publishing blockers
-- [ ] Finish `Vacuum` Stage 3 fallback cleanup: eliminate remaining unindexed depth-0 break scans in `vq_has_break_to_depth0_cached(...)` for non-trivial rewritten trees by reusing indexed/control metadata or equivalent bounded local summaries.
-- [ ] Finish `Vacuum` Stage 3 value-break work: avoid full recursive fallback collection in `vq_value_break_to_depth_has_lub(...)` for rewritten trees by carrying/reusing precomputed block-level value-break summaries where possible.
 - [ ] Finish `Vacuum` Stage 3 fallback metadata specialization: reduce generic helper fallback calls (`vq_type_of_timed`, `vq_collect_effects_timed`) on unindexed rewrite paths by using rewrite-shape-local formulas or bounded metadata reuse.
 - [ ] Performance issue in Flatten (use helper level tracing with timing stats to diagnose)
 - [ ] Performance issue in Validate package
@@ -41,6 +39,8 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Long-horizon platform/features: Component Model/WIT, streaming decoder API, custom sections/source maps, plugin system.
 
 ## Recently completed
+- [x] Continue `Vacuum` Stage 3 fallback cleanup/value-break reduction by replacing unindexed cached depth-0 break and value-break fallback collectors with structural local summaries (`vq_texpr_may_target_break_to_depth0(...)` and `vq_has_value_break_lub_depth0_fallback(...)`), including `try_table` catch-label depth targeting coverage, so targeted unindexed fallback checks avoid generic break/value-break scan helpers.
+- [x] Continue `Vacuum` Stage 3 fallback metadata specialization by replacing unindexed `vq_instr_effect_transfers_control_flow_cached(...)` generic effect-collector fallback with a structural branch/throw detector (`vq_instr_effect_transfers_control_flow_structural(...)`) and regression coverage that verifies wrapped branch-transfer trees skip `collect_effects` fallback calls.
 - [x] Continue `Vacuum` Stage 3 fallback metadata specialization by replacing unindexed fallback `vq_instr_has_calls_cached(...)` generic effect-collector use with an exact structural call detector (`vq_instr_has_calls_structural(...)`) and adding regression coverage that verifies wrapped non-call leaves avoid `collect_effects` fallback calls.
 - [x] Continue `Vacuum` Stage 3 fallback-scan/value-break reduction by adding bounded unindexed target summaries (`may target depth-0 break` / `may target depth-0 value break`) so fallback helpers skip expensive generic scans when labels exist but cannot hit the queried depth/value shape.
 - [x] Continue `Vacuum` Stage 3 fallback metadata specialization by adding unindexed pure-leaf fast paths in `vq_type_of_cached(...)`, `vq_has_unremovable_effects_cached(...)`, `vq_has_unremovable_shallow_effects_cached(...)`, `vq_instr_has_calls_cached(...)`, and `vq_instr_effect_transfers_control_flow_cached(...)` to avoid generic helper calls on trivial rewritten leaves.

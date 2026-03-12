@@ -867,16 +867,6 @@ fn dce_rewrite_non_control_unreachable(
 }
 
 ///|
-fn has_break_to_depth_in_texpr(expr : TExpr, depth : Int) -> Bool {
-  dce_has_break_to_depth_in_texpr(
-    expr,
-    depth,
-    Ref::new(200_000),
-    dce_trace_state_noop(),
-  )
-}
-
-///|
 fn is_unreachable_instr(instr : TInstr) -> Bool {
   dce_is_unreachable_instr(instr, Ref::new(200_000), dce_trace_state_noop())
 }

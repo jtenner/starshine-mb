@@ -587,24 +587,6 @@ fn vq_collect_effects_timed(instr : TInstr, stats : VQRunStats) -> LCSEffects {
 }
 
 ///|
-fn vq_has_break_to_depth_in_texpr_timed(
-  expr : TExpr,
-  depth : Int,
-  stats : VQRunStats,
-) -> Bool {
-  let start_us = vacuum_trace_now_us()
-  let out = has_break_to_depth_in_texpr(expr, depth)
-  ignore(
-    vq_commit_helper_timing(
-      stats.break_scan_us,
-      stats.break_scan_calls,
-      start_us,
-    ),
-  )
-  out
-}
-
-///|
 fn vq_name_to_string(name : Name) -> String {
   let Name(sv) = name
   sv.to_string()
@@ -774,7 +756,7 @@ fn vq_instr_effect_transfers_control_flow_cached(
   if vq_is_pure_leaf_no_effects(instr) {
     return false
   }
-  vq_collect_effects_timed(instr, analysis_cache.stats).transfers_control_flow()
+  vq_instr_effect_transfers_control_flow_structural(instr)
 }
 
 ///|
@@ -821,6 +803,40 @@ fn vq_instr_has_calls_structural(instr : TInstr) -> Bool {
       }
   }
   false
+}
+
+///|
+fn vq_instr_effect_transfers_control_flow_local(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_) => true
+    _ => false
+  }
+}
+
+///|
+fn vq_instr_effect_transfers_control_flow_structural(instr : TInstr) -> Bool {
+  if vq_instr_effect_transfers_control_flow_local(instr) {
+    return true
+  }
+  let found = Ref::new(false)
+  vq_visit_instr_recursive_children(instr, fn(child) {
+    if !found.val && vq_instr_effect_transfers_control_flow_structural(child) {
+      found.val = true
+    }
+  })
+  found.val
 }
 
 ///|
@@ -1359,10 +1375,16 @@ fn vq_instr_may_target_break_to_depth0(instr : TInstr, depth : Int) -> Bool {
       }
       false
     }
-    TInstrKind::TBlock(_, body)
-    | TInstrKind::TLoop(_, body)
-    | TInstrKind::TTryTable(_, _, body) =>
+    TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
       vq_texpr_may_target_break_to_depth0(body, depth + 1)
+    TInstrKind::TTryTable(_, catches, body) => {
+      for catch_ in catches {
+        if vq_label_to_int(vq_catch_label(catch_)) == depth + 1 {
+          return true
+        }
+      }
+      vq_texpr_may_target_break_to_depth0(body, depth + 1)
+    }
     TInstrKind::TIf(_, cond, then_body, else_body) => {
       if vq_instr_may_target_break_to_depth0(cond, depth) {
         return true
@@ -1504,6 +1526,227 @@ fn vq_texpr_may_target_value_break_to_depth0(expr : TExpr, depth : Int) -> Bool 
 }
 
 ///|
+priv struct VQValueBreakFallbackSummary {
+  mut found_value_break : Bool
+  mut has_typed_value_break : Bool
+  mut has_unknown_value_break_type : Bool
+  mut has_unsupported_multivalue_break : Bool
+  mut candidate : ValType?
+}
+
+///|
+fn VQValueBreakFallbackSummary::new() -> VQValueBreakFallbackSummary {
+  {
+    found_value_break: false,
+    has_typed_value_break: false,
+    has_unknown_value_break_type: false,
+    has_unsupported_multivalue_break: false,
+    candidate: None,
+  }
+}
+
+///|
+fn vq_record_value_break_fallback_target(
+  values : Array[TInstr],
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  summary : VQValueBreakFallbackSummary,
+) -> Unit {
+  summary.found_value_break = true
+  if values.is_empty() {
+    return
+  }
+  if values.length() != 1 {
+    summary.has_unsupported_multivalue_break = true
+    return
+  }
+  match vq_type_of_cached(values[0], env, analysis_cache) {
+    Some(vt) =>
+      if !summary.has_typed_value_break {
+        summary.has_typed_value_break = true
+        summary.candidate = Some(vt)
+      } else {
+        match summary.candidate {
+          Some(prev) =>
+            summary.candidate = vq_common_val_supertype(prev, vt, env)
+          None => ()
+        }
+      }
+    None => summary.has_unknown_value_break_type = true
+  }
+}
+
+///|
+fn vq_accumulate_value_break_lub_fallback_instr(
+  instr : TInstr,
+  depth : Int,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  summary : VQValueBreakFallbackSummary,
+) -> Unit {
+  if summary.has_unknown_value_break_type ||
+    summary.has_unsupported_multivalue_break {
+    return
+  }
+  match instr.kind {
+    TInstrKind::TBr(label, values) => {
+      if vq_label_to_int(label) == depth {
+        vq_record_value_break_fallback_target(
+          values, env, analysis_cache, summary,
+        )
+      }
+      for value in values {
+        vq_accumulate_value_break_lub_fallback_instr(
+          value, depth, env, analysis_cache, summary,
+        )
+      }
+    }
+    TInstrKind::TBrIf(label, cond, values) => {
+      if vq_label_to_int(label) == depth {
+        vq_record_value_break_fallback_target(
+          values, env, analysis_cache, summary,
+        )
+      }
+      vq_accumulate_value_break_lub_fallback_instr(
+        cond, depth, env, analysis_cache, summary,
+      )
+      for value in values {
+        vq_accumulate_value_break_lub_fallback_instr(
+          value, depth, env, analysis_cache, summary,
+        )
+      }
+    }
+    TInstrKind::TBrTable(labels, default, index, values) => {
+      let mut targets_depth = vq_label_to_int(default) == depth
+      for label in labels {
+        if vq_label_to_int(label) == depth {
+          targets_depth = true
+          break
+        }
+      }
+      if targets_depth {
+        vq_record_value_break_fallback_target(
+          values, env, analysis_cache, summary,
+        )
+      }
+      vq_accumulate_value_break_lub_fallback_instr(
+        index, depth, env, analysis_cache, summary,
+      )
+      for value in values {
+        vq_accumulate_value_break_lub_fallback_instr(
+          value, depth, env, analysis_cache, summary,
+        )
+      }
+    }
+    TInstrKind::TBrOnNull(label, ref_, values)
+    | TInstrKind::TBrOnNonNull(label, ref_, values)
+    | TInstrKind::TBrOnCast(label, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(label, _, _, _, ref_, values) => {
+      if vq_label_to_int(label) == depth {
+        vq_record_value_break_fallback_target(
+          values, env, analysis_cache, summary,
+        )
+      }
+      vq_accumulate_value_break_lub_fallback_instr(
+        ref_, depth, env, analysis_cache, summary,
+      )
+      for value in values {
+        vq_accumulate_value_break_lub_fallback_instr(
+          value, depth, env, analysis_cache, summary,
+        )
+      }
+    }
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      vq_accumulate_value_break_lub_fallback_texpr(
+        body,
+        depth + 1,
+        env,
+        analysis_cache,
+        summary,
+      )
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      vq_accumulate_value_break_lub_fallback_instr(
+        cond, depth, env, analysis_cache, summary,
+      )
+      vq_accumulate_value_break_lub_fallback_texpr(
+        then_body,
+        depth + 1,
+        env,
+        analysis_cache,
+        summary,
+      )
+      match else_body {
+        Some(other) =>
+          vq_accumulate_value_break_lub_fallback_texpr(
+            other,
+            depth + 1,
+            env,
+            analysis_cache,
+            summary,
+          )
+        None => ()
+      }
+    }
+    _ =>
+      for child in eval_children(instr) {
+        if child != instr {
+          vq_accumulate_value_break_lub_fallback_instr(
+            child, depth, env, analysis_cache, summary,
+          )
+        }
+      }
+  }
+}
+
+///|
+fn vq_accumulate_value_break_lub_fallback_texpr(
+  expr : TExpr,
+  depth : Int,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+  summary : VQValueBreakFallbackSummary,
+) -> Unit {
+  if summary.has_unknown_value_break_type ||
+    summary.has_unsupported_multivalue_break {
+    return
+  }
+  for instr in expr.instrs {
+    vq_accumulate_value_break_lub_fallback_instr(
+      instr, depth, env, analysis_cache, summary,
+    )
+    if summary.has_unknown_value_break_type ||
+      summary.has_unsupported_multivalue_break {
+      return
+    }
+  }
+}
+
+///|
+fn vq_has_value_break_lub_depth0_fallback(
+  expr : TExpr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> Bool {
+  let summary = VQValueBreakFallbackSummary::new()
+  vq_accumulate_value_break_lub_fallback_texpr(
+    expr, 0, env, analysis_cache, summary,
+  )
+  if !summary.found_value_break {
+    return false
+  }
+  if summary.has_unknown_value_break_type ||
+    summary.has_unsupported_multivalue_break {
+    return true
+  }
+  if !summary.has_typed_value_break {
+    return false
+  }
+  summary.candidate is Some(_)
+}
+
+///|
 fn vq_has_break_to_depth0_cached(
   expr : TExpr,
   analysis_cache : VQAnalysisCache,
@@ -1528,10 +1771,7 @@ fn vq_has_break_to_depth0_cached(
       if score < 0 {
         return false
       }
-      if !vq_texpr_may_target_break_to_depth0(expr, 0) {
-        return false
-      }
-      vq_has_break_to_depth_in_texpr_timed(expr, 0, analysis_cache.stats)
+      vq_texpr_may_target_break_to_depth0(expr, 0)
     }
   }
 }
@@ -1562,10 +1802,7 @@ fn vq_has_value_break_lub_depth0_cached(
       if score < 0 {
         return false
       }
-      if !vq_texpr_may_target_value_break_to_depth0(expr, 0) {
-        return false
-      }
-      vq_value_break_to_depth_has_lub(expr, 0, env, analysis_cache)
+      vq_has_value_break_lub_depth0_fallback(expr, env, analysis_cache)
     }
   }
 }
@@ -11163,12 +11400,48 @@ test "vacuum cached break helper skips unindexed non-targeted branch fallback sc
 }
 
 ///|
+test "vacuum cached break helper skips generic break scan for unindexed targeted branch fallback" {
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let expr = TExpr::new([TInstr::br(LabelIdx::new(0), [])])
+
+  assert_true(vq_has_break_to_depth0_cached(expr, cache))
+  assert_eq(cache.stats.break_scan_calls.val, 0)
+}
+
+///|
+test "vacuum cached break helper detects unindexed try_table catch target to depth0 without generic scan" {
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let expr = TExpr::new([
+    TInstr::try_table(
+      BlockType::void_(),
+      [Catch::all(LabelIdx::new(1))],
+      TExpr::new([]),
+    ),
+  ])
+
+  assert_true(vq_has_break_to_depth0_cached(expr, cache))
+  assert_eq(cache.stats.break_scan_calls.val, 0)
+}
+
+///|
 test "vacuum cached value-break helper skips unindexed branch-without-values fallback scan" {
   let env = Env::new().with_module(Module::new())
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let expr = TExpr::new([TInstr::br(LabelIdx::new(0), [])])
 
   assert_false(vq_has_value_break_lub_depth0_cached(expr, env, cache))
+  assert_eq(cache.stats.value_break_lub_calls.val, 0)
+}
+
+///|
+test "vacuum cached value-break helper skips generic collector for unindexed targeted branch fallback" {
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let expr = TExpr::new([
+    TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(1))]),
+  ])
+
+  assert_true(vq_has_value_break_lub_depth0_cached(expr, env, cache))
   assert_eq(cache.stats.value_break_lub_calls.val, 0)
 }
 
@@ -11206,6 +11479,18 @@ test "vacuum fallback wrapped call metadata skips generic collector" {
   let instr = TInstr::drop(TInstr::i32_const(I32(1)))
 
   assert_false(vq_instr_has_calls_cached(instr, cache))
+  assert_eq(cache.stats.collect_effects_calls.val, 0)
+}
+
+///|
+test "vacuum fallback wrapped branch-transfer metadata skips generic collector" {
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let instr = TInstr::block(
+    BlockType::void_(),
+    TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
+  )
+
+  assert_true(vq_instr_effect_transfers_control_flow_cached(instr, cache))
   assert_eq(cache.stats.collect_effects_calls.val, 0)
 }
 
