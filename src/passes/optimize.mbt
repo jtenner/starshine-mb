@@ -1954,11 +1954,7 @@ pub fn default_global_optimization_pre_passes(
 
   passes.push(DuplicateFunctionElimination)
   if options.optimize_level >= 2 {
-    if closed_world {
-      passes.push(RemoveUnused)
-    } else {
-      passes.push(RemoveUnusedModuleElements)
-    }
+    passes.push(RemoveUnusedModuleElements)
   }
   passes.push(MemoryPacking(MemoryPackingPassProps::new()))
   if options.optimize_level >= 2 {
@@ -1975,11 +1971,7 @@ pub fn default_global_optimization_pre_passes(
     if closed_world {
       passes.push(GlobalTypeOptimization)
     }
-    if closed_world {
-      passes.push(RemoveUnused)
-    } else {
-      passes.push(RemoveUnusedModuleElements)
-    }
+    passes.push(RemoveUnusedModuleElements)
     if closed_world {
       passes.push(RemoveUnusedTypes)
       if options.optimize_level >= 3 {
@@ -3095,11 +3087,20 @@ test "default global optimization pre passes include closed-world gc passes" {
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
       match pass {
-        RemoveUnused => true
+        RemoveUnusedModuleElements => true
         _ => false
       }
     }),
     2,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        RemoveUnused => true
+        _ => false
+      }
+    }),
+    0,
   )
   assert_eq(
     default_count_module_passes(passes, fn(pass) {

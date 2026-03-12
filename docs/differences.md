@@ -130,7 +130,7 @@ Impact:
 
 This is an optimization-policy difference, not just an implementation detail.
 
-## 5. Global Pre-Pass Parity Is Close, but `RemoveUnused` Replaces `RemoveUnusedModuleElements` in Closed-World Mode
+## 5. Global Pre-Pass Closed-World Unused Cleanup Now Uses `RemoveUnusedModuleElements`
 
 The local global pre-pass sequence is in [src/passes/optimize.mbt#L1943](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1943).
 
@@ -142,22 +142,21 @@ Binaryen's default pre-pass flow conceptually includes:
 - `once-reduction` at `-O2+`
 - then several GC-specific global passes under the right feature / closed-world conditions
 
-The local code follows that structure, but with one notable substitution:
+The local code now follows that structure directly:
 
 - [src/passes/optimize.mbt#L1953](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1953)
 - [src/passes/optimize.mbt#L1975](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1975)
 
-When `closed_world` is true, the local pipeline pushes `RemoveUnused` instead of `RemoveUnusedModuleElements`.
+When `closed_world` is true, the local pipeline now also pushes `RemoveUnusedModuleElements` at the same two pre-pass cleanup points.
 
-Why this matters:
+Why this mattered:
 
 - Those are not just alternate spellings.
 - They imply different implementation boundaries and potentially different dead-code-elimination reach.
 - The amount of dead material removed before function passes can materially affect later pass cost.
-- If the closed-world `RemoveUnused` is more aggressive, it may reduce later work.
-- If it is more expensive or less targeted, it may add pre-pass overhead without proportionate downstream savings.
+- Aligning the default closed-world scheduler choice removes that policy-level parity divergence, even though performance consequences still need to be evaluated empirically on pathological modules.
 
-This is a meaningful parity difference because global dead-code cleanup strongly influences the amount of IR the function pipeline must process.
+This scheduler parity gap is now closed, though the downstream cost model still needs measurement if performance work later points back at pre-pass cleanup behavior.
 
 ## 6. Closed-World GC Pre-Pass Handling Is Mostly Similar, with a Small CFP Difference
 
