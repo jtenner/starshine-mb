@@ -1172,7 +1172,13 @@ fn vq_has_break_to_depth0_cached(
 ) -> Bool {
   match vq_indexed_expr_node(analysis_cache, expr_id) {
     Some(_) => vq_indexed_expr_has_break_to_depth0(analysis_cache, expr_id)
-    None => vq_has_break_to_depth_in_texpr_timed(expr, 0, analysis_cache.stats)
+    None => {
+      if expr.instrs.length() == 1 &&
+        vq_instr_rebase_label_score(expr.instrs[0]) < 0 {
+        return false
+      }
+      vq_has_break_to_depth_in_texpr_timed(expr, 0, analysis_cache.stats)
+    }
   }
 }
 
@@ -3485,17 +3491,6 @@ fn vq_simplify_block_to_contents(
 ) -> TInstr {
   let start_us = vacuum_trace_now_us()
   let result_types = vq_block_result_types(bt, env)
-  if vq_has_break_to_depth0_cached(body, analysis_cache, expr_id~) {
-    let out = TInstr::block(bt, body)
-    ignore(
-      vq_commit_helper_timing(
-        analysis_cache.stats.simplify_block_us,
-        analysis_cache.stats.simplify_block_calls,
-        start_us,
-      ),
-    )
-    return out
-  }
   let { instrs: items, .. } = body
   if items.length() == 0 {
     if !result_types.is_empty() {
@@ -3519,33 +3514,34 @@ fn vq_simplify_block_to_contents(
     )
     return out
   }
-  if items.length() == 1 {
-    let only = items[0]
-    let only_id = vq_only_original_instr_id(body, analysis_cache, expr_id~)
-    match result_types {
-      [vt] =>
-        match vq_type_of_cached(only, env, analysis_cache, instr_id=only_id) {
-          Some(t) if t == vt => {
-            let out = vq_rebase_labels_for_collapsed_wrapper_if_needed(
-              only,
-              analysis_cache,
-              instr_id=only_id,
-            )
-            ignore(
-              vq_commit_helper_timing(
-                analysis_cache.stats.simplify_block_us,
-                analysis_cache.stats.simplify_block_calls,
-                start_us,
-              ),
-            )
-            return out
-          }
-          _ => ()
-        }
-      [] =>
-        if vq_type_of_cached(only, env, analysis_cache, instr_id=only_id)
-          is None ||
-          is_unreachable_instr(only) {
+  if items.length() != 1 {
+    let out = TInstr::block(bt, body)
+    ignore(
+      vq_commit_helper_timing(
+        analysis_cache.stats.simplify_block_us,
+        analysis_cache.stats.simplify_block_calls,
+        start_us,
+      ),
+    )
+    return out
+  }
+  if vq_has_break_to_depth0_cached(body, analysis_cache, expr_id~) {
+    let out = TInstr::block(bt, body)
+    ignore(
+      vq_commit_helper_timing(
+        analysis_cache.stats.simplify_block_us,
+        analysis_cache.stats.simplify_block_calls,
+        start_us,
+      ),
+    )
+    return out
+  }
+  let only = items[0]
+  let only_id = vq_only_original_instr_id(body, analysis_cache, expr_id~)
+  match result_types {
+    [vt] =>
+      match vq_type_of_cached(only, env, analysis_cache, instr_id=only_id) {
+        Some(t) if t == vt => {
           let out = vq_rebase_labels_for_collapsed_wrapper_if_needed(
             only,
             analysis_cache,
@@ -3560,23 +3556,41 @@ fn vq_simplify_block_to_contents(
           )
           return out
         }
-      _ =>
-        if is_unreachable_instr(only) {
-          let out = vq_rebase_labels_for_collapsed_wrapper_if_needed(
-            only,
-            analysis_cache,
-            instr_id=only_id,
-          )
-          ignore(
-            vq_commit_helper_timing(
-              analysis_cache.stats.simplify_block_us,
-              analysis_cache.stats.simplify_block_calls,
-              start_us,
-            ),
-          )
-          return out
-        }
-    }
+        _ => ()
+      }
+    [] =>
+      if vq_type_of_cached(only, env, analysis_cache, instr_id=only_id) is None ||
+        is_unreachable_instr(only) {
+        let out = vq_rebase_labels_for_collapsed_wrapper_if_needed(
+          only,
+          analysis_cache,
+          instr_id=only_id,
+        )
+        ignore(
+          vq_commit_helper_timing(
+            analysis_cache.stats.simplify_block_us,
+            analysis_cache.stats.simplify_block_calls,
+            start_us,
+          ),
+        )
+        return out
+      }
+    _ =>
+      if is_unreachable_instr(only) {
+        let out = vq_rebase_labels_for_collapsed_wrapper_if_needed(
+          only,
+          analysis_cache,
+          instr_id=only_id,
+        )
+        ignore(
+          vq_commit_helper_timing(
+            analysis_cache.stats.simplify_block_us,
+            analysis_cache.stats.simplify_block_calls,
+            start_us,
+          ),
+        )
+        return out
+      }
   }
   let out = TInstr::block(bt, body)
   ignore(
@@ -6050,6 +6064,7 @@ test "vacuum simplify_block skips label rebasing for unindexed label-free body" 
   )
   vq_active_stats.val = None
   assert_eq(out, TInstr::i32_const(I32(3)))
+  assert_eq(cache.stats.break_scan_calls.val, 0)
   assert_eq(cache.stats.rebase_labels_calls.val, 0)
 }
 
@@ -6066,6 +6081,20 @@ test "vacuum simplify_block skips label rebasing for unindexed depth-local branc
   let out = vq_simplify_block_to_contents(BlockType::void_(), body, env, cache)
   vq_active_stats.val = None
   assert_eq(out, inner)
+  assert_eq(cache.stats.break_scan_calls.val, 0)
+  assert_eq(cache.stats.rebase_labels_calls.val, 0)
+}
+
+///|
+test "vacuum simplify_block skips break scan for unindexed multi-item body" {
+  let body = TExpr::new([TInstr::nop(), TInstr::nop()])
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  vq_active_stats.val = Some(cache.stats)
+  let out = vq_simplify_block_to_contents(BlockType::void_(), body, env, cache)
+  vq_active_stats.val = None
+  assert_eq(out, TInstr::block(BlockType::void_(), body))
+  assert_eq(cache.stats.break_scan_calls.val, 0)
   assert_eq(cache.stats.rebase_labels_calls.val, 0)
 }
 

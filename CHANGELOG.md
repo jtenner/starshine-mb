@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-03-12 Vacuum Follow-up: removed unconditional depth-0 break scans from block simplification and gated unindexed fallback scans behind label-score checks
+
+This follow-up continues the pathological-`Vacuum` hot-path cleanup in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). `vq_simplify_block_to_contents(...)` previously called `vq_has_break_to_depth0_cached(...)` up front for every block body, even when simplification could not collapse the wrapper (empty or multi-item bodies). That forced avoidable fallback scans on rewritten/unindexed trees and kept `break_scan_calls` active in cases where the function would return the original block shape either way.
+
+The block simplifier now short-circuits by body shape first: empty and multi-item bodies return directly without any depth-0 break query, and only single-item collapse candidates perform break checks. In the same patch, `vq_has_break_to_depth0_cached(...)` gained an unindexed fast path that skips fallback `has_break_to_depth_in_texpr(...)` scans when a single instruction’s local rebase-label score is `< 0`, which proves wrapper-depth (`depth=0`) breaks are impossible.
+
+Regression coverage was expanded in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) with red-first assertions in existing unindexed collapse tests plus a new multi-item regression:
+- `vacuum simplify_block skips label rebasing for unindexed label-free body` now also asserts `break_scan_calls == 0`
+- `vacuum simplify_block skips label rebasing for unindexed depth-local branch` now also asserts `break_scan_calls == 0`
+- `vacuum simplify_block skips break scan for unindexed multi-item body`
+
+Verification: `moon test src/passes`, `moon info && moon fmt`, and full `moon test` (3037 passing, 0 failing).
+
 ## 2026-03-12 Vacuum Follow-up: skipped unnecessary wrapper-collapse label rebasing for unindexed rewritten bodies by adding a local rebase-score fast path
 
 This follow-up continues the same pathological-`Vacuum` blocker track in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). The previous change replaced the generic `ModuleTransformer` rebase with a custom recursive walker, but `vq_simplify_block_to_contents(...)` still had one expensive fallback path: when collapsing a single-item wrapper whose body no longer had an indexed `instr_id`, `vq_rebase_labels_for_collapsed_wrapper_if_needed(...)` always ran the full rebase walk even when the rewritten subtree had no labels (or only depth-local labels that do not change under one-level wrapper collapse).
