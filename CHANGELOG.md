@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-03-12 Vacuum Follow-up: added bounded unindexed depth-0 target summaries so break/value-break fallback helpers skip scans when labels cannot match
+
+This follow-up continues the remaining `Vacuum` Stage 3 fallback-scan/value-break blockers in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). After earlier label-score fast paths, fallback helpers still ran full collectors when labels were present but structurally unable to match the queried depth/value shape:
+- `vq_has_break_to_depth0_cached(...)` still called `vq_has_break_to_depth_in_texpr_timed(...)`
+- `vq_has_value_break_lub_depth0_cached(...)` still called `vq_value_break_to_depth_has_lub(...)`
+
+Added bounded local target-summary predicates for unindexed rewritten trees:
+- `vq_texpr_may_target_break_to_depth0(...)` / `vq_instr_may_target_break_to_depth0(...)`
+- `vq_texpr_may_target_value_break_to_depth0(...)` / `vq_instr_may_target_value_break_to_depth0(...)`
+
+Both cached helpers now short-circuit when these summaries return `false`, which avoids generic scans in cases like non-targeted branches (`br 1` under depth-0 query) and branches that never carry values (`br ... []`) even if label metadata is present.
+
+Regression coverage in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) was expanded with red-first tests:
+- `vacuum cached break helper skips unindexed non-targeted branch fallback scan`
+- `vacuum cached value-break helper skips unindexed branch-without-values fallback scan`
+
+Verification: `moon test src/passes` (red first, then green), `moon info && moon fmt`, and full `moon test` (3045 passing, 0 failing).
+
 ## 2026-03-12 Vacuum Follow-up: added pure-leaf unindexed metadata fast paths to avoid generic type/effect fallback helpers
 
 This follow-up continues the remaining `Vacuum` Stage 3 fallback metadata specialization work in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). On unindexed rewritten instructions, metadata helpers still delegated to generic collectors/inference even for trivial pure leaves (`const`, `local.get`, etc.), which inflated helper-level fallback cost in hot rewrite churn.

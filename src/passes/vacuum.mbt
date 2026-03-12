@@ -1250,6 +1250,214 @@ fn vq_rebase_labels_for_collapsed_wrapper_if_needed(
 }
 
 ///|
+fn vq_instr_may_target_break_to_depth0(instr : TInstr, depth : Int) -> Bool {
+  match instr.kind {
+    TInstrKind::TBr(label, values) => {
+      if vq_label_to_int(label) == depth {
+        return true
+      }
+      for value in values {
+        if vq_instr_may_target_break_to_depth0(value, depth) {
+          return true
+        }
+      }
+      false
+    }
+    TInstrKind::TBrIf(label, cond, values) => {
+      if vq_label_to_int(label) == depth {
+        return true
+      }
+      if vq_instr_may_target_break_to_depth0(cond, depth) {
+        return true
+      }
+      for value in values {
+        if vq_instr_may_target_break_to_depth0(value, depth) {
+          return true
+        }
+      }
+      false
+    }
+    TInstrKind::TBrTable(labels, default, index, values) => {
+      if vq_label_to_int(default) == depth {
+        return true
+      }
+      for label in labels {
+        if vq_label_to_int(label) == depth {
+          return true
+        }
+      }
+      if vq_instr_may_target_break_to_depth0(index, depth) {
+        return true
+      }
+      for value in values {
+        if vq_instr_may_target_break_to_depth0(value, depth) {
+          return true
+        }
+      }
+      false
+    }
+    TInstrKind::TBrOnNull(label, ref_, values)
+    | TInstrKind::TBrOnNonNull(label, ref_, values)
+    | TInstrKind::TBrOnCast(label, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(label, _, _, _, ref_, values) => {
+      if vq_label_to_int(label) == depth {
+        return true
+      }
+      if vq_instr_may_target_break_to_depth0(ref_, depth) {
+        return true
+      }
+      for value in values {
+        if vq_instr_may_target_break_to_depth0(value, depth) {
+          return true
+        }
+      }
+      false
+    }
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      vq_texpr_may_target_break_to_depth0(body, depth + 1)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      if vq_instr_may_target_break_to_depth0(cond, depth) {
+        return true
+      }
+      if vq_texpr_may_target_break_to_depth0(then_body, depth + 1) {
+        return true
+      }
+      match else_body {
+        Some(other) => vq_texpr_may_target_break_to_depth0(other, depth + 1)
+        None => false
+      }
+    }
+    _ => {
+      for child in eval_children(instr) {
+        if child != instr && vq_instr_may_target_break_to_depth0(child, depth) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn vq_texpr_may_target_break_to_depth0(expr : TExpr, depth : Int) -> Bool {
+  for instr in expr.instrs {
+    if vq_instr_may_target_break_to_depth0(instr, depth) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn vq_instr_may_target_value_break_to_depth0(
+  instr : TInstr,
+  depth : Int,
+) -> Bool {
+  match instr.kind {
+    TInstrKind::TBr(label, values) => {
+      if vq_label_to_int(label) == depth && !values.is_empty() {
+        return true
+      }
+      for value in values {
+        if vq_instr_may_target_value_break_to_depth0(value, depth) {
+          return true
+        }
+      }
+      false
+    }
+    TInstrKind::TBrIf(label, cond, values) => {
+      if vq_label_to_int(label) == depth && !values.is_empty() {
+        return true
+      }
+      if vq_instr_may_target_value_break_to_depth0(cond, depth) {
+        return true
+      }
+      for value in values {
+        if vq_instr_may_target_value_break_to_depth0(value, depth) {
+          return true
+        }
+      }
+      false
+    }
+    TInstrKind::TBrTable(labels, default, index, values) => {
+      let mut targets_depth = vq_label_to_int(default) == depth
+      for label in labels {
+        if vq_label_to_int(label) == depth {
+          targets_depth = true
+        }
+      }
+      if targets_depth && !values.is_empty() {
+        return true
+      }
+      if vq_instr_may_target_value_break_to_depth0(index, depth) {
+        return true
+      }
+      for value in values {
+        if vq_instr_may_target_value_break_to_depth0(value, depth) {
+          return true
+        }
+      }
+      false
+    }
+    TInstrKind::TBrOnNull(label, ref_, values)
+    | TInstrKind::TBrOnNonNull(label, ref_, values)
+    | TInstrKind::TBrOnCast(label, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(label, _, _, _, ref_, values) => {
+      if vq_label_to_int(label) == depth && !values.is_empty() {
+        return true
+      }
+      if vq_instr_may_target_value_break_to_depth0(ref_, depth) {
+        return true
+      }
+      for value in values {
+        if vq_instr_may_target_value_break_to_depth0(value, depth) {
+          return true
+        }
+      }
+      false
+    }
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      vq_texpr_may_target_value_break_to_depth0(body, depth + 1)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      if vq_instr_may_target_value_break_to_depth0(cond, depth) {
+        return true
+      }
+      if vq_texpr_may_target_value_break_to_depth0(then_body, depth + 1) {
+        return true
+      }
+      match else_body {
+        Some(other) =>
+          vq_texpr_may_target_value_break_to_depth0(other, depth + 1)
+        None => false
+      }
+    }
+    _ => {
+      for child in eval_children(instr) {
+        if child != instr &&
+          vq_instr_may_target_value_break_to_depth0(child, depth) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn vq_texpr_may_target_value_break_to_depth0(expr : TExpr, depth : Int) -> Bool {
+  for instr in expr.instrs {
+    if vq_instr_may_target_value_break_to_depth0(instr, depth) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn vq_has_break_to_depth0_cached(
   expr : TExpr,
   analysis_cache : VQAnalysisCache,
@@ -1272,6 +1480,9 @@ fn vq_has_break_to_depth0_cached(
         vq_texpr_rebase_label_score_timed(expr, analysis_cache.stats)
       }
       if score < 0 {
+        return false
+      }
+      if !vq_texpr_may_target_break_to_depth0(expr, 0) {
         return false
       }
       vq_has_break_to_depth_in_texpr_timed(expr, 0, analysis_cache.stats)
@@ -1303,6 +1514,9 @@ fn vq_has_value_break_lub_depth0_cached(
         vq_texpr_rebase_label_score_timed(expr, analysis_cache.stats)
       }
       if score < 0 {
+        return false
+      }
+      if !vq_texpr_may_target_value_break_to_depth0(expr, 0) {
         return false
       }
       vq_value_break_to_depth_has_lub(expr, 0, env, analysis_cache)
@@ -10891,6 +11105,25 @@ test "vacuum cached value-break helper skips unindexed label-free multi-item fal
   assert_false(vq_has_value_break_lub_depth0_cached(expr, env, cache))
   assert_eq(cache.stats.value_break_lub_calls.val, 0)
   assert_eq(cache.stats.rebase_score_calls.val, 1)
+}
+
+///|
+test "vacuum cached break helper skips unindexed non-targeted branch fallback scan" {
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let expr = TExpr::new([TInstr::br(LabelIdx::new(1), [])])
+
+  assert_false(vq_has_break_to_depth0_cached(expr, cache))
+  assert_eq(cache.stats.break_scan_calls.val, 0)
+}
+
+///|
+test "vacuum cached value-break helper skips unindexed branch-without-values fallback scan" {
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let expr = TExpr::new([TInstr::br(LabelIdx::new(0), [])])
+
+  assert_false(vq_has_value_break_lub_depth0_cached(expr, env, cache))
+  assert_eq(cache.stats.value_break_lub_calls.val, 0)
 }
 
 ///|
