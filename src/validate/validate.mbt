@@ -2562,18 +2562,11 @@ pub fn run_validate_valid_fuzz(
 }
 
 ///|
-test "Fuzz Modules" {
-  let stats = run_validate_valid_fuzz("smoke", 0x5eedUL).unwrap()
-  assert_eq(stats.validated, stats.attempts)
-}
-
-///|
-test "run_validate_valid_fuzz smoke profile succeeds" {
-  let stats = match run_validate_valid_fuzz("smoke", 0x5eedUL) {
-    Ok(v) => v
-    Err(e) => fail("expected smoke valid fuzz runner success, got \{e}")
+test "run_validate_valid_fuzz rejects unknown profile" {
+  match run_validate_valid_fuzz("not-a-profile", 0x5eedUL) {
+    Ok(_) => fail("expected unknown profile error")
+    Err(msg) => assert_true(msg.contains("unknown validate-valid fuzz profile"))
   }
-  assert_true(stats.validated > 0)
 }
 
 ///|

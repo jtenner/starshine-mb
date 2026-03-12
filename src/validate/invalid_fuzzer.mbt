@@ -898,20 +898,12 @@ pub fn run_validate_invalid_fuzz(
 }
 
 ///|
-test "invalidation fuzzing with coverage" {
-  let stats = run_validate_invalid_fuzz("smoke", 0x5eedUL).unwrap()
-  assert_true(stats.modules_tested > 0)
-  assert_true(stats.strategies_with_low_rejection.length() == 0)
-}
-
-///|
-test "run_validate_invalid_fuzz smoke profile succeeds" {
-  let stats = match run_validate_invalid_fuzz("smoke", 0x5eedUL) {
-    Ok(v) => v
-    Err(e) => fail("expected smoke invalid fuzz runner success, got \{e}")
+test "run_validate_invalid_fuzz rejects unknown profile" {
+  match run_validate_invalid_fuzz("not-a-profile", 0x5eedUL) {
+    Ok(_) => fail("expected unknown profile error")
+    Err(msg) =>
+      assert_true(msg.contains("unknown validate-invalid fuzz profile"))
   }
-  assert_true(stats.modules_tested > 0)
-  assert_true(stats.strategies_with_low_rejection.length() == 0)
 }
 
 ///|

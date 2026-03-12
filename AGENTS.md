@@ -25,6 +25,7 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Interface refresh: `moon info`
 - Lint/check: `moon check` (not very useful, runs as part of "test")
 - Tests: `moon test` (`moon test --update` for snapshot updates) (also runs "check" as byproduct)
+- Fuzz suites: run via `moon run src/fuzz ...` (or `scripts/run-fuzz.sh ...`), not via heavy/randomized `moon test` harness loops.
 - Coverage helper: `moon coverage analyze > uncovered.log`
 - Preferred final local check sequence:
   - `moon info && moon fmt`

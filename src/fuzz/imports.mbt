@@ -1,4 +1,7 @@
 ///|
+using @binary {run_binary_roundtrip_fuzz}
+
+///|
 using @cmd {run_wasm_smith_fuzz_harness_profile}
 
 ///|

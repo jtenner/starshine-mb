@@ -15,6 +15,8 @@ pub fn decode_module_with_detail(Bytes, Int) -> Result[(@lib.Module, Int), Modul
 
 pub fn encode_module(@lib.Module) -> Result[Bytes, EncodeError]
 
+pub fn run_binary_roundtrip_fuzz(String, UInt64) -> Result[BinaryRoundtripFuzzStats, String]
+
 pub fn size_signed(Int64, Int) -> Result[Int, BinaryEncodeError]
 
 pub fn size_unsigned(UInt64, Int) -> Result[Int, BinaryEncodeError]
@@ -110,6 +112,15 @@ pub impl Show for EncodeError
 pub impl @debug.Debug for EncodeError
 
 // Types and methods
+pub struct BinaryRoundtripFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+}
+pub impl Eq for BinaryRoundtripFuzzStats
+pub impl Show for BinaryRoundtripFuzzStats
+pub impl @debug.Debug for BinaryRoundtripFuzzStats
+
 pub struct ModuleDecodeErrorDetail {
   err : BinaryDecodeError
   section_offset : Int?

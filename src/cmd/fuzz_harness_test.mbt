@@ -54,25 +54,22 @@ test "differential_validate_wasm reports mismatch when wasm-tools diverges" {
 }
 
 ///|
-test "run_wasm_smith_fuzz_harness smoke covers full pipeline" {
-  let stats = match run_wasm_smith_fuzz_harness(128, seed=0x5eedUL) {
+test "run_wasm_smith_fuzz_harness supports zero-target configuration" {
+  let stats = match run_wasm_smith_fuzz_harness(0, seed=0x5eedUL) {
     Ok(v) => v
-    Err(e) => fail("expected fuzz harness smoke success, got \{e}")
+    Err(e) => fail("expected zero-target harness success, got \{e}")
   }
-  assert_eq(stats.generated_valid, 128)
-  assert_eq(stats.pipeline_validated, 128)
-  assert_eq(stats.optimized, 128)
-  assert_eq(stats.roundtripped, 128)
+  assert_eq(stats.attempts, 0)
+  assert_eq(stats.generated_valid, 0)
+  assert_eq(stats.generated_invalid, 0)
 }
 
 ///|
-test "run_wasm_smith_fuzz_harness_profile smoke covers full pipeline" {
-  let stats = match run_wasm_smith_fuzz_harness_profile("smoke", 0x5eedUL) {
-    Ok(v) => v
-    Err(e) => fail("expected profile smoke harness success, got \{e}")
+test "run_wasm_smith_fuzz_harness_profile rejects unknown profile" {
+  match run_wasm_smith_fuzz_harness_profile("not-a-profile", 0x5eedUL) {
+    Ok(_) => fail("expected unknown profile error")
+    Err(msg) => assert_true(msg.contains("unknown cmd-harness fuzz profile"))
   }
-  assert_true(stats.generated_valid > 0)
-  assert_eq(stats.pipeline_validated, stats.generated_valid)
 }
 
 ///|
@@ -218,17 +215,4 @@ test "differential_validate_wasm agrees with installed wasm-tools and binaryen v
   if has_binaryen {
     assert_eq(report.binaryen_valid, Some(true))
   }
-}
-
-///|
-#cfg(target="native")
-test "run_wasm_smith_fuzz_harness_profile smoke runs natively" {
-  let stats = match run_wasm_smith_fuzz_harness_profile("smoke", 0x5eed5eedUL) {
-    Ok(v) => v
-    Err(e) => fail("expected native smoke fuzz harness success, got \{e}")
-  }
-  assert_true(stats.generated_valid >= 128)
-  assert_eq(stats.pipeline_validated, stats.generated_valid)
-  assert_eq(stats.optimized, stats.generated_valid)
-  assert_eq(stats.roundtripped, stats.generated_valid)
 }

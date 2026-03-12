@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 README_PATH="${README_PATH:-${ROOT_DIR}/README.mbt.md}"
-MOON_BIN="${MOON_BIN:-/home/jtenner/.moon/bin/moon}"
+MOON_BIN="${MOON_BIN:-moon}"
 DRY_RUN=false
 
 while [[ $# -gt 0 ]]; do
@@ -32,7 +32,11 @@ if [[ ! -f "${README_PATH}" ]]; then
   exit 1
 fi
 
-if [[ ! -x "${MOON_BIN}" ]]; then
+if [[ "${MOON_BIN}" == "moon" ]]; then
+  MOON_BIN="$(command -v moon || true)"
+fi
+
+if [[ -z "${MOON_BIN}" || ! -x "${MOON_BIN}" ]]; then
   echo "moon binary not executable: ${MOON_BIN}" >&2
   exit 1
 fi
@@ -70,15 +74,15 @@ declare -a BENCH_COMMANDS
 BENCH_NAMES+=("Single CLI pipeline test (\`run_cmd_with_adapter runs requested passes for each module\`)")
 BENCH_COMMANDS+=("${MOON_BIN} test --quiet --package jtenner/starshine/cmd --file cmd_test.mbt --index 5")
 
-BENCH_NAMES+=("Fuzz harness smoke (\`run_wasm_smith_fuzz_harness smoke covers full pipeline\`)")
-BENCH_COMMANDS+=("${MOON_BIN} test --quiet --package jtenner/starshine/cmd --file fuzz_harness_test.mbt --index 2")
+BENCH_NAMES+=("Fuzz runner smoke (\`src/fuzz\` cmd-harness suite)")
+BENCH_COMMANDS+=("${MOON_BIN} run src/fuzz cmd-harness smoke 0x5eed")
 
 BENCH_NAMES+=("Full test suite")
 BENCH_COMMANDS+=("${MOON_BIN} test --quiet")
 
 today="$(date -u +%Y-%m-%d)"
 block_lines=()
-block_lines+=("Measured on \`${today}\` in this repository with warm local build cache (\`moon test --quiet\`, debug profile, \`wasm-gc\` target). These are smoke/reference numbers, not strict performance guarantees.")
+block_lines+=("Measured on \`${today}\` in this repository with warm local build cache (\`moon test --quiet\` and \`moon run src/fuzz cmd-harness smoke 0x5eed\`, debug profile, \`wasm-gc\` target). These are smoke/reference numbers, not strict performance guarantees.")
 block_lines+=("")
 block_lines+=("| Workload | Command | Wall time |")
 block_lines+=("| --- | --- | --- |")
@@ -87,7 +91,8 @@ for i in "${!BENCH_NAMES[@]}"; do
   name="${BENCH_NAMES[$i]}"
   command="${BENCH_COMMANDS[$i]}"
   seconds="$(measure_seconds "${command}")"
-  block_lines+=("| ${name} | \`${command}\` | \`${seconds}\` |")
+  display_command="${command/${MOON_BIN}/moon}"
+  block_lines+=("| ${name} | \`${display_command}\` | \`${seconds}\` |")
 done
 
 if [[ "${DRY_RUN}" == true ]]; then

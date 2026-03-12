@@ -39,10 +39,10 @@ fn[T : Encode + Decode + Eq + Show] roundtrip(x : T) -> Unit raise {
 }
 
 ///|
-fn[T : Encode + Decode + Eq + Show + @quickcheck.Arbitrary] roundtrip_arbitrary(
+fn[T : Encode + Decode + Eq + Show + @quickcheck.Arbitrary] roundtrip_arbitrary_with_state(
   count : Int,
+  st : @splitmix.RandomState,
 ) -> Array[T] raise {
-  let st = @splitmix.new()
   let a = Array::new(capacity=count)
   loop count {
     0 => break a
@@ -53,6 +53,205 @@ fn[T : Encode + Decode + Eq + Show + @quickcheck.Arbitrary] roundtrip_arbitrary(
       continue n - 1
     }
   }
+}
+
+///|
+fn binary_fuzz_ascii_lower(input : String) -> String {
+  let out = StringBuilder::new()
+  for c in input {
+    if c >= 'A' && c <= 'Z' {
+      out.write_char((c.to_int() + 32).unsafe_to_char())
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+pub struct BinaryRoundtripFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+} derive(Eq, Show, Debug)
+
+///|
+pub fn run_binary_roundtrip_fuzz(
+  profile : String,
+  seed : UInt64,
+) -> Result[BinaryRoundtripFuzzStats, String] {
+  let normalized = binary_fuzz_ascii_lower(profile.trim().to_string())
+  let (
+    small,
+    medium,
+    section_count,
+    large,
+    floats,
+    signed_ints,
+    block_types,
+    instructions,
+  ) = match normalized {
+    "smoke" => (8, 24, 16, 64, 256, 512, 128, 1024)
+    "ci" => (30, 100, 100, 2000, 2000, 20000, 500, 50000)
+    "stress" => (50, 100, 100, 1000, 10000, 100000, 1000, 1000000)
+    _ =>
+      return Err(
+        "unknown binary fuzz profile '\{profile}'; expected smoke|ci|stress",
+      )
+  }
+  let st = @splitmix.new(seed~)
+  let mut attempts = 0
+
+  let _ : Array[TypeIdx] = roundtrip_arbitrary_with_state(small, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping TypeIdx values")
+  }
+  attempts += small
+  let _ : Array[RefType] = roundtrip_arbitrary_with_state(small, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping RefType values")
+  }
+  attempts += small
+  let _ : Array[CompType] = roundtrip_arbitrary_with_state(small, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping CompType values")
+  }
+  attempts += small
+  let _ : Array[StorageType] = roundtrip_arbitrary_with_state(small, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping StorageType values")
+  }
+  attempts += small
+
+  let _ : Array[SubType] = roundtrip_arbitrary_with_state(medium, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping SubType values")
+  }
+  attempts += medium
+  let _ : Array[RecType] = roundtrip_arbitrary_with_state(medium, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping RecType values")
+  }
+  attempts += medium
+  let _ : Array[TagType] = roundtrip_arbitrary_with_state(medium, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping TagType values")
+  }
+  attempts += medium
+  let _ : Array[MemType] = roundtrip_arbitrary_with_state(medium, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping MemType values")
+  }
+  attempts += medium
+  let _ : Array[TableType] = roundtrip_arbitrary_with_state(medium, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping TableType values")
+  }
+  attempts += medium
+  let _ : Array[ExternType] = roundtrip_arbitrary_with_state(medium, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping ExternType values")
+  }
+  attempts += medium
+  let _ : Array[MemArg] = roundtrip_arbitrary_with_state(medium, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping MemArg values")
+  }
+  attempts += medium
+  let _ : Array[LaneIdx] = roundtrip_arbitrary_with_state(medium, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping LaneIdx values")
+  }
+  attempts += medium
+
+  let _ : Array[F32] = roundtrip_arbitrary_with_state(floats, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping F32 values")
+  }
+  attempts += floats
+  let _ : Array[F64] = roundtrip_arbitrary_with_state(floats, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping F64 values")
+  }
+  attempts += floats
+  let _ : Array[I64] = roundtrip_arbitrary_with_state(signed_ints, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping I64 values")
+  }
+  attempts += signed_ints
+  let _ : Array[BlockType] = roundtrip_arbitrary_with_state(block_types, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping BlockType values")
+  }
+  attempts += block_types
+  let _ : Array[Instruction] = roundtrip_arbitrary_with_state(instructions, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping Instruction values")
+  }
+  attempts += instructions
+
+  let _ : Array[CustomSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping CustomSec values")
+  }
+  attempts += section_count
+  let _ : Array[TypeSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping TypeSec values")
+  }
+  attempts += section_count
+  let _ : Array[ImportSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping ImportSec values")
+  }
+  attempts += section_count
+  let _ : Array[FuncSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping FuncSec values")
+  }
+  attempts += section_count
+  let _ : Array[TableSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping TableSec values")
+  }
+  attempts += section_count
+  let _ : Array[MemSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping MemSec values")
+  }
+  attempts += section_count
+  let _ : Array[GlobalSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping GlobalSec values")
+  }
+  attempts += section_count
+  let _ : Array[ExportSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping ExportSec values")
+  }
+  attempts += section_count
+  let _ : Array[StartSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping StartSec values")
+  }
+  attempts += section_count
+  let _ : Array[ElemSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping ElemSec values")
+  }
+  attempts += section_count
+  let _ : Array[CodeSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping CodeSec values")
+  }
+  attempts += section_count
+  let _ : Array[DataSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping DataSec values")
+  }
+  attempts += section_count
+  let _ : Array[DataCntSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping DataCntSec values")
+  }
+  attempts += section_count
+  let _ : Array[TagSec] = roundtrip_arbitrary_with_state(section_count, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping TagSec values")
+  }
+  attempts += section_count
+
+  let _ : Array[Elem] = roundtrip_arbitrary_with_state(large, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping Elem values")
+  }
+  attempts += large
+  let _ : Array[Func] = roundtrip_arbitrary_with_state(large, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping Func values")
+  }
+  attempts += large
+  let _ : Array[Data] = roundtrip_arbitrary_with_state(large, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping Data values")
+  }
+  attempts += large
+  let _ : Array[Module] = roundtrip_arbitrary_with_state(large, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping Module values")
+  }
+  attempts += large
+  let _ : Array[Name] = roundtrip_arbitrary_with_state(large, st) catch {
+    _ => return Err("binary fuzz failed while roundtripping Name values")
+  }
+  attempts += large
+
+  Ok(BinaryRoundtripFuzzStats::{ profile: normalized, seed, attempts })
 }
 
 ///|
@@ -74,6 +273,14 @@ fn assert_encode_err_contains(
   match result {
     Ok(_) => fail("expected encode failure: \{expected}")
     Err(err) => assert_eq(err, expected)
+  }
+}
+
+///|
+test "run_binary_roundtrip_fuzz rejects unknown profile" {
+  match run_binary_roundtrip_fuzz("not-a-profile", 0x5eedUL) {
+    Ok(_) => fail("expected unknown binary fuzz profile error")
+    Err(msg) => assert_true(msg.contains("unknown binary fuzz profile"))
   }
 }
 
@@ -1206,12 +1413,16 @@ test "Heap Types" {
 
 ///|
 test "Type Indexes" {
-  let _ : Array[TypeIdx] = roundtrip_arbitrary(50)
+  roundtrip(TypeIdx::new(0))
+  roundtrip(TypeIdx::new(23))
+  roundtrip(TypeIdx::new(2048))
 }
 
 ///|
 test "Ref Types" {
-  let _ : Array[RefType] = roundtrip_arbitrary(20)
+  roundtrip(RefType::new(true, HeapType::abs(AbsHeapType::func())))
+  roundtrip(RefType::new(false, HeapType::abs(AbsHeapType::extern_())))
+  roundtrip(RefType::abs(AbsHeapType::eq()))
 }
 
 ///|
@@ -1237,12 +1448,6 @@ test "Comp Types" {
       ValType::i32(),
     ]),
   )
-  let _ : Array[CompType] = roundtrip_arbitrary(30)
-}
-
-///|
-test "Storage Type" {
-  let _ : Array[StorageType] = roundtrip_arbitrary(30)
 }
 
 ///|
@@ -1270,68 +1475,8 @@ test "SubTypes" {
 }
 
 ///|
-test "SubTypes arbitrary" {
-  let _ : Array[SubType] = roundtrip_arbitrary(100)
-}
-
-///|
-test "RecTypes arbitrary" {
-  let _ : Array[RecType] = roundtrip_arbitrary(100)
-}
-
-///|
-test "TagTypes arbitrary" {
-  let _ : Array[TagType] = roundtrip_arbitrary(100)
-}
-
-///|
-test "MemTypes arbitrary" {
-  let _ : Array[MemType] = roundtrip_arbitrary(100)
-}
-
-///|
-test "TableTypes arbitrary" {
-  let _ : Array[TableType] = roundtrip_arbitrary(100)
-}
-
-///|
-test "ExternTypes arbitrary" {
-  let _ : Array[TableType] = roundtrip_arbitrary(100)
-}
-
-///|
-test "MemArg arbitrary" {
-  let _ : Array[MemArg] = roundtrip_arbitrary(100)
-}
-
-///|
-test "LaneIdx" {
-  let _ : Array[LaneIdx] = roundtrip_arbitrary(100)
-}
-
-///|
 test "Float specific edge case?" {
   roundtrip(Instruction::f32_const(F32(0.011397957801818848)))
-}
-
-///|
-test "Floats arbitrary" {
-  let _ : Array[F32] = roundtrip_arbitrary(10000)
-}
-
-///|
-test "Doubles arbitrary" {
-  let _ : Array[F64] = roundtrip_arbitrary(10000)
-}
-
-///|
-test "Signed integers" {
-  let _ : Array[I64] = roundtrip_arbitrary(100000)
-}
-
-///|
-test "Block Types" {
-  let _ : Array[BlockType] = roundtrip_arbitrary(1000)
 }
 
 ///|
@@ -1345,264 +1490,4 @@ test "Descriptor instruction roundtrip" {
   roundtrip(
     Instruction::ref_cast_desc_eq(false, HeapType::new(TypeIdx::new(2))),
   )
-}
-
-///|
-test "Instructions arbitrary" {
-  let st = @splitmix.new()
-  loop 1000000 {
-    0 => break ()
-    n => {
-      let val = Instruction::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary CustomSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = CustomSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary TypeSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = TypeSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary ImportSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = ImportSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary FuncSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = FuncSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary TableSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = TableSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary MemSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = MemSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary GlobalSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = GlobalSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary ExportSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = ExportSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary StartSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = StartSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary Elem" {
-  let st = @splitmix.new()
-  loop 1000 {
-    0 => break ()
-    n => {
-      let val = Elem::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary ElemSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = ElemSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary Func" {
-  let st = @splitmix.new()
-  loop 1000 {
-    0 => break ()
-    n => {
-      let val = Func::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary CodeSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = CodeSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary Data" {
-  let st = @splitmix.new()
-  loop 1000 {
-    0 => break ()
-    n => {
-      let val = Data::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary DataSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = DataSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary DataCntSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = DataCntSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary TagSec" {
-  let st = @splitmix.new()
-  loop 100 {
-    0 => break ()
-    n => {
-      let val = TagSec::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Arbitrary Module" {
-  let st = @splitmix.new()
-  loop 1000 {
-    0 => break ()
-    n => {
-      let val = Module::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
-}
-
-///|
-test "Names" {
-  let st = @splitmix.new()
-  loop 1000 {
-    0 => break ()
-    n => {
-      let val = Name::arbitrary(n, st)
-      roundtrip(val)
-      continue n - 1
-    }
-  }
 }

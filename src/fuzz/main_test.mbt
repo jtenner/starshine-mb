@@ -21,3 +21,14 @@ test "run_fuzz_suite returns error for unknown suite" {
     Err(msg) => assert_true(msg.contains("unknown suite"))
   }
 }
+
+///|
+test "run_fuzz_suite routes binary-roundtrip to binary runner" {
+  match run_fuzz_suite("binary-roundtrip", "not-a-profile", 0x5eedUL) {
+    Ok(_) => fail("expected binary profile error")
+    Err(msg) => {
+      assert_true(msg.contains("binary fuzz profile"))
+      assert_false(msg.contains("unknown suite"))
+    }
+  }
+}

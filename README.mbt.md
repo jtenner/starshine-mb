@@ -168,7 +168,7 @@ For more runnable CLI inputs, see `examples/README.md`.
 - Run dedicated fuzz suites: `moon run src/fuzz all smoke`
 - Run CI-scale fuzz suites: `bash scripts/run-fuzz.sh ci`
 - Run native stress fuzz suites: `bash scripts/run-fuzz.sh stress all 0x5eed5eed native`
-- Note: default `moon test` intentionally keeps only smoke-level fuzz coverage; heavier fuzzing lives under `src/fuzz`.
+- Note: fuzz workloads are run through `src/fuzz` (`moon run ...`), not the `moon test` harness path.
 - Regenerate the Node package files: `node scripts/generate-node-package.mjs`
 - Build the Node package artifacts: `npm --prefix node run build`
 
@@ -260,13 +260,13 @@ WASM outputs (stdout/file/out-dir)
 Refresh command: `bash scripts/update_readme_benchmarks.sh`.
 
 <!-- README_BENCHMARK_TABLE_START -->
-Measured on `2026-02-25` in this repository with warm local build cache (`moon test --quiet`, debug profile, `wasm-gc` target). These are smoke/reference numbers, not strict performance guarantees.
+Measured on `2026-03-12` in this repository with warm local build cache (`moon test --quiet` and `moon run src/fuzz cmd-harness smoke 0x5eed`, debug profile, `wasm-gc` target). These are smoke/reference numbers, not strict performance guarantees.
 
 | Workload | Command | Wall time |
 | --- | --- | --- |
-| Single CLI pipeline test (`run_cmd_with_adapter runs requested passes for each module`) | `moon test --quiet --package jtenner/starshine/cmd --file cmd_test.mbt --index 5` | `0.557s` |
-| Fuzz harness smoke (`run_wasm_smith_fuzz_harness smoke covers full pipeline`) | `moon test --quiet --package jtenner/starshine/cmd --file fuzz_harness_test.mbt --index 2` | `0.710s` |
-| Full test suite | `moon test --quiet` | `10.158s` |
+| Single CLI pipeline test (`run_cmd_with_adapter runs requested passes for each module`) | `moon test --quiet --package jtenner/starshine/cmd --file cmd_test.mbt --index 5` | `1.189s` |
+| Fuzz runner smoke (`src/fuzz` cmd-harness suite) | `moon run src/fuzz cmd-harness smoke 0x5eed` | `0.317s` |
+| Full test suite | `moon test --quiet` | `6.521s` |
 <!-- README_BENCHMARK_TABLE_END -->
 
 ## CLI Command Examples
@@ -1861,6 +1861,7 @@ fn rewrite_nop(instr : TInstr) -> Result[TInstr, String] {
 - `moon info && moon fmt`
 - `moon check`
 - `moon test`
+- `moon run src/fuzz all smoke`
 - `moon test src/wast --target native` (runs native-gated `tests/spec` harness sweep)
 
 ## License

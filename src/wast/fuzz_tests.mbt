@@ -150,25 +150,9 @@ test "wast module conversion basic roundtrip" {
 }
 
 ///|
-test "run_wast_roundtrip_fuzz smoke profile succeeds" {
-  let stats = match run_wast_roundtrip_fuzz("smoke", 0x5eedUL) {
-    Ok(v) => v
-    Err(e) => fail("expected smoke fuzz runner success, got \{e}")
+test "run_wast_roundtrip_fuzz rejects unknown profile" {
+  match run_wast_roundtrip_fuzz("not-a-profile", 0x5eedUL) {
+    Ok(_) => fail("expected unknown profile error")
+    Err(msg) => assert_true(msg.contains("unknown wast fuzz profile"))
   }
-  assert_true(stats.successes > 0)
-  assert_true(stats.module_commands > 0)
-}
-
-///|
-test "wast module text fuzz roundtrip" {
-  let stats = run_wast_roundtrip_fuzz("smoke", 0x5eedUL).unwrap()
-  assert_true(stats.successes >= 8)
-  assert_true(stats.stable >= 1)
-}
-
-///|
-test "wast arbitrary script smoke" {
-  let stats = run_wast_roundtrip_fuzz("smoke", 0xabcUL).unwrap()
-  assert_true(stats.module_commands > 0)
-  assert_true(stats.rendered_scripts > 0)
 }

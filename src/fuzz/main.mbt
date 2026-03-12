@@ -107,6 +107,12 @@ fn run_single_suite(
 ) -> Result[FuzzSuiteResult, String] {
   let start_ms = trace_now_ms()
   let attempts = match suite {
+    "binary-roundtrip" =>
+      match run_binary_roundtrip_fuzz(profile, seed) {
+        Ok(stats) => stats.attempts
+        Err(e) =>
+          return Err("suite=\{suite} profile=\{profile} seed=\{seed}: \{e}")
+      }
     "wast-roundtrip" =>
       match run_wast_roundtrip_fuzz(profile, seed) {
         Ok(stats) => stats.attempts
@@ -158,7 +164,8 @@ pub fn run_fuzz_suite(
   let profile_name = fuzz_ascii_lower(profile.trim().to_string())
   if suite_name == "all" {
     let suites = [
-      "wast-roundtrip", "wat-roundtrip", "validate-valid", "validate-invalid", "cmd-harness",
+      "wast-roundtrip", "wat-roundtrip", "validate-valid", "validate-invalid", "binary-roundtrip",
+      "cmd-harness",
     ]
     let out : Array[FuzzSuiteResult] = []
     for name in suites {
