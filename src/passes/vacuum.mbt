@@ -1223,10 +1223,26 @@ fn vq_has_value_break_lub_depth0_cached(
   env : Env,
   analysis_cache : VQAnalysisCache,
   expr_id? : Int? = None,
+  single_instr_rebase_label_score? : Int? = None,
 ) -> Bool {
   match vq_indexed_expr_value_break_lub_depth0(analysis_cache, expr_id) {
     Some(cached) => cached
-    None => vq_value_break_to_depth_has_lub(expr, 0, env, analysis_cache)
+    None => {
+      if expr.instrs.length() == 1 {
+        let score = match single_instr_rebase_label_score {
+          Some(cached_score) => cached_score
+          None =>
+            vq_instr_rebase_label_score_timed(
+              expr.instrs[0],
+              analysis_cache.stats,
+            )
+        }
+        if score < 0 {
+          return false
+        }
+      }
+      vq_value_break_to_depth_has_lub(expr, 0, env, analysis_cache)
+    }
   }
 }
 
@@ -10675,6 +10691,17 @@ test "vacuum fallback value-break lub query avoids value-keyed expr cache entrie
 
   assert_true(vq_value_break_to_depth_has_lub(expr, 0, env, cache))
   assert_eq(vq_analysis_cache_expr_entry_count(cache), 0)
+}
+
+///|
+test "vacuum cached value-break helper skips unindexed label-free fallback scan" {
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let expr = TExpr::new([TInstr::i32_const(I32(1))])
+
+  assert_false(vq_has_value_break_lub_depth0_cached(expr, env, cache))
+  assert_eq(cache.stats.value_break_lub_calls.val, 0)
+  assert_eq(cache.stats.rebase_score_calls.val, 1)
 }
 
 ///|

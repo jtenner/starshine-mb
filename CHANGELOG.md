@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-03-12 Vacuum Follow-up: added an unindexed single-item fast path for cached value-break LUB queries to skip unnecessary fallback collection
+
+This follow-up continues the pathological-`Vacuum` fallback optimization work in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). `vq_has_value_break_lub_depth0_cached(...)` already used indexed depth-0 metadata when `expr_id` was available, but for unindexed rewritten expressions it always delegated to `vq_value_break_to_depth_has_lub(...)`, even for single-instruction label-free trees where a depth-0 value break is impossible.
+
+The helper now accepts an optional single-instruction rebase-score hint and, on unindexed single-item expressions, short-circuits to `false` when the (provided or locally computed) score is `< 0`. That avoids invoking the full fallback LUB collector in no-break shapes while keeping existing behavior for indexed expressions and non-trivial unindexed trees.
+
+Regression coverage was expanded in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) with a red-first test:
+- `vacuum cached value-break helper skips unindexed label-free fallback scan`
+
+The test now asserts both `value_break_lub_calls == 0` and `rebase_score_calls == 1`, proving the new path avoids the expensive collector and performs only one local score pass.
+
+Verification: `moon test src/passes` (red first on the new assertion, then green), `moon info && moon fmt`, and full `moon test` (3038 passing, 0 failing).
+
 ## 2026-03-12 Vacuum Follow-up: deduplicated unindexed rebase-score analysis across simplify-block break checks and rebase gating, with explicit helper timing counters
 
 This follow-up continues the pathological-`Vacuum` fallback optimization track in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). After the prior block-simplify reshaping, unindexed single-item wrapper-collapse candidates still scored label metadata twice: once in `vq_has_break_to_depth0_cached(...)` to decide whether depth-0 break scanning could be skipped, and again in `vq_rebase_labels_for_collapsed_wrapper_if_needed(...)` to decide whether rebasing was needed. On rewritten trees this duplicated recursive score traversal in a hot path.
