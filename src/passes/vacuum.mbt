@@ -1564,6 +1564,36 @@ fn vq_only_original_eval_child_id(
 }
 
 ///|
+fn vq_can_reuse_original_expr_control_metadata(
+  original : TExpr,
+  next : TExpr,
+  analysis_cache : VQAnalysisCache,
+  expr_id? : Int? = None,
+) -> Bool {
+  if original.instrs.length() != next.instrs.length() {
+    return false
+  }
+  match vq_indexed_expr_node(analysis_cache, expr_id) {
+    Some(node) if node.instr_ids.length() == original.instrs.length() => {
+      for i = 0; i < original.instrs.length(); i = i + 1 {
+        if physical_equal(original.instrs[i], next.instrs[i]) {
+          continue
+        }
+        match analysis_cache.indexed_instr_nodes.get(node.instr_ids[i]) {
+          Some(instr_node) =>
+            if instr_node.has_control_transfer || instr_node.has_any_labelidx {
+              return false
+            }
+          None => return false
+        }
+      }
+      true
+    }
+    _ => false
+  }
+}
+
+///|
 fn vq_preserve_original_if_unchanged(
   original : TInstr,
   original_condition : TInstr,
@@ -4965,17 +4995,27 @@ fn vq_process_instr(
       match next_value.kind {
         TInstrKind::TBlock(bt, body) => {
           let { instrs: items, .. } = body
+          let original_body_expr_id = match
+            vq_indexed_instr_node(
+              analysis_cache,
+              vq_indexed_eval_child_id(instr_node, 0),
+            ) {
+            Some(node) => node.body_expr_id
+            None => None
+          }
           let body_expr_id = match value.kind {
             TInstrKind::TBlock(original_bt, original_body) =>
-              if bt == original_bt && physical_equal(body, original_body) {
-                match
-                  vq_indexed_instr_node(
+              if bt == original_bt &&
+                (
+                  physical_equal(body, original_body) ||
+                  vq_can_reuse_original_expr_control_metadata(
+                    original_body,
+                    body,
                     analysis_cache,
-                    vq_indexed_eval_child_id(instr_node, 0),
-                  ) {
-                  Some(node) => node.body_expr_id
-                  None => None
-                }
+                    expr_id=original_body_expr_id,
+                  )
+                ) {
+                original_body_expr_id
               } else {
                 None
               }
@@ -6022,7 +6062,7 @@ test "vacuum indexed merged drop-if arms avoid generic type cache" {
 }
 
 ///|
-test "vacuum changed dropped-result block falls back to generic value-break helper" {
+test "vacuum changed dropped-result block reuses indexed value-break metadata when control-flow is unchanged" {
   let instr = TInstr::drop(
     TInstr::block(
       BlockType::val_type(ValType::i32()),
@@ -6106,7 +6146,7 @@ test "vacuum changed dropped-result block falls back to generic value-break help
         "expected dropped result block fallback path to keep block and rewrite inner tee: \{out}",
       )
   }
-  assert_eq(cache.stats.value_break_lub_calls.val, 1)
+  assert_eq(cache.stats.value_break_lub_calls.val, 0)
 }
 
 ///|
