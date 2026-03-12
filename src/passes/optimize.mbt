@@ -1519,6 +1519,8 @@ fn optimize_module_with_options_internal(
     let pass_start_ms = optimize_trace_now_ms()
     pass_index += 1
     let kind = module_pass_context_kind(pass)
+    let mut transform_elapsed_ms = 0UL
+    let mut validation_elapsed_ms = 0UL
     optimize_trace_emit_pass(
       trace,
       trace_enabled,
@@ -1533,7 +1535,7 @@ fn optimize_module_with_options_internal(
       optimize_trace_emit_pass(
         trace,
         trace_enabled,
-        "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} skipped=true elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
+        "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} skipped=true transform_elapsed_ms=0 validation_elapsed_ms=0 elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
       )
       continue
     }
@@ -1611,6 +1613,13 @@ fn optimize_module_with_options_internal(
       trace_level,
       "pass[\{pass_index}/\{passes.length()}]:scheduler:done kind=\{optimize_trace_context_label(kind)}",
     )
+    transform_elapsed_ms = optimize_trace_elapsed_ms(pass_start_ms)
+    optimize_trace_emit_phase(
+      trace,
+      trace_enabled,
+      trace_level,
+      "pass[\{pass_index}/\{passes.length()}]:transform:done pass=\{pass} elapsed_ms=\{transform_elapsed_ms}",
+    )
     last_pass = Some(pass)
     last_pre_pass_mod = Some(pre_pass_mod)
     if validate_after_every_pass {
@@ -1642,22 +1651,25 @@ fn optimize_module_with_options_internal(
         validate_module(mod)
       }
       match validate_result {
-        Ok(_) =>
+        Ok(_) => {
+          validation_elapsed_ms = optimize_trace_elapsed_ms(validate_start_ms)
           optimize_trace_emit_phase(
             trace,
             trace_enabled,
             trace_level,
-            "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:done elapsed_ms=\{optimize_trace_elapsed_ms(validate_start_ms)}",
+            "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:done elapsed_ms=\{validation_elapsed_ms}",
           )
+        }
         Err(e) => {
           let summary = validation_error_message(e)
+          validation_elapsed_ms = optimize_trace_elapsed_ms(validate_start_ms)
           optimize_validation_dump_before_after(
             original_mod, mod, trace, trace_enabled,
           )
           optimize_trace_emit_pass(
             trace,
             trace_enabled,
-            "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation_error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{summary}",
+            "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation_error transform_elapsed_ms=\{transform_elapsed_ms} validation_elapsed_ms=\{validation_elapsed_ms} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{summary}",
           )
           return Err(
             opt_format_pass_validation_failure(mod, e, pass, pre_pass_mod),
@@ -1697,7 +1709,7 @@ fn optimize_module_with_options_internal(
     optimize_trace_emit_pass(
       trace,
       trace_enabled,
-      "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
+      "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} transform_elapsed_ms=\{transform_elapsed_ms} validation_elapsed_ms=\{validation_elapsed_ms} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
     )
   }
   if !validate_after_every_pass {
@@ -5172,6 +5184,41 @@ test "optimize_module trace runs second vacuum when first vacuum changed module"
     ),
     0,
   )
+}
+
+///|
+test "optimize_module trace reports separate transform and validation timings" {
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+    ),
+  )
+  let trace_lines : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [RemoveUnusedNames],
+        OptimizeOptions::new(
+          validation_policy=OptimizeValidationPolicy::after_every_pass(),
+        ),
+        fn(msg) { trace_lines.push(msg) },
+        trace_level=OptimizeTracingLevel::pass(),
+      ) {
+      Ok(m) => m
+      Err(e) =>
+        fail("unexpected optimize_module_with_options_trace error: \{e}")
+    },
+  )
+  let mut done_line = ""
+  for line in trace_lines {
+    if line.contains("pass[1/1]:done pass=RemoveUnusedNames") {
+      done_line = line
+    }
+  }
+  assert_true(done_line != "")
+  assert_true(done_line.contains("transform_elapsed_ms="))
+  assert_true(done_line.contains("validation_elapsed_ms="))
 }
 
 ///|

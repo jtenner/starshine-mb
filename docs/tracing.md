@@ -46,6 +46,7 @@ Recommended required keys:
 - `phase=...` (when inside sub-steps)
 - `changed=true|false`
 - elapsed time (`elapsed_ms=` or `*_us=`)
+- optimizer pass summaries should include both `transform_elapsed_ms=` and `validation_elapsed_ms=` when the runner performs post-pass validation, so expensive validation walks do not get conflated with transform cost on pathological modules
 - one or two cardinality metrics (for example `locals=`, `top_instrs=`)
 
 ## 3. Timing + Counters Pattern

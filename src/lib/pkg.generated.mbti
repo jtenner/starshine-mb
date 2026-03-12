@@ -666,8 +666,6 @@ pub impl @debug.Debug for BlockType
 pub impl @quickcheck.Arbitrary for BlockType
 
 pub struct CastOp(Bool, Bool)
-
-
 pub fn CastOp::new(Bool, Bool) -> Self
 pub fn CastOp::source_nullable(Self) -> Bool
 pub fn CastOp::target_nullable(Self) -> Bool
@@ -722,8 +720,6 @@ pub impl @debug.Debug for CompType
 pub impl @quickcheck.Arbitrary for CompType
 
 pub struct CustomSec(Name, Bytes)
-
-
 pub fn CustomSec::new(Name, Bytes) -> Self
 pub impl PrettyPrint for CustomSec
 pub impl Eq for CustomSec
@@ -733,8 +729,6 @@ pub impl @debug.Debug for CustomSec
 pub impl @quickcheck.Arbitrary for CustomSec
 
 pub struct Data(DataMode, Bytes)
-
-
 pub fn Data::new(DataMode, Bytes) -> Self
 pub impl PrettyPrint for Data
 pub impl Eq for Data
@@ -790,8 +784,6 @@ pub impl @debug.Debug for DataSec
 pub impl @quickcheck.Arbitrary for DataSec
 
 pub struct DefType(RecType, UInt)
-
-
 pub fn DefType::new(RecType, UInt) -> Self
 pub fn DefType::project(Self) -> SubType?
 pub impl PrettyPrint for DefType
@@ -802,8 +794,6 @@ pub impl @debug.Debug for DefType
 pub impl @quickcheck.Arbitrary for DefType
 
 pub struct Elem(ElemMode, ElemKind)
-
-
 pub fn Elem::new(ElemMode, ElemKind) -> Self
 pub fn Elem::reftype(Self) -> RefType
 pub impl PrettyPrint for Elem
@@ -866,8 +856,6 @@ pub impl @debug.Debug for ElemSec
 pub impl @quickcheck.Arbitrary for ElemSec
 
 pub struct Export(Name, ExternIdx)
-
-
 pub fn Export::new(Name, ExternIdx) -> Self
 pub impl PrettyPrint for Export
 pub impl Eq for Export
@@ -983,8 +971,6 @@ pub impl @debug.Debug for F64
 pub impl @quickcheck.Arbitrary for F64
 
 pub struct FieldType(StorageType, Mut)
-
-
 pub fn FieldType::get_storage_type(Self) -> StorageType
 pub fn FieldType::is_mutable(Self) -> Bool
 pub fn FieldType::new(StorageType, Mut) -> Self
@@ -1032,8 +1018,6 @@ pub impl @debug.Debug for FuncSec
 pub impl @quickcheck.Arbitrary for FuncSec
 
 pub struct FuncType(Array[ValType], Array[ValType])
-
-
 pub fn FuncType::new(Array[ValType], Array[ValType]) -> Self
 pub impl PrettyPrint for FuncType
 pub impl Eq for FuncType
@@ -1060,8 +1044,6 @@ pub impl Hash for FunctionLocals
 pub impl @debug.Debug for FunctionLocals
 
 pub struct Global(GlobalType, Expr)
-
-
 pub fn Global::new(GlobalType, Expr) -> Self
 pub impl PrettyPrint for Global
 pub impl Eq for Global
@@ -1093,8 +1075,6 @@ pub impl @debug.Debug for GlobalSec
 pub impl @quickcheck.Arbitrary for GlobalSec
 
 pub struct GlobalType(ValType, Bool)
-
-
 pub fn GlobalType::new(ValType, Bool) -> Self
 pub impl PrettyPrint for GlobalType
 pub impl Eq for GlobalType
@@ -1145,8 +1125,6 @@ pub impl @debug.Debug for I64
 pub impl @quickcheck.Arbitrary for I64
 
 pub struct Import(Name, Name, ExternType)
-
-
 pub fn Import::new(Name, Name, ExternType) -> Self
 pub impl PrettyPrint for Import
 pub impl Eq for Import
@@ -2334,8 +2312,6 @@ pub impl @debug.Debug for LocalIdx
 pub impl @quickcheck.Arbitrary for LocalIdx
 
 pub struct Locals(UInt, ValType)
-
-
 pub fn Locals::new(UInt, ValType) -> Self
 pub impl PrettyPrint for Locals
 pub impl Eq for Locals
@@ -2345,8 +2321,6 @@ pub impl @debug.Debug for Locals
 pub impl @quickcheck.Arbitrary for Locals
 
 pub struct MemArg(U32, MemIdx?, U64)
-
-
 pub fn MemArg::new(U32, MemIdx?, U64) -> Self
 pub impl PrettyPrint for MemArg
 pub impl Eq for MemArg
@@ -2890,8 +2864,6 @@ pub impl Show for TInstrKind
 pub impl @debug.Debug for TInstrKind
 
 pub struct Table(TableType, Expr?)
-
-
 pub fn Table::new(TableType, Expr?) -> Self
 pub impl PrettyPrint for Table
 pub impl Eq for Table
@@ -2923,8 +2895,6 @@ pub impl @debug.Debug for TableSec
 pub impl @quickcheck.Arbitrary for TableSec
 
 pub struct TableType(RefType, Limits)
-
-
 pub fn TableType::new(RefType, Limits) -> Self
 pub impl PrettyPrint for TableType
 pub impl Eq for TableType

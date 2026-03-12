@@ -11,7 +11,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 ## Publishing blockers
 - [ ] Performance issue in Flatten (use helper level tracing with timing stats to diagnose)
 - [ ] Performance issue in Validate package
-- [ ] Split optimize profiling so pass-transform time and post-pass validation time are measured separately on pathological modules.
 - [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
 - [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
 - [ ] Harden pathological cleanup handling beyond the current no-op `Vacuum` skip heuristic, especially for the first expensive `Vacuum` on deep-tree functions.
