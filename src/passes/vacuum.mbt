@@ -4735,21 +4735,26 @@ fn vq_process_instr(
           None => None
         },
       )
-      if !vq_texpr_throws_cached(next_body, analysis_cache) {
+      let body_expr_id = if physical_equal(next_body, body) {
+        match instr_node {
+          Some(node) => node.body_expr_id
+          None => None
+        }
+      } else {
+        None
+      }
+      if !vq_texpr_throws_cached(
+          next_body,
+          analysis_cache,
+          expr_id=body_expr_id,
+        ) {
         Some(
           vq_simplify_block_to_contents(
             bt,
             next_body,
             env,
             analysis_cache,
-            expr_id=if physical_equal(next_body, body) {
-              match instr_node {
-                Some(node) => node.body_expr_id
-                None => None
-              }
-            } else {
-              None
-            },
+            expr_id=body_expr_id,
           ),
         )
       } else {
@@ -5535,6 +5540,43 @@ test "vacuum changed dropped-result block falls back to generic value-break help
       )
   }
   assert_eq(cache.stats.value_break_lub_calls.val, 1)
+}
+
+///|
+test "vacuum indexed try_table removal avoids generic throws cache" {
+  let original_body = TExpr::new([TInstr::i32_const(I32(77))])
+  let instr = TInstr::try_table(
+    BlockType::val_type(ValType::i32()),
+    [Catch::all(LabelIdx::new(0))],
+    original_body,
+  )
+  let body = TExpr::new([instr])
+  let env = Env::new().with_module(Module::new())
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let seed_budget = Ref::new(64)
+  assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
+  let expr_id = match cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected root expr id")
+  }
+  let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
+  let process_budget = Ref::new(64)
+  let out = match
+    vq_process_instr(
+      instr,
+      env,
+      true,
+      true,
+      process_budget,
+      cache,
+      VQPassOptions::new(),
+      instr_id=Some(instr_id),
+    ) {
+    Some(next) => next
+    None => fail("expected try_table rewrite result")
+  }
+  assert_eq(out, TInstr::i32_const(I32(77)))
+  assert_eq(cache.throws_cache.get(original_body), None)
 }
 
 ///|
