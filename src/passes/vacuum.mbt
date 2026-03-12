@@ -3728,8 +3728,9 @@ fn vq_degraded_simplify_drop_value(
 ) -> TInstr {
   match value.kind {
     // Numeric unary wrappers, ref.is_null, and the GC extern/any reference
-    // conversions are pure 1-to-1 stack shuffles, so when their result is
-    // immediately dropped we can peel them cheaply in degraded mode.
+    // conversions are pure 1-to-1 stack shuffles, and SIMD splats are total
+    // child-only wrappers, so when their result is immediately dropped we can
+    // peel them cheaply in degraded mode.
     TInstrKind::TUnary(_, inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TRefIsNull(inner) =>
@@ -3737,6 +3738,13 @@ fn vq_degraded_simplify_drop_value(
     TInstrKind::TAnyConvertExtern(inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TExternConvertAny(inner) =>
+      vq_degraded_simplify_drop_value(inner, analysis_cache)
+    TInstrKind::TI8x16Splat(inner)
+    | TInstrKind::TI16x8Splat(inner)
+    | TInstrKind::TI32x4Splat(inner)
+    | TInstrKind::TI64x2Splat(inner)
+    | TInstrKind::TF32x4Splat(inner)
+    | TInstrKind::TF64x2Splat(inner) =>
       vq_degraded_simplify_drop_value(inner, analysis_cache)
     TInstrKind::TLocalTee(idx, inner) => TInstr::local_set(idx, inner)
     _ if vq_degraded_can_remove_unused_instr(value, analysis_cache) =>
@@ -6435,6 +6443,118 @@ test "vacuum degraded mode keeps drop around effectful child under extern.conver
     ) {
     Some(next) => next
     None => fail("expected degraded extern.convert_any drop result")
+  }
+  assert_eq(out, TInstr::drop(condition))
+}
+
+///|
+test "vacuum degraded mode peels dropped i8x16.splat around pure local.get" {
+  let instr = TInstr::drop(
+    TInstr::i8x16_splat(TInstr::local_get(LocalIdx::new(0))),
+  )
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded i8x16.splat drop result")
+  }
+  assert_eq(out, TInstr::nop())
+}
+
+///|
+test "vacuum degraded mode keeps drop around effectful child under i8x16.splat" {
+  let t_ref = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_ref]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(0))])),
+      ]),
+    )
+  let condition = TInstr::call(FuncIdx::new(0), [])
+  let instr = TInstr::drop(TInstr::i8x16_splat(condition))
+  let env = Env::new().with_module(mod)
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded i8x16.splat drop result")
+  }
+  assert_eq(out, TInstr::drop(condition))
+}
+
+///|
+test "vacuum degraded mode peels dropped f64x2.splat around pure local.get" {
+  let instr = TInstr::drop(
+    TInstr::f64x2_splat(TInstr::local_get(LocalIdx::new(0))),
+  )
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::f64()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded f64x2.splat drop result")
+  }
+  assert_eq(out, TInstr::nop())
+}
+
+///|
+test "vacuum degraded mode keeps drop around effectful child under f64x2.splat" {
+  let t_ref = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::f64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_ref]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], [], TExpr::new([TInstr::f64_const(F64(0.0))])),
+      ]),
+    )
+  let condition = TInstr::call(FuncIdx::new(0), [])
+  let instr = TInstr::drop(TInstr::f64x2_splat(condition))
+  let env = Env::new().with_module(mod)
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded f64x2.splat drop result")
   }
   assert_eq(out, TInstr::drop(condition))
 }
