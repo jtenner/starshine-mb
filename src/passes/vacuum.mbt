@@ -548,11 +548,6 @@ fn vq_collect_func_sigs(mod : Module) -> Array[VQFuncSig] {
 }
 
 ///|
-fn vq_type_of(instr : TInstr, env : Env) -> ValType? {
-  lcs_infer_tinstr_type(instr, env)
-}
-
-///|
 fn vq_type_of_timed(instr : TInstr, env : Env, stats : VQRunStats) -> ValType? {
   let start_us = vacuum_trace_now_us()
   let out = lcs_infer_tinstr_type(instr, env)
@@ -2355,51 +2350,47 @@ fn vq_same_stack_sig(a : VQStackSig, b : VQStackSig) -> Bool {
 }
 
 ///|
-fn vq_rewrite_preserves_type_and_stack_sig(
+fn vq_rewrite_preserves_type_and_stack_sig_cached(
   before : TInstr,
   after : TInstr,
   env : Env,
+  analysis_cache : VQAnalysisCache,
+  before_id? : Int? = None,
 ) -> Bool {
-  let start_us = vacuum_trace_now_us()
-  let preserves = if !vq_same_type(
-      vq_type_of(before, env),
-      vq_type_of(after, env),
+  if !vq_same_type(
+      vq_type_of_cached(before, env, analysis_cache, instr_id=before_id),
+      vq_type_of_cached(after, env, analysis_cache),
     ) {
-    false
-  } else {
-    match (vq_stack_sig_instr(before, env), vq_stack_sig_instr(after, env)) {
-      (Some(before_sig), Some(after_sig)) =>
-        vq_same_stack_sig(before_sig, after_sig)
-      _ => false
-    }
+    return false
   }
-  vq_commit_active_helper(start_us, fn(stats) { stats.rewrite_type_stack_us }, fn(
-    stats,
-  ) {
-    stats.rewrite_type_stack_calls
-  })
-  preserves
+  match
+    (
+      vq_stack_sig_instr_cached(before, env, analysis_cache, instr_id=before_id),
+      vq_stack_sig_instr_cached(after, env, analysis_cache),
+    ) {
+    (Some(before_sig), Some(after_sig)) =>
+      vq_same_stack_sig(before_sig, after_sig)
+    _ => false
+  }
 }
 
 ///|
-fn vq_rewrite_preserves_stack_sig(
+fn vq_rewrite_preserves_stack_sig_cached(
   before : TInstr,
   after : TInstr,
   env : Env,
+  analysis_cache : VQAnalysisCache,
+  before_id? : Int? = None,
 ) -> Bool {
-  let start_us = vacuum_trace_now_us()
-  let preserves = match
-    (vq_stack_sig_instr(before, env), vq_stack_sig_instr(after, env)) {
+  match
+    (
+      vq_stack_sig_instr_cached(before, env, analysis_cache, instr_id=before_id),
+      vq_stack_sig_instr_cached(after, env, analysis_cache),
+    ) {
     (Some(before_sig), Some(after_sig)) =>
       vq_same_stack_sig(before_sig, after_sig)
     _ => true
   }
-  vq_commit_active_helper(start_us, fn(stats) { stats.rewrite_stack_us }, fn(
-    stats,
-  ) {
-    stats.rewrite_stack_calls
-  })
-  preserves
 }
 
 ///|
@@ -4454,7 +4445,17 @@ fn vq_process_instr(
                   other,
                   None,
                 )
-                if vq_rewrite_preserves_type_and_stack_sig(before, after, env) {
+                if vq_rewrite_preserves_type_and_stack_sig_cached(
+                    before,
+                    after,
+                    env,
+                    analysis_cache,
+                    before_id=if physical_equal(before, instr) {
+                      instr_id
+                    } else {
+                      None
+                    },
+                  ) {
                   return Some(after)
                 }
               }
@@ -4534,20 +4535,38 @@ fn vq_process_instr(
         None => return Some(TInstr::nop())
       }
       let dropped = TInstr::drop(next_value)
-      if !vq_rewrite_preserves_stack_sig(instr, dropped, env) {
+      if !vq_rewrite_preserves_stack_sig_cached(
+          instr,
+          dropped,
+          env,
+          analysis_cache,
+          before_id=instr_id,
+        ) {
         return Some(instr)
       }
       match next_value.kind {
         TInstrKind::TDrop(inner) => {
           let rewrite = TInstr::drop(inner)
-          if vq_rewrite_preserves_stack_sig(instr, rewrite, env) {
+          if vq_rewrite_preserves_stack_sig_cached(
+              instr,
+              rewrite,
+              env,
+              analysis_cache,
+              before_id=instr_id,
+            ) {
             return Some(rewrite)
           }
           return Some(dropped)
         }
         TInstrKind::TLocalTee(idx, inner) => {
           let rewrite = TInstr::local_set(idx, inner)
-          if vq_rewrite_preserves_stack_sig(instr, rewrite, env) {
+          if vq_rewrite_preserves_stack_sig_cached(
+              instr,
+              rewrite,
+              env,
+              analysis_cache,
+              before_id=instr_id,
+            ) {
             return Some(rewrite)
           }
           return Some(dropped)
@@ -5216,6 +5235,105 @@ test "vacuum simplify_block uses indexed metadata to skip break scan and label r
   assert_eq(out, TInstr::i32_const(I32(7)))
   assert_eq(cache.stats.break_scan_calls.val, 0)
   assert_eq(cache.stats.rebase_labels_calls.val, 0)
+}
+
+///|
+test "vacuum indexed drop(local.tee) rewrite avoids generic stack-preservation helper" {
+  let instr = TInstr::drop(
+    TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(9))),
+  )
+  let body = TExpr::new([instr])
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let seed_budget = Ref::new(64)
+  assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
+  let expr_id = match cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected root expr id")
+  }
+  let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
+  let process_budget = Ref::new(64)
+  vq_active_stats.val = Some(cache.stats)
+  let out = match
+    vq_process_instr(
+      instr,
+      env,
+      false,
+      false,
+      process_budget,
+      cache,
+      VQPassOptions::new(),
+      instr_id=Some(instr_id),
+    ) {
+    Some(next) => next
+    None => fail("expected drop(local.tee) rewrite result")
+  }
+  vq_active_stats.val = None
+  match out.kind {
+    TInstrKind::TLocalSet(
+      LocalIdx(i),
+      { kind: TInstrKind::TI32Const(I32(v)), .. }
+    ) => {
+      assert_eq(i, 0U)
+      assert_eq(v, 9)
+    }
+    _ => fail("expected drop(local.tee) to rewrite to local.set")
+  }
+  assert_eq(cache.stats.rewrite_stack_calls.val, 0)
+}
+
+///|
+test "vacuum indexed if-arm inversion avoids generic type-and-stack helper" {
+  let original_else = TExpr::new([
+    TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(9))),
+  ])
+  let instr = TInstr::if_(
+    BlockType::void_(),
+    TInstr::local_get(LocalIdx::new(0)),
+    TExpr::new([TInstr::nop()]),
+    Some(original_else),
+  )
+  let body = TExpr::new([instr])
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals([ValType::i32(), ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let seed_budget = Ref::new(64)
+  assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
+  let expr_id = match cache.indexed_root_expr_id {
+    Some(id) => id
+    None => fail("expected root expr id")
+  }
+  let instr_id = cache.indexed_expr_nodes[expr_id].instr_ids[0]
+  let process_budget = Ref::new(64)
+  vq_active_stats.val = Some(cache.stats)
+  let out = match
+    vq_process_instr(
+      instr,
+      env,
+      false,
+      false,
+      process_budget,
+      cache,
+      VQPassOptions::new(),
+      instr_id=Some(instr_id),
+    ) {
+    Some(next) => next
+    None => fail("expected if-arm inversion rewrite result")
+  }
+  vq_active_stats.val = None
+  match out.kind {
+    TInstrKind::TIf(bt, cond, then_body, None) => {
+      assert_eq(bt, BlockType::void_())
+      assert_eq(
+        cond,
+        TInstr::unary(UnaryOp::i32_eqz(), TInstr::local_get(LocalIdx::new(0))),
+      )
+      assert_eq(then_body, original_else)
+    }
+    _ => fail("expected if-arm inversion rewrite result")
+  }
+  assert_eq(cache.stats.rewrite_type_stack_calls.val, 0)
 }
 
 ///|
