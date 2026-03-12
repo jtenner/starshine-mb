@@ -8,10 +8,10 @@ target="${4:-wasm-gc}"
 
 case "${target}" in
   native)
-    moon run --target native src/fuzz "${suite}" "${profile}" "${seed}"
+    moon run --target native src/fuzz -- "${suite}" "${profile}" --seed "${seed}"
     ;;
   wasm|wasm-gc|llvm|js)
-    moon run --target "${target}" src/fuzz "${suite}" "${profile}" "${seed}"
+    moon run --target "${target}" src/fuzz -- "${suite}" "${profile}" --seed "${seed}"
     ;;
   *)
     echo "usage: scripts/run-fuzz.sh [profile] [suite] [seed] [target]" >&2

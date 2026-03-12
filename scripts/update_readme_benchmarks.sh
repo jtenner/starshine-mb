@@ -75,14 +75,14 @@ BENCH_NAMES+=("Single CLI pipeline test (\`run_cmd_with_adapter runs requested p
 BENCH_COMMANDS+=("${MOON_BIN} test --quiet --package jtenner/starshine/cmd --file cmd_test.mbt --index 5")
 
 BENCH_NAMES+=("Fuzz runner smoke (\`src/fuzz\` cmd-harness suite)")
-BENCH_COMMANDS+=("${MOON_BIN} run src/fuzz cmd-harness smoke 0x5eed")
+BENCH_COMMANDS+=("${MOON_BIN} run src/fuzz -- cmd-harness smoke --seed 0x5eed")
 
 BENCH_NAMES+=("Full test suite")
 BENCH_COMMANDS+=("${MOON_BIN} test --quiet")
 
 today="$(date -u +%Y-%m-%d)"
 block_lines=()
-block_lines+=("Measured on \`${today}\` in this repository with warm local build cache (\`moon test --quiet\` and \`moon run src/fuzz cmd-harness smoke 0x5eed\`, debug profile, \`wasm-gc\` target). These are smoke/reference numbers, not strict performance guarantees.")
+block_lines+=("Measured on \`${today}\` in this repository with warm local build cache (\`moon test --quiet\` and \`moon run src/fuzz -- cmd-harness smoke --seed 0x5eed\`, debug profile, \`wasm-gc\` target). These are smoke/reference numbers, not strict performance guarantees.")
 block_lines+=("")
 block_lines+=("| Workload | Command | Wall time |")
 block_lines+=("| --- | --- | --- |")

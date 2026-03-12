@@ -167,6 +167,7 @@ For more runnable CLI inputs, see `examples/README.md`.
 - Run tests: `moon test`
 - Run full local gate (check + tests + fuzz): `bash scripts/run-full-test.sh ci 0x5eed wasm-gc`
 - Run dedicated fuzz suites: `moon run src/fuzz all smoke`
+- Run one suite with an explicit seed: `moon run src/fuzz -- validate-valid ci --seed 0x5eed`
 - Run CI-scale fuzz suites: `bash scripts/run-fuzz.sh ci`
 - Run native stress fuzz suites: `bash scripts/run-fuzz.sh stress all 0x5eed5eed native`
 - Note: fuzz workloads are run through `src/fuzz` (`moon run ...`), not the `moon test` harness path.
@@ -261,12 +262,12 @@ WASM outputs (stdout/file/out-dir)
 Refresh command: `bash scripts/update_readme_benchmarks.sh`.
 
 <!-- README_BENCHMARK_TABLE_START -->
-Measured on `2026-03-12` in this repository with warm local build cache (`moon test --quiet` and `moon run src/fuzz cmd-harness smoke 0x5eed`, debug profile, `wasm-gc` target). These are smoke/reference numbers, not strict performance guarantees.
+Measured on `2026-03-12` in this repository with warm local build cache (`moon test --quiet` and `moon run src/fuzz -- cmd-harness smoke --seed 0x5eed`, debug profile, `wasm-gc` target). These are smoke/reference numbers, not strict performance guarantees.
 
 | Workload | Command | Wall time |
 | --- | --- | --- |
 | Single CLI pipeline test (`run_cmd_with_adapter runs requested passes for each module`) | `moon test --quiet --package jtenner/starshine/cmd --file cmd_test.mbt --index 5` | `1.189s` |
-| Fuzz runner smoke (`src/fuzz` cmd-harness suite) | `moon run src/fuzz cmd-harness smoke 0x5eed` | `0.317s` |
+| Fuzz runner smoke (`src/fuzz` cmd-harness suite) | `moon run src/fuzz -- cmd-harness smoke --seed 0x5eed` | `0.317s` |
 | Full test suite | `moon test --quiet` | `6.521s` |
 <!-- README_BENCHMARK_TABLE_END -->
 

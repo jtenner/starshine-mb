@@ -70,10 +70,10 @@ Proposed invocation patterns:
 moon run src/fuzz all smoke
 
 # Run one suite with explicit seed
-moon run src/fuzz validate-valid ci 0x5eed
+moon run src/fuzz -- validate-valid ci --seed 0x5eed
 
 # Native-only stress cases
-moon run --target native src/fuzz cmd-harness stress 0x5eed5eed
+moon run --target native src/fuzz -- cmd-harness stress --seed 0x5eed5eed
 ```
 
 Proposed suites:
@@ -137,7 +137,7 @@ Recommended output contract (single-line summary per suite):
 - Set `"is-main": true`.
 
 2. Implement `src/fuzz/main.mbt`.
-- Parse args as `(suite, profile, seed?)` with defaults.
+- Parse args as `(suite, profile, seed?)` with defaults plus `--seed <int64>`.
 - Normalize seed parsing for decimal or hex forms.
 - Route to suite-specific runner functions.
 - Print summary lines and return non-zero failure on any error.

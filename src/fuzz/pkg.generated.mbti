@@ -8,7 +8,7 @@ import {
 // Values
 pub fn parse_fuzz_cli_args(Array[String]) -> FuzzCliArgs
 
-pub fn run_fuzz_suite(String, String, UInt64) -> Result[Array[FuzzSuiteResult], String]
+pub fn run_fuzz_suite(String, String, Int64) -> Result[Array[FuzzSuiteResult], String]
 
 // Errors
 
@@ -17,6 +17,7 @@ pub struct FuzzCliArgs {
   suite : String
   profile : String
   seed : UInt64
+  seed_i64 : Int64
 }
 pub impl Eq for FuzzCliArgs
 pub impl Show for FuzzCliArgs
@@ -25,7 +26,7 @@ pub impl @debug.Debug for FuzzCliArgs
 pub struct FuzzSuiteResult {
   suite : String
   profile : String
-  seed : UInt64
+  seed : Int64
   attempts : Int
   elapsed_ms : UInt64
 }
