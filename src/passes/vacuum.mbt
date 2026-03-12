@@ -3761,6 +3761,8 @@ fn vq_degraded_simplify_drop_value(
   analysis_cache : VQAnalysisCache,
 ) -> TInstr {
   match value.kind {
+    TInstrKind::TDrop(inner) =>
+      vq_degraded_simplify_drop_value(inner, analysis_cache)
     // Numeric unary wrappers, ref.is_null, ref.i31, ref.get_desc, the i31
     // projections, and the GC extern/any reference conversions are pure 1-to-1
     // stack shuffles; ref.test predicates and SIMD splats/extract_lane wrappers
@@ -6230,6 +6232,39 @@ test "vacuum degraded mode peels dropped unary wrappers around calls" {
         "expected degraded vacuum to peel dropped unary wrapper down to dropped call",
       )
   }
+}
+
+///|
+test "vacuum degraded mode collapses nested dropped call wrappers" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))])),
+      ]),
+    )
+  let call = TInstr::call(FuncIdx::new(0), [])
+  let instr = TInstr::drop(TInstr::drop(call))
+  let env = Env::new().with_module(mod)
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded nested drop rewrite result")
+  }
+  assert_eq(out, TInstr::drop(call))
 }
 
 ///|
