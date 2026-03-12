@@ -90,6 +90,8 @@ priv struct VQRunStats {
   degraded_funcs : Ref[Int]
   shape_degraded_funcs : Ref[Int]
   seed_budget_exhaustions : Ref[Int]
+  tier_fallback_calls : Ref[Int]
+  tier_fallback_changes : Ref[Int]
   shape_scan_ms : Ref[UInt64]
   shape_scan_calls : Ref[Int]
   seed_ms : Ref[UInt64]
@@ -143,6 +145,8 @@ fn VQRunStats::new() -> VQRunStats {
     degraded_funcs: Ref::new(0),
     shape_degraded_funcs: Ref::new(0),
     seed_budget_exhaustions: Ref::new(0),
+    tier_fallback_calls: Ref::new(0),
+    tier_fallback_changes: Ref::new(0),
     shape_scan_ms: Ref::new(0UL),
     shape_scan_calls: Ref::new(0),
     seed_ms: Ref::new(0UL),
@@ -188,6 +192,8 @@ fn vq_run_stats_render(stats : VQRunStats, total_funcs : Int) -> String {
   "degraded_funcs=\{stats.degraded_funcs.val} " +
   "shape_degraded_funcs=\{stats.shape_degraded_funcs.val} " +
   "seed_budget_exhaustions=\{stats.seed_budget_exhaustions.val} " +
+  "tier_fallback_calls=\{stats.tier_fallback_calls.val} " +
+  "tier_fallback_changes=\{stats.tier_fallback_changes.val} " +
   "type_cache_hits=\{stats.type_cache_hits.val} " +
   "type_cache_misses=\{stats.type_cache_misses.val} " +
   "effect_cache_hits=\{stats.effect_cache_hits.val} " +
@@ -1373,6 +1379,7 @@ priv struct VQAnalysisCache {
   indexed_instr_nodes : Array[VQIndexedInstrNode]
   indexed_expr_nodes : Array[VQIndexedExprNode]
   mut indexed_root_expr_id : Int?
+  mut midpass_degraded_budget : Ref[Int]?
   type_cache : Map[TInstr, ValType?]
   effect_cache : Map[TInstr, Bool]
   shallow_effect_cache : Map[TInstr, Bool]
@@ -1400,6 +1407,7 @@ fn VQAnalysisCache::new(
     indexed_instr_nodes: [],
     indexed_expr_nodes: [],
     indexed_root_expr_id: None,
+    midpass_degraded_budget: None,
     type_cache: Map::new(),
     effect_cache: Map::new(),
     shallow_effect_cache: Map::new(),
@@ -4415,6 +4423,33 @@ fn vq_value_break_to_depth_has_lub(
 }
 
 ///|
+fn vq_try_midpass_degraded_fallback(
+  instr : TInstr,
+  env : Env,
+  result_used : Bool,
+  analysis_cache : VQAnalysisCache,
+  pass_options : VQPassOptions,
+) -> TInstr? {
+  match analysis_cache.midpass_degraded_budget {
+    Some(fallback_budget) => {
+      analysis_cache.stats.tier_fallback_calls.val += 1
+      let out = vq_process_instr_degraded(
+        instr, env, result_used, fallback_budget, analysis_cache, pass_options,
+      )
+      match out {
+        Some(next) =>
+          if next != instr {
+            analysis_cache.stats.tier_fallback_changes.val += 1
+          }
+        None => analysis_cache.stats.tier_fallback_changes.val += 1
+      }
+      out
+    }
+    None => Some(instr)
+  }
+}
+
+///|
 fn vq_process_instr(
   instr : TInstr,
   env : Env,
@@ -4426,7 +4461,9 @@ fn vq_process_instr(
   instr_id? : Int? = None,
 ) -> TInstr? {
   if !vq_take_budget(budget) {
-    return Some(instr)
+    return vq_try_midpass_degraded_fallback(
+      instr, env, result_used, analysis_cache, pass_options,
+    )
   }
   let instr_node = vq_indexed_instr_node(analysis_cache, instr_id)
   match instr.kind {
@@ -5218,6 +5255,7 @@ fn vq_optimize_function(
       }
 
       let budget = Ref::new(vq_shape_full_budget(shape))
+      let full_tier_fallback_budget = Ref::new(0)
       let mut degraded_reason : String? = None
       let seed_elapsed_ms = if vq_shape_requires_degraded_mode(shape) {
         stats.degraded_funcs.val += 1
@@ -5245,6 +5283,8 @@ fn vq_optimize_function(
       }
 
       let optimize_start_ms = vacuum_trace_now_ms()
+      let fallback_calls_before = stats.tier_fallback_calls.val
+      let fallback_changes_before = stats.tier_fallback_changes.val
       let sequence = if degraded_reason is Some(_) {
         vq_optimize_sequence_degraded(
           body.instrs,
@@ -5256,7 +5296,9 @@ fn vq_optimize_function(
           pass_options,
         )
       } else {
-        vq_optimize_sequence(
+        full_tier_fallback_budget.val = vq_shape_degraded_budget(shape)
+        analysis_cache.midpass_degraded_budget = Some(full_tier_fallback_budget)
+        let out = vq_optimize_sequence(
           body.instrs,
           env,
           sig.results,
@@ -5266,7 +5308,13 @@ fn vq_optimize_function(
           pass_options,
           expr_id=analysis_cache.indexed_root_expr_id,
         )
+        analysis_cache.midpass_degraded_budget = None
+        out
       }
+      let fallback_calls_delta = stats.tier_fallback_calls.val -
+        fallback_calls_before
+      let fallback_changes_delta = stats.tier_fallback_changes.val -
+        fallback_changes_before
       let optimize_elapsed_ms = vq_commit_phase_timing(
         stats.optimize_ms,
         stats.optimize_calls,
@@ -5319,7 +5367,7 @@ fn vq_optimize_function(
             None => "full"
           }
           trace(
-            "func[\{ordinal}] vacuum nopped=true budget_left=\{budget.val} mode=\{mode} seed_ms=\{seed_elapsed_ms} optimize_ms=\{optimize_elapsed_ms} final_ms=\{final_elapsed_ms} elapsed_ms=\{total_elapsed_ms}",
+            "func[\{ordinal}] vacuum nopped=true budget_left=\{budget.val} fallback_budget_left=\{full_tier_fallback_budget.val} mode=\{mode} fallback_calls=\{fallback_calls_delta} fallback_changes=\{fallback_changes_delta} seed_ms=\{seed_elapsed_ms} optimize_ms=\{optimize_elapsed_ms} final_ms=\{final_elapsed_ms} elapsed_ms=\{total_elapsed_ms}",
           )
         }
         vq_active_stats.val = None
@@ -5330,11 +5378,11 @@ fn vq_optimize_function(
           match degraded_reason {
             Some(reason) =>
               trace(
-                "func[\{ordinal}] vacuum done changed=\{changed} budget_left=\{budget.val} mode=degraded reason=\{reason} seed_ms=\{seed_elapsed_ms} optimize_ms=\{optimize_elapsed_ms} final_ms=\{final_elapsed_ms} elapsed_ms=\{total_elapsed_ms}",
+                "func[\{ordinal}] vacuum done changed=\{changed} budget_left=\{budget.val} fallback_budget_left=\{full_tier_fallback_budget.val} mode=degraded reason=\{reason} fallback_calls=\{fallback_calls_delta} fallback_changes=\{fallback_changes_delta} seed_ms=\{seed_elapsed_ms} optimize_ms=\{optimize_elapsed_ms} final_ms=\{final_elapsed_ms} elapsed_ms=\{total_elapsed_ms}",
               )
             None =>
               trace(
-                "func[\{ordinal}] vacuum done changed=\{changed} budget_left=\{budget.val} mode=full seed_ms=\{seed_elapsed_ms} optimize_ms=\{optimize_elapsed_ms} final_ms=\{final_elapsed_ms} elapsed_ms=\{total_elapsed_ms}",
+                "func[\{ordinal}] vacuum done changed=\{changed} budget_left=\{budget.val} fallback_budget_left=\{full_tier_fallback_budget.val} mode=full fallback_calls=\{fallback_calls_delta} fallback_changes=\{fallback_changes_delta} seed_ms=\{seed_elapsed_ms} optimize_ms=\{optimize_elapsed_ms} final_ms=\{final_elapsed_ms} elapsed_ms=\{total_elapsed_ms}",
               )
           }
         }
@@ -6046,6 +6094,90 @@ test "vacuum indexed try_table removal avoids generic throws cache" {
   }
   assert_eq(out, TInstr::i32_const(I32(77)))
   assert_eq(cache.throws_cache.get(original_body), None)
+}
+
+///|
+test "vacuum full-tier budget exhaustion falls back to degraded local.tee drop rewrite" {
+  let instr = TInstr::drop(
+    TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(9))),
+  )
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  cache.midpass_degraded_budget = Some(Ref::new(16))
+  let budget = Ref::new(0)
+  let out = match
+    vq_process_instr(
+      instr,
+      env,
+      false,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected tier-fallback rewrite result")
+  }
+  assert_eq(out, TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(9))))
+  assert_eq(cache.stats.tier_fallback_calls.val, 1)
+  assert_eq(cache.stats.tier_fallback_changes.val, 1)
+}
+
+///|
+test "vacuum full-tier fallback remains bounded when cheap-tier budget is exhausted" {
+  let instr = TInstr::drop(
+    TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(9))),
+  )
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  cache.midpass_degraded_budget = Some(Ref::new(0))
+  let budget = Ref::new(0)
+  let out = match
+    vq_process_instr(
+      instr,
+      env,
+      false,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected bounded tier-fallback result")
+  }
+  assert_eq(out, instr)
+  assert_eq(cache.stats.tier_fallback_calls.val, 1)
+  assert_eq(cache.stats.tier_fallback_changes.val, 0)
+}
+
+///|
+test "vacuum sequence uses cheap-tier fallback for remaining items after full budget depletes" {
+  let items = [
+    TInstr::drop(TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(1)))),
+    TInstr::drop(TInstr::local_tee(LocalIdx::new(1), TInstr::i32_const(I32(2)))),
+  ]
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals([ValType::i32(), ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  cache.midpass_degraded_budget = Some(Ref::new(16))
+  let budget = Ref::new(1)
+  let seq = vq_optimize_sequence(
+    items,
+    env,
+    [],
+    false,
+    budget,
+    cache,
+    VQPassOptions::new(),
+  )
+  assert_eq(seq.items, [
+    TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+    TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(2))),
+  ])
+  assert_true(seq.changed)
+  assert_true(cache.stats.tier_fallback_calls.val >= 1)
+  assert_true(cache.stats.tier_fallback_changes.val >= 1)
 }
 
 ///|
