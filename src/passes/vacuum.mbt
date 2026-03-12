@@ -3021,6 +3021,30 @@ fn vq_optimize_sequence(
   let mut prefix_needs_opt : Array[Int?]? = None
   let expr_node = vq_indexed_expr_node(analysis_cache, expr_id)
   for i = 0; i < size; i = i + 1 {
+    if budget.val <= 0 {
+      match analysis_cache.midpass_degraded_budget {
+        Some(fallback_budget) => {
+          analysis_cache.stats.tier_fallback_calls.val += 1
+          let remaining : Array[TInstr] = []
+          for j = i; j < size; j = j + 1 {
+            remaining.push(items[j])
+          }
+          let fallback_sequence = vq_optimize_sequence_degraded(
+            remaining, env, result_types, result_used, fallback_budget, analysis_cache,
+            pass_options,
+          )
+          if fallback_sequence.changed {
+            analysis_cache.stats.tier_fallback_changes.val += 1
+            changed = true
+          }
+          for item in fallback_sequence.items {
+            out.push(item)
+          }
+          break
+        }
+        None => ()
+      }
+    }
     let child = items[i]
     let child_id = vq_indexed_expr_instr_id(expr_node, i)
     if preserve_next_unreachable {
@@ -6204,6 +6228,36 @@ test "vacuum sequence uses cheap-tier fallback for remaining items after full bu
   assert_true(seq.changed)
   assert_true(cache.stats.tier_fallback_calls.val >= 1)
   assert_true(cache.stats.tier_fallback_changes.val >= 1)
+}
+
+///|
+test "vacuum sequence switches once to cheap-tier for remaining suffix" {
+  let items = [
+    TInstr::drop(TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(1)))),
+    TInstr::drop(TInstr::local_tee(LocalIdx::new(1), TInstr::i32_const(I32(2)))),
+  ]
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals([ValType::i32(), ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  cache.midpass_degraded_budget = Some(Ref::new(16))
+  let budget = Ref::new(0)
+  let seq = vq_optimize_sequence(
+    items,
+    env,
+    [],
+    false,
+    budget,
+    cache,
+    VQPassOptions::new(),
+  )
+  assert_eq(seq.items, [
+    TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+    TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(2))),
+  ])
+  assert_true(seq.changed)
+  assert_eq(cache.stats.tier_fallback_calls.val, 1)
+  assert_eq(cache.stats.tier_fallback_changes.val, 1)
 }
 
 ///|
