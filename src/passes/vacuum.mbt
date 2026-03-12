@@ -3739,6 +3739,24 @@ fn vq_degraded_simplify_drop_value(
 }
 
 ///|
+fn vq_degraded_rebuild_if_without_else(
+  bt : BlockType,
+  condition : TInstr,
+  then_body : TExpr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> TInstr {
+  if vq_is_nop_texpr(then_body) {
+    match vq_type_of_cached(condition, env, analysis_cache) {
+      Some(_) => TInstr::drop(condition)
+      None => TInstr::if_(bt, condition, then_body, None)
+    }
+  } else {
+    TInstr::if_(bt, condition, then_body, None)
+  }
+}
+
+///|
 fn vq_process_instr_degraded(
   instr : TInstr,
   env : Env,
@@ -3837,16 +3855,21 @@ fn vq_process_instr_degraded(
       match next_else {
         Some(other) =>
           if arm_result_types.is_empty() && vq_is_nop_texpr(other) {
-            Some(TInstr::if_(bt, next_condition, next_then, None))
+            Some(
+              vq_degraded_rebuild_if_without_else(
+                bt, next_condition, next_then, env, analysis_cache,
+              ),
+            )
           } else {
             Some(TInstr::if_(bt, next_condition, next_then, Some(other)))
           }
         None =>
           if arm_result_types.is_empty() && vq_is_nop_texpr(next_then) {
-            match vq_type_of_cached(next_condition, env, analysis_cache) {
-              Some(_) => Some(TInstr::drop(next_condition))
-              None => Some(TInstr::if_(bt, next_condition, next_then, None))
-            }
+            Some(
+              vq_degraded_rebuild_if_without_else(
+                bt, next_condition, next_then, env, analysis_cache,
+              ),
+            )
           } else {
             Some(TInstr::if_(bt, next_condition, next_then, None))
           }
@@ -6153,6 +6176,32 @@ test "vacuum degraded mode removes try_table with empty optimized void body" {
     None => fail("expected degraded try_table rewrite result")
   }
   assert_eq(out, TInstr::nop())
+}
+
+///|
+test "vacuum degraded mode drops typed condition when both if arms optimize to nop" {
+  let instr = TInstr::if_(
+    BlockType::void_(),
+    TInstr::local_get(LocalIdx::new(0)),
+    TExpr::new([TInstr::nop()]),
+    Some(TExpr::new([TInstr::drop(TInstr::i32_const(I32(7)))])),
+  )
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(64)
+  let out = match
+    vq_process_instr_degraded(
+      instr,
+      env,
+      false,
+      budget,
+      cache,
+      VQPassOptions::new(),
+    ) {
+    Some(next) => next
+    None => fail("expected degraded if cleanup result")
+  }
+  assert_eq(out, TInstr::drop(TInstr::local_get(LocalIdx::new(0))))
 }
 
 ///|
