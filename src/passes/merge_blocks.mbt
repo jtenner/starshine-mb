@@ -1148,11 +1148,29 @@ priv struct MBContext {
   env : Env
   mut needs_refinalize : Bool
   branch_cache : BranchCache
+  round_safety_cap_override : Int
+  mut optimize_block_rounds : Int
+  mut optimize_block_round_cap_hits : Int
 }
 
 ///|
 fn MBContext::new(env : Env) -> MBContext {
-  { env, needs_refinalize: false, branch_cache: BranchCache::new() }
+  MBContext::new_with_round_safety_cap(env, 0)
+}
+
+///|
+fn MBContext::new_with_round_safety_cap(
+  env : Env,
+  round_safety_cap_override : Int,
+) -> MBContext {
+  {
+    env,
+    needs_refinalize: false,
+    branch_cache: BranchCache::new(),
+    round_safety_cap_override,
+    optimize_block_rounds: 0,
+    optimize_block_round_cap_hits: 0,
+  }
 }
 
 ///|
@@ -1160,6 +1178,8 @@ priv struct MBFunctionRunStats {
   changed : Bool
   needs_refinalize : Bool
   refinalize_invocations : Int
+  optimize_block_rounds : Int
+  optimize_block_round_cap_hits : Int
 }
 
 ///|
@@ -1167,8 +1187,16 @@ fn MBFunctionRunStats::new(
   changed : Bool,
   needs_refinalize : Bool,
   refinalize_invocations : Int,
+  optimize_block_rounds : Int,
+  optimize_block_round_cap_hits : Int,
 ) -> MBFunctionRunStats {
-  { changed, needs_refinalize, refinalize_invocations }
+  {
+    changed,
+    needs_refinalize,
+    refinalize_invocations,
+    optimize_block_rounds,
+    optimize_block_round_cap_hits,
+  }
 }
 
 ///|
@@ -2513,6 +2541,15 @@ fn mb_prepare_moved_item(item : TInstr, has_after : Bool, env : Env) -> TInstr {
 }
 
 ///|
+fn mb_optimize_block_round_safety_cap(item_count : Int, ctx : MBContext) -> Int {
+  if ctx.round_safety_cap_override > 0 {
+    ctx.round_safety_cap_override
+  } else {
+    mb_max_int(64, item_count * 8 + 32)
+  }
+}
+
+///|
 fn optimize_block(
   block : TInstr,
   mod : Module,
@@ -2524,9 +2561,14 @@ fn optimize_block(
     TInstrKind::TBlock(bt, body) => {
       let curr_items = body.instrs.copy()
       let mut any_change = false
+      let round_safety_cap = mb_optimize_block_round_safety_cap(
+        curr_items.length(),
+        ctx,
+      )
       let mut rounds = 0
-      while rounds < 20 {
+      while true {
         rounds += 1
+        ctx.optimize_block_rounds += 1
         let out : Array[TInstr] = []
         let mut round_change = false
         let n = curr_items.length()
@@ -2751,6 +2793,10 @@ fn optimize_block(
         for item in out {
           curr_items.push(item)
         }
+        if rounds >= round_safety_cap {
+          ctx.optimize_block_round_cap_hits += 1
+          break
+        }
       }
       let finalized = mb_finalize_block(
         TInstr::block(bt, TExpr::new(curr_items)),
@@ -2872,12 +2918,26 @@ fn mb_run_on_function_with_stats(
   mod : Module,
   options : OptimizeOptions,
 ) -> (Func, Bool, MBFunctionRunStats) {
+  mb_run_on_function_with_stats_with_round_safety_cap(func, mod, options, 0)
+}
+
+///|
+fn mb_run_on_function_with_stats_with_round_safety_cap(
+  func : Func,
+  mod : Module,
+  options : OptimizeOptions,
+  round_safety_cap_override : Int,
+) -> (Func, Bool, MBFunctionRunStats) {
   match func {
     TFunc(params, locals, body) => {
       let env = Env::new()
         .with_module(mod)
         .with_locals(FunctionLocals::new(params, locals).all_locals())
-      let ctx = MBContext::new(env)
+      let ctx = if round_safety_cap_override > 0 {
+        MBContext::new_with_round_safety_cap(env, round_safety_cap_override)
+      } else {
+        MBContext::new(env)
+      }
       let mut refinalize_invocations = 0
       let root = TInstr::block(BlockType::void_(), body)
       let (next_root, changed) = optimize_block(
@@ -2905,6 +2965,8 @@ fn mb_run_on_function_with_stats(
             changed,
             ctx.needs_refinalize,
             refinalize_invocations,
+            ctx.optimize_block_rounds,
+            ctx.optimize_block_round_cap_hits,
           ),
         )
       } else {
@@ -2915,11 +2977,13 @@ fn mb_run_on_function_with_stats(
             changed,
             ctx.needs_refinalize,
             refinalize_invocations,
+            ctx.optimize_block_rounds,
+            ctx.optimize_block_round_cap_hits,
           ),
         )
       }
     }
-    _ => (func, false, MBFunctionRunStats::new(false, false, 0))
+    _ => (func, false, MBFunctionRunStats::new(false, false, 0, 0, 0))
   }
 }
 
@@ -3461,6 +3525,36 @@ fn mb_has_bad_single_arg_local_chain_call(body : TExpr, env : Env) -> Bool {
   )
   ignore(walker.walk_texpr((), body))
   bad
+}
+
+///|
+fn mb_make_nested_unnamed_block_chain(depth : Int) -> TInstr {
+  let mut out = TInstr::nop()
+  let mut i = 0
+  while i < depth {
+    out = TInstr::block(BlockType::void_(), TExpr::new([out]))
+    i = i + 1
+  }
+  out
+}
+
+///|
+fn mb_count_blocks_in_texpr(expr : TExpr) -> Int {
+  let mut count = 0
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TBlock(_, _) => count = count + 1
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
+  ignore(walker.walk_texpr((), expr))
+  count
 }
 
 ///|
@@ -4541,6 +4635,46 @@ test "merge blocks: function run performs at most one refinalize pass" {
   assert_true(stats.changed)
   assert_true(stats.needs_refinalize)
   assert_eq(stats.refinalize_invocations, 1)
+}
+
+///|
+test "merge blocks: deep nesting converges past legacy round budget without cap hits" {
+  let body = TExpr::new([mb_make_nested_unnamed_block_chain(96)])
+  let mod = mb_make_test_module_with_body([], body)
+  let func = match mb_extract_only_tfunc(mod) {
+    Some(value) => value
+    None => fail("expected test module to contain one typed function")
+  }
+  let (next_func, changed, stats) = mb_run_on_function_with_stats(
+    func,
+    mod,
+    OptimizeOptions::new(),
+  )
+  assert_true(changed)
+  assert_true(stats.optimize_block_rounds > 20)
+  assert_eq(stats.optimize_block_round_cap_hits, 0)
+  match next_func {
+    TFunc(_, _, next_body) => assert_eq(mb_count_blocks_in_texpr(next_body), 0)
+    _ => fail("expected optimized test function")
+  }
+}
+
+///|
+test "merge blocks: safety-cap instrumentation reports forced cap hit" {
+  let body = TExpr::new([mb_make_nested_unnamed_block_chain(96)])
+  let mod = mb_make_test_module_with_body([], body)
+  let func = match mb_extract_only_tfunc(mod) {
+    Some(value) => value
+    None => fail("expected test module to contain one typed function")
+  }
+  let (_, changed, stats) = mb_run_on_function_with_stats_with_round_safety_cap(
+    func,
+    mod,
+    OptimizeOptions::new(),
+    1,
+  )
+  assert_true(changed)
+  assert_true(stats.optimize_block_round_cap_hits > 0)
 }
 
 ///|

@@ -1,5 +1,46 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed C-004 by replacing fixed 20-round block optimization with convergence-driven iteration and explicit safety-cap instrumentation
+
+This follow-up closes `MergeBlocks` correctness gap C-004 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
+
+Strict TDD was used:
+1. Added red-first regressions for:
+   - deep nested convergence beyond the legacy round budget surface (`merge blocks: deep nesting converges past legacy round budget without cap hits`)
+   - explicit forced safety-cap signaling (`merge blocks: safety-cap instrumentation reports forced cap hit`)
+2. Ran `moon test src/passes` and captured explicit red compile failures before implementation:
+   - missing `MBFunctionRunStats.optimize_block_rounds`
+   - missing `MBFunctionRunStats.optimize_block_round_cap_hits`
+   - missing cap-aware stats runner helper (`mb_run_on_function_with_stats_with_round_safety_cap`)
+3. Implemented convergence loop + instrumentation and reran to green.
+
+Implementation changes:
+- Replaced fixed-loop guard in `optimize_block(...)`:
+  - before: `while rounds < 20`
+  - after: convergence-driven `while true` loop that exits on `!round_change`.
+- Added explicit safety cap computation (`mb_optimize_block_round_safety_cap(...)`) and cap-hit accounting.
+- Added `MBContext` instrumentation fields:
+  - `optimize_block_rounds`
+  - `optimize_block_round_cap_hits`
+  - `round_safety_cap_override` (test/diagnostic override path)
+- Added `MBFunctionRunStats` fields:
+  - `optimize_block_rounds`
+  - `optimize_block_round_cap_hits`
+- Added cap-aware stats helper:
+  - `mb_run_on_function_with_stats_with_round_safety_cap(...)`
+  - default runner preserves normal behavior via `mb_run_on_function_with_stats(...)` (override `0`).
+
+Behavioral outcome:
+- Deep nested fixtures are no longer constrained by the previous silent 20-round stop.
+- When a safety cap is explicitly forced low, the pass reports cap hits through stats instead of truncating silently.
+
+Verification:
+- `moon test src/passes`
+- `moon info && moon fmt`
+- `moon test`
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): C-004 was removed from publishing blockers and moved to recently completed.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed C-003 by porting Binaryen-style loop `keepEnd` concrete-tail gating and adding typed loop extraction fixtures
 
 This follow-up closes `MergeBlocks` correctness gap C-003 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
