@@ -1,5 +1,61 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed parity-test-matrix item by adding an explicit category matrix harness with per-row expected outcomes and invariant checks
+
+This follow-up closes the `MergeBlocks` parity test matrix blocker in [`src/passes/merge_blocks_parity_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks_parity_wbtest.mbt).
+
+Strict TDD was used:
+1. Added red-first parity-matrix tests:
+   - `merge blocks parity matrix covers required categories`
+   - `merge blocks parity matrix rows meet expected outcomes`
+2. Ran `moon test src/passes` and captured explicit red compile failures before implementation:
+   - unbound matrix helpers (`mbp_collect_parity_matrix_results`, `mbp_required_parity_matrix_categories`)
+   - unresolved matrix row fields in test assertions due missing result struct.
+3. Implemented matrix case/result models + fixture runners, then iterated to green by fixing row fixtures/expectations that failed runtime assertions.
+
+What was added:
+- Explicit matrix data model:
+  - `MBParityMatrixCase`
+  - `MBParityMatrixResult`
+- Matrix category contract helper:
+  - `mbp_required_parity_matrix_categories()`
+- Matrix fixture builders and evaluation helpers:
+  - named block boundary fixture
+  - loop-tail extraction fixture
+  - dropped-block value-removal fixture
+  - `try_table` catch permutation fixtures (`catch_all_ref`, `catch_ref` no-params, `catch`, `catch_all`, paramful `catch_ref`)
+  - restructure dependency/effect-collision fixture
+  - typed stack-signature fixture
+  - idempotence fixture
+  - collectors:
+    - `mbp_parity_matrix_cases()`
+    - `mbp_collect_parity_matrix_results()`
+    - `mbp_validates_module(...)`
+    - `mbp_stack_sig_consistent_module(...)`
+
+Matrix coverage now explicitly asserts the required categories:
+- named block merge boundaries
+- loop-tail extraction
+- dropped-block value removal
+- `try_table` catch permutations
+- restructure dependency/effect collisions
+- type/stack-signature invariants
+- idempotence (`run_merge_blocks` once vs twice)
+
+Per-row checks now include (as applicable):
+- expected `changed` behavior
+- expected post-pass value-branch counts
+- validation invariants
+- stack-signature consistency invariants
+- idempotence guarantees
+
+Verification:
+- `moon test src/passes`
+- `moon info && moon fmt`
+- `moon test`
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): the parity-test-matrix item was removed from publishing blockers and moved to recently completed.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed P-005 by switching `optimize_block` round assembly to staged buffer swaps and locking zero rebuild-copy replay coverage
 
 This follow-up closes `MergeBlocks` performance P-005 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
