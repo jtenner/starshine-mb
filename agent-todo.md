@@ -14,7 +14,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Optimize + Binaryen feature parity comparison: `PrecomputePropagate`
 - [ ] Optimize + Binaryen feature parity comparison: `CodePushing`
 - [ ] Optimize + Binaryen feature parity comparison: `CodeFolding`
-- [ ] `MergeBlocks` runtime gap: make the pass function-parallel where the local pass runner can support it, or document and justify it as an intentional divergence if the execution model still blocks safe parity here.
 - [ ] `MergeBlocks` performance P-002: add a per-function `compute_effects` memoization cache keyed by stable instruction identity and verify the chosen stress fixture improves pass wall time by at least 15%.
 - [ ] `MergeBlocks` performance P-003: replace the structural-hash branch query cache with an id-based cache plus explicit rewrite invalidation boundaries and verify representative hit-rate targets.
 - [ ] `MergeBlocks` performance P-004: reduce restructure-path allocations by replacing repeated `mb_eval_children` array materialization with a lightweight child-iteration path for non-control operators.
@@ -48,6 +47,7 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Long-horizon platform/features: Component Model/WIT, streaming decoder API, custom sections/source maps, plugin system.
 
 ## Recently completed
+- [x] `MergeBlocks` runtime gap: documented and justified an intentional sequential-execution divergence for `MergeBlocks` by locking a runtime policy note (`mb_runtime_execution_policy_note()`) to current transformer constraints (`walk_opt_codesec_default` -> `walk_opt_array` state threading), adding regression coverage so the rationale remains explicit until function-parallel dispatch is available in the local pass runner.
 - [x] `MergeBlocks` correctness gap C-004: replaced the fixed 20-round `optimize_block` loop with convergence-driven iteration plus safety-cap instrumentation (`optimize_block_rounds`, `optimize_block_round_cap_hits`) and added deep-nesting + forced-cap regression coverage, including a cap-override stats runner to verify non-silent truncation signaling.
 - [x] `MergeBlocks` correctness gap C-003: ported Binaryen-compatible loop partial-merge gating to extracted-tail concreteness (`keepEnd < childSize && childList.back()->type.isConcrete()` parity) and added typed loop fixtures that separate unsound concrete-tail extraction (blocked) from valid non-concrete-tail extraction (allowed) while preserving post-pass validation.
 - [x] `MergeBlocks` effect-model hardening: filled missing `mb_collect_shallow_effects` tags for trap/atomic families (`memory.copy/fill/init` trap flags, `ref.cast_desc_eq`, `array.len`, `array.new*` trap flags, `array.set/fill` read+write memory, atomic memory ops, integer `div/rem` trap ops, float->int trunc trap ops) and added a table-driven movement matrix regression (`MBMovementCase`) that locks representative blocked/allowed movement behavior for side-effect, trap, branch, and control-transfer opcode families.

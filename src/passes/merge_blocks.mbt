@@ -2988,10 +2988,17 @@ fn mb_run_on_function_with_stats_with_round_safety_cap(
 }
 
 ///|
+fn mb_runtime_execution_policy_note() -> String {
+  "MergeBlocks currently runs sequentially as an intentional divergence: ModuleTransformer::walk_opt_codesec_default uses ModuleTransformer::walk_opt_array, and walk_opt_array threads mutable traversal state across functions. This runner does not yet provide a safe function-parallel dispatch path for this pass."
+}
+
+///|
 fn merge_blocks_ir_pass(
   mod : Module,
   options? : OptimizeOptions = OptimizeOptions::new(),
 ) -> ModuleTransformer[IRContext, String] {
+  // Execution model note: this pass currently runs sequentially by design.
+  // See mb_runtime_execution_policy_note() for the specific runner constraint.
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func : Func) {
     let (next_func, changed) = run_on_function(func, mod, options)
     if changed {
@@ -4675,6 +4682,14 @@ test "merge blocks: safety-cap instrumentation reports forced cap hit" {
   )
   assert_true(changed)
   assert_true(stats.optimize_block_round_cap_hits > 0)
+}
+
+///|
+test "merge blocks: runtime parallel gap is documented as intentional sequential divergence" {
+  let note = mb_runtime_execution_policy_note()
+  assert_true(note.contains("intentional divergence"))
+  assert_true(note.contains("sequential"))
+  assert_true(note.contains("ModuleTransformer::walk_opt_array"))
 }
 
 ///|

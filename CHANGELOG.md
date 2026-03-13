@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed runtime-gap item by documenting and locking intentional sequential execution under current transformer constraints
+
+This follow-up closes the `MergeBlocks` runtime-gap backlog item in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
+
+Decision:
+- The local pass runner does not currently expose a safe function-parallel dispatch path for this pass.
+- `ModuleTransformer::walk_opt_codesec_default` traverses function bodies through `ModuleTransformer::walk_opt_array`, and `walk_opt_array` threads mutable traversal state item-by-item; this execution model is serial by construction today.
+- Per backlog requirement, this is now documented as an intentional divergence until runner-level function-parallel support exists.
+
+Strict TDD was used:
+1. Added a red-first regression:
+   - `merge blocks: runtime parallel gap is documented as intentional sequential divergence`
+2. Ran `moon test src/passes` and captured explicit red compile failure:
+   - unbound `mb_runtime_execution_policy_note()`
+3. Implemented the policy note and pass-level execution-model comment, then reran to green.
+
+What was added:
+- `mb_runtime_execution_policy_note()` with explicit rationale referencing the transformer traversal constraint (`walk_opt_codesec_default` -> `walk_opt_array` state threading).
+- A pass-level comment in `merge_blocks_ir_pass(...)` pointing to the policy note for execution-model context.
+- Regression assertion that locks policy-note content so this intentional divergence remains explicit and test-guarded.
+
+Verification:
+- `moon test src/passes`
+- `moon info && moon fmt`
+- `moon test`
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): the runtime-gap item was removed from publishing blockers and moved to recently completed.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed C-004 by replacing fixed 20-round block optimization with convergence-driven iteration and explicit safety-cap instrumentation
 
 This follow-up closes `MergeBlocks` correctness gap C-004 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
