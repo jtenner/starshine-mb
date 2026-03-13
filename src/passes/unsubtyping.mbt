@@ -1192,7 +1192,7 @@ fn uf_collect_from_tinstr(
     }
   }
 
-  for child in tg_eval_children(instr) {
+  for child in eval_children(instr) {
     uf_collect_from_tinstr(
       child, env, func_results, total_types, original_env, work, seen, casts, traps_never_happen,
     )
