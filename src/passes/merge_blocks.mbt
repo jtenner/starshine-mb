@@ -826,13 +826,13 @@ priv enum ProblemResult {
 ///|
 priv struct ProblemFinderState {
   mut blocked : String?
-  mut total_br_if_values : Int
+  mut non_dropped_br_if_values : Int
   mut dropped_br_if_values : Int
 }
 
 ///|
 fn ProblemFinderState::new() -> ProblemFinderState {
-  { blocked: None, total_br_if_values: 0, dropped_br_if_values: 0 }
+  { blocked: None, non_dropped_br_if_values: 0, dropped_br_if_values: 0 }
 }
 
 ///|
@@ -1702,7 +1702,7 @@ fn mb_restructure_non_control(
 ///|
 fn problem_finder(
   origin : LabelIdx,
-  expr : TInstr,
+  expr : TExpr,
   mod : Module,
   options : OptimizeOptions,
   ctx : MBContext,
@@ -1710,11 +1710,11 @@ fn problem_finder(
   ignore(mod)
   ignore(options)
   let st = ProblemFinderState::new()
-  mb_problem_finder_walk(origin, expr, 0, false, st, ctx.env)
+  mb_problem_finder_walk_expr(origin, expr, 0, st, ctx.env)
   match st.blocked {
     Some(_) => ProblemBlocked
     None =>
-      if st.total_br_if_values != st.dropped_br_if_values {
+      if st.non_dropped_br_if_values > st.dropped_br_if_values {
         ProblemBlocked
       } else {
         ProblemOk
@@ -1727,7 +1727,6 @@ fn mb_problem_finder_walk(
   origin : LabelIdx,
   expr : TInstr,
   depth : Int,
-  under_drop : Bool,
   st : ProblemFinderState,
   env : Env,
 ) -> Unit {
@@ -1736,6 +1735,14 @@ fn mb_problem_finder_walk(
   }
   let origin_depth = mb_label_to_int(origin) + depth
   match expr.kind {
+    TInstrKind::TDrop(value) =>
+      match value.kind {
+        TInstrKind::TBrIf(label, _, values) =>
+          if mb_label_matches_depth(label, origin_depth) && !values.is_empty() {
+            st.dropped_br_if_values += 1
+          }
+        _ => ()
+      }
     TInstrKind::TBr(label, values) =>
       if mb_label_matches_depth(label, origin_depth) && !values.is_empty() {
         for value in values {
@@ -1746,15 +1753,12 @@ fn mb_problem_finder_walk(
         }
       }
     TInstrKind::TBrIf(label, cond, values) => {
-      mb_problem_finder_walk(origin, cond, depth, false, st, env)
+      mb_problem_finder_walk(origin, cond, depth, st, env)
       if st.blocked is Some(_) {
         return
       }
       if mb_label_matches_depth(label, origin_depth) && !values.is_empty() {
-        st.total_br_if_values += 1
-        if under_drop {
-          st.dropped_br_if_values += 1
-        }
+        st.non_dropped_br_if_values += 1
         for value in values {
           if compute_effects(value).has_side_effects() {
             st.blocked = Some("side effects in br_if value")
@@ -1763,7 +1767,7 @@ fn mb_problem_finder_walk(
         }
       }
       for value in values {
-        mb_problem_finder_walk(origin, value, depth, false, st, env)
+        mb_problem_finder_walk(origin, value, depth, st, env)
         if st.blocked is Some(_) {
           return
         }
@@ -1783,9 +1787,9 @@ fn mb_problem_finder_walk(
         st.blocked = Some("unsupported branch op targeting origin")
         return
       }
-      mb_problem_finder_walk(origin, index, depth, false, st, env)
+      mb_problem_finder_walk(origin, index, depth, st, env)
       for value in values {
-        mb_problem_finder_walk(origin, value, depth, false, st, env)
+        mb_problem_finder_walk(origin, value, depth, st, env)
       }
     }
     TInstrKind::TBrOnNull(label, ref_, values)
@@ -1796,9 +1800,9 @@ fn mb_problem_finder_walk(
         st.blocked = Some("unsupported branch op targeting origin")
         return
       }
-      mb_problem_finder_walk(origin, ref_, depth, false, st, env)
+      mb_problem_finder_walk(origin, ref_, depth, st, env)
       for value in values {
-        mb_problem_finder_walk(origin, value, depth, false, st, env)
+        mb_problem_finder_walk(origin, value, depth, st, env)
       }
     }
     TInstrKind::TTryTable(_, catches, body) => {
@@ -1829,30 +1833,27 @@ fn mb_problem_finder_walk(
             }
         }
       }
-      mb_problem_finder_walk_expr(origin, body, depth + 1, false, st, env)
+      mb_problem_finder_walk_expr(origin, body, depth + 1, st, env)
     }
-    TInstrKind::TDrop(value) =>
-      mb_problem_finder_walk(origin, value, depth, true, st, env)
     TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
-      mb_problem_finder_walk_expr(origin, body, depth + 1, false, st, env)
+      mb_problem_finder_walk_expr(origin, body, depth + 1, st, env)
     TInstrKind::TIf(_, cond, then_, else_) => {
-      mb_problem_finder_walk(origin, cond, depth, false, st, env)
+      mb_problem_finder_walk(origin, cond, depth, st, env)
       if st.blocked is Some(_) {
         return
       }
-      mb_problem_finder_walk_expr(origin, then_, depth + 1, false, st, env)
+      mb_problem_finder_walk_expr(origin, then_, depth + 1, st, env)
       if st.blocked is Some(_) {
         return
       }
       match else_ {
-        Some(e) =>
-          mb_problem_finder_walk_expr(origin, e, depth + 1, false, st, env)
+        Some(e) => mb_problem_finder_walk_expr(origin, e, depth + 1, st, env)
         None => ()
       }
     }
     _ =>
       for child in eval_children(expr) {
-        mb_problem_finder_walk(origin, child, depth, false, st, env)
+        mb_problem_finder_walk(origin, child, depth, st, env)
         if st.blocked is Some(_) {
           return
         }
@@ -1865,12 +1866,11 @@ fn mb_problem_finder_walk_expr(
   origin : LabelIdx,
   expr : TExpr,
   depth : Int,
-  under_drop : Bool,
   st : ProblemFinderState,
   env : Env,
 ) -> Unit {
   for instr in expr.instrs {
-    mb_problem_finder_walk(origin, instr, depth, under_drop, st, env)
+    mb_problem_finder_walk(origin, instr, depth, st, env)
     if st.blocked is Some(_) {
       return
     }
@@ -2103,11 +2103,9 @@ fn optimize_dropped_block(
     TInstrKind::TDrop({ kind: TInstrKind::TBlock(_, body), .. }) => body
     _ => return (drop_instr, false)
   }
-  for instr in next_body.instrs {
-    match problem_finder(LabelIdx::new(0), instr, mod, options, ctx) {
-      ProblemBlocked => return (drop_instr, false)
-      ProblemOk => ()
-    }
+  match problem_finder(LabelIdx::new(0), next_body, mod, options, ctx) {
+    ProblemBlocked => return (drop_instr, false)
+    ProblemOk => ()
   }
   {
     let rewritten_items : Array[TInstr] = []
@@ -3613,6 +3611,46 @@ test "merge blocks: problem finder blocks br_if mismatch" {
   ])
   let out = mb_run_on_body(body)
   assert_eq(out, body)
+}
+
+///|
+test "merge blocks: problem finder allows globally balanced dropped br_if values" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::drop(
+            TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(1)), [
+              TInstr::i32_const(I32(3)),
+            ]),
+          ),
+          TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(1)), [
+            TInstr::i32_const(I32(4)),
+          ]),
+          TInstr::i32_const(I32(5)),
+        ]),
+      ),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  assert_false(out == body)
+  let mut saw_value_br_if = false
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TBrIf(_, _, values) if !values.is_empty() =>
+          saw_value_br_if = true
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
+  ignore(walker.walk_texpr((), out))
+  assert_false(saw_value_br_if)
 }
 
 ///|

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed C-001 by running dropped-block `problem_finder` over the whole body and aligning `br_if` drop-accounting with Binaryen semantics
+
+This follow-up closes the `MergeBlocks` correctness gap C-001 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt). The dropped-block path in `optimize_dropped_block(...)` previously called `problem_finder(...)` once per top-level instruction in the block body, which prevented whole-body balancing behavior for dropped vs non-dropped `br_if` cases and diverged from Binaryen's one-walk dropped-block analysis.
+
+The dropped-block analysis now runs once across the entire body expression (`TExpr`) before rewriting break values. As part of the same fix, `ProblemFinderState` now tracks `non_dropped_br_if_values` and `dropped_br_if_values`, and the block condition now matches Binaryen-style balancing semantics: block only when `non_dropped_br_if_values > dropped_br_if_values`. In addition, `drop(br_if ...)` is accounted for directly in the `TDrop` arm without recursively counting that branch as non-dropped.
+
+Regression coverage in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt) was extended with:
+- `merge blocks: problem finder allows globally balanced dropped br_if values`
+
+This fixture exercises sibling `drop(br_if ...)` and non-dropped `br_if` values that only balance when analyzed as one whole-body problem-finder pass. The test asserts the optimization now proceeds and that `br_if` value payloads are stripped.
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): C-001 was removed from publishing blockers and moved to recently completed with completion notes.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed P-001 by collapsing per-function refinalization to a single `changed || needs_refinalize` gate and adding invocation-count regression coverage
 
 This follow-up closes the `MergeBlocks` performance P-001 backlog item in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt). The function runner previously performed up to two full refinalization traversals on the same function body:
