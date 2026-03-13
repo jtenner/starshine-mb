@@ -15,19 +15,101 @@
 ///
 
 ///|
-priv struct BranchCacheKey {
-  instr : TInstr
+priv struct BranchCacheQueryKey {
+  instr_id : Int
   depth : Int
+  generation : Int
 } derive(Eq, Hash)
 
 ///|
+priv struct BranchCacheInstrIdEntry {
+  instr_id : Int
+  instr : TInstr
+}
+
+///|
 priv struct BranchCache {
-  entries : Map[BranchCacheKey, Bool]
+  query_entries : Map[BranchCacheQueryKey, Bool]
+  instr_id_entries : Array[BranchCacheInstrIdEntry]
+  mut next_instr_id : Int
+  mut generation : Int
+  mut query_hits : Int
+  mut query_misses : Int
+  mut instr_id_hits : Int
+  mut instr_id_misses : Int
+  mut invalidations : Int
 }
 
 ///|
 fn BranchCache::new() -> BranchCache {
-  { entries: Map::new() }
+  {
+    query_entries: Map::new(),
+    instr_id_entries: [],
+    next_instr_id: 0,
+    generation: 0,
+    query_hits: 0,
+    query_misses: 0,
+    instr_id_hits: 0,
+    instr_id_misses: 0,
+    invalidations: 0,
+  }
+}
+
+///|
+fn mb_branch_cache_instr_id(cache : BranchCache, instr : TInstr) -> Int {
+  for entry in cache.instr_id_entries {
+    if physical_equal(entry.instr, instr) {
+      cache.instr_id_hits += 1
+      return entry.instr_id
+    }
+  }
+  let instr_id = cache.next_instr_id
+  cache.next_instr_id += 1
+  cache.instr_id_misses += 1
+  cache.instr_id_entries.push({ instr_id, instr })
+  instr_id
+}
+
+///|
+fn mb_branch_cache_invalidate(cache : BranchCache) -> Unit {
+  cache.generation += 1
+  cache.invalidations += 1
+}
+
+///|
+fn mb_branch_cache_hit_rate_bp(cache : BranchCache) -> UInt64 {
+  let total_queries = cache.query_hits + cache.query_misses
+  if total_queries <= 0 {
+    0UL
+  } else {
+    cache.query_hits.to_uint64() * 10000UL / total_queries.to_uint64()
+  }
+}
+
+///|
+fn mb_branch_cache_stress_hit_rate_bp(repetitions : Int) -> UInt64 {
+  let cache = BranchCache::new()
+  let probes : Array[TInstr] = [
+    TInstr::br(LabelIdx::new(0), []),
+    TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(0)), []),
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
+    ),
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::i32_const(I32(1)),
+      TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
+      Some(TExpr::new([TInstr::nop()])),
+    ),
+  ]
+  for _ in 0..<repetitions {
+    for probe in probes {
+      ignore(mb_has_branch_to_depth(probe, 0, cache))
+      ignore(mb_has_branch_to_depth(probe, 1, cache))
+    }
+  }
+  mb_branch_cache_hit_rate_bp(cache)
 }
 
 ///|
@@ -1337,12 +1419,17 @@ fn mb_has_branch_to_depth(
   depth : Int,
   cache : BranchCache,
 ) -> Bool {
-  let key = { instr, depth }
-  match cache.entries.get(key) {
-    Some(v) => v
+  let instr_id = mb_branch_cache_instr_id(cache, instr)
+  let key = { instr_id, depth, generation: cache.generation }
+  match cache.query_entries.get(key) {
+    Some(v) => {
+      cache.query_hits += 1
+      v
+    }
     None => {
+      cache.query_misses += 1
       let v = mb_has_branch_to_depth_uncached(instr, depth, cache)
-      cache.entries[key] = v
+      cache.query_entries[key] = v
       v
     }
   }
@@ -2843,6 +2930,7 @@ fn optimize_block(
           break
         }
         any_change = true
+        mb_branch_cache_invalidate(branch_cache)
         curr_items.clear()
         for item in out {
           curr_items.push(item)
@@ -4875,6 +4963,43 @@ test "merge blocks: effect cache stress fixture improves wall time by at least 1
   assert_true(
     improvement_bp >= 1500UL,
     msg="expected >=15% wall-time improvement, uncached=\{uncached_us}us cached=\{cached_us}us improvement_bp=\{improvement_bp}",
+  )
+}
+
+///|
+test "merge blocks: branch cache uses id-based keys so structural clones do not alias" {
+  let cache = BranchCache::new()
+  let probe_a = TInstr::br(LabelIdx::new(0), [])
+  let probe_b = TInstr::br(LabelIdx::new(0), [])
+  ignore(mb_has_branch_to_depth(probe_a, 0, cache))
+  ignore(mb_has_branch_to_depth(probe_b, 0, cache))
+  assert_eq(cache.instr_id_hits, 0)
+  assert_eq(cache.instr_id_misses, 2)
+  assert_eq(cache.query_misses, 2)
+  assert_eq(cache.query_hits, 0)
+}
+
+///|
+test "merge blocks: branch cache rewrite invalidation boundary forces next-query miss" {
+  let cache = BranchCache::new()
+  let probe = TInstr::br(LabelIdx::new(0), [])
+  ignore(mb_has_branch_to_depth(probe, 0, cache))
+  ignore(mb_has_branch_to_depth(probe, 0, cache))
+  assert_true(cache.instr_id_hits > 0)
+  let hits_before = cache.query_hits
+  mb_branch_cache_invalidate(cache)
+  ignore(mb_has_branch_to_depth(probe, 0, cache))
+  assert_eq(cache.query_hits, hits_before)
+  assert_eq(cache.query_misses, 2)
+  assert_true(cache.invalidations > 0)
+}
+
+///|
+test "merge blocks: branch cache stress fixture meets representative hit-rate target" {
+  let hit_rate_bp = mb_branch_cache_stress_hit_rate_bp(128)
+  assert_true(
+    hit_rate_bp >= 8000UL,
+    msg="expected >=80% branch-cache hit rate, got \{hit_rate_bp}bp",
   )
 }
 

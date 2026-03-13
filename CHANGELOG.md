@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed P-003 by switching branch-query cache keys to identity ids with generation invalidation and locking representative hit-rate coverage
+
+This follow-up closes `MergeBlocks` performance P-003 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
+
+Strict TDD was used:
+1. Added red-first branch-cache regressions:
+   - `merge blocks: branch cache uses id-based keys so structural clones do not alias`
+   - `merge blocks: branch cache rewrite invalidation boundary forces next-query miss`
+   - `merge blocks: branch cache stress fixture meets representative hit-rate target`
+2. Ran `moon test src/passes` and captured explicit red compile failures before implementation:
+   - missing `BranchCache` stats fields used by the new tests (`instr_id_misses`, `query_misses`, `query_hits`, `invalidations`)
+   - missing invalidation helper (`mb_branch_cache_invalidate(...)`)
+   - missing stress helper (`mb_branch_cache_stress_hit_rate_bp(...)`)
+3. Implemented identity/generation cache changes and reran to green.
+
+Implementation details:
+- Replaced structural cache keys:
+  - before: `BranchCacheKey { instr: TInstr, depth }` keyed by structural `Eq`/`Hash`.
+  - after: `BranchCacheQueryKey { instr_id, depth, generation }` keyed by instruction identity id and invalidation generation.
+- Added identity-id side table:
+  - `instr_id_entries : Array[BranchCacheInstrIdEntry]`
+  - `mb_branch_cache_instr_id(...)` resolves ids via `physical_equal(...)` so structurally equal clones do not alias.
+- Added generation invalidation boundary:
+  - `mb_branch_cache_invalidate(...)` increments cache generation and invalidation counter.
+  - `optimize_block(...)` now calls invalidation whenever a round rewrites the block before the next round queries run.
+- Added branch-cache observability and stress helper:
+  - query hit/miss counters and id hit/miss counters
+  - `mb_branch_cache_hit_rate_bp(...)`
+  - `mb_branch_cache_stress_hit_rate_bp(...)` for representative repeated-query hit-rate measurement.
+
+Behavioral outcomes locked by tests:
+- Structural clones now map to distinct instruction ids (no key aliasing through structural hashing).
+- Post-rewrite round boundaries force a miss on the next query generation instead of reusing stale query entries.
+- Representative repeated-query fixture keeps cache hit rate at `>= 80%`.
+
+Verification:
+- `moon test src/passes`
+- `moon info && moon fmt`
+- `moon test`
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): P-003 was removed from publishing blockers and moved to recently completed.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed P-002 by adding per-function `compute_effects` memoization and locking a >=15% stress-fixture wall-time improvement
 
 This follow-up closes `MergeBlocks` performance P-002 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
