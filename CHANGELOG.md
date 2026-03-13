@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed C-002 by adding an explicit motion-barrier opcode-effect checklist for `mb_collect_shallow_effects`
+
+This follow-up closes the `MergeBlocks` correctness gap C-002 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt) by making the supported shallow-effect opcode surface explicit and regression-checked.
+
+Strict TDD was used:
+1. Added red-first checklist tests (`effect checklist is explicit and stable`, `effect checklist entries match shallow effect collector`) before implementing checklist helpers.
+2. Ran `moon test src/passes` and captured the expected red compile state (unbound checklist helpers).
+3. Implemented checklist structs/helpers and reran to green.
+
+What was added:
+- `MBEffectChecklistExpected` and `MBEffectChecklistEntry` helper structs.
+- `mb_effect_checklist_entries()` with a canonical 30-entry motion-barrier opcode checklist that covers all currently tagged `mb_collect_shallow_effects` instruction families.
+- `mb_effect_checklist_entry_matches(...)` matcher used by tests to compare expected vs observed shallow-effect signatures.
+
+Regression coverage:
+- `merge blocks: effect checklist is explicit and stable`
+- `merge blocks: effect checklist entries match shallow effect collector`
+
+This locks the current effect-tagged opcode surface in one explicit checklist so future edits to `mb_collect_shallow_effects` are checked against a maintained parity list instead of ad hoc spot checks.
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): C-002 was removed from publishing blockers and moved to recently completed.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed dropped-block parity coverage by expanding `try_table` catch fixtures, adding nested drop/`br_if` legality regression, and fixing nested dropped-path blocker traversal
 
 This follow-up closes the `MergeBlocks` dropped-block parity backlog item in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).

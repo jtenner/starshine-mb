@@ -790,6 +790,274 @@ fn mb_collect_shallow_effects(instr : TInstr, effects : MBEffects) -> Unit {
 }
 
 ///|
+priv struct MBEffectChecklistExpected {
+  local_read : LocalIdx?
+  local_write : LocalIdx?
+  reads_memory : Bool
+  writes_memory : Bool
+  reads_globals : Bool
+  writes_globals : Bool
+  calls : Bool
+  branches : Bool
+  traps : Bool
+  throws : Bool
+}
+
+///|
+fn mb_effect_checklist_expected(
+  local_read? : LocalIdx? = None,
+  local_write? : LocalIdx? = None,
+  reads_memory? : Bool = false,
+  writes_memory? : Bool = false,
+  reads_globals? : Bool = false,
+  writes_globals? : Bool = false,
+  calls? : Bool = false,
+  branches? : Bool = false,
+  traps? : Bool = false,
+  throws? : Bool = false,
+) -> MBEffectChecklistExpected {
+  {
+    local_read,
+    local_write,
+    reads_memory,
+    writes_memory,
+    reads_globals,
+    writes_globals,
+    calls,
+    branches,
+    traps,
+    throws,
+  }
+}
+
+///|
+priv struct MBEffectChecklistEntry {
+  name : String
+  instr : TInstr
+  expected : MBEffectChecklistExpected
+}
+
+///|
+fn MBEffectChecklistEntry::new(
+  name : String,
+  instr : TInstr,
+  expected : MBEffectChecklistExpected,
+) -> MBEffectChecklistEntry {
+  { name, instr, expected }
+}
+
+///|
+fn mb_effect_checklist_entries() -> Array[MBEffectChecklistEntry] {
+  let i0 = TInstr::i32_const(I32(0))
+  let i1 = TInstr::i32_const(I32(1))
+  let ref_any = TInstr::ref_null(HeapType::abs(AbsHeapType::any()))
+  let ref_func = TInstr::ref_null(HeapType::abs(AbsHeapType::func()))
+  let ref_exn = TInstr::ref_null(HeapType::abs(AbsHeapType::exn()))
+  [
+    MBEffectChecklistEntry::new(
+      "local_get",
+      TInstr::local_get(LocalIdx::new(2)),
+      mb_effect_checklist_expected(local_read=Some(LocalIdx::new(2))),
+    ),
+    MBEffectChecklistEntry::new(
+      "local_set",
+      TInstr::local_set(LocalIdx::new(3), i1),
+      mb_effect_checklist_expected(local_write=Some(LocalIdx::new(3))),
+    ),
+    MBEffectChecklistEntry::new(
+      "local_tee",
+      TInstr::local_tee(LocalIdx::new(4), i1),
+      mb_effect_checklist_expected(
+        local_read=Some(LocalIdx::new(4)),
+        local_write=Some(LocalIdx::new(4)),
+      ),
+    ),
+    MBEffectChecklistEntry::new(
+      "global_get",
+      TInstr::global_get(GlobalIdx::new(0)),
+      mb_effect_checklist_expected(reads_globals=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "global_set",
+      TInstr::global_set(GlobalIdx::new(0), i0),
+      mb_effect_checklist_expected(writes_globals=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "load",
+      TInstr::load(LoadOp::i32_load(), MemArg::new(0, None, 0), i0),
+      mb_effect_checklist_expected(reads_memory=true, traps=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "store",
+      TInstr::store(StoreOp::i32_store(), MemArg::new(0, None, 0), i0, i1),
+      mb_effect_checklist_expected(writes_memory=true, traps=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "memory_grow",
+      TInstr::memory_grow(MemIdx::new(0), i1),
+      mb_effect_checklist_expected(writes_memory=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "memory_size",
+      TInstr::memory_size(MemIdx::new(0)),
+      mb_effect_checklist_expected(reads_memory=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "memory_copy",
+      TInstr::memory_copy(MemIdx::new(0), MemIdx::new(0), i0, i1, i1),
+      mb_effect_checklist_expected(reads_memory=true, writes_memory=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "memory_fill",
+      TInstr::memory_fill(MemIdx::new(0), i0, i1, i1),
+      mb_effect_checklist_expected(writes_memory=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "memory_init",
+      TInstr::memory_init(DataIdx::new(0), MemIdx::new(0), i0, i1, i1),
+      mb_effect_checklist_expected(reads_memory=true, writes_memory=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "data_drop",
+      TInstr::data_drop(DataIdx::new(0)),
+      mb_effect_checklist_expected(writes_memory=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "table_write_family",
+      TInstr::table_set(TableIdx::new(0), i0, ref_func),
+      mb_effect_checklist_expected(writes_memory=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "table_read_family",
+      TInstr::table_get(TableIdx::new(0), i0),
+      mb_effect_checklist_expected(reads_memory=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "table_copy_init_drop_family",
+      TInstr::table_copy(TableIdx::new(0), TableIdx::new(0), i0, i1, i1),
+      mb_effect_checklist_expected(reads_memory=true, writes_memory=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "call_family",
+      TInstr::call(FuncIdx::new(0), []),
+      mb_effect_checklist_expected(calls=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "return_call_family",
+      TInstr::return_call(FuncIdx::new(0), []),
+      mb_effect_checklist_expected(calls=true, branches=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "branch_family",
+      TInstr::br_if(LabelIdx::new(0), i1, []),
+      mb_effect_checklist_expected(branches=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "throw",
+      TInstr::throw_(TagIdx::new(0), []),
+      mb_effect_checklist_expected(throws=true, branches=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "throw_ref",
+      TInstr::throw_ref(ref_exn),
+      mb_effect_checklist_expected(throws=true, branches=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "unreachable",
+      TInstr::unreachable_(),
+      mb_effect_checklist_expected(traps=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "ref_as_non_null_or_ref_cast",
+      TInstr::ref_as_non_null(ref_any),
+      mb_effect_checklist_expected(traps=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "struct_get_family",
+      TInstr::struct_get(TypeIdx::new(0), 0, ref_any),
+      mb_effect_checklist_expected(reads_memory=true, traps=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "struct_set",
+      TInstr::struct_set(TypeIdx::new(0), 0, ref_any, i1),
+      mb_effect_checklist_expected(writes_memory=true, traps=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "array_get_family",
+      TInstr::array_get(TypeIdx::new(0), ref_any, i0),
+      mb_effect_checklist_expected(reads_memory=true, traps=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "array_set_fill_family",
+      TInstr::array_set(TypeIdx::new(0), ref_any, i0, i1),
+      mb_effect_checklist_expected(writes_memory=true, traps=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "array_copy_init_family",
+      TInstr::array_copy(
+        TypeIdx::new(0),
+        TypeIdx::new(0),
+        ref_any,
+        i0,
+        ref_any,
+        i0,
+        i1,
+      ),
+      mb_effect_checklist_expected(
+        reads_memory=true,
+        writes_memory=true,
+        traps=true,
+      ),
+    ),
+    MBEffectChecklistEntry::new(
+      "array_new_family",
+      TInstr::array_new(TypeIdx::new(0), i1, i1),
+      mb_effect_checklist_expected(writes_memory=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "struct_new_family",
+      TInstr::struct_new(TypeIdx::new(0), []),
+      mb_effect_checklist_expected(writes_memory=true),
+    ),
+  ]
+}
+
+///|
+fn mb_effect_checklist_entry_matches(
+  entry : MBEffectChecklistEntry,
+  effects : MBEffects,
+) -> Bool {
+  let expected_read_count = match entry.expected.local_read {
+    Some(_) => 1
+    None => 0
+  }
+  let expected_write_count = match entry.expected.local_write {
+    Some(_) => 1
+    None => 0
+  }
+  let local_read_ok = match entry.expected.local_read {
+    Some(idx) => effects.locals_read.contains(idx)
+    None => effects.locals_read.length() == 0
+  }
+  let local_write_ok = match entry.expected.local_write {
+    Some(idx) => effects.locals_written.contains(idx)
+    None => effects.locals_written.length() == 0
+  }
+  local_read_ok &&
+  local_write_ok &&
+  effects.locals_read.length() == expected_read_count &&
+  effects.locals_written.length() == expected_write_count &&
+  effects.reads_memory == entry.expected.reads_memory &&
+  effects.writes_memory == entry.expected.writes_memory &&
+  effects.reads_globals == entry.expected.reads_globals &&
+  effects.writes_globals == entry.expected.writes_globals &&
+  effects.calls == entry.expected.calls &&
+  effects.branches == entry.expected.branches &&
+  effects.traps == entry.expected.traps &&
+  effects.throws == entry.expected.throws
+}
+
+///|
 priv struct MBContext {
   env : Env
   mut needs_refinalize : Bool
@@ -4361,6 +4629,23 @@ test "merge blocks: mb_collect_shallow_effects marks instruction-specific flags"
   )
   assert_true(throw_fx.throws)
   assert_true(throw_fx.branches)
+}
+
+///|
+test "merge blocks: effect checklist is explicit and stable" {
+  let checklist = mb_effect_checklist_entries()
+  assert_eq(checklist.length(), 30)
+}
+
+///|
+test "merge blocks: effect checklist entries match shallow effect collector" {
+  for entry in mb_effect_checklist_entries() {
+    let effects = MBEffects::new()
+    mb_collect_shallow_effects(entry.instr, effects)
+    if !mb_effect_checklist_entry_matches(entry, effects) {
+      fail("effect checklist mismatch for opcode entry: \{entry.name}")
+    }
+  }
 }
 
 ///|
