@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed effect-model hardening by filling missing shallow-effect tags and adding a table-driven movement matrix
+
+This follow-up closes the `MergeBlocks` effect-model hardening backlog item in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
+
+Strict TDD was used:
+1. Added red-first regressions for:
+   - checklist growth expectation (`35` entries)
+   - table-driven movement blocked/allowed behavior across side-effect, trap, branch, and control-transfer representative families.
+2. Ran `moon test src/passes` and captured explicit failures:
+   - checklist size mismatch (`30 != 35`)
+   - missing trap barrier behavior (`trap_div_vs_side_effect_local_set` case).
+3. Implemented missing tags and checklist expansions, then reran to green.
+
+Effect-model hardening changes in `mb_collect_shallow_effects`:
+- Added missing trap flags for:
+  - `memory.copy`, `memory.fill`, `memory.init`
+  - `ref.cast_desc_eq`
+  - `array.len`
+  - integer `div/rem` binary ops
+  - float->int truncating unary ops
+- Added missing memory read+write tags for atomic family ops:
+  - `atomic.fence`, `memory.atomic.notify`, `memory.atomic.wait32/64`, `atomic.rmw`, `atomic.cmpxchg`
+- Strengthened array tags:
+  - `array.set` / `array.fill` now mark both `reads_memory` and `writes_memory`
+  - `array.new*` family now marks `traps` in addition to memory writes
+
+Checklist and regression updates:
+- Expanded opcode checklist from `30` to `35` entries and updated expected signatures accordingly.
+- Added `MBMovementCase` table-driven movement matrix regression:
+  - blocked cases for trap+side-effect, atomic memory hazards, branch barriers, and throw/control-transfer
+  - allowed cases for pure arithmetic and disjoint local reads.
+
+Verification:
+- `moon test src/passes`
+- `moon info && moon fmt`
+- `moon test`
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): the effect-model hardening item was removed from publishing blockers and moved to recently completed.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed C-002 by adding an explicit motion-barrier opcode-effect checklist for `mb_collect_shallow_effects`
 
 This follow-up closes the `MergeBlocks` correctness gap C-002 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt) by making the supported shallow-effect opcode surface explicit and regression-checked.

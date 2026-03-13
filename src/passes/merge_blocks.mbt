@@ -705,11 +705,16 @@ fn mb_collect_shallow_effects(instr : TInstr, effects : MBEffects) -> Unit {
     TInstrKind::TMemoryCopy(_, _, _, _, _) => {
       effects.reads_memory = true
       effects.writes_memory = true
+      effects.traps = true
     }
-    TInstrKind::TMemoryFill(_, _, _, _) => effects.writes_memory = true
+    TInstrKind::TMemoryFill(_, _, _, _) => {
+      effects.writes_memory = true
+      effects.traps = true
+    }
     TInstrKind::TMemoryInit(_, _, _, _, _) => {
       effects.reads_memory = true
       effects.writes_memory = true
+      effects.traps = true
     }
     TInstrKind::TDataDrop(_) => effects.writes_memory = true
     TInstrKind::TTableSet(_, _, _)
@@ -749,8 +754,9 @@ fn mb_collect_shallow_effects(instr : TInstr, effects : MBEffects) -> Unit {
       effects.branches = true
     }
     TInstrKind::TUnreachable => effects.traps = true
-    TInstrKind::TRefAsNonNull(_) | TInstrKind::TRefCast(_, _, _) =>
-      effects.traps = true
+    TInstrKind::TRefAsNonNull(_)
+    | TInstrKind::TRefCast(_, _, _)
+    | TInstrKind::TRefCastDescEq(_, _, _) => effects.traps = true
     TInstrKind::TStructGet(_, _, _)
     | TInstrKind::TStructGetS(_, _, _)
     | TInstrKind::TStructGetU(_, _, _) => {
@@ -763,11 +769,13 @@ fn mb_collect_shallow_effects(instr : TInstr, effects : MBEffects) -> Unit {
     }
     TInstrKind::TArrayGet(_, _, _)
     | TInstrKind::TArrayGetS(_, _, _)
-    | TInstrKind::TArrayGetU(_, _, _) => {
+    | TInstrKind::TArrayGetU(_, _, _)
+    | TInstrKind::TArrayLen(_) => {
       effects.reads_memory = true
       effects.traps = true
     }
     TInstrKind::TArraySet(_, _, _, _) | TInstrKind::TArrayFill(_, _, _, _, _) => {
+      effects.reads_memory = true
       effects.writes_memory = true
       effects.traps = true
     }
@@ -782,9 +790,45 @@ fn mb_collect_shallow_effects(instr : TInstr, effects : MBEffects) -> Unit {
     | TInstrKind::TArrayNewDefault(_, _)
     | TInstrKind::TArrayNewFixed(_, _)
     | TInstrKind::TArrayNewData(_, _, _, _)
-    | TInstrKind::TArrayNewElem(_, _, _, _)
-    | TInstrKind::TStructNew(_, _)
-    | TInstrKind::TStructNewDefault(_) => effects.writes_memory = true
+    | TInstrKind::TArrayNewElem(_, _, _, _) => {
+      effects.writes_memory = true
+      effects.traps = true
+    }
+    TInstrKind::TStructNew(_, _) | TInstrKind::TStructNewDefault(_) =>
+      effects.writes_memory = true
+    TInstrKind::TAtomicFence
+    | TInstrKind::TMemoryAtomicNotify(_, _, _)
+    | TInstrKind::TMemoryAtomicWait32(_, _, _, _)
+    | TInstrKind::TMemoryAtomicWait64(_, _, _, _)
+    | TInstrKind::TAtomicRmw(_, _, _, _)
+    | TInstrKind::TAtomicCmpxchg(_, _, _, _, _) => {
+      effects.reads_memory = true
+      effects.writes_memory = true
+    }
+    TInstrKind::TBinary(op, _, _) =>
+      match op {
+        I32DivSOp
+        | I32DivUOp
+        | I32RemSOp
+        | I32RemUOp
+        | I64DivSOp
+        | I64DivUOp
+        | I64RemSOp
+        | I64RemUOp => effects.traps = true
+        _ => ()
+      }
+    TInstrKind::TUnary(op, _) =>
+      match op {
+        I32TruncF32SOp
+        | I32TruncF32UOp
+        | I32TruncF64SOp
+        | I32TruncF64UOp
+        | I64TruncF32SOp
+        | I64TruncF32UOp
+        | I64TruncF64SOp
+        | I64TruncF64UOp => effects.traps = true
+        _ => ()
+      }
     _ => ()
   }
 }
@@ -905,22 +949,40 @@ fn mb_effect_checklist_entries() -> Array[MBEffectChecklistEntry] {
     MBEffectChecklistEntry::new(
       "memory_copy",
       TInstr::memory_copy(MemIdx::new(0), MemIdx::new(0), i0, i1, i1),
-      mb_effect_checklist_expected(reads_memory=true, writes_memory=true),
+      mb_effect_checklist_expected(
+        reads_memory=true,
+        writes_memory=true,
+        traps=true,
+      ),
     ),
     MBEffectChecklistEntry::new(
       "memory_fill",
       TInstr::memory_fill(MemIdx::new(0), i0, i1, i1),
-      mb_effect_checklist_expected(writes_memory=true),
+      mb_effect_checklist_expected(writes_memory=true, traps=true),
     ),
     MBEffectChecklistEntry::new(
       "memory_init",
       TInstr::memory_init(DataIdx::new(0), MemIdx::new(0), i0, i1, i1),
-      mb_effect_checklist_expected(reads_memory=true, writes_memory=true),
+      mb_effect_checklist_expected(
+        reads_memory=true,
+        writes_memory=true,
+        traps=true,
+      ),
     ),
     MBEffectChecklistEntry::new(
       "data_drop",
       TInstr::data_drop(DataIdx::new(0)),
       mb_effect_checklist_expected(writes_memory=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "atomic_memory_family",
+      TInstr::memory_atomic_wait32(
+        MemArg::new(0, None, 0),
+        i0,
+        i0,
+        TInstr::i64_const(I64(0L)),
+      ),
+      mb_effect_checklist_expected(reads_memory=true, writes_memory=true),
     ),
     MBEffectChecklistEntry::new(
       "table_write_family",
@@ -973,6 +1035,11 @@ fn mb_effect_checklist_entries() -> Array[MBEffectChecklistEntry] {
       mb_effect_checklist_expected(traps=true),
     ),
     MBEffectChecklistEntry::new(
+      "ref_cast_desc_eq",
+      TInstr::ref_cast_desc_eq(true, HeapType::abs(AbsHeapType::any()), ref_any),
+      mb_effect_checklist_expected(traps=true),
+    ),
+    MBEffectChecklistEntry::new(
       "struct_get_family",
       TInstr::struct_get(TypeIdx::new(0), 0, ref_any),
       mb_effect_checklist_expected(reads_memory=true, traps=true),
@@ -988,9 +1055,18 @@ fn mb_effect_checklist_entries() -> Array[MBEffectChecklistEntry] {
       mb_effect_checklist_expected(reads_memory=true, traps=true),
     ),
     MBEffectChecklistEntry::new(
+      "array_len_family",
+      TInstr::array_len(ref_any),
+      mb_effect_checklist_expected(reads_memory=true, traps=true),
+    ),
+    MBEffectChecklistEntry::new(
       "array_set_fill_family",
       TInstr::array_set(TypeIdx::new(0), ref_any, i0, i1),
-      mb_effect_checklist_expected(writes_memory=true, traps=true),
+      mb_effect_checklist_expected(
+        reads_memory=true,
+        writes_memory=true,
+        traps=true,
+      ),
     ),
     MBEffectChecklistEntry::new(
       "array_copy_init_family",
@@ -1012,12 +1088,22 @@ fn mb_effect_checklist_entries() -> Array[MBEffectChecklistEntry] {
     MBEffectChecklistEntry::new(
       "array_new_family",
       TInstr::array_new(TypeIdx::new(0), i1, i1),
-      mb_effect_checklist_expected(writes_memory=true),
+      mb_effect_checklist_expected(writes_memory=true, traps=true),
     ),
     MBEffectChecklistEntry::new(
       "struct_new_family",
       TInstr::struct_new(TypeIdx::new(0), []),
       mb_effect_checklist_expected(writes_memory=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "binary_divrem_trap_family",
+      TInstr::binary(BinaryOp::i32_div_s(), i1, i0),
+      mb_effect_checklist_expected(traps=true),
+    ),
+    MBEffectChecklistEntry::new(
+      "unary_trunc_trap_family",
+      TInstr::unary(UnaryOp::i32_trunc_f64s(), TInstr::f64_const(F64(1.5))),
+      mb_effect_checklist_expected(traps=true),
     ),
   ]
 }
@@ -4634,7 +4720,7 @@ test "merge blocks: mb_collect_shallow_effects marks instruction-specific flags"
 ///|
 test "merge blocks: effect checklist is explicit and stable" {
   let checklist = mb_effect_checklist_entries()
-  assert_eq(checklist.length(), 30)
+  assert_eq(checklist.length(), 35)
 }
 
 ///|
@@ -4644,6 +4730,100 @@ test "merge blocks: effect checklist entries match shallow effect collector" {
     mb_collect_shallow_effects(entry.instr, effects)
     if !mb_effect_checklist_entry_matches(entry, effects) {
       fail("effect checklist mismatch for opcode entry: \{entry.name}")
+    }
+  }
+}
+
+///|
+priv struct MBMovementCase {
+  name : String
+  left : TInstr
+  right : TInstr
+  expect_blocked : Bool
+}
+
+///|
+fn MBMovementCase::new(
+  name : String,
+  left : TInstr,
+  right : TInstr,
+  expect_blocked : Bool,
+) -> MBMovementCase {
+  { name, left, right, expect_blocked }
+}
+
+///|
+test "merge blocks: movement matrix covers side-effect, trap, branch, and control-transfer families" {
+  let i0 = TInstr::i32_const(I32(0))
+  let i1 = TInstr::i32_const(I32(1))
+  let ref_any = TInstr::ref_null(HeapType::abs(AbsHeapType::any()))
+  let ref_exn = TInstr::ref_null(HeapType::abs(AbsHeapType::exn()))
+  let load0 = TInstr::load(LoadOp::i32_load(), MemArg::new(0, None, 0), i0)
+  let cases : Array[MBMovementCase] = [
+    MBMovementCase::new(
+      "trap_div_vs_side_effect_local_set",
+      TInstr::binary(BinaryOp::i32_div_s(), i1, i0),
+      TInstr::local_set(LocalIdx::new(0), i1),
+      true,
+    ),
+    MBMovementCase::new(
+      "trap_ref_cast_desc_eq_vs_side_effect_global_set",
+      TInstr::ref_cast_desc_eq(true, HeapType::abs(AbsHeapType::any()), ref_any),
+      TInstr::global_set(GlobalIdx::new(0), i0),
+      true,
+    ),
+    MBMovementCase::new(
+      "atomic_memory_family_vs_memory_read",
+      TInstr::memory_atomic_wait32(
+        MemArg::new(0, None, 0),
+        i0,
+        i0,
+        TInstr::i64_const(I64(0L)),
+      ),
+      load0,
+      true,
+    ),
+    MBMovementCase::new(
+      "branch_family_blocks",
+      TInstr::br_if(LabelIdx::new(0), i1, []),
+      i0,
+      true,
+    ),
+    MBMovementCase::new(
+      "control_transfer_throw_ref_blocks",
+      TInstr::throw_ref(ref_exn),
+      i0,
+      true,
+    ),
+    MBMovementCase::new(
+      "pure_constants_allowed",
+      i0,
+      TInstr::i32_const(I32(7)),
+      false,
+    ),
+    MBMovementCase::new(
+      "pure_arith_can_reorder",
+      TInstr::binary(BinaryOp::i32_mul(), i1, i1),
+      TInstr::binary(BinaryOp::i32_add(), i1, TInstr::i32_const(I32(7))),
+      false,
+    ),
+    MBMovementCase::new(
+      "disjoint_local_reads_allowed",
+      TInstr::local_get(LocalIdx::new(2)),
+      TInstr::local_get(LocalIdx::new(3)),
+      false,
+    ),
+  ]
+  for case_ in cases {
+    let left_fx = compute_effects(case_.left)
+    let right_fx = compute_effects(case_.right)
+    let lr = invalidates(left_fx, right_fx)
+    let rl = invalidates(right_fx, left_fx)
+    if lr != case_.expect_blocked {
+      fail("left->right mismatch for movement case: \{case_.name}")
+    }
+    if rl != case_.expect_blocked {
+      fail("right->left mismatch for movement case: \{case_.name}")
     }
   }
 }
