@@ -1268,6 +1268,8 @@ priv struct MBContext {
   mut optimize_block_round_cap_hits : Int
   mut non_control_child_iteration_steps : Int
   non_control_child_array_materializations : Int
+  mut optimize_block_round_buffer_swaps : Int
+  optimize_block_round_rebuild_copies : Int
 }
 
 ///|
@@ -1304,6 +1306,8 @@ fn MBContext::new_with_round_safety_cap_and_effect_cache(
     optimize_block_round_cap_hits: 0,
     non_control_child_iteration_steps: 0,
     non_control_child_array_materializations: 0,
+    optimize_block_round_buffer_swaps: 0,
+    optimize_block_round_rebuild_copies: 0,
   }
 }
 
@@ -1318,6 +1322,8 @@ priv struct MBFunctionRunStats {
   optimize_block_round_cap_hits : Int
   non_control_child_iteration_steps : Int
   non_control_child_array_materializations : Int
+  optimize_block_round_buffer_swaps : Int
+  optimize_block_round_rebuild_copies : Int
 }
 
 ///|
@@ -1331,6 +1337,8 @@ fn MBFunctionRunStats::new(
   optimize_block_round_cap_hits : Int,
   non_control_child_iteration_steps : Int,
   non_control_child_array_materializations : Int,
+  optimize_block_round_buffer_swaps : Int,
+  optimize_block_round_rebuild_copies : Int,
 ) -> MBFunctionRunStats {
   {
     changed,
@@ -1342,6 +1350,8 @@ fn MBFunctionRunStats::new(
     optimize_block_round_cap_hits,
     non_control_child_iteration_steps,
     non_control_child_array_materializations,
+    optimize_block_round_buffer_swaps,
+    optimize_block_round_rebuild_copies,
   }
 }
 
@@ -2712,7 +2722,8 @@ fn optimize_block(
 ) -> (TInstr, Bool) {
   match block.kind {
     TInstrKind::TBlock(bt, body) => {
-      let curr_items = body.instrs.copy()
+      let mut curr_items = body.instrs.copy()
+      let mut next_items : Array[TInstr] = []
       let mut any_change = false
       let round_safety_cap = mb_optimize_block_round_safety_cap(
         curr_items.length(),
@@ -2722,7 +2733,7 @@ fn optimize_block(
       while true {
         rounds += 1
         ctx.optimize_block_rounds += 1
-        let out : Array[TInstr] = []
+        next_items.clear()
         let mut round_change = false
         let n = curr_items.length()
         for i = 0; i < curr_items.length(); i = i + 1 {
@@ -2747,7 +2758,7 @@ fn optimize_block(
                 ctx,
               )
               if changed {
-                out.push(rewritten)
+                next_items.push(rewritten)
                 round_change = true
                 continue
               }
@@ -2757,7 +2768,7 @@ fn optimize_block(
           match item1.kind {
             TInstrKind::TBlock(child_bt, child_body) => {
               if has_dead_code(item1) {
-                out.push(item1)
+                next_items.push(item1)
                 continue
               }
               let child_items = child_body.instrs
@@ -2771,11 +2782,11 @@ fn optimize_block(
                 }
               }
               if named && mb_blocktype_is_concrete(child_bt, ctx.env) {
-                out.push(item1)
+                next_items.push(item1)
                 continue
               }
               if split == 0 {
-                out.push(item1)
+                next_items.push(item1)
                 continue
               }
               let mut can_move = true
@@ -2786,7 +2797,7 @@ fn optimize_block(
                 }
               }
               if !can_move {
-                out.push(item1)
+                next_items.push(item1)
                 continue
               }
               let mut split_item_has_parent_branch = false
@@ -2797,7 +2808,7 @@ fn optimize_block(
                 }
               }
               if split_item_has_parent_branch {
-                out.push(item1)
+                next_items.push(item1)
                 continue
               }
               let moved_items_keep : Array[TInstr] = []
@@ -2846,11 +2857,11 @@ fn optimize_block(
                 []
               }
               if moved_items.is_empty() && drop_changed {
-                out.push(item1)
+                next_items.push(item1)
                 continue
               }
               for moved in moved_items {
-                out.push(moved)
+                next_items.push(moved)
               }
               round_change = true
               continue
@@ -2863,12 +2874,12 @@ fn optimize_block(
               }
             ) => {
               if mb_has_dead_code_in_expr(inner_body) {
-                out.push(item1)
+                next_items.push(item1)
                 continue
               }
               let inner_items = inner_body.instrs
               if inner_items.is_empty() {
-                out.push(item1)
+                next_items.push(item1)
                 continue
               }
               let mut last_back_branch = -1
@@ -2879,7 +2890,7 @@ fn optimize_block(
               }
               let split = last_back_branch + 1
               if split >= inner_items.length() {
-                out.push(item1)
+                next_items.push(item1)
                 continue
               }
               if split < inner_items.length() &&
@@ -2887,7 +2898,7 @@ fn optimize_block(
                   inner_items[inner_items.length() - 1],
                   ctx.env,
                 ) {
-                out.push(item1)
+                next_items.push(item1)
                 continue
               }
               let mut can_move = true
@@ -2900,7 +2911,7 @@ fn optimize_block(
                 }
               }
               if !can_move {
-                out.push(item1)
+                next_items.push(item1)
                 continue
               }
               let keep : Array[TInstr] = []
@@ -2916,10 +2927,10 @@ fn optimize_block(
                   ),
                 ]),
               )
-              out.push(updated_loop)
+              next_items.push(updated_loop)
               for j = split; j < inner_items.length(); j = j + 1 {
                 let has_after = j + 1 < inner_items.length() || i + 1 < n
-                out.push(
+                next_items.push(
                   mb_prepare_moved_item(inner_items[j], has_after, ctx.env),
                 )
               }
@@ -2932,10 +2943,10 @@ fn optimize_block(
             item1, mod, options, branch_cache, ctx,
           )
           if restructured_changed {
-            out.push(restructured)
+            next_items.push(restructured)
             round_change = true
           } else {
-            out.push(item1)
+            next_items.push(item1)
           }
         }
         if !round_change {
@@ -2943,10 +2954,10 @@ fn optimize_block(
         }
         any_change = true
         mb_branch_cache_invalidate(branch_cache)
-        curr_items.clear()
-        for item in out {
-          curr_items.push(item)
-        }
+        let prev_items = curr_items
+        curr_items = next_items
+        next_items = prev_items
+        ctx.optimize_block_round_buffer_swaps += 1
         if rounds >= round_safety_cap {
           ctx.optimize_block_round_cap_hits += 1
           break
@@ -3154,6 +3165,8 @@ fn mb_run_on_function_with_stats_with_overrides(
             ctx.optimize_block_round_cap_hits,
             ctx.non_control_child_iteration_steps,
             ctx.non_control_child_array_materializations,
+            ctx.optimize_block_round_buffer_swaps,
+            ctx.optimize_block_round_rebuild_copies,
           ),
         )
       } else {
@@ -3170,12 +3183,18 @@ fn mb_run_on_function_with_stats_with_overrides(
             ctx.optimize_block_round_cap_hits,
             ctx.non_control_child_iteration_steps,
             ctx.non_control_child_array_materializations,
+            ctx.optimize_block_round_buffer_swaps,
+            ctx.optimize_block_round_rebuild_copies,
           ),
         )
       }
     }
     _ =>
-      (func, false, MBFunctionRunStats::new(false, false, 0, 0, 0, 0, 0, 0, 0))
+      (
+        func,
+        false,
+        MBFunctionRunStats::new(false, false, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+      )
   }
 }
 
@@ -3866,6 +3885,30 @@ fn mb_non_control_child_iteration_stress_totals(
     total_materializations += stats.non_control_child_array_materializations
   }
   (total_steps, total_materializations)
+}
+
+///|
+fn mb_optimize_block_buffer_stress_totals(
+  iterations : Int,
+  arg_count : Int,
+) -> (Int, Int) {
+  let mod = mb_make_non_control_child_iteration_stress_module(arg_count)
+  let func = match mod.code_sec {
+    Some(CodeSec([entry, _])) => entry
+    _ => abort("expected optimize-block buffer stress module function pair")
+  }
+  let mut total_swaps = 0
+  let mut total_rebuild_copies = 0
+  for _ in 0..<iterations {
+    let (_, _, stats) = mb_run_on_function_with_stats(
+      func,
+      mod,
+      OptimizeOptions::new(),
+    )
+    total_swaps += stats.optimize_block_round_buffer_swaps
+    total_rebuild_copies += stats.optimize_block_round_rebuild_copies
+  }
+  (total_swaps, total_rebuild_copies)
 }
 
 ///|
@@ -5065,6 +5108,32 @@ test "merge blocks: non-control child iteration stress fixture keeps representat
   )
   assert_true(iteration_steps > 0)
   assert_eq(materializations, 0)
+}
+
+///|
+test "merge blocks: optimize block staged buffers swap rounds without rebuild-copy replay" {
+  let mod = mb_make_non_control_child_iteration_stress_module(12)
+  let func = match mod.code_sec {
+    Some(CodeSec([entry, _])) => entry
+    _ => fail("expected optimize-block buffer stress module function pair")
+  }
+  let (_, changed, stats) = mb_run_on_function_with_stats(
+    func,
+    mod,
+    OptimizeOptions::new(),
+  )
+  assert_true(changed)
+  assert_true(stats.optimize_block_round_buffer_swaps > 0)
+  assert_eq(stats.optimize_block_round_rebuild_copies, 0)
+}
+
+///|
+test "merge blocks: optimize block staged-buffer stress fixture keeps representative zero-copy target" {
+  let (buffer_swaps, rebuild_copies) = mb_optimize_block_buffer_stress_totals(
+    96, 16,
+  )
+  assert_true(buffer_swaps > 0)
+  assert_eq(rebuild_copies, 0)
 }
 
 ///|

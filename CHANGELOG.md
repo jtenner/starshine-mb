@@ -1,5 +1,49 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed P-005 by switching `optimize_block` round assembly to staged buffer swaps and locking zero rebuild-copy replay coverage
+
+This follow-up closes `MergeBlocks` performance P-005 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
+
+Strict TDD was used:
+1. Added red-first regressions:
+   - `merge blocks: optimize block staged buffers swap rounds without rebuild-copy replay`
+   - `merge blocks: optimize block staged-buffer stress fixture keeps representative zero-copy target`
+2. Ran `moon test src/passes` and captured explicit red compile failures before implementation:
+   - missing `MBFunctionRunStats` fields:
+     - `optimize_block_round_buffer_swaps`
+     - `optimize_block_round_rebuild_copies`
+   - unbound stress helper:
+     - `mb_optimize_block_buffer_stress_totals(...)`
+3. Implemented staged swap assembly + stats/helper wiring and reran to green.
+
+Implementation details:
+- Reworked `optimize_block(...)` round assembly from rebuild-copy replay to staged buffers:
+  - before: each changed round replayed all `out` items into `curr_items` via `curr_items.clear()` + push loop.
+  - after: maintains `curr_items` and `next_items` buffers, clears/fills `next_items` per round, then commits with buffer swap:
+    - `prev_items = curr_items`
+    - `curr_items = next_items`
+    - `next_items = prev_items`
+- Preserved round semantics:
+  - round-change detection, branch-cache invalidation boundary, round-safety-cap handling, and finalization behavior are unchanged.
+- Added round-assembly observability:
+  - `MBContext.optimize_block_round_buffer_swaps`
+  - `MBContext.optimize_block_round_rebuild_copies`
+  - surfaced in `MBFunctionRunStats` with matching fields.
+- Added deterministic stress helper:
+  - `mb_optimize_block_buffer_stress_totals(iterations, arg_count)`
+  - aggregates swap/copy metrics over repeated fixed fixtures.
+
+Behavioral outcomes locked by tests:
+- Representative optimize-block rewrite workloads produce positive buffer-swap counts.
+- Rebuild-copy replay count remains `0` under staged-buffer commit behavior.
+
+Verification:
+- `moon test src/passes`
+- `moon info && moon fmt`
+- `moon test`
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): P-005 was removed from publishing blockers and moved to recently completed.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed P-004 by replacing non-control `eval_children(...).to_array()` materialization with direct child iteration and zero-materialization stress coverage
 
 This follow-up closes `MergeBlocks` performance P-004 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
