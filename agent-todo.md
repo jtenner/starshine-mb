@@ -14,7 +14,21 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Optimize + Binaryen feature parity comparison: `PrecomputePropagate`
 - [ ] Optimize + Binaryen feature parity comparison: `CodePushing`
 - [ ] Optimize + Binaryen feature parity comparison: `CodeFolding`
-- [ ] Optimize + Binaryen feature parity comparison: `MergeBlocks`
+- [ ] `MergeBlocks` parity baseline: add a dedicated parity fixture corpus, add a fixed-corpus timing harness for `run_merge_blocks`, and record baseline correctness/performance metrics before implementation changes.
+- [ ] `MergeBlocks` correctness gap C-001: change dropped-block `problem_finder` analysis from per-top-level-child traversal to whole-body traversal so `br_if` accounting matches Binaryen, with failing-first fixtures that only balance dropped vs non-dropped branches globally.
+- [ ] `MergeBlocks` dropped-block parity: add exhaustive `try_table` dropped-path fixtures across catch forms, plus regression cases for branch-value stripping legality around nested drops and `br_if`.
+- [ ] `MergeBlocks` correctness gap C-002: create and maintain an explicit opcode-effect checklist for all motion barriers relevant to MergeBlocks so `mb_collect_shallow_effects` cannot silently drift from the supported opcode surface.
+- [ ] `MergeBlocks` effect-model hardening: fill any missing `mb_collect_shallow_effects` tags and add table-driven movement-blocked vs movement-allowed tests for representative side-effect, trap, branch, and control-transfer opcode families.
+- [ ] `MergeBlocks` correctness gap C-003: port Binaryen-compatible loop partial-merge gating (`keepEnd` / concrete-tail semantics) and lock it down with typed loop fixtures that distinguish valid extraction from unsound motion.
+- [ ] `MergeBlocks` correctness gap C-004: replace the fixed 20-round optimizer cap with convergence-based iteration plus safety-cap instrumentation so deep nests do not silently stop before legal merges converge.
+- [ ] `MergeBlocks` runtime gap: make the pass function-parallel where the local pass runner can support it, or document and justify it as an intentional divergence if the execution model still blocks safe parity here.
+- [ ] `MergeBlocks` performance P-001: collapse refinalization to a single per-function gate (`needs_refinalize || changed`) and verify `refinalize_invocations_per_func <= 1.0` on the benchmark corpus.
+- [ ] `MergeBlocks` performance P-002: add a per-function `compute_effects` memoization cache keyed by stable instruction identity and verify the chosen stress fixture improves pass wall time by at least 15%.
+- [ ] `MergeBlocks` performance P-003: replace the structural-hash branch query cache with an id-based cache plus explicit rewrite invalidation boundaries and verify representative hit-rate targets.
+- [ ] `MergeBlocks` performance P-004: reduce restructure-path allocations by replacing repeated `mb_eval_children` array materialization with a lightweight child-iteration path for non-control operators.
+- [ ] `MergeBlocks` performance P-005: reduce repeated block-list rebuild copying by moving `optimize_block` list assembly to staged mutable buffers / swap-based merge assembly closer to Binaryen’s approach.
+- [ ] `MergeBlocks` parity test matrix: keep strict TDD for every parity item and cover named block merge boundaries, loop-tail extraction, dropped-block value removal, `try_table` catch permutations, restructure dependency/effect collisions, type/stack-signature invariants, and idempotence (`run_merge_blocks` once vs twice).
+- [ ] `MergeBlocks` parity signoff: rerun the parity matrix, mark every row `Match` or documented `Intentional divergence`, record the required metrics, run `moon info && moon fmt` plus `moon test`, and move the plan from `docs/plans/active` to `docs/plans/done` with completion notes.
 - [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
 - [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
 - [ ] Implement `StringGathering` in the global post pipeline under the appropriate feature/optimization gates.
