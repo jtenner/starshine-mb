@@ -1266,6 +1266,8 @@ priv struct MBContext {
   mut compute_effects_cache_misses : Int
   mut optimize_block_rounds : Int
   mut optimize_block_round_cap_hits : Int
+  mut non_control_child_iteration_steps : Int
+  non_control_child_array_materializations : Int
 }
 
 ///|
@@ -1300,6 +1302,8 @@ fn MBContext::new_with_round_safety_cap_and_effect_cache(
     compute_effects_cache_misses: 0,
     optimize_block_rounds: 0,
     optimize_block_round_cap_hits: 0,
+    non_control_child_iteration_steps: 0,
+    non_control_child_array_materializations: 0,
   }
 }
 
@@ -1312,6 +1316,8 @@ priv struct MBFunctionRunStats {
   compute_effects_cache_misses : Int
   optimize_block_rounds : Int
   optimize_block_round_cap_hits : Int
+  non_control_child_iteration_steps : Int
+  non_control_child_array_materializations : Int
 }
 
 ///|
@@ -1323,6 +1329,8 @@ fn MBFunctionRunStats::new(
   compute_effects_cache_misses : Int,
   optimize_block_rounds : Int,
   optimize_block_round_cap_hits : Int,
+  non_control_child_iteration_steps : Int,
+  non_control_child_array_materializations : Int,
 ) -> MBFunctionRunStats {
   {
     changed,
@@ -1332,6 +1340,8 @@ fn MBFunctionRunStats::new(
     compute_effects_cache_misses,
     optimize_block_rounds,
     optimize_block_round_cap_hits,
+    non_control_child_iteration_steps,
+    non_control_child_array_materializations,
   }
 }
 
@@ -2162,15 +2172,14 @@ fn mb_restructure_non_control(
   branch_cache : BranchCache,
   ctx : MBContext,
 ) -> (TInstr, Bool) {
-  let children = eval_children(parent_expr).to_array()
-  if children.is_empty() {
-    return (parent_expr, false)
-  }
   let pulled : Array[TInstr] = []
   let rebuilt_children : Array[TInstr] = []
   let effects_before = MBEffects::new()
   let mut changed = false
-  for child in children {
+  let mut saw_child = false
+  for child in eval_children(parent_expr) {
+    saw_child = true
+    ctx.non_control_child_iteration_steps += 1
     let mut next_child = child
     match child.kind {
       TInstrKind::TBlock(bt, body) => {
@@ -2205,6 +2214,9 @@ fn mb_restructure_non_control(
     }
     rebuilt_children.push(next_child)
     effects_before.merge(mb_compute_effects_cached(next_child, ctx))
+  }
+  if !saw_child {
+    return (parent_expr, false)
   }
   if !changed {
     return (parent_expr, false)
@@ -3140,6 +3152,8 @@ fn mb_run_on_function_with_stats_with_overrides(
             ctx.compute_effects_cache_misses,
             ctx.optimize_block_rounds,
             ctx.optimize_block_round_cap_hits,
+            ctx.non_control_child_iteration_steps,
+            ctx.non_control_child_array_materializations,
           ),
         )
       } else {
@@ -3154,11 +3168,14 @@ fn mb_run_on_function_with_stats_with_overrides(
             ctx.compute_effects_cache_misses,
             ctx.optimize_block_rounds,
             ctx.optimize_block_round_cap_hits,
+            ctx.non_control_child_iteration_steps,
+            ctx.non_control_child_array_materializations,
           ),
         )
       }
     }
-    _ => (func, false, MBFunctionRunStats::new(false, false, 0, 0, 0, 0, 0))
+    _ =>
+      (func, false, MBFunctionRunStats::new(false, false, 0, 0, 0, 0, 0, 0, 0))
   }
 }
 
@@ -3792,6 +3809,63 @@ fn mb_effect_cache_stress_elapsed_us(
     )
   }
   trace_elapsed_us_since(start_us)
+}
+
+///|
+fn mb_make_non_control_child_iteration_stress_module(arg_count : Int) -> Module {
+  let args : Array[TInstr] = []
+  let params : Array[ValType] = []
+  for i = 0; i < arg_count; i = i + 1 {
+    args.push(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(i))),
+          TInstr::i32_const(I32(i + 1)),
+        ]),
+      ),
+    )
+    params.push(ValType::i32())
+  }
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], []))),
+      RecType::new(SubType::comp_type(CompType::func(params, []))),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(1), args)])),
+      Func::t_func(params, [], TExpr::new([])),
+    ]),
+  )
+}
+
+///|
+fn mb_non_control_child_iteration_stress_totals(
+  iterations : Int,
+  arg_count : Int,
+) -> (Int, Int) {
+  let mod = mb_make_non_control_child_iteration_stress_module(arg_count)
+  let func = match mod.code_sec {
+    Some(CodeSec([entry, _])) => entry
+    _ =>
+      abort("expected non-control child iteration stress module function pair")
+  }
+  let mut total_steps = 0
+  let mut total_materializations = 0
+  for _ in 0..<iterations {
+    let (_, _, stats) = mb_run_on_function_with_stats(
+      func,
+      mod,
+      OptimizeOptions::new(),
+    )
+    total_steps += stats.non_control_child_iteration_steps
+    total_materializations += stats.non_control_child_array_materializations
+  }
+  (total_steps, total_materializations)
 }
 
 ///|
@@ -4964,6 +5038,33 @@ test "merge blocks: effect cache stress fixture improves wall time by at least 1
     improvement_bp >= 1500UL,
     msg="expected >=15% wall-time improvement, uncached=\{uncached_us}us cached=\{cached_us}us improvement_bp=\{improvement_bp}",
   )
+}
+
+///|
+test "merge blocks: non-control child iteration avoids eval-children array materialization" {
+  let mod = mb_make_non_control_child_iteration_stress_module(12)
+  let func = match mod.code_sec {
+    Some(CodeSec([entry, _])) => entry
+    _ =>
+      fail("expected non-control child iteration stress module function pair")
+  }
+  let (_, changed, stats) = mb_run_on_function_with_stats(
+    func,
+    mod,
+    OptimizeOptions::new(),
+  )
+  assert_true(changed)
+  assert_true(stats.non_control_child_iteration_steps >= 12)
+  assert_eq(stats.non_control_child_array_materializations, 0)
+}
+
+///|
+test "merge blocks: non-control child iteration stress fixture keeps representative zero-materialization target" {
+  let (iteration_steps, materializations) = mb_non_control_child_iteration_stress_totals(
+    96, 16,
+  )
+  assert_true(iteration_steps > 0)
+  assert_eq(materializations, 0)
 }
 
 ///|

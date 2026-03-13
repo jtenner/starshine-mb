@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed P-004 by replacing non-control `eval_children(...).to_array()` materialization with direct child iteration and zero-materialization stress coverage
+
+This follow-up closes `MergeBlocks` performance P-004 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
+
+Strict TDD was used:
+1. Added red-first regressions:
+   - `merge blocks: non-control child iteration avoids eval-children array materialization`
+   - `merge blocks: non-control child iteration stress fixture keeps representative zero-materialization target`
+2. Ran `moon test src/passes` and captured explicit red compile failures before implementation:
+   - unbound stress-module helper (`mb_make_non_control_child_iteration_stress_module(...)`)
+   - missing `MBFunctionRunStats` fields (`non_control_child_iteration_steps`, `non_control_child_array_materializations`)
+   - unbound stress-aggregation helper (`mb_non_control_child_iteration_stress_totals(...)`)
+3. Implemented direct child iteration path + stats helpers and reran to green.
+
+Implementation details:
+- Reworked `mb_restructure_non_control(...)`:
+  - before: eagerly materialized all children with `eval_children(parent_expr).to_array()`.
+  - after: iterates children directly via `for child in eval_children(parent_expr)` with no intermediate child-array materialization.
+- Added non-control restructure observability:
+  - `MBContext.non_control_child_iteration_steps`
+  - `MBContext.non_control_child_array_materializations`
+  - surfaced in `MBFunctionRunStats` with matching fields.
+- Added stress fixtures/utilities:
+  - `mb_make_non_control_child_iteration_stress_module(arg_count)`
+  - `mb_non_control_child_iteration_stress_totals(iterations, arg_count)`
+  - regression asserts representative runs keep total materializations at `0` while still recording positive iteration steps.
+
+Behavioral outcomes locked by tests:
+- Non-control restructure still rewrites representative fixtures (`changed == true`), while child traversal is measured through iteration counters.
+- Representative stress runs enforce a zero-materialization target on this path.
+
+Verification:
+- `moon test src/passes`
+- `moon info && moon fmt`
+- `moon test`
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): P-004 was removed from publishing blockers and moved to recently completed.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed P-003 by switching branch-query cache keys to identity ids with generation invalidation and locking representative hit-rate coverage
 
 This follow-up closes `MergeBlocks` performance P-003 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
