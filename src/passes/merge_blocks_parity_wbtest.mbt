@@ -284,6 +284,6 @@ test "merge blocks parity baseline correctness metrics are stable" {
 
 ///|
 test "merge blocks parity timing harness runs fixed corpus" {
-  let elapsed_us = mbp_time_fixed_corpus_us(3)
+  let elapsed_us = mbp_time_fixed_corpus_us(128)
   assert_true(elapsed_us > 0UL)
 }

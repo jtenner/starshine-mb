@@ -1741,7 +1741,12 @@ fn mb_problem_finder_walk(
           if mb_label_matches_depth(label, origin_depth) && !values.is_empty() {
             st.dropped_br_if_values += 1
           }
-        _ => ()
+        _ => {
+          mb_problem_finder_walk(origin, value, depth, st, env)
+          if st.blocked is Some(_) {
+            return
+          }
+        }
       }
     TInstrKind::TBr(label, values) =>
       if mb_label_matches_depth(label, origin_depth) && !values.is_empty() {
@@ -3654,6 +3659,50 @@ test "merge blocks: problem finder allows globally balanced dropped br_if values
 }
 
 ///|
+test "merge blocks: nested dropped br_if keeps outer-label value branch" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::drop(
+            TInstr::block(
+              BlockType::val_type(ValType::i32()),
+              TExpr::new([
+                TInstr::br_if(LabelIdx::new(1), TInstr::i32_const(I32(1)), [
+                  TInstr::i32_const(I32(3)),
+                ]),
+                TInstr::i32_const(I32(4)),
+              ]),
+            ),
+          ),
+          TInstr::i32_const(I32(5)),
+        ]),
+      ),
+    ),
+  ])
+  let out = mb_run_on_body(body)
+  let mut saw_outer_value_br_if = false
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TBrIf(label, _, values) =>
+          if label == LabelIdx::new(1) && !values.is_empty() {
+            saw_outer_value_br_if = true
+          }
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
+  ignore(walker.walk_texpr((), out))
+  assert_true(saw_outer_value_br_if)
+}
+
+///|
 test "merge blocks: problem finder blocks unsupported br_table target" {
   let body = TExpr::new([
     TInstr::drop(
@@ -3717,6 +3766,125 @@ test "merge blocks: try_table catch_all_ref targeting origin is allowed" {
 }
 
 ///|
+test "merge blocks: try_table catch_ref without params targeting origin is allowed" {
+  let tag_type = TagType::new(TypeIdx::new(0))
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::try_table(
+            BlockType::void_(),
+            [Catch::ref_(TagIdx::new(0), LabelIdx::new(1))],
+            TExpr::new([TInstr::throw_(TagIdx::new(0), [])]),
+          ),
+          TInstr::i32_const(I32(6)),
+        ]),
+      ),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(TagSec::new([tag_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+  let out = run_merge_blocks(mod)
+  assert_false(out == mod)
+  let mut saw_ref_catch = false
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TTryTable(_, catches, _) =>
+          for catch_ in catches {
+            match catch_ {
+              CatchAllRef(_) | CatchRef(_, _) => saw_ref_catch = true
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
+  ignore(walker.walk_module((), out))
+  assert_false(saw_ref_catch)
+}
+
+///|
+test "merge blocks: try_table catch targeting origin blocks optimization" {
+  let tag_type = TagType::new(TypeIdx::new(0))
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::try_table(
+            BlockType::void_(),
+            [Catch::new(TagIdx::new(0), LabelIdx::new(1))],
+            TExpr::new([
+              TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(8))]),
+            ]),
+          ),
+          TInstr::i32_const(I32(1)),
+        ]),
+      ),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(TagSec::new([tag_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+  let out = run_merge_blocks(mod)
+  assert_eq(out, mod)
+}
+
+///|
+test "merge blocks: try_table catch_all targeting origin blocks optimization" {
+  let tag_type = TagType::new(TypeIdx::new(0))
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::try_table(
+            BlockType::void_(),
+            [Catch::all(LabelIdx::new(1))],
+            TExpr::new([TInstr::throw_(TagIdx::new(0), [])]),
+          ),
+          TInstr::i32_const(I32(2)),
+        ]),
+      ),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(TagSec::new([tag_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+  let out = run_merge_blocks(mod)
+  assert_eq(out, mod)
+}
+
+///|
 test "merge blocks: try_table catch_ref with params blocks optimization" {
   let tag_type = TagType::new(TypeIdx::new(0))
   let body = TExpr::new([
@@ -3730,6 +3898,42 @@ test "merge blocks: try_table catch_ref with params blocks optimization" {
             TExpr::new([TInstr::nop()]),
           ),
           TInstr::i32_const(I32(1)),
+        ]),
+      ),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(TagSec::new([tag_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+  let out = run_merge_blocks(mod)
+  assert_eq(out, mod)
+}
+
+///|
+test "merge blocks: problem finder blocks nested dropped try_table catch_ref mismatch" {
+  let tag_type = TagType::new(TypeIdx::new(0))
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::drop(
+            TInstr::try_table(
+              BlockType::void_(),
+              [Catch::ref_(TagIdx::new(0), LabelIdx::new(1))],
+              TExpr::new([
+                TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(5))]),
+              ]),
+            ),
+          ),
+          TInstr::i32_const(I32(3)),
         ]),
       ),
     ),

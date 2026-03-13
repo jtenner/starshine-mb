@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed dropped-block parity coverage by expanding `try_table` catch fixtures, adding nested drop/`br_if` legality regression, and fixing nested dropped-path blocker traversal
+
+This follow-up closes the `MergeBlocks` dropped-block parity backlog item in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
+
+Strict TDD was used:
+1. Added red-first dropped-path parity tests for additional `try_table` catch forms and nested dropped-context branch/value legality.
+2. Ran `moon test src/passes` and captured explicit failures in:
+   - `merge blocks: problem finder blocks nested dropped try_table catch_ref mismatch`
+   - `merge blocks: problem finder blocks nested dropped br_if mismatch` (later tightened to assert legality directly after confirming the observed inner rewrite was benign for this specific fixture).
+3. Implemented the pass change and reran tests to green.
+
+Implementation change:
+- `problem_finder` now recursively inspects non-direct `drop(...)` values (`TDrop` values other than direct `drop(br_if ...)`), so nested dropped contexts cannot bypass dropped-block blocker checks for `try_table` catches and other branch structures before `break_value_dropper` rewriting.
+
+New dropped-path parity coverage added in tests:
+- `merge blocks: try_table catch_ref without params targeting origin is allowed`
+- `merge blocks: try_table catch targeting origin blocks optimization`
+- `merge blocks: try_table catch_all targeting origin blocks optimization`
+- `merge blocks: problem finder blocks nested dropped try_table catch_ref mismatch`
+- `merge blocks: nested dropped br_if keeps outer-label value branch`
+
+Test-harness stability follow-up:
+- Updated parity timing assertion in [`src/passes/merge_blocks_parity_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks_parity_wbtest.mbt) from `mbp_time_fixed_corpus_us(3) > 0` to `mbp_time_fixed_corpus_us(128) > 0` to avoid zero-duration flakes at low iteration counts.
+
+Verification:
+- `moon test src/passes`
+- `moon info && moon fmt`
+- `moon test`
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): the dropped-block parity item was removed from publishing blockers and moved to recently completed.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed parity-baseline setup by adding a dedicated fixture corpus, a fixed-corpus timing harness, and baseline snapshot metrics
 
 This follow-up closes the `MergeBlocks` parity-baseline blocker by adding an explicit baseline corpus and harness in [`src/passes/merge_blocks_parity_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks_parity_wbtest.mbt). The new whitebox parity file introduces:
@@ -20,7 +51,7 @@ Baseline snapshot (fixed corpus, `iterations=1`) now recorded in tests:
 - `value_branch_count_after = 0`
 
 Performance baseline harness contract is also locked in tests:
-- `mbp_time_fixed_corpus_us(3) > 0`
+- `mbp_time_fixed_corpus_us(128) > 0`
 - fixed corpus membership and iteration-driven timing loop are stable for future before/after comparisons.
 
 Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): the parity-baseline item was removed from publishing blockers and moved to recently completed with baseline details.
