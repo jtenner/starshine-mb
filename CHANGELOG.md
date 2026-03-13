@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed C-003 by porting Binaryen-style loop `keepEnd` concrete-tail gating and adding typed loop extraction fixtures
+
+This follow-up closes `MergeBlocks` correctness gap C-003 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
+
+Strict TDD was used:
+1. Added red-first typed loop regressions that separate unsound and valid loop-tail extraction cases:
+   - `merge blocks: typed loop concrete tail without back-branch is not extracted`
+   - `merge blocks: typed loop non-concrete tail is extracted`
+2. Ran `moon test src/passes` and captured explicit red failures:
+   - concrete-tail case produced invalid output (`typed function stack underflow`) due unsound loop-tail extraction
+   - non-concrete-tail case stayed unoptimized (`expected typed non-concrete loop tail moved outside loop`) because the old gate blocked it.
+3. Implemented loop gate parity fix and reran to green.
+
+Implementation change:
+- In `optimize_block(...)` loop-tail merge handling, replaced the old partial-merge gate:
+  - `split > 0 && mb_blocktype_is_concrete(loop_bt, ctx.env)`
+- With Binaryen-compatible extracted-tail concreteness gating:
+  - block extraction when the extracted region exists and the child tail is concrete (`keepEnd < childSize && childList.back()->type.isConcrete()` parity modeled as `mb_instr_is_concrete(inner_items[last], ctx.env)`).
+
+Behavioral result:
+- Unsound concrete-tail extraction is now blocked even in typed loops with no back-branch.
+- Valid typed extraction with a non-concrete extracted tail is now allowed.
+- Post-pass validation stays preserved for both fixtures.
+
+Verification:
+- `moon test src/passes`
+- `moon info && moon fmt`
+- `moon test`
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): C-003 was removed from publishing blockers and moved to recently completed.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed effect-model hardening by filling missing shallow-effect tags and adding a table-driven movement matrix
 
 This follow-up closes the `MergeBlocks` effect-model hardening backlog item in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).

@@ -2687,7 +2687,11 @@ fn optimize_block(
                 out.push(item1)
                 continue
               }
-              if split > 0 && mb_blocktype_is_concrete(loop_bt, ctx.env) {
+              if split < inner_items.length() &&
+                mb_instr_is_concrete(
+                  inner_items[inner_items.length() - 1],
+                  ctx.env,
+                ) {
                 out.push(item1)
                 continue
               }
@@ -3865,6 +3869,172 @@ test "merge blocks: loop partial merge with concrete loop value is skipped" {
   ])
   let out = mb_run_on_body(body)
   assert_eq(out, body)
+}
+
+///|
+test "merge blocks: typed loop concrete tail without back-branch is not extracted" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([
+            TInstr::block(
+              BlockType::val_type(ValType::i32()),
+              TExpr::new([TInstr::i32_const(I32(11))]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body([], body, results=[ValType::i32()])
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_merge_blocks(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected concrete-tail loop gating to preserve validity without extraction: \{e}",
+      )
+  }
+  match mb_extract_only_tfunc(out) {
+    Some(
+      TFunc(
+        _,
+        _,
+        {
+          instrs: [
+            {
+              kind: TInstrKind::TLoop(
+                _,
+                {
+                  instrs: [
+                    {
+                      kind: TInstrKind::TBlock(
+                        _,
+                        {
+                          instrs: [{ kind: TInstrKind::TI32Const(I32(11)), .. }],
+                          ..,
+                        }
+                      ),
+                      ..,
+                    },
+                  ],
+                  ..,
+                }
+              ),
+              ..,
+            },
+          ],
+          ..,
+        }
+      )
+    ) => ()
+    _ => fail("expected transformed module body")
+  }
+}
+
+///|
+test "merge blocks: typed loop non-concrete tail is extracted" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([
+            TInstr::block(
+              BlockType::val_type(ValType::i32()),
+              TExpr::new([
+                TInstr::br_if(LabelIdx::new(1), TInstr::i32_const(I32(0)), [
+                  TInstr::i32_const(I32(7)),
+                ]),
+                TInstr::drop(TInstr::i32_const(I32(1))),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body([], body, results=[ValType::i32()])
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_merge_blocks(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected non-concrete loop tail extraction to preserve typed validity: \{e}",
+      )
+  }
+  match mb_extract_only_tfunc(out) {
+    Some(
+      TFunc(
+        _,
+        _,
+        {
+          instrs: [
+            {
+              kind: TInstrKind::TBlock(
+                _,
+                {
+                  instrs: [
+                    {
+                      kind: TInstrKind::TLoop(
+                        _,
+                        {
+                          instrs: [
+                            {
+                              kind: TInstrKind::TBlock(
+                                _,
+                                {
+                                  instrs: [
+                                    {
+                                      kind: TInstrKind::TBrIf(
+                                        LabelIdx(loop_target),
+                                        _,
+                                        [
+                                          {
+                                            kind: TInstrKind::TI32Const(I32(7)),
+                                            ..,
+                                          },
+                                        ]
+                                      ),
+                                      ..,
+                                    },
+                                  ],
+                                  ..,
+                                }
+                              ),
+                              ..,
+                            },
+                          ],
+                          ..,
+                        }
+                      ),
+                      ..,
+                    },
+                    {
+                      kind: TInstrKind::TDrop(
+                        { kind: TInstrKind::TI32Const(I32(1)), .. }
+                      ),
+                      ..,
+                    },
+                  ],
+                  ..,
+                }
+              ),
+              ..,
+            },
+          ],
+          ..,
+        }
+      )
+    ) => assert_eq(loop_target.reinterpret_as_int(), 1)
+    _ => fail("expected typed non-concrete loop tail moved outside loop")
+  }
 }
 
 ///|
