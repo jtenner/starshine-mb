@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed P-001 by collapsing per-function refinalization to a single `changed || needs_refinalize` gate and adding invocation-count regression coverage
+
+This follow-up closes the `MergeBlocks` performance P-001 backlog item in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt). The function runner previously performed up to two full refinalization traversals on the same function body:
+- one pass gated by `changed`
+- another pass gated by `ctx.needs_refinalize`
+
+That double-pass path was replaced with a single unified gate, `should_refinalize = changed || ctx.needs_refinalize`, and one `mb_refinalize_texpr(...)` call. To make this measurable in tests, function execution now routes through a stats helper (`mb_run_on_function_with_stats(...)`) that reports whether the function changed, whether refinalization was requested, and how many refinalization traversals were invoked.
+
+Strict TDD was used. A new red-first regression test was added first:
+- `merge blocks: function run performs at most one refinalize pass`
+
+Before the gate fix, `moon test src/passes` failed with `2 != 1` on the new assertion. After collapsing the gate, the same suite passed and now locks in `refinalize_invocations == 1` for a fixture that triggers both `changed` and `needs_refinalize`.
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): P-001 was removed from publishing blockers and moved to recently completed with completion notes.
+
 ## 2026-03-12 Vacuum Follow-up: completed Stage 3 fallback metadata specialization by replacing remaining unindexed type/effect generic-helper fallbacks with structural formulas
 
 This follow-up closes the last open `Vacuum` Stage 3 fallback-metadata blocker in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). After previous pure-leaf and structural-call/control-transfer work, unindexed fallback paths still delegated to generic helper wrappers in two places:

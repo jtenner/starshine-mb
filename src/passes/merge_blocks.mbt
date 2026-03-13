@@ -802,6 +802,22 @@ fn MBContext::new(env : Env) -> MBContext {
 }
 
 ///|
+priv struct MBFunctionRunStats {
+  changed : Bool
+  needs_refinalize : Bool
+  refinalize_invocations : Int
+}
+
+///|
+fn MBFunctionRunStats::new(
+  changed : Bool,
+  needs_refinalize : Bool,
+  refinalize_invocations : Int,
+) -> MBFunctionRunStats {
+  { changed, needs_refinalize, refinalize_invocations }
+}
+
+///|
 priv enum ProblemResult {
   ProblemOk
   ProblemBlocked
@@ -2483,12 +2499,25 @@ fn run_on_function(
   mod : Module,
   options : OptimizeOptions,
 ) -> (Func, Bool) {
+  let (next_func, changed, _) = mb_run_on_function_with_stats(
+    func, mod, options,
+  )
+  (next_func, changed)
+}
+
+///|
+fn mb_run_on_function_with_stats(
+  func : Func,
+  mod : Module,
+  options : OptimizeOptions,
+) -> (Func, Bool, MBFunctionRunStats) {
   match func {
     TFunc(params, locals, body) => {
       let env = Env::new()
         .with_module(mod)
         .with_locals(FunctionLocals::new(params, locals).all_locals())
       let ctx = MBContext::new(env)
+      let mut refinalize_invocations = 0
       let root = TInstr::block(BlockType::void_(), body)
       let (next_root, changed) = optimize_block(
         root,
@@ -2502,19 +2531,34 @@ fn run_on_function(
         _ => body
       }
       let mut final_body = next_body
-      if changed {
+      let should_refinalize = changed || ctx.needs_refinalize
+      if should_refinalize {
+        refinalize_invocations += 1
         final_body = mb_refinalize_texpr(final_body, env)
       }
-      if ctx.needs_refinalize {
-        final_body = mb_refinalize_texpr(final_body, env)
-      }
-      if changed || ctx.needs_refinalize {
-        (Func::t_func(params, locals, final_body), true)
+      if should_refinalize {
+        (
+          Func::t_func(params, locals, final_body),
+          true,
+          MBFunctionRunStats::new(
+            changed,
+            ctx.needs_refinalize,
+            refinalize_invocations,
+          ),
+        )
       } else {
-        (func, false)
+        (
+          func,
+          false,
+          MBFunctionRunStats::new(
+            changed,
+            ctx.needs_refinalize,
+            refinalize_invocations,
+          ),
+        )
       }
     }
-    _ => (func, false)
+    _ => (func, false, MBFunctionRunStats::new(false, false, 0))
   }
 }
 
@@ -3700,6 +3744,37 @@ test "merge blocks: restructure pulls operand block outward with effect checks" 
   )
   ignore(walker.walk_texpr((), out))
   assert_true(wrapped)
+}
+
+///|
+test "merge blocks: function run performs at most one refinalize pass" {
+  let body = TExpr::new([
+    TInstr::binary(
+      BinaryOp::i32_add(),
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(1))),
+          TInstr::i32_const(I32(2)),
+        ]),
+      ),
+      TInstr::i32_const(I32(3)),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body([], body)
+  let func = match mb_extract_only_tfunc(mod) {
+    Some(value) => value
+    None => fail("expected test module to contain one typed function")
+  }
+  let (_, changed, stats) = mb_run_on_function_with_stats(
+    func,
+    mod,
+    OptimizeOptions::new(),
+  )
+  assert_true(changed)
+  assert_true(stats.changed)
+  assert_true(stats.needs_refinalize)
+  assert_eq(stats.refinalize_invocations, 1)
 }
 
 ///|
