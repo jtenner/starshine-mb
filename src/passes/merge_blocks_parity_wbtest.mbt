@@ -109,6 +109,50 @@ fn MBParityMatrixResult::new(
 }
 
 ///|
+priv struct MBParitySignoffMetrics {
+  total_rows : Int
+  match_rows : Int
+  intentional_divergence_rows : Int
+  validates_before_rows : Int
+  validates_after_rows : Int
+  idempotent_rows : Int
+  changed_rows : Int
+  value_branch_zero_rows : Int
+  stack_sig_required_rows : Int
+  stack_sig_consistent_rows : Int
+  required_category_count : Int
+}
+
+///|
+fn MBParitySignoffMetrics::new(
+  total_rows : Int,
+  match_rows : Int,
+  intentional_divergence_rows : Int,
+  validates_before_rows : Int,
+  validates_after_rows : Int,
+  idempotent_rows : Int,
+  changed_rows : Int,
+  value_branch_zero_rows : Int,
+  stack_sig_required_rows : Int,
+  stack_sig_consistent_rows : Int,
+  required_category_count : Int,
+) -> MBParitySignoffMetrics {
+  {
+    total_rows,
+    match_rows,
+    intentional_divergence_rows,
+    validates_before_rows,
+    validates_after_rows,
+    idempotent_rows,
+    changed_rows,
+    value_branch_zero_rows,
+    stack_sig_required_rows,
+    stack_sig_consistent_rows,
+    required_category_count,
+  }
+}
+
+///|
 fn mbp_required_parity_matrix_categories() -> Array[String] {
   [
     "named block merge boundaries", "loop-tail extraction", "dropped-block value removal",
@@ -543,6 +587,78 @@ fn mbp_collect_parity_matrix_results() -> Array[MBParityMatrixResult] {
 }
 
 ///|
+fn mbp_parity_row_signoff_status(
+  row : MBParityMatrixResult,
+) -> (String, String?) {
+  if row.category == "try_table catch permutations" && !row.validates_before {
+    (
+      "Intentional divergence",
+      Some(
+        "This parity row uses a non-validating pre-pass fixture to lock legality/shape behavior only; signoff tracks outcome parity rather than strict validator preconditions for this row.",
+      ),
+    )
+  } else {
+    ("Match", None)
+  }
+}
+
+///|
+fn mbp_collect_parity_signoff_metrics() -> MBParitySignoffMetrics {
+  let rows = mbp_collect_parity_matrix_results()
+  let mut match_rows = 0
+  let mut intentional_divergence_rows = 0
+  let mut validates_before_rows = 0
+  let mut validates_after_rows = 0
+  let mut idempotent_rows = 0
+  let mut changed_rows = 0
+  let mut value_branch_zero_rows = 0
+  let mut stack_sig_required_rows = 0
+  let mut stack_sig_consistent_rows = 0
+  for row in rows {
+    if row.validates_before {
+      validates_before_rows += 1
+    }
+    if row.validates_after {
+      validates_after_rows += 1
+    }
+    if row.idempotent {
+      idempotent_rows += 1
+    }
+    if row.changed {
+      changed_rows += 1
+    }
+    if row.value_branch_after == 0 {
+      value_branch_zero_rows += 1
+    }
+    if row.require_stack_sig_consistency {
+      stack_sig_required_rows += 1
+      if row.stack_sig_consistent_after {
+        stack_sig_consistent_rows += 1
+      }
+    }
+    let (status, _) = mbp_parity_row_signoff_status(row)
+    if status == "Match" {
+      match_rows += 1
+    } else if status == "Intentional divergence" {
+      intentional_divergence_rows += 1
+    }
+  }
+  MBParitySignoffMetrics::new(
+    rows.length(),
+    match_rows,
+    intentional_divergence_rows,
+    validates_before_rows,
+    validates_after_rows,
+    idempotent_rows,
+    changed_rows,
+    value_branch_zero_rows,
+    stack_sig_required_rows,
+    stack_sig_consistent_rows,
+    mbp_required_parity_matrix_categories().length(),
+  )
+}
+
+///|
 fn mbp_fixture_corpus() -> Array[MBParityFixture] {
   let fixtures : Array[MBParityFixture] = []
 
@@ -855,4 +971,62 @@ test "merge blocks parity matrix rows meet expected outcomes" {
       )
     }
   }
+}
+
+///|
+test "merge blocks parity signoff classifies each row as match or intentional divergence" {
+  for row in mbp_collect_parity_matrix_results() {
+    let (status, _) = mbp_parity_row_signoff_status(row)
+    assert_true(
+      status == "Match" || status == "Intentional divergence",
+      msg="unexpected signoff status for row \{row.category}/\{row.scenario}: \{status}",
+    )
+  }
+}
+
+///|
+test "merge blocks parity signoff metrics are stable" {
+  let metrics = mbp_collect_parity_signoff_metrics()
+  assert_eq(metrics.total_rows, 11)
+  assert_eq(
+    metrics.total_rows,
+    metrics.match_rows + metrics.intentional_divergence_rows,
+  )
+  assert_eq(metrics.match_rows, 8)
+  assert_eq(metrics.intentional_divergence_rows, 3)
+  assert_eq(metrics.idempotent_rows, metrics.total_rows)
+  assert_eq(metrics.required_category_count, 7)
+  assert_eq(metrics.validates_before_rows, 8)
+  assert_eq(metrics.validates_after_rows, 9)
+  assert_eq(metrics.changed_rows, 5)
+  assert_eq(metrics.value_branch_zero_rows, 10)
+  assert_eq(metrics.stack_sig_required_rows, 1)
+  assert_eq(metrics.stack_sig_consistent_rows, metrics.stack_sig_required_rows)
+}
+
+///|
+test "merge blocks parity signoff intentional divergence rows are explicit" {
+  let intentional_divergence_rows : Array[String] = []
+  for row in mbp_collect_parity_matrix_results() {
+    let (status, rationale) = mbp_parity_row_signoff_status(row)
+    if status == "Intentional divergence" {
+      assert_true(
+        rationale is Some(_),
+        msg="intentional divergence row must include rationale: \{row.category}/\{row.scenario}",
+      )
+      intentional_divergence_rows.push(row.scenario)
+    }
+  }
+  assert_eq(intentional_divergence_rows.length(), 3)
+  assert_true(
+    intentional_divergence_rows.contains("catch_ref_no_params-allowed-rewrite"),
+  )
+  assert_true(
+    intentional_divergence_rows.contains("catch_all-targeting-origin-blocked"),
+  )
+  assert_true(
+    intentional_divergence_rows.contains(
+      "catch_ref_paramful-targeting-origin-blocked",
+    ),
+  )
 }

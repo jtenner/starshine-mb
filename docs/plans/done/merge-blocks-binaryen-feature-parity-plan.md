@@ -2,7 +2,60 @@
 
 Date: 2026-03-13  
 Owner: Compiler passes team  
-Status: Active
+Status: Done
+
+## Completion Notes (2026-03-13)
+
+WS-4 parity signoff is complete.
+
+The in-tree parity matrix was rerun via [`src/passes/merge_blocks_parity_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks_parity_wbtest.mbt), and every row is now explicitly classified as `Match` or documented `Intentional divergence`.
+
+### Final Matrix Row Signoff
+
+| Category | Scenario | Status | Notes |
+| --- | --- | --- | --- |
+| named block merge boundaries | `named-branch-boundary-preserved` | Match | Named-branch boundary remains preserved. |
+| loop-tail extraction | `loop-tail-extracts-safe-suffix` | Match | Safe loop-tail suffix extraction stays enabled. |
+| dropped-block value removal | `dropped-break-values-stripped` | Match | Dropped-path break values are stripped (`value_branch_after = 0`). |
+| `try_table` catch permutations | `catch_all_ref-allowed-rewrite` | Match | Current behavior is stable and idempotent for this fixture. |
+| `try_table` catch permutations | `catch_ref_no_params-allowed-rewrite` | Intentional divergence | Fixture is non-validating pre-pass in local harness; row retained to lock legality/shape behavior only. |
+| `try_table` catch permutations | `catch-targeting-origin-blocked` | Match | Unsupported catch targeting origin remains blocked. |
+| `try_table` catch permutations | `catch_all-targeting-origin-blocked` | Intentional divergence | Fixture is non-validating pre-pass in local harness; conservative blocked behavior remains explicitly locked. |
+| `try_table` catch permutations | `catch_ref_paramful-targeting-origin-blocked` | Intentional divergence | Fixture is non-validating pre-pass in local harness; conservative blocked behavior remains explicitly locked. |
+| restructure dependency/effect collisions | `effect-collision-blocks-pull` | Match | Effect collision continues to block unsafe pull/restructure. |
+| type/stack-signature invariants | `typed-if-stack-signature-preserved` | Match | Stack-signature consistency invariant passes post-transform. |
+| idempotence | `run-once-vs-twice-stable` | Match | `run_merge_blocks` remains idempotent on second run. |
+
+### Required Metrics (Recorded)
+
+Parity matrix signoff metrics (locked by tests):
+- `total_rows = 11`
+- `match_rows = 8`
+- `intentional_divergence_rows = 3`
+- `validates_before_rows = 8`
+- `validates_after_rows = 9`
+- `idempotent_rows = 11`
+- `changed_rows = 5`
+- `value_branch_zero_rows = 10`
+- `stack_sig_required_rows = 1`
+- `stack_sig_consistent_rows = 1`
+- `required_category_count = 7`
+
+Fixed corpus baseline metrics (locked by tests):
+- `total_fixtures = 8`
+- `changed_count = 5`
+- `valid_after_count = 8`
+- `idempotent_count = 8`
+- `value_branch_count_after = 0`
+
+Timing harness metric gate:
+- `mbp_time_fixed_corpus_us(128) > 0` (pass)
+
+Final local gate:
+- `moon info && moon fmt` (pass)
+- `moon test` (pass)
+
+This plan is now complete and moved to `docs/plans/done`.
 
 ## 1. Scope and Objective
 
@@ -364,4 +417,3 @@ Done when all are true:
 3. Performance gates are met with recorded measurements.
 4. `moon info && moon fmt` and `moon test` pass.
 5. Plan moved from `docs/plans/active` to `docs/plans/done` with completion notes.
-

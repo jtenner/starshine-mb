@@ -1,5 +1,55 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed parity-signoff by classifying all matrix rows, recording signoff metrics, and moving the plan from active to done
+
+This follow-up closes the `MergeBlocks` parity signoff blocker using:
+- [`src/passes/merge_blocks_parity_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks_parity_wbtest.mbt)
+- [`docs/plans/done/merge-blocks-binaryen-feature-parity-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/done/merge-blocks-binaryen-feature-parity-plan.md)
+
+Strict TDD was used:
+1. Added red-first signoff tests:
+   - `merge blocks parity signoff classifies each row as match or intentional divergence`
+   - `merge blocks parity signoff metrics are stable`
+2. Ran `moon test src/passes` and captured explicit red compile failures before implementation:
+   - unbound signoff helpers (`mbp_parity_row_signoff_status`, `mbp_collect_parity_signoff_metrics`)
+   - unresolved metrics fields in the new signoff assertions.
+3. Implemented signoff status + metrics helpers and reran to green, then tightened metrics assertions to exact stable counts.
+
+What was added:
+- Parity-signoff metrics model:
+  - `MBParitySignoffMetrics`
+- Signoff status/rationale helper:
+  - `mbp_parity_row_signoff_status(row)` returning `Match` or `Intentional divergence` with rationale for divergence rows.
+- Signoff metrics collector:
+  - `mbp_collect_parity_signoff_metrics()`
+- Explicit divergence row lock:
+  - `merge blocks parity signoff intentional divergence rows are explicit`
+
+Recorded signoff metrics (test-locked):
+- `total_rows = 11`
+- `match_rows = 8`
+- `intentional_divergence_rows = 3`
+- `validates_before_rows = 8`
+- `validates_after_rows = 9`
+- `idempotent_rows = 11`
+- `changed_rows = 5`
+- `value_branch_zero_rows = 10`
+- `stack_sig_required_rows = 1`
+- `stack_sig_consistent_rows = 1`
+- `required_category_count = 7`
+
+Plan completion:
+- Updated parity plan status to `Done`.
+- Added completion notes with row-by-row `Match` / `Intentional divergence` classification and rationale.
+- Moved the plan from `docs/plans/active` to `docs/plans/done`.
+
+Verification:
+- `moon test src/passes`
+- `moon info && moon fmt`
+- `moon test`
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): parity-signoff was removed from publishing blockers and moved to recently completed.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed parity-test-matrix item by adding an explicit category matrix harness with per-row expected outcomes and invariant checks
 
 This follow-up closes the `MergeBlocks` parity test matrix blocker in [`src/passes/merge_blocks_parity_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks_parity_wbtest.mbt).

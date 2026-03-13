@@ -14,7 +14,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Optimize + Binaryen feature parity comparison: `PrecomputePropagate`
 - [ ] Optimize + Binaryen feature parity comparison: `CodePushing`
 - [ ] Optimize + Binaryen feature parity comparison: `CodeFolding`
-- [ ] `MergeBlocks` parity signoff: rerun the parity matrix, mark every row `Match` or documented `Intentional divergence`, record the required metrics, run `moon info && moon fmt` plus `moon test`, and move the plan from `docs/plans/active` to `docs/plans/done` with completion notes.
 - [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
 - [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
 - [ ] Implement `StringGathering` in the global post pipeline under the appropriate feature/optimization gates.
@@ -42,6 +41,7 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Long-horizon platform/features: Component Model/WIT, streaming decoder API, custom sections/source maps, plugin system.
 
 ## Recently completed
+- [x] `MergeBlocks` parity signoff: reran the in-tree parity matrix, classified every row as `Match` or documented `Intentional divergence` (with explicit divergence rationale rows for non-validating `try_table` fixtures), recorded signoff metrics in the plan completion notes, ran final gates (`moon info && moon fmt`, `moon test`), and moved the parity plan from `docs/plans/active` to `docs/plans/done`.
 - [x] `MergeBlocks` parity test matrix: added an explicit parity-matrix harness in `merge_blocks_parity_wbtest.mbt` with per-row expected outcomes and assertions covering named block merge boundaries, loop-tail extraction, dropped-block value removal, `try_table` catch permutations, restructure dependency/effect collisions, type/stack-signature invariants, and idempotence (`run_merge_blocks` once vs twice), using strict red/green TDD.
 - [x] `MergeBlocks` performance P-005: replaced `optimize_block(...)` round commit replay (`curr_items.clear()` + push-all copy) with staged mutable buffers and swap-based round assembly, added per-function round-assembly stats (`optimize_block_round_buffer_swaps`, `optimize_block_round_rebuild_copies`), and locked stress coverage requiring representative positive swap counts with zero rebuild-copy replays.
 - [x] `MergeBlocks` performance P-004: removed non-control restructure `eval_children(...).to_array()` materialization from `mb_restructure_non_control(...)` in favor of direct child iteration, added per-function non-control child-iteration stats (`non_control_child_iteration_steps`, `non_control_child_array_materializations`), and locked stress coverage that requires representative zero materializations while still exercising non-control child traversal.
