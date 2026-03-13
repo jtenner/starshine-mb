@@ -31,6 +31,16 @@ fn BranchCache::new() -> BranchCache {
 }
 
 ///|
+priv struct MBStableInstrKey {
+  instr : TInstr
+} derive(Eq, Hash)
+
+///|
+fn mb_stable_instr_key(instr : TInstr) -> MBStableInstrKey {
+  MBStableInstrKey::{ instr, }
+}
+
+///|
 priv struct MBEffects {
   locals_read : Set[LocalIdx]
   locals_written : Set[LocalIdx]
@@ -677,6 +687,25 @@ fn compute_effects(expr : TInstr) -> MBEffects {
 }
 
 ///|
+fn mb_compute_effects_cached(expr : TInstr, ctx : MBContext) -> MBEffects {
+  if !ctx.effect_cache_enabled {
+    return compute_effects(expr)
+  }
+  match ctx.effects_cache.get(mb_stable_instr_key(expr)) {
+    Some(cached) => {
+      ctx.compute_effects_cache_hits += 1
+      cached
+    }
+    None => {
+      let computed = compute_effects(expr)
+      ctx.compute_effects_cache_misses += 1
+      ctx.effects_cache[mb_stable_instr_key(expr)] = computed
+      computed
+    }
+  }
+}
+
+///|
 fn invalidates(a : MBEffects, b : MBEffects) -> Bool {
   a.invalidates(b)
 }
@@ -1149,13 +1178,17 @@ priv struct MBContext {
   mut needs_refinalize : Bool
   branch_cache : BranchCache
   round_safety_cap_override : Int
+  effect_cache_enabled : Bool
+  effects_cache : Map[MBStableInstrKey, MBEffects]
+  mut compute_effects_cache_hits : Int
+  mut compute_effects_cache_misses : Int
   mut optimize_block_rounds : Int
   mut optimize_block_round_cap_hits : Int
 }
 
 ///|
 fn MBContext::new(env : Env) -> MBContext {
-  MBContext::new_with_round_safety_cap(env, 0)
+  MBContext::new_with_round_safety_cap_and_effect_cache(env, 0, true)
 }
 
 ///|
@@ -1163,11 +1196,26 @@ fn MBContext::new_with_round_safety_cap(
   env : Env,
   round_safety_cap_override : Int,
 ) -> MBContext {
+  MBContext::new_with_round_safety_cap_and_effect_cache(
+    env, round_safety_cap_override, true,
+  )
+}
+
+///|
+fn MBContext::new_with_round_safety_cap_and_effect_cache(
+  env : Env,
+  round_safety_cap_override : Int,
+  effect_cache_enabled : Bool,
+) -> MBContext {
   {
     env,
     needs_refinalize: false,
     branch_cache: BranchCache::new(),
     round_safety_cap_override,
+    effect_cache_enabled,
+    effects_cache: Map::new(),
+    compute_effects_cache_hits: 0,
+    compute_effects_cache_misses: 0,
     optimize_block_rounds: 0,
     optimize_block_round_cap_hits: 0,
   }
@@ -1178,6 +1226,8 @@ priv struct MBFunctionRunStats {
   changed : Bool
   needs_refinalize : Bool
   refinalize_invocations : Int
+  compute_effects_cache_hits : Int
+  compute_effects_cache_misses : Int
   optimize_block_rounds : Int
   optimize_block_round_cap_hits : Int
 }
@@ -1187,6 +1237,8 @@ fn MBFunctionRunStats::new(
   changed : Bool,
   needs_refinalize : Bool,
   refinalize_invocations : Int,
+  compute_effects_cache_hits : Int,
+  compute_effects_cache_misses : Int,
   optimize_block_rounds : Int,
   optimize_block_round_cap_hits : Int,
 ) -> MBFunctionRunStats {
@@ -1194,6 +1246,8 @@ fn MBFunctionRunStats::new(
     changed,
     needs_refinalize,
     refinalize_invocations,
+    compute_effects_cache_hits,
+    compute_effects_cache_misses,
     optimize_block_rounds,
     optimize_block_round_cap_hits,
   }
@@ -1979,7 +2033,7 @@ fn optimize_expression_restructure(
           }
           let moved_effects = MBEffects::new()
           for item in prefix {
-            moved_effects.merge(compute_effects(item))
+            moved_effects.merge(mb_compute_effects_cached(item, ctx))
           }
           if moved_effects.has_side_effects() {
             ctx.needs_refinalize = true
@@ -1999,7 +2053,7 @@ fn optimize_expression_restructure(
       }
     TInstrKind::TThrow(_, args) => {
       for arg in args {
-        if compute_effects(arg).has_side_effects() {
+        if mb_compute_effects_cached(arg, ctx).has_side_effects() {
           return (parent_expr, false)
         }
       }
@@ -2043,7 +2097,7 @@ fn mb_restructure_non_control(
           let moved_effects = MBEffects::new()
           let mut move_ok = true
           for item in prefix {
-            moved_effects.merge(compute_effects(item))
+            moved_effects.merge(mb_compute_effects_cached(item, ctx))
             if mb_has_any_branch(item) {
               move_ok = false
             }
@@ -2063,7 +2117,7 @@ fn mb_restructure_non_control(
       _ => ()
     }
     rebuilt_children.push(next_child)
-    effects_before.merge(compute_effects(next_child))
+    effects_before.merge(mb_compute_effects_cached(next_child, ctx))
   }
   if !changed {
     return (parent_expr, false)
@@ -2092,7 +2146,7 @@ fn problem_finder(
   ignore(mod)
   ignore(options)
   let st = ProblemFinderState::new()
-  mb_problem_finder_walk_expr(origin, expr, 0, st, ctx.env)
+  mb_problem_finder_walk_expr(origin, expr, 0, st, ctx)
   match st.blocked {
     Some(_) => ProblemBlocked
     None =>
@@ -2110,7 +2164,7 @@ fn mb_problem_finder_walk(
   expr : TInstr,
   depth : Int,
   st : ProblemFinderState,
-  env : Env,
+  ctx : MBContext,
 ) -> Unit {
   if st.blocked is Some(_) {
     return
@@ -2124,7 +2178,7 @@ fn mb_problem_finder_walk(
             st.dropped_br_if_values += 1
           }
         _ => {
-          mb_problem_finder_walk(origin, value, depth, st, env)
+          mb_problem_finder_walk(origin, value, depth, st, ctx)
           if st.blocked is Some(_) {
             return
           }
@@ -2133,28 +2187,28 @@ fn mb_problem_finder_walk(
     TInstrKind::TBr(label, values) =>
       if mb_label_matches_depth(label, origin_depth) && !values.is_empty() {
         for value in values {
-          if compute_effects(value).has_side_effects() {
+          if mb_compute_effects_cached(value, ctx).has_side_effects() {
             st.blocked = Some("side effects in br value")
             return
           }
         }
       }
     TInstrKind::TBrIf(label, cond, values) => {
-      mb_problem_finder_walk(origin, cond, depth, st, env)
+      mb_problem_finder_walk(origin, cond, depth, st, ctx)
       if st.blocked is Some(_) {
         return
       }
       if mb_label_matches_depth(label, origin_depth) && !values.is_empty() {
         st.non_dropped_br_if_values += 1
         for value in values {
-          if compute_effects(value).has_side_effects() {
+          if mb_compute_effects_cached(value, ctx).has_side_effects() {
             st.blocked = Some("side effects in br_if value")
             return
           }
         }
       }
       for value in values {
-        mb_problem_finder_walk(origin, value, depth, st, env)
+        mb_problem_finder_walk(origin, value, depth, st, ctx)
         if st.blocked is Some(_) {
           return
         }
@@ -2174,9 +2228,9 @@ fn mb_problem_finder_walk(
         st.blocked = Some("unsupported branch op targeting origin")
         return
       }
-      mb_problem_finder_walk(origin, index, depth, st, env)
+      mb_problem_finder_walk(origin, index, depth, st, ctx)
       for value in values {
-        mb_problem_finder_walk(origin, value, depth, st, env)
+        mb_problem_finder_walk(origin, value, depth, st, ctx)
       }
     }
     TInstrKind::TBrOnNull(label, ref_, values)
@@ -2187,9 +2241,9 @@ fn mb_problem_finder_walk(
         st.blocked = Some("unsupported branch op targeting origin")
         return
       }
-      mb_problem_finder_walk(origin, ref_, depth, st, env)
+      mb_problem_finder_walk(origin, ref_, depth, st, ctx)
       for value in values {
-        mb_problem_finder_walk(origin, value, depth, st, env)
+        mb_problem_finder_walk(origin, value, depth, st, ctx)
       }
     }
     TInstrKind::TTryTable(_, catches, body) => {
@@ -2203,7 +2257,7 @@ fn mb_problem_finder_walk(
               match catch_ {
                 CatchAllRef(_) => ()
                 CatchRef(tag_idx, _) =>
-                  match env.resolve_tag_functype(tag_idx) {
+                  match ctx.env.resolve_tag_functype(tag_idx) {
                     Some(FuncType(params, _)) if params.is_empty() => ()
                     _ => {
                       st.blocked = Some(
@@ -2220,27 +2274,27 @@ fn mb_problem_finder_walk(
             }
         }
       }
-      mb_problem_finder_walk_expr(origin, body, depth + 1, st, env)
+      mb_problem_finder_walk_expr(origin, body, depth + 1, st, ctx)
     }
     TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
-      mb_problem_finder_walk_expr(origin, body, depth + 1, st, env)
+      mb_problem_finder_walk_expr(origin, body, depth + 1, st, ctx)
     TInstrKind::TIf(_, cond, then_, else_) => {
-      mb_problem_finder_walk(origin, cond, depth, st, env)
+      mb_problem_finder_walk(origin, cond, depth, st, ctx)
       if st.blocked is Some(_) {
         return
       }
-      mb_problem_finder_walk_expr(origin, then_, depth + 1, st, env)
+      mb_problem_finder_walk_expr(origin, then_, depth + 1, st, ctx)
       if st.blocked is Some(_) {
         return
       }
       match else_ {
-        Some(e) => mb_problem_finder_walk_expr(origin, e, depth + 1, st, env)
+        Some(e) => mb_problem_finder_walk_expr(origin, e, depth + 1, st, ctx)
         None => ()
       }
     }
     _ =>
       for child in eval_children(expr) {
-        mb_problem_finder_walk(origin, child, depth, st, env)
+        mb_problem_finder_walk(origin, child, depth, st, ctx)
         if st.blocked is Some(_) {
           return
         }
@@ -2254,10 +2308,10 @@ fn mb_problem_finder_walk_expr(
   expr : TExpr,
   depth : Int,
   st : ProblemFinderState,
-  env : Env,
+  ctx : MBContext,
 ) -> Unit {
   for instr in expr.instrs {
-    mb_problem_finder_walk(origin, instr, depth, st, env)
+    mb_problem_finder_walk(origin, instr, depth, st, ctx)
     if st.blocked is Some(_) {
       return
     }
@@ -2918,7 +2972,7 @@ fn mb_run_on_function_with_stats(
   mod : Module,
   options : OptimizeOptions,
 ) -> (Func, Bool, MBFunctionRunStats) {
-  mb_run_on_function_with_stats_with_round_safety_cap(func, mod, options, 0)
+  mb_run_on_function_with_stats_with_overrides(func, mod, options, 0, true)
 }
 
 ///|
@@ -2928,15 +2982,44 @@ fn mb_run_on_function_with_stats_with_round_safety_cap(
   options : OptimizeOptions,
   round_safety_cap_override : Int,
 ) -> (Func, Bool, MBFunctionRunStats) {
+  mb_run_on_function_with_stats_with_overrides(
+    func, mod, options, round_safety_cap_override, true,
+  )
+}
+
+///|
+fn mb_run_on_function_with_stats_with_effect_cache(
+  func : Func,
+  mod : Module,
+  options : OptimizeOptions,
+  effect_cache_enabled : Bool,
+) -> (Func, Bool, MBFunctionRunStats) {
+  mb_run_on_function_with_stats_with_overrides(
+    func, mod, options, 0, effect_cache_enabled,
+  )
+}
+
+///|
+fn mb_run_on_function_with_stats_with_overrides(
+  func : Func,
+  mod : Module,
+  options : OptimizeOptions,
+  round_safety_cap_override : Int,
+  effect_cache_enabled : Bool,
+) -> (Func, Bool, MBFunctionRunStats) {
   match func {
     TFunc(params, locals, body) => {
       let env = Env::new()
         .with_module(mod)
         .with_locals(FunctionLocals::new(params, locals).all_locals())
-      let ctx = if round_safety_cap_override > 0 {
+      let ctx = if effect_cache_enabled && round_safety_cap_override > 0 {
         MBContext::new_with_round_safety_cap(env, round_safety_cap_override)
-      } else {
+      } else if effect_cache_enabled {
         MBContext::new(env)
+      } else {
+        MBContext::new_with_round_safety_cap_and_effect_cache(
+          env, round_safety_cap_override, false,
+        )
       }
       let mut refinalize_invocations = 0
       let root = TInstr::block(BlockType::void_(), body)
@@ -2965,6 +3048,8 @@ fn mb_run_on_function_with_stats_with_round_safety_cap(
             changed,
             ctx.needs_refinalize,
             refinalize_invocations,
+            ctx.compute_effects_cache_hits,
+            ctx.compute_effects_cache_misses,
             ctx.optimize_block_rounds,
             ctx.optimize_block_round_cap_hits,
           ),
@@ -2977,13 +3062,15 @@ fn mb_run_on_function_with_stats_with_round_safety_cap(
             changed,
             ctx.needs_refinalize,
             refinalize_invocations,
+            ctx.compute_effects_cache_hits,
+            ctx.compute_effects_cache_misses,
             ctx.optimize_block_rounds,
             ctx.optimize_block_round_cap_hits,
           ),
         )
       }
     }
-    _ => (func, false, MBFunctionRunStats::new(false, false, 0, 0, 0))
+    _ => (func, false, MBFunctionRunStats::new(false, false, 0, 0, 0, 0, 0))
   }
 }
 
@@ -3562,6 +3649,61 @@ fn mb_count_blocks_in_texpr(expr : TExpr) -> Int {
   )
   ignore(walker.walk_texpr((), expr))
   count
+}
+
+///|
+fn mb_make_effect_cache_stress_module(
+  arg_count : Int,
+  nesting_depth : Int,
+) -> Module {
+  let shared_prefix = mb_make_nested_unnamed_block_chain(nesting_depth)
+  let repeated_arg = TInstr::block(
+    BlockType::val_type(ValType::i32()),
+    TExpr::new([shared_prefix, TInstr::i32_const(I32(1))]),
+  )
+  let args : Array[TInstr] = []
+  let params : Array[ValType] = []
+  for _ in 0..<arg_count {
+    args.push(repeated_arg)
+    params.push(ValType::i32())
+  }
+  let body = TExpr::new([TInstr::call(FuncIdx::new(1), args)])
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], []))),
+      RecType::new(SubType::comp_type(CompType::func(params, []))),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func([], [], body),
+      Func::t_func(params, [], TExpr::new([])),
+    ]),
+  )
+}
+
+///|
+fn mb_effect_cache_stress_elapsed_us(
+  iterations : Int,
+  effect_cache_enabled : Bool,
+) -> UInt64 {
+  let mod = mb_make_effect_cache_stress_module(24, 40)
+  let func = match mod.code_sec {
+    Some(CodeSec([entry, _])) => entry
+    _ => abort("expected stress module function pair")
+  }
+  let start_us = trace_now_us()
+  for _ in 0..<iterations {
+    let _ = mb_run_on_function_with_stats_with_effect_cache(
+      func,
+      mod,
+      OptimizeOptions::new(),
+      effect_cache_enabled,
+    )
+  }
+  trace_elapsed_us_since(start_us)
 }
 
 ///|
@@ -4690,6 +4832,50 @@ test "merge blocks: runtime parallel gap is documented as intentional sequential
   assert_true(note.contains("intentional divergence"))
   assert_true(note.contains("sequential"))
   assert_true(note.contains("ModuleTransformer::walk_opt_array"))
+}
+
+///|
+test "merge blocks: effect cache records repeated stable-identity hits per function" {
+  let mod = mb_make_effect_cache_stress_module(12, 32)
+  let func = match mod.code_sec {
+    Some(CodeSec([entry, _])) => entry
+    _ => fail("expected stress module function pair")
+  }
+  let (_, changed_uncached, uncached_stats) = mb_run_on_function_with_stats_with_effect_cache(
+    func,
+    mod,
+    OptimizeOptions::new(),
+    false,
+  )
+  let (_, changed_cached, cached_stats) = mb_run_on_function_with_stats_with_effect_cache(
+    func,
+    mod,
+    OptimizeOptions::new(),
+    true,
+  )
+  assert_true(changed_uncached)
+  assert_true(changed_cached)
+  assert_eq(uncached_stats.compute_effects_cache_hits, 0)
+  assert_eq(uncached_stats.compute_effects_cache_misses, 0)
+  assert_true(cached_stats.compute_effects_cache_hits > 0)
+  assert_true(cached_stats.compute_effects_cache_misses > 0)
+}
+
+///|
+test "merge blocks: effect cache stress fixture improves wall time by at least 15 percent" {
+  let uncached_us = mb_effect_cache_stress_elapsed_us(64, false)
+  let cached_us = mb_effect_cache_stress_elapsed_us(64, true)
+  assert_true(uncached_us > 0UL)
+  assert_true(cached_us > 0UL)
+  let improvement_bp = if uncached_us > cached_us {
+    (uncached_us - cached_us) * 10000UL / uncached_us
+  } else {
+    0UL
+  }
+  assert_true(
+    improvement_bp >= 1500UL,
+    msg="expected >=15% wall-time improvement, uncached=\{uncached_us}us cached=\{cached_us}us improvement_bp=\{improvement_bp}",
+  )
 }
 
 ///|

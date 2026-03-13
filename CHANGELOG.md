@@ -1,5 +1,49 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed P-002 by adding per-function `compute_effects` memoization and locking a >=15% stress-fixture wall-time improvement
+
+This follow-up closes `MergeBlocks` performance P-002 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
+
+Strict TDD was used:
+1. Added red-first performance/cache regressions:
+   - `merge blocks: effect cache records repeated stable-identity hits per function`
+   - `merge blocks: effect cache stress fixture improves wall time by at least 15 percent`
+2. Ran `moon test src/passes` and captured explicit red compile failures before implementation:
+   - unbound `mb_run_on_function_with_stats_with_effect_cache(...)`
+   - missing cache fields in run stats (`compute_effects_cache_hits` / `compute_effects_cache_misses`)
+3. Implemented per-function memoization + stats wiring and reran to green.
+
+Implementation details:
+- Added stable instruction cache key:
+  - `MBStableInstrKey` (derived `Eq`/`Hash`) keyed by `TInstr` identity/equality semantics.
+- Added per-function effect cache storage and controls in `MBContext`:
+  - `effects_cache : Map[MBStableInstrKey, MBEffects]`
+  - `effect_cache_enabled : Bool`
+  - `compute_effects_cache_hits` / `compute_effects_cache_misses`
+- Added cached effect accessor:
+  - `mb_compute_effects_cached(instr, ctx)` with hit/miss accounting.
+- Routed MergeBlocks hot-path effect queries to cached accessor in:
+  - `optimize_expression_restructure(...)`
+  - `mb_restructure_non_control(...)`
+  - dropped-block `problem_finder` value-side-effect checks.
+- Added function-runner override path:
+  - `mb_run_on_function_with_stats_with_effect_cache(...)`
+  - shared override runner keeps existing behavior as default while enabling cache-off comparisons for stress verification.
+- Extended `MBFunctionRunStats` with cache telemetry:
+  - `compute_effects_cache_hits`
+  - `compute_effects_cache_misses`
+
+Performance verification locked in tests:
+- Added dedicated stress fixture/module helper (`mb_make_effect_cache_stress_module(...)`) that reuses repeated stable instruction identities in a heavy call-argument shape.
+- Added timing helper (`mb_effect_cache_stress_elapsed_us(...)`) and regression asserting cached mode improves wall time by `>= 15%` versus uncached mode on fixed iterations.
+
+Verification:
+- `moon test src/passes`
+- `moon info && moon fmt`
+- `moon test`
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): P-002 was removed from publishing blockers and moved to recently completed.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed runtime-gap item by documenting and locking intentional sequential execution under current transformer constraints
 
 This follow-up closes the `MergeBlocks` runtime-gap backlog item in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt).
