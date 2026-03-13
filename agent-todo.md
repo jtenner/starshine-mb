@@ -9,8 +9,12 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - Recent completed items are retained at the bottom until the next audit pass.
 
 ## Publishing blockers
-- [ ] Performance issue in Flatten (use helper level tracing with timing stats to diagnose)
-- [ ] Performance issue in Validate package
+- [ ] Optimize + Binaryen feature parity comparison: `SimplifyLocals`
+- [ ] Optimize + Binaryen feature parity comparison: `RemoveUnusedBrs`
+- [ ] Optimize + Binaryen feature parity comparison: `PrecomputePropagate`
+- [ ] Optimize + Binaryen feature parity comparison: `CodePushing`
+- [ ] Optimize + Binaryen feature parity comparison: `CodeFolding`
+- [ ] Optimize + Binaryen feature parity comparison: `MergeBlocks`
 - [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
 - [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
 - [ ] Implement `StringGathering` in the global post pipeline under the appropriate feature/optimization gates.
