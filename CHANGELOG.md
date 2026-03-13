@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-03-13 MergeBlocks Follow-up: closed parity-baseline setup by adding a dedicated fixture corpus, a fixed-corpus timing harness, and baseline snapshot metrics
+
+This follow-up closes the `MergeBlocks` parity-baseline blocker by adding an explicit baseline corpus and harness in [`src/passes/merge_blocks_parity_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks_parity_wbtest.mbt). The new whitebox parity file introduces:
+- `mbp_fixture_corpus()` as a dedicated fixed fixture corpus
+- `mbp_collect_baseline_metrics(iterations)` for correctness baseline collection
+- `mbp_time_fixed_corpus_us(iterations)` for deterministic fixed-corpus timing runs
+
+Strict TDD was used:
+1. Added red-first tests for corpus presence, baseline metrics, and timing harness hooks before helper implementation (initial compile red with unbound baseline helpers).
+2. Implemented corpus/harness helpers and fixed fixture validity with an explicit validator regression (`merge blocks parity fixtures validate before and after pass`).
+3. Locked baseline correctness snapshot metrics in test assertions and brought the suite to green.
+
+Baseline snapshot (fixed corpus, `iterations=1`) now recorded in tests:
+- `total_fixtures = 8`
+- `changed_count = 5`
+- `valid_after_count = 8`
+- `idempotent_count = 8`
+- `value_branch_count_after = 0`
+
+Performance baseline harness contract is also locked in tests:
+- `mbp_time_fixed_corpus_us(3) > 0`
+- fixed corpus membership and iteration-driven timing loop are stable for future before/after comparisons.
+
+Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md): the parity-baseline item was removed from publishing blockers and moved to recently completed with baseline details.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed C-001 by running dropped-block `problem_finder` over the whole body and aligning `br_if` drop-accounting with Binaryen semantics
 
 This follow-up closes the `MergeBlocks` correctness gap C-001 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt). The dropped-block path in `optimize_dropped_block(...)` previously called `problem_finder(...)` once per top-level instruction in the block body, which prevented whole-body balancing behavior for dropped vs non-dropped `br_if` cases and diverged from Binaryen's one-walk dropped-block analysis.
