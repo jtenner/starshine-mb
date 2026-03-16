@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: expose stacked-runner scheduler segments in helper traces
+
+- Added helper-trace segment planning in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt), so traced optimize runs now emit the grouped function-pass stacks and module-runner barrier passes derived from the in-tree scheduler segmentation helper before execution begins.
+- Added trace regressions in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) that require helper-level traces to report the segment plan while keeping pass-level traces unchanged.
+- Validation: `moon test --package jtenner/starshine/passes --file optimize.mbt -F 'optimize_module *scheduler pass segments*'`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Optimize Follow-up: add scheduler segmentation groundwork for stacked function-pass execution
 
 - Added scheduler segmentation helpers in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) that group contiguous function-stackable transformer passes and isolate module-runner barriers, giving the future stacked runner an explicit in-tree segmentation contract.

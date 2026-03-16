@@ -1488,6 +1488,44 @@ fn optimize_trace_emit_helper(
 }
 
 ///|
+fn optimize_trace_render_pass_list(passes : Array[ModulePass]) -> String {
+  let out = StringBuilder::new()
+  for i = 0; i < passes.length(); i = i + 1 {
+    if i > 0 {
+      out.write_string(",")
+    }
+    out.write_string("\{passes[i]}")
+  }
+  out.to_string()
+}
+
+///|
+fn optimize_trace_emit_scheduler_segments(
+  trace : (String) -> Unit,
+  trace_enabled : Bool,
+  level : OptimizeTracingLevel,
+  passes : Array[ModulePass],
+) -> Unit {
+  if !(trace_enabled && optimize_trace_helper_enabled(level)) {
+    return
+  }
+  let segments = scheduler_segment_passes(passes)
+  trace("scheduler:segments total=\{segments.length()}")
+  for i = 0; i < segments.length(); i = i + 1 {
+    match segments[i] {
+      FunctionPassStack(stack_passes) =>
+        trace(
+          "scheduler:segment[\{i + 1}/\{segments.length()}] kind=function-stack passes=\{optimize_trace_render_pass_list(stack_passes)}",
+        )
+      BarrierPass(pass) =>
+        trace(
+          "scheduler:segment[\{i + 1}/\{segments.length()}] kind=barrier pass=\{pass}",
+        )
+    }
+  }
+}
+
+///|
 fn optimize_module_with_options_internal(
   mod : Module,
   passes : Array[ModulePass],
@@ -1504,6 +1542,9 @@ fn optimize_module_with_options_internal(
     trace,
     trace_enabled,
     "start passes=\{passes.length()}",
+  )
+  optimize_trace_emit_scheduler_segments(
+    trace, trace_enabled, trace_level, passes,
   )
   if passes.length() == 0 {
     optimize_trace_emit_pass(
@@ -5589,6 +5630,82 @@ test "optimize_module trace reports separate transform and validation timings" {
   assert_true(done_line != "")
   assert_true(done_line.contains("transform_elapsed_ms="))
   assert_true(done_line.contains("validation_elapsed_ms="))
+}
+
+///|
+test "optimize_module helper trace reports scheduler pass segments" {
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+    ),
+  )
+  let trace_lines : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [DeadCodeElimination, Vacuum, MergeSimilarFunctions, CoalesceLocals],
+        OptimizeOptions::new(),
+        fn(msg) { trace_lines.push(msg) },
+        trace_level=OptimizeTracingLevel::helper(),
+      ) {
+      Ok(m) => m
+      Err(e) =>
+        fail("unexpected optimize_module_with_options_trace error: \{e}")
+    },
+  )
+  assert_eq(
+    optimize_trace_count_lines_containing(
+      trace_lines, "scheduler:segments total=3",
+    ),
+    1,
+  )
+  assert_eq(
+    optimize_trace_count_lines_containing(
+      trace_lines, "scheduler:segment[1/3] kind=function-stack passes=DeadCodeElimination,Vacuum",
+    ),
+    1,
+  )
+  assert_eq(
+    optimize_trace_count_lines_containing(
+      trace_lines, "scheduler:segment[2/3] kind=barrier pass=MergeSimilarFunctions",
+    ),
+    1,
+  )
+  assert_eq(
+    optimize_trace_count_lines_containing(
+      trace_lines, "scheduler:segment[3/3] kind=function-stack passes=CoalesceLocals",
+    ),
+    1,
+  )
+}
+
+///|
+test "optimize_module pass trace omits scheduler pass segments" {
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+    ),
+  )
+  let trace_lines : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [DeadCodeElimination, Vacuum, MergeSimilarFunctions, CoalesceLocals],
+        OptimizeOptions::new(),
+        fn(msg) { trace_lines.push(msg) },
+        trace_level=OptimizeTracingLevel::pass(),
+      ) {
+      Ok(m) => m
+      Err(e) =>
+        fail("unexpected optimize_module_with_options_trace error: \{e}")
+    },
+  )
+  assert_eq(
+    optimize_trace_count_lines_containing(trace_lines, "scheduler:segment["),
+    0,
+  )
 }
 
 ///|
