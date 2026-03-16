@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 MergeSimilarFunctions Follow-up: replace dense node-id maps with array-backed lookup in rewrite metadata paths
+
+- Reworked call-target metadata lookup in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so rewrite prevalidation and shared-body rewrite use array-backed `node_id -> param` lookup plus dense seen-use tracking keyed by traversal-stable preorder ids instead of `Map[Int, Int]` / `Map[Int, Bool]`.
+- Kept the existing `MergeSimilarFunctions` rewrite and diagnostics behavior in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) while reducing GC churn on the dense node-id metadata path.
+- Added sparse-use regression coverage in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) and recorded the completed blocker slice in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
+- Validation: `moon test src/passes`; `moon fmt`; `moon info`; `moon test`.
+
 ## 2026-03-16 MergeSimilarFunctions Follow-up: cache per-function analysis artifacts across hot-path queries
 
 - Added a shared per-run analysis context in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) that caches module type metadata plus lazy per-function normalized bodies, ordered-site/call-site artifacts, site maps, and measured body sizes.

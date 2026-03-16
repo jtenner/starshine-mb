@@ -795,14 +795,40 @@ fn msf_call_target_rewrite_error(reason : String) -> String {
 }
 
 ///|
-fn msf_build_node_to_param(params : Array[ParamInfo]) -> Map[Int, Int] {
-  let node_to_param : Map[Int, Int] = Map::new()
+fn msf_build_dense_node_to_param(params : Array[ParamInfo]) -> Array[Int] {
+  let mut max_node_id = -1
   for param_idx = 0; param_idx < params.length(); param_idx = param_idx + 1 {
     for use_id in params[param_idx].uses {
-      node_to_param[use_id] = param_idx
+      if use_id > max_node_id {
+        max_node_id = use_id
+      }
+    }
+  }
+  if max_node_id < 0 {
+    return []
+  }
+  let node_to_param = Array::make(max_node_id + 1, -1)
+  for param_idx = 0; param_idx < params.length(); param_idx = param_idx + 1 {
+    for use_id in params[param_idx].uses {
+      if use_id >= 0 {
+        node_to_param[use_id] = param_idx
+      }
     }
   }
   node_to_param
+}
+
+///|
+fn msf_dense_node_lookup(node_to_param : Array[Int], node_id : Int) -> Int? {
+  if node_id < 0 || node_id >= node_to_param.length() {
+    return None
+  }
+  let param_idx = node_to_param[node_id]
+  if param_idx < 0 {
+    None
+  } else {
+    Some(param_idx)
+  }
 }
 
 ///|
@@ -916,8 +942,8 @@ fn msf_prevalidate_call_target_rewrite_metadata(
   type_env : Env,
   func_type_idxs : Array[TypeIdx],
 ) -> Result[Unit, String] {
-  let node_to_param = msf_build_node_to_param(params)
-  let seen_call_target_uses : Map[Int, Bool] = Map::new()
+  let node_to_param = msf_build_dense_node_to_param(params)
+  let seen_call_target_uses = Array::make(node_to_param.length(), false)
   let mut next_id = 0
   let walker : ModuleTransformer[Unit, String] = ModuleTransformer::new().on_tinstruction_evt(fn(
       self,
@@ -926,7 +952,7 @@ fn msf_prevalidate_call_target_rewrite_metadata(
     ) {
       let node_id = next_id
       next_id += 1
-      match node_to_param.get(node_id) {
+      match msf_dense_node_lookup(node_to_param, node_id) {
         Some(param_idx) =>
           match params[param_idx].kind {
             CallTargetParam(type_idx, expected_arg_count, expects_return, _) => {
@@ -954,7 +980,9 @@ fn msf_prevalidate_call_target_rewrite_metadata(
     match param.kind {
       CallTargetParam(_, _, expects_return, _) =>
         for use_id in param.uses {
-          if seen_call_target_uses.get(use_id) != Some(true) {
+          if use_id < 0 ||
+            use_id >= seen_call_target_uses.length() ||
+            !seen_call_target_uses[use_id] {
             return Err(
               msf_call_target_rewrite_error(
                 "kind mismatch node_id=\{use_id} expected=\{msf_direct_call_kind_name(expects_return)} actual=missing",
@@ -1819,6 +1847,15 @@ fn msf_param_local_index(
 }
 
 ///|
+fn msf_count_param_uses(params : Array[ParamInfo]) -> Int {
+  let mut n = 0
+  for param in params {
+    n += param.uses.length()
+  }
+  n
+}
+
+///|
 fn msf_rewrite_shared_body(
   body : TExpr,
   primary_param_count : Int,
@@ -1836,10 +1873,10 @@ fn msf_rewrite_shared_body(
     )
   }
   let map_start_ms = msf_trace_now_ms()
-  let node_to_param = msf_build_node_to_param(params)
+  let node_to_param = msf_build_dense_node_to_param(params)
   if trace_all_funcs {
     trace(
-      "func[\{ordinal}] phase=shared_rewrite:build_map:done elapsed_ms=\{msf_trace_elapsed_ms(map_start_ms)} mapped_nodes=\{node_to_param.length()}",
+      "func[\{ordinal}] phase=shared_rewrite:build_map:done elapsed_ms=\{msf_trace_elapsed_ms(map_start_ms)} mapped_nodes=\{msf_count_param_uses(params)} dense_slots=\{node_to_param.length()}",
     )
   }
   let mut next_id = 0
@@ -1886,7 +1923,7 @@ fn msf_rewrite_shared_body(
       }
       _ => walked
     }
-    let replaced = match node_to_param.get(node_id) {
+    let replaced = match msf_dense_node_lookup(node_to_param, node_id) {
       Some(param_idx) => {
         let replacement_local = msf_param_local_index(
           primary_param_count, param_idx,
@@ -3532,6 +3569,34 @@ test "merge similar functions reports callee type mismatch details" {
       assert_true(e.contains("node_id="))
     }
   }
+}
+
+///|
+test "merge similar functions dense node lookup preserves sparse param uses" {
+  let params : Array[ParamInfo] = [
+    {
+      kind: LiteralParam(ValType::i32(), [
+        TInstr::i32_const(I32(1)),
+        TInstr::i32_const(I32(2)),
+      ]),
+      uses: [2, 5],
+    },
+    {
+      kind: CallTargetParam(TypeIdx::new(0), 1, false, [
+        FuncIdx::new(0),
+        FuncIdx::new(1),
+      ]),
+      uses: [9],
+    },
+  ]
+  let node_to_param = msf_build_dense_node_to_param(params)
+  assert_eq(node_to_param.length(), 10)
+  assert_eq(msf_dense_node_lookup(node_to_param, -1), None)
+  assert_eq(msf_dense_node_lookup(node_to_param, 0), None)
+  assert_eq(msf_dense_node_lookup(node_to_param, 2), Some(0))
+  assert_eq(msf_dense_node_lookup(node_to_param, 5), Some(0))
+  assert_eq(msf_dense_node_lookup(node_to_param, 9), Some(1))
+  assert_eq(msf_dense_node_lookup(node_to_param, 10), None)
 }
 
 ///|
