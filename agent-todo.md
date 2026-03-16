@@ -9,7 +9,24 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - Recent completed items are retained at the bottom until the next audit pass.
 
 ## Publishing blockers
-- [ ] Optimize + Binaryen feature parity comparison: `SimplifyLocals`
+### `SimplifyLocals` work plan
+- [ ] `SL-01` / `ID-C1`: preserve prior sinkables when an intermediate `local.get` reads the destination local.
+- [ ] `SL-02` / `ID-C2`: keep `local.get` counts exact after structure rewrites that add or remove gets.
+- [ ] `SL-03` / `ID-P1`: support `if` result structuring when one arm is unreachable.
+- [ ] `SL-04` / `ID-P2`: preserve fixpoint-cycle behavior that unlocks later sinks without oscillation.
+- [ ] `SL-05` / `ID-P3`: keep loop-result structuring parity for eligible loops and reject `br 0` loops.
+- [ ] `SL-06` / `ID-P4`: allow subtype-safe single-use sinking without widening or invalidating local types.
+- [ ] `SL-07` / `ID-P5`: keep subtype-aware late canonicalization correct for both small and large local arrays.
+- [ ] `SL-08`: keep conditional `br_if` value/block-return structuring legal, typed, and effect-order-safe.
+- [ ] `SL-09`: keep supported single-target `br_table` block-exit coalescing and reject unsupported shapes.
+- [ ] `SL-10`: preserve typed rewrite validation, repair, and rejection accounting for rewritten functions.
+- [ ] `SL-11` / `ID-F1`: bound main-phase effect recomputation with shared cached effect analysis.
+- [ ] `SL-12`: keep pathological/wide-local guards fast, explicit, and non-destructive on safe inputs.
+- [ ] `SL-13` / `ID-F2`: reduce invalidation-scan overhead below naive active-sinkables-per-instruction behavior.
+- [ ] `SL-14` / `ID-F3`: reuse get-count state across fixpoint cycles without stale-count regressions.
+- [ ] `SL-15` / `ID-F4`: avoid unnecessary late-phase state cloning on nested branch-heavy bodies.
+- [ ] `SL-16`: sign off `SimplifyLocals` pipeline placement and five-variant scheduler parity in `optimize.mbt`.
+- [ ] `SL-17`: close the `SimplifyLocals` parity/performance matrix with explicit tests, divergences, and rerun commands.
 - [ ] Optimize + Binaryen feature parity comparison: `RemoveUnusedBrs`
 - [ ] Optimize + Binaryen feature parity comparison: `PrecomputePropagate`
 - [ ] Optimize + Binaryen feature parity comparison: `CodePushing`
