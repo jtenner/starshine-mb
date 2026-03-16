@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: run contiguous non-vacuum function stacks per function
+
+- Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so `FunctionPassStack` segments now execute contiguous non-`Vacuum` substacks through a prepared per-function runner on the default final-validation path, while `Vacuum`, pass/phase tracing, and `AfterEveryPass` validation still fall back to the existing flat per-pass executor.
+- Factored scheduler pass construction in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so the stacked runner can reuse the same IR-context and unit-transformer pass builders as the flat scheduler path.
+- Added optimize trace regressions in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) that require helper traces to show interleaved function-stack execution for a real two-pass stack while keeping the flat loop for `AfterEveryPass` validation.
+- Validation: `moon test --package jtenner/starshine/passes --file optimize.mbt`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Optimize Follow-up: narrow function-stack segments to walk-func-compatible passes
 
 - Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so `scheduler_segment_passes(...)` now treats only walk-func-compatible passes as `FunctionPassStack` members; module-shaped IR transformers such as `Flatten` and `LocalCSE` are now explicit barriers even though they are not `ModuleRunnerPass` values.

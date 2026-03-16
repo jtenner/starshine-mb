@@ -227,6 +227,12 @@ priv enum SchedulerPassSegment {
 }
 
 ///|
+priv enum PreparedFunctionStackPass {
+  IRContextFunctionPass(ModulePass, ModuleTransformer[IRContext, String])
+  UnitFunctionPass(ModulePass, ModuleTransformer[Unit, String])
+}
+
+///|
 fn[T] apply_transformer_pass(
   state : T,
   mod : Module,
@@ -261,6 +267,35 @@ fn apply_module_runner_pass(
   runner : (Module) -> Result[Module, String],
 ) -> Result[Module, String] {
   runner(mod)
+}
+
+///|
+fn optimize_prepared_function_stack_pass_id(
+  prepared : PreparedFunctionStackPass,
+) -> ModulePass {
+  match prepared {
+    IRContextFunctionPass(pass, _) | UnitFunctionPass(pass, _) => pass
+  }
+}
+
+///|
+fn optimize_apply_prepared_function_stack_pass(
+  ctx : IRContext,
+  func : Func,
+  prepared : PreparedFunctionStackPass,
+) -> Result[Func, String] {
+  match prepared {
+    IRContextFunctionPass(_, pass) =>
+      match pass.walk_func(ctx, func) {
+        Ok((next_func, _)) => Ok(next_func)
+        Err(e) => Err(e)
+      }
+    UnitFunctionPass(_, pass) =>
+      match pass.walk_func((), func) {
+        Ok((next_func, _)) => Ok(next_func)
+        Err(e) => Err(e)
+      }
+  }
 }
 
 ///|
@@ -587,35 +622,20 @@ fn scheduler_segment_passes(
 }
 
 ///|
-fn run_ir_context_transformer_scheduler_pass(
-  ctx : IRContext,
+fn make_ir_context_transformer_scheduler_pass(
   mod : Module,
   pass : ModulePass,
   options : OptimizeOptions,
   trace : (String) -> Unit,
   trace_pass_details : Bool,
-) -> Result[Module, String] {
-  let scheduler_kind = "ir-context-transformer"
-  let scheduler_start_ms = pass_trace_now_ms()
-  if trace_pass_details {
-    trace("\{pass}:phase=scheduler:start kind=\{scheduler_kind}")
-    trace("\{pass}:helper kind=\{scheduler_kind} event=invoke")
-  }
-  let result = match pass {
+) -> Result[ModuleTransformer[IRContext, String], String] {
+  match pass {
     AbstractTypeRefining(props) =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        abstract_type_refining(mod, props.traps_never_happen),
-      )
-    AlignmentLowering =>
-      apply_ir_transformer_pass(ctx, mod, alignment_lowering_pass(mod))
-    AvoidReinterprets =>
-      apply_ir_transformer_pass(ctx, mod, avoid_reinterprets_pass(mod))
+      Ok(abstract_type_refining(mod, props.traps_never_happen))
+    AlignmentLowering => Ok(alignment_lowering_pass(mod))
+    AvoidReinterprets => Ok(avoid_reinterprets_pass(mod))
     CoalesceLocals =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
+      Ok(
         coalesce_locals_ir_pass_with_trace(
           mod,
           trace=fn(msg) { trace("coalesce_locals:\{msg}") },
@@ -623,9 +643,7 @@ fn run_ir_context_transformer_scheduler_pass(
         ),
       )
     CodeFolding =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
+      Ok(
         code_folding_ir_pass_with_trace(
           mod,
           trace=fn(msg) { trace("code_folding:\{msg}") },
@@ -633,38 +651,24 @@ fn run_ir_context_transformer_scheduler_pass(
         ),
       )
     CodePushing =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
+      Ok(
         code_pushing_ir_pass_with_trace(
           mod,
           trace=fn(msg) { trace("code_pushing:\{msg}") },
           trace_all_funcs=trace_pass_details,
         ),
       )
-    ConstHoisting =>
-      apply_ir_transformer_pass(ctx, mod, const_hoisting_ir_pass(mod))
-    ConstantFieldPropagation =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        constant_field_propagation_ir_pass(mod),
-      )
+    ConstHoisting => Ok(const_hoisting_ir_pass(mod))
+    ConstantFieldPropagation => Ok(constant_field_propagation_ir_pass(mod))
     ConstantFieldNullTestFolding =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        constant_field_null_test_folding_ir_pass(mod),
-      )
+      Ok(constant_field_null_test_folding_ir_pass(mod))
     DataflowOptimization => {
       let dataflow_trace = if trace_pass_details {
         fn(msg) { trace("dataflow:\{msg}") }
       } else {
         optimize_trace_noop
       }
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
+      Ok(
         dataflow_optimization_pass(
           mod,
           trace=dataflow_trace,
@@ -672,12 +676,9 @@ fn run_ir_context_transformer_scheduler_pass(
         ),
       )
     }
-    SignaturePruning =>
-      apply_ir_transformer_pass(ctx, mod, signature_pruning_ir_pass(mod))
+    SignaturePruning => Ok(signature_pruning_ir_pass(mod))
     SimplifyGlobals =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
+      Ok(
         simplify_globals_ir_pass(
           mod,
           false,
@@ -686,9 +687,7 @@ fn run_ir_context_transformer_scheduler_pass(
         ),
       )
     SimplifyGlobalsOptimizing =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
+      Ok(
         simplify_globals_ir_pass(
           mod,
           true,
@@ -696,26 +695,17 @@ fn run_ir_context_transformer_scheduler_pass(
           trace_all_funcs=trace_pass_details,
         ),
       )
-    PropagateGlobalsGlobally =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        propagate_globals_globally_ir_pass(mod),
-      )
-    GlobalEffects =>
-      apply_ir_transformer_pass(ctx, mod, global_effects_ir_pass(mod))
-    Heap2Local => apply_ir_transformer_pass(ctx, mod, heap2local_ir_pass(mod))
-    HeapStoreOptimization =>
-      apply_ir_transformer_pass(ctx, mod, heap_store_optimization_ir_pass(mod))
+    PropagateGlobalsGlobally => Ok(propagate_globals_globally_ir_pass(mod))
+    GlobalEffects => Ok(global_effects_ir_pass(mod))
+    Heap2Local => Ok(heap2local_ir_pass(mod))
+    HeapStoreOptimization => Ok(heap_store_optimization_ir_pass(mod))
     LocalCSE => {
       let local_cse_trace = if trace_pass_details {
         fn(msg) { trace("local_cse:\{msg}") }
       } else {
         optimize_trace_noop
       }
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
+      Ok(
         local_cse_ir_pass_with_trace(
           mod,
           options,
@@ -725,25 +715,16 @@ fn run_ir_context_transformer_scheduler_pass(
         ),
       )
     }
-    LoopInvariantCodeMotion =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        loop_invariant_code_motion_ir_pass(mod),
-      )
-    MergeLocals =>
-      apply_ir_transformer_pass(ctx, mod, merge_locals_ir_pass(mod, options~))
-    MergeBlocks =>
-      apply_ir_transformer_pass(ctx, mod, merge_blocks_ir_pass(mod, options~))
+    LoopInvariantCodeMotion => Ok(loop_invariant_code_motion_ir_pass(mod))
+    MergeLocals => Ok(merge_locals_ir_pass(mod, options~))
+    MergeBlocks => Ok(merge_blocks_ir_pass(mod, options~))
     Flatten => {
       let flatten_trace = if trace_pass_details {
         fn(msg) { trace("flatten:\{msg}") }
       } else {
         optimize_trace_noop
       }
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
+      Ok(
         flatten_ir_pass_with_trace(
           mod,
           trace=flatten_trace,
@@ -752,25 +733,14 @@ fn run_ir_context_transformer_scheduler_pass(
         ),
       )
     }
-    ReReloop => apply_ir_transformer_pass(ctx, mod, re_reloop_ir_pass(mod))
-    TupleOptimization =>
-      apply_ir_transformer_pass(ctx, mod, tuple_optimization_ir_pass(mod))
+    ReReloop => Ok(re_reloop_ir_pass(mod))
+    TupleOptimization => Ok(tuple_optimization_ir_pass(mod))
     OptimizeAddedConstants =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        optimize_added_constants_ir_pass(mod, options, false),
-      )
+      Ok(optimize_added_constants_ir_pass(mod, options, false))
     OptimizeAddedConstantsPropagate =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        optimize_added_constants_ir_pass(mod, options, true),
-      )
+      Ok(optimize_added_constants_ir_pass(mod, options, true))
     OptimizeInstructions =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
+      Ok(
         optimize_instructions_ir_pass(
           mod,
           options,
@@ -782,9 +752,7 @@ fn run_ir_context_transformer_scheduler_pass(
       if trace_pass_details {
         trace("precompute:start propagate=false")
       }
-      let result = apply_ir_transformer_pass(
-        ctx,
-        mod,
+      let result = Ok(
         precompute_ir_pass(
           mod,
           options,
@@ -805,9 +773,7 @@ fn run_ir_context_transformer_scheduler_pass(
       if trace_pass_details {
         trace("precompute:start propagate=true")
       }
-      let result = apply_ir_transformer_pass(
-        ctx,
-        mod,
+      let result = Ok(
         precompute_ir_pass(
           mod,
           options,
@@ -824,23 +790,160 @@ fn run_ir_context_transformer_scheduler_pass(
       }
       result
     }
-    RedundantSetElimination =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        redundant_set_elimination_ir_pass(mod),
-      )
+    RedundantSetElimination => Ok(redundant_set_elimination_ir_pass(mod))
     PickLoadSigns =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
+      Ok(
         pick_load_signs_ir_pass_with_trace(
           mod,
           trace=fn(msg) { trace("pick_load_signs:\{msg}") },
           trace_all_funcs=trace_pass_details,
         ),
       )
-    GUFA => apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false))
+    GUFA => Ok(gufa_ir_pass(mod, false))
+    GUFAOptimizing =>
+      Err(
+        "optimize scheduler bug: GUFAOptimizing is not a single IRContext transformer",
+      )
+    GUFACastAll => Ok(gufa_ir_pass(mod, true))
+    Directize(initial_immutable) =>
+      match directize_ir_pass(mod, initial_immutable) {
+        Ok(ir_pass) => Ok(ir_pass)
+        Err(e) => Err(e)
+      }
+    OptimizeCasts => Ok(optimize_casts_ir_pass(mod))
+    DeNaN => Ok(de_nan_ir_pass(mod))
+    RemoveUnusedNames =>
+      Ok(
+        remove_unused_names_ir_pass(
+          mod,
+          trace=fn(msg) { trace("remove_unused_names:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
+    RemoveUnused =>
+      Ok(
+        remove_unused_ir_pass(mod, trace=fn(msg) {
+          trace("remove_unused:\{msg}")
+        }),
+      )
+    RemoveUnusedModuleElements =>
+      Ok(
+        remove_unused_ir_pass(mod, root_all_functions=true, trace=fn(msg) {
+          trace("remove_unused:\{msg}")
+        }),
+      )
+    RemoveUnusedNonFunctionElements =>
+      Ok(
+        remove_unused_ir_pass(mod, root_all_functions=true, trace=fn(msg) {
+          trace("remove_unused:\{msg}")
+        }),
+      )
+    SimplifyLocals =>
+      Ok(
+        simplify_locals_ir_pass(
+          mod,
+          true,
+          true,
+          true,
+          trace=fn(msg) { trace("simplify_locals:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
+    SimplifyLocalsNoTee =>
+      Ok(
+        simplify_locals_ir_pass(
+          mod,
+          false,
+          true,
+          true,
+          trace=fn(msg) { trace("simplify_locals (no-tee):\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
+    SimplifyLocalsNoStructure =>
+      Ok(
+        simplify_locals_ir_pass(
+          mod,
+          true,
+          false,
+          true,
+          trace=fn(msg) { trace("simplify_locals (no-structure):\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
+    SimplifyLocalsNoTeeNoStructure =>
+      Ok(
+        simplify_locals_ir_pass(
+          mod,
+          false,
+          false,
+          true,
+          trace=fn(msg) {
+            trace("simplify_locals (no-tee, no-structure):\{msg}")
+          },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
+    SimplifyLocalsNoNesting =>
+      Ok(
+        simplify_locals_ir_pass(
+          mod,
+          false,
+          false,
+          false,
+          trace=fn(msg) { trace("simplify_locals (no-nesting):\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
+    Untee => Ok(untee_ir_pass(mod))
+    Vacuum =>
+      Ok(
+        vacuum_ir_pass_with_trace(
+          mod,
+          fn(msg) { trace("vacuum:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+          traps_never_happen=options.traps_never_happen,
+        ),
+      )
+    ReorderLocals => Ok(reorder_locals_ir_pass(mod))
+    ReorderGlobals =>
+      Ok(
+        reorder_globals_ir_pass(
+          mod,
+          false,
+          trace=fn(msg) { trace("reorder_globals:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
+    ReorderGlobalsAlways =>
+      Ok(
+        reorder_globals_ir_pass(
+          mod,
+          true,
+          trace=fn(msg) { trace("reorder_globals:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
+    _ => Err("optimize scheduler bug: expected IRContext transformer pass")
+  }
+}
+
+///|
+fn run_ir_context_transformer_scheduler_pass(
+  ctx : IRContext,
+  mod : Module,
+  pass : ModulePass,
+  options : OptimizeOptions,
+  trace : (String) -> Unit,
+  trace_pass_details : Bool,
+) -> Result[Module, String] {
+  let scheduler_kind = "ir-context-transformer"
+  let scheduler_start_ms = pass_trace_now_ms()
+  if trace_pass_details {
+    trace("\{pass}:phase=scheduler:start kind=\{scheduler_kind}")
+    trace("\{pass}:helper kind=\{scheduler_kind} event=invoke")
+  }
+  let result = match pass {
     GUFAOptimizing =>
       match apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false)) {
         Ok(gufa_mod) => {
@@ -859,168 +962,32 @@ fn run_ir_context_transformer_scheduler_pass(
             ) {
             Ok(after_dce) => {
               ctx.set_mod(after_dce)
-              apply_ir_transformer_pass(
-                ctx,
-                after_dce,
-                code_folding_ir_pass_with_trace(
+              match
+                make_ir_context_transformer_scheduler_pass(
                   after_dce,
-                  trace=fn(msg) { trace("code_folding:\{msg}") },
-                  trace_all_funcs=trace_pass_details,
-                ),
-              )
+                  CodeFolding,
+                  options,
+                  trace,
+                  trace_pass_details,
+                ) {
+                Ok(transformer) =>
+                  apply_ir_transformer_pass(ctx, after_dce, transformer)
+                Err(e) => Err(e)
+              }
             }
             Err(e) => Err(e)
           }
         }
         Err(e) => Err(e)
       }
-    GUFACastAll => apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, true))
-    Directize(initial_immutable) =>
-      match directize_ir_pass(mod, initial_immutable) {
-        Ok(ir_pass) => apply_ir_transformer_pass(ctx, mod, ir_pass)
+    _ =>
+      match
+        make_ir_context_transformer_scheduler_pass(
+          mod, pass, options, trace, trace_pass_details,
+        ) {
+        Ok(transformer) => apply_ir_transformer_pass(ctx, mod, transformer)
         Err(e) => Err(e)
       }
-    OptimizeCasts =>
-      apply_ir_transformer_pass(ctx, mod, optimize_casts_ir_pass(mod))
-    DeNaN => apply_ir_transformer_pass(ctx, mod, de_nan_ir_pass(mod))
-    RemoveUnusedNames =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        remove_unused_names_ir_pass(
-          mod,
-          trace=fn(msg) { trace("remove_unused_names:\{msg}") },
-          trace_all_funcs=trace_pass_details,
-        ),
-      )
-    RemoveUnused =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        remove_unused_ir_pass(mod, trace=fn(msg) {
-          trace("remove_unused:\{msg}")
-        }),
-      )
-    RemoveUnusedModuleElements =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        remove_unused_ir_pass(mod, root_all_functions=true, trace=fn(msg) {
-          trace("remove_unused:\{msg}")
-        }),
-      )
-    RemoveUnusedNonFunctionElements =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        remove_unused_ir_pass(mod, root_all_functions=true, trace=fn(msg) {
-          trace("remove_unused:\{msg}")
-        }),
-      )
-    SimplifyLocals =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        simplify_locals_ir_pass(
-          mod,
-          true,
-          true,
-          true,
-          trace=fn(msg) { trace("simplify_locals:\{msg}") },
-          trace_all_funcs=trace_pass_details,
-        ),
-      )
-    SimplifyLocalsNoTee =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        simplify_locals_ir_pass(
-          mod,
-          false,
-          true,
-          true,
-          trace=fn(msg) { trace("simplify_locals (no-tee):\{msg}") },
-          trace_all_funcs=trace_pass_details,
-        ),
-      )
-    SimplifyLocalsNoStructure =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        simplify_locals_ir_pass(
-          mod,
-          true,
-          false,
-          true,
-          trace=fn(msg) { trace("simplify_locals (no-structure):\{msg}") },
-          trace_all_funcs=trace_pass_details,
-        ),
-      )
-    SimplifyLocalsNoTeeNoStructure =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        simplify_locals_ir_pass(
-          mod,
-          false,
-          false,
-          true,
-          trace=fn(msg) {
-            trace("simplify_locals (no-tee, no-structure):\{msg}")
-          },
-          trace_all_funcs=trace_pass_details,
-        ),
-      )
-    SimplifyLocalsNoNesting =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        simplify_locals_ir_pass(
-          mod,
-          false,
-          false,
-          false,
-          trace=fn(msg) { trace("simplify_locals (no-nesting):\{msg}") },
-          trace_all_funcs=trace_pass_details,
-        ),
-      )
-    Untee => apply_ir_transformer_pass(ctx, mod, untee_ir_pass(mod))
-    Vacuum =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        vacuum_ir_pass_with_trace(
-          mod,
-          fn(msg) { trace("vacuum:\{msg}") },
-          trace_all_funcs=trace_pass_details,
-          traps_never_happen=options.traps_never_happen,
-        ),
-      )
-    ReorderLocals =>
-      apply_ir_transformer_pass(ctx, mod, reorder_locals_ir_pass(mod))
-    ReorderGlobals =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        reorder_globals_ir_pass(
-          mod,
-          false,
-          trace=fn(msg) { trace("reorder_globals:\{msg}") },
-          trace_all_funcs=trace_pass_details,
-        ),
-      )
-    ReorderGlobalsAlways =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        reorder_globals_ir_pass(
-          mod,
-          true,
-          trace=fn(msg) { trace("reorder_globals:\{msg}") },
-          trace_all_funcs=trace_pass_details,
-        ),
-      )
-    _ => Err("optimize scheduler bug: expected IRContext transformer pass")
   }
   if trace_pass_details {
     match result {
@@ -1042,6 +1009,30 @@ fn run_ir_context_transformer_scheduler_pass(
 }
 
 ///|
+fn make_unit_transformer_scheduler_pass(
+  pass : ModulePass,
+  trace : (String) -> Unit,
+  trace_pass_details : Bool,
+) -> Result[ModuleTransformer[Unit, String], String] {
+  match pass {
+    DeadCodeElimination => {
+      let dce_trace = if trace_pass_details {
+        fn(msg) { trace("dead_code_elimination:\{msg}") }
+      } else {
+        optimize_trace_noop
+      }
+      Ok(
+        dead_code_elimination_pass_with_trace(
+          trace=dce_trace,
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
+    }
+    _ => Err("optimize scheduler bug: expected Unit transformer pass")
+  }
+}
+
+///|
 fn run_unit_transformer_scheduler_pass(
   mod : Module,
   pass : ModulePass,
@@ -1054,22 +1045,10 @@ fn run_unit_transformer_scheduler_pass(
     trace("\{pass}:phase=scheduler:start kind=\{scheduler_kind}")
     trace("\{pass}:helper kind=\{scheduler_kind} event=invoke")
   }
-  let result = match pass {
-    DeadCodeElimination => {
-      let dce_trace = if trace_pass_details {
-        fn(msg) { trace("dead_code_elimination:\{msg}") }
-      } else {
-        optimize_trace_noop
-      }
-      apply_unit_transformer_pass(
-        mod,
-        dead_code_elimination_pass_with_trace(
-          trace=dce_trace,
-          trace_all_funcs=trace_pass_details,
-        ),
-      )
-    }
-    _ => Err("optimize scheduler bug: expected Unit transformer pass")
+  let result = match
+    make_unit_transformer_scheduler_pass(pass, trace, trace_pass_details) {
+    Ok(transformer) => apply_unit_transformer_pass(mod, transformer)
+    Err(e) => Err(e)
   }
   if trace_pass_details {
     match result {
@@ -1792,6 +1771,208 @@ fn optimize_execute_scheduler_pass(
 }
 
 ///|
+fn optimize_stacked_function_executor_enabled(
+  trace_enabled : Bool,
+  trace_level : OptimizeTracingLevel,
+  options : OptimizeOptions,
+) -> Bool {
+  match options.validation_policy {
+    AfterEveryPass => false
+    FinalModuleOnly =>
+      !trace_enabled || optimize_trace_helper_enabled(trace_level)
+  }
+}
+
+///|
+fn optimize_prepare_function_stack_pass(
+  mod : Module,
+  pass : ModulePass,
+  pass_index : Int,
+  total_passes : Int,
+  options : OptimizeOptions,
+  trace : (String) -> Unit,
+  trace_enabled : Bool,
+  trace_level : OptimizeTracingLevel,
+) -> Result[PreparedFunctionStackPass, String] {
+  let trace_pass_details = trace_enabled &&
+    optimize_trace_helper_enabled(trace_level)
+  let pass_trace = if trace_pass_details {
+    fn(msg) { trace("pass[\{pass_index}/\{total_passes}]:\{msg}") }
+  } else {
+    optimize_trace_noop
+  }
+  match module_pass_context_kind(pass) {
+    IRContextTransformerPass =>
+      match
+        make_ir_context_transformer_scheduler_pass(
+          mod, pass, options, pass_trace, trace_pass_details,
+        ) {
+        Ok(transformer) => Ok(IRContextFunctionPass(pass, transformer))
+        Err(e) => Err(e)
+      }
+    UnitTransformerPass =>
+      match
+        make_unit_transformer_scheduler_pass(
+          pass, pass_trace, trace_pass_details,
+        ) {
+        Ok(transformer) => Ok(UnitFunctionPass(pass, transformer))
+        Err(e) => Err(e)
+      }
+    ModuleRunnerPass =>
+      Err(
+        "optimize scheduler bug: function stack cannot prepare module runner pass",
+      )
+  }
+}
+
+///|
+fn optimize_run_function_stack_subsegment(
+  ctx : IRContext,
+  mod : Module,
+  stack_passes : Array[ModulePass],
+  total_passes : Int,
+  state : OptimizeSchedulerState,
+  options : OptimizeOptions,
+  trace : (String) -> Unit,
+  trace_enabled : Bool,
+  trace_level : OptimizeTracingLevel,
+) -> Result[Module, String] {
+  if stack_passes.length() == 0 {
+    return Ok(mod)
+  }
+  let prepared : Array[PreparedFunctionStackPass] = []
+  for i = 0; i < stack_passes.length(); i = i + 1 {
+    let pass_index = state.pass_index + i + 1
+    match
+      optimize_prepare_function_stack_pass(
+        mod,
+        stack_passes[i],
+        pass_index,
+        total_passes,
+        options,
+        trace,
+        trace_enabled,
+        trace_level,
+      ) {
+      Ok(pass) => prepared.push(pass)
+      Err(e) => return Err(e)
+    }
+  }
+  let mut current_mod = mod
+  let last_pass = optimize_prepared_function_stack_pass_id(
+    prepared[prepared.length() - 1],
+  )
+  let mut last_pre_pass_mod = mod
+  match mod.code_sec {
+    Some(CodeSec(orig_funcs)) => {
+      let funcs = orig_funcs.copy()
+      current_mod = mod.with_code_sec(CodeSec::new(funcs))
+      if trace_enabled && optimize_trace_helper_enabled(trace_level) {
+        trace(
+          "scheduler:run_function_stack:start passes=\{optimize_trace_render_pass_list(stack_passes)} funcs=\{funcs.length()}",
+        )
+      }
+      for func_idx = 0; func_idx < funcs.length(); func_idx = func_idx + 1 {
+        if trace_enabled && optimize_trace_helper_enabled(trace_level) {
+          trace(
+            "scheduler:run_function_stack:func[\{func_idx + 1}/\{funcs.length()}]:start passes=\{optimize_trace_render_pass_list(stack_passes)}",
+          )
+        }
+        let start_func = funcs[func_idx]
+        let mut curr_func = start_func
+        let func_changed = Ref::new(false)
+        for prepared_idx = 0
+            prepared_idx < prepared.length()
+            prepared_idx = prepared_idx + 1 {
+          if prepared_idx == prepared.length() - 1 {
+            last_pre_pass_mod = current_mod.with_code_sec(
+              CodeSec::new(funcs.copy()),
+            )
+          }
+          ctx.set_mod(current_mod)
+          curr_func = match
+            optimize_apply_prepared_function_stack_pass(
+              ctx,
+              curr_func,
+              prepared[prepared_idx],
+            ) {
+            Ok(next_func) => next_func
+            Err(e) => {
+              if trace_enabled && optimize_trace_helper_enabled(trace_level) {
+                trace(
+                  "scheduler:run_function_stack:func[\{func_idx + 1}/\{funcs.length()}]:error pass=\{optimize_prepared_function_stack_pass_id(prepared[prepared_idx])}",
+                )
+              }
+              return Err(e)
+            }
+          }
+          if curr_func != funcs[func_idx] {
+            funcs[func_idx] = curr_func
+            func_changed.val = true
+          }
+        }
+        if trace_enabled && optimize_trace_helper_enabled(trace_level) {
+          trace(
+            "scheduler:run_function_stack:func[\{func_idx + 1}/\{funcs.length()}]:done changed=\{func_changed.val}",
+          )
+        }
+      }
+      current_mod = mod.with_code_sec(CodeSec::new(funcs))
+      if trace_enabled && optimize_trace_helper_enabled(trace_level) {
+        trace(
+          "scheduler:run_function_stack:done passes=\{optimize_trace_render_pass_list(stack_passes)} funcs=\{funcs.length()}",
+        )
+      }
+    }
+    None => ()
+  }
+  state.pass_index += stack_passes.length()
+  state.last_pass = Some(last_pass)
+  state.last_pre_pass_mod = Some(last_pre_pass_mod)
+  state.changed_since_last_vacuum = true
+  ctx.set_mod(current_mod)
+  Ok(current_mod)
+}
+
+///|
+fn optimize_flush_function_stack_subsegment(
+  ctx : IRContext,
+  mod : Module,
+  current_substack : Array[ModulePass],
+  stacked_runner_enabled : Bool,
+  total_passes : Int,
+  state : OptimizeSchedulerState,
+  original_mod : Module,
+  options : OptimizeOptions,
+  trace : (String) -> Unit,
+  trace_enabled : Bool,
+  trace_level : OptimizeTracingLevel,
+) -> Result[Module, String] {
+  if current_substack.is_empty() {
+    return Ok(mod)
+  }
+  if !stacked_runner_enabled || current_substack.length() == 1 {
+    let mut mod = mod
+    for pass in current_substack {
+      mod = match
+        optimize_execute_scheduler_pass(
+          ctx, mod, pass, total_passes, state, original_mod, options, trace, trace_enabled,
+          trace_level,
+        ) {
+        Ok(new_mod) => new_mod
+        Err(e) => return Err(e)
+      }
+    }
+    Ok(mod)
+  } else {
+    optimize_run_function_stack_subsegment(
+      ctx, mod, current_substack, total_passes, state, options, trace, trace_enabled,
+      trace_level,
+    )
+  }
+}
+
+///|
 fn optimize_run_scheduler_segment(
   ctx : IRContext,
   mod : Module,
@@ -1816,22 +1997,63 @@ fn optimize_run_scheduler_segment(
   let out = match segment {
     FunctionPassStack(stack_passes) => {
       let mut mod = mod
+      let stacked_runner_enabled = optimize_stacked_function_executor_enabled(
+        trace_enabled, trace_level, options,
+      )
+      let current_substack : Array[ModulePass] = []
       for pass in stack_passes {
-        mod = match
-          optimize_execute_scheduler_pass(
-            ctx, mod, pass, total_passes, state, original_mod, options, trace, trace_enabled,
-            trace_level,
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => {
-            optimize_trace_emit_helper(
-              trace,
-              trace_enabled,
-              trace_level,
-              "scheduler:run_segment[\{segment_index}/\{total_segments}]:error \{segment_label}",
-            )
-            return Err(e)
+        if pass is Vacuum {
+          mod = match
+            optimize_flush_function_stack_subsegment(
+              ctx, mod, current_substack, stacked_runner_enabled, total_passes, state,
+              original_mod, options, trace, trace_enabled, trace_level,
+            ) {
+            Ok(new_mod) => new_mod
+            Err(e) => {
+              optimize_trace_emit_helper(
+                trace,
+                trace_enabled,
+                trace_level,
+                "scheduler:run_segment[\{segment_index}/\{total_segments}]:error \{segment_label}",
+              )
+              return Err(e)
+            }
           }
+          current_substack.clear()
+          mod = match
+            optimize_execute_scheduler_pass(
+              ctx, mod, pass, total_passes, state, original_mod, options, trace,
+              trace_enabled, trace_level,
+            ) {
+            Ok(new_mod) => new_mod
+            Err(e) => {
+              optimize_trace_emit_helper(
+                trace,
+                trace_enabled,
+                trace_level,
+                "scheduler:run_segment[\{segment_index}/\{total_segments}]:error \{segment_label}",
+              )
+              return Err(e)
+            }
+          }
+        } else {
+          current_substack.push(pass)
+        }
+      }
+      mod = match
+        optimize_flush_function_stack_subsegment(
+          ctx, mod, current_substack, stacked_runner_enabled, total_passes, state,
+          original_mod, options, trace, trace_enabled, trace_level,
+        ) {
+        Ok(new_mod) => new_mod
+        Err(e) => {
+          optimize_trace_emit_helper(
+            trace,
+            trace_enabled,
+            trace_level,
+            "scheduler:run_segment[\{segment_index}/\{total_segments}]:error \{segment_label}",
+          )
+          return Err(e)
         }
       }
       Ok(mod)
@@ -2405,6 +2627,19 @@ fn optimize_trace_count_lines_containing(
     }
   }
   count
+}
+
+///|
+fn optimize_trace_first_line_index_containing(
+  lines : Array[String],
+  pattern : String,
+) -> Int {
+  for i = 0; i < lines.length(); i = i + 1 {
+    if lines[i].contains(pattern) {
+      return i
+    }
+  }
+  -1
 }
 
 ///|
@@ -6022,6 +6257,117 @@ test "optimize_module pass trace omits scheduler segment execution boundaries" {
     optimize_trace_count_lines_containing(trace_lines, "scheduler:run_segment["),
     0,
   )
+}
+
+///|
+test "optimize_module helper trace interleaves function-stack pass execution by function" {
+  let func0 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let func1 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(2))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(CodeSec::new([func0, func1])),
+  )
+  let trace_lines : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [DeadCodeElimination, CodePushing],
+        OptimizeOptions::new(),
+        fn(msg) { trace_lines.push(msg) },
+        trace_level=OptimizeTracingLevel::helper(),
+      ) {
+      Ok(m) => m
+      Err(e) =>
+        fail("unexpected optimize_module_with_options_trace error: \{e}")
+    },
+  )
+  let dce_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[1/2]:dead_code_elimination:func[1]:start",
+  )
+  let cp_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[2/2]:code_pushing:func[1] start",
+  )
+  let dce_func2 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[1/2]:dead_code_elimination:func[2]:start",
+  )
+  let cp_func2 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[2/2]:code_pushing:func[2] start",
+  )
+  assert_true(dce_func1 >= 0)
+  assert_true(cp_func1 >= 0)
+  assert_true(dce_func2 >= 0)
+  assert_true(cp_func2 >= 0)
+  assert_true(dce_func1 < cp_func1)
+  assert_true(cp_func1 < dce_func2)
+  assert_true(dce_func2 < cp_func2)
+}
+
+///|
+test "optimize_module helper trace keeps flat pass execution with after-every-pass validation" {
+  let func0 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let func1 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(2))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(CodeSec::new([func0, func1])),
+  )
+  let trace_lines : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [DeadCodeElimination, CodePushing],
+        OptimizeOptions::new(
+          validation_policy=OptimizeValidationPolicy::after_every_pass(),
+        ),
+        fn(msg) { trace_lines.push(msg) },
+        trace_level=OptimizeTracingLevel::helper(),
+      ) {
+      Ok(m) => m
+      Err(e) =>
+        fail("unexpected optimize_module_with_options_trace error: \{e}")
+    },
+  )
+  let dce_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[1/2]:dead_code_elimination:func[1]:start",
+  )
+  let dce_func2 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[1/2]:dead_code_elimination:func[2]:start",
+  )
+  let cp_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[2/2]:code_pushing:func[1] start",
+  )
+  assert_true(dce_func1 >= 0)
+  assert_true(dce_func2 >= 0)
+  assert_true(cp_func1 >= 0)
+  assert_true(dce_func1 < dce_func2)
+  assert_true(dce_func2 < cp_func1)
 }
 
 ///|
