@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 MergeSimilarFunctions Follow-up: cache per-function analysis artifacts across hot-path queries
+
+- Added a shared per-run analysis context in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) that caches module type metadata plus lazy per-function normalized bodies, ordered-site/call-site artifacts, site maps, and measured body sizes.
+- Routed `MergeSimilarFunctions` class collection, parameter derivation, and profitability checks in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) through that shared cache so hot comparison loops stop rebuilding the same analysis products.
+- Added cache-reuse regression coverage in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) and recorded the completed blocker slice in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
+- Validation: `moon test src/passes`; `moon fmt`; `moon info`; `moon test`.
+
 ## 2026-03-16 MergeSimilarFunctions Follow-up: centralize ordered site numbering for traversal-stable metadata
 
 - Refactored [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) to assign site ids through one shared ordered-site collector and reuse that ordered stream across generic site collection, direct-call collection, and parameter derivation.

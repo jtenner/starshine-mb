@@ -105,6 +105,33 @@ struct MSFDefinedFunc {
 } derive(Eq, Show)
 
 ///|
+priv struct MSFAnalysisArtifactCounts {
+  normalized_bodies : Int
+  ordered_sites : Int
+  site_maps : Int
+  body_sizes : Int
+} derive(Eq, Show)
+
+///|
+priv struct MSFModuleAnalysis {
+  import_count : Int
+  type_env : Env
+  func_type_idxs : Array[TypeIdx]
+  defined : Array[MSFDefinedFunc]
+  by_def_idx : Map[Int, MSFDefinedFunc]
+  normalized_bodies : Map[Int, TExpr]
+  normalized_body_failures : Map[Int, Bool]
+  ordered_sites : Map[Int, Array[MSFOrderedSite]]
+  call_sites : Map[Int, Array[MSFCallSite]]
+  site_maps : Map[Int, Map[Int, MSFSiteValue]]
+  body_sizes : Map[Int, Int]
+  mut normalized_body_compute_count : Int
+  mut ordered_site_compute_count : Int
+  mut site_map_compute_count : Int
+  mut body_size_compute_count : Int
+}
+
+///|
 struct MSFHashBucketKey {
   type_idx : TypeIdx
   local_count : Int
@@ -1092,6 +1119,173 @@ fn msf_collect_defined_funcs(
 }
 
 ///|
+fn msf_make_module_analysis(
+  mod : Module,
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> MSFModuleAnalysis {
+  let import_count = msf_count_imported_funcs(mod)
+  let type_env = msf_make_type_env(mod)
+  let func_type_idxs = msf_collect_func_type_indices(mod)
+  let func_types = msf_collect_func_types(mod)
+  let defined = msf_collect_defined_funcs(
+    mod,
+    func_types,
+    func_type_idxs,
+    import_count,
+    trace~,
+    trace_all_funcs~,
+  )
+  let by_def_idx : Map[Int, MSFDefinedFunc] = Map::new()
+  for func in defined {
+    by_def_idx[func.def_idx] = func
+  }
+  {
+    import_count,
+    type_env,
+    func_type_idxs,
+    defined,
+    by_def_idx,
+    normalized_bodies: Map::new(),
+    normalized_body_failures: Map::new(),
+    ordered_sites: Map::new(),
+    call_sites: Map::new(),
+    site_maps: Map::new(),
+    body_sizes: Map::new(),
+    normalized_body_compute_count: 0,
+    ordered_site_compute_count: 0,
+    site_map_compute_count: 0,
+    body_size_compute_count: 0,
+  }
+}
+
+///|
+fn msf_analysis_artifact_counts(
+  analysis : MSFModuleAnalysis,
+) -> MSFAnalysisArtifactCounts {
+  {
+    normalized_bodies: analysis.normalized_body_compute_count,
+    ordered_sites: analysis.ordered_site_compute_count,
+    site_maps: analysis.site_map_compute_count,
+    body_sizes: analysis.body_size_compute_count,
+  }
+}
+
+///|
+fn msf_get_cached_defined_func(
+  analysis : MSFModuleAnalysis,
+  def_idx : Int,
+) -> MSFDefinedFunc? {
+  analysis.by_def_idx.get(def_idx)
+}
+
+///|
+fn msf_get_normalized_body(
+  analysis : MSFModuleAnalysis,
+  func : MSFDefinedFunc,
+) -> TExpr? {
+  if analysis.normalized_body_failures.get(func.def_idx) == Some(true) {
+    return None
+  }
+  match analysis.normalized_bodies.get(func.def_idx) {
+    Some(body) => Some(body)
+    None => {
+      analysis.normalized_body_compute_count += 1
+      match msf_normalize_body(func.body) {
+        Ok(body) => {
+          analysis.normalized_bodies[func.def_idx] = body
+          Some(body)
+        }
+        Err(_) => {
+          analysis.normalized_body_failures[func.def_idx] = true
+          None
+        }
+      }
+    }
+  }
+}
+
+///|
+fn msf_cache_site_artifacts(
+  analysis : MSFModuleAnalysis,
+  func : MSFDefinedFunc,
+) -> Unit {
+  match analysis.ordered_sites.get(func.def_idx) {
+    Some(_) => ()
+    None => {
+      analysis.ordered_site_compute_count += 1
+      let ordered = msf_collect_ordered_sites(
+        func.body,
+        analysis.func_type_idxs,
+      )
+      let calls : Array[MSFCallSite] = []
+      for site in ordered {
+        match site.value {
+          CallTargetSite(target, _, is_return, arg_count) =>
+            calls.push({ node_id: site.node_id, target, arg_count, is_return })
+          _ => ()
+        }
+      }
+      analysis.ordered_sites[func.def_idx] = ordered
+      analysis.call_sites[func.def_idx] = calls
+    }
+  }
+}
+
+///|
+fn msf_get_ordered_sites(
+  analysis : MSFModuleAnalysis,
+  func : MSFDefinedFunc,
+) -> Array[MSFOrderedSite] {
+  msf_cache_site_artifacts(analysis, func)
+  analysis.ordered_sites.get(func.def_idx).unwrap_or([])
+}
+
+///|
+fn msf_get_call_sites(
+  analysis : MSFModuleAnalysis,
+  func : MSFDefinedFunc,
+) -> Array[MSFCallSite] {
+  msf_cache_site_artifacts(analysis, func)
+  analysis.call_sites.get(func.def_idx).unwrap_or([])
+}
+
+///|
+fn msf_get_site_map(
+  analysis : MSFModuleAnalysis,
+  func : MSFDefinedFunc,
+) -> Map[Int, MSFSiteValue] {
+  match analysis.site_maps.get(func.def_idx) {
+    Some(site_map) => site_map
+    None => {
+      let site_map : Map[Int, MSFSiteValue] = Map::new()
+      for site in msf_get_ordered_sites(analysis, func) {
+        site_map[site.node_id] = site.value
+      }
+      analysis.site_maps[func.def_idx] = site_map
+      analysis.site_map_compute_count += 1
+      site_map
+    }
+  }
+}
+
+///|
+fn msf_get_body_size(
+  analysis : MSFModuleAnalysis,
+  func : MSFDefinedFunc,
+) -> Int {
+  match analysis.body_sizes.get(func.def_idx) {
+    Some(size) => size
+    None => {
+      analysis.body_size_compute_count += 1
+      let size = msf_measure_body(func.body)
+      analysis.body_sizes[func.def_idx] = size
+      size
+    }
+  }
+}
+
+///|
 fn msf_same_callee_type(
   lhs_target : FuncIdx,
   rhs_target : FuncIdx,
@@ -1125,7 +1319,7 @@ fn msf_same_callee_type(
 fn are_in_equivalent_class(
   lhs : MSFDefinedFunc,
   rhs : MSFDefinedFunc,
-  mod : Module,
+  analysis : MSFModuleAnalysis,
 ) -> Bool {
   if lhs.type_idx != rhs.type_idx {
     return false
@@ -1133,21 +1327,19 @@ fn are_in_equivalent_class(
   if lhs.locals.length() != rhs.locals.length() {
     return false
   }
-  let func_type_idxs = msf_collect_func_type_indices(mod)
-  let type_env = msf_make_type_env(mod)
-  let lhs_norm = match msf_normalize_body(lhs.body) {
-    Ok(x) => x
-    Err(_) => return false
+  let lhs_norm = match msf_get_normalized_body(analysis, lhs) {
+    Some(x) => x
+    None => return false
   }
-  let rhs_norm = match msf_normalize_body(rhs.body) {
-    Ok(x) => x
-    Err(_) => return false
+  let rhs_norm = match msf_get_normalized_body(analysis, rhs) {
+    Some(x) => x
+    None => return false
   }
   if lhs_norm != rhs_norm {
     return false
   }
-  let lhs_calls = msf_collect_call_sites(lhs.body)
-  let rhs_calls = msf_collect_call_sites(rhs.body)
+  let lhs_calls = msf_get_call_sites(analysis, lhs)
+  let rhs_calls = msf_get_call_sites(analysis, rhs)
   if lhs_calls.length() != rhs_calls.length() {
     return false
   }
@@ -1159,7 +1351,12 @@ fn are_in_equivalent_class(
       lc.is_return != rc.is_return {
       return false
     }
-    if !msf_same_callee_type(lc.target, rc.target, func_type_idxs, type_env) {
+    if !msf_same_callee_type(
+        lc.target,
+        rc.target,
+        analysis.func_type_idxs,
+        analysis.type_env,
+      ) {
       return false
     }
   }
@@ -1187,23 +1384,14 @@ fn msf_sort_class_members(
 }
 
 ///|
-fn collect_equivalent_classes(
-  mod : Module,
+fn msf_collect_equivalent_classes_from_analysis(
+  analysis : MSFModuleAnalysis,
   trace? : (String) -> Unit = msf_trace_noop,
   trace_all_funcs? : Bool = false,
 ) -> Array[EquivalentClass] {
   let collect_start_ms = msf_trace_now_ms()
-  let import_count = msf_count_imported_funcs(mod)
-  let func_types = msf_collect_func_types(mod)
-  let func_type_idxs = msf_collect_func_type_indices(mod)
-  let defined = msf_collect_defined_funcs(
-    mod,
-    func_types,
-    func_type_idxs,
-    import_count,
-    trace~,
-    trace_all_funcs~,
-  )
+  let import_count = analysis.import_count
+  let defined = analysis.defined
   if trace_all_funcs {
     trace("phase=collect_classes:start defined=\{defined.length()}")
   }
@@ -1254,7 +1442,7 @@ fn collect_equivalent_classes(
         let rep = by_def_idx.get(rep_idx).unwrap()
         comparisons += 1
         let compare_start_ms = msf_trace_now_ms()
-        if are_in_equivalent_class(candidate, rep, mod) {
+        if are_in_equivalent_class(candidate, rep, analysis) {
           compare_elapsed_ms += msf_trace_elapsed_ms(compare_start_ms)
           part.push(def_idx)
           placed = true
@@ -1338,7 +1526,7 @@ fn msf_same_all_targets(values : Array[FuncIdx]) -> Bool {
 ///|
 fn derive_params(
   clazz : EquivalentClass,
-  mod : Module,
+  analysis : MSFModuleAnalysis,
   trace? : (String) -> Unit = msf_trace_noop,
   trace_all_funcs? : Bool = false,
   ordinal? : Int = 0,
@@ -1349,66 +1537,25 @@ fn derive_params(
       "func[\{ordinal}] phase=derive_params_internal:start members=\{clazz.member_def_idxs.length()}",
     )
   }
-  let CodeSec(funcs) = match mod.code_sec {
-    Some(sec) => sec
-    None => {
-      if trace_all_funcs {
-        trace(
-          "func[\{ordinal}] phase=derive_params_internal:error reason=missing_code_sec elapsed_ms=\{msf_trace_elapsed_ms(derive_start_ms)}",
-        )
-      }
-      return None
-    }
-  }
-  let import_count = msf_count_imported_funcs(mod)
-  let func_type_idxs = msf_collect_func_type_indices(mod)
-  let func_types = msf_collect_func_types(mod)
   let scan_members_start_ms = msf_trace_now_ms()
   if trace_all_funcs {
     trace("func[\{ordinal}] phase=derive_params_internal:scan_members:start")
   }
-  let mut primary_body : TExpr? = None
   let mut primary_param_count = 0
+  let mut primary_func : MSFDefinedFunc? = None
   for i = 0; i < clazz.member_def_idxs.length(); i = i + 1 {
     let def_idx = clazz.member_def_idxs[i]
-    if def_idx < 0 || def_idx >= funcs.length() {
-      if trace_all_funcs {
-        trace(
-          "func[\{ordinal}] phase=derive_params_internal:scan_members:error reason=member_out_of_range def_idx=\{def_idx} elapsed_ms=\{msf_trace_elapsed_ms(scan_members_start_ms)}",
-        )
-      }
-      return None
-    }
-    let abs_idx = import_count + def_idx
-    if abs_idx < 0 || abs_idx >= func_type_idxs.length() {
-      if trace_all_funcs {
-        trace(
-          "func[\{ordinal}] phase=derive_params_internal:scan_members:error reason=abs_idx_out_of_range abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(scan_members_start_ms)}",
-        )
-      }
-      return None
-    }
-    match funcs[def_idx] {
-      TFunc(_, _, body) =>
+    match msf_get_cached_defined_func(analysis, def_idx) {
+      Some(func) =>
         if def_idx == clazz.primary_def_idx {
-          primary_body = Some(body)
-          let FuncType(params, _) = match func_types.get(abs_idx) {
-            Some(ft) => ft
-            None => {
-              if trace_all_funcs {
-                trace(
-                  "func[\{ordinal}] phase=derive_params_internal:scan_members:error reason=missing_func_type abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(scan_members_start_ms)}",
-                )
-              }
-              return None
-            }
-          }
+          primary_func = Some(func)
+          let FuncType(params, _) = func.func_type
           primary_param_count = params.length()
         }
-      _ => {
+      None => {
         if trace_all_funcs {
           trace(
-            "func[\{ordinal}] phase=derive_params_internal:scan_members:error reason=non_typed_member def_idx=\{def_idx} elapsed_ms=\{msf_trace_elapsed_ms(scan_members_start_ms)}",
+            "func[\{ordinal}] phase=derive_params_internal:scan_members:error reason=member_out_of_range def_idx=\{def_idx} elapsed_ms=\{msf_trace_elapsed_ms(scan_members_start_ms)}",
           )
         }
         return None
@@ -1420,8 +1567,8 @@ fn derive_params(
       "func[\{ordinal}] phase=derive_params_internal:scan_members:done elapsed_ms=\{msf_trace_elapsed_ms(scan_members_start_ms)}",
     )
   }
-  let primary_body = match primary_body {
-    Some(x) => x
+  let primary_func = match primary_func {
+    Some(func) => func
     None => {
       if trace_all_funcs {
         trace(
@@ -1437,22 +1584,19 @@ fn derive_params(
   }
   let site_maps : Array[Map[Int, MSFSiteValue]] = []
   for def_idx in clazz.member_def_idxs {
-    match funcs[def_idx] {
-      TFunc(_, _, body) =>
-        site_maps.push(msf_collect_sites(body, func_type_idxs))
-      _ => {
+    match msf_get_cached_defined_func(analysis, def_idx) {
+      Some(func) => site_maps.push(msf_get_site_map(analysis, func))
+      None => {
         if trace_all_funcs {
           trace(
-            "func[\{ordinal}] phase=derive_params_internal:collect_sites:error reason=non_typed_member def_idx=\{def_idx} elapsed_ms=\{msf_trace_elapsed_ms(collect_sites_start_ms)}",
+            "func[\{ordinal}] phase=derive_params_internal:collect_sites:error reason=member_out_of_range def_idx=\{def_idx} elapsed_ms=\{msf_trace_elapsed_ms(collect_sites_start_ms)}",
           )
         }
         return None
       }
     }
   }
-  let primary_ordered_sites = msf_collect_ordered_sites(
-    primary_body, func_type_idxs,
-  )
+  let primary_ordered_sites = msf_get_ordered_sites(analysis, primary_func)
   if trace_all_funcs {
     trace(
       "func[\{ordinal}] phase=derive_params_internal:collect_sites:done elapsed_ms=\{msf_trace_elapsed_ms(collect_sites_start_ms)} primary_site_count=\{primary_ordered_sites.length()}",
@@ -1610,7 +1754,7 @@ fn msf_measure_body(body : TExpr) -> Int {
 ///|
 fn has_merge_benefit(
   clazz : EquivalentClass,
-  mod : Module,
+  analysis : MSFModuleAnalysis,
   params : Array[ParamInfo],
   trace? : (String) -> Unit = msf_trace_noop,
   trace_all_funcs? : Bool = false,
@@ -1622,17 +1766,6 @@ fn has_merge_benefit(
       "func[\{ordinal}] phase=benefit_internal:start members=\{clazz.member_def_idxs.length()} params=\{params.length()}",
     )
   }
-  let CodeSec(funcs) = match mod.code_sec {
-    Some(sec) => sec
-    None => {
-      if trace_all_funcs {
-        trace(
-          "func[\{ordinal}] phase=benefit_internal:error reason=missing_code_sec elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)}",
-        )
-      }
-      return false
-    }
-  }
   if clazz.member_def_idxs.length() < 2 {
     if trace_all_funcs {
       trace(
@@ -1641,43 +1774,24 @@ fn has_merge_benefit(
     }
     return false
   }
-  let import_count = msf_count_imported_funcs(mod)
-  let func_types = msf_collect_func_types(mod)
   let primary_def = clazz.primary_def_idx
-  if primary_def < 0 || primary_def >= funcs.length() {
-    if trace_all_funcs {
-      trace(
-        "func[\{ordinal}] phase=benefit_internal:error reason=primary_out_of_range def_idx=\{primary_def} elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)}",
-      )
-    }
-    return false
-  }
-  let primary_abs = import_count + primary_def
-  if primary_abs < 0 || primary_abs >= func_types.length() {
-    if trace_all_funcs {
-      trace(
-        "func[\{ordinal}] phase=benefit_internal:error reason=primary_abs_out_of_range abs_idx=\{primary_abs} elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)}",
-      )
-    }
-    return false
-  }
-  let FuncType(primary_params, _) = func_types[primary_abs]
-  let primary_body = match funcs[primary_def] {
-    TFunc(_, _, body) => body
-    _ => {
+  let primary_func = match msf_get_cached_defined_func(analysis, primary_def) {
+    Some(func) => func
+    None => {
       if trace_all_funcs {
         trace(
-          "func[\{ordinal}] phase=benefit_internal:error reason=primary_non_typed elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)}",
+          "func[\{ordinal}] phase=benefit_internal:error reason=primary_out_of_range def_idx=\{primary_def} elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)}",
         )
       }
       return false
     }
   }
+  let FuncType(primary_params, _) = primary_func.func_type
   let measure_start_ms = msf_trace_now_ms()
   if trace_all_funcs {
     trace("func[\{ordinal}] phase=benefit_internal:measure:start")
   }
-  let primary_body_size = msf_measure_body(primary_body)
+  let primary_body_size = msf_get_body_size(analysis, primary_func)
   if trace_all_funcs {
     trace(
       "func[\{ordinal}] phase=benefit_internal:measure:done elapsed_ms=\{msf_trace_elapsed_ms(measure_start_ms)} body_instrs=\{primary_body_size}",
@@ -2338,7 +2452,12 @@ fn run(
     Ok(_) => ()
     Err(e) => return Err(e)
   }
-  let classes = collect_equivalent_classes(mod, trace~, trace_all_funcs~)
+  let analysis = msf_make_module_analysis(mod, trace~, trace_all_funcs~)
+  let classes = msf_collect_equivalent_classes_from_analysis(
+    analysis,
+    trace~,
+    trace_all_funcs~,
+  )
   trace(
     "phase=collect_classes summary classes=\{classes.length()} elapsed_ms=\{msf_trace_elapsed_ms(run_start_ms)}",
   )
@@ -2365,7 +2484,7 @@ fn run(
       )
     }
     let params = match
-      derive_params(clazz, mod, trace~, trace_all_funcs~, ordinal~) {
+      derive_params(clazz, analysis, trace~, trace_all_funcs~, ordinal~) {
       Some(p) => p
       None => {
         if trace_all_funcs {
@@ -2439,7 +2558,7 @@ fn run(
     }
     let has_benefit = has_merge_benefit(
       clazz,
-      mod,
+      analysis,
       params,
       trace~,
       trace_all_funcs~,
@@ -3466,6 +3585,56 @@ test "merge similar functions call-site ids reuse ordered site numbering" {
     }
   }
   assert_eq(calls, expected)
+}
+
+///|
+test "merge similar functions analysis cache reuses per-function artifacts" {
+  let t = msf_i32_func_type()
+  let funcs = [
+    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(3, 9)),
+    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(5, 9)),
+    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(7, 9)),
+    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(11, 9)),
+  ]
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t]))
+    .with_func_sec(
+      FuncSec::new([
+        TypeIdx::new(0),
+        TypeIdx::new(0),
+        TypeIdx::new(0),
+        TypeIdx::new(0),
+      ]),
+    )
+    .with_code_sec(CodeSec::new(funcs))
+  let analysis = msf_make_module_analysis(mod)
+  let classes = msf_collect_equivalent_classes_from_analysis(analysis)
+  assert_eq(classes.length(), 1)
+  assert_eq(msf_analysis_artifact_counts(analysis), {
+    normalized_bodies: 4,
+    ordered_sites: 4,
+    site_maps: 0,
+    body_sizes: 0,
+  })
+  let clazz = classes[0]
+  let params0 = derive_params(clazz, analysis).unwrap()
+  let params1 = derive_params(clazz, analysis).unwrap()
+  assert_eq(params0, params1)
+  assert_eq(params0.length(), 1)
+  assert_eq(msf_analysis_artifact_counts(analysis), {
+    normalized_bodies: 4,
+    ordered_sites: 4,
+    site_maps: 4,
+    body_sizes: 0,
+  })
+  assert_true(has_merge_benefit(clazz, analysis, params0))
+  assert_true(has_merge_benefit(clazz, analysis, params1))
+  assert_eq(msf_analysis_artifact_counts(analysis), {
+    normalized_bodies: 4,
+    ordered_sites: 4,
+    site_maps: 4,
+    body_sizes: 1,
+  })
 }
 
 ///|
