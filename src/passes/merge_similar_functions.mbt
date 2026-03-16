@@ -113,6 +113,12 @@ priv struct MSFAnalysisArtifactCounts {
 } derive(Eq, Show)
 
 ///|
+priv struct MSFBucketBuildStats {
+  inserted : Int
+  copied : Int
+} derive(Eq, Show)
+
+///|
 priv struct MSFModuleAnalysis {
   import_count : Int
   type_env : Env
@@ -123,7 +129,7 @@ priv struct MSFModuleAnalysis {
   normalized_body_failures : Map[Int, Bool]
   ordered_sites : Map[Int, Array[MSFOrderedSite]]
   call_sites : Map[Int, Array[MSFCallSite]]
-  site_maps : Map[Int, Map[Int, MSFSiteValue]]
+  site_maps : Map[Int, Array[MSFSiteValue?]]
   body_sizes : Map[Int, Int]
   mut normalized_body_compute_count : Int
   mut ordered_site_compute_count : Int
@@ -768,6 +774,38 @@ fn msf_collect_sites(
 }
 
 ///|
+fn msf_build_dense_site_vector(
+  ordered_sites : Array[MSFOrderedSite],
+) -> Array[MSFSiteValue?] {
+  if ordered_sites.is_empty() {
+    return []
+  }
+  let mut max_node_id = -1
+  for site in ordered_sites {
+    if site.node_id > max_node_id {
+      max_node_id = site.node_id
+    }
+  }
+  let dense = Array::make(max_node_id + 1, None)
+  for site in ordered_sites {
+    dense[site.node_id] = Some(site.value)
+  }
+  dense
+}
+
+///|
+fn msf_dense_site_lookup(
+  dense_sites : Array[MSFSiteValue?],
+  node_id : Int,
+) -> MSFSiteValue? {
+  if node_id < 0 || node_id >= dense_sites.length() {
+    None
+  } else {
+    dense_sites[node_id]
+  }
+}
+
+///|
 fn msf_direct_call_kind_name(is_return : Bool) -> String {
   if is_return {
     "return_call"
@@ -1282,14 +1320,13 @@ fn msf_get_call_sites(
 fn msf_get_site_map(
   analysis : MSFModuleAnalysis,
   func : MSFDefinedFunc,
-) -> Map[Int, MSFSiteValue] {
+) -> Array[MSFSiteValue?] {
   match analysis.site_maps.get(func.def_idx) {
     Some(site_map) => site_map
     None => {
-      let site_map : Map[Int, MSFSiteValue] = Map::new()
-      for site in msf_get_ordered_sites(analysis, func) {
-        site_map[site.node_id] = site.value
-      }
+      let site_map = msf_build_dense_site_vector(
+        msf_get_ordered_sites(analysis, func),
+      )
       analysis.site_maps[func.def_idx] = site_map
       analysis.site_map_compute_count += 1
       site_map
@@ -1412,6 +1449,27 @@ fn msf_sort_class_members(
 }
 
 ///|
+fn msf_build_hash_buckets(
+  defined : Array[MSFDefinedFunc],
+) -> (Map[MSFHashBucketKey, Array[Int]], MSFBucketBuildStats) {
+  let buckets : Map[MSFHashBucketKey, Array[Int]] = Map::new()
+  let mut inserted = 0
+  for func in defined {
+    let key = {
+      type_idx: func.type_idx,
+      local_count: func.locals.length(),
+      hash: func.hash,
+    }
+    match buckets.get(key) {
+      Some(items) => items.push(func.def_idx)
+      None => buckets[key] = [func.def_idx]
+    }
+    inserted += 1
+  }
+  (buckets, { inserted, copied: 0 })
+}
+
+///|
 fn msf_collect_equivalent_classes_from_analysis(
   analysis : MSFModuleAnalysis,
   trace? : (String) -> Unit = msf_trace_noop,
@@ -1423,18 +1481,7 @@ fn msf_collect_equivalent_classes_from_analysis(
   if trace_all_funcs {
     trace("phase=collect_classes:start defined=\{defined.length()}")
   }
-  let buckets : Map[MSFHashBucketKey, Array[Int]] = Map::new()
-  for func in defined {
-    let key = {
-      type_idx: func.type_idx,
-      local_count: func.locals.length(),
-      hash: func.hash,
-    }
-    let items = buckets.get(key).unwrap_or([])
-    let next = items.copy()
-    next.push(func.def_idx)
-    buckets[key] = next
-  }
+  let (buckets, _) = msf_build_hash_buckets(defined)
   let by_def_idx : Map[Int, MSFDefinedFunc] = Map::new()
   for func in defined {
     by_def_idx[func.def_idx] = func
@@ -1610,7 +1657,7 @@ fn derive_params(
   if trace_all_funcs {
     trace("func[\{ordinal}] phase=derive_params_internal:collect_sites:start")
   }
-  let site_maps : Array[Map[Int, MSFSiteValue]] = []
+  let site_maps : Array[Array[MSFSiteValue?]] = []
   for def_idx in clazz.member_def_idxs {
     match msf_get_cached_defined_func(analysis, def_idx) {
       Some(func) => site_maps.push(msf_get_site_map(analysis, func))
@@ -1643,7 +1690,7 @@ fn derive_params(
       ConstSite(_, vt) => {
         let values : Array[TInstr] = []
         for sites in site_maps {
-          match sites.get(node_id) {
+          match msf_dense_site_lookup(sites, node_id) {
             Some(ConstSite(v, site_vt)) => {
               if site_vt != vt {
                 if trace_all_funcs {
@@ -1681,7 +1728,7 @@ fn derive_params(
       CallTargetSite(_, type_idx, is_return, arg_count) => {
         let values : Array[FuncIdx] = []
         for sites in site_maps {
-          match sites.get(node_id) {
+          match msf_dense_site_lookup(sites, node_id) {
             Some(
               CallTargetSite(
                 target,
@@ -3597,6 +3644,60 @@ test "merge similar functions dense node lookup preserves sparse param uses" {
   assert_eq(msf_dense_node_lookup(node_to_param, 5), Some(0))
   assert_eq(msf_dense_node_lookup(node_to_param, 9), Some(1))
   assert_eq(msf_dense_node_lookup(node_to_param, 10), None)
+}
+
+///|
+test "merge similar functions bucket build avoids copy growth and keeps order" {
+  let t = msf_i32_func_type()
+  let funcs = [
+    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(3, 9)),
+    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(5, 9)),
+    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(7, 9)),
+  ]
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t]))
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(0)]),
+    )
+    .with_code_sec(CodeSec::new(funcs))
+  let analysis = msf_make_module_analysis(mod)
+  let (buckets, stats) = msf_build_hash_buckets(analysis.defined)
+  assert_eq(stats, { inserted: 3, copied: 0 })
+  let mut bucket_members : Array[Int]? = None
+  for entry in buckets {
+    let (_, members) = entry
+    bucket_members = Some(members)
+  }
+  assert_eq(bucket_members, Some([0, 1, 2]))
+}
+
+///|
+test "merge similar functions dense site vector preserves sparse node ids" {
+  let body = TExpr::new([
+    TInstr::drop(TInstr::i32_const(I32(1))),
+    TInstr::nop(),
+    TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(2))]),
+  ])
+  let ordered = msf_collect_ordered_sites(body, [TypeIdx::new(0)])
+  let dense = msf_build_dense_site_vector(ordered)
+  assert_eq(dense.length(), 5)
+  assert_eq(dense[0], None)
+  match dense[1] {
+    Some(ConstSite(_, vt)) if vt == ValType::i32() => ()
+    _ => fail("expected const site at node 1")
+  }
+  assert_eq(dense[2], None)
+  match dense[3] {
+    Some(CallTargetSite(FuncIdx(raw), TypeIdx(type_raw), false, 1)) => {
+      assert_eq(raw.reinterpret_as_int(), 0)
+      assert_eq(type_raw.reinterpret_as_int(), 0)
+    }
+    _ => fail("expected call site at node 3")
+  }
+  match dense[4] {
+    Some(ConstSite(_, vt)) if vt == ValType::i32() => ()
+    _ => fail("expected const arg site at node 4")
+  }
 }
 
 ///|

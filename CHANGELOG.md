@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 MergeSimilarFunctions Follow-up: remove bucket-copy churn and densify cached site metadata
+
+- Reworked [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so equivalence-class bucket assembly now grows bucket member arrays in place through a shared builder instead of copy-on-insert rebuilds.
+- Replaced cached `node_id -> site` maps in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) with dense site vectors keyed by traversal-stable preorder ids, and routed `derive_params` through array-backed site lookup.
+- Added regression coverage in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) for zero-copy bucket growth and sparse-node dense site vectors, and recorded the completed blocker slices in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
+- Validation: `moon test src/passes`; `moon fmt`; `moon info`; `moon test`.
+
 ## 2026-03-16 MergeSimilarFunctions Follow-up: replace dense node-id maps with array-backed lookup in rewrite metadata paths
 
 - Reworked call-target metadata lookup in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so rewrite prevalidation and shared-body rewrite use array-backed `node_id -> param` lookup plus dense seen-use tracking keyed by traversal-stable preorder ids instead of `Map[Int, Int]` / `Map[Int, Bool]`.
