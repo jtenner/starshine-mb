@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 MergeSimilarFunctions Follow-up: preflight direct-call audit separates upstream-invalid IR from rewrite metadata failures
+
+- Added a pass-wide direct `call` / `return_call` preflight audit in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so upstream-invalid call arity now fails before equivalence grouping or shared-body rewrite starts.
+- Tightened `MergeSimilarFunctions` rewrite diagnostics in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so call-target rewrite failures are labeled as metadata mismatches instead of looking like input-validation failures.
+- Added direct `call` and `return_call` preflight regression coverage in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) and recorded the completed blocker slice in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
+- Validation: `moon test src/passes`; `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-16 MergeSimilarFunctions Follow-up: route function-type resolution through validator semantics and fix grouped-rec shared type indexing
 
 - Reworked [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) to resolve `TypeIdx` and callee function signatures through validator-backed module semantics instead of the pass-local flattened lookup.

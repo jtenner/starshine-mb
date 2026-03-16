@@ -228,12 +228,12 @@ fn msf_verify_call_target_type(
     Some(ft) => ft
     None =>
       return Err(
-        "merge_similar_functions: missing function type for rewritten call target",
+        "merge_similar_functions: call_target rewrite metadata mismatch: missing function type for rewritten call target",
       )
   }
   if params.length() != expected_arg_count {
     return Err(
-      "merge_similar_functions: call target param arity mismatch for rewritten call site",
+      "merge_similar_functions: call_target rewrite metadata mismatch: param arity mismatch for rewritten call site",
     )
   }
   Ok(())
@@ -732,6 +732,158 @@ fn msf_collect_sites(
   )
   ignore(walker.walk_texpr((), body))
   out
+}
+
+///|
+fn msf_direct_call_kind_name(is_return : Bool) -> String {
+  if is_return {
+    "return_call"
+  } else {
+    "call"
+  }
+}
+
+///|
+fn msf_preflight_direct_call_error(
+  caller_abs_idx : Int,
+  node_id : Int,
+  target : FuncIdx,
+  is_return : Bool,
+  detail : String,
+) -> String {
+  "merge_similar_functions: upstream-invalid direct call in preflight: " +
+  detail +
+  " kind=\{msf_direct_call_kind_name(is_return)} caller_abs_idx=\{caller_abs_idx} callee_abs_idx=\{msf_func_idx_to_int(target)} node_id=\{node_id}"
+}
+
+///|
+fn msf_preflight_direct_call_site(
+  type_env : Env,
+  func_type_idxs : Array[TypeIdx],
+  caller_abs_idx : Int,
+  node_id : Int,
+  target : FuncIdx,
+  arg_count : Int,
+  is_return : Bool,
+) -> Result[Unit, String] {
+  let callee_type_idx = match
+    msf_resolve_callee_type_idx(target, func_type_idxs) {
+    Ok(v) => v
+    Err(_) =>
+      return Err(
+        msf_preflight_direct_call_error(
+          caller_abs_idx, node_id, target, is_return, "callee out of range",
+        ),
+      )
+  }
+  let FuncType(params, _) = match type_env.resolve_functype(callee_type_idx) {
+    Some(ft) => ft
+    None =>
+      return Err(
+        msf_preflight_direct_call_error(
+          caller_abs_idx, node_id, target, is_return, "callee type does not resolve to a function type",
+        ),
+      )
+  }
+  if params.length() != arg_count {
+    return Err(
+      msf_preflight_direct_call_error(
+        caller_abs_idx,
+        node_id,
+        target,
+        is_return,
+        "arg count mismatch expected=\{params.length()} actual=\{arg_count}",
+      ),
+    )
+  }
+  Ok(())
+}
+
+///|
+fn msf_preflight_direct_calls(
+  mod : Module,
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> Result[Unit, String] {
+  let preflight_start_ms = msf_trace_now_ms()
+  if trace_all_funcs {
+    trace("phase=preflight_direct_calls:start")
+  }
+  let import_count = msf_count_imported_funcs(mod)
+  let type_env = msf_make_type_env(mod)
+  let func_type_idxs = msf_collect_func_type_indices(mod)
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+        let caller_abs_idx = import_count + def_idx
+        match funcs[def_idx] {
+          TFunc(_, _, body) => {
+            let mut next_id = 0
+            let walker : ModuleTransformer[Unit, String] = ModuleTransformer::new().on_tinstruction_evt(fn(
+                self,
+                _,
+                instr : TInstr,
+              ) {
+                let node_id = next_id
+                next_id += 1
+                match instr.kind {
+                  TInstrKind::TCall(target, args) =>
+                    match
+                      msf_preflight_direct_call_site(
+                        type_env,
+                        func_type_idxs,
+                        caller_abs_idx,
+                        node_id,
+                        target,
+                        args.length(),
+                        false,
+                      ) {
+                      Ok(_) =>
+                        from_walk(self.walk_tinstruction_default((), instr))
+                      Err(e) => return error(e)
+                    }
+                  TInstrKind::TReturnCall(target, args) =>
+                    match
+                      msf_preflight_direct_call_site(
+                        type_env,
+                        func_type_idxs,
+                        caller_abs_idx,
+                        node_id,
+                        target,
+                        args.length(),
+                        true,
+                      ) {
+                      Ok(_) =>
+                        from_walk(self.walk_tinstruction_default((), instr))
+                      Err(e) => return error(e)
+                    }
+                  _ => from_walk(self.walk_tinstruction_default((), instr))
+                }
+              },
+            )
+            match walker.walk_texpr((), body) {
+              Ok(_) => ()
+              Err(e) => {
+                if trace_all_funcs {
+                  trace(
+                    "phase=preflight_direct_calls:error elapsed_ms=\{msf_trace_elapsed_ms(preflight_start_ms)} \{e}",
+                  )
+                }
+                return Err(e)
+              }
+            }
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  if trace_all_funcs {
+    trace(
+      "phase=preflight_direct_calls:done elapsed_ms=\{msf_trace_elapsed_ms(preflight_start_ms)}",
+    )
+  }
+  Ok(())
 }
 
 ///|
@@ -1539,12 +1691,12 @@ fn msf_rewrite_shared_body(
           ) => {
             if expects_return {
               return error(
-                "merge_similar_functions: call_target rewrite expected return_call but saw call",
+                "merge_similar_functions: call_target rewrite metadata mismatch: expected return_call but saw call",
               )
             }
             if args.length() != expected_arg_count {
               return error(
-                "merge_similar_functions: call_target rewrite arg count mismatch",
+                "merge_similar_functions: call_target rewrite metadata mismatch: arg count mismatch",
               )
             }
             match
@@ -1561,7 +1713,7 @@ fn msf_rewrite_shared_body(
             }
             if callee_type_idx != type_idx {
               return error(
-                "merge_similar_functions: call_target rewrite callee type mismatch",
+                "merge_similar_functions: call_target rewrite metadata mismatch: callee type mismatch",
               )
             }
             let casted = TInstr::ref_cast(
@@ -1577,12 +1729,12 @@ fn msf_rewrite_shared_body(
           ) => {
             if !expects_return {
               return error(
-                "merge_similar_functions: call_target rewrite expected call but saw return_call",
+                "merge_similar_functions: call_target rewrite metadata mismatch: expected call but saw return_call",
               )
             }
             if args.length() != expected_arg_count {
               return error(
-                "merge_similar_functions: call_target rewrite arg count mismatch",
+                "merge_similar_functions: call_target rewrite metadata mismatch: arg count mismatch",
               )
             }
             match
@@ -1599,7 +1751,7 @@ fn msf_rewrite_shared_body(
             }
             if callee_type_idx != type_idx {
               return error(
-                "merge_similar_functions: call_target rewrite callee type mismatch",
+                "merge_similar_functions: call_target rewrite metadata mismatch: callee type mismatch",
               )
             }
             let casted = TInstr::ref_cast(
@@ -1611,7 +1763,7 @@ fn msf_rewrite_shared_body(
           }
           _ =>
             return error(
-              "merge_similar_functions: call_target rewrite kind mismatch",
+              "merge_similar_functions: call_target rewrite metadata mismatch: kind mismatch",
             )
         }
       }
@@ -2076,6 +2228,10 @@ fn run(
     None => 0
   }
   trace("start defined=\{defined_funcs}")
+  match msf_preflight_direct_calls(mod, trace~, trace_all_funcs~) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
   let classes = collect_equivalent_classes(mod, trace~, trace_all_funcs~)
   trace(
     "phase=collect_classes summary classes=\{classes.length()} elapsed_ms=\{msf_trace_elapsed_ms(run_start_ms)}",
@@ -2282,6 +2438,63 @@ fn msf_is_forwarder(func : Func, target_abs : Int, arg_count : Int) -> Bool {
       raw.reinterpret_as_int() == target_abs &&
       args.length() == arg_count
     _ => false
+  }
+}
+
+///|
+test "merge similar functions preflight rejects upstream-invalid direct call arity" {
+  let t_callee = msf_make_func_type([ValType::i32()], [ValType::i32()])
+  let t_wrap = msf_make_func_type([], [ValType::i32()])
+  let callee = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+  )
+  let invalid_wrap = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([TInstr::call(FuncIdx::new(0), [])]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_callee, t_wrap]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([callee, invalid_wrap]))
+  match merge_similar_functions(mod) {
+    Ok(_) => fail("expected preflight to reject upstream-invalid direct call")
+    Err(e) => {
+      assert_true(e.contains("upstream-invalid direct call in preflight"))
+      assert_true(e.contains("expected=1 actual=0"))
+      assert_true(e.contains("kind=call"))
+    }
+  }
+}
+
+///|
+test "merge similar functions preflight rejects upstream-invalid return_call arity" {
+  let t_callee = msf_make_func_type([ValType::i32()], [ValType::i32()])
+  let t_wrap = msf_make_func_type([], [ValType::i32()])
+  let callee = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+  )
+  let invalid_wrap = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([TInstr::return_call(FuncIdx::new(0), [])]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_callee, t_wrap]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([callee, invalid_wrap]))
+  match merge_similar_functions(mod) {
+    Ok(_) =>
+      fail("expected preflight to reject upstream-invalid direct return_call")
+    Err(e) => {
+      assert_true(e.contains("upstream-invalid direct call in preflight"))
+      assert_true(e.contains("expected=1 actual=0"))
+      assert_true(e.contains("kind=return_call"))
+    }
   }
 }
 
@@ -2594,7 +2807,10 @@ test "merge similar functions protects call target params with mismatched arity"
       fail(
         "expected msf_rewrite_shared_body to reject mismatched call-target arity",
       )
-    Err(e) => assert_true(e.contains("call_target rewrite arg count mismatch"))
+    Err(e) =>
+      assert_true(
+        e.contains("call_target rewrite metadata mismatch: arg count mismatch"),
+      )
   }
 }
 
@@ -2643,7 +2859,9 @@ test "merge similar functions rewrite validation errors include function diff du
   match create_shared(clazz, mod, params) {
     Ok(_) => fail("expected create_shared to fail rewrite validation")
     Err(e) => {
-      assert_true(e.contains("call_target rewrite arg count mismatch"))
+      assert_true(
+        e.contains("call_target rewrite metadata mismatch: arg count mismatch"),
+      )
       assert_true(
         e.contains(
           "Offending function diff merge_similar_functions (primary -> secondary)",
