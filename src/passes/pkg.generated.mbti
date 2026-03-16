@@ -126,6 +126,11 @@ pub impl Hash for MSFHashBucketKey
 type MSFHashState
 pub impl Show for MSFHashState
 
+type MSFOrderedSite
+pub impl Eq for MSFOrderedSite
+pub impl Hash for MSFOrderedSite
+pub impl Show for MSFOrderedSite
+
 type MSFParamKey
 pub impl Eq for MSFParamKey
 pub impl Hash for MSFParamKey

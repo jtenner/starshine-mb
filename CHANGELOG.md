@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 MergeSimilarFunctions Follow-up: centralize ordered site numbering for traversal-stable metadata
+
+- Refactored [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) to assign site ids through one shared ordered-site collector and reuse that ordered stream across generic site collection, direct-call collection, and parameter derivation.
+- Removed the old map-plus-sort fallback in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt), making the pre-order traversal numbering contract explicit in code and comments.
+- Added traversal-order regressions in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt), refreshed [`src/passes/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/passes/pkg.generated.mbti), and recorded the completed blocker slice in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
+- Validation: `moon test src/passes`; `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-16 MergeSimilarFunctions Follow-up: remove unconditional tail-call thunks and guard typed-ref lowering
 
 - Updated [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so shared-function thunks no longer emit unconditional `return_call`; they now lower to `return(call ...)`, removing tail-call dependence from the common merge path.

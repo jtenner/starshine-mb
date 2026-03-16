@@ -57,6 +57,12 @@ struct MSFCallSite {
 } derive(Eq, Hash, Show)
 
 ///|
+struct MSFOrderedSite {
+  node_id : Int
+  value : MSFSiteValue
+} derive(Eq, Hash, Show)
+
+///|
 enum MSFSiteValue {
   ConstSite(TInstr, ValType)
   CallTargetSite(FuncIdx, TypeIdx, Bool, Int)
@@ -636,44 +642,25 @@ fn msf_normalize_body(
 ///|
 fn msf_collect_call_sites(body : TExpr) -> Array[MSFCallSite] {
   let out : Array[MSFCallSite] = []
-  let mut next_id = 0
-  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
-      self,
-      _,
-      instr : TInstr,
-    ) {
-      let id = next_id
-      next_id += 1
-      match instr.kind {
-        TInstrKind::TCall(target, args) =>
-          out.push({
-            node_id: id,
-            target,
-            arg_count: args.length(),
-            is_return: false,
-          })
-        TInstrKind::TReturnCall(target, args) =>
-          out.push({
-            node_id: id,
-            target,
-            arg_count: args.length(),
-            is_return: true,
-          })
-        _ => ()
-      }
-      from_walk(self.walk_tinstruction_default((), instr))
-    },
-  )
-  ignore(walker.walk_texpr((), body))
+  for site in msf_collect_ordered_sites(body, []) {
+    match site.value {
+      CallTargetSite(target, _, is_return, arg_count) =>
+        out.push({ node_id: site.node_id, target, arg_count, is_return })
+      _ => ()
+    }
+  }
   out
 }
 
 ///|
-fn msf_collect_sites(
+fn msf_collect_ordered_sites(
   body : TExpr,
   type_idxs : Array[TypeIdx],
-) -> Map[Int, MSFSiteValue] {
-  let out : Map[Int, MSFSiteValue] = Map::new()
+) -> Array[MSFOrderedSite] {
+  // Site ids are assigned by a single pre-order transformer walk: the id is
+  // captured before visiting children, and every site-sensitive helper in this
+  // pass depends on that exact numbering contract.
+  let out : Array[MSFOrderedSite] = []
   let mut next_id = 0
   let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
       self,
@@ -691,7 +678,7 @@ fn msf_collect_sites(
         | TInstrKind::TRefFunc(_)
         | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
           match msf_const_type(instr) {
-            Some(vt) => out[id] = ConstSite(instr, vt)
+            Some(vt) => out.push({ node_id: id, value: ConstSite(instr, vt) })
             None => ()
           }
         TInstrKind::TCall(target, _) | TInstrKind::TReturnCall(target, _) => {
@@ -700,22 +687,34 @@ fn msf_collect_sites(
             _ => false
           }
           let abs_idx = msf_func_idx_to_int(target)
-          if abs_idx >= 0 && abs_idx < type_idxs.length() {
+          if abs_idx >= 0 &&
+            (abs_idx < type_idxs.length() || type_idxs.is_empty()) {
+            let call_type_idx = if type_idxs.is_empty() {
+              TypeIdx::new(0)
+            } else {
+              type_idxs[abs_idx]
+            }
             match instr.kind {
               TInstrKind::TCall(_, args) =>
-                out[id] = CallTargetSite(
-                  target,
-                  type_idxs[abs_idx],
-                  is_return,
-                  args.length(),
-                )
+                out.push({
+                  node_id: id,
+                  value: CallTargetSite(
+                    target,
+                    call_type_idx,
+                    is_return,
+                    args.length(),
+                  ),
+                })
               TInstrKind::TReturnCall(_, args) =>
-                out[id] = CallTargetSite(
-                  target,
-                  type_idxs[abs_idx],
-                  is_return,
-                  args.length(),
-                )
+                out.push({
+                  node_id: id,
+                  value: CallTargetSite(
+                    target,
+                    call_type_idx,
+                    is_return,
+                    args.length(),
+                  ),
+                })
               _ => ()
             }
           }
@@ -726,6 +725,18 @@ fn msf_collect_sites(
     },
   )
   ignore(walker.walk_texpr((), body))
+  out
+}
+
+///|
+fn msf_collect_sites(
+  body : TExpr,
+  type_idxs : Array[TypeIdx],
+) -> Map[Int, MSFSiteValue] {
+  let out : Map[Int, MSFSiteValue] = Map::new()
+  for site in msf_collect_ordered_sites(body, type_idxs) {
+    out[site.node_id] = site.value
+  }
   out
 }
 
@@ -1439,24 +1450,12 @@ fn derive_params(
       }
     }
   }
-  let primary_sites = msf_collect_sites(primary_body, func_type_idxs)
-  let ordered_site_ids : Array[Int] = []
-  for entry in primary_sites {
-    let (node_id, _) = entry
-    ordered_site_ids.push(node_id)
-  }
-  ordered_site_ids.sort_by(fn(a, b) {
-    if a < b {
-      -1
-    } else if a > b {
-      1
-    } else {
-      0
-    }
-  })
+  let primary_ordered_sites = msf_collect_ordered_sites(
+    primary_body, func_type_idxs,
+  )
   if trace_all_funcs {
     trace(
-      "func[\{ordinal}] phase=derive_params_internal:collect_sites:done elapsed_ms=\{msf_trace_elapsed_ms(collect_sites_start_ms)} primary_site_count=\{ordered_site_ids.length()}",
+      "func[\{ordinal}] phase=derive_params_internal:collect_sites:done elapsed_ms=\{msf_trace_elapsed_ms(collect_sites_start_ms)} primary_site_count=\{primary_ordered_sites.length()}",
     )
   }
   let build_params_start_ms = msf_trace_now_ms()
@@ -1465,11 +1464,9 @@ fn derive_params(
   }
   let params : Array[ParamInfo] = []
   let key_to_idx : Map[MSFParamKey, Int] = Map::new()
-  for node_id in ordered_site_ids {
-    let primary_site = match primary_sites.get(node_id) {
-      Some(v) => v
-      None => continue
-    }
+  for site in primary_ordered_sites {
+    let node_id = site.node_id
+    let primary_site = site.value
     match primary_site {
       ConstSite(_, vt) => {
         let values : Array[TInstr] = []
@@ -3416,6 +3413,59 @@ test "merge similar functions reports callee type mismatch details" {
       assert_true(e.contains("node_id="))
     }
   }
+}
+
+///|
+test "merge similar functions ordered sites stay stable across reruns" {
+  let body = TExpr::new([
+    TInstr::drop(TInstr::i32_const(I32(1))),
+    TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(2))]),
+    TInstr::return_call(FuncIdx::new(1), [TInstr::i32_const(I32(3))]),
+  ])
+  let sites0 = msf_collect_ordered_sites(body, [
+    TypeIdx::new(0),
+    TypeIdx::new(0),
+  ])
+  let sites1 = msf_collect_ordered_sites(body, [
+    TypeIdx::new(0),
+    TypeIdx::new(0),
+  ])
+  assert_eq(sites0, sites1)
+  let ids : Array[Int] = []
+  let kinds : Array[String] = []
+  for site in sites0 {
+    ids.push(site.node_id)
+    match site.value {
+      ConstSite(_, _) => kinds.push("const")
+      CallTargetSite(_, _, is_return, _) =>
+        kinds.push(if is_return { "return_call" } else { "call" })
+    }
+  }
+  assert_eq(ids, [1, 2, 3, 4, 5])
+  assert_eq(kinds, ["const", "call", "const", "return_call", "const"])
+}
+
+///|
+test "merge similar functions call-site ids reuse ordered site numbering" {
+  let body = TExpr::new([
+    TInstr::drop(TInstr::i32_const(I32(1))),
+    TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(2))]),
+    TInstr::return_call(FuncIdx::new(1), [TInstr::i32_const(I32(3))]),
+  ])
+  let ordered = msf_collect_ordered_sites(body, [
+    TypeIdx::new(0),
+    TypeIdx::new(0),
+  ])
+  let calls = msf_collect_call_sites(body)
+  let expected : Array[MSFCallSite] = []
+  for site in ordered {
+    match site.value {
+      CallTargetSite(target, _, is_return, arg_count) =>
+        expected.push({ node_id: site.node_id, target, arg_count, is_return })
+      _ => ()
+    }
+  }
+  assert_eq(calls, expected)
 }
 
 ///|
