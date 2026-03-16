@@ -13,10 +13,10 @@ Today the pass groups structurally similar typed functions, derives synthetic pa
 Current in-tree behavior is intentionally narrower than a full parity target:
 
 - it only parameterizes literal constants / literal-like values and direct call targets,
-- varying direct calls are rewritten through synthetic `funcref` parameters plus `ref.cast` and `call_ref` / `return_call_ref`,
+- varying direct calls are rewritten through synthetic `funcref` parameters plus `ref.cast` and `call_ref` / `return_call_ref` only when typed-ref lowering evidence already exists in the input module,
 - all merged members become thunks that forward to the shared implementation,
-- merge selection is bounded by a hard synthetic-parameter cap,
-- profitability is estimated mostly from instruction/node counts instead of encoded binary size.
+- merge selection uses a byte-aware profitability proxy plus a soft synthetic-parameter limit and bounded hard cap,
+- unsupported varying-call-target cases skip intentionally instead of promising an alternate lowering path.
 
 In this document, “feature parity with Binaryen” does **not** mean byte-for-byte identical output or an identical implementation. It means a comparable correctness envelope, comparable coverage of worthwhile merge opportunities, and practical compile-time/runtime economics. Where Binaryen behavior is not directly verified from repository evidence, this document treats parity claims as hypotheses to investigate, not as facts.
 
@@ -31,6 +31,35 @@ Relevant current source anchors for future implementation work:
 Current publish-signoff companion:
 
 - `docs/plans/merge-similar-functions-publish-plan.md`
+
+## Current supported envelope
+
+### Parameterized difference kinds
+
+| Difference kind | Current status | Current behavior |
+| --- | --- | --- |
+| Literal constant differences (`i32.const`, `i64.const`, `f32.const`, `f64.const`, `ref.null`, `ref.func`, `v128.const`) | Supported | Lowered as `LiteralParam` synthetic parameters and merged through the shared implementation. |
+| Direct call-target differences with the same resolved callee type, arg count, and call kind | Supported with typed-ref evidence | Lowered through synthetic `funcref` parameters plus `ref.cast` and `call_ref` / `return_call_ref`. |
+| Direct call-target differences without typed-ref lowering evidence in the input module | Explicitly skipped | The class is left unchanged and traced as `reason=typed_ref_lowering_unsupported`. |
+| Literal type mismatch at the same site | Explicitly rejected | `derive_params(...)` fails and the class is not merged. |
+| Direct call kind mismatch (`call` vs `return_call`) | Explicitly rejected | Validation fails before rewrite proceeds. |
+| Direct callee type mismatch at the same site | Explicitly rejected | Validation fails before rewrite proceeds. |
+| Immediate/index/offset differences beyond direct call targets | Unsupported today | They remain out of scope for the current publish target. |
+
+### Lowering policy
+
+| Lowering surface | Current policy |
+| --- | --- |
+| Shared-member forwarders | Lower to `return(call ...)`, not `return_call`. |
+| Varying direct call targets with typed-ref evidence already present | Allow the typed-ref lowering path. |
+| Varying direct call targets without typed-ref evidence | Skip the merge intentionally. |
+| Alternate non-typed-ref lowering for varying call targets | Not promised for v0.1.0. |
+
+Release-facing policy summary:
+
+- The supported envelope is the current guarded typed-ref path, not a broader alternate-lowering promise.
+- The pass intentionally documents and traces unsupported varying-call-target cases instead of attempting feature-illegal output.
+- New supported difference kinds should add positive regressions before this envelope expands.
 
 ## Current observed failure
 

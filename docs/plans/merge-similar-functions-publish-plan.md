@@ -50,16 +50,16 @@ The following blocker slices are already implemented in-tree:
 - `MSF-003`: hardened call-target rewrite validation
 - `MSF-004`: tail-call-free forwarders plus typed-ref guarded lowering
 - `MSF-005`: stable preorder site numbering
+- `MSF-006`: supported-vs-unsupported difference matrix documented in the main design doc and publish plan
 - `MSF-007`: byte-aware profitability using instruction-immediate and thunk-body proxy cost
 - `MSF-008`: adaptive synthetic-parameter policy using a soft limit, bounded hard cap, and explicit pressure skips
+- `MSF-009`: guarded typed-ref lowering envelope documented as the release-facing policy in the main design doc and publish plan
 - `MSF-010`: stronger coarse-bucket discrimination
 - `MSF-011`: per-run cached analysis artifacts
 - `MSF-012`: denser node-id and bucket/site metadata structures
 
-Remaining publish work is therefore signoff/documentation work:
+Remaining publish work is therefore final signoff work:
 
-- `MSF-006`
-- `MSF-009`
 - `MSF-013`
 
 ## 4. Remaining Publish Blockers
@@ -125,6 +125,6 @@ Remaining signoff gap:
 
 ## 7. Immediate Next Steps
 
-1. Keep this document as the source of truth for `MSF-006`, `MSF-009`, and `MSF-013` until publish signoff is complete.
-2. Lock the remaining lower-envelope and signoff matrix items against the current guarded typed-ref policy.
-3. Decide whether the current supported-difference matrix for `MSF-006` should be copied into the main design doc as a release-facing summary or remain publish-plan-only.
+1. Treat this document plus `docs/merge-similar-functions.md` as the release-facing signoff pair for `MergeSimilarFunctions`.
+2. Use the fixed-corpus timing/instrumentation harness during the final `MSF-013` publish rerun.
+3. Move this plan to done once the final signoff checklist is rerun and recorded.

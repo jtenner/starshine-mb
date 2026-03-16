@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-16 MergeSimilarFunctions Follow-up: publish the supported envelope in the main design doc
+
+- Updated [`docs/merge-similar-functions.md`](/home/jtenner/Projects/starshine-mb/docs/merge-similar-functions.md) with a release-facing supported-difference matrix and explicit guarded typed-ref lowering policy, so the main design doc now matches the in-tree behavior already enforced by tests.
+- Refreshed [`docs/plans/merge-similar-functions-publish-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/merge-similar-functions-publish-plan.md) and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to mark `MSF-006` / `MSF-009` effectively closed and narrow the remaining `MergeSimilarFunctions` publish work to final `MSF-013` signoff.
+- Validation was not rerun because this slice is documentation-only; the preceding code slice already completed `moon info && moon fmt` and `moon test`.
+
 ## 2026-03-16 MergeSimilarFunctions Follow-up: add fixed-corpus timing and instrumentation harnesses
 
 - Added a dedicated fixed benchmark corpus plus timing/instrumentation helpers in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt), covering representative merge, skip, multi-class, and near-limit-profitable inputs.
