@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: add scheduler segmentation groundwork for stacked function-pass execution
+
+- Added scheduler segmentation helpers in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) that group contiguous function-stackable transformer passes and isolate module-runner barriers, giving the future stacked runner an explicit in-tree segmentation contract.
+- Added regression coverage in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) for both synthetic pass lists and the default GC function pipeline, including the `LocalSubtyping` barrier split between the preceding `OptimizeCasts` stack tail and the following `CoalesceLocals` stack head.
+- Validation: `moon test --package jtenner/starshine/passes --file optimize.mbt -F 'scheduler_segment_passes*'`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Optimize Follow-up: close the `CodeFolding` Binaryen parity scheduler slice
 
 - Added an explicit `CodeFolding` scheduler regression in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) that locks the Binaryen-parity gate (`-O3` or `-Os1`) and the expected placement after the late local-cleanup `Vacuum` and before `MergeBlocks`.

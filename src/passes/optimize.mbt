@@ -221,6 +221,12 @@ priv enum SchedulerPassContextKind {
 }
 
 ///|
+priv enum SchedulerPassSegment {
+  FunctionPassStack(Array[ModulePass])
+  BarrierPass(ModulePass)
+}
+
+///|
 fn[T] apply_transformer_pass(
   state : T,
   mod : Module,
@@ -517,6 +523,37 @@ fn module_pass_context_kind(pass : ModulePass) -> SchedulerPassContextKind {
     | RemoveUnusedTypes => ModuleRunnerPass
     _ => IRContextTransformerPass
   }
+}
+
+///|
+fn module_pass_is_function_stackable(pass : ModulePass) -> Bool {
+  match module_pass_context_kind(pass) {
+    ModuleRunnerPass => false
+    _ => true
+  }
+}
+
+///|
+fn scheduler_segment_passes(
+  passes : Array[ModulePass],
+) -> Array[SchedulerPassSegment] {
+  let segments : Array[SchedulerPassSegment] = []
+  let current_stack : Array[ModulePass] = []
+  for pass in passes {
+    if module_pass_is_function_stackable(pass) {
+      current_stack.push(pass)
+    } else {
+      if !current_stack.is_empty() {
+        segments.push(FunctionPassStack(current_stack.copy()))
+        current_stack.clear()
+      }
+      segments.push(BarrierPass(pass))
+    }
+  }
+  if !current_stack.is_empty() {
+    segments.push(FunctionPassStack(current_stack.copy()))
+  }
+  segments
 }
 
 ///|
@@ -2532,6 +2569,83 @@ fn assert_pass_context_kind(
     | (UnitTransformerPass, UnitTransformerPass)
     | (ModuleRunnerPass, ModuleRunnerPass) => true
     _ => false
+  }
+}
+
+///|
+test "scheduler_segment_passes groups contiguous function-stackable passes" {
+  let segments = scheduler_segment_passes([
+    DeadCodeElimination,
+    Vacuum,
+    MergeSimilarFunctions,
+    Inlining,
+  ])
+  assert_eq(segments.length(), 3)
+  match segments[0] {
+    FunctionPassStack(passes) => {
+      assert_eq(passes.length(), 2)
+      assert_eq(passes[0], DeadCodeElimination)
+      assert_eq(passes[1], Vacuum)
+    }
+    _ => fail("expected first segment to be a function stack")
+  }
+  match segments[1] {
+    BarrierPass(pass) => assert_eq(pass, MergeSimilarFunctions)
+    _ => fail("expected second segment to be a barrier pass")
+  }
+  match segments[2] {
+    BarrierPass(pass) => assert_eq(pass, Inlining)
+    _ => fail("expected third segment to be a barrier pass")
+  }
+}
+
+///|
+test "scheduler_segment_passes splits default function pipeline at module-runner barriers" {
+  let gc_mod = Module::new().with_type_sec(
+    TypeSec::new([
+      RecType::new(
+        SubType::comp_type(
+          CompType::struct_([
+            FieldType::new(StorageType::val_type(ValType::i32()), Var),
+          ]),
+        ),
+      ),
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i32()])),
+      ),
+    ]),
+  )
+  let passes = default_function_optimization_passes(
+    gc_mod,
+    OptimizeOptions::new(optimize_level=3, shrink_level=2),
+  )
+  let segments = scheduler_segment_passes(passes)
+  let barrier_idx = Ref::new(-1)
+  for i = 0; i < segments.length(); i = i + 1 {
+    match segments[i] {
+      BarrierPass(LocalSubtyping) => {
+        barrier_idx.val = i
+        break
+      }
+      _ => ()
+    }
+  }
+  assert_true(barrier_idx.val > 0)
+  assert_true(barrier_idx.val + 1 < segments.length())
+  match segments[barrier_idx.val - 1] {
+    FunctionPassStack(before_passes) => {
+      assert_true(before_passes.length() >= 1)
+      assert_eq(before_passes[before_passes.length() - 1], OptimizeCasts)
+    }
+    _ => fail("expected stack segment before LocalSubtyping barrier")
+  }
+  match segments[barrier_idx.val + 1] {
+    FunctionPassStack(after_passes) => {
+      assert_true(after_passes.length() >= 1)
+      assert_eq(after_passes[0], CoalesceLocals)
+    }
+    _ => fail("expected stack segment after LocalSubtyping barrier")
   }
 }
 
