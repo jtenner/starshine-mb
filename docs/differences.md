@@ -184,7 +184,35 @@ Impact:
 - The remaining `CodePushing` questions are about pass-internal behavior in [src/passes/code_pushing.mbt](/home/jtenner/Projects/starshine-mb/src/passes/code_pushing.mbt), not about whether the default optimize pipeline includes the pass at the expected Binaryen gate.
 - It is unlikely to be central to the current runtime investigation by itself, because the gate and broad slot already match Binaryen's default function pipeline.
 
-## 7. Global Pre-Pass Closed-World Unused Cleanup Now Uses `RemoveUnusedModuleElements`
+## 7. `CodeFolding` Scheduling Matches the Default Binaryen Gate
+
+Binaryen's current `PassRunner::addDefaultFunctionOptimizationPasses()` inserts `code-folding` when:
+
+- `optimizeLevel >= 3`
+- or `shrinkLevel >= 1`
+
+and places it after the last pre-`merge-blocks` `vacuum` cleanup step and before the final `merge-blocks` cleanup cluster.
+
+The local function pipeline now matches that scheduler choice directly:
+
+- gate and insertion point: [src/passes/optimize.mbt#L2026](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L2026)
+- in-tree scheduler lock: [src/passes/optimize.mbt#L2923](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L2923)
+
+What the local scheduler now guarantees:
+
+- no `CodeFolding` pass at `-O2` / `-Os0`
+- exactly one `CodeFolding` pass at `-O3`
+- exactly one `CodeFolding` pass at `-Os1` even without `-O3`
+- relative placement after the last pre-`MergeBlocks` `Vacuum`
+- relative placement before the first `MergeBlocks`
+
+Impact:
+
+- This scheduler parity gap is closed.
+- The remaining `CodeFolding` questions are about pass-internal behavior in [src/passes/code_folding.mbt](/home/jtenner/Projects/starshine-mb/src/passes/code_folding.mbt), not about whether the default optimize pipeline includes the pass at the expected Binaryen gate.
+- It is more relevant to output shape and late size cleanup than to the earlier runner-cost differences already called out in this document.
+
+## 8. Global Pre-Pass Closed-World Unused Cleanup Now Uses `RemoveUnusedModuleElements`
 
 The local global pre-pass sequence is in [src/passes/optimize.mbt#L1943](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1943).
 
@@ -212,7 +240,7 @@ Why this mattered:
 
 This scheduler parity gap is now closed, though the downstream cost model still needs measurement if performance work later points back at pre-pass cleanup behavior.
 
-## 8. Closed-World GC Pre-Pass Handling Is Mostly Similar, with a Small CFP Difference
+## 9. Closed-World GC Pre-Pass Handling Is Mostly Similar, with a Small CFP Difference
 
 The local GC pre-pass handling tracks Binaryen's broad intent:
 
@@ -248,7 +276,7 @@ Impact:
 - The remaining difference is narrower and explicit: the local `ConstantFieldNullTestFolding` pass only covers the known-null subcase rather than Binaryen's wider subtype-selection rewrites.
 - It is unlikely to be central to the currently observed stall.
 
-## 9. The Local Global Post Pipeline Now Includes `InliningOptimizing` at the Binaryen-Parity Gate
+## 10. The Local Global Post Pipeline Now Includes `InliningOptimizing` at the Binaryen-Parity Gate
 
 The local post-pass sequence is in [src/passes/optimize.mbt#L2006](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L2006).
 
@@ -264,7 +292,7 @@ Impact:
 - The global post-pipeline now inlines before duplicate-function elimination and simplify-globals cleanup the same way Binaryen's default post sequence expects.
 - Remaining differences in this phase are now the feature-specific missing `StringGathering` pass and any behavior differences inside the local inliner itself rather than a missing scheduler hook.
 
-## 10. `StringGathering` Is Not Implemented in the Local Post Pipeline
+## 11. `StringGathering` Is Not Implemented in the Local Post Pipeline
 
 Binaryen can insert `string-gathering` in the global post phase under the relevant feature and optimization settings.
 
@@ -281,7 +309,7 @@ Impact:
 
 This is a completeness difference more than a performance difference for the issue currently under investigation.
 
-## 11. `Directize` Parity Is Close, but the Local Pipeline Encodes a Specific Mode
+## 12. `Directize` Parity Is Close, but the Local Pipeline Encodes a Specific Mode
 
 The local post-pass tail ends with:
 
@@ -296,7 +324,7 @@ Impact:
 
 This is an example of a local difference that looks different in code shape but is intended to preserve behavior.
 
-## 12. The Largest Runtime Difference Is the Runner, Not the Pass List
+## 13. The Largest Runtime Difference Is the Runner, Not the Pass List
 
 This is the most important non-pass-list finding.
 
@@ -347,7 +375,7 @@ Impact:
 
 For performance analysis, this finding is at least as important as any individual pass substitution.
 
-## 13. The Local Optimizer Validation Policy Is Now Configurable
+## 14. The Local Optimizer Validation Policy Is Now Configurable
 
 The local optimizer no longer validates unconditionally after every pass in the default non-debug path.
 
@@ -364,7 +392,7 @@ Impact:
 - The optimizer still preserves useful failure diagnostics by attributing a final validation error to the last executed pass and including before/after snapshots when available.
 - Users who want the previous validation cadence can still request it directly through `OptimizeOptions`.
 
-## 14. The Local Runner Has a `Vacuum` Skip Heuristic That Binaryen Does Not
+## 15. The Local Runner Has a `Vacuum` Skip Heuristic That Binaryen Does Not
 
 The local runner tracks whether the previous `Vacuum` made no changes and whether anything changed since then:
 
@@ -382,7 +410,7 @@ Impact:
 
 This matters because it shows the local pipeline is already compensating for cleanup cost in ways that diverge from strict Binaryen parity.
 
-## 15. Pass-Sequence Parity Is Better Than Cost-Model Parity
+## 16. Pass-Sequence Parity Is Better Than Cost-Model Parity
 
 This is the most useful high-level conclusion from the comparison.
 
@@ -401,7 +429,7 @@ The reasons are:
 
 The practical outcome is that pass-order similarity does not imply cost similarity.
 
-## 16. Which Differences Are Probably Cosmetic vs. Which Ones Matter for Performance
+## 17. Which Differences Are Probably Cosmetic vs. Which Ones Matter for Performance
 
 ### Mostly comparison-completeness differences
 
@@ -424,7 +452,7 @@ These are the differences most likely to affect runtime materially:
 
 These are the findings that should drive any serious performance investigation.
 
-## 17. Why This Comparison Matters for the Current Pathological Case
+## 18. Why This Comparison Matters for the Current Pathological Case
 
 The original motivation for this comparison was a long-running optimize pipeline in which later cleanup stages, especially `Vacuum`, appeared to stall on a pathological function shape.
 
@@ -443,7 +471,7 @@ The most likely performance-relevant interpretation is:
 
 That is the right framing for investigating the observed churn and apparent stall.
 
-## 18. Bottom Line
+## 19. Bottom Line
 
 The current local optimize pipeline is best described as:
 

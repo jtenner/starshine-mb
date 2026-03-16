@@ -12,7 +12,7 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [x] Optimize + Binaryen feature parity comparison: `RemoveUnusedBrs` (closed in `docs/differences.md`)
 - [x] Optimize + Binaryen feature parity comparison: `PrecomputePropagate` (closed in `docs/differences.md`)
 - [x] Optimize + Binaryen feature parity comparison: `CodePushing` (closed in `docs/differences.md`)
-- [ ] Optimize + Binaryen feature parity comparison: `CodeFolding`
+- [x] Optimize + Binaryen feature parity comparison: `CodeFolding` (closed in `docs/differences.md`)
 - [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
 - [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
 - [ ] Implement `StringGathering` in the global post pipeline under the appropriate feature/optimization gates.

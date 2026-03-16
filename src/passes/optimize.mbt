@@ -2919,6 +2919,81 @@ test "default function optimization passes include binaryen-parity code-pushing 
 }
 
 ///|
+test "default function optimization passes include binaryen-parity code-folding gate and slot" {
+  let base_mod = Module::new()
+  let passes_o2 = default_function_optimization_passes(
+    base_mod,
+    OptimizeOptions::new(optimize_level=2, shrink_level=0),
+  )
+  let passes_o3 = default_function_optimization_passes(
+    base_mod,
+    OptimizeOptions::new(optimize_level=3, shrink_level=0),
+  )
+  let passes_os1 = default_function_optimization_passes(
+    base_mod,
+    OptimizeOptions::new(optimize_level=0, shrink_level=1),
+  )
+
+  assert_eq(
+    default_count_module_passes(passes_o2, fn(pass) {
+      match pass {
+        CodeFolding => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes_o3, fn(pass) {
+      match pass {
+        CodeFolding => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes_os1, fn(pass) {
+      match pass {
+        CodeFolding => true
+        _ => false
+      }
+    }),
+    1,
+  )
+
+  let vacuum_idxs : Array[Int] = []
+  let merge_blocks_idxs : Array[Int] = []
+  let mut idx = 0
+  for pass in passes_o3 {
+    match pass {
+      Vacuum => vacuum_idxs.push(idx)
+      MergeBlocks => merge_blocks_idxs.push(idx)
+      _ => ()
+    }
+    idx += 1
+  }
+  let code_folding_idx = default_first_module_pass_index(passes_o3, fn(pass) {
+    match pass {
+      CodeFolding => true
+      _ => false
+    }
+  })
+  assert_true(vacuum_idxs.length() >= 1)
+  assert_eq(merge_blocks_idxs.length(), 2)
+  assert_true(code_folding_idx >= 0)
+  let last_pre_merge_vacuum_idx = Ref::new(-1)
+  for vacuum_idx in vacuum_idxs {
+    if vacuum_idx < merge_blocks_idxs[0] {
+      last_pre_merge_vacuum_idx.val = vacuum_idx
+    }
+  }
+  assert_true(last_pre_merge_vacuum_idx.val >= 0)
+  assert_true(last_pre_merge_vacuum_idx.val < code_folding_idx)
+  assert_true(code_folding_idx < merge_blocks_idxs[0])
+}
+
+///|
 test "default function optimization passes include binaryen-parity remove-unused-names cleanup points" {
   let passes = default_function_optimization_passes(
     Module::new(),
