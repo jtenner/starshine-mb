@@ -2832,6 +2832,93 @@ test "default function optimization passes map tuple-optimization mode for multi
 }
 
 ///|
+test "default function optimization passes include binaryen-parity code-pushing gate and slot" {
+  let base_mod = Module::new()
+  let multivalue_mod = Module::new().with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i32()])),
+      ),
+    ]),
+  )
+  let passes_o1 = default_function_optimization_passes(
+    base_mod,
+    OptimizeOptions::new(optimize_level=1, shrink_level=0),
+  )
+  let passes_o2 = default_function_optimization_passes(
+    multivalue_mod,
+    OptimizeOptions::new(optimize_level=2, shrink_level=0),
+  )
+  let passes_os2 = default_function_optimization_passes(
+    base_mod,
+    OptimizeOptions::new(optimize_level=0, shrink_level=2),
+  )
+
+  assert_eq(
+    default_count_module_passes(passes_o1, fn(pass) {
+      match pass {
+        CodePushing => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes_o2, fn(pass) {
+      match pass {
+        CodePushing => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes_os2, fn(pass) {
+      match pass {
+        CodePushing => true
+        _ => false
+      }
+    }),
+    1,
+  )
+
+  let precompute_idx = default_first_module_pass_index(passes_o2, fn(pass) {
+    match pass {
+      Precompute => true
+      _ => false
+    }
+  })
+  let code_pushing_idx = default_first_module_pass_index(passes_o2, fn(pass) {
+    match pass {
+      CodePushing => true
+      _ => false
+    }
+  })
+  let tuple_opt_idx = default_first_module_pass_index(passes_o2, fn(pass) {
+    match pass {
+      TupleOptimization => true
+      _ => false
+    }
+  })
+  let simplify_no_structure_idx = default_first_module_pass_index(passes_o2, fn(
+    pass,
+  ) {
+    match pass {
+      SimplifyLocalsNoStructure => true
+      _ => false
+    }
+  })
+  assert_true(precompute_idx >= 0)
+  assert_true(code_pushing_idx >= 0)
+  assert_true(tuple_opt_idx >= 0)
+  assert_true(simplify_no_structure_idx >= 0)
+  assert_true(precompute_idx < code_pushing_idx)
+  assert_true(code_pushing_idx < tuple_opt_idx)
+  assert_true(code_pushing_idx < simplify_no_structure_idx)
+}
+
+///|
 test "default function optimization passes include binaryen-parity remove-unused-names cleanup points" {
   let passes = default_function_optimization_passes(
     Module::new(),

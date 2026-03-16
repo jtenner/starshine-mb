@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: close the `CodePushing` Binaryen parity scheduler slice
+
+- Added an explicit `CodePushing` scheduler regression in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) that locks the Binaryen-parity gate (`-O2` or `-Os2`) and the expected placement after early propagation and before tuple / local cleanup.
+- Updated [`docs/differences.md`](/home/jtenner/Projects/starshine-mb/docs/differences.md) to record the `CodePushing` scheduler comparison as closed and refreshed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to retire the open blocker entry.
+- Validation: `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 SimplifyLocals Follow-up: close scheduler/parity signoff and retire stale blocker list
 
 - Refreshed [`docs/SimplifyLocals.md`](/home/jtenner/Projects/starshine-mb/docs/SimplifyLocals.md) into a completed signoff record for the current five-variant `SimplifyLocals` envelope, including explicit completion notes for the existing correctness, control-structure, validation, performance, and scheduler coverage already in-tree.
