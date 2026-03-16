@@ -1779,7 +1779,7 @@ fn optimize_stacked_function_executor_enabled(
   match options.validation_policy {
     AfterEveryPass => false
     FinalModuleOnly =>
-      !trace_enabled || optimize_trace_helper_enabled(trace_level)
+      !trace_enabled || optimize_trace_phase_enabled(trace_level)
   }
 }
 
@@ -1795,9 +1795,14 @@ fn optimize_prepare_function_stack_pass(
   trace_level : OptimizeTracingLevel,
 ) -> Result[PreparedFunctionStackPass, String] {
   let trace_pass_details = trace_enabled &&
-    optimize_trace_helper_enabled(trace_level)
+    optimize_trace_phase_enabled(trace_level)
   let pass_trace = if trace_pass_details {
-    fn(msg) { trace("pass[\{pass_index}/\{total_passes}]:\{msg}") }
+    fn(msg) {
+      if optimize_trace_helper_enabled(trace_level) ||
+        optimize_trace_detail_is_phase(msg) {
+        trace("pass[\{pass_index}/\{total_passes}]:\{msg}")
+      }
+    }
   } else {
     optimize_trace_noop
   }
@@ -1866,7 +1871,8 @@ fn optimize_run_function_stack_subsegment(
   match mod.code_sec {
     Some(CodeSec(orig_funcs)) => {
       let funcs = orig_funcs.copy()
-      current_mod = mod.with_code_sec(CodeSec::new(funcs))
+      let before_last_pass_funcs = funcs.copy()
+      current_mod = mod.with_code_sec(CodeSec::new(funcs.copy()))
       if trace_enabled && optimize_trace_helper_enabled(trace_level) {
         trace(
           "scheduler:run_function_stack:start passes=\{optimize_trace_render_pass_list(stack_passes)} funcs=\{funcs.length()}",
@@ -1885,8 +1891,9 @@ fn optimize_run_function_stack_subsegment(
             prepared_idx < prepared.length()
             prepared_idx = prepared_idx + 1 {
           if prepared_idx == prepared.length() - 1 {
-            last_pre_pass_mod = current_mod.with_code_sec(
-              CodeSec::new(funcs.copy()),
+            before_last_pass_funcs[func_idx] = curr_func
+            last_pre_pass_mod = mod.with_code_sec(
+              CodeSec::new(before_last_pass_funcs.copy()),
             )
           }
           ctx.set_mod(current_mod)
@@ -1909,6 +1916,7 @@ fn optimize_run_function_stack_subsegment(
           if curr_func != funcs[func_idx] {
             funcs[func_idx] = curr_func
             func_changed.val = true
+            current_mod = current_mod.with_code_sec(CodeSec::new(funcs.copy()))
           }
         }
         if trace_enabled && optimize_trace_helper_enabled(trace_level) {
@@ -6348,6 +6356,117 @@ test "optimize_module helper trace keeps flat pass execution with after-every-pa
         ),
         fn(msg) { trace_lines.push(msg) },
         trace_level=OptimizeTracingLevel::helper(),
+      ) {
+      Ok(m) => m
+      Err(e) =>
+        fail("unexpected optimize_module_with_options_trace error: \{e}")
+    },
+  )
+  let dce_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[1/2]:dead_code_elimination:func[1]:start",
+  )
+  let dce_func2 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[1/2]:dead_code_elimination:func[2]:start",
+  )
+  let cp_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[2/2]:code_pushing:func[1] start",
+  )
+  assert_true(dce_func1 >= 0)
+  assert_true(dce_func2 >= 0)
+  assert_true(cp_func1 >= 0)
+  assert_true(dce_func1 < dce_func2)
+  assert_true(dce_func2 < cp_func1)
+}
+
+///|
+test "optimize_module phase trace interleaves function-stack pass execution by function" {
+  let func0 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let func1 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(2))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(CodeSec::new([func0, func1])),
+  )
+  let trace_lines : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [DeadCodeElimination, CodePushing],
+        OptimizeOptions::new(),
+        fn(msg) { trace_lines.push(msg) },
+        trace_level=OptimizeTracingLevel::phase(),
+      ) {
+      Ok(m) => m
+      Err(e) =>
+        fail("unexpected optimize_module_with_options_trace error: \{e}")
+    },
+  )
+  let dce_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[1/2]:dead_code_elimination:func[1]:start",
+  )
+  let cp_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[2/2]:code_pushing:func[1] start",
+  )
+  let dce_func2 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[1/2]:dead_code_elimination:func[2]:start",
+  )
+  let cp_func2 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[2/2]:code_pushing:func[2] start",
+  )
+  assert_true(dce_func1 >= 0)
+  assert_true(cp_func1 >= 0)
+  assert_true(dce_func2 >= 0)
+  assert_true(cp_func2 >= 0)
+  assert_true(dce_func1 < cp_func1)
+  assert_true(cp_func1 < dce_func2)
+  assert_true(dce_func2 < cp_func2)
+}
+
+///|
+test "optimize_module phase trace keeps flat pass execution with after-every-pass validation" {
+  let func0 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let func1 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(2))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(CodeSec::new([func0, func1])),
+  )
+  let trace_lines : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [DeadCodeElimination, CodePushing],
+        OptimizeOptions::new(
+          validation_policy=OptimizeValidationPolicy::after_every_pass(),
+        ),
+        fn(msg) { trace_lines.push(msg) },
+        trace_level=OptimizeTracingLevel::phase(),
       ) {
       Ok(m) => m
       Err(e) =>

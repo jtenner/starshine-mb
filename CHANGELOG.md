@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: extend stacked function segments to phase tracing
+
+- Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so the prepared per-function stacked executor now also runs on `OptimizeTracingLevel::phase()` under final-module validation; only pass-summary tracing, `AfterEveryPass` validation, and `Vacuum` still force the flat fallback inside function-stack segments.
+- Fixed the stacked runner in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) to refresh `ctx.mod` from the latest rewritten code-section snapshot between per-function pass applications and to capture the final-validation `last_pre_pass_mod` snapshot at the whole-module state immediately before the last stacked pass reaches each function.
+- Added phase-trace regressions in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) that require interleaved per-function execution on the final-validation path while keeping the flat loop under `AfterEveryPass` validation.
+- Validation: `moon test --package jtenner/starshine/passes --file optimize.mbt`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Optimize Follow-up: run contiguous non-vacuum function stacks per function
 
 - Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so `FunctionPassStack` segments now execute contiguous non-`Vacuum` substacks through a prepared per-function runner on the default final-validation path, while `Vacuum`, pass/phase tracing, and `AfterEveryPass` validation still fall back to the existing flat per-pass executor.
