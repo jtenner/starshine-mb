@@ -2763,6 +2763,20 @@ fn msf_run(mod : Module) -> Module {
 }
 
 ///|
+fn msf_run_with_trace(
+  mod : Module,
+  trace_all_funcs? : Bool = false,
+) -> (Result[Module, String], Array[String]) {
+  let lines : Array[String] = []
+  let result = merge_similar_functions_with_trace(
+    mod,
+    fn(line) { lines.push(line) },
+    trace_all_funcs~,
+  )
+  (result, lines)
+}
+
+///|
 fn msf_i32_func_type() -> RecType {
   msf_make_func_type([ValType::i32()], [ValType::i32()])
 }
@@ -4114,6 +4128,65 @@ test "merge similar functions skips call-target merge without typed ref evidence
 }
 
 ///|
+test "merge similar functions traces typed ref lowering unsupported skip" {
+  let t_callee = msf_make_func_type([ValType::i32()], [ValType::i32()])
+  let t_wrap = msf_make_func_type([], [ValType::i32()])
+  let callee_a = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+  )
+  let callee_b = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+  )
+  let wrap_a = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::drop(TInstr::i32_const(I32(0))),
+      TInstr::return_([
+        TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(1))]),
+      ]),
+    ]),
+  )
+  let wrap_b = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::drop(TInstr::i32_const(I32(0))),
+      TInstr::return_([
+        TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(1))]),
+      ]),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_callee, t_wrap]))
+    .with_func_sec(
+      FuncSec::new([
+        TypeIdx::new(0),
+        TypeIdx::new(0),
+        TypeIdx::new(1),
+        TypeIdx::new(1),
+      ]),
+    )
+    .with_code_sec(CodeSec::new([callee_a, callee_b, wrap_a, wrap_b]))
+  let (result, lines) = msf_run_with_trace(mod, trace_all_funcs=true)
+  match result {
+    Ok(out) => assert_eq(validate_module(out), Ok(()))
+    Err(e) => fail("expected typed-ref unsupported path to skip cleanly: \{e}")
+  }
+  let mut saw_reason = false
+  for line in lines {
+    if line.contains("reason=typed_ref_lowering_unsupported") {
+      saw_reason = true
+    }
+  }
+  assert_true(saw_reason)
+}
+
+///|
 test "merge similar functions declares synthesized ref.func call targets" {
   let t_callee = msf_make_func_type([ValType::i32()], [ValType::i32()])
   let t_wrap = msf_make_func_type([], [])
@@ -4302,6 +4375,44 @@ test "merge similar functions enforces synthetic param limit" {
     Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
     _ => fail("expected code section")
   }
+}
+
+///|
+test "merge similar functions traces synthetic param limit skip" {
+  let t = msf_void_func_type()
+  let body_a_instrs : Array[TInstr] = []
+  let body_b_instrs : Array[TInstr] = []
+  for i = 0; i < 20; i = i + 1 {
+    body_a_instrs.push(TInstr::drop(TInstr::i32_const(I32(i))))
+    body_b_instrs.push(TInstr::drop(TInstr::i32_const(I32(i + 1))))
+  }
+  let f0 = Func::t_func([], [], TExpr::new(body_a_instrs))
+  let f1 = Func::t_func([], [], TExpr::new(body_b_instrs))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([f0, f1]))
+  let (result, lines) = msf_run_with_trace(mod, trace_all_funcs=true)
+  match result {
+    Ok(out) =>
+      match out.code_sec {
+        Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+        _ => fail("expected code section")
+      }
+    Err(e) => fail("expected synthetic param limit path to skip cleanly: \{e}")
+  }
+  let mut saw_reason = false
+  let mut saw_limit = false
+  for line in lines {
+    if line.contains("reason=synthetic_param_limit") {
+      saw_reason = true
+    }
+    if line.contains("limit=\{MSF_MAX_SYNTHETIC_FUNCTION_PARAMS}") {
+      saw_limit = true
+    }
+  }
+  assert_true(saw_reason)
+  assert_true(saw_limit)
 }
 
 ///|
