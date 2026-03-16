@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-16 Docs Follow-up: compacted `AGENTS.md` without changing repository guidance
+
+- Rewrote [`AGENTS.md`](/home/jtenner/Projects/starshine-mb/AGENTS.md) into a denser format while preserving the same instructions and workflow requirements.
+- Validation was not run because this change was documentation-only.
+
 ## 2026-03-16 Docs Follow-up: closed `RemoveUnusedBrs` and `PrecomputePropagate` parity-tracking items and standardized commit workflow guidance
 
 - Marked the `RemoveUnusedBrs` and `PrecomputePropagate` Optimize/Binaryen parity comparison items complete in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
