@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: narrow function-stack segments to walk-func-compatible passes
+
+- Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so `scheduler_segment_passes(...)` now treats only walk-func-compatible passes as `FunctionPassStack` members; module-shaped IR transformers such as `Flatten` and `LocalCSE` are now explicit barriers even though they are not `ModuleRunnerPass` values.
+- Added segmentation regressions in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) for synthetic mixed pass lists and the `-O4` default function pipeline, locking the new barrier splits around `Flatten` and `LocalCSE`.
+- Validation: `moon test --package jtenner/starshine/passes --file optimize.mbt -F 'scheduler_segment_passes *'`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Optimize Follow-up: execute the default scheduler through explicit pass segments
 
 - Refactored [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so the default optimize loop now executes explicit `SchedulerPassSegment`s and routes each segment through a dedicated executor, while preserving the existing per-pass semantics, validation behavior, pass numbering, and `Vacuum` skip policy.

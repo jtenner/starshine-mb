@@ -527,9 +527,39 @@ fn module_pass_context_kind(pass : ModulePass) -> SchedulerPassContextKind {
 
 ///|
 fn module_pass_is_function_stackable(pass : ModulePass) -> Bool {
-  match module_pass_context_kind(pass) {
-    ModuleRunnerPass => false
-    _ => true
+  // Only passes whose scheduler path can be lowered to a direct walk_func-style
+  // executor belong in a future stacked function runner. Module-shaped IR
+  // transformers remain barriers even though they are not module-runner passes.
+  match pass {
+    DeadCodeElimination
+    | CodePushing
+    | CodeFolding
+    | CoalesceLocals
+    | ConstantFieldPropagation
+    | ConstantFieldNullTestFolding
+    | DataflowOptimization
+    | DeNaN
+    | HeapStoreOptimization
+    | MergeBlocks
+    | MergeLocals
+    | OptimizeAddedConstants
+    | OptimizeAddedConstantsPropagate
+    | OptimizeCasts
+    | OptimizeInstructions
+    | PickLoadSigns
+    | Precompute
+    | PrecomputePropagate
+    | RedundantSetElimination
+    | ReorderLocals
+    | SimplifyLocals
+    | SimplifyLocalsNoStructure
+    | SimplifyLocalsNoTee
+    | SimplifyLocalsNoTeeNoStructure
+    | SimplifyLocalsNoNesting
+    | TupleOptimization
+    | Untee
+    | Vacuum => true
+    _ => false
   }
 }
 
@@ -2770,6 +2800,47 @@ test "scheduler_segment_passes groups contiguous function-stackable passes" {
 }
 
 ///|
+test "scheduler_segment_passes splits around non-walk-func ir transformers" {
+  let segments = scheduler_segment_passes([
+    Precompute,
+    LocalCSE,
+    CoalesceLocals,
+    Flatten,
+    Vacuum,
+  ])
+  assert_eq(segments.length(), 5)
+  match segments[0] {
+    FunctionPassStack(passes) => {
+      assert_eq(passes.length(), 1)
+      assert_eq(passes[0], Precompute)
+    }
+    _ => fail("expected first segment to be a function stack")
+  }
+  match segments[1] {
+    BarrierPass(pass) => assert_eq(pass, LocalCSE)
+    _ => fail("expected second segment to be a LocalCSE barrier")
+  }
+  match segments[2] {
+    FunctionPassStack(passes) => {
+      assert_eq(passes.length(), 1)
+      assert_eq(passes[0], CoalesceLocals)
+    }
+    _ => fail("expected third segment to be a function stack")
+  }
+  match segments[3] {
+    BarrierPass(pass) => assert_eq(pass, Flatten)
+    _ => fail("expected fourth segment to be a Flatten barrier")
+  }
+  match segments[4] {
+    FunctionPassStack(passes) => {
+      assert_eq(passes.length(), 1)
+      assert_eq(passes[0], Vacuum)
+    }
+    _ => fail("expected fifth segment to be a function stack")
+  }
+}
+
+///|
 test "scheduler_segment_passes splits default function pipeline at module-runner barriers" {
   let gc_mod = Module::new().with_type_sec(
     TypeSec::new([
@@ -2816,6 +2887,46 @@ test "scheduler_segment_passes splits default function pipeline at module-runner
       assert_eq(after_passes[0], CoalesceLocals)
     }
     _ => fail("expected stack segment after LocalSubtyping barrier")
+  }
+}
+
+///|
+test "scheduler_segment_passes splits optimize_level=4 pipeline around flatten and local-cse barriers" {
+  let passes = default_function_optimization_passes(
+    Module::new(),
+    OptimizeOptions::new(optimize_level=4),
+  )
+  let segments = scheduler_segment_passes(passes)
+  let flatten_idx = Ref::new(-1)
+  let local_cse_idx = Ref::new(-1)
+  for i = 0; i < segments.length(); i = i + 1 {
+    match segments[i] {
+      BarrierPass(Flatten) => flatten_idx.val = i
+      BarrierPass(LocalCSE) =>
+        if local_cse_idx.val == -1 {
+          local_cse_idx.val = i
+        }
+      _ => ()
+    }
+  }
+  assert_true(flatten_idx.val >= 0)
+  assert_true(local_cse_idx.val > flatten_idx.val)
+  match segments[flatten_idx.val - 1] {
+    FunctionPassStack(before_flatten) =>
+      assert_eq(
+        before_flatten[before_flatten.length() - 1],
+        DataflowOptimization,
+      )
+    _ => fail("expected function stack before Flatten barrier")
+  }
+  match segments[flatten_idx.val + 1] {
+    FunctionPassStack(after_flatten) =>
+      assert_eq(after_flatten[0], SimplifyLocalsNoTeeNoStructure)
+    _ => fail("expected function stack after Flatten barrier")
+  }
+  match segments[local_cse_idx.val + 1] {
+    FunctionPassStack(after_cse) => assert_eq(after_cse[0], DeadCodeElimination)
+    _ => fail("expected function stack after LocalCSE barrier")
   }
 }
 
