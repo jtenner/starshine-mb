@@ -132,7 +132,31 @@ Impact:
 
 This is an optimization-policy difference, not just an implementation detail.
 
-## 5. Global Pre-Pass Closed-World Unused Cleanup Now Uses `RemoveUnusedModuleElements`
+## 5. `Precompute` / `PrecomputePropagate` Scheduling Matches the Default Binaryen Shape
+
+From the provided Binaryen default-pass construction, the relevant question for this parity item is whether the local scheduler picks the non-propagating `precompute` variant at lower settings and upgrades to `precompute-propagate` at the stronger optimize / shrink gates, at both of the function-pipeline cleanup points.
+
+The local function pipeline does exactly that:
+
+- early cleanup slot: [src/passes/optimize.mbt#L1982](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1982)
+- late cleanup slot: [src/passes/optimize.mbt#L2032](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L2032)
+
+At each site, the scheduler uses:
+
+- `PrecomputePropagate` when `optimize_level >= 3 || shrink_level >= 2`
+- `Precompute` otherwise
+
+This is also locked by in-tree scheduler tests:
+
+- low/default settings keep exactly two `Precompute` passes and zero `PrecomputePropagate` passes: [src/passes/optimize.mbt#L2539](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L2539)
+- stronger optimize / shrink settings flip that to exactly two `PrecomputePropagate` passes and zero `Precompute` passes: [src/passes/optimize.mbt#L2592](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L2592)
+
+Impact:
+
+- This scheduler parity gap is closed.
+- Any remaining differences are inside the local `Precompute` implementation family, not in whether the default optimize pipeline chooses the propagate variant at the expected gates.
+
+## 6. Global Pre-Pass Closed-World Unused Cleanup Now Uses `RemoveUnusedModuleElements`
 
 The local global pre-pass sequence is in [src/passes/optimize.mbt#L1943](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1943).
 
@@ -160,7 +184,7 @@ Why this mattered:
 
 This scheduler parity gap is now closed, though the downstream cost model still needs measurement if performance work later points back at pre-pass cleanup behavior.
 
-## 6. Closed-World GC Pre-Pass Handling Is Mostly Similar, with a Small CFP Difference
+## 7. Closed-World GC Pre-Pass Handling Is Mostly Similar, with a Small CFP Difference
 
 The local GC pre-pass handling tracks Binaryen's broad intent:
 
@@ -196,7 +220,7 @@ Impact:
 - The remaining difference is narrower and explicit: the local `ConstantFieldNullTestFolding` pass only covers the known-null subcase rather than Binaryen's wider subtype-selection rewrites.
 - It is unlikely to be central to the currently observed stall.
 
-## 7. The Local Global Post Pipeline Now Includes `InliningOptimizing` at the Binaryen-Parity Gate
+## 8. The Local Global Post Pipeline Now Includes `InliningOptimizing` at the Binaryen-Parity Gate
 
 The local post-pass sequence is in [src/passes/optimize.mbt#L2006](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L2006).
 
@@ -212,7 +236,7 @@ Impact:
 - The global post-pipeline now inlines before duplicate-function elimination and simplify-globals cleanup the same way Binaryen's default post sequence expects.
 - Remaining differences in this phase are now the feature-specific missing `StringGathering` pass and any behavior differences inside the local inliner itself rather than a missing scheduler hook.
 
-## 8. `StringGathering` Is Not Implemented in the Local Post Pipeline
+## 9. `StringGathering` Is Not Implemented in the Local Post Pipeline
 
 Binaryen can insert `string-gathering` in the global post phase under the relevant feature and optimization settings.
 
@@ -229,7 +253,7 @@ Impact:
 
 This is a completeness difference more than a performance difference for the issue currently under investigation.
 
-## 9. `Directize` Parity Is Close, but the Local Pipeline Encodes a Specific Mode
+## 10. `Directize` Parity Is Close, but the Local Pipeline Encodes a Specific Mode
 
 The local post-pass tail ends with:
 
@@ -244,7 +268,7 @@ Impact:
 
 This is an example of a local difference that looks different in code shape but is intended to preserve behavior.
 
-## 10. The Largest Runtime Difference Is the Runner, Not the Pass List
+## 11. The Largest Runtime Difference Is the Runner, Not the Pass List
 
 This is the most important non-pass-list finding.
 

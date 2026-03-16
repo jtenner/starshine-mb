@@ -31,9 +31,30 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Preferred final local check sequence:
   - `moon info && moon fmt`
   - `moon test`
-  - If requested, stage a commit with a temporary commit file that contains the description of the task, files changed, and why they were changed.
+  - If requested, follow the commit strategy below, including updating `CHANGELOG.md` and using a temporary commit message file with `git commit -F`.
 - Running multiple `moon` commands in parallel contends on `_build/.moon-lock`; one process waits on the lock instead of progressing concurrently.
 - When testing the self-optimize pipeline, let the user run the pipeline instead of running it yourself.
+
+## Commit Strategy
+- When a task ends with a commit, first update `CHANGELOG.md` with a succinct entry that records the user-visible or maintainer-relevant changes. Keep the changelog concise even if the commit message is detailed.
+- Review the staged diff before committing so the changelog entry, code changes, tests, and any docs changes all match.
+- Write the commit message into a temporary file instead of passing `-m` on the command line.
+- The temporary commit file should contain:
+  - a clear subject line
+  - a short summary of the task
+  - the key files changed
+  - why those files were changed
+  - validation run, or an explicit note that validation was not run
+- Commit with `git commit -F <temp-file>`.
+- Remove the temporary file immediately after the commit succeeds.
+- Prefer a flow like:
+  - update `CHANGELOG.md`
+  - `git add ...`
+  - `tmpfile="$(mktemp)"`
+  - write the detailed commit message into `"$tmpfile"`
+  - `git commit -F "$tmpfile"`
+  - `rm -f "$tmpfile"`
+- Do not use interactive commit editors when this workflow is requested; the repository standard is a temp file plus `git commit -F`.
 
 ## Repository Layout
 - `examples/`: runnable usage examples and sample config/module inputs.

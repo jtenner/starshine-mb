@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 Docs Follow-up: closed `RemoveUnusedBrs` and `PrecomputePropagate` parity-tracking items and standardized commit workflow guidance
+
+- Marked the `RemoveUnusedBrs` and `PrecomputePropagate` Optimize/Binaryen parity comparison items complete in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
+- Added a `Precompute` / `PrecomputePropagate` scheduler parity note to [`docs/differences.md`](/home/jtenner/Projects/starshine-mb/docs/differences.md) with code and test anchors.
+- Updated [`AGENTS.md`](/home/jtenner/Projects/starshine-mb/AGENTS.md) to require changelog updates plus temp-file-based `git commit -F` commit messages when agents are asked to commit.
+- Validation was not run because these changes were documentation-only.
+
 ## 2026-03-13 MergeBlocks Follow-up: closed parity-signoff by classifying all matrix rows, recording signoff metrics, and moving the plan from active to done
 
 This follow-up closes the `MergeBlocks` parity signoff blocker using:

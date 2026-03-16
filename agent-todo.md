@@ -41,8 +41,8 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Publish blocker `MSF-011`: cache normalized bodies, call-site signatures, and type metadata to remove repeated whole-body work. [Details](docs/merge-similar-functions.md#msf-011--cache-per-function-analysis-artifacts)
 - [ ] Publish blocker `MSF-012`: reduce GC churn by replacing repeated bucket copying and map-heavy node-id structures with denser representations. [Details](docs/merge-similar-functions.md#msf-012--reduce-gc-churn-with-denser-data-structures)
 - [ ] Publish blocker `MSF-013`: build a dedicated regression and benchmarking plan covering correctness, parity, and performance for the pass. [Details](docs/merge-similar-functions.md#msf-013--regression-and-benchmark-plan)
-- [ ] Optimize + Binaryen feature parity comparison: `RemoveUnusedBrs`
-- [ ] Optimize + Binaryen feature parity comparison: `PrecomputePropagate`
+- [x] Optimize + Binaryen feature parity comparison: `RemoveUnusedBrs` (closed in `docs/differences.md`)
+- [x] Optimize + Binaryen feature parity comparison: `PrecomputePropagate` (closed in `docs/differences.md`)
 - [ ] Optimize + Binaryen feature parity comparison: `CodePushing`
 - [ ] Optimize + Binaryen feature parity comparison: `CodeFolding`
 - [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
