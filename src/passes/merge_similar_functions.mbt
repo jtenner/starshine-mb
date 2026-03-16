@@ -18,6 +18,12 @@
 const MSF_MAX_SYNTHETIC_FUNCTION_PARAMS : Int = 16
 
 ///|
+const MSF_MAX_SYNTHETIC_FUNCTION_PARAMS_HARD : Int = 32
+
+///|
+const MSF_SYNTHETIC_PARAM_PRESSURE_BYTES_PER_EXTRA_PARAM : Int = 8
+
+///|
 const MSF_HASH_MAX_INSTRS : Int = 200000
 
 ///|
@@ -122,6 +128,14 @@ priv struct MSFBucketBuildStats {
 ///|
 priv struct MSFPartitionStats {
   representative_comparisons : Int
+}
+
+///|
+priv struct MSFBenefitEstimate {
+  removed : Int
+  base_added : Int
+  param_pressure_bytes : Int
+  beneficial : Bool
 }
 
 ///|
@@ -1844,10 +1858,11 @@ fn derive_params(
       }
     }
   }
-  if primary_param_count + params.length() > MSF_MAX_SYNTHETIC_FUNCTION_PARAMS {
+  if primary_param_count + params.length() >
+    MSF_MAX_SYNTHETIC_FUNCTION_PARAMS_HARD {
     if trace_all_funcs {
       trace(
-        "func[\{ordinal}] phase=derive_params_internal:build_params:done elapsed_ms=\{msf_trace_elapsed_ms(build_params_start_ms)} params=\{params.length()} skipped=true reason=synthetic_param_limit total=\{primary_param_count + params.length()} limit=\{MSF_MAX_SYNTHETIC_FUNCTION_PARAMS}",
+        "func[\{ordinal}] phase=derive_params_internal:build_params:done elapsed_ms=\{msf_trace_elapsed_ms(build_params_start_ms)} params=\{params.length()} skipped=true reason=synthetic_param_limit total=\{primary_param_count + params.length()} soft_limit=\{MSF_MAX_SYNTHETIC_FUNCTION_PARAMS} hard_limit=\{MSF_MAX_SYNTHETIC_FUNCTION_PARAMS_HARD}",
       )
     }
     return None
@@ -2178,14 +2193,28 @@ fn msf_measure_body(body : TExpr) -> Int {
 }
 
 ///|
-fn has_merge_benefit(
+fn msf_synthetic_param_pressure_bytes(
+  total_params : Int,
+  member_count : Int,
+) -> Int {
+  if total_params <= MSF_MAX_SYNTHETIC_FUNCTION_PARAMS {
+    return 0
+  }
+  let excess = total_params - MSF_MAX_SYNTHETIC_FUNCTION_PARAMS
+  excess *
+  (member_count - 1) *
+  MSF_SYNTHETIC_PARAM_PRESSURE_BYTES_PER_EXTRA_PARAM
+}
+
+///|
+fn msf_estimate_merge_benefit(
   clazz : EquivalentClass,
   analysis : MSFModuleAnalysis,
   params : Array[ParamInfo],
   trace? : (String) -> Unit = msf_trace_noop,
   trace_all_funcs? : Bool = false,
   ordinal? : Int = 0,
-) -> Bool {
+) -> MSFBenefitEstimate {
   let benefit_start_ms = msf_trace_now_ms()
   if trace_all_funcs {
     trace(
@@ -2198,7 +2227,12 @@ fn has_merge_benefit(
         "func[\{ordinal}] phase=benefit_internal:done elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)} beneficial=false reason=single_member",
       )
     }
-    return false
+    return {
+      removed: 0,
+      base_added: 0,
+      param_pressure_bytes: 0,
+      beneficial: false,
+    }
   }
   let primary_def = clazz.primary_def_idx
   let primary_func = match msf_get_cached_defined_func(analysis, primary_def) {
@@ -2209,7 +2243,12 @@ fn has_merge_benefit(
           "func[\{ordinal}] phase=benefit_internal:error reason=primary_out_of_range def_idx=\{primary_def} elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)}",
         )
       }
-      return false
+      return {
+        removed: 0,
+        base_added: 0,
+        param_pressure_bytes: 0,
+        beneficial: false,
+      }
     }
   }
   let FuncType(primary_params, _) = primary_func.func_type
@@ -2241,7 +2280,12 @@ fn has_merge_benefit(
           "func[\{ordinal}] phase=benefit_internal:error reason=rewrite_cost_model_failed elapsed_ms=\{msf_trace_elapsed_ms(rewrite_start_ms)} \{e}",
         )
       }
-      return false
+      return {
+        removed,
+        base_added: 0,
+        param_pressure_bytes: 0,
+        beneficial: false,
+      }
     }
   }
   let rewritten_body_size = msf_measure_body(rewritten_body)
@@ -2263,7 +2307,12 @@ fn has_merge_benefit(
             "func[\{ordinal}] phase=benefit_internal:error reason=missing_thunk_values member=\{member_idx + 1} elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)}",
           )
         }
-        return false
+        return {
+          removed,
+          base_added: 0,
+          param_pressure_bytes: 0,
+          beneficial: false,
+        }
       }
     }
     let thunk_body = TExpr::new([
@@ -2271,14 +2320,20 @@ fn has_merge_benefit(
     ])
     thunk_total += msf_measure_body(thunk_body)
   }
-  let added = shared_body_overhead + thunk_total
+  let base_added = shared_body_overhead + thunk_total
+  let total_params = primary_params.length() + params.length()
+  let param_pressure_bytes = msf_synthetic_param_pressure_bytes(
+    total_params,
+    clazz.member_def_idxs.length(),
+  )
+  let added = base_added + param_pressure_bytes
   let beneficial = removed > added
   if trace_all_funcs {
     trace(
-      "func[\{ordinal}] phase=benefit_internal:done elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)} removed=\{removed} added=\{added} shared_body_overhead=\{shared_body_overhead} thunk_bytes=\{thunk_total} beneficial=\{beneficial}",
+      "func[\{ordinal}] phase=benefit_internal:done elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)} removed=\{removed} added=\{added} base_added=\{base_added} param_pressure_bytes=\{param_pressure_bytes} shared_body_overhead=\{shared_body_overhead} thunk_bytes=\{thunk_total} beneficial=\{beneficial}",
     )
   }
-  beneficial
+  { removed, base_added, param_pressure_bytes, beneficial }
 }
 
 ///|
@@ -3021,11 +3076,11 @@ fn run(
       continue
     }
     let FuncType(primary_params, _) = func_types[primary_abs]
-    if primary_params.length() + params.length() >
-      MSF_MAX_SYNTHETIC_FUNCTION_PARAMS {
+    let total_synthetic_params = primary_params.length() + params.length()
+    if total_synthetic_params > MSF_MAX_SYNTHETIC_FUNCTION_PARAMS_HARD {
       if trace_all_funcs {
         trace(
-          "func[\{ordinal}] done elapsed_ms=\{msf_trace_elapsed_ms(class_start_ms)} merged=false reason=synthetic_param_limit params=\{primary_params.length() + params.length()} limit=\{MSF_MAX_SYNTHETIC_FUNCTION_PARAMS}",
+          "func[\{ordinal}] done elapsed_ms=\{msf_trace_elapsed_ms(class_start_ms)} merged=false reason=synthetic_param_limit params=\{total_synthetic_params} soft_limit=\{MSF_MAX_SYNTHETIC_FUNCTION_PARAMS} hard_limit=\{MSF_MAX_SYNTHETIC_FUNCTION_PARAMS_HARD}",
         )
       }
       continue
@@ -3036,7 +3091,7 @@ fn run(
         "func[\{ordinal}] phase=benefit:start params=\{params.length()} members=\{clazz.member_def_idxs.length()}",
       )
     }
-    let has_benefit = has_merge_benefit(
+    let benefit = msf_estimate_merge_benefit(
       clazz,
       analysis,
       params,
@@ -3046,14 +3101,21 @@ fn run(
     )
     if trace_all_funcs {
       trace(
-        "func[\{ordinal}] phase=benefit:done elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)} beneficial=\{has_benefit}",
+        "func[\{ordinal}] phase=benefit:done elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)} beneficial=\{benefit.beneficial}",
       )
     }
-    if !has_benefit {
+    if !benefit.beneficial {
       if trace_all_funcs {
-        trace(
-          "func[\{ordinal}] done elapsed_ms=\{msf_trace_elapsed_ms(class_start_ms)} merged=false reason=no_benefit",
-        )
+        if benefit.param_pressure_bytes > 0 &&
+          benefit.removed > benefit.base_added {
+          trace(
+            "func[\{ordinal}] done elapsed_ms=\{msf_trace_elapsed_ms(class_start_ms)} merged=false reason=synthetic_param_limit params=\{total_synthetic_params} limit=\{MSF_MAX_SYNTHETIC_FUNCTION_PARAMS} hard_limit=\{MSF_MAX_SYNTHETIC_FUNCTION_PARAMS_HARD} param_pressure_bytes=\{benefit.param_pressure_bytes}",
+          )
+        } else {
+          trace(
+            "func[\{ordinal}] done elapsed_ms=\{msf_trace_elapsed_ms(class_start_ms)} merged=false reason=no_benefit",
+          )
+        }
       }
       continue
     }
@@ -4279,8 +4341,8 @@ test "merge similar functions analysis cache reuses per-function artifacts" {
     site_maps: 4,
     body_sizes: 0,
   })
-  assert_true(has_merge_benefit(clazz, analysis, params0))
-  assert_true(has_merge_benefit(clazz, analysis, params1))
+  assert_true(msf_estimate_merge_benefit(clazz, analysis, params0).beneficial)
+  assert_true(msf_estimate_merge_benefit(clazz, analysis, params1).beneficial)
   assert_eq(msf_analysis_artifact_counts(analysis), {
     normalized_bodies: 4,
     ordered_sites: 4,
@@ -4894,6 +4956,70 @@ test "merge similar functions enforces synthetic param limit" {
   let body_a_instrs : Array[TInstr] = []
   let body_b_instrs : Array[TInstr] = []
   for i = 0; i < 20; i = i + 1 {
+    body_a_instrs.push(TInstr::drop(TInstr::i32_const(I32(i))))
+    body_b_instrs.push(TInstr::drop(TInstr::i32_const(I32(i + 1))))
+  }
+  let f0 = Func::t_func([], [], TExpr::new(body_a_instrs))
+  let f1 = Func::t_func([], [], TExpr::new(body_b_instrs))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([f0, f1]))
+  let out = msf_run(mod)
+  match out.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    _ => fail("expected code section")
+  }
+}
+
+///|
+test "merge similar functions allows slightly over-limit profitable merges" {
+  let t = msf_void_func_type()
+  let body_a_instrs : Array[TInstr] = []
+  let body_b_instrs : Array[TInstr] = []
+  for i = 0; i < MSF_MAX_SYNTHETIC_FUNCTION_PARAMS + 1; i = i + 1 {
+    body_a_instrs.push(TInstr::drop(TInstr::i32_const(I32(i))))
+    body_b_instrs.push(TInstr::drop(TInstr::i32_const(I32(i + 1))))
+  }
+  for j = 0; j < 64; j = j + 1 {
+    body_a_instrs.push(
+      TInstr::drop(
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::i32_const(I32(100)),
+          TInstr::i32_const(I32(7)),
+        ),
+      ),
+    )
+    body_b_instrs.push(
+      TInstr::drop(
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::i32_const(I32(100)),
+          TInstr::i32_const(I32(7)),
+        ),
+      ),
+    )
+  }
+  let f0 = Func::t_func([], [], TExpr::new(body_a_instrs))
+  let f1 = Func::t_func([], [], TExpr::new(body_b_instrs))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([f0, f1]))
+  let out = msf_run(mod)
+  match out.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 3)
+    _ => fail("expected code section")
+  }
+}
+
+///|
+test "merge similar functions still skips excessive synthetic param pressure" {
+  let t = msf_void_func_type()
+  let body_a_instrs : Array[TInstr] = []
+  let body_b_instrs : Array[TInstr] = []
+  for i = 0; i < 40; i = i + 1 {
     body_a_instrs.push(TInstr::drop(TInstr::i32_const(I32(i))))
     body_b_instrs.push(TInstr::drop(TInstr::i32_const(I32(i + 1))))
   }

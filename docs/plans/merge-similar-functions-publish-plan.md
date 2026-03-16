@@ -50,15 +50,15 @@ The following blocker slices are already implemented in-tree:
 - `MSF-003`: hardened call-target rewrite validation
 - `MSF-004`: tail-call-free forwarders plus typed-ref guarded lowering
 - `MSF-005`: stable preorder site numbering
+- `MSF-007`: byte-aware profitability using instruction-immediate and thunk-body proxy cost
+- `MSF-008`: adaptive synthetic-parameter policy using a soft limit, bounded hard cap, and explicit pressure skips
 - `MSF-010`: stronger coarse-bucket discrimination
 - `MSF-011`: per-run cached analysis artifacts
 - `MSF-012`: denser node-id and bucket/site metadata structures
 
-Remaining publish work is therefore mostly policy/signoff work plus profitability scope:
+Remaining publish work is therefore signoff/documentation work:
 
 - `MSF-006`
-- `MSF-007`
-- `MSF-008`
 - `MSF-009`
 - `MSF-013`
 
@@ -71,29 +71,7 @@ Exit criteria:
 - Any new supported kind adds a positive regression first.
 - Any intentionally unsupported kind has an explicit skip or reject regression.
 
-### 4.2 `MSF-007` Profitability model
-
-Exit criteria:
-- Replace raw instruction-count profitability with a byte-size-aware or clearly documented close proxy.
-- Cost model must account for:
-  - shared function creation
-  - wrapper thunk cost
-  - typed-ref rewrite overhead
-  - additional type / element-segment cost where relevant
-
-Required tests:
-- clearly profitable merge still merges
-- clearly unprofitable merge still skips
-- varying-call-target cost is visible to the heuristic
-
-### 4.3 `MSF-008` Adaptive parameter policy
-
-Exit criteria:
-- Parameter-pressure skips are tied to the profitability model rather than a blunt cap alone.
-- Trace output keeps an explicit skip reason.
-- Boundary regressions cover both accepted and rejected near-limit cases.
-
-### 4.4 `MSF-009` Lowering envelope signoff
+### 4.2 `MSF-009` Lowering envelope signoff
 
 Exit criteria:
 - Current publish claim explicitly states:
@@ -101,7 +79,7 @@ Exit criteria:
   - unsupported varying-call-target cases skip intentionally
   - no alternate lowering is promised for v0.1.0
 
-### 4.5 `MSF-013` Final regression and benchmark signoff
+### 4.3 `MSF-013` Final regression and benchmark signoff
 
 Exit criteria:
 - One concrete signoff checklist exists for correctness, parity, and performance.
@@ -138,14 +116,12 @@ Open gap:
 
 - Supported difference matrix is documented and matches in-tree regressions.
 - Supported typed-ref lowering envelope is documented and matches in-tree regressions.
-- Profitability policy is documented and byte-size-aware enough for release.
-- Parameter-pressure policy is explicit and regression-covered.
 - Correctness regression suite passes.
 - Performance regression / benchmark suite passes.
 - Changelog entry and backlog state reflect the final publish-ready scope.
 
 ## 7. Immediate Next Steps
 
-1. Finish `MSF-007` by replacing the instruction-count heuristic with a byte-size-aware cost model.
-2. Fold `MSF-008` into that profitability work so near-limit profitable merges can be accepted intentionally.
-3. Treat this document as the source of truth for `MSF-006`, `MSF-009`, and `MSF-013` until signoff is complete.
+1. Keep this document as the source of truth for `MSF-006`, `MSF-009`, and `MSF-013` until publish signoff is complete.
+2. Add the dedicated in-tree `MergeSimilarFunctions` timing/allocation harness called out in section 5.3.
+3. Lock the remaining lower-envelope and signoff matrix items against the current guarded typed-ref policy.
