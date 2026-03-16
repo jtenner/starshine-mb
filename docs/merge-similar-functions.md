@@ -28,6 +28,10 @@ Relevant current source anchors for future implementation work:
 - `src/validate/typecheck.mbt`
 - `node/passes.js`
 
+Current publish-signoff companion:
+
+- `docs/plans/merge-similar-functions-publish-plan.md`
+
 ## Current observed failure
 
 Concrete late-pipeline failure:

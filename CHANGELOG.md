@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-16 MergeSimilarFunctions Follow-up: add a publish-signoff plan for supported envelope, remaining blockers, and rerun criteria
+
+- Added [`docs/plans/merge-similar-functions-publish-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/merge-similar-functions-publish-plan.md) as the active source of truth for `MergeSimilarFunctions` publish signoff, including the supported difference-kind matrix, the current typed-ref lowering envelope, the remaining policy blockers, and the required rerun checklist.
+- Linked the new signoff plan from [`docs/merge-similar-functions.md`](/home/jtenner/Projects/starshine-mb/docs/merge-similar-functions.md) and recorded the completed documentation slice in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
+- Validation was not run because this slice is documentation-only.
+
 ## 2026-03-16 MergeSimilarFunctions Follow-up: lock explicit skip-policy tracing for unsupported typed-ref merges and parameter-pressure skips
 
 - Added a trace-capture helper plus traced skip-policy regressions in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) that lock explicit `reason=typed_ref_lowering_unsupported` and `reason=synthetic_param_limit` behavior under `merge_similar_functions_with_trace(...)`.
