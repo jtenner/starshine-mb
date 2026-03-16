@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 MergeSimilarFunctions Follow-up: remove unconditional tail-call thunks and guard typed-ref lowering
+
+- Updated [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so shared-function thunks no longer emit unconditional `return_call`; they now lower to `return(call ...)`, removing tail-call dependence from the common merge path.
+- Added a guarded typed-function-reference lowering path in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) that skips `CallTargetParam`-driven merges unless the input module already demonstrates typed-ref lowering support.
+- Added regression coverage in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) for tail-call-free thunks, guarded skip behavior without typed-ref evidence, and the still-enabled typed-ref merge path, and recorded the completed blocker slices in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
+- Validation: `moon test src/passes`; `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-16 MergeSimilarFunctions Follow-up: prevalidate call-target metadata and report precise rewrite mismatches
 
 - Hardened [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so call-target rewrite validation now uses a shared site checker, prevalidates `CallTargetParam` node bindings against the primary body before rewrite starts, and rejects missing or misbound node ids early.

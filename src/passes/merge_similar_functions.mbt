@@ -2205,7 +2205,7 @@ fn replace_with_thunk(
       for i = 0; i < params.length(); i = i + 1 {
         args.push(values_for_target[param_count + i])
       }
-      let body = TExpr::new([TInstr::return_call(shared, args)])
+      let body = TExpr::new([TInstr::return_([TInstr::call(shared, args)])])
       Func::t_func(target_params, [], body)
     }
     _ => target
@@ -2333,6 +2333,9 @@ fn run(
     Some(CodeSec(funcs)) => funcs.length()
     None => 0
   }
+  let supports_typed_ref_lowering = msf_module_has_typed_ref_lowering_evidence(
+    mod,
+  )
   trace("start defined=\{defined_funcs}")
   match msf_preflight_direct_calls(mod, trace~, trace_all_funcs~) {
     Ok(_) => ()
@@ -2388,6 +2391,24 @@ fn run(
       if trace_all_funcs {
         trace(
           "func[\{ordinal}] done elapsed_ms=\{msf_trace_elapsed_ms(class_start_ms)} merged=false reason=no_differences",
+        )
+      }
+      continue
+    }
+    let mut has_call_target_param = false
+    for param in params {
+      match param.kind {
+        CallTargetParam(_, _, _, _) => {
+          has_call_target_param = true
+          break
+        }
+        _ => ()
+      }
+    }
+    if has_call_target_param && !supports_typed_ref_lowering {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] done elapsed_ms=\{msf_trace_elapsed_ms(class_start_ms)} merged=false reason=typed_ref_lowering_unsupported",
         )
       }
       continue
@@ -2536,7 +2557,14 @@ fn msf_is_forwarder(func : Func, target_abs : Int, arg_count : Int) -> Bool {
       _,
       locals,
       {
-        instrs: [{ kind: TInstrKind::TReturnCall(FuncIdx(raw), args), .. }],
+        instrs: [
+          {
+            kind: TInstrKind::TReturn(
+              [{ kind: TInstrKind::TCall(FuncIdx(raw), args), .. }]
+            ),
+            ..,
+          },
+        ],
         ..,
       }
     ) =>
@@ -2545,6 +2573,109 @@ fn msf_is_forwarder(func : Func, target_abs : Int, arg_count : Int) -> Bool {
       args.length() == arg_count
     _ => false
   }
+}
+
+///|
+fn msf_has_tail_call(body : TExpr) -> Bool {
+  let mut found = false
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TReturnCall(_, _)
+        | TInstrKind::TReturnCallIndirect(_, _, _, _)
+        | TInstrKind::TReturnCallRef(_, _, _) => found = true
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
+  ignore(walker.walk_texpr((), body))
+  found
+}
+
+///|
+fn msf_module_has_typed_ref_lowering_evidence(mod : Module) -> Bool {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => {
+      let mut found = false
+      for func in funcs {
+        match func {
+          TFunc(_, _, body) => {
+            let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+                self,
+                _,
+                instr : TInstr,
+              ) {
+                match instr.kind {
+                  TInstrKind::TCallRef(_, _, _)
+                  | TInstrKind::TReturnCallRef(_, _, _) => found = true
+                  TInstrKind::TRefCast(_, HeapType(TypeIdx(_)), _)
+                  | TInstrKind::TRefCastDescEq(_, HeapType(TypeIdx(_)), _) =>
+                    found = true
+                  _ => ()
+                }
+                from_walk(self.walk_tinstruction_default((), instr))
+              },
+            )
+            ignore(walker.walk_texpr((), body))
+            if found {
+              return true
+            }
+          }
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn msf_contains_call_ref(body : TExpr) -> Bool {
+  let mut found = false
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      match instr.kind {
+        TInstrKind::TCallRef(_, _, _) | TInstrKind::TReturnCallRef(_, _, _) =>
+          found = true
+        _ => ()
+      }
+      from_walk(self.walk_tinstruction_default((), instr))
+    },
+  )
+  ignore(walker.walk_texpr((), body))
+  found
+}
+
+///|
+fn msf_typed_ref_seed_func(
+  callee_type_idx : TypeIdx,
+  seed_type : RecType,
+) -> (RecType, Func) {
+  (
+    seed_type,
+    Func::t_func(
+      [ValType::funcref()],
+      [],
+      TExpr::new([
+        TInstr::drop(
+          TInstr::ref_cast(
+            true,
+            HeapType::new(callee_type_idx),
+            TInstr::local_get(LocalIdx::new(0)),
+          ),
+        ),
+        TInstr::return_([]),
+      ]),
+    ),
+  )
 }
 
 ///|
@@ -2620,6 +2751,14 @@ test "merge similar functions basic const merging creates shared + thunks" {
       assert_eq(funcs.length(), 3)
       assert_true(msf_is_forwarder(funcs[0], shared_abs, 2))
       assert_true(msf_is_forwarder(funcs[1], shared_abs, 2))
+      match funcs[0] {
+        TFunc(_, _, body) => assert_false(msf_has_tail_call(body))
+        _ => fail("expected typed forwarder")
+      }
+      match funcs[1] {
+        TFunc(_, _, body) => assert_false(msf_has_tail_call(body))
+        _ => fail("expected typed forwarder")
+      }
       match funcs[2] {
         TFunc(_, _, body) => {
           let mut saw_param_get = false
@@ -2746,6 +2885,8 @@ test "merge similar functions creates multiple params for independent difference
 test "merge similar functions parameterizes call target using call_ref" {
   let t_callee = msf_i32_func_type()
   let t_wrap = msf_i32_func_type()
+  let seed_type = msf_make_func_type([ValType::funcref()], [])
+  let (_, typed_ref_seed) = msf_typed_ref_seed_func(TypeIdx::new(0), seed_type)
   let callee_a = Func::t_func(
     [ValType::i32()],
     [],
@@ -2799,16 +2940,19 @@ test "merge similar functions parameterizes call target using call_ref" {
     ]),
   )
   let mod = Module::new()
-    .with_type_sec(TypeSec::new([t_callee, t_wrap]))
+    .with_type_sec(TypeSec::new([t_callee, t_wrap, seed_type]))
     .with_func_sec(
       FuncSec::new([
         TypeIdx::new(0),
         TypeIdx::new(0),
         TypeIdx::new(1),
         TypeIdx::new(1),
+        TypeIdx::new(2),
       ]),
     )
-    .with_code_sec(CodeSec::new([callee_a, callee_b, wrap_a, wrap_b]))
+    .with_code_sec(
+      CodeSec::new([callee_a, callee_b, wrap_a, wrap_b, typed_ref_seed]),
+    )
     .with_export_sec(
       ExportSec::new([
         Export::new(Name::new("callee_a"), ExternIdx::func(FuncIdx::new(0))),
@@ -2821,6 +2965,14 @@ test "merge similar functions parameterizes call target using call_ref" {
     Some(CodeSec(funcs)) => {
       assert_true(msf_is_forwarder(funcs[2], shared_abs, 2))
       assert_true(msf_is_forwarder(funcs[3], shared_abs, 2))
+      match funcs[2] {
+        TFunc(_, _, body) => assert_false(msf_has_tail_call(body))
+        _ => fail("expected typed thunk")
+      }
+      match funcs[3] {
+        TFunc(_, _, body) => assert_false(msf_has_tail_call(body))
+        _ => fail("expected typed thunk")
+      }
       match funcs[shared_abs - msf_count_imported_funcs(out)] {
         TFunc(_, _, { instrs: body, .. }) => {
           let mut saw_call_ref = false
@@ -3352,6 +3504,66 @@ test "merge similar functions stays valid when shared type follows rec groups" {
 test "merge similar functions accepts safe call-target arity" {
   let t_callee = msf_make_func_type([ValType::i32()], [ValType::i32()])
   let t_wrap = msf_make_func_type([], [ValType::i32()])
+  let seed_type = msf_make_func_type([ValType::funcref()], [])
+  let (_, typed_ref_seed) = msf_typed_ref_seed_func(TypeIdx::new(0), seed_type)
+  let callee_a = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+  )
+  let callee_b = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+  )
+  let wrap_a = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::drop(TInstr::i32_const(I32(0))),
+      TInstr::return_([
+        TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(1))]),
+      ]),
+    ]),
+  )
+  let wrap_b = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::drop(TInstr::i32_const(I32(0))),
+      TInstr::return_([
+        TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(1))]),
+      ]),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_callee, t_wrap, seed_type]))
+    .with_func_sec(
+      FuncSec::new([
+        TypeIdx::new(0),
+        TypeIdx::new(0),
+        TypeIdx::new(1),
+        TypeIdx::new(1),
+        TypeIdx::new(2),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([callee_a, callee_b, wrap_a, wrap_b, typed_ref_seed]),
+    )
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("callee_a"), ExternIdx::func(FuncIdx::new(0))),
+        Export::new(Name::new("callee_b"), ExternIdx::func(FuncIdx::new(1))),
+      ]),
+    )
+  let out = msf_run(mod)
+  assert_eq(validate_module(out), Ok(()))
+}
+
+///|
+test "merge similar functions skips call-target merge without typed ref evidence" {
+  let t_callee = msf_make_func_type([ValType::i32()], [ValType::i32()])
+  let t_wrap = msf_make_func_type([], [ValType::i32()])
   let callee_a = Func::t_func(
     [ValType::i32()],
     [ValType::i32()],
@@ -3393,20 +3605,30 @@ test "merge similar functions accepts safe call-target arity" {
       ]),
     )
     .with_code_sec(CodeSec::new([callee_a, callee_b, wrap_a, wrap_b]))
-    .with_export_sec(
-      ExportSec::new([
-        Export::new(Name::new("callee_a"), ExternIdx::func(FuncIdx::new(0))),
-        Export::new(Name::new("callee_b"), ExternIdx::func(FuncIdx::new(1))),
-      ]),
-    )
   let out = msf_run(mod)
   assert_eq(validate_module(out), Ok(()))
+  match out.code_sec {
+    Some(CodeSec(funcs)) => {
+      assert_eq(funcs.length(), 4)
+      match funcs[2] {
+        TFunc(_, _, body) => assert_false(msf_contains_call_ref(body))
+        _ => fail("expected wrapper function")
+      }
+      match funcs[3] {
+        TFunc(_, _, body) => assert_false(msf_contains_call_ref(body))
+        _ => fail("expected wrapper function")
+      }
+    }
+    _ => fail("expected code section")
+  }
 }
 
 ///|
 test "merge similar functions declares synthesized ref.func call targets" {
   let t_callee = msf_make_func_type([ValType::i32()], [ValType::i32()])
   let t_wrap = msf_make_func_type([], [])
+  let seed_type = msf_make_func_type([ValType::funcref()], [])
+  let (_, typed_ref_seed) = msf_typed_ref_seed_func(TypeIdx::new(0), seed_type)
   let callee_a = Func::t_func(
     [ValType::i32()],
     [],
@@ -3442,16 +3664,19 @@ test "merge similar functions declares synthesized ref.func call targets" {
     ]),
   )
   let mod = Module::new()
-    .with_type_sec(TypeSec::new([t_callee, t_wrap]))
+    .with_type_sec(TypeSec::new([t_callee, t_wrap, seed_type]))
     .with_func_sec(
       FuncSec::new([
         TypeIdx::new(0),
         TypeIdx::new(0),
         TypeIdx::new(1),
         TypeIdx::new(1),
+        TypeIdx::new(2),
       ]),
     )
-    .with_code_sec(CodeSec::new([callee_a, callee_b, wrap_a, wrap_b]))
+    .with_code_sec(
+      CodeSec::new([callee_a, callee_b, wrap_a, wrap_b, typed_ref_seed]),
+    )
   let out = msf_run(mod)
   assert_eq(validate_module(out), Ok(()))
 }
