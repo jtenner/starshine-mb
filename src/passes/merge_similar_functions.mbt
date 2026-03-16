@@ -102,6 +102,7 @@ struct MSFDefinedFunc {
   locals : Array[ValType]
   body : TExpr
   hash : UInt64
+  call_shape_hash : UInt64
 } derive(Eq, Show)
 
 ///|
@@ -117,6 +118,11 @@ priv struct MSFBucketBuildStats {
   inserted : Int
   copied : Int
 } derive(Eq, Show)
+
+///|
+priv struct MSFPartitionStats {
+  representative_comparisons : Int
+}
 
 ///|
 priv struct MSFModuleAnalysis {
@@ -142,6 +148,7 @@ struct MSFHashBucketKey {
   type_idx : TypeIdx
   local_count : Int
   hash : UInt64
+  call_shape_hash : UInt64
 } derive(Eq, Hash)
 
 ///|
@@ -603,6 +610,33 @@ fn hash_function_ignoring_consts(
     ordinal~,
     abs_idx~,
   )
+}
+
+///|
+fn msf_hash_call_shape(body : TExpr, func_type_idxs : Array[TypeIdx]) -> UInt64 {
+  let mut digest = 1469598103934665603UL
+  for site in msf_collect_ordered_sites(body, func_type_idxs) {
+    match site.value {
+      CallTargetSite(_, type_idx, is_return, arg_count) => {
+        digest = msf_mix_digest(
+          digest,
+          site.node_id.reinterpret_as_uint().to_uint64(),
+        )
+        let type_raw = match type_idx {
+          TypeIdx(raw) => raw.to_uint64()
+          RecIdx(raw) => msf_mix_digest(0UL, raw.to_uint64())
+        }
+        digest = msf_mix_digest(digest, type_raw)
+        digest = msf_mix_digest(
+          digest,
+          arg_count.reinterpret_as_uint().to_uint64(),
+        )
+        digest = msf_mix_digest(digest, if is_return { 1UL } else { 0UL })
+      }
+      _ => ()
+    }
+  }
+  digest
 }
 
 ///|
@@ -1163,6 +1197,7 @@ fn msf_collect_defined_funcs(
             "func[\{ordinal}] phase=hash:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(hash_start_ms)} hash=\{hash}",
           )
         }
+        let call_shape_hash = msf_hash_call_shape(body, func_type_idxs)
         out.push({
           def_idx,
           abs_idx,
@@ -1171,6 +1206,7 @@ fn msf_collect_defined_funcs(
           locals: locals.copy(),
           body,
           hash,
+          call_shape_hash,
         })
       }
       _ =>
@@ -1459,6 +1495,7 @@ fn msf_build_hash_buckets(
       type_idx: func.type_idx,
       local_count: func.locals.length(),
       hash: func.hash,
+      call_shape_hash: func.call_shape_hash,
     }
     match buckets.get(key) {
       Some(items) => items.push(func.def_idx)
@@ -1470,11 +1507,11 @@ fn msf_build_hash_buckets(
 }
 
 ///|
-fn msf_collect_equivalent_classes_from_analysis(
+fn msf_collect_equivalent_classes_with_stats(
   analysis : MSFModuleAnalysis,
   trace? : (String) -> Unit = msf_trace_noop,
   trace_all_funcs? : Bool = false,
-) -> Array[EquivalentClass] {
+) -> (Array[EquivalentClass], MSFPartitionStats) {
   let collect_start_ms = msf_trace_now_ms()
   let import_count = analysis.import_count
   let defined = analysis.defined
@@ -1487,6 +1524,7 @@ fn msf_collect_equivalent_classes_from_analysis(
     by_def_idx[func.def_idx] = func
   }
   let classes : Array[EquivalentClass] = []
+  let mut representative_comparisons = 0
   for entry in buckets {
     let (key, members) = entry
     if members.length() < 2 {
@@ -1516,6 +1554,7 @@ fn msf_collect_equivalent_classes_from_analysis(
         let rep_idx = part[0]
         let rep = by_def_idx.get(rep_idx).unwrap()
         comparisons += 1
+        representative_comparisons += 1
         let compare_start_ms = msf_trace_now_ms()
         if are_in_equivalent_class(candidate, rep, analysis) {
           compare_elapsed_ms += msf_trace_elapsed_ms(compare_start_ms)
@@ -1567,6 +1606,20 @@ fn msf_collect_equivalent_classes_from_analysis(
       "phase=collect_classes:done classes=\{classes.length()} elapsed_ms=\{msf_trace_elapsed_ms(collect_start_ms)}",
     )
   }
+  (classes, { representative_comparisons, })
+}
+
+///|
+fn msf_collect_equivalent_classes_from_analysis(
+  analysis : MSFModuleAnalysis,
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> Array[EquivalentClass] {
+  let (classes, _) = msf_collect_equivalent_classes_with_stats(
+    analysis,
+    trace~,
+    trace_all_funcs~,
+  )
   classes
 }
 
@@ -3698,6 +3751,58 @@ test "merge similar functions dense site vector preserves sparse node ids" {
     Some(ConstSite(_, vt)) if vt == ValType::i32() => ()
     _ => fail("expected const arg site at node 4")
   }
+}
+
+///|
+test "merge similar functions call-shape prefilter reduces representative comparisons" {
+  let callee_ty0 = msf_make_func_type([ValType::i32()], [ValType::i32()])
+  let callee_ty1 = msf_make_func_type([ValType::i32()], [ValType::i32()])
+  let outer_ty = msf_make_func_type([ValType::i32()], [ValType::i32()])
+  let id0 = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
+  )
+  let id1 = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
+  )
+  let call0 = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
+      ]),
+    ]),
+  )
+  let call1 = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+      ]),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([callee_ty0, callee_ty1, outer_ty]))
+    .with_func_sec(
+      FuncSec::new([
+        TypeIdx::new(0),
+        TypeIdx::new(1),
+        TypeIdx::new(2),
+        TypeIdx::new(2),
+        TypeIdx::new(2),
+        TypeIdx::new(2),
+      ]),
+    )
+    .with_code_sec(CodeSec::new([id0, id1, call0, call0, call1, call1]))
+  let analysis = msf_make_module_analysis(mod)
+  let (classes, stats) = msf_collect_equivalent_classes_with_stats(analysis)
+  assert_eq(classes.length(), 2)
+  assert_eq(stats.representative_comparisons, 2)
 }
 
 ///|

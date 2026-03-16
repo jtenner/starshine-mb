@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 MergeSimilarFunctions Follow-up: strengthen coarse bucket discrimination with call-shape hashing
+
+- Updated [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so defined functions precompute a cheap call-shape hash over direct-call site ids, callee type indices, arg counts, and call kind, and the coarse hash bucket key now uses that discriminator in addition to the existing structural hash.
+- Added representative-comparison stats to class collection in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) and locked a collision-heavy regression proving the prefilter reduces representative comparisons without changing deterministic class formation.
+- Recorded the completed blocker slice in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
+- Validation: `moon test src/passes`; `moon fmt`; `moon info`; `moon test`.
+
 ## 2026-03-16 MergeSimilarFunctions Follow-up: remove bucket-copy churn and densify cached site metadata
 
 - Reworked [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so equivalence-class bucket assembly now grows bucket member arrays in place through a shared builder instead of copy-on-insert rebuilds.
