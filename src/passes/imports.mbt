@@ -105,7 +105,7 @@ using @lib {
 }
 
 ///|
-using @binary {size_signed}
+using @binary {size_signed, size_unsigned}
 
 ///|
 using @diff {render_line_diff}

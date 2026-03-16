@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 MergeSimilarFunctions Follow-up: make profitability byte-aware without blocking established merges
+
+- Updated [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so `MergeSimilarFunctions` profitability now measures instruction-immediate byte weight and actual thunk body cost, which skips tiny typed-ref wrappers while preserving established profitable merges.
+- Added profitability regressions in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) for tiny and larger typed-ref call-target wrappers, and retuned the existing call-target rewrite test to exercise a still-profitable wrapper shape.
+- Updated [`src/passes/imports.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/imports.mbt) for the new byte-size helpers.
+- Validation: `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 MergeSimilarFunctions Follow-up: add a publish-signoff plan for supported envelope, remaining blockers, and rerun criteria
 
 - Added [`docs/plans/merge-similar-functions-publish-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/merge-similar-functions-publish-plan.md) as the active source of truth for `MergeSimilarFunctions` publish signoff, including the supported difference-kind matrix, the current typed-ref lowering envelope, the remaining policy blockers, and the required rerun checklist.

@@ -1864,6 +1864,304 @@ fn derive_params(
 }
 
 ///|
+fn msf_uleb_bytes(v : Int) -> Int {
+  if v < 0 {
+    1
+  } else {
+    size_unsigned(v.to_uint64(), 32).unwrap()
+  }
+}
+
+///|
+fn msf_uleb64_bytes(v : UInt64) -> Int {
+  size_unsigned(v, 64).unwrap()
+}
+
+///|
+fn msf_sleb32_bytes(v : I32) -> Int {
+  let I32(raw) = v
+  size_signed(raw.to_int64(), 32).unwrap()
+}
+
+///|
+fn msf_sleb64_bytes(v : I64) -> Int {
+  let I64(raw) = v
+  size_signed(raw, 64).unwrap()
+}
+
+///|
+fn msf_type_idx_to_int(idx : TypeIdx) -> Int {
+  match idx {
+    TypeIdx(raw) => raw.reinterpret_as_int()
+    RecIdx(raw) => raw.reinterpret_as_int()
+  }
+}
+
+///|
+fn msf_table_idx_to_int(idx : TableIdx) -> Int {
+  let TableIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn msf_mem_idx_to_int(idx : MemIdx) -> Int {
+  let MemIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn msf_global_idx_to_int(idx : GlobalIdx) -> Int {
+  let GlobalIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn msf_tag_idx_to_int(idx : TagIdx) -> Int {
+  let TagIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn msf_data_idx_to_int(idx : DataIdx) -> Int {
+  let DataIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn msf_elem_idx_to_int(idx : ElemIdx) -> Int {
+  let ElemIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn msf_label_idx_to_int(idx : LabelIdx) -> Int {
+  let LabelIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn msf_lane_idx_to_int(idx : LaneIdx) -> Int {
+  let LaneIdx(raw) = idx
+  raw.to_int()
+}
+
+///|
+fn msf_heap_type_proxy_bytes(heap_type : HeapType) -> Int {
+  match heap_type {
+    AbsHeapTypeHeapType(_) => 1
+    HeapType(type_idx) => msf_uleb_bytes(msf_type_idx_to_int(type_idx))
+    DefTypeHeapType(_) => 1
+  }
+}
+
+///|
+fn msf_ref_type_proxy_bytes(ref_type : RefType) -> Int {
+  match ref_type {
+    AbsHeapTypeRefType(_) => 1
+    HeapTypeRefType(_, heap_type) => 1 + msf_heap_type_proxy_bytes(heap_type)
+  }
+}
+
+///|
+fn msf_val_type_proxy_bytes(val_type : ValType) -> Int {
+  match val_type {
+    NumTypeValType(_) | VecTypeValType | BotValType => 1
+    RefTypeValType(ref_type) => msf_ref_type_proxy_bytes(ref_type)
+  }
+}
+
+///|
+fn msf_block_type_proxy_bytes(block_type : BlockType) -> Int {
+  match block_type {
+    VoidBlockType => 1
+    ValTypeBlockType(val_type) => msf_val_type_proxy_bytes(val_type)
+    TypeIdxBlockType(type_idx) => msf_uleb_bytes(msf_type_idx_to_int(type_idx))
+  }
+}
+
+///|
+fn msf_memarg_proxy_bytes(memarg : MemArg) -> Int {
+  let MemArg(U32(align), mem_idx, U64(offset)) = memarg
+  let mut total = msf_uleb_bytes(align.reinterpret_as_int()) +
+    msf_uleb64_bytes(offset)
+  match mem_idx {
+    Some(idx) => total += msf_uleb_bytes(msf_mem_idx_to_int(idx))
+    None => ()
+  }
+  total
+}
+
+///|
+fn msf_catch_proxy_bytes(catch_ : Catch) -> Int {
+  match catch_ {
+    Catch(tag_idx, label_idx) | CatchRef(tag_idx, label_idx) =>
+      msf_uleb_bytes(msf_tag_idx_to_int(tag_idx)) +
+      msf_uleb_bytes(msf_label_idx_to_int(label_idx))
+    CatchAll(label_idx) | CatchAllRef(label_idx) =>
+      msf_uleb_bytes(msf_label_idx_to_int(label_idx))
+  }
+}
+
+///|
+fn msf_instruction_immediate_proxy_bytes(instr : TInstr) -> Int {
+  match instr.kind {
+    TInstrKind::TI32Const(v) => msf_sleb32_bytes(v)
+    TInstrKind::TI64Const(v) => msf_sleb64_bytes(v)
+    TInstrKind::TF32Const(_) => 4
+    TInstrKind::TF64Const(_) => 8
+    TInstrKind::TRefNull(heap_type) => msf_heap_type_proxy_bytes(heap_type)
+    TInstrKind::TRefFunc(func_idx) =>
+      msf_uleb_bytes(msf_func_idx_to_int(func_idx))
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => 16
+    TInstrKind::TLocalGet(local_idx)
+    | TInstrKind::TLocalSet(local_idx, _)
+    | TInstrKind::TLocalTee(local_idx, _) =>
+      msf_uleb_bytes(msf_local_idx_to_int(local_idx))
+    TInstrKind::TGlobalGet(global_idx)
+    | TInstrKind::TGlobalSet(global_idx, _) =>
+      msf_uleb_bytes(msf_global_idx_to_int(global_idx))
+    TInstrKind::TMemorySize(mem_idx) | TInstrKind::TMemoryGrow(mem_idx, _) =>
+      msf_uleb_bytes(msf_mem_idx_to_int(mem_idx))
+    TInstrKind::TTableSize(table_idx)
+    | TInstrKind::TTableGet(table_idx, _)
+    | TInstrKind::TTableSet(table_idx, _, _)
+    | TInstrKind::TTableGrow(table_idx, _, _)
+    | TInstrKind::TTableFill(table_idx, _, _, _) =>
+      msf_uleb_bytes(msf_table_idx_to_int(table_idx))
+    TInstrKind::TTableCopy(dst, src, _, _, _) =>
+      msf_uleb_bytes(msf_table_idx_to_int(dst)) +
+      msf_uleb_bytes(msf_table_idx_to_int(src))
+    TInstrKind::TTableInit(elem_idx, table_idx, _, _, _) =>
+      msf_uleb_bytes(msf_elem_idx_to_int(elem_idx)) +
+      msf_uleb_bytes(msf_table_idx_to_int(table_idx))
+    TInstrKind::TDataDrop(data_idx) =>
+      msf_uleb_bytes(msf_data_idx_to_int(data_idx))
+    TInstrKind::TElemDrop(elem_idx) =>
+      msf_uleb_bytes(msf_elem_idx_to_int(elem_idx))
+    TInstrKind::TStore(_, memarg, _, _)
+    | TInstrKind::TLoad(_, memarg, _)
+    | TInstrKind::TMemoryAtomicNotify(memarg, _, _)
+    | TInstrKind::TMemoryAtomicWait32(memarg, _, _, _)
+    | TInstrKind::TMemoryAtomicWait64(memarg, _, _, _)
+    | TInstrKind::TAtomicRmw(_, memarg, _, _)
+    | TInstrKind::TAtomicCmpxchg(_, memarg, _, _, _) =>
+      msf_memarg_proxy_bytes(memarg)
+    TInstrKind::TMemoryFill(mem_idx, _, _, _) =>
+      msf_uleb_bytes(msf_mem_idx_to_int(mem_idx))
+    TInstrKind::TMemoryCopy(dst_mem_idx, src_mem_idx, _, _, _) =>
+      msf_uleb_bytes(msf_mem_idx_to_int(dst_mem_idx)) +
+      msf_uleb_bytes(msf_mem_idx_to_int(src_mem_idx))
+    TInstrKind::TMemoryInit(data_idx, mem_idx, _, _, _) =>
+      msf_uleb_bytes(msf_data_idx_to_int(data_idx)) +
+      msf_uleb_bytes(msf_mem_idx_to_int(mem_idx))
+    TInstrKind::TCall(func_idx, _) | TInstrKind::TReturnCall(func_idx, _) =>
+      msf_uleb_bytes(msf_func_idx_to_int(func_idx))
+    TInstrKind::TCallIndirect(type_idx, table_idx, _, _)
+    | TInstrKind::TReturnCallIndirect(type_idx, table_idx, _, _) =>
+      msf_uleb_bytes(msf_type_idx_to_int(type_idx)) +
+      msf_uleb_bytes(msf_table_idx_to_int(table_idx))
+    TInstrKind::TCallRef(type_idx, _, _)
+    | TInstrKind::TReturnCallRef(type_idx, _, _) =>
+      msf_uleb_bytes(msf_type_idx_to_int(type_idx))
+    TInstrKind::TBlock(block_type, _)
+    | TInstrKind::TLoop(block_type, _)
+    | TInstrKind::TIf(block_type, _, _, _) =>
+      msf_block_type_proxy_bytes(block_type)
+    TInstrKind::TTryTable(block_type, catches, _) => {
+      let mut total = msf_block_type_proxy_bytes(block_type) +
+        msf_uleb_bytes(catches.length())
+      for catch_ in catches {
+        total += msf_catch_proxy_bytes(catch_)
+      }
+      total
+    }
+    TInstrKind::TThrow(tag_idx, _) =>
+      msf_uleb_bytes(msf_tag_idx_to_int(tag_idx))
+    TInstrKind::TBr(label_idx, _)
+    | TInstrKind::TBrIf(label_idx, _, _)
+    | TInstrKind::TBrOnNull(label_idx, _, _)
+    | TInstrKind::TBrOnNonNull(label_idx, _, _) =>
+      msf_uleb_bytes(msf_label_idx_to_int(label_idx))
+    TInstrKind::TBrTable(labels, default_label, _, _) => {
+      let mut total = msf_uleb_bytes(labels.length())
+      for label in labels {
+        total += msf_uleb_bytes(msf_label_idx_to_int(label))
+      }
+      total + msf_uleb_bytes(msf_label_idx_to_int(default_label))
+    }
+    TInstrKind::TBrOnCast(
+      label_idx,
+      _,
+      source_heap_type,
+      target_heap_type,
+      _,
+      _
+    )
+    | TInstrKind::TBrOnCastFail(
+      label_idx,
+      _,
+      source_heap_type,
+      target_heap_type,
+      _,
+      _
+    ) =>
+      msf_uleb_bytes(msf_label_idx_to_int(label_idx)) +
+      msf_heap_type_proxy_bytes(source_heap_type) +
+      msf_heap_type_proxy_bytes(target_heap_type)
+    TInstrKind::TSelect(Some(values), _, _, _) => {
+      let mut total = msf_uleb_bytes(values.length())
+      for value in values {
+        total += msf_val_type_proxy_bytes(value)
+      }
+      total
+    }
+    TInstrKind::TSelect(None, _, _, _) => 0
+    TInstrKind::TStructNew(type_idx, _)
+    | TInstrKind::TStructNewDefault(type_idx) =>
+      msf_uleb_bytes(msf_type_idx_to_int(type_idx))
+    TInstrKind::TStructGet(type_idx, U32(field_raw), _)
+    | TInstrKind::TStructGetS(type_idx, U32(field_raw), _)
+    | TInstrKind::TStructGetU(type_idx, U32(field_raw), _)
+    | TInstrKind::TStructSet(type_idx, U32(field_raw), _, _) =>
+      msf_uleb_bytes(msf_type_idx_to_int(type_idx)) +
+      msf_uleb_bytes(field_raw.reinterpret_as_int())
+    TInstrKind::TArrayNew(type_idx, _, _)
+    | TInstrKind::TArrayNewDefault(type_idx, _)
+    | TInstrKind::TArrayNewFixed(type_idx, _)
+    | TInstrKind::TArrayGet(type_idx, _, _)
+    | TInstrKind::TArrayGetS(type_idx, _, _)
+    | TInstrKind::TArrayGetU(type_idx, _, _)
+    | TInstrKind::TArraySet(type_idx, _, _, _)
+    | TInstrKind::TArrayFill(type_idx, _, _, _, _)
+    | TInstrKind::TRefTest(_, HeapType(type_idx), _)
+    | TInstrKind::TRefCast(_, HeapType(type_idx), _)
+    | TInstrKind::TRefTestDesc(_, HeapType(type_idx), _)
+    | TInstrKind::TRefCastDescEq(_, HeapType(type_idx), _) =>
+      msf_uleb_bytes(msf_type_idx_to_int(type_idx))
+    TInstrKind::TArrayNewData(type_idx, data_idx, _, _)
+    | TInstrKind::TArrayInitData(type_idx, data_idx, _, _, _, _) =>
+      msf_uleb_bytes(msf_type_idx_to_int(type_idx)) +
+      msf_uleb_bytes(msf_data_idx_to_int(data_idx))
+    TInstrKind::TArrayNewElem(type_idx, elem_idx, _, _)
+    | TInstrKind::TArrayInitElem(type_idx, elem_idx, _, _, _, _) =>
+      msf_uleb_bytes(msf_type_idx_to_int(type_idx)) +
+      msf_uleb_bytes(msf_elem_idx_to_int(elem_idx))
+    TInstrKind::TArrayCopy(dst_type_idx, src_type_idx, _, _, _, _, _) =>
+      msf_uleb_bytes(msf_type_idx_to_int(dst_type_idx)) +
+      msf_uleb_bytes(msf_type_idx_to_int(src_type_idx))
+    TInstrKind::TRefTest(_, heap_type, _)
+    | TInstrKind::TRefCast(_, heap_type, _)
+    | TInstrKind::TRefTestDesc(_, heap_type, _)
+    | TInstrKind::TRefCastDescEq(_, heap_type, _) =>
+      msf_heap_type_proxy_bytes(heap_type)
+    TInstrKind::TExtractLane(_, lane_idx, _)
+    | TInstrKind::TReplaceLane(_, lane_idx, _, _) =>
+      msf_lane_idx_to_int(lane_idx)
+    _ => 0
+  }
+}
+
+///|
 fn msf_measure_body(body : TExpr) -> Int {
   let mut n = 0
   let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
@@ -1871,7 +2169,7 @@ fn msf_measure_body(body : TExpr) -> Int {
       _,
       instr : TInstr,
     ) {
-      n += 1
+      n += 1 + msf_instruction_immediate_proxy_bytes(instr)
       from_walk(self.walk_tinstruction_default((), instr))
     },
   )
@@ -1915,24 +2213,69 @@ fn has_merge_benefit(
     }
   }
   let FuncType(primary_params, _) = primary_func.func_type
+  let shared_abs = analysis.import_count + analysis.defined.length()
   let measure_start_ms = msf_trace_now_ms()
   if trace_all_funcs {
     trace("func[\{ordinal}] phase=benefit_internal:measure:start")
   }
   let primary_body_size = msf_get_body_size(analysis, primary_func)
+  let removed = (clazz.member_def_idxs.length() - 1) * primary_body_size
   if trace_all_funcs {
     trace(
-      "func[\{ordinal}] phase=benefit_internal:measure:done elapsed_ms=\{msf_trace_elapsed_ms(measure_start_ms)} body_instrs=\{primary_body_size}",
+      "func[\{ordinal}] phase=benefit_internal:measure:done elapsed_ms=\{msf_trace_elapsed_ms(measure_start_ms)} primary_body_bytes=\{primary_body_size} removed=\{removed}",
     )
   }
-  let removed = (clazz.member_def_idxs.length() - 1) * primary_body_size
-  let added_per_thunk = 1 + primary_params.length() + params.length()
-  let added = (clazz.member_def_idxs.length() - 1) * added_per_thunk +
-    params.length()
+  let rewrite_start_ms = msf_trace_now_ms()
+  let rewritten_body = match
+    msf_rewrite_shared_body(
+      primary_func.body,
+      primary_params.length(),
+      params,
+      analysis.type_env,
+      analysis.func_type_idxs,
+    ) {
+    Ok(body) => body
+    Err(e) => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=benefit_internal:error reason=rewrite_cost_model_failed elapsed_ms=\{msf_trace_elapsed_ms(rewrite_start_ms)} \{e}",
+        )
+      }
+      return false
+    }
+  }
+  let rewritten_body_size = msf_measure_body(rewritten_body)
+  let shared_body_overhead = if rewritten_body_size > primary_body_size {
+    rewritten_body_size - primary_body_size
+  } else {
+    0
+  }
+  let mut thunk_total = 0
+  for member_idx = 1
+      member_idx < clazz.member_def_idxs.length()
+      member_idx = member_idx + 1 {
+    let values = match
+      msf_build_thunk_values(primary_params.length(), params, member_idx) {
+      Some(v) => v
+      None => {
+        if trace_all_funcs {
+          trace(
+            "func[\{ordinal}] phase=benefit_internal:error reason=missing_thunk_values member=\{member_idx + 1} elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)}",
+          )
+        }
+        return false
+      }
+    }
+    let thunk_body = TExpr::new([
+      TInstr::return_([TInstr::call(msf_func_idx_from_int(shared_abs), values)]),
+    ])
+    thunk_total += msf_measure_body(thunk_body)
+  }
+  let added = shared_body_overhead + thunk_total
   let beneficial = removed > added
   if trace_all_funcs {
     trace(
-      "func[\{ordinal}] phase=benefit_internal:done elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)} removed=\{removed} added=\{added} beneficial=\{beneficial}",
+      "func[\{ordinal}] phase=benefit_internal:done elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)} removed=\{removed} added=\{added} shared_body_overhead=\{shared_body_overhead} thunk_bytes=\{thunk_total} beneficial=\{beneficial}",
     )
   }
   beneficial
@@ -3187,8 +3530,20 @@ test "merge similar functions parameterizes call target using call_ref" {
       TInstr::return_([
         TInstr::binary(
           BinaryOp::i32_add(),
-          TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
-          TInstr::i32_const(I32(9)),
+          TInstr::binary(
+            BinaryOp::i32_mul(),
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::i32_const(I32(7)),
+          ),
+          TInstr::binary(
+            BinaryOp::i32_add(),
+            TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
+            TInstr::binary(
+              BinaryOp::i32_add(),
+              TInstr::i32_const(I32(9)),
+              TInstr::i32_const(I32(11)),
+            ),
+          ),
         ),
       ]),
     ]),
@@ -3200,8 +3555,20 @@ test "merge similar functions parameterizes call target using call_ref" {
       TInstr::return_([
         TInstr::binary(
           BinaryOp::i32_add(),
-          TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
-          TInstr::i32_const(I32(9)),
+          TInstr::binary(
+            BinaryOp::i32_mul(),
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::i32_const(I32(7)),
+          ),
+          TInstr::binary(
+            BinaryOp::i32_add(),
+            TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+            TInstr::binary(
+              BinaryOp::i32_add(),
+              TInstr::i32_const(I32(9)),
+              TInstr::i32_const(I32(11)),
+            ),
+          ),
         ),
       ]),
     ]),
@@ -4351,6 +4718,172 @@ test "merge similar functions profitability gate keeps tiny but merges larger" {
   let out_big = msf_run(mod_big)
   match out_big.code_sec {
     Some(CodeSec(funcs)) => assert_eq(funcs.length(), 3)
+    _ => fail("expected code section")
+  }
+}
+
+///|
+test "merge similar functions profitability skips tiny typed-ref call-target wrappers" {
+  let t_callee = msf_i32_func_type()
+  let t_wrap = msf_i32_func_type()
+  let seed_type = msf_make_func_type([ValType::funcref()], [])
+  let (_, typed_ref_seed) = msf_typed_ref_seed_func(TypeIdx::new(0), seed_type)
+  let callee_a = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
+  )
+  let callee_b = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::i32_const(I32(1)),
+        ),
+      ]),
+    ]),
+  )
+  let wrap_a = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
+          TInstr::i32_const(I32(9)),
+        ),
+      ]),
+    ]),
+  )
+  let wrap_b = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+          TInstr::i32_const(I32(9)),
+        ),
+      ]),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_callee, t_wrap, seed_type]))
+    .with_func_sec(
+      FuncSec::new([
+        TypeIdx::new(0),
+        TypeIdx::new(0),
+        TypeIdx::new(1),
+        TypeIdx::new(1),
+        TypeIdx::new(2),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([callee_a, callee_b, wrap_a, wrap_b, typed_ref_seed]),
+    )
+  let out = msf_run(mod)
+  match out.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 5)
+    _ => fail("expected code section")
+  }
+}
+
+///|
+test "merge similar functions profitability keeps larger typed-ref call-target wrappers" {
+  let t_callee = msf_i32_func_type()
+  let t_wrap = msf_i32_func_type()
+  let seed_type = msf_make_func_type([ValType::funcref()], [])
+  let (_, typed_ref_seed) = msf_typed_ref_seed_func(TypeIdx::new(0), seed_type)
+  let callee_a = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
+  )
+  let callee_b = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::i32_const(I32(1)),
+        ),
+      ]),
+    ]),
+  )
+  let wrap_a = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::binary(
+            BinaryOp::i32_mul(),
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::i32_const(I32(7)),
+          ),
+          TInstr::binary(
+            BinaryOp::i32_add(),
+            TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
+            TInstr::binary(
+              BinaryOp::i32_add(),
+              TInstr::i32_const(I32(9)),
+              TInstr::i32_const(I32(11)),
+            ),
+          ),
+        ),
+      ]),
+    ]),
+  )
+  let wrap_b = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::binary(
+            BinaryOp::i32_mul(),
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::i32_const(I32(7)),
+          ),
+          TInstr::binary(
+            BinaryOp::i32_add(),
+            TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+            TInstr::binary(
+              BinaryOp::i32_add(),
+              TInstr::i32_const(I32(9)),
+              TInstr::i32_const(I32(11)),
+            ),
+          ),
+        ),
+      ]),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_callee, t_wrap, seed_type]))
+    .with_func_sec(
+      FuncSec::new([
+        TypeIdx::new(0),
+        TypeIdx::new(0),
+        TypeIdx::new(1),
+        TypeIdx::new(1),
+        TypeIdx::new(2),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([callee_a, callee_b, wrap_a, wrap_b, typed_ref_seed]),
+    )
+  let out = msf_run(mod)
+  match out.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 6)
     _ => fail("expected code section")
   }
 }
