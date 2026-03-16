@@ -3,21 +3,21 @@
 ## 2026-03-16 MergeSimilarFunctions Follow-up: publish the supported envelope in the main design doc
 
 - Updated [`docs/merge-similar-functions.md`](/home/jtenner/Projects/starshine-mb/docs/merge-similar-functions.md) with a release-facing supported-difference matrix and explicit guarded typed-ref lowering policy, so the main design doc now matches the in-tree behavior already enforced by tests.
-- Refreshed [`docs/plans/merge-similar-functions-publish-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/merge-similar-functions-publish-plan.md) and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to mark `MSF-006` / `MSF-009` effectively closed and narrow the remaining `MergeSimilarFunctions` publish work to final `MSF-013` signoff.
+- Refreshed [`docs/plans/done/merge-similar-functions-publish-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/done/merge-similar-functions-publish-plan.md) and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to mark `MSF-006` / `MSF-009` effectively closed and narrow the remaining `MergeSimilarFunctions` publish work to final `MSF-013` signoff.
 - Validation was not rerun because this slice is documentation-only; the preceding code slice already completed `moon info && moon fmt` and `moon test`.
 
 ## 2026-03-16 MergeSimilarFunctions Follow-up: add fixed-corpus timing and instrumentation harnesses
 
 - Added a dedicated fixed benchmark corpus plus timing/instrumentation helpers in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt), covering representative merge, skip, multi-class, and near-limit-profitable inputs.
 - Added regression coverage in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) that locks fixed-corpus validity, deterministic output, zero bucket-copy churn, positive dense-site coverage, and a runnable end-to-end timing harness.
-- Updated [`docs/plans/merge-similar-functions-publish-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/merge-similar-functions-publish-plan.md) and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to record the in-tree `MSF-013` harness work and narrow the remaining `MergeSimilarFunctions` publish work to signoff/documentation items.
+- Updated [`docs/plans/done/merge-similar-functions-publish-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/done/merge-similar-functions-publish-plan.md) and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to record the in-tree `MSF-013` harness work and narrow the remaining `MergeSimilarFunctions` publish work to signoff/documentation items.
 - Validation: `moon fmt`; `moon test --package jtenner/starshine/passes --file merge_similar_functions.mbt -F 'merge similar functions*'`; `moon test --package jtenner/starshine/passes --file optimize.mbt -F 'optimize_module runs MergeSimilarFunctions pass'`; `moon info && moon fmt`; `moon test`.
 
 ## 2026-03-16 MergeSimilarFunctions Follow-up: adapt synthetic-parameter policy to profitability
 
 - Updated [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so synthetic-parameter handling now uses a soft limit plus bounded hard cap, and near-limit merges can still proceed when the byte-aware profitability model clearly wins.
 - Added regression coverage in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) for profitable just-over-limit merges, explicit parameter-pressure skips, and hard-cap rejection of excessive synthetic parameter growth.
-- Refreshed [`docs/plans/merge-similar-functions-publish-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/merge-similar-functions-publish-plan.md) and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to record `MSF-008` as completed and narrow the remaining `MergeSimilarFunctions` publish work.
+- Refreshed [`docs/plans/done/merge-similar-functions-publish-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/done/merge-similar-functions-publish-plan.md) and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to record `MSF-008` as completed and narrow the remaining `MergeSimilarFunctions` publish work.
 - Validation: `moon fmt`; `moon test --package jtenner/starshine/passes --file merge_similar_functions.mbt -F 'merge similar functions*'`; `moon test --package jtenner/starshine/passes --file optimize.mbt -F 'optimize_module runs MergeSimilarFunctions pass'`; `moon info && moon fmt`; `moon test`.
 
 ## 2026-03-16 MergeSimilarFunctions Follow-up: make profitability byte-aware without blocking established merges
@@ -29,7 +29,7 @@
 
 ## 2026-03-16 MergeSimilarFunctions Follow-up: add a publish-signoff plan for supported envelope, remaining blockers, and rerun criteria
 
-- Added [`docs/plans/merge-similar-functions-publish-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/merge-similar-functions-publish-plan.md) as the active source of truth for `MergeSimilarFunctions` publish signoff, including the supported difference-kind matrix, the current typed-ref lowering envelope, the remaining policy blockers, and the required rerun checklist.
+- Added [`docs/plans/done/merge-similar-functions-publish-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/done/merge-similar-functions-publish-plan.md) as the active source of truth for `MergeSimilarFunctions` publish signoff, including the supported difference-kind matrix, the current typed-ref lowering envelope, the remaining policy blockers, and the required rerun checklist.
 - Linked the new signoff plan from [`docs/merge-similar-functions.md`](/home/jtenner/Projects/starshine-mb/docs/merge-similar-functions.md) and recorded the completed documentation slice in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
 - Validation was not run because this slice is documentation-only.
 

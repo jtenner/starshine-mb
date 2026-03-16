@@ -2,7 +2,32 @@
 
 Date: 2026-03-16  
 Owner: Compiler passes team  
-Status: Active
+Status: Done
+
+## Completion Notes (2026-03-16)
+
+`MergeSimilarFunctions` publish signoff is complete for the currently documented guarded envelope.
+
+Completed signoff coverage:
+- upstream-invalid direct-call preflight auditing
+- validator-backed `TypeIdx` / `FuncType` resolution
+- hardened call-target rewrite validation
+- tail-call-free forwarders plus guarded typed-ref lowering
+- stable preorder site numbering
+- byte-aware profitability and adaptive synthetic-parameter policy
+- stronger coarse-bucket discrimination and cached/dense analysis artifacts
+- fixed-corpus timing and allocation-sensitive instrumentation harnesses
+- release-facing supported-difference and lowering-policy documentation
+
+Recorded final gate:
+- `moon info && moon fmt` (pass)
+- `moon test` (pass)
+
+Recorded harness/signoff evidence:
+- fixed corpus validity/determinism/instrumentation tests in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt)
+- supported-envelope summary in [`docs/merge-similar-functions.md`](/home/jtenner/Projects/starshine-mb/docs/merge-similar-functions.md)
+
+This plan is now complete and moved to `docs/plans/done`.
 
 ## 1. Objective
 
@@ -58,11 +83,9 @@ The following blocker slices are already implemented in-tree:
 - `MSF-011`: per-run cached analysis artifacts
 - `MSF-012`: denser node-id and bucket/site metadata structures
 
-Remaining publish work is therefore final signoff work:
+Remaining publish work is therefore none for the pass-local `MergeSimilarFunctions` envelope.
 
-- `MSF-013`
-
-## 4. Remaining Publish Blockers
+## 4. Historical Remaining Blockers
 
 ### 4.1 `MSF-006` Parameterization parity matrix
 
@@ -113,7 +136,7 @@ Implemented:
 - `merge_similar_functions.mbt` now includes a fixed-corpus timing harness plus allocation-sensitive instrumentation metrics that cover changed outputs, deterministic reruns, representative comparisons, bucket-copy churn, and dense site-map coverage.
 
 Remaining signoff gap:
-- Final publish signoff still needs the documented rerun procedure and interpretation notes to be treated as release criteria, but the in-tree harness itself now exists.
+- None inside the pass-local `MergeSimilarFunctions` scope tracked by this plan.
 
 ## 6. Publish Signoff Checklist
 
@@ -125,6 +148,6 @@ Remaining signoff gap:
 
 ## 7. Immediate Next Steps
 
-1. Treat this document plus `docs/merge-similar-functions.md` as the release-facing signoff pair for `MergeSimilarFunctions`.
-2. Use the fixed-corpus timing/instrumentation harness during the final `MSF-013` publish rerun.
-3. Move this plan to done once the final signoff checklist is rerun and recorded.
+1. Keep this plan as the historical signoff record under `docs/plans/done`.
+2. Use `docs/merge-similar-functions.md` for any future envelope expansion work.
+3. If the supported envelope grows, reopen this plan or create a new one with fresh rerun evidence.

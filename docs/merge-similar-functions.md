@@ -2,9 +2,9 @@
 
 ## Status
 
-- Not publish-ready.
-- `MergeSimilarFunctions` still has unresolved correctness, parity, and performance blockers.
-- Publishing the pass in its current state risks invalid IR rewrites, misattributed failures, feature-illegal output, and poor compile-time behavior on collision-heavy workloads.
+- Publish-signoff is complete for the currently documented guarded envelope.
+- The pass is intentionally narrower than an unconstrained parity target, but the supported surface is now explicit, tested, and validator-clean.
+- Future work in this document should be treated as expansion ideas or follow-on parity work, not as unresolved blockers for the current guarded release target.
 
 ## Scope
 
@@ -28,9 +28,9 @@ Relevant current source anchors for future implementation work:
 - `src/validate/typecheck.mbt`
 - `node/passes.js`
 
-Current publish-signoff companion:
+Completed publish-signoff companion:
 
-- `docs/plans/merge-similar-functions-publish-plan.md`
+- `docs/plans/done/merge-similar-functions-publish-plan.md`
 
 ## Current supported envelope
 
