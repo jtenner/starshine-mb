@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 MergeSimilarFunctions Follow-up: route function-type resolution through validator semantics and fix grouped-rec shared type indexing
+
+- Reworked [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) to resolve `TypeIdx` and callee function signatures through validator-backed module semantics instead of the pass-local flattened lookup.
+- Fixed appended shared-function `TypeIdx` assignment to use flattened subtype count, so grouped recursion types no longer shift synthesized function signatures onto the wrong index.
+- Added grouped-rec regression coverage in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) and recorded the completed blocker slice in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
+- Validation: `moon test src/passes`; `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-16 Docs Follow-up: compacted `AGENTS.md` without changing repository guidance
 
 - Rewrote [`AGENTS.md`](/home/jtenner/Projects/starshine-mb/AGENTS.md) into a denser format while preserving the same instructions and workflow requirements.

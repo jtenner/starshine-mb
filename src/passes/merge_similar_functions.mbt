@@ -114,30 +114,8 @@ fn msf_make_func_type(
 }
 
 ///|
-fn msf_extract_comp_type(sub_type : SubType) -> CompType {
-  match sub_type {
-    SubType(_, _, comp) => comp
-    CompTypeSubType(comp) => comp
-  }
-}
-
-///|
-fn msf_resolve_func_type(
-  comp_types : Array[CompType],
-  idx : TypeIdx,
-) -> FuncType? {
-  let i = match idx {
-    TypeIdx(n) => n
-    RecIdx(n) => n
-  }
-  let j = i.reinterpret_as_int()
-  if j < 0 || j >= comp_types.length() {
-    return None
-  }
-  match comp_types[j] {
-    FuncCompType(params, results) => Some(FuncType::new(params, results))
-    _ => None
-  }
+fn msf_make_type_env(mod : Module) -> Env {
+  Env::new().with_module(mod)
 }
 
 ///|
@@ -155,26 +133,6 @@ fn msf_count_imported_funcs(mod : Module) -> Int {
     None => ()
   }
   n
-}
-
-///|
-fn msf_collect_comp_types(mod : Module) -> Array[CompType] {
-  let comp_types : Array[CompType] = []
-  match mod.type_sec {
-    Some(TypeSec(rec_types)) =>
-      for rec_type in rec_types {
-        match rec_type {
-          SingleRecType(sub_type) =>
-            comp_types.push(msf_extract_comp_type(sub_type))
-          GroupRecType(sub_types) =>
-            for sub_type in sub_types {
-              comp_types.push(msf_extract_comp_type(sub_type))
-            }
-        }
-      }
-    None => ()
-  }
-  comp_types
 }
 
 ///|
@@ -203,11 +161,11 @@ fn msf_collect_func_type_indices(mod : Module) -> Array[TypeIdx] {
 
 ///|
 fn msf_collect_func_types(mod : Module) -> Array[FuncType] {
-  let comp_types = msf_collect_comp_types(mod)
+  let type_env = msf_make_type_env(mod)
   let type_idxs = msf_collect_func_type_indices(mod)
   let out : Array[FuncType] = []
   for type_idx in type_idxs {
-    match msf_resolve_func_type(comp_types, type_idx) {
+    match type_env.resolve_functype(type_idx) {
       Some(ft) => out.push(ft)
       None => out.push(FuncType::new([], []))
     }
@@ -254,31 +212,19 @@ fn msf_resolve_callee_type_idx(
 ///|
 fn msf_resolve_func_type_for_type_idx(
   type_idx : TypeIdx,
-  func_type_idxs : Array[TypeIdx],
-  func_types : Array[FuncType],
+  type_env : Env,
 ) -> FuncType? {
-  let limit = if func_type_idxs.length() < func_types.length() {
-    func_type_idxs.length()
-  } else {
-    func_types.length()
-  }
-  for i = 0; i < limit; i = i + 1 {
-    if func_type_idxs[i] == type_idx {
-      return Some(func_types[i])
-    }
-  }
-  None
+  type_env.resolve_functype(type_idx)
 }
 
 ///|
 fn msf_verify_call_target_type(
   type_idx : TypeIdx,
   expected_arg_count : Int,
-  func_types : Array[FuncType],
-  func_type_idxs : Array[TypeIdx],
+  type_env : Env,
 ) -> Result[Unit, String] {
   let FuncType(params, _) = match
-    msf_resolve_func_type_for_type_idx(type_idx, func_type_idxs, func_types) {
+    msf_resolve_func_type_for_type_idx(type_idx, type_env) {
     Some(ft) => ft
     None =>
       return Err(
@@ -856,7 +802,7 @@ fn msf_same_callee_type(
   lhs_target : FuncIdx,
   rhs_target : FuncIdx,
   func_type_idxs : Array[TypeIdx],
-  func_types : Array[FuncType],
+  type_env : Env,
 ) -> Bool {
   let lhs_abs = msf_func_idx_to_int(lhs_target)
   let rhs_abs = msf_func_idx_to_int(rhs_target)
@@ -866,11 +812,19 @@ fn msf_same_callee_type(
   if lhs_abs >= func_type_idxs.length() || rhs_abs >= func_type_idxs.length() {
     return false
   }
-  if lhs_abs >= func_types.length() || rhs_abs >= func_types.length() {
+  let lhs_type_idx = func_type_idxs[lhs_abs]
+  let rhs_type_idx = func_type_idxs[rhs_abs]
+  if lhs_type_idx != rhs_type_idx {
     return false
   }
-  func_type_idxs[lhs_abs] == func_type_idxs[rhs_abs] &&
-  func_types[lhs_abs] == func_types[rhs_abs]
+  match
+    (
+      type_env.resolve_functype(lhs_type_idx),
+      type_env.resolve_functype(rhs_type_idx),
+    ) {
+    (Some(lhs_ft), Some(rhs_ft)) => lhs_ft == rhs_ft
+    _ => false
+  }
 }
 
 ///|
@@ -886,7 +840,7 @@ fn are_in_equivalent_class(
     return false
   }
   let func_type_idxs = msf_collect_func_type_indices(mod)
-  let func_types = msf_collect_func_types(mod)
+  let type_env = msf_make_type_env(mod)
   let lhs_norm = match msf_normalize_body(lhs.body) {
     Ok(x) => x
     Err(_) => return false
@@ -911,7 +865,7 @@ fn are_in_equivalent_class(
       lc.is_return != rc.is_return {
       return false
     }
-    if !msf_same_callee_type(lc.target, rc.target, func_type_idxs, func_types) {
+    if !msf_same_callee_type(lc.target, rc.target, func_type_idxs, type_env) {
       return false
     }
   }
@@ -1475,7 +1429,7 @@ fn msf_rewrite_shared_body(
   body : TExpr,
   primary_param_count : Int,
   params : Array[ParamInfo],
-  func_types : Array[FuncType],
+  type_env : Env,
   func_type_idxs : Array[TypeIdx],
   trace? : (String) -> Unit = msf_trace_noop,
   trace_all_funcs? : Bool = false,
@@ -1595,7 +1549,7 @@ fn msf_rewrite_shared_body(
             }
             match
               msf_verify_call_target_type(
-                type_idx, expected_arg_count, func_types, func_type_idxs,
+                type_idx, expected_arg_count, type_env,
               ) {
               Ok(_) => ()
               Err(e) => return error(e)
@@ -1633,7 +1587,7 @@ fn msf_rewrite_shared_body(
             }
             match
               msf_verify_call_target_type(
-                type_idx, expected_arg_count, func_types, func_type_idxs,
+                type_idx, expected_arg_count, type_env,
               ) {
               Ok(_) => ()
               Err(e) => return error(e)
@@ -1708,13 +1662,15 @@ fn msf_append_func_type(
   params : Array[ValType],
   results : Array[ValType],
 ) -> (Module, TypeIdx) {
+  let next_type_idx = TypeIdx::new(
+    msf_make_type_env(mod).global_types.length().reinterpret_as_uint(),
+  )
   let recs = match mod.type_sec {
     Some(TypeSec(items)) => items.copy()
     None => []
   }
   recs.push(msf_make_func_type(params, results))
-  let new_idx = TypeIdx::new((recs.length() - 1).reinterpret_as_uint())
-  (mod.with_type_sec(TypeSec::new(recs)), new_idx)
+  (mod.with_type_sec(TypeSec::new(recs)), next_type_idx)
 }
 
 ///|
@@ -1835,13 +1791,14 @@ fn create_shared(
       "func[\{ordinal}] phase=create_shared:rewrite_body:start top_instrs=\{primary_body.instrs.length()}",
     )
   }
+  let type_env = msf_make_type_env(mod)
   let func_type_idxs = msf_collect_func_type_indices(mod)
   let rewritten_body = match
     msf_rewrite_shared_body(
       primary_body,
       primary_params.length(),
       params,
-      func_types,
+      type_env,
       func_type_idxs,
       trace~,
       trace_all_funcs~,
@@ -2622,7 +2579,15 @@ test "merge similar functions protects call target params with mismatched arity"
       body,
       0,
       params,
-      [FuncType::new([ValType::i32(), ValType::i32()], [ValType::i32()])],
+      msf_make_type_env(
+        Module::new().with_type_sec(
+          TypeSec::new([
+            msf_make_func_type([ValType::i32(), ValType::i32()], [
+              ValType::i32(),
+            ]),
+          ]),
+        ),
+      ),
       [TypeIdx::new(0)],
     ) {
     Ok(_) =>
@@ -2740,7 +2705,11 @@ test "merge similar functions rewrites call target params with unchanged ancesto
       body,
       1,
       params,
-      [FuncType::new([ValType::i32()], [ValType::i32()])],
+      msf_make_type_env(
+        Module::new().with_type_sec(
+          TypeSec::new([msf_make_func_type([ValType::i32()], [ValType::i32()])]),
+        ),
+      ),
       [TypeIdx::new(0), TypeIdx::new(0)],
     ) {
     Ok(out) => out
@@ -2834,10 +2803,14 @@ test "merge similar functions validates call-target arity by callee type idx" {
       body,
       1,
       params,
-      [
-        FuncType::new([ValType::i32()], [ValType::i32()]),
-        FuncType::new([], [ValType::i32()]),
-      ],
+      msf_make_type_env(
+        Module::new().with_type_sec(
+          TypeSec::new([
+            msf_make_func_type([], [ValType::i32()]),
+            msf_make_func_type([ValType::i32()], [ValType::i32()]),
+          ]),
+        ),
+      ),
       [TypeIdx::new(1), TypeIdx::new(0)],
     ) {
     Ok(out) => out
@@ -2864,6 +2837,88 @@ test "merge similar functions validates call-target arity by callee type idx" {
   )
   ignore(walker.walk_texpr((), rewritten))
   assert_true(saw_call_ref)
+}
+
+///|
+test "merge similar functions appends shared type index after flattened rec groups" {
+  let grouped_types = RecType::group([
+    SubType::comp_type(CompType::func([], [])),
+    SubType::comp_type(CompType::struct_([])),
+  ])
+  let mod = Module::new().with_type_sec(TypeSec::new([grouped_types]))
+  let (with_type, shared_type_idx) = msf_append_func_type(
+    mod,
+    [ValType::i32()],
+    [ValType::i64()],
+  )
+  assert_eq(shared_type_idx, TypeIdx::new(2))
+  let env = Env::new().with_module(with_type)
+  match env.resolve_functype(shared_type_idx) {
+    Some(FuncType(params, results)) => {
+      assert_eq(params, [ValType::i32()])
+      assert_eq(results, [ValType::i64()])
+    }
+    _ => fail("expected appended shared function type to resolve")
+  }
+}
+
+///|
+test "merge similar functions stays valid when shared type follows rec groups" {
+  let grouped_types = RecType::group([
+    SubType::comp_type(CompType::func([], [])),
+    SubType::comp_type(CompType::struct_([])),
+  ])
+  let t_callee = msf_make_func_type([ValType::i32()], [ValType::i32()])
+  let t_wrap = msf_make_func_type([], [ValType::i32()])
+  let callee_a = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+  )
+  let callee_b = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+  )
+  let wrap_a = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::drop(TInstr::i32_const(I32(0))),
+      TInstr::return_([
+        TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(1))]),
+      ]),
+    ]),
+  )
+  let wrap_b = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::drop(TInstr::i32_const(I32(0))),
+      TInstr::return_([
+        TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(1))]),
+      ]),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([grouped_types, t_callee, t_wrap]))
+    .with_func_sec(
+      FuncSec::new([
+        TypeIdx::new(2),
+        TypeIdx::new(2),
+        TypeIdx::new(3),
+        TypeIdx::new(3),
+      ]),
+    )
+    .with_code_sec(CodeSec::new([callee_a, callee_b, wrap_a, wrap_b]))
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("callee_a"), ExternIdx::func(FuncIdx::new(0))),
+        Export::new(Name::new("callee_b"), ExternIdx::func(FuncIdx::new(1))),
+      ]),
+    )
+  let out = msf_run(mod)
+  assert_eq(validate_module(out), Ok(()))
 }
 
 ///|
