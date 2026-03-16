@@ -109,8 +109,11 @@ Exit criteria:
 - bucket/site metadata allocation-sensitive fixture
 - one representative end-to-end timing harness for `MergeSimilarFunctions`
 
-Open gap:
-- A dedicated in-tree timing/allocation harness for `MergeSimilarFunctions` still needs to be added before final signoff.
+Implemented:
+- `merge_similar_functions.mbt` now includes a fixed-corpus timing harness plus allocation-sensitive instrumentation metrics that cover changed outputs, deterministic reruns, representative comparisons, bucket-copy churn, and dense site-map coverage.
+
+Remaining signoff gap:
+- Final publish signoff still needs the documented rerun procedure and interpretation notes to be treated as release criteria, but the in-tree harness itself now exists.
 
 ## 6. Publish Signoff Checklist
 
@@ -123,5 +126,5 @@ Open gap:
 ## 7. Immediate Next Steps
 
 1. Keep this document as the source of truth for `MSF-006`, `MSF-009`, and `MSF-013` until publish signoff is complete.
-2. Add the dedicated in-tree `MergeSimilarFunctions` timing/allocation harness called out in section 5.3.
-3. Lock the remaining lower-envelope and signoff matrix items against the current guarded typed-ref policy.
+2. Lock the remaining lower-envelope and signoff matrix items against the current guarded typed-ref policy.
+3. Decide whether the current supported-difference matrix for `MSF-006` should be copied into the main design doc as a release-facing summary or remain publish-plan-only.

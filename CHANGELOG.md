@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 MergeSimilarFunctions Follow-up: add fixed-corpus timing and instrumentation harnesses
+
+- Added a dedicated fixed benchmark corpus plus timing/instrumentation helpers in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt), covering representative merge, skip, multi-class, and near-limit-profitable inputs.
+- Added regression coverage in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) that locks fixed-corpus validity, deterministic output, zero bucket-copy churn, positive dense-site coverage, and a runnable end-to-end timing harness.
+- Updated [`docs/plans/merge-similar-functions-publish-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/merge-similar-functions-publish-plan.md) and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to record the in-tree `MSF-013` harness work and narrow the remaining `MergeSimilarFunctions` publish work to signoff/documentation items.
+- Validation: `moon fmt`; `moon test --package jtenner/starshine/passes --file merge_similar_functions.mbt -F 'merge similar functions*'`; `moon test --package jtenner/starshine/passes --file optimize.mbt -F 'optimize_module runs MergeSimilarFunctions pass'`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 MergeSimilarFunctions Follow-up: adapt synthetic-parameter policy to profitability
 
 - Updated [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so synthetic-parameter handling now uses a soft limit plus bounded hard cap, and near-limit merges can still proceed when the byte-aware profitability model clearly wins.

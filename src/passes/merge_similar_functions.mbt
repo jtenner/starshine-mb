@@ -3351,6 +3351,228 @@ fn msf_typed_ref_seed_func(
 }
 
 ///|
+priv struct MSFFixedCorpusFixture {
+  name : String
+  mod : Module
+}
+
+///|
+priv struct MSFFixedCorpusMetrics {
+  total_fixtures : Int
+  changed_count : Int
+  valid_after_count : Int
+  deterministic_count : Int
+  representative_comparisons : Int
+  bucket_copies : Int
+  dense_site_slots : Int
+}
+
+///|
+fn msf_fixed_corpus_const_merge_mod() -> Module {
+  let t = msf_i32_func_type()
+  let f0 = Func::t_func([ValType::i32()], [], msf_binary_body(42, 10))
+  let f1 = Func::t_func([ValType::i32()], [], msf_binary_body(43, 10))
+  Module::new()
+  .with_type_sec(TypeSec::new([t]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+  .with_code_sec(CodeSec::new([f0, f1]))
+}
+
+///|
+fn msf_fixed_corpus_typed_ref_skip_mod() -> Module {
+  let t_callee = msf_i32_func_type()
+  let t_wrap = msf_i32_func_type()
+  let seed_type = msf_make_func_type([ValType::funcref()], [])
+  let (_, typed_ref_seed) = msf_typed_ref_seed_func(TypeIdx::new(0), seed_type)
+  let callee_a = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
+  )
+  let callee_b = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::i32_const(I32(1)),
+        ),
+      ]),
+    ]),
+  )
+  let wrap_a = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
+          TInstr::i32_const(I32(9)),
+        ),
+      ]),
+    ]),
+  )
+  let wrap_b = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+          TInstr::i32_const(I32(9)),
+        ),
+      ]),
+    ]),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_callee, t_wrap, seed_type]))
+  .with_func_sec(
+    FuncSec::new([
+      TypeIdx::new(0),
+      TypeIdx::new(0),
+      TypeIdx::new(1),
+      TypeIdx::new(1),
+      TypeIdx::new(2),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([callee_a, callee_b, wrap_a, wrap_b, typed_ref_seed]),
+  )
+}
+
+///|
+fn msf_fixed_corpus_multi_class_mod() -> Module {
+  let t = msf_i32_func_type()
+  let a0 = Func::t_func([ValType::i32()], [], msf_binary_body(10, 1))
+  let a1 = Func::t_func([ValType::i32()], [], msf_binary_body(11, 1))
+  let b0 = Func::t_func([ValType::i32()], [], msf_binary_body(20, 2))
+  let b1 = Func::t_func([ValType::i32()], [], msf_binary_body(21, 2))
+  Module::new()
+  .with_type_sec(TypeSec::new([t]))
+  .with_func_sec(
+    FuncSec::new([
+      TypeIdx::new(0),
+      TypeIdx::new(0),
+      TypeIdx::new(0),
+      TypeIdx::new(0),
+    ]),
+  )
+  .with_code_sec(CodeSec::new([a0, a1, b0, b1]))
+}
+
+///|
+fn msf_fixed_corpus_over_limit_profitable_mod() -> Module {
+  let t = msf_void_func_type()
+  let body_a_instrs : Array[TInstr] = []
+  let body_b_instrs : Array[TInstr] = []
+  for i = 0; i < MSF_MAX_SYNTHETIC_FUNCTION_PARAMS + 1; i = i + 1 {
+    body_a_instrs.push(TInstr::drop(TInstr::i32_const(I32(i))))
+    body_b_instrs.push(TInstr::drop(TInstr::i32_const(I32(i + 1))))
+  }
+  for j = 0; j < 64; j = j + 1 {
+    body_a_instrs.push(
+      TInstr::drop(
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::i32_const(I32(100)),
+          TInstr::i32_const(I32(7)),
+        ),
+      ),
+    )
+    body_b_instrs.push(
+      TInstr::drop(
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::i32_const(I32(100)),
+          TInstr::i32_const(I32(7)),
+        ),
+      ),
+    )
+  }
+  let f0 = Func::t_func([], [], TExpr::new(body_a_instrs))
+  let f1 = Func::t_func([], [], TExpr::new(body_b_instrs))
+  Module::new()
+  .with_type_sec(TypeSec::new([t]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+  .with_code_sec(CodeSec::new([f0, f1]))
+}
+
+///|
+fn msf_fixed_corpus() -> Array[MSFFixedCorpusFixture] {
+  [
+    { name: "const-merge", mod: msf_fixed_corpus_const_merge_mod() },
+    { name: "typed-ref-skip", mod: msf_fixed_corpus_typed_ref_skip_mod() },
+    { name: "multi-class", mod: msf_fixed_corpus_multi_class_mod() },
+    {
+      name: "over-limit-profitable",
+      mod: msf_fixed_corpus_over_limit_profitable_mod(),
+    },
+  ]
+}
+
+///|
+fn msf_collect_fixed_corpus_metrics(iterations : Int) -> MSFFixedCorpusMetrics {
+  let fixtures = msf_fixed_corpus()
+  let mut changed_count = 0
+  let mut valid_after_count = 0
+  let mut deterministic_count = 0
+  let mut representative_comparisons = 0
+  let mut bucket_copies = 0
+  let mut dense_site_slots = 0
+  for _ in 0..<iterations {
+    for fixture in fixtures {
+      let analysis = msf_make_module_analysis(fixture.mod)
+      let (_, bucket_stats) = msf_build_hash_buckets(analysis.defined)
+      bucket_copies += bucket_stats.copied
+      let (_, partition_stats) = msf_collect_equivalent_classes_with_stats(
+        analysis,
+      )
+      representative_comparisons += partition_stats.representative_comparisons
+      for func in analysis.defined {
+        dense_site_slots += msf_get_site_map(analysis, func).length()
+      }
+      let out0 = msf_run(fixture.mod)
+      let out1 = msf_run(fixture.mod)
+      if out0 != fixture.mod {
+        changed_count += 1
+      }
+      if out0 == out1 {
+        deterministic_count += 1
+      }
+      match validate_module(out0) {
+        Ok(_) => valid_after_count += 1
+        Err(_) => ()
+      }
+    }
+  }
+  {
+    total_fixtures: fixtures.length() * iterations,
+    changed_count,
+    valid_after_count,
+    deterministic_count,
+    representative_comparisons,
+    bucket_copies,
+    dense_site_slots,
+  }
+}
+
+///|
+fn msf_time_fixed_corpus_us(iterations : Int) -> UInt64 {
+  let fixtures = msf_fixed_corpus()
+  let start_us = trace_now_us()
+  for _ in 0..<iterations {
+    for fixture in fixtures {
+      ignore(msf_run(fixture.mod))
+    }
+  }
+  trace_elapsed_us_since(start_us)
+}
+
+///|
 test "merge similar functions preflight rejects upstream-invalid direct call arity" {
   let t_callee = msf_make_func_type([ValType::i32()], [ValType::i32()])
   let t_wrap = msf_make_func_type([], [ValType::i32()])
@@ -5168,4 +5390,45 @@ test "merge similar functions shifts var local indices in shared function" {
     _ => fail("expected code section")
   }
   assert_eq(validate_module(out), Ok(()))
+}
+
+///|
+test "merge similar functions fixed corpus contains benchmark fixtures" {
+  let fixtures = msf_fixed_corpus()
+  assert_true(fixtures.length() >= 4)
+}
+
+///|
+test "merge similar functions fixed corpus validates before and after pass" {
+  for fixture in msf_fixed_corpus() {
+    match validate_module(fixture.mod) {
+      Ok(_) => ()
+      Err(e) =>
+        fail("expected fixture to validate before pass: \{fixture.name}: \{e}")
+    }
+    let out = msf_run(fixture.mod)
+    match validate_module(out) {
+      Ok(_) => ()
+      Err(e) =>
+        fail("expected fixture to validate after pass: \{fixture.name}: \{e}")
+    }
+  }
+}
+
+///|
+test "merge similar functions fixed corpus instrumentation stays sane" {
+  let metrics = msf_collect_fixed_corpus_metrics(1)
+  assert_eq(metrics.total_fixtures, msf_fixed_corpus().length())
+  assert_true(metrics.changed_count > 0)
+  assert_eq(metrics.valid_after_count, metrics.total_fixtures)
+  assert_eq(metrics.deterministic_count, metrics.total_fixtures)
+  assert_eq(metrics.bucket_copies, 0)
+  assert_true(metrics.representative_comparisons > 0)
+  assert_true(metrics.dense_site_slots > 0)
+}
+
+///|
+test "merge similar functions timing harness runs fixed corpus" {
+  let elapsed_us = msf_time_fixed_corpus_us(64)
+  assert_true(elapsed_us > 0UL)
 }
