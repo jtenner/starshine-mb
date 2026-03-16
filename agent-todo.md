@@ -27,6 +27,20 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] `SL-15` / `ID-F4`: avoid unnecessary late-phase state cloning on nested branch-heavy bodies.
 - [ ] `SL-16`: sign off `SimplifyLocals` pipeline placement and five-variant scheduler parity in `optimize.mbt`.
 - [ ] `SL-17`: close the `SimplifyLocals` parity/performance matrix with explicit tests, divergences, and rerun commands.
+### `MergeSimilarFunctions` publish blockers
+- [ ] Publish blocker `MSF-001`: add preflight call arity/signature auditing so the pass can distinguish upstream invalid IR from MSF rewrite failures. [Details](docs/merge-similar-functions.md#msf-001--preflight-call-arity-and-signature-auditing)
+- [ ] Publish blocker `MSF-002`: unify `TypeIdx` / function-type resolution with authoritative validator semantics, including recursion-group correctness. [Details](docs/merge-similar-functions.md#msf-002--authoritative-typeidx-and-function-type-resolution)
+- [ ] Publish blocker `MSF-003`: Harden call-target parameterization and rewrite validation to prevent invalid rewritten call sites. [Details](docs/merge-similar-functions.md#msf-003--harden-call-target-rewrite-validation)
+- [ ] Publish blocker `MSF-004`: make emitted tail-call and typed-function-reference constructs feature-safe via gating, fallback, or explicit unsupported-path handling. [Details](docs/merge-similar-functions.md#msf-004--feature-safe-lowering-for-tail-calls-and-typed-function-references)
+- [ ] Publish blocker `MSF-005`: stabilize and document node-id / traversal-order invariants used by site collection, equivalence checks, and rewrites. [Details](docs/merge-similar-functions.md#msf-005--stabilize-node-id-and-traversal-order-invariants)
+- [ ] Publish blocker `MSF-006`: investigate and document parity gaps in what kinds of differences can be parameterized beyond literals and direct call targets. [Details](docs/merge-similar-functions.md#msf-006--investigate-parity-gaps-in-parameterizable-differences)
+- [ ] Publish blocker `MSF-007`: replace the current profitability heuristic with a byte-size-aware model that accounts for thunking and `call_ref` / `ref.cast` overhead. [Details](docs/merge-similar-functions.md#msf-007--byte-size-aware-profitability-modeling)
+- [ ] Publish blocker `MSF-008`: revisit synthetic-parameter policy so profitable merges are not skipped by an overly rigid hard cap. [Details](docs/merge-similar-functions.md#msf-008--adaptive-synthetic-parameter-policy)
+- [ ] Publish blocker `MSF-009`: investigate alternate lowering or explicit guarded behavior for varying call targets when the current typed-ref strategy is unsuitable. [Details](docs/merge-similar-functions.md#msf-009--alternate-or-guarded-lowering-for-varying-call-targets)
+- [ ] Publish blocker `MSF-010`: eliminate quadratic partitioning behavior in coarse buckets. [Details](docs/merge-similar-functions.md#msf-010--remove-quadratic-coarse-bucket-partitioning)
+- [ ] Publish blocker `MSF-011`: cache normalized bodies, call-site signatures, and type metadata to remove repeated whole-body work. [Details](docs/merge-similar-functions.md#msf-011--cache-per-function-analysis-artifacts)
+- [ ] Publish blocker `MSF-012`: reduce GC churn by replacing repeated bucket copying and map-heavy node-id structures with denser representations. [Details](docs/merge-similar-functions.md#msf-012--reduce-gc-churn-with-denser-data-structures)
+- [ ] Publish blocker `MSF-013`: build a dedicated regression and benchmarking plan covering correctness, parity, and performance for the pass. [Details](docs/merge-similar-functions.md#msf-013--regression-and-benchmark-plan)
 - [ ] Optimize + Binaryen feature parity comparison: `RemoveUnusedBrs`
 - [ ] Optimize + Binaryen feature parity comparison: `PrecomputePropagate`
 - [ ] Optimize + Binaryen feature parity comparison: `CodePushing`
