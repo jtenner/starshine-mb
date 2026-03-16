@@ -226,15 +226,10 @@ fn msf_verify_call_target_type(
   let FuncType(params, _) = match
     msf_resolve_func_type_for_type_idx(type_idx, type_env) {
     Some(ft) => ft
-    None =>
-      return Err(
-        "merge_similar_functions: call_target rewrite metadata mismatch: missing function type for rewritten call target",
-      )
+    None => return Err("missing function type for rewritten call target")
   }
   if params.length() != expected_arg_count {
-    return Err(
-      "merge_similar_functions: call_target rewrite metadata mismatch: param arity mismatch for rewritten call site",
-    )
+    return Err("param arity mismatch for rewritten call site")
   }
   Ok(())
 }
@@ -757,6 +752,83 @@ fn msf_preflight_direct_call_error(
 }
 
 ///|
+fn msf_call_target_rewrite_error(reason : String) -> String {
+  "merge_similar_functions: call_target rewrite metadata mismatch: " + reason
+}
+
+///|
+fn msf_build_node_to_param(params : Array[ParamInfo]) -> Map[Int, Int] {
+  let node_to_param : Map[Int, Int] = Map::new()
+  for param_idx = 0; param_idx < params.length(); param_idx = param_idx + 1 {
+    for use_id in params[param_idx].uses {
+      node_to_param[use_id] = param_idx
+    }
+  }
+  node_to_param
+}
+
+///|
+fn msf_validate_call_target_rewrite_site(
+  node_id : Int,
+  instr : TInstr,
+  type_idx : TypeIdx,
+  expected_arg_count : Int,
+  expects_return : Bool,
+  type_env : Env,
+  func_type_idxs : Array[TypeIdx],
+) -> Result[Unit, String] {
+  let expected_kind = msf_direct_call_kind_name(expects_return)
+  let (target, actual_arg_count, actual_is_return) = match instr.kind {
+    TInstrKind::TCall(target, args) => (target, args.length(), false)
+    TInstrKind::TReturnCall(target, args) => (target, args.length(), true)
+    _ =>
+      return Err(
+        msf_call_target_rewrite_error(
+          "kind mismatch node_id=\{node_id} expected=\{expected_kind} actual=non_call",
+        ),
+      )
+  }
+  let actual_kind = msf_direct_call_kind_name(actual_is_return)
+  if actual_is_return != expects_return {
+    return Err(
+      msf_call_target_rewrite_error(
+        "kind mismatch node_id=\{node_id} expected=\{expected_kind} actual=\{actual_kind}",
+      ),
+    )
+  }
+  if actual_arg_count != expected_arg_count {
+    return Err(
+      msf_call_target_rewrite_error(
+        "arg count mismatch node_id=\{node_id} kind=\{actual_kind} expected=\{expected_arg_count} actual=\{actual_arg_count}",
+      ),
+    )
+  }
+  match msf_verify_call_target_type(type_idx, expected_arg_count, type_env) {
+    Ok(_) => ()
+    Err(e) =>
+      return Err(msf_call_target_rewrite_error("node_id=\{node_id} \{e}"))
+  }
+  let callee_type_idx = match
+    msf_resolve_callee_type_idx(target, func_type_idxs) {
+    Ok(v) => v
+    Err(e) =>
+      return Err(
+        msf_call_target_rewrite_error(
+          "callee lookup failed node_id=\{node_id} kind=\{actual_kind} \{e}",
+        ),
+      )
+  }
+  if callee_type_idx != type_idx {
+    return Err(
+      msf_call_target_rewrite_error(
+        "callee type mismatch node_id=\{node_id} kind=\{actual_kind} expected=\{type_idx} actual=\{callee_type_idx}",
+      ),
+    )
+  }
+  Ok(())
+}
+
+///|
 fn msf_preflight_direct_call_site(
   type_env : Env,
   func_type_idxs : Array[TypeIdx],
@@ -795,6 +867,65 @@ fn msf_preflight_direct_call_site(
         "arg count mismatch expected=\{params.length()} actual=\{arg_count}",
       ),
     )
+  }
+  Ok(())
+}
+
+///|
+fn msf_prevalidate_call_target_rewrite_metadata(
+  body : TExpr,
+  params : Array[ParamInfo],
+  type_env : Env,
+  func_type_idxs : Array[TypeIdx],
+) -> Result[Unit, String] {
+  let node_to_param = msf_build_node_to_param(params)
+  let seen_call_target_uses : Map[Int, Bool] = Map::new()
+  let mut next_id = 0
+  let walker : ModuleTransformer[Unit, String] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr : TInstr,
+    ) {
+      let node_id = next_id
+      next_id += 1
+      match node_to_param.get(node_id) {
+        Some(param_idx) =>
+          match params[param_idx].kind {
+            CallTargetParam(type_idx, expected_arg_count, expects_return, _) => {
+              seen_call_target_uses[node_id] = true
+              match
+                msf_validate_call_target_rewrite_site(
+                  node_id, instr, type_idx, expected_arg_count, expects_return, type_env,
+                  func_type_idxs,
+                ) {
+                Ok(_) => from_walk(self.walk_tinstruction_default((), instr))
+                Err(e) => return error(e)
+              }
+            }
+            _ => from_walk(self.walk_tinstruction_default((), instr))
+          }
+        None => from_walk(self.walk_tinstruction_default((), instr))
+      }
+    },
+  )
+  match walker.walk_texpr((), body) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
+  for param in params {
+    match param.kind {
+      CallTargetParam(_, _, expects_return, _) =>
+        for use_id in param.uses {
+          if seen_call_target_uses.get(use_id) != Some(true) {
+            return Err(
+              msf_call_target_rewrite_error(
+                "kind mismatch node_id=\{use_id} expected=\{msf_direct_call_kind_name(expects_return)} actual=missing",
+              ),
+            )
+          }
+        }
+      _ => ()
+    }
   }
   Ok(())
 }
@@ -1594,12 +1725,7 @@ fn msf_rewrite_shared_body(
     )
   }
   let map_start_ms = msf_trace_now_ms()
-  let node_to_param : Map[Int, Int] = Map::new()
-  for param_idx = 0; param_idx < params.length(); param_idx = param_idx + 1 {
-    for use_id in params[param_idx].uses {
-      node_to_param[use_id] = param_idx
-    }
-  }
+  let node_to_param = msf_build_node_to_param(params)
   if trace_all_funcs {
     trace(
       "func[\{ordinal}] phase=shared_rewrite:build_map:done elapsed_ms=\{msf_trace_elapsed_ms(map_start_ms)} mapped_nodes=\{node_to_param.length()}",
@@ -1689,32 +1815,15 @@ fn msf_rewrite_shared_body(
             { kind: TInstrKind::TCall(target, args), .. },
             CallTargetParam(type_idx, expected_arg_count, expects_return, _),
           ) => {
-            if expects_return {
-              return error(
-                "merge_similar_functions: call_target rewrite metadata mismatch: expected return_call but saw call",
-              )
-            }
-            if args.length() != expected_arg_count {
-              return error(
-                "merge_similar_functions: call_target rewrite metadata mismatch: arg count mismatch",
-              )
-            }
+            ignore(target)
+            ignore(args)
             match
-              msf_verify_call_target_type(
-                type_idx, expected_arg_count, type_env,
+              msf_validate_call_target_rewrite_site(
+                node_id, shifted, type_idx, expected_arg_count, expects_return, type_env,
+                func_type_idxs,
               ) {
               Ok(_) => ()
               Err(e) => return error(e)
-            }
-            let callee_type_idx = match
-              msf_resolve_callee_type_idx(target, func_type_idxs) {
-              Ok(v) => v
-              Err(e) => return error(e)
-            }
-            if callee_type_idx != type_idx {
-              return error(
-                "merge_similar_functions: call_target rewrite metadata mismatch: callee type mismatch",
-              )
             }
             let casted = TInstr::ref_cast(
               true,
@@ -1727,32 +1836,15 @@ fn msf_rewrite_shared_body(
             { kind: TInstrKind::TReturnCall(target, args), .. },
             CallTargetParam(type_idx, expected_arg_count, expects_return, _),
           ) => {
-            if !expects_return {
-              return error(
-                "merge_similar_functions: call_target rewrite metadata mismatch: expected call but saw return_call",
-              )
-            }
-            if args.length() != expected_arg_count {
-              return error(
-                "merge_similar_functions: call_target rewrite metadata mismatch: arg count mismatch",
-              )
-            }
+            ignore(target)
+            ignore(args)
             match
-              msf_verify_call_target_type(
-                type_idx, expected_arg_count, type_env,
+              msf_validate_call_target_rewrite_site(
+                node_id, shifted, type_idx, expected_arg_count, expects_return, type_env,
+                func_type_idxs,
               ) {
               Ok(_) => ()
               Err(e) => return error(e)
-            }
-            let callee_type_idx = match
-              msf_resolve_callee_type_idx(target, func_type_idxs) {
-              Ok(v) => v
-              Err(e) => return error(e)
-            }
-            if callee_type_idx != type_idx {
-              return error(
-                "merge_similar_functions: call_target rewrite metadata mismatch: callee type mismatch",
-              )
             }
             let casted = TInstr::ref_cast(
               true,
@@ -1945,6 +2037,20 @@ fn create_shared(
   }
   let type_env = msf_make_type_env(mod)
   let func_type_idxs = msf_collect_func_type_indices(mod)
+  match
+    msf_prevalidate_call_target_rewrite_metadata(
+      primary_body, params, type_env, func_type_idxs,
+    ) {
+    Ok(_) => ()
+    Err(e) => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=create_shared:rewrite_body:error elapsed_ms=\{msf_trace_elapsed_ms(create_start_ms)} \{e}",
+        )
+      }
+      return Err(msf_attach_rewrite_debug_dump(mod, clazz, params, e))
+    }
+  }
   let rewritten_body = match
     msf_rewrite_shared_body(
       primary_body,
@@ -3055,6 +3161,109 @@ test "merge similar functions validates call-target arity by callee type idx" {
   )
   ignore(walker.walk_texpr((), rewritten))
   assert_true(saw_call_ref)
+}
+
+///|
+test "merge similar functions reports call kind mismatch details" {
+  let body = TExpr::new([
+    TInstr::return_call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
+  ])
+  let sites = msf_collect_sites(body, [TypeIdx::new(0)])
+  let mut call_node = -1
+  for entry in sites {
+    let (node_id, site) = entry
+    match site {
+      CallTargetSite(_, _, true, _) => call_node = node_id
+      _ => ()
+    }
+  }
+  assert_true(call_node >= 0)
+  let params : Array[ParamInfo] = [
+    {
+      kind: CallTargetParam(TypeIdx::new(0), 1, false, [
+        FuncIdx::new(0),
+        FuncIdx::new(1),
+      ]),
+      uses: [call_node],
+    },
+  ]
+  match
+    msf_rewrite_shared_body(
+      body,
+      1,
+      params,
+      msf_make_type_env(
+        Module::new().with_type_sec(
+          TypeSec::new([msf_make_func_type([ValType::i32()], [ValType::i32()])]),
+        ),
+      ),
+      [TypeIdx::new(0)],
+    ) {
+    Ok(_) =>
+      fail("expected msf_rewrite_shared_body to reject call kind mismatch")
+    Err(e) => {
+      assert_true(
+        e.contains("call_target rewrite metadata mismatch: kind mismatch"),
+      )
+      assert_true(e.contains("expected=call"))
+      assert_true(e.contains("actual=return_call"))
+      assert_true(e.contains("node_id="))
+    }
+  }
+}
+
+///|
+test "merge similar functions reports callee type mismatch details" {
+  let body = TExpr::new([
+    TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
+  ])
+  let sites = msf_collect_sites(body, [TypeIdx::new(0), TypeIdx::new(1)])
+  let mut call_node = -1
+  for entry in sites {
+    let (node_id, site) = entry
+    match site {
+      CallTargetSite(_, _, false, _) => call_node = node_id
+      _ => ()
+    }
+  }
+  assert_true(call_node >= 0)
+  let params : Array[ParamInfo] = [
+    {
+      kind: CallTargetParam(TypeIdx::new(1), 1, false, [
+        FuncIdx::new(0),
+        FuncIdx::new(1),
+      ]),
+      uses: [call_node],
+    },
+  ]
+  match
+    msf_rewrite_shared_body(
+      body,
+      1,
+      params,
+      msf_make_type_env(
+        Module::new().with_type_sec(
+          TypeSec::new([
+            msf_make_func_type([ValType::i32()], [ValType::i32()]),
+            msf_make_func_type([ValType::i32()], [ValType::i32()]),
+          ]),
+        ),
+      ),
+      [TypeIdx::new(0), TypeIdx::new(1)],
+    ) {
+    Ok(_) =>
+      fail("expected msf_rewrite_shared_body to reject callee type mismatch")
+    Err(e) => {
+      assert_true(
+        e.contains(
+          "call_target rewrite metadata mismatch: callee type mismatch",
+        ),
+      )
+      assert_true(e.contains("expected=(Type 1)"))
+      assert_true(e.contains("actual=(Type 0)"))
+      assert_true(e.contains("node_id="))
+    }
+  }
 }
 
 ///|

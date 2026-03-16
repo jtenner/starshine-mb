@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 MergeSimilarFunctions Follow-up: prevalidate call-target metadata and report precise rewrite mismatches
+
+- Hardened [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so call-target rewrite validation now uses a shared site checker, prevalidates `CallTargetParam` node bindings against the primary body before rewrite starts, and rejects missing or misbound node ids early.
+- Upgraded call-target rewrite diagnostics in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) to include `node_id` plus explicit expected/actual kind, arg count, and callee type details.
+- Added kind-mismatch and callee-type-mismatch regression coverage in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) and recorded the completed blocker slice in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
+- Validation: `moon test src/passes`; `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-16 MergeSimilarFunctions Follow-up: preflight direct-call audit separates upstream-invalid IR from rewrite metadata failures
 
 - Added a pass-wide direct `call` / `return_call` preflight audit in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so upstream-invalid call arity now fails before equivalence grouping or shared-body rewrite starts.
