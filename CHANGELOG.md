@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: execute the default scheduler through explicit pass segments
+
+- Refactored [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so the default optimize loop now executes explicit `SchedulerPassSegment`s and routes each segment through a dedicated executor, while preserving the existing per-pass semantics, validation behavior, pass numbering, and `Vacuum` skip policy.
+- Added helper-trace segment execution boundaries in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so helper traces now show `run_segment ... start/done` around both function-stack segments and module-runner barriers.
+- Added trace regressions in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) that require helper-level segment execution boundaries while keeping pass-level traces unchanged.
+- Validation: `moon test --package jtenner/starshine/passes --file optimize.mbt -F 'optimize_module *scheduler segment execution boundaries*'`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Optimize Follow-up: expose stacked-runner scheduler segments in helper traces
 
 - Added helper-trace segment planning in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt), so traced optimize runs now emit the grouped function-pass stacks and module-runner barrier passes derived from the in-tree scheduler segmentation helper before execution begins.

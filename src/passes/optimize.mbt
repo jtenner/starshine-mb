@@ -1488,6 +1488,17 @@ fn optimize_trace_emit_helper(
 }
 
 ///|
+fn optimize_trace_render_scheduler_segment(
+  segment : SchedulerPassSegment,
+) -> String {
+  match segment {
+    FunctionPassStack(passes) =>
+      "kind=function-stack passes=\{optimize_trace_render_pass_list(passes)}"
+    BarrierPass(pass) => "kind=barrier pass=\{pass}"
+  }
+}
+
+///|
 fn optimize_trace_render_pass_list(passes : Array[ModulePass]) -> String {
   let out = StringBuilder::new()
   for i = 0; i < passes.length(); i = i + 1 {
@@ -1512,15 +1523,313 @@ fn optimize_trace_emit_scheduler_segments(
   let segments = scheduler_segment_passes(passes)
   trace("scheduler:segments total=\{segments.length()}")
   for i = 0; i < segments.length(); i = i + 1 {
-    match segments[i] {
-      FunctionPassStack(stack_passes) =>
-        trace(
-          "scheduler:segment[\{i + 1}/\{segments.length()}] kind=function-stack passes=\{optimize_trace_render_pass_list(stack_passes)}",
+    trace(
+      "scheduler:segment[\{i + 1}/\{segments.length()}] \{optimize_trace_render_scheduler_segment(segments[i])}",
+    )
+  }
+}
+
+///|
+priv struct OptimizeSchedulerState {
+  mut pass_index : Int
+  mut previous_vacuum_no_change : Bool
+  mut changed_since_last_vacuum : Bool
+  mut last_pass : ModulePass?
+  mut last_pre_pass_mod : Module?
+}
+
+///|
+fn OptimizeSchedulerState::new() -> OptimizeSchedulerState {
+  {
+    pass_index: 0,
+    previous_vacuum_no_change: false,
+    changed_since_last_vacuum: false,
+    last_pass: None,
+    last_pre_pass_mod: None,
+  }
+}
+
+///|
+fn optimize_execute_scheduler_pass(
+  ctx : IRContext,
+  mod : Module,
+  pass : ModulePass,
+  total_passes : Int,
+  state : OptimizeSchedulerState,
+  original_mod : Module,
+  options : OptimizeOptions,
+  trace : (String) -> Unit,
+  trace_enabled : Bool,
+  trace_level : OptimizeTracingLevel,
+) -> Result[Module, String] {
+  let pass_start_ms = optimize_trace_now_ms()
+  state.pass_index += 1
+  let pass_index = state.pass_index
+  let kind = module_pass_context_kind(pass)
+  let mut transform_elapsed_ms = 0UL
+  let mut validation_elapsed_ms = 0UL
+  optimize_trace_emit_pass(
+    trace,
+    trace_enabled,
+    "pass[\{pass_index}/\{total_passes}]:start pass=\{pass} kind=\{optimize_trace_context_label(kind)}",
+  )
+  if pass is Vacuum &&
+    state.previous_vacuum_no_change &&
+    !state.changed_since_last_vacuum {
+    optimize_trace_emit_pass(
+      trace,
+      trace_enabled,
+      "pass[\{pass_index}/\{total_passes}]:skip pass=\{pass} reason=previous_vacuum_no_change",
+    )
+    optimize_trace_emit_pass(
+      trace,
+      trace_enabled,
+      "pass[\{pass_index}/\{total_passes}]:done pass=\{pass} skipped=true transform_elapsed_ms=0 validation_elapsed_ms=0 elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
+    )
+    return Ok(mod)
+  }
+  let pre_pass_mod = mod
+  ctx.set_mod(mod)
+  let pass_trace_all_funcs = trace_enabled &&
+    optimize_trace_phase_enabled(trace_level)
+  let pass_trace = if trace_enabled && optimize_trace_phase_enabled(trace_level) {
+    fn(msg) {
+      if optimize_trace_helper_enabled(trace_level) ||
+        optimize_trace_detail_is_phase(msg) {
+        trace("pass[\{pass_index}/\{total_passes}]:\{msg}")
+      }
+    }
+  } else {
+    optimize_trace_noop
+  }
+  optimize_trace_emit_helper(
+    trace,
+    trace_enabled,
+    trace_level,
+    "pass[\{pass_index}/\{total_passes}]:scheduler:start kind=\{optimize_trace_context_label(kind)}",
+  )
+  let mod = match kind {
+    IRContextTransformerPass =>
+      match
+        run_ir_context_transformer_scheduler_pass(
+          ctx, mod, pass, options, pass_trace, pass_trace_all_funcs,
+        ) {
+        Ok(new_mod) => new_mod
+        Err(e) => {
+          optimize_trace_emit_pass(
+            trace,
+            trace_enabled,
+            "pass[\{pass_index}/\{total_passes}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
+          )
+          return Err(e)
+        }
+      }
+    UnitTransformerPass =>
+      match
+        run_unit_transformer_scheduler_pass(
+          mod, pass, pass_trace, pass_trace_all_funcs,
+        ) {
+        Ok(new_mod) => new_mod
+        Err(e) => {
+          optimize_trace_emit_pass(
+            trace,
+            trace_enabled,
+            "pass[\{pass_index}/\{total_passes}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
+          )
+          return Err(e)
+        }
+      }
+    ModuleRunnerPass =>
+      match
+        run_module_runner_scheduler_pass(
+          mod, pass, options, pass_trace, pass_trace_all_funcs,
+        ) {
+        Ok(new_mod) => new_mod
+        Err(e) => {
+          optimize_trace_emit_pass(
+            trace,
+            trace_enabled,
+            "pass[\{pass_index}/\{total_passes}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
+          )
+          return Err(e)
+        }
+      }
+  }
+  optimize_trace_emit_helper(
+    trace,
+    trace_enabled,
+    trace_level,
+    "pass[\{pass_index}/\{total_passes}]:scheduler:done kind=\{optimize_trace_context_label(kind)}",
+  )
+  transform_elapsed_ms = optimize_trace_elapsed_ms(pass_start_ms)
+  optimize_trace_emit_phase(
+    trace,
+    trace_enabled,
+    trace_level,
+    "pass[\{pass_index}/\{total_passes}]:transform:done pass=\{pass} elapsed_ms=\{transform_elapsed_ms}",
+  )
+  state.last_pass = Some(pass)
+  state.last_pre_pass_mod = Some(pre_pass_mod)
+  let validate_after_every_pass = match options.validation_policy {
+    AfterEveryPass => true
+    FinalModuleOnly => false
+  }
+  if validate_after_every_pass {
+    let validate_start_ms = optimize_trace_now_ms()
+    optimize_trace_emit_phase(
+      trace,
+      trace_enabled,
+      trace_level,
+      "pass[\{pass_index}/\{total_passes}]:\{pass}:validation:start",
+    )
+    let validate_result = if trace_enabled &&
+      optimize_trace_phase_enabled(trace_level) {
+      let validate_trace_all_funcs = optimize_trace_helper_enabled(trace_level)
+      validate_module_with_trace(
+        mod,
+        fn(msg) {
+          if optimize_trace_helper_enabled(trace_level) ||
+            optimize_trace_detail_is_phase(msg) {
+            trace(
+              "pass[\{pass_index}/\{total_passes}]:\{pass}:validation:\{msg}",
+            )
+          }
+        },
+        trace_all_funcs=validate_trace_all_funcs,
+      )
+    } else {
+      validate_module(mod)
+    }
+    match validate_result {
+      Ok(_) => {
+        validation_elapsed_ms = optimize_trace_elapsed_ms(validate_start_ms)
+        optimize_trace_emit_phase(
+          trace,
+          trace_enabled,
+          trace_level,
+          "pass[\{pass_index}/\{total_passes}]:\{pass}:validation:done elapsed_ms=\{validation_elapsed_ms}",
         )
-      BarrierPass(pass) =>
-        trace(
-          "scheduler:segment[\{i + 1}/\{segments.length()}] kind=barrier pass=\{pass}",
+      }
+      Err(e) => {
+        let summary = validation_error_message(e)
+        validation_elapsed_ms = optimize_trace_elapsed_ms(validate_start_ms)
+        optimize_validation_dump_before_after(
+          original_mod, mod, trace, trace_enabled,
         )
+        optimize_trace_emit_pass(
+          trace,
+          trace_enabled,
+          "pass[\{pass_index}/\{total_passes}]:\{pass}:validation_error transform_elapsed_ms=\{transform_elapsed_ms} validation_elapsed_ms=\{validation_elapsed_ms} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{summary}",
+        )
+        return Err(
+          opt_format_pass_validation_failure(mod, e, pass, pre_pass_mod),
+        )
+      }
+    }
+  }
+  optimize_trace_emit_phase(
+    trace,
+    trace_enabled,
+    trace_level,
+    "pass[\{pass_index}/\{total_passes}]:returned pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
+  )
+  optimize_trace_emit_helper(
+    trace,
+    trace_enabled,
+    trace_level,
+    "pass[\{pass_index}/\{total_passes}]:commit:start pass=\{pass}",
+  )
+  ctx.set_mod(mod)
+  optimize_trace_emit_helper(
+    trace,
+    trace_enabled,
+    trace_level,
+    "pass[\{pass_index}/\{total_passes}]:commit:done pass=\{pass}",
+  )
+  if pass is Vacuum {
+    let pass_changed = mod != pre_pass_mod
+    state.previous_vacuum_no_change = !pass_changed
+    state.changed_since_last_vacuum = false
+  } else {
+    state.changed_since_last_vacuum = true
+  }
+  optimize_trace_emit_pass(
+    trace,
+    trace_enabled,
+    "pass[\{pass_index}/\{total_passes}]:done pass=\{pass} transform_elapsed_ms=\{transform_elapsed_ms} validation_elapsed_ms=\{validation_elapsed_ms} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
+  )
+  Ok(mod)
+}
+
+///|
+fn optimize_run_scheduler_segment(
+  ctx : IRContext,
+  mod : Module,
+  segment : SchedulerPassSegment,
+  segment_index : Int,
+  total_segments : Int,
+  total_passes : Int,
+  state : OptimizeSchedulerState,
+  original_mod : Module,
+  options : OptimizeOptions,
+  trace : (String) -> Unit,
+  trace_enabled : Bool,
+  trace_level : OptimizeTracingLevel,
+) -> Result[Module, String] {
+  let segment_label = optimize_trace_render_scheduler_segment(segment)
+  optimize_trace_emit_helper(
+    trace,
+    trace_enabled,
+    trace_level,
+    "scheduler:run_segment[\{segment_index}/\{total_segments}]:start \{segment_label}",
+  )
+  let out = match segment {
+    FunctionPassStack(stack_passes) => {
+      let mut mod = mod
+      for pass in stack_passes {
+        mod = match
+          optimize_execute_scheduler_pass(
+            ctx, mod, pass, total_passes, state, original_mod, options, trace, trace_enabled,
+            trace_level,
+          ) {
+          Ok(new_mod) => new_mod
+          Err(e) => {
+            optimize_trace_emit_helper(
+              trace,
+              trace_enabled,
+              trace_level,
+              "scheduler:run_segment[\{segment_index}/\{total_segments}]:error \{segment_label}",
+            )
+            return Err(e)
+          }
+        }
+      }
+      Ok(mod)
+    }
+    BarrierPass(pass) =>
+      optimize_execute_scheduler_pass(
+        ctx, mod, pass, total_passes, state, original_mod, options, trace, trace_enabled,
+        trace_level,
+      )
+  }
+  match out {
+    Ok(mod) => {
+      optimize_trace_emit_helper(
+        trace,
+        trace_enabled,
+        trace_level,
+        "scheduler:run_segment[\{segment_index}/\{total_segments}]:done \{segment_label}",
+      )
+      Ok(mod)
+    }
+    Err(e) => {
+      optimize_trace_emit_helper(
+        trace,
+        trace_enabled,
+        trace_level,
+        "scheduler:run_segment[\{segment_index}/\{total_segments}]:error \{segment_label}",
+      )
+      Err(e)
     }
   }
 }
@@ -1595,207 +1904,27 @@ fn optimize_module_with_options_internal(
     }
   }
   ctx.set_mod(mod)
-  let mut pass_index = 0
-  let mut previous_vacuum_no_change = false
-  let mut changed_since_last_vacuum = false
-  let mut last_pass : ModulePass? = None
-  let mut last_pre_pass_mod : Module? = None
-  for pass in passes {
-    let pass_start_ms = optimize_trace_now_ms()
-    pass_index += 1
-    let kind = module_pass_context_kind(pass)
-    let mut transform_elapsed_ms = 0UL
-    let mut validation_elapsed_ms = 0UL
-    optimize_trace_emit_pass(
-      trace,
-      trace_enabled,
-      "pass[\{pass_index}/\{passes.length()}]:start pass=\{pass} kind=\{optimize_trace_context_label(kind)}",
-    )
-    if pass is Vacuum && previous_vacuum_no_change && !changed_since_last_vacuum {
-      optimize_trace_emit_pass(
-        trace,
-        trace_enabled,
-        "pass[\{pass_index}/\{passes.length()}]:skip pass=\{pass} reason=previous_vacuum_no_change",
-      )
-      optimize_trace_emit_pass(
-        trace,
-        trace_enabled,
-        "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} skipped=true transform_elapsed_ms=0 validation_elapsed_ms=0 elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
-      )
-      continue
-    }
-    let pre_pass_mod = mod
-    ctx.set_mod(mod)
-    let pass_trace_all_funcs = trace_enabled &&
-      optimize_trace_phase_enabled(trace_level)
-    let pass_trace = if trace_enabled &&
-      optimize_trace_phase_enabled(trace_level) {
-      fn(msg) {
-        if optimize_trace_helper_enabled(trace_level) ||
-          optimize_trace_detail_is_phase(msg) {
-          trace("pass[\{pass_index}/\{passes.length()}]:\{msg}")
-        }
-      }
-    } else {
-      optimize_trace_noop
-    }
-    optimize_trace_emit_helper(
-      trace,
-      trace_enabled,
-      trace_level,
-      "pass[\{pass_index}/\{passes.length()}]:scheduler:start kind=\{optimize_trace_context_label(kind)}",
-    )
-    mod = match kind {
-      IRContextTransformerPass =>
-        match
-          run_ir_context_transformer_scheduler_pass(
-            ctx, mod, pass, options, pass_trace, pass_trace_all_funcs,
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => {
-            optimize_trace_emit_pass(
-              trace,
-              trace_enabled,
-              "pass[\{pass_index}/\{passes.length()}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
-            )
-            return Err(e)
-          }
-        }
-      UnitTransformerPass =>
-        match
-          run_unit_transformer_scheduler_pass(
-            mod, pass, pass_trace, pass_trace_all_funcs,
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => {
-            optimize_trace_emit_pass(
-              trace,
-              trace_enabled,
-              "pass[\{pass_index}/\{passes.length()}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
-            )
-            return Err(e)
-          }
-        }
-      ModuleRunnerPass =>
-        match
-          run_module_runner_scheduler_pass(
-            mod, pass, options, pass_trace, pass_trace_all_funcs,
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => {
-            optimize_trace_emit_pass(
-              trace,
-              trace_enabled,
-              "pass[\{pass_index}/\{passes.length()}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
-            )
-            return Err(e)
-          }
-        }
-    }
-    optimize_trace_emit_helper(
-      trace,
-      trace_enabled,
-      trace_level,
-      "pass[\{pass_index}/\{passes.length()}]:scheduler:done kind=\{optimize_trace_context_label(kind)}",
-    )
-    transform_elapsed_ms = optimize_trace_elapsed_ms(pass_start_ms)
-    optimize_trace_emit_phase(
-      trace,
-      trace_enabled,
-      trace_level,
-      "pass[\{pass_index}/\{passes.length()}]:transform:done pass=\{pass} elapsed_ms=\{transform_elapsed_ms}",
-    )
-    last_pass = Some(pass)
-    last_pre_pass_mod = Some(pre_pass_mod)
-    if validate_after_every_pass {
-      let validate_start_ms = optimize_trace_now_ms()
-      optimize_trace_emit_phase(
+  let segments = scheduler_segment_passes(passes)
+  let state = OptimizeSchedulerState::new()
+  for i = 0; i < segments.length(); i = i + 1 {
+    mod = match
+      optimize_run_scheduler_segment(
+        ctx,
+        mod,
+        segments[i],
+        i + 1,
+        segments.length(),
+        passes.length(),
+        state,
+        original_mod,
+        options,
         trace,
         trace_enabled,
         trace_level,
-        "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:start",
-      )
-      let validate_result = if trace_enabled &&
-        optimize_trace_phase_enabled(trace_level) {
-        let validate_trace_all_funcs = optimize_trace_helper_enabled(
-          trace_level,
-        )
-        validate_module_with_trace(
-          mod,
-          fn(msg) {
-            if optimize_trace_helper_enabled(trace_level) ||
-              optimize_trace_detail_is_phase(msg) {
-              trace(
-                "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:\{msg}",
-              )
-            }
-          },
-          trace_all_funcs=validate_trace_all_funcs,
-        )
-      } else {
-        validate_module(mod)
-      }
-      match validate_result {
-        Ok(_) => {
-          validation_elapsed_ms = optimize_trace_elapsed_ms(validate_start_ms)
-          optimize_trace_emit_phase(
-            trace,
-            trace_enabled,
-            trace_level,
-            "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation:done elapsed_ms=\{validation_elapsed_ms}",
-          )
-        }
-        Err(e) => {
-          let summary = validation_error_message(e)
-          validation_elapsed_ms = optimize_trace_elapsed_ms(validate_start_ms)
-          optimize_validation_dump_before_after(
-            original_mod, mod, trace, trace_enabled,
-          )
-          optimize_trace_emit_pass(
-            trace,
-            trace_enabled,
-            "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation_error transform_elapsed_ms=\{transform_elapsed_ms} validation_elapsed_ms=\{validation_elapsed_ms} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{summary}",
-          )
-          return Err(
-            opt_format_pass_validation_failure(mod, e, pass, pre_pass_mod),
-          )
-        }
-      }
+      ) {
+      Ok(new_mod) => new_mod
+      Err(e) => return Err(e)
     }
-
-    optimize_trace_emit_phase(
-      trace,
-      trace_enabled,
-      trace_level,
-      "pass[\{pass_index}/\{passes.length()}]:returned pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
-    )
-    optimize_trace_emit_helper(
-      trace,
-      trace_enabled,
-      trace_level,
-      "pass[\{pass_index}/\{passes.length()}]:commit:start pass=\{pass}",
-    )
-    ctx.set_mod(mod)
-    optimize_trace_emit_helper(
-      trace,
-      trace_enabled,
-      trace_level,
-      "pass[\{pass_index}/\{passes.length()}]:commit:done pass=\{pass}",
-    )
-    if pass is Vacuum {
-      let pass_changed = mod != pre_pass_mod
-      previous_vacuum_no_change = !pass_changed
-      changed_since_last_vacuum = false
-    } else {
-      // Conservatively assume non-vacuum passes may have changed the module.
-      // This avoids deep module equality checks on every pass.
-      changed_since_last_vacuum = true
-    }
-    optimize_trace_emit_pass(
-      trace,
-      trace_enabled,
-      "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} transform_elapsed_ms=\{transform_elapsed_ms} validation_elapsed_ms=\{validation_elapsed_ms} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
-    )
   }
   if !validate_after_every_pass {
     let validate_start_ms = optimize_trace_now_ms()
@@ -1837,7 +1966,7 @@ fn optimize_module_with_options_internal(
           "validation:final:error elapsed_ms=\{optimize_trace_elapsed_ms(validate_start_ms)} \{summary}",
         )
         return Err(
-          match (last_pass, last_pre_pass_mod) {
+          match (state.last_pass, state.last_pre_pass_mod) {
             (Some(pass), Some(pre_pass_mod)) =>
               opt_format_pass_validation_failure(mod, e, pass, pre_pass_mod)
             _ => opt_format_validation_error(mod, e)
@@ -5704,6 +5833,82 @@ test "optimize_module pass trace omits scheduler pass segments" {
   )
   assert_eq(
     optimize_trace_count_lines_containing(trace_lines, "scheduler:segment["),
+    0,
+  )
+}
+
+///|
+test "optimize_module helper trace reports scheduler segment execution boundaries" {
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+    ),
+  )
+  let trace_lines : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [DeadCodeElimination, Vacuum, MergeSimilarFunctions, CoalesceLocals],
+        OptimizeOptions::new(),
+        fn(msg) { trace_lines.push(msg) },
+        trace_level=OptimizeTracingLevel::helper(),
+      ) {
+      Ok(m) => m
+      Err(e) =>
+        fail("unexpected optimize_module_with_options_trace error: \{e}")
+    },
+  )
+  assert_eq(
+    optimize_trace_count_lines_containing(
+      trace_lines, "scheduler:run_segment[1/3]:start kind=function-stack passes=DeadCodeElimination,Vacuum",
+    ),
+    1,
+  )
+  assert_eq(
+    optimize_trace_count_lines_containing(
+      trace_lines, "scheduler:run_segment[1/3]:done kind=function-stack passes=DeadCodeElimination,Vacuum",
+    ),
+    1,
+  )
+  assert_eq(
+    optimize_trace_count_lines_containing(
+      trace_lines, "scheduler:run_segment[2/3]:start kind=barrier pass=MergeSimilarFunctions",
+    ),
+    1,
+  )
+  assert_eq(
+    optimize_trace_count_lines_containing(
+      trace_lines, "scheduler:run_segment[3/3]:done kind=function-stack passes=CoalesceLocals",
+    ),
+    1,
+  )
+}
+
+///|
+test "optimize_module pass trace omits scheduler segment execution boundaries" {
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+    ),
+  )
+  let trace_lines : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [DeadCodeElimination, Vacuum, MergeSimilarFunctions, CoalesceLocals],
+        OptimizeOptions::new(),
+        fn(msg) { trace_lines.push(msg) },
+        trace_level=OptimizeTracingLevel::pass(),
+      ) {
+      Ok(m) => m
+      Err(e) =>
+        fail("unexpected optimize_module_with_options_trace error: \{e}")
+    },
+  )
+  assert_eq(
+    optimize_trace_count_lines_containing(trace_lines, "scheduler:run_segment["),
     0,
   )
 }
