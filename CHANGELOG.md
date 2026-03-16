@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-16 SimplifyLocals Follow-up: close scheduler/parity signoff and retire stale blocker list
+
+- Refreshed [`docs/SimplifyLocals.md`](/home/jtenner/Projects/starshine-mb/docs/SimplifyLocals.md) into a completed signoff record for the current five-variant `SimplifyLocals` envelope, including explicit completion notes for the existing correctness, control-structure, validation, performance, and scheduler coverage already in-tree.
+- Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to remove the stale open `SimplifyLocals` blocker checklist and record the signoff closure in the completed-items section.
+- Validation: targeted `simplify_locals` ID regressions; targeted `br_if` / `br_table` / validation-counter regressions; `moon test --package jtenner/starshine/passes --file optimize.mbt -F '*SimplifyLocals*'`.
+
 ## 2026-03-16 MergeSimilarFunctions Follow-up: publish the supported envelope in the main design doc
 
 - Updated [`docs/merge-similar-functions.md`](/home/jtenner/Projects/starshine-mb/docs/merge-similar-functions.md) with a release-facing supported-difference matrix and explicit guarded typed-ref lowering policy, so the main design doc now matches the in-tree behavior already enforced by tests.

@@ -9,24 +9,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - Recent completed items are retained at the bottom until the next audit pass.
 
 ## Publishing blockers
-### `SimplifyLocals` work plan
-- [ ] `SL-01` / `ID-C1`: preserve prior sinkables when an intermediate `local.get` reads the destination local.
-- [ ] `SL-02` / `ID-C2`: keep `local.get` counts exact after structure rewrites that add or remove gets.
-- [ ] `SL-03` / `ID-P1`: support `if` result structuring when one arm is unreachable.
-- [ ] `SL-04` / `ID-P2`: preserve fixpoint-cycle behavior that unlocks later sinks without oscillation.
-- [ ] `SL-05` / `ID-P3`: keep loop-result structuring parity for eligible loops and reject `br 0` loops.
-- [ ] `SL-06` / `ID-P4`: allow subtype-safe single-use sinking without widening or invalidating local types.
-- [ ] `SL-07` / `ID-P5`: keep subtype-aware late canonicalization correct for both small and large local arrays.
-- [ ] `SL-08`: keep conditional `br_if` value/block-return structuring legal, typed, and effect-order-safe.
-- [ ] `SL-09`: keep supported single-target `br_table` block-exit coalescing and reject unsupported shapes.
-- [ ] `SL-10`: preserve typed rewrite validation, repair, and rejection accounting for rewritten functions.
-- [ ] `SL-11` / `ID-F1`: bound main-phase effect recomputation with shared cached effect analysis.
-- [ ] `SL-12`: keep pathological/wide-local guards fast, explicit, and non-destructive on safe inputs.
-- [ ] `SL-13` / `ID-F2`: reduce invalidation-scan overhead below naive active-sinkables-per-instruction behavior.
-- [ ] `SL-14` / `ID-F3`: reuse get-count state across fixpoint cycles without stale-count regressions.
-- [ ] `SL-15` / `ID-F4`: avoid unnecessary late-phase state cloning on nested branch-heavy bodies.
-- [ ] `SL-16`: sign off `SimplifyLocals` pipeline placement and five-variant scheduler parity in `optimize.mbt`.
-- [ ] `SL-17`: close the `SimplifyLocals` parity/performance matrix with explicit tests, divergences, and rerun commands.
 - [x] Optimize + Binaryen feature parity comparison: `RemoveUnusedBrs` (closed in `docs/differences.md`)
 - [x] Optimize + Binaryen feature parity comparison: `PrecomputePropagate` (closed in `docs/differences.md`)
 - [ ] Optimize + Binaryen feature parity comparison: `CodePushing`
@@ -106,3 +88,4 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [x] `MergeSimilarFunctions` `MSF-008` slice: replace the blunt 16-param stop with a soft-limit-plus-hard-cap policy tied to the byte-aware profitability model, add regressions for accepted just-over-limit merges plus explicit pressure/hard-cap skips, and narrow the remaining publish-plan work to `MSF-006`, `MSF-009`, and `MSF-013`.
 - [x] `MergeSimilarFunctions` `MSF-013` slice: add an in-tree fixed-corpus timing and instrumentation harness in `merge_similar_functions.mbt`, lock validity/determinism/allocation-sensitive metrics on representative corpus fixtures, and reduce the remaining publish work to the supported-envelope/signoff documentation items in the publish plan.
 - [x] `MergeSimilarFunctions` `MSF-006` / `MSF-009` slice: copy the supported-difference matrix and guarded typed-ref lowering policy into `docs/merge-similar-functions.md` as the release-facing envelope summary, so the remaining `MergeSimilarFunctions` work is final `MSF-013` signoff only.
+- [x] `SimplifyLocals` `SL-16` / `SL-17` signoff: verified the existing `ID-C1`..`ID-F4`, `br_if`, `br_table`, validation-counter, and `optimize_module runs SimplifyLocals pass` coverage is already green, refreshed `docs/SimplifyLocals.md` into a completed signoff record, and retired the stale open `SimplifyLocals` blocker list from the top of this backlog.

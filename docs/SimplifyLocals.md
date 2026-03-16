@@ -1,5 +1,27 @@
 # SimplifyLocals Work Plan
 
+## Status
+
+- Signoff is complete for the current `SimplifyLocals` envelope and five exposed variants.
+- The pass remains intentionally richer than a minimal Binaryen parity clone, but the current behavior, scheduler placement, and hot-path instrumentation are now explicit and test-backed.
+- This document should be treated as a completed signoff record plus future expansion guide, not as an active blocker list.
+
+## Completion Notes (2026-03-16)
+
+The following coverage is already in-tree and green:
+
+- correctness/regression IDs: `ID-C1`, `ID-C2`, `ID-P1`..`ID-P5`
+- performance/regression IDs: `ID-F1`..`ID-F4`
+- control-structure parity coverage for supported `br_if` and `br_table` rewrites
+- typed rewrite validation, repair, and rejection-counter coverage
+- optimize-scheduler smoke coverage for `SimplifyLocals`
+
+The scheduler/signoff layer is also complete:
+
+- all five `SimplifyLocals` variants remain scheduler-visible in `optimize.mbt`
+- the Binaryen-parity placement notes for `SimplifyLocalsNoTeeNoStructure`, `SimplifyLocalsNoStructure`, and full `SimplifyLocals` are already documented in code and covered by scheduler tests
+- local rerun expectations are recorded at the end of this document
+
 ## Purpose
 
 This document turns the current `SimplifyLocals` investigation into a source-grounded work plan against the repository as it exists today. It is documentation-only: it does not assume missing infrastructure, and it treats the current Starshine pass as an already substantial implementation rather than a stub.
@@ -30,7 +52,7 @@ The current implementation in `src/passes/simplify_locals.mbt` already includes:
 - pathological and wide-local guardrails with revert-to-original behavior,
 - existing regression and performance tests, including `ID-C1`, `ID-C2`, `ID-P1`..`ID-P5`, and `ID-F1`..`ID-F4`.
 
-This means the remaining work is not “implement SimplifyLocals.” The remaining work is to close specific correctness, parity, performance, and scheduler/signoff gaps without regressing the extra validation and observability Starshine already added.
+This means the remaining work is not “implement SimplifyLocals.” For the current release target, the behavior and signoff work is complete; future work from this point would be expansion, cleanup, or deliberate parity follow-up rather than blocker closure.
 
 ## Binaryen Parity Notes
 
@@ -52,7 +74,7 @@ Starshine already intentionally diverges in several useful ways, and those diver
 
 The goal of this plan is therefore parity-plus-signoff: match Binaryen where the behavior should match, and make intentional Starshine differences explicit and test-locked where they should remain.
 
-## Actionable Tasks
+## Historical Task Map
 
 ### `SL-01` / `ID-C1` — Preserve sinkables across destination-local reads only when sound
 
