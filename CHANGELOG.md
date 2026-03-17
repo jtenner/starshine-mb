@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: preserve pass-summary tracing on stacked function segments
+
+- Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so the prepared per-function stacked executor now also stays enabled for `OptimizeTracingLevel::pass()` under final-module validation; `AfterEveryPass` validation remains the intentionally flat fallback.
+- Added synthetic pass-summary emission in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so stacked function segments still report the expected `pass[..]:start`, `pass[..]:done`, and error lines without leaking helper-level `scheduler:` or per-function `func[...]` details into pass traces.
+- Added regressions in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) that lock stacked-runner eligibility for pass tracing and require `DeadCodeElimination -> CodePushing` pass traces to stay summary-only across a multi-function stack segment.
+- Validation: `moon test --package jtenner/starshine/passes --file optimize.mbt`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Optimize Follow-up: chunk repeated vacuum stacks into the largest safe per-function substacks
 
 - Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so non-fully-stackable `FunctionPassStack` segments no longer flush around every `Vacuum`; the fallback path now accumulates the largest safe substack, which keeps repeated-vacuum sequences like `DeadCodeElimination -> Vacuum -> Vacuum -> CodePushing` on stacked per-function execution where the vacuum skip semantics allow it.
