@@ -173,6 +173,7 @@ pub struct CliParseResult {
   mut glob_enabled : Bool
   mut help_requested : Bool
   mut version_requested : Bool
+  mut debug_serial_passes : Bool
   mut read_stdin : Bool
   mut input_format : CliInputFormat?
   output_targets : Array[CliOutputTarget]
@@ -192,6 +193,7 @@ pub fn CliParseResult::new(
   glob_enabled? : Bool = false,
   help_requested? : Bool = false,
   version_requested? : Bool = false,
+  debug_serial_passes? : Bool = false,
   read_stdin? : Bool = false,
   input_format? : CliInputFormat? = None,
   output_targets? : Array[CliOutputTarget] = [],
@@ -209,6 +211,7 @@ pub fn CliParseResult::new(
     glob_enabled,
     help_requested,
     version_requested,
+    debug_serial_passes,
     read_stdin,
     input_format,
     output_targets,
@@ -890,6 +893,15 @@ pub fn parse_cli_args(
               None => return Err(CliParseError::invalid_tracing_level(value))
             }
             index += if consumed_next { 2 } else { 1 }
+          }
+          "debug-serial-passes" => {
+            if inline_value is Some(_) {
+              return Err(
+                CliParseError::unexpected_flag_value("--debug-serial-passes"),
+              )
+            }
+            parsed.debug_serial_passes = true
+            index += 1
           }
           _ => {
             if inline_value is Some(_) {

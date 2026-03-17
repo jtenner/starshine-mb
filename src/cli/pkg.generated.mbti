@@ -97,6 +97,7 @@ pub struct CliParseResult {
   mut glob_enabled : Bool
   mut help_requested : Bool
   mut version_requested : Bool
+  mut debug_serial_passes : Bool
   mut read_stdin : Bool
   mut input_format : CliInputFormat?
   output_targets : Array[CliOutputTarget]
@@ -108,7 +109,7 @@ pub struct CliParseResult {
   mut low_memory_bound : UInt64?
   mut tracing : CliTracingLevel?
 }
-pub fn CliParseResult::new(config_path? : String?, input_globs? : Array[String], glob_enabled? : Bool, help_requested? : Bool, version_requested? : Bool, read_stdin? : Bool, input_format? : CliInputFormat?, output_targets? : Array[CliOutputTarget], pass_flags? : Array[String], optimize_flags? : Array[CliOptimizationFlag], trap_mode? : TrapMode?, monomorphize_min_benefit? : Int?, low_memory_unused? : Bool?, low_memory_bound? : UInt64?, tracing? : CliTracingLevel?) -> Self
+pub fn CliParseResult::new(config_path? : String?, input_globs? : Array[String], glob_enabled? : Bool, help_requested? : Bool, version_requested? : Bool, debug_serial_passes? : Bool, read_stdin? : Bool, input_format? : CliInputFormat?, output_targets? : Array[CliOutputTarget], pass_flags? : Array[String], optimize_flags? : Array[CliOptimizationFlag], trap_mode? : TrapMode?, monomorphize_min_benefit? : Int?, low_memory_unused? : Bool?, low_memory_bound? : UInt64?, tracing? : CliTracingLevel?) -> Self
 pub impl Eq for CliParseResult
 pub impl Show for CliParseResult
 pub impl @debug.Debug for CliParseResult

@@ -182,6 +182,7 @@ pub struct OptimizeOptions {
   low_memory_bound : UInt64
   traps_never_happen : Bool
   validation_policy : OptimizeValidationPolicy
+  stack_function_passes : Bool
 }
 
 ///|
@@ -215,6 +216,7 @@ pub fn OptimizeOptions::new(
   low_memory_bound? : UInt64 = 1024UL,
   traps_never_happen? : Bool = false,
   validation_policy? : OptimizeValidationPolicy = OptimizeValidationPolicy::final_module_only(),
+  stack_function_passes? : Bool = true,
 ) -> OptimizeOptions {
   {
     optimize_level,
@@ -225,6 +227,7 @@ pub fn OptimizeOptions::new(
     low_memory_bound,
     traps_never_happen,
     validation_policy,
+    stack_function_passes,
   }
 }
 
@@ -895,8 +898,15 @@ fn module_pass_is_function_stackable(pass : ModulePass) -> Bool {
 ///|
 fn scheduler_segment_passes(
   passes : Array[ModulePass],
+  options : OptimizeOptions,
 ) -> Array[SchedulerPassSegment] {
   let segments : Array[SchedulerPassSegment] = []
+  if !options.stack_function_passes {
+    for pass in passes {
+      segments.push(BarrierPass(pass))
+    }
+    return segments
+  }
   let current_stack : Array[ModulePass] = []
   for pass in passes {
     if module_pass_is_function_stackable(pass) {
@@ -1834,11 +1844,12 @@ fn optimize_trace_emit_scheduler_segments(
   trace_enabled : Bool,
   level : OptimizeTracingLevel,
   passes : Array[ModulePass],
+  options : OptimizeOptions,
 ) -> Unit {
   if !(trace_enabled && optimize_trace_helper_enabled(level)) {
     return
   }
-  let segments = scheduler_segment_passes(passes)
+  let segments = scheduler_segment_passes(passes, options)
   trace("scheduler:segments total=\{segments.length()}")
   for i = 0; i < segments.length(); i = i + 1 {
     trace(
@@ -2610,7 +2621,7 @@ pub fn optimize_find_post_encode_failure_segment_with_probe(
     Err(e) => return Err("call arity audit failed before pass scheduling: \{e}")
   }
   ctx.set_mod(mod)
-  let segments = scheduler_segment_passes(passes)
+  let segments = scheduler_segment_passes(passes, options)
   let state = OptimizeSchedulerState::new()
   for i = 0; i < segments.length(); i = i + 1 {
     let pre_segment_mod = mod
@@ -2675,7 +2686,7 @@ fn optimize_module_with_options_internal(
     "start passes=\{passes.length()}",
   )
   optimize_trace_emit_scheduler_segments(
-    trace, trace_enabled, trace_level, passes,
+    trace, trace_enabled, trace_level, passes, options,
   )
   if passes.length() == 0 {
     optimize_trace_emit_pass(
@@ -2730,7 +2741,7 @@ fn optimize_module_with_options_internal(
     Err(e) => return Err("call arity audit failed before pass scheduling: \{e}")
   }
   ctx.set_mod(mod)
-  let segments = scheduler_segment_passes(passes)
+  let segments = scheduler_segment_passes(passes, options)
   let state = OptimizeSchedulerState::new()
   for i = 0; i < segments.length(); i = i + 1 {
     let pre_segment_mod = mod
@@ -3634,12 +3645,10 @@ fn assert_pass_context_kind(
 
 ///|
 test "scheduler_segment_passes groups contiguous function-stackable passes" {
-  let segments = scheduler_segment_passes([
-    DeadCodeElimination,
-    Vacuum,
-    MergeSimilarFunctions,
-    Inlining,
-  ])
+  let segments = scheduler_segment_passes(
+    [DeadCodeElimination, Vacuum, MergeSimilarFunctions, Inlining],
+    OptimizeOptions::new(),
+  )
   assert_eq(segments.length(), 3)
   match segments[0] {
     FunctionPassStack(passes) => {
@@ -3660,14 +3669,36 @@ test "scheduler_segment_passes groups contiguous function-stackable passes" {
 }
 
 ///|
+test "scheduler_segment_passes can disable function pass stacking for debug mode" {
+  let segments = scheduler_segment_passes(
+    [DeadCodeElimination, Vacuum, MergeSimilarFunctions, Inlining],
+    OptimizeOptions::new(stack_function_passes=false),
+  )
+  assert_eq(segments.length(), 4)
+  match segments[0] {
+    BarrierPass(pass) => assert_eq(pass, DeadCodeElimination)
+    _ => fail("expected dead code elimination to run as a barrier pass")
+  }
+  match segments[1] {
+    BarrierPass(pass) => assert_eq(pass, Vacuum)
+    _ => fail("expected vacuum to run as a barrier pass")
+  }
+  match segments[2] {
+    BarrierPass(pass) => assert_eq(pass, MergeSimilarFunctions)
+    _ => fail("expected merge similar functions to remain a barrier pass")
+  }
+  match segments[3] {
+    BarrierPass(pass) => assert_eq(pass, Inlining)
+    _ => fail("expected inlining to run as a barrier pass")
+  }
+}
+
+///|
 test "scheduler_segment_passes splits around non-walk-func ir transformers" {
-  let segments = scheduler_segment_passes([
-    Precompute,
-    LocalCSE,
-    CoalesceLocals,
-    Flatten,
-    Vacuum,
-  ])
+  let segments = scheduler_segment_passes(
+    [Precompute, LocalCSE, CoalesceLocals, Flatten, Vacuum],
+    OptimizeOptions::new(),
+  )
   assert_eq(segments.length(), 5)
   match segments[0] {
     FunctionPassStack(passes) => {
@@ -3702,11 +3733,10 @@ test "scheduler_segment_passes splits around non-walk-func ir transformers" {
 
 ///|
 test "scheduler_segment_passes treats module-shaped de_nan wrapper as a barrier" {
-  let segments = scheduler_segment_passes([
-    DeadCodeElimination,
-    DeNaN,
-    CodePushing,
-  ])
+  let segments = scheduler_segment_passes(
+    [DeadCodeElimination, DeNaN, CodePushing],
+    OptimizeOptions::new(),
+  )
   assert_eq(segments.length(), 3)
   match segments[0] {
     FunctionPassStack(passes) => assert_eq(passes, [DeadCodeElimination])
@@ -3724,12 +3754,15 @@ test "scheduler_segment_passes treats module-shaped de_nan wrapper as a barrier"
 
 ///|
 test "scheduler_segment_passes treats constant-field analysis passes as barriers" {
-  let segments = scheduler_segment_passes([
-    Precompute,
-    ConstantFieldPropagation,
-    ConstantFieldNullTestFolding,
-    CodePushing,
-  ])
+  let segments = scheduler_segment_passes(
+    [
+      Precompute,
+      ConstantFieldPropagation,
+      ConstantFieldNullTestFolding,
+      CodePushing,
+    ],
+    OptimizeOptions::new(),
+  )
   assert_eq(segments.length(), 4)
   match segments[0] {
     FunctionPassStack(passes) => assert_eq(passes, [Precompute])
@@ -3774,7 +3807,7 @@ test "scheduler_segment_passes splits default function pipeline at module-runner
     gc_mod,
     OptimizeOptions::new(optimize_level=3, shrink_level=2),
   )
-  let segments = scheduler_segment_passes(passes)
+  let segments = scheduler_segment_passes(passes, OptimizeOptions::new())
   let barrier_idx = Ref::new(-1)
   for i = 0; i < segments.length(); i = i + 1 {
     match segments[i] {
@@ -3809,7 +3842,7 @@ test "scheduler_segment_passes splits optimize_level=4 pipeline around flatten a
     Module::new(),
     OptimizeOptions::new(optimize_level=4),
   )
-  let segments = scheduler_segment_passes(passes)
+  let segments = scheduler_segment_passes(passes, OptimizeOptions::new())
   let flatten_idx = Ref::new(-1)
   let local_cse_idx = Ref::new(-1)
   for i = 0; i < segments.length(); i = i + 1 {

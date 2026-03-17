@@ -41,6 +41,7 @@ using @passes {
   type MemoryPackingPassProps,
   type OptimizeOptions,
   type OptimizeTracingLevel,
+  type OptimizeValidationPolicy,
 }
 
 ///|

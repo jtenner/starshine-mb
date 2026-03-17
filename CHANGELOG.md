@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-17 Optimize Follow-up: add a serial per-pass validation debug mode
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/cli/cli.mbt](/home/jtenner/Projects/starshine-mb/src/cli/cli.mbt), [/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt), and [/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so `starshine --debug-serial-passes ...` now disables function-pass stacking and validates after each pass-sized scheduler segment, making optimize-pipeline correctness failures attributable to the first failing pass instead of a later barrier.
+- Added regressions in [/home/jtenner/Projects/starshine-mb/src/cli/cli_test.mbt](/home/jtenner/Projects/starshine-mb/src/cli/cli_test.mbt) and [/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt), and refreshed the generated interfaces in [/home/jtenner/Projects/starshine-mb/src/cli/pkg.generated.mbti](/home/jtenner/Projects/starshine-mb/src/cli/pkg.generated.mbti) and [/home/jtenner/Projects/starshine-mb/src/passes/pkg.generated.mbti](/home/jtenner/Projects/starshine-mb/src/passes/pkg.generated.mbti).
+- Validation: `moon info && moon fmt`; `moon check`; `moon test --target native src/cli`; `moon test --target native src/cmd`. `moon test --target native src/passes` still fails on the pre-existing `merge_blocks.mbt` wall-time threshold check.
+
 ## 2026-03-17 Self-optimize Follow-up: stream repro output to the terminal
 
 - Updated [/home/jtenner/Projects/starshine-mb/scripts/self-optimize.sh](/home/jtenner/Projects/starshine-mb/scripts/self-optimize.sh) so the self-optimize wrapper now streams optimizer stdout/stderr live to the terminal while still writing `output.log`, and removed the stale `OPTIMIZE_DUMP_FAILED_MODULE_STATE` env plumbing there.

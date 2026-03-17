@@ -466,6 +466,7 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
   let mut low_memory_unused : Bool? = None
   let mut low_memory_bound : UInt64? = None
   let mut tracing : CliTracingLevel? = None
+  let mut debug_serial_passes = false
   let root_obj = match root {
     Object(obj) => obj
     _ => return Err(CmdError::InvalidConfig("config root must be an object"))
@@ -584,6 +585,14 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
         None => ()
       }
     _ => ()
+  }
+  match root_obj.get("debugSerialPasses") {
+    Some(value) =>
+      match parse_json_bool(value) {
+        Some(parsed_value) => debug_serial_passes = parsed_value
+        None => ()
+      }
+    None => ()
   }
 
   match root_obj.get("optimize") {
@@ -743,6 +752,7 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
       low_memory_unused~,
       low_memory_bound~,
       tracing~,
+      debug_serial_passes~,
     ),
   )
 }
@@ -758,6 +768,7 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
   let mut low_memory_unused : Bool? = None
   let mut low_memory_bound : UInt64? = None
   let mut tracing : CliTracingLevel? = None
+  let mut debug_serial_passes = false
 
   match (io.get_env)("STARSHINE_FORMAT") {
     Some(raw) =>
@@ -892,6 +903,14 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
       }
     None => ()
   }
+  match (io.get_env)("STARSHINE_DEBUG_SERIAL_PASSES") {
+    Some(raw) =>
+      match parse_bool_string(raw) {
+        Some(parsed_value) => debug_serial_passes = parsed_value
+        None => ()
+      }
+    None => ()
+  }
   CliParseResult::new(
     input_format~,
     output_targets~,
@@ -902,6 +921,7 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
     low_memory_unused~,
     low_memory_bound~,
     tracing~,
+    debug_serial_passes~,
   )
 }
 
@@ -1019,10 +1039,14 @@ fn merge_parse_results(
         None => config.tracing
       }
   }
+  let debug_serial_passes = cli.debug_serial_passes ||
+    env.debug_serial_passes ||
+    config.debug_serial_passes
   CliParseResult::new(
     config_path~,
     input_globs~,
     glob_enabled~,
+    debug_serial_passes~,
     read_stdin~,
     input_format~,
     output_targets~,
@@ -1150,6 +1174,7 @@ fn make_optimize_options(
   monomorphize_min_benefit : Int,
   low_memory_unused : Bool,
   low_memory_bound : UInt64,
+  debug_serial_passes : Bool,
 ) -> OptimizeOptions {
   OptimizeOptions::new(
     optimize_level~,
@@ -1159,6 +1184,12 @@ fn make_optimize_options(
     low_memory_unused~,
     low_memory_bound~,
     traps_never_happen~,
+    validation_policy=if debug_serial_passes {
+      OptimizeValidationPolicy::after_segment()
+    } else {
+      OptimizeValidationPolicy::final_module_only()
+    },
+    stack_function_passes=!debug_serial_passes,
   )
 }
 
@@ -2016,6 +2047,9 @@ pub fn cmd_help_text() -> String {
     out, "--tracing <pass|phase|helper>", "Set optimization tracing level.",
   )
   append_help_line(
+    out, "--debug-serial-passes", "Debug mode: run one pass per segment and validate after each pass.",
+  )
+  append_help_line(
     out, "--monomorphize-min-benefit <N>", "Set monomorphization benefit threshold.",
   )
   append_help_line(
@@ -2584,8 +2618,13 @@ pub fn run_cmd_with_adapter(
     None => 1024UL
   }
   let options = make_optimize_options(
-    optimize_level, shrink_level, traps_never_happen, monomorphize_min_benefit, low_memory_unused,
+    optimize_level,
+    shrink_level,
+    traps_never_happen,
+    monomorphize_min_benefit,
+    low_memory_unused,
     low_memory_bound,
+    merged.debug_serial_passes,
   )
   cmd_trace_emit(
     io,

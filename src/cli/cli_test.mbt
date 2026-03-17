@@ -206,6 +206,13 @@ test "parse_cli_args accepts trap-mode values and keeps them out of pass flags" 
 }
 
 ///|
+test "parse_cli_args enables debug serial passes without treating it as a pass flag" {
+  let parsed = parse_ok(["--debug-serial-passes", "--optimize", "--vacuum"])
+  assert_true(parsed.debug_serial_passes)
+  assert_eq(parsed.pass_flags, ["optimize", "vacuum"])
+}
+
+///|
 test "parse_cli_args requires explicit trap-mode value" {
   assert_eq(
     parse_err(["--trap-mode"]),
