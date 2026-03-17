@@ -1,8 +1,27 @@
 ///|
+
+///|
+pub enum TcEscape {
+  NoTcEscape
+  BranchTcEscape(Int)
+  TerminalTcEscape
+} derive(Eq, Debug)
+
+///|
+pub impl Show for TcEscape with output(self, logger) {
+  match self {
+    NoTcEscape => logger.write_string("NoTcEscape")
+    BranchTcEscape(depth) => logger.write_string("BranchTcEscape(\{depth})")
+    TerminalTcEscape => logger.write_string("TerminalTcEscape")
+  }
+}
+
+///|
 pub struct TcState {
   env : Env
   stack : Array[ValType]
   reachable : Bool
+  escape : TcEscape
 }
 
 ///|
@@ -14,6 +33,8 @@ pub impl Show for TcState with output(self, logger) {
   self.stack.output(logger)
   logger.write_string("\n  reachable : ")
   self.reachable.output(logger)
+  logger.write_string("\n  escape : ")
+  self.escape.output(logger)
   logger.write_string("\n}")
 }
 
@@ -27,8 +48,20 @@ pub trait Typecheck {
 
 ///|
 fn TcState::set_unreachable(st : TcState) -> TcState {
+  if !st.reachable {
+    return st
+  }
   st.stack.clear()
-  TcState::{ ..st, reachable: false }
+  TcState::{ ..st, reachable: false, escape: TerminalTcEscape }
+}
+
+///|
+fn TcState::set_branch_escape(st : TcState, depth : Int) -> TcState {
+  if !st.reachable {
+    return st
+  }
+  st.stack.clear()
+  TcState::{ ..st, reachable: false, escape: BranchTcEscape(depth) }
 }
 
 ///|
@@ -191,6 +224,40 @@ fn validate_end_stack(
     return Err("type mismatch")
   }
   Ok(())
+}
+
+///|
+fn normalize_if_branch_exit(
+  st : TcState,
+  results : Array[ValType],
+) -> Result[(Bool, TcEscape), String] {
+  if st.reachable {
+    match validate_end_stack(st, results) {
+      Err(e) => return Err(e)
+      Ok(_) => ()
+    }
+    return Ok((true, NoTcEscape))
+  }
+  match st.escape {
+    NoTcEscape => {
+      match validate_end_stack(st, results) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
+      }
+      Ok((false, TerminalTcEscape))
+    }
+    BranchTcEscape(0) => Ok((true, NoTcEscape))
+    BranchTcEscape(depth) => Ok((false, BranchTcEscape(depth - 1)))
+    TerminalTcEscape => Ok((false, TerminalTcEscape))
+  }
+}
+
+///|
+fn merge_nonfallthrough_if_exits(left : TcEscape, right : TcEscape) -> TcEscape {
+  if left == right {
+    return left
+  }
+  TerminalTcEscape
 }
 
 ///|
@@ -433,7 +500,8 @@ fn typecheck_br(st : TcState, l : LabelIdx) -> TcResult {
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  Ok(st1.set_unreachable())
+  let LabelIdx(depth) = l
+  Ok(st1.set_branch_escape(depth.reinterpret_as_int()))
 }
 
 ///|
@@ -456,6 +524,7 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     env: env2,
     stack: body_stack,
     reachable: st1.reachable,
+    escape: st1.escape,
   }
   let st_body = match Typecheck::typecheck(body, st_body0) {
     Err(e) => return Err(e)
@@ -467,7 +536,12 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     Ok(_) => ()
   }
 
-  let out = TcState::{ env: st.env, stack: st1.stack, reachable: st.reachable }
+  let out = TcState::{
+    env: st.env,
+    stack: st1.stack,
+    reachable: st.reachable,
+    escape: st.escape,
+  }
   Ok( // reachability after block is same as entry unless you model merges
     out.push_types(results),
   )
@@ -508,6 +582,7 @@ fn typecheck_if(
     env: env_branch,
     stack: branch_stack,
     reachable: st1.reachable,
+    escape: st1.escape,
   }
   let st_then = match Typecheck::typecheck(Expr::new(then_instrs), st_then0) {
     Err(e) => return Err(e)
@@ -519,53 +594,39 @@ fn typecheck_if(
     env: env_branch,
     stack: tc_stack_from_types(params),
     reachable: st1.reachable,
+    escape: st1.escape,
   }
   let st_else = match Typecheck::typecheck(Expr::new(else_instrs), st_else0) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
 
-  // For each reachable branch: enforce results and ensure no extra values.
-  let norm_branch = fn(sb : TcState) -> Result[(Bool, Array[ValType]), String] {
-    match validate_end_stack(sb, results) {
-      Err(e) => return Err(e)
-      Ok(_) => ()
-    }
-    let normalized_stack = if sb.reachable { [] } else { sb.stack }
-    Ok((sb.reachable, normalized_stack))
-  }
-  let (then_reach, then_stack) = match norm_branch(st_then) {
+  let (then_reach, then_escape) = match
+    normalize_if_branch_exit(st_then, results) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
-  let (else_reach, else_stack) = match norm_branch(st_else) {
+  let (else_reach, else_escape) = match
+    normalize_if_branch_exit(st_else, results) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
 
-  // Merge rule: if both reachable, stacks must be identical at merge point.
-  // If one unreachable, take the other.
-  let merged_stack = match (then_reach, else_reach) {
-    (true, true) => {
-      if then_stack != else_stack {
-        return Err("if branch stack mismatch")
-      }
-      then_stack
+  if then_reach || else_reach {
+    let out = TcState::{
+      env: st.env,
+      stack: st1.stack,
+      reachable: true,
+      escape: NoTcEscape,
     }
-    (true, false) => then_stack
-    (false, true) => else_stack
-    (false, false) => [] // both unreachable, branch stack shape is irrelevant
+    return Ok(out.push_types(results))
   }
-  let merged_reachable = then_reach || else_reach
-  if merged_stack.length() != 0 {
-    return Err("if branch stack mismatch")
-  }
-  let out = TcState::{
+  Ok(TcState::{
     env: st.env,
-    stack: st1.stack,
-    reachable: merged_reachable,
-  }
-  Ok(out.push_types(results))
+    stack: [],
+    reachable: false,
+    escape: merge_nonfallthrough_if_exits(then_escape, else_escape),
+  })
 }
 
 ///|
@@ -633,7 +694,18 @@ fn typecheck_br_table(
   }
 
   // br_table always branches - code after is unreachable
-  Ok(st2.set_unreachable())
+  let mut all_same = true
+  for l in ls {
+    if l != ldef {
+      all_same = false
+    }
+  }
+  if all_same {
+    let LabelIdx(depth) = ldef
+    Ok(st2.set_branch_escape(depth.reinterpret_as_int()))
+  } else {
+    Ok(st2.set_unreachable())
+  }
 }
 
 ///|
@@ -1158,6 +1230,7 @@ fn typecheck_try_table(
     env: env2,
     stack: tc_stack_from_types(params),
     reachable: st1.reachable,
+    escape: st1.escape,
   }
 
   // body must typecheck under extended env
@@ -1186,6 +1259,7 @@ fn typecheck_try_table(
     env: st.env,
     stack: st1.stack,
     reachable: st_body.reachable,
+    escape: st_body.escape,
   }
   Ok(out.push_types(results))
 }
@@ -1498,6 +1572,7 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     env: env2,
     stack: tc_stack_from_types(params),
     reachable: st1.reachable,
+    escape: st1.escape,
   }
   let st_body = match Typecheck::typecheck(body, st_body0) {
     Err(e) => return Err(e)
@@ -1516,6 +1591,7 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     // A loop does not make outer control-flow unreachable by itself.
     // Preserve entry reachability at the merge point.
     reachable: st.reachable,
+    escape: st.escape,
   }
   Ok(out.push_types(results))
 }
@@ -4224,6 +4300,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         env: env2,
         stack: [],
         reachable: st.reachable,
+        escape: st.escape,
       }
       let { instrs: body, .. } = body
       for instr in body {
@@ -4240,6 +4317,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         env: st.env,
         stack: st.stack,
         reachable: st.reachable,
+        escape: st.escape,
       }
       Ok(out.push_types(results))
     }
@@ -4253,6 +4331,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         env: env2,
         stack: [],
         reachable: st.reachable,
+        escape: st.escape,
       }
       let { instrs: body, .. } = body
       for instr in body {
@@ -4270,6 +4349,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         stack: st.stack,
         // Typed loop merge mirrors untyped loop reachability semantics.
         reachable: st.reachable,
+        escape: st.escape,
       }
       Ok(out.push_types(results))
     }
@@ -4296,6 +4376,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         env: env_branch,
         stack: [],
         reachable: st1.reachable,
+        escape: st1.escape,
       }
       let mut st_then = st_then0
       let { instrs: then_instrs, .. } = then_instrs
@@ -4309,6 +4390,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         env: env_branch,
         stack: [],
         reachable: st1.reachable,
+        escape: st1.escape,
       }
       let mut st_else = st_else0
       for instr in else_instrs {
@@ -4317,45 +4399,31 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
           Ok(s) => s
         }
       }
-      let norm_branch = fn(
-        sb : TcState,
-      ) -> Result[(Bool, Array[ValType]), String] {
-        match validate_end_stack(sb, results) {
-          Err(e) => return Err(e)
-          Ok(_) => ()
-        }
-        let normalized_stack = if sb.reachable { [] } else { sb.stack }
-        Ok((sb.reachable, normalized_stack))
-      }
-      let (then_reach, then_stack) = match norm_branch(st_then) {
+      let (then_reach, then_escape) = match
+        normalize_if_branch_exit(st_then, results) {
         Err(e) => return Err(e)
         Ok(x) => x
       }
-      let (else_reach, else_stack) = match norm_branch(st_else) {
+      let (else_reach, else_escape) = match
+        normalize_if_branch_exit(st_else, results) {
         Err(e) => return Err(e)
         Ok(x) => x
       }
-      let merged_stack = match (then_reach, else_reach) {
-        (true, true) => {
-          if then_stack != else_stack {
-            return Err("if branch stack mismatch")
-          }
-          then_stack
+      if then_reach || else_reach {
+        let out = TcState::{
+          env: st.env,
+          stack: st1.stack,
+          reachable: true,
+          escape: NoTcEscape,
         }
-        (true, false) => then_stack
-        (false, true) => else_stack
-        (false, false) => []
+        return Ok(out.push_types(results))
       }
-      let merged_reachable = then_reach || else_reach
-      if merged_stack.length() != 0 {
-        return Err("if branch stack mismatch")
-      }
-      let out = TcState::{
+      Ok(TcState::{
         env: st.env,
-        stack: st1.stack,
-        reachable: merged_reachable,
-      }
-      Ok(out.push_types(results))
+        stack: [],
+        reachable: false,
+        escape: merge_nonfallthrough_if_exits(then_escape, else_escape),
+      })
     }
     TInstrKind::TTryTable(bt, catches, body) => {
       let (params, results) = match st.env.expand_blocktype(bt) {
@@ -4371,6 +4439,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         env: env2,
         stack: tc_stack_from_types(params),
         reachable: st1.reachable,
+        escape: st1.escape,
       }
       let mut st_body = st_body0
       let { instrs: body, .. } = body
@@ -4395,6 +4464,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         env: st.env,
         stack: st1.stack,
         reachable: st_body.reachable,
+        escape: st_body.escape,
       }
       Ok(out.push_types(results))
     }
@@ -5080,7 +5150,7 @@ fn non_nullable_externref() -> ValType {
 
 ///|
 pub fn make_state(env : Env, stack : Array[ValType]) -> TcState {
-  { env, stack: stack.copy(), reachable: true }
+  { env, stack: stack.copy(), reachable: true, escape: NoTcEscape }
 }
 
 // =============================================================================
@@ -6906,7 +6976,7 @@ test "Typecheck ExternConvertAny" {
 ///|
 test "Typecheck I32Const pushes i32" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: true }
+  let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
   let result = Typecheck::typecheck(Instruction::i32_const(I32(42)), state)
   match result {
     Ok(new_state) => assert_eq(new_state.stack, [ValType::i32()])
@@ -6921,6 +6991,7 @@ test "Typecheck I32Add consumes two i32s and produces one" {
     env,
     stack: [ValType::i32(), ValType::i32()],
     reachable: true,
+    escape: NoTcEscape,
   }
   let result = Typecheck::typecheck(Instruction::i32_add(), state)
   match result {
@@ -6932,7 +7003,7 @@ test "Typecheck I32Add consumes two i32s and produces one" {
 ///|
 test "Typecheck I32Add fails with insufficient stack" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: true }
+  let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
   let result = Typecheck::typecheck(Instruction::i32_add(), state)
   match result {
     Ok(_) => fail("I32Add should fail with empty stack")
@@ -6943,7 +7014,12 @@ test "Typecheck I32Add fails with insufficient stack" {
 ///|
 test "Typecheck Drop removes top of stack" {
   let env = empty_env()
-  let state : TcState = { env, stack: [ValType::i32()], reachable: true }
+  let state : TcState = {
+    env,
+    stack: [ValType::i32()],
+    reachable: true,
+    escape: NoTcEscape,
+  }
   let result = Typecheck::typecheck(Instruction::drop(), state)
   match result {
     Ok(new_state) => assert_eq(new_state.stack, [])
@@ -6954,7 +7030,7 @@ test "Typecheck Drop removes top of stack" {
 ///|
 test "Typecheck Unreachable makes state unreachable" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: true }
+  let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
   let result = Typecheck::typecheck(Instruction::unreachable_(), state)
   match result {
     Ok(new_state) => assert_eq(new_state.reachable, false)
@@ -6965,7 +7041,7 @@ test "Typecheck Unreachable makes state unreachable" {
 ///|
 test "Typecheck empty Expr" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: true }
+  let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
   let expr = Expr::new([])
   let result = Typecheck::typecheck(expr, state)
   match result {
@@ -6977,7 +7053,7 @@ test "Typecheck empty Expr" {
 ///|
 test "Typecheck Expr sequence" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: true }
+  let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
   let expr = Expr::new([
     Instruction::i32_const(I32(1)),
     Instruction::i32_const(I32(2)),
@@ -6993,7 +7069,7 @@ test "Typecheck Expr sequence" {
 ///|
 test "Typecheck I64Const pushes i64" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: true }
+  let state : TcState = { env, stack: [], reachable: true, escape: NoTcEscape }
   let result = Typecheck::typecheck(Instruction::i64_const(I64(100L)), state)
   match result {
     Ok(new_state) => assert_eq(new_state.stack, [ValType::i64()])
@@ -7008,6 +7084,7 @@ test "Typecheck type mismatch fails" {
     env,
     stack: [ValType::i64(), ValType::i32()],
     reachable: true,
+    escape: NoTcEscape,
   }
   let result = Typecheck::typecheck(Instruction::i32_add(), state)
   match result {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-17 Validate Follow-up: distinguish current-label branches from terminal exits in `if` merges
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so validator control-flow tracking now distinguishes `br` exits that reach the current construct’s merge point from truly terminal exits, fixing invalid acceptance of result-typed outer `if` expressions whose inner arms both branch to the current label.
+- Added regressions in [/home/jtenner/Projects/starshine-mb/src/validate/typecheck_negative_tests.mbt](/home/jtenner/Projects/starshine-mb/src/validate/typecheck_negative_tests.mbt) and [/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt), refreshed [/home/jtenner/Projects/starshine-mb/src/validate/pkg.generated.mbti](/home/jtenner/Projects/starshine-mb/src/validate/pkg.generated.mbti), and updated the now-valid fixture in [/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_brs.mbt](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_brs.mbt).
+- Validation: `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-17 Optimize Follow-up: shrink `SSANoMerge` reach analysis state
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/passes/dataflow_opt.mbt](/home/jtenner/Projects/starshine-mb/src/passes/dataflow_opt.mbt) so `SSANoMerge` now stores dense block/get/set state in arrays, memoizes block-entry reach queries, and replaces per-get reaching-definition sets with a compact reach-state enum to cut repeated CFG rescans and GC churn.

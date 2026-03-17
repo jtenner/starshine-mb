@@ -1,6 +1,6 @@
 ///|
 fn tcneg_make_state(env : Env, stack : Array[ValType]) -> TcState {
-  { env, stack, reachable: true }
+  { env, stack, reachable: true, escape: NoTcEscape }
 }
 
 ///|
@@ -117,7 +117,12 @@ test "Typecheck RefCastDescEq rejects invalid descriptor target type index" {
 
 ///|
 test "Typecheck RefCastDescEq accepts polymorphic stack in unreachable state" {
-  let state : TcState = { env: empty_env(), stack: [], reachable: false }
+  let state : TcState = {
+    env: empty_env(),
+    stack: [],
+    reachable: false,
+    escape: TerminalTcEscape,
+  }
   let result = Typecheck::typecheck(
     Instruction::ref_cast_desc_eq(true, HeapType::abs(AbsHeapType::eq())),
     state,
@@ -764,7 +769,12 @@ test "Typecheck try_table with invalid TypeIdx blocktype" {
 ///|
 test "Typecheck unreachable pop1 returns bot (polymorphic stack)" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: false }
+  let state : TcState = {
+    env,
+    stack: [],
+    reachable: false,
+    escape: TerminalTcEscape,
+  }
   // In unreachable code, pop1 should succeed and return BotValType
   let result = state.pop1()
   match result {
@@ -776,7 +786,12 @@ test "Typecheck unreachable pop1 returns bot (polymorphic stack)" {
 ///|
 test "Typecheck unreachable pop_expect succeeds for any type" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: false }
+  let state : TcState = {
+    env,
+    stack: [],
+    reachable: false,
+    escape: TerminalTcEscape,
+  }
   // In unreachable code, pop_expect should accept any type
   let result = state.pop_expect(ValType::i64())
   match result {
@@ -788,7 +803,12 @@ test "Typecheck unreachable pop_expect succeeds for any type" {
 ///|
 test "Typecheck unreachable pop_types succeeds for any types" {
   let env = empty_env()
-  let state : TcState = { env, stack: [], reachable: false }
+  let state : TcState = {
+    env,
+    stack: [],
+    reachable: false,
+    escape: TerminalTcEscape,
+  }
   // In unreachable code, pop_types should accept any type list
   let result = state.pop_types([ValType::i32(), ValType::i64(), ValType::f32()])
   match result {
@@ -837,6 +857,38 @@ test "Typecheck if with both unreachable branches yields unreachable" {
   match result {
     Ok(st) => assert_true(not(st.reachable))
     Err(e) => fail("Expected Ok (both unreachable), got Err: \{e}")
+  }
+}
+
+///|
+test "Typecheck inner if branches to current label still reaches outer merge" {
+  let env = empty_env()
+  let state = tcneg_make_state(env, [ValType::i32()])
+  let result = Typecheck::typecheck(
+    Instruction::if_(
+      BlockType::val_type(ValType::i32()),
+      [Instruction::i32_const(I32(1000))],
+      Some([
+        Instruction::i32_const(I32(1)),
+        Instruction::if_(
+          BlockType::void_(),
+          [Instruction::br(LabelIdx::new(0))],
+          Some([Instruction::br(LabelIdx::new(0))]),
+        ),
+        Instruction::i32_const(I32(2000)),
+      ]),
+    ),
+    state,
+  )
+  match result {
+    Ok(st) => {
+      assert_true(st.reachable)
+      assert_eq(st.stack, [ValType::i32()])
+    }
+    Err(e) =>
+      fail(
+        "Expected inner current-label branches to preserve outer reachability, got Err: \{e}",
+      )
   }
 }
 

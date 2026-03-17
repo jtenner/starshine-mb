@@ -5723,7 +5723,7 @@ test "remove_unused_brs keeps trailing br 0 when block prefix is unreachable" {
       BlockType::void_(),
       TExpr::new([
         TInstr::unreachable_(),
-        TInstr::i32_const(I32(32384)),
+        TInstr::drop(TInstr::i32_const(I32(32384))),
         TInstr::br(LabelIdx::new(0), []),
       ]),
     ),
@@ -5734,27 +5734,20 @@ test "remove_unused_brs keeps trailing br 0 when block prefix is unreachable" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(_, _, body_expr) => {
-      if body_expr.instrs.length() == 0 {
-        fail(
-          "expected output function body to retain a block with trailing br 0",
-        )
+      if body_expr.instrs.length() != 1 {
+        fail("expected 1 top-level instr, got \{body_expr.instrs.length()}")
       }
       match body_expr.instrs[0].kind {
-        TInstrKind::TBlock(
-          _,
-          {
-            instrs: [
-              { kind: TInstrKind::TUnreachable, .. },
-              { kind: TInstrKind::TI32Const(I32(32384)), .. },
-              { kind: TInstrKind::TBr(label, []), .. },
-            ],
-            ..,
+        TInstrKind::TBlock(_, { instrs, .. }) => {
+          if instrs.length() != 3 {
+            fail("expected 3 block instrs, got \{instrs.length()}")
           }
-        ) => assert_eq(label, LabelIdx::new(0))
-        _ =>
-          fail(
-            "expected first instruction block to retain trailing br 0 after unreachable prefix",
-          )
+          match instrs[2].kind {
+            TInstrKind::TBr(label, []) => assert_eq(label, LabelIdx::new(0))
+            _ => fail("expected trailing br 0 inside rewritten block")
+          }
+        }
+        _ => fail("expected first top-level instr to remain a block")
       }
     }
     _ =>

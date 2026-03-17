@@ -154,10 +154,20 @@ pub impl Show for Env
 
 type GenValidContext
 
+pub enum TcEscape {
+  NoTcEscape
+  BranchTcEscape(Int)
+  TerminalTcEscape
+}
+pub impl Eq for TcEscape
+pub impl Show for TcEscape
+pub impl @debug.Debug for TcEscape
+
 pub struct TcState {
   env : Env
   stack : Array[@lib.ValType]
   reachable : Bool
+  escape : TcEscape
 }
 pub impl Show for TcState
 

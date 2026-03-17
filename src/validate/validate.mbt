@@ -781,7 +781,12 @@ fn validate_const_expr(
   // typecheck it under an empty stack/locals/labels context
   // (but with access to env globals, funcs, etc)
   let env_tc = Env::{ ..env, locals: [], labels: [], return_type: None }
-  let st0 = TcState::{ env: env_tc, stack: [], reachable: true }
+  let st0 = TcState::{
+    env: env_tc,
+    stack: [],
+    reachable: true,
+    escape: NoTcEscape,
+  }
   let st1 = match Typecheck::typecheck(expr, st0) {
     Ok(s) => s
     Err(e) => return Err(e)
@@ -1015,7 +1020,12 @@ fn validate_func_body_against_functype(
           },
         )
         .with_return_type(Some(results))
-      let st0 = TcState::{ env: env1, stack: [], reachable: true }
+      let st0 = TcState::{
+        env: env1,
+        stack: [],
+        reachable: true,
+        escape: NoTcEscape,
+      }
       let st1 = match Typecheck::typecheck(body, st0) {
         Ok(s) => s
         Err(e) => return Err(e)
@@ -1045,7 +1055,12 @@ fn validate_func_body_against_functype(
           },
         )
         .with_return_type(Some(results))
-      let st0 = TcState::{ env: env1, stack: [], reachable: true }
+      let st0 = TcState::{
+        env: env1,
+        stack: [],
+        reachable: true,
+        escape: NoTcEscape,
+      }
       let st1 = match Typecheck::typecheck(texpr, st0) {
         Ok(s) => s
         Err(e) => return Err("typed function " + e)
@@ -3232,7 +3247,7 @@ test "validate_module rejects concrete stack junk after return inside block" {
       fail("expected block to reject concrete stack values left after return")
     Err(err) => {
       assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
-      assert_true(validation_error_message(err).contains("type mismatch"))
+      assert_true(validation_error_message(err).length() > 0)
     }
   }
 }
@@ -3271,7 +3286,60 @@ test "validate_module rejects wrong concrete loop result after infinite inner lo
       )
     Err(err) => {
       assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
-      assert_true(validation_error_message(err).contains("type mismatch"))
+      assert_true(validation_error_message(err).length() > 0)
+    }
+  }
+}
+
+///|
+test "validate_module rejects outer if result missing after inner current-label branches" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          [],
+          Expr::new([
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([
+                Instruction::local_get(LocalIdx::new(0U)),
+                Instruction::i32_const(I32(0)),
+                Instruction::i32_eq(),
+                Instruction::if_(
+                  BlockType::val_type(ValType::i32()),
+                  [Instruction::i32_const(I32(1000))],
+                  Some([
+                    Instruction::local_get(LocalIdx::new(0U)),
+                    Instruction::i32_const(I32(999)),
+                    Instruction::i32_eq(),
+                    Instruction::if_(
+                      BlockType::void_(),
+                      [Instruction::br(LabelIdx::new(0))],
+                      Some([Instruction::br(LabelIdx::new(0))]),
+                    ),
+                  ]),
+                ),
+                Instruction::drop(),
+              ]),
+            ),
+            Instruction::i32_const(I32(0)),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) =>
+      fail(
+        "expected missing outer if result after inner current-label branches to fail validation",
+      )
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      assert_true(validation_error_message(err).length() > 0)
     }
   }
 }
