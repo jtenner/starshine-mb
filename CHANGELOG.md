@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: keep after-every-pass validation inside prepared function stacks
+
+- Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so `FunctionPassStack` segments now stay on prepared function-pass execution even under `OptimizeValidationPolicy::after_every_pass()`: the stack runner applies each prepared pass across all functions, validates at the pass boundary, and preserves pass-local validation attribution instead of falling back to the legacy flat scheduler path.
+- Tightened stacked pass tracing in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so synthesized pass-summary start lines keep their scheduler kind labels, and added regressions that require helper/phase traces to show the validation barrier between `DeadCodeElimination` and `CodePushing` on the after-every-pass path.
+- Validation: `moon test --package jtenner/starshine/passes --file optimize.mbt`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Optimize Follow-up: preserve pass-summary tracing on stacked function segments
 
 - Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so the prepared per-function stacked executor now also stays enabled for `OptimizeTracingLevel::pass()` under final-module validation; `AfterEveryPass` validation remains the intentionally flat fallback.
