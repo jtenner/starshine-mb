@@ -278,6 +278,16 @@ fn msf_resolve_func_type_for_type_idx(
 }
 
 ///|
+fn msf_make_func_env(
+  base_env : Env,
+  func_type : FuncType,
+  locals : Array[ValType],
+) -> Env {
+  let FuncType(params, _) = func_type
+  base_env.with_locals(FunctionLocals::new(params, locals).all_locals())
+}
+
+///|
 fn msf_verify_call_target_type(
   type_idx : TypeIdx,
   expected_arg_count : Int,
@@ -632,9 +642,13 @@ fn hash_function_ignoring_consts(
 }
 
 ///|
-fn msf_hash_call_shape(body : TExpr, func_type_idxs : Array[TypeIdx]) -> UInt64 {
+fn msf_hash_call_shape(
+  body : TExpr,
+  func_type_idxs : Array[TypeIdx],
+  func_env : Env,
+) -> UInt64 {
   let mut digest = 1469598103934665603UL
-  for site in msf_collect_ordered_sites(body, func_type_idxs) {
+  for site in msf_collect_ordered_sites(body, func_type_idxs, type_env=func_env) {
     match site.value {
       CallTargetSite(_, type_idx, is_return, arg_count) => {
         digest = msf_mix_digest(
@@ -742,6 +756,7 @@ fn msf_collect_call_sites(body : TExpr) -> Array[MSFCallSite] {
 fn msf_collect_ordered_sites(
   body : TExpr,
   type_idxs : Array[TypeIdx],
+  type_env? : Env = Env::new(),
 ) -> Array[MSFOrderedSite] {
   // Site ids are assigned by a single pre-order transformer walk: the id is
   // captured before visiting children, and every site-sensitive helper in this
@@ -788,7 +803,7 @@ fn msf_collect_ordered_sites(
                     target,
                     call_type_idx,
                     is_return,
-                    args.length(),
+                    tinstrs_result_arity(args, type_env),
                   ),
                 })
               TInstrKind::TReturnCall(_, args) =>
@@ -798,7 +813,7 @@ fn msf_collect_ordered_sites(
                     target,
                     call_type_idx,
                     is_return,
-                    args.length(),
+                    tinstrs_result_arity(args, type_env),
                   ),
                 })
               _ => ()
@@ -961,13 +976,15 @@ fn msf_validate_call_target_rewrite_site(
   type_idx : TypeIdx,
   expected_arg_count : Int,
   expects_return : Bool,
-  type_env : Env,
+  func_env : Env,
   func_type_idxs : Array[TypeIdx],
 ) -> Result[Unit, String] {
   let expected_kind = msf_direct_call_kind_name(expects_return)
   let (target, actual_arg_count, actual_is_return) = match instr.kind {
-    TInstrKind::TCall(target, args) => (target, args.length(), false)
-    TInstrKind::TReturnCall(target, args) => (target, args.length(), true)
+    TInstrKind::TCall(target, args) =>
+      (target, tinstrs_result_arity(args, func_env), false)
+    TInstrKind::TReturnCall(target, args) =>
+      (target, tinstrs_result_arity(args, func_env), true)
     _ =>
       return Err(
         msf_call_target_rewrite_error(
@@ -990,7 +1007,7 @@ fn msf_validate_call_target_rewrite_site(
       ),
     )
   }
-  match msf_verify_call_target_type(type_idx, expected_arg_count, type_env) {
+  match msf_verify_call_target_type(type_idx, expected_arg_count, func_env) {
     Ok(_) => ()
     Err(e) =>
       return Err(msf_call_target_rewrite_error("node_id=\{node_id} \{e}"))
@@ -1096,7 +1113,7 @@ fn msf_preflight_type_idx_call_site(
 fn msf_prevalidate_call_target_rewrite_metadata(
   body : TExpr,
   params : Array[ParamInfo],
-  type_env : Env,
+  func_env : Env,
   func_type_idxs : Array[TypeIdx],
 ) -> Result[Unit, String] {
   let node_to_param = msf_build_dense_node_to_param(params)
@@ -1116,7 +1133,7 @@ fn msf_prevalidate_call_target_rewrite_metadata(
               seen_call_target_uses[node_id] = true
               match
                 msf_validate_call_target_rewrite_site(
-                  node_id, instr, type_idx, expected_arg_count, expects_return, type_env,
+                  node_id, instr, type_idx, expected_arg_count, expects_return, func_env,
                   func_type_idxs,
                 ) {
                 Ok(_) => from_walk(self.walk_tinstruction_default((), instr))
@@ -1170,8 +1187,23 @@ fn msf_preflight_direct_calls(
     Some(CodeSec(funcs)) =>
       for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
         let caller_abs_idx = import_count + def_idx
+        let func_type = match func_type_idxs.get(caller_abs_idx) {
+          Some(type_idx) =>
+            match type_env.resolve_functype(type_idx) {
+              Some(func_type) => func_type
+              None =>
+                return Err(
+                  "merge_similar_functions: preflight could not resolve caller functype caller_abs_idx=\{caller_abs_idx}",
+                )
+            }
+          None =>
+            return Err(
+              "merge_similar_functions: preflight caller out of range caller_abs_idx=\{caller_abs_idx}",
+            )
+        }
         match funcs[def_idx] {
-          TFunc(_, _, body) => {
+          TFunc(_, locals, body) => {
+            let func_env = msf_make_func_env(type_env, func_type, locals)
             let mut next_id = 0
             let walker : ModuleTransformer[Unit, String] = ModuleTransformer::new().on_tinstruction_evt(fn(
                 self,
@@ -1189,7 +1221,7 @@ fn msf_preflight_direct_calls(
                         caller_abs_idx,
                         node_id,
                         target,
-                        args.length(),
+                        tinstrs_result_arity(args, func_env),
                         false,
                       ) {
                       Ok(_) =>
@@ -1204,7 +1236,7 @@ fn msf_preflight_direct_calls(
                         caller_abs_idx,
                         node_id,
                         target,
-                        args.length(),
+                        tinstrs_result_arity(args, func_env),
                         true,
                       ) {
                       Ok(_) =>
@@ -1252,12 +1284,28 @@ fn msf_preflight_indirect_calls(
   }
   let import_count = msf_count_imported_funcs(mod)
   let type_env = msf_make_type_env(mod)
+  let func_type_idxs = msf_collect_func_type_indices(mod)
   match mod.code_sec {
     Some(CodeSec(funcs)) =>
       for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
         let caller_abs_idx = import_count + def_idx
+        let func_type = match func_type_idxs.get(caller_abs_idx) {
+          Some(type_idx) =>
+            match type_env.resolve_functype(type_idx) {
+              Some(func_type) => func_type
+              None =>
+                return Err(
+                  "merge_similar_functions: preflight could not resolve caller functype caller_abs_idx=\{caller_abs_idx}",
+                )
+            }
+          None =>
+            return Err(
+              "merge_similar_functions: preflight caller out of range caller_abs_idx=\{caller_abs_idx}",
+            )
+        }
         match funcs[def_idx] {
-          TFunc(_, _, body) => {
+          TFunc(_, locals, body) => {
+            let func_env = msf_make_func_env(type_env, func_type, locals)
             let mut next_id = 0
             let walker : ModuleTransformer[Unit, String] = ModuleTransformer::new().on_tinstruction_evt(fn(
                 self,
@@ -1274,7 +1322,7 @@ fn msf_preflight_indirect_calls(
                         caller_abs_idx,
                         node_id,
                         type_idx,
-                        args.length(),
+                        tinstrs_result_arity(args, func_env),
                         msf_ref_call_kind_name(false),
                         "call_ref",
                       ) {
@@ -1289,7 +1337,7 @@ fn msf_preflight_indirect_calls(
                         caller_abs_idx,
                         node_id,
                         type_idx,
-                        args.length(),
+                        tinstrs_result_arity(args, func_env),
                         msf_ref_call_kind_name(true),
                         "call_ref",
                       ) {
@@ -1304,7 +1352,7 @@ fn msf_preflight_indirect_calls(
                         caller_abs_idx,
                         node_id,
                         type_idx,
-                        args.length(),
+                        tinstrs_result_arity(args, func_env),
                         msf_indirect_call_kind_name(false),
                         "indirect call",
                       ) {
@@ -1319,7 +1367,7 @@ fn msf_preflight_indirect_calls(
                         caller_abs_idx,
                         node_id,
                         type_idx,
-                        args.length(),
+                        tinstrs_result_arity(args, func_env),
                         msf_indirect_call_kind_name(true),
                         "indirect call",
                       ) {
@@ -1369,6 +1417,7 @@ fn msf_collect_defined_funcs(
     Some(CodeSec(items)) => items
     None => return []
   }
+  let type_env = msf_make_type_env(mod)
   let out : Array[MSFDefinedFunc] = []
   for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
     let abs_idx = import_count + def_idx
@@ -1398,7 +1447,10 @@ fn msf_collect_defined_funcs(
             "func[\{ordinal}] phase=hash:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(hash_start_ms)} hash=\{hash}",
           )
         }
-        let call_shape_hash = msf_hash_call_shape(body, func_type_idxs)
+        let func_env = msf_make_func_env(type_env, func_types[abs_idx], locals)
+        let call_shape_hash = msf_hash_call_shape(
+          body, func_type_idxs, func_env,
+        )
         out.push({
           def_idx,
           abs_idx,
@@ -1517,9 +1569,15 @@ fn msf_cache_site_artifacts(
     Some(_) => ()
     None => {
       analysis.ordered_site_compute_count += 1
+      let func_env = msf_make_func_env(
+        analysis.type_env,
+        func.func_type,
+        func.locals,
+      )
       let ordered = msf_collect_ordered_sites(
         func.body,
         analysis.func_type_idxs,
+        type_env=func_env,
       )
       let calls : Array[MSFCallSite] = []
       for site in ordered {
@@ -2439,6 +2497,7 @@ fn msf_estimate_merge_benefit(
     }
   }
   let FuncType(primary_params, _) = primary_func.func_type
+  let FuncType(_, primary_results) = primary_func.func_type
   let shared_abs = analysis.import_count + analysis.defined.length()
   let measure_start_ms = msf_trace_now_ms()
   if trace_all_funcs {
@@ -2452,12 +2511,18 @@ fn msf_estimate_merge_benefit(
     )
   }
   let rewrite_start_ms = msf_trace_now_ms()
+  let shared_param_types = primary_params + msf_collect_param_types(params)
+  let shared_func_env = msf_make_func_env(
+    analysis.type_env,
+    FuncType::new(shared_param_types, primary_results),
+    primary_func.locals,
+  )
   let rewritten_body = match
     msf_rewrite_shared_body(
       primary_func.body,
       primary_params.length(),
       params,
-      analysis.type_env,
+      shared_func_env,
       analysis.func_type_idxs,
     ) {
     Ok(body) => body
@@ -2545,7 +2610,7 @@ fn msf_rewrite_shared_body(
   body : TExpr,
   primary_param_count : Int,
   params : Array[ParamInfo],
-  type_env : Env,
+  func_env : Env,
   func_type_idxs : Array[TypeIdx],
   trace? : (String) -> Unit = msf_trace_noop,
   trace_all_funcs? : Bool = false,
@@ -2652,7 +2717,7 @@ fn msf_rewrite_shared_body(
             ignore(args)
             match
               msf_validate_call_target_rewrite_site(
-                node_id, shifted, type_idx, expected_arg_count, expects_return, type_env,
+                node_id, shifted, type_idx, expected_arg_count, expects_return, func_env,
                 func_type_idxs,
               ) {
               Ok(_) => ()
@@ -2673,7 +2738,7 @@ fn msf_rewrite_shared_body(
             ignore(args)
             match
               msf_validate_call_target_rewrite_site(
-                node_id, shifted, type_idx, expected_arg_count, expects_return, type_env,
+                node_id, shifted, type_idx, expected_arg_count, expects_return, func_env,
                 func_type_idxs,
               ) {
               Ok(_) => ()
@@ -2869,10 +2934,21 @@ fn create_shared(
     )
   }
   let type_env = msf_make_type_env(mod)
+  let primary_func_env = msf_make_func_env(
+    type_env,
+    FuncType::new(primary_params, primary_results),
+    primary_locals,
+  )
+  let shared_param_types = primary_params + msf_collect_param_types(params)
+  let shared_func_env = msf_make_func_env(
+    type_env,
+    FuncType::new(shared_param_types, primary_results),
+    primary_locals,
+  )
   let func_type_idxs = msf_collect_func_type_indices(mod)
   match
     msf_prevalidate_call_target_rewrite_metadata(
-      primary_body, params, type_env, func_type_idxs,
+      primary_body, params, primary_func_env, func_type_idxs,
     ) {
     Ok(_) => ()
     Err(e) => {
@@ -2889,7 +2965,7 @@ fn create_shared(
       primary_body,
       primary_params.length(),
       params,
-      type_env,
+      shared_func_env,
       func_type_idxs,
       trace~,
       trace_all_funcs~,
@@ -3874,6 +3950,45 @@ test "merge similar functions preflight rejects upstream-invalid call_indirect a
 }
 
 ///|
+test "merge similar functions preflight accepts multi-value direct call producers" {
+  let t_pair = msf_make_func_type([], [ValType::i32(), ValType::i32()])
+  let t_callee = msf_make_func_type(
+    [ValType::i32(), ValType::i32(), ValType::i32()],
+    [],
+  )
+  let t_caller = msf_make_func_type([], [])
+  let callee = Func::t_func(
+    [ValType::i32(), ValType::i32(), ValType::i32()],
+    [],
+    TExpr::new([TInstr::nop()]),
+  )
+  let caller = Func::t_func(
+    [],
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(0), [
+        TInstr::block(
+          BlockType::type_idx(TypeIdx::new(0)),
+          TExpr::new([TInstr::i32_const(I32(11)), TInstr::i32_const(I32(12))]),
+        ),
+        TInstr::i32_const(I32(13)),
+      ]),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_pair, t_callee, t_caller]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(2)]))
+    .with_code_sec(CodeSec::new([callee, caller]))
+  match merge_similar_functions(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected multivalue direct-call producer to pass MSF preflight: \{e}",
+      )
+  }
+}
+
+///|
 test "merge similar functions basic const merging creates shared + thunks" {
   let t = msf_i32_func_type()
   let f0 = Func::t_func([ValType::i32()], [], msf_binary_body(42, 10))
@@ -3882,7 +3997,10 @@ test "merge similar functions basic const merging creates shared + thunks" {
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
     .with_code_sec(CodeSec::new([f0, f1]))
-  let out = msf_run(mod)
+  let out = match merge_similar_functions(mod) {
+    Ok(out) => out
+    Err(e) => fail("expected merge similar functions to succeed: \{e}")
+  }
   let shared_abs = msf_shared_abs_index(out)
   match out.code_sec {
     Some(CodeSec(funcs)) => {
@@ -4020,6 +4138,53 @@ test "merge similar functions creates multiple params for independent difference
 }
 
 ///|
+test "merge similar functions preflight accepts multi-value select call producers" {
+  let t_pair = msf_make_func_type([], [ValType::i32(), ValType::i32()])
+  let t_callee = msf_make_func_type(
+    [ValType::i32(), ValType::i32(), ValType::i32()],
+    [],
+  )
+  let t_caller = msf_make_func_type([], [])
+  let callee = Func::t_func(
+    [ValType::i32(), ValType::i32(), ValType::i32()],
+    [],
+    TExpr::new([TInstr::nop()]),
+  )
+  let pair_a = TInstr::block(
+    BlockType::type_idx(TypeIdx::new(0)),
+    TExpr::new([TInstr::i32_const(I32(11)), TInstr::i32_const(I32(12))]),
+  )
+  let pair_b = TInstr::block(
+    BlockType::type_idx(TypeIdx::new(0)),
+    TExpr::new([TInstr::i32_const(I32(21)), TInstr::i32_const(I32(22))]),
+  )
+  let caller = Func::t_func(
+    [],
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(0), [
+        TInstr::select(
+          Some([ValType::i32(), ValType::i32()]),
+          TInstr::i32_const(I32(1)),
+          pair_a,
+          pair_b,
+        ),
+        TInstr::i32_const(I32(13)),
+      ]),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_pair, t_callee, t_caller]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(2)]))
+    .with_code_sec(CodeSec::new([callee, caller]))
+  match merge_similar_functions(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected multivalue select producer to pass MSF preflight: \{e}")
+  }
+}
+
+///|
 test "merge similar functions parameterizes call target using call_ref" {
   let t_callee = msf_i32_func_type()
   let t_wrap = msf_i32_func_type()
@@ -4121,12 +4286,23 @@ test "merge similar functions parameterizes call target using call_ref" {
         Export::new(Name::new("callee_b"), ExternIdx::func(FuncIdx::new(1))),
       ]),
     )
-  let out = msf_run(mod)
+  let (result, lines) = msf_run_with_trace(mod, trace_all_funcs=true)
+  let out = match result {
+    Ok(out) => out
+    Err(e) =>
+      fail("expected merge similar functions to succeed: \{e}\ntrace=\{lines}")
+  }
   let shared_abs = msf_shared_abs_index(out)
   match out.code_sec {
     Some(CodeSec(funcs)) => {
-      assert_true(msf_is_forwarder(funcs[2], shared_abs, 2))
-      assert_true(msf_is_forwarder(funcs[3], shared_abs, 2))
+      assert_true(
+        msf_is_forwarder(funcs[2], shared_abs, 2),
+        msg="expected first wrapper to become a forwarder\ntrace=\{lines}",
+      )
+      assert_true(
+        msf_is_forwarder(funcs[3], shared_abs, 2),
+        msg="expected second wrapper to become a forwarder\ntrace=\{lines}",
+      )
       match funcs[2] {
         TFunc(_, _, body) => assert_false(msf_has_tail_call(body))
         _ => fail("expected typed thunk")
@@ -4345,10 +4521,16 @@ test "merge similar functions rewrites call target params with unchanged ancesto
       body,
       1,
       params,
-      msf_make_type_env(
-        Module::new().with_type_sec(
-          TypeSec::new([msf_make_func_type([ValType::i32()], [ValType::i32()])]),
+      msf_make_func_env(
+        msf_make_type_env(
+          Module::new().with_type_sec(
+            TypeSec::new([
+              msf_make_func_type([ValType::i32()], [ValType::i32()]),
+            ]),
+          ),
         ),
+        FuncType::new([ValType::i32()], [ValType::i32()]),
+        [],
       ),
       [TypeIdx::new(0), TypeIdx::new(0)],
     ) {
@@ -4443,13 +4625,17 @@ test "merge similar functions validates call-target arity by callee type idx" {
       body,
       1,
       params,
-      msf_make_type_env(
-        Module::new().with_type_sec(
-          TypeSec::new([
-            msf_make_func_type([], [ValType::i32()]),
-            msf_make_func_type([ValType::i32()], [ValType::i32()]),
-          ]),
+      msf_make_func_env(
+        msf_make_type_env(
+          Module::new().with_type_sec(
+            TypeSec::new([
+              msf_make_func_type([], [ValType::i32()]),
+              msf_make_func_type([ValType::i32()], [ValType::i32()]),
+            ]),
+          ),
         ),
+        FuncType::new([ValType::i32()], [ValType::i32()]),
+        [],
       ),
       [TypeIdx::new(1), TypeIdx::new(0)],
     ) {
@@ -4557,13 +4743,17 @@ test "merge similar functions reports callee type mismatch details" {
       body,
       1,
       params,
-      msf_make_type_env(
-        Module::new().with_type_sec(
-          TypeSec::new([
-            msf_make_func_type([ValType::i32()], [ValType::i32()]),
-            msf_make_func_type([ValType::i32()], [ValType::i32()]),
-          ]),
+      msf_make_func_env(
+        msf_make_type_env(
+          Module::new().with_type_sec(
+            TypeSec::new([
+              msf_make_func_type([ValType::i32()], [ValType::i32()]),
+              msf_make_func_type([ValType::i32()], [ValType::i32()]),
+            ]),
+          ),
         ),
+        FuncType::new([ValType::i32()], [ValType::i32()]),
+        [],
       ),
       [TypeIdx::new(0), TypeIdx::new(1)],
     ) {
@@ -4897,7 +5087,10 @@ test "merge similar functions stays valid when shared type follows rec groups" {
         Export::new(Name::new("callee_b"), ExternIdx::func(FuncIdx::new(1))),
       ]),
     )
-  let out = msf_run(mod)
+  let out = match merge_similar_functions(mod) {
+    Ok(out) => out
+    Err(e) => fail("expected merge similar functions to succeed: \{e}")
+  }
   assert_eq(validate_module(out), Ok(()))
 }
 
@@ -5411,9 +5604,19 @@ test "merge similar functions profitability keeps larger typed-ref call-target w
     .with_code_sec(
       CodeSec::new([callee_a, callee_b, wrap_a, wrap_b, typed_ref_seed]),
     )
-  let out = msf_run(mod)
+  let (result, lines) = msf_run_with_trace(mod, trace_all_funcs=true)
+  let out = match result {
+    Ok(out) => out
+    Err(e) =>
+      fail("expected merge similar functions to succeed: \{e}\ntrace=\{lines}")
+  }
   match out.code_sec {
-    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 6)
+    Some(CodeSec(funcs)) =>
+      assert_eq(
+        funcs.length(),
+        6,
+        msg="expected profitability to keep the typed-ref wrapper merge\ntrace=\{lines}",
+      )
     _ => fail("expected code section")
   }
 }

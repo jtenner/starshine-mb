@@ -26,15 +26,15 @@ fn rl_localidx_from_int(idx : Int) -> LocalIdx {
 }
 
 ///|
-fn rl_collect_param_counts(mod : Module) -> Array[Int] {
-  let out : Array[Int] = []
+fn rl_collect_param_types(mod : Module) -> Array[Array[ValType]] {
+  let out : Array[Array[ValType]] = []
   let env = Env::new().with_module(mod)
   match mod.func_sec {
     Some(FuncSec(type_idxs)) =>
       for tidx in type_idxs {
         match env.resolve_functype(tidx) {
-          Some(FuncType(params, _)) => out.push(params.length())
-          None => out.push(0)
+          Some(FuncType(params, _)) => out.push(params)
+          None => out.push([])
         }
       }
     None => ()
@@ -98,17 +98,21 @@ fn rl_remap_local_indices(
 }
 
 ///|
-fn rl_reorder_function(func : Func, param_count_hint : Int) -> (Func, Bool) {
+fn rl_reorder_function(
+  func : Func,
+  declared_params : Array[ValType],
+) -> (Func, Bool) {
   match func {
     TFunc(params, locals, body) => {
       if locals.is_empty() {
         return (func, false)
       }
-      let param_count = if params.length() > 0 {
-        params.length()
+      let effective_params = if params.is_empty() {
+        declared_params
       } else {
-        param_count_hint
+        params
       }
+      let param_count = effective_params.length()
       let num = param_count + locals.length()
       let counts = Array::make(num, 0)
       let first_uses = Array::make(num, 0)
@@ -174,7 +178,9 @@ fn rl_reorder_function(func : Func, param_count_hint : Int) -> (Func, Bool) {
         Ok(out) => out
         Err(_) => body
       }
-      let next_func = Func::t_func(params, reordered_locals, next_body)
+      let next_func = Func::t_func(
+        effective_params, reordered_locals, next_body,
+      )
       if next_func == func {
         (func, false)
       } else {
@@ -187,13 +193,13 @@ fn rl_reorder_function(func : Func, param_count_hint : Int) -> (Func, Bool) {
 
 ///|
 fn reorder_locals_ir_pass(mod : Module) -> ModuleTransformer[IRContext, String] {
-  let param_counts = rl_collect_param_counts(mod)
+  let param_types = rl_collect_param_types(mod)
   let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
-    let param_count = param_counts.get(def_idx).unwrap_or(0)
-    let (next_func, changed) = rl_reorder_function(func, param_count)
+    let declared_params = param_types.get(def_idx).unwrap_or([])
+    let (next_func, changed) = rl_reorder_function(func, declared_params)
     if changed {
       change(ctx, next_func)
     } else {
@@ -305,7 +311,8 @@ test "reorder_locals keeps params fixed and only reorders declared locals" {
     )
   let out = run_reorder_locals(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, locals, { instrs, .. })])) => {
+    Some(CodeSec([TFunc(params, locals, { instrs, .. })])) => {
+      assert_eq(params, [ValType::i32(), ValType::i64()])
       assert_eq(locals, [ValType::f64()])
       match instrs {
         [

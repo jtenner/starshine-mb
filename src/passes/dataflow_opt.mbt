@@ -438,10 +438,11 @@ fn ssa_nomerge_apply_rewrites(
           let next_idx = set_rewrites.get(id).unwrap_or(curr_idx)
           if next_idx != curr_idx || next_value != value {
             changed.update(fn(_) { true })
-            change((), TInstr::local_tee(next_idx, next_value))
-          } else {
-            unchanged()
           }
+          // We've already walked `value`; returning `unchanged()` here would
+          // make the transformer descend into it a second time and skew the
+          // analysis-vs-rewrite get/set numbering.
+          change((), TInstr::local_tee(next_idx, next_value))
         }
         TInstrKind::TLocalSet(curr_idx, value) => {
           let next_value = match self.walk_tinstruction((), value) {
@@ -453,10 +454,9 @@ fn ssa_nomerge_apply_rewrites(
           let next_idx = set_rewrites.get(id).unwrap_or(curr_idx)
           if next_idx != curr_idx || next_value != value {
             changed.update(fn(_) { true })
-            change((), TInstr::local_set(next_idx, next_value))
-          } else {
-            unchanged()
           }
+          // Avoid a second walk of `value`; see the tee case above.
+          change((), TInstr::local_set(next_idx, next_value))
         }
         _ => from_walk(self.walk_tinstruction_default((), instr))
       }
@@ -1077,6 +1077,234 @@ test "ssa no-merge preserves loop-carried gets" {
           }
         _ => fail("expected typed function after ssa no-merge")
       }
+    Err(e) => fail("Unexpected error: \{e}")
+  }
+}
+
+///|
+test "ssa no-merge preserves externref table-set values across control-flow rewrites" {
+  let memarg0 = MemArg::new(U32(0), None, U64(0))
+  let memarg4 = MemArg::new(U32(0), None, U64(4))
+  let memarg8 = MemArg::new(U32(0), None, U64(8))
+  let externref = ValType::externref()
+  let i32_i32 = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let externref_i32 = RecType::new(
+    SubType::comp_type(CompType::func([externref], [ValType::i32()])),
+  )
+  let malloc = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+  )
+  let gc_malloc = Func::t_func(
+    [ValType::i32()],
+    [],
+    TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+  )
+  let alloc_body = TExpr::new([
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::binary(
+        BinaryOp::i32_lt_s(),
+        TInstr::local_tee(
+          LocalIdx::new(1),
+          TInstr::global_get(GlobalIdx::new(0)),
+        ),
+        TInstr::i32_const(I32(0)),
+      ),
+      TExpr::new([
+        TInstr::local_set(
+          LocalIdx::new(3),
+          TInstr::table_size(TableIdx::new(0)),
+        ),
+        TInstr::local_set(
+          LocalIdx::new(5),
+          TInstr::if_(
+            BlockType::val_type(ValType::i32()),
+            TInstr::unary(
+              UnaryOp::i32_eqz(),
+              TInstr::local_get(LocalIdx::new(3)),
+            ),
+            TExpr::new([TInstr::i32_const(I32(16))]),
+            Some(
+              TExpr::new([
+                TInstr::binary(
+                  BinaryOp::i32_shl(),
+                  TInstr::local_get(LocalIdx::new(3)),
+                  TInstr::i32_const(I32(1)),
+                ),
+              ]),
+            ),
+          ),
+        ),
+        TInstr::if_(
+          BlockType::void_(),
+          TInstr::binary(
+            BinaryOp::i32_lt_s(),
+            TInstr::table_grow(
+              TableIdx::new(0),
+              TInstr::ref_null(HeapType::abs(AbsHeapType::extern_())),
+              TInstr::local_get(LocalIdx::new(5)),
+            ),
+            TInstr::i32_const(I32(0)),
+          ),
+          TExpr::new([TInstr::unreachable_()]),
+          None,
+        ),
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::binary(
+                BinaryOp::i32_gt_s(),
+                TInstr::local_get(LocalIdx::new(5)),
+                TInstr::local_get(LocalIdx::new(3)),
+              ),
+              TExpr::new([
+                TInstr::local_set(
+                  LocalIdx::new(5),
+                  TInstr::binary(
+                    BinaryOp::i32_sub(),
+                    TInstr::local_get(LocalIdx::new(5)),
+                    TInstr::i32_const(I32(1)),
+                  ),
+                ),
+                TInstr::store(
+                  StoreOp::i32_store(),
+                  memarg0,
+                  TInstr::local_tee(
+                    LocalIdx::new(2),
+                    TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(8))]),
+                  ),
+                  TInstr::local_get(LocalIdx::new(5)),
+                ),
+                TInstr::store(
+                  StoreOp::i32_store(),
+                  memarg4,
+                  TInstr::local_get(LocalIdx::new(2)),
+                  TInstr::local_get(LocalIdx::new(1)),
+                ),
+                TInstr::local_set(
+                  LocalIdx::new(1),
+                  TInstr::local_get(LocalIdx::new(2)),
+                ),
+                TInstr::br(LabelIdx::new(1), []),
+              ]),
+              None,
+            ),
+          ]),
+        ),
+      ]),
+      None,
+    ),
+    TInstr::global_set(
+      GlobalIdx::new(0),
+      TInstr::load(
+        LoadOp::i32_load(),
+        memarg4,
+        TInstr::local_get(LocalIdx::new(1)),
+      ),
+    ),
+    TInstr::local_set(
+      LocalIdx::new(3),
+      TInstr::load(
+        LoadOp::i32_load(),
+        memarg0,
+        TInstr::local_get(LocalIdx::new(1)),
+      ),
+    ),
+    TInstr::table_set(
+      TableIdx::new(0),
+      TInstr::local_get(LocalIdx::new(3)),
+      TInstr::local_get(LocalIdx::new(0)),
+    ),
+    TInstr::store(
+      StoreOp::i32_store(),
+      memarg4,
+      TInstr::local_tee(
+        LocalIdx::new(4),
+        TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(4))]),
+      ),
+      TInstr::binary(
+        BinaryOp::i32_shl(),
+        TInstr::i32_const(I32(3)),
+        TInstr::i32_const(I32(30)),
+      ),
+    ),
+    TInstr::store(
+      StoreOp::i32_store(),
+      memarg8,
+      TInstr::local_get(LocalIdx::new(4)),
+      TInstr::local_get(LocalIdx::new(3)),
+    ),
+    TInstr::local_get(LocalIdx::new(4)),
+  ])
+  let alloc_externref = Func::t_func(
+    [externref],
+    [
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+    ],
+    alloc_body,
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([i32_i32, i32_i32, externref_i32]))
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(1), TypeIdx::new(2)]),
+    )
+    .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          TableType::new(
+            RefType::new(true, HeapType::abs(AbsHeapType::extern_())),
+            Limits::i32(1, None),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), true),
+          TExpr::new([TInstr::i32_const(I32(-1))]).to_expr(),
+        ),
+      ]),
+    )
+    .with_code_sec(CodeSec::new([malloc, gc_malloc, alloc_externref]))
+  let pass = ssa_nomerge_pass(mod)
+  let result = pass.walk_module((), mod)
+  match result {
+    Ok((out, _)) => {
+      assert_eq(validate_module(out), Ok(()))
+      match out.code_sec {
+        Some(CodeSec([_, _, TFunc(_, _, body)])) => {
+          let mut found = false
+          for instr in body.instrs {
+            match instr.kind {
+              TInstrKind::TTableSet(
+                _,
+                { kind: TInstrKind::TLocalGet(_), .. },
+                { kind: TInstrKind::TLocalGet(ref_idx), .. }
+              ) => {
+                found = true
+                assert_eq(ref_idx, LocalIdx::new(0))
+              }
+              _ => ()
+            }
+          }
+          assert_true(found)
+        }
+        _ => fail("expected three typed functions after ssa no-merge")
+      }
+    }
     Err(e) => fail("Unexpected error: \{e}")
   }
 }

@@ -126,6 +126,7 @@ using @validate {
   type TcState,
   type ValidationError,
   make_state,
+  tinstrs_result_arity,
   to_texpr,
   validate_module,
   validate_module_with_trace,

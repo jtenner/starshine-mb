@@ -34,6 +34,10 @@ pub fn run_validate_invalid_fuzz(String, UInt64) -> Result[ValidateInvalidFuzzSt
 
 pub fn run_validate_valid_fuzz(String, UInt64) -> Result[ValidateValidFuzzStats, String]
 
+pub fn tinstr_result_arity(@lib.TInstr, Env) -> Int
+
+pub fn tinstrs_result_arity(Array[@lib.TInstr], Env) -> Int
+
 pub fn to_texpr(@lib.Expr, Env) -> Result[@lib.TExpr, String]
 
 pub fn validate_codesec(@lib.CodeSec?, @lib.FuncSec?, Env) -> Result[Unit, String]

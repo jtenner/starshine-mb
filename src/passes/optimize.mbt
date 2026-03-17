@@ -287,6 +287,245 @@ fn apply_module_runner_pass(
 }
 
 ///|
+fn opt_direct_call_kind_name(is_return : Bool) -> String {
+  if is_return {
+    "return_call"
+  } else {
+    "call"
+  }
+}
+
+///|
+fn opt_indirect_call_kind_name(is_return : Bool) -> String {
+  if is_return {
+    "return_call_indirect"
+  } else {
+    "call_indirect"
+  }
+}
+
+///|
+fn opt_ref_call_kind_name(is_return : Bool) -> String {
+  if is_return {
+    "return_call_ref"
+  } else {
+    "call_ref"
+  }
+}
+
+///|
+fn opt_preflight_call_arity_direct_error(
+  caller_abs_idx : Int,
+  node_id : Int,
+  target : FuncIdx,
+  is_return : Bool,
+  detail : String,
+) -> String {
+  "upstream-invalid direct call in optimize preflight: " +
+  detail +
+  " kind=\{opt_direct_call_kind_name(is_return)} caller_abs_idx=\{caller_abs_idx} callee_abs_idx=\{target} node_id=\{node_id}"
+}
+
+///|
+fn opt_preflight_call_arity_type_idx_error(
+  caller_abs_idx : Int,
+  node_id : Int,
+  type_idx : TypeIdx,
+  kind : String,
+  family : String,
+  detail : String,
+) -> String {
+  "upstream-invalid \{family} in optimize preflight: " +
+  detail +
+  " kind=\{kind} caller_abs_idx=\{caller_abs_idx} type_idx=\{type_idx} node_id=\{node_id}"
+}
+
+///|
+fn opt_preflight_call_arity(mod : Module) -> Result[Unit, String] {
+  let env = Env::new().with_module(mod)
+  let imported_func_count = match mod.code_sec {
+    Some(CodeSec(funcs)) => env.funcs.length() - funcs.length()
+    None => env.funcs.length()
+  }
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+        let caller_abs_idx = imported_func_count + def_idx
+        let func = funcs[def_idx]
+        let func_idx = FuncIdx::new(caller_abs_idx.reinterpret_as_uint())
+        let func_type = match env.get_functype_by_funcidx(func_idx) {
+          Some(func_type) => func_type
+          None =>
+            return Err(
+              "call arity audit could not resolve function type for caller_abs_idx=\{caller_abs_idx}",
+            )
+        }
+        match opt_validation_prepare_texpr_context(func, func_type, env) {
+          Some((body, func_env)) => {
+            let mut next_id = 0
+            let walker : ModuleTransformer[Unit, String] = ModuleTransformer::new().on_tinstruction_evt(fn(
+                self,
+                _,
+                instr : TInstr,
+              ) {
+                let node_id = next_id
+                next_id += 1
+                let result = match instr.kind {
+                  TInstrKind::TCall(target, args) => {
+                    let actual_arg_arity = tinstrs_result_arity(args, func_env)
+                    match func_env.get_functype_by_funcidx(target) {
+                      Some(FuncType(params, _)) =>
+                        if params.length() == actual_arg_arity {
+                          Ok(())
+                        } else {
+                          Err(
+                            opt_preflight_call_arity_direct_error(
+                              caller_abs_idx,
+                              node_id,
+                              target,
+                              false,
+                              "arg count mismatch expected=\{params.length()} actual=\{actual_arg_arity}",
+                            ),
+                          )
+                        }
+                      None =>
+                        Err(
+                          opt_preflight_call_arity_direct_error(
+                            caller_abs_idx, node_id, target, false, "callee type does not resolve to a function type",
+                          ),
+                        )
+                    }
+                  }
+                  TInstrKind::TReturnCall(target, args) => {
+                    let actual_arg_arity = tinstrs_result_arity(args, func_env)
+                    match func_env.get_functype_by_funcidx(target) {
+                      Some(FuncType(params, _)) =>
+                        if params.length() == actual_arg_arity {
+                          Ok(())
+                        } else {
+                          Err(
+                            opt_preflight_call_arity_direct_error(
+                              caller_abs_idx,
+                              node_id,
+                              target,
+                              true,
+                              "arg count mismatch expected=\{params.length()} actual=\{actual_arg_arity}",
+                            ),
+                          )
+                        }
+                      None =>
+                        Err(
+                          opt_preflight_call_arity_direct_error(
+                            caller_abs_idx, node_id, target, true, "callee type does not resolve to a function type",
+                          ),
+                        )
+                    }
+                  }
+                  TInstrKind::TCallRef(type_idx, args, _)
+                  | TInstrKind::TReturnCallRef(type_idx, args, _) => {
+                    let actual_arg_arity = tinstrs_result_arity(args, func_env)
+                    match func_env.resolve_functype(type_idx) {
+                      Some(FuncType(params, _)) =>
+                        if params.length() == actual_arg_arity {
+                          Ok(())
+                        } else {
+                          Err(
+                            opt_preflight_call_arity_type_idx_error(
+                              caller_abs_idx,
+                              node_id,
+                              type_idx,
+                              match instr.kind {
+                                TInstrKind::TCallRef(_, _, _) =>
+                                  opt_ref_call_kind_name(false)
+                                _ => opt_ref_call_kind_name(true)
+                              },
+                              "call_ref",
+                              "arg count mismatch expected=\{params.length()} actual=\{actual_arg_arity}",
+                            ),
+                          )
+                        }
+                      None =>
+                        Err(
+                          opt_preflight_call_arity_type_idx_error(
+                            caller_abs_idx,
+                            node_id,
+                            type_idx,
+                            match instr.kind {
+                              TInstrKind::TCallRef(_, _, _) =>
+                                opt_ref_call_kind_name(false)
+                              _ => opt_ref_call_kind_name(true)
+                            },
+                            "call_ref",
+                            "type does not resolve to a function type",
+                          ),
+                        )
+                    }
+                  }
+                  TInstrKind::TCallIndirect(type_idx, _, args, _)
+                  | TInstrKind::TReturnCallIndirect(type_idx, _, args, _) => {
+                    let actual_arg_arity = tinstrs_result_arity(args, func_env)
+                    match func_env.resolve_functype(type_idx) {
+                      Some(FuncType(params, _)) =>
+                        if params.length() == actual_arg_arity {
+                          Ok(())
+                        } else {
+                          Err(
+                            opt_preflight_call_arity_type_idx_error(
+                              caller_abs_idx,
+                              node_id,
+                              type_idx,
+                              match instr.kind {
+                                TInstrKind::TCallIndirect(_, _, _, _) =>
+                                  opt_indirect_call_kind_name(false)
+                                _ => opt_indirect_call_kind_name(true)
+                              },
+                              "indirect call",
+                              "arg count mismatch expected=\{params.length()} actual=\{actual_arg_arity}",
+                            ),
+                          )
+                        }
+                      None =>
+                        Err(
+                          opt_preflight_call_arity_type_idx_error(
+                            caller_abs_idx,
+                            node_id,
+                            type_idx,
+                            match instr.kind {
+                              TInstrKind::TCallIndirect(_, _, _, _) =>
+                                opt_indirect_call_kind_name(false)
+                              _ => opt_indirect_call_kind_name(true)
+                            },
+                            "indirect call",
+                            "type does not resolve to a function type",
+                          ),
+                        )
+                    }
+                  }
+                  _ => Ok(())
+                }
+                match result {
+                  Ok(_) => from_walk(self.walk_tinstruction_default((), instr))
+                  Err(e) => error(e)
+                }
+              },
+            )
+            match walker.walk_texpr((), body) {
+              Ok(_) => ()
+              Err(e) => return Err(e)
+            }
+          }
+          None =>
+            return Err(
+              "call arity audit could not prepare typed function context for caller_abs_idx=\{caller_abs_idx}",
+            )
+        }
+      }
+    None => ()
+  }
+  Ok(())
+}
+
+///|
 fn optimize_prepared_function_stack_pass_id(
   prepared : PreparedFunctionStackPass,
 ) -> ModulePass {
@@ -1721,6 +1960,19 @@ fn optimize_execute_scheduler_pass(
         }
       }
   }
+  if kind is ModuleRunnerPass {
+    match opt_preflight_call_arity(mod) {
+      Ok(_) => ()
+      Err(e) => {
+        optimize_trace_emit_pass(
+          trace,
+          trace_enabled,
+          "pass[\{pass_index}/\{total_passes}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
+        )
+        return Err("call arity audit failed after pass \{pass}: \{e}")
+      }
+    }
+  }
   optimize_trace_emit_helper(
     trace,
     trace_enabled,
@@ -2364,6 +2616,10 @@ fn optimize_module_with_options_internal(
       )
       return Err(e)
     }
+  }
+  match opt_preflight_call_arity(mod) {
+    Ok(_) => ()
+    Err(e) => return Err("call arity audit failed before pass scheduling: \{e}")
   }
   ctx.set_mod(mod)
   let segments = scheduler_segment_passes(passes)
@@ -8479,6 +8735,207 @@ fn opt_invalid_drop_nop_module() -> Module {
       ),
     ]),
   )
+}
+
+///|
+fn opt_invalid_direct_call_module() -> Module {
+  let t_callee = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], [
+        ValType::i32(),
+      ]),
+    ),
+  )
+  let t_caller = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let callee = Func::t_func(
+    [ValType::i32(), ValType::i32(), ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([TInstr::i32_const(I32(0))]),
+  )
+  let caller = Func::t_func(
+    [],
+    [],
+    TExpr::new([
+      TInstr::drop(
+        TInstr::call(FuncIdx::new(0), [
+          TInstr::i32_const(I32(1)),
+          TInstr::i32_const(I32(2)),
+          TInstr::i32_const(I32(3)),
+          TInstr::i32_const(I32(4)),
+        ]),
+      ),
+      TInstr::return_([]),
+    ]),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_callee, t_caller]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+  .with_code_sec(CodeSec::new([callee, caller]))
+}
+
+///|
+fn opt_valid_multivalue_call_module() -> Module {
+  let t_pair = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i32()])),
+  )
+  let t_callee = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], []),
+    ),
+  )
+  let t_caller = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let callee = Func::t_func(
+    [ValType::i32(), ValType::i32(), ValType::i32()],
+    [],
+    TExpr::new([TInstr::nop()]),
+  )
+  let caller = Func::t_func(
+    [],
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(0), [
+        TInstr::block(
+          BlockType::type_idx(TypeIdx::new(0)),
+          TExpr::new([TInstr::i32_const(I32(11)), TInstr::i32_const(I32(12))]),
+        ),
+        TInstr::i32_const(I32(13)),
+      ]),
+    ]),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_pair, t_callee, t_caller]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(2)]))
+  .with_code_sec(CodeSec::new([callee, caller]))
+}
+
+///|
+fn opt_valid_multivalue_select_call_module() -> Module {
+  let t_pair = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i32()])),
+  )
+  let t_callee = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], []),
+    ),
+  )
+  let t_caller = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let callee = Func::t_func(
+    [ValType::i32(), ValType::i32(), ValType::i32()],
+    [],
+    TExpr::new([TInstr::nop()]),
+  )
+  let pair_a = TInstr::block(
+    BlockType::type_idx(TypeIdx::new(0)),
+    TExpr::new([TInstr::i32_const(I32(11)), TInstr::i32_const(I32(12))]),
+  )
+  let pair_b = TInstr::block(
+    BlockType::type_idx(TypeIdx::new(0)),
+    TExpr::new([TInstr::i32_const(I32(21)), TInstr::i32_const(I32(22))]),
+  )
+  let caller = Func::t_func(
+    [],
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(0), [
+        TInstr::select(
+          Some([ValType::i32(), ValType::i32()]),
+          TInstr::i32_const(I32(1)),
+          pair_a,
+          pair_b,
+        ),
+        TInstr::i32_const(I32(13)),
+      ]),
+    ]),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_pair, t_callee, t_caller]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(2)]))
+  .with_code_sec(CodeSec::new([callee, caller]))
+}
+
+///|
+test "opt_preflight_call_arity rejects upstream-invalid direct calls" {
+  let err = match opt_preflight_call_arity(opt_invalid_direct_call_module()) {
+    Ok(_) => fail("expected direct-call arity audit failure")
+    Err(err) => err
+  }
+  assert_true(
+    err.contains("upstream-invalid direct call in optimize preflight"),
+  )
+  assert_true(err.contains("expected=3 actual=4"))
+  assert_true(err.contains("kind=call"))
+}
+
+///|
+test "opt_preflight_call_arity accepts multi-value direct call producers" {
+  match opt_preflight_call_arity(opt_valid_multivalue_call_module()) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected multivalue direct-call producer to pass arity audit: \{err}",
+      )
+  }
+}
+
+///|
+test "opt_preflight_call_arity accepts multi-value select call producers" {
+  match opt_preflight_call_arity(opt_valid_multivalue_select_call_module()) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected multivalue select producer to pass arity audit: \{err}")
+  }
+}
+
+///|
+test "optimize_module reports call arity audit before pass scheduling" {
+  let err = match
+    optimize_module_with_options(
+      opt_invalid_direct_call_module(),
+      [RemoveUnusedNames, MergeSimilarFunctions],
+      OptimizeOptions::new(),
+    ) {
+    Ok(_) => fail("expected initial call arity audit failure")
+    Err(err) => err
+  }
+  assert_true(err.contains("call arity audit failed before pass scheduling"))
+  assert_true(err.contains("expected=3 actual=4"))
+  assert_false(err.contains("MergeSimilarFunctions"))
+}
+
+///|
+test "opt_preflight_call_arity rejects upstream-invalid call_ref arity" {
+  let t_sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let t_wrap = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_sig, t_wrap]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::call_ref(
+                TypeIdx::new(0),
+                [TInstr::i32_const(I32(1)), TInstr::i32_const(I32(2))],
+                TInstr::ref_func(FuncIdx::new(0)),
+              ),
+            ),
+            TInstr::return_([]),
+          ]),
+        ),
+      ]),
+    )
+  let err = match opt_preflight_call_arity(mod) {
+    Ok(_) => fail("expected call_ref arity audit failure")
+    Err(err) => err
+  }
+  assert_true(err.contains("upstream-invalid call_ref in optimize preflight"))
+  assert_true(err.contains("expected=1 actual=2"))
+  assert_true(err.contains("kind=call_ref"))
 }
 
 ///|

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-17 Optimize Follow-up: audit optimize scheduler call arity and fix multivalue arg counting
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so the optimize scheduler now audits direct, `call_ref`, and indirect call arity before pass scheduling and after module-runner passes, with regressions that cover upstream-invalid call sites and valid multivalue producers.
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt), [/home/jtenner/Projects/starshine-mb/src/passes/reorder_locals.mbt](/home/jtenner/Projects/starshine-mb/src/passes/reorder_locals.mbt), and [/home/jtenner/Projects/starshine-mb/src/validate/env.mbt](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt) so multivalue argument producers use typed result arity instead of raw instruction-array length during hashing, preflight, rewrite validation, and local reordering.
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/dataflow_opt.mbt](/home/jtenner/Projects/starshine-mb/src/passes/dataflow_opt.mbt) so `SSANoMerge` no longer re-walks rewritten `local.set`/`local.tee` values, with a regression that preserves `externref` table-set values through the rewrite.
+- Validation: `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-17 Optimize Follow-up: preflight typed and indirect call arity in `MergeSimilarFunctions`
 
 - Updated [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so `MergeSimilarFunctions` now preflights `call_ref`, `return_call_ref`, `call_indirect`, and `return_call_indirect` arity against the resolved function type before class collection, and so rewrite-time call-target mismatch diagnostics include the relevant `type_idx` plus expected/actual arity details.

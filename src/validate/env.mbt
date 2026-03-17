@@ -686,7 +686,7 @@ fn arity_apply(total : Int, consumed : Int, produced : Int) -> Int {
 }
 
 ///|
-fn tinstrs_result_arity(instrs : Array[TInstr], env : Env) -> Int {
+pub fn tinstrs_result_arity(instrs : Array[TInstr], env : Env) -> Int {
   let mut total = 0
   for instr in instrs {
     total += tinstr_result_arity(instr, env)
@@ -739,7 +739,7 @@ fn pop_n(
 }
 
 ///|
-fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
+pub fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
   match instr.kind {
     TInstrKind::TI32Const(_)
     | TInstrKind::TI64Const(_)
