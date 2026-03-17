@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-16 Docs Follow-up: track post-0.1.0 string optimization work
+
+- Added a post-0.1.0 backlog item in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to continue `string.const` support and string optimization pass work after the initial `0.1.0` release.
+- Validation was not run because this change only updates planning/documentation.
+
 ## 2026-03-16 Docs Follow-up: add `StringGathering` research and implementation blueprint
 
 - Added [`docs/string-optimization.md`](/home/jtenner/Projects/starshine-mb/docs/string-optimization.md), a detailed Binaryen `StringGathering` research note covering pass semantics, scheduler placement, data structures, correctness constraints, test cases, single-pass pseudocode, and a one-shot implementation prompt for Starshine.

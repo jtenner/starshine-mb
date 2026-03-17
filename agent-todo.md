@@ -19,6 +19,7 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 
 ## Post 0.1.0 Features
 - [ ] Add "StackState" to node traversal to event callbacks help with validation issues
+- [ ] Continue work on `string.const` support and string optimization passes.
 - [ ] Replace deep-recursive native decode with a recursion-free control-instruction path for robust cross-platform behavior when `setrlimit` is unavailable.
 - [ ] Add a native regression test for deep nested-control decode (or an equivalent non-recursive decoder benchmark fixture) to prevent stack-overflow regressions.
 - [ ] Make `moduleToWast` output reliably parser-consumable in roundtrip tests.
