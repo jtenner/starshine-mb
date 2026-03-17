@@ -1,9 +1,9 @@
 # Changelog
 
-## 2026-03-16 Optimize Follow-up: make `SSANoMerge` sparse and surface live self-opt progress
+## 2026-03-16 Optimize Follow-up: make `SSANoMerge` sparse and stabilize self-opt execution
 
 - Reworked [`src/passes/dataflow_opt.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/dataflow_opt.mbt) so `SSANoMerge` uses a Binaryen-style sparse block/action analysis instead of cloning dense reaching-definition maps, and added a regression that preserves loop-carried gets.
-- Updated [`scripts/self-optimize.sh`](/home/jtenner/Projects/starshine-mb/scripts/self-optimize.sh) to stream optimizer output live while still recording [`output.log`](/home/jtenner/Projects/starshine-mb/output.log), with configurable tracing and line-buffering support when available.
+- Updated [`scripts/self-optimize.sh`](/home/jtenner/Projects/starshine-mb/scripts/self-optimize.sh) to support portable native CLI invocation fallbacks while writing optimizer output to [`output.log`](/home/jtenner/Projects/starshine-mb/output.log), with configurable tracing and line-buffering support when available.
 - Updated [`AGENTS.md`](/home/jtenner/Projects/starshine-mb/AGENTS.md) to forbid trace-only tests unless they are explicitly requested.
 - Validation: `moon test src/passes/dataflow_opt.mbt`; `moon info && moon fmt`; `moon test`.
 
