@@ -16,10 +16,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] `SSANoMerge` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `99.669s` at `pass[5/48]`.
 - [ ] `SimplifyLocals` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `70.579s` at `pass[25/48]`.
 - [ ] `MergeBlocks` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `47.924s` at `pass[32/48]` and `22.256s` at `pass[35/48]`.
-- [ ] `CodeFolding` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `25.787s` at `pass[31/48]`.
-- [ ] `PrecomputePropagate` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `25.164s` at `pass[36/48]`.
-- [ ] `CodePushing` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `24.067s` at `pass[16/48]`.
-- [ ] `Vacuum` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `21.390s` at `pass[26/48]`, `21.226s` at `pass[30/48]`, and `20.602s` at `pass[39/48]`.
 - [ ] `MergeSimilarFunctions` correctness blocker: optimize pass trace failed at `pass[44/48]` with `upstream-invalid direct call in preflight: arg count mismatch expected=3 actual=4 kind=call caller_abs_idx=924 callee_abs_idx=9038 node_id=15`.
 
 ## Post 0.1.0 Features
