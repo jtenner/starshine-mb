@@ -23,6 +23,10 @@ chmod +x "$tmpdir/bin/moon"
 cat >"$tmpdir/_build/native/release/build/cmd/cmd" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ " $* " != *" --debug-serial-passes "* ]]; then
+  printf 'expected --debug-serial-passes in args, got: %s\n' "$*" >&2
+  exit 1
+fi
 printf 'optimizer trace\n'
 printf 'repro: starshine --dead-code-elimination --vacuum before.wasm\n' >&2
 exit 0

@@ -2636,6 +2636,51 @@ fn optimize_terminating_tails(
 }
 
 ///|
+fn cf_validate_typed_function_candidate(
+  env : Env,
+  params : Array[ValType],
+  func : Func,
+) -> Bool {
+  let results = env.return_type.unwrap_or([])
+  match func {
+    TFunc(tfunc_params, local_vals, body) => {
+      if tfunc_params != params {
+        return false
+      }
+      let all_locals = params.copy()
+      for local_val in local_vals {
+        all_locals.push(local_val)
+      }
+      let env1 = env
+        .with_locals(all_locals)
+        .with_labels({
+          let labels = env.labels.copy()
+          labels.push(results)
+          labels
+        })
+        .with_return_type(Some(results))
+      let st1 = match Typecheck::typecheck(body, make_state(env1, [])) {
+        Ok(st) => st
+        Err(_) => return false
+      }
+      if !st1.reachable {
+        return true
+      }
+      if st1.stack.length() != results.length() {
+        return false
+      }
+      for i in 0..<results.length() {
+        if !Match::matches(st1.stack[i], results[i], env1) {
+          return false
+        }
+      }
+      true
+    }
+    _ => true
+  }
+}
+
+///|
 fn cf_step_path_instrs(
   instrs : Array[TInstr],
   step : BlockTailPathStep,
@@ -2819,6 +2864,40 @@ fn cf_scoped_tail_is_live_in_body(
 }
 
 ///|
+fn cf_tail_is_nested_in_value_loop(
+  func_body : Array[TInstr],
+  tail : ScopedTail,
+) -> Bool {
+  let mut current_instrs = func_body
+  let mut saw_value_loop = false
+  for step in tail.path {
+    match step {
+      LoopBody(idx) =>
+        if idx < 0 || idx >= current_instrs.length() {
+          return false
+        } else {
+          match current_instrs[idx].kind {
+            TInstrKind::TLoop(bt, body) => {
+              match bt {
+                VoidBlockType => ()
+                _ => saw_value_loop = true
+              }
+              current_instrs = body.instrs
+            }
+            _ => return false
+          }
+        }
+      _ =>
+        match cf_step_path_instrs(current_instrs, step) {
+          Some(next_instrs) => current_instrs = next_instrs
+          None => return false
+        }
+    }
+  }
+  saw_value_loop && tail.path.length() > 1
+}
+
+///|
 fn cf_optimize_terminating_tails_at_depth(
   state : CodeFoldingState,
   tails : Array[ScopedTail],
@@ -2834,6 +2913,11 @@ fn cf_optimize_terminating_tails_at_depth(
   }
   if live_tails.length() < 2 {
     return None
+  }
+  for tail in live_tails {
+    if cf_tail_is_nested_in_value_loop(func_body, tail) {
+      return None
+    }
   }
 
   for group in cf_group_terminating_tails(live_tails, depth, trace_stats) {
@@ -3654,6 +3738,8 @@ fn code_folding_pass_with_trace(
               unreachable_tail_count,
               round_stats.collect_calls,
             )
+            let unreachable_phase_locals = state.func_locals.copy()
+            let unreachable_phase_env = state.env
             let unreachable_result = if unreachable_tail_count < 2 {
               None
             } else if skip_unreachable_phase {
@@ -3693,33 +3779,50 @@ fn code_folding_pass_with_trace(
             }
             match unreachable_result {
               Some(new_body_instrs) => {
-                round_stats.unreachable_phase_successes += 1
-                disable_expr_walk_after_terminating = true
-                current_body = TExpr::new(new_body_instrs)
-                current_locals = state.func_locals
-                current_func = cf_build_tfunc(
-                  active_params, current_locals, current_body,
+                let candidate_body = TExpr::new(new_body_instrs)
+                let candidate_locals = state.func_locals
+                let candidate_func = cf_build_tfunc(
+                  active_params, candidate_locals, candidate_body,
                 )
-                // Unreachable folding may wrap/rebase paths; refresh tail
-                // collections so return folding cannot operate on stale paths.
-                state.break_tails.clear()
-                state.unreachable_tails.clear()
-                state.return_tails.clear()
-                state.unoptimizables.clear()
-                state.block_sites = 0
-                state.if_else_sites = 0
-                let recollect_start_us = cf_trace_now_us()
-                collect_block_tails(state, current_body.instrs, round_stats)
-                let recollect_elapsed_us = cf_trace_elapsed_us_since(
-                  recollect_start_us,
-                )
-                round_stats.collect_us = round_stats.collect_us +
-                  recollect_elapsed_us
-                if log_func {
-                  let break_stats = cf_break_tail_trace_stats(state)
-                  trace(
-                    "func[\{ordinal}] round[\{rounds}] recollect_tails elapsed_ms=\{cf_trace_delta_us_to_ms(recollect_elapsed_us)} elapsed_us=\{recollect_elapsed_us} bodies=\{round_stats.collect_calls} instrs=\{round_stats.collect_instrs} blocks=\{state.block_sites} if_elses=\{state.if_else_sites} break_labels=\{break_stats.label_count} break_tails=\{break_stats.tail_count} max_break_fanout=\{break_stats.max_label_tails} returns=\{state.return_tails.length()} unreachables=\{state.unreachable_tails.length()} unoptimizable=\{state.unoptimizables.length()}",
+                if cf_validate_typed_function_candidate(
+                    state.env,
+                    active_params,
+                    candidate_func,
+                  ) {
+                  round_stats.unreachable_phase_successes += 1
+                  disable_expr_walk_after_terminating = true
+                  current_body = candidate_body
+                  current_locals = candidate_locals
+                  current_func = candidate_func
+                  // Unreachable folding may wrap/rebase paths; refresh tail
+                  // collections so return folding cannot operate on stale paths.
+                  state.break_tails.clear()
+                  state.unreachable_tails.clear()
+                  state.return_tails.clear()
+                  state.unoptimizables.clear()
+                  state.block_sites = 0
+                  state.if_else_sites = 0
+                  let recollect_start_us = cf_trace_now_us()
+                  collect_block_tails(state, current_body.instrs, round_stats)
+                  let recollect_elapsed_us = cf_trace_elapsed_us_since(
+                    recollect_start_us,
                   )
+                  round_stats.collect_us = round_stats.collect_us +
+                    recollect_elapsed_us
+                  if log_func {
+                    let break_stats = cf_break_tail_trace_stats(state)
+                    trace(
+                      "func[\{ordinal}] round[\{rounds}] recollect_tails elapsed_ms=\{cf_trace_delta_us_to_ms(recollect_elapsed_us)} elapsed_us=\{recollect_elapsed_us} bodies=\{round_stats.collect_calls} instrs=\{round_stats.collect_instrs} blocks=\{state.block_sites} if_elses=\{state.if_else_sites} break_labels=\{break_stats.label_count} break_tails=\{break_stats.tail_count} max_break_fanout=\{break_stats.max_label_tails} returns=\{state.return_tails.length()} unreachables=\{state.unreachable_tails.length()} unoptimizable=\{state.unoptimizables.length()}",
+                    )
+                  }
+                } else {
+                  state.func_locals = unreachable_phase_locals
+                  state.env = unreachable_phase_env
+                  if log_func {
+                    trace(
+                      "func[\{ordinal}] round[\{rounds}] terminating_unreachable rejected reason=function_validation",
+                    )
+                  }
                 }
               }
               None => ()
@@ -3732,6 +3835,8 @@ fn code_folding_pass_with_trace(
               return_tail_count,
               round_stats.collect_calls,
             )
+            let return_phase_locals = state.func_locals.copy()
+            let return_phase_env = state.env
             let return_result = if return_tail_count < 2 {
               None
             } else if skip_return_phase {
@@ -3772,35 +3877,52 @@ fn code_folding_pass_with_trace(
             let mut defer_walk_after_return_rewrite = false
             match return_result {
               Some(new_body_instrs) => {
-                round_stats.return_phase_successes += 1
-                disable_expr_walk_after_terminating = true
-                current_body = TExpr::new(new_body_instrs)
-                current_locals = state.func_locals
-                current_func = cf_build_tfunc(
-                  active_params, current_locals, current_body,
+                let candidate_body = TExpr::new(new_body_instrs)
+                let candidate_locals = state.func_locals
+                let candidate_func = cf_build_tfunc(
+                  active_params, candidate_locals, candidate_body,
                 )
-                // Return folding rewrites control paths aggressively; refresh
-                // collected tails before we consider expression folding again.
-                state.break_tails.clear()
-                state.unreachable_tails.clear()
-                state.return_tails.clear()
-                state.unoptimizables.clear()
-                state.block_sites = 0
-                state.if_else_sites = 0
-                let recollect_start_us = cf_trace_now_us()
-                collect_block_tails(state, current_body.instrs, round_stats)
-                let recollect_elapsed_us = cf_trace_elapsed_us_since(
-                  recollect_start_us,
-                )
-                round_stats.collect_us = round_stats.collect_us +
-                  recollect_elapsed_us
-                if log_func {
-                  let break_stats = cf_break_tail_trace_stats(state)
-                  trace(
-                    "func[\{ordinal}] round[\{rounds}] recollect_tails elapsed_ms=\{cf_trace_delta_us_to_ms(recollect_elapsed_us)} elapsed_us=\{recollect_elapsed_us} bodies=\{round_stats.collect_calls} instrs=\{round_stats.collect_instrs} blocks=\{state.block_sites} if_elses=\{state.if_else_sites} break_labels=\{break_stats.label_count} break_tails=\{break_stats.tail_count} max_break_fanout=\{break_stats.max_label_tails} returns=\{state.return_tails.length()} unreachables=\{state.unreachable_tails.length()} unoptimizable=\{state.unoptimizables.length()}",
+                if cf_validate_typed_function_candidate(
+                    state.env,
+                    active_params,
+                    candidate_func,
+                  ) {
+                  round_stats.return_phase_successes += 1
+                  disable_expr_walk_after_terminating = true
+                  current_body = candidate_body
+                  current_locals = candidate_locals
+                  current_func = candidate_func
+                  // Return folding rewrites control paths aggressively; refresh
+                  // collected tails before we consider expression folding again.
+                  state.break_tails.clear()
+                  state.unreachable_tails.clear()
+                  state.return_tails.clear()
+                  state.unoptimizables.clear()
+                  state.block_sites = 0
+                  state.if_else_sites = 0
+                  let recollect_start_us = cf_trace_now_us()
+                  collect_block_tails(state, current_body.instrs, round_stats)
+                  let recollect_elapsed_us = cf_trace_elapsed_us_since(
+                    recollect_start_us,
                   )
+                  round_stats.collect_us = round_stats.collect_us +
+                    recollect_elapsed_us
+                  if log_func {
+                    let break_stats = cf_break_tail_trace_stats(state)
+                    trace(
+                      "func[\{ordinal}] round[\{rounds}] recollect_tails elapsed_ms=\{cf_trace_delta_us_to_ms(recollect_elapsed_us)} elapsed_us=\{recollect_elapsed_us} bodies=\{round_stats.collect_calls} instrs=\{round_stats.collect_instrs} blocks=\{state.block_sites} if_elses=\{state.if_else_sites} break_labels=\{break_stats.label_count} break_tails=\{break_stats.tail_count} max_break_fanout=\{break_stats.max_label_tails} returns=\{state.return_tails.length()} unreachables=\{state.unreachable_tails.length()} unoptimizable=\{state.unoptimizables.length()}",
+                    )
+                  }
+                  defer_walk_after_return_rewrite = true
+                } else {
+                  state.func_locals = return_phase_locals
+                  state.env = return_phase_env
+                  if log_func {
+                    trace(
+                      "func[\{ordinal}] round[\{rounds}] terminating_returns rejected reason=function_validation",
+                    )
+                  }
                 }
-                defer_walk_after_return_rewrite = true
               }
               None => ()
             }
@@ -6261,6 +6383,104 @@ test "code folding terminating return tails preserve nested branch depths" {
         ]),
       ),
     ]),
+  )
+  let folded = run_fold_with_env(
+    original,
+    env=Env::new().with_return_type(Some([ValType::i32()])),
+  )
+  cf_assert_func_body_typechecks(folded, [ValType::i32()])
+  assert_eq(
+    validate_module(cf_test_module_for_func(folded, [ValType::i32()])),
+    Ok(()),
+  )
+}
+
+///|
+test "code folding terminating return tails preserve loop-targeted branch depths in value loops" {
+  let x = LocalIdx::new(0)
+  let original = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(x, TInstr::i32_const(I32(7))),
+      TInstr::local_set(
+        x,
+        TInstr::loop_(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::i32_const(I32(0)),
+              TExpr::new([TInstr::return_([TInstr::local_get(x)])]),
+              Some(
+                TExpr::new([
+                  TInstr::br_if(LabelIdx::new(1), TInstr::i32_const(I32(1)), []),
+                  TInstr::return_([TInstr::local_get(x)]),
+                ]),
+              ),
+            ),
+            TInstr::local_get(x),
+          ]),
+        ),
+      ),
+      TInstr::local_get(x),
+    ]),
+  )
+  assert_eq(
+    validate_module(cf_test_module_for_func(original, [ValType::i32()])),
+    Ok(()),
+  )
+  let folded = run_fold_with_env(
+    original,
+    env=Env::new().with_return_type(Some([ValType::i32()])),
+  )
+  cf_assert_func_body_typechecks(folded, [ValType::i32()])
+  assert_eq(
+    validate_module(cf_test_module_for_func(folded, [ValType::i32()])),
+    Ok(()),
+  )
+}
+
+///|
+test "code folding terminating return tails keep value-loop fallthrough when branch can bypass shared return" {
+  let x = LocalIdx::new(0)
+  let original = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(x, TInstr::i32_const(I32(7))),
+      TInstr::local_set(
+        x,
+        TInstr::loop_(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::i32_const(I32(0)),
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(9))),
+                TInstr::drop(TInstr::i32_const(I32(10))),
+                TInstr::return_([TInstr::local_get(x)]),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::br_if(LabelIdx::new(1), TInstr::i32_const(I32(1)), []),
+                  TInstr::drop(TInstr::i32_const(I32(9))),
+                  TInstr::drop(TInstr::i32_const(I32(10))),
+                  TInstr::return_([TInstr::local_get(x)]),
+                ]),
+              ),
+            ),
+            TInstr::local_get(x),
+          ]),
+        ),
+      ),
+      TInstr::local_get(x),
+    ]),
+  )
+  assert_eq(
+    validate_module(cf_test_module_for_func(original, [ValType::i32()])),
+    Ok(()),
   )
   let folded = run_fold_with_env(
     original,

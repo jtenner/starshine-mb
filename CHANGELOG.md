@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-17 Optimize Follow-up: keep serial self-optimize enabled and harden pass debugging
+
+- Updated [/home/jtenner/Projects/starshine-mb/scripts/self-optimize.sh](/home/jtenner/Projects/starshine-mb/scripts/self-optimize.sh), [/home/jtenner/Projects/starshine-mb/scripts/lib/self-optimized-artifacts.mjs](/home/jtenner/Projects/starshine-mb/scripts/lib/self-optimized-artifacts.mjs), and [/home/jtenner/Projects/starshine-mb/scripts/test/self-optimize-output.sh](/home/jtenner/Projects/starshine-mb/scripts/test/self-optimize-output.sh) so self-optimize runs with `--debug-serial-passes` by default and the wrapper test now fails if that serial flag is dropped.
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/simplify_locals.mbt](/home/jtenner/Projects/starshine-mb/src/passes/simplify_locals.mbt) so multi-use `local.get` tee-sinking now refuses sink values that do not produce a standalone result, preventing malformed `local.tee(... local.set(...))` trees during the serial optimize pipeline; added regressions for both single-use and multi-use variants.
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/code_folding.mbt](/home/jtenner/Projects/starshine-mb/src/passes/code_folding.mbt) with extra function-shape guards around terminating-tail rewrites in nested value loops, plus focused value-loop regression coverage used while triaging the next serial self-optimize failure.
+- Validation: `moon check`; `bash scripts/test/self-optimize-output.sh`; `moon test --target native src/passes/simplify_locals.mbt -F '*tee sink value has no standalone result*'`.
+
 ## 2026-03-17 Optimize Follow-up: preserve stack-fed values in `CodePushing` and `Vacuum`
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/passes/code_pushing.mbt](/home/jtenner/Projects/starshine-mb/src/passes/code_pushing.mbt) so pushing a `local.set` into an `if` arm now accounts for all locals written by the set value, preventing rewrites that would leave the opposite arm or post-`if` code reading a local that was only written on one branch.

@@ -1879,9 +1879,12 @@ fn sl_sink_value_preserves_local_get_type(
   env : Env,
   local_type : ValType,
 ) -> Bool {
-  match lcs_infer_tinstr_type(value, env) {
-    Some(vt) => vt == local_type || Match::matches(vt, local_type, env)
-    None => false
+  match (sl_typecheck_instr_empty_stack(value, env), lcs_infer_tinstr_type(value, env)) {
+    (Ok(state), Some(vt)) =>
+      state.reachable &&
+      state.stack.length() == 1 &&
+      (vt == local_type || Match::matches(vt, local_type, env))
+    _ => false
   }
 }
 
@@ -1897,6 +1900,21 @@ fn sl_can_emit_typed_local_set(
       dest_type == local_type &&
       value_type == local_type &&
       sl_can_emit_rewritten_instr(TInstr::local_set(idx, value), env)
+    _ => false
+  }
+}
+
+///|
+fn sl_can_emit_typed_local_tee(
+  idx : LocalIdx,
+  local_type : ValType,
+  value : TInstr,
+  env : Env,
+) -> Bool {
+  match env.get_local_type(idx) {
+    Some(dest_type) =>
+      dest_type == local_type &&
+      sl_sink_value_preserves_local_get_type(value, env, local_type)
     _ => false
   }
 }
@@ -2139,6 +2157,14 @@ fn sl_try_sink_local_get(
         changed.val = true
         sink_value
       } else {
+        if !sl_can_emit_typed_local_tee(
+            idx,
+            local_types[key],
+            sink_value,
+            env,
+          ) {
+          return TInstr::local_get(idx)
+        }
         if info.out_index >= 0 && info.out_index < out.length() {
           out[info.out_index] = TInstr::nop()
         }
@@ -6457,9 +6483,15 @@ test "simplify_locals sink helper allows single-use local.get to sink narrowing 
   }
   let get_counts = sl_main_get_counts_new(1, false)
   sl_main_get_counts_adjust_idx(get_counts, LocalIdx::new(0), 1)
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [], TExpr::new([]))]))
   let rewritten = sl_try_sink_local_get(
     LocalIdx::new(0),
-    sl_test_env([ValType::funcref()]),
+    Env::new().with_module(mod).with_locals([ValType::funcref()]),
     sinkables,
     sinkable_indexes,
     out,
@@ -6471,6 +6503,70 @@ test "simplify_locals sink helper allows single-use local.get to sink narrowing 
   )
   assert_eq(rewritten, TInstr::ref_func(FuncIdx::new(0)))
   assert_true(changed.val)
+}
+
+///|
+test "simplify_locals sink helper keeps single-use local.get when sink value has no standalone result" {
+  let x = LocalIdx::new(0)
+  let y = LocalIdx::new(1)
+  let sinkables : Map[Int, SLSinkableInfo] = Map::new()
+  let sinkable_indexes = sl_sinkable_indexes_new()
+  let out : Array[TInstr] = []
+  let changed = Ref::new(false)
+  let sink_value = TInstr::local_set(y, TInstr::i32_const(I32(5)))
+  sinkables[0] = {
+    out_index: -1,
+    value: sink_value,
+    effects: lcs_collect_effects(TInstr::local_set(x, sink_value)),
+  }
+  let get_counts = sl_main_get_counts_new(2, false)
+  sl_main_get_counts_adjust_idx(get_counts, x, 1)
+  let rewritten = sl_try_sink_local_get(
+    x,
+    sl_test_env([ValType::i32(), ValType::i32()]),
+    sinkables,
+    sinkable_indexes,
+    out,
+    get_counts,
+    [ValType::i32(), ValType::i32()],
+    { allow_tee: false, allow_structure: false, allow_nesting: true },
+    true,
+    changed,
+  )
+  assert_eq(rewritten, TInstr::local_get(x))
+  assert_false(changed.val)
+}
+
+///|
+test "simplify_locals sink helper keeps multi-use local.get when tee sink value has no standalone result" {
+  let x = LocalIdx::new(0)
+  let y = LocalIdx::new(1)
+  let sinkables : Map[Int, SLSinkableInfo] = Map::new()
+  let sinkable_indexes = sl_sinkable_indexes_new()
+  let out : Array[TInstr] = []
+  let changed = Ref::new(false)
+  let sink_value = TInstr::local_set(y, TInstr::i32_const(I32(5)))
+  sinkables[0] = {
+    out_index: -1,
+    value: sink_value,
+    effects: lcs_collect_effects(TInstr::local_set(x, sink_value)),
+  }
+  let get_counts = sl_main_get_counts_new(2, false)
+  sl_main_get_counts_adjust_idx(get_counts, x, 2)
+  let rewritten = sl_try_sink_local_get(
+    x,
+    sl_test_env([ValType::i32(), ValType::i32()]),
+    sinkables,
+    sinkable_indexes,
+    out,
+    get_counts,
+    [ValType::i32(), ValType::i32()],
+    { allow_tee: true, allow_structure: false, allow_nesting: true },
+    true,
+    changed,
+  )
+  assert_eq(rewritten, TInstr::local_get(x))
+  assert_false(changed.val)
 }
 
 ///|
@@ -6639,6 +6735,22 @@ test "simplify_locals local checker rejects result-block candidate with void bra
   )
   assert_false(
     sl_can_emit_rewritten_instr(candidate, sl_test_env([ValType::i32()])),
+  )
+}
+
+///|
+test "simplify_locals local checker rejects local.tee candidate whose value has no standalone result" {
+  let x = LocalIdx::new(0)
+  let y = LocalIdx::new(1)
+  let candidate = TInstr::local_tee(
+    x,
+    TInstr::local_set(y, TInstr::i32_const(I32(7))),
+  )
+  assert_false(
+    sl_can_emit_rewritten_instr(
+      candidate,
+      sl_test_env([ValType::i32(), ValType::i32()]),
+    ),
   )
 }
 

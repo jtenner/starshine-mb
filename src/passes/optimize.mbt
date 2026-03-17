@@ -358,6 +358,17 @@ fn opt_preflight_call_arity_type_idx_error(
 }
 
 ///|
+fn opt_preflight_call_arity_with_caller_context(
+  mod : Module,
+  caller_abs_idx : Int,
+  err : String,
+) -> String {
+  err +
+  "\n\nOffending caller function:\n" +
+  mod.pretty_print_func(FuncIdx::new(caller_abs_idx.reinterpret_as_uint()))
+}
+
+///|
 fn opt_preflight_call_arity(mod : Module) -> Result[Unit, String] {
   let env = Env::new().with_module(mod)
   let imported_func_count = match mod.code_sec {
@@ -396,19 +407,27 @@ fn opt_preflight_call_arity(mod : Module) -> Result[Unit, String] {
                           Ok(())
                         } else {
                           Err(
-                            opt_preflight_call_arity_direct_error(
+                            opt_preflight_call_arity_with_caller_context(
+                              mod,
                               caller_abs_idx,
-                              node_id,
-                              target,
-                              false,
-                              "arg count mismatch expected=\{params.length()} actual=\{actual_arg_arity}",
+                              opt_preflight_call_arity_direct_error(
+                                caller_abs_idx,
+                                node_id,
+                                target,
+                                false,
+                                "arg count mismatch expected=\{params.length()} actual=\{actual_arg_arity}",
+                              ),
                             ),
                           )
                         }
                       None =>
                         Err(
-                          opt_preflight_call_arity_direct_error(
-                            caller_abs_idx, node_id, target, false, "callee type does not resolve to a function type",
+                          opt_preflight_call_arity_with_caller_context(
+                            mod,
+                            caller_abs_idx,
+                            opt_preflight_call_arity_direct_error(
+                              caller_abs_idx, node_id, target, false, "callee type does not resolve to a function type",
+                            ),
                           ),
                         )
                     }
@@ -421,19 +440,27 @@ fn opt_preflight_call_arity(mod : Module) -> Result[Unit, String] {
                           Ok(())
                         } else {
                           Err(
-                            opt_preflight_call_arity_direct_error(
+                            opt_preflight_call_arity_with_caller_context(
+                              mod,
                               caller_abs_idx,
-                              node_id,
-                              target,
-                              true,
-                              "arg count mismatch expected=\{params.length()} actual=\{actual_arg_arity}",
+                              opt_preflight_call_arity_direct_error(
+                                caller_abs_idx,
+                                node_id,
+                                target,
+                                true,
+                                "arg count mismatch expected=\{params.length()} actual=\{actual_arg_arity}",
+                              ),
                             ),
                           )
                         }
                       None =>
                         Err(
-                          opt_preflight_call_arity_direct_error(
-                            caller_abs_idx, node_id, target, true, "callee type does not resolve to a function type",
+                          opt_preflight_call_arity_with_caller_context(
+                            mod,
+                            caller_abs_idx,
+                            opt_preflight_call_arity_direct_error(
+                              caller_abs_idx, node_id, target, true, "callee type does not resolve to a function type",
+                            ),
                           ),
                         )
                     }
@@ -1985,7 +2012,15 @@ fn optimize_execute_scheduler_pass(
         }
       }
   }
-  if kind is ModuleRunnerPass {
+  let audit_after_pass = if kind is ModuleRunnerPass {
+    true
+  } else {
+    match options.validation_policy {
+      AfterSegment => true
+      _ => false
+    }
+  }
+  if audit_after_pass {
     match opt_preflight_call_arity(mod) {
       Ok(_) => ()
       Err(e) => {

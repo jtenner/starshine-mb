@@ -127,7 +127,7 @@ export function optimizeDebugWasm({
   }
 
   try {
-    execFileSync(binary, ['--optimize', '-O4z', '--out', dist.selfOptimized, dist.debug], {
+    execFileSync(binary, ['--debug-serial-passes', '--optimize', '-O4z', '--out', dist.selfOptimized, dist.debug], {
       cwd: repoRoot,
       env: {
         ...process.env,
