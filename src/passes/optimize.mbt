@@ -2006,7 +2006,8 @@ fn optimize_flush_function_stack_subsegment(
   if current_substack.is_empty() {
     return Ok(mod)
   }
-  if !stacked_runner_enabled || current_substack.length() == 1 {
+  if !stacked_runner_enabled ||
+    !optimize_function_stack_can_run_fully_stacked(current_substack, state) {
     let mut mod = mod
     for pass in current_substack {
       mod = match
@@ -2083,41 +2084,31 @@ fn optimize_run_scheduler_segment(
         }
       }
       let current_substack : Array[ModulePass] = []
+      let current_substack_vacuum_count = Ref::new(0)
       for pass in stack_passes {
         if pass is Vacuum {
-          mod = match
-            optimize_flush_function_stack_subsegment(
-              ctx, mod, current_substack, stacked_runner_enabled, total_passes, state,
-              original_mod, options, trace, trace_enabled, trace_level,
-            ) {
-            Ok(new_mod) => new_mod
-            Err(e) => {
-              optimize_trace_emit_helper(
-                trace,
-                trace_enabled,
-                trace_level,
-                "scheduler:run_segment[\{segment_index}/\{total_segments}]:error \{segment_label}",
-              )
-              return Err(e)
+          if current_substack_vacuum_count.val > 0 {
+            mod = match
+              optimize_flush_function_stack_subsegment(
+                ctx, mod, current_substack, stacked_runner_enabled, total_passes,
+                state, original_mod, options, trace, trace_enabled, trace_level,
+              ) {
+              Ok(new_mod) => new_mod
+              Err(e) => {
+                optimize_trace_emit_helper(
+                  trace,
+                  trace_enabled,
+                  trace_level,
+                  "scheduler:run_segment[\{segment_index}/\{total_segments}]:error \{segment_label}",
+                )
+                return Err(e)
+              }
             }
+            current_substack.clear()
+            current_substack_vacuum_count.val = 0
           }
-          current_substack.clear()
-          mod = match
-            optimize_execute_scheduler_pass(
-              ctx, mod, pass, total_passes, state, original_mod, options, trace,
-              trace_enabled, trace_level,
-            ) {
-            Ok(new_mod) => new_mod
-            Err(e) => {
-              optimize_trace_emit_helper(
-                trace,
-                trace_enabled,
-                trace_level,
-                "scheduler:run_segment[\{segment_index}/\{total_segments}]:error \{segment_label}",
-              )
-              return Err(e)
-            }
-          }
+          current_substack.push(pass)
+          current_substack_vacuum_count.val += 1
         } else {
           current_substack.push(pass)
         }
@@ -6681,6 +6672,85 @@ test "optimize_module helper trace interleaves a single vacuum inside function-s
   assert_true(cp_func1 < dce_func2)
   assert_true(dce_func2 < vacuum_func2)
   assert_true(vacuum_func2 < cp_func2)
+}
+
+///|
+test "optimize_module helper trace chunks repeated vacuum stacks into safe per-function substacks" {
+  let func0 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::drop(TInstr::i32_const(I32(3))),
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let func1 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::drop(TInstr::i32_const(I32(4))),
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(2))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(CodeSec::new([func0, func1])),
+  )
+  let trace_lines : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [DeadCodeElimination, Vacuum, Vacuum, CodePushing],
+        OptimizeOptions::new(),
+        fn(msg) { trace_lines.push(msg) },
+        trace_level=OptimizeTracingLevel::helper(),
+      ) {
+      Ok(m) => m
+      Err(e) =>
+        fail("unexpected optimize_module_with_options_trace error: \{e}")
+    },
+  )
+  let dce_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[1/4]:dead_code_elimination:func[1]:start",
+  )
+  let vacuum1_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[2/4]:vacuum:func[1] start",
+  )
+  let dce_func2 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[1/4]:dead_code_elimination:func[2]:start",
+  )
+  let vacuum1_func2 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[2/4]:vacuum:func[2] start",
+  )
+  let vacuum2_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[3/4]:vacuum:func[1] start",
+  )
+  let cp_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[4/4]:code_pushing:func[1] start",
+  )
+  let vacuum2_func2 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[3/4]:vacuum:func[2] start",
+  )
+  let cp_func2 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[4/4]:code_pushing:func[2] start",
+  )
+  assert_true(dce_func1 >= 0)
+  assert_true(vacuum1_func1 >= 0)
+  assert_true(dce_func2 >= 0)
+  assert_true(vacuum1_func2 >= 0)
+  assert_true(vacuum2_func1 >= 0)
+  assert_true(cp_func1 >= 0)
+  assert_true(vacuum2_func2 >= 0)
+  assert_true(cp_func2 >= 0)
+  assert_true(dce_func1 < vacuum1_func1)
+  assert_true(vacuum1_func1 < dce_func2)
+  assert_true(dce_func2 < vacuum1_func2)
+  assert_true(vacuum1_func2 < vacuum2_func1)
+  assert_true(vacuum2_func1 < cp_func1)
+  assert_true(cp_func1 < vacuum2_func2)
+  assert_true(vacuum2_func2 < cp_func2)
 }
 
 ///|

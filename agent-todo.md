@@ -16,7 +16,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
 - [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
 - [ ] Implement `StringGathering` in the global post pipeline under the appropriate feature/optimization gates.
-- [ ] Publish the first release and MoonBit registry package (`moon publish` plus GitHub Release binaries).
 
 ## Post 0.1.0 Features
 - [ ] Add "StackState" to node traversal to event callbacks help with validation issues
@@ -97,3 +96,4 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [x] Optimize stacked-runner phase-trace slice: extended the prepared per-function executor to `OptimizeTracingLevel::phase()` on the final-validation path, fixed stacked-runner module-snapshot refresh plus whole-module `last_pre_pass_mod` capture between per-function applications, and locked the new phase-trace interleaving/fallback behavior with regressions while leaving `Vacuum`, pass-summary tracing, and `AfterEveryPass` validation as remaining flat fallbacks.
 - [x] Optimize stacked-runner `Vacuum` slice: kept zero/one non-skipped `Vacuum` passes inside the prepared per-function executor, added helper-trace coverage that locks `DeadCodeElimination -> Vacuum -> CodePushing` interleaving by function, and corrected `DeNaN` back to a scheduler barrier because its current optimize wrapper is module-shaped. Repeated/skip-sensitive `Vacuum`, pass-summary tracing, and `AfterEveryPass` validation remain as the flat fallbacks.
 - [x] Optimize stacked-runner eligibility hardening: corrected `ConstantFieldPropagation` and `ConstantFieldNullTestFolding` back to scheduler barriers because their current optimize wrappers perform whole-module constant-field analysis before rewriting, and added segmentation regressions so those passes no longer enter `FunctionPassStack`.
+- [x] Optimize stacked-runner repeated-`Vacuum` slice: changed the non-fully-stackable fallback path to chunk repeated-`Vacuum` segments into the largest safe per-function substacks instead of flushing around every `Vacuum`, added helper-trace coverage for `DeadCodeElimination -> Vacuum -> Vacuum -> CodePushing`, and removed the explicit release/publish action line from the publishing-blocker list so that section stays focused on technical blockers.
