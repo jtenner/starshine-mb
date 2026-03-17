@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-17 Format Follow-up: normalize `simplify_locals` line wrapping
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/simplify_locals.mbt](/home/jtenner/Projects/starshine-mb/src/passes/simplify_locals.mbt) with the pending `moon fmt` line wrapping only; there is no behavioral change in this commit.
+- Validation: `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-17 Optimize Follow-up: keep `CodeFolding` from hoisting shared returns past outer branches
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/passes/code_folding.mbt](/home/jtenner/Projects/starshine-mb/src/passes/code_folding.mbt) so `CodeFolding` now skips `if`-tail hoists when the merged suffix is terminating and the remaining condition or arms still branch outward, preventing the invalid wrapper-block rewrite seen in serial self-optimize traces.

@@ -1879,7 +1879,11 @@ fn sl_sink_value_preserves_local_get_type(
   env : Env,
   local_type : ValType,
 ) -> Bool {
-  match (sl_typecheck_instr_empty_stack(value, env), lcs_infer_tinstr_type(value, env)) {
+  match
+    (
+      sl_typecheck_instr_empty_stack(value, env),
+      lcs_infer_tinstr_type(value, env),
+    ) {
     (Ok(state), Some(vt)) =>
       state.reachable &&
       state.stack.length() == 1 &&
@@ -2157,12 +2161,7 @@ fn sl_try_sink_local_get(
         changed.val = true
         sink_value
       } else {
-        if !sl_can_emit_typed_local_tee(
-            idx,
-            local_types[key],
-            sink_value,
-            env,
-          ) {
+        if !sl_can_emit_typed_local_tee(idx, local_types[key], sink_value, env) {
           return TInstr::local_get(idx)
         }
         if info.out_index >= 0 && info.out_index < out.length() {
