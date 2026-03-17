@@ -286,10 +286,15 @@ fn msf_verify_call_target_type(
   let FuncType(params, _) = match
     msf_resolve_func_type_for_type_idx(type_idx, type_env) {
     Some(ft) => ft
-    None => return Err("missing function type for rewritten call target")
+    None =>
+      return Err(
+        "missing function type for rewritten call target type_idx=\{type_idx}",
+      )
   }
   if params.length() != expected_arg_count {
-    return Err("param arity mismatch for rewritten call site")
+    return Err(
+      "param arity mismatch for rewritten call site type_idx=\{type_idx} expected=\{expected_arg_count} actual=\{params.length()}",
+    )
   }
   Ok(())
 }
@@ -881,6 +886,38 @@ fn msf_call_target_rewrite_error(reason : String) -> String {
 }
 
 ///|
+fn msf_indirect_call_kind_name(is_return : Bool) -> String {
+  if is_return {
+    "return_call_indirect"
+  } else {
+    "call_indirect"
+  }
+}
+
+///|
+fn msf_ref_call_kind_name(is_return : Bool) -> String {
+  if is_return {
+    "return_call_ref"
+  } else {
+    "call_ref"
+  }
+}
+
+///|
+fn msf_preflight_type_idx_call_error(
+  caller_abs_idx : Int,
+  node_id : Int,
+  type_idx : TypeIdx,
+  kind : String,
+  family : String,
+  detail : String,
+) -> String {
+  "merge_similar_functions: upstream-invalid \{family} in preflight: " +
+  detail +
+  " kind=\{kind} caller_abs_idx=\{caller_abs_idx} type_idx=\{type_idx} node_id=\{node_id}"
+}
+
+///|
 fn msf_build_dense_node_to_param(params : Array[ParamInfo]) -> Array[Int] {
   let mut max_node_id = -1
   for param_idx = 0; param_idx < params.length(); param_idx = param_idx + 1 {
@@ -949,7 +986,7 @@ fn msf_validate_call_target_rewrite_site(
   if actual_arg_count != expected_arg_count {
     return Err(
       msf_call_target_rewrite_error(
-        "arg count mismatch node_id=\{node_id} kind=\{actual_kind} expected=\{expected_arg_count} actual=\{actual_arg_count}",
+        "arg count mismatch node_id=\{node_id} kind=\{actual_kind} type_idx=\{type_idx} expected=\{expected_arg_count} actual=\{actual_arg_count}",
       ),
     )
   }
@@ -1014,6 +1051,40 @@ fn msf_preflight_direct_call_site(
         node_id,
         target,
         is_return,
+        "arg count mismatch expected=\{params.length()} actual=\{arg_count}",
+      ),
+    )
+  }
+  Ok(())
+}
+
+///|
+fn msf_preflight_type_idx_call_site(
+  type_env : Env,
+  caller_abs_idx : Int,
+  node_id : Int,
+  type_idx : TypeIdx,
+  arg_count : Int,
+  kind : String,
+  family : String,
+) -> Result[Unit, String] {
+  let FuncType(params, _) = match type_env.resolve_functype(type_idx) {
+    Some(ft) => ft
+    None =>
+      return Err(
+        msf_preflight_type_idx_call_error(
+          caller_abs_idx, node_id, type_idx, kind, family, "type does not resolve to a function type",
+        ),
+      )
+  }
+  if params.length() != arg_count {
+    return Err(
+      msf_preflight_type_idx_call_error(
+        caller_abs_idx,
+        node_id,
+        type_idx,
+        kind,
+        family,
         "arg count mismatch expected=\{params.length()} actual=\{arg_count}",
       ),
     )
@@ -1164,6 +1235,122 @@ fn msf_preflight_direct_calls(
   if trace_all_funcs {
     trace(
       "phase=preflight_direct_calls:done elapsed_ms=\{msf_trace_elapsed_ms(preflight_start_ms)}",
+    )
+  }
+  Ok(())
+}
+
+///|
+fn msf_preflight_indirect_calls(
+  mod : Module,
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> Result[Unit, String] {
+  let preflight_start_ms = msf_trace_now_ms()
+  if trace_all_funcs {
+    trace("phase=preflight_indirect_calls:start")
+  }
+  let import_count = msf_count_imported_funcs(mod)
+  let type_env = msf_make_type_env(mod)
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+        let caller_abs_idx = import_count + def_idx
+        match funcs[def_idx] {
+          TFunc(_, _, body) => {
+            let mut next_id = 0
+            let walker : ModuleTransformer[Unit, String] = ModuleTransformer::new().on_tinstruction_evt(fn(
+                self,
+                _,
+                instr : TInstr,
+              ) {
+                let node_id = next_id
+                next_id += 1
+                match instr.kind {
+                  TInstrKind::TCallRef(type_idx, args, _) =>
+                    match
+                      msf_preflight_type_idx_call_site(
+                        type_env,
+                        caller_abs_idx,
+                        node_id,
+                        type_idx,
+                        args.length(),
+                        msf_ref_call_kind_name(false),
+                        "call_ref",
+                      ) {
+                      Ok(_) =>
+                        from_walk(self.walk_tinstruction_default((), instr))
+                      Err(e) => return error(e)
+                    }
+                  TInstrKind::TReturnCallRef(type_idx, args, _) =>
+                    match
+                      msf_preflight_type_idx_call_site(
+                        type_env,
+                        caller_abs_idx,
+                        node_id,
+                        type_idx,
+                        args.length(),
+                        msf_ref_call_kind_name(true),
+                        "call_ref",
+                      ) {
+                      Ok(_) =>
+                        from_walk(self.walk_tinstruction_default((), instr))
+                      Err(e) => return error(e)
+                    }
+                  TInstrKind::TCallIndirect(type_idx, _, args, _) =>
+                    match
+                      msf_preflight_type_idx_call_site(
+                        type_env,
+                        caller_abs_idx,
+                        node_id,
+                        type_idx,
+                        args.length(),
+                        msf_indirect_call_kind_name(false),
+                        "indirect call",
+                      ) {
+                      Ok(_) =>
+                        from_walk(self.walk_tinstruction_default((), instr))
+                      Err(e) => return error(e)
+                    }
+                  TInstrKind::TReturnCallIndirect(type_idx, _, args, _) =>
+                    match
+                      msf_preflight_type_idx_call_site(
+                        type_env,
+                        caller_abs_idx,
+                        node_id,
+                        type_idx,
+                        args.length(),
+                        msf_indirect_call_kind_name(true),
+                        "indirect call",
+                      ) {
+                      Ok(_) =>
+                        from_walk(self.walk_tinstruction_default((), instr))
+                      Err(e) => return error(e)
+                    }
+                  _ => from_walk(self.walk_tinstruction_default((), instr))
+                }
+              },
+            )
+            match walker.walk_texpr((), body) {
+              Ok(_) => ()
+              Err(e) => {
+                if trace_all_funcs {
+                  trace(
+                    "phase=preflight_indirect_calls:error elapsed_ms=\{msf_trace_elapsed_ms(preflight_start_ms)} \{e}",
+                  )
+                }
+                return Err(e)
+              }
+            }
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  if trace_all_funcs {
+    trace(
+      "phase=preflight_indirect_calls:done elapsed_ms=\{msf_trace_elapsed_ms(preflight_start_ms)}",
     )
   }
   Ok(())
@@ -2987,6 +3174,10 @@ fn run(
     Ok(_) => ()
     Err(e) => return Err(e)
   }
+  match msf_preflight_indirect_calls(mod, trace~, trace_all_funcs~) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
   let analysis = msf_make_module_analysis(mod, trace~, trace_all_funcs~)
   let classes = msf_collect_equivalent_classes_from_analysis(
     analysis,
@@ -3630,6 +3821,59 @@ test "merge similar functions preflight rejects upstream-invalid return_call ari
 }
 
 ///|
+test "merge similar functions preflight rejects upstream-invalid call_ref arity" {
+  let t_sig = msf_make_func_type([ValType::i32()], [ValType::i32()])
+  let t_wrap = msf_make_func_type([], [ValType::i32()])
+  let body = TExpr::new([
+    TInstr::call_ref(
+      TypeIdx::new(0),
+      [TInstr::i32_const(I32(1)), TInstr::i32_const(I32(2))],
+      TInstr::ref_func(FuncIdx::new(0)),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_sig, t_wrap]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [ValType::i32()], body)]))
+  match merge_similar_functions(mod) {
+    Ok(_) => fail("expected preflight to reject upstream-invalid call_ref")
+    Err(e) => {
+      assert_true(e.contains("upstream-invalid call_ref in preflight"))
+      assert_true(e.contains("expected=1 actual=2"))
+      assert_true(e.contains("kind=call_ref"))
+      assert_true(e.contains("type_idx=(Type 0)"))
+    }
+  }
+}
+
+///|
+test "merge similar functions preflight rejects upstream-invalid call_indirect arity" {
+  let t_sig = msf_make_func_type([ValType::i32()], [ValType::i32()])
+  let t_wrap = msf_make_func_type([], [ValType::i32()])
+  let body = TExpr::new([
+    TInstr::call_indirect(
+      TypeIdx::new(0),
+      TableIdx::new(0),
+      [TInstr::i32_const(I32(1)), TInstr::i32_const(I32(2))],
+      TInstr::i32_const(I32(0)),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_sig, t_wrap]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [ValType::i32()], body)]))
+  match merge_similar_functions(mod) {
+    Ok(_) => fail("expected preflight to reject upstream-invalid call_indirect")
+    Err(e) => {
+      assert_true(e.contains("upstream-invalid indirect call in preflight"))
+      assert_true(e.contains("expected=1 actual=2"))
+      assert_true(e.contains("kind=call_indirect"))
+      assert_true(e.contains("type_idx=(Type 0)"))
+    }
+  }
+}
+
+///|
 test "merge similar functions basic const merging creates shared + thunks" {
   let t = msf_i32_func_type()
   let f0 = Func::t_func([ValType::i32()], [], msf_binary_body(42, 10))
@@ -4038,6 +4282,8 @@ test "merge similar functions rewrite validation errors include function diff du
       assert_true(
         e.contains("call_target rewrite metadata mismatch: arg count mismatch"),
       )
+      assert_true(e.contains("type_idx=(Type 0)"))
+      assert_true(e.contains("expected=2 actual=1"))
       assert_true(
         e.contains(
           "Offending function diff merge_similar_functions (primary -> secondary)",

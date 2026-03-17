@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-17 Optimize Follow-up: preflight typed and indirect call arity in `MergeSimilarFunctions`
+
+- Updated [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) so `MergeSimilarFunctions` now preflights `call_ref`, `return_call_ref`, `call_indirect`, and `return_call_indirect` arity against the resolved function type before class collection, and so rewrite-time call-target mismatch diagnostics include the relevant `type_idx` plus expected/actual arity details.
+- Added regressions in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) that lock upstream-invalid `call_ref` and `call_indirect` rejection in preflight and preserve the richer rewrite-time mismatch diagnostics.
+- Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to record the new optimize performance blockers and the `MergeSimilarFunctions` arg-count mismatch failure observed in the self-optimization trace.
+- Validation: `moon test src/passes`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Optimize Follow-up: make `SSANoMerge` sparse and stabilize self-opt execution
 
 - Reworked [`src/passes/dataflow_opt.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/dataflow_opt.mbt) so `SSANoMerge` uses a Binaryen-style sparse block/action analysis instead of cloning dense reaching-definition maps, and added a regression that preserves loop-carried gets.
