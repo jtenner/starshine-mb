@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-17 Optimize Follow-up: keep `RemoveUnusedNames` from peeling live branch targets
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_names.mbt](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_names.mbt) so nested same-typed block peeling now bails out when the peeled body still contains branches or catches targeting one of the scopes that would be removed, preventing invalid label rebases like the `br 1 -> br 0` rewrite that trapped control flow inside value-producing `if` expressions.
+- Added a regression in [/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_names.mbt](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_names.mbt) that preserves the minimal failing shape: a nested `if (result i32)` whose else-arm branches to the block scope that peeling would otherwise erase.
+- Validation: `moon info`; `moon fmt`; `moon test --target native src/passes/remove_unused_names.mbt`; `moon run src/cmd --target native -- --debug-serial-passes --remove-unused-names -o /tmp/rmn-debug-fixed.wasm before.wasm`.
+
 ## 2026-03-17 Optimize Follow-up: add a serial per-pass validation debug mode
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/cli/cli.mbt](/home/jtenner/Projects/starshine-mb/src/cli/cli.mbt), [/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt), and [/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so `starshine --debug-serial-passes ...` now disables function-pass stacking and validates after each pass-sized scheduler segment, making optimize-pipeline correctness failures attributable to the first failing pass instead of a later barrier.

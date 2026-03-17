@@ -978,6 +978,19 @@ fn run_label_matches_depth(label : LabelIdx, depth : Int) -> Bool {
 }
 
 ///|
+fn run_label_targets_removed_scope(
+  label : LabelIdx,
+  depth : Int,
+  removed_scopes : Int,
+) -> Bool {
+  if removed_scopes <= 0 {
+    return false
+  }
+  let curr = run_label_to_int(label)
+  curr >= depth && curr < depth + removed_scopes
+}
+
+///|
 fn run_catch_targets_depth(c : Catch, depth : Int) -> Bool {
   match c {
     Catch(_, label)
@@ -1221,6 +1234,261 @@ fn run_has_branch_to_depth_in_texpr(
 }
 
 ///|
+fn run_has_branch_to_removed_scope_in_instr(
+  instr : TInstr,
+  removed_scopes : Int,
+  depth : Int,
+  walk_trace_state? : RUNWalkOnceVerboseState? = None,
+  walk_trace? : (String) -> Unit = run_trace_noop,
+) -> Bool {
+  match walk_trace_state {
+    Some(state) =>
+      run_walk_verbose_note_branch_scan_visit(walk_trace, state, depth)
+    None => ()
+  }
+  match instr.kind {
+    TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
+      run_has_branch_to_removed_scope_in_texpr(
+        body,
+        removed_scopes,
+        depth + 1,
+        walk_trace_state~,
+        walk_trace~,
+      )
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      if run_has_branch_to_removed_scope_in_instr(
+          cond,
+          removed_scopes,
+          depth,
+          walk_trace_state~,
+          walk_trace~,
+        ) {
+        return true
+      }
+      if run_has_branch_to_removed_scope_in_texpr(
+          then_body,
+          removed_scopes,
+          depth + 1,
+          walk_trace_state~,
+          walk_trace~,
+        ) {
+        return true
+      }
+      match else_body {
+        Some(other) =>
+          run_has_branch_to_removed_scope_in_texpr(
+            other,
+            removed_scopes,
+            depth + 1,
+            walk_trace_state~,
+            walk_trace~,
+          )
+        None => false
+      }
+    }
+    TInstrKind::TTryTable(_, catches, body) => {
+      for c in catches {
+        match c {
+          Catch(_, label)
+          | CatchRef(_, label)
+          | CatchAll(label)
+          | CatchAllRef(label) =>
+            if run_label_targets_removed_scope(label, depth + 1, removed_scopes) {
+              match walk_trace_state {
+                Some(state) =>
+                  run_walk_verbose_note_branch_scan_hit(
+                    walk_trace,
+                    state,
+                    depth + 1,
+                    "catch_removed_scope",
+                  )
+                None => ()
+              }
+              return true
+            }
+        }
+      }
+      run_has_branch_to_removed_scope_in_texpr(
+        body,
+        removed_scopes,
+        depth + 1,
+        walk_trace_state~,
+        walk_trace~,
+      )
+    }
+    TInstrKind::TBr(label, values) => {
+      if run_label_targets_removed_scope(label, depth, removed_scopes) {
+        match walk_trace_state {
+          Some(state) =>
+            run_walk_verbose_note_branch_scan_hit(
+              walk_trace, state, depth, "br_removed_scope",
+            )
+          None => ()
+        }
+        return true
+      }
+      for value in values {
+        if run_has_branch_to_removed_scope_in_instr(
+            value,
+            removed_scopes,
+            depth,
+            walk_trace_state~,
+            walk_trace~,
+          ) {
+          return true
+        }
+      }
+      false
+    }
+    TInstrKind::TBrIf(label, cond, values) => {
+      if run_label_targets_removed_scope(label, depth, removed_scopes) {
+        match walk_trace_state {
+          Some(state) =>
+            run_walk_verbose_note_branch_scan_hit(
+              walk_trace, state, depth, "br_if_removed_scope",
+            )
+          None => ()
+        }
+        return true
+      }
+      for value in values {
+        if run_has_branch_to_removed_scope_in_instr(
+            value,
+            removed_scopes,
+            depth,
+            walk_trace_state~,
+            walk_trace~,
+          ) {
+          return true
+        }
+      }
+      run_has_branch_to_removed_scope_in_instr(
+        cond,
+        removed_scopes,
+        depth,
+        walk_trace_state~,
+        walk_trace~,
+      )
+    }
+    TInstrKind::TBrTable(labels, default_label, index, values) => {
+      for label in labels {
+        if run_label_targets_removed_scope(label, depth, removed_scopes) {
+          match walk_trace_state {
+            Some(state) =>
+              run_walk_verbose_note_branch_scan_hit(
+                walk_trace, state, depth, "br_table_removed_scope",
+              )
+            None => ()
+          }
+          return true
+        }
+      }
+      if run_label_targets_removed_scope(default_label, depth, removed_scopes) {
+        match walk_trace_state {
+          Some(state) =>
+            run_walk_verbose_note_branch_scan_hit(
+              walk_trace, state, depth, "br_table_default_removed_scope",
+            )
+          None => ()
+        }
+        return true
+      }
+      for value in values {
+        if run_has_branch_to_removed_scope_in_instr(
+            value,
+            removed_scopes,
+            depth,
+            walk_trace_state~,
+            walk_trace~,
+          ) {
+          return true
+        }
+      }
+      run_has_branch_to_removed_scope_in_instr(
+        index,
+        removed_scopes,
+        depth,
+        walk_trace_state~,
+        walk_trace~,
+      )
+    }
+    TInstrKind::TBrOnNull(label, ref_, values)
+    | TInstrKind::TBrOnNonNull(label, ref_, values)
+    | TInstrKind::TBrOnCast(label, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(label, _, _, _, ref_, values) => {
+      if run_label_targets_removed_scope(label, depth, removed_scopes) {
+        match walk_trace_state {
+          Some(state) =>
+            run_walk_verbose_note_branch_scan_hit(
+              walk_trace, state, depth, "br_on*_removed_scope",
+            )
+          None => ()
+        }
+        return true
+      }
+      for value in values {
+        if run_has_branch_to_removed_scope_in_instr(
+            value,
+            removed_scopes,
+            depth,
+            walk_trace_state~,
+            walk_trace~,
+          ) {
+          return true
+        }
+      }
+      run_has_branch_to_removed_scope_in_instr(
+        ref_,
+        removed_scopes,
+        depth,
+        walk_trace_state~,
+        walk_trace~,
+      )
+    }
+    _ => {
+      let mut found = false
+      oi_for_each_non_control_child(instr, fn(child) {
+        if found {
+          return
+        }
+        if run_has_branch_to_removed_scope_in_instr(
+            child,
+            removed_scopes,
+            depth,
+            walk_trace_state~,
+            walk_trace~,
+          ) {
+          found = true
+        }
+      })
+      found
+    }
+  }
+}
+
+///|
+fn run_has_branch_to_removed_scope_in_texpr(
+  body : TExpr,
+  removed_scopes : Int,
+  depth : Int,
+  walk_trace_state? : RUNWalkOnceVerboseState? = None,
+  walk_trace? : (String) -> Unit = run_trace_noop,
+) -> Bool {
+  for instr in body.instrs {
+    if run_has_branch_to_removed_scope_in_instr(
+        instr,
+        removed_scopes,
+        depth,
+        walk_trace_state~,
+        walk_trace~,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn run_has_branch_to_current_scope(
   body : TExpr,
   helper_timing_enabled? : Bool = false,
@@ -1343,16 +1611,26 @@ fn run_remove_unused_names_once(
           walk_trace=helper_trace,
         )
         if removed > 0 {
-          match
-            run_rebase_labels_for_removed_scopes(
+          if run_has_branch_to_removed_scope_in_texpr(
               peeled,
               removed,
-              helper_timing_enabled~,
+              0,
               walk_trace_state=Some(walk_trace_state),
               walk_trace=helper_trace,
             ) {
-            Ok(rebased) => TInstr::block(bt, rebased)
-            Err(e) => return error(e)
+            walked
+          } else {
+            match
+              run_rebase_labels_for_removed_scopes(
+                peeled,
+                removed,
+                helper_timing_enabled~,
+                walk_trace_state=Some(walk_trace_state),
+                walk_trace=helper_trace,
+              ) {
+              Ok(rebased) => TInstr::block(bt, rebased)
+              Err(e) => return error(e)
+            }
           }
         } else {
           walked
@@ -1787,6 +2065,43 @@ test "remove_unused_names preserves typed branch target arity after nested block
     ) => assert_eq(next.reinterpret_as_int(), 0)
     _ => fail("expected typed branch depth to be retargeted to merged parent")
   }
+}
+
+///|
+test "remove_unused_names skips merge when nested if branches target removed block scope" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([
+        TInstr::block(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::local_set(
+                  LocalIdx::new(0),
+                  TInstr::if_(
+                    BlockType::val_type(ValType::i32()),
+                    TInstr::i32_const(I32(0)),
+                    TExpr::new([TInstr::i32_const(I32(1))]),
+                    Some(TExpr::new([TInstr::br(LabelIdx::new(1), [])])),
+                  ),
+                ),
+                TInstr::br(LabelIdx::new(1), []),
+              ]),
+            ),
+          ]),
+        ),
+        TInstr::local_get(LocalIdx::new(0)),
+      ]),
+    ),
+  ])
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([Func::t_func([], [ValType::i32()], body)]),
+  )
+  let out = run_remove_unused_names(mod)
+  assert_eq(out, mod)
 }
 
 ///|
