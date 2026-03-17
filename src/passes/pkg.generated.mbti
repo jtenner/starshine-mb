@@ -163,6 +163,7 @@ pub(all) enum ModulePass {
   ConstHoisting
   ConstantFieldPropagation
   ConstantFieldNullTestFolding
+  SSANoMerge
   DataflowOptimization
   DeadCodeElimination
   DeadArgumentElimination

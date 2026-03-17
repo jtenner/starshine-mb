@@ -51,27 +51,28 @@ The actual local sequence is visible in [src/passes/optimize.mbt#L1841](/home/jt
 
 That broad shape matches Binaryen closely enough that the pipeline "looks right" at first glance. The rest of this section explains the specific mismatches.
 
-## 2. `DataflowOptimization` Replaces Binaryen's `ssa-nomerge`
+## 2. `ssa-nomerge` Parity Is Now Explicit
 
-This is the most important pass-list difference in the function pipeline.
+This pass-list gap is now closed in the default function pipeline.
 
 Local code:
 
-- [src/passes/optimize.mbt#L1853](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1853)
+- [src/passes/optimize.mbt](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt)
+- [src/passes/dataflow_opt.mbt](/home/jtenner/Projects/starshine-mb/src/passes/dataflow_opt.mbt)
 
-The local comment says:
+The local scheduler now inserts an explicit `SSANoMerge` pass at the Binaryen `ssa-nomerge` gate instead of substituting `DataflowOptimization`.
 
-- Binaryen parity mode: `ssa-nomerge`
-- Fallback to SSA dataflow simplification in this IR pipeline
+The local `SSANoMerge` implementation is intentionally narrow:
 
-That is not a mechanical substitution. In Binaryen, `ssa-nomerge` is primarily an untangling pass that moves locals toward semi-SSA form without introducing merge copies. It is used to improve the shape of the IR before later function passes.
+- it rewrites local sets only when all influenced `local.get`s have a single reaching set
+- it preserves merged reaches instead of inventing merge copies
+- it can lift plain `Func` bodies into typed form when the body is representable as `TExpr`
 
-By contrast, the local pipeline runs `DataflowOptimization`, which is a real optimization pass with its own transformation behavior and cost profile. That matters for two reasons:
+Impact:
 
-- It can change IR shape more aggressively than a mostly-normalizing untangling pass.
-- Any extra expression duplication, local rewriting, or control-flow restructuring introduced here can amplify the cost of downstream passes like `Flatten`, `SimplifyLocals`, `Vacuum`, and `MergeBlocks`.
-
-This difference is important enough that it should be treated as a semantic divergence, not a naming divergence.
+- This IR-shaping parity gap is closed for the default pipeline.
+- `DataflowOptimization` still exists as a separate optimization pass, but it is no longer standing in for Binaryen's `ssa-nomerge`.
+- Any remaining parity questions in this area are now about edge-case behavior inside the no-merge analysis, not about the scheduler choosing the wrong class of pass.
 
 ## 3. `RemoveUnusedNames` Cleanup Points in the Default Function Pipeline
 
@@ -324,7 +325,7 @@ Impact:
 
 This is an example of a local difference that looks different in code shape but is intended to preserve behavior.
 
-## 13. The Largest Runtime Difference Is the Runner, Not the Pass List
+## 13. The Largest Runtime Difference Is Still the Runner, Though the Gap Is Narrower
 
 This is the most important non-pass-list finding.
 
@@ -337,7 +338,7 @@ That matters because it improves:
 - reduced repeated module-wide traversal overhead
 - parallel throughput across functions
 
-The local runner does not follow that model.
+The local runner now follows that model more closely for stackable function-pass segments.
 
 Relevant local pass loop:
 
@@ -351,27 +352,23 @@ Relevant local scheduler helpers:
 - [apply_module_runner_pass](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L233)
 - [run_ir_context_transformer_scheduler_pass](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L503)
 
-What the local code does:
+What the local code now does:
 
-- iterates `for pass in passes`
-- dispatches each pass by pass kind
-- applies that pass directly to the module
-- validates the module
-- proceeds to the next pass
+- segments the optimize pipeline into `FunctionPassStack` and barrier passes
+- prepares stackable function passes once per segment
+- runs each prepared stack across functions on a shared live code-section snapshot
+- validates only at the final module boundary by default, or after segments in the stricter debug mode
 
-What it does not do:
+What it still does not do:
 
-- build a Binaryen-style stack of function-parallel passes
-- run that stack per function for locality
 - expose Binaryen-like worker scheduling for the default path
+- match Binaryen's exact runtime model for multithreaded function dispatch
 
 Impact:
 
-- This is a fundamental runtime behavior difference.
-- It means that even if the pass order is close, the execution cost profile is not.
-- It increases the importance of every full-module walk.
-- It increases the cost of repeated passes over very large or pathological functions.
-- It makes a direct "Binaryen handles this fine, so our pipeline should too" argument much weaker.
+- This remains a material runtime difference, but it is smaller than it was before the stacked runner landed.
+- The default path now avoids many avoidable module-wide pass loops over stackable function segments.
+- Cross-function worker scheduling is still a plausible source of runtime differences on large multi-function workloads.
 
 For performance analysis, this finding is at least as important as any individual pass substitution.
 
@@ -420,11 +417,10 @@ If the question is "Should the local optimizer have roughly the same runtime beh
 
 The reasons are:
 
-- `DataflowOptimization` is not equivalent to `ssa-nomerge`.
-- the local pipeline omits some Binaryen cleanup passes such as repeated `remove-unused-names`
 - the local pipeline still omits some feature-specific passes such as `string-gathering`
-- the local runner executes passes differently
-- the local runner validates after every pass
+- the local runner still executes passes differently, especially around worker scheduling
+- the default debug validation mode is still stricter than Binaryen's normal non-debug path
+- the local cleanup-avoidance heuristics deliberately trade some parity for runtime protection
 - the pass implementations themselves are local implementations, not Binaryen's implementations
 
 The practical outcome is that pass-order similarity does not imply cost similarity.
@@ -435,7 +431,6 @@ The practical outcome is that pass-order similarity does not imply cost similari
 
 These matter for accuracy of the comparison, but are less likely to explain the observed pathological slowdown on their own:
 
-- missing `RemoveUnusedNames` in the function pipeline
 - missing `StringGathering`
 - local `cfp-reftest` parity remains partial, but the narrower known-null handling is now split into `ConstantFieldNullTestFolding`
 - explicit `Directize(true)` mode selection
@@ -444,9 +439,8 @@ These matter for accuracy of the comparison, but are less likely to explain the 
 
 These are the differences most likely to affect runtime materially:
 
-- `DataflowOptimization` replacing `ssa-nomerge`
-- no Binaryen-style stacked function-parallel runner
-- unconditional per-pass validation
+- no Binaryen-like worker scheduling across functions
+- stricter optional `AfterSegment` validation than Binaryen's normal non-debug path
 - local cleanup-avoidance heuristics that already acknowledge cleanup cost pressure
 - local pass implementations with different internal complexity from Binaryen
 

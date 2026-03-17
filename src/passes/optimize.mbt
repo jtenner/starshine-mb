@@ -27,6 +27,7 @@ pub(all) enum ModulePass {
   ConstHoisting
   ConstantFieldPropagation
   ConstantFieldNullTestFolding
+  SSANoMerge
   DataflowOptimization
   DeadCodeElimination
   DeadArgumentElimination
@@ -565,7 +566,7 @@ fn opt_validate_post_encode_roundtrip_for_pass(
 ///|
 fn module_pass_context_kind(pass : ModulePass) -> SchedulerPassContextKind {
   match pass {
-    DeadCodeElimination => UnitTransformerPass
+    DeadCodeElimination | SSANoMerge => UnitTransformerPass
     SignatureRefining
     | DuplicateImportElimination
     | GlobalRefining
@@ -612,6 +613,7 @@ fn module_pass_is_function_stackable(pass : ModulePass) -> Bool {
     | CodePushing
     | CodeFolding
     | CoalesceLocals
+    | SSANoMerge
     | DataflowOptimization
     | HeapStoreOptimization
     | MergeBlocks
@@ -1049,11 +1051,26 @@ fn run_ir_context_transformer_scheduler_pass(
 
 ///|
 fn make_unit_transformer_scheduler_pass(
+  mod : Module,
   pass : ModulePass,
   trace : (String) -> Unit,
   trace_pass_details : Bool,
 ) -> Result[ModuleTransformer[Unit, String], String] {
   match pass {
+    SSANoMerge => {
+      let ssa_nomerge_trace = if trace_pass_details {
+        fn(msg) { trace("ssa_nomerge:\{msg}") }
+      } else {
+        optimize_trace_noop
+      }
+      Ok(
+        ssa_nomerge_pass(
+          mod,
+          trace=ssa_nomerge_trace,
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
+    }
     DeadCodeElimination => {
       let dce_trace = if trace_pass_details {
         fn(msg) { trace("dead_code_elimination:\{msg}") }
@@ -1085,7 +1102,7 @@ fn run_unit_transformer_scheduler_pass(
     trace("\{pass}:helper kind=\{scheduler_kind} event=invoke")
   }
   let result = match
-    make_unit_transformer_scheduler_pass(pass, trace, trace_pass_details) {
+    make_unit_transformer_scheduler_pass(mod, pass, trace, trace_pass_details) {
     Ok(transformer) => apply_unit_transformer_pass(mod, transformer)
     Err(e) => Err(e)
   }
@@ -1819,7 +1836,7 @@ fn optimize_prepare_function_stack_pass(
     UnitTransformerPass =>
       match
         make_unit_transformer_scheduler_pass(
-          pass, pass_trace, trace_pass_details,
+          mod, pass, pass_trace, trace_pass_details,
         ) {
         Ok(transformer) => Ok(UnitFunctionPass(pass, transformer))
         Err(e) => Err(e)
@@ -2663,8 +2680,7 @@ pub fn default_function_optimization_passes(
 
   if options.optimize_level >= 3 || options.shrink_level >= 1 {
     // Binaryen parity mode: ssa-nomerge.
-    // Fallback to SSA dataflow simplification in this IR pipeline.
-    passes.push(DataflowOptimization)
+    passes.push(SSANoMerge)
   }
   if options.optimize_level >= 4 {
     // Binaryen parity mode: flatten.
@@ -3448,10 +3464,7 @@ test "scheduler_segment_passes splits optimize_level=4 pipeline around flatten a
   assert_true(local_cse_idx.val > flatten_idx.val)
   match segments[flatten_idx.val - 1] {
     FunctionPassStack(before_flatten) =>
-      assert_eq(
-        before_flatten[before_flatten.length() - 1],
-        DataflowOptimization,
-      )
+      assert_eq(before_flatten[before_flatten.length() - 1], SSANoMerge)
     _ => fail("expected function stack before Flatten barrier")
   }
   match segments[flatten_idx.val + 1] {
@@ -3608,7 +3621,7 @@ test "default function optimization passes include propagate and gc passes when 
 }
 
 ///|
-test "default function optimization passes map ssa-nomerge mode to dataflow optimization" {
+test "default function optimization passes map ssa-nomerge mode to no-merge SSA prep" {
   let passes = default_function_optimization_passes(
     Module::new(),
     OptimizeOptions::new(optimize_level=3),
@@ -3616,7 +3629,7 @@ test "default function optimization passes map ssa-nomerge mode to dataflow opti
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
       match pass {
-        DataflowOptimization => true
+        SSANoMerge => true
         _ => false
       }
     }),
@@ -3625,7 +3638,7 @@ test "default function optimization passes map ssa-nomerge mode to dataflow opti
   assert_eq(
     default_first_module_pass_index(passes, fn(pass) {
       match pass {
-        DataflowOptimization => true
+        SSANoMerge => true
         _ => false
       }
     }),
@@ -4581,6 +4594,7 @@ test "optimize scheduler classifies module pass context kinds" {
   assert_true(assert_pass_context_kind(Flatten, IRContextTransformerPass))
   assert_true(assert_pass_context_kind(ReReloop, IRContextTransformerPass))
   assert_true(assert_pass_context_kind(GlobalEffects, IRContextTransformerPass))
+  assert_true(assert_pass_context_kind(SSANoMerge, UnitTransformerPass))
   assert_true(
     assert_pass_context_kind(DeadCodeElimination, UnitTransformerPass),
   )
@@ -4610,6 +4624,7 @@ test "optimize_module dispatches IRContext and Unit transformer pass kinds" {
   assert_true(
     assert_pass_context_kind(RemoveUnusedNames, IRContextTransformerPass),
   )
+  assert_true(assert_pass_context_kind(SSANoMerge, UnitTransformerPass))
   assert_true(
     assert_pass_context_kind(DeadCodeElimination, UnitTransformerPass),
   )
@@ -6021,6 +6036,25 @@ test "optimize_module runs DataflowOptimization pass" {
     Module::new().with_code_sec(CodeSec::new([func])),
   )
   let optimized = match optimize_module(mod, [DataflowOptimization]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  assert_true(optimized.code_sec is Some(_))
+}
+
+///|
+test "optimize_module runs SSANoMerge pass" {
+  let body = TExpr::new([
+    TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+    TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(2))),
+    TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+  ])
+  let func = Func::t_func([], [ValType::i32()], body)
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(CodeSec::new([func])),
+  )
+  let optimized = match optimize_module(mod, [SSANoMerge]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }

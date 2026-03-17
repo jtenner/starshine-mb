@@ -13,8 +13,7 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [x] Optimize + Binaryen feature parity comparison: `PrecomputePropagate` (closed in `docs/differences.md`)
 - [x] Optimize + Binaryen feature parity comparison: `CodePushing` (closed in `docs/differences.md`)
 - [x] Optimize + Binaryen feature parity comparison: `CodeFolding` (closed in `docs/differences.md`)
-- [ ] Replace the module-wide optimize pass loop with a Binaryen-style stacked function-parallel runner for the default optimization path.
-- [ ] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior, or prove the substitution is runtime-safe on pathological functions.
+- None currently.
 
 ## Post 0.1.0 Features
 - [ ] Add "StackState" to node traversal to event callbacks help with validation issues
@@ -39,6 +38,8 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Long-horizon platform/features: Component Model/WIT, streaming decoder API, custom sections/source maps, plugin system.
 
 ## Recently completed
+- [x] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior: added an explicit `SSANoMerge` pass, wired the default optimize pipeline and scheduler to use it, and locked no-merge vs merged-reaching behavior with pass regressions.
+- [x] Replace the module-wide optimize pass loop with a Binaryen-style stacked function runner for the default optimization path: the optimize scheduler now segments stackable passes, prepares stacked function-pass execution on the default path, and reuses shared live code-section snapshots instead of rebuilding module state after every pass/function step.
 - [x] `MergeBlocks` parity signoff: reran the in-tree parity matrix, classified every row as `Match` or documented `Intentional divergence` (with explicit divergence rationale rows for non-validating `try_table` fixtures), recorded signoff metrics in the plan completion notes, ran final gates (`moon info && moon fmt`, `moon test`), and moved the parity plan from `docs/plans/active` to `docs/plans/done`.
 - [x] `MergeBlocks` parity test matrix: added an explicit parity-matrix harness in `merge_blocks_parity_wbtest.mbt` with per-row expected outcomes and assertions covering named block merge boundaries, loop-tail extraction, dropped-block value removal, `try_table` catch permutations, restructure dependency/effect collisions, type/stack-signature invariants, and idempotence (`run_merge_blocks` once vs twice), using strict red/green TDD.
 - [x] `MergeBlocks` performance P-005: replaced `optimize_block(...)` round commit replay (`curr_items.clear()` + push-all copy) with staged mutable buffers and swap-based round assembly, added per-function round-assembly stats (`optimize_block_round_buffer_swaps`, `optimize_block_round_rebuild_copies`), and locked stress coverage requiring representative positive swap counts with zero rebuild-copy replays.

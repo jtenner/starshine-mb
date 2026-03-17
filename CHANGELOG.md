@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: land `SSANoMerge` parity in the default pipeline
+
+- Updated [`src/passes/dataflow_opt.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/dataflow_opt.mbt) to add a narrow `SSANoMerge` pass that rewrites single-reaching local set/get chains, preserves merge-reaching gets, and lifts plain functions when they can be represented as typed IR.
+- Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so the optimize scheduler classifies `SSANoMerge` as a stackable unit transformer, exposes it through `optimize_module(...)`, and inserts it at the Binaryen `ssa-nomerge` slot in the default function pipeline instead of substituting `DataflowOptimization`.
+- Updated [`docs/differences.md`](/home/jtenner/Projects/starshine-mb/docs/differences.md) and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to record that the `ssa-nomerge` and stacked-runner publishing blockers are now closed.
+- Validation: `moon test --package jtenner/starshine/passes --file optimize.mbt`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Optimize Follow-up: reduce stacked-runner code-section snapshot churn
 
 - Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so the stacked function runner now prepares passes against one shared live code-section snapshot and no longer rebuilds `CodeSec` after every changed function/pass step inside a stacked segment.
