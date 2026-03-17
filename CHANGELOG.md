@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-16 Docs Follow-up: remove `StringGathering` from the publishing blockers list
+
+- Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to remove `StringGathering` from the publishing-blocker section while leaving the broader post-`0.1.0` string optimization follow-up item in place.
+- Validation was not run because this change only updates planning/documentation.
+
 ## 2026-03-16 Docs Follow-up: track post-0.1.0 string optimization work
 
 - Added a post-0.1.0 backlog item in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to continue `string.const` support and string optimization pass work after the initial `0.1.0` release.
