@@ -267,9 +267,9 @@ pub impl Show for OptimizeTracingLevel
 
 pub enum OptimizeValidationPolicy {
   FinalModuleOnly
-  AfterEveryPass
+  AfterSegment
 }
-pub fn OptimizeValidationPolicy::after_every_pass() -> Self
+pub fn OptimizeValidationPolicy::after_segment() -> Self
 pub fn OptimizeValidationPolicy::final_module_only() -> Self
 pub impl Eq for OptimizeValidationPolicy
 pub impl Show for OptimizeValidationPolicy

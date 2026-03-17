@@ -381,9 +381,9 @@ The local optimizer no longer validates unconditionally after every pass in the 
 
 - validation policy definition: [src/passes/optimize.mbt](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt)
 - final-only validation path: [src/passes/optimize.mbt#L1683](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1683)
-- explicit per-pass validation path: [src/passes/optimize.mbt#L1603](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt#L1603)
+- after-segment validation path: [src/passes/optimize.mbt](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt)
 
-`OptimizeOptions` now carries an `OptimizeValidationPolicy` value. The default is final-module validation only, which is closer to Binaryen's normal non-debug behavior. The stricter old behavior still exists behind an explicit `AfterEveryPass` opt-in for debugging, pass-development, and targeted validation-heavy workflows.
+`OptimizeOptions` now carries an `OptimizeValidationPolicy` value. The default is final-module validation only, which is closer to Binaryen's normal non-debug behavior. A stricter `AfterSegment` mode is also available for debugging and pass-development: it validates after each executed scheduler segment instead of after every individual pass, which keeps failure localization useful without fully defeating the stacked runner.
 
 Impact:
 

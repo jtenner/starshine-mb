@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: replace `AfterEveryPass` with `AfterSegment`
+
+- Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so `OptimizeValidationPolicy` now exposes `FinalModuleOnly` and `AfterSegment`; the old `AfterEveryPass` debug mode has been removed.
+- Moved non-default validation to scheduler-segment boundaries in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt): barrier passes still validate immediately after running, while contiguous `FunctionPassStack` segments validate once after the whole executed stack instead of after each constituent pass.
+- Updated optimize regressions in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) and the policy note in [`docs/differences.md`](/home/jtenner/Projects/starshine-mb/docs/differences.md) so trace expectations, validation-failure attribution, and public documentation all reflect the new segment-level contract.
+- Validation: `moon test --package jtenner/starshine/passes --file optimize.mbt`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Optimize Follow-up: keep after-every-pass validation inside prepared function stacks
 
 - Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so `FunctionPassStack` segments now stay on prepared function-pass execution even under `OptimizeValidationPolicy::after_every_pass()`: the stack runner applies each prepared pass across all functions, validates at the pass boundary, and preserves pass-local validation attribution instead of falling back to the legacy flat scheduler path.
