@@ -4,7 +4,7 @@ moon clean
 moon build --target wasm
 moon build --target native --release --package jtenner/starshine/cmd
 
-trace_level="${SELF_OPT_TRACING_LEVEL:-helper}"
+trace_level="${SELF_OPT_TRACING_LEVEL:-pass}"
 output_path="${SELF_OPT_OUTPUT_LOG:-output.log}"
 moon_bin="${MOON_BIN:-moon}"
 native_release_cmd_exe="./_build/native/release/build/cmd/cmd.exe"
