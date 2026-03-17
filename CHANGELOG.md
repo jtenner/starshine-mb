@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-16 Docs Follow-up: add `StringGathering` research and implementation blueprint
+
+- Added [`docs/string-optimization.md`](/home/jtenner/Projects/starshine-mb/docs/string-optimization.md), a detailed Binaryen `StringGathering` research note covering pass semantics, scheduler placement, data structures, correctness constraints, test cases, single-pass pseudocode, and a one-shot implementation prompt for Starshine.
+- Validation was not run because this change was documentation-only.
+
 ## 2026-03-16 Optimize Follow-up: replace `AfterEveryPass` with `AfterSegment`
 
 - Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so `OptimizeValidationPolicy` now exposes `FinalModuleOnly` and `AfterSegment`; the old `AfterEveryPass` debug mode has been removed.
