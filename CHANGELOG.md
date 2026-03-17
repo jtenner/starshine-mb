@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-17 Optimize Follow-up: keep `CodeFolding` from hoisting shared returns past outer branches
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/code_folding.mbt](/home/jtenner/Projects/starshine-mb/src/passes/code_folding.mbt) so `CodeFolding` now skips `if`-tail hoists when the merged suffix is terminating and the remaining condition or arms still branch outward, preventing the invalid wrapper-block rewrite seen in serial self-optimize traces.
+- Added a regression in [/home/jtenner/Projects/starshine-mb/src/passes/code_folding.mbt](/home/jtenner/Projects/starshine-mb/src/passes/code_folding.mbt) that preserves the failing value-loop shape with a shared `return call(...)` tail, sibling `br_if`, and memory traffic.
+- Validation: `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-17 Optimize Follow-up: keep serial self-optimize enabled and harden pass debugging
 
 - Updated [/home/jtenner/Projects/starshine-mb/scripts/self-optimize.sh](/home/jtenner/Projects/starshine-mb/scripts/self-optimize.sh), [/home/jtenner/Projects/starshine-mb/scripts/lib/self-optimized-artifacts.mjs](/home/jtenner/Projects/starshine-mb/scripts/lib/self-optimized-artifacts.mjs), and [/home/jtenner/Projects/starshine-mb/scripts/test/self-optimize-output.sh](/home/jtenner/Projects/starshine-mb/scripts/test/self-optimize-output.sh) so self-optimize runs with `--debug-serial-passes` by default and the wrapper test now fails if that serial flag is dropped.

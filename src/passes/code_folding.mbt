@@ -661,6 +661,26 @@ fn get_branch_targets(instr : TInstr) -> Set[LabelIdx] {
 }
 
 ///|
+fn cf_instr_has_outer_branch_target(instr : TInstr) -> Bool {
+  for label in get_branch_targets(instr) {
+    if cf_label_depth(label) > 0 {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn cf_instrs_have_outer_branch_target(instrs : Array[TInstr]) -> Bool {
+  for instr in instrs {
+    if cf_instr_has_outer_branch_target(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn cf_label_depth(label : LabelIdx) -> Int {
   let LabelIdx(raw) = label
   raw.reinterpret_as_int()
@@ -2653,11 +2673,13 @@ fn cf_validate_typed_function_candidate(
       }
       let env1 = env
         .with_locals(all_locals)
-        .with_labels({
-          let labels = env.labels.copy()
-          labels.push(results)
-          labels
-        })
+        .with_labels(
+          {
+            let labels = env.labels.copy()
+            labels.push(results)
+            labels
+          },
+        )
         .with_return_type(Some(results))
       let st1 = match Typecheck::typecheck(body, make_state(env1, [])) {
         Ok(st) => st
@@ -3388,6 +3410,15 @@ fn process_if(
             ),
           )
           let new_cond = cf_shift_cond_outer_labels(cond)
+          let merged_last = plan.merged_instrs[plan.merged_instrs.length() - 1]
+          if is_terminating(merged_last) &&
+            (
+              cf_instr_has_outer_branch_target(new_cond) ||
+              cf_instrs_have_outer_branch_target(new_then.instrs) ||
+              cf_instrs_have_outer_branch_target(new_else.instrs)
+            ) {
+            return None
+          }
           let arms_empty = new_then.instrs.is_empty() &&
             new_else.instrs.is_empty()
           let prefix_instr = if arms_empty {
@@ -6491,6 +6522,130 @@ test "code folding terminating return tails keep value-loop fallthrough when bra
     validate_module(cf_test_module_for_func(folded, [ValType::i32()])),
     Ok(()),
   )
+}
+
+///|
+test "code folding module pass keeps hoisted shared return valid with sibling branch in value loop" {
+  let p0 = LocalIdx::new(0)
+  let p1 = LocalIdx::new(1)
+  let x = LocalIdx::new(2)
+  let memarg = MemArg::new(U32(0), None, U64(8))
+  let shared_return = TInstr::return_([
+    TInstr::call(FuncIdx::new(2), [
+      TInstr::local_get(x),
+      TInstr::local_get(p1),
+      TInstr::load(LoadOp::i32_load(), memarg, TInstr::local_get(x)),
+    ]),
+  ])
+  let digit_check = TInstr::if_(
+    BlockType::val_type(ValType::i32()),
+    TInstr::binary(
+      BinaryOp::i32_ge_s(),
+      TInstr::local_get(x),
+      TInstr::i32_const(I32(48)),
+    ),
+    TExpr::new([
+      TInstr::binary(
+        BinaryOp::i32_le_s(),
+        TInstr::local_get(x),
+        TInstr::i32_const(I32(57)),
+      ),
+    ]),
+    Some(TExpr::new([TInstr::i32_const(I32(0))])),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(
+            CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+          ),
+        ),
+        RecType::new(
+          SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+        ),
+        RecType::new(
+          SubType::comp_type(
+            CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], [
+              ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(1), TypeIdx::new(2)]),
+    )
+    .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32(), ValType::i32()],
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::local_set(x, TInstr::local_get(p0)),
+            TInstr::local_set(
+              x,
+              TInstr::loop_(
+                BlockType::val_type(ValType::i32()),
+                TExpr::new([
+                  TInstr::if_(
+                    BlockType::void_(),
+                    TInstr::binary(
+                      BinaryOp::i32_eq(),
+                      TInstr::local_tee(
+                        x,
+                        TInstr::call(FuncIdx::new(1), [TInstr::local_get(x)]),
+                      ),
+                      TInstr::i32_const(I32(-1)),
+                    ),
+                    TExpr::new([shared_return]),
+                    Some(
+                      TExpr::new([
+                        TInstr::br_if(LabelIdx::new(1), digit_check, []),
+                        TInstr::drop(TInstr::i32_const(I32(0))),
+                        TInstr::store(
+                          StoreOp::i32_store(),
+                          memarg,
+                          TInstr::local_get(x),
+                          TInstr::binary(
+                            BinaryOp::i32_sub(),
+                            TInstr::load(
+                              LoadOp::i32_load(),
+                              memarg,
+                              TInstr::local_get(x),
+                            ),
+                            TInstr::i32_const(I32(1)),
+                          ),
+                        ),
+                        TInstr::drop(TInstr::i32_const(I32(0))),
+                        shared_return,
+                      ]),
+                    ),
+                  ),
+                  TInstr::local_get(x),
+                ]),
+              ),
+            ),
+            TInstr::local_get(x),
+          ]),
+        ),
+        Func::t_func(
+          [ValType::i32()],
+          [],
+          TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+        ),
+        Func::t_func(
+          [ValType::i32(), ValType::i32(), ValType::i32()],
+          [],
+          TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let folded = cf_run_fold_module(mod)
+  assert_eq(folded, mod)
+  assert_eq(validate_module(folded), Ok(()))
 }
 
 ///|
