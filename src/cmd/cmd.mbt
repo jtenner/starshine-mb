@@ -1166,6 +1166,11 @@ fn make_optimize_options(
 fn explicit_pass_entries() -> Array[(String, String, ModulePass)] {
   [
     (
+      "abstract-type-refining",
+      "Refine abstract GC types using current trap assumptions.",
+      ModulePass::AbstractTypeRefining(AbstractTypeRefiningPassProps::new()),
+    ),
+    (
       "alignment-lowering",
       "Lower alignment-heavy forms to simpler ops.",
       ModulePass::AlignmentLowering,
@@ -1239,6 +1244,11 @@ fn explicit_pass_entries() -> Array[(String, String, ModulePass)] {
       "duplicate-import-elimination",
       "Merge duplicate imports with identical meaning.",
       ModulePass::DuplicateImportElimination,
+    ),
+    (
+      "directize",
+      "Turn immutable table call sites into direct calls.",
+      ModulePass::Directize(true),
     ),
     (
       "global-refining",
@@ -1395,6 +1405,11 @@ fn explicit_pass_entries() -> Array[(String, String, ModulePass)] {
       "monomorphize-always",
       "Force broad monomorphization for all candidates.",
       ModulePass::MonomorphizeAlways,
+    ),
+    (
+      "memory-packing",
+      "Pack data segments and zero ranges into a denser memory layout.",
+      ModulePass::MemoryPacking(MemoryPackingPassProps::new()),
     ),
     (
       "optimize-added-constants",
@@ -1594,18 +1609,6 @@ fn cmd_to_optimize_trace_level(level : CliTracingLevel) -> OptimizeTracingLevel 
 }
 
 ///|
-fn cmd_optimize_dump_failed_module_state(io : CmdIO) -> Bool {
-  match (io.get_env)("OPTIMIZE_DUMP_FAILED_MODULE_STATE") {
-    Some(raw) =>
-      match parse_bool_string(raw) {
-        Some(enabled) => enabled
-        None => false
-      }
-    None => false
-  }
-}
-
-///|
 fn cmd_trace_optimize_max_passes(io : CmdIO) -> Int? {
   match (io.get_env)("STARSHINE_OPTIMIZE_MAX_PASSES") {
     Some(raw) => parse_non_negative_decimal(raw)
@@ -1679,6 +1682,266 @@ fn cmd_trace_join_pass_flags(flags : Array[String]) -> String {
     i += 1
   }
   out.to_string()
+}
+
+///|
+const CMD_OPTIMIZE_REPRO_BEFORE_WASM_PATH : String = "before.wasm"
+
+///|
+fn cmd_trace_join_module_passes(passes : Array[ModulePass]) -> String {
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < passes.length() {
+    if i > 0 {
+      out.write_string(",")
+    }
+    out.write_string("\{passes[i]}")
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+fn cmd_repro_flag_for_pass(pass : ModulePass) -> String? {
+  match pass {
+    AbstractTypeRefining(_) => Some("abstract-type-refining")
+    AlignmentLowering => Some("alignment-lowering")
+    AvoidReinterprets => Some("avoid-reinterprets")
+    CoalesceLocals => Some("coalesce-locals")
+    CodeFolding => Some("code-folding")
+    CodePushing => Some("code-pushing")
+    ConstHoisting => Some("const-hoisting")
+    ConstantFieldPropagation => Some("constant-field-propagation")
+    ConstantFieldNullTestFolding => Some("constant-field-null-test-folding")
+    DataflowOptimization => Some("dataflow-optimization")
+    DeadCodeElimination => Some("dead-code-elimination")
+    DeadArgumentElimination => Some("dead-argument-elimination")
+    DeadArgumentEliminationOptimizing =>
+      Some("dead-argument-elimination-optimizing")
+    SignaturePruning => Some("signature-pruning")
+    SignatureRefining => Some("signature-refining")
+    DuplicateImportElimination => Some("duplicate-import-elimination")
+    Directize(_) => Some("directize")
+    GlobalRefining => Some("global-refining")
+    GlobalStructInference => Some("global-struct-inference")
+    GlobalStructInferenceDescCast => Some("global-struct-inference-desc-cast")
+    GlobalTypeOptimization => Some("global-type-optimization")
+    SimplifyGlobals => Some("simplify-globals")
+    SimplifyGlobalsOptimizing => Some("simplify-globals-optimizing")
+    GlobalEffects => Some("global-effects")
+    PropagateGlobalsGlobally => Some("propagate-globals-globally")
+    TypeRefining => Some("type-refining")
+    TypeGeneralizing => Some("type-generalizing")
+    TypeFinalizing => Some("type-finalizing")
+    TypeUnFinalizing => Some("type-un-finalizing")
+    Unsubtyping => Some("unsubtyping")
+    Heap2Local => Some("heap2local")
+    HeapStoreOptimization => Some("heap-store-optimization")
+    Inlining => Some("inlining")
+    InliningOptimizing => Some("inlining-optimizing")
+    InlineMain => Some("inline-main")
+    LocalCSE => Some("local-cse")
+    LocalSubtyping => Some("local-subtyping")
+    LoopInvariantCodeMotion => Some("loop-invariant-code-motion")
+    MergeLocals => Some("merge-locals")
+    MergeSimilarFunctions => Some("merge-similar-functions")
+    MergeBlocks => Some("merge-blocks")
+    Flatten => Some("flatten")
+    ReReloop => Some("re-reloop")
+    TupleOptimization => Some("tuple-optimization")
+    OnceReduction => Some("once-reduction")
+    MinimizeRecGroups => Some("minimize-rec-groups")
+    TypeMerging => Some("type-merging")
+    Monomorphize => Some("monomorphize")
+    MonomorphizeAlways => Some("monomorphize-always")
+    MemoryPacking(_) => Some("memory-packing")
+    OptimizeAddedConstants => Some("optimize-added-constants")
+    OptimizeAddedConstantsPropagate =>
+      Some("optimize-added-constants-propagate")
+    OptimizeInstructions => Some("optimize-instructions")
+    Precompute => Some("precompute")
+    PrecomputePropagate => Some("precompute-propagate")
+    RedundantSetElimination => Some("redundant-set-elimination")
+    PickLoadSigns => Some("pick-load-signs")
+    GUFA => Some("gufa")
+    GUFAOptimizing => Some("gufa-optimizing")
+    GUFACastAll => Some("gufa-cast-all")
+    I64ToI32Lowering => Some("i64-to-i32-lowering")
+    DuplicateFunctionElimination => Some("duplicate-function-elimination")
+    OptimizeCasts => Some("optimize-casts")
+    DeNaN => Some("de-nan")
+    RemoveUnusedBrs => Some("remove-unused-brs")
+    RemoveUnusedNames => Some("remove-unused-names")
+    SimplifyLocals => Some("simplify-locals")
+    SimplifyLocalsNoTee => Some("simplify-locals-no-tee")
+    SimplifyLocalsNoStructure => Some("simplify-locals-no-structure")
+    SimplifyLocalsNoTeeNoStructure =>
+      Some("simplify-locals-no-tee-no-structure")
+    SimplifyLocalsNoNesting => Some("simplify-locals-no-nesting")
+    Untee => Some("untee")
+    Vacuum => Some("vacuum")
+    ReorderLocals => Some("reorder-locals")
+    ReorderTypes => Some("reorder-types")
+    ReorderGlobals => Some("reorder-globals")
+    ReorderGlobalsAlways => Some("reorder-globals-always")
+    ReorderFunctions => Some("reorder-functions")
+    ReorderFunctionsByName => Some("reorder-functions-by-name")
+    RemoveUnusedTypes => Some("remove-unused-types")
+    RemoveUnused => Some("remove-unused")
+    RemoveUnusedModuleElements => Some("remove-unused-module-elements")
+    RemoveUnusedNonFunctionElements =>
+      Some("remove-unused-non-function-elements")
+    Asyncify(_) | SSANoMerge => None
+  }
+}
+
+///|
+fn cmd_repro_command_for_segment(
+  segment_passes : Array[ModulePass],
+  optimize_level : Int,
+  shrink_level : Int,
+  traps_never_happen : Bool,
+  monomorphize_min_benefit : Int,
+  low_memory_unused : Bool,
+  low_memory_bound : UInt64,
+) -> String? {
+  let parts : Array[String] = ["starshine"]
+  if optimize_level > 0 {
+    parts.push("--optimize-level")
+    parts.push("\{optimize_level}")
+  }
+  if shrink_level > 0 {
+    parts.push("--shrink-level")
+    parts.push("\{shrink_level}")
+  }
+  if traps_never_happen {
+    parts.push("--trap-mode")
+    parts.push("never")
+  }
+  if monomorphize_min_benefit != 5 {
+    parts.push("--monomorphize-min-benefit")
+    parts.push("\{monomorphize_min_benefit}")
+  }
+  if low_memory_unused {
+    parts.push("--low-memory-unused")
+  }
+  if low_memory_bound != 1024UL {
+    parts.push("--low-memory-bound")
+    parts.push("\{low_memory_bound}")
+  }
+  for pass in segment_passes {
+    match cmd_repro_flag_for_pass(pass) {
+      Some(flag) => parts.push("--\{flag}")
+      None => return None
+    }
+  }
+  parts.push(CMD_OPTIMIZE_REPRO_BEFORE_WASM_PATH)
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < parts.length() {
+    if i > 0 {
+      out.write_string(" ")
+    }
+    out.write_string(parts[i])
+    i += 1
+  }
+  Some(out.to_string())
+}
+
+///|
+fn cmd_write_repro_before_module(
+  io : CmdIO,
+  before_mod : Module,
+) -> Result[Unit, String] {
+  let before_bytes = match (io.encode_module)(before_mod) {
+    Ok(bytes) => bytes
+    Err(err) => return Err(cmd_encode_error_message(err))
+  }
+  (io.write_file)(CMD_OPTIMIZE_REPRO_BEFORE_WASM_PATH, before_bytes)
+}
+
+///|
+fn cmd_roundtrip_probe_fails(io : CmdIO, mod : Module) -> Bool {
+  let bytes = match (io.encode_module)(mod) {
+    Ok(bytes) => bytes
+    Err(_) => return true
+  }
+  let decoded = match decode_module(bytes) {
+    Ok(decoded) => decoded
+    Err(_) => return true
+  }
+  match validate_module(decoded) {
+    Ok(_) => false
+    Err(_) => true
+  }
+}
+
+///|
+fn cmd_post_encode_repro_note(
+  io : CmdIO,
+  mod : Module,
+  passes : Array[ModulePass],
+  options : OptimizeOptions,
+  optimize_level : Int,
+  shrink_level : Int,
+  traps_never_happen : Bool,
+  monomorphize_min_benefit : Int,
+  low_memory_unused : Bool,
+  low_memory_bound : UInt64,
+) -> String {
+  match
+    optimize_find_post_encode_failure_segment_with_probe(mod, passes, options, fn(
+      segment_mod,
+      _,
+    ) {
+      cmd_roundtrip_probe_fails(io, segment_mod)
+    }) {
+    Ok(Some(repro)) => {
+      let out = StringBuilder::new()
+      out.write_string("\n\nRepro:\n")
+      match cmd_write_repro_before_module(io, repro.before_mod) {
+        Ok(_) =>
+          out.write_string("wrote \{CMD_OPTIMIZE_REPRO_BEFORE_WASM_PATH}\n")
+        Err(e) =>
+          out.write_string(
+            "failed to write \{CMD_OPTIMIZE_REPRO_BEFORE_WASM_PATH}: \{e}\n",
+          )
+      }
+      match
+        cmd_repro_command_for_segment(
+          repro.segment_passes,
+          optimize_level,
+          shrink_level,
+          traps_never_happen,
+          monomorphize_min_benefit,
+          low_memory_unused,
+          low_memory_bound,
+        ) {
+        Some(command) => out.write_string("command: \{command}")
+        None =>
+          out.write_string(
+            "segment passes: \{cmd_trace_join_module_passes(repro.segment_passes)}",
+          )
+      }
+      out.to_string()
+    }
+    Ok(None) =>
+      "\n\nRepro: unable to isolate a post-encode failing scheduler segment"
+    Err(e) => "\n\nRepro diagnosis failed: \{e}"
+  }
+}
+
+///|
+fn cmd_append_error_note(err : CmdError, note : String) -> CmdError {
+  match err {
+    EncodeFailed(path, inner) =>
+      CmdError::EncodeFailed(
+        path,
+        CmdEncodeError::adapter(cmd_encode_error_message(inner) + note),
+      )
+    OptimizeFailed(msg) => CmdError::OptimizeFailed(msg + note)
+    _ => err
+  }
 }
 
 ///|
@@ -1932,6 +2195,17 @@ fn expand_passes_for_module(
   }
   for flag in pass_flags {
     match flag {
+      "abstract-type-refining" =>
+        push_pass(
+          ModulePass::AbstractTypeRefining(
+            AbstractTypeRefiningPassProps::new(
+              traps_never_happen=options.traps_never_happen,
+            ),
+          ),
+        )
+      "memory-packing" =>
+        push_pass(ModulePass::MemoryPacking(MemoryPackingPassProps::new()))
+      "directize" => push_pass(ModulePass::Directize(true))
       "optimize" => {
         for pass in default_global_optimization_pre_passes(mod, options) {
           push_pass(pass)
@@ -2260,7 +2534,6 @@ pub fn run_cmd_with_adapter(
 
   let env = parse_env_overlay(io)
   let merged = merge_parse_results(config, env, cli)
-  let dump_failed_module_state = cmd_optimize_dump_failed_module_state(io)
   let trace_level = cmd_resolve_optimize_trace_level(merged.tracing)
   let trace_optimize = trace_level is Some(_)
   let input_files = resolve_input_files_with_glob(
@@ -2333,11 +2606,6 @@ pub fn run_cmd_with_adapter(
       io,
       true,
       "effective_pass_flags=\{cmd_trace_join_pass_flags(resolved_passes)}",
-    )
-  }
-  if dump_failed_module_state {
-    cmd_trace_emit(
-      io, true, "dump_failed_module_state_env=OPTIMIZE_DUMP_FAILED_MODULE_STATE",
     )
   }
 
@@ -2429,20 +2697,6 @@ pub fn run_cmd_with_adapter(
           options,
           fn(msg) { cmd_trace_emit(io, true, "input \{input_path}:opt \{msg}") },
           trace_level=resolved_trace_level,
-          dump_failed_module_state~,
-        ) {
-        Ok(out) => out
-        Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
-      }
-    } else if dump_failed_module_state {
-      match
-        optimize_module_with_options_trace(
-          mod,
-          passes,
-          options,
-          fn(_) {  },
-          trace_level=OptimizeTracingLevel::pass(),
-          dump_failed_module_state=true,
         ) {
         Ok(out) => out
         Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
@@ -2473,7 +2727,16 @@ pub fn run_cmd_with_adapter(
     match
       validate_encoded_module_for_pipeline(input_path, optimized, out_bytes) {
       Ok(_) => ()
-      Err(e) => return Err(e)
+      Err(e) =>
+        return Err(
+          cmd_append_error_note(
+            e,
+            cmd_post_encode_repro_note(
+              io, mod, passes, options, optimize_level, shrink_level, traps_never_happen,
+              monomorphize_min_benefit, low_memory_unused, low_memory_bound,
+            ),
+          ),
+        )
     }
     cmd_trace_emit(
       io,

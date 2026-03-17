@@ -185,7 +185,21 @@ pub struct OptimizeOptions {
 }
 
 ///|
-fn AbstractTypeRefiningPassProps::new(
+pub struct OptimizePostEncodeFailureRepro {
+  before_mod : Module
+  segment_passes : Array[ModulePass]
+} derive(Show, Eq)
+
+///|
+pub fn OptimizePostEncodeFailureRepro::new(
+  before_mod : Module,
+  segment_passes : Array[ModulePass],
+) -> OptimizePostEncodeFailureRepro {
+  { before_mod, segment_passes }
+}
+
+///|
+pub fn AbstractTypeRefiningPassProps::new(
   traps_never_happen? : Bool = false,
 ) -> AbstractTypeRefiningPassProps {
   { traps_never_happen, }
@@ -2549,6 +2563,102 @@ fn optimize_run_scheduler_segment(
 }
 
 ///|
+fn optimize_scheduler_segment_passes(
+  segment : SchedulerPassSegment,
+) -> Array[ModulePass] {
+  match segment {
+    FunctionPassStack(passes) => passes
+    BarrierPass(pass) => [pass]
+  }
+}
+
+///|
+fn optimize_roundtrip_validates(mod : Module) -> Bool {
+  let bytes = match @binary.encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(_) => return false
+  }
+  let decoded = match @binary.decode_module(bytes) {
+    Ok(decoded) => decoded
+    Err(_) => return false
+  }
+  match validate_module(decoded) {
+    Ok(_) => true
+    Err(_) => false
+  }
+}
+
+///|
+pub fn optimize_find_post_encode_failure_segment_with_probe(
+  mod : Module,
+  passes : Array[ModulePass],
+  options : OptimizeOptions,
+  probe : (Module, Array[ModulePass]) -> Bool,
+) -> Result[OptimizePostEncodeFailureRepro?, String] {
+  if passes.length() == 0 {
+    return Ok(None)
+  }
+  let original_mod = mod
+  let mut mod = mod
+  let ctx = IRContext::new()
+  mod = match lift_to_texpr_module_with_trace(mod, optimize_trace_noop) {
+    Ok(new_mod) => new_mod
+    Err(e) => return Err(e)
+  }
+  match opt_preflight_call_arity(mod) {
+    Ok(_) => ()
+    Err(e) => return Err("call arity audit failed before pass scheduling: \{e}")
+  }
+  ctx.set_mod(mod)
+  let segments = scheduler_segment_passes(passes)
+  let state = OptimizeSchedulerState::new()
+  for i = 0; i < segments.length(); i = i + 1 {
+    let pre_segment_mod = mod
+    mod = match
+      optimize_run_scheduler_segment(
+        ctx,
+        mod,
+        segments[i],
+        i + 1,
+        segments.length(),
+        passes.length(),
+        state,
+        original_mod,
+        options,
+        optimize_trace_noop,
+        false,
+        OptimizeTracingLevel::helper(),
+      ) {
+      Ok(new_mod) => new_mod
+      Err(e) => return Err(e)
+    }
+    let segment_passes = optimize_scheduler_segment_passes(segments[i])
+    if probe(mod, segment_passes) {
+      return Ok(
+        Some(
+          OptimizePostEncodeFailureRepro::new(pre_segment_mod, segment_passes),
+        ),
+      )
+    }
+  }
+  Ok(None)
+}
+
+///|
+pub fn optimize_find_post_encode_failure_segment(
+  mod : Module,
+  passes : Array[ModulePass],
+  options : OptimizeOptions,
+) -> Result[OptimizePostEncodeFailureRepro?, String] {
+  optimize_find_post_encode_failure_segment_with_probe(mod, passes, options, fn(
+    segment_mod,
+    _,
+  ) {
+    !optimize_roundtrip_validates(segment_mod)
+  })
+}
+
+///|
 fn optimize_module_with_options_internal(
   mod : Module,
   passes : Array[ModulePass],
@@ -2556,9 +2666,7 @@ fn optimize_module_with_options_internal(
   trace : (String) -> Unit,
   trace_enabled : Bool,
   trace_level : OptimizeTracingLevel,
-  dump_failed_module_state : Bool,
 ) -> Result[Module, String] {
-  ignore(dump_failed_module_state)
   let original_mod = mod
   let optimize_start_ms = optimize_trace_now_ms()
   optimize_trace_emit_pass(
@@ -2768,7 +2876,6 @@ pub fn optimize_module_with_options(
     optimize_trace_noop,
     false,
     OptimizeTracingLevel::pass(),
-    false,
   )
 }
 
@@ -2779,10 +2886,9 @@ pub fn optimize_module_with_options_trace(
   options : OptimizeOptions,
   trace : (String) -> Unit,
   trace_level? : OptimizeTracingLevel = OptimizeTracingLevel::helper(),
-  dump_failed_module_state? : Bool = false,
 ) -> Result[Module, String] {
   optimize_module_with_options_internal(
-    mod, passes, options, trace, true, trace_level, dump_failed_module_state,
+    mod, passes, options, trace, true, trace_level,
   )
 }
 
@@ -6763,6 +6869,62 @@ test "optimize_module helper trace reports scheduler pass segments" {
     ),
     1,
   )
+}
+
+///|
+test "optimize post-encode repro replay returns pre-segment module and segment passes" {
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+    ),
+  )
+  let passes : Array[ModulePass] = [
+    DeadCodeElimination,
+    Vacuum,
+    MergeSimilarFunctions,
+  ]
+  let expected_before = match
+    optimize_module(mod, [DeadCodeElimination, Vacuum]) {
+    Ok(out) => out
+    Err(e) =>
+      fail("unexpected optimize_module error preparing replay fixture: \{e}")
+  }
+  let repro = match
+    optimize_find_post_encode_failure_segment_with_probe(
+      mod,
+      passes,
+      OptimizeOptions::new(),
+      fn(_, segment_passes) {
+        segment_passes.length() == 1 &&
+        segment_passes[0] == MergeSimilarFunctions
+      },
+    ) {
+    Ok(Some(repro)) => repro
+    Ok(None) => fail("expected replay helper to find a failing segment")
+    Err(e) => fail("unexpected replay helper error: \{e}")
+  }
+  assert_eq(repro.segment_passes, [MergeSimilarFunctions])
+  assert_eq(repro.before_mod, expected_before)
+}
+
+///|
+test "optimize post-encode repro replay returns none when every segment roundtrips" {
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+    ),
+  )
+  let repro = match
+    optimize_find_post_encode_failure_segment_with_probe(
+      mod,
+      [DeadCodeElimination, Vacuum],
+      OptimizeOptions::new(),
+      fn(_, _) { false },
+    ) {
+    Ok(repro) => repro
+    Err(e) => fail("unexpected replay helper error: \{e}")
+  }
+  assert_eq(repro, None)
 }
 
 ///|

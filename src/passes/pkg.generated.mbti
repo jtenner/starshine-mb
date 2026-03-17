@@ -13,11 +13,15 @@ pub fn default_global_optimization_post_passes(@lib.Module, OptimizeOptions) -> 
 
 pub fn default_global_optimization_pre_passes(@lib.Module, OptimizeOptions, closed_world? : Bool) -> Array[ModulePass]
 
+pub fn optimize_find_post_encode_failure_segment(@lib.Module, Array[ModulePass], OptimizeOptions) -> Result[OptimizePostEncodeFailureRepro?, String]
+
+pub fn optimize_find_post_encode_failure_segment_with_probe(@lib.Module, Array[ModulePass], OptimizeOptions, (@lib.Module, Array[ModulePass]) -> Bool) -> Result[OptimizePostEncodeFailureRepro?, String]
+
 pub fn optimize_module(@lib.Module, Array[ModulePass]) -> Result[@lib.Module, String]
 
 pub fn optimize_module_with_options(@lib.Module, Array[ModulePass], OptimizeOptions) -> Result[@lib.Module, String]
 
-pub fn optimize_module_with_options_trace(@lib.Module, Array[ModulePass], OptimizeOptions, (String) -> Unit, trace_level? : OptimizeTracingLevel, dump_failed_module_state? : Bool) -> Result[@lib.Module, String]
+pub fn optimize_module_with_options_trace(@lib.Module, Array[ModulePass], OptimizeOptions, (String) -> Unit, trace_level? : OptimizeTracingLevel) -> Result[@lib.Module, String]
 
 // Errors
 
@@ -25,6 +29,7 @@ pub fn optimize_module_with_options_trace(@lib.Module, Array[ModulePass], Optimi
 pub(all) struct AbstractTypeRefiningPassProps {
   traps_never_happen : Bool
 }
+pub fn AbstractTypeRefiningPassProps::new(traps_never_happen? : Bool) -> Self
 pub impl Eq for AbstractTypeRefiningPassProps
 pub impl Show for AbstractTypeRefiningPassProps
 
@@ -150,6 +155,7 @@ pub(all) struct MemoryPackingPassProps {
   traps_never_happen : Bool
   max_data_segments : Int
 }
+pub fn MemoryPackingPassProps::new(zero_filled_memory? : Bool, traps_never_happen? : Bool, max_data_segments? : Int) -> Self
 pub impl Eq for MemoryPackingPassProps
 pub impl Show for MemoryPackingPassProps
 
@@ -254,6 +260,14 @@ pub struct OptimizeOptions {
   validation_policy : OptimizeValidationPolicy
 }
 pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool, validation_policy? : OptimizeValidationPolicy) -> Self
+
+pub struct OptimizePostEncodeFailureRepro {
+  before_mod : @lib.Module
+  segment_passes : Array[ModulePass]
+}
+pub fn OptimizePostEncodeFailureRepro::new(@lib.Module, Array[ModulePass]) -> Self
+pub impl Eq for OptimizePostEncodeFailureRepro
+pub impl Show for OptimizePostEncodeFailureRepro
 
 pub enum OptimizeTracingLevel {
   Pass

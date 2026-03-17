@@ -319,6 +319,12 @@ fn __node_cmd_shrink_options(
 ///|
 fn __node_cmd_resolve_explicit_pass(flag : String) -> @passes.ModulePass? {
   match flag {
+    "abstract-type-refining" =>
+      Some(
+        @passes.ModulePass::AbstractTypeRefining(
+          @passes.AbstractTypeRefiningPassProps::new(),
+        ),
+      )
     "alignment-lowering" => Some(@passes.ModulePass::AlignmentLowering)
     "avoid-reinterprets" => Some(@passes.ModulePass::AvoidReinterprets)
     "coalesce-locals" => Some(@passes.ModulePass::CoalesceLocals)
@@ -339,6 +345,7 @@ fn __node_cmd_resolve_explicit_pass(flag : String) -> @passes.ModulePass? {
     "signature-refining" => Some(@passes.ModulePass::SignatureRefining)
     "duplicate-import-elimination" =>
       Some(@passes.ModulePass::DuplicateImportElimination)
+    "directize" => Some(@passes.ModulePass::Directize(true))
     "global-refining" => Some(@passes.ModulePass::GlobalRefining)
     "global-struct-inference" => Some(@passes.ModulePass::GlobalStructInference)
     "global-struct-inference-desc-cast" =>
@@ -376,6 +383,10 @@ fn __node_cmd_resolve_explicit_pass(flag : String) -> @passes.ModulePass? {
     "type-merging" => Some(@passes.ModulePass::TypeMerging)
     "monomorphize" => Some(@passes.ModulePass::Monomorphize)
     "monomorphize-always" => Some(@passes.ModulePass::MonomorphizeAlways)
+    "memory-packing" =>
+      Some(
+        @passes.ModulePass::MemoryPacking(@passes.MemoryPackingPassProps::new()),
+      )
     "optimize-added-constants" =>
       Some(@passes.ModulePass::OptimizeAddedConstants)
     "optimize-added-constants-propagate" =>

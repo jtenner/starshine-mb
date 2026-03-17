@@ -29,13 +29,16 @@ using @lib {type Module}
 
 ///|
 using @passes {
+  optimize_find_post_encode_failure_segment_with_probe,
   optimize_module_with_options,
   optimize_module_with_options_trace,
   default_function_optimization_passes,
   default_global_optimization_pre_passes,
   default_global_optimization_post_passes,
   type ModulePass,
+  type AbstractTypeRefiningPassProps,
   type InliningOptions,
+  type MemoryPackingPassProps,
   type OptimizeOptions,
   type OptimizeTracingLevel,
 }

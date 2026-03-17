@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-17 Optimize Follow-up: emit segment repros for post-encode validation failures
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) so post-encode validation failures now replay the already-expanded optimize pass list segment by segment with the CLI encoder/decoder pipeline, write `before.wasm` for the first failing segment input, and append an exact `starshine ... before.wasm` repro command to the failure output.
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) to expose a scheduler-segment replay helper for post-encode repro isolation, and removed the dead `dump_failed_module_state` parameter from `optimize_module_with_options_trace(...)`.
+- Updated [/home/jtenner/Projects/starshine-mb/src/cmd/cmd_test.mbt](/home/jtenner/Projects/starshine-mb/src/cmd/cmd_test.mbt), [/home/jtenner/Projects/starshine-mb/src/node_api/custom.mbt](/home/jtenner/Projects/starshine-mb/src/node_api/custom.mbt), [/home/jtenner/Projects/starshine-mb/src/passes/memory_packing.mbt](/home/jtenner/Projects/starshine-mb/src/passes/memory_packing.mbt), and [/home/jtenner/Projects/starshine-mb/src/passes/pkg.generated.mbti](/home/jtenner/Projects/starshine-mb/src/passes/pkg.generated.mbti) so the new repro command can target `abstract-type-refining`, `memory-packing`, and `directize` directly and is covered by end-to-end regression tests.
+- Validation: `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-17 Optimize Follow-up: audit optimize scheduler call arity and fix multivalue arg counting
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so the optimize scheduler now audits direct, `call_ref`, and indirect call arity before pass scheduling and after module-runner passes, with regressions that cover upstream-invalid call sites and valid multivalue producers.

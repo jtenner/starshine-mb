@@ -22,7 +22,7 @@ pub(all) struct MemoryPackingPassProps {
 } derive(Show, Eq)
 
 ///|
-fn MemoryPackingPassProps::new(
+pub fn MemoryPackingPassProps::new(
   zero_filled_memory? : Bool = false,
   traps_never_happen? : Bool = false,
   max_data_segments? : Int = 100000,

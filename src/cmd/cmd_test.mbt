@@ -126,6 +126,60 @@ fn fixture_mergeable_block_module() -> Module {
 }
 
 ///|
+fn fixture_invalid_drop_nop_module() -> Module {
+  let t_void = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([t_void]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func([], [], TExpr::new([TInstr::drop(TInstr::nop())])),
+    ]),
+  )
+}
+
+///|
+fn fixture_merge_similar_repro_module() -> Module {
+  let t_i32 = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let binary_body = fn(c0 : Int, c1 : Int) {
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          @lib.BinaryOp::i32_add(),
+          TInstr::binary(
+            @lib.BinaryOp::i32_mul(),
+            TInstr::local_get(@lib.LocalIdx::new(0)),
+            TInstr::i32_const(@lib.I32(c0)),
+          ),
+          TInstr::binary(
+            @lib.BinaryOp::i32_add(),
+            TInstr::i32_const(@lib.I32(c1)),
+            TInstr::i32_const(@lib.I32(7)),
+          ),
+        ),
+      ]),
+    ])
+  }
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([t_i32]))
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(0), @lib.TypeIdx::new(0)]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func([@lib.ValType::i32()], [], binary_body(42, 10)),
+      Func::t_func([@lib.ValType::i32()], [], binary_body(43, 10)),
+    ]),
+  )
+}
+
+///|
 fn run_optimize_wat_fixture_regression(
   path : String,
   wat_text : String,
@@ -603,6 +657,70 @@ test "run_cmd_with_adapter preserves repeated pass flags in cli order" {
     Err(e) => fail("unexpected run failure: \{e}")
   }
   assert_eq(summary.resolved_passes, ["vacuum", "optimize", "vacuum"])
+}
+
+///|
+test "run_cmd_with_adapter writes before.wasm and repro command after post-encode validation failure" {
+  let input_mod = fixture_merge_similar_repro_module()
+  let wasm = encode_module_bytes(input_mod)
+  let invalid_roundtrip = encode_module_bytes(fixture_invalid_drop_nop_module())
+  let expected_optimized = match
+    optimize_module_with_options(
+      input_mod,
+      [ModulePass::RemoveUnusedNames, ModulePass::MergeSimilarFunctions],
+      OptimizeOptions::new(),
+    ) {
+    Ok(out) => out
+    Err(e) => fail("expected repro fixture to optimize successfully: \{e}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    encode_module=fn(mod) {
+      if mod == expected_optimized {
+        Ok(invalid_roundtrip)
+      } else {
+        Ok(encode_module_bytes(mod))
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--remove-unused-names", "--merge-similar-functions", "--out", "out.wasm",
+        "a.wasm",
+      ],
+      io,
+    ) {
+    Ok(summary) =>
+      fail("expected post-encode validation failure, got summary \{summary}")
+    Err(err) => {
+      let text = match err {
+        EncodeFailed(_, Adapter(msg)) => msg
+        _ => fail("expected adapter encode error with repro text, got \{err}")
+      }
+      assert_true(text.contains("post-encode validation failed:"), msg=text)
+      assert_true(
+        text.contains("starshine --merge-similar-functions before.wasm"),
+        msg=text,
+      )
+      assert_eq(writes.length(), 1)
+      assert_eq(writes[0].0, "before.wasm")
+      ignore(decode_module_bytes(writes[0].1))
+    }
+  }
 }
 
 ///|
