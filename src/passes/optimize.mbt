@@ -586,8 +586,6 @@ fn module_pass_is_function_stackable(pass : ModulePass) -> Bool {
     | CodePushing
     | CodeFolding
     | CoalesceLocals
-    | ConstantFieldPropagation
-    | ConstantFieldNullTestFolding
     | DataflowOptimization
     | HeapStoreOptimization
     | MergeBlocks
@@ -3178,6 +3176,37 @@ test "scheduler_segment_passes treats module-shaped de_nan wrapper as a barrier"
   match segments[2] {
     FunctionPassStack(passes) => assert_eq(passes, [CodePushing])
     _ => fail("expected third segment to be a function stack")
+  }
+}
+
+///|
+test "scheduler_segment_passes treats constant-field analysis passes as barriers" {
+  let segments = scheduler_segment_passes([
+    Precompute,
+    ConstantFieldPropagation,
+    ConstantFieldNullTestFolding,
+    CodePushing,
+  ])
+  assert_eq(segments.length(), 4)
+  match segments[0] {
+    FunctionPassStack(passes) => assert_eq(passes, [Precompute])
+    _ => fail("expected first segment to be a function stack")
+  }
+  match segments[1] {
+    BarrierPass(pass) => assert_eq(pass, ConstantFieldPropagation)
+    _ =>
+      fail("expected second segment to be a ConstantFieldPropagation barrier")
+  }
+  match segments[2] {
+    BarrierPass(pass) => assert_eq(pass, ConstantFieldNullTestFolding)
+    _ =>
+      fail(
+        "expected third segment to be a ConstantFieldNullTestFolding barrier",
+      )
+  }
+  match segments[3] {
+    FunctionPassStack(passes) => assert_eq(passes, [CodePushing])
+    _ => fail("expected fourth segment to be a function stack")
   }
 }
 

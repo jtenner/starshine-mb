@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: treat constant-field analysis wrappers as stacked-runner barriers
+
+- Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so `ConstantFieldPropagation` and `ConstantFieldNullTestFolding` no longer count as `FunctionPassStack` members; both passes currently build whole-module constant-field analysis before rewriting and therefore stay as scheduler barriers for the stacked runner.
+- Added segmentation regressions in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) that lock `ConstantFieldPropagation` and `ConstantFieldNullTestFolding` as barriers between stackable neighbors.
+- Validation: `moon test --package jtenner/starshine/passes --file optimize.mbt`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Optimize Follow-up: keep single non-skipped vacuum passes inside stacked segments
 
 - Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so `FunctionPassStack` segments with zero or one non-skipped `Vacuum` now stay on the prepared per-function executor instead of flushing around `Vacuum`; repeated or skip-sensitive `Vacuum` cases still fall back to the older split execution path.
