@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-17 Self-optimize Follow-up: stream repro output to the terminal
+
+- Updated [/home/jtenner/Projects/starshine-mb/scripts/self-optimize.sh](/home/jtenner/Projects/starshine-mb/scripts/self-optimize.sh) so the self-optimize wrapper now streams optimizer stdout/stderr live to the terminal while still writing `output.log`, and removed the stale `OPTIMIZE_DUMP_FAILED_MODULE_STATE` env plumbing there.
+- Added [/home/jtenner/Projects/starshine-mb/scripts/test/self-optimize-output.sh](/home/jtenner/Projects/starshine-mb/scripts/test/self-optimize-output.sh), a regression that runs the wrapper against stub binaries and requires the repro command to appear both in terminal output and the captured log.
+- Validation: `bash scripts/test/self-optimize-output.sh`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-17 Optimize Follow-up: emit segment repros for post-encode validation failures
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) so post-encode validation failures now replay the already-expanded optimize pass list segment by segment with the CLI encoder/decoder pipeline, write `before.wasm` for the first failing segment input, and append an exact `starshine ... before.wasm` repro command to the failure output.

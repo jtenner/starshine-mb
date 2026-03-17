@@ -44,9 +44,7 @@ fi
 rm -f "$output_path"
 
 if command -v stdbuf >/dev/null 2>&1; then
-  OPTIMIZE_DUMP_FAILED_MODULE_STATE=1 \
-    stdbuf -oL -eL "${cmd[@]}" >"$output_path" 2>&1
+  stdbuf -oL -eL "${cmd[@]}" 2>&1 | tee "$output_path"
 else
-  OPTIMIZE_DUMP_FAILED_MODULE_STATE=1 \
-    "${cmd[@]}" >"$output_path" 2>&1
+  "${cmd[@]}" 2>&1 | tee "$output_path"
 fi
