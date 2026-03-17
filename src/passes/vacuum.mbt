@@ -2716,6 +2716,19 @@ fn vq_indexed_expr_value_break_lub_depth0(
 }
 
 ///|
+fn vq_stack_sig_restore_block_result(
+  sig : VQStackSig,
+  result_count : Int,
+  has_value_break_lub : Bool,
+) -> VQStackSig {
+  if result_count == 0 || !has_value_break_lub {
+    sig
+  } else {
+    VQStackSig::new(sig.required, vq_max_int(sig.produced, result_count), true)
+  }
+}
+
+///|
 fn vq_stack_sig_instr_indexed(
   instr : TInstr,
   env : Env,
@@ -2770,23 +2783,61 @@ fn vq_stack_sig_instr_indexed(
       vq_stack_sig_list_indexed(eval_child_ids, analysis_cache).map(fn(sig) {
         vq_stack_sig_pop_push(sig, 3, 1)
       })
-    TInstrKind::TBlock(_, _)
-    | TInstrKind::TLoop(_, _)
-    | TInstrKind::TTryTable(_, _, _) =>
+    TInstrKind::TBlock(bt, _) =>
+      match body_expr_id {
+        Some(id) =>
+          vq_stack_sig_expr_indexed(id, analysis_cache).map(fn(sig) {
+            vq_stack_sig_restore_block_result(
+              sig,
+              vq_block_result_types(bt, env).length(),
+              match
+                vq_indexed_expr_value_break_lub_depth0(analysis_cache, Some(id)) {
+                Some(value) => value
+                None => false
+              },
+            )
+          })
+        None => None
+      }
+    TInstrKind::TLoop(_, _) | TInstrKind::TTryTable(_, _, _) =>
       match body_expr_id {
         Some(id) => vq_stack_sig_expr_indexed(id, analysis_cache)
         None => None
       }
-    TInstrKind::TIf(_, _, _, _) => {
+    TInstrKind::TIf(bt, _, _, _) => {
       let else_sig = match else_expr_id {
-        Some(id) => vq_stack_sig_expr_indexed(id, analysis_cache)
+        Some(id) =>
+          vq_stack_sig_expr_indexed(id, analysis_cache).map(fn(sig) {
+            vq_stack_sig_restore_block_result(
+              sig,
+              vq_block_result_types(bt, env).length(),
+              match
+                vq_indexed_expr_value_break_lub_depth0(analysis_cache, Some(id)) {
+                Some(value) => value
+                None => false
+              },
+            )
+          })
         None => Some(VQStackSig::new(0, 0, true))
       }
       match
         (
           vq_stack_sig_list_indexed(eval_child_ids, analysis_cache),
           then_expr_id.bind(fn(id) {
-            vq_stack_sig_expr_indexed(id, analysis_cache)
+            vq_stack_sig_expr_indexed(id, analysis_cache).map(fn(sig) {
+              vq_stack_sig_restore_block_result(
+                sig,
+                vq_block_result_types(bt, env).length(),
+                match
+                  vq_indexed_expr_value_break_lub_depth0(
+                    analysis_cache,
+                    Some(id),
+                  ) {
+                  Some(value) => value
+                  None => false
+                },
+              )
+            })
           }),
           else_sig,
         ) {
@@ -3618,7 +3669,7 @@ fn vq_stack_need_before(effect : VQStackSig, need_after : Int) -> Int {
   if !effect.reachable {
     effect.required
   } else {
-    vq_max_int(effect.required, vq_nonneg_int(need_after - effect.produced))
+    effect.required + vq_nonneg_int(need_after - effect.produced)
   }
 }
 
@@ -3627,14 +3678,13 @@ fn vq_stack_seq(a : VQStackSig, b : VQStackSig) -> VQStackSig {
   if !a.reachable {
     a
   } else {
-    let required = vq_max_int(
-      a.required,
-      vq_nonneg_int(b.required - a.produced),
-    )
+    let extra_needed = vq_nonneg_int(b.required - a.produced)
+    let required = a.required + extra_needed
+    let produced = vq_nonneg_int(a.produced - b.required) + b.produced
     if !b.reachable {
       VQStackSig::new(required, 0, false)
     } else {
-      VQStackSig::new(required, a.produced + b.produced, true)
+      VQStackSig::new(required, produced, true)
     }
   }
 }
@@ -3648,12 +3698,10 @@ fn vq_stack_sig_pop_push(
   if !child_sig.reachable {
     child_sig
   } else {
+    let extra_needed = vq_nonneg_int(pop_count - child_sig.produced)
     VQStackSig::new(
-      vq_max_int(
-        child_sig.required,
-        vq_nonneg_int(pop_count - child_sig.produced),
-      ),
-      child_sig.produced - pop_count + push_count,
+      child_sig.required + extra_needed,
+      vq_nonneg_int(child_sig.produced - pop_count) + push_count,
       true,
     )
   }
@@ -3667,14 +3715,8 @@ fn vq_stack_sig_terminate(
   if !child_sig.reachable {
     child_sig
   } else {
-    VQStackSig::new(
-      vq_max_int(
-        child_sig.required,
-        vq_nonneg_int(pop_count - child_sig.produced),
-      ),
-      0,
-      false,
-    )
+    let extra_needed = vq_nonneg_int(pop_count - child_sig.produced)
+    VQStackSig::new(child_sig.required + extra_needed, 0, false)
   }
 }
 
@@ -3742,13 +3784,42 @@ fn vq_stack_sig_if(
   }
   let need_after_cond = 1 + branch_required
   VQStackSig::new(
-    vq_max_int(
-      cond_sig.required,
-      vq_nonneg_int(need_after_cond - cond_sig.produced),
-    ),
+    cond_sig.required + vq_nonneg_int(need_after_cond - cond_sig.produced),
     branch_produced,
     branch_reachable,
   )
+}
+
+///|
+fn vq_stack_sig_block_body_seeded(
+  bt : BlockType,
+  body : TExpr,
+  env : Env,
+  analysis_cache : VQAnalysisCache,
+) -> VQStackSig? {
+  vq_stack_sig_list_seeded(body.instrs, env, analysis_cache).map(fn(sig) {
+    vq_stack_sig_restore_block_result(
+      sig,
+      vq_block_result_types(bt, env).length(),
+      vq_has_value_break_lub_depth0_cached(body, env, analysis_cache),
+    )
+  })
+}
+
+///|
+fn vq_stack_sig_block_body(
+  bt : BlockType,
+  body : TExpr,
+  env : Env,
+) -> VQStackSig? {
+  let analysis_cache = VQAnalysisCache::new([], VQRunStats::new())
+  vq_stack_sig_list(body.instrs, env).map(fn(sig) {
+    vq_stack_sig_restore_block_result(
+      sig,
+      vq_block_result_types(bt, env).length(),
+      vq_has_value_break_lub_depth0_fallback(body, env, analysis_cache),
+    )
+  })
 }
 
 ///|
@@ -3805,20 +3876,20 @@ fn vq_stack_sig_instr_seeded(
           vq_stack_sig_pop_push(sig, 3, 1)
         },
       )
-    TInstrKind::TBlock(_, body)
-    | TInstrKind::TLoop(_, body)
-    | TInstrKind::TTryTable(_, _, body) =>
+    TInstrKind::TBlock(bt, body) =>
+      vq_stack_sig_block_body_seeded(bt, body, env, analysis_cache)
+    TInstrKind::TLoop(_, body) | TInstrKind::TTryTable(_, _, body) =>
       vq_stack_sig_list_seeded(body.instrs, env, analysis_cache)
-    TInstrKind::TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let else_sig = match else_body {
         Some(other) =>
-          vq_stack_sig_list_seeded(other.instrs, env, analysis_cache)
+          vq_stack_sig_block_body_seeded(bt, other, env, analysis_cache)
         None => Some(VQStackSig::new(0, 0, true))
       }
       match
         (
           vq_stack_sig_instr_seeded(cond, env, analysis_cache),
-          vq_stack_sig_list_seeded(then_body.instrs, env, analysis_cache),
+          vq_stack_sig_block_body_seeded(bt, then_body, env, analysis_cache),
           else_sig,
         ) {
         (Some(cond_sig), Some(then_sig), Some(other_sig)) =>
@@ -3945,18 +4016,18 @@ fn vq_stack_sig_instr(instr : TInstr, env : Env) -> VQStackSig? {
       vq_stack_sig_list([if_true, if_false, cond], env).map(fn(sig) {
         vq_stack_sig_pop_push(sig, 3, 1)
       })
-    TInstrKind::TBlock(_, body)
-    | TInstrKind::TLoop(_, body)
-    | TInstrKind::TTryTable(_, _, body) => vq_stack_sig_list(body.instrs, env)
-    TInstrKind::TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TBlock(bt, body) => vq_stack_sig_block_body(bt, body, env)
+    TInstrKind::TLoop(_, body) | TInstrKind::TTryTable(_, _, body) =>
+      vq_stack_sig_list(body.instrs, env)
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let else_sig = match else_body {
-        Some(other) => vq_stack_sig_list(other.instrs, env)
+        Some(other) => vq_stack_sig_block_body(bt, other, env)
         None => Some(VQStackSig::new(0, 0, true))
       }
       match
         (
           vq_stack_sig_instr(cond, env),
-          vq_stack_sig_list(then_body.instrs, env),
+          vq_stack_sig_block_body(bt, then_body, env),
           else_sig,
         ) {
         (Some(cond_sig), Some(then_sig), Some(other_sig)) =>
@@ -4835,6 +4906,8 @@ fn vq_optimize_sequence_degraded(
   let mut changed = false
   let size = items.length()
   let multi_value_results = result_types.length() > 1
+  let has_ambient_stack_terminator = vq_has_ambient_stack_terminator(items)
+  let mut prefix_needs_opt : Array[Int?]? = None
   for i = 0; i < size; i = i + 1 {
     let child = items[i]
     let keeps_sequence_result = i == size - 1 && result_types.length() > 0
@@ -4851,6 +4924,55 @@ fn vq_optimize_sequence_degraded(
         keeps_sequence_result ||
         is_unreachable_instr(child) {
         optimized = Some(child)
+      } else if has_ambient_stack_terminator {
+        match
+          (
+            vq_type_of_cached(child, env, analysis_cache),
+            vq_stack_sig_instr_cached(child, env, analysis_cache),
+          ) {
+          (Some(_), _) => optimized = Some(child)
+          (_, Some(sig)) if !sig.reachable => optimized = Some(child)
+          _ => ()
+        }
+      } else {
+        let prefix_needs = match prefix_needs_opt {
+          Some(cached) => cached
+          None => {
+            let computed = vq_required_prefixes(
+              items,
+              env,
+              if result_used {
+                result_types.length()
+              } else {
+                0
+              },
+              analysis_cache,
+            )
+            prefix_needs_opt = Some(computed)
+            computed
+          }
+        }
+        match
+          (
+            vq_stack_sig_instr_cached(child, env, analysis_cache),
+            prefix_needs[i],
+            prefix_needs[i + 1],
+          ) {
+          (Some(sig), Some(need_before), Some(need_after)) =>
+            if !sig.reachable || need_before < need_after {
+              optimized = Some(child)
+            }
+          _ =>
+            match
+              (
+                vq_type_of_cached(child, env, analysis_cache),
+                vq_stack_sig_instr_cached(child, env, analysis_cache),
+              ) {
+              (Some(_), _) => optimized = Some(child)
+              (_, Some(sig)) if !sig.reachable => optimized = Some(child)
+              _ => ()
+            }
+        }
       }
     }
     match optimized {
@@ -7945,6 +8067,39 @@ test "vacuum sequence uses cheap-tier fallback for remaining items after full bu
 }
 
 ///|
+test "vacuum degraded sequence keeps ambient-fed local.set chain intact" {
+  let items = [
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::local_set(
+      LocalIdx::new(1),
+      TInstr::local_set(LocalIdx::new(2), TInstr::local_get(LocalIdx::new(3))),
+    ),
+  ]
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals([
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+    ])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(16)
+  let seq = vq_optimize_sequence_degraded(
+    items,
+    env,
+    [],
+    false,
+    budget,
+    cache,
+    VQPassOptions::new(),
+  )
+
+  assert_eq(seq.items, items)
+  assert_false(seq.changed)
+}
+
+///|
 test "vacuum sequence switches once to cheap-tier for remaining suffix" {
   let items = [
     TInstr::drop(TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(1)))),
@@ -10843,6 +10998,317 @@ test "vacuum keeps mixed-type stack-feeding sibling values in block bodies" {
 }
 
 ///|
+test "vacuum keeps stack-feeding sibling values in if arms with outer branch exits" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()],
+          TExpr::new([
+            TInstr::block(
+              BlockType::val_type(ValType::i32()),
+              TExpr::new([
+                TInstr::if_(
+                  BlockType::val_type(ValType::i32()),
+                  TInstr::i32_const(I32(1)),
+                  TExpr::new([
+                    TInstr::local_get(LocalIdx::new(0)),
+                    TInstr::local_set(
+                      LocalIdx::new(1),
+                      TInstr::local_set(
+                        LocalIdx::new(2),
+                        TInstr::local_get(LocalIdx::new(3)),
+                      ),
+                    ),
+                    TInstr::br(LabelIdx::new(1), [TInstr::i32_const(I32(9))]),
+                  ]),
+                  Some(
+                    TExpr::new([
+                      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+                      TInstr::i32_const(I32(7)),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected stack-feeding if-arm sibling value to survive vacuum validation: \{e}",
+      )
+  }
+}
+
+///|
+test "vacuum keeps stack-feeding sibling values when if result feeds outer branch" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()],
+          TExpr::new([
+            TInstr::block(
+              BlockType::val_type(ValType::i32()),
+              TExpr::new([
+                TInstr::if_(
+                  BlockType::val_type(ValType::i32()),
+                  TInstr::i32_const(I32(1)),
+                  TExpr::new([
+                    TInstr::local_get(LocalIdx::new(0)),
+                    TInstr::local_set(
+                      LocalIdx::new(1),
+                      TInstr::local_set(
+                        LocalIdx::new(2),
+                        TInstr::local_get(LocalIdx::new(3)),
+                      ),
+                    ),
+                    TInstr::br(LabelIdx::new(1), [TInstr::i32_const(I32(9))]),
+                  ]),
+                  Some(
+                    TExpr::new([
+                      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+                      TInstr::i32_const(I32(7)),
+                    ]),
+                  ),
+                ),
+                TInstr::br(LabelIdx::new(0), []),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected stack-feeding if-result branch feeder to survive vacuum validation: \{e}",
+      )
+  }
+}
+
+///|
+test "vacuum keeps local.tee-fed sibling values before nested local.set chain" {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+          ],
+          TExpr::new([
+            TInstr::local_set(
+              LocalIdx::new(10),
+              TInstr::local_tee(LocalIdx::new(1), TInstr::i32_const(I32(35064))),
+            ),
+            TInstr::local_get(LocalIdx::new(1)),
+            TInstr::i32_const(I32(0)),
+            TInstr::local_set(
+              LocalIdx::new(7),
+              TInstr::local_set(
+                LocalIdx::new(8),
+                TInstr::local_set(
+                  LocalIdx::new(9),
+                  TInstr::local_get(LocalIdx::new(10)),
+                ),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected local.tee-fed nested local.set chain to survive vacuum validation: \{e}",
+      )
+  }
+}
+
+///|
+test "vacuum keeps stack-fed local.set chains across surrounding call and if context" {
+  let t_main = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let t_id = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let t_sink = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let t_cond = RecType::new(
+    SubType::comp_type(
+      CompType::func(
+        [ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()],
+        [ValType::i32()],
+      ),
+    ),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_main, t_id, t_sink, t_cond]))
+    .with_func_sec(
+      FuncSec::new([
+        TypeIdx::new(0),
+        TypeIdx::new(1),
+        TypeIdx::new(2),
+        TypeIdx::new(3),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          [
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+          ],
+          TExpr::new([
+            TInstr::local_set(
+              LocalIdx::new(10),
+              TInstr::call(FuncIdx::new(1), [
+                TInstr::local_tee(
+                  LocalIdx::new(1),
+                  TInstr::i32_const(I32(35064)),
+                ),
+              ]),
+            ),
+            TInstr::local_get(LocalIdx::new(1)),
+            TInstr::i32_const(I32(0)),
+            TInstr::local_set(
+              LocalIdx::new(7),
+              TInstr::local_set(
+                LocalIdx::new(8),
+                TInstr::local_set(
+                  LocalIdx::new(9),
+                  TInstr::local_get(LocalIdx::new(10)),
+                ),
+              ),
+            ),
+            TInstr::call(FuncIdx::new(2), [TInstr::local_get(LocalIdx::new(0))]),
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::call(FuncIdx::new(3), [
+                TInstr::local_get(LocalIdx::new(0)),
+                TInstr::local_get(LocalIdx::new(7)),
+                TInstr::local_get(LocalIdx::new(8)),
+                TInstr::local_get(LocalIdx::new(10)),
+              ]),
+              TExpr::new([
+                TInstr::call(FuncIdx::new(2), [
+                  TInstr::local_get(LocalIdx::new(0)),
+                ]),
+                TInstr::local_set(LocalIdx::new(11), TInstr::i32_const(I32(1))),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::local_set(
+                    LocalIdx::new(6),
+                    TInstr::call(FuncIdx::new(1), [
+                      TInstr::local_tee(
+                        LocalIdx::new(2),
+                        TInstr::i32_const(I32(35048)),
+                      ),
+                    ]),
+                  ),
+                  TInstr::local_get(LocalIdx::new(2)),
+                  TInstr::i32_const(I32(0)),
+                  TInstr::local_set(
+                    LocalIdx::new(3),
+                    TInstr::local_set(
+                      LocalIdx::new(4),
+                      TInstr::local_set(
+                        LocalIdx::new(5),
+                        TInstr::local_get(LocalIdx::new(6)),
+                      ),
+                    ),
+                  ),
+                  TInstr::local_set(
+                    LocalIdx::new(11),
+                    TInstr::call(FuncIdx::new(3), [
+                      TInstr::local_get(LocalIdx::new(0)),
+                      TInstr::local_get(LocalIdx::new(3)),
+                      TInstr::local_get(LocalIdx::new(4)),
+                      TInstr::local_get(LocalIdx::new(6)),
+                    ]),
+                  ),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+        Func::t_func(
+          [ValType::i32()],
+          [],
+          TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+        ),
+        Func::t_func([ValType::i32()], [], TExpr::new([TInstr::nop()])),
+        Func::t_func(
+          [ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()],
+          [],
+          TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected surrounding-call stack-fed local.set case to survive vacuum validation: \{e}",
+      )
+  }
+}
+
+///|
 test "vacuum does not invert stack-fed if condition with non-i32 condition expression" {
   let t_void = RecType::new(
     SubType::comp_type(CompType::func([ValType::i32()], [])),
@@ -11776,6 +12242,82 @@ test "vacuum fallback wrapped branch-transfer metadata skips generic collector" 
 
   assert_true(vq_instr_effect_transfers_control_flow_cached(instr, cache))
   assert_eq(cache.stats.collect_effects_calls.val, 0)
+}
+
+///|
+test "vacuum stack signature sequence consumes prior stack output" {
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals([
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+    ])
+  let seq = [
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::local_set(
+      LocalIdx::new(1),
+      TInstr::local_set(LocalIdx::new(2), TInstr::local_get(LocalIdx::new(3))),
+    ),
+  ]
+
+  match vq_stack_sig_list(seq, env) {
+    Some(sig) => {
+      assert_eq(sig.required, 0)
+      assert_eq(sig.produced, 0)
+      assert_true(sig.reachable)
+    }
+    None => fail("expected stack signature for stack-fed local.set chain")
+  }
+}
+
+///|
+test "vacuum nested local.set stack signature counts all ambient feeders" {
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals([
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+    ])
+  let instr = TInstr::local_set(
+    LocalIdx::new(0),
+    TInstr::local_set(
+      LocalIdx::new(1),
+      TInstr::local_set(LocalIdx::new(2), TInstr::local_get(LocalIdx::new(3))),
+    ),
+  )
+
+  match vq_stack_sig_instr(instr, env) {
+    Some(sig) => {
+      assert_eq(sig.required, 2)
+      assert_eq(sig.produced, 0)
+      assert_true(sig.reachable)
+    }
+    None => fail("expected stack signature for nested local.set chain")
+  }
+}
+
+///|
+test "vacuum typed block stack signature keeps value break result" {
+  let env = Env::new().with_module(Module::new()).with_locals([ValType::i32()])
+  let instr = TInstr::block(
+    BlockType::val_type(ValType::i32()),
+    TExpr::new([
+      TInstr::br(LabelIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
+    ]),
+  )
+
+  match vq_stack_sig_instr(instr, env) {
+    Some(sig) => {
+      assert_eq(sig.required, 0)
+      assert_eq(sig.produced, 1)
+      assert_true(sig.reachable)
+    }
+    None => fail("expected stack signature for typed block with value break")
+  }
 }
 
 ///|

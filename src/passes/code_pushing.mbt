@@ -881,6 +881,7 @@ fn optimize_into_if(
           i,
           idx,
           value,
+          effects,
           then_body,
           else_body_opt,
           if_true_effects,
@@ -911,6 +912,7 @@ fn optimize_into_if(
               i,
               idx,
               value,
+              effects,
               else_body,
               Some(then_body),
               if_false_effects,
@@ -959,6 +961,7 @@ fn try_push_into_arm(
   set_idx : Int,
   local_idx : LocalIdx,
   _value : TInstr,
+  set_effects : Effects,
   arm : TExpr,
   other_arm : TExpr?,
   arm_effects : Effects,
@@ -981,12 +984,17 @@ fn try_push_into_arm(
   if not(arm_effects.reads_locals.contains(local_idx)) {
     return false
   }
-  // The other arm must not read this local
-  if other_arm_effects.reads_locals.contains(local_idx) {
-    return false
+  let mut other_arm_must_be_unreachable = false
+  for written_local in set_effects.writes_locals {
+    if other_arm_effects.reads_locals.contains(written_local) {
+      return false
+    }
+    if post_if_effects.reads_locals.contains(written_local) {
+      other_arm_must_be_unreachable = true
+    }
   }
-  // If the local is read after the if, the other arm must be unreachable
-  if post_if_effects.reads_locals.contains(local_idx) {
+  // If any written local is read after the if, the other arm must be unreachable.
+  if other_arm_must_be_unreachable {
     match other_arm {
       Some(other) => {
         // Check if other arm is unreachable
@@ -1585,6 +1593,39 @@ test "code_pushing handles multiple sets before terminal if" {
         Replace(_, _, _) => fail("expected typed function result")
         Mutate(_, _) => fail("expected code pushing to rewrite function")
         Skip => fail("expected code pushing to rewrite function")
+        Error(e) => fail("unexpected code_pushing error: \{e}")
+      }
+    None => fail("expected handler")
+  }
+}
+
+///|
+test "code_pushing does not push nested local.set when other arm reads inner write" {
+  let pass = code_pushing_pass()
+  let x = LocalIdx::new(0)
+  let y = LocalIdx::new(1)
+  let z = LocalIdx::new(2)
+  let body = TExpr::new([
+    TInstr::local_set(x, TInstr::local_set(y, TInstr::local_get(z))),
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::i32_const(I32(1)),
+      TExpr::new([TInstr::drop(TInstr::local_get(x))]),
+      Some(TExpr::new([TInstr::drop(TInstr::local_get(y))])),
+    ),
+  ])
+  let f = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32(), ValType::i32()],
+    body,
+  )
+  match pass.on_func {
+    Some(handler) =>
+      match handler(pass, (), f) {
+        Replace(TFunc(_, _, out_body), _, _) => assert_eq(out_body, body)
+        Replace(_, _, _) => fail("expected typed function result")
+        Mutate(_, _) => ()
+        Skip => ()
         Error(e) => fail("unexpected code_pushing error: \{e}")
       }
     None => fail("expected handler")

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-17 Optimize Follow-up: preserve stack-fed values in `CodePushing` and `Vacuum`
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/code_pushing.mbt](/home/jtenner/Projects/starshine-mb/src/passes/code_pushing.mbt) so pushing a `local.set` into an `if` arm now accounts for all locals written by the set value, preventing rewrites that would leave the opposite arm or post-`if` code reading a local that was only written on one branch.
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) so stack-signature accounting preserves typed `block`/`if` results carried by value breaks, and so degraded fallback sequence cleanup keeps ambient stack feeders that later instructions still consume instead of deleting them as individually unused.
+- Added regressions in [/home/jtenner/Projects/starshine-mb/src/passes/code_pushing.mbt](/home/jtenner/Projects/starshine-mb/src/passes/code_pushing.mbt) and [/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) covering cross-arm nested `local.set` writes, typed block value-break stack signatures, and degraded-mode ambient-fed `local.set` chains.
+- Validation: `moon info`; `moon fmt`; `moon test`; `moon run src/cmd --target native -- --debug-serial-passes --vacuum -o /tmp/vacuum-repro-after-degraded-fix.wasm before.wasm`.
+
 ## 2026-03-17 Optimize Follow-up: keep `RemoveUnusedNames` from peeling live branch targets
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_names.mbt](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_names.mbt) so nested same-typed block peeling now bails out when the peeled body still contains branches or catches targeting one of the scopes that would be removed, preventing invalid label rebases like the `br 1 -> br 0` rewrite that trapped control flow inside value-producing `if` expressions.
