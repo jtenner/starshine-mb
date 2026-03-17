@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-17 Optimize Follow-up: shrink `SSANoMerge` reach analysis state
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/dataflow_opt.mbt](/home/jtenner/Projects/starshine-mb/src/passes/dataflow_opt.mbt) so `SSANoMerge` now stores dense block/get/set state in arrays, memoizes block-entry reach queries, and replaces per-get reaching-definition sets with a compact reach-state enum to cut repeated CFG rescans and GC churn.
+- Added a branch-heavy regression in [/home/jtenner/Projects/starshine-mb/src/passes/dataflow_opt.mbt](/home/jtenner/Projects/starshine-mb/src/passes/dataflow_opt.mbt) that locks the single-reaching vs merge-reaching analysis counts used by the rewrite.
+- Validation: `moon test src/passes/dataflow_opt.mbt`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-17 Format Follow-up: normalize `simplify_locals` line wrapping
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/passes/simplify_locals.mbt](/home/jtenner/Projects/starshine-mb/src/passes/simplify_locals.mbt) with the pending `moon fmt` line wrapping only; there is no behavioral change in this commit.

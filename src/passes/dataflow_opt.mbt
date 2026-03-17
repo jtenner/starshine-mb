@@ -34,9 +34,17 @@ fn optimize_tfunc_with_ssa(
 }
 
 ///|
-priv enum SSANoMergeSetRef {
-  InitValue
-  Set(Int)
+priv enum SSANoMergeReachState {
+  Empty
+  InitOnly
+  SetOnly(Int)
+  Multiple
+} derive(Eq)
+
+///|
+priv struct SSANoMergeReachQueryKey {
+  block_id : Int
+  idx : LocalIdx
 } derive(Eq, Hash)
 
 ///|
@@ -64,22 +72,24 @@ priv struct SSANoMergeGraphBlock {
 
 ///|
 priv struct SSANoMergeGraphState {
-  mut next_block_id : Int
-  mut next_get_id : Int
-  mut next_set_id : Int
-  blocks : Map[Int, SSANoMergeGraphBlock]
-  get_nodes : Map[Int, SSANoMergeGetNode]
-  set_nodes : Map[Int, SSANoMergeSetNode]
+  blocks : Array[SSANoMergeGraphBlock]
+  get_nodes : Array[SSANoMergeGetNode]
+  set_nodes : Array[SSANoMergeSetNode]
 }
 
 ///|
 priv struct SSANoMergeAnalysis {
-  get_sets : Map[Int, Set[SSANoMergeSetRef]]
-  get_nodes : Map[Int, SSANoMergeGetNode]
-  set_nodes : Map[Int, SSANoMergeSetNode]
-  set_influences : Map[Int, Array[Int]]
-  get_count : Int
-  set_count : Int
+  get_reaches : Array[SSANoMergeReachState]
+  get_nodes : Array[SSANoMergeGetNode]
+  set_nodes : Array[SSANoMergeSetNode]
+  set_influences : Array[Array[Int]]
+}
+
+///|
+priv struct SSANoMergeAnalysisStateCounts {
+  single_set_gets : Int
+  multi_reaching_gets : Int
+  init_only_gets : Int
 }
 
 ///|
@@ -96,14 +106,7 @@ priv enum DataflowNormalizedFunc {
 
 ///|
 fn ssa_nomerge_graph_new_state() -> SSANoMergeGraphState {
-  {
-    next_block_id: 0,
-    next_get_id: 0,
-    next_set_id: 0,
-    blocks: Map::new(),
-    get_nodes: Map::new(),
-    set_nodes: Map::new(),
-  }
+  { blocks: [], get_nodes: [], set_nodes: [] }
 }
 
 ///|
@@ -111,13 +114,12 @@ fn ssa_nomerge_graph_new_block(
   state : SSANoMergeGraphState,
   preds : Array[Int],
 ) -> Int {
-  let id = state.next_block_id
-  state.next_block_id = id + 1
-  state.blocks[id] = SSANoMergeGraphBlock::{
+  let id = state.blocks.length()
+  state.blocks.push(SSANoMergeGraphBlock::{
     preds,
     actions: [],
     last_sets: Map::new(),
-  }
+  })
   id
 }
 
@@ -139,9 +141,8 @@ fn ssa_nomerge_graph_add_get(
   block_id : Int,
   idx : LocalIdx,
 ) -> Unit {
-  let get_id = state.next_get_id
-  state.next_get_id = get_id + 1
-  state.get_nodes[get_id] = SSANoMergeGetNode::{ idx, }
+  let get_id = state.get_nodes.length()
+  state.get_nodes.push(SSANoMergeGetNode::{ idx, })
   let block = state.blocks.get(block_id).unwrap()
   block.actions.push(SSANoMergeAction::Get(idx, get_id))
 }
@@ -152,9 +153,8 @@ fn ssa_nomerge_graph_add_set(
   block_id : Int,
   idx : LocalIdx,
 ) -> Unit {
-  let set_id = state.next_set_id
-  state.next_set_id = set_id + 1
-  state.set_nodes[set_id] = SSANoMergeSetNode::{ idx, }
+  let set_id = state.set_nodes.length()
+  state.set_nodes.push(SSANoMergeSetNode::{ idx, })
   let block = state.blocks.get(block_id).unwrap()
   block.actions.push(SSANoMergeAction::Set(idx, set_id))
   block.last_sets[idx] = set_id
@@ -244,57 +244,82 @@ fn ssa_nomerge_build_sparse_analysis(body : TExpr) -> SSANoMergeAnalysis {
   let state = ssa_nomerge_graph_new_state()
   let entry = ssa_nomerge_graph_new_block(state, [])
   ignore(ssa_nomerge_graph_lower_texpr(body, entry, state))
-  let get_sets : Map[Int, Set[SSANoMergeSetRef]] = Map::new()
+  let get_reaches = Array::make(
+    state.get_nodes.length(),
+    SSANoMergeReachState::Empty,
+  )
   let has_set : Set[LocalIdx] = Set::new()
-  for set_id in 0..<state.next_set_id {
-    match state.set_nodes.get(set_id) {
-      Some(node) => has_set.add(node.idx)
-      None => ()
+  for node in state.set_nodes {
+    has_set.add(node.idx)
+  }
+  let reach_cache : Map[SSANoMergeReachQueryKey, SSANoMergeReachState] = Map::new()
+  let active_queries : Set[SSANoMergeReachQueryKey] = Set::new()
+  fn merge_reaches(
+    lhs : SSANoMergeReachState,
+    rhs : SSANoMergeReachState,
+  ) -> SSANoMergeReachState {
+    match (lhs, rhs) {
+      (SSANoMergeReachState::Empty, other) => other
+      (other, SSANoMergeReachState::Empty) => other
+      (SSANoMergeReachState::Multiple, _)
+      | (_, SSANoMergeReachState::Multiple) => SSANoMergeReachState::Multiple
+      (SSANoMergeReachState::InitOnly, SSANoMergeReachState::InitOnly) =>
+        SSANoMergeReachState::InitOnly
+      (
+        SSANoMergeReachState::SetOnly(lhs_id),
+        SSANoMergeReachState::SetOnly(rhs_id),
+      ) =>
+        if lhs_id == rhs_id {
+          SSANoMergeReachState::SetOnly(lhs_id)
+        } else {
+          SSANoMergeReachState::Multiple
+        }
+      _ => SSANoMergeReachState::Multiple
     }
   }
-  let traversal_iteration : Map[Int, Int] = Map::new()
-  let current_iteration = Ref::new(0)
-  fn flow_back_from_start_of_block(
-    start_block_id : Int,
-    idx : LocalIdx,
-    get_ids : Array[Int],
-  ) {
-    let work : Array[Int] = [start_block_id]
-    while !work.is_empty() {
-      let curr = work.pop().unwrap()
-      let block = state.blocks.get(curr).unwrap()
-      if block.preds.is_empty() {
-        if curr == entry {
-          for get_id in get_ids {
-            let sets = get_sets.get(get_id).unwrap_or(Set::new())
-            sets.add(SSANoMergeSetRef::InitValue)
-            get_sets[get_id] = sets
-          }
+  fn block_entry_reach(block_id : Int, idx : LocalIdx) -> SSANoMergeReachState {
+    let key = SSANoMergeReachQueryKey::{ block_id, idx }
+    match reach_cache.get(key) {
+      Some(cached) => return cached
+      None => ()
+    }
+    if active_queries.contains(key) {
+      return SSANoMergeReachState::Empty
+    }
+    active_queries.add(key)
+    let block = state.blocks.get(block_id).unwrap()
+    let mut reach = SSANoMergeReachState::Empty
+    if block.preds.is_empty() {
+      if block_id == entry {
+        reach = SSANoMergeReachState::InitOnly
+      }
+    } else {
+      for pred in block.preds {
+        let pred_block = state.blocks.get(pred).unwrap()
+        let pred_reach = match pred_block.last_sets.get(idx) {
+          Some(set_id) => SSANoMergeReachState::SetOnly(set_id)
+          None => block_entry_reach(pred, idx)
         }
-      } else {
-        for pred in block.preds {
-          if traversal_iteration.get(pred).unwrap_or(-1) ==
-            current_iteration.val {
-            continue
-          }
-          traversal_iteration[pred] = current_iteration.val
-          let pred_block = state.blocks.get(pred).unwrap()
-          match pred_block.last_sets.get(idx) {
-            Some(set_id) =>
-              for get_id in get_ids {
-                let sets = get_sets.get(get_id).unwrap_or(Set::new())
-                sets.add(SSANoMergeSetRef::Set(set_id))
-                get_sets[get_id] = sets
-              }
-            None => work.push(pred)
-          }
+        reach = merge_reaches(reach, pred_reach)
+        if reach == SSANoMergeReachState::Multiple {
+          break
         }
       }
     }
-    current_iteration.val = current_iteration.val + 1
+    active_queries.remove(key)
+    reach_cache[key] = reach
+    reach
+  }
+  fn note_reach_for_gets(
+    get_ids : Array[Int],
+    reach : SSANoMergeReachState,
+  ) -> Unit {
+    for get_id in get_ids {
+      get_reaches[get_id] = merge_reaches(get_reaches[get_id], reach)
+    }
   }
   let mut block_id = 0
-  while block_id < state.next_block_id {
+  while block_id < state.blocks.length() {
     let block = state.blocks.get(block_id).unwrap()
     let pending_gets : Map[LocalIdx, Array[Int]] = Map::new()
     let mut action_idx = block.actions.length() - 1
@@ -308,11 +333,10 @@ fn ssa_nomerge_build_sparse_analysis(body : TExpr) -> SSANoMergeAnalysis {
         SSANoMergeAction::Set(idx, set_id) =>
           match pending_gets.get(idx) {
             Some(get_ids) => {
-              for get_id in get_ids {
-                let sets = get_sets.get(get_id).unwrap_or(Set::new())
-                sets.add(SSANoMergeSetRef::Set(set_id))
-                get_sets[get_id] = sets
-              }
+              note_reach_for_gets(
+                get_ids,
+                SSANoMergeReachState::SetOnly(set_id),
+              )
               pending_gets.remove(idx)
             }
             None => ()
@@ -329,38 +353,29 @@ fn ssa_nomerge_build_sparse_analysis(body : TExpr) -> SSANoMergeAnalysis {
         continue
       }
       if !has_set.contains(idx) {
-        for get_id in get_ids {
-          let sets = get_sets.get(get_id).unwrap_or(Set::new())
-          sets.add(SSANoMergeSetRef::InitValue)
-          get_sets[get_id] = sets
-        }
+        note_reach_for_gets(get_ids, SSANoMergeReachState::InitOnly)
       } else {
-        flow_back_from_start_of_block(block_id, idx, get_ids)
+        note_reach_for_gets(get_ids, block_entry_reach(block_id, idx))
       }
     }
     block_id += 1
   }
-  let set_influences = Map::new()
-  for get_id in 0..<state.next_get_id {
-    let sets = get_sets.get(get_id).unwrap_or(Set::new())
-    for set_ref in sets {
-      match set_ref {
-        SSANoMergeSetRef::Set(set_id) => {
-          let arr = set_influences.get(set_id).unwrap_or([])
-          arr.push(get_id)
-          set_influences[set_id] = arr
-        }
-        SSANoMergeSetRef::InitValue => ()
-      }
+  let set_influences : Array[Array[Int]] = []
+  for _ in 0..<state.set_nodes.length() {
+    set_influences.push([])
+  }
+  for get_id in 0..<get_reaches.length() {
+    match get_reaches[get_id] {
+      SSANoMergeReachState::SetOnly(set_id) =>
+        set_influences[set_id].push(get_id)
+      _ => ()
     }
   }
   {
-    get_sets,
+    get_reaches,
     get_nodes: state.get_nodes,
     set_nodes: state.set_nodes,
     set_influences,
-    get_count: state.next_get_id,
-    set_count: state.next_set_id,
   }
 }
 
@@ -371,6 +386,25 @@ fn ssa_nomerge_build_analysis(body : TExpr) -> SSANoMergeAnalysis {
   // build a sparse block/action graph, then answer get->set queries by
   // flowing backward only for the queried local.
   ssa_nomerge_build_sparse_analysis(body)
+}
+
+///|
+fn ssa_nomerge_analysis_state_counts(
+  body : TExpr,
+) -> SSANoMergeAnalysisStateCounts {
+  let analysis = ssa_nomerge_build_analysis(body)
+  let mut single_set_gets = 0
+  let mut multi_reaching_gets = 0
+  let mut init_only_gets = 0
+  for reach in analysis.get_reaches {
+    match reach {
+      SSANoMergeReachState::SetOnly(_) => single_set_gets += 1
+      SSANoMergeReachState::Multiple => multi_reaching_gets += 1
+      SSANoMergeReachState::InitOnly => init_only_gets += 1
+      SSANoMergeReachState::Empty => ()
+    }
+  }
+  { single_set_gets, multi_reaching_gets, init_only_gets }
 }
 
 ///|
@@ -478,34 +512,25 @@ fn ssa_nomerge_tfunc(
   let all_locals = function_locals.all_locals()
   let analysis = ssa_nomerge_build_analysis(body)
   let local_set_counts : Map[LocalIdx, Int] = Map::new()
-  for set_id in 0..<analysis.set_count {
-    match analysis.set_nodes.get(set_id) {
-      Some(node) =>
-        local_set_counts[node.idx] = local_set_counts.get(node.idx).unwrap_or(0) +
-          1
-      None => ()
-    }
+  for node in analysis.set_nodes {
+    local_set_counts[node.idx] = local_set_counts.get(node.idx).unwrap_or(0) + 1
   }
   let next_body_locals = locals.copy()
   let get_rewrites = Map::new()
   let set_rewrites = Map::new()
   let next_all_locals = all_locals.copy()
-  for set_id in 0..<analysis.set_count {
-    let node = match analysis.set_nodes.get(set_id) {
-      Some(node) => node
-      None => continue
-    }
+  for set_id in 0..<analysis.set_nodes.length() {
+    let node = analysis.set_nodes[set_id]
     if local_set_counts.get(node.idx).unwrap_or(0) <= 1 {
       continue
     }
-    let influenced_gets = analysis.set_influences.get(set_id).unwrap_or([])
+    let influenced_gets = analysis.set_influences[set_id]
     if influenced_gets.is_empty() {
       continue
     }
     let mut can_rename = true
     for get_id in influenced_gets {
-      let sets = analysis.get_sets.get(get_id).unwrap_or(Set::new())
-      if sets.length() != 1 || !sets.contains(SSANoMergeSetRef::Set(set_id)) {
+      if analysis.get_reaches[get_id] != SSANoMergeReachState::SetOnly(set_id) {
         can_rename = false
         break
       }
@@ -525,18 +550,14 @@ fn ssa_nomerge_tfunc(
       get_rewrites[get_id] = SSANoMergeGetRewrite::Local(next_idx)
     }
   }
-  for get_id in 0..<analysis.get_count {
+  for get_id in 0..<analysis.get_reaches.length() {
     if get_rewrites.get(get_id) is Some(_) {
       continue
     }
-    let sets = analysis.get_sets.get(get_id).unwrap_or(Set::new())
-    if sets.length() != 1 || !sets.contains(SSANoMergeSetRef::InitValue) {
+    if analysis.get_reaches[get_id] != SSANoMergeReachState::InitOnly {
       continue
     }
-    let get_node = match analysis.get_nodes.get(get_id) {
-      Some(node) => node
-      None => continue
-    }
+    let get_node = analysis.get_nodes[get_id]
     if ssa_nomerge_local_idx_to_int(get_node.idx) < params.length() {
       continue
     }
@@ -1079,6 +1100,34 @@ test "ssa no-merge preserves loop-carried gets" {
       }
     Err(e) => fail("Unexpected error: \{e}")
   }
+}
+
+///|
+test "ssa no-merge analysis summarizes branch-heavy reaching states" {
+  let instrs : Array[TInstr] = []
+  for i in 0..<32 {
+    instrs.push(TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(i))))
+    instrs.push(TInstr::drop(TInstr::local_get(LocalIdx::new(0))))
+    instrs.push(
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::i32_const(I32(1)),
+        TExpr::new([
+          TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(i + 1))),
+        ]),
+        Some(
+          TExpr::new([
+            TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(i + 101))),
+          ]),
+        ),
+      ),
+    )
+    instrs.push(TInstr::drop(TInstr::local_get(LocalIdx::new(0))))
+  }
+  let summary = ssa_nomerge_analysis_state_counts(TExpr::new(instrs))
+  assert_eq(summary.single_set_gets, 32)
+  assert_eq(summary.multi_reaching_gets, 32)
+  assert_eq(summary.init_only_gets, 0)
 }
 
 ///|
