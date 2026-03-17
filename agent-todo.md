@@ -18,6 +18,26 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] `MergeBlocks` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `47.924s` at `pass[32/48]` and `22.256s` at `pass[35/48]`.
 - [ ] `MergeSimilarFunctions` correctness blocker: optimize pass trace failed at `pass[44/48]` with `upstream-invalid direct call in preflight: arg count mismatch expected=3 actual=4 kind=call caller_abs_idx=924 callee_abs_idx=9038 node_id=15`.
 
+## Post v0.1.0 blockers
+- [ ] Complete the `src/passes` inventory and map each scheduler entry in `src/passes/optimize.mbt` to its implementation file, tests, and closest Binaryen equivalent.
+- [ ] Add pass-level instrumentation in `src/passes/optimize.mbt` for wall time, changed/unchanged status, functions touched, and validation/salvage counters.
+- [ ] Establish a pass benchmark suite covering microbenchmarks, pass-sequence benchmarks, and real-module end-to-end size/runtime measurements.
+- [ ] Refactor `simplify_locals` hot-path sinkable tracking from `Map`-based storage to array-backed storage with dirty-index clearing.
+- [ ] Refactor `simplify_locals` invalidation indexes away from `Map[Int, Set[Int]]` toward per-local single-sinkable or small-vector storage.
+- [ ] Add stronger function-shape summaries and early exits in `simplify_locals` to skip expensive work when no profitable rewrite is possible.
+- [ ] Fuse repeated `simplify_locals` analysis walks into a single summary traversal where possible to reduce traversal overhead.
+- [ ] Rework `simplify_locals` effects caching to use stable node identity or equivalent cheap cache keys instead of structural `TInstr` map keys.
+- [ ] Review `simplify_locals` validation strategy and gate expensive whole-module validation behind higher-risk rewrite categories or debug modes.
+- [ ] Rework `vacuum` into a worklist-driven simplifier with parent tracking so local rewrites do not require repeated full-function rescans.
+- [ ] Centralize and reuse side-effect analysis across `vacuum` and `simplify_locals` so purity/no-op checks are consistent and cheaper.
+- [ ] Add function/module fast-path guards to `alignment_lowering` so modules without memory ops or without misaligned ops are skipped cheaply.
+- [ ] Reduce `alignment_lowering` rewrite allocation churn by preserving unchanged nodes and using in-place updates where the IR allows it.
+- [ ] Add scheduler change summaries so expensive passes are only rerun when earlier passes actually created new opportunities.
+- [ ] Build a regression corpus for pass interactions, especially `simplify_locals -> vacuum`, `vacuum -> simplify_locals`, and `alignment_lowering -> vacuum`.
+- [ ] Add targeted tests for pathological cases called out in the review: deep control nesting, high local-count functions, sinkable invalidation churn, and EH-heavy control flow.
+- [ ] Add binary-size reporting to optimization validation so pass work is evaluated on emitted Wasm bytes, not only IR node counts.
+- [ ] Document the Starshine-to-Binaryen pass crosswalk and any intentional semantic differences so future pass work has a stable comparison baseline.
+
 ## Post 0.1.0 Features
 - [ ] Add "StackState" to node traversal to event callbacks help with validation issues
 - [ ] Continue work on `string.const` support and string optimization passes.
