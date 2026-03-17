@@ -233,6 +233,11 @@ priv enum PreparedFunctionStackPass {
 }
 
 ///|
+priv struct PreparedFunctionStackEntry {
+  prepared : PreparedFunctionStackPass
+}
+
+///|
 fn[T] apply_transformer_pass(
   state : T,
   mod : Module,
@@ -296,6 +301,17 @@ fn optimize_apply_prepared_function_stack_pass(
         Err(e) => Err(e)
       }
   }
+}
+
+///|
+fn optimize_function_stack_vacuum_count(passes : Array[ModulePass]) -> Int {
+  let mut count = 0
+  for pass in passes {
+    if pass is Vacuum {
+      count += 1
+    }
+  }
+  count
 }
 
 ///|
@@ -573,7 +589,6 @@ fn module_pass_is_function_stackable(pass : ModulePass) -> Bool {
     | ConstantFieldPropagation
     | ConstantFieldNullTestFolding
     | DataflowOptimization
-    | DeNaN
     | HeapStoreOptimization
     | MergeBlocks
     | MergeLocals
@@ -1784,6 +1799,25 @@ fn optimize_stacked_function_executor_enabled(
 }
 
 ///|
+fn optimize_function_stack_can_run_fully_stacked(
+  stack_passes : Array[ModulePass],
+  state : OptimizeSchedulerState,
+) -> Bool {
+  let vacuum_count = optimize_function_stack_vacuum_count(stack_passes)
+  if vacuum_count == 0 {
+    return true
+  }
+  if vacuum_count > 1 {
+    return false
+  }
+  match stack_passes[0] {
+    Vacuum =>
+      !(state.previous_vacuum_no_change && !state.changed_since_last_vacuum)
+    _ => true
+  }
+}
+
+///|
 fn optimize_prepare_function_stack_pass(
   mod : Module,
   pass : ModulePass,
@@ -1845,7 +1879,7 @@ fn optimize_run_function_stack_subsegment(
   if stack_passes.length() == 0 {
     return Ok(mod)
   }
-  let prepared : Array[PreparedFunctionStackPass] = []
+  let prepared : Array[PreparedFunctionStackEntry] = []
   for i = 0; i < stack_passes.length(); i = i + 1 {
     let pass_index = state.pass_index + i + 1
     match
@@ -1859,15 +1893,15 @@ fn optimize_run_function_stack_subsegment(
         trace_enabled,
         trace_level,
       ) {
-      Ok(pass) => prepared.push(pass)
+      Ok(pass) => prepared.push({ prepared: pass })
       Err(e) => return Err(e)
     }
   }
   let mut current_mod = mod
-  let last_pass = optimize_prepared_function_stack_pass_id(
-    prepared[prepared.length() - 1],
-  )
+  let last_entry = prepared[prepared.length() - 1]
+  let last_pass = optimize_prepared_function_stack_pass_id(last_entry.prepared)
   let mut last_pre_pass_mod = mod
+  let pass_changed : Array[Bool] = Array::make(prepared.length(), false)
   match mod.code_sec {
     Some(CodeSec(orig_funcs)) => {
       let funcs = orig_funcs.copy()
@@ -1901,13 +1935,13 @@ fn optimize_run_function_stack_subsegment(
             optimize_apply_prepared_function_stack_pass(
               ctx,
               curr_func,
-              prepared[prepared_idx],
+              prepared[prepared_idx].prepared,
             ) {
             Ok(next_func) => next_func
             Err(e) => {
               if trace_enabled && optimize_trace_helper_enabled(trace_level) {
                 trace(
-                  "scheduler:run_function_stack:func[\{func_idx + 1}/\{funcs.length()}]:error pass=\{optimize_prepared_function_stack_pass_id(prepared[prepared_idx])}",
+                  "scheduler:run_function_stack:func[\{func_idx + 1}/\{funcs.length()}]:error pass=\{optimize_prepared_function_stack_pass_id(prepared[prepared_idx].prepared)}",
                 )
               }
               return Err(e)
@@ -1916,6 +1950,7 @@ fn optimize_run_function_stack_subsegment(
           if curr_func != funcs[func_idx] {
             funcs[func_idx] = curr_func
             func_changed.val = true
+            pass_changed[prepared_idx] = true
             current_mod = current_mod.with_code_sec(CodeSec::new(funcs.copy()))
           }
         }
@@ -1934,10 +1969,24 @@ fn optimize_run_function_stack_subsegment(
     }
     None => ()
   }
-  state.pass_index += stack_passes.length()
-  state.last_pass = Some(last_pass)
-  state.last_pre_pass_mod = Some(last_pre_pass_mod)
-  state.changed_since_last_vacuum = true
+  for prepared_idx = 0
+      prepared_idx < prepared.length()
+      prepared_idx = prepared_idx + 1 {
+    let pass = optimize_prepared_function_stack_pass_id(
+      prepared[prepared_idx].prepared,
+    )
+    state.pass_index += 1
+    if prepared_idx == prepared.length() - 1 {
+      state.last_pass = Some(last_pass)
+      state.last_pre_pass_mod = Some(last_pre_pass_mod)
+    }
+    if pass is Vacuum {
+      state.previous_vacuum_no_change = !pass_changed[prepared_idx]
+      state.changed_since_last_vacuum = false
+    } else {
+      state.changed_since_last_vacuum = true
+    }
+  }
   ctx.set_mod(current_mod)
   Ok(current_mod)
 }
@@ -2008,6 +2057,33 @@ fn optimize_run_scheduler_segment(
       let stacked_runner_enabled = optimize_stacked_function_executor_enabled(
         trace_enabled, trace_level, options,
       )
+      if stacked_runner_enabled &&
+        optimize_function_stack_can_run_fully_stacked(stack_passes, state) {
+        return match
+          optimize_run_function_stack_subsegment(
+            ctx, mod, stack_passes, total_passes, state, options, trace, trace_enabled,
+            trace_level,
+          ) {
+          Ok(new_mod) => {
+            optimize_trace_emit_helper(
+              trace,
+              trace_enabled,
+              trace_level,
+              "scheduler:run_segment[\{segment_index}/\{total_segments}]:done \{segment_label}",
+            )
+            Ok(new_mod)
+          }
+          Err(e) => {
+            optimize_trace_emit_helper(
+              trace,
+              trace_enabled,
+              trace_level,
+              "scheduler:run_segment[\{segment_index}/\{total_segments}]:error \{segment_label}",
+            )
+            Err(e)
+          }
+        }
+      }
       let current_substack : Array[ModulePass] = []
       for pass in stack_passes {
         if pass is Vacuum {
@@ -3080,6 +3156,28 @@ test "scheduler_segment_passes splits around non-walk-func ir transformers" {
       assert_eq(passes[0], Vacuum)
     }
     _ => fail("expected fifth segment to be a function stack")
+  }
+}
+
+///|
+test "scheduler_segment_passes treats module-shaped de_nan wrapper as a barrier" {
+  let segments = scheduler_segment_passes([
+    DeadCodeElimination,
+    DeNaN,
+    CodePushing,
+  ])
+  assert_eq(segments.length(), 3)
+  match segments[0] {
+    FunctionPassStack(passes) => assert_eq(passes, [DeadCodeElimination])
+    _ => fail("expected first segment to be a function stack")
+  }
+  match segments[1] {
+    BarrierPass(pass) => assert_eq(pass, DeNaN)
+    _ => fail("expected second segment to be a DeNaN barrier")
+  }
+  match segments[2] {
+    FunctionPassStack(passes) => assert_eq(passes, [CodePushing])
+    _ => fail("expected third segment to be a function stack")
   }
 }
 
@@ -6487,6 +6585,73 @@ test "optimize_module phase trace keeps flat pass execution with after-every-pas
   assert_true(cp_func1 >= 0)
   assert_true(dce_func1 < dce_func2)
   assert_true(dce_func2 < cp_func1)
+}
+
+///|
+test "optimize_module helper trace interleaves a single vacuum inside function-stack execution" {
+  let func0 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let func1 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(2))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(CodeSec::new([func0, func1])),
+  )
+  let trace_lines : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [DeadCodeElimination, Vacuum, CodePushing],
+        OptimizeOptions::new(),
+        fn(msg) { trace_lines.push(msg) },
+        trace_level=OptimizeTracingLevel::helper(),
+      ) {
+      Ok(m) => m
+      Err(e) =>
+        fail("unexpected optimize_module_with_options_trace error: \{e}")
+    },
+  )
+  let dce_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[1/3]:dead_code_elimination:func[1]:start",
+  )
+  let vacuum_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[2/3]:vacuum:func[1] start",
+  )
+  let cp_func1 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[3/3]:code_pushing:func[1] start",
+  )
+  let dce_func2 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[1/3]:dead_code_elimination:func[2]:start",
+  )
+  let vacuum_func2 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[2/3]:vacuum:func[2] start",
+  )
+  let cp_func2 = optimize_trace_first_line_index_containing(
+    trace_lines, "pass[3/3]:code_pushing:func[2] start",
+  )
+  assert_true(dce_func1 >= 0)
+  assert_true(vacuum_func1 >= 0)
+  assert_true(cp_func1 >= 0)
+  assert_true(dce_func2 >= 0)
+  assert_true(vacuum_func2 >= 0)
+  assert_true(cp_func2 >= 0)
+  assert_true(dce_func1 < vacuum_func1)
+  assert_true(vacuum_func1 < cp_func1)
+  assert_true(cp_func1 < dce_func2)
+  assert_true(dce_func2 < vacuum_func2)
+  assert_true(vacuum_func2 < cp_func2)
 }
 
 ///|

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: keep single non-skipped vacuum passes inside stacked segments
+
+- Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so `FunctionPassStack` segments with zero or one non-skipped `Vacuum` now stay on the prepared per-function executor instead of flushing around `Vacuum`; repeated or skip-sensitive `Vacuum` cases still fall back to the older split execution path.
+- Corrected stacked-runner eligibility in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) by treating the module-shaped `DeNaN` wrapper as a scheduler barrier again, with an explicit segmentation regression.
+- Added helper-trace coverage in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) that requires `DeadCodeElimination -> Vacuum -> CodePushing` to interleave by function under the stacked runner.
+- Validation: `moon test --package jtenner/starshine/passes --file optimize.mbt`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Optimize Follow-up: extend stacked function segments to phase tracing
 
 - Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so the prepared per-function stacked executor now also runs on `OptimizeTracingLevel::phase()` under final-module validation; only pass-summary tracing, `AfterEveryPass` validation, and `Vacuum` still force the flat fallback inside function-stack segments.
