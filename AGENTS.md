@@ -13,6 +13,7 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Prefer constructor methods over open-struct literals.
 - Put deprecated code in `deprecated.mbt` with `#deprecated` markers.
 - Use strict TDD for both feature and regression tests: write tests before code, and make sure they fail explicitly before writing the code.
+- Do not add tests that only assert tracing, progress logging, or telemetry text unless explicitly requested.
 - Do not add tests tracing.
 - Unless explicitly instructed, do not remove or disable existing features or tests to make tests pass. Changing test expectations to meet correctness standards is fine.
 

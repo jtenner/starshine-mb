@@ -50,13 +50,24 @@ priv struct SSANoMergeSetNode {
 }
 
 ///|
-type SSANoMergeFlowState = Map[LocalIdx, Set[SSANoMergeSetRef]]
+priv enum SSANoMergeAction {
+  Get(LocalIdx, Int)
+  Set(LocalIdx, Int)
+}
 
 ///|
-priv struct SSANoMergeAnalyzeState {
+priv struct SSANoMergeGraphBlock {
+  preds : Array[Int]
+  actions : Array[SSANoMergeAction]
+  last_sets : Map[LocalIdx, Int]
+}
+
+///|
+priv struct SSANoMergeGraphState {
+  mut next_block_id : Int
   mut next_get_id : Int
   mut next_set_id : Int
-  get_sets : Map[Int, Set[SSANoMergeSetRef]]
+  blocks : Map[Int, SSANoMergeGraphBlock]
   get_nodes : Map[Int, SSANoMergeGetNode]
   set_nodes : Map[Int, SSANoMergeSetNode]
 }
@@ -84,169 +95,254 @@ priv enum DataflowNormalizedFunc {
 }
 
 ///|
-fn ssa_nomerge_copy_set(src : Set[SSANoMergeSetRef]) -> Set[SSANoMergeSetRef] {
-  let out = Set::new()
-  for item in src {
-    out.add(item)
-  }
-  out
-}
-
-///|
-fn ssa_nomerge_default_reaching() -> Set[SSANoMergeSetRef] {
-  let out = Set::new()
-  out.add(SSANoMergeSetRef::InitValue)
-  out
-}
-
-///|
-fn ssa_nomerge_get_reaching(
-  flow : SSANoMergeFlowState,
-  idx : LocalIdx,
-) -> Set[SSANoMergeSetRef] {
-  match flow.get(idx) {
-    Some(sets) => ssa_nomerge_copy_set(sets)
-    None => ssa_nomerge_default_reaching()
-  }
-}
-
-///|
-fn ssa_nomerge_copy_flow_state(
-  flow : SSANoMergeFlowState,
-) -> SSANoMergeFlowState {
-  let out = Map::new()
-  for entry in flow {
-    let (idx, sets) = entry
-    out[idx] = ssa_nomerge_copy_set(sets)
-  }
-  out
-}
-
-///|
-fn ssa_nomerge_merge_flow_states(
-  a : SSANoMergeFlowState,
-  b : SSANoMergeFlowState,
-) -> SSANoMergeFlowState {
-  let out = ssa_nomerge_copy_flow_state(a)
-  for entry in b {
-    let (idx, sets) = entry
-    let merged = out.get(idx).unwrap_or(Set::new())
-    for set_ in sets {
-      merged.add(set_)
-    }
-    out[idx] = merged
-  }
-  out
-}
-
-///|
-fn ssa_nomerge_analyze_texpr(
-  expr : TExpr,
-  in_flow : SSANoMergeFlowState,
-  state : SSANoMergeAnalyzeState,
-) -> SSANoMergeFlowState {
-  let mut flow = in_flow
-  for instr in expr.instrs {
-    flow = ssa_nomerge_analyze_tinstruction(instr, flow, state)
-  }
-  flow
-}
-
-///|
-fn ssa_nomerge_analyze_tinstruction(
-  instr : TInstr,
-  in_flow : SSANoMergeFlowState,
-  state : SSANoMergeAnalyzeState,
-) -> SSANoMergeFlowState {
-  match instr.kind {
-    TInstrKind::TLocalGet(idx) => {
-      let get_id = state.next_get_id
-      state.next_get_id = get_id + 1
-      state.get_nodes[get_id] = SSANoMergeGetNode::{ idx, }
-      state.get_sets[get_id] = ssa_nomerge_get_reaching(in_flow, idx)
-      in_flow
-    }
-    TInstrKind::TLocalTee(idx, value) => {
-      let out_flow = ssa_nomerge_analyze_tinstruction(value, in_flow, state)
-      let set_id = state.next_set_id
-      state.next_set_id = set_id + 1
-      state.set_nodes[set_id] = SSANoMergeSetNode::{ idx, }
-      let reaching = Set::new()
-      reaching.add(SSANoMergeSetRef::Set(set_id))
-      out_flow[idx] = reaching
-      out_flow
-    }
-    TInstrKind::TLocalSet(idx, value) => {
-      let out_flow = ssa_nomerge_analyze_tinstruction(value, in_flow, state)
-      let set_id = state.next_set_id
-      state.next_set_id = set_id + 1
-      state.set_nodes[set_id] = SSANoMergeSetNode::{ idx, }
-      let reaching = Set::new()
-      reaching.add(SSANoMergeSetRef::Set(set_id))
-      out_flow[idx] = reaching
-      out_flow
-    }
-    TInstrKind::TIf(_, cond, then_, else_) => {
-      let flow_after_cond = ssa_nomerge_analyze_tinstruction(
-        cond, in_flow, state,
-      )
-      let then_flow = ssa_nomerge_analyze_texpr(
-        then_,
-        ssa_nomerge_copy_flow_state(flow_after_cond),
-        state,
-      )
-      let else_flow = match else_ {
-        Some(else_expr) =>
-          ssa_nomerge_analyze_texpr(
-            else_expr,
-            ssa_nomerge_copy_flow_state(flow_after_cond),
-            state,
-          )
-        None => ssa_nomerge_copy_flow_state(flow_after_cond)
-      }
-      ssa_nomerge_merge_flow_states(then_flow, else_flow)
-    }
-    TInstrKind::TBlock(_, body) =>
-      ssa_nomerge_analyze_texpr(body, in_flow, state)
-    TInstrKind::TLoop(_, body) => {
-      let one_iter = ssa_nomerge_analyze_texpr(
-        body,
-        ssa_nomerge_copy_flow_state(in_flow),
-        state,
-      )
-      ssa_nomerge_merge_flow_states(in_flow, one_iter)
-    }
-    TInstrKind::TTryTable(_, _, body) => {
-      let body_flow = ssa_nomerge_analyze_texpr(
-        body,
-        ssa_nomerge_copy_flow_state(in_flow),
-        state,
-      )
-      ssa_nomerge_merge_flow_states(in_flow, body_flow)
-    }
-    _ => {
-      let mut flow = in_flow
-      for child in eval_children(instr) {
-        flow = ssa_nomerge_analyze_tinstruction(child, flow, state)
-      }
-      flow
-    }
-  }
-}
-
-///|
-fn ssa_nomerge_build_analysis(body : TExpr) -> SSANoMergeAnalysis {
-  let state = SSANoMergeAnalyzeState::{
+fn ssa_nomerge_graph_new_state() -> SSANoMergeGraphState {
+  {
+    next_block_id: 0,
     next_get_id: 0,
     next_set_id: 0,
-    get_sets: Map::new(),
+    blocks: Map::new(),
     get_nodes: Map::new(),
     set_nodes: Map::new(),
   }
-  ignore(ssa_nomerge_analyze_texpr(body, Map::new(), state))
+}
+
+///|
+fn ssa_nomerge_graph_new_block(
+  state : SSANoMergeGraphState,
+  preds : Array[Int],
+) -> Int {
+  let id = state.next_block_id
+  state.next_block_id = id + 1
+  state.blocks[id] = SSANoMergeGraphBlock::{
+    preds,
+    actions: [],
+    last_sets: Map::new(),
+  }
+  id
+}
+
+///|
+fn ssa_nomerge_graph_add_pred(
+  state : SSANoMergeGraphState,
+  block_id : Int,
+  pred_id : Int,
+) -> Unit {
+  let block = state.blocks.get(block_id).unwrap()
+  if !block.preds.contains(pred_id) {
+    block.preds.push(pred_id)
+  }
+}
+
+///|
+fn ssa_nomerge_graph_add_get(
+  state : SSANoMergeGraphState,
+  block_id : Int,
+  idx : LocalIdx,
+) -> Unit {
+  let get_id = state.next_get_id
+  state.next_get_id = get_id + 1
+  state.get_nodes[get_id] = SSANoMergeGetNode::{ idx, }
+  let block = state.blocks.get(block_id).unwrap()
+  block.actions.push(SSANoMergeAction::Get(idx, get_id))
+}
+
+///|
+fn ssa_nomerge_graph_add_set(
+  state : SSANoMergeGraphState,
+  block_id : Int,
+  idx : LocalIdx,
+) -> Unit {
+  let set_id = state.next_set_id
+  state.next_set_id = set_id + 1
+  state.set_nodes[set_id] = SSANoMergeSetNode::{ idx, }
+  let block = state.blocks.get(block_id).unwrap()
+  block.actions.push(SSANoMergeAction::Set(idx, set_id))
+  block.last_sets[idx] = set_id
+}
+
+///|
+fn ssa_nomerge_graph_lower_texpr(
+  expr : TExpr,
+  block_id : Int,
+  state : SSANoMergeGraphState,
+) -> Int {
+  let mut curr_block = block_id
+  for instr in expr.instrs {
+    curr_block = ssa_nomerge_graph_lower_tinstruction(instr, curr_block, state)
+  }
+  curr_block
+}
+
+///|
+fn ssa_nomerge_graph_lower_tinstruction(
+  instr : TInstr,
+  block_id : Int,
+  state : SSANoMergeGraphState,
+) -> Int {
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => {
+      ssa_nomerge_graph_add_get(state, block_id, idx)
+      block_id
+    }
+    TInstrKind::TLocalTee(idx, value) => {
+      let block_id = ssa_nomerge_graph_lower_tinstruction(
+        value, block_id, state,
+      )
+      ssa_nomerge_graph_add_set(state, block_id, idx)
+      block_id
+    }
+    TInstrKind::TLocalSet(idx, value) => {
+      let block_id = ssa_nomerge_graph_lower_tinstruction(
+        value, block_id, state,
+      )
+      ssa_nomerge_graph_add_set(state, block_id, idx)
+      block_id
+    }
+    TInstrKind::TIf(_, cond, then_, else_) => {
+      let block_id = ssa_nomerge_graph_lower_tinstruction(cond, block_id, state)
+      let then_entry = ssa_nomerge_graph_new_block(state, [block_id])
+      let then_exit = ssa_nomerge_graph_lower_texpr(then_, then_entry, state)
+      let else_entry = ssa_nomerge_graph_new_block(state, [block_id])
+      let else_exit = match else_ {
+        Some(else_expr) =>
+          ssa_nomerge_graph_lower_texpr(else_expr, else_entry, state)
+        None => else_entry
+      }
+      ssa_nomerge_graph_new_block(state, [then_exit, else_exit])
+    }
+    TInstrKind::TBlock(_, body) =>
+      ssa_nomerge_graph_lower_texpr(body, block_id, state)
+    TInstrKind::TLoop(_, body) => {
+      let loop_entry = ssa_nomerge_graph_new_block(state, [block_id])
+      let body_exit = ssa_nomerge_graph_lower_texpr(body, loop_entry, state)
+      // Model loop carry conservatively without re-scanning the entire body.
+      // This over-approximates possible reaching sets in the safe direction and
+      // avoids the pathological subtree rescans that caused severe slowdowns on
+      // nested self-opt functions.
+      ssa_nomerge_graph_add_pred(state, loop_entry, body_exit)
+      ssa_nomerge_graph_new_block(state, [body_exit])
+    }
+    TInstrKind::TTryTable(_, _, body) => {
+      let body_entry = ssa_nomerge_graph_new_block(state, [block_id])
+      let body_exit = ssa_nomerge_graph_lower_texpr(body, body_entry, state)
+      ssa_nomerge_graph_new_block(state, [block_id, body_exit])
+    }
+    _ => {
+      let mut curr_block = block_id
+      for child in eval_children(instr) {
+        curr_block = ssa_nomerge_graph_lower_tinstruction(
+          child, curr_block, state,
+        )
+      }
+      curr_block
+    }
+  }
+}
+
+///|
+fn ssa_nomerge_build_sparse_analysis(body : TExpr) -> SSANoMergeAnalysis {
+  let state = ssa_nomerge_graph_new_state()
+  let entry = ssa_nomerge_graph_new_block(state, [])
+  ignore(ssa_nomerge_graph_lower_texpr(body, entry, state))
+  let get_sets : Map[Int, Set[SSANoMergeSetRef]] = Map::new()
+  let has_set : Set[LocalIdx] = Set::new()
+  for set_id in 0..<state.next_set_id {
+    match state.set_nodes.get(set_id) {
+      Some(node) => has_set.add(node.idx)
+      None => ()
+    }
+  }
+  let traversal_iteration : Map[Int, Int] = Map::new()
+  let current_iteration = Ref::new(0)
+  fn flow_back_from_start_of_block(
+    start_block_id : Int,
+    idx : LocalIdx,
+    get_ids : Array[Int],
+  ) {
+    let work : Array[Int] = [start_block_id]
+    while !work.is_empty() {
+      let curr = work.pop().unwrap()
+      let block = state.blocks.get(curr).unwrap()
+      if block.preds.is_empty() {
+        if curr == entry {
+          for get_id in get_ids {
+            let sets = get_sets.get(get_id).unwrap_or(Set::new())
+            sets.add(SSANoMergeSetRef::InitValue)
+            get_sets[get_id] = sets
+          }
+        }
+      } else {
+        for pred in block.preds {
+          if traversal_iteration.get(pred).unwrap_or(-1) ==
+            current_iteration.val {
+            continue
+          }
+          traversal_iteration[pred] = current_iteration.val
+          let pred_block = state.blocks.get(pred).unwrap()
+          match pred_block.last_sets.get(idx) {
+            Some(set_id) =>
+              for get_id in get_ids {
+                let sets = get_sets.get(get_id).unwrap_or(Set::new())
+                sets.add(SSANoMergeSetRef::Set(set_id))
+                get_sets[get_id] = sets
+              }
+            None => work.push(pred)
+          }
+        }
+      }
+    }
+    current_iteration.val = current_iteration.val + 1
+  }
+  let mut block_id = 0
+  while block_id < state.next_block_id {
+    let block = state.blocks.get(block_id).unwrap()
+    let pending_gets : Map[LocalIdx, Array[Int]] = Map::new()
+    let mut action_idx = block.actions.length() - 1
+    while action_idx >= 0 {
+      match block.actions[action_idx] {
+        SSANoMergeAction::Get(idx, get_id) => {
+          let gets = pending_gets.get(idx).unwrap_or([])
+          gets.push(get_id)
+          pending_gets[idx] = gets
+        }
+        SSANoMergeAction::Set(idx, set_id) =>
+          match pending_gets.get(idx) {
+            Some(get_ids) => {
+              for get_id in get_ids {
+                let sets = get_sets.get(get_id).unwrap_or(Set::new())
+                sets.add(SSANoMergeSetRef::Set(set_id))
+                get_sets[get_id] = sets
+              }
+              pending_gets.remove(idx)
+            }
+            None => ()
+          }
+      }
+      if action_idx == 0 {
+        break
+      }
+      action_idx = action_idx - 1
+    }
+    for entry_ in pending_gets {
+      let (idx, get_ids) = entry_
+      if get_ids.is_empty() {
+        continue
+      }
+      if !has_set.contains(idx) {
+        for get_id in get_ids {
+          let sets = get_sets.get(get_id).unwrap_or(Set::new())
+          sets.add(SSANoMergeSetRef::InitValue)
+          get_sets[get_id] = sets
+        }
+      } else {
+        flow_back_from_start_of_block(block_id, idx, get_ids)
+      }
+    }
+    block_id += 1
+  }
   let set_influences = Map::new()
   for get_id in 0..<state.next_get_id {
-    let sets = state.get_sets.get(get_id).unwrap_or(Set::new())
+    let sets = get_sets.get(get_id).unwrap_or(Set::new())
     for set_ref in sets {
       match set_ref {
         SSANoMergeSetRef::Set(set_id) => {
@@ -259,13 +355,22 @@ fn ssa_nomerge_build_analysis(body : TExpr) -> SSANoMergeAnalysis {
     }
   }
   {
-    get_sets: state.get_sets,
+    get_sets,
     get_nodes: state.get_nodes,
     set_nodes: state.set_nodes,
     set_influences,
     get_count: state.next_get_id,
     set_count: state.next_set_id,
   }
+}
+
+///|
+fn ssa_nomerge_build_analysis(body : TExpr) -> SSANoMergeAnalysis {
+  // Binaryen's ssa-nomerge is built on LocalGraph rather than a dense
+  // per-local flow-state clone at each control edge. Mirror that shape here:
+  // build a sparse block/action graph, then answer get->set queries by
+  // flowing backward only for the queried local.
+  ssa_nomerge_build_sparse_analysis(body)
 }
 
 ///|
@@ -921,6 +1026,55 @@ test "ssa no-merge preserves merge-reaching gets" {
               )
           }
         }
+        _ => fail("expected typed function after ssa no-merge")
+      }
+    Err(e) => fail("Unexpected error: \{e}")
+  }
+}
+
+///|
+test "ssa no-merge preserves loop-carried gets" {
+  let body = TExpr::new([
+    TInstr::loop_(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+        TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+        TInstr::br(LabelIdx::new(0), []),
+      ]),
+    ),
+  ])
+  let func = Func::t_func([], [ValType::i32()], body)
+  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let pass = ssa_nomerge_pass(mod)
+  let result = pass.walk_module((), mod)
+  match result {
+    Ok((out, _)) =>
+      match out.code_sec {
+        Some(CodeSec([TFunc(_, _, out_body)])) =>
+          match out_body.instrs {
+            [
+              {
+                kind: TInstrKind::TLoop(
+                  _,
+                  {
+                    instrs: [
+                      {
+                        kind: TInstrKind::TDrop(
+                          { kind: TInstrKind::TLocalGet(idx), .. }
+                        ),
+                        ..,
+                      },
+                      ..,
+                    ],
+                    ..,
+                  }
+                ),
+                ..,
+              },
+            ] => assert_eq(idx, LocalIdx::new(0))
+            _ => fail("expected loop-carried local.get to remain unchanged")
+          }
         _ => fail("expected typed function after ssa no-merge")
       }
     Err(e) => fail("Unexpected error: \{e}")
