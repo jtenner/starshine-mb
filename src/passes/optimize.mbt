@@ -239,6 +239,16 @@ priv struct PreparedFunctionStackEntry {
 }
 
 ///|
+fn optimize_count_function_stack_snapshot_materialization(
+  snapshot_materializations : Ref[Int]?,
+) -> Unit {
+  match snapshot_materializations {
+    Some(counter) => counter.val += 1
+    None => ()
+  }
+}
+
+///|
 fn[T] apply_transformer_pass(
   state : T,
   mod : Module,
@@ -1887,17 +1897,30 @@ fn optimize_run_function_stack_subsegment(
   trace : (String) -> Unit,
   trace_enabled : Bool,
   trace_level : OptimizeTracingLevel,
+  snapshot_materializations? : Ref[Int]? = None,
 ) -> Result[Module, String] {
   if stack_passes.length() == 0 {
     return Ok(mod)
   }
   let pass_trace_summary = trace_enabled && trace_level == Pass
+  let mut current_mod = mod
+  let funcs = match mod.code_sec {
+    Some(CodeSec(orig_funcs)) => {
+      let funcs = orig_funcs.copy()
+      current_mod = mod.with_code_sec(CodeSec::new(funcs))
+      optimize_count_function_stack_snapshot_materialization(
+        snapshot_materializations,
+      )
+      Some(funcs)
+    }
+    None => None
+  }
   let prepared : Array[PreparedFunctionStackEntry] = []
   for i = 0; i < stack_passes.length(); i = i + 1 {
     let pass_index = state.pass_index + i + 1
     match
       optimize_prepare_function_stack_pass(
-        mod,
+        current_mod,
         stack_passes[i],
         pass_index,
         total_passes,
@@ -1910,7 +1933,6 @@ fn optimize_run_function_stack_subsegment(
       Err(e) => return Err(e)
     }
   }
-  let mut current_mod = mod
   let last_entry = prepared[prepared.length() - 1]
   let last_pass = optimize_prepared_function_stack_pass_id(last_entry.prepared)
   let mut last_pre_pass_mod = mod
@@ -1920,11 +1942,9 @@ fn optimize_run_function_stack_subsegment(
     0UL,
   )
   let pass_completed : Array[Bool] = Array::make(prepared.length(), false)
-  match mod.code_sec {
-    Some(CodeSec(orig_funcs)) => {
-      let funcs = orig_funcs.copy()
+  match funcs {
+    Some(funcs) => {
       let before_last_pass_funcs = funcs.copy()
-      current_mod = mod.with_code_sec(CodeSec::new(funcs.copy()))
       if trace_enabled && optimize_trace_helper_enabled(trace_level) {
         trace(
           "scheduler:run_function_stack:start passes=\{optimize_trace_render_pass_list(stack_passes)} funcs=\{funcs.length()}",
@@ -1944,9 +1964,6 @@ fn optimize_run_function_stack_subsegment(
             prepared_idx = prepared_idx + 1 {
           if prepared_idx == prepared.length() - 1 {
             before_last_pass_funcs[func_idx] = curr_func
-            last_pre_pass_mod = mod.with_code_sec(
-              CodeSec::new(before_last_pass_funcs.copy()),
-            )
           }
           ctx.set_mod(current_mod)
           let pass_step_start_ms = optimize_trace_now_ms()
@@ -2002,7 +2019,6 @@ fn optimize_run_function_stack_subsegment(
             funcs[func_idx] = curr_func
             func_changed.val = true
             pass_changed[prepared_idx] = true
-            current_mod = current_mod.with_code_sec(CodeSec::new(funcs.copy()))
           }
         }
         if trace_enabled && optimize_trace_helper_enabled(trace_level) {
@@ -2011,7 +2027,14 @@ fn optimize_run_function_stack_subsegment(
           )
         }
       }
-      current_mod = mod.with_code_sec(CodeSec::new(funcs))
+      if funcs.length() > 0 {
+        last_pre_pass_mod = mod.with_code_sec(
+          CodeSec::new(before_last_pass_funcs),
+        )
+        optimize_count_function_stack_snapshot_materialization(
+          snapshot_materializations,
+        )
+      }
       if trace_enabled && optimize_trace_helper_enabled(trace_level) {
         trace(
           "scheduler:run_function_stack:done passes=\{optimize_trace_render_pass_list(stack_passes)} funcs=\{funcs.length()}",
@@ -2053,6 +2076,37 @@ fn optimize_run_function_stack_subsegment(
   }
   ctx.set_mod(current_mod)
   Ok(current_mod)
+}
+
+///|
+fn optimize_function_stack_snapshot_materializations_for_test(
+  mod : Module,
+  stack_passes : Array[ModulePass],
+  options : OptimizeOptions,
+) -> Int {
+  let ctx = IRContext::new()
+  ctx.set_mod(mod)
+  let state = OptimizeSchedulerState::new()
+  let snapshot_materializations = Ref::new(0)
+  match
+    optimize_run_function_stack_subsegment(
+      ctx,
+      mod,
+      stack_passes,
+      stack_passes.length(),
+      state,
+      options,
+      optimize_trace_noop,
+      false,
+      OptimizeTracingLevel::pass(),
+      snapshot_materializations=Some(snapshot_materializations),
+    ) {
+    Ok(_) => snapshot_materializations.val
+    Err(e) =>
+      abort(
+        "unexpected optimize_run_function_stack_subsegment error in snapshot materialization test helper: \{e}",
+      )
+  }
 }
 
 ///|
@@ -6644,6 +6698,37 @@ test "optimize_module helper trace interleaves function-stack pass execution by 
   assert_true(dce_func1 < cp_func1)
   assert_true(cp_func1 < dce_func2)
   assert_true(dce_func2 < cp_func2)
+}
+
+///|
+test "optimize stacked runner materializes function-stack module snapshots once per shared state and once for last-pass attribution" {
+  let func0 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let func1 = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(2))),
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+    ]),
+  )
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(CodeSec::new([func0, func1])),
+  )
+  assert_eq(
+    optimize_function_stack_snapshot_materializations_for_test(
+      mod,
+      [DeadCodeElimination, CodePushing],
+      OptimizeOptions::new(),
+    ),
+    2,
+  )
 }
 
 ///|

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-16 Optimize Follow-up: reduce stacked-runner code-section snapshot churn
+
+- Updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so the stacked function runner now prepares passes against one shared live code-section snapshot and no longer rebuilds `CodeSec` after every changed function/pass step inside a stacked segment.
+- Added a regression in [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) that locks stacked-runner snapshot materialization down to one shared execution snapshot plus one final last-pass-attribution snapshot.
+- Validation: `moon test --package jtenner/starshine/passes --file optimize.mbt`; `moon info && moon fmt`; `moon test`.
+
 ## 2026-03-16 Docs Follow-up: remove `StringGathering` from the publishing blockers list
 
 - Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to remove `StringGathering` from the publishing-blocker section while leaving the broader post-`0.1.0` string optimization follow-up item in place.
