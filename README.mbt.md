@@ -165,17 +165,17 @@ For more runnable CLI inputs, see `examples/README.md`.
 - Format and refresh interfaces: `moon info && moon fmt`
 - Typecheck: `moon check`
 - Run tests: `moon test`
-- Run full local gate (check + tests + fuzz, auto-generated seed): `bash scripts/run-full-test.sh ci wasm-gc`
-- Run full local gate with explicit reproducible seed: `bash scripts/run-full-test.sh ci 0x5eed wasm-gc`
+- Run full local gate (check + tests + fuzz, auto-generated seed): `bun validate full --profile ci --target wasm-gc`
+- Run full local gate with explicit reproducible seed: `bun validate full --profile ci --seed 0x5eed --target wasm-gc`
 - Run dedicated fuzz suites: `moon run src/fuzz all smoke`
 - List fuzz suites/profiles from the binary: `moon run src/fuzz -- --list-suites` and `moon run src/fuzz -- --list-profiles`
 - Run one suite with an explicit seed: `moon run src/fuzz -- validate-valid ci --seed 0x5eed`
 - Emit machine-readable summary lines: `moon run src/fuzz -- cmd-harness smoke --jsonl`
-- Run CI-scale fuzz suites: `bash scripts/run-fuzz.sh ci`
-- Run native stress fuzz suites: `bash scripts/run-fuzz.sh stress all 0x5eed5eed native`
+- Run CI-scale fuzz suites: `bun fuzz run --profile ci`
+- Run native stress fuzz suites: `bun fuzz run --profile stress --suite all --seed 0x5eed5eed --target native`
 - Note: fuzz workloads are run through `src/fuzz` (`moon run ...`), not the `moon test` harness path.
-- Regenerate the Node package files: `node scripts/generate-node-package.mjs`
-- Build the Node package artifacts: `npm --prefix node run build`
+- Regenerate the Node package files: `bun make generate-node-package`
+- Build the Node package artifacts: `bun make node-package`
 
 ## Troubleshooting
 
@@ -199,7 +199,7 @@ For more runnable CLI inputs, see `examples/README.md`.
 
 ## WASM Artifact Snapshot (2026-02-25)
 
-From `tests/node/dist` after `node scripts/build-self-optimized.mjs`:
+From `tests/node/dist` after `bun self-opt build`:
 
 | Artifact | File | Size (bytes) | Size (MiB) |
 | --- | --- | ---: | ---: |
@@ -262,7 +262,7 @@ WASM outputs (stdout/file/out-dir)
 
 ## Benchmark Snapshot
 
-Refresh command: `bash scripts/update_readme_benchmarks.sh`.
+Refresh command: `bun make update-readme-benchmarks`.
 
 <!-- README_BENCHMARK_TABLE_START -->
 Measured on `2026-03-12` in this repository with warm local build cache (`moon test --quiet` and `moon run src/fuzz -- cmd-harness smoke --seed 0x5eed`, debug profile, `wasm-gc` target). These are smoke/reference numbers, not strict performance guarantees.

@@ -2,11 +2,12 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { repoRootFromScript } from './self-optimized-artifacts.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, '..');
+const repoRoot = repoRootFromScript(import.meta.url);
 
 const TARGET_PACKAGES = [
   { id: 'binary', moonPackage: 'jtenner/starshine/binary', alias: '@binary' },
@@ -2255,8 +2256,8 @@ function generateNodePackageFiles(packageMetas, helperNames) {
           node: '>=25',
         },
         scripts: {
-          generate: 'node ../scripts/generate-node-package.mjs',
-          build: 'node ../scripts/build-node-package.mjs',
+          generate: 'bun ../scripts/make.ts generate-node-package',
+          build: 'bun ../scripts/make.ts node-package',
           test: 'npm run build && node --test test/*.test.mjs',
           clean: 'rm -f internal/starshine.wasm-gc.wasm internal/starshine.wasm-wasi.wasm',
           prepack: 'npm run build',
@@ -2365,7 +2366,7 @@ function collectExternalImports(packageMetas) {
   return [...imports.entries()].sort(([left], [right]) => left.localeCompare(right));
 }
 
-function main() {
+export function generateNodePackage() {
   const packageMetas = TARGET_PACKAGES.map(parsePackageMeta);
   const catalog = buildInteropCatalog(packageMetas);
   const helperNames = createHelperNames(catalog);
@@ -2374,4 +2375,6 @@ function main() {
   generateNodePackageFiles(packageMetas, helperNames);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  generateNodePackage();
+}

@@ -5,14 +5,16 @@ on:
   pull_request:
     paths:
       - "README.mbt.md"
-      - "scripts/check_readme_api_sync.sh"
+      - "scripts/**"
+      - "package.json"
       - "src/**/pkg.generated.mbti"
   push:
     branches:
       - main
     paths:
       - "README.mbt.md"
-      - "scripts/check_readme_api_sync.sh"
+      - "scripts/**"
+      - "package.json"
       - "src/**/pkg.generated.mbti"
 
 jobs:
@@ -24,6 +26,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Set up Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+
       - name: Verify README API signatures
         run: |
-          bash scripts/check_readme_api_sync.sh
+          bun validate readme-api-sync

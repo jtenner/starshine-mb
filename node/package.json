@@ -67,8 +67,8 @@
     "node": ">=25"
   },
   "scripts": {
-    "generate": "node ../scripts/generate-node-package.mjs",
-    "build": "node ../scripts/build-node-package.mjs",
+    "generate": "bun ../scripts/make.ts generate-node-package",
+    "build": "bun ../scripts/make.ts node-package",
     "test": "npm run build && node --test test/*.test.mjs",
     "clean": "rm -f internal/starshine.wasm-gc.wasm internal/starshine.wasm-wasi.wasm",
     "prepack": "npm run build"

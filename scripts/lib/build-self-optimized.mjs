@@ -7,7 +7,7 @@ import {
   repoRootFromScript,
   resolveMoonBin,
   run,
-} from './lib/self-optimized-artifacts.mjs';
+} from './self-optimized-artifacts.mjs';
 
 function parseCliArgs(argv) {
   let fallbackDebugOnFailure = false;

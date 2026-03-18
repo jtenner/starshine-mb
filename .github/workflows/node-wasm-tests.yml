@@ -16,8 +16,8 @@ on:
       - "src/wat/**"
       - "src/binary/**"
       - "src/validate/**"
-      - "scripts/generate-node-package.mjs"
-      - "scripts/build-node-package.mjs"
+      - "scripts/**"
+      - "package.json"
       - "moon.mod.json"
       - "moon.pkg.json"
       - ".github/workflows/node-wasm-tests.yml"
@@ -37,8 +37,8 @@ on:
       - "src/wat/**"
       - "src/binary/**"
       - "src/validate/**"
-      - "scripts/generate-node-package.mjs"
-      - "scripts/build-node-package.mjs"
+      - "scripts/**"
+      - "package.json"
       - "moon.mod.json"
       - "moon.pkg.json"
       - ".github/workflows/node-wasm-tests.yml"
@@ -61,6 +61,11 @@ jobs:
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
 
       - name: Run Node unit tests
         run: |

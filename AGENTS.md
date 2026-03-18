@@ -20,9 +20,11 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 ## Tooling
 - Format: `moon fmt`. Interface refresh: `moon info`. Lint/check: `moon check` (not very useful; also runs as part of `moon test`).
 - Tests: `moon test`; use `moon test --update` for snapshot updates.
-- Fuzz suites: run via `moon run src/fuzz ...` (or `scripts/run-fuzz.sh ...`), not via heavy/randomized `moon test` harness loops.
-- Full gate script: `scripts/run-full-test.sh` runs `moon info && moon fmt`, `moon check`, `moon test`, then fuzz suites.
-- Coverage helper: `moon coverage analyze > uncovered.log`
+- Task automation is Bun-first and task-family based: use `bun validate ...`, `bun fuzz ...`, `bun self-opt ...`, `bun make ...`, and `bun examples ...` from the repo root.
+- Fuzz suites: run via `moon run src/fuzz ...` or `bun fuzz run ...`, not via heavy/randomized `moon test` harness loops.
+- Full local gate: `bun validate full --profile ci --target wasm-gc` runs `moon info`, `moon fmt`, `moon check`, `moon test`, then fuzz suites.
+- Coverage helper: `bun validate coverage --baseline .github/coverage-baseline.txt` or `moon coverage analyze > uncovered.log`
+- README/API sync helper: `bun validate readme-api-sync`
 - Preferred final local check sequence: `moon info && moon fmt`, then `moon test`.
 - Running multiple `moon` commands in parallel contends on `_build/.moon-lock`; one process waits on the lock instead of progressing concurrently.
 - When testing the self-optimize pipeline, let the user run the pipeline instead of running it yourself.
@@ -35,7 +37,10 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 
 ## Repository Layout
 - `examples/`: runnable usage examples and sample config/module inputs.
-- `scripts/`: project automation and maintenance scripts.
+- `scripts/`: top-level Bun task entrypoints only (`validate.ts`, `fuzz.ts`, `self-opt.ts`, `make.ts`, `examples.ts`).
+- `scripts/lib/`: reusable task modules and helper implementations; when adding or changing automation, put reusable logic here and keep the top-level task files as thin dispatchers.
+- `scripts/test/`: Bun/TS script-level regression tests for task behavior.
+- Task scripting strategy: do not add shell scripts under `scripts/`; keep task automation importable, Windows-safe, and callable from the base Bun task files.
 - `src/binary/`: binary wasm encoding/decoding.
 - `src/cmd/` and `src/cli/`: command entrypoints and CLI plumbing.
 - `src/diff/`: Meyers diff algorithm for debugging purposes.

@@ -5,8 +5,8 @@ on:
   pull_request:
     paths:
       - "src/**"
-      - "scripts/run-full-test.sh"
-      - "scripts/run-fuzz.sh"
+      - "scripts/**"
+      - "package.json"
       - "moon.mod.json"
       - "moon.pkg.json"
       - ".github/workflows/fuzz.yml"
@@ -15,8 +15,8 @@ on:
       - main
     paths:
       - "src/**"
-      - "scripts/run-full-test.sh"
-      - "scripts/run-fuzz.sh"
+      - "scripts/**"
+      - "package.json"
       - "moon.mod.json"
       - "moon.pkg.json"
       - ".github/workflows/fuzz.yml"
@@ -37,9 +37,14 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
+      - name: Set up Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+
       - name: Run full MoonBit test gate (check + tests + fuzz)
         run: |
-          bash scripts/run-full-test.sh ci 0x5eed wasm-gc
+          bun validate full --profile ci --seed 0x5eed --target wasm-gc
 
   fuzz-stress-native:
     if: github.event_name == 'schedule'
@@ -55,6 +60,11 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
+      - name: Set up Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+
       - name: Run fuzz suites (stress profile, native target)
         run: |
-          bash scripts/run-fuzz.sh stress all 0x5eed5eed native
+          bun fuzz run --profile stress --suite all --seed 0x5eed5eed --target native

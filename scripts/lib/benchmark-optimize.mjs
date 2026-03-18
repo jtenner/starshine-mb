@@ -12,7 +12,7 @@ import {
   repoRootFromScript,
   resolveMoonBin,
   run,
-} from './lib/self-optimized-artifacts.mjs';
+} from './self-optimized-artifacts.mjs';
 
 const CORPORA = {
   examples: [
@@ -41,7 +41,7 @@ const TRACE_PREFIX = '[trace] ';
 
 function printHelp() {
   process.stdout.write(
-    `Usage: node scripts/benchmark-optimize.mjs [options]
+    `Usage: bun make benchmark-optimize [options]
 
 Run the native Starshine CLI with tracing enabled, then summarize per-pass timing,
 change counts, and wasm size deltas across one or more inputs.
@@ -69,9 +69,9 @@ Corpora:
   self-opt-debug Debug CLI wasm artifact for user-run self-optimization checks
 
 Examples:
-  node scripts/benchmark-optimize.mjs --build-native-release --preset optimize --corpus examples --corpus dist-optimized
-  node scripts/benchmark-optimize.mjs --build-native-release --passes simplify-locals,vacuum --corpus dist-optimized
-  node scripts/benchmark-optimize.mjs --preset optimize --corpus self-opt-debug
+  bun make benchmark-optimize --build-native-release --preset optimize --corpus examples --corpus dist-optimized
+  bun make benchmark-optimize --build-native-release --passes simplify-locals,vacuum --corpus dist-optimized
+  bun make benchmark-optimize --preset optimize --corpus self-opt-debug
 `,
   );
 }
@@ -682,9 +682,9 @@ function runOneCase(repoRoot, binaryPath, options, input, iteration) {
   };
 }
 
-async function main() {
+export async function main(argv = process.argv.slice(2)) {
   const repoRoot = repoRootFromScript(import.meta.url);
-  const options = parseArgs(process.argv.slice(2));
+  const options = parseArgs(argv);
 
   if (options.listCorpora) {
     for (const corpus of Object.keys(CORPORA)) {

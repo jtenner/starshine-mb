@@ -5,8 +5,8 @@ on:
   pull_request:
     paths:
       - "examples/**"
-      - "scripts/run_examples_cli_smoke.sh"
-      - "scripts/check_examples_cli_native_workflow.sh"
+      - "scripts/**"
+      - "package.json"
       - "src/cmd/**"
       - "src/cli/**"
       - "src/passes/**"
@@ -22,8 +22,8 @@ on:
       - main
     paths:
       - "examples/**"
-      - "scripts/run_examples_cli_smoke.sh"
-      - "scripts/check_examples_cli_native_workflow.sh"
+      - "scripts/**"
+      - "package.json"
       - "src/cmd/**"
       - "src/cli/**"
       - "src/passes/**"
@@ -51,9 +51,14 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
+      - name: Set up Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+
       - name: Verify native CI wasm-tools workflow contract
         run: |
-          bash scripts/check_examples_cli_native_workflow.sh
+          bun examples workflow-contract
 
       - name: Install native differential validator tools
         run: |
@@ -79,7 +84,7 @@ jobs:
 
       - name: Run examples CLI smoke checks (native target)
         run: |
-          bash scripts/run_examples_cli_smoke.sh
+          bun examples smoke
 
       - name: Run native fuzz harness differential test
         run: |

@@ -5,7 +5,8 @@ on:
   pull_request:
     paths:
       - "src/**"
-      - "scripts/coverage_report.sh"
+      - "scripts/**"
+      - "package.json"
       - ".github/coverage-baseline.txt"
       - ".github/workflows/coverage-report.yml"
       - "moon.mod.json"
@@ -15,7 +16,8 @@ on:
       - main
     paths:
       - "src/**"
-      - "scripts/coverage_report.sh"
+      - "scripts/**"
+      - "package.json"
       - ".github/coverage-baseline.txt"
       - ".github/workflows/coverage-report.yml"
       - "moon.mod.json"
@@ -35,8 +37,13 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
+      - name: Set up Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+
       - name: Coverage delta report
         run: |
-          bash scripts/coverage_report.sh \
+          bun validate coverage \
             --top 15 \
             --baseline .github/coverage-baseline.txt

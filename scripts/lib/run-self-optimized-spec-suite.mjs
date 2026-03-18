@@ -3,8 +3,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
-import { runWasmStart } from './lib/moonbit-wasi-runner.mjs';
-import { distArtifactPaths, repoRootFromScript } from './lib/self-optimized-artifacts.mjs';
+import { runWasmStart } from './moonbit-wasi-runner.mjs';
+import { distArtifactPaths, repoRootFromScript } from './self-optimized-artifacts.mjs';
 
 function parseCliArgs(argv) {
   let limit = null;

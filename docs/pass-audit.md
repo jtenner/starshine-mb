@@ -14,7 +14,7 @@
 - `src/passes` inventory and default pipeline mapping are captured below.
 - Binaryen-nearest mappings and initial inefficiency notes are captured below.
 - `src/passes/optimize.mbt` now emits runner-level per-pass change/function/instruction metrics in trace output.
-- `scripts/benchmark-optimize.mjs` exists as the dedicated benchmark entrypoint, and `scripts/test/benchmark-optimize-output.sh` locks the parser against a stable sample trace.
+- `bun make benchmark-optimize` is the dedicated benchmark entrypoint, and `scripts/test/make-benchmark-output.ts` locks the parser against a stable sample trace.
 - Pending execution in strict order:
 - capture and commit baseline measurements for `examples`, `spec-sanity`, `dist-optimized`, and the documented user-run `self-opt-debug` command
 - refactor `SimplifyLocals` first with red/green tests and microbenchmarks
@@ -425,19 +425,19 @@ Current default function pipeline from `default_function_optimization_passes(...
 - there is no stable pass-metrics record returned or printed for branch-to-branch comparison
 - Missing baseline infrastructure:
 - full-pipeline emitted wasm size before/after from inside the optimizer runner
-- one-command benchmark harness for single passes, full pipeline, and fixed corpora now lives in `scripts/benchmark-optimize.mjs`
+- one-command benchmark harness for single passes, full pipeline, and fixed corpora now lives behind `bun make benchmark-optimize`
 - self-optimization benchmark command suitable for the user to run locally on large artifacts
 
 ### Benchmark Harness Commands
 
 - Full default baseline on examples plus the existing optimized CLI artifact:
-  `node scripts/benchmark-optimize.mjs --build-native-release --preset optimize --corpus examples --corpus dist-optimized`
+  `bun make benchmark-optimize --build-native-release --preset optimize --corpus examples --corpus dist-optimized`
 - Single-pass or short sequence benchmark:
-  `node scripts/benchmark-optimize.mjs --build-native-release --passes simplify-locals,vacuum --corpus dist-optimized`
+  `bun make benchmark-optimize --build-native-release --passes simplify-locals,vacuum --corpus dist-optimized`
 - Spec-style fixed corpus:
-  `node scripts/benchmark-optimize.mjs --build-native-release --preset optimize --corpus spec-sanity`
+  `bun make benchmark-optimize --build-native-release --preset optimize --corpus spec-sanity`
 - User-run self-optimization-sized artifact:
-  `node scripts/benchmark-optimize.mjs --build-native-release --preset optimize --corpus self-opt-debug`
+  `bun make benchmark-optimize --build-native-release --preset optimize --corpus self-opt-debug`
 
 The harness uses CLI trace output, reports per-input wasm byte deltas, aggregates per-pass elapsed time and change metrics, and supports repeated runs for branch-to-branch comparison. The `self-opt-debug` command is intentionally documented for user execution instead of being run automatically here.
 

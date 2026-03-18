@@ -1,0 +1,12 @@
+{
+  "name": "starshine-scripts",
+  "private": true,
+  "packageManager": "bun@1.3.10",
+  "scripts": {
+    "validate": "bun scripts/validate.ts",
+    "fuzz": "bun scripts/fuzz.ts",
+    "self-opt": "bun scripts/self-opt.ts",
+    "make": "bun scripts/make.ts",
+    "examples": "bun scripts/examples.ts"
+  }
+}
