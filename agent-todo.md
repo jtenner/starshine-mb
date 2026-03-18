@@ -179,6 +179,10 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] `MergeBlocks` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `47.924s` at `pass[32/48]` and `22.256s` at `pass[35/48]`.
 - [ ] `MergeSimilarFunctions` correctness blocker: optimize pass trace failed at `pass[44/48]` with `upstream-invalid direct call in preflight: arg count mismatch expected=3 actual=4 kind=call caller_abs_idx=924 callee_abs_idx=9038 node_id=15`.
 - [ ] `Vacuum` correctness blocker: serial pass repro on `before.wasm` still fails at `pass=Vacuum` with `typed function stack underflow` in `Func 1360`; degraded local-retention hardening landed, but the root corruption remains unresolved.
+- [ ] Validator diagnostics: stop collapsing untyped function end-state failures to `function body leaves extra values on stack`; preserve whether the failure was underflow, wrong result types, or extra values, include expected vs actual stack shape, and add regressions for each case.
+- [ ] Validator benchmarks: add a dedicated validation microbenchmark/tracing harness around `validate_module_with_trace(...)` plus fixed synthetic corpora for deep control nesting, wide locals, large code sections, and `ref.func`-heavy modules; record baseline `phase_totals`, `helper_totals`, and `hotspots` output.
+- [ ] Validator hot-path allocation audit: profile and reduce repeated `Env.with_label(...)` / `with_labels(...)` / `tc_stack_from_types(...)` copying in structured control validation (`block` / `if` / `loop` / `try_table`), then prove the change with before/after validation timings on large modules.
+- [ ] Validator `ref.func` declaration pass: fold `collect_declared_funcs_bitmap(...)` and `validate_ref_func_declarations_in_module(...)` into the main validation/code walk or another shared traversal so large modules are not recursively rescanned before function-body validation.
 
 ## Post v0.1.0 blockers
 - [ ] Complete the `src/passes` inventory and map each scheduler entry in `src/passes/optimize.mbt` to its implementation file, tests, and closest Binaryen equivalent.

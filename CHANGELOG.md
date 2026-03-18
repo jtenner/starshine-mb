@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-18 Validate Planning: add validator backlog items for diagnostics and performance
+
+- Updated [/home/jtenner/Projects/starshine-mb/agent-todo.md](/home/jtenner/Projects/starshine-mb/agent-todo.md) to track four validator follow-ups grounded in the current implementation: clearer end-of-body diagnostics, a dedicated validation benchmark harness, hot-path allocation/copying reduction in structured control validation, and folding the extra `ref.func` declaration scan into a shared validation traversal.
+- Validation: `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-18 Optimize Planning: add pass-audit docs, pass-trace metrics, and benchmark harness scaffolding
 
 - Added [/home/jtenner/Projects/starshine-mb/docs/pass-audit.md](/home/jtenner/Projects/starshine-mb/docs/pass-audit.md) as the pass-audit planning checkpoint, including the `src/passes` inventory, optimize pipeline mapping, Binaryen-nearest pass crosswalk, mutually enabling relationships, and the current high-priority findings for `SimplifyLocals`, `Vacuum`, and `AlignmentLowering`.
