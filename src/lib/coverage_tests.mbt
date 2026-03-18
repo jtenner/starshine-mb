@@ -1,35 +1,46 @@
 ///|
-test "expand_locals expands grouped declarations in order" {
-  let expanded = match
-    expand_locals([
-      Locals::new(2U, ValType::i32()),
-      Locals::new(1U, ValType::i64()),
-    ]) {
-    Ok(v) => v
-    Err(e) => fail("unexpected expand_locals error: \{e}")
-  }
-  assert_eq(expanded, [ValType::i32(), ValType::i32(), ValType::i64()])
+test "locals at lookup uses run indices across grouped declarations" {
+  let locals = Locals::new([
+    LocalRun::new(2U, ValType::i32()),
+    LocalRun::new(1U, ValType::i64()),
+    LocalRun::new(3U, ValType::f32()),
+  ])
+  assert_eq(locals.at(0), Some(ValType::i32()))
+  assert_eq(locals.at(1), Some(ValType::i32()))
+  assert_eq(locals.at(2), Some(ValType::i64()))
+  assert_eq(locals.at(3), Some(ValType::f32()))
+  assert_eq(locals.at(5), Some(ValType::f32()))
+  assert_eq(locals.at(6), None)
 }
 
 ///|
-test "tlocals_to_locals compresses consecutive equal valtypes" {
-  let grouped = tlocals_to_locals([
-    ValType::i32(),
-    ValType::i32(),
-    ValType::i64(),
-    ValType::i64(),
-    ValType::i32(),
+test "locals ensure_index caches run starts and rebuilds after mutation" {
+  let locals = Locals::new([
+    LocalRun::new(2U, ValType::i32()),
+    LocalRun::new(2U, ValType::i64()),
+    LocalRun::new(1U, ValType::i32()),
   ])
-  assert_eq(grouped.length(), 3)
-  let Locals(c0, t0) = grouped[0]
-  let Locals(c1, t1) = grouped[1]
-  let Locals(c2, t2) = grouped[2]
-  assert_eq(c0, 2U)
-  assert_eq(t0, ValType::i32())
-  assert_eq(c1, 2U)
-  assert_eq(t1, ValType::i64())
-  assert_eq(c2, 1U)
-  assert_eq(t2, ValType::i32())
+  assert_eq(locals.ensure_index(), [0, 2, 4])
+  locals.push(ValType::i32())
+  assert_eq(locals.ensure_index(), [0, 2, 4])
+  assert_true(locals.set(2, ValType::f32()))
+  assert_eq(locals.ensure_index(), [0, 2, 3, 4])
+}
+
+///|
+test "locals insert remove and without_prefix keep indices aligned" {
+  let locals = Locals::new([
+    LocalRun::new(2U, ValType::i32()),
+    LocalRun::new(1U, ValType::i64()),
+  ])
+  locals.insert_run(1, LocalRun::new(3U, ValType::f32()))
+  assert_eq(locals.ensure_index(), [0, 2, 5])
+  ignore(locals.remove_run(0))
+  assert_eq(locals.ensure_index(), [0, 3])
+  let suffix = locals.without_prefix(1)
+  assert_eq(suffix.ensure_index(), [0, 2])
+  assert_eq(suffix.at(0), Some(ValType::f32()))
+  assert_eq(suffix.at(2), Some(ValType::i64()))
 }
 
 ///|

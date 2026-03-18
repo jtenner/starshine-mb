@@ -723,7 +723,7 @@ fn licm_optimize(mod : Module) -> Module {
 }
 
 ///|
-fn licm_single_func_mod(locals : Array[ValType], body : TExpr) -> Module {
+fn licm_single_func_mod(locals : Locals, body : TExpr) -> Module {
   let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([sig]))

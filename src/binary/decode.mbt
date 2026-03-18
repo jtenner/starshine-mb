@@ -1211,13 +1211,24 @@ pub impl Decode for DataCntSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Locals with decode(bytes, i) {
+pub impl Decode for LocalRun with decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((@lib.U32(count), i)) =>
       match Decode::decode(bytes, i) {
-        Ok((vt, i)) => Ok((Locals::new(count, vt), i))
+        Ok((vt, i)) => Ok((LocalRun::new(count, vt), i))
         Err(t) => Err(t)
       }
+    Err(t) => Err(t)
+  }
+}
+
+///|
+pub impl Decode for Locals with decode(bytes, i) {
+  match
+    (
+      Decode::decode(bytes, i) :
+      Result[(Array[@lib.LocalRun], Int), BinaryDecodeError]) {
+    Ok((runs, i)) => Ok((Locals::new(runs), i))
     Err(t) => Err(t)
   }
 }
@@ -1229,18 +1240,17 @@ pub impl Decode for Func with decode(bytes, i) {
       match
         (
           Decode::decode(bytes, i) :
-          Result[(Array[@lib.Locals], Int), BinaryDecodeError]) {
+          Result[(Array[@lib.LocalRun], Int), BinaryDecodeError]) {
         Ok((locals, i)) => {
           let mut total_locals : UInt64 = 0UL
           for local_entry in locals {
-            let @lib.Locals(count, _) = local_entry
-            total_locals += count.to_uint64()
+            total_locals += local_entry.count.to_uint64()
             if total_locals > 4294967295UL {
               return Err(BinaryDecodeError::InvalidModule)
             }
           }
           match Decode::decode(bytes, i) {
-            Ok((expr, i)) => Ok((Func::new(locals, expr), i))
+            Ok((expr, i)) => Ok((Func::new(Locals::new(locals), expr), i))
             Err(t) => Err(t)
           }
         }

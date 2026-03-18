@@ -62,7 +62,7 @@ priv struct H2LPlan {
 priv struct H2LRewriteState {
   plans : Map[Int, H2LPlan]
   base_local_count : Int
-  new_locals : Array[ValType]
+  new_locals : Locals
 }
 
 ///|
@@ -1376,11 +1376,11 @@ fn h2l_array_new_elem_init(
 
 ///|
 fn h2l_new_state(
-  locals : Array[ValType],
+  locals : Locals,
   candidates : Map[Int, H2LShape],
 ) -> H2LRewriteState {
   let plans : Map[Int, H2LPlan] = Map::new()
-  let new_locals : Array[ValType] = []
+  let new_locals : Locals = Locals::empty()
   for entry in candidates {
     let (loc, shape) = entry
     let slots : Array[LocalIdx] = []
@@ -3174,7 +3174,7 @@ test "heap2local does not optimize array with non-constant index" {
   )
   let func = Func::t_func(
     [],
-    [local_ref, ValType::i32()],
+    Locals::from_types([local_ref, ValType::i32()]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),

@@ -546,7 +546,7 @@ test "global refining narrows non-exported mutable global type from sets and ini
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::global_set(
               GlobalIdx::new(0),
@@ -595,7 +595,7 @@ test "global refining does not refine exported mutable globals" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::global_set(
               GlobalIdx::new(0),
@@ -638,7 +638,7 @@ test "global refining refines exported immutable globals when refined type is pu
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
     )
   let optimized = match global_refining(mod) {
     Ok(m) => m
@@ -705,7 +705,7 @@ test "global refining narrows broad typed select using branch merge" {
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
     )
   let optimized = match global_refining(mod) {
     Ok(m) => m
@@ -745,10 +745,10 @@ test "global refining uses function param types for local.get global.set flows" 
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], [], TExpr::new([TInstr::nop()])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::global_set(
               GlobalIdx::new(0),

@@ -446,7 +446,7 @@ fn tr_update_param_types(
   body : TExpr,
   old_param_types : Array[ValType],
   new_param_types : Array[ValType],
-  locals : Array[ValType],
+  locals : Locals,
   local_types_by_abs : Array[Array[ValType]],
   global_types : Array[ValType],
   env : Env,
@@ -718,14 +718,14 @@ test "type refining refines parameter reference types" {
   )
   let caller = Func::t_func(
     [non_null_funcref],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
   let callee = Func::t_func(
     [nullable_funcref],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::return_([])]),
   )
   let mod = Module::new()
@@ -753,14 +753,14 @@ test "type refining inserts param fixup local for incompatible param.set" {
   )
   let caller = Func::t_func(
     [non_null_funcref],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
   let callee = Func::t_func(
     [nullable_funcref],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),

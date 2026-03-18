@@ -861,12 +861,11 @@ pub impl Encode for Func with encode(val, buf) {
   let (locals, expr) = match val {
     Func(locals, expr) => (locals, expr)
     TFunc(params, tlocals, texpr) => {
-      let function_locals = match
+      let locals = match
         FunctionLocals::from_typed_func(params, params, tlocals) {
-        Ok(ls) => ls
+        Ok(ls) => ls.body_locals()
         Err(_) => return Err(BinaryEncodeError::InvalidTypedFunctionLocals)
       }
-      let locals = tlocals_to_locals(function_locals.body_locals())
       let expr = texpr.to_expr()
       (locals, expr)
     }
@@ -920,12 +919,16 @@ pub impl Encode for Data with encode(val, buf) {
 
 ///|
 pub impl Encode for Locals with encode(val, buf) {
-  let Locals(count, vt) = val
-  match Encode::encode(@lib.U32(count), buf) {
+  Encode::encode(val.runs(), buf)
+}
+
+///|
+pub impl Encode for LocalRun with encode(val, buf) {
+  match Encode::encode(@lib.U32(val.count), buf) {
     Err(err) => return Err(err)
     Ok(_) => ()
   }
-  Encode::encode(vt, buf)
+  Encode::encode(val.vt, buf)
 }
 
 ///|

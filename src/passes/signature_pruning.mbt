@@ -812,15 +812,15 @@ fn signature_pruning_ir_pass(
 test "signature pruning removes unused params across same signature group" {
   let caller = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(9))])),
       TInstr::drop(TInstr::call(FuncIdx::new(2), [TInstr::i32_const(I32(11))])),
       TInstr::i32_const(I32(0)),
     ]),
   )
-  let callee1 = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
-  let callee2 = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(8))]))
+  let callee1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee2 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(8))]))
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -869,7 +869,7 @@ test "signature pruning removes unused params across same signature group" {
 test "signature pruning updates call_ref type and arguments" {
   let caller = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call_ref(
         TypeIdx::new(0),
@@ -878,7 +878,7 @@ test "signature pruning updates call_ref type and arguments" {
       ),
     ]),
   )
-  let callee = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))]))
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -915,10 +915,10 @@ test "signature pruning updates call_ref type and arguments" {
 test "signature pruning is disabled when table section is present" {
   let caller = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(9))])]),
   )
-  let callee = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))]))
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([

@@ -33,43 +33,46 @@ test "rectype get_subtype handles in-range and out-of-range indexes" {
 }
 
 ///|
-test "tlocals_to_locals and expand_locals roundtrip valtypes" {
-  let original = [
+test "Locals from_types compresses into canonical runs" {
+  let locals = Locals::from_types([
     ValType::i32(),
     ValType::i32(),
     ValType::funcref(),
     ValType::funcref(),
     ValType::i64(),
-  ]
-  let grouped = tlocals_to_locals(original.copy())
-  let expanded = match expand_locals(grouped) {
-    Ok(vts) => vts
-    Err(e) => fail("unexpected expand_locals error: \{e}")
-  }
-  assert_eq(expanded, original)
+  ])
+  let runs = locals.runs()
+  assert_eq(runs.length(), 3)
+  assert_eq(runs[0], LocalRun::new(2U, ValType::i32()))
+  assert_eq(runs[1], LocalRun::new(2U, ValType::funcref()))
+  assert_eq(runs[2], LocalRun::new(1U, ValType::i64()))
 }
 
 ///|
 test "FunctionLocals normalizes params and body locals" {
-  let locals = FunctionLocals::new([ValType::i32(), ValType::i64()], [
-    ValType::funcref(),
-  ])
+  let locals = FunctionLocals::new(
+    [ValType::i32(), ValType::i64()],
+    Locals::from_types([ValType::funcref()]),
+  )
   assert_eq(locals.param_count(), 2)
   assert_eq(locals.params(), [ValType::i32(), ValType::i64()])
-  assert_eq(locals.body_locals(), [ValType::funcref()])
-  assert_eq(locals.all_locals(), [
-    ValType::i32(),
-    ValType::i64(),
-    ValType::funcref(),
-  ])
+  assert_eq(locals.body_locals(), Locals::from_types([ValType::funcref()]))
+  assert_eq(
+    locals.all_locals(),
+    Locals::from_types([
+      ValType::i32(),
+      ValType::i64(),
+      ValType::funcref(),
+    ]),
+  )
 }
 
 ///|
 test "FunctionLocals local index lookup uses unified local space" {
-  let locals = FunctionLocals::new([ValType::i32()], [
-    ValType::i64(),
-    ValType::externref(),
-  ])
+  let locals = FunctionLocals::new(
+    [ValType::i32()],
+    Locals::from_types([ValType::i64(), ValType::externref()]),
+  )
   assert_eq(locals.local_type(LocalIdx::new(0)), Some(ValType::i32()))
   assert_eq(locals.local_type(LocalIdx::new(1)), Some(ValType::i64()))
   assert_eq(locals.local_type(LocalIdx::new(2)), Some(ValType::externref()))
@@ -79,14 +82,19 @@ test "FunctionLocals local index lookup uses unified local space" {
 ///|
 test "FunctionLocals pass helper adopts declared params when typed params are missing" {
   let locals = match
-    FunctionLocals::from_typed_func_for_pass([ValType::i32()], [], [
-      ValType::i64(),
-    ]) {
+    FunctionLocals::from_typed_func_for_pass(
+      [ValType::i32()],
+      [],
+      Locals::from_types([ValType::i64()]),
+    ) {
     Ok(v) => v
     Err(e) => fail("unexpected locals resolution error: \{e}")
   }
   assert_eq(locals.params(), [ValType::i32()])
-  assert_eq(locals.all_locals(), [ValType::i32(), ValType::i64()])
+  assert_eq(
+    locals.all_locals(),
+    Locals::from_types([ValType::i32(), ValType::i64()]),
+  )
 }
 
 ///|

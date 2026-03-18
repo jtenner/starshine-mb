@@ -328,14 +328,6 @@ fn gto_scan_expr(
 }
 
 ///|
-fn gto_expand_locals(locals : Array[Locals]) -> Array[ValType]? {
-  match expand_locals(locals) {
-    Ok(ls) => Some(ls)
-    Err(_) => None
-  }
-}
-
-///|
 fn gto_scan_module_uses(
   mod : Module,
   env : Env,
@@ -346,14 +338,10 @@ fn gto_scan_module_uses(
       for func in funcs {
         match func {
           TFunc(_, _, body) => gto_scan_texpr(body, infos)
-          Func(locals, body) =>
-            match gto_expand_locals(locals) {
-              Some(expanded) => {
-                let local_env = env.with_locals(expanded)
-                gto_scan_expr(body, local_env, infos)
-              }
-              None => ()
-            }
+          Func(locals, body) => {
+            let local_env = env.with_locals(locals)
+            gto_scan_expr(body, local_env, infos)
+          }
         }
       }
     None => ()
@@ -1041,7 +1029,7 @@ fn gto_count_imported_funcs(mod : Module) -> Int {
 ///|
 fn gto_alloc_temp_local(
   next_local : Array[Int],
-  extra_locals : Array[ValType],
+  extra_locals : Locals,
   ty : ValType,
 ) -> LocalIdx {
   let idx = next_local[0]
@@ -1085,7 +1073,7 @@ fn gto_rewrite_function_texpr(
   flat : GTOFlatTypes,
   indexes_after_removals : Map[Int, Array[Int]],
   next_local : Array[Int],
-  extra_locals : Array[ValType],
+  extra_locals : Locals,
 ) -> Result[TExpr, String] {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
@@ -1438,7 +1426,7 @@ fn gto_update_instructions(
         match funcs[def_idx] {
           TFunc(_, locals, body) => {
             let next_local = [param_count + locals.length()]
-            let extra_locals : Array[ValType] = []
+            let extra_locals : Locals = Locals::empty()
             let new_body = match
               gto_rewrite_function_texpr(
                 body, flat, indexes_after_removals, next_local, extra_locals,
@@ -1452,37 +1440,28 @@ fn gto_update_instructions(
             }
             new_funcs.push(Func::t_func(params, new_locals, new_body))
           }
-          Func(locals, body) =>
-            match gto_expand_locals(locals) {
-              Some(expanded) => {
-                let local_env = env.with_locals(expanded)
-                match to_texpr(body, local_env) {
-                  Ok(texpr) => {
-                    let next_local = [param_count + expanded.length()]
-                    let extra_locals : Array[ValType] = []
-                    let next_texpr = match
-                      gto_rewrite_function_texpr(
-                        texpr, flat, indexes_after_removals, next_local, extra_locals,
-                      ) {
-                      Ok(next_texpr) => next_texpr
-                      Err(e) => return Err(e)
-                    }
-                    let all_locals = expanded.copy()
-                    for local_ty in extra_locals {
-                      all_locals.push(local_ty)
-                    }
-                    new_funcs.push(
-                      Func::new(
-                        tlocals_to_locals(all_locals),
-                        next_texpr.to_expr(),
-                      ),
-                    )
-                  }
-                  Err(_) => new_funcs.push(funcs[def_idx])
+          Func(locals, body) => {
+            let local_env = env.with_locals(locals)
+            match to_texpr(body, local_env) {
+              Ok(texpr) => {
+                let next_local = [param_count + locals.length()]
+                let extra_locals : Locals = Locals::empty()
+                let next_texpr = match
+                  gto_rewrite_function_texpr(
+                    texpr, flat, indexes_after_removals, next_local, extra_locals,
+                  ) {
+                  Ok(next_texpr) => next_texpr
+                  Err(e) => return Err(e)
                 }
+                let all_locals = locals.copy()
+                for local_ty in extra_locals {
+                  all_locals.push(local_ty)
+                }
+                new_funcs.push(Func::new(all_locals, next_texpr.to_expr()))
               }
-              None => new_funcs.push(funcs[def_idx])
+              Err(_) => new_funcs.push(funcs[def_idx])
             }
+          }
         }
       }
       mod = mod.with_code_sec(CodeSec::new(new_funcs))
@@ -1699,7 +1678,7 @@ test "global type optimization makes mutable field immutable when no struct.set 
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_get(
@@ -1740,7 +1719,7 @@ test "global type optimization removes unread field and remaps struct indexes" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_get(
@@ -1837,7 +1816,7 @@ test "global type optimization keeps public struct types unchanged" {
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
     )
   let optimized = match global_type_optimization(mod) {
     Ok(next_mod) => next_mod
@@ -1870,7 +1849,7 @@ test "global type optimization updates subtype layout to follow supertype remova
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_get(

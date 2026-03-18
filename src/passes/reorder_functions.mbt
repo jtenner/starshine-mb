@@ -261,16 +261,16 @@ test "reorder_functions reorders defined functions by static use counts and rewr
   ])
   let f0 = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call(FuncIdx::new(2), []),
       TInstr::call(FuncIdx::new(2), []),
     ]),
   )
-  let f1 = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let f1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let f2 = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::drop(TInstr::i32_const(I32(7)))]),
   )
   let mod = Module::new()
@@ -335,10 +335,10 @@ test "reorder_functions reorders defined functions by static use counts and rewr
 ///|
 test "reorder_functions_by_name currently preserves order when symbolic names are absent" {
   let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
-  let f0 = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let f0 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let f1 = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::drop(TInstr::i32_const(I32(1)))]),
   )
   let mod = Module::new()

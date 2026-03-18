@@ -1269,7 +1269,7 @@ fn dce_test_void_module(body : TExpr) -> Module {
   Module::new()
   .with_type_sec(TypeSec::new([sig]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-  .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
 }
 
 ///|

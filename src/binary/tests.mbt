@@ -439,7 +439,7 @@ test "encode_module keeps separated TFunc locals even when they share a param-pr
       CodeSec::new([
         Func::t_func(
           [ValType::i32(), ValType::i64()],
-          [ValType::i32(), ValType::i64(), ValType::f32()],
+          Locals::from_types([ValType::i32(), ValType::i64(), ValType::f32()]),
           TExpr::new([TInstr::local_get(LocalIdx::new(4))]),
         ),
       ]),
@@ -453,25 +453,16 @@ test "encode_module keeps separated TFunc locals even when they share a param-pr
     Err(e) => fail("expected decode success, got \{e}")
   }
   match decoded.code_sec {
-    Some(
-      CodeSec(
-        [
-          Func(
-            [
-              Locals(1U, NumTypeValType(I32NumType)),
-              Locals(1U, NumTypeValType(I64NumType)),
-              Locals(1U, NumTypeValType(F32NumType)),
-            ],
-            _
-          ),
-        ]
+    Some(CodeSec([Func(locals, _)])) =>
+      assert_eq(
+        locals,
+        Locals::from_types([ValType::i32(), ValType::i64(), ValType::f32()]),
       )
-    ) => ()
     Some(CodeSec([TFunc(_, locals, _)])) => {
       assert_eq(locals.length(), 3)
-      assert_eq(locals[0], ValType::i32())
-      assert_eq(locals[1], ValType::i64())
-      assert_eq(locals[2], ValType::f32())
+      assert_eq(locals.at(0), Some(ValType::i32()))
+      assert_eq(locals.at(1), Some(ValType::i64()))
+      assert_eq(locals.at(2), Some(ValType::f32()))
     }
     _ =>
       fail(
@@ -492,7 +483,7 @@ test "encode_module keeps typed-function body locals without prefix stripping" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [ValType::i32(), ValType::i64()],
+          Locals::from_types([ValType::i32(), ValType::i64()]),
           TExpr::new([TInstr::local_get(LocalIdx::new(2))]),
         ),
       ]),
@@ -506,19 +497,8 @@ test "encode_module keeps typed-function body locals without prefix stripping" {
     Err(e) => fail("expected decode success, got \{e}")
   }
   match decoded.code_sec {
-    Some(
-      CodeSec(
-        [
-          Func(
-            [
-              Locals(1U, NumTypeValType(I32NumType)),
-              Locals(1U, NumTypeValType(I64NumType)),
-            ],
-            _
-          ),
-        ]
-      )
-    ) => ()
+    Some(CodeSec([Func(locals, _)])) =>
+      assert_eq(locals, Locals::from_types([ValType::i32(), ValType::i64()]))
     Some(CodeSec([Func(locals, _)])) =>
       fail("expected two declared body locals [i32, i64], got \{locals}")
     _ => fail("expected single decoded function body")
@@ -1207,7 +1187,7 @@ test "encode section payload errors propagate from nested values" {
 
   let bad_code_sec = CodeSec::new([
     Func::new(
-      [],
+      Locals::empty(),
       Expr::new([
         Instruction::block(BlockType::type_idx(TypeIdx::rec(0)), Expr::new([])),
       ]),

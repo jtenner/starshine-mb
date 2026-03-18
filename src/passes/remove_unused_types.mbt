@@ -648,7 +648,7 @@ test "remove_unused_types drops unreachable GC type" {
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
     )
   let out = run_remove_unused_types(mod)
   match out.type_sec {
@@ -681,7 +681,7 @@ test "remove_unused_types keeps transitive type dependencies" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_new(TypeIdx::new(0), [
@@ -714,7 +714,7 @@ test "remove_unused_types remaps references after deletion" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::drop(TInstr::struct_new(TypeIdx::new(1), []))]),
         ),
       ]),

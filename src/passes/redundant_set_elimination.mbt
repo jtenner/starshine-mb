@@ -403,7 +403,7 @@ fn rse_value_of(
 
 ///|
 fn rse_compute_initial_start(
-  locals : Array[ValType],
+  locals : Locals,
   param_count : Int,
   analyzer : RSEValueNumbering,
 ) -> RSELocalValues {
@@ -424,7 +424,7 @@ fn rse_compute_initial_start(
 ///|
 fn rse_flow_values(
   cfg : RSECFG,
-  locals : Array[ValType],
+  locals : Locals,
   param_count : Int,
   analyzer : RSEValueNumbering,
 ) -> RSEFlowState {
@@ -513,7 +513,7 @@ fn rse_flow_values(
 }
 
 ///|
-fn rse_refinable_locals(locals : Array[ValType]) -> Array[Bool] {
+fn rse_refinable_locals(locals : Locals) -> Array[Bool] {
   let out : Array[Bool] = []
   for local_ty in locals {
     match local_ty {
@@ -527,7 +527,7 @@ fn rse_refinable_locals(locals : Array[ValType]) -> Array[Bool] {
 ///|
 fn rse_find_best_refinement(
   env : Env,
-  locals : Array[ValType],
+  locals : Locals,
   refinable : Array[Bool],
   curr_values : RSELocalValues,
   get_idx : LocalIdx,
@@ -572,7 +572,7 @@ fn rse_find_best_refinement(
 ///|
 fn rse_collect_actions(
   cfg : RSECFG,
-  locals : Array[ValType],
+  locals : Locals,
   env : Env,
   flow : RSEFlowState,
   analyzer : RSEValueNumbering,
@@ -883,7 +883,7 @@ test "redundant_set_elimination removes redundant local.set in straight line" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32()],
+        Locals::from_types([ValType::i32()]),
         TExpr::new([
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7))),
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7))),
@@ -918,7 +918,7 @@ test "redundant_set_elimination rewrites redundant local.tee to plain value" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32()],
+        Locals::from_types([ValType::i32()]),
         TExpr::new([
           TInstr::drop(
             TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(3))),
@@ -960,7 +960,7 @@ test "redundant_set_elimination keeps non-redundant local.set" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32()],
+        Locals::from_types([ValType::i32()]),
         TExpr::new([
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(2))),
@@ -986,7 +986,7 @@ test "redundant_set_elimination removes zero-init redundant sets for vars" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32()],
+        Locals::from_types([ValType::i32()]),
         TExpr::new([
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(0))),
         ]),
@@ -1014,7 +1014,7 @@ test "redundant_set_elimination treats params as unknown initial values" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(0))),
           ]),
@@ -1047,7 +1047,7 @@ test "redundant_set_elimination handles params and declared locals in one index 
       CodeSec::new([
         Func::t_func(
           [ValType::i32(), ValType::i32()],
-          [ValType::i32()],
+          Locals::from_types([ValType::i32()]),
           TExpr::new([
             TInstr::local_set(
               LocalIdx::new(2),
@@ -1085,7 +1085,7 @@ test "redundant_set_elimination skips inconsistent local indices instead of abor
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::i32()],
+          Locals::from_types([ValType::i32()]),
           TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(1)))]),
         ),
       ]),
@@ -1100,7 +1100,7 @@ test "redundant_set_elimination removes redundant post-merge set on equal branch
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32(), ValType::i32()],
+        Locals::from_types([ValType::i32(), ValType::i32()]),
         TExpr::new([
           TInstr::if_(
             BlockType::void_(),
@@ -1138,7 +1138,7 @@ test "redundant_set_elimination keeps post-merge set on differing branches" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32(), ValType::i32()],
+        Locals::from_types([ValType::i32(), ValType::i32()]),
         TExpr::new([
           TInstr::if_(
             BlockType::void_(),
@@ -1232,7 +1232,7 @@ test "redundant_set_elimination keeps nested block-local set behavior conservati
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32()],
+        Locals::from_types([ValType::i32()]),
         TExpr::new([
           TInstr::block(
             BlockType::void_(),
@@ -1270,7 +1270,7 @@ test "redundant_set_elimination is idempotent" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32()],
+        Locals::from_types([ValType::i32()]),
         TExpr::new([
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),

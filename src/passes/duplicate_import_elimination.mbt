@@ -191,14 +191,14 @@ test "duplicate import elimination merges duplicate function imports" {
   ])
   let root = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call(FuncIdx::new(1), []),
       TInstr::call(FuncIdx::new(2), []),
       TInstr::call(FuncIdx::new(4), []),
     ]),
   )
-  let callee = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(imports)
@@ -328,14 +328,14 @@ test "duplicate import elimination handles mixed extern kinds and remaps exports
   ])
   let root = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call(FuncIdx::new(1), []),
       TInstr::call(FuncIdx::new(2), []),
       TInstr::call(FuncIdx::new(4), []),
     ]),
   )
-  let callee = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(imports)

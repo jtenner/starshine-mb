@@ -61,6 +61,7 @@ using @lib {
   type Limits,
   type TagType,
   type Export,
+  type LocalRun,
   type Locals,
   type ExternIdx,
   type StorageType,

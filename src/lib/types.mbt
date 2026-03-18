@@ -220,7 +220,16 @@ pub struct Global(GlobalType, Expr) derive(Eq, Arbitrary, Hash, Debug)
 pub struct Export(Name, ExternIdx) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct Locals(UInt, ValType) derive(Eq, Hash, Debug)
+pub struct LocalRun {
+  count : UInt
+  vt : ValType
+} derive(Eq, Hash, Debug)
+
+///|
+pub struct Locals {
+  mut runs : Array[LocalRun]
+  mut indices : Option[Array[Int]]
+} derive(Debug)
 
 ///|
 pub enum DataMode {
@@ -292,8 +301,8 @@ pub struct FuncType(Array[ValType], Array[ValType]) derive(Hash, Eq, Debug)
 
 ///|
 pub enum Func {
-  Func(Array[Locals], Expr)
-  TFunc(Array[ValType], Array[ValType], TExpr)
+  Func(Locals, Expr)
+  TFunc(Array[ValType], Locals, TExpr)
 } derive(Eq, Hash, Debug)
 
 ///|
@@ -8484,14 +8493,29 @@ pub impl Hash for TExpr with hash_combine(self, hasher) {
 }
 
 ///|
-pub fn Func::new(locals : Array[Locals], expr : Expr) -> Func {
+pub impl Eq for Locals with equal(l, r) {
+  l.runs == r.runs
+}
+
+///|
+pub impl Hash for Locals with hash(self) {
+  self.runs.hash()
+}
+
+///|
+pub impl Hash for Locals with hash_combine(self, hasher) {
+  hasher.combine_int(self.hash())
+}
+
+///|
+pub fn Func::new(locals : Locals, expr : Expr) -> Func {
   Func(locals, expr)
 }
 
 ///|
 pub fn Func::t_func(
   params : Array[ValType],
-  locals : Array[ValType],
+  locals : Locals,
   expr : TExpr,
 ) -> Func {
   TFunc(params, locals, expr)
@@ -8742,8 +8766,40 @@ pub fn Export::new(n : Name, ei : ExternIdx) -> Export {
 }
 
 ///|
-pub fn Locals::new(u : UInt, vt : ValType) -> Locals {
-  Locals(u, vt)
+pub fn LocalRun::new(count : UInt, vt : ValType) -> LocalRun {
+  { count, vt }
+}
+
+///|
+pub fn LocalRun::count(self : LocalRun) -> UInt {
+  self.count
+}
+
+///|
+pub fn LocalRun::val_type(self : LocalRun) -> ValType {
+  self.vt
+}
+
+///|
+pub fn Locals::new(runs : Array[LocalRun]) -> Locals {
+  { runs: locals_normalize_runs(runs), indices: None }
+}
+
+///|
+pub fn Locals::empty() -> Locals {
+  Locals::new([])
+}
+
+///|
+pub fn Locals::single(count : UInt, vt : ValType) -> Locals {
+  Locals::new([LocalRun::new(count, vt)])
+}
+
+///|
+pub fn Locals::from_types(types : Array[ValType]) -> Locals {
+  let locals = Locals::empty()
+  locals.append_types(types)
+  locals
 }
 
 ///|

@@ -76,7 +76,7 @@ fn fixture_i32_const_module(value : Int) -> Module {
   Module::new()
   .with_code_sec(
     CodeSec::new([
-      Func::t_func([], [], TExpr::new([TInstr::i32_const(@lib.I32(value))])),
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(@lib.I32(value))])),
     ]),
   )
   .with_type_sec(@lib.TypeSec::new([t_i32]))
@@ -92,7 +92,7 @@ fn fixture_f32_nan_module() -> Module {
   )
   Module::new()
   .with_code_sec(
-    CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::f32_const(nan)]))]),
+    CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::f32_const(nan)]))]),
   )
   .with_type_sec(@lib.TypeSec::new([t_f32]))
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
@@ -108,7 +108,7 @@ fn fixture_mergeable_block_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
-        [],
+        Locals::empty(),
         TExpr::new([
           TInstr::block(
             @lib.BlockType::void_(),
@@ -135,7 +135,7 @@ fn fixture_invalid_drop_nop_module() -> Module {
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
   .with_code_sec(
     CodeSec::new([
-      Func::t_func([], [], TExpr::new([TInstr::drop(TInstr::nop())])),
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::drop(TInstr::nop())])),
     ]),
   )
 }
@@ -173,8 +173,8 @@ fn fixture_merge_similar_repro_module() -> Module {
   )
   .with_code_sec(
     CodeSec::new([
-      Func::t_func([@lib.ValType::i32()], [], binary_body(42, 10)),
-      Func::t_func([@lib.ValType::i32()], [], binary_body(43, 10)),
+      Func::t_func([@lib.ValType::i32()], Locals::empty(), binary_body(42, 10)),
+      Func::t_func([@lib.ValType::i32()], Locals::empty(), binary_body(43, 10)),
     ]),
   )
 }

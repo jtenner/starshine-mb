@@ -150,7 +150,7 @@ fn validate_trace_deep_control_module() -> @lib.Module {
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
   .with_code_sec(
     @lib.CodeSec::new([
-      @lib.Func::t_func([@lib.ValType::i32()], [], @lib.TExpr::new([body])),
+      @lib.Func::t_func([@lib.ValType::i32()], @lib.Locals::from_types([]), @lib.TExpr::new([body])),
     ]),
   )
 }
@@ -158,7 +158,7 @@ fn validate_trace_deep_control_module() -> @lib.Module {
 ///|
 fn validate_trace_wide_locals_module() -> @lib.Module {
   let local_count = 384
-  let locals : Array[@lib.ValType] = []
+  let locals = @lib.Locals::empty()
   for _ in 0..<local_count {
     locals.push(@lib.ValType::i32())
   }
@@ -204,7 +204,7 @@ fn validate_trace_large_codesec_module() -> @lib.Module {
     funcs.push(
       @lib.Func::t_func(
         [],
-        [],
+        @lib.Locals::empty(),
         @lib.TExpr::new([
           @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32(i))),
           @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32(i + 1))),
@@ -258,7 +258,7 @@ fn validate_trace_ref_func_heavy_module() -> @lib.Module {
       )
       body_instrs.push(@lib.TInstr::drop(@lib.TInstr::ref_func(target)))
     }
-    funcs.push(@lib.Func::t_func([], [], @lib.TExpr::new(body_instrs)))
+    funcs.push(@lib.Func::t_func([], @lib.Locals::from_types([]), @lib.TExpr::new(body_instrs)))
   }
   let elem_decls = @lib.Elem::new(
     @lib.ElemMode::declarative(),

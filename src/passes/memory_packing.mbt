@@ -1269,7 +1269,7 @@ fn create_replacements(
 ///|
 priv struct MPRewriteFuncState {
   mut next_local : Int
-  new_locals : Array[ValType]
+  new_locals : Locals
 }
 
 ///|
@@ -1979,7 +1979,7 @@ test "memory packing splits passive segment around large zero ranges" {
   let mod = mp_make_module_with_data(
     [MemType::new(Limits::i32(1, None))],
     [data],
-    funcs=[Func::t_func([], [], body)],
+    funcs=[Func::t_func([], Locals::empty(), body)],
   )
   let out = mp_run(mod)
   match out.data_sec {
@@ -2011,7 +2011,7 @@ test "memory packing keeps small interior zero spans in passive segment" {
   let mod = mp_make_module_with_data(
     [MemType::new(Limits::i32(1, None))],
     [data],
-    funcs=[Func::t_func([], [], body)],
+    funcs=[Func::t_func([], Locals::empty(), body)],
   )
   let out = mp_run(mod)
   match out.data_sec {
@@ -2049,7 +2049,7 @@ test "memory packing merges small passive edge zero ranges by edgeThreshold" {
   let mod = mp_make_module_with_data(
     [MemType::new(Limits::i32(1, None))],
     [data],
-    funcs=[Func::t_func([], [], body)],
+    funcs=[Func::t_func([], Locals::empty(), body)],
   )
   let out = mp_run(mod)
   match out.data_sec {
@@ -2104,7 +2104,7 @@ test "memory packing keeps empty segments unsplit" {
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
     .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
     .with_data_sec(DataSec::new([data]))
   let out = mp_run(mod)
@@ -2178,7 +2178,7 @@ test "memory packing rewrites memory.init with zero/non-zero ranges" {
   let mod = mp_make_module_with_data(
     [MemType::new(Limits::i32(1, None))],
     [data],
-    funcs=[Func::t_func([], [], body)],
+    funcs=[Func::t_func([], Locals::empty(), body)],
   )
   let out = mp_run(mod)
   let new_body = mp_first_body(out)
@@ -2207,7 +2207,7 @@ test "memory packing keeps non-zero-only memory.init without fill" {
   let mod = mp_make_module_with_data(
     [MemType::new(Limits::i32(1, None))],
     [data],
-    funcs=[Func::t_func([], [], body)],
+    funcs=[Func::t_func([], Locals::empty(), body)],
   )
   let out = mp_run(mod)
   let new_body = mp_first_body(out)
@@ -2243,7 +2243,7 @@ test "memory packing introduces temp local for non-const memory.init dest" {
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
     .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
     .with_data_sec(DataSec::new([data]))
   let out = mp_run(mod)
@@ -2274,7 +2274,7 @@ test "memory packing zero-length memory.init emits explicit trap check" {
   let mod = mp_make_module_with_data(
     [MemType::new(Limits::i32(1, None))],
     [data],
-    funcs=[Func::t_func([], [], body)],
+    funcs=[Func::t_func([], Locals::empty(), body)],
   )
   let out = mp_run(mod)
   let body = mp_first_body(out)
@@ -2303,7 +2303,7 @@ test "memory packing creates drop-state global for fill-first rewrite and rewrit
   let mod = mp_make_module_with_data(
     [MemType::new(Limits::i32(1, None))],
     [data],
-    funcs=[Func::t_func([], [], body)],
+    funcs=[Func::t_func([], Locals::empty(), body)],
   )
   let out = mp_run(mod)
   assert_eq(mp_global_count(out), 1)
@@ -2340,7 +2340,7 @@ test "memory packing avoids drop-state global when no fill-first hazard" {
   let mod = mp_make_module_with_data(
     [MemType::new(Limits::i32(1, None))],
     [data],
-    funcs=[Func::t_func([], [], body)],
+    funcs=[Func::t_func([], Locals::empty(), body)],
   )
   let out = mp_run(mod)
   assert_eq(mp_global_count(out), 0)
@@ -2353,7 +2353,7 @@ test "memory packing drops passive segment only used by data.drop" {
   let mod = mp_make_module_with_data(
     [MemType::new(Limits::i32(1, None))],
     [data],
-    funcs=[Func::t_func([], [], body)],
+    funcs=[Func::t_func([], Locals::empty(), body)],
   )
   let out = mp_run(mod)
   match out.data_sec {
@@ -2382,7 +2382,7 @@ test "memory packing keeps passive segment referenced by memory.init" {
   let mod = mp_make_module_with_data(
     [MemType::new(Limits::i32(1, None))],
     [data],
-    funcs=[Func::t_func([], [], body)],
+    funcs=[Func::t_func([], Locals::empty(), body)],
   )
   let out = mp_run(mod)
   match out.data_sec {

@@ -387,7 +387,7 @@ fn ml_sets_exactly_set_id(sets : Set[MLSSetRef], set_id : Int) -> Bool {
 }
 
 ///|
-fn ml_local_type(locals : Array[ValType], idx : LocalIdx) -> ValType? {
+fn ml_local_type(locals : Locals, idx : LocalIdx) -> ValType? {
   let i = ml_local_idx_to_int(idx)
   if i < 0 || i >= locals.length() {
     None
@@ -398,7 +398,7 @@ fn ml_local_type(locals : Array[ValType], idx : LocalIdx) -> ValType? {
 
 ///|
 fn ml_local_types_equal(
-  locals : Array[ValType],
+  locals : Locals,
   a : LocalIdx,
   b : LocalIdx,
 ) -> Bool {
@@ -413,7 +413,7 @@ fn ml_can_rewrite_gets(
   graph : MLLocalGraphSnapshot,
   get_ids : Array[Int],
   required_set_id : Int,
-  locals : Array[ValType],
+  locals : Locals,
   target_local_idx : LocalIdx,
   planned_rewrites : Map[Int, LocalIdx],
 ) -> Bool {

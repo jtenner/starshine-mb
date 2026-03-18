@@ -19,7 +19,7 @@ fn optimize_tfunc_with_ssa(
   ctx : IRContext,
   mod : Module,
   params : Array[ValType],
-  locals : Array[ValType],
+  locals : Locals,
   body : TExpr,
   trace? : (String) -> Unit = fn(_) { () },
 ) -> (Array[ValType], TExpr)? {
@@ -505,7 +505,7 @@ fn ssa_nomerge_apply_rewrites(
 ///|
 fn ssa_nomerge_tfunc(
   params : Array[ValType],
-  locals : Array[ValType],
+  locals : Locals,
   body : TExpr,
 ) -> (Array[ValType], TExpr, Bool) {
   let function_locals = FunctionLocals::new(params, locals)
@@ -856,7 +856,7 @@ test "dataflow optimization pass folds simple constants via SSA" {
     ),
     TInstr::return_([TInstr::local_get(LocalIdx::new(0))]),
   ])
-  let func = Func::t_func([], [ValType::i32()], body)
+  let func = Func::t_func([], Locals::from_types([ValType::i32()]), body)
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = dataflow_optimization_pass(mod)
   let ctx = IRContext::new()
@@ -877,7 +877,7 @@ test "dataflow optimization pass simplifies const multi-block if" {
       Some(TExpr::new([TInstr::return_([TInstr::i32_const(I32(9))])])),
     ),
   ])
-  let func = Func::t_func([], [], body)
+  let func = Func::t_func([], Locals::empty(), body)
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = dataflow_optimization_pass(mod)
   let ctx = IRContext::new()
@@ -951,7 +951,7 @@ test "dataflow optimization preserves valid locals for parameterized functions" 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([func_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [ValType::i32()], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::from_types([ValType::i32()]), body)]))
   let pass = dataflow_optimization_pass(mod)
   let ctx = IRContext::new()
   let result = pass.walk_module(ctx, mod)
@@ -972,7 +972,7 @@ test "ssa no-merge renames single-reaching sets without merge gets" {
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(2))),
     TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
   ])
-  let func = Func::t_func([], [ValType::i32()], body)
+  let func = Func::t_func([], Locals::from_types([ValType::i32()]), body)
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = ssa_nomerge_pass(mod)
   let result = pass.walk_module((), mod)
@@ -1029,7 +1029,7 @@ test "ssa no-merge preserves merge-reaching gets" {
     ),
     TInstr::return_([TInstr::local_get(LocalIdx::new(0))]),
   ])
-  let func = Func::t_func([], [ValType::i32()], body)
+  let func = Func::t_func([], Locals::from_types([ValType::i32()]), body)
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = ssa_nomerge_pass(mod)
   let result = pass.walk_module((), mod)
@@ -1065,7 +1065,7 @@ test "ssa no-merge preserves loop-carried gets" {
       ]),
     ),
   ])
-  let func = Func::t_func([], [ValType::i32()], body)
+  let func = Func::t_func([], Locals::from_types([ValType::i32()]), body)
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = ssa_nomerge_pass(mod)
   let result = pass.walk_module((), mod)
@@ -1144,12 +1144,12 @@ test "ssa no-merge preserves externref table-set values across control-flow rewr
   )
   let malloc = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let gc_malloc = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let alloc_body = TExpr::new([

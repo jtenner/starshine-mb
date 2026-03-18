@@ -16,7 +16,7 @@
 
 ///|
 priv struct TGState {
-  original_locals : Array[ValType]
+  original_locals : Locals
   requirements : Array[ValType]
   param_count : Int
   return_types : Array[ValType]
@@ -110,7 +110,7 @@ fn tg_count_imported_funcs(mod : Module) -> UInt {
 ///|
 fn tg_init_requirements(
   params : Array[ValType],
-  locals : Array[ValType],
+  locals : Locals,
   env : Env,
 ) -> Array[ValType] {
   let reqs = params.copy()
@@ -677,7 +677,7 @@ fn tg_run_dce_body(body : TExpr) -> TExpr {
 fn tg_generalize_function(
   params : Array[ValType],
   results : Array[ValType],
-  locals : Array[ValType],
+  locals : Locals,
   body : TExpr,
   base_env : Env,
 ) -> (Array[ValType], TExpr, Bool) {
@@ -712,7 +712,7 @@ fn tg_generalize_function(
   }
 
   let mut locals_changed = false
-  let new_locals : Array[ValType] = []
+  let new_locals : Locals = Locals::empty()
   for i = params.length(); i < full_locals.length(); i = i + 1 {
     let old_type = full_locals[i]
     let new_type = match old_type {
@@ -799,7 +799,7 @@ fn tg_funcref_to_type0_nullable() -> ValType {
 fn tg_single_func_module(
   types : Array[RecType],
   func_type_idx : TypeIdx,
-  locals : Array[ValType],
+  locals : Locals,
   body : TExpr,
 ) -> Module {
   let base = Module::new()
@@ -934,10 +934,10 @@ test "type generalizing generalizes concrete struct local when only anyref is re
     .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(2)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([ValType::anyref()], [], TExpr::new([TInstr::nop()])),
+        Func::t_func([ValType::anyref()], Locals::empty(), TExpr::new([TInstr::nop()])),
         Func::t_func(
           [],
-          [ValType::ref_null(HeapType::new(TypeIdx::new(0)))],
+          Locals::from_types([ValType::ref_null(HeapType::new(TypeIdx::new(0)))]),
           TExpr::new([
             TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
           ]),

@@ -393,7 +393,7 @@ priv struct Applier {
   node_instrs : Array[TInstr]
   request_infos : Array[RequestInfo?]
   mut next_id : Int
-  locals : Array[ValType]
+  locals : Locals
   mut original_to_local : Map[Int, LocalIdx]
   mut changed : Bool
 }
@@ -404,7 +404,7 @@ fn Applier::new(
   param_types : Array[ValType],
   node_instrs : Array[TInstr],
   request_infos : Array[RequestInfo?],
-  locals : Array[ValType],
+  locals : Locals,
 ) -> Applier {
   {
     env,
@@ -2170,7 +2170,7 @@ fn lcs_has_live_requests(request_infos : Array[RequestInfo?]) -> Bool {
 fn run_local_cse_on_func(
   env : Env,
   param_types : Array[ValType],
-  locals : Array[ValType],
+  locals : Locals,
   body : TExpr,
   shrink_level : Int,
   helper_timing_enabled? : Bool = false,
@@ -2544,7 +2544,7 @@ fn count_local_gets(body : TExpr) -> Int {
 test "local cse rewrites repeated whole trees inside block" {
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(
         TInstr::binary(
@@ -2583,7 +2583,7 @@ test "local cse does not connect across non-linear boundaries" {
   )
   let func = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::drop(repeated),
       TInstr::if_(
@@ -2613,7 +2613,7 @@ test "local cse suppresses direct-child reuse when parent is repeated" {
   let parent = TInstr::binary(BinaryOp::i32_mul(), child, child)
   let func = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::drop(parent), TInstr::drop(parent)]),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -2639,7 +2639,7 @@ test "local cse checker invalidates across memory interference" {
   )
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(repeated_load),
       TInstr::store(
@@ -2669,7 +2669,7 @@ test "local cse allows trap-only operations as candidates" {
   )
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::drop(repeated_load), TInstr::drop(repeated_load)]),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -2685,7 +2685,7 @@ test "local cse allows trap-only operations as candidates" {
 test "local cse ignores trivial constants and local.get" {
   let func = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::drop(TInstr::i32_const(I32(5))),
       TInstr::drop(TInstr::i32_const(I32(5))),
@@ -2709,7 +2709,7 @@ test "local cse shrink mode requires larger nodes" {
   )
   let func = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::drop(repeated), TInstr::drop(repeated)]),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -2729,7 +2729,7 @@ test "local cse is idempotent" {
   )
   let func = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::drop(repeated), TInstr::drop(repeated)]),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -2755,7 +2755,7 @@ test "local cse helper locals account for parameter indices" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::drop(repeated), TInstr::drop(repeated)]),
         ),
       ]),

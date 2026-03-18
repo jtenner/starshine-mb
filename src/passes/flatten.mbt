@@ -436,7 +436,7 @@ fn FLFuncTraceState::new(
 ///|
 priv struct FLFuncState {
   mut env : Env
-  locals : Array[ValType]
+  locals : Locals
   break_temps : Map[FLBreakTempKey, LocalIdx]
   mut changed : Bool
   localize_branch_values : Bool
@@ -450,7 +450,7 @@ priv struct FLFuncState {
 ///|
 fn FLFuncState::new(
   env : Env,
-  locals : Array[ValType],
+  locals : Locals,
   localize_branch_values? : Bool = false,
   trace_state? : FLFuncTraceState? = None,
 ) -> FLFuncState {
@@ -1614,7 +1614,7 @@ fn fl_run_flatten_module_with_trace(
               "phase=flatten_body:done elapsed_ms=\{fl_trace_elapsed_ms(flatten_start_ms)} top_instrs=\{start_top_instrs}->\{end_top_instrs}",
             )
 
-            let next_non_param_locals : Array[ValType] = []
+            let next_non_param_locals : Locals = Locals::empty()
             for local_idx in params.length()..<state.locals.length() {
               next_non_param_locals.push(state.locals[local_idx])
             }
@@ -1821,7 +1821,7 @@ test "flatten keeps local.tee intact in value positions" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32()],
+        Locals::from_types([ValType::i32()]),
         TExpr::new([
           TInstr::drop(
             TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(9))),
@@ -1855,7 +1855,7 @@ test "flatten: nested local.tee call arguments remain valid and idempotent" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32(), ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::binary(
               BinaryOp::i32_add(),
@@ -1866,7 +1866,7 @@ test "flatten: nested local.tee call arguments remain valid and idempotent" {
         ),
         Func::t_func(
           [],
-          [ValType::i32(), ValType::i32()],
+          Locals::from_types([ValType::i32(), ValType::i32()]),
           TExpr::new([
             TInstr::call(FuncIdx::new(0), [
               TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(9))),
@@ -1908,7 +1908,7 @@ test "flatten preserves value-position if result form" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32(), ValType::i32()],
+        Locals::from_types([ValType::i32(), ValType::i32()]),
         TExpr::new([
           TInstr::drop(
             TInstr::if_(
@@ -2835,7 +2835,7 @@ test "flatten supports br_on family instructions and keeps them present" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::funcref()],
+        Locals::from_types([ValType::funcref()]),
         TExpr::new([
           TInstr::drop(
             TInstr::br_on_null(
@@ -2891,7 +2891,7 @@ test "flatten keeps br_on value flow in value position" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::funcref()],
+        Locals::from_types([ValType::funcref()]),
         TExpr::new([
           TInstr::drop(
             TInstr::br_on_null(
@@ -2943,7 +2943,7 @@ test "flatten preserves carried values for br_on variants in value position" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::funcref()],
+        Locals::from_types([ValType::funcref()]),
         TExpr::new([
           TInstr::drop(
             TInstr::br_on_null(
@@ -3039,7 +3039,7 @@ test "flatten preserves try_table value result in value position" {
     CodeSec::new([
       Func::t_func(
         [],
-        [],
+        Locals::empty(),
         TExpr::new([
           TInstr::drop(
             TInstr::try_table(
@@ -3080,7 +3080,7 @@ test "flatten output with br_on_null and try_table remains valid and idempotent"
       CodeSec::new([
         Func::t_func(
           [nullable_target_ref],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::block(
               BlockType::void_(),
@@ -3119,7 +3119,7 @@ test "flatten output with br_on_null and try_table remains valid and idempotent"
 fn fl_mk_valid_one_func_module(
   params : Array[ValType],
   results : Array[ValType],
-  locals : Array[ValType],
+  locals : Locals,
   body : TExpr,
 ) -> Module {
   // Create a single rec type containing a single func type.
@@ -3441,7 +3441,7 @@ test "flatten: br_on_null targeting result block remains valid" {
       CodeSec::new([
         Func::t_func(
           [nullable_target_ref],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::block(
               BlockType::val_type(ValType::i32()),
@@ -3542,7 +3542,7 @@ test "flatten: br_on_non_null targeting ref result block remains valid" {
       CodeSec::new([
         Func::t_func(
           [nullable_target_ref],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::block(

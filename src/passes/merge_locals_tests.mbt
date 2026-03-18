@@ -91,7 +91,7 @@ fn ml_many_copy_func(pair_count : Int) -> Func {
     instrs.push(TInstr::local_set(x, TInstr::local_get(y)))
     instrs.push(TInstr::drop(TInstr::local_get(y)))
   }
-  Func::t_func([], [ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  Func::t_func([], Locals::from_types([ValType::i32(), ValType::i32()]), TExpr::new(instrs))
 }
 
 ///|
@@ -100,7 +100,7 @@ fn ml_simple_copy_func() -> Func {
   let x = LocalIdx::new(1)
   Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new([
       TInstr::local_set(y, TInstr::i32_const(I32(1))),
       TInstr::local_set(x, TInstr::local_get(y)),
@@ -115,7 +115,7 @@ test "merge locals instrumentation is cleaned up" {
   let x = LocalIdx::new(1)
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new([
       TInstr::local_set(y, TInstr::i32_const(I32(1))),
       TInstr::local_set(x, TInstr::local_get(y)),
@@ -142,7 +142,7 @@ test "merge locals only instruments exact local.get copies with distinct indices
     TInstr::local_set(a, TInstr::local_get(a)),
     TInstr::drop(TInstr::local_get(b)),
   ])
-  let func = Func::t_func([], [ValType::i32(), ValType::i32()], input_body)
+  let func = Func::t_func([], Locals::from_types([ValType::i32(), ValType::i32()]), input_body)
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let out = ml_run_merge_locals(mod)
   let body = ml_single_func_body(out)
@@ -156,7 +156,7 @@ test "merge locals optimize-to-copy rewrites y gets to x" {
   let x = LocalIdx::new(1)
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new([
       TInstr::local_set(y, TInstr::i32_const(I32(5))),
       TInstr::local_set(x, TInstr::local_get(y)),
@@ -176,7 +176,7 @@ test "merge locals optimize-to-copy rejects phi like reaches" {
   let x = LocalIdx::new(1)
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new([
       TInstr::local_set(y, TInstr::i32_const(I32(1))),
       TInstr::local_set(x, TInstr::local_get(y)),
@@ -204,7 +204,7 @@ test "merge locals optimize-to-copy requires exact type equality" {
   let x = LocalIdx::new(1)
   let func = Func::t_func(
     [],
-    [funcref_nullable, ValType::anyref()],
+    Locals::from_types([funcref_nullable, ValType::anyref()]),
     TExpr::new([
       TInstr::local_set(y, TInstr::ref_null(HeapType::abs(AbsHeapType::func()))),
       TInstr::local_set(x, TInstr::local_get(y)),
@@ -223,7 +223,7 @@ test "merge locals optimize-to-trivial rewrites x gets to y" {
   let x = LocalIdx::new(1)
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new([
       TInstr::local_set(y, TInstr::i32_const(I32(7))),
       TInstr::local_set(x, TInstr::local_get(y)),
@@ -251,7 +251,7 @@ test "merge locals optimize-to-trivial rejects phi like reaches" {
   let x = LocalIdx::new(1)
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new([
       TInstr::local_set(y, TInstr::i32_const(I32(7))),
       TInstr::local_set(x, TInstr::local_get(y)),
@@ -281,7 +281,7 @@ test "merge locals optimize-to-trivial requires exact type equality" {
   let x = LocalIdx::new(1)
   let func = Func::t_func(
     [],
-    [funcref_nullable, ValType::anyref()],
+    Locals::from_types([funcref_nullable, ValType::anyref()]),
     TExpr::new([
       TInstr::local_set(y, TInstr::ref_null(HeapType::abs(AbsHeapType::func()))),
       TInstr::local_set(x, TInstr::local_get(y)),
@@ -301,7 +301,7 @@ test "merge locals post verification undoes optimize-to-copy on conflict" {
   let x = LocalIdx::new(1)
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new([
       TInstr::local_set(y, TInstr::i32_const(I32(1))),
       TInstr::local_set(x, TInstr::local_get(y)),
@@ -321,7 +321,7 @@ test "merge locals post verification undoes optimize-to-trivial on conflict" {
   let x = LocalIdx::new(1)
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new([
       TInstr::local_set(y, TInstr::i32_const(I32(1))),
       TInstr::local_set(x, TInstr::local_get(y)),
@@ -343,7 +343,7 @@ test "merge locals applies rewrites all or nothing per copy" {
   let x = LocalIdx::new(1)
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new([
       TInstr::local_set(y, TInstr::i32_const(I32(1))),
       TInstr::local_set(x, TInstr::local_get(y)),
@@ -371,7 +371,7 @@ test "merge locals handles multiple copy sites independently" {
   let d = LocalIdx::new(3)
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()]),
     TExpr::new([
       TInstr::local_set(a, TInstr::i32_const(I32(1))),
       TInstr::local_set(b, TInstr::local_get(a)),
@@ -393,7 +393,7 @@ test "merge locals is idempotent" {
   let x = LocalIdx::new(1)
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new([
       TInstr::local_set(y, TInstr::i32_const(I32(9))),
       TInstr::local_set(x, TInstr::local_get(y)),

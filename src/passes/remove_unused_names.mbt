@@ -1914,7 +1914,7 @@ fn run_single_func(mod : Module) -> Func {
 test "remove_unused_names skips walk when no candidates exist" {
   let body = TExpr::new([TInstr::drop(TInstr::i32_const(I32(1)))])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let out = run_remove_unused_names(mod)
   assert_eq(out, mod)
@@ -1934,7 +1934,7 @@ test "remove_unused_names merges single-child same-typed nested blocks" {
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
@@ -1977,7 +1977,7 @@ test "remove_unused_names retargets branch depth when merging nested blocks" {
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
@@ -2027,7 +2027,7 @@ test "remove_unused_names preserves typed branch target arity after nested block
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
@@ -2098,7 +2098,7 @@ test "remove_unused_names skips merge when nested if branches target removed blo
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [ValType::i32()], body)]),
+    CodeSec::new([Func::t_func([], Locals::from_types([ValType::i32()]), body)]),
   )
   let out = run_remove_unused_names(mod)
   assert_eq(out, mod)
@@ -2110,7 +2110,7 @@ test "remove_unused_names rewrites loop to block when no continue branch remains
     TInstr::loop_(BlockType::void_(), TExpr::new([TInstr::i32_const(I32(3))])),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
@@ -2143,7 +2143,7 @@ test "remove_unused_names keeps loop when body branches to loop label" {
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
@@ -2161,7 +2161,7 @@ test "remove_unused_names rewrites non-void loop to block when no continue branc
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {

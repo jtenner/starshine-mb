@@ -5186,7 +5186,7 @@ fn rub_collect_tag_payload_types(mod : Module) -> Map[TagIdx, Array[ValType]] {
 ///|
 fn rub_append_scratch_locals_to_func(
   func : Func,
-  scratch_locals : Array[ValType],
+  scratch_locals : Locals,
 ) -> Func {
   if scratch_locals.length() == 0 {
     return func
@@ -12592,7 +12592,7 @@ test "remove_unused_brs rewrites try_table throw to branch for catch_all_ref via
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
@@ -12891,7 +12891,7 @@ test "remove_unused_brs keeps try_table throw_ref when leading catch_ref blocks 
       CodeSec::new([
         Func::t_func(
           [exnref],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::val_type(exnref),
@@ -13061,7 +13061,7 @@ test "remove_unused_brs rewrites nested throw under catch_ref to branch with mat
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
@@ -13141,7 +13141,7 @@ test "remove_unused_brs rewrites nested throw under catch_all_ref to branch with
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
@@ -13255,7 +13255,7 @@ test "remove_unused_brs rewrites try_table throw to branch for catch_ref when pa
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
@@ -13323,7 +13323,7 @@ test "remove_unused_brs rewrites try_table throw to branch for catch_ref with pa
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
@@ -13375,7 +13375,7 @@ test "remove_unused_brs rewrites try_table throw to branch for catch_ref with pa
         ],
         ..,
       }
-    ) => assert_eq(locals, [ValType::i32()])
+    ) => assert_eq(locals, Locals::from_types([ValType::i32()]))
     _ =>
       fail(
         "expected catch_ref try_table throw with payload to rewrite to a branch carrying payload+materialized exnref",
@@ -13402,7 +13402,7 @@ test "remove_unused_brs rewrites multi-instr throw under catch_ref with payload 
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
@@ -13456,7 +13456,7 @@ test "remove_unused_brs rewrites multi-instr throw under catch_ref with payload 
         ],
         ..,
       }
-    ) => assert_eq(locals, [ValType::i32()])
+    ) => assert_eq(locals, Locals::from_types([ValType::i32()]))
     _ =>
       fail(
         "expected multi-instr throw under catch_ref with payload to rewrite to payload+materialized-exnref branch",
@@ -13479,7 +13479,7 @@ test "remove_unused_brs rewrites try_table throw to branch for catch_all_ref via
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
@@ -13547,7 +13547,7 @@ test "remove_unused_brs rewrites throw_ref under catch_ref when exnref is static
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
@@ -13603,7 +13603,7 @@ test "remove_unused_brs rewrites throw_ref under catch_ref when exnref is static
         ],
         ..,
       }
-    ) => assert_eq(locals, [ValType::i32()])
+    ) => assert_eq(locals, Locals::from_types([ValType::i32()]))
     _ =>
       fail(
         "expected throw_ref with statically-materialized matching exnref to rewrite through catch_ref",
@@ -13626,7 +13626,7 @@ test "remove_unused_brs rewrites multi-instr throw when enclosing catcher is cat
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
@@ -13694,7 +13694,7 @@ test "remove_unused_brs rewrites multi-instr throw when enclosing catcher is cat
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
@@ -13764,7 +13764,7 @@ test "remove_unused_brs is idempotent" {
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [ValType::i32()], body)]),
+    CodeSec::new([Func::t_func([], Locals::from_types([ValType::i32()]), body)]),
   )
   let once = rub_run(mod)
   let twice = rub_run(once)

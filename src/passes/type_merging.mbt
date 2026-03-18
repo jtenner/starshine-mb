@@ -1588,7 +1588,7 @@ fn tm_br_on_cast_exactness_module(exact : Bool) -> Module {
     CodeSec::new([
       Func::t_func(
         [],
-        [],
+        Locals::empty(),
         TExpr::new([
           TInstr::drop(TInstr::struct_new(TypeIdx::new(1), [])),
           tm_br_on_cast_exactness_observer(exact),
@@ -1644,7 +1644,7 @@ fn tm_br_on_cast_mixed_exactness_module(
     CodeSec::new([
       Func::t_func(
         [],
-        [],
+        Locals::empty(),
         TExpr::new([
           TInstr::drop(TInstr::struct_new(TypeIdx::new(1), [])),
           tm_br_on_cast_mixed_observer(src_ht, dst_nullable, dst_ht),
@@ -1669,7 +1669,7 @@ test "type_merging merges private subtype into identical supertype" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::drop(TInstr::struct_new(TypeIdx::new(1), []))]),
         ),
       ]),
@@ -1720,7 +1720,7 @@ test "type_merging does not merge cast-target type" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(TInstr::struct_new(TypeIdx::new(1), [])),
             TInstr::drop(
@@ -1782,7 +1782,7 @@ test "type_merging merges identical siblings" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_new(TypeIdx::new(1), [TInstr::i32_const(I32(1))]),
@@ -1863,7 +1863,7 @@ test "type_merging does not merge public type" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::ref_null(HeapType::new(TypeIdx::new(1)))]),
         ),
       ]),
@@ -1912,7 +1912,7 @@ test "type_merging treats call_indirect cast barrier as trap-mode sensitive" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(2),
@@ -1922,7 +1922,7 @@ test "type_merging treats call_indirect cast barrier as trap-mode sensitive" {
             ),
           ]),
         ),
-        Func::t_func([], [], TExpr::new([TInstr::nop()])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
       ]),
     )
 
@@ -1998,7 +1998,7 @@ test "type_merging exact descriptor casts on supertype block subtype merge" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(TInstr::struct_new(TypeIdx::new(1), [])),
             TInstr::drop(
@@ -2268,7 +2268,7 @@ test "type_merging merges mutually-recursive sibling shapes via partition refine
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_new(TypeIdx::new(1), [

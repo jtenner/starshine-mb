@@ -204,7 +204,7 @@ test "untee rewrites local.tee into result-typed block with set/get" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32()],
+        Locals::from_types([ValType::i32()]),
         TExpr::new([
           TInstr::drop(
             TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(7))),
@@ -268,7 +268,7 @@ test "untee drops unreachable local.tee to unreachable value" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32()],
+        Locals::from_types([ValType::i32()]),
         TExpr::new([
           TInstr::drop(
             TInstr::local_tee(LocalIdx::new(0), TInstr::unreachable_()),
@@ -316,7 +316,7 @@ test "untee uses parameter local type for block result" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(11))),

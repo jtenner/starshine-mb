@@ -251,7 +251,7 @@ fn mbp_try_table_catch_ref_no_params_module() -> Module {
   )
   .with_tag_sec(TagSec::new([tag_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-  .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
 }
 
 ///|
@@ -283,7 +283,7 @@ fn mbp_try_table_catch_targeting_origin_blocked_module() -> Module {
   )
   .with_tag_sec(TagSec::new([tag_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-  .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
 }
 
 ///|
@@ -313,7 +313,7 @@ fn mbp_try_table_catch_all_targeting_origin_blocked_module() -> Module {
   )
   .with_tag_sec(TagSec::new([tag_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-  .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
 }
 
 ///|
@@ -343,7 +343,7 @@ fn mbp_try_table_catch_ref_paramful_blocked_module() -> Module {
   )
   .with_tag_sec(TagSec::new([tag_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-  .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
 }
 
 ///|
@@ -373,8 +373,8 @@ fn mbp_restructure_effect_collision_module() -> Module {
   .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
   .with_code_sec(
     CodeSec::new([
-      Func::t_func([], [], body),
-      Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(9))])),
+      Func::t_func([], Locals::empty(), body),
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(9))])),
     ]),
   )
 }

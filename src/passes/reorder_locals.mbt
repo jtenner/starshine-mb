@@ -154,13 +154,13 @@ fn rl_reorder_function(
       for i = 0; i < param_count; i = i + 1 {
         kept_new_to_old.push(i)
       }
-      let reordered_locals : Array[ValType] = []
+      let reordered_locals = Locals::empty()
       let mut i = param_count
       while i < new_to_old.length() {
         let old_idx = new_to_old[i]
         if counts[old_idx] > 0 {
           kept_new_to_old.push(old_idx)
-          reordered_locals.push(locals[old_idx - param_count])
+          reordered_locals.push(locals.unsafe_get(old_idx - param_count))
         } else {
           break
         }
@@ -223,7 +223,7 @@ test "reorder_locals reorders vars by use count then first use and drops unused 
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32(), ValType::i64(), ValType::f32(), ValType::f64()],
+        Locals::from_types([ValType::i32(), ValType::i64(), ValType::f32(), ValType::f64()]),
         TExpr::new([
           TInstr::local_set(LocalIdx::new(2), TInstr::i32_const(I32(0))),
           TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
@@ -238,9 +238,9 @@ test "reorder_locals reorders vars by use count then first use and drops unused 
   match out.code_sec {
     Some(CodeSec([TFunc(_, locals, { instrs, .. })])) => {
       assert_eq(locals.length(), 3)
-      assert_eq(locals[0], ValType::f32())
-      assert_eq(locals[1], ValType::i32())
-      assert_eq(locals[2], ValType::i64())
+      assert_eq(locals.unsafe_get(0), ValType::f32())
+      assert_eq(locals.unsafe_get(1), ValType::i32())
+      assert_eq(locals.unsafe_get(2), ValType::i64())
       match instrs {
         [
           {
@@ -301,7 +301,7 @@ test "reorder_locals keeps params fixed and only reorders declared locals" {
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::f32(), ValType::f64()],
+          Locals::from_types([ValType::f32(), ValType::f64()]),
           TExpr::new([
             TInstr::drop(TInstr::local_get(LocalIdx::new(3))),
             TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
@@ -313,7 +313,7 @@ test "reorder_locals keeps params fixed and only reorders declared locals" {
   match out.code_sec {
     Some(CodeSec([TFunc(params, locals, { instrs, .. })])) => {
       assert_eq(params, [ValType::i32(), ValType::i64()])
-      assert_eq(locals, [ValType::f64()])
+      assert_eq(locals, Locals::from_types([ValType::f64()]))
       match instrs {
         [
           {
@@ -345,7 +345,7 @@ test "reorder_locals uses typed params when func metadata is missing" {
     CodeSec::new([
       Func::t_func(
         [ValType::i32(), ValType::i32(), ValType::i64()],
-        [ValType::i32(), ValType::i32(), ValType::i32()],
+        Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32()]),
         TExpr::new([
           TInstr::local_set(LocalIdx::new(3), TInstr::i32_const(I32(7))),
           TInstr::drop(TInstr::local_get(LocalIdx::new(3))),
@@ -358,7 +358,7 @@ test "reorder_locals uses typed params when func metadata is missing" {
   match out.code_sec {
     Some(CodeSec([TFunc(params, locals, { instrs, .. })])) => {
       assert_eq(params, [ValType::i32(), ValType::i32(), ValType::i64()])
-      assert_eq(locals, [ValType::i32()])
+      assert_eq(locals, Locals::from_types([ValType::i32()]))
       match instrs {
         [
           {

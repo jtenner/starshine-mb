@@ -31,7 +31,7 @@ priv struct I64LFuncCtx {
   high_map : Array[LocalIdx?]
   stash_local : LocalIdx
   next_local : Array[Int]
-  extra_locals : Array[ValType]
+  extra_locals : Locals
   old_result_is_i64 : Bool
 }
 
@@ -2590,7 +2590,7 @@ fn i64l_rewrite_one_func(
           next_abs += 1
         }
       }
-      let new_locals_base : Array[ValType] = []
+      let new_locals_base : Locals = Locals::empty()
       for vt in locals {
         low_map.push(LocalIdx::new(next_abs.reinterpret_as_uint()))
         if i64l_is_i64(vt) {
@@ -2606,7 +2606,7 @@ fn i64l_rewrite_one_func(
           next_abs += 1
         }
       }
-      let extra_locals : Array[ValType] = []
+      let extra_locals : Locals = Locals::empty()
       let next_local = [next_abs]
       let stash_local = LocalIdx::new(next_abs.reinterpret_as_uint())
       extra_locals.push(ValType::i32())
@@ -2848,7 +2848,7 @@ test "i64_to_i32_lowering prepare artifact path matches direct lowering" {
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::i64()],
+          Locals::from_types([ValType::i64()]),
           TExpr::new([
             TInstr::binary(
               BinaryOp::i64_add(),
@@ -2909,7 +2909,7 @@ test "i64_to_i32_lowering lowers i64 globals and global.get/global.set" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::global_set(
               GlobalIdx::new(0),
@@ -2984,7 +2984,7 @@ test "i64_to_i32_lowering lowers local i64 get/set and i64.add" {
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::i64()],
+          Locals::from_types([ValType::i64()]),
           TExpr::new([
             TInstr::local_set(
               LocalIdx::new(1),
@@ -3033,7 +3033,7 @@ test "i64_to_i32_lowering lowers i64 return through high-bits global" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], [], TExpr::new([TInstr::i64_const(I64(9L))])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i64_const(I64(9L))])),
       ]),
     )
   let lowered = match i64_to_i32_lowering(mod) {
@@ -3074,12 +3074,12 @@ test "i64_to_i32_lowering lowers call i64 args and results" {
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::i64()],
+          Locals::from_types([ValType::i64()]),
           TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call(FuncIdx::new(0), [TInstr::i64_const(I64(7L))]),
           ]),
@@ -3153,7 +3153,7 @@ test "i64_to_i32_lowering lowers i64 load and store" {
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let lowered = match i64_to_i32_lowering(mod) {
     Ok(m) => m
@@ -3195,7 +3195,7 @@ test "i64_to_i32_lowering lowers typed i64 select" {
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let lowered = match i64_to_i32_lowering(mod) {
     Ok(m) => m
@@ -3247,7 +3247,7 @@ test "i64_to_i32_lowering lowers untyped i64 select" {
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let lowered = match i64_to_i32_lowering(mod) {
     Ok(m) => m
@@ -3277,7 +3277,7 @@ test "i64_to_i32_lowering lowers i64 trunc and convert ops" {
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let lowered = match i64_to_i32_lowering(mod) {
     Ok(m) => m
@@ -3303,7 +3303,7 @@ test "i64_to_i32_lowering lowers reinterpret ops and adds memory if needed" {
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let lowered = match i64_to_i32_lowering(mod) {
     Ok(m) => m
@@ -3333,12 +3333,12 @@ test "i64_to_i32_lowering lowers call_ref i64 args and results" {
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::i64()],
+          Locals::from_types([ValType::i64()]),
           TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_ref(
               TypeIdx::new(0),
@@ -3404,12 +3404,12 @@ test "i64_to_i32_lowering lowers call_indirect i64 args and results" {
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::i64()],
+          Locals::from_types([ValType::i64()]),
           TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -3449,10 +3449,10 @@ test "i64_to_i32_lowering lowers return_call_indirect/ref with i64 result" {
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], [], TExpr::new([TInstr::i64_const(I64(7L))])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i64_const(I64(7L))])),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call_indirect(
               TypeIdx::new(0),
@@ -3464,7 +3464,7 @@ test "i64_to_i32_lowering lowers return_call_indirect/ref with i64 result" {
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call_ref(
               TypeIdx::new(0),
@@ -3496,7 +3496,7 @@ test "i64_to_i32_lowering preserves explicit i64 return without extra tail wrap"
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::return_([TInstr::i64_const(I64(1L))])]),
         ),
       ]),
@@ -3524,7 +3524,7 @@ test "i64_to_i32_lowering handles implicit i64 return from typeidx block" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::block(
               BlockType::type_idx(TypeIdx::new(0)),
@@ -3617,7 +3617,7 @@ test "i64_to_i32_lowering lowers i64 trunc_sat ops" {
     TInstr::unary(UnaryOp::i64_trunc_sat_f32s(), TInstr::f32_const(F32(-2.5))),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let lowered = match i64_to_i32_lowering(mod) {
     Ok(m) => m
@@ -3672,7 +3672,7 @@ test "i64_to_i32_lowering lowers i64 mul/div/rem/rot and ctz/popcnt" {
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let lowered = match i64_to_i32_lowering(mod) {
     Ok(m) => m
@@ -3701,10 +3701,10 @@ test "i64_to_i32_lowering lowers return_call with i64 result" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], [], TExpr::new([TInstr::i64_const(I64(7L))])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i64_const(I64(7L))])),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::return_call(FuncIdx::new(0), [])]),
         ),
       ]),
@@ -3742,7 +3742,7 @@ test "i64_to_i32_lowering lowers i64 control-flow block result types" {
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let lowered = match i64_to_i32_lowering(mod) {
     Ok(m) => m
@@ -3771,7 +3771,7 @@ test "i64_to_i32_lowering preserves signed div/rem overflow edge semantics" {
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], body)]),
+    CodeSec::new([Func::t_func([], Locals::empty(), body)]),
   )
   let lowered = match i64_to_i32_lowering(mod) {
     Ok(m) => m
@@ -3809,7 +3809,7 @@ test "i64_to_i32_lowering handles branch-value-heavy i64 cfg and validates" {
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let lowered = match i64_to_i32_lowering(mod) {
     Ok(m) => m
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")

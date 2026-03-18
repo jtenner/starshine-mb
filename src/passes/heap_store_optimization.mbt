@@ -1124,7 +1124,7 @@ test "heap store optimization rejects when later new operand invalidates value" 
   )
   let func = Func::t_func(
     [],
-    [ref_local, ValType::i32()],
+    Locals::from_types([ref_local, ValType::i32()]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1417,7 +1417,7 @@ test "heap store optimization rejects call set value due struct.new invalidation
       ),
     ]),
   )
-  let callee = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))]))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_i32, t_void, struct_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(0)]))

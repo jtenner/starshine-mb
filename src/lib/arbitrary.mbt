@@ -164,26 +164,34 @@ pub impl @quickcheck.Arbitrary for Expr with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for Locals with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for LocalRun with arbitrary(t, state) {
   let count = state.next_positive_int() % 3 + 1
-  Locals(
+  LocalRun::new(
     count.reinterpret_as_uint(),
     @quickcheck.Arbitrary::arbitrary(t, state),
   )
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for Func with arbitrary(t, state) {
-  let elems = []
+pub impl @quickcheck.Arbitrary for Locals with arbitrary(t, state) {
+  let runs : Array[LocalRun] = []
   let count = state.next_positive_int() % 4 + 1
   loop count {
     0 => break ()
     n => {
-      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
+      runs.push(@quickcheck.Arbitrary::arbitrary(t, state))
       continue n - 1
     }
   }
-  Func(elems, @quickcheck.Arbitrary::arbitrary(t, state))
+  Locals::new(runs)
+}
+
+///|
+pub impl @quickcheck.Arbitrary for Func with arbitrary(t, state) {
+  Func(
+    @quickcheck.Arbitrary::arbitrary(t, state),
+    @quickcheck.Arbitrary::arbitrary(t, state),
+  )
 }
 
 ///|

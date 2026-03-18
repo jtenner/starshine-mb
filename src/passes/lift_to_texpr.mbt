@@ -92,48 +92,36 @@ fn lift_to_texpr_module_with_trace(
         let seen_funcs = def_idx + 1
         trace("func[\{seen_funcs}] visit")
         match funcs[def_idx] {
-          Func(locals_grouped, body) =>
-            match expand_locals(locals_grouped) {
-              Ok(expanded_locals) => {
-                let abs_idx = imported_funcs + def_idx
-                let func_idx = FuncIdx::new(abs_idx.reinterpret_as_uint())
-                let (params, results) = match
-                  base_env.get_functype_by_funcidx(func_idx) {
-                  Some(FuncType(ps, rs)) => (ps, rs)
-                  None =>
-                    return Err(
-                      "lift_to_texpr missing function type for function index \{abs_idx}",
-                    )
-                }
-                let env = base_env
-                  .with_locals(expanded_locals)
-                  .with_return_type(Some(results))
-                let Expr(body_instrs) = body
-                if lt_instrs_have_parametric_blocktypes(body_instrs, env) {
-                  trace(
-                    "func[\{seen_funcs}] skip_lift reason=parametric_blocktype_inputs",
-                  )
-                  new_funcs.push(funcs[def_idx])
-                  continue
-                }
-                match to_texpr(body, env) {
-                  Ok(texpr) => {
-                    trace("func[\{seen_funcs}] lifted")
-                    new_funcs.push(Func::t_func(params, expanded_locals, texpr))
-                  }
-                  Err(e) => {
-                    trace("func[\{seen_funcs}] to_texpr failed: \{e}")
-                    return Err(
-                      "lift_to_texpr failed at function \{abs_idx}: \{e}",
-                    )
-                  }
-                }
+          Func(locals, body) => {
+            let abs_idx = imported_funcs + def_idx
+            let func_idx = FuncIdx::new(abs_idx.reinterpret_as_uint())
+            let (params, results) = match base_env.get_functype_by_funcidx(func_idx) {
+              Some(FuncType(ps, rs)) => (ps, rs)
+              None =>
+                return Err(
+                  "lift_to_texpr missing function type for function index \{abs_idx}",
+                )
+            }
+            let env = base_env.with_locals(locals).with_return_type(Some(results))
+            let Expr(body_instrs) = body
+            if lt_instrs_have_parametric_blocktypes(body_instrs, env) {
+              trace(
+                "func[\{seen_funcs}] skip_lift reason=parametric_blocktype_inputs",
+              )
+              new_funcs.push(funcs[def_idx])
+              continue
+            }
+            match to_texpr(body, env) {
+              Ok(texpr) => {
+                trace("func[\{seen_funcs}] lifted")
+                new_funcs.push(Func::t_func(params, locals, texpr))
               }
-              Err(err) => {
-                trace("func[\{seen_funcs}] expand_locals failed: \{err}")
-                return Err(err)
+              Err(e) => {
+                trace("func[\{seen_funcs}] to_texpr failed: \{e}")
+                return Err("lift_to_texpr failed at function \{abs_idx}: \{e}")
               }
             }
+          }
           TFunc(_, _, _) => {
             trace("func[\{seen_funcs}] already-tfunc")
             new_funcs.push(funcs[def_idx])
@@ -160,17 +148,11 @@ fn lift_to_texpr_pass_with_trace(
     trace("func[\{seen_funcs}] visit")
     match f {
       Func(l, t) =>
-        match to_texpr(t, Env::new()) {
+        match to_texpr(t, Env::new().with_locals(l)) {
           Ok(t) =>
-            match expand_locals(l) {
-              Ok(l) => {
-                trace("func[\{seen_funcs}] lifted")
-                change((), Func::t_func([], l, t))
-              }
-              Err(err) => {
-                trace("func[\{seen_funcs}] expand_locals failed: \{err}")
-                error(err)
-              }
+            {
+              trace("func[\{seen_funcs}] lifted")
+              change((), Func::t_func([], l, t))
             }
           Err(e) => {
             trace("func[\{seen_funcs}] to_texpr failed: \{e}")
@@ -193,7 +175,7 @@ fn lift_to_texpr_pass() -> ModuleTransformer[Unit, String] {
 ///|
 test "lift_to_texpr_pass expands grouped locals when lifting Func" {
   let func = Func::new(
-    [Locals::new(2, ValType::i32())],
+    Locals::single(2U, ValType::i32()),
     Expr::new([Instruction::local_get(LocalIdx::new(1)), Instruction::drop()]),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -211,7 +193,7 @@ test "lift_to_texpr_pass expands grouped locals when lifting Func" {
 
 ///|
 test "lift_to_texpr_pass keeps original Func when conversion fails" {
-  let func = Func::new([], Expr::new([Instruction::i32_add()]))
+  let func = Func::new(Locals::empty(), Expr::new([Instruction::i32_add()]))
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = lift_to_texpr_pass()
   let result = pass.walk_module((), mod)

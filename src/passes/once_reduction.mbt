@@ -310,7 +310,7 @@ fn or_scan_texpr(
 fn or_build_func_env(
   mod_env : Env,
   func_idx : FuncIdx,
-  extra_locals : Array[ValType],
+  extra_locals : Locals,
 ) -> Env {
   let params = match mod_env.get_functype_by_funcidx(func_idx) {
     Some(FuncType(ps, _)) => ps
@@ -1002,7 +1002,7 @@ test "once_reduction removes dominated redundant once call" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call(FuncIdx::new(1), []),
             TInstr::nop(),
@@ -1011,7 +1011,7 @@ test "once_reduction removes dominated redundant once call" {
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           or_once_body(0, 1, [
             TInstr::global_set(GlobalIdx::new(1), TInstr::i32_const(I32(9))),
           ]),
@@ -1053,13 +1053,13 @@ test "once_reduction removes redundant once-global sets" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::global_set(GlobalIdx::new(0), TInstr::i32_const(I32(1))),
             TInstr::global_set(GlobalIdx::new(0), TInstr::i32_const(I32(7))),
           ]),
         ),
-        Func::t_func([], [], or_once_body(0, 9, [TInstr::nop()])),
+        Func::t_func([], Locals::empty(), or_once_body(0, 9, [TInstr::nop()])),
       ]),
     )
   let out = or_run(mod)
@@ -1098,16 +1098,16 @@ test "once_reduction disqualifies zero and non-const writes" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call(FuncIdx::new(1), []),
             TInstr::call(FuncIdx::new(1), []),
           ]),
         ),
-        Func::t_func([], [], or_once_body(0, 1, [TInstr::nop()])),
+        Func::t_func([], Locals::empty(), or_once_body(0, 1, [TInstr::nop()])),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::global_set(GlobalIdx::new(0), TInstr::i32_const(I32(0))),
           ]),
@@ -1153,16 +1153,16 @@ test "once_reduction disqualifies zero and non-const writes" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call(FuncIdx::new(1), []),
             TInstr::call(FuncIdx::new(1), []),
           ]),
         ),
-        Func::t_func([], [], or_once_body(0, 1, [TInstr::nop()])),
+        Func::t_func([], Locals::empty(), or_once_body(0, 1, [TInstr::nop()])),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::global_set(
               GlobalIdx::new(0),
@@ -1214,16 +1214,16 @@ test "once_reduction disqualifies extra reads and exported/imported globals" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call(FuncIdx::new(1), []),
             TInstr::call(FuncIdx::new(1), []),
           ]),
         ),
-        Func::t_func([], [], or_once_body(0, 1, [TInstr::nop()])),
+        Func::t_func([], Locals::empty(), or_once_body(0, 1, [TInstr::nop()])),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::drop(TInstr::global_get(GlobalIdx::new(0)))]),
         ),
       ]),
@@ -1264,13 +1264,13 @@ test "once_reduction disqualifies extra reads and exported/imported globals" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call(FuncIdx::new(1), []),
             TInstr::call(FuncIdx::new(1), []),
           ]),
         ),
-        Func::t_func([], [], or_once_body(0, 1, [TInstr::nop()])),
+        Func::t_func([], Locals::empty(), or_once_body(0, 1, [TInstr::nop()])),
       ]),
     )
   let out_exported = or_run(exported_global)
@@ -1311,13 +1311,13 @@ test "once_reduction disqualifies extra reads and exported/imported globals" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call(FuncIdx::new(1), []),
             TInstr::call(FuncIdx::new(1), []),
           ]),
         ),
-        Func::t_func([], [], or_once_body(0, 1, [TInstr::nop()])),
+        Func::t_func([], Locals::empty(), or_once_body(0, 1, [TInstr::nop()])),
       ]),
     )
   let out_imported = or_run(imported_global)
@@ -1354,7 +1354,7 @@ test "once_reduction disqualifies non-canonical guard pattern" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call(FuncIdx::new(1), []),
             TInstr::call(FuncIdx::new(1), []),
@@ -1362,7 +1362,7 @@ test "once_reduction disqualifies non-canonical guard pattern" {
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::block(
               BlockType::void_(),
@@ -1418,14 +1418,14 @@ test "once_reduction propagates once summaries to fixed point" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call(FuncIdx::new(1), []),
             TInstr::call(FuncIdx::new(2), []),
           ]),
         ),
-        Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(2), [])])),
-        Func::t_func([], [], or_once_body(0, 1, [TInstr::nop()])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(2), [])])),
+        Func::t_func([], Locals::empty(), or_once_body(0, 1, [TInstr::nop()])),
       ]),
     )
   let out = or_run(mod)
@@ -1468,7 +1468,7 @@ test "once_reduction honors dominance across branches" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::if_(
               BlockType::void_(),
@@ -1479,7 +1479,7 @@ test "once_reduction honors dominance across branches" {
             TInstr::call(FuncIdx::new(1), []),
           ]),
         ),
-        Func::t_func([], [], or_once_body(0, 1, [TInstr::nop()])),
+        Func::t_func([], Locals::empty(), or_once_body(0, 1, [TInstr::nop()])),
       ]),
     )
   let out = or_run(mod)
@@ -1519,7 +1519,7 @@ test "once_reduction keeps block-nested call semantics aligned with canonical cf
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::block(
               BlockType::void_(),
@@ -1528,7 +1528,7 @@ test "once_reduction keeps block-nested call semantics aligned with canonical cf
             TInstr::call(FuncIdx::new(1), []),
           ]),
         ),
-        Func::t_func([], [], or_once_body(0, 1, [TInstr::nop()])),
+        Func::t_func([], Locals::empty(), or_once_body(0, 1, [TInstr::nop()])),
       ]),
     )
   let out = or_run(mod)
@@ -1568,10 +1568,10 @@ test "once_reduction handles unreachable tails safely" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::unreachable_(), TInstr::call(FuncIdx::new(1), [])]),
         ),
-        Func::t_func([], [], or_once_body(0, 1, [TInstr::nop()])),
+        Func::t_func([], Locals::empty(), or_once_body(0, 1, [TInstr::nop()])),
       ]),
     )
   let out = or_run(mod)
@@ -1598,7 +1598,7 @@ test "once_reduction cleanup removes no-payload boilerplate" {
     .with_type_sec(TypeSec::new([or_type([], [])]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_global_sec(GlobalSec::new([or_i32_global(0, true)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], or_once_body(0, 1, []))]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), or_once_body(0, 1, []))]))
   let out = or_run(mod)
   match out.code_sec {
     Some(
@@ -1620,10 +1620,10 @@ test "once_reduction cleanup removes boilerplate for single once-call payload" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           or_once_body(0, 1, [TInstr::call(FuncIdx::new(1), [])]),
         ),
-        Func::t_func([], [], or_once_body(1, 1, [TInstr::nop()])),
+        Func::t_func([], Locals::empty(), or_once_body(1, 1, [TInstr::nop()])),
       ]),
     )
   let out = or_run(mod)
@@ -1677,12 +1677,12 @@ test "once_reduction cleanup is cycle-safe" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           or_once_body(0, 1, [TInstr::call(FuncIdx::new(1), [])]),
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           or_once_body(1, 1, [TInstr::call(FuncIdx::new(0), [])]),
         ),
       ]),
@@ -1737,13 +1737,13 @@ test "once_reduction is deterministic across runs" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call(FuncIdx::new(1), []),
             TInstr::call(FuncIdx::new(1), []),
           ]),
         ),
-        Func::t_func([], [], or_once_body(0, 1, [TInstr::nop()])),
+        Func::t_func([], Locals::empty(), or_once_body(0, 1, [TInstr::nop()])),
       ]),
     )
   let once = or_run(mod)

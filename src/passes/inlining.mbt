@@ -1085,7 +1085,7 @@ fn il_inline_normal_call(
   callee_type : FuncType,
   args : Array[TInstr],
   caller_param_count : Int,
-  caller_locals : Array[ValType],
+  caller_locals : Locals,
 ) -> Result[TInstr, String] {
   let FuncType(callee_params, callee_results) = callee_type
   let block_type = match il_make_block_type(callee_results) {
@@ -1158,7 +1158,7 @@ fn il_inline_at_callsite(
   callee_type : FuncType,
   args : Array[TInstr],
   caller_param_count : Int,
-  caller_locals : Array[ValType],
+  caller_locals : Locals,
 ) -> Result[TInstr?, String] {
   match action.kind {
     ILReturnCall =>
@@ -1183,7 +1183,7 @@ fn il_prepare_hoisted_tail_call(
   callee_func : Func,
   call_args : Array[TInstr],
   caller_param_count : Int,
-  caller_locals : Array[ValType],
+  caller_locals : Locals,
   env : Env,
   func_types : Array[FuncType],
   replacement_block_type : BlockType,
@@ -2355,7 +2355,7 @@ fn il_make_simple_two_func_module(
   caller_type : RecType,
   callee_type : RecType,
   caller_body : TExpr,
-  callee_locals : Array[ValType],
+  callee_locals : Locals,
   callee_body : TExpr,
 ) -> Module {
   let base = Module::new()
@@ -2372,7 +2372,7 @@ fn il_make_simple_two_func_module(
   }
   base.with_code_sec(
     CodeSec::new([
-      Func::t_func(caller_params, [], caller_body),
+      Func::t_func(caller_params, Locals::empty(), caller_body),
       Func::t_func(callee_params, callee_locals, callee_body),
     ]),
   )
@@ -2450,7 +2450,7 @@ test "inlining can inline multi-use callee at higher optimize levels" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::call(FuncIdx::new(2), [TInstr::i32_const(I32(1))]),
@@ -2459,14 +2459,14 @@ test "inlining can inline multi-use callee at higher optimize levels" {
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::call(FuncIdx::new(2), [TInstr::i32_const(I32(2))]),
             ),
           ]),
         ),
-        Func::t_func([], [], TExpr::new([TInstr::local_get(LocalIdx::new(0))])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::local_get(LocalIdx::new(0))])),
       ]),
     )
   let options = OptimizeOptions::new(optimize_level=3, shrink_level=0)
@@ -2629,13 +2629,13 @@ test "inlining rewrites return_call in normal context to call plus break" {
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::return_call(FuncIdx::new(2), [])]),
         ),
-        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(11))])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(11))])),
       ]),
     )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2664,15 +2664,15 @@ test "inlining preserves return_call chaining for tail-call callsites" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::return_call(FuncIdx::new(1), [])]),
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::return_call(FuncIdx::new(2), [])]),
         ),
-        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(4))])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(4))])),
       ]),
     )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2698,7 +2698,7 @@ test "inlining rewrites return_call under try_table context" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::val_type(ValType::i32()),
@@ -2709,10 +2709,10 @@ test "inlining rewrites return_call under try_table context" {
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::return_call(FuncIdx::new(2), [])]),
         ),
-        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(3))])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(3))])),
       ]),
     )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2738,7 +2738,7 @@ test "inlining hoists tail-call inlining out of try_table context" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::val_type(ValType::i32()),
@@ -2749,10 +2749,10 @@ test "inlining hoists tail-call inlining out of try_table context" {
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::return_call(FuncIdx::new(2), [])]),
         ),
-        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(19))])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(19))])),
       ]),
     )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2810,7 +2810,7 @@ test "inlining hoists tail-call-indirect inlining out of try_table context" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::val_type(ValType::i32()),
@@ -2821,7 +2821,7 @@ test "inlining hoists tail-call-indirect inlining out of try_table context" {
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call_indirect(
               TypeIdx::new(0),
@@ -2831,7 +2831,7 @@ test "inlining hoists tail-call-indirect inlining out of try_table context" {
             ),
           ]),
         ),
-        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(23))])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(23))])),
       ]),
     )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2867,7 +2867,7 @@ test "inlining hoists tail-call-ref inlining out of try_table context" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::val_type(ValType::i32()),
@@ -2878,7 +2878,7 @@ test "inlining hoists tail-call-ref inlining out of try_table context" {
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call_ref(
               TypeIdx::new(0),
@@ -2887,7 +2887,7 @@ test "inlining hoists tail-call-ref inlining out of try_table context" {
             ),
           ]),
         ),
-        Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(29))])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(29))])),
       ]),
     )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2922,7 +2922,7 @@ test "inlining hoists multi-value tail-call wrapper out of try_table context" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(0)),
@@ -2933,12 +2933,12 @@ test "inlining hoists multi-value tail-call wrapper out of try_table context" {
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::return_call(FuncIdx::new(2), [])]),
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::i32_const(I32(31)),
@@ -2988,7 +2988,7 @@ test "inlining hoists multi-value tail-call-indirect wrapper out of try_table co
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(0)),
@@ -2999,7 +2999,7 @@ test "inlining hoists multi-value tail-call-indirect wrapper out of try_table co
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call_indirect(
               TypeIdx::new(0),
@@ -3011,7 +3011,7 @@ test "inlining hoists multi-value tail-call-indirect wrapper out of try_table co
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::i32_const(I32(41)),
@@ -3060,7 +3060,7 @@ test "inlining hoists multi-value tail-call-ref wrapper out of try_table context
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(0)),
@@ -3071,7 +3071,7 @@ test "inlining hoists multi-value tail-call-ref wrapper out of try_table context
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call_ref(
               TypeIdx::new(0),
@@ -3082,7 +3082,7 @@ test "inlining hoists multi-value tail-call-ref wrapper out of try_table context
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::i32_const(I32(51)),
@@ -3140,7 +3140,7 @@ test "inlining hoists multi-value try-tail wrapper when caller has parameters" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
@@ -3155,7 +3155,7 @@ test "inlining hoists multi-value try-tail wrapper when caller has parameters" {
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call(FuncIdx::new(2), [
               TInstr::local_get(LocalIdx::new(0)),
@@ -3164,7 +3164,7 @@ test "inlining hoists multi-value try-tail wrapper when caller has parameters" {
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::local_get(LocalIdx::new(0)),
@@ -3174,7 +3174,7 @@ test "inlining hoists multi-value try-tail wrapper when caller has parameters" {
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::i32_const(I32(1)),
@@ -3242,7 +3242,7 @@ test "inlining apply skips try-param tail wrapper actions" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),
             TInstr::try_table(
@@ -3254,7 +3254,7 @@ test "inlining apply skips try-param tail wrapper actions" {
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call(FuncIdx::new(2), [
               TInstr::local_get(LocalIdx::new(0)),
@@ -3263,7 +3263,7 @@ test "inlining apply skips try-param tail wrapper actions" {
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::local_get(LocalIdx::new(0)),
@@ -3342,7 +3342,7 @@ test "inlining skips synthesized wrapper type when try_table hoist needs params"
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),
             TInstr::try_table(
@@ -3354,7 +3354,7 @@ test "inlining skips synthesized wrapper type when try_table hoist needs params"
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call(FuncIdx::new(2), [
               TInstr::local_get(LocalIdx::new(0)),
@@ -3363,7 +3363,7 @@ test "inlining skips synthesized wrapper type when try_table hoist needs params"
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::local_get(LocalIdx::new(0)),
@@ -3409,7 +3409,7 @@ test "inlining does not synthesize wrapper type when no hoist rewrite applies" {
     .with_type_sec(TypeSec::new([t_param_multi]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
     )
   let import_count = il_count_imported_funcs(mod)
   let total_funcs = il_total_functions(mod, import_count)
@@ -3470,7 +3470,7 @@ test "inlining skips synthesized wrappers for multiple callers when try params a
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),
             TInstr::try_table(
@@ -3482,7 +3482,7 @@ test "inlining skips synthesized wrappers for multiple callers when try params a
         ),
         Func::t_func(
           [ValType::i64()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),
             TInstr::try_table(
@@ -3494,7 +3494,7 @@ test "inlining skips synthesized wrappers for multiple callers when try params a
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call(FuncIdx::new(4), [
               TInstr::local_get(LocalIdx::new(0)),
@@ -3503,7 +3503,7 @@ test "inlining skips synthesized wrappers for multiple callers when try params a
         ),
         Func::t_func(
           [ValType::i64()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call(FuncIdx::new(5), [
               TInstr::local_get(LocalIdx::new(0)),
@@ -3512,7 +3512,7 @@ test "inlining skips synthesized wrappers for multiple callers when try params a
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::local_get(LocalIdx::new(0)),
@@ -3522,7 +3522,7 @@ test "inlining skips synthesized wrappers for multiple callers when try params a
         ),
         Func::t_func(
           [ValType::i64()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::local_get(LocalIdx::new(0)),
@@ -3577,7 +3577,7 @@ test "inlining skips wrapper synthesis reuse when try params are required" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),
             TInstr::try_table(
@@ -3589,7 +3589,7 @@ test "inlining skips wrapper synthesis reuse when try params are required" {
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),
             TInstr::try_table(
@@ -3601,7 +3601,7 @@ test "inlining skips wrapper synthesis reuse when try params are required" {
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call(FuncIdx::new(4), [
               TInstr::local_get(LocalIdx::new(0)),
@@ -3610,7 +3610,7 @@ test "inlining skips wrapper synthesis reuse when try params are required" {
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call(FuncIdx::new(5), [
               TInstr::local_get(LocalIdx::new(0)),
@@ -3619,7 +3619,7 @@ test "inlining skips wrapper synthesis reuse when try params are required" {
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::local_get(LocalIdx::new(0)),
@@ -3629,7 +3629,7 @@ test "inlining skips wrapper synthesis reuse when try params are required" {
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::local_get(LocalIdx::new(0)),
@@ -3723,7 +3723,7 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),
             TInstr::try_table(
@@ -3735,7 +3735,7 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),
             TInstr::try_table(
@@ -3747,7 +3747,7 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
         ),
         Func::t_func(
           [ValType::i64()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),
             TInstr::try_table(
@@ -3759,7 +3759,7 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call(FuncIdx::new(6), [
               TInstr::local_get(LocalIdx::new(0)),
@@ -3768,7 +3768,7 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call(FuncIdx::new(7), [
               TInstr::local_get(LocalIdx::new(0)),
@@ -3777,7 +3777,7 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
         ),
         Func::t_func(
           [ValType::i64()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call(FuncIdx::new(8), [
               TInstr::local_get(LocalIdx::new(0)),
@@ -3786,7 +3786,7 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::local_get(LocalIdx::new(0)),
@@ -3796,7 +3796,7 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::local_get(LocalIdx::new(0)),
@@ -3806,7 +3806,7 @@ test "inlining mixed callers skip wrapper synthesis when try params are required
         ),
         Func::t_func(
           [ValType::i64()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::local_get(LocalIdx::new(0)),
@@ -3899,7 +3899,7 @@ test "inlining keeps non-defaultable multi-value results on non-hoist fallback p
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::try_table(
               BlockType::type_idx(TypeIdx::new(1)),
@@ -3910,12 +3910,12 @@ test "inlining keeps non-defaultable multi-value results on non-hoist fallback p
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::return_call(FuncIdx::new(2), [])]),
         ),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([
               TInstr::struct_new(TypeIdx::new(0), []),
@@ -3956,7 +3956,7 @@ test "inlining split pattern A can outline post-if path" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::if_(
               BlockType::void_(),
@@ -3994,7 +3994,7 @@ test "inlining split pattern B rejects local dependency in trailing item" {
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::i32()],
+          Locals::from_types([ValType::i32()]),
           TExpr::new([
             TInstr::if_(
               BlockType::void_(),
@@ -4041,8 +4041,8 @@ test "inline_main inlines __original_main into main on a single callsite" {
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
-        Func::t_func([], [], TExpr::new([TInstr::nop()])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
       ]),
     )
   let optimized = match inline_main(mod, OptimizeOptions::new()) {
@@ -4073,8 +4073,8 @@ test "inline_main skips when main has zero __original_main callsites" {
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], [], TExpr::new([TInstr::nop()])),
-        Func::t_func([], [], TExpr::new([TInstr::nop()])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
       ]),
     )
   let optimized = match inline_main(mod, OptimizeOptions::new()) {
@@ -4107,13 +4107,13 @@ test "inline_main skips when main has multiple __original_main callsites" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call(FuncIdx::new(1), []),
             TInstr::call(FuncIdx::new(1), []),
           ]),
         ),
-        Func::t_func([], [], TExpr::new([TInstr::nop()])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
       ]),
     )
   let optimized = match inline_main(mod, OptimizeOptions::new()) {

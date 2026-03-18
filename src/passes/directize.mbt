@@ -457,7 +457,7 @@ test "directize: constant index resolves to known function" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -513,7 +513,7 @@ test "directize: out-of-bounds constant index becomes unreachable" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
               TInstr::call_indirect(
                 TypeIdx::new(0),
@@ -573,7 +573,7 @@ test "directize: null entry in table becomes unreachable" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
               TInstr::call_indirect(
                 TypeIdx::new(0),
@@ -630,7 +630,7 @@ test "directize: non-constant index is not transformed" {
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::i32()],
+          Locals::from_types([ValType::i32()]),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -712,7 +712,7 @@ test "directize: type mismatch becomes unreachable" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(1),
@@ -772,7 +772,7 @@ test "directize: table.set prevents optimization" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::table_set(
               TableIdx::new(0),
@@ -842,7 +842,7 @@ test "directize: table.fill prevents optimization" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::table_fill(
               TableIdx::new(0),
@@ -927,7 +927,7 @@ test "directize: table.copy prevents optimization on dest table" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::table_copy(
               TableIdx::new(0),
@@ -996,7 +996,7 @@ test "directize: table.init prevents optimization" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::table_init(
               ElemIdx::new(0),
@@ -1069,7 +1069,7 @@ test "directize: table.grow marks table as growable" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::table_grow(
@@ -1141,7 +1141,7 @@ test "directize: initial_immutable=false prevents optimization" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -1211,7 +1211,7 @@ test "directize: return_call_indirect with constant index" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call_indirect(
               TypeIdx::new(0),
@@ -1276,7 +1276,7 @@ test "directize: return_call_indirect out of bounds becomes unreachable" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_call_indirect(
               TypeIdx::new(0),
@@ -1336,7 +1336,7 @@ test "directize: select-based call_indirect with both branches known" {
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::i32()],
+          Locals::from_types([ValType::i32()]),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -1403,7 +1403,7 @@ test "directize: select-based call_indirect with one branch trapping" {
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::i32()],
+          Locals::from_types([ValType::i32()]),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -1486,7 +1486,7 @@ test "directize: select-based call_indirect with unknown branch not transformed"
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::i32()],
+          Locals::from_types([ValType::i32()]),
           TExpr::new([
             TInstr::drop(
               TInstr::table_grow(
@@ -1580,7 +1580,7 @@ test "directize: br_table-based call_indirect with all branches known" {
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::i32()],
+          Locals::from_types([ValType::i32()]),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -1639,7 +1639,7 @@ test "directize: passive element segment doesn't initialize table" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -1689,7 +1689,7 @@ test "directize: declarative element segment doesn't initialize table" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -1753,7 +1753,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -1821,7 +1821,7 @@ test "directize: element segment with expression kind marks table mutable" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -1904,7 +1904,7 @@ test "directize: multiple tables, only one modified" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::table_set(
               TableIdx::new(0),
@@ -1991,7 +1991,7 @@ test "directize: arguments are propagated to direct call" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -2068,7 +2068,7 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
               TInstr::call_indirect(
                 TypeIdx::new(0),
@@ -2118,7 +2118,7 @@ test "directize: empty table always traps" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -2153,7 +2153,7 @@ test "directize: module without tables" {
     .with_type_sec(TypeSec::new([make_simple_functype()]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
     )
   let result = directize_module(m, true)
   assert_true(result is Ok(_))
@@ -2202,7 +2202,7 @@ test "directize: element segment at offset beyond initial table entries" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),
@@ -2287,7 +2287,7 @@ test "directize: table with i64 limits" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::call_indirect(
               TypeIdx::new(0),

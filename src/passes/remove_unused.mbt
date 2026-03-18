@@ -1725,7 +1725,7 @@ fn build_remappings(
 fn make_func_unreachable(func : Func) -> Func {
   match func {
     TFunc(params, _, _) =>
-      Func::t_func(params, [], TExpr::new([TInstr::unreachable_()]))
+      Func::t_func(params, Locals::empty(), TExpr::new([TInstr::unreachable_()]))
     Func(_, _) => Func::new([], Expr::new([Instruction::unreachable_()]))
   }
 }
@@ -2319,7 +2319,7 @@ fn make_empty_struct_type() -> RecType {
 ///|
 /// Creates a simple function body that just returns
 fn make_empty_func_body() -> Func {
-  Func::t_func([], [], TExpr::new([TInstr::return_([])]))
+  Func::t_func([], Locals::empty(), TExpr::new([TInstr::return_([])]))
 }
 
 ///|
@@ -2533,7 +2533,7 @@ test "called function kept transitively" {
   let func_sec = FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)])
   let func0_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::call(FuncIdx::new(1), []), TInstr::return_([])]),
   )
   let func1_body = make_empty_func_body()
@@ -2571,7 +2571,7 @@ test "referenced global kept" {
   ])
   let func_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(TInstr::global_get(GlobalIdx::new(0))),
       TInstr::return_([]),
@@ -2752,7 +2752,7 @@ test "used imported function kept" {
   // Defined func calls imported func
   let func_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call(FuncIdx::new(0), []), // call imported func
       TInstr::return_([]),
@@ -2835,7 +2835,7 @@ test "memory kept when used by load instruction" {
   let mem_sec = MemSec::new([MemType::new(Limits::i32(1, None))])
   let func_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::load(
@@ -2890,7 +2890,7 @@ test "struct type kept when used" {
   let func_sec = FuncSec::new([TypeIdx::new(1)])
   let func_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(42)]),
@@ -2935,7 +2935,7 @@ test "typed ref.get_desc keeps referenced global alive" {
   let code_sec = CodeSec::new([
     Func::t_func(
       [],
-      [],
+      Locals::empty(),
       TExpr::new([
         TInstr::drop(
           TInstr::ref_get_desc(
@@ -3011,7 +3011,7 @@ test "typed ref.test_desc keeps target type alive" {
   let code_sec = CodeSec::new([
     Func::t_func(
       [],
-      [ValType::anyref()],
+      Locals::from_types([ValType::anyref()]),
       TExpr::new([
         TInstr::drop(
           TInstr::ref_test_desc(
@@ -3052,7 +3052,7 @@ test "typed ref.cast_desc_eq keeps target type alive" {
   let code_sec = CodeSec::new([
     Func::t_func(
       [],
-      [ValType::anyref()],
+      Locals::from_types([ValType::anyref()]),
       TExpr::new([
         TInstr::drop(
           TInstr::ref_cast_desc_eq(
@@ -3177,7 +3177,7 @@ test "call_indirect keeps type and table" {
   ])
   let func_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call_indirect(
         TypeIdx::new(0),
@@ -3220,7 +3220,7 @@ test "tag kept when used in throw" {
   let tag_sec = TagSec::new([TagType::new(TypeIdx::new(0))])
   let func_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::throw_(TagIdx::new(0), [])]),
   )
   let code_sec = CodeSec::new([func_body])
@@ -3272,7 +3272,7 @@ test "multiple removals with complex remapping" {
   let func0_body = make_empty_func_body() // unused
   let func1_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([ // calls func 2
       TInstr::call(FuncIdx::new(2), []),
       TInstr::return_([]),
@@ -3369,7 +3369,7 @@ fn make_ref_func_reachability_module() -> Module {
   ])
   let main_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(TInstr::ref_func(FuncIdx::new(1))),
       TInstr::return_([]),
@@ -3377,7 +3377,7 @@ fn make_ref_func_reachability_module() -> Module {
   )
   let referenced_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::call(FuncIdx::new(2), []), TInstr::return_([])]),
   )
   let transitive_body = make_empty_func_body()
@@ -3438,7 +3438,7 @@ test "call_ref promotes previously referenced ref.func target to used" {
   ])
   let main_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(TInstr::ref_func(FuncIdx::new(1))),
       TInstr::call_ref(TypeIdx::new(0), [], TInstr::ref_func(FuncIdx::new(1))),
@@ -3447,7 +3447,7 @@ test "call_ref promotes previously referenced ref.func target to used" {
   )
   let callee_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::call(FuncIdx::new(2), []), TInstr::return_([])]),
   )
   let transitive_body = make_empty_func_body()
@@ -3501,7 +3501,7 @@ test "call_indirect promotes element ref.func targets to used" {
   ])
   let main_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call_indirect(
         TypeIdx::new(0),
@@ -3514,7 +3514,7 @@ test "call_indirect promotes element ref.func targets to used" {
   )
   let table_target_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::call(FuncIdx::new(2), []), TInstr::return_([])]),
   )
   let transitive_body = make_empty_func_body()
@@ -3592,7 +3592,7 @@ test "root_all_functions preserves declaration-only globals for ref.func users" 
   let code_sec = CodeSec::new([
     Func::t_func(
       [],
-      [],
+      Locals::empty(),
       TExpr::new([
         TInstr::drop(TInstr::ref_func(FuncIdx::new(1))),
         TInstr::return_([]),
@@ -3645,7 +3645,7 @@ test "root_all_functions preserves declaration-only elem segments for ref.func u
   let code_sec = CodeSec::new([
     Func::t_func(
       [],
-      [],
+      Locals::empty(),
       TExpr::new([
         TInstr::drop(TInstr::ref_func(FuncIdx::new(1))),
         TInstr::return_([]),
@@ -3744,7 +3744,7 @@ test "typed element expressions keep referenced funcs and rewrite body in closed
   ])
   let main_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::table_init(
         ElemIdx::new(0),
@@ -3791,7 +3791,7 @@ test "closed world unreachable rewrite preserves typed function params" {
   let func_sec = FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)])
   let main_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(TInstr::ref_func(FuncIdx::new(1))),
       TInstr::return_([]),
@@ -3799,7 +3799,7 @@ test "closed world unreachable rewrite preserves typed function params" {
   )
   let referenced_body = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
   )
   let mod = Module::new()
@@ -3866,7 +3866,7 @@ test "type section nested type references are remapped after filtering" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::return_([TInstr::ref_null(HeapType::new(TypeIdx::new(1)))]),
           ]),
@@ -3933,7 +3933,7 @@ test "import section remaps nested extern type references after type filtering" 
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::call(FuncIdx::new(0), []), TInstr::return_([])]),
         ),
       ]),
@@ -4040,7 +4040,7 @@ test "element section remaps nested function indices after filtering" {
   ])
   let main_body = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::table_init(
         ElemIdx::new(0),

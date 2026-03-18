@@ -89,7 +89,7 @@ priv struct OACIterationState {
   helper_indexes : Map[OACSetKey, LocalIdx]
   ssa_info : OACSSAInfo?
   ssa_cache : Map[LocalIdx, Bool]
-  locals : Array[ValType]
+  locals : Locals
   mut propagated : Bool
 }
 
@@ -1400,7 +1400,7 @@ test "optimize added constants requires low-memory-unused option" {
   let memory = MemType::new(Limits::i32(1, None))
   let mod_ = Module::new()
     .with_mem_sec(MemSec::new([memory]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], TExpr::new(body))]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new(body))]))
   match oac_run_module(mod_, OptimizeOptions::new(), false) {
     Ok(_) => fail("expected optimize added constants to fail without option")
     Err(e) => assert_eq(e, oac_fatal_message)

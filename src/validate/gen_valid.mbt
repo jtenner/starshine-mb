@@ -1968,7 +1968,7 @@ pub fn gen_valid_tfunc(
   }
   ctx.locals = old_locals
   ctx.label_stack = old_labels
-  Func::t_func(accepts, all_local_types, TExpr::new(body_instrs))
+  Func::t_func(accepts, Locals::from_types(all_local_types), TExpr::new(body_instrs))
 }
 
 ///|

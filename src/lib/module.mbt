@@ -260,13 +260,13 @@ fn md_format_tag_idx(ctx : ModuleDebugContext, idx : TagIdx) -> String {
 
 ///|
 fn md_format_local_idx(
-  locals : Array[ValType],
+  locals : Locals,
   param_count : Int,
   idx : LocalIdx,
 ) -> String {
   let LocalIdx(i) = idx
   let raw = idx.to_string()
-  match locals.get(i.reinterpret_as_int()) {
+  match locals.at(i.reinterpret_as_int()) {
     Some(val_type) => {
       let role = if i.reinterpret_as_int() < param_count {
         "param"
@@ -313,7 +313,7 @@ fn md_render_child(
   depth : Int,
   label : String,
   ctx : ModuleDebugContext,
-  locals : Array[ValType],
+  locals : Locals,
   param_count : Int,
   child : TInstr,
 ) -> Unit {
@@ -327,7 +327,7 @@ fn md_render_children(
   depth : Int,
   label : String,
   ctx : ModuleDebugContext,
-  locals : Array[ValType],
+  locals : Locals,
   param_count : Int,
   children : Array[TInstr],
 ) -> Unit {
@@ -346,7 +346,7 @@ fn md_render_texpr(
   out : StringBuilder,
   depth : Int,
   ctx : ModuleDebugContext,
-  locals : Array[ValType],
+  locals : Locals,
   param_count : Int,
   body : TExpr,
 ) -> Unit {
@@ -364,7 +364,7 @@ fn md_render_tinstr(
   out : StringBuilder,
   depth : Int,
   ctx : ModuleDebugContext,
-  locals : Array[ValType],
+  locals : Locals,
   param_count : Int,
   instr : TInstr,
 ) -> Unit {
@@ -1380,7 +1380,7 @@ pub fn Module::pretty_print_defined_func(
             Ok(locals) => locals.all_locals()
             Err(err) => {
               md_write_line(out, 2, "locals_error: " + err)
-              params.copy()
+              Locals::from_types(params)
             }
           }
           md_write_line(out, 2, "locals:")
@@ -1392,7 +1392,9 @@ pub fn Module::pretty_print_defined_func(
               md_write_line(
                 out,
                 4,
-                "[\{i}] " + pretty_val_type(full_locals[i]) + " (" + role + ")",
+                "[\{i}] " +
+                pretty_val_type(full_locals.unsafe_get(i)) +
+                " (" + role + ")",
               )
             }
           }
@@ -1424,7 +1426,9 @@ pub fn Module::pretty_print_defined_func(
               md_write_line(
                 out,
                 4,
-                "[\{i}] " + pretty_val_type(full_locals[i]) + " (" + role + ")",
+                "[\{i}] " +
+                pretty_val_type(full_locals.unsafe_get(i)) +
+                " (" + role + ")",
               )
             }
           }

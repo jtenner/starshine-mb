@@ -1198,8 +1198,8 @@ fn gufa_descriptor_exact_subtype_fixture(use_cast_desc_eq : Bool) -> Module {
   .with_func_sec(FuncSec::new([TypeIdx::new(2), TypeIdx::new(1)]))
   .with_code_sec(
     CodeSec::new([
-      Func::t_func([], [], TExpr::new([TInstr::drop(probe)])),
-      Func::t_func([], [], TExpr::new([TInstr::nop()])),
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::drop(probe)])),
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
     ]),
   )
 }
@@ -1209,7 +1209,7 @@ test "gufa ref.eq of distinct ref.func values becomes const false" {
   let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let root = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(
         TInstr::ref_eq(
@@ -1219,8 +1219,8 @@ test "gufa ref.eq of distinct ref.func values becomes const false" {
       ),
     ]),
   )
-  let f1 = Func::t_func([], [], TExpr::new([TInstr::nop()]))
-  let f2 = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let f1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
+  let f2 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(
@@ -1278,7 +1278,7 @@ test "gufa ref.test of null against non-null target becomes const false" {
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let optimized = match run_gufa_module(mod) {
     Ok(m) => m
     Err(e) => fail("unexpected gufa error: \{e}")
@@ -1328,7 +1328,7 @@ test "gufa impossible ref.cast becomes unreachable" {
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let optimized = match run_gufa_module(mod) {
     Ok(m) => m
     Err(e) => fail("unexpected gufa error: \{e}")
@@ -1378,7 +1378,7 @@ test "gufa ref.test_desc of null against non-null target becomes const false" {
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let optimized = match run_gufa_module(mod) {
     Ok(m) => m
     Err(e) => fail("unexpected gufa error: \{e}")
@@ -1428,7 +1428,7 @@ test "gufa impossible ref.cast_desc_eq becomes unreachable" {
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let optimized = match run_gufa_module(mod) {
     Ok(m) => m
     Err(e) => fail("unexpected gufa error: \{e}")
@@ -1546,7 +1546,7 @@ test "gufa cast_all inserts cast for known immutable global ref.func" {
         ),
       ]),
     )
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let optimized = match run_gufa_module(mod, cast_all=true) {
     Ok(m) => m
     Err(e) => fail("unexpected gufa error: \{e}")
@@ -1591,7 +1591,7 @@ test "gufa cast_all propagates known local ref.func and inserts cast" {
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [ValType::funcref()], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::from_types([ValType::funcref()]), body)]))
   let optimized = match run_gufa_module(mod, cast_all=true) {
     Ok(m) => m
     Err(e) => fail("unexpected gufa error: \{e}")
@@ -1658,7 +1658,7 @@ test "gufa ref.cast refines target type when inferred type is stricter" {
         ),
       ]),
     )
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let optimized = match run_gufa_module(mod) {
     Ok(m) => m
     Err(e) => fail("unexpected gufa error: \{e}")
@@ -1705,7 +1705,7 @@ test "gufa oracle propagates local i32 constant into i32.eqz" {
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [ValType::i32()], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::from_types([ValType::i32()]), body)]))
   let optimized = match run_gufa_module(mod) {
     Ok(m) => m
     Err(e) => fail("unexpected gufa error: \{e}")
@@ -1751,7 +1751,7 @@ test "gufa oracle propagates local ref.func into ref.is_null" {
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [ValType::funcref()], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::from_types([ValType::funcref()]), body)]))
   let optimized = match run_gufa_module(mod) {
     Ok(m) => m
     Err(e) => fail("unexpected gufa error: \{e}")
@@ -1799,7 +1799,7 @@ test "gufa oracle propagates local i64 constant into i64.eqz" {
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [ValType::i64()], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::from_types([ValType::i64()]), body)]))
   let optimized = match run_gufa_module(mod) {
     Ok(m) => m
     Err(e) => fail("unexpected gufa error: \{e}")
@@ -1850,7 +1850,7 @@ test "gufa replaces immutable i64 global.get with constant" {
         ),
       ]),
     )
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let optimized = match run_gufa_module(mod) {
     Ok(m) => m
     Err(e) => fail("unexpected gufa error: \{e}")
@@ -1893,7 +1893,7 @@ test "gufa merges identical local knowledge across if branches" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], [ValType::funcref(), ValType::i32()], body),
+        Func::t_func([], Locals::from_types([ValType::funcref(), ValType::i32()]), body),
       ]),
     )
   let optimized = match run_gufa_module(mod) {
@@ -1950,7 +1950,7 @@ test "gufa keeps local knowledge across if without else via pre-state merge" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], [ValType::funcref(), ValType::i32()], body),
+        Func::t_func([], Locals::from_types([ValType::funcref(), ValType::i32()]), body),
       ]),
     )
   let optimized = match run_gufa_module(mod) {
@@ -2016,7 +2016,7 @@ test "gufa does not fold when if branches produce conflicting local constants" {
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [ValType::i32(), ValType::i32()], body)]),
+      CodeSec::new([Func::t_func([], Locals::from_types([ValType::i32(), ValType::i32()]), body)]),
     )
   let optimized = match run_gufa_module(mod) {
     Ok(m) => m

@@ -5373,7 +5373,7 @@ test "optimize instructions call_ref direct simplifications" {
   let code_sec = CodeSec::new([
     Func::t_func(
       [],
-      [],
+      Locals::empty(),
       TExpr::new([
         TInstr::call_ref(TypeIdx::new(0), [], TInstr::ref_func(FuncIdx::new(0))),
       ]),

@@ -2877,11 +2877,9 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
       }
       local_types.push(local_vt)
     }
-    let locals : Array[@lib.Locals] = []
-    for vt in local_types {
-      locals.push(@lib.Locals::new(1U, vt))
-    }
-    code_funcs.push(@lib.Func::new(locals, @lib.Expr::new(body)))
+    code_funcs.push(
+      @lib.Func::new(@lib.Locals::from_types(local_types), @lib.Expr::new(body)),
+    )
   }
 
   let table_defs : Array[@lib.Table] = []

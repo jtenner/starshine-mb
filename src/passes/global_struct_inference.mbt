@@ -1587,7 +1587,7 @@ test "global struct inference does not optimize mutable struct fields" {
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [global_ref], TExpr::new([get_instr]))]),
+      CodeSec::new([Func::t_func([], Locals::from_types([global_ref]), TExpr::new([get_instr]))]),
     )
   let optimized = match run_global_struct_inference(mod, false) {
     Ok(m) => m
@@ -1629,14 +1629,14 @@ test "global struct inference does not optimize when struct type is created in c
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(9))]),
             ),
           ]),
         ),
-        Func::t_func([], [global_ref], TExpr::new([get_instr])),
+        Func::t_func([], Locals::from_types([global_ref]), TExpr::new([get_instr])),
       ]),
     )
   let optimized = match run_global_struct_inference(mod, false) {
@@ -1679,7 +1679,7 @@ test "global struct inference does not optimize when source global is mutable" {
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [global_ref], TExpr::new([get_instr]))]),
+      CodeSec::new([Func::t_func([], Locals::from_types([global_ref]), TExpr::new([get_instr]))]),
     )
   let optimized = match run_global_struct_inference(mod, false) {
     Ok(m) => m
@@ -1732,7 +1732,7 @@ test "global struct inference does not optimize with more than two unique values
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [global_ref], TExpr::new([get_instr]))]),
+      CodeSec::new([Func::t_func([], Locals::from_types([global_ref]), TExpr::new([get_instr]))]),
     )
   let optimized = match run_global_struct_inference(mod, false) {
     Ok(m) => m
@@ -1769,7 +1769,7 @@ test "global struct inference folds direct immutable global struct.get to consta
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::struct_get(
               TypeIdx::new(0),
@@ -2062,7 +2062,7 @@ test "global struct inference avoids direct-global non-constant pessimization" {
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [], TExpr::new([get_instr]))]),
+      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([get_instr]))]),
     )
   let optimized = match run_global_struct_inference(mod, false) {
     Ok(m) => m
@@ -2190,7 +2190,7 @@ test "global struct inference does not optimize non-eqref declared globals" {
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [struct_ref], TExpr::new([get_instr]))]),
+      CodeSec::new([Func::t_func([], Locals::from_types([struct_ref]), TExpr::new([get_instr]))]),
     )
   let optimized = match run_global_struct_inference(mod, false) {
     Ok(m) => m
@@ -2240,14 +2240,14 @@ test "global struct inference propagates unoptimizable subtypes to supertypes" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_new(TypeIdx::new(1), [TInstr::i32_const(I32(7))]),
             ),
           ]),
         ),
-        Func::t_func([], [super_ref], TExpr::new([get_instr])),
+        Func::t_func([], Locals::from_types([super_ref]), TExpr::new([get_instr])),
       ]),
     )
   let optimized = match run_global_struct_inference(mod, false) {
@@ -2293,7 +2293,7 @@ test "global struct inference descriptor mode rewrites singleton non-null ref.ca
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::anyref()],
+          Locals::from_types([ValType::anyref()]),
           TExpr::new([TInstr::drop(cast_instr)]),
         ),
       ]),
@@ -2364,7 +2364,7 @@ test "global struct inference descriptor mode rewrites singleton nullable ref.ca
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::anyref()],
+          Locals::from_types([ValType::anyref()]),
           TExpr::new([TInstr::drop(cast_instr)]),
         ),
       ]),
@@ -2440,7 +2440,7 @@ test "global struct inference descriptor mode requires no strict subtypes" {
       CodeSec::new([
         Func::t_func(
           [],
-          [ValType::anyref()],
+          Locals::from_types([ValType::anyref()]),
           TExpr::new([TInstr::drop(cast_instr)]),
         ),
       ]),
@@ -2483,7 +2483,7 @@ test "global struct inference descriptor mode rewrites ref.get_desc with singlet
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], [global_ref], TExpr::new([TInstr::drop(get_desc)])),
+        Func::t_func([], Locals::from_types([global_ref]), TExpr::new([TInstr::drop(get_desc)])),
       ]),
     )
   let optimized = match run_global_struct_inference(mod, true) {

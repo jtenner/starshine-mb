@@ -1015,14 +1015,14 @@ test "duplicate function elimination removes duplicate function bodies" {
   let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let root = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call(FuncIdx::new(1), []),
       TInstr::call(FuncIdx::new(2), []),
     ]),
   )
-  let dup_a = Func::t_func([], [], TExpr::new([TInstr::nop()]))
-  let dup_b = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let dup_a = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
+  let dup_b = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(
@@ -1063,10 +1063,10 @@ test "duplicate function elimination removes duplicate function bodies" {
 ///|
 test "duplicate function elimination limit respects optimize level" {
   let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
-  let a1 = Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(2), [])]))
-  let a2 = Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(3), [])]))
-  let b1 = Func::t_func([], [], TExpr::new([TInstr::nop()]))
-  let b2 = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let a1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(2), [])]))
+  let a2 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(3), [])]))
+  let b1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
+  let b2 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(
@@ -1101,10 +1101,10 @@ test "duplicate function elimination limit respects optimize level" {
 ///|
 test "duplicate function elimination uses shrink level for multi-iteration" {
   let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
-  let a1 = Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(2), [])]))
-  let a2 = Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(3), [])]))
-  let b1 = Func::t_func([], [], TExpr::new([TInstr::nop()]))
-  let b2 = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let a1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(2), [])]))
+  let a2 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(3), [])]))
+  let b1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
+  let b2 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(
@@ -1135,14 +1135,14 @@ test "duplicate function elimination does not merge equal bodies with different 
   )
   let root = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call(FuncIdx::new(1), []),
       TInstr::call(FuncIdx::new(2), [TInstr::i32_const(I32(7))]),
     ]),
   )
-  let f_void = Func::t_func([], [], TExpr::new([TInstr::nop()]))
-  let f_i32_void = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let f_void = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
+  let f_i32_void = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void, t_i32_void]))
     .with_func_sec(
@@ -1166,14 +1166,14 @@ test "duplicate function elimination merges duplicates across equivalent type de
   let t1 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let root = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call(FuncIdx::new(1), []),
       TInstr::call(FuncIdx::new(2), []),
     ]),
   )
-  let dup_a = Func::t_func([], [], TExpr::new([TInstr::nop()]))
-  let dup_b = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let dup_a = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
+  let dup_b = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0, t1]))
     .with_func_sec(
@@ -1212,14 +1212,14 @@ test "duplicate function elimination remaps start export and ref.func uses" {
   let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let root = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(TInstr::ref_func(FuncIdx::new(2))),
       TInstr::call(FuncIdx::new(2), []),
     ]),
   )
-  let dup_a = Func::t_func([], [], TExpr::new([TInstr::nop()]))
-  let dup_b = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let dup_a = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
+  let dup_b = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(

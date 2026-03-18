@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-18 Lib/Validate/Binary Refactor: canonicalize locals as runs with cached indices
+
+- Started the locals canonicalization refactor across [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt), [`src/lib/util.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/util.mbt), [`src/binary/decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt), [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt), [`src/validate/env.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt), and [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt), replacing the old grouped-local tuple shape with `LocalRun` plus a canonical `Locals` container that owns mutable cached `indices`.
+- Added run-based lookup and mutation support in [`src/lib/util.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/util.mbt), including `ensure_index`, cache invalidation, binary-search-backed `at`, sequence-style indexing via `_[_]`, and run-preserving mutation helpers such as `push_run`, `insert_run`, `remove_run`, `set_run_count`, and `merge_adjacent_runs`.
+- Updated decoding, encoding, transformer traversal, validator env handling, and a broad set of tests so they now construct and consume `Locals` through the canonical run representation instead of flattening into `Array[ValType]`.
+
 ## 2026-03-18 Validate Follow-up: add a dedicated trace benchmark harness and baseline snapshot
 
 - Added a dedicated validator trace benchmark runner in [`src/validate_trace/main.mbt`](/home/jtenner/Projects/starshine-mb/src/validate_trace/main.mbt) with four fixed corpora targeting deep control nesting, wide locals, large code sections, and `ref.func`-heavy modules. The new package exposes a small CLI, captures final `phase_totals`, `helper_totals`, and `hotspots` lines from `validate_module_with_trace(...)`, and prints a stable per-corpus summary suitable for later before/after performance comparisons.

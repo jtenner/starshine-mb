@@ -351,9 +351,9 @@ pub struct ModuleTransformer[T, Err] {
     Err,
   ])?
   on_func : ((ModuleTransformer[T, Err], T, Func) -> VisitAction[T, Func, Err])?
-  on_locals : ((ModuleTransformer[T, Err], T, Array[Locals]) -> VisitAction[
+  on_locals : ((ModuleTransformer[T, Err], T, Locals) -> VisitAction[
     T,
-    Array[Locals],
+    Locals,
     Err,
   ])?
   on_externidx : ((ModuleTransformer[T, Err], T, ExternIdx) -> VisitAction[
@@ -952,9 +952,9 @@ pub fn[T, Err] ModuleTransformer::on_func_evt(
 ///|
 pub fn[T, Err] ModuleTransformer::on_locals_evt(
   self : ModuleTransformer[T, Err],
-  evt : (ModuleTransformer[T, Err], T, Array[Locals]) -> VisitAction[
+  evt : (ModuleTransformer[T, Err], T, Locals) -> VisitAction[
     T,
-    Array[Locals],
+    Locals,
     Err,
   ],
 ) -> ModuleTransformer[T, Err] {
@@ -4826,11 +4826,11 @@ fn[T, Err] ModuleTransformer::walk_opt_func_default(
         Err(t) => return Err(t)
       }
       let (t, locals) = match
-        self.walk_opt_array(t, ModuleTransformer::walk_opt_valtype, locals) {
-        Ok(None) => (t, locals)
-        Ok(Some((t, locals))) => (t, locals)
-        Err(t) => return Err(t)
-      }
+        self.walk_opt_locals(t, locals) {
+          Ok(None) => (t, locals)
+          Ok(Some((t, locals))) => (t, locals)
+          Err(t) => return Err(t)
+        }
       let (t, tbody) = match self.walk_opt_texpr(t, tbody) {
         Ok(None) => (t, tbody)
         Ok(Some(t)) => t
@@ -4845,8 +4845,8 @@ fn[T, Err] ModuleTransformer::walk_opt_func_default(
 fn[T, Err] ModuleTransformer::walk_opt_locals(
   self : ModuleTransformer[T, Err],
   t : T,
-  l : Array[Locals],
-) -> TransformerOptResult[T, Array[Locals], Err] {
+  l : Locals,
+) -> TransformerOptResult[T, Locals, Err] {
   match self.on_locals {
     Some(f) =>
       ModuleTransformer::apply_action_opt(
@@ -4864,22 +4864,25 @@ fn[T, Err] ModuleTransformer::walk_opt_locals(
 fn[T, Err] ModuleTransformer::walk_opt_locals_default(
   self : ModuleTransformer[T, Err],
   t : T,
-  ls : Array[Locals],
-) -> TransformerOptResult[T, Array[Locals], Err] {
-  self.walk_opt_array(t, ModuleTransformer::walk_opt_single_local, ls)
+  ls : Locals,
+) -> TransformerOptResult[T, Locals, Err] {
+  match self.walk_opt_array(t, ModuleTransformer::walk_opt_local_run, ls.runs()) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, runs))) => Ok(Some((t, Locals::new(runs))))
+  }
 }
 
 ///|
-fn[T, Err] ModuleTransformer::walk_opt_single_local(
+fn[T, Err] ModuleTransformer::walk_opt_local_run(
   self : ModuleTransformer[T, Err],
   t : T,
-  l : Locals,
-) -> TransformerOptResult[T, Locals, Err] {
-  let Locals(count, vt) = l
-  match self.walk_opt_valtype(t, vt) {
+  run : LocalRun,
+) -> TransformerOptResult[T, LocalRun, Err] {
+  match self.walk_opt_valtype(t, run.vt) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, vt))) => Ok(Some((t, Locals::new(count, vt))))
+    Ok(Some((t, vt))) => Ok(Some((t, LocalRun::new(run.count, vt))))
   }
 }
 
@@ -6658,8 +6661,8 @@ pub fn[T, Err] ModuleTransformer::walk_func_default(
 pub fn[T, Err] ModuleTransformer::walk_locals(
   self : ModuleTransformer[T, Err],
   t : T,
-  l : Array[Locals],
-) -> TransformerResult[T, Array[Locals], Err] {
+  l : Locals,
+) -> TransformerResult[T, Locals, Err] {
   match self.walk_opt_locals(t, l) {
     Ok(Some((t, next_elem))) => Ok((next_elem, t))
     Ok(None) => Ok((l, t))
@@ -6671,8 +6674,8 @@ pub fn[T, Err] ModuleTransformer::walk_locals(
 pub fn[T, Err] ModuleTransformer::walk_locals_default(
   self : ModuleTransformer[T, Err],
   t : T,
-  ls : Array[Locals],
-) -> TransformerResult[T, Array[Locals], Err] {
+  ls : Locals,
+) -> TransformerResult[T, Locals, Err] {
   match self.walk_opt_locals_default(t, ls) {
     Ok(Some((t, next_elem))) => Ok((next_elem, t))
     Ok(None) => Ok((ls, t))
@@ -6684,9 +6687,9 @@ pub fn[T, Err] ModuleTransformer::walk_locals_default(
 pub fn[T, Err] ModuleTransformer::walk_single_local(
   self : ModuleTransformer[T, Err],
   t : T,
-  l : Locals,
-) -> TransformerResult[T, Locals, Err] {
-  match self.walk_opt_single_local(t, l) {
+  l : LocalRun,
+) -> TransformerResult[T, LocalRun, Err] {
+  match self.walk_opt_local_run(t, l) {
     Ok(Some((t, next_elem))) => Ok((next_elem, t))
     Ok(None) => Ok((l, t))
     Err(e) => Err(e)

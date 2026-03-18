@@ -446,7 +446,7 @@ fn function_local_types(
   env : Env,
   func_idx : FuncIdx,
   tparams : Array[ValType],
-  tlocals : Array[ValType],
+  tlocals : Locals,
 ) -> (Array[ValType], Array[ValType]) {
   match env.get_functype_by_funcidx(func_idx) {
     Some(FuncType(params, _)) => {
@@ -587,7 +587,7 @@ fn make_denam32_func() -> Func {
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
     Some(TExpr::new([TInstr::f32_const(F32(0.0))])),
   )
-  Func::t_func([ValType::f32()], [], TExpr::new([body]))
+  Func::t_func([ValType::f32()], Locals::empty(), TExpr::new([body]))
 }
 
 ///|
@@ -603,7 +603,7 @@ fn make_denam64_func() -> Func {
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
     Some(TExpr::new([TInstr::f64_const(F64(0.0))])),
   )
-  Func::t_func([ValType::f64()], [], TExpr::new([body]))
+  Func::t_func([ValType::f64()], Locals::empty(), TExpr::new([body]))
 }
 
 ///|
@@ -770,7 +770,7 @@ test "f32 NaN constant is replaced with 0.0" {
   // Create a module with a function containing f32 NaN constant
   let nan_bits : UInt = 0x7FC00000 // Quiet NaN
   let nan_f32 = @lib.F32(Float::reinterpret_from_uint(nan_bits))
-  let func = Func::t_func([], [], TExpr::new([TInstr::f32_const(nan_f32)]))
+  let func = Func::t_func([], Locals::empty(), TExpr::new([TInstr::f32_const(nan_f32)]))
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
   match result {
@@ -792,7 +792,7 @@ test "f32 NaN constant is replaced with 0.0" {
 test "f64 NaN constant is replaced with 0.0" {
   let nan_bits : UInt64 = 0x7FF8000000000000 // Quiet NaN
   let nan_f64 = @lib.F64(nan_bits.reinterpret_as_double())
-  let func = Func::t_func([], [], TExpr::new([TInstr::f64_const(nan_f64)]))
+  let func = Func::t_func([], Locals::empty(), TExpr::new([TInstr::f64_const(nan_f64)]))
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
   match result {
@@ -812,7 +812,7 @@ test "f64 NaN constant is replaced with 0.0" {
 
 ///|
 test "non-NaN f32 constant is unchanged" {
-  let func = Func::t_func([], [], TExpr::new([TInstr::f32_const(F32(3.14))]))
+  let func = Func::t_func([], Locals::empty(), TExpr::new([TInstr::f32_const(F32(3.14))]))
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
   match result {
@@ -834,7 +834,7 @@ test "non-NaN f32 constant is unchanged" {
 test "negative zero is not replaced" {
   let neg_zero_bits : UInt = 0x80000000
   let neg_zero = @lib.F32(Float::reinterpret_from_uint(neg_zero_bits))
-  let func = Func::t_func([], [], TExpr::new([TInstr::f32_const(neg_zero)]))
+  let func = Func::t_func([], Locals::empty(), TExpr::new([TInstr::f32_const(neg_zero)]))
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
   match result {
@@ -863,7 +863,7 @@ test "negative zero is not replaced" {
 test "infinity is not replaced" {
   let inf_bits : UInt = 0x7F800000 // Positive infinity
   let inf_f32 = @lib.F32(Float::reinterpret_from_uint(inf_bits))
-  let func = Func::t_func([], [], TExpr::new([TInstr::f32_const(inf_f32)]))
+  let func = Func::t_func([], Locals::empty(), TExpr::new([TInstr::f32_const(inf_f32)]))
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
   match result {
@@ -892,7 +892,7 @@ test "helper functions are added when f32 operations exist" {
   // f32.add produces f32, should trigger helper generation
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::binary(
         BinaryOp::f32_add(),
@@ -919,7 +919,7 @@ test "helper functions are added when f32 operations exist" {
 test "helper functions are added when f64 operations exist" {
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::binary(
         BinaryOp::f64_add(),
@@ -946,7 +946,7 @@ test "helper functions are added when f64 operations exist" {
 test "both helpers added when both f32 and f64 operations exist" {
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::binary(
         BinaryOp::f32_add(),
@@ -980,7 +980,7 @@ test "no helpers added when only NaN constants exist" {
   let nan_f32 = @lib.F32(Float::reinterpret_from_uint(nan_bits))
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::f32_const(nan_f32)]), // Just a constant, no operations
   )
   let mod = make_module_with_code([func])
@@ -1005,7 +1005,7 @@ test "no helpers added when only NaN constants exist" {
 test "f32.add is wrapped with deNan call" {
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::binary(
         BinaryOp::f32_add(),
@@ -1042,7 +1042,7 @@ test "f32.add is wrapped with deNan call" {
 test "f32.sqrt is wrapped with deNan call" {
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::unary(UnaryOp::f32_sqrt(), TInstr::f32_const(F32(4.0)))]),
   )
   let mod = make_module_with_code([func])
@@ -1069,7 +1069,7 @@ test "f32.sqrt is wrapped with deNan call" {
 test "f64.div is wrapped with deNan call" {
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::binary(
         BinaryOp::f64_div(),
@@ -1102,7 +1102,7 @@ test "f64.div is wrapped with deNan call" {
 test "f32.load is wrapped with deNan call" {
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::load(
         LoadOp::f32_load(),
@@ -1135,7 +1135,7 @@ test "f32.load is wrapped with deNan call" {
 test "typed f32.select is wrapped with deNan call" {
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::select(
         Some([ValType::f32()]),
@@ -1169,10 +1169,10 @@ test "typed f32.select is wrapped with deNan call" {
 ///|
 test "f32 call result is wrapped with deNan call" {
   let t0 = make_func_type_rec([], [ValType::f32()])
-  let callee = Func::t_func([], [], TExpr::new([TInstr::f32_const(F32(1.0))]))
+  let callee = Func::t_func([], Locals::empty(), TExpr::new([TInstr::f32_const(F32(1.0))]))
   let caller = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::call(FuncIdx::new(0), [])]),
   )
   let mod = make_typed_module([t0], [TypeIdx::new(0), TypeIdx::new(0)], [
@@ -1212,7 +1212,7 @@ test "f32 local.get flow is wrapped with deNan call" {
   let t0 = make_func_type_rec([], [ValType::f32()])
   let func = Func::t_func(
     [],
-    [ValType::f32()],
+    Locals::from_types([ValType::f32()]),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let mod = make_typed_module([t0], [TypeIdx::new(0)], [func])
@@ -1239,7 +1239,7 @@ test "f64 global.get flow is wrapped with deNan call" {
   let t0 = make_func_type_rec([], [ValType::f64()])
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::global_get(GlobalIdx::new(0))]),
   )
   let mod = Module::new()
@@ -1311,7 +1311,7 @@ test "f32 parameter is sanitized at function entry" {
 test "f64 parameter is sanitized at function entry" {
   let func = Func::t_func(
     [ValType::f64()],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let mod = make_module_with_code([func])
@@ -1379,7 +1379,7 @@ test "mixed parameters - only floats sanitized" {
 test "i32 parameter is not sanitized" {
   let func = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let mod = make_module_with_code([func])
@@ -1409,7 +1409,7 @@ test "i32 parameter is not sanitized" {
 test "deNan32 helper has correct structure" {
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::binary(
         BinaryOp::f32_add(),
@@ -1501,7 +1501,7 @@ test "empty module is unchanged" {
 test "module with no float operations is unchanged" {
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::binary(
         BinaryOp::i32_add(),
@@ -1529,7 +1529,7 @@ test "nested expressions are properly wrapped" {
   // Both inner operations AND the outer add should be wrapped
   let func = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::binary(
         BinaryOp::f32_add(),
@@ -1581,14 +1581,14 @@ test "nested expressions are properly wrapped" {
 test "multiple functions are all processed" {
   let func1 = Func::t_func(
     [ValType::f32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::unary(UnaryOp::f32_sqrt(), TInstr::local_get(LocalIdx::new(0))),
     ]),
   )
   let func2 = Func::t_func(
     [ValType::f64()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::unary(UnaryOp::f64_sqrt(), TInstr::local_get(LocalIdx::new(0))),
     ]),
@@ -1649,7 +1649,7 @@ test "running pass twice produces same result" {
       CodeSec::new([
         Func::t_func(
           [ValType::f32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::binary(
               BinaryOp::f32_add(),
@@ -1803,7 +1803,7 @@ test "de_nan_ir_pass rewrites module through IRContext wrapper" {
   let nan_bits : UInt = 0x7FC00000
   let nan = @lib.F32(Float::reinterpret_from_uint(nan_bits))
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::f32_const(nan)]))]),
+    CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::f32_const(nan)]))]),
   )
   let ctx = IRContext::new()
   match de_nan_ir_pass(mod).walk_module(ctx, mod) {
@@ -1834,7 +1834,7 @@ test "de_nan_ir_pass propagates run_denam errors" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::unary(UnaryOp::f32_sqrt(), TInstr::f32_const(F32(1.0))),
           ]),

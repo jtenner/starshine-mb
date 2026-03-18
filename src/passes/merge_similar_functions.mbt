@@ -105,7 +105,7 @@ struct MSFDefinedFunc {
   abs_idx : Int
   type_idx : TypeIdx
   func_type : FuncType
-  locals : Array[ValType]
+  locals : Locals
   body : TExpr
   hash : UInt64
   call_shape_hash : UInt64
@@ -281,7 +281,7 @@ fn msf_resolve_func_type_for_type_idx(
 fn msf_make_func_env(
   base_env : Env,
   func_type : FuncType,
-  locals : Array[ValType],
+  locals : Locals,
 ) -> Env {
   let FuncType(params, _) = func_type
   base_env.with_locals(FunctionLocals::new(params, locals).all_locals())
@@ -3115,7 +3115,7 @@ fn replace_with_thunk(
         args.push(values_for_target[param_count + i])
       }
       let body = TExpr::new([TInstr::return_([TInstr::call(shared, args)])])
-      Func::t_func(target_params, [], body)
+      Func::t_func(target_params, Locals::empty(), body)
     }
     _ => target
   }
@@ -3602,7 +3602,7 @@ fn msf_typed_ref_seed_func(
     seed_type,
     Func::t_func(
       [ValType::funcref()],
-      [],
+      Locals::empty(),
       TExpr::new([
         TInstr::drop(
           TInstr::ref_cast(
@@ -3637,8 +3637,8 @@ priv struct MSFFixedCorpusMetrics {
 ///|
 fn msf_fixed_corpus_const_merge_mod() -> Module {
   let t = msf_i32_func_type()
-  let f0 = Func::t_func([ValType::i32()], [], msf_binary_body(42, 10))
-  let f1 = Func::t_func([ValType::i32()], [], msf_binary_body(43, 10))
+  let f0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(42, 10))
+  let f1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(43, 10))
   Module::new()
   .with_type_sec(TypeSec::new([t]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -3653,12 +3653,12 @@ fn msf_fixed_corpus_typed_ref_skip_mod() -> Module {
   let (_, typed_ref_seed) = msf_typed_ref_seed_func(TypeIdx::new(0), seed_type)
   let callee_a = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
   )
   let callee_b = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -3671,7 +3671,7 @@ fn msf_fixed_corpus_typed_ref_skip_mod() -> Module {
   )
   let wrap_a = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -3684,7 +3684,7 @@ fn msf_fixed_corpus_typed_ref_skip_mod() -> Module {
   )
   let wrap_b = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -3714,10 +3714,10 @@ fn msf_fixed_corpus_typed_ref_skip_mod() -> Module {
 ///|
 fn msf_fixed_corpus_multi_class_mod() -> Module {
   let t = msf_i32_func_type()
-  let a0 = Func::t_func([ValType::i32()], [], msf_binary_body(10, 1))
-  let a1 = Func::t_func([ValType::i32()], [], msf_binary_body(11, 1))
-  let b0 = Func::t_func([ValType::i32()], [], msf_binary_body(20, 2))
-  let b1 = Func::t_func([ValType::i32()], [], msf_binary_body(21, 2))
+  let a0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(10, 1))
+  let a1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(11, 1))
+  let b0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(20, 2))
+  let b1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(21, 2))
   Module::new()
   .with_type_sec(TypeSec::new([t]))
   .with_func_sec(
@@ -3760,8 +3760,8 @@ fn msf_fixed_corpus_over_limit_profitable_mod() -> Module {
       ),
     )
   }
-  let f0 = Func::t_func([], [], TExpr::new(body_a_instrs))
-  let f1 = Func::t_func([], [], TExpr::new(body_b_instrs))
+  let f0 = Func::t_func([], Locals::empty(), TExpr::new(body_a_instrs))
+  let f1 = Func::t_func([], Locals::empty(), TExpr::new(body_b_instrs))
   Module::new()
   .with_type_sec(TypeSec::new([t]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -3845,12 +3845,12 @@ test "merge similar functions preflight rejects upstream-invalid direct call ari
   let t_wrap = msf_make_func_type([], [ValType::i32()])
   let callee = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let invalid_wrap = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::call(FuncIdx::new(0), [])]),
   )
   let mod = Module::new()
@@ -3873,12 +3873,12 @@ test "merge similar functions preflight rejects upstream-invalid return_call ari
   let t_wrap = msf_make_func_type([], [ValType::i32()])
   let callee = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let invalid_wrap = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::return_call(FuncIdx::new(0), [])]),
   )
   let mod = Module::new()
@@ -3910,7 +3910,7 @@ test "merge similar functions preflight rejects upstream-invalid call_ref arity"
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_sig, t_wrap]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [ValType::i32()], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::from_types([ValType::i32()]), body)]))
   match merge_similar_functions(mod) {
     Ok(_) => fail("expected preflight to reject upstream-invalid call_ref")
     Err(e) => {
@@ -3937,7 +3937,7 @@ test "merge similar functions preflight rejects upstream-invalid call_indirect a
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_sig, t_wrap]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [ValType::i32()], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::from_types([ValType::i32()]), body)]))
   match merge_similar_functions(mod) {
     Ok(_) => fail("expected preflight to reject upstream-invalid call_indirect")
     Err(e) => {
@@ -3959,12 +3959,12 @@ test "merge similar functions preflight accepts multi-value direct call producer
   let t_caller = msf_make_func_type([], [])
   let callee = Func::t_func(
     [ValType::i32(), ValType::i32(), ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::nop()]),
   )
   let caller = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call(FuncIdx::new(0), [
         TInstr::block(
@@ -3991,8 +3991,8 @@ test "merge similar functions preflight accepts multi-value direct call producer
 ///|
 test "merge similar functions basic const merging creates shared + thunks" {
   let t = msf_i32_func_type()
-  let f0 = Func::t_func([ValType::i32()], [], msf_binary_body(42, 10))
-  let f1 = Func::t_func([ValType::i32()], [], msf_binary_body(43, 10))
+  let f0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(42, 10))
+  let f1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(43, 10))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -4047,7 +4047,7 @@ test "merge similar functions reuses parameter across repeated diff vector" {
   let t = msf_i32_func_type()
   let f0 = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -4064,7 +4064,7 @@ test "merge similar functions reuses parameter across repeated diff vector" {
   )
   let f1 = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -4120,8 +4120,8 @@ test "merge similar functions reuses parameter across repeated diff vector" {
 ///|
 test "merge similar functions creates multiple params for independent differences" {
   let t = msf_i32_func_type()
-  let f0 = Func::t_func([ValType::i32()], [], msf_binary_body(10, 20))
-  let f1 = Func::t_func([ValType::i32()], [], msf_binary_body(11, 21))
+  let f0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(10, 20))
+  let f1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(11, 21))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -4147,7 +4147,7 @@ test "merge similar functions preflight accepts multi-value select call producer
   let t_caller = msf_make_func_type([], [])
   let callee = Func::t_func(
     [ValType::i32(), ValType::i32(), ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::nop()]),
   )
   let pair_a = TInstr::block(
@@ -4160,7 +4160,7 @@ test "merge similar functions preflight accepts multi-value select call producer
   )
   let caller = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::call(FuncIdx::new(0), [
         TInstr::select(
@@ -4192,7 +4192,7 @@ test "merge similar functions parameterizes call target using call_ref" {
   let (_, typed_ref_seed) = msf_typed_ref_seed_func(TypeIdx::new(0), seed_type)
   let callee_a = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -4205,7 +4205,7 @@ test "merge similar functions parameterizes call target using call_ref" {
   )
   let callee_b = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -4218,7 +4218,7 @@ test "merge similar functions parameterizes call target using call_ref" {
   )
   let wrap_a = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -4243,7 +4243,7 @@ test "merge similar functions parameterizes call target using call_ref" {
   )
   let wrap_b = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -4416,10 +4416,10 @@ test "merge similar functions rewrite validation errors include function diff du
   let f0_body = TExpr::new([
     TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
   ])
-  let f0 = Func::t_func([ValType::i32()], [ValType::i32()], f0_body)
+  let f0 = Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), f0_body)
   let f1 = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
@@ -4804,9 +4804,9 @@ test "merge similar functions dense node lookup preserves sparse param uses" {
 test "merge similar functions bucket build avoids copy growth and keeps order" {
   let t = msf_i32_func_type()
   let funcs = [
-    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(3, 9)),
-    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(5, 9)),
-    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(7, 9)),
+    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(3, 9)),
+    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(5, 9)),
+    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(7, 9)),
   ]
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
@@ -4861,17 +4861,17 @@ test "merge similar functions call-shape prefilter reduces representative compar
   let outer_ty = msf_make_func_type([ValType::i32()], [ValType::i32()])
   let id0 = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
   )
   let id1 = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
   )
   let call0 = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::return_([
         TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
@@ -4880,7 +4880,7 @@ test "merge similar functions call-shape prefilter reduces representative compar
   )
   let call1 = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::return_([
         TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
@@ -4963,10 +4963,10 @@ test "merge similar functions call-site ids reuse ordered site numbering" {
 test "merge similar functions analysis cache reuses per-function artifacts" {
   let t = msf_i32_func_type()
   let funcs = [
-    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(3, 9)),
-    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(5, 9)),
-    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(7, 9)),
-    Func::t_func([ValType::i32()], [ValType::i32()], msf_binary_body(11, 9)),
+    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(3, 9)),
+    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(5, 9)),
+    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(7, 9)),
+    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(11, 9)),
   ]
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
@@ -5042,17 +5042,17 @@ test "merge similar functions stays valid when shared type follows rec groups" {
   let t_wrap = msf_make_func_type([], [ValType::i32()])
   let callee_a = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let callee_b = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let wrap_a = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::drop(TInstr::i32_const(I32(0))),
       TInstr::return_([
@@ -5062,7 +5062,7 @@ test "merge similar functions stays valid when shared type follows rec groups" {
   )
   let wrap_b = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::drop(TInstr::i32_const(I32(0))),
       TInstr::return_([
@@ -5102,17 +5102,17 @@ test "merge similar functions accepts safe call-target arity" {
   let (_, typed_ref_seed) = msf_typed_ref_seed_func(TypeIdx::new(0), seed_type)
   let callee_a = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let callee_b = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let wrap_a = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::drop(TInstr::i32_const(I32(0))),
       TInstr::return_([
@@ -5122,7 +5122,7 @@ test "merge similar functions accepts safe call-target arity" {
   )
   let wrap_b = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::drop(TInstr::i32_const(I32(0))),
       TInstr::return_([
@@ -5160,17 +5160,17 @@ test "merge similar functions skips call-target merge without typed ref evidence
   let t_wrap = msf_make_func_type([], [ValType::i32()])
   let callee_a = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let callee_b = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let wrap_a = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::drop(TInstr::i32_const(I32(0))),
       TInstr::return_([
@@ -5180,7 +5180,7 @@ test "merge similar functions skips call-target merge without typed ref evidence
   )
   let wrap_b = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::drop(TInstr::i32_const(I32(0))),
       TInstr::return_([
@@ -5223,17 +5223,17 @@ test "merge similar functions traces typed ref lowering unsupported skip" {
   let t_wrap = msf_make_func_type([], [ValType::i32()])
   let callee_a = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let callee_b = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let wrap_a = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::drop(TInstr::i32_const(I32(0))),
       TInstr::return_([
@@ -5243,7 +5243,7 @@ test "merge similar functions traces typed ref lowering unsupported skip" {
   )
   let wrap_b = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::drop(TInstr::i32_const(I32(0))),
       TInstr::return_([
@@ -5284,12 +5284,12 @@ test "merge similar functions declares synthesized ref.func call targets" {
   let (_, typed_ref_seed) = msf_typed_ref_seed_func(TypeIdx::new(0), seed_type)
   let callee_a = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
   )
   let callee_b = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -5302,7 +5302,7 @@ test "merge similar functions declares synthesized ref.func call targets" {
   )
   let wrap_a = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(1))])),
       TInstr::return_([]),
@@ -5310,7 +5310,7 @@ test "merge similar functions declares synthesized ref.func call targets" {
   )
   let wrap_b = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(1))])),
       TInstr::return_([]),
@@ -5339,12 +5339,12 @@ test "merge similar functions rejects const type mismatch" {
   let t = msf_void_func_type()
   let f0 = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::drop(TInstr::i32_const(I32(1)))]),
   )
   let f1 = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::drop(TInstr::i64_const(I64(1L)))]),
   )
   let mod = Module::new()
@@ -5363,20 +5363,20 @@ test "merge similar functions rejects call target type mismatch" {
   let t_i32 = msf_make_func_type([], [ValType::i32()])
   let t_i64 = msf_make_func_type([], [ValType::i64()])
   let t_void = msf_void_func_type()
-  let callee_i32 = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(1))]))
+  let callee_i32 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(1))]))
   let callee_i64 = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::i64_const(I64(1L))]),
   )
   let wrap_a = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::drop(TInstr::call(FuncIdx::new(0), []))]),
   )
   let wrap_b = Func::t_func(
     [],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::drop(TInstr::call(FuncIdx::new(1), []))]),
   )
   let mod = Module::new()
@@ -5402,10 +5402,10 @@ test "merge similar functions rejects locals mismatch" {
   let t = msf_void_func_type()
   let f0 = Func::t_func(
     [],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1)))]),
   )
-  let f1 = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let f1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -5420,8 +5420,8 @@ test "merge similar functions rejects locals mismatch" {
 ///|
 test "merge similar functions profitability gate keeps tiny but merges larger" {
   let t = msf_void_func_type()
-  let tiny0 = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(1))]))
-  let tiny1 = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(2))]))
+  let tiny0 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(1))]))
+  let tiny1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(2))]))
   let mod_tiny = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -5432,8 +5432,8 @@ test "merge similar functions profitability gate keeps tiny but merges larger" {
     _ => fail("expected code section")
   }
   let t2 = msf_i32_func_type()
-  let big0 = Func::t_func([ValType::i32()], [], msf_binary_body(100, 7))
-  let big1 = Func::t_func([ValType::i32()], [], msf_binary_body(101, 7))
+  let big0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(100, 7))
+  let big1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(101, 7))
   let mod_big = Module::new()
     .with_type_sec(TypeSec::new([t2]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -5453,12 +5453,12 @@ test "merge similar functions profitability skips tiny typed-ref call-target wra
   let (_, typed_ref_seed) = msf_typed_ref_seed_func(TypeIdx::new(0), seed_type)
   let callee_a = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
   )
   let callee_b = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -5471,7 +5471,7 @@ test "merge similar functions profitability skips tiny typed-ref call-target wra
   )
   let wrap_a = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -5484,7 +5484,7 @@ test "merge similar functions profitability skips tiny typed-ref call-target wra
   )
   let wrap_b = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -5524,12 +5524,12 @@ test "merge similar functions profitability keeps larger typed-ref call-target w
   let (_, typed_ref_seed) = msf_typed_ref_seed_func(TypeIdx::new(0), seed_type)
   let callee_a = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
   )
   let callee_b = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -5542,7 +5542,7 @@ test "merge similar functions profitability keeps larger typed-ref call-target w
   )
   let wrap_a = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -5567,7 +5567,7 @@ test "merge similar functions profitability keeps larger typed-ref call-target w
   )
   let wrap_b = Func::t_func(
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::return_([
         TInstr::binary(
@@ -5630,8 +5630,8 @@ test "merge similar functions enforces synthetic param limit" {
     body_a_instrs.push(TInstr::drop(TInstr::i32_const(I32(i))))
     body_b_instrs.push(TInstr::drop(TInstr::i32_const(I32(i + 1))))
   }
-  let f0 = Func::t_func([], [], TExpr::new(body_a_instrs))
-  let f1 = Func::t_func([], [], TExpr::new(body_b_instrs))
+  let f0 = Func::t_func([], Locals::empty(), TExpr::new(body_a_instrs))
+  let f1 = Func::t_func([], Locals::empty(), TExpr::new(body_b_instrs))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -5672,8 +5672,8 @@ test "merge similar functions allows slightly over-limit profitable merges" {
       ),
     )
   }
-  let f0 = Func::t_func([], [], TExpr::new(body_a_instrs))
-  let f1 = Func::t_func([], [], TExpr::new(body_b_instrs))
+  let f0 = Func::t_func([], Locals::empty(), TExpr::new(body_a_instrs))
+  let f1 = Func::t_func([], Locals::empty(), TExpr::new(body_b_instrs))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -5694,8 +5694,8 @@ test "merge similar functions still skips excessive synthetic param pressure" {
     body_a_instrs.push(TInstr::drop(TInstr::i32_const(I32(i))))
     body_b_instrs.push(TInstr::drop(TInstr::i32_const(I32(i + 1))))
   }
-  let f0 = Func::t_func([], [], TExpr::new(body_a_instrs))
-  let f1 = Func::t_func([], [], TExpr::new(body_b_instrs))
+  let f0 = Func::t_func([], Locals::empty(), TExpr::new(body_a_instrs))
+  let f1 = Func::t_func([], Locals::empty(), TExpr::new(body_b_instrs))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -5716,8 +5716,8 @@ test "merge similar functions traces synthetic param limit skip" {
     body_a_instrs.push(TInstr::drop(TInstr::i32_const(I32(i))))
     body_b_instrs.push(TInstr::drop(TInstr::i32_const(I32(i + 1))))
   }
-  let f0 = Func::t_func([], [], TExpr::new(body_a_instrs))
-  let f1 = Func::t_func([], [], TExpr::new(body_b_instrs))
+  let f0 = Func::t_func([], Locals::empty(), TExpr::new(body_a_instrs))
+  let f1 = Func::t_func([], Locals::empty(), TExpr::new(body_b_instrs))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -5748,10 +5748,10 @@ test "merge similar functions traces synthetic param limit skip" {
 ///|
 test "merge similar functions is deterministic with multiple classes" {
   let t = msf_i32_func_type()
-  let a0 = Func::t_func([ValType::i32()], [], msf_binary_body(10, 1))
-  let a1 = Func::t_func([ValType::i32()], [], msf_binary_body(11, 1))
-  let b0 = Func::t_func([ValType::i32()], [], msf_binary_body(20, 2))
-  let b1 = Func::t_func([ValType::i32()], [], msf_binary_body(21, 2))
+  let a0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(10, 1))
+  let a1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(11, 1))
+  let b0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(20, 2))
+  let b1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(21, 2))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(
@@ -5777,7 +5777,7 @@ test "merge similar functions shifts var local indices in shared function" {
   let t = msf_i32_func_type()
   let f0 = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(42))),
       TInstr::return_([
@@ -5791,7 +5791,7 @@ test "merge similar functions shifts var local indices in shared function" {
   )
   let f1 = Func::t_func(
     [ValType::i32()],
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(43))),
       TInstr::return_([

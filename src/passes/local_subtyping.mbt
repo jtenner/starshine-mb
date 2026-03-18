@@ -558,7 +558,7 @@ fn ls_compute_assigned_lub(
 ///|
 fn ls_refine_function_locals(
   params : Array[ValType],
-  locals : Array[ValType],
+  locals : Locals,
   body : TExpr,
   base_env : Env,
   func_type_idx_by_func : Map[FuncIdx, TypeIdx],
@@ -623,7 +623,7 @@ fn ls_refine_function_locals(
   if !changed {
     return (locals, false)
   }
-  let new_locals : Array[ValType] = []
+  let new_locals : Locals = Locals::empty()
   for i = param_count; i < full_locals.length(); i = i + 1 {
     new_locals.push(full_locals[i])
   }
@@ -684,7 +684,7 @@ fn ls_single_void_type() -> RecType {
 }
 
 ///|
-fn ls_single_func_module(locals : Array[ValType], body : TExpr) -> Module {
+fn ls_single_func_module(locals : Locals, body : TExpr) -> Module {
   Module::new()
   .with_type_sec(TypeSec::new([ls_single_void_type()]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))

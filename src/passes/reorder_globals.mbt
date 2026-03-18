@@ -985,7 +985,7 @@ test "reorder_globals_always reorders globals by use count while preserving depe
   let mod = Module::new()
     .with_import_sec(ImportSec::new([imported]))
     .with_global_sec(GlobalSec::new([g0, g1, g2]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
     .with_export_sec(
       ExportSec::new([
         Export::new(Name::new("g1"), ExternIdx::global(GlobalIdx::new(2))),
@@ -1070,7 +1070,7 @@ test "reorder_globals non-always keeps modules with fewer than 128 globals uncha
   ])
   let mod = Module::new()
     .with_global_sec(GlobalSec::new([g0, g1]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let out = rg_run_reorder_globals(mod, false)
   assert_eq(out, mod)
 }
@@ -1110,7 +1110,7 @@ test "rg_collect_use_counts counts global.get and global.set over module and cod
   let mod = Module::new()
     .with_import_sec(ImportSec::new([imported]))
     .with_global_sec(GlobalSec::new([g0, g1, g2]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let counts = match rg_collect_use_counts(mod, 1, 3) {
     Ok(out) => out
     Err(e) => fail("unexpected count collection failure: \{e}")

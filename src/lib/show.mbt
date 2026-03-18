@@ -549,15 +549,25 @@ pub impl Show for Export with output(self, logger) {
 
 ///|
 pub impl Show for Locals with output(self, logger) {
-  let Locals(i, vt) = self
-  loop i {
-    0 => break
-    n => {
-      vt.output(logger)
-      logger.write_char(' ')
-      continue n - 1
+  for run in self.runs() {
+    loop run.count {
+      0 => break
+      n => {
+        run.vt.output(logger)
+        logger.write_char(' ')
+        continue n - 1
+      }
     }
   }
+}
+
+///|
+pub impl Show for LocalRun with output(self, logger) {
+  logger.write_string("(LocalRun ")
+  logger.write_string(self.count.to_string())
+  logger.write_char(' ')
+  self.vt.output(logger)
+  logger.write_char(')')
 }
 
 ///|

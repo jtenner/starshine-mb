@@ -3629,7 +3629,7 @@ fn mb_rebuild_non_control(instr : TInstr, children : Array[TInstr]) -> TInstr {
 
 ///|
 fn mb_make_test_module_with_body(
-  locals : Array[ValType],
+  locals : Locals,
   body : TExpr,
   results? : Array[ValType] = [],
 ) -> Module {
@@ -3802,8 +3802,8 @@ fn mb_make_effect_cache_stress_module(
   .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
   .with_code_sec(
     CodeSec::new([
-      Func::t_func([], [], body),
-      Func::t_func(params, [], TExpr::new([])),
+      Func::t_func([], Locals::empty(), body),
+      Func::t_func(params, Locals::empty(), TExpr::new([])),
     ]),
   )
 }
@@ -3856,8 +3856,8 @@ fn mb_make_non_control_child_iteration_stress_module(arg_count : Int) -> Module 
   .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
   .with_code_sec(
     CodeSec::new([
-      Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(1), args)])),
-      Func::t_func(params, [], TExpr::new([])),
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(1), args)])),
+      Func::t_func(params, Locals::empty(), TExpr::new([])),
     ]),
   )
 }
@@ -4015,7 +4015,7 @@ test "merge blocks: does not produce underflowing call arg local-set chain" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func([], locals, body),
-        Func::t_func([ValType::i32()], [], TExpr::new([])),
+        Func::t_func([ValType::i32()], Locals::empty(), TExpr::new([])),
       ]),
     )
   assert_eq(validate_module(mod), Ok(()))
@@ -4764,7 +4764,7 @@ test "merge blocks: try_table catch_ref without params targeting origin is allow
     )
     .with_tag_sec(TagSec::new([tag_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let out = run_merge_blocks(mod)
   assert_false(out == mod)
   let mut saw_ref_catch = false
@@ -4819,7 +4819,7 @@ test "merge blocks: try_table catch targeting origin blocks optimization" {
     )
     .with_tag_sec(TagSec::new([tag_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let out = run_merge_blocks(mod)
   assert_eq(out, mod)
 }
@@ -4851,7 +4851,7 @@ test "merge blocks: try_table catch_all targeting origin blocks optimization" {
     )
     .with_tag_sec(TagSec::new([tag_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let out = run_merge_blocks(mod)
   assert_eq(out, mod)
 }
@@ -4883,7 +4883,7 @@ test "merge blocks: try_table catch_ref with params blocks optimization" {
     )
     .with_tag_sec(TagSec::new([tag_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let out = run_merge_blocks(mod)
   assert_eq(out, mod)
 }
@@ -4919,7 +4919,7 @@ test "merge blocks: problem finder blocks nested dropped try_table catch_ref mis
     )
     .with_tag_sec(TagSec::new([tag_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), body)]))
   let out = run_merge_blocks(mod)
   assert_eq(out, mod)
 }
@@ -5422,7 +5422,7 @@ test "merge blocks: refinalization keeps param local index space valid" {
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([ValType::i32()], [], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([ValType::i32()], Locals::empty(), body)]))
   let out = run_merge_blocks(mod)
   assert_eq(validate_module(out), Ok(()))
 }

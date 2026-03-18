@@ -385,7 +385,7 @@ fn alignment_lowering_pass(
     None => []
   }
   let mut temp_params : Array[ValType] = []
-  let mut temp_locals : Array[ValType] = []
+  let mut temp_locals = Locals::empty()
   ModuleTransformer::new()
   .on_func_evt(fn(self, t : IRContext, i) {
     match i {
@@ -400,7 +400,7 @@ fn alignment_lowering_pass(
                 let result_params = temp_params
                 let result_locals = temp_locals
                 temp_params = []
-                temp_locals = []
+                temp_locals = Locals::empty()
                 change(t, Func::t_func(result_params, result_locals, b))
               }
               _ => error("Expected TFunc")
@@ -718,9 +718,9 @@ fn run_pass(
 ///|
 fn run_func_pass(
   memories : Array[MemType],
-  locals : Array[ValType],
+  locals : Locals,
   body : Array[TInstr],
-) -> Result[(Array[ValType], TExpr), String] {
+) -> Result[(Locals, TExpr), String] {
   let mod = make_test_module(memories)
   let ctx = IRContext::new()
   ctx.set_mod(mod)
@@ -1725,7 +1725,7 @@ test "invalid memory index returns error" {
 
 ///|
 test "unaligned load allocates new local for pointer" {
-  let initial_locals : Array[ValType] = [ValType::i32()]
+  let initial_locals = Locals::from_types([ValType::i32()])
   let body = [
     TInstr::load(
       LoadOp::i32_load(),
@@ -1738,7 +1738,7 @@ test "unaligned load allocates new local for pointer" {
     Ok((new_locals, _)) => {
       // Original local + 1 pointer local
       assert_eq(new_locals.length(), 2)
-      assert_eq(new_locals[1], ValType::i32())
+      assert_eq(new_locals.unsafe_get(1), ValType::i32())
     }
     Err(e) => fail("Error: \{e}")
   }
@@ -1746,7 +1746,7 @@ test "unaligned load allocates new local for pointer" {
 
 ///|
 test "unaligned store allocates locals for pointer and value" {
-  let initial_locals : Array[ValType] = [ValType::i32()]
+  let initial_locals = Locals::from_types([ValType::i32()])
   let body = [
     TInstr::store(
       StoreOp::i32_store(),
@@ -1766,7 +1766,7 @@ test "unaligned store allocates locals for pointer and value" {
 
 ///|
 test "i64 store allocates i64 value local" {
-  let initial_locals : Array[ValType] = [ValType::i32()]
+  let initial_locals = Locals::from_types([ValType::i32()])
   let body = [
     TInstr::store(
       StoreOp::i64_store(),
@@ -1779,8 +1779,8 @@ test "i64 store allocates i64 value local" {
   match result {
     Ok((new_locals, _)) => {
       assert_eq(new_locals.length(), 3)
-      assert_eq(new_locals[1], ValType::i32()) // pointer
-      assert_eq(new_locals[2], ValType::i64()) // value
+      assert_eq(new_locals.unsafe_get(1), ValType::i32()) // pointer
+      assert_eq(new_locals.unsafe_get(2), ValType::i64()) // value
     }
     Err(e) => fail("Error: \{e}")
   }
@@ -2036,7 +2036,7 @@ test "alignment lowering leaves modules without memory ops unchanged" {
     .with_mem_sec(MemSec::new(make_i32_mem()))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
     )
   let out = match run_module_pass(mod) {
     Ok(next) => next
@@ -2058,7 +2058,7 @@ test "alignment lowering output validates for rewritten i32-memory loads" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::drop(
               TInstr::load(
@@ -2097,7 +2097,7 @@ test "alignment lowering output validates for rewritten memory64 stores" {
       CodeSec::new([
         Func::t_func(
           [ValType::i64(), ValType::i64()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::store(
               StoreOp::i64_store(),

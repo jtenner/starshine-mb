@@ -1136,29 +1136,3 @@ fn v128_store_lane_op_to_instr(
 }
 
 ///|
-pub fn tlocals_to_locals(tlocals : Array[ValType]) -> Array[Locals] {
-  if tlocals.length() == 0 {
-    return []
-  }
-  let end = tlocals.length()
-  let mut current = tlocals[0]
-  let mut count = 1U
-  let acc = []
-  loop 1 {
-    n if n == end => {
-      acc.push(Locals(count, current))
-      break acc
-    }
-    n => {
-      let next = tlocals[n]
-      if current == next {
-        count = count + 1
-      } else {
-        acc.push(Locals(count, current))
-        count = 1
-        current = next
-      }
-      continue n + 1
-    }
-  }
-}

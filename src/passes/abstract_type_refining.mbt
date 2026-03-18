@@ -366,7 +366,7 @@ test "abstract struct usage becomes bottom" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::ref_cast(
               true,
@@ -521,7 +521,7 @@ test "abstract struct does not trap when traps may happen" {
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::ref_cast(
               true,
@@ -706,7 +706,7 @@ fn atr_mixed_branch_parity_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
-        [],
+        Locals::empty(),
         TExpr::new([
           TInstr::drop(
             TInstr::br_on_cast(
@@ -956,7 +956,7 @@ fn atr_nested_value_tree_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::ref_type(RefType::new(true, any_ht))],
+        Locals::from_types([ValType::ref_type(RefType::new(true, any_ht))]),
         TExpr::new([
           TInstr::local_set(
             LocalIdx::new(0),
@@ -1155,7 +1155,7 @@ fn atr_deep_nested_control_value_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
-        [],
+        Locals::empty(),
         TExpr::new([
           TInstr::drop(
             TInstr::if_(
@@ -1501,7 +1501,7 @@ fn atr_handler_nested_control_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
-        [],
+        Locals::empty(),
         TExpr::new([
           TInstr::drop(
             TInstr::if_(
@@ -1866,7 +1866,7 @@ fn atr_handler_throwing_validator_clean_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
-        [],
+        Locals::empty(),
         TExpr::new([
           TInstr::drop(
             TInstr::if_(
@@ -2106,7 +2106,7 @@ fn atr_typed_payload_catch_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
-        [],
+        Locals::empty(),
         TExpr::new([
           TInstr::drop(
             TInstr::try_table(
@@ -2122,7 +2122,7 @@ fn atr_typed_payload_catch_module() -> Module {
       ),
       Func::t_func(
         [],
-        [],
+        Locals::empty(),
         TExpr::new([
           TInstr::try_table(
             BlockType::type_idx(TypeIdx::new(4)),
@@ -2155,7 +2155,7 @@ fn atr_drop_ref_cast_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
-        [],
+        Locals::empty(),
         TExpr::new([
           TInstr::drop(
             TInstr::ref_cast(true, exact_ht, TInstr::ref_null(any_ht)),

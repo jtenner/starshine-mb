@@ -20,7 +20,7 @@ test "lower_to_expr_pass lowers TFunc locals and instructions" {
     CodeSec::new([
       Func::t_func(
         [],
-        [ValType::i32(), ValType::i32(), ValType::i64()],
+        Locals::from_types([ValType::i32(), ValType::i32(), ValType::i64()]),
         TExpr::new([
           TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(5))),
         ]),
@@ -30,13 +30,12 @@ test "lower_to_expr_pass lowers TFunc locals and instructions" {
   let lowered = run_lower_to_expr_pass(mod)
   match lowered.code_sec {
     Some(CodeSec([Func(locals, Expr(instrs))])) => {
-      assert_eq(locals.length(), 2)
-      let Locals(c0, t0) = locals[0]
-      let Locals(c1, t1) = locals[1]
-      assert_eq(c0, 2U)
-      assert_eq(t0, ValType::i32())
-      assert_eq(c1, 1U)
-      assert_eq(t1, ValType::i64())
+      let runs = locals.runs()
+      assert_eq(runs.length(), 2)
+      assert_eq(runs[0].count, 2U)
+      assert_eq(runs[0].vt, ValType::i32())
+      assert_eq(runs[1].count, 1U)
+      assert_eq(runs[1].vt, ValType::i64())
       assert_eq(instrs.length(), 2)
       match instrs[0] {
         I32Const(I32(v)) => assert_eq(v, 5)
@@ -56,7 +55,7 @@ test "lift_to_texpr_pass lifts Func body and expands locals" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::new(
-        tlocals_to_locals([ValType::i32(), ValType::i32()]),
+        Locals::from_types([ValType::i32(), ValType::i32()]),
         Expr::new([
           Instruction::i32_const(I32(9)),
           Instruction::local_set(LocalIdx::new(1)),
@@ -72,7 +71,7 @@ test "lift_to_texpr_pass lifts Func body and expands locals" {
   match lifted.code_sec {
     Some(CodeSec([TFunc(_, locals, body)])) => {
       let instrs = body.instrs
-      assert_eq(locals, [ValType::i32(), ValType::i32()])
+      assert_eq(locals, Locals::from_types([ValType::i32(), ValType::i32()]))
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
         TInstrKind::TLocalSet(
@@ -91,7 +90,7 @@ test "lift_to_texpr_pass lifts Func body and expands locals" {
 
 ///|
 test "lift_to_texpr_pass leaves existing TFunc unchanged" {
-  let func = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let func = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = lift_to_texpr_pass()
   let lifted = match pass.walk_module((), mod) {

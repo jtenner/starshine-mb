@@ -1009,7 +1009,7 @@ test "Typecheck block body type mismatch with blocktype results" {
 
 ///|
 test "Typecheck block body does not consume outer stack without block params" {
-  let env = empty_env().with_locals([ValType::i32()])
+  let env = empty_env().with_locals(Locals::from_types([ValType::i32()]))
   let state = tcneg_make_state(env, [])
   let expr = Expr::new([
     Instruction::i32_const(I32(0)),

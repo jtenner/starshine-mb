@@ -421,17 +421,7 @@ fn validate_hotspot_summary_line() -> String? {
 ///|
 fn validate_func_trace_locals_count(func : Func) -> Int {
   match func {
-    Func(decls, _) => {
-      let mut total = 0
-      for d in decls {
-        let Locals(n, _) = d
-        let count = n.reinterpret_as_int()
-        if count > 0 {
-          total += count
-        }
-      }
-      total
-    }
+    Func(decls, _) => decls.length()
     TFunc(_, locals, _) => locals.length()
   }
 }
@@ -780,7 +770,7 @@ fn validate_const_expr(
 
   // typecheck it under an empty stack/locals/labels context
   // (but with access to env globals, funcs, etc)
-  let env_tc = Env::{ ..env, locals: [], labels: [], return_type: None }
+  let env_tc = Env::{ ..env, locals: Locals::empty(), labels: [], return_type: None }
   let st0 = TcState::{
     env: env_tc,
     stack: [],
@@ -947,15 +937,15 @@ pub fn validate_tablesec(
 ///|
 fn validate_locals_decls(
   env : Env,
-  decls : Array[Locals],
+  decls : Locals,
 ) -> Result[Unit, String] {
-  for d in decls {
-    let Locals(n, vt) = d
+  for d in decls.runs() {
+    let { count, vt } = d
     if Validate::validate(vt, env) is Err(e) {
       return Err(e)
     }
-    let count = n.reinterpret_as_int()
-    if count < 0 {
+    let local_count = count.reinterpret_as_int()
+    if local_count < 0 {
       return Err("locals: negative count")
     }
     if !has_default(vt) {
@@ -968,27 +958,20 @@ fn validate_locals_decls(
 ///|
 fn validate_append_all_locals_from_decls(
   params : Array[ValType],
-  decls : Array[Locals],
-) -> Array[ValType] {
-  let all = params.copy()
-  for d in decls {
-    let Locals(n, vt) = d
-    for _ in 0..<n.reinterpret_as_int() {
-      all.push(vt)
-    }
-  }
+  decls : Locals,
+) -> Locals {
+  let all = Locals::from_types(params)
+  all.append(decls)
   all
 }
 
 ///|
 fn validate_append_all_locals_from_typed(
   params : Array[ValType],
-  local_vals : Array[ValType],
-) -> Array[ValType] {
-  let all = params.copy()
-  for vt in local_vals {
-    all.push(vt)
-  }
+  local_vals : Locals,
+) -> Locals {
+  let all = Locals::from_types(params)
+  all.append(local_vals)
   all
 }
 
@@ -2622,7 +2605,7 @@ test "validate_module reports typed ValidationError variant" {
   let mod = Module::new()
     .with_type_sec(TypeSec::new([sig]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+    .with_code_sec(CodeSec::new([Func::new(Locals::empty(), Expr::new([]))]))
     .with_export_sec(
       ExportSec::new([
         Export::new(Name::new("dup"), ExternIdx::func(FuncIdx::new(0U))),
@@ -2654,7 +2637,7 @@ test "validate_module requires data count section for memory.init and data.drop"
     .with_code_sec(
       CodeSec::new([
         Func::new(
-          [],
+          Locals::empty(),
           Expr::new([
             Instruction::i32_const(I32(0)),
             Instruction::i32_const(I32(0)),
@@ -2680,7 +2663,7 @@ test "validate_module requires data count section for memory.init and data.drop"
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
     .with_code_sec(
       CodeSec::new([
-        Func::new([], Expr::new([Instruction::data_drop(DataIdx::new(0))])),
+        Func::new(Locals::empty(), Expr::new([Instruction::data_drop(DataIdx::new(0))])),
       ]),
     )
     .with_data_sec(DataSec::new([data]))
@@ -2704,7 +2687,9 @@ test "validate_module rejects typed function with missing explicit params" {
     .with_type_sec(TypeSec::new([sig]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], [ValType::i32()], TExpr::new([]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::from_types([ValType::i32()]), TExpr::new([])),
+      ]),
     )
   match validate_module(mod) {
     Ok(_) => fail("expected typed function params mismatch to fail validation")
@@ -2729,7 +2714,7 @@ test "validate_module rejects legacy typed locals that duplicate param prefix" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [ValType::i32(), ValType::i64()],
+          Locals::from_types([ValType::i32(), ValType::i64()]),
           TExpr::new([
             TInstr::local_set(LocalIdx::new(1), TInstr::i64_const(I64(7))),
           ]),
@@ -2754,7 +2739,7 @@ test "validate_module accepts typed try_table with param input" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),
             TInstr::try_table(
@@ -2766,7 +2751,7 @@ test "validate_module accepts typed try_table with param input" {
         ),
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(0)))]),
         ),
       ]),
@@ -2786,7 +2771,7 @@ test "validate_module accepts typed block with control-flow input params" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0U)),
             TInstr::block(BlockType::type_idx(TypeIdx::new(0U)), TExpr::new([])),
@@ -2814,7 +2799,7 @@ test "validate_module accepts typed if with control-flow input params" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32(), ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(1U)),
             TInstr::if_(
@@ -2842,7 +2827,7 @@ test "validate_module accepts typed loop with control-flow input params" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0U)),
             TInstr::loop_(BlockType::type_idx(TypeIdx::new(0U)), TExpr::new([])),
@@ -2865,7 +2850,7 @@ test "validate_module accepts typed nested outer-label branch if" {
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::block(
               BlockType::void_(),
@@ -2909,7 +2894,7 @@ test "validate_module accepts typed block result supplied by nested outer-label 
       CodeSec::new([
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([
             TInstr::block(
               BlockType::val_type(ValType::i32()),
@@ -2938,7 +2923,7 @@ test "validate_module rejects undeclared function reference in body" {
     .with_code_sec(
       CodeSec::new([
         Func::new(
-          [],
+          Locals::empty(),
           Expr::new([
             Instruction::ref_func(FuncIdx::new(0U)),
             Instruction::drop(),
@@ -2967,7 +2952,7 @@ test "validate_module does not treat start as a ref.func declaration source" {
     .with_code_sec(
       CodeSec::new([
         Func::new(
-          [],
+          Locals::empty(),
           Expr::new([
             Instruction::ref_func(FuncIdx::new(0U)),
             Instruction::drop(),
@@ -2996,7 +2981,7 @@ test "validate_module accepts ref.func body when function is exported" {
     .with_code_sec(
       CodeSec::new([
         Func::new(
-          [],
+          Locals::empty(),
           Expr::new([
             Instruction::ref_func(FuncIdx::new(0U)),
             Instruction::drop(),
@@ -3032,7 +3017,7 @@ test "validate_module treats global initializer ref.func as declaration source" 
         ),
       ]),
     )
-    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+    .with_code_sec(CodeSec::new([Func::new(Locals::empty(), Expr::new([]))]))
   match validate_module(mod) {
     Ok(_) => ()
     Err(err) =>
@@ -3060,7 +3045,7 @@ test "validate_module treats table initializer ref.func as declaration source" {
         ),
       ]),
     )
-    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+    .with_code_sec(CodeSec::new([Func::new(Locals::empty(), Expr::new([]))]))
   match validate_module(mod) {
     Ok(_) => ()
     Err(err) =>
@@ -3084,7 +3069,7 @@ test "validate_module treats elem expression ref.func as declaration source" {
     .with_type_sec(TypeSec::new([sig]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
     .with_elem_sec(ElemSec::new([elem]))
-    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+    .with_code_sec(CodeSec::new([Func::new(Locals::empty(), Expr::new([]))]))
   match validate_module(mod) {
     Ok(_) => ()
     Err(err) =>
@@ -3112,7 +3097,7 @@ test "validate_module accepts ref.func in elem expression when elem.funcs declar
     .with_type_sec(TypeSec::new([sig]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
     .with_elem_sec(ElemSec::new([decls, elem_expr]))
-    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+    .with_code_sec(CodeSec::new([Func::new(Locals::empty(), Expr::new([]))]))
   match validate_module(mod) {
     Ok(_) => ()
     Err(err) =>
@@ -3141,7 +3126,7 @@ test "validate_module accepts ref.func in global initializer when function is ex
         Export::new(Name::new("f"), ExternIdx::func(FuncIdx::new(0U))),
       ]),
     )
-    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+    .with_code_sec(CodeSec::new([Func::new(Locals::empty(), Expr::new([]))]))
   match validate_module(mod) {
     Ok(_) => ()
     Err(err) =>
@@ -3164,9 +3149,9 @@ test "validate_module rejects mixed declared and undeclared ref.func uses in one
     )
     .with_code_sec(
       CodeSec::new([
-        Func::new([], Expr::new([])),
+        Func::new(Locals::empty(), Expr::new([])),
         Func::new(
-          [],
+          Locals::empty(),
           Expr::new([
             Instruction::ref_func(FuncIdx::new(0U)),
             Instruction::drop(),
@@ -3384,7 +3369,7 @@ test "validate_module rejects tail loop that leaves function result missing" {
     .with_code_sec(
       CodeSec::new([
         Func::new(
-          [],
+          Locals::empty(),
           Expr::new([
             Instruction::loop_(
               BlockType::void_(),
@@ -3418,7 +3403,7 @@ test "validate_module reports end-of-body underflow with stack shape" {
   let mod = Module::new()
     .with_type_sec(TypeSec::new([sig]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+    .with_code_sec(CodeSec::new([Func::new(Locals::empty(), Expr::new([]))]))
   match validate_module(mod) {
     Ok(_) => fail("expected missing function result to fail validation")
     Err(err) => {
@@ -3441,7 +3426,7 @@ test "validate_module reports wrong end-of-body result type with stack shape" {
     .with_type_sec(TypeSec::new([sig]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
     .with_code_sec(
-      CodeSec::new([Func::new([], Expr::new([Instruction::f32_const(0.0)]))]),
+      CodeSec::new([Func::new(Locals::empty(), Expr::new([Instruction::f32_const(0.0)]))]),
     )
   match validate_module(mod) {
     Ok(_) => fail("expected wrong function result type to fail validation")
@@ -3464,7 +3449,7 @@ test "validate_module reports end-of-body extra values with stack shape" {
     .with_type_sec(TypeSec::new([sig]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
     .with_code_sec(
-      CodeSec::new([Func::new([], Expr::new([Instruction::i32_const(I32(1))]))]),
+      CodeSec::new([Func::new(Locals::empty(), Expr::new([Instruction::i32_const(I32(1))]))]),
     )
   match validate_module(mod) {
     Ok(_) => fail("expected extra stack values to fail validation")
@@ -3488,7 +3473,7 @@ test "validate_module rejects concrete stack junk after return inside block" {
     .with_code_sec(
       CodeSec::new([
         Func::new(
-          [],
+          Locals::empty(),
           Expr::new([
             Instruction::block(
               BlockType::void_(),
@@ -3519,7 +3504,7 @@ test "validate_module rejects wrong concrete loop result after infinite inner lo
     .with_code_sec(
       CodeSec::new([
         Func::new(
-          [],
+          Locals::empty(),
           Expr::new([
             Instruction::loop_(
               BlockType::val_type(ValType::i32()),
@@ -3558,7 +3543,7 @@ test "validate_module rejects outer if result missing after inner current-label 
     .with_code_sec(
       CodeSec::new([
         Func::new(
-          [],
+          Locals::empty(),
           Expr::new([
             Instruction::block(
               BlockType::void_(),
@@ -3611,7 +3596,7 @@ test "validate_module rejects outer if result missing after nested outer-label b
     .with_code_sec(
       CodeSec::new([
         Func::new(
-          [],
+          Locals::empty(),
           Expr::new([
             Instruction::block(
               BlockType::void_(),

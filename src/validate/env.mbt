@@ -13,7 +13,7 @@ pub(all) struct Env {
   elems : Array[Elem]
   datas : Array[Data]
   tags : Array[TagType]
-  locals : Array[ValType]
+  locals : Locals
   labels : Stack[Array[ValType]]
   return_type : Array[ValType]?
 } derive(Hash, Show)
@@ -100,7 +100,7 @@ pub fn Env::resolve_typeidx_subtype(env : Env, tidx : TypeIdx) -> SubType? {
 ///|
 pub fn Env::get_local_type(env : Env, idx : LocalIdx) -> ValType? {
   let LocalIdx(i) = idx
-  env.locals.get(i.reinterpret_as_int())
+  env.locals.at(i.reinterpret_as_int())
 }
 
 ///|
@@ -177,7 +177,7 @@ pub fn empty_env() -> Env {
     elems: [],
     datas: [],
     tags: [],
-    locals: [],
+    locals: Locals::empty(),
     labels: [],
     return_type: None,
   }
@@ -354,7 +354,7 @@ pub fn Env::push_table(env : Env, tt : TableType) -> Env {
 }
 
 ///|
-pub fn Env::with_locals(env : Env, locals : Array[ValType]) -> Env {
+pub fn Env::with_locals(env : Env, locals : Locals) -> Env {
   Env::{ ..env, locals, }
 }
 

@@ -16,7 +16,6 @@
 
 ///|
 using @lib {
-  expand_locals,
   func_idx,
   trace_delta_us_to_ms,
   trace_elapsed_ms,
@@ -24,7 +23,6 @@ using @lib {
   trace_now_ms,
   trace_now_us,
   table_idx,
-  tlocals_to_locals,
   type FunctionLocals,
   type AbsHeapType,
   type TInstr,

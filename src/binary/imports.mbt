@@ -58,6 +58,7 @@ using @lib {
   type Func,
   type DataSec,
   type Data,
+  type LocalRun,
   type Locals,
   type DataCntSec,
   type TagSec,
@@ -74,7 +75,6 @@ using @lib {
   type MemArg,
   type AtomicRmwOp,
   type AtomicCmpxchgOp,
-  tlocals_to_locals,
   type NumType,
   type ElemKind,
 }

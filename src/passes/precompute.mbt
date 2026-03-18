@@ -2414,7 +2414,7 @@ fn pc_run_module(
 ///|
 fn pc_top_level_result_types(
   body : Array[TInstr],
-  locals : Array[ValType],
+  locals : Locals,
   mod : Module,
 ) -> Array[ValType] {
   let out : Array[ValType] = []

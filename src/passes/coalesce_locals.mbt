@@ -239,7 +239,7 @@ fn simultaneous_uses(instr : TInstr) -> Set[LocalIdx] {
 
 ///|
 fn compute_coalesce_order(
-  locals : Array[ValType],
+  locals : Locals,
   freq : Map[LocalIdx, Int],
 ) -> Array[LocalIdx] {
   let order = Array::new()
@@ -325,7 +325,7 @@ fn simulate_block_values(
 ///|
 fn compute_cfg_value_envs(
   blocks : Array[Block],
-  locals : Array[ValType],
+  locals : Locals,
   counter : Ref[Int],
   consts : ConstTable,
 ) -> (Map[Int, ValueEnv], Map[Int, ValueEnv]) {
@@ -440,7 +440,7 @@ fn compute_cfg_liveness(blocks : Array[Block]) -> Map[Int, BlockLiveness] {
 ///|
 fn compute_interferences_cfg(
   blocks : Array[Block],
-  locals : Array[ValType],
+  locals : Locals,
 ) -> (
   Set[(LocalIdx, LocalIdx)],
   Map[Int, ValueEnv],
@@ -737,7 +737,7 @@ fn must_be_same_value(
 
 ///|
 fn compute_coalescing(
-  locals : Array[ValType],
+  locals : Locals,
   inter : Set[(LocalIdx, LocalIdx)],
   order : Array[LocalIdx],
   param_count : Int,
@@ -860,7 +860,7 @@ fn cl_trace_should_log_func(ordinal : Int, trace_all_funcs : Bool) -> Bool {
 
 ///|
 fn cl_trim_trailing_unused_locals(
-  locals : Array[ValType],
+  locals : Locals,
   param_count : Int,
   max_local_used : Int,
 ) -> (Array[ValType], Int) {
@@ -1113,7 +1113,7 @@ fn coalesce_locals_ir_pass_with_trace(
 
 ///|
 fn compute_new_locals(
-  locals : Array[ValType],
+  locals : Locals,
   mapping : LocalMap,
   param_count : Int,
 ) -> (Array[ValType], Map[LocalIdx, LocalIdx]) {
@@ -1282,7 +1282,7 @@ fn identity_order(n : Int) -> Array[LocalIdx] {
 
 ///|
 fn compute_coalescing_simple(
-  locals : Array[ValType],
+  locals : Locals,
   inter : Set[(LocalIdx, LocalIdx)],
   order : Array[LocalIdx],
 ) -> LocalMap {
@@ -1358,7 +1358,7 @@ test "CoalesceLocals: trivial coalescing rewrites locals" {
   ]
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -1375,7 +1375,7 @@ test "CoalesceLocals: trivial coalescing rewrites locals" {
 
 ///|
 test "CoalesceLocals large-local fast path trims trailing unused locals" {
-  let locals : Array[ValType] = []
+  let locals : Locals = Locals::empty()
   for _ in 0..<(CL_MAX_EXACT_LOCALS + 8) {
     locals.push(ValType::i32())
   }
@@ -1415,7 +1415,7 @@ test "CoalesceLocals: locals of different types do not coalesce" {
   ]
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::f32()],
+    Locals::from_types([ValType::i32(), ValType::f32()]),
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -1442,7 +1442,7 @@ test "CoalesceLocals: nested expressions still allow coalescing" {
   ]
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -1542,7 +1542,7 @@ test "CoalesceLocals: merge interference prevents coalescing" {
   ]
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -1576,7 +1576,7 @@ test "CoalesceLocals: branch-local lifetimes can be coalesced" {
   ]
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -1671,7 +1671,7 @@ test "Copy-based coalescing eliminates local copy" {
   ]
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -1694,7 +1694,7 @@ test "Copy-based coalescing respects interference" {
   ]
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -1720,7 +1720,7 @@ test "Value numbering: identical constant assignments coalesce" {
   ]
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -1748,7 +1748,7 @@ test "Value numbering: different constants do not coalesce" {
   ]
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -1776,7 +1776,7 @@ test "Value numbering: copy propagation enables coalescing" {
   ]
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -1804,7 +1804,7 @@ test "Value numbering: reassignment breaks equality" {
   ]
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -1836,7 +1836,7 @@ test "Value numbering: equal values across branches do not coalesce" {
   ]
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -1865,7 +1865,7 @@ test "CoalesceLocals: nested local use is rewritten when locals coalesce" {
   ]
   let func = Func::t_func(
     [],
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new(instrs),
   )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
@@ -1893,7 +1893,7 @@ test "CoalesceLocals: imported functions do not shift param boundaries" {
     TInstr::local_get(y),
     TInstr::drop(TInstr::local_get(p)),
   ])
-  let func = Func::t_func([], [ValType::i32(), ValType::i32()], body)
+  let func = Func::t_func([], Locals::from_types([ValType::i32(), ValType::i32()]), body)
   let mod = Module::new()
     .with_type_sec(TypeSec::new([imported_type, defined_type]))
     .with_import_sec(
@@ -1930,7 +1930,7 @@ test "CoalesceLocals: plain Func entries do not shift param boundaries" {
         Func::new([], Expr::new([Instruction::nop()])),
         Func::t_func(
           [],
-          [],
+          Locals::empty(),
           TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(0)))]),
         ),
       ]),
@@ -1970,7 +1970,7 @@ test "CoalesceLocals: mixed Func/TFunc keeps typed params when func_sec is stale
         Func::new([], Expr::new([Instruction::nop()])),
         Func::t_func(
           typed_params,
-          [ValType::i32(), ValType::i32(), ValType::i32()],
+          Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32()]),
           body,
         ),
       ]),
