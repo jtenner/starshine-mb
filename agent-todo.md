@@ -1,292 +1,61 @@
 # Agent Tasks
 
 ## Goal
-Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full native CLI, spec-test passing validator+optimizer, clean public API, and maintainable codebase.
+Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full native CLI, spec-test passing validator+optimizer, clean public API, and a maintainable codebase.
 
 ## Scope
-- This file tracks open work split into publishing blockers and post-0.1.0 follow-up.
-- Items are ordered highest priority first within each section.
-- Recent completed items are retained at the bottom until the next audit pass.
+- Open work only.
+- Keep tasks as simple bullet points.
+- Move completed work to `CHANGELOG.md` instead of marking items done here.
+- Order items highest priority first within each section.
 
 ## Publishing blockers
-- [x] Phase 1: enumerate every file in `src/passes`, identify the scheduler/pipeline order from `src/passes/optimize.mbt`, map passes to the closest Binaryen equivalent families, and record mutually enabling relationships plus current inefficiencies in `docs/pass-audit.md`.
-- [x] Phase 2 planning/infrastructure: add initial pass-level optimizer-runner instrumentation in `src/passes/optimize.mbt` for per-pass wall time, changed/unchanged status, functions visited/changed, and instruction-count before/after trace metrics.
-- [x] Phase 2 planning/infrastructure: add a stable benchmark harness entrypoint in `scripts/benchmark-optimize.mjs` plus a parser smoke test in `scripts/test/benchmark-optimize-output.sh`.
-- [ ] Phase 2 execution: capture and commit the current baseline measurements for:
-- [ ] `examples`
-- [ ] `spec-sanity`
-- [ ] `dist-optimized`
-- [ ] the documented user-run `self-opt-debug` command
-- [ ] Phase 3: finish the cross-pass audit in `docs/pass-audit.md` by recording, for every current pass in `src/passes`, what it does well, where it is inefficient, concrete changes to make, and expected size/runtime impact.
-- [ ] Phase 4A: refactor `SimplifyLocals` first under strict TDD, preserving semantics and validation strength while targeting:
-- [ ] array-backed local-index storage for hot-path sinkables where bounds are known
-- [ ] replacement of `Map[Int, Set[Int]]` invalidation structures with compact per-local candidate storage
-- [ ] dirty-index clearing instead of full resets where safe
-- [ ] fused summary collection and stronger per-function early exits
-- [ ] cheaper cached effect / validation handling without weakening correctness
-- [ ] Phase 4A tests: add/expand `SimplifyLocals` regressions for redundant set/get elimination, tee formation, block/if/loop result structuring, pathological invalidation, validation salvage/reject behavior, and prior broken-module cases.
-- [ ] Phase 4A benchmarks: add `SimplifyLocals` microbenchmarks for dense locals linear code, deep nested control, high invalidation churn, and wide-local stress, then record before/after deltas.
-- [ ] Phase 4B: refactor `Vacuum` after `SimplifyLocals`, focusing on worklist-style parent reprocessing, avoiding unchanged rebuilds, stronger skip logic, and reuse of side-effect metadata instead of repeated whole-function sweeps.
-- [ ] Phase 4B tests: add/expand `Vacuum` coverage for nop removal, useless drop removal, trivial block cleanup, dead wrapper elimination, and multi-step cleanup chains that require parent reprocessing.
-- [ ] Phase 4B benchmarks: add `Vacuum` benchmarks for mostly-clean modules, cleanup-heavy synthetic inputs, and mixed modules after `SimplifyLocals`.
-- [ ] Phase 4C: refactor `AlignmentLowering` after the scheduling audit, adding module/function early exits, avoiding rewrites of already-correct ops, and reducing cleanup debt introduced by lowering.
-- [ ] Phase 4C tests: add/expand `AlignmentLowering` coverage for no-op modules, aligned-op passthrough, correct lowering of misaligned ops, and post-lowering validation/cleanup behavior.
-- [ ] Phase 5: audit scheduler gating and pipeline ordering only after the first `SimplifyLocals` and `Vacuum` measurements exist, then prove any sequencing changes with size/runtime deltas rather than removing iterations blindly.
-- [ ] Phase 5 determinism: add tests or assertions that scheduler behavior and pass-order reporting remain deterministic and traceable.
-- [ ] Phase 6: complete the Binaryen comparison in `docs/pass-audit.md` for each Starshine pass by explicitly answering what Binaryen-style optimization is missing, what Starshine-specific correctness constraint blocks a direct port, and what the best local adaptation is.
-- [ ] Per-pass audit matrix: `abstract_type_refining.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `abstract_type_refining.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `alignment_lowering.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `alignment_lowering.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `asyncify.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `asyncify.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `avoid_reinterprets.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `avoid_reinterprets.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `coalesce_locals.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `coalesce_locals.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `code_folding.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `code_folding.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `code_pushing.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `code_pushing.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `const_hoisting.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `const_hoisting.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `constant_field_propagation.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `constant_field_propagation.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `dataflow_opt.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `dataflow_opt.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `de_nan.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `de_nan.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `dead_argument_elim.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `dead_argument_elim.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `dead_code_elimination.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `dead_code_elimination.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `directize.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `directize.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `duplicate_function_elimination.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `duplicate_function_elimination.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `duplicate_import_elimination.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `duplicate_import_elimination.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `flatten.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `flatten.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `global_effects.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `global_effects.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `global_refining.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `global_refining.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `global_struct_inference.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `global_struct_inference.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `global_type_optimization.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `global_type_optimization.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `gufa.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `gufa.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `heap2local.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `heap2local.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `heap_store_optimization.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `heap_store_optimization.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `i64_to_i32_lowering.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `i64_to_i32_lowering.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `inlining.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `inlining.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `lift_to_texpr.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `lift_to_texpr.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `local_cse.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `local_cse.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `local_subtyping.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `local_subtyping.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `loop_invariant_code_motion.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `loop_invariant_code_motion.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `lower_to_expr.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `lower_to_expr.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `memory_packing.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `memory_packing.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `merge_blocks.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `merge_blocks.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `merge_locals.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `merge_locals.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `merge_similar_functions.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `merge_similar_functions.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `minimize_rec_groups.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `minimize_rec_groups.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `monomorphize.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `monomorphize.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `once_reduction.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `once_reduction.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `optimize_added_constants.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `optimize_added_constants.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `optimize_casts.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `optimize_casts.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `optimize_instructions.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `optimize_instructions.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `pick_load_signs.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `pick_load_signs.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `precompute.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `precompute.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `re_reloop.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `re_reloop.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `redundant_set_elimination.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `redundant_set_elimination.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `remove_unused.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `remove_unused.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `remove_unused_brs.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `remove_unused_brs.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `remove_unused_names.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `remove_unused_names.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `remove_unused_types.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `remove_unused_types.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `reorder_functions.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `reorder_functions.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `reorder_globals.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `reorder_globals.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `reorder_locals.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `reorder_locals.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `reorder_types.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `reorder_types.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `signature_pruning.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `signature_pruning.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `signature_refining.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `signature_refining.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `simplify_globals.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `simplify_globals.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `simplify_locals.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `simplify_locals.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `tuple_optimization.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `tuple_optimization.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `type_finalizing.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `type_finalizing.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `type_generalizing.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `type_generalizing.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `type_merging.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `type_merging.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `type_refining.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `type_refining.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `unsubtyping.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `unsubtyping.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `untee.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `untee.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Per-pass audit matrix: `vacuum.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
-- [ ] Per-pass audit matrix: `vacuum.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
-- [ ] Phase 7: final verification and reporting:
-- [ ] run `moon info && moon fmt`
-- [ ] run `moon test`
-- [ ] run all new benchmark commands before vs after
-- [ ] let the user run the self-optimization benchmark command and record its reported results
-- [ ] write the final measured summary / PR-style report with total size deltas, per-pass runtime deltas, full-pipeline runtime deltas, justified regressions, implemented fixes, and remaining work
-- [x] Optimize + Binaryen feature parity comparison: `RemoveUnusedBrs` (closed in `docs/differences.md`)
-- [x] Optimize + Binaryen feature parity comparison: `PrecomputePropagate` (closed in `docs/differences.md`)
-- [x] Optimize + Binaryen feature parity comparison: `CodePushing` (closed in `docs/differences.md`)
-- [x] Optimize + Binaryen feature parity comparison: `CodeFolding` (closed in `docs/differences.md`)
-- [ ] `SSANoMerge` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `99.669s` at `pass[5/48]`.
-- [ ] `SimplifyLocals` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `70.579s` at `pass[25/48]`.
-- [ ] `MergeBlocks` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `47.924s` at `pass[32/48]` and `22.256s` at `pass[35/48]`.
-- [ ] `MergeSimilarFunctions` correctness blocker: optimize pass trace failed at `pass[44/48]` with `upstream-invalid direct call in preflight: arg count mismatch expected=3 actual=4 kind=call caller_abs_idx=924 callee_abs_idx=9038 node_id=15`.
-- [ ] `Vacuum` correctness blocker: serial pass repro on `before.wasm` still fails at `pass=Vacuum` with `typed function stack underflow` in `Func 1360`; degraded local-retention hardening landed, but the root corruption remains unresolved.
-- [ ] Validator diagnostics: stop collapsing untyped function end-state failures to `function body leaves extra values on stack`; preserve whether the failure was underflow, wrong result types, or extra values, include expected vs actual stack shape, and add regressions for each case.
-- [ ] Validator benchmarks: add a dedicated validation microbenchmark/tracing harness around `validate_module_with_trace(...)` plus fixed synthetic corpora for deep control nesting, wide locals, large code sections, and `ref.func`-heavy modules; record baseline `phase_totals`, `helper_totals`, and `hotspots` output.
-- [ ] Validator hot-path allocation audit: profile and reduce repeated `Env.with_label(...)` / `with_labels(...)` / `tc_stack_from_types(...)` copying in structured control validation (`block` / `if` / `loop` / `try_table`), then prove the change with before/after validation timings on large modules.
-- [ ] Validator `ref.func` declaration pass: fold `collect_declared_funcs_bitmap(...)` and `validate_ref_func_declarations_in_module(...)` into the main validation/code walk or another shared traversal so large modules are not recursively rescanned before function-body validation.
+- Capture and commit optimize baseline measurements for `examples`, `spec-sanity`, `dist-optimized`, and the documented user-run `self-opt-debug` command.
+- Finish `docs/pass-audit.md`: for each current pass, record what it does well, where it is inefficient, the best local fixes, expected size/runtime impact, and the nearest Binaryen comparison or adaptation.
+- Refactor `SimplifyLocals` under strict TDD: use array-backed sinkable storage, compact invalidation buckets, dirty-index clearing, fused summaries with stronger early exits, and cheaper effect/validation handling without weakening correctness.
+- Expand `SimplifyLocals` regressions for redundant set/get elimination, tee formation, block/if/loop result structuring, pathological invalidation, validation salvage/reject behavior, and prior broken-module cases.
+- Add `SimplifyLocals` microbenchmarks for dense locals, deep nested control, high invalidation churn, and wide-local stress; record before/after deltas.
+- Refactor `Vacuum` after `SimplifyLocals`: move to worklist-style parent reprocessing, avoid unchanged rebuilds, strengthen skip logic, and reuse side-effect metadata instead of repeated whole-function sweeps.
+- Expand `Vacuum` coverage for nop removal, useless drop removal, trivial block cleanup, dead wrapper elimination, and cleanup chains that require parent reprocessing.
+- Add `Vacuum` benchmarks for mostly-clean modules, cleanup-heavy synthetic inputs, and mixed modules after `SimplifyLocals`.
+- Refactor `AlignmentLowering` after the scheduling audit: add cheap module/function exits, skip already-correct ops, and reduce cleanup debt introduced by lowering.
+- Expand `AlignmentLowering` coverage for no-op modules, aligned-op passthrough, misaligned-op lowering, and post-lowering validation/cleanup behavior.
+- Audit scheduler gating and pipeline ordering after the first `SimplifyLocals` and `Vacuum` measurements exist; prove any sequencing changes with size/runtime deltas instead of removing iterations blindly.
+- Add deterministic scheduler and pass-order assertions so optimize traces remain stable and explainable.
+- `SSANoMerge` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` still takes `99.669s` at `pass[5/48]`.
+- `SimplifyLocals` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` still takes `70.579s` at `pass[25/48]`.
+- `MergeBlocks` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` still takes `47.924s` at `pass[32/48]` and `22.256s` at `pass[35/48]`.
+- `MergeSimilarFunctions` correctness blocker: optimize pass trace still fails at `pass[44/48]` with `upstream-invalid direct call in preflight: arg count mismatch expected=3 actual=4 kind=call caller_abs_idx=924 callee_abs_idx=9038 node_id=15`.
+- `Vacuum` correctness blocker: serial pass repro on `before.wasm` still fails at `pass=Vacuum` with `typed function stack underflow` in `Func 1360`; degraded local-retention hardening landed, but the root corruption is still unresolved.
+- Improve validator end-of-body diagnostics so they distinguish underflow, wrong result types, and extra values; include expected vs actual stack shape and add regressions for each case.
+- Add a dedicated validation benchmark/tracing harness around `validate_module_with_trace(...)`, plus fixed corpora for deep control nesting, wide locals, large code sections, and `ref.func`-heavy modules; record baseline `phase_totals`, `helper_totals`, and `hotspots`.
+- Profile and reduce repeated `Env.with_label(...)`, `with_labels(...)`, and `tc_stack_from_types(...)` copying in structured control validation (`block`, `if`, `loop`, `try_table`); prove the change with before/after timings on large modules.
+- Fold `collect_declared_funcs_bitmap(...)` and `validate_ref_func_declarations_in_module(...)` into the main validation/code walk, or another shared traversal, so large modules are not rescanned before function-body validation.
+- Final verification/reporting: run `moon info && moon fmt`, run `moon test`, run all new benchmark commands before vs after, let the user run the self-optimization benchmark command and record its results, then write the final measured summary with size deltas, per-pass runtime deltas, justified regressions, implemented fixes, and remaining work.
 
 ## Post v0.1.0 blockers
-- [ ] Complete the `src/passes` inventory and map each scheduler entry in `src/passes/optimize.mbt` to its implementation file, tests, and closest Binaryen equivalent.
-- [ ] Add pass-level instrumentation in `src/passes/optimize.mbt` for wall time, changed/unchanged status, functions touched, and validation/salvage counters.
-- [ ] Establish a pass benchmark suite covering microbenchmarks, pass-sequence benchmarks, and real-module end-to-end size/runtime measurements.
-- [ ] Refactor `simplify_locals` hot-path sinkable tracking from `Map`-based storage to array-backed storage with dirty-index clearing.
-- [ ] Refactor `simplify_locals` invalidation indexes away from `Map[Int, Set[Int]]` toward append-only per-local compact buckets plus live-slot filtering and cheap candidate deduplication.
-- [ ] Add stronger function-shape summaries and early exits in `simplify_locals` to skip expensive work when no profitable rewrite is possible.
-- [ ] Fuse repeated `simplify_locals` analysis walks into a single summary traversal where possible to reduce traversal overhead.
-- [ ] Rework `simplify_locals` effects caching to use stable node identity or equivalent cheap cache keys instead of structural `TInstr` map keys.
-- [ ] Review `simplify_locals` validation strategy and gate expensive whole-module validation behind higher-risk rewrite categories or debug modes.
-- [ ] Rework `vacuum` into a worklist-driven simplifier with parent tracking so local rewrites do not require repeated full-function rescans.
-- [ ] Centralize and reuse side-effect analysis across `vacuum` and `simplify_locals` so purity/no-op checks are consistent and cheaper.
-- [ ] Add function/module fast-path guards to `alignment_lowering` so modules without memory ops or without misaligned ops are skipped cheaply.
-- [ ] Reduce `alignment_lowering` rewrite allocation churn by preserving unchanged nodes and using in-place updates where the IR allows it.
-- [ ] Add scheduler change summaries so expensive passes are only rerun when earlier passes actually created new opportunities.
-- [ ] Build a regression corpus for pass interactions, especially `simplify_locals -> vacuum`, `vacuum -> simplify_locals`, and `alignment_lowering -> vacuum`.
-- [ ] Add targeted tests for pathological cases called out in the review: deep control nesting, high local-count functions, sinkable invalidation churn, and EH-heavy control flow.
-- [ ] Add binary-size reporting to optimization validation so pass work is evaluated on emitted Wasm bytes, not only IR node counts.
-- [ ] Document the Starshine-to-Binaryen pass crosswalk and any intentional semantic differences so future pass work has a stable comparison baseline.
+- Complete the `src/passes` inventory and map each scheduler entry in `src/passes/optimize.mbt` to its implementation file, tests, and closest Binaryen equivalent.
+- Add broader pass-level instrumentation in `src/passes/optimize.mbt` for wall time, changed/unchanged status, functions touched, and validation/salvage counters.
+- Establish a pass benchmark suite covering microbenchmarks, pass-sequence benchmarks, and real-module end-to-end size/runtime measurements.
+- Continue `simplify_locals` performance work: array-backed sinkable tracking, compact invalidation buckets, stronger early exits, fused analysis walks, cheaper cache keys, and more selective validation.
+- Rework `vacuum` into a worklist-driven simplifier with parent tracking, and share side-effect analysis with `simplify_locals` so purity/no-op checks are consistent and cheaper.
+- Add `alignment_lowering` fast-path guards for modules without relevant memory ops and reduce rewrite allocation churn where the IR allows it.
+- Add scheduler change summaries so expensive passes rerun only when earlier passes created new opportunities.
+- Build a regression corpus for pass interactions, especially `simplify_locals -> vacuum`, `vacuum -> simplify_locals`, and `alignment_lowering -> vacuum`.
+- Add targeted tests for deep control nesting, high local-count functions, sinkable invalidation churn, and EH-heavy control flow.
+- Add emitted Wasm byte-size reporting to optimization validation instead of relying only on IR node counts.
+- Document the Starshine-to-Binaryen pass crosswalk and intentional semantic differences as the stable comparison baseline for future pass work.
 
 ## Post 0.1.0 Features
-- [ ] Add "StackState" to node traversal to event callbacks help with validation issues
-- [ ] Continue work on `string.const` support and string optimization passes.
-- [ ] Replace deep-recursive native decode with a recursion-free control-instruction path for robust cross-platform behavior when `setrlimit` is unavailable.
-- [ ] Add a native regression test for deep nested-control decode (or an equivalent non-recursive decoder benchmark fixture) to prevent stack-overflow regressions.
-- [ ] Make `moduleToWast` output reliably parser-consumable in roundtrip tests.
-- [ ] Reach `>=75%` line coverage on hot paths (decoder, IR lift, top passes).
-- [ ] Add a shared memarg-alignment helper (`byte width -> alignment exponent`) and migrate pass code that still emits byte-count alignments directly.
-- [ ] Audit asyncify-generated `MemArg` alignments across all rewritten instruction paths (including non-tail-call entrypoints) and add validator-backed tests per pointer width (`i32`/`i64` memory).
-- [ ] Add `re_reloop` end-to-end coverage for internal loop-target `br_table` cases carrying branch values (non-empty `values`) to lock in typed value-flow behavior.
-- [ ] Tune or replace `gen_valid_module` candidate generation for harness throughput so fewer candidates are discarded before the 100k valid target.
-- [ ] Add persistent corpus replay workflow (`src/fuzz --replay-corpus <dir>`) and baseline corpus curation for deterministic regression locking.
-- [ ] Add automatic testcase reduction for non-pass failures (module minimization + structured repro bundle beyond pass-list minimization).
-- [ ] Add first-class differential-validation fuzz profiles in CI (toolchain install, adapters enabled, and mismatch triage artifacts).
-- [ ] Introduce runtime-budgeted/adaptive fuzz profiles (target wall-clock budgets per suite instead of fixed iteration counts only).
-- [ ] Replace conservative legacy-exception lowering with semantic-preserving lowering to `try_table`/`throw_ref` (the current path is static-validation oriented).
-- [ ] `Poppify`.
-- [ ] `Outlining` as a standalone pass (beyond current inlining partial-splitting behavior).
-- [ ] Broad Binaryen pass parity backlog (medium/low priority pass list).
-- [ ] Large refactors: file splits (`typecheck`/`env`/`transformer`/`optimize`/`remove_unused`/`parser`) and `decode_instruction` helper decomposition.
-- [ ] Long-horizon platform/features: Component Model/WIT, streaming decoder API, custom sections/source maps, plugin system.
-
-## Recently completed
-- [x] Replace the default-pipeline `DataflowOptimization` fallback with Binaryen-style `ssa-nomerge` parity behavior: added an explicit `SSANoMerge` pass, wired the default optimize pipeline and scheduler to use it, and locked no-merge vs merged-reaching behavior with pass regressions.
-- [x] Replace the module-wide optimize pass loop with a Binaryen-style stacked function runner for the default optimization path: the optimize scheduler now segments stackable passes, prepares stacked function-pass execution on the default path, and reuses shared live code-section snapshots instead of rebuilding module state after every pass/function step.
-- [x] `MergeBlocks` parity signoff: reran the in-tree parity matrix, classified every row as `Match` or documented `Intentional divergence` (with explicit divergence rationale rows for non-validating `try_table` fixtures), recorded signoff metrics in the plan completion notes, ran final gates (`moon info && moon fmt`, `moon test`), and moved the parity plan from `docs/plans/active` to `docs/plans/done`.
-- [x] `MergeBlocks` parity test matrix: added an explicit parity-matrix harness in `merge_blocks_parity_wbtest.mbt` with per-row expected outcomes and assertions covering named block merge boundaries, loop-tail extraction, dropped-block value removal, `try_table` catch permutations, restructure dependency/effect collisions, type/stack-signature invariants, and idempotence (`run_merge_blocks` once vs twice), using strict red/green TDD.
-- [x] `MergeBlocks` performance P-005: replaced `optimize_block(...)` round commit replay (`curr_items.clear()` + push-all copy) with staged mutable buffers and swap-based round assembly, added per-function round-assembly stats (`optimize_block_round_buffer_swaps`, `optimize_block_round_rebuild_copies`), and locked stress coverage requiring representative positive swap counts with zero rebuild-copy replays.
-- [x] `MergeBlocks` performance P-004: removed non-control restructure `eval_children(...).to_array()` materialization from `mb_restructure_non_control(...)` in favor of direct child iteration, added per-function non-control child-iteration stats (`non_control_child_iteration_steps`, `non_control_child_array_materializations`), and locked stress coverage that requires representative zero materializations while still exercising non-control child traversal.
-- [x] `MergeBlocks` performance P-003: replaced structural-hash branch query cache keys with identity-backed instruction ids plus generation-scoped query keys, added explicit rewrite-round cache invalidation boundaries, and locked branch-cache regressions for clone-key non-aliasing, invalidation miss behavior, and representative stress hit-rate targets (`>=80%`).
-- [x] `MergeBlocks` performance P-002: added per-function `compute_effects` memoization in `MBContext` keyed by stable instruction key (`MBStableInstrKey` over `TInstr` identity/equality), routed MergeBlocks hot-path effect queries through the cache (`mb_compute_effects_cached`), exposed cache hit/miss stats in `MBFunctionRunStats`, and locked a stress fixture that verifies cached execution improves wall time by at least 15% versus uncached execution.
-- [x] `MergeBlocks` runtime gap: documented and justified an intentional sequential-execution divergence for `MergeBlocks` by locking a runtime policy note (`mb_runtime_execution_policy_note()`) to current transformer constraints (`walk_opt_codesec_default` -> `walk_opt_array` state threading), adding regression coverage so the rationale remains explicit until function-parallel dispatch is available in the local pass runner.
-- [x] `MergeBlocks` correctness gap C-004: replaced the fixed 20-round `optimize_block` loop with convergence-driven iteration plus safety-cap instrumentation (`optimize_block_rounds`, `optimize_block_round_cap_hits`) and added deep-nesting + forced-cap regression coverage, including a cap-override stats runner to verify non-silent truncation signaling.
-- [x] `MergeBlocks` correctness gap C-003: ported Binaryen-compatible loop partial-merge gating to extracted-tail concreteness (`keepEnd < childSize && childList.back()->type.isConcrete()` parity) and added typed loop fixtures that separate unsound concrete-tail extraction (blocked) from valid non-concrete-tail extraction (allowed) while preserving post-pass validation.
-- [x] `MergeBlocks` effect-model hardening: filled missing `mb_collect_shallow_effects` tags for trap/atomic families (`memory.copy/fill/init` trap flags, `ref.cast_desc_eq`, `array.len`, `array.new*` trap flags, `array.set/fill` read+write memory, atomic memory ops, integer `div/rem` trap ops, float->int trunc trap ops) and added a table-driven movement matrix regression (`MBMovementCase`) that locks representative blocked/allowed movement behavior for side-effect, trap, branch, and control-transfer opcode families.
-- [x] `MergeBlocks` correctness gap C-002: added an explicit motion-barrier opcode-effect checklist (`mb_effect_checklist_entries()`) for `mb_collect_shallow_effects`, added checklist-stability and checklist-vs-collector regression tests, and locked the expected effect signature surface for all currently tagged MergeBlocks barrier opcode families.
-- [x] `MergeBlocks` dropped-block parity: added exhaustive dropped-path `try_table` fixtures across catch forms (`catch_ref` without params allowed+rewritten, `catch`/`catch_all` targeting origin blocked, paramful `catch_ref` blocked including nested dropped context), added a nested-drop `br_if` legality regression to ensure outer-label value branches are preserved, and fixed `problem_finder` to traverse non-direct `drop(...)` values so nested dropped-path blockers are honored before rewriting.
-- [x] `MergeBlocks` parity baseline: added a dedicated parity fixture corpus in `src/passes/merge_blocks_parity_wbtest.mbt`, added a fixed-corpus timing harness (`mbp_time_fixed_corpus_us(iterations)`), and locked baseline correctness/performance snapshot checks (`fixtures=8`, `changed=5`, `valid_after=8`, `idempotent=8`, `value_branch_after=0`, timing harness elapsed `> 0` on fixed iterations).
-- [x] `MergeBlocks` correctness gap C-001: switched dropped-block `problem_finder` analysis from per-top-level-child traversal to whole-body traversal and aligned `br_if` accounting with Binaryen-style dropped-vs-non-dropped balancing (`non_dropped_br_if_values > dropped_br_if_values` blocks); added regression coverage for globally balanced sibling `drop(br_if ...)` + non-dropped `br_if` cases and verified break values are stripped when optimization proceeds.
-- [x] `MergeBlocks` performance P-001: collapse refinalization to a single per-function gate (`needs_refinalize || changed`) by routing function execution through a stats-backed helper and running one refinalization pass per changed/needs-refinalize function; added failing-first regression coverage proving refinalize invocation count stays at `1` for a function that triggers both `changed` and `needs_refinalize`.
-- [x] Finish `Vacuum` Stage 3 fallback metadata specialization by replacing remaining unindexed `vq_type_of_cached(...)` / `vq_has_unremovable_effects_cached(...)` generic helper fallbacks with structural formulas (`vq_type_of_fallback_structural(...)`, `vq_instr_has_unremovable_effects_structural(...)`), removing unindexed `vq_collect_effects_timed(...)` fallback usage, and adding regression coverage for wrapped `local.tee` / typed-block type inference and wrapped `local.set` effect metadata without generic helper-call increments.
-- [x] Continue `Vacuum` Stage 3 fallback cleanup/value-break reduction by replacing unindexed cached depth-0 break and value-break fallback collectors with structural local summaries (`vq_texpr_may_target_break_to_depth0(...)` and `vq_has_value_break_lub_depth0_fallback(...)`), including `try_table` catch-label depth targeting coverage, so targeted unindexed fallback checks avoid generic break/value-break scan helpers.
-- [x] Continue `Vacuum` Stage 3 fallback metadata specialization by replacing unindexed `vq_instr_effect_transfers_control_flow_cached(...)` generic effect-collector fallback with a structural branch/throw detector (`vq_instr_effect_transfers_control_flow_structural(...)`) and regression coverage that verifies wrapped branch-transfer trees skip `collect_effects` fallback calls.
-- [x] Continue `Vacuum` Stage 3 fallback metadata specialization by replacing unindexed fallback `vq_instr_has_calls_cached(...)` generic effect-collector use with an exact structural call detector (`vq_instr_has_calls_structural(...)`) and adding regression coverage that verifies wrapped non-call leaves avoid `collect_effects` fallback calls.
-- [x] Continue `Vacuum` Stage 3 fallback-scan/value-break reduction by adding bounded unindexed target summaries (`may target depth-0 break` / `may target depth-0 value break`) so fallback helpers skip expensive generic scans when labels exist but cannot hit the queried depth/value shape.
-- [x] Continue `Vacuum` Stage 3 fallback metadata specialization by adding unindexed pure-leaf fast paths in `vq_type_of_cached(...)`, `vq_has_unremovable_effects_cached(...)`, `vq_has_unremovable_shallow_effects_cached(...)`, `vq_instr_has_calls_cached(...)`, and `vq_instr_effect_transfers_control_flow_cached(...)` to avoid generic helper calls on trivial rewritten leaves.
-- [x] Continue `Vacuum` Stage 3 rewrite-guard optimization by replacing hot-path drop-rewrite uses of `vq_rewrite_preserves_stack_sig_cached(...)` with a child-signature local formula guard and using generic rewrite-stack checks only as uncommon fallback when the local guard rejects.
-- [x] Continue `Vacuum` Stage 3 fallback-scan reduction by adding expression-level unindexed fast paths in `vq_has_break_to_depth0_cached(...)` and `vq_has_value_break_lub_depth0_cached(...)`, so multi-item label-free rewritten trees skip generic fallback collectors.
-- [x] Continue pathological `Vacuum` fallback cleanup by adding an unindexed single-item fast path in `vq_has_value_break_lub_depth0_cached` so label-free trees skip expensive value-break LUB collection, with regression coverage on helper-call counters.
-- [x] Continue pathological `Vacuum` fallback cleanup by deduplicating unindexed wrapper-collapse rebase-score analysis across break-check and rebase-gate paths, and by adding explicit helper-level rebase-score timing/call metrics.
-- [x] Continue pathological `Vacuum` hot-path cleanup by restructuring `vq_simplify_block_to_contents` to run depth-0 break scans only for single-item collapse candidates and by adding unindexed no-scan guards for label-free/depth-local cases.
-- [x] Continue pathological `Vacuum` wrapper-collapse hardening by replacing generic label-rebase transformer walks with a custom recursive rebase walker and by skipping rebasing for unindexed rewritten single-item bodies when their local rebase-label score proves no label adjustment is needed.
-- [x] Harden pathological `Vacuum` cleanup handling beyond the no-op rerun skip heuristic by adding bounded shape-aware seed/optimize/degraded tiers and removing value-keyed fallback caches (`TExpr` and `TInstr`) from hot metadata queries.
-- [x] Complete fuzz runner usability blockers: add `src/fuzz` control commands (`--help`/`--list-suites`/`--list-profiles`) so users can discover suites/profiles directly from the binary.
-- [x] Complete fuzz output blocker: add `jsonl` output mode in `src/fuzz` (`--output jsonl` / `--jsonl`) with machine-readable per-suite summary lines.
-- [x] Complete fuzz script-seed blocker: make `scripts/run-fuzz.sh` and `scripts/run-full-test.sh` treat seed as optional and only pass `--seed` when explicitly provided.
-- [x] Split the local `ConstantFieldPropagation` / `cfp-reftest` behavior so plain CFP now only handles constant field reads and the narrower known-null `ref.test` cleanup lives in `ConstantFieldNullTestFolding` with explicit scheduler/docs coverage.
-- [x] `MergeSimilarFunctions` `MSF-002` slice: route pass-local `TypeIdx` / function-type resolution through validator-backed flattened module semantics and compute appended shared-function `TypeIdx`s from flattened subtype count; added grouped-rec regression coverage so shared types land after rec-group entries and merged output remains validator-clean.
-- [x] `MergeSimilarFunctions` `MSF-001` slice: add a pass-wide preflight audit for direct `call` / `return_call` arity against validator-backed callee resolution so upstream-invalid IR fails before class collection or rewrite, and rewrite-side call-target mismatch diagnostics now clearly read as metadata mismatches instead of looking like upstream-invalid input.
-- [x] `MergeSimilarFunctions` `MSF-003` slice: centralize call-target rewrite-site validation, prevalidate `CallTargetParam` bindings against the primary body before rewrite begins, detect missing/misbound node ids, and upgrade rewrite failures to include explicit `node_id` plus expected/actual kind, arg-count, and callee-type details.
-- [x] `MergeSimilarFunctions` `MSF-004` slice: remove unconditional tail-call emission from thunk generation by lowering shared-function forwarders to `return(call ...)` form, and add regression coverage that merged thunks remain tail-call-free while validator-clean. Typed-function-reference / `call_ref` feature handling still remains open under `MSF-004`.
-- [x] `MergeSimilarFunctions` `MSF-004` slice: add an explicit guarded path for typed-function-reference lowering by skipping `CallTargetParam`-driven merges unless the input module already demonstrates typed-ref lowering support, and add regression coverage for both the guarded skip path and the still-enabled typed-ref path.
-- [x] `MergeSimilarFunctions` `MSF-005` slice: centralize site numbering through a shared ordered-site collector, reuse that ordered site stream across generic site collection and call-site collection, drop the map-sort fallback in `derive_params`, and lock the pre-order numbering contract with mixed literal/call regression coverage.
-- [x] `MergeSimilarFunctions` `MSF-011` slice: add a shared per-run analysis cache for module type metadata plus lazy per-function normalized bodies, ordered-site/call-site artifacts, site maps, and body sizes so class collection, parameter derivation, and benefit checks stop rewalking the same functions; added instrumentation-style regression coverage that locks one-computation-per-function reuse across repeated hot-path queries.
-- [x] `MergeSimilarFunctions` `MSF-012` slice: replace dense `node_id -> param` / seen-use maps in call-target prevalidation and shared-body rewrite with array-backed lookup keyed by traversal-stable preorder ids, and add sparse-use regression coverage so the denser representation preserves exact bindings.
-- [x] `MergeSimilarFunctions` `MSF-012` slice: eliminate copy-on-insert hash bucket growth during equivalence-class bucket assembly by mutating bucket arrays in place through a shared builder, and add regression coverage that locks zero rebuild copies while preserving deterministic member order.
-- [x] `MergeSimilarFunctions` `MSF-012` slice: replace cached `node_id -> site` maps in the analysis cache with dense site vectors keyed by preorder ids, route `derive_params` through array-backed site lookup, and add sparse-node regression coverage that locks the denser representation to the existing site semantics.
-- [x] `MergeSimilarFunctions` `MSF-010` slice: strengthen coarse bucket discrimination with a cheap precomputed call-shape hash over call-site node ids, callee type indices, arg counts, and call kind, expose representative-comparison stats from class collection, and add a collision-heavy regression that locks reduced representative comparisons without changing deterministic class formation.
-- [x] `MergeSimilarFunctions` `MSF-008` / `MSF-009` slice: add traced skip-policy regressions that lock explicit `reason=typed_ref_lowering_unsupported` and `reason=synthetic_param_limit` behavior under `merge_similar_functions_with_trace(...)`, so unsupported typed-ref merges and parameter-pressure skips remain intentional, validator-clean, and diagnosable.
-- [x] `MergeSimilarFunctions` `MSF-006` / `MSF-009` / `MSF-013` slice: add [`docs/plans/done/merge-similar-functions-publish-plan.md`](/home/jtenner/Projects/starshine-mb/docs/plans/done/merge-similar-functions-publish-plan.md) as the publish-signoff source of truth for supported difference kinds, the current typed-ref lowering envelope, remaining profitability/parameter-policy work, and the concrete rerun/benchmark checklist required for final release signoff.
-- [x] `MergeSimilarFunctions` `MSF-008` slice: replace the blunt 16-param stop with a soft-limit-plus-hard-cap policy tied to the byte-aware profitability model, add regressions for accepted just-over-limit merges plus explicit pressure/hard-cap skips, and narrow the remaining publish-plan work to `MSF-006`, `MSF-009`, and `MSF-013`.
-- [x] `MergeSimilarFunctions` `MSF-013` slice: add an in-tree fixed-corpus timing and instrumentation harness in `merge_similar_functions.mbt`, lock validity/determinism/allocation-sensitive metrics on representative corpus fixtures, and reduce the remaining publish work to the supported-envelope/signoff documentation items in the publish plan.
-- [x] `MergeSimilarFunctions` `MSF-006` / `MSF-009` slice: copy the supported-difference matrix and guarded typed-ref lowering policy into `docs/merge-similar-functions.md` as the release-facing envelope summary, so the remaining `MergeSimilarFunctions` work is final `MSF-013` signoff only.
-- [x] `SimplifyLocals` `SL-16` / `SL-17` signoff: verified the existing `ID-C1`..`ID-F4`, `br_if`, `br_table`, validation-counter, and `optimize_module runs SimplifyLocals pass` coverage is already green, refreshed `docs/SimplifyLocals.md` into a completed signoff record, and retired the stale open `SimplifyLocals` blocker list from the top of this backlog.
-- [x] Optimize stacked-runner groundwork: added scheduler segmentation helpers in `src/passes/optimize.mbt` that group contiguous function-stackable transformer passes and isolate module-runner barriers, with regression coverage for both synthetic segment shapes and the default GC function pipeline split around `LocalSubtyping`.
-- [x] Optimize stacked-runner trace groundwork: helper-level optimize traces now emit the segmented function-stack / barrier plan derived from `scheduler_segment_passes(...)`, with regressions that lock the segment plan output for helper traces and verify pass-level traces stay unchanged.
-- [x] Optimize stacked-runner control-flow groundwork: refactored the default optimize loop in `src/passes/optimize.mbt` to execute explicit `SchedulerPassSegment`s through a segment executor, preserving existing per-pass behavior while adding helper-trace `run_segment ... start/done` boundaries for function-stack and barrier segments.
-- [x] Optimize stacked-runner eligibility groundwork: narrowed `FunctionPassStack` membership in `src/passes/optimize.mbt` to walk-func-compatible passes only, with regression coverage that locks barrier splits around module-shaped IR transformers such as `Flatten` and `LocalCSE`.
-- [x] Optimize stacked-runner execution slice: switched contiguous non-`Vacuum` `FunctionPassStack` substacks on the default final-validation path over to a prepared per-function executor, added helper-trace coverage that locks interleaved per-function pass order for real stackable passes, and kept `Vacuum` plus `AfterEveryPass` validation on the flat fallback path while the top-level stacked-runner blocker remains open.
-- [x] Optimize stacked-runner phase-trace slice: extended the prepared per-function executor to `OptimizeTracingLevel::phase()` on the final-validation path, fixed stacked-runner module-snapshot refresh plus whole-module `last_pre_pass_mod` capture between per-function applications, and locked the new phase-trace interleaving/fallback behavior with regressions while leaving `Vacuum`, pass-summary tracing, and `AfterEveryPass` validation as remaining flat fallbacks.
-- [x] Optimize stacked-runner `Vacuum` slice: kept zero/one non-skipped `Vacuum` passes inside the prepared per-function executor, added helper-trace coverage that locks `DeadCodeElimination -> Vacuum -> CodePushing` interleaving by function, and corrected `DeNaN` back to a scheduler barrier because its current optimize wrapper is module-shaped. Repeated/skip-sensitive `Vacuum`, pass-summary tracing, and `AfterEveryPass` validation remain as the flat fallbacks.
-- [x] Optimize stacked-runner eligibility hardening: corrected `ConstantFieldPropagation` and `ConstantFieldNullTestFolding` back to scheduler barriers because their current optimize wrappers perform whole-module constant-field analysis before rewriting, and added segmentation regressions so those passes no longer enter `FunctionPassStack`.
-- [x] Optimize stacked-runner repeated-`Vacuum` slice: changed the non-fully-stackable fallback path to chunk repeated-`Vacuum` segments into the largest safe per-function substacks instead of flushing around every `Vacuum`, added helper-trace coverage for `DeadCodeElimination -> Vacuum -> Vacuum -> CodePushing`, and removed the explicit release/publish action line from the publishing-blocker list so that section stays focused on technical blockers.
-- [x] Optimize stacked-runner pass-trace slice: kept the prepared per-function executor enabled for `OptimizeTracingLevel::pass()` on the final-validation path, synthesized summary-only `pass[..]:start` / `done` / error lines for stacked function segments, and added regressions that lock pass-trace eligibility plus the absence of helper-level `scheduler:` / `func[...]` detail in stacked pass traces. `AfterEveryPass` validation remains the primary flat fallback inside `FunctionPassStack`.
-- [x] Optimize stacked-runner `AfterEveryPass` slice: kept `FunctionPassStack` segments on prepared pass execution under `OptimizeValidationPolicy::after_every_pass()` by running each prepared pass across all functions, validating at each pass boundary with the existing per-pass attribution/dump behavior, and locking helper/phase regressions that require the validation barrier to land between stacked passes instead of forcing the old flat scheduler path.
-- [x] Optimize validation-policy cleanup: removed `OptimizeValidationPolicy::after_every_pass()` in favor of `AfterSegment`, validated non-default optimize runs at scheduler-segment boundaries instead of individual pass boundaries, updated failure attribution to point at the failing segment rather than a guessed last pass within a stack, and refreshed the public docs/API surface to match.
+- Add `StackState` to traversal event callbacks to help debug validation issues.
+- Continue `string.const` support and string optimization passes.
+- Replace deep-recursive native decode with a recursion-free control-instruction path, and add regression or benchmark coverage for deep nested-control decode.
+- Make `moduleToWast` output reliably parser-consumable in roundtrip tests.
+- Reach `>=75%` line coverage on hot paths: decoder, IR lift, and top passes.
+- Add a shared memarg-alignment helper (`byte width -> alignment exponent`), migrate remaining byte-count alignment emitters, and audit asyncify-generated `MemArg` alignments with validator-backed tests for both `i32` and `i64` memory.
+- Add `re_reloop` end-to-end coverage for internal loop-target `br_table` cases carrying branch values.
+- Improve fuzzing: tune or replace `gen_valid_module`, add corpus replay, add automatic testcase reduction for non-pass failures, add first-class differential-validation CI profiles, and add runtime-budgeted adaptive profiles.
+- Replace conservative legacy-exception lowering with semantic-preserving lowering to `try_table` and `throw_ref`.
+- Investigate `Poppify`, standalone `Outlining`, and broader Binaryen pass parity as medium/low-priority optimizer follow-up.
+- Tackle larger maintainability refactors: file splits for `typecheck`, `env`, `transformer`, `optimize`, `remove_unused`, and `parser`, plus `decode_instruction` helper decomposition.
+- Long-horizon platform/features: Component Model/WIT, streaming decoder API, custom sections/source maps, and a plugin system.

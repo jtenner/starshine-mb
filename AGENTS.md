@@ -23,17 +23,15 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Fuzz suites: run via `moon run src/fuzz ...` (or `scripts/run-fuzz.sh ...`), not via heavy/randomized `moon test` harness loops.
 - Full gate script: `scripts/run-full-test.sh` runs `moon info && moon fmt`, `moon check`, `moon test`, then fuzz suites.
 - Coverage helper: `moon coverage analyze > uncovered.log`
-- Preferred final local check sequence: `moon info && moon fmt`, then `moon test`; if a commit is requested, follow the commit strategy below, including updating `CHANGELOG.md` and using a temporary commit message file with `git commit -F`.
+- Preferred final local check sequence: `moon info && moon fmt`, then `moon test`.
 - Running multiple `moon` commands in parallel contends on `_build/.moon-lock`; one process waits on the lock instead of progressing concurrently.
 - When testing the self-optimize pipeline, let the user run the pipeline instead of running it yourself.
 
 ## Commit Strategy
-- When a task ends with a commit, first update `CHANGELOG.md` with a succinct entry covering user-visible or maintainer-relevant changes; keep the changelog concise even if the commit message is detailed.
-- Review the staged diff before committing so the changelog entry, code changes, tests, and docs changes all match.
-- Write the commit message into a temporary file instead of using `-m`. The file should contain: a clear subject line; a short summary of the task; the key files changed; why those files were changed; and validation run, or an explicit note that validation was not run.
-- Commit with `git commit -F <temp-file>`, then remove the temporary file immediately after the commit succeeds.
-- Preferred flow: update `CHANGELOG.md`; `git add ...`; `tmpfile="$(mktemp)"`; write the detailed commit message into `"$tmpfile"`; `git commit -F "$tmpfile"`; `rm -f "$tmpfile"`.
-- Do not use interactive commit editors when this workflow is requested; the repository standard is a temp file plus `git commit -F`.
+- If a task ends with a commit, update `CHANGELOG.md` first with a short entry describing the completed work.
+- Review the staged diff before committing.
+- Write the commit message to a temporary file, then commit with `git commit -F <temp-file>`.
+- Do not use `git commit -m` or interactive commit editors.
 
 ## Repository Layout
 - `examples/`: runnable usage examples and sample config/module inputs.
@@ -60,7 +58,16 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 
 ## Agent Task File
 - `./agent-todo.md` contains AI-friendly backlog items.
+- Keep backlog tasks as simple bullet points grouped by priority/section.
+- Do not mark completed backlog items in `agent-todo.md`; move completed work into `CHANGELOG.md` instead.
+
+## Lost And Found Canary
+- `./agent-lost-and-found.md` is a local canary file for agent observations; it is intentionally gitignored and should not be committed.
+- Use it to record surprises in the development process: missing documentation, hard-to-find code paths, unclear workflow expectations, non-obvious setup requirements, or other friction that slowed the work down.
+- Focus entries on technical debt and incremental process improvements that would help future agents or developers move faster.
+- Prefer concrete notes: what was hard to find, why it mattered, and what file, doc, script, or workflow should be improved.
+- If the issue suggests a repository-policy fix, note the recommended `AGENTS.md` or tooling update there so the developer orchestrating the work can decide whether to formalize it.
+- Keep entries concise and developer-facing; this file is for process feedback, not task tracking or changelog history.
 
 ## Additional Project Files
-- Report files that were difficult to find, or things lost and found, in `agent-lost-and-found.md`.
 - Report any publishing blockers or test failures left in `agent-todo.md`.

@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-03-18 Maintainer Follow-up: turn lost-and-found into a local canary
+
+- Updated [/home/jtenner/Projects/starshine-mb/AGENTS.md](/home/jtenner/Projects/starshine-mb/AGENTS.md) with a dedicated `Lost And Found Canary` section explaining that `agent-lost-and-found.md` is a local, developer-facing process-feedback file for documenting surprises, missing documentation, setup friction, and suggested workflow improvements.
+- Updated [/home/jtenner/Projects/starshine-mb/.gitignore](/home/jtenner/Projects/starshine-mb/.gitignore) so `agent-lost-and-found.md` is ignored, then removed the file from git tracking so it will not be committed going forward.
+- Validation: not run (docs and git-tracking update).
+
+## 2026-03-18 Maintainer Follow-up: simplify commit instructions for agents
+
+- Updated [/home/jtenner/Projects/starshine-mb/AGENTS.md](/home/jtenner/Projects/starshine-mb/AGENTS.md) to keep commit guidance in one short `Commit Strategy` section, remove duplicate commit-workflow references from the rest of the file, and make the rules easier for AI agents to follow.
+- Validation: not run (docs-only update).
+
+## 2026-03-18 Maintainer Follow-up: compact the AI backlog and document the workflow
+
+- Updated [/home/jtenner/Projects/starshine-mb/agent-todo.md](/home/jtenner/Projects/starshine-mb/agent-todo.md) to keep only open work, collapse repetitive optimizer backlog wording, and remove the checked-off history so the file stays focused on current tasks.
+- Updated [/home/jtenner/Projects/starshine-mb/AGENTS.md](/home/jtenner/Projects/starshine-mb/AGENTS.md) to require simple bullet-point backlog items and to record completed work in [/home/jtenner/Projects/starshine-mb/CHANGELOG.md](/home/jtenner/Projects/starshine-mb/CHANGELOG.md) instead of marking items done in `agent-todo.md`.
+- Validation: not run (docs-only update).
+
 ## 2026-03-18 Validate Planning: add validator backlog items for diagnostics and performance
 
 - Updated [/home/jtenner/Projects/starshine-mb/agent-todo.md](/home/jtenner/Projects/starshine-mb/agent-todo.md) to track four validator follow-ups grounded in the current implementation: clearer end-of-body diagnostics, a dedicated validation benchmark harness, hot-path allocation/copying reduction in structured control validation, and folding the extra `ref.func` declaration scan into a shared validation traversal.
