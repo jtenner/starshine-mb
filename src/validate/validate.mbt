@@ -2743,6 +2743,82 @@ test "validate_module accepts typed try_table with param input" {
 }
 
 ///|
+test "validate_module accepts typed nested outer-label branch if" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::drop(
+                  TInstr::if_(
+                    BlockType::val_type(ValType::i32()),
+                    TInstr::local_get(LocalIdx::new(0U)),
+                    TExpr::new([TInstr::i32_const(I32(1000))]),
+                    Some(
+                      TExpr::new([
+                        TInstr::if_(
+                          BlockType::void_(),
+                          TInstr::local_get(LocalIdx::new(0U)),
+                          TExpr::new([TInstr::br(LabelIdx::new(2), [])]),
+                          Some(TExpr::new([TInstr::br(LabelIdx::new(2), [])])),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+            TInstr::i32_const(I32(0)),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "validate_module accepts typed block result supplied by nested outer-label branch" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::val_type(ValType::i32()),
+              TExpr::new([
+                TInstr::block(
+                  BlockType::void_(),
+                  TExpr::new([
+                    TInstr::br(LabelIdx::new(1), [TInstr::i32_const(I32(7))]),
+                  ]),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
 test "validate_module rejects undeclared function reference in body" {
   let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
@@ -3336,6 +3412,57 @@ test "validate_module rejects outer if result missing after inner current-label 
     Ok(_) =>
       fail(
         "expected missing outer if result after inner current-label branches to fail validation",
+      )
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      assert_true(validation_error_message(err).length() > 0)
+    }
+  }
+}
+
+///|
+test "validate_module rejects outer if result missing after nested outer-label branches" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          [],
+          Expr::new([
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([
+                Instruction::local_get(LocalIdx::new(0U)),
+                Instruction::if_(
+                  BlockType::val_type(ValType::i32()),
+                  [Instruction::i32_const(I32(1000))],
+                  Some([
+                    Instruction::local_get(LocalIdx::new(0U)),
+                    Instruction::i32_const(I32(999)),
+                    Instruction::i32_eq(),
+                    Instruction::if_(
+                      BlockType::void_(),
+                      [Instruction::br(LabelIdx::new(2))],
+                      Some([Instruction::br(LabelIdx::new(2))]),
+                    ),
+                  ]),
+                ),
+                Instruction::drop(),
+              ]),
+            ),
+            Instruction::i32_const(I32(0)),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) =>
+      fail(
+        "expected nested outer-label branches to leave the outer if result missing",
       )
     Err(err) => {
       assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))

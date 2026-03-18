@@ -227,7 +227,34 @@ fn validate_end_stack(
 }
 
 ///|
-fn normalize_if_branch_exit(
+fn normalize_untyped_if_branch_exit(
+  st : TcState,
+  results : Array[ValType],
+) -> Result[(Bool, TcEscape), String] {
+  if st.reachable {
+    match validate_end_stack(st, results) {
+      Err(e) => return Err(e)
+      Ok(_) => ()
+    }
+    return Ok((true, NoTcEscape))
+  }
+  match st.escape {
+    NoTcEscape => {
+      match validate_end_stack(st, results) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
+      }
+      Ok((false, TerminalTcEscape))
+    }
+    // `if` merges absorb branch escapes. Any branch out of a child arm reaches
+    // the `if` merge with the construct's declared result shape.
+    BranchTcEscape(_) => Ok((true, NoTcEscape))
+    TerminalTcEscape => Ok((false, TerminalTcEscape))
+  }
+}
+
+///|
+fn normalize_typed_if_branch_exit(
   st : TcState,
   results : Array[ValType],
 ) -> Result[(Bool, TcEscape), String] {
@@ -249,6 +276,38 @@ fn normalize_if_branch_exit(
     BranchTcEscape(0) => Ok((true, NoTcEscape))
     BranchTcEscape(depth) => Ok((false, BranchTcEscape(depth - 1)))
     TerminalTcEscape => Ok((false, TerminalTcEscape))
+  }
+}
+
+///|
+fn normalize_typed_block_exit(
+  st : TcState,
+  results : Array[ValType],
+) -> Result[(Bool, TcEscape), String] {
+  if st.reachable {
+    match validate_end_stack(st, results) {
+      Err(e) => return Err(e)
+      Ok(_) => ()
+    }
+    return Ok((true, NoTcEscape))
+  }
+  match st.escape {
+    NoTcEscape => {
+      match validate_end_stack(st, results) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
+      }
+      Ok((true, NoTcEscape))
+    }
+    BranchTcEscape(0) => Ok((true, NoTcEscape))
+    BranchTcEscape(depth) => Ok((false, BranchTcEscape(depth - 1)))
+    TerminalTcEscape => {
+      match validate_end_stack(st, results) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
+      }
+      Ok((true, NoTcEscape))
+    }
   }
 }
 
@@ -602,12 +661,12 @@ fn typecheck_if(
   }
 
   let (then_reach, then_escape) = match
-    normalize_if_branch_exit(st_then, results) {
+    normalize_untyped_if_branch_exit(st_then, results) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
   let (else_reach, else_escape) = match
-    normalize_if_branch_exit(st_else, results) {
+    normalize_untyped_if_branch_exit(st_else, results) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
@@ -4309,17 +4368,26 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
           Ok(s) => s
         }
       }
-      match validate_end_stack(st_body, results) {
+      let (reaches_merge, block_escape) = match
+        normalize_typed_block_exit(st_body, results) {
         Err(e) => return Err(e)
-        Ok(_) => ()
+        Ok(x) => x
       }
-      let out = TcState::{
+      if reaches_merge {
+        let out = TcState::{
+          env: st.env,
+          stack: st.stack,
+          reachable: st.reachable,
+          escape: st.escape,
+        }
+        return Ok(out.push_types(results))
+      }
+      Ok(TcState::{
         env: st.env,
-        stack: st.stack,
-        reachable: st.reachable,
-        escape: st.escape,
-      }
-      Ok(out.push_types(results))
+        stack: [],
+        reachable: false,
+        escape: block_escape,
+      })
     }
     TInstrKind::TLoop(bt, body) => {
       let (params, results) = match st.env.expand_blocktype(bt) {
@@ -4400,12 +4468,12 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         }
       }
       let (then_reach, then_escape) = match
-        normalize_if_branch_exit(st_then, results) {
+        normalize_typed_if_branch_exit(st_then, results) {
         Err(e) => return Err(e)
         Ok(x) => x
       }
       let (else_reach, else_escape) = match
-        normalize_if_branch_exit(st_else, results) {
+        normalize_typed_if_branch_exit(st_else, results) {
         Err(e) => return Err(e)
         Ok(x) => x
       }

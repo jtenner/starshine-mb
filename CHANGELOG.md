@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-18 Validate Follow-up: propagate typed outer-label block exits without regressing raw `if` checks
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so raw wasm `if` merges, typed `if` merges, and typed `block` exits now normalize branch escapes separately. Typed blocks once again propagate outer-label `br` escapes upward instead of treating them as local stack underflows, while raw `if` validation still rejects missing result values after nested outer-label branches.
+- Added regressions in [/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) covering the typed nested outer-label branch shapes seen in self-optimize logs and preserving the raw invalid outer-`if` rejection.
+- Validation: `moon info`; `moon fmt`; `moon test --package jtenner/starshine/validate`; `moon build --target native --release --package jtenner/starshine/cmd`.
+
 ## 2026-03-17 Validate Follow-up: distinguish current-label branches from terminal exits in `if` merges
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so validator control-flow tracking now distinguishes `br` exits that reach the current construct’s merge point from truly terminal exits, fixing invalid acceptance of result-typed outer `if` expressions whose inner arms both branch to the current label.
