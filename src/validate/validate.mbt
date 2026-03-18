@@ -993,6 +993,41 @@ fn validate_append_all_locals_from_typed(
 }
 
 ///|
+fn validate_end_stack_shape_suffix(
+  st : TcState,
+  results : Array[ValType],
+) -> String {
+  "expected stack=\{results} actual stack=\{st.stack}"
+}
+
+///|
+fn validate_end_stack_for_function_body(
+  st : TcState,
+  results : Array[ValType],
+  subject : String,
+) -> Result[Unit, String] {
+  match check_pop_types_from_top(st, results, results.length()) {
+    Err("stack underflow") =>
+      Err(
+        "\{subject} result stack underflow: \{validate_end_stack_shape_suffix(st, results)}",
+      )
+    Err("type mismatch") =>
+      Err(
+        "\{subject} result type mismatch: \{validate_end_stack_shape_suffix(st, results)}",
+      )
+    Err(e) => Err(e)
+    Ok(top_after_results) =>
+      if top_after_results != -1 {
+        Err(
+          "\{subject} leaves extra values on stack: \{validate_end_stack_shape_suffix(st, results)}",
+        )
+      } else {
+        Ok(())
+      }
+  }
+}
+
+///|
 fn validate_func_body_against_functype(
   env : Env,
   ft : FuncType,
@@ -1030,10 +1065,8 @@ fn validate_func_body_against_functype(
         Ok(s) => s
         Err(e) => return Err(e)
       }
-
-      match validate_end_stack(st1, results) {
-        Err("type mismatch") | Err("stack underflow") =>
-          return Err("function body leaves extra values on stack")
+      match
+        validate_end_stack_for_function_body(st1, results, "function body") {
         Err(e) => return Err(e)
         Ok(_) => ()
       }
@@ -1065,11 +1098,10 @@ fn validate_func_body_against_functype(
         Ok(s) => s
         Err(e) => return Err("typed function " + e)
       }
-      match validate_end_stack(st1, results) {
-        Err("type mismatch") | Err("stack underflow") =>
-          return Err(
-            "typed function body has wrong result arity: stack=\{st1.stack} results=\{results}",
-          )
+      match
+        validate_end_stack_for_function_body(
+          st1, results, "typed function body",
+        ) {
         Err(e) => return Err(e)
         Ok(_) => ()
       }
@@ -3369,11 +3401,80 @@ test "validate_module rejects tail loop that leaves function result missing" {
       )
     Err(err) => {
       assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
-      assert_true(
-        validation_error_message(err).contains(
-          "function body leaves extra values on stack",
-        ),
-      )
+      let msg = validation_error_message(err)
+      assert_true(msg.contains("function body result stack underflow"))
+      assert_true(msg.contains("expected stack="))
+      assert_true(msg.contains("actual stack="))
+      assert_true(msg.contains("I32"))
+    }
+  }
+}
+
+///|
+test "validate_module reports end-of-body underflow with stack shape" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+  match validate_module(mod) {
+    Ok(_) => fail("expected missing function result to fail validation")
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      let msg = validation_error_message(err)
+      assert_true(msg.contains("function body result stack underflow"))
+      assert_true(msg.contains("expected stack="))
+      assert_true(msg.contains("actual stack="))
+      assert_true(msg.contains("I32"))
+    }
+  }
+}
+
+///|
+test "validate_module reports wrong end-of-body result type with stack shape" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([Func::new([], Expr::new([Instruction::f32_const(0.0)]))]),
+    )
+  match validate_module(mod) {
+    Ok(_) => fail("expected wrong function result type to fail validation")
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      let msg = validation_error_message(err)
+      assert_true(msg.contains("function body result type mismatch"))
+      assert_true(msg.contains("expected stack="))
+      assert_true(msg.contains("actual stack="))
+      assert_true(msg.contains("I32"))
+      assert_true(msg.contains("F32"))
+    }
+  }
+}
+
+///|
+test "validate_module reports end-of-body extra values with stack shape" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([Func::new([], Expr::new([Instruction::i32_const(I32(1))]))]),
+    )
+  match validate_module(mod) {
+    Ok(_) => fail("expected extra stack values to fail validation")
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      let msg = validation_error_message(err)
+      assert_true(msg.contains("function body leaves extra values on stack"))
+      assert_true(msg.contains("expected stack="))
+      assert_true(msg.contains("actual stack="))
+      assert_true(msg.contains("I32"))
     }
   }
 }

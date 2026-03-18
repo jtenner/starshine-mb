@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-18 Validate Follow-up: distinguish end-of-body underflow, wrong results, and extra stack values
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) so function-body final-stack validation now classifies three distinct failures instead of collapsing them into a generic message: result-stack underflow, result type mismatch, and extra leftover values. The new diagnostics include both the expected result stack shape and the actual stack shape seen at the end of the body, and the same helper now covers both plain and typed function bodies.
+- Added validator regressions in [/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) for all three end-of-body failure modes, and updated the existing tail-loop regression so it now asserts the correct underflow classification instead of the previous misleading extra-values message.
+- Validation: `moon test --package jtenner/starshine/validate`; `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-18 Tooling Follow-up: migrate repo task automation to Bun task families and Windows-safe modules
 
 - Replaced the old mixed Bash/Node task surface in `scripts/` with Bun-first task-family entrypoints at [`scripts/validate.ts`](/home/jtenner/Projects/starshine-mb/scripts/validate.ts), [`scripts/fuzz.ts`](/home/jtenner/Projects/starshine-mb/scripts/fuzz.ts), [`scripts/self-opt.ts`](/home/jtenner/Projects/starshine-mb/scripts/self-opt.ts), [`scripts/make.ts`](/home/jtenner/Projects/starshine-mb/scripts/make.ts), and [`scripts/examples.ts`](/home/jtenner/Projects/starshine-mb/scripts/examples.ts), and added a root [`package.json`](/home/jtenner/Projects/starshine-mb/package.json) so the repo command surface is now `bun validate`, `bun fuzz`, `bun self-opt`, `bun make`, and `bun examples`.
