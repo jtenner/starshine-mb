@@ -50,6 +50,27 @@ This package is ESM-only. Use `import` and subpath exports such as `@jtenner/sta
 - Start with `lib` if you want to build modules from scratch and work directly with Starshine's core model types.
 - Start with the root barrel import for exploration, then switch to subpath imports once you know which surface you need.
 
+## Core Locals Model
+
+Starshine now uses one canonical representation for function body locals across the Node package too.
+
+- Function body locals use `lib.Locals`, not `Array<ValType>`.
+- `lib.Locals` stores ordered `lib.LocalRun` entries with `count` + value type instead of a flattened local-type array.
+- Internal local-type lookup is run-based and uses a cached derived run-start index array; the cache is not the source of truth.
+- Typed `TFunc` values and plain `Func` values both use `Locals` for declared non-parameter body locals.
+- Parameters remain plain `Array<ValType>`; only body locals use the compact run representation.
+
+For JavaScript callers this mostly matters when constructing or inspecting locals directly:
+
+```js
+import { lib } from '@jtenner/starshine';
+
+const bodyLocals = lib.Locals.new([
+  lib.LocalRun.new(2, lib.ValType.i32()),
+  lib.LocalRun.new(1, lib.ValType.funcref()),
+]);
+```
+
 ## Result Objects
 
 Most functions that can fail return a `StarshineResult<T, E>` object instead of throwing.
@@ -271,6 +292,8 @@ Import directly with `import * as binary from '@jtenner/starshine/binary';` or f
   Decode module with detail.
 - `encodeModule(arg0: Module): StarshineResult<Uint8Array, EncodeError>`
   Encode module.
+- `runBinaryRoundtripFuzz(arg0: string, arg1: bigint): StarshineResult<BinaryRoundtripFuzzStats, string>`
+  Run binary roundtrip fuzz.
 - `sizeSigned(arg0: bigint, arg1: number): StarshineResult<number, BinaryEncodeError>`
   Call sizeSigned.
 - `sizeUnsigned(arg0: bigint, arg1: number): StarshineResult<number, BinaryEncodeError>`
@@ -282,6 +305,10 @@ Type namespace `BinaryDecodeError`
 
 Type namespace `BinaryEncodeError`
 - `BinaryEncodeError.show(value: BinaryEncodeError): string`
+  Format the value with its MoonBit `Show` implementation.
+
+Type namespace `BinaryRoundtripFuzzStats`
+- `BinaryRoundtripFuzzStats.show(value: BinaryRoundtripFuzzStats): string`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `DecodeError`
@@ -377,7 +404,7 @@ Type namespace `CliParseError`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `CliParseResult`
-- `CliParseResult.new(configPath?: string | null, inputGlobs?: Array<string>, globEnabled?: boolean, helpRequested?: boolean, versionRequested?: boolean, readStdin?: boolean, inputFormat?: CliInputFormat | null, outputTargets?: Array<CliOutputTarget>, passFlags?: Array<string>, optimizeFlags?: Array<CliOptimizationFlag>, trapMode?: TrapMode | null, monomorphizeMinBenefit?: number | null, lowMemoryUnused?: boolean | null, lowMemoryBound?: bigint | null, tracing?: CliTracingLevel | null): CliParseResult`
+- `CliParseResult.new(configPath?: string | null, inputGlobs?: Array<string>, globEnabled?: boolean, helpRequested?: boolean, versionRequested?: boolean, debugSerialPasses?: boolean, readStdin?: boolean, inputFormat?: CliInputFormat | null, outputTargets?: Array<CliOutputTarget>, passFlags?: Array<string>, optimizeFlags?: Array<CliOptimizationFlag>, trapMode?: TrapMode | null, monomorphizeMinBenefit?: number | null, lowMemoryUnused?: boolean | null, lowMemoryBound?: bigint | null, tracing?: CliTracingLevel | null): CliParseResult`
   Create a CliParseResult value.
 - `CliParseResult.show(value: CliParseResult): string`
   Format the value with its MoonBit `Show` implementation.
@@ -575,7 +602,7 @@ Type namespace `IRContext`
   Call IRContext.localGraphDirty.
 - `IRContext.lowerToCfg(arg0: IRContext): CFG`
   Convert values with IRContext.lowerToCfg.
-- `IRContext.lowerToCfgWithLocals(arg0: IRContext): [Array<ValType>, CFG] | null`
+- `IRContext.lowerToCfgWithLocals(arg0: IRContext): [Locals, CFG] | null`
   Convert values with IRContext.lowerToCfgWithLocals.
 - `IRContext.new(): IRContext`
   Create a IRContext value.
@@ -585,11 +612,11 @@ Type namespace `IRContext`
   Higher-order function parameters are not available through the wasm-gc adapter.
 - `IRContext.optimizeBodyWithSsaTraceWithLocals(...args: never[]): never`
   Higher-order function parameters are not available through the wasm-gc adapter.
-- `IRContext.optimizeBodyWithSsaWithLocals(arg0: IRContext): [Array<ValType>, TExpr] | null`
+- `IRContext.optimizeBodyWithSsaWithLocals(arg0: IRContext): [Locals, TExpr] | null`
   Call IRContext.optimizeBodyWithSsaWithLocals.
 - `IRContext.setBody(arg0: IRContext, arg1: TExpr): void`
   Call IRContext.setBody.
-- `IRContext.setLocals(arg0: IRContext, arg1: Array<ValType>, paramCount?: number): void`
+- `IRContext.setLocals(arg0: IRContext, arg1: Locals, paramCount?: number): void`
   Call IRContext.setLocals.
 - `IRContext.setMod(arg0: IRContext, arg1: Module): void`
   Call IRContext.setMod.
@@ -637,7 +664,7 @@ Type namespace `SSACFG`
   Call SSACFG.splitCriticalEdges.
 - `SSACFG.toCfg(arg0: SSACFG, arg1: number): CFG`
   Call SSACFG.toCfg.
-- `SSACFG.toCfgWithLocals(arg0: SSACFG, arg1: Array<ValType>, arg2: number, arg3: SSATypeInfo): [Array<ValType>, CFG]`
+- `SSACFG.toCfgWithLocals(arg0: SSACFG, arg1: Locals, arg2: number, arg3: SSATypeInfo): [Locals, CFG]`
   Call SSACFG.toCfgWithLocals.
 - `SSACFG.show(value: SSACFG): string`
   Format the value with its MoonBit `Show` implementation.
@@ -679,7 +706,7 @@ Type namespace `Terminator`
 Type namespace `TypeContext`
 - `TypeContext.empty(): TypeContext`
   Call TypeContext.empty.
-- `TypeContext.fromModule(arg0: Module, arg1: Array<ValType>): TypeContext`
+- `TypeContext.fromModule(arg0: Module, arg1: Locals): TypeContext`
   Call TypeContext.fromModule.
 
 Type namespace `UseDefInfo`
@@ -704,8 +731,6 @@ Import directly with `import * as lib from '@jtenner/starshine/lib';` or from th
   Call compTypeSubType.
 - `equals(...args: never[]): never`
   Generic exports are not available through the wasm-gc adapter.
-- `expandLocals(arg0: Array<Locals>): StarshineResult<Array<ValType>, string>`
-  Call expandLocals.
 - `funcCompType(arg0: Array<ValType>, arg1: Array<ValType>): CompType`
   Call funcCompType.
 - `funcExternIdx(arg0: FuncIdx): ExternIdx`
@@ -764,8 +789,16 @@ Import directly with `import * as lib from '@jtenner/starshine/lib';` or from th
   Call tagExternType.
 - `tagType(arg0: TypeIdx): TagType`
   Call tagType.
-- `tlocalsToLocals(arg0: Array<ValType>): Array<Locals>`
-  Convert values with tlocalsToLocals.
+- `traceDeltaUsToMs(arg0: bigint): bigint`
+  Convert values with traceDeltaUsToMs.
+- `traceElapsedMs(arg0: bigint): bigint`
+  Call traceElapsedMs.
+- `traceElapsedUsSince(arg0: bigint): bigint`
+  Call traceElapsedUsSince.
+- `traceNowMs(): bigint`
+  Call traceNowMs.
+- `traceNowUs(): bigint`
+  Call traceNowUs.
 
 Type namespace `AbsHeapType`
 - `AbsHeapType.any(): AbsHeapType`
@@ -1552,9 +1585,9 @@ Type namespace `FieldType`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `Func`
-- `Func.new(arg0: Array<Locals>, arg1: Expr): Func`
+- `Func.new(arg0: Locals, arg1: Expr): Func`
   Create a Func value.
-- `Func.tFunc(arg0: Array<ValType>, arg1: Array<ValType>, arg2: TExpr): Func`
+- `Func.tFunc(arg0: Array<ValType>, arg1: Locals, arg2: TExpr): Func`
   Call Func.tFunc.
 - `Func.show(value: Func): string`
   Format the value with its MoonBit `Show` implementation.
@@ -1582,19 +1615,19 @@ Type namespace `FuncType`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `FunctionLocals`
-- `FunctionLocals.allLocals(arg0: FunctionLocals): Array<ValType>`
+- `FunctionLocals.allLocals(arg0: FunctionLocals): Locals`
   Call FunctionLocals.allLocals.
-- `FunctionLocals.bodyLocals(arg0: FunctionLocals): Array<ValType>`
+- `FunctionLocals.bodyLocals(arg0: FunctionLocals): Locals`
   Call FunctionLocals.bodyLocals.
-- `FunctionLocals.fromLocalDecls(arg0: Array<ValType>, arg1: Array<Locals>): StarshineResult<FunctionLocals, string>`
+- `FunctionLocals.fromLocalDecls(arg0: Array<ValType>, arg1: Locals): StarshineResult<FunctionLocals, string>`
   Call FunctionLocals.fromLocalDecls.
-- `FunctionLocals.fromTypedFunc(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Array<ValType>): StarshineResult<FunctionLocals, string>`
+- `FunctionLocals.fromTypedFunc(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Locals): StarshineResult<FunctionLocals, string>`
   Call FunctionLocals.fromTypedFunc.
-- `FunctionLocals.fromTypedFuncForPass(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Array<ValType>): StarshineResult<FunctionLocals, string>`
+- `FunctionLocals.fromTypedFuncForPass(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Locals): StarshineResult<FunctionLocals, string>`
   Call FunctionLocals.fromTypedFuncForPass.
 - `FunctionLocals.localType(arg0: FunctionLocals, arg1: LocalIdx): ValType | null`
   Call FunctionLocals.localType.
-- `FunctionLocals.new(arg0: Array<ValType>, arg1: Array<ValType>): FunctionLocals`
+- `FunctionLocals.new(arg0: Array<ValType>, arg1: Locals): FunctionLocals`
   Create a FunctionLocals value.
 - `FunctionLocals.paramCount(arg0: FunctionLocals): number`
   Call FunctionLocals.paramCount.
@@ -2823,9 +2856,67 @@ Type namespace `LocalIdx`
 - `LocalIdx.show(value: LocalIdx): string`
   Format the value with its MoonBit `Show` implementation.
 
+Type namespace `LocalRun`
+- `LocalRun.count(arg0: LocalRun): number`
+  Call LocalRun.count.
+- `LocalRun.new(arg0: number, arg1: ValType): LocalRun`
+  Create a LocalRun value.
+- `LocalRun.valType(arg0: LocalRun): ValType`
+  Call LocalRun.valType.
+- `LocalRun.show(value: LocalRun): string`
+  Format the value with its MoonBit `Show` implementation.
+
 Type namespace `Locals`
-- `Locals.new(arg0: number, arg1: ValType): Locals`
+- `Locals.append(arg0: Locals, arg1: Locals): void`
+  Call Locals.append.
+- `Locals.appendTypes(arg0: Locals, arg1: Array<ValType>): void`
+  Call Locals.appendTypes.
+- `Locals.at(arg0: Locals, arg1: number): ValType | null`
+  Call Locals.at.
+- `Locals.copy(arg0: Locals): Locals`
+  Call Locals.copy.
+- `Locals.empty(): Locals`
+  Call Locals.empty.
+- `Locals.ensureIndex(arg0: Locals): Array<number>`
+  Call Locals.ensureIndex.
+- `Locals.fromTypes(arg0: Array<ValType>): Locals`
+  Call Locals.fromTypes.
+- `Locals.get(arg0: Locals, arg1: number): ValType`
+  Call Locals.get.
+- `Locals.insertRun(arg0: Locals, arg1: number, arg2: LocalRun): void`
+  Call Locals.insertRun.
+- `Locals.invalidateIndices(arg0: Locals): void`
+  Call Locals.invalidateIndices.
+- `Locals.isEmpty(arg0: Locals): boolean`
+  Call Locals.isEmpty.
+- `Locals.iter(arg0: Locals): OpaqueHandle<"Iter[ValType]">`
+  Call Locals.iter.
+- `Locals.length(arg0: Locals): number`
+  Call Locals.length.
+- `Locals.mergeAdjacentRuns(arg0: Locals): void`
+  Call Locals.mergeAdjacentRuns.
+- `Locals.new(arg0: Array<LocalRun>): Locals`
   Create a Locals value.
+- `Locals.push(arg0: Locals, arg1: ValType): void`
+  Call Locals.push.
+- `Locals.pushRun(arg0: Locals, arg1: LocalRun): void`
+  Call Locals.pushRun.
+- `Locals.removeRun(arg0: Locals, arg1: number): LocalRun | null`
+  Call Locals.removeRun.
+- `Locals.runCount(arg0: Locals): number`
+  Run Locals::run count.
+- `Locals.runs(arg0: Locals): Array<LocalRun>`
+  Call Locals.runs.
+- `Locals.set(arg0: Locals, arg1: number, arg2: ValType): boolean`
+  Call Locals.set.
+- `Locals.setRunCount(arg0: Locals, arg1: number, arg2: number): boolean`
+  Call Locals.setRunCount.
+- `Locals.single(arg0: number, arg1: ValType): Locals`
+  Call Locals.single.
+- `Locals.unsafeGet(arg0: Locals, arg1: number): ValType`
+  Call Locals.unsafeGet.
+- `Locals.withoutPrefix(arg0: Locals, arg1: number): Locals`
+  Call Locals.withoutPrefix.
 - `Locals.show(value: Locals): string`
   Format the value with its MoonBit `Show` implementation.
 
@@ -3777,7 +3868,7 @@ pipeline.push(passes.vacuum());
 
 - `modulePass(name: string): ModulePass`
   Resolve one of the canonical explicit pass names into a `ModulePass` value.
-- `optimizeModuleWithOptionsTrace(arg0: Module, arg1: Array<ModulePass>, arg2: OptimizeOptions, trace?: (msg: string) => void, tracing?: 'pass' | 'phase' | 'helper'): StarshineResult<Module, string>`
+- `optimizeModuleWithOptionsTrace(arg0: Module, arg1: Array<ModulePass>, arg2: OptimizeOptions, trace?: (msg: string) => void, tracePassDetails?: boolean, traceModuleStats?: boolean): StarshineResult<Module, string>`
   Call `optimizeModuleWithOptionsTrace`, replaying trace lines through the provided JS callback.
 - `deadArgumentElimination(): ModulePass`
   Create `ModulePass::DeadArgumentElimination` for manual ordered pipelines.
@@ -3792,12 +3883,18 @@ pipeline.push(passes.vacuum());
   Call defaultGlobalOptimizationPostPasses.
 - `defaultGlobalOptimizationPrePasses(arg0: Module, arg1: OptimizeOptions, closedWorld?: boolean): Array<ModulePass>`
   Call defaultGlobalOptimizationPrePasses.
+- `optimizeFindPostEncodeFailureSegment(arg0: Module, arg1: Array<ModulePass>, arg2: OptimizeOptions): StarshineResult<OptimizePostEncodeFailureRepro | null, string>`
+  Call optimizeFindPostEncodeFailureSegment.
+- `optimizeFindPostEncodeFailureSegmentWithProbe(...args: never[]): never`
+  Higher-order function parameters are not available through the wasm-gc adapter.
 - `optimizeModule(arg0: Module, arg1: Array<ModulePass>): StarshineResult<Module, string>`
   Call optimizeModule.
 - `optimizeModuleWithOptions(arg0: Module, arg1: Array<ModulePass>, arg2: OptimizeOptions): StarshineResult<Module, string>`
   Call optimizeModuleWithOptions.
 
 Type namespace `AbstractTypeRefiningPassProps`
+- `AbstractTypeRefiningPassProps.new(trapsNeverHappen?: boolean): AbstractTypeRefiningPassProps`
+  Create a AbstractTypeRefiningPassProps value.
 - `AbstractTypeRefiningPassProps.show(value: AbstractTypeRefiningPassProps): string`
   Format the value with its MoonBit `Show` implementation.
 
@@ -3837,6 +3934,10 @@ Type namespace `MSFHashState`
 - `MSFHashState.show(value: MSFHashState): string`
   Format the value with its MoonBit `Show` implementation.
 
+Type namespace `MSFOrderedSite`
+- `MSFOrderedSite.show(value: MSFOrderedSite): string`
+  Format the value with its MoonBit `Show` implementation.
+
 Type namespace `MSFParamKind`
 - `MSFParamKind.show(value: MSFParamKind): string`
   Format the value with its MoonBit `Show` implementation.
@@ -3846,6 +3947,8 @@ Type namespace `MSFSiteValue`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `MemoryPackingPassProps`
+- `MemoryPackingPassProps.new(zeroFilledMemory?: boolean, trapsNeverHappen?: boolean, maxDataSegments?: number): MemoryPackingPassProps`
+  Create a MemoryPackingPassProps value.
 - `MemoryPackingPassProps.show(value: MemoryPackingPassProps): string`
   Format the value with its MoonBit `Show` implementation.
 
@@ -3854,8 +3957,14 @@ Type namespace `ModulePass`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `OptimizeOptions`
-- `OptimizeOptions.new(optimizeLevel?: number, shrinkLevel?: number, inlining?: InliningOptions, monomorphizeMinBenefit?: number, lowMemoryUnused?: boolean, lowMemoryBound?: bigint, trapsNeverHappen?: boolean, validationPolicy?: OptimizeValidationPolicy): OptimizeOptions`
+- `OptimizeOptions.new(optimizeLevel?: number, shrinkLevel?: number, inlining?: InliningOptions, monomorphizeMinBenefit?: number, lowMemoryUnused?: boolean, lowMemoryBound?: bigint, trapsNeverHappen?: boolean, validationPolicy?: OptimizeValidationPolicy, stackFunctionPasses?: boolean): OptimizeOptions`
   Create a OptimizeOptions value.
+
+Type namespace `OptimizePostEncodeFailureRepro`
+- `OptimizePostEncodeFailureRepro.new(arg0: Module, arg1: Array<ModulePass>): OptimizePostEncodeFailureRepro`
+  Create a OptimizePostEncodeFailureRepro value.
+- `OptimizePostEncodeFailureRepro.show(value: OptimizePostEncodeFailureRepro): string`
+  Format the value with its MoonBit `Show` implementation.
 
 Type namespace `OptimizeTracingLevel`
 - `OptimizeTracingLevel.helper(): OptimizeTracingLevel`
@@ -3868,10 +3977,10 @@ Type namespace `OptimizeTracingLevel`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `OptimizeValidationPolicy`
-- `OptimizeValidationPolicy.afterEveryPass(): OptimizeValidationPolicy`
-  Call OptimizeValidationPolicy.after_every_pass.
+- `OptimizeValidationPolicy.afterSegment(): OptimizeValidationPolicy`
+  Call OptimizeValidationPolicy.afterSegment.
 - `OptimizeValidationPolicy.finalModuleOnly(): OptimizeValidationPolicy`
-  Call OptimizeValidationPolicy.final_module_only.
+  Call OptimizeValidationPolicy.finalModuleOnly.
 - `OptimizeValidationPolicy.show(value: OptimizeValidationPolicy): string`
   Format the value with its MoonBit `Show` implementation.
 
@@ -4274,6 +4383,14 @@ Import directly with `import * as validate from '@jtenner/starshine/validate';` 
   Call genValidValtype.
 - `makeState(arg0: Env, arg1: Array<ValType>): TcState`
   Call makeState.
+- `runValidateInvalidFuzz(arg0: string, arg1: bigint): StarshineResult<ValidateInvalidFuzzStats, string>`
+  Run validate invalid fuzz.
+- `runValidateValidFuzz(arg0: string, arg1: bigint): StarshineResult<ValidateValidFuzzStats, string>`
+  Run validate valid fuzz.
+- `tinstrResultArity(arg0: TInstr, arg1: Env): number`
+  Call tinstrResultArity.
+- `tinstrsResultArity(arg0: Array<TInstr>, arg1: Env): number`
+  Call tinstrsResultArity.
 - `toTexpr(arg0: Expr, arg1: Env): StarshineResult<TExpr, string>`
   Call toTexpr.
 - `validateCodesec(arg0: CodeSec | null, arg1: FuncSec | null, arg2: Env): StarshineResult<void, string>`
@@ -4296,6 +4413,8 @@ Import directly with `import * as validate from '@jtenner/starshine/validate';` 
   Validate memsec.
 - `validateModule(arg0: Module): StarshineResult<void, ValidationError>`
   Validate module.
+- `validateModuleWithTrace(...args: never[]): never`
+  Higher-order function parameters are not available through the wasm-gc adapter.
 - `validateStartsec(arg0: StartSec | null, arg1: Env): StarshineResult<void, string>`
   Validate startsec.
 - `validateTablesec(arg0: TableSec | null, arg1: Env): StarshineResult<Env, string>`
@@ -4392,7 +4511,7 @@ Type namespace `Env`
   Return an updated value from Env.withLabel.
 - `Env.withLabels(arg0: Env, arg1: Array<Array<ValType>>): Env`
   Return an updated value from Env.withLabels.
-- `Env.withLocals(arg0: Env, arg1: Array<ValType>): Env`
+- `Env.withLocals(arg0: Env, arg1: Locals): Env`
   Return an updated value from Env.withLocals.
 - `Env.withMems(arg0: Env, arg1: Array<MemType>): Env`
   Return an updated value from Env.withMems.
@@ -4411,8 +4530,20 @@ Type namespace `Env`
 - `Env.show(value: Env): string`
   Format the value with its MoonBit `Show` implementation.
 
+Type namespace `TcEscape`
+- `TcEscape.show(value: TcEscape): string`
+  Format the value with its MoonBit `Show` implementation.
+
 Type namespace `TcState`
 - `TcState.show(value: TcState): string`
+  Format the value with its MoonBit `Show` implementation.
+
+Type namespace `ValidateInvalidFuzzStats`
+- `ValidateInvalidFuzzStats.show(value: ValidateInvalidFuzzStats): string`
+  Format the value with its MoonBit `Show` implementation.
+
+Type namespace `ValidateValidFuzzStats`
+- `ValidateValidFuzzStats.show(value: ValidateValidFuzzStats): string`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `ValidationDiagnostic`
@@ -4439,6 +4570,8 @@ Import directly with `import * as wast from '@jtenner/starshine/wast';` or from 
   Convert values with moduleToWast.
 - `moduleToWastWithContext(arg0: Module, arg1: PrettyPrintContext): StarshineResult<string, string>`
   Convert values with moduleToWastWithContext.
+- `runWastRoundtripFuzz(arg0: string, arg1: bigint): StarshineResult<WastRoundtripFuzzStats, string>`
+  Run wast roundtrip fuzz.
 - `runWastSpecFile(arg0: string, arg1: string): WastSpecFileReport`
   Run wast spec file.
 - `runWastSpecSuite(arg0: Array<[string, string]>): WastSpecRunSummary`
@@ -4690,6 +4823,10 @@ Type namespace `WastResult`
 - `WastResult.show(value: WastResult): string`
   Format the value with its MoonBit `Show` implementation.
 
+Type namespace `WastRoundtripFuzzStats`
+- `WastRoundtripFuzzStats.show(value: WastRoundtripFuzzStats): string`
+  Format the value with its MoonBit `Show` implementation.
+
 Type namespace `WastScript`
 - `WastScript.show(value: WastScript): string`
   Format the value with its MoonBit `Show` implementation.
@@ -4720,6 +4857,8 @@ Import directly with `import * as wat from '@jtenner/starshine/wat';` or from th
   Convert values with moduleToWat.
 - `moduleToWatWithContext(arg0: Module, arg1: PrettyPrintContext): StarshineResult<string, string>`
   Convert values with moduleToWatWithContext.
+- `runWatRoundtripFuzz(arg0: string, arg1: bigint): StarshineResult<WatRoundtripFuzzStats, string>`
+  Run wat roundtrip fuzz.
 - `scriptToWat(arg0: WastScript): StarshineResult<string, string>`
   Convert values with scriptToWat.
 - `scriptToWatWithContext(arg0: WastScript, arg1: PrettyPrintContext): StarshineResult<string, string>`
@@ -4728,3 +4867,7 @@ Import directly with `import * as wat from '@jtenner/starshine/wat';` or from th
   Convert values with watToModule.
 - `watToScript(arg0: string, filename?: string): StarshineResult<WastScript, string>`
   Convert values with watToScript.
+
+Type namespace `WatRoundtripFuzzStats`
+- `WatRoundtripFuzzStats.show(value: WatRoundtripFuzzStats): string`
+  Format the value with its MoonBit `Show` implementation.

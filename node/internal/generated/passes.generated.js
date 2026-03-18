@@ -3,36 +3,53 @@ import { countProvidedArgs, getWasmGcExports, liftValue, lowerValue, unsupported
 const wasm = await getWasmGcExports();
 
 export function defaultFunctionOptimizationPasses(arg0, arg1) {
-  return liftValue({ kind: "array", helper: {"new":"__js_array_29_new","push":"__js_array_29_push","length":"__js_array_29_length","get":"__js_array_29_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, wasm["passes__default_function_optimization_passes"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, arg1, wasm)), wasm);
+  return liftValue({ kind: "array", helper: {"new":"__js_array_30_new","push":"__js_array_30_push","length":"__js_array_30_length","get":"__js_array_30_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, wasm["passes__default_function_optimization_passes"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, arg1, wasm)), wasm);
 }
 
 export function defaultGlobalOptimizationPostPasses(arg0, arg1) {
-  return liftValue({ kind: "array", helper: {"new":"__js_array_29_new","push":"__js_array_29_push","length":"__js_array_29_length","get":"__js_array_29_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, wasm["passes__default_global_optimization_post_passes"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, arg1, wasm)), wasm);
+  return liftValue({ kind: "array", helper: {"new":"__js_array_30_new","push":"__js_array_30_push","length":"__js_array_30_length","get":"__js_array_30_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, wasm["passes__default_global_optimization_post_passes"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, arg1, wasm)), wasm);
 }
 
 export function defaultGlobalOptimizationPrePasses(arg0, arg1, closedWorld) {
   const provided = countProvidedArgs(arguments);
   switch (provided) {
     case 2:
-      return liftValue({ kind: "array", helper: {"new":"__js_array_29_new","push":"__js_array_29_push","length":"__js_array_29_length","get":"__js_array_29_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, wasm["passes__default_global_optimization_pre_passes__arity_2"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, arg1, wasm)), wasm);
+      return liftValue({ kind: "array", helper: {"new":"__js_array_30_new","push":"__js_array_30_push","length":"__js_array_30_length","get":"__js_array_30_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, wasm["passes__default_global_optimization_pre_passes__arity_2"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, arg1, wasm)), wasm);
     case 3:
-      return liftValue({ kind: "array", helper: {"new":"__js_array_29_new","push":"__js_array_29_push","length":"__js_array_29_length","get":"__js_array_29_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, wasm["passes__default_global_optimization_pre_passes"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, arg1, wasm), lowerValue({ kind: "bool" }, closedWorld, wasm)), wasm);
+      return liftValue({ kind: "array", helper: {"new":"__js_array_30_new","push":"__js_array_30_push","length":"__js_array_30_length","get":"__js_array_30_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, wasm["passes__default_global_optimization_pre_passes"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, arg1, wasm), lowerValue({ kind: "bool" }, closedWorld, wasm)), wasm);
     default:
       throw new TypeError("Invalid argument count for passes.defaultGlobalOptimizationPrePasses.");
   }
 }
 
+export function optimizeFindPostEncodeFailureSegment(arg0, arg1, arg2) {
+  return liftValue({ kind: "result", helper: {"isOk":"__js_result_15_is_ok","unwrapOk":"__js_result_15_unwrap_ok","unwrapErr":"__js_result_15_unwrap_err"}, ok: { kind: "option", helper: {"none":"__js_option_36_none","some":"__js_option_36_some","isSome":"__js_option_36_is_some","unwrap":"__js_option_36_unwrap"}, item: { kind: "named", brand: "passes.OptimizePostEncodeFailureRepro", showExport: "__js_show_passes_OptimizePostEncodeFailureRepro" } }, err: { kind: "string" } }, wasm["passes__optimize_find_post_encode_failure_segment"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_30_new","push":"__js_array_30_push","length":"__js_array_30_length","get":"__js_array_30_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, arg1, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, arg2, wasm)), wasm);
+}
+
+export const optimizeFindPostEncodeFailureSegmentWithProbe = unsupportedExport("passes.optimizeFindPostEncodeFailureSegmentWithProbe", "Higher-order function parameters are not available through the wasm-gc adapter.");
+
 export function optimizeModule(arg0, arg1) {
-  return liftValue({ kind: "result", helper: {"isOk":"__js_result_14_is_ok","unwrapOk":"__js_result_14_unwrap_ok","unwrapErr":"__js_result_14_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["passes__optimize_module"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_29_new","push":"__js_array_29_push","length":"__js_array_29_length","get":"__js_array_29_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, arg1, wasm)), wasm);
+  return liftValue({ kind: "result", helper: {"isOk":"__js_result_16_is_ok","unwrapOk":"__js_result_16_unwrap_ok","unwrapErr":"__js_result_16_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["passes__optimize_module"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_30_new","push":"__js_array_30_push","length":"__js_array_30_length","get":"__js_array_30_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, arg1, wasm)), wasm);
 }
 
 export function optimizeModuleWithOptions(arg0, arg1, arg2) {
-  return liftValue({ kind: "result", helper: {"isOk":"__js_result_14_is_ok","unwrapOk":"__js_result_14_unwrap_ok","unwrapErr":"__js_result_14_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["passes__optimize_module_with_options"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_29_new","push":"__js_array_29_push","length":"__js_array_29_length","get":"__js_array_29_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, arg1, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, arg2, wasm)), wasm);
+  return liftValue({ kind: "result", helper: {"isOk":"__js_result_16_is_ok","unwrapOk":"__js_result_16_unwrap_ok","unwrapErr":"__js_result_16_unwrap_err"}, ok: { kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, err: { kind: "string" } }, wasm["passes__optimize_module_with_options"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_30_new","push":"__js_array_30_push","length":"__js_array_30_length","get":"__js_array_30_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, arg1, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, arg2, wasm)), wasm);
 }
 
 export const optimizeModuleWithOptionsTrace = unsupportedExport("passes.optimizeModuleWithOptionsTrace", "Higher-order function parameters are not available through the wasm-gc adapter.");
 
 export const AbstractTypeRefiningPassProps = Object.freeze({
+  new(trapsNeverHappen) {
+    const provided = countProvidedArgs(arguments);
+    switch (provided) {
+      case 0:
+        return liftValue({ kind: "named", brand: "passes.AbstractTypeRefiningPassProps", showExport: "__js_show_passes_AbstractTypeRefiningPassProps" }, wasm["passes__AbstractTypeRefiningPassProps__new__arity_0"](), wasm);
+      case 1:
+        return liftValue({ kind: "named", brand: "passes.AbstractTypeRefiningPassProps", showExport: "__js_show_passes_AbstractTypeRefiningPassProps" }, wasm["passes__AbstractTypeRefiningPassProps__new"](lowerValue({ kind: "bool" }, trapsNeverHappen, wasm)), wasm);
+      default:
+        throw new TypeError("Invalid argument count for passes.AbstractTypeRefiningPassProps.new.");
+    }
+  },
   show(value) {
     return wasm["__js_show_passes_AbstractTypeRefiningPassProps"](value);
   },
@@ -131,6 +148,12 @@ export const MSFHashState = Object.freeze({
   },
 });
 
+export const MSFOrderedSite = Object.freeze({
+  show(value) {
+    return wasm["__js_show_passes_MSFOrderedSite"](value);
+  },
+});
+
 export const MSFParamKey = Object.freeze({
 });
 
@@ -147,6 +170,21 @@ export const MSFSiteValue = Object.freeze({
 });
 
 export const MemoryPackingPassProps = Object.freeze({
+  new(zeroFilledMemory, trapsNeverHappen, maxDataSegments) {
+    const provided = countProvidedArgs(arguments);
+    switch (provided) {
+      case 0:
+        return liftValue({ kind: "named", brand: "passes.MemoryPackingPassProps", showExport: "__js_show_passes_MemoryPackingPassProps" }, wasm["passes__MemoryPackingPassProps__new__arity_0"](), wasm);
+      case 1:
+        return liftValue({ kind: "named", brand: "passes.MemoryPackingPassProps", showExport: "__js_show_passes_MemoryPackingPassProps" }, wasm["passes__MemoryPackingPassProps__new__arity_1"](lowerValue({ kind: "bool" }, zeroFilledMemory, wasm)), wasm);
+      case 2:
+        return liftValue({ kind: "named", brand: "passes.MemoryPackingPassProps", showExport: "__js_show_passes_MemoryPackingPassProps" }, wasm["passes__MemoryPackingPassProps__new__arity_2"](lowerValue({ kind: "bool" }, zeroFilledMemory, wasm), lowerValue({ kind: "bool" }, trapsNeverHappen, wasm)), wasm);
+      case 3:
+        return liftValue({ kind: "named", brand: "passes.MemoryPackingPassProps", showExport: "__js_show_passes_MemoryPackingPassProps" }, wasm["passes__MemoryPackingPassProps__new"](lowerValue({ kind: "bool" }, zeroFilledMemory, wasm), lowerValue({ kind: "bool" }, trapsNeverHappen, wasm), lowerValue({ kind: "number" }, maxDataSegments, wasm)), wasm);
+      default:
+        throw new TypeError("Invalid argument count for passes.MemoryPackingPassProps.new.");
+    }
+  },
   show(value) {
     return wasm["__js_show_passes_MemoryPackingPassProps"](value);
   },
@@ -159,7 +197,7 @@ export const ModulePass = Object.freeze({
 });
 
 export const OptimizeOptions = Object.freeze({
-  new(optimizeLevel, shrinkLevel, inlining, monomorphizeMinBenefit, lowMemoryUnused, lowMemoryBound, trapsNeverHappen) {
+  new(optimizeLevel, shrinkLevel, inlining, monomorphizeMinBenefit, lowMemoryUnused, lowMemoryBound, trapsNeverHappen, validationPolicy, stackFunctionPasses) {
     const provided = countProvidedArgs(arguments);
     switch (provided) {
       case 0:
@@ -177,10 +215,23 @@ export const OptimizeOptions = Object.freeze({
       case 6:
         return liftValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, wasm["passes__OptimizeOptions__new__arity_6"](lowerValue({ kind: "number" }, optimizeLevel, wasm), lowerValue({ kind: "number" }, shrinkLevel, wasm), lowerValue({ kind: "named", brand: "passes.InliningOptions", showExport: null }, inlining, wasm), lowerValue({ kind: "number" }, monomorphizeMinBenefit, wasm), lowerValue({ kind: "bool" }, lowMemoryUnused, wasm), lowerValue({ kind: "bigint" }, lowMemoryBound, wasm)), wasm);
       case 7:
-        return liftValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, wasm["passes__OptimizeOptions__new"](lowerValue({ kind: "number" }, optimizeLevel, wasm), lowerValue({ kind: "number" }, shrinkLevel, wasm), lowerValue({ kind: "named", brand: "passes.InliningOptions", showExport: null }, inlining, wasm), lowerValue({ kind: "number" }, monomorphizeMinBenefit, wasm), lowerValue({ kind: "bool" }, lowMemoryUnused, wasm), lowerValue({ kind: "bigint" }, lowMemoryBound, wasm), lowerValue({ kind: "bool" }, trapsNeverHappen, wasm)), wasm);
+        return liftValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, wasm["passes__OptimizeOptions__new__arity_7"](lowerValue({ kind: "number" }, optimizeLevel, wasm), lowerValue({ kind: "number" }, shrinkLevel, wasm), lowerValue({ kind: "named", brand: "passes.InliningOptions", showExport: null }, inlining, wasm), lowerValue({ kind: "number" }, monomorphizeMinBenefit, wasm), lowerValue({ kind: "bool" }, lowMemoryUnused, wasm), lowerValue({ kind: "bigint" }, lowMemoryBound, wasm), lowerValue({ kind: "bool" }, trapsNeverHappen, wasm)), wasm);
+      case 8:
+        return liftValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, wasm["passes__OptimizeOptions__new__arity_8"](lowerValue({ kind: "number" }, optimizeLevel, wasm), lowerValue({ kind: "number" }, shrinkLevel, wasm), lowerValue({ kind: "named", brand: "passes.InliningOptions", showExport: null }, inlining, wasm), lowerValue({ kind: "number" }, monomorphizeMinBenefit, wasm), lowerValue({ kind: "bool" }, lowMemoryUnused, wasm), lowerValue({ kind: "bigint" }, lowMemoryBound, wasm), lowerValue({ kind: "bool" }, trapsNeverHappen, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeValidationPolicy", showExport: "__js_show_passes_OptimizeValidationPolicy" }, validationPolicy, wasm)), wasm);
+      case 9:
+        return liftValue({ kind: "named", brand: "passes.OptimizeOptions", showExport: null }, wasm["passes__OptimizeOptions__new"](lowerValue({ kind: "number" }, optimizeLevel, wasm), lowerValue({ kind: "number" }, shrinkLevel, wasm), lowerValue({ kind: "named", brand: "passes.InliningOptions", showExport: null }, inlining, wasm), lowerValue({ kind: "number" }, monomorphizeMinBenefit, wasm), lowerValue({ kind: "bool" }, lowMemoryUnused, wasm), lowerValue({ kind: "bigint" }, lowMemoryBound, wasm), lowerValue({ kind: "bool" }, trapsNeverHappen, wasm), lowerValue({ kind: "named", brand: "passes.OptimizeValidationPolicy", showExport: "__js_show_passes_OptimizeValidationPolicy" }, validationPolicy, wasm), lowerValue({ kind: "bool" }, stackFunctionPasses, wasm)), wasm);
       default:
         throw new TypeError("Invalid argument count for passes.OptimizeOptions.new.");
     }
+  },
+});
+
+export const OptimizePostEncodeFailureRepro = Object.freeze({
+  new(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "passes.OptimizePostEncodeFailureRepro", showExport: "__js_show_passes_OptimizePostEncodeFailureRepro" }, wasm["passes__OptimizePostEncodeFailureRepro__new"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_30_new","push":"__js_array_30_push","length":"__js_array_30_length","get":"__js_array_30_get"}, item: { kind: "named", brand: "passes.ModulePass", showExport: "__js_show_passes_ModulePass" } }, arg1, wasm)), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_passes_OptimizePostEncodeFailureRepro"](value);
   },
 });
 
@@ -196,6 +247,18 @@ export const OptimizeTracingLevel = Object.freeze({
   },
   show(value) {
     return wasm["__js_show_passes_OptimizeTracingLevel"](value);
+  },
+});
+
+export const OptimizeValidationPolicy = Object.freeze({
+  afterSegment() {
+    return liftValue({ kind: "named", brand: "passes.OptimizeValidationPolicy", showExport: "__js_show_passes_OptimizeValidationPolicy" }, wasm["passes__OptimizeValidationPolicy__after_segment"](), wasm);
+  },
+  finalModuleOnly() {
+    return liftValue({ kind: "named", brand: "passes.OptimizeValidationPolicy", showExport: "__js_show_passes_OptimizeValidationPolicy" }, wasm["passes__OptimizeValidationPolicy__final_module_only"](), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_passes_OptimizeValidationPolicy"](value);
   },
 });
 

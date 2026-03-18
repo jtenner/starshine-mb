@@ -1,5 +1,5 @@
 import type { OpaqueHandle, StarshineResult } from "./internal/shared.js";
-import type { Module, TExpr, TInstr, ValType } from "./lib.js";
+import type { Locals, Module, TExpr, TInstr, ValType } from "./lib.js";
 
 export type BasicBlock = OpaqueHandle<"ir.BasicBlock">;
 export type BlockId = OpaqueHandle<"ir.BlockId">;
@@ -82,14 +82,14 @@ export const IRContext: {
   livenessDirty(arg0: IRContext): void;
   localGraphDirty(arg0: IRContext): void;
   lowerToCfg(arg0: IRContext): CFG;
-  lowerToCfgWithLocals(arg0: IRContext): [Array<ValType>, CFG] | null;
+  lowerToCfgWithLocals(arg0: IRContext): [Locals, CFG] | null;
   new(): IRContext;
   optimizeBodyWithSsa(arg0: IRContext): TExpr | null;
   optimizeBodyWithSsaTrace(...args: never[]): never;
   optimizeBodyWithSsaTraceWithLocals(...args: never[]): never;
-  optimizeBodyWithSsaWithLocals(arg0: IRContext): [Array<ValType>, TExpr] | null;
+  optimizeBodyWithSsaWithLocals(arg0: IRContext): [Locals, TExpr] | null;
   setBody(arg0: IRContext, arg1: TExpr): void;
-  setLocals(arg0: IRContext, arg1: Array<ValType>, paramCount?: number): void;
+  setLocals(arg0: IRContext, arg1: Locals, paramCount?: number): void;
   setMod(arg0: IRContext, arg1: Module): void;
   ssaDirty(arg0: IRContext): void;
   typesDirty(arg0: IRContext): void;
@@ -126,7 +126,7 @@ export const SSACFG: {
   optimize(arg0: SSACFG): SSACFG;
   splitCriticalEdges(arg0: SSACFG): SSACFG;
   toCfg(arg0: SSACFG, arg1: number): CFG;
-  toCfgWithLocals(arg0: SSACFG, arg1: Array<ValType>, arg2: number, arg3: SSATypeInfo): [Array<ValType>, CFG];
+  toCfgWithLocals(arg0: SSACFG, arg1: Locals, arg2: number, arg3: SSATypeInfo): [Locals, CFG];
   show(value: SSACFG): string;
 };
 
@@ -174,7 +174,7 @@ export const Terminator: {
 
 export const TypeContext: {
   empty(): TypeContext;
-  fromModule(arg0: Module, arg1: Array<ValType>): TypeContext;
+  fromModule(arg0: Module, arg1: Locals): TypeContext;
 };
 
 export const UseDefInfo: {

@@ -51,6 +51,7 @@ export type LaneIdx = OpaqueHandle<"lib.LaneIdx">;
 export type Limits = OpaqueHandle<"lib.Limits">;
 export type LoadOp = OpaqueHandle<"lib.LoadOp">;
 export type LocalIdx = OpaqueHandle<"lib.LocalIdx">;
+export type LocalRun = OpaqueHandle<"lib.LocalRun">;
 export type Locals = OpaqueHandle<"lib.Locals">;
 export type MemArg = OpaqueHandle<"lib.MemArg">;
 export type MemIdx = OpaqueHandle<"lib.MemIdx">;
@@ -98,7 +99,6 @@ export function arrayCompType(arg0: FieldType): CompType;
 export function arrayOfArbitrary(...args: never[]): never;
 export function compTypeSubType(arg0: CompType): SubType;
 export function equals(...args: never[]): never;
-export function expandLocals(arg0: Array<Locals>): StarshineResult<Array<ValType>, string>;
 export function funcCompType(arg0: Array<ValType>, arg1: Array<ValType>): CompType;
 export function funcExternIdx(arg0: FuncIdx): ExternIdx;
 export function funcExternType(arg0: TypeIdx): ExternType;
@@ -128,7 +128,11 @@ export function tableIdx(arg0: number): TableIdx;
 export function tagExternIdx(arg0: TagIdx): ExternIdx;
 export function tagExternType(arg0: TagType): ExternType;
 export function tagType(arg0: TypeIdx): TagType;
-export function tlocalsToLocals(arg0: Array<ValType>): Array<Locals>;
+export function traceDeltaUsToMs(arg0: bigint): bigint;
+export function traceElapsedMs(arg0: bigint): bigint;
+export function traceElapsedUsSince(arg0: bigint): bigint;
+export function traceNowMs(): bigint;
+export function traceNowUs(): bigint;
 
 export const AbsHeapType: {
   any(): AbsHeapType;
@@ -583,8 +587,8 @@ export const FieldType: {
 };
 
 export const Func: {
-  new(arg0: Array<Locals>, arg1: Expr): Func;
-  tFunc(arg0: Array<ValType>, arg1: Array<ValType>, arg2: TExpr): Func;
+  new(arg0: Locals, arg1: Expr): Func;
+  tFunc(arg0: Array<ValType>, arg1: Locals, arg2: TExpr): Func;
   show(value: Func): string;
 };
 
@@ -606,13 +610,13 @@ export const FuncType: {
 };
 
 export const FunctionLocals: {
-  allLocals(arg0: FunctionLocals): Array<ValType>;
-  bodyLocals(arg0: FunctionLocals): Array<ValType>;
-  fromLocalDecls(arg0: Array<ValType>, arg1: Array<Locals>): StarshineResult<FunctionLocals, string>;
-  fromTypedFunc(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Array<ValType>): StarshineResult<FunctionLocals, string>;
-  fromTypedFuncForPass(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Array<ValType>): StarshineResult<FunctionLocals, string>;
+  allLocals(arg0: FunctionLocals): Locals;
+  bodyLocals(arg0: FunctionLocals): Locals;
+  fromLocalDecls(arg0: Array<ValType>, arg1: Locals): StarshineResult<FunctionLocals, string>;
+  fromTypedFunc(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Locals): StarshineResult<FunctionLocals, string>;
+  fromTypedFuncForPass(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Locals): StarshineResult<FunctionLocals, string>;
   localType(arg0: FunctionLocals, arg1: LocalIdx): ValType | null;
-  new(arg0: Array<ValType>, arg1: Array<ValType>): FunctionLocals;
+  new(arg0: Array<ValType>, arg1: Locals): FunctionLocals;
   paramCount(arg0: FunctionLocals): number;
   params(arg0: FunctionLocals): Array<ValType>;
 };
@@ -1261,8 +1265,39 @@ export const LocalIdx: {
   show(value: LocalIdx): string;
 };
 
+export const LocalRun: {
+  count(arg0: LocalRun): number;
+  new(arg0: number, arg1: ValType): LocalRun;
+  valType(arg0: LocalRun): ValType;
+  show(value: LocalRun): string;
+};
+
 export const Locals: {
-  new(arg0: number, arg1: ValType): Locals;
+  append(arg0: Locals, arg1: Locals): void;
+  appendTypes(arg0: Locals, arg1: Array<ValType>): void;
+  at(arg0: Locals, arg1: number): ValType | null;
+  copy(arg0: Locals): Locals;
+  empty(): Locals;
+  ensureIndex(arg0: Locals): Array<number>;
+  fromTypes(arg0: Array<ValType>): Locals;
+  get(arg0: Locals, arg1: number): ValType;
+  insertRun(arg0: Locals, arg1: number, arg2: LocalRun): void;
+  invalidateIndices(arg0: Locals): void;
+  isEmpty(arg0: Locals): boolean;
+  iter(arg0: Locals): OpaqueHandle<"Iter[ValType]">;
+  length(arg0: Locals): number;
+  mergeAdjacentRuns(arg0: Locals): void;
+  new(arg0: Array<LocalRun>): Locals;
+  push(arg0: Locals, arg1: ValType): void;
+  pushRun(arg0: Locals, arg1: LocalRun): void;
+  removeRun(arg0: Locals, arg1: number): LocalRun | null;
+  runCount(arg0: Locals): number;
+  runs(arg0: Locals): Array<LocalRun>;
+  set(arg0: Locals, arg1: number, arg2: ValType): boolean;
+  setRunCount(arg0: Locals, arg1: number, arg2: number): boolean;
+  single(arg0: number, arg1: ValType): Locals;
+  unsafeGet(arg0: Locals, arg1: number): ValType;
+  withoutPrefix(arg0: Locals, arg1: number): Locals;
   show(value: Locals): string;
 };
 

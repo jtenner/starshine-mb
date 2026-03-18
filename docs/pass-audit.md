@@ -7,6 +7,7 @@
 - This started as the Phase 1 inventory and initial audit baseline and now includes the first runner-level metrics plus a dedicated benchmark harness entrypoint.
 - This document is currently being used as the planning checkpoint for the execution work.
 - Behavior-changing refactors and committed benchmark deltas are still pending below this checkpoint.
+- Locals-model note: all pass inventory below now assumes the post-refactor canonical locals model (`Locals` + `LocalRun` with cached run-start indices). The old flat typed-locals representation is gone.
 
 ## Planning Checkpoint
 

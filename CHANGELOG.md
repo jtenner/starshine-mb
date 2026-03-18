@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-03-18 Docs/Node Package Sync: refresh locals docs after canonicalization
+
+- Updated [`README.md`](/home/jtenner/Projects/starshine-mb/README.md) and [`README.mbt.md`](/home/jtenner/Projects/starshine-mb/README.mbt.md) so the public library docs now describe the canonical `Locals` / `LocalRun` model, the mutable cached `indices`, `Locals::ensure_index()`, and the indexable lookup surface used after the flat-locals removal.
+- Refreshed the pass and tracing docs in [`docs/SimplifyLocals.md`](/home/jtenner/Projects/starshine-mb/docs/SimplifyLocals.md), [`docs/pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/pass-audit.md), and [`docs/tracing.md`](/home/jtenner/Projects/starshine-mb/docs/tracing.md) so they no longer implicitly describe any flat locals path and instead refer to the canonical run-based locals container and its current lookup/count semantics.
+- Updated the generated Node package surfaces by teaching [`scripts/lib/generate-node-package.mjs`](/home/jtenner/Projects/starshine-mb/scripts/lib/generate-node-package.mjs) about the canonical locals model, then regenerating [`node/README.md`](/home/jtenner/Projects/starshine-mb/node/README.md), the JS/TS adapter files under [`node/`](/home/jtenner/Projects/starshine-mb/node), and the node-api bridge files [`src/node_api/moon.pkg`](/home/jtenner/Projects/starshine-mb/src/node_api/moon.pkg) and [`src/node_api/generated.mbt`](/home/jtenner/Projects/starshine-mb/src/node_api/generated.mbt). The stale `expandLocals` / `tlocalsToLocals` exports and flat `FunctionLocals` signatures are now gone from the published Node docs.
+- Removed the stale completed locals-refactor blocker from [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) now that the finished work is recorded in this changelog instead of lingering in the backlog.
+- Validation: `bun validate readme-api-sync`; `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-18 Lib/IR/Passes Refactor: remove flat locals and canonicalize run-based locals everywhere
 
 - Completed the locals canonicalization refactor across the core wasm model, IR, validator, transformer, passes, generated interfaces, and tests so the codebase now has a single canonical locals representation: [`LocalRun`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt) plus [`Locals`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt). The old flat typed-locals representation was removed rather than preserved behind compatibility branches.

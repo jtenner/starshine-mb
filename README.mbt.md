@@ -51,6 +51,47 @@ After dependency resolution, the examples below assume package aliases such as `
 - `jtenner/starshine/ir`: CFG/SSA/use-def/liveness/GVN utilities.
 - `jtenner/starshine/transformer`: event-driven module traversal and rewriting hooks.
 
+## Core Locals Model
+
+Starshine now uses a single canonical locals representation throughout the project.
+
+- Function body locals are stored as `Locals`, not `Array[ValType]`.
+- `Locals` is run-based: it stores ordered `LocalRun { count, vt }` entries instead of a flattened local-type array.
+- `Locals.indices` is a mutable cached derived value that records each run's starting local index. It is not the source of truth.
+- Plain `Func` and typed `TFunc` values both use `Locals` for declared body locals.
+- Parameters remain plain `Array[ValType]`; only non-parameter body locals use `Locals`.
+
+Use these constructors when building or rewriting typed functions:
+
+```mbt
+using @lib {
+  Func, LocalIdx, Locals, TExpr, TInstr, ValType, I32
+}
+
+let no_body_locals = Func::t_func(
+  [ValType::i32()],
+  Locals::empty(),
+  TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+)
+
+let grouped_body_locals = Func::t_func(
+  [],
+  Locals::from_types([
+    ValType::i32(),
+    ValType::i32(),
+    ValType::funcref(),
+  ]),
+  TExpr::new([
+    TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7))),
+    TInstr::nop(),
+  ]),
+)
+```
+
+`Locals::from_types(...)` is convenient for tests and small builders. Internally it still canonicalizes into runs, so repeated adjacent value types are stored compactly instead of preserving a flat local array.
+
+`Locals::ensure_index()` lazily rebuilds the cached run-start offsets, and indexed lookup goes through the canonical run representation. If you need to inspect locals by run, use `Locals::runs()`; if you need local-type lookup by local index, use `Locals::at(...)` or `locals[idx]`.
+
 ## Recommended Learning Path
 
 1. `wast`: parse text into a `Module`.

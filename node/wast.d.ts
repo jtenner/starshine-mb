@@ -56,6 +56,7 @@ export type WastLexer = OpaqueHandle<"wast.WastLexer">;
 export type WastModuleDef = OpaqueHandle<"wast.WastModuleDef">;
 export type WastParser = OpaqueHandle<"wast.WastParser">;
 export type WastResult = OpaqueHandle<"wast.WastResult">;
+export type WastRoundtripFuzzStats = OpaqueHandle<"wast.WastRoundtripFuzzStats">;
 export type WastScript = OpaqueHandle<"wast.WastScript">;
 export type WastSpecFileReport = OpaqueHandle<"wast.WastSpecFileReport">;
 export type WastSpecFileStatus = OpaqueHandle<"wast.WastSpecFileStatus">;
@@ -66,6 +67,7 @@ export type WastValue = OpaqueHandle<"wast.WastValue">;
 export function lookupKeyword(arg0: string): TokenType | null;
 export function moduleToWast(arg0: Module): StarshineResult<string, string>;
 export function moduleToWastWithContext(arg0: Module, arg1: PrettyPrintContext): StarshineResult<string, string>;
+export function runWastRoundtripFuzz(arg0: string, arg1: bigint): StarshineResult<WastRoundtripFuzzStats, string>;
 export function runWastSpecFile(arg0: string, arg1: string): WastSpecFileReport;
 export function runWastSpecSuite(arg0: Array<[string, string]>): WastSpecRunSummary;
 export function scriptToWast(arg0: WastScript): StarshineResult<string, string>;
@@ -301,6 +303,10 @@ export const WastParser: {
 
 export const WastResult: {
   show(value: WastResult): string;
+};
+
+export const WastRoundtripFuzzStats: {
+  show(value: WastRoundtripFuzzStats): string;
 };
 
 export const WastScript: {

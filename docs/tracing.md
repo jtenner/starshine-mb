@@ -49,6 +49,8 @@ Recommended required keys:
 - optimizer pass summaries should include both `transform_elapsed_ms=` and `validation_elapsed_ms=` when the runner performs post-pass validation, so expensive validation walks do not get conflated with transform cost on pathological modules
 - one or two cardinality metrics (for example `locals=`, `top_instrs=`)
 
+For current Starshine code, `locals=` should describe the canonical `Locals` count (`Locals::length()` / declared non-param local slots), not an expanded temporary flat local-type array.
+
 ## 3. Timing + Counters Pattern
 
 Use shared timer helpers from util modules and avoid re-implementing clock logic in each pass/package.

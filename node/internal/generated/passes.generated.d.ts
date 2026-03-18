@@ -18,13 +18,16 @@ export type MSFCallSite = OpaqueHandle<"passes.MSFCallSite">;
 export type MSFDefinedFunc = OpaqueHandle<"passes.MSFDefinedFunc">;
 export type MSFHashBucketKey = OpaqueHandle<"passes.MSFHashBucketKey">;
 export type MSFHashState = OpaqueHandle<"passes.MSFHashState">;
+export type MSFOrderedSite = OpaqueHandle<"passes.MSFOrderedSite">;
 export type MSFParamKey = OpaqueHandle<"passes.MSFParamKey">;
 export type MSFParamKind = OpaqueHandle<"passes.MSFParamKind">;
 export type MSFSiteValue = OpaqueHandle<"passes.MSFSiteValue">;
 export type MemoryPackingPassProps = OpaqueHandle<"passes.MemoryPackingPassProps">;
 export type ModulePass = OpaqueHandle<"passes.ModulePass">;
 export type OptimizeOptions = OpaqueHandle<"passes.OptimizeOptions">;
+export type OptimizePostEncodeFailureRepro = OpaqueHandle<"passes.OptimizePostEncodeFailureRepro">;
 export type OptimizeTracingLevel = OpaqueHandle<"passes.OptimizeTracingLevel">;
+export type OptimizeValidationPolicy = OpaqueHandle<"passes.OptimizeValidationPolicy">;
 export type ParamInfo = OpaqueHandle<"passes.ParamInfo">;
 export type SquareMatrix = OpaqueHandle<"passes.SquareMatrix">;
 export type Tail = OpaqueHandle<"passes.Tail">;
@@ -32,11 +35,14 @@ export type Tail = OpaqueHandle<"passes.Tail">;
 export function defaultFunctionOptimizationPasses(arg0: Module, arg1: OptimizeOptions): Array<ModulePass>;
 export function defaultGlobalOptimizationPostPasses(arg0: Module, arg1: OptimizeOptions): Array<ModulePass>;
 export function defaultGlobalOptimizationPrePasses(arg0: Module, arg1: OptimizeOptions, closedWorld?: boolean): Array<ModulePass>;
+export function optimizeFindPostEncodeFailureSegment(arg0: Module, arg1: Array<ModulePass>, arg2: OptimizeOptions): StarshineResult<OptimizePostEncodeFailureRepro | null, string>;
+export function optimizeFindPostEncodeFailureSegmentWithProbe(...args: never[]): never;
 export function optimizeModule(arg0: Module, arg1: Array<ModulePass>): StarshineResult<Module, string>;
 export function optimizeModuleWithOptions(arg0: Module, arg1: Array<ModulePass>, arg2: OptimizeOptions): StarshineResult<Module, string>;
 export function optimizeModuleWithOptionsTrace(...args: never[]): never;
 
 export const AbstractTypeRefiningPassProps: {
+  new(trapsNeverHappen?: boolean): AbstractTypeRefiningPassProps;
   show(value: AbstractTypeRefiningPassProps): string;
 };
 
@@ -97,6 +103,10 @@ export const MSFHashState: {
   show(value: MSFHashState): string;
 };
 
+export const MSFOrderedSite: {
+  show(value: MSFOrderedSite): string;
+};
+
 export const MSFParamKey: {
 };
 
@@ -109,6 +119,7 @@ export const MSFSiteValue: {
 };
 
 export const MemoryPackingPassProps: {
+  new(zeroFilledMemory?: boolean, trapsNeverHappen?: boolean, maxDataSegments?: number): MemoryPackingPassProps;
   show(value: MemoryPackingPassProps): string;
 };
 
@@ -117,7 +128,12 @@ export const ModulePass: {
 };
 
 export const OptimizeOptions: {
-  new(optimizeLevel?: number, shrinkLevel?: number, inlining?: InliningOptions, monomorphizeMinBenefit?: number, lowMemoryUnused?: boolean, lowMemoryBound?: bigint, trapsNeverHappen?: boolean): OptimizeOptions;
+  new(optimizeLevel?: number, shrinkLevel?: number, inlining?: InliningOptions, monomorphizeMinBenefit?: number, lowMemoryUnused?: boolean, lowMemoryBound?: bigint, trapsNeverHappen?: boolean, validationPolicy?: OptimizeValidationPolicy, stackFunctionPasses?: boolean): OptimizeOptions;
+};
+
+export const OptimizePostEncodeFailureRepro: {
+  new(arg0: Module, arg1: Array<ModulePass>): OptimizePostEncodeFailureRepro;
+  show(value: OptimizePostEncodeFailureRepro): string;
 };
 
 export const OptimizeTracingLevel: {
@@ -125,6 +141,12 @@ export const OptimizeTracingLevel: {
   pass(): OptimizeTracingLevel;
   phase(): OptimizeTracingLevel;
   show(value: OptimizeTracingLevel): string;
+};
+
+export const OptimizeValidationPolicy: {
+  afterSegment(): OptimizeValidationPolicy;
+  finalModuleOnly(): OptimizeValidationPolicy;
+  show(value: OptimizeValidationPolicy): string;
 };
 
 export const ParamInfo: {

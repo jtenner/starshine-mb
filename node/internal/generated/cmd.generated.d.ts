@@ -23,6 +23,7 @@ export function runCmdExitCode(arg0: Array<string>): number;
 export function runCmdExitCodeWithAdapter(arg0: Array<string>, arg1: CmdIO, configJson?: string | null): number;
 export function runCmdWithAdapter(arg0: Array<string>, arg1: CmdIO, configJson?: string | null): StarshineResult<CmdRunSummary, CmdError>;
 export function runWasmSmithFuzzHarness(...args: never[]): never;
+export function runWasmSmithFuzzHarnessProfile(arg0: string, arg1: bigint): StarshineResult<WasmSmithFuzzStats, string>;
 export function verifyReadmeApiSignatures(arg0: string, arg1: Array<[string, string]>): StarshineResult<void, string>;
 export function verifyReadmeApiSignaturesWithRequiredBlocks(arg0: string, arg1: Array<[string, string]>, arg2: Array<string>): StarshineResult<void, string>;
 

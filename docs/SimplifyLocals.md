@@ -52,6 +52,8 @@ The current implementation in `src/passes/simplify_locals.mbt` already includes:
 - pathological and wide-local guardrails with revert-to-original behavior,
 - existing regression and performance tests, including `ID-C1`, `ID-C2`, `ID-P1`..`ID-P5`, and `ID-F1`..`ID-F4`.
 
+All of that work now runs on Starshine's canonical locals model. There is no flat typed-locals fallback in the pass stack anymore: typed functions, validator helpers, IR utilities, and pass fixtures all use `Locals`/`LocalRun`, with local-index lookup routed through the run-start cache maintained by `Locals::ensure_index()`.
+
 This means the remaining work is not “implement SimplifyLocals.” For the current release target, the behavior and signoff work is complete; future work from this point would be expansion, cleanup, or deliberate parity follow-up rather than blocker closure.
 
 ## Binaryen Parity Notes
