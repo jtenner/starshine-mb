@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-03-18 Validate Follow-up: add a dedicated trace benchmark harness and baseline snapshot
+
+- Added a dedicated validator trace benchmark runner in [`src/validate_trace/main.mbt`](/home/jtenner/Projects/starshine-mb/src/validate_trace/main.mbt) with four fixed corpora targeting deep control nesting, wide locals, large code sections, and `ref.func`-heavy modules. The new package exposes a small CLI, captures final `phase_totals`, `helper_totals`, and `hotspots` lines from `validate_module_with_trace(...)`, and prints a stable per-corpus summary suitable for later before/after performance comparisons.
+- Added package coverage in [`src/validate_trace/main_test.mbt`](/home/jtenner/Projects/starshine-mb/src/validate_trace/main_test.mbt) for fixed corpus names, benchmark summary capture, unknown-corpus rejection, and CLI argument parsing.
+- Added `bun validate trace-benchmark` wiring in [`scripts/lib/validate-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/validate-task.ts) plus a task-family regression in [`scripts/test/task-family-commands.ts`](/home/jtenner/Projects/starshine-mb/scripts/test/task-family-commands.ts), so the benchmark harness is available through the repo's standard Bun task surface.
+- Recorded the first committed validator trace baseline in [`docs/benchmarks/validate-trace-baseline.md`](/home/jtenner/Projects/starshine-mb/docs/benchmarks/validate-trace-baseline.md), using `bun validate trace-benchmark --repeat 1` on 2026-03-18 to lock the current `phase_totals`, `helper_totals`, and `hotspots` snapshot for each fixed corpus.
+- Updated [/home/jtenner/Projects/starshine-mb/agent-todo.md](/home/jtenner/Projects/starshine-mb/agent-todo.md) to remove the completed validator trace benchmark task and keep the backlog focused on open work only.
+- Validation: `moon test --package jtenner/starshine/validate_trace`; `bun scripts/test/task-family-commands.ts`; `bun validate trace-benchmark --repeat 1`; `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-18 AlignmentLowering Follow-up: add module-level no-op and validator-backed lowering coverage
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/passes/alignment_lowering.mbt](/home/jtenner/Projects/starshine-mb/src/passes/alignment_lowering.mbt) with module-level test helpers plus new regressions covering no-op modules and validator-backed post-lowering behavior for rewritten `i32`-memory loads and `memory64` stores, closing the missing coverage called out in the backlog.

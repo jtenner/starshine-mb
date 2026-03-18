@@ -139,6 +139,18 @@ process.exit(0);
   assert(coverageOutput.includes("Coverage summary: total uncovered lines=16, files=2"), `unexpected coverage summary:\n${coverageOutput}`);
   assert(coverageOutput.includes(`Coverage delta vs baseline (${baselinePath}): lines +6, files +1`), `unexpected coverage delta:\n${coverageOutput}`);
 
+  fs.writeFileSync(logPath, "");
+  runBun(
+    repoRoot,
+    ["validate", "trace-benchmark", "--repeat", "2", "--corpus", "deep-control", "--corpus", "ref-func-heavy", "--target", "native"],
+    env,
+  );
+  const actualTraceBenchmark = fs.readFileSync(logPath, "utf8").trim();
+  assert(
+    actualTraceBenchmark === "run --target native src/validate_trace -- --repeat 2 --corpus deep-control --corpus ref-func-heavy",
+    `unexpected validate trace-benchmark command log:\n${actualTraceBenchmark}`,
+  );
+
   const examplesRoot = path.join(tmpdir, "examples-smoke");
   runBun(repoRoot, ["examples", "smoke", "--root", examplesRoot], env);
   for (const expectedPath of [

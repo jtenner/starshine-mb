@@ -15,6 +15,14 @@ export type CoverageOptions = {
   moonBin: string;
 };
 
+export type ValidateTraceBenchmarkOptions = {
+  repeats: number;
+  corpora: string[];
+  target: string;
+  moonBin: string;
+  listCorpora: boolean;
+};
+
 export function parseValidateFullArgs(argv: string[]): FullOptions {
   const options: FullOptions = {
     profile: "ci",
@@ -89,6 +97,53 @@ export function parseValidateCoverageArgs(argv: string[]): CoverageOptions {
     }
   }
 
+  return options;
+}
+
+export function parseValidateTraceBenchmarkArgs(argv: string[]): ValidateTraceBenchmarkOptions {
+  const options: ValidateTraceBenchmarkOptions = {
+    repeats: 1,
+    corpora: [],
+    target: "wasm-gc",
+    moonBin: resolveMoonBin(),
+    listCorpora: false,
+  };
+
+  for (let i = 0; i < argv.length; ) {
+    const token = argv[i];
+    switch (token) {
+      case "--repeat": {
+        const raw = argv[i + 1] ?? fail("missing value for --repeat");
+        const parsed = Number.parseInt(raw, 10);
+        if (!Number.isInteger(parsed) || parsed <= 0) {
+          fail(`invalid --repeat value: ${raw}`);
+        }
+        options.repeats = parsed;
+        i += 2;
+        break;
+      }
+      case "--corpus":
+        options.corpora.push(argv[i + 1] ?? fail("missing value for --corpus"));
+        i += 2;
+        break;
+      case "--target":
+        options.target = argv[i + 1] ?? fail("missing value for --target");
+        i += 2;
+        break;
+      case "--moon":
+        options.moonBin = argv[i + 1] ?? fail("missing value for --moon");
+        i += 2;
+        break;
+      case "--list-corpora":
+        options.listCorpora = true;
+        i += 1;
+        break;
+      default:
+        fail(`unknown option: ${token}`);
+    }
+  }
+
+  assertTarget(options.target);
   return options;
 }
 
@@ -198,6 +253,20 @@ export function runValidateCoverage(options: CoverageOptions): void {
   }
 }
 
+export function runValidateTraceBenchmark(options: ValidateTraceBenchmarkOptions): void {
+  const repoRoot = resolveWorkspaceRoot();
+  const args = ["run", "--target", options.target, "src/validate_trace", "--"];
+  if (options.listCorpora) {
+    args.push("--list-corpora");
+  } else {
+    args.push("--repeat", String(options.repeats));
+    for (const corpus of options.corpora) {
+      args.push("--corpus", corpus);
+    }
+  }
+  runOrThrow(options.moonBin, args, { cwd: repoRoot });
+}
+
 export function main(argv: string[]): void {
   const [subcommand, ...rest] = argv;
   switch (subcommand) {
@@ -210,7 +279,10 @@ export function main(argv: string[]): void {
     case "readme-api-sync":
       verifyReadmeApiSync(parseReadmeApiSyncArgs(rest));
       return;
+    case "trace-benchmark":
+      runValidateTraceBenchmark(parseValidateTraceBenchmarkArgs(rest));
+      return;
     default:
-      fail("usage: bun validate <full|coverage|readme-api-sync> [...]");
+      fail("usage: bun validate <full|coverage|readme-api-sync|trace-benchmark> [...]");
   }
 }

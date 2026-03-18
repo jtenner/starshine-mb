@@ -1,0 +1,9 @@
+import {
+  "jtenner/starshine/lib" @lib,
+  "jtenner/starshine/validate" @validate,
+  "moonbitlang/core/env" @env,
+}
+
+options(
+  "is-main": true,
+)

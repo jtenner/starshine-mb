@@ -1,0 +1,51 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/validate_trace"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn parse_validate_trace_cli_command(Array[String]) -> ValidateTraceCliCommand
+
+pub fn run_validate_trace_benchmark(Array[String], Int) -> Result[Array[ValidateTraceBenchmarkResult], String]
+
+pub fn validate_trace_corpus_names() -> Array[String]
+
+// Errors
+
+// Types and methods
+pub struct ValidateTraceBenchmarkResult {
+  corpus : String
+  repeats : Int
+  elapsed_ms : UInt64
+  phase_totals : String
+  helper_totals : String
+  hotspots : String?
+}
+pub impl Eq for ValidateTraceBenchmarkResult
+pub impl Show for ValidateTraceBenchmarkResult
+pub impl @debug.Debug for ValidateTraceBenchmarkResult
+
+pub struct ValidateTraceCliArgs {
+  repeats : Int
+  corpora : Array[String]
+}
+pub impl Eq for ValidateTraceCliArgs
+pub impl Show for ValidateTraceCliArgs
+pub impl @debug.Debug for ValidateTraceCliArgs
+
+pub enum ValidateTraceCliCommand {
+  Run(ValidateTraceCliArgs)
+  Help
+  ListCorpora
+}
+pub impl Eq for ValidateTraceCliCommand
+pub impl Show for ValidateTraceCliCommand
+pub impl @debug.Debug for ValidateTraceCliCommand
+
+type ValidateTraceCorpus
+
+// Type aliases
+
+// Traits
