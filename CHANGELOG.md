@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-03-18 Optimize Planning: add pass-audit docs, pass-trace metrics, and benchmark harness scaffolding
+
+- Added [/home/jtenner/Projects/starshine-mb/docs/pass-audit.md](/home/jtenner/Projects/starshine-mb/docs/pass-audit.md) as the pass-audit planning checkpoint, including the `src/passes` inventory, optimize pipeline mapping, Binaryen-nearest pass crosswalk, mutually enabling relationships, and the current high-priority findings for `SimplifyLocals`, `Vacuum`, and `AlignmentLowering`.
+- Updated [/home/jtenner/Projects/starshine-mb/agent-todo.md](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the optimization-recovery work is now tracked by phase and includes a two-item audit pair for each pass implementation file: correctness/Binaryen comparison and performance/baseline analysis.
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so optimize trace output now includes per-pass changed status, functions visited/changed, and instruction-count before/after summaries for both scheduler-run passes and stacked function-pass segments, with regressions locking the new trace fields.
+- Added [/home/jtenner/Projects/starshine-mb/scripts/benchmark-optimize.mjs](/home/jtenner/Projects/starshine-mb/scripts/benchmark-optimize.mjs) and [/home/jtenner/Projects/starshine-mb/scripts/test/benchmark-optimize-output.sh](/home/jtenner/Projects/starshine-mb/scripts/test/benchmark-optimize-output.sh) as the first stable benchmark-harness entrypoint and parser smoke test for later pass-refactor measurement work.
+- Validation: `bash scripts/test/benchmark-optimize-output.sh`; `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-18 Validate Follow-up: accept typed control-flow input params in both IR shapes
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so typed `block`, `if`, and `loop` validation now accepts both body-embedded control-flow inputs from `to_texpr(...)` and explicit outer-stack control-flow input forms emitted directly by pass code, fixing the typed-control `stack underflow` gap.

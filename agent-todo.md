@@ -9,6 +9,167 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - Recent completed items are retained at the bottom until the next audit pass.
 
 ## Publishing blockers
+- [x] Phase 1: enumerate every file in `src/passes`, identify the scheduler/pipeline order from `src/passes/optimize.mbt`, map passes to the closest Binaryen equivalent families, and record mutually enabling relationships plus current inefficiencies in `docs/pass-audit.md`.
+- [x] Phase 2 planning/infrastructure: add initial pass-level optimizer-runner instrumentation in `src/passes/optimize.mbt` for per-pass wall time, changed/unchanged status, functions visited/changed, and instruction-count before/after trace metrics.
+- [x] Phase 2 planning/infrastructure: add a stable benchmark harness entrypoint in `scripts/benchmark-optimize.mjs` plus a parser smoke test in `scripts/test/benchmark-optimize-output.sh`.
+- [ ] Phase 2 execution: capture and commit the current baseline measurements for:
+- [ ] `examples`
+- [ ] `spec-sanity`
+- [ ] `dist-optimized`
+- [ ] the documented user-run `self-opt-debug` command
+- [ ] Phase 3: finish the cross-pass audit in `docs/pass-audit.md` by recording, for every current pass in `src/passes`, what it does well, where it is inefficient, concrete changes to make, and expected size/runtime impact.
+- [ ] Phase 4A: refactor `SimplifyLocals` first under strict TDD, preserving semantics and validation strength while targeting:
+- [ ] array-backed local-index storage for hot-path sinkables where bounds are known
+- [ ] replacement of `Map[Int, Set[Int]]` invalidation structures with compact per-local candidate storage
+- [ ] dirty-index clearing instead of full resets where safe
+- [ ] fused summary collection and stronger per-function early exits
+- [ ] cheaper cached effect / validation handling without weakening correctness
+- [ ] Phase 4A tests: add/expand `SimplifyLocals` regressions for redundant set/get elimination, tee formation, block/if/loop result structuring, pathological invalidation, validation salvage/reject behavior, and prior broken-module cases.
+- [ ] Phase 4A benchmarks: add `SimplifyLocals` microbenchmarks for dense locals linear code, deep nested control, high invalidation churn, and wide-local stress, then record before/after deltas.
+- [ ] Phase 4B: refactor `Vacuum` after `SimplifyLocals`, focusing on worklist-style parent reprocessing, avoiding unchanged rebuilds, stronger skip logic, and reuse of side-effect metadata instead of repeated whole-function sweeps.
+- [ ] Phase 4B tests: add/expand `Vacuum` coverage for nop removal, useless drop removal, trivial block cleanup, dead wrapper elimination, and multi-step cleanup chains that require parent reprocessing.
+- [ ] Phase 4B benchmarks: add `Vacuum` benchmarks for mostly-clean modules, cleanup-heavy synthetic inputs, and mixed modules after `SimplifyLocals`.
+- [ ] Phase 4C: refactor `AlignmentLowering` after the scheduling audit, adding module/function early exits, avoiding rewrites of already-correct ops, and reducing cleanup debt introduced by lowering.
+- [ ] Phase 4C tests: add/expand `AlignmentLowering` coverage for no-op modules, aligned-op passthrough, correct lowering of misaligned ops, and post-lowering validation/cleanup behavior.
+- [ ] Phase 5: audit scheduler gating and pipeline ordering only after the first `SimplifyLocals` and `Vacuum` measurements exist, then prove any sequencing changes with size/runtime deltas rather than removing iterations blindly.
+- [ ] Phase 5 determinism: add tests or assertions that scheduler behavior and pass-order reporting remain deterministic and traceable.
+- [ ] Phase 6: complete the Binaryen comparison in `docs/pass-audit.md` for each Starshine pass by explicitly answering what Binaryen-style optimization is missing, what Starshine-specific correctness constraint blocks a direct port, and what the best local adaptation is.
+- [ ] Per-pass audit matrix: `abstract_type_refining.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `abstract_type_refining.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `alignment_lowering.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `alignment_lowering.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `asyncify.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `asyncify.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `avoid_reinterprets.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `avoid_reinterprets.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `coalesce_locals.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `coalesce_locals.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `code_folding.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `code_folding.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `code_pushing.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `code_pushing.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `const_hoisting.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `const_hoisting.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `constant_field_propagation.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `constant_field_propagation.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `dataflow_opt.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `dataflow_opt.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `de_nan.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `de_nan.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `dead_argument_elim.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `dead_argument_elim.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `dead_code_elimination.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `dead_code_elimination.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `directize.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `directize.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `duplicate_function_elimination.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `duplicate_function_elimination.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `duplicate_import_elimination.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `duplicate_import_elimination.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `flatten.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `flatten.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `global_effects.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `global_effects.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `global_refining.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `global_refining.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `global_struct_inference.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `global_struct_inference.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `global_type_optimization.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `global_type_optimization.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `gufa.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `gufa.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `heap2local.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `heap2local.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `heap_store_optimization.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `heap_store_optimization.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `i64_to_i32_lowering.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `i64_to_i32_lowering.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `inlining.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `inlining.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `lift_to_texpr.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `lift_to_texpr.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `local_cse.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `local_cse.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `local_subtyping.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `local_subtyping.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `loop_invariant_code_motion.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `loop_invariant_code_motion.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `lower_to_expr.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `lower_to_expr.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `memory_packing.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `memory_packing.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `merge_blocks.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `merge_blocks.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `merge_locals.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `merge_locals.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `merge_similar_functions.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `merge_similar_functions.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `minimize_rec_groups.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `minimize_rec_groups.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `monomorphize.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `monomorphize.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `once_reduction.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `once_reduction.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `optimize_added_constants.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `optimize_added_constants.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `optimize_casts.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `optimize_casts.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `optimize_instructions.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `optimize_instructions.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `pick_load_signs.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `pick_load_signs.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `precompute.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `precompute.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `re_reloop.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `re_reloop.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `redundant_set_elimination.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `redundant_set_elimination.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `remove_unused.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `remove_unused.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `remove_unused_brs.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `remove_unused_brs.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `remove_unused_names.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `remove_unused_names.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `remove_unused_types.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `remove_unused_types.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `reorder_functions.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `reorder_functions.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `reorder_globals.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `reorder_globals.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `reorder_locals.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `reorder_locals.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `reorder_types.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `reorder_types.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `signature_pruning.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `signature_pruning.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `signature_refining.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `signature_refining.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `simplify_globals.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `simplify_globals.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `simplify_locals.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `simplify_locals.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `tuple_optimization.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `tuple_optimization.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `type_finalizing.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `type_finalizing.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `type_generalizing.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `type_generalizing.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `type_merging.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `type_merging.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `type_refining.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `type_refining.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `unsubtyping.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `unsubtyping.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `untee.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `untee.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Per-pass audit matrix: `vacuum.mbt` correctness deep dive, nearest-Binaryen comparison, missing Binaryen-style optimizations, and Starshine-specific semantic constraints.
+- [ ] Per-pass audit matrix: `vacuum.mbt` performance analysis and benchmark baseline, with focus on GC churn, repeated scans, cacheability, and algorithmic inefficiency.
+- [ ] Phase 7: final verification and reporting:
+- [ ] run `moon info && moon fmt`
+- [ ] run `moon test`
+- [ ] run all new benchmark commands before vs after
+- [ ] let the user run the self-optimization benchmark command and record its reported results
+- [ ] write the final measured summary / PR-style report with total size deltas, per-pass runtime deltas, full-pipeline runtime deltas, justified regressions, implemented fixes, and remaining work
 - [x] Optimize + Binaryen feature parity comparison: `RemoveUnusedBrs` (closed in `docs/differences.md`)
 - [x] Optimize + Binaryen feature parity comparison: `PrecomputePropagate` (closed in `docs/differences.md`)
 - [x] Optimize + Binaryen feature parity comparison: `CodePushing` (closed in `docs/differences.md`)
@@ -24,7 +185,7 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Add pass-level instrumentation in `src/passes/optimize.mbt` for wall time, changed/unchanged status, functions touched, and validation/salvage counters.
 - [ ] Establish a pass benchmark suite covering microbenchmarks, pass-sequence benchmarks, and real-module end-to-end size/runtime measurements.
 - [ ] Refactor `simplify_locals` hot-path sinkable tracking from `Map`-based storage to array-backed storage with dirty-index clearing.
-- [ ] Refactor `simplify_locals` invalidation indexes away from `Map[Int, Set[Int]]` toward per-local single-sinkable or small-vector storage.
+- [ ] Refactor `simplify_locals` invalidation indexes away from `Map[Int, Set[Int]]` toward append-only per-local compact buckets plus live-slot filtering and cheap candidate deduplication.
 - [ ] Add stronger function-shape summaries and early exits in `simplify_locals` to skip expensive work when no profitable rewrite is possible.
 - [ ] Fuse repeated `simplify_locals` analysis walks into a single summary traversal where possible to reduce traversal overhead.
 - [ ] Rework `simplify_locals` effects caching to use stable node identity or equivalent cheap cache keys instead of structural `TInstr` map keys.

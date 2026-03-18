@@ -1906,6 +1906,115 @@ fn OptimizeSchedulerState::new() -> OptimizeSchedulerState {
 }
 
 ///|
+priv struct OptimizePassSummary {
+  changed : Bool
+  funcs_visited : Int
+  funcs_changed : Int
+  instrs_before : Int
+  instrs_after : Int
+}
+
+///|
+fn OptimizePassSummary::new(
+  changed? : Bool = false,
+  funcs_visited? : Int = 0,
+  funcs_changed? : Int = 0,
+  instrs_before? : Int = 0,
+  instrs_after? : Int = 0,
+) -> OptimizePassSummary {
+  { changed, funcs_visited, funcs_changed, instrs_before, instrs_after }
+}
+
+///|
+fn optimize_count_func_instrs(func : Func) -> Int {
+  match func {
+    Func(_, Expr(instrs)) => instrs.length()
+    TFunc(_, _, body) => {
+      let mut total = 0
+      for instr in body.instrs {
+        total += instr.size
+      }
+      total
+    }
+  }
+}
+
+///|
+fn optimize_count_defined_funcs(mod : Module) -> Int {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => funcs.length()
+    None => 0
+  }
+}
+
+///|
+fn optimize_count_module_instrs(mod : Module) -> Int {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => {
+      let mut total = 0
+      for func in funcs {
+        total += optimize_count_func_instrs(func)
+      }
+      total
+    }
+    None => 0
+  }
+}
+
+///|
+fn optimize_count_changed_defined_funcs(
+  before_mod : Module,
+  after_mod : Module,
+) -> Int {
+  match (before_mod.code_sec, after_mod.code_sec) {
+    (Some(CodeSec(before_funcs)), Some(CodeSec(after_funcs))) => {
+      let min_len = if before_funcs.length() < after_funcs.length() {
+        before_funcs.length()
+      } else {
+        after_funcs.length()
+      }
+      let mut changed = 0
+      for i = 0; i < min_len; i = i + 1 {
+        if before_funcs[i] != after_funcs[i] {
+          changed += 1
+        }
+      }
+      if before_funcs.length() > after_funcs.length() {
+        changed + before_funcs.length() - after_funcs.length()
+      } else {
+        changed + after_funcs.length() - before_funcs.length()
+      }
+    }
+    (Some(CodeSec(before_funcs)), None) => before_funcs.length()
+    (None, Some(CodeSec(after_funcs))) => after_funcs.length()
+    _ => 0
+  }
+}
+
+///|
+fn optimize_pass_summary(
+  before_mod : Module,
+  after_mod : Module,
+  funcs_visited? : Int? = None,
+) -> OptimizePassSummary {
+  OptimizePassSummary::new(
+    changed=before_mod != after_mod,
+    funcs_visited=match funcs_visited {
+      Some(count) => count
+      None => optimize_count_defined_funcs(before_mod)
+    },
+    funcs_changed=optimize_count_changed_defined_funcs(before_mod, after_mod),
+    instrs_before=optimize_count_module_instrs(before_mod),
+    instrs_after=optimize_count_module_instrs(after_mod),
+  )
+}
+
+///|
+fn optimize_render_pass_summary(summary : OptimizePassSummary) -> String {
+  "changed=\{summary.changed} funcs_visited=\{summary.funcs_visited} funcs_changed=\{summary.funcs_changed} instrs_before=\{summary.instrs_before} instrs_after=\{summary.instrs_after}"
+}
+
+///|
 fn optimize_execute_scheduler_pass(
   ctx : IRContext,
   mod : Module,
@@ -1933,6 +2042,7 @@ fn optimize_execute_scheduler_pass(
   if pass is Vacuum &&
     state.previous_vacuum_no_change &&
     !state.changed_since_last_vacuum {
+    let skip_summary = OptimizePassSummary::new()
     optimize_trace_emit_pass(
       trace,
       trace_enabled,
@@ -1941,7 +2051,7 @@ fn optimize_execute_scheduler_pass(
     optimize_trace_emit_pass(
       trace,
       trace_enabled,
-      "pass[\{pass_index}/\{total_passes}]:done pass=\{pass} skipped=true transform_elapsed_ms=0 validation_elapsed_ms=0 elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
+      "pass[\{pass_index}/\{total_passes}]:done pass=\{pass} skipped=true \{optimize_render_pass_summary(skip_summary)} transform_elapsed_ms=0 validation_elapsed_ms=0 elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
     )
     return Ok(mod)
   }
@@ -2067,9 +2177,13 @@ fn optimize_execute_scheduler_pass(
     trace_level,
     "pass[\{pass_index}/\{total_passes}]:commit:done pass=\{pass}",
   )
+  let pass_summary = if trace_enabled {
+    optimize_pass_summary(pre_pass_mod, mod)
+  } else {
+    OptimizePassSummary::new()
+  }
   if pass is Vacuum {
-    let pass_changed = mod != pre_pass_mod
-    state.previous_vacuum_no_change = !pass_changed
+    state.previous_vacuum_no_change = !pass_summary.changed
     state.changed_since_last_vacuum = false
   } else {
     state.changed_since_last_vacuum = true
@@ -2077,7 +2191,7 @@ fn optimize_execute_scheduler_pass(
   optimize_trace_emit_pass(
     trace,
     trace_enabled,
-    "pass[\{pass_index}/\{total_passes}]:done pass=\{pass} transform_elapsed_ms=\{transform_elapsed_ms} validation_elapsed_ms=\{validation_elapsed_ms} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
+    "pass[\{pass_index}/\{total_passes}]:done pass=\{pass} \{optimize_render_pass_summary(pass_summary)} transform_elapsed_ms=\{transform_elapsed_ms} validation_elapsed_ms=\{validation_elapsed_ms} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
   )
   Ok(mod)
 }
@@ -2181,6 +2295,7 @@ fn optimize_trace_emit_stacked_function_pass_done(
   entry : PreparedFunctionStackEntry,
   total_passes : Int,
   transform_elapsed_ms : UInt64,
+  summary : OptimizePassSummary,
   trace : (String) -> Unit,
   trace_enabled : Bool,
   validation_elapsed_ms? : UInt64 = 0UL,
@@ -2192,7 +2307,7 @@ fn optimize_trace_emit_stacked_function_pass_done(
   optimize_trace_emit_pass(
     trace,
     trace_enabled,
-    "pass[\{entry.pass_index}/\{total_passes}]:done pass=\{pass} transform_elapsed_ms=\{transform_elapsed_ms} validation_elapsed_ms=\{validation_elapsed_ms} elapsed_ms=\{transform_elapsed_ms + validation_elapsed_ms}",
+    "pass[\{entry.pass_index}/\{total_passes}]:done pass=\{pass} \{optimize_render_pass_summary(summary)} transform_elapsed_ms=\{transform_elapsed_ms} validation_elapsed_ms=\{validation_elapsed_ms} elapsed_ms=\{transform_elapsed_ms + validation_elapsed_ms}",
   )
 }
 
@@ -2266,6 +2381,10 @@ fn optimize_run_function_stack_subsegment(
   let last_pass = optimize_prepared_function_stack_pass_id(last_entry.prepared)
   let mut last_pre_pass_mod = mod
   let pass_changed : Array[Bool] = Array::make(prepared.length(), false)
+  let pass_funcs_visited : Array[Int] = Array::make(prepared.length(), 0)
+  let pass_funcs_changed : Array[Int] = Array::make(prepared.length(), 0)
+  let pass_instrs_before : Array[Int] = Array::make(prepared.length(), 0)
+  let pass_instrs_after : Array[Int] = Array::make(prepared.length(), 0)
   let pass_transform_elapsed_ms : Array[UInt64] = Array::make(
     prepared.length(),
     0UL,
@@ -2294,6 +2413,11 @@ fn optimize_run_function_stack_subsegment(
           if prepared_idx == prepared.length() - 1 {
             before_last_pass_funcs[func_idx] = curr_func
           }
+          let func_instrs_before = optimize_count_func_instrs(curr_func)
+          pass_funcs_visited[prepared_idx] = pass_funcs_visited[prepared_idx] +
+            1
+          pass_instrs_before[prepared_idx] = pass_instrs_before[prepared_idx] +
+            func_instrs_before
           ctx.set_mod(current_mod)
           let pass_step_start_ms = optimize_trace_now_ms()
           curr_func = match
@@ -2318,10 +2442,18 @@ fn optimize_run_function_stack_subsegment(
                     emit_idx < pass_completed.length()
                     emit_idx = emit_idx + 1 {
                   if pass_completed[emit_idx] {
+                    let summary = OptimizePassSummary::new(
+                      changed=pass_changed[emit_idx],
+                      funcs_visited=pass_funcs_visited[emit_idx],
+                      funcs_changed=pass_funcs_changed[emit_idx],
+                      instrs_before=pass_instrs_before[emit_idx],
+                      instrs_after=pass_instrs_after[emit_idx],
+                    )
                     optimize_trace_emit_stacked_function_pass_done(
                       prepared[emit_idx],
                       total_passes,
                       pass_transform_elapsed_ms[emit_idx],
+                      summary,
                       trace,
                       trace_enabled,
                     )
@@ -2348,7 +2480,11 @@ fn optimize_run_function_stack_subsegment(
             funcs[func_idx] = curr_func
             func_changed.val = true
             pass_changed[prepared_idx] = true
+            pass_funcs_changed[prepared_idx] = pass_funcs_changed[prepared_idx] +
+              1
           }
+          pass_instrs_after[prepared_idx] = pass_instrs_after[prepared_idx] +
+            optimize_count_func_instrs(curr_func)
         }
         if trace_enabled && optimize_trace_helper_enabled(trace_level) {
           trace(
@@ -2376,10 +2512,18 @@ fn optimize_run_function_stack_subsegment(
     for prepared_idx = 0
         prepared_idx < prepared.length()
         prepared_idx = prepared_idx + 1 {
+      let summary = OptimizePassSummary::new(
+        changed=pass_changed[prepared_idx],
+        funcs_visited=pass_funcs_visited[prepared_idx],
+        funcs_changed=pass_funcs_changed[prepared_idx],
+        instrs_before=pass_instrs_before[prepared_idx],
+        instrs_after=pass_instrs_after[prepared_idx],
+      )
       optimize_trace_emit_stacked_function_pass_done(
         prepared[prepared_idx],
         total_passes,
         pass_transform_elapsed_ms[prepared_idx],
+        summary,
         trace,
         trace_enabled,
       )
@@ -6867,6 +7011,11 @@ test "optimize_module trace reports separate transform and validation timings" {
     }
   }
   assert_true(done_line != "")
+  assert_true(done_line.contains("changed="))
+  assert_true(done_line.contains("funcs_visited="))
+  assert_true(done_line.contains("funcs_changed="))
+  assert_true(done_line.contains("instrs_before="))
+  assert_true(done_line.contains("instrs_after="))
   assert_true(done_line.contains("transform_elapsed_ms="))
   assert_true(done_line.contains("validation_elapsed_ms="))
 }
@@ -7159,6 +7308,18 @@ test "optimize_module pass trace preserves stacked function segments as pass sum
     ),
     1,
   )
+  let mut dce_done = ""
+  for line in trace_lines {
+    if line.contains("pass[1/2]:done pass=DeadCodeElimination") {
+      dce_done = line
+    }
+  }
+  assert_true(dce_done != "")
+  assert_true(dce_done.contains("changed=false"))
+  assert_true(dce_done.contains("funcs_visited=2"))
+  assert_true(dce_done.contains("funcs_changed=0"))
+  assert_true(dce_done.contains("instrs_before=8"))
+  assert_true(dce_done.contains("instrs_after=8"))
   assert_eq(optimize_trace_count_lines_containing(trace_lines, "func["), 0)
   assert_eq(optimize_trace_count_lines_containing(trace_lines, "scheduler:"), 0)
 }
