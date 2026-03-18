@@ -134,6 +134,202 @@ pub fn CmdRunSummary::new(
 }
 
 ///|
+pub struct AbstractTypeRefiningPassProps {
+  traps_never_happen : Bool
+} derive(Eq, Show, Debug)
+
+///|
+pub fn AbstractTypeRefiningPassProps::new(
+  traps_never_happen? : Bool = false,
+) -> AbstractTypeRefiningPassProps {
+  { traps_never_happen, }
+}
+
+///|
+pub struct MemoryPackingPassProps {
+  no_op : Bool
+} derive(Eq, Show, Debug)
+
+///|
+pub fn MemoryPackingPassProps::new() -> MemoryPackingPassProps {
+  { no_op: true }
+}
+
+///|
+pub enum ModulePass {
+  NoOp(String)
+  AbstractTypeRefining(AbstractTypeRefiningPassProps)
+  AlignmentLowering
+  AvoidReinterprets
+  CoalesceLocals
+  CodeFolding
+  CodePushing
+  ConstHoisting
+  ConstantFieldPropagation
+  ConstantFieldNullTestFolding
+  DataflowOptimization
+  DeadCodeElimination
+  DeadArgumentElimination
+  DeadArgumentEliminationOptimizing
+  SignaturePruning
+  SignatureRefining
+  DuplicateImportElimination
+  GlobalRefining
+  GlobalStructInference
+  GlobalStructInferenceDescCast
+  GlobalTypeOptimization
+  SimplifyGlobals
+  SimplifyGlobalsOptimizing
+  GlobalEffects
+  PropagateGlobalsGlobally
+  TypeRefining
+  TypeGeneralizing
+  TypeFinalizing
+  TypeUnFinalizing
+  Unsubtyping
+  Heap2Local
+  HeapStoreOptimization
+  Inlining
+  InliningOptimizing
+  InlineMain
+  LocalCSE
+  LocalSubtyping
+  LoopInvariantCodeMotion
+  MergeLocals
+  MergeSimilarFunctions
+  MergeBlocks
+  Flatten
+  ReReloop
+  TupleOptimization
+  OnceReduction
+  MinimizeRecGroups
+  TypeMerging
+  Monomorphize
+  MonomorphizeAlways
+  MemoryPacking(MemoryPackingPassProps)
+  OptimizeAddedConstants
+  OptimizeAddedConstantsPropagate
+  OptimizeInstructions
+  Precompute
+  PrecomputePropagate
+  RedundantSetElimination
+  PickLoadSigns
+  GUFA
+  GUFAOptimizing
+  GUFACastAll
+  I64ToI32Lowering
+  DuplicateFunctionElimination
+  Directize(Bool)
+  OptimizeCasts
+  DeNaN
+  RemoveUnusedBrs
+  RemoveUnusedNames
+  SimplifyLocals
+  SimplifyLocalsNoTee
+  SimplifyLocalsNoStructure
+  SimplifyLocalsNoTeeNoStructure
+  SimplifyLocalsNoNesting
+  Untee
+  Vacuum
+  ReorderLocals
+  ReorderTypes
+  ReorderGlobals
+  ReorderGlobalsAlways
+  ReorderFunctions
+  ReorderFunctionsByName
+  RemoveUnusedTypes
+  RemoveUnused
+  RemoveUnusedModuleElements
+  RemoveUnusedNonFunctionElements
+} derive(Eq, Show, Debug)
+
+///|
+pub enum OptimizeTracingLevel {
+  Pass
+  Phase
+  Helper
+} derive(Eq, Show, Debug)
+
+///|
+pub fn OptimizeTracingLevel::pass() -> OptimizeTracingLevel {
+  Pass
+}
+
+///|
+pub fn OptimizeTracingLevel::phase() -> OptimizeTracingLevel {
+  Phase
+}
+
+///|
+pub fn OptimizeTracingLevel::helper() -> OptimizeTracingLevel {
+  Helper
+}
+
+///|
+pub enum OptimizeValidationPolicy {
+  FinalModuleOnly
+  AfterSegment
+} derive(Eq, Show, Debug)
+
+///|
+pub fn OptimizeValidationPolicy::final_module_only() -> OptimizeValidationPolicy {
+  FinalModuleOnly
+}
+
+///|
+pub fn OptimizeValidationPolicy::after_segment() -> OptimizeValidationPolicy {
+  AfterSegment
+}
+
+///|
+pub struct InliningOptions {
+  no_op : Bool
+} derive(Eq, Show, Debug)
+
+///|
+pub fn InliningOptions::new() -> InliningOptions {
+  { no_op: true }
+}
+
+///|
+pub struct OptimizeOptions {
+  optimize_level : Int
+  shrink_level : Int
+  inlining : InliningOptions
+  monomorphize_min_benefit : Int
+  low_memory_unused : Bool
+  low_memory_bound : UInt64
+  traps_never_happen : Bool
+  validation_policy : OptimizeValidationPolicy
+  stack_function_passes : Bool
+} derive(Eq, Show, Debug)
+
+///|
+pub fn OptimizeOptions::new(
+  optimize_level? : Int = 0,
+  shrink_level? : Int = 0,
+  inlining? : InliningOptions = InliningOptions::new(),
+  monomorphize_min_benefit? : Int = 5,
+  low_memory_unused? : Bool = false,
+  low_memory_bound? : UInt64 = 1024UL,
+  traps_never_happen? : Bool = false,
+  validation_policy? : OptimizeValidationPolicy = OptimizeValidationPolicy::final_module_only(),
+  stack_function_passes? : Bool = true,
+) -> OptimizeOptions {
+  {
+    optimize_level,
+    shrink_level,
+    inlining,
+    monomorphize_min_benefit,
+    low_memory_unused,
+    low_memory_bound,
+    traps_never_happen,
+    validation_policy,
+    stack_function_passes,
+  }
+}
+
+///|
 const CMD_VERSION : String = "v0.1.0"
 
 ///|
@@ -1194,6 +1390,56 @@ fn make_optimize_options(
 }
 
 ///|
+fn default_global_optimization_pre_passes(
+  _mod : Module,
+  _options : OptimizeOptions,
+  closed_world? : Bool = true,
+) -> Array[ModulePass] {
+  let _ = closed_world
+  []
+}
+
+///|
+fn default_function_optimization_passes(
+  _mod : Module,
+  _options : OptimizeOptions,
+) -> Array[ModulePass] {
+  []
+}
+
+///|
+fn default_global_optimization_post_passes(
+  _mod : Module,
+  _options : OptimizeOptions,
+) -> Array[ModulePass] {
+  []
+}
+
+///|
+fn optimize_module_with_options(
+  mod : Module,
+  _passes : Array[ModulePass],
+  _options : OptimizeOptions,
+) -> Result[Module, String] {
+  Ok(mod)
+}
+
+///|
+fn optimize_module_with_options_trace(
+  mod : Module,
+  passes : Array[ModulePass],
+  _options : OptimizeOptions,
+  trace : (String) -> Unit,
+  trace_level? : OptimizeTracingLevel = OptimizeTracingLevel::pass(),
+) -> Result[Module, String] {
+  let _ = trace_level
+  if passes.length() > 0 {
+    trace("optimizer disabled; requested passes are currently no-ops")
+  }
+  Ok(mod)
+}
+
+///|
 fn explicit_pass_entries() -> Array[(String, String, ModulePass)] {
   [
     (
@@ -1716,198 +1962,6 @@ fn cmd_trace_join_pass_flags(flags : Array[String]) -> String {
 }
 
 ///|
-const CMD_OPTIMIZE_REPRO_BEFORE_WASM_PATH : String = "before.wasm"
-
-///|
-fn cmd_trace_join_module_passes(passes : Array[ModulePass]) -> String {
-  let out = StringBuilder::new()
-  let mut i = 0
-  while i < passes.length() {
-    if i > 0 {
-      out.write_string(",")
-    }
-    out.write_string("\{passes[i]}")
-    i += 1
-  }
-  out.to_string()
-}
-
-///|
-fn cmd_repro_flag_for_pass(pass : ModulePass) -> String? {
-  match pass {
-    AbstractTypeRefining(_) => Some("abstract-type-refining")
-    AlignmentLowering => Some("alignment-lowering")
-    AvoidReinterprets => Some("avoid-reinterprets")
-    CoalesceLocals => Some("coalesce-locals")
-    CodeFolding => Some("code-folding")
-    CodePushing => Some("code-pushing")
-    ConstHoisting => Some("const-hoisting")
-    ConstantFieldPropagation => Some("constant-field-propagation")
-    ConstantFieldNullTestFolding => Some("constant-field-null-test-folding")
-    DataflowOptimization => Some("dataflow-optimization")
-    DeadCodeElimination => Some("dead-code-elimination")
-    DeadArgumentElimination => Some("dead-argument-elimination")
-    DeadArgumentEliminationOptimizing =>
-      Some("dead-argument-elimination-optimizing")
-    SignaturePruning => Some("signature-pruning")
-    SignatureRefining => Some("signature-refining")
-    DuplicateImportElimination => Some("duplicate-import-elimination")
-    Directize(_) => Some("directize")
-    GlobalRefining => Some("global-refining")
-    GlobalStructInference => Some("global-struct-inference")
-    GlobalStructInferenceDescCast => Some("global-struct-inference-desc-cast")
-    GlobalTypeOptimization => Some("global-type-optimization")
-    SimplifyGlobals => Some("simplify-globals")
-    SimplifyGlobalsOptimizing => Some("simplify-globals-optimizing")
-    GlobalEffects => Some("global-effects")
-    PropagateGlobalsGlobally => Some("propagate-globals-globally")
-    TypeRefining => Some("type-refining")
-    TypeGeneralizing => Some("type-generalizing")
-    TypeFinalizing => Some("type-finalizing")
-    TypeUnFinalizing => Some("type-un-finalizing")
-    Unsubtyping => Some("unsubtyping")
-    Heap2Local => Some("heap2local")
-    HeapStoreOptimization => Some("heap-store-optimization")
-    Inlining => Some("inlining")
-    InliningOptimizing => Some("inlining-optimizing")
-    InlineMain => Some("inline-main")
-    LocalCSE => Some("local-cse")
-    LocalSubtyping => Some("local-subtyping")
-    LoopInvariantCodeMotion => Some("loop-invariant-code-motion")
-    MergeLocals => Some("merge-locals")
-    MergeSimilarFunctions => Some("merge-similar-functions")
-    MergeBlocks => Some("merge-blocks")
-    Flatten => Some("flatten")
-    ReReloop => Some("re-reloop")
-    TupleOptimization => Some("tuple-optimization")
-    OnceReduction => Some("once-reduction")
-    MinimizeRecGroups => Some("minimize-rec-groups")
-    TypeMerging => Some("type-merging")
-    Monomorphize => Some("monomorphize")
-    MonomorphizeAlways => Some("monomorphize-always")
-    MemoryPacking(_) => Some("memory-packing")
-    OptimizeAddedConstants => Some("optimize-added-constants")
-    OptimizeAddedConstantsPropagate =>
-      Some("optimize-added-constants-propagate")
-    OptimizeInstructions => Some("optimize-instructions")
-    Precompute => Some("precompute")
-    PrecomputePropagate => Some("precompute-propagate")
-    RedundantSetElimination => Some("redundant-set-elimination")
-    PickLoadSigns => Some("pick-load-signs")
-    GUFA => Some("gufa")
-    GUFAOptimizing => Some("gufa-optimizing")
-    GUFACastAll => Some("gufa-cast-all")
-    I64ToI32Lowering => Some("i64-to-i32-lowering")
-    DuplicateFunctionElimination => Some("duplicate-function-elimination")
-    OptimizeCasts => Some("optimize-casts")
-    DeNaN => Some("de-nan")
-    RemoveUnusedBrs => Some("remove-unused-brs")
-    RemoveUnusedNames => Some("remove-unused-names")
-    SimplifyLocals => Some("simplify-locals")
-    SimplifyLocalsNoTee => Some("simplify-locals-no-tee")
-    SimplifyLocalsNoStructure => Some("simplify-locals-no-structure")
-    SimplifyLocalsNoTeeNoStructure =>
-      Some("simplify-locals-no-tee-no-structure")
-    SimplifyLocalsNoNesting => Some("simplify-locals-no-nesting")
-    Untee => Some("untee")
-    Vacuum => Some("vacuum")
-    ReorderLocals => Some("reorder-locals")
-    ReorderTypes => Some("reorder-types")
-    ReorderGlobals => Some("reorder-globals")
-    ReorderGlobalsAlways => Some("reorder-globals-always")
-    ReorderFunctions => Some("reorder-functions")
-    ReorderFunctionsByName => Some("reorder-functions-by-name")
-    RemoveUnusedTypes => Some("remove-unused-types")
-    RemoveUnused => Some("remove-unused")
-    RemoveUnusedModuleElements => Some("remove-unused-module-elements")
-    RemoveUnusedNonFunctionElements =>
-      Some("remove-unused-non-function-elements")
-    Asyncify(_) | SSANoMerge => None
-  }
-}
-
-///|
-fn cmd_repro_command_for_segment(
-  segment_passes : Array[ModulePass],
-  optimize_level : Int,
-  shrink_level : Int,
-  traps_never_happen : Bool,
-  monomorphize_min_benefit : Int,
-  low_memory_unused : Bool,
-  low_memory_bound : UInt64,
-) -> String? {
-  let parts : Array[String] = ["starshine"]
-  if optimize_level > 0 {
-    parts.push("--optimize-level")
-    parts.push("\{optimize_level}")
-  }
-  if shrink_level > 0 {
-    parts.push("--shrink-level")
-    parts.push("\{shrink_level}")
-  }
-  if traps_never_happen {
-    parts.push("--trap-mode")
-    parts.push("never")
-  }
-  if monomorphize_min_benefit != 5 {
-    parts.push("--monomorphize-min-benefit")
-    parts.push("\{monomorphize_min_benefit}")
-  }
-  if low_memory_unused {
-    parts.push("--low-memory-unused")
-  }
-  if low_memory_bound != 1024UL {
-    parts.push("--low-memory-bound")
-    parts.push("\{low_memory_bound}")
-  }
-  for pass in segment_passes {
-    match cmd_repro_flag_for_pass(pass) {
-      Some(flag) => parts.push("--\{flag}")
-      None => return None
-    }
-  }
-  parts.push(CMD_OPTIMIZE_REPRO_BEFORE_WASM_PATH)
-  let out = StringBuilder::new()
-  let mut i = 0
-  while i < parts.length() {
-    if i > 0 {
-      out.write_string(" ")
-    }
-    out.write_string(parts[i])
-    i += 1
-  }
-  Some(out.to_string())
-}
-
-///|
-fn cmd_write_repro_before_module(
-  io : CmdIO,
-  before_mod : Module,
-) -> Result[Unit, String] {
-  let before_bytes = match (io.encode_module)(before_mod) {
-    Ok(bytes) => bytes
-    Err(err) => return Err(cmd_encode_error_message(err))
-  }
-  (io.write_file)(CMD_OPTIMIZE_REPRO_BEFORE_WASM_PATH, before_bytes)
-}
-
-///|
-fn cmd_roundtrip_probe_fails(io : CmdIO, mod : Module) -> Bool {
-  let bytes = match (io.encode_module)(mod) {
-    Ok(bytes) => bytes
-    Err(_) => return true
-  }
-  let decoded = match decode_module(bytes) {
-    Ok(decoded) => decoded
-    Err(_) => return true
-  }
-  match validate_module(decoded) {
-    Ok(_) => false
-    Err(_) => true
-  }
-}
-
-///|
 fn cmd_post_encode_repro_note(
   io : CmdIO,
   mod : Module,
@@ -1920,46 +1974,17 @@ fn cmd_post_encode_repro_note(
   low_memory_unused : Bool,
   low_memory_bound : UInt64,
 ) -> String {
-  match
-    optimize_find_post_encode_failure_segment_with_probe(mod, passes, options, fn(
-      segment_mod,
-      _,
-    ) {
-      cmd_roundtrip_probe_fails(io, segment_mod)
-    }) {
-    Ok(Some(repro)) => {
-      let out = StringBuilder::new()
-      out.write_string("\n\nRepro:\n")
-      match cmd_write_repro_before_module(io, repro.before_mod) {
-        Ok(_) =>
-          out.write_string("wrote \{CMD_OPTIMIZE_REPRO_BEFORE_WASM_PATH}\n")
-        Err(e) =>
-          out.write_string(
-            "failed to write \{CMD_OPTIMIZE_REPRO_BEFORE_WASM_PATH}: \{e}\n",
-          )
-      }
-      match
-        cmd_repro_command_for_segment(
-          repro.segment_passes,
-          optimize_level,
-          shrink_level,
-          traps_never_happen,
-          monomorphize_min_benefit,
-          low_memory_unused,
-          low_memory_bound,
-        ) {
-        Some(command) => out.write_string("command: \{command}")
-        None =>
-          out.write_string(
-            "segment passes: \{cmd_trace_join_module_passes(repro.segment_passes)}",
-          )
-      }
-      out.to_string()
-    }
-    Ok(None) =>
-      "\n\nRepro: unable to isolate a post-encode failing scheduler segment"
-    Err(e) => "\n\nRepro diagnosis failed: \{e}"
-  }
+  let _ = io
+  let _ = mod
+  let _ = passes
+  let _ = options
+  let _ = optimize_level
+  let _ = shrink_level
+  let _ = traps_never_happen
+  let _ = monomorphize_min_benefit
+  let _ = low_memory_unused
+  let _ = low_memory_bound
+  "\n\nRepro diagnosis unavailable: optimization pipeline is currently disabled."
 }
 
 ///|
@@ -2274,7 +2299,7 @@ fn expand_passes_for_module(
       _ =>
         match resolve_explicit_pass(flag) {
           Some(pass) => push_pass(pass)
-          None => return Err(CmdError::unknown_pass_flag(flag))
+          None => push_pass(ModulePass::NoOp(flag))
         }
     }
   }
@@ -2282,7 +2307,7 @@ fn expand_passes_for_module(
 }
 
 ///|
-test "expand_passes_for_module preserves preset-plus-explicit multiplicity for overlapping passes" {
+test "expand_passes_for_module leaves preset flags empty and keeps explicit no-op passes" {
   let mod = Module::new()
   let expanded = match
     expand_passes_for_module(
@@ -2300,7 +2325,7 @@ test "expand_passes_for_module preserves preset-plus-explicit multiplicity for o
       _ => ()
     }
   }
-  assert_true(vacuum_count >= 2)
+  assert_eq(vacuum_count, 1)
 }
 
 ///|
@@ -2323,6 +2348,20 @@ test "expand_passes_for_module caps vacuum passes to binaryen default bound" {
     }
   }
   assert_eq(vacuum_count, 4)
+}
+
+///|
+test "expand_passes_for_module turns unknown flags into explicit no-op markers" {
+  let expanded = match
+    expand_passes_for_module(
+      ["not-a-real-pass"],
+      Module::new(),
+      OptimizeOptions::new(),
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected unknown pass flag to expand as no-op, got \{e}")
+  }
+  assert_eq(expanded, [ModulePass::NoOp("not-a-real-pass")])
 }
 
 ///|

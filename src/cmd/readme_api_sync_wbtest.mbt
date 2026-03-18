@@ -15,9 +15,8 @@ fn ras_join_lines(lines : Array[String]) -> String {
 ///|
 test "parse_readme_api_verify_blocks extracts signature blocks with interface path" {
   let readme = ras_join_lines([
-    "# Starshine", "", "<!-- README_API_VERIFY src/passes/pkg.generated.mbti -->",
-    "```mbti", "pub fn optimize_module(Module, Array[ModulePass]) -> Result[Module, String]",
-    "pub fn optimize_module_with_options(Module, Array[ModulePass], OptimizeOptions) -> Result[Module, String]",
+    "# Starshine", "", "<!-- README_API_VERIFY src/cmd/pkg.generated.mbti -->", "```mbti",
+    "pub fn cmd_help_text() -> String", "pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]",
     "```",
   ])
   let blocks = match parse_readme_api_verify_blocks(readme) {
@@ -27,9 +26,8 @@ test "parse_readme_api_verify_blocks extracts signature blocks with interface pa
   assert_eq(blocks.length(), 1)
   assert_eq(
     blocks[0],
-    ReadmeApiVerifyBlock::new("src/passes/pkg.generated.mbti", [
-      "pub fn optimize_module(Module, Array[ModulePass]) -> Result[Module, String]",
-      "pub fn optimize_module_with_options(Module, Array[ModulePass], OptimizeOptions) -> Result[Module, String]",
+    ReadmeApiVerifyBlock::new("src/cmd/pkg.generated.mbti", [
+      "pub fn cmd_help_text() -> String", "pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]",
     ]),
   )
 }

@@ -48,7 +48,7 @@ const logPath = process.env.FAKE_MOON_LOG;
 fs.appendFileSync(logPath, process.argv.slice(2).join(" ") + "\\n");
 if (process.argv[2] === "coverage" && process.argv[3] === "analyze") {
   process.stdout.write("12 uncovered line(s) in src/lib/module.mbt:\\n");
-  process.stdout.write("4 uncovered line(s) in src/passes/optimize.mbt:\\n");
+  process.stdout.write("4 uncovered line(s) in src/cmd/cmd.mbt:\\n");
   process.stdout.write("Total: 16 uncovered line(s) in 2 file(s)\\n");
   process.exit(0);
 }

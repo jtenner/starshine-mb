@@ -2,7 +2,6 @@ import type { EncodeError } from "./binary.js";
 import type { CliInputFormat, CliOptimizationFlag, CliOutputTarget, TrapMode } from "./cli.js";
 import type { OpaqueHandle, StarshineResult } from "./internal/shared.js";
 import type { Module } from "./lib.js";
-import type { ModulePass } from "./passes.js";
 
 export interface CmdEncodeError {
   readonly __starshineBrand: "cmd.CmdEncodeError";
@@ -123,7 +122,7 @@ export function runCmdWithAdapter(
 export function runWasmSmithFuzzHarness(
   validTarget: number,
   seed?: bigint,
-  optimizePasses?: Array<ModulePass>,
+  optimizePasses?: Array<unknown>,
   optimizePassNames?: Array<string> | null,
   differentialAdapters?: DifferentialAdapters | null,
   differentialEvery?: number,

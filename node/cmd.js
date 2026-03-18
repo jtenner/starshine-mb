@@ -9,7 +9,6 @@ import * as binaryModule from './binary.js';
 import * as cliModule from './cli.js';
 import * as generated from './internal/generated/cmd.generated.js';
 import { countProvidedArgs, getWasmGcExports } from './internal/runtime.js';
-import * as passesModule from './passes.js';
 import * as validateModule from './validate.js';
 import * as wastModule from './wast.js';
 
@@ -28,16 +27,6 @@ const cli = {
   parse_cli_args: cliModule.parseCliArgs,
   resolve_pass_flags: cliModule.resolvePassFlags,
   resolve_traps_never_happen: cliModule.resolveTrapsNeverHappen,
-};
-
-const passes = {
-  ...passesModule,
-  default_function_optimization_passes: passesModule.defaultFunctionOptimizationPasses,
-  default_global_optimization_post_passes: passesModule.defaultGlobalOptimizationPostPasses,
-  default_global_optimization_pre_passes: passesModule.defaultGlobalOptimizationPrePasses,
-  module_pass: passesModule.modulePass,
-  optimize_module: passesModule.optimizeModule,
-  optimize_module_with_options: passesModule.optimizeModuleWithOptions,
 };
 
 const validate = {
@@ -1240,16 +1229,8 @@ function runSpecCmdWithAdapter(args, io) {
   return ok(createCmdRunSummary(inputFiles, [], ['spec']));
 }
 
-function expandPassesForCli(parsedCli, mod, options) {
-  if (!wasm.__node_cmd_can_expand_passes_for_cli(parsedCli, mod, options)) {
-    return err(wasm.__node_cmd_expand_passes_for_cli_error(parsedCli, mod, options));
-  }
-  const out = [];
-  const length = wasm.__node_cmd_expand_passes_for_cli_length(parsedCli, mod, options);
-  for (let index = 0; index < length; index += 1) {
-    out.push(wasm.__node_cmd_expand_passes_for_cli_get(parsedCli, mod, options, index));
-  }
-  return ok(out);
+function expandPassesForCli(resolvedPasses) {
+  return ok([...resolvedPasses]);
 }
 
 function run_cmd_with_adapter(args, io, config_json) {
@@ -1328,15 +1309,6 @@ function run_cmd_with_adapter(args, io, config_json) {
   const monomorphizeMinBenefit = mergedState.monomorphize_min_benefit ?? 5;
   const lowMemoryUnused = mergedState.low_memory_unused ?? false;
   const lowMemoryBound = mergedState.low_memory_bound ?? 1024n;
-  const options = passes.OptimizeOptions.new(
-    optimizeLevel,
-    shrinkLevel,
-    passes.InliningOptions.new(),
-    monomorphizeMinBenefit,
-    lowMemoryUnused,
-    lowMemoryBound,
-    trapsNeverHappen,
-  );
 
   if (inputFiles.length > 1) {
     for (const target of mergedState.output_targets) {
@@ -1370,15 +1342,12 @@ function run_cmd_with_adapter(args, io, config_json) {
       return decoded;
     }
 
-    const expanded = expandPassesForCli(mergedCli, decoded.value, options);
+    const expanded = expandPassesForCli(resolvedPasses);
     if (!expanded.ok) {
       return err(createCmdError('UnknownPassFlag', expanded.error));
     }
 
-    const optimized = passes.optimize_module_with_options(decoded.value, expanded.value, options);
-    if (!optimized.ok) {
-      return err(createCmdError('OptimizeFailed', `${inputPath}: ${optimized.display ?? optimized.error}`));
-    }
+    const optimized = ok(decoded.value);
 
     const encoded = encodeModuleForPipeline(io, inputPath, optimized.value);
     if (!encoded.ok) {
@@ -1739,21 +1708,7 @@ function run_wasm_smith_fuzz_harness(
     }
     pipelineValidated += 1;
 
-    const optimized = passes.optimize_module_with_options(decoded.value, optimize_passes, passes.OptimizeOptions.new());
-    if (!optimized.ok) {
-      const message = `optimize failed at attempt #${attempts}: ${optimized.display ?? optimized.error}`;
-      const report = createFuzzFailureReport(
-        seed,
-        attempts,
-        generatedValid,
-        'optimize',
-        optimized.display ?? String(optimized.error),
-        passNames,
-        passNames,
-        encoded.value,
-      );
-      return err(fuzzFinalizeFailure(on_failure, report, message));
-    }
+    const optimized = ok(decoded.value);
     optimizedCount += 1;
 
     const roundtripBytes = binary.encode_module(optimized.value);

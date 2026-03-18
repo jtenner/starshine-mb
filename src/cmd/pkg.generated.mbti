@@ -5,7 +5,6 @@ import {
   "jtenner/starshine/binary",
   "jtenner/starshine/cli",
   "jtenner/starshine/lib",
-  "jtenner/starshine/passes",
   "moonbitlang/core/debug",
 }
 
@@ -30,7 +29,7 @@ pub fn run_cmd_exit_code_with_adapter(Array[String], CmdIO, config_json? : Strin
 
 pub fn run_cmd_with_adapter(Array[String], CmdIO, config_json? : String?) -> Result[CmdRunSummary, CmdError]
 
-pub fn run_wasm_smith_fuzz_harness(Int, seed? : UInt64, optimize_passes? : Array[@passes.ModulePass], optimize_pass_names? : Array[String]?, differential_adapters? : DifferentialAdapters?, differential_every? : Int, on_failure? : ((FuzzFailureReport) -> Result[Unit, String])?) -> Result[WasmSmithFuzzStats, String]
+pub fn run_wasm_smith_fuzz_harness(Int, seed? : UInt64, optimize_passes? : Array[ModulePass], optimize_pass_names? : Array[String]?, differential_adapters? : DifferentialAdapters?, differential_every? : Int, on_failure? : ((FuzzFailureReport) -> Result[Unit, String])?) -> Result[WasmSmithFuzzStats, String]
 
 pub fn run_wasm_smith_fuzz_harness_profile(String, UInt64) -> Result[WasmSmithFuzzStats, String]
 
@@ -50,6 +49,14 @@ pub impl Show for CmdEncodeError
 pub impl @debug.Debug for CmdEncodeError
 
 // Types and methods
+pub struct AbstractTypeRefiningPassProps {
+  traps_never_happen : Bool
+}
+pub fn AbstractTypeRefiningPassProps::new(traps_never_happen? : Bool) -> Self
+pub impl Eq for AbstractTypeRefiningPassProps
+pub impl Show for AbstractTypeRefiningPassProps
+pub impl @debug.Debug for AbstractTypeRefiningPassProps
+
 pub enum CmdError {
   CliParse(@cli.CliParseError)
   UnknownPassFlag(String)
@@ -136,6 +143,150 @@ pub fn FuzzFailureReport::new(UInt64, Int, Int, String, String, optimize_passes?
 pub impl Eq for FuzzFailureReport
 pub impl Show for FuzzFailureReport
 pub impl @debug.Debug for FuzzFailureReport
+
+pub struct InliningOptions {
+  no_op : Bool
+}
+pub fn InliningOptions::new() -> Self
+pub impl Eq for InliningOptions
+pub impl Show for InliningOptions
+pub impl @debug.Debug for InliningOptions
+
+pub struct MemoryPackingPassProps {
+  no_op : Bool
+}
+pub fn MemoryPackingPassProps::new() -> Self
+pub impl Eq for MemoryPackingPassProps
+pub impl Show for MemoryPackingPassProps
+pub impl @debug.Debug for MemoryPackingPassProps
+
+pub enum ModulePass {
+  NoOp(String)
+  AbstractTypeRefining(AbstractTypeRefiningPassProps)
+  AlignmentLowering
+  AvoidReinterprets
+  CoalesceLocals
+  CodeFolding
+  CodePushing
+  ConstHoisting
+  ConstantFieldPropagation
+  ConstantFieldNullTestFolding
+  DataflowOptimization
+  DeadCodeElimination
+  DeadArgumentElimination
+  DeadArgumentEliminationOptimizing
+  SignaturePruning
+  SignatureRefining
+  DuplicateImportElimination
+  GlobalRefining
+  GlobalStructInference
+  GlobalStructInferenceDescCast
+  GlobalTypeOptimization
+  SimplifyGlobals
+  SimplifyGlobalsOptimizing
+  GlobalEffects
+  PropagateGlobalsGlobally
+  TypeRefining
+  TypeGeneralizing
+  TypeFinalizing
+  TypeUnFinalizing
+  Unsubtyping
+  Heap2Local
+  HeapStoreOptimization
+  Inlining
+  InliningOptimizing
+  InlineMain
+  LocalCSE
+  LocalSubtyping
+  LoopInvariantCodeMotion
+  MergeLocals
+  MergeSimilarFunctions
+  MergeBlocks
+  Flatten
+  ReReloop
+  TupleOptimization
+  OnceReduction
+  MinimizeRecGroups
+  TypeMerging
+  Monomorphize
+  MonomorphizeAlways
+  MemoryPacking(MemoryPackingPassProps)
+  OptimizeAddedConstants
+  OptimizeAddedConstantsPropagate
+  OptimizeInstructions
+  Precompute
+  PrecomputePropagate
+  RedundantSetElimination
+  PickLoadSigns
+  GUFA
+  GUFAOptimizing
+  GUFACastAll
+  I64ToI32Lowering
+  DuplicateFunctionElimination
+  Directize(Bool)
+  OptimizeCasts
+  DeNaN
+  RemoveUnusedBrs
+  RemoveUnusedNames
+  SimplifyLocals
+  SimplifyLocalsNoTee
+  SimplifyLocalsNoStructure
+  SimplifyLocalsNoTeeNoStructure
+  SimplifyLocalsNoNesting
+  Untee
+  Vacuum
+  ReorderLocals
+  ReorderTypes
+  ReorderGlobals
+  ReorderGlobalsAlways
+  ReorderFunctions
+  ReorderFunctionsByName
+  RemoveUnusedTypes
+  RemoveUnused
+  RemoveUnusedModuleElements
+  RemoveUnusedNonFunctionElements
+}
+pub impl Eq for ModulePass
+pub impl Show for ModulePass
+pub impl @debug.Debug for ModulePass
+
+pub struct OptimizeOptions {
+  optimize_level : Int
+  shrink_level : Int
+  inlining : InliningOptions
+  monomorphize_min_benefit : Int
+  low_memory_unused : Bool
+  low_memory_bound : UInt64
+  traps_never_happen : Bool
+  validation_policy : OptimizeValidationPolicy
+  stack_function_passes : Bool
+}
+pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool, validation_policy? : OptimizeValidationPolicy, stack_function_passes? : Bool) -> Self
+pub impl Eq for OptimizeOptions
+pub impl Show for OptimizeOptions
+pub impl @debug.Debug for OptimizeOptions
+
+pub enum OptimizeTracingLevel {
+  Pass
+  Phase
+  Helper
+}
+pub fn OptimizeTracingLevel::helper() -> Self
+pub fn OptimizeTracingLevel::pass() -> Self
+pub fn OptimizeTracingLevel::phase() -> Self
+pub impl Eq for OptimizeTracingLevel
+pub impl Show for OptimizeTracingLevel
+pub impl @debug.Debug for OptimizeTracingLevel
+
+pub enum OptimizeValidationPolicy {
+  FinalModuleOnly
+  AfterSegment
+}
+pub fn OptimizeValidationPolicy::after_segment() -> Self
+pub fn OptimizeValidationPolicy::final_module_only() -> Self
+pub impl Eq for OptimizeValidationPolicy
+pub impl Show for OptimizeValidationPolicy
+pub impl @debug.Debug for OptimizeValidationPolicy
 
 type ReadmeApiVerifyBlock
 pub impl Eq for ReadmeApiVerifyBlock

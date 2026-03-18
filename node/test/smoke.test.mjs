@@ -4,7 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { binary, cli, cmd, passes, validate, wast } from '../index.js';
+import { binary, cli, cmd, validate, wast } from '../index.js';
 import { runWasmStart } from '../internal/wasi-runner.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -36,70 +36,6 @@ test('binary adapter lifts bigint arguments', () => {
   const sized = binary.sizeUnsigned(255n, 32);
   assert.equal(sized.ok, true);
   assert.equal(typeof sized.value, 'number');
-});
-
-test('passes module exposes ordered manual pass constructors', () => {
-  const parsed = wast.wastToBinaryModule('(module (func (export "run") i32.const 0 drop unreachable))');
-  assert.equal(parsed.ok, true);
-
-  const options = passes.OptimizeOptions.new();
-  const pipeline = passes.defaultFunctionOptimizationPasses(parsed.value, options);
-  pipeline.push(passes.deadArgumentElimination());
-  pipeline.push(passes.vacuum());
-
-  const optimized = passes.optimizeModuleWithOptions(parsed.value, pipeline, options);
-  assert.equal(optimized.ok, true);
-  assert.match(passes.ModulePass.show(pipeline.at(-2)), /DeadArgumentElimination/);
-  assert.match(passes.ModulePass.show(pipeline.at(-1)), /Vacuum/);
-});
-
-test('passes module replays optimize trace logs through a JS callback', () => {
-  const parsed = wast.wastToBinaryModule(`
-    (module
-      (func (export "run") (result i32)
-        (if (result i32)
-          (i32.const 1)
-          (then (i32.const 7))
-          (else (i32.const 9))
-        )
-      )
-    )
-  `);
-  assert.equal(parsed.ok, true);
-
-  const traceLogs = [];
-  const optimized = passes.optimizeModuleWithOptionsTrace(
-    parsed.value,
-    [passes.codeFolding()],
-    passes.OptimizeOptions.new(),
-    (msg) => {
-      traceLogs.push(msg);
-    },
-    'phase',
-  );
-
-  assert.equal(optimized.ok, true);
-  assert(traceLogs.some((line) => line === 'start passes=1'));
-  assert(traceLogs.some((line) => line.includes('pass[1/1]:start pass=CodeFolding')));
-  assert(traceLogs.some((line) => line.includes('pass[1/1]:code_folding:func[1] start')));
-  assert(traceLogs.some((line) => line.includes('pass[1/1]:code_folding:func[1] done elapsed_ms=')));
-});
-
-test('passes module rejects invalid tracing level values', () => {
-  const parsed = wast.wastToBinaryModule('(module (func (export "run") nop))');
-  assert.equal(parsed.ok, true);
-
-  assert.throws(
-    () =>
-      passes.optimizeModuleWithOptionsTrace(
-        parsed.value,
-        [passes.vacuum()],
-        passes.OptimizeOptions.new(),
-        () => {},
-        'chatty',
-      ),
-    /tracing/i,
-  );
 });
 
 test('cmd bridge minimizes pass lists with a JS callback', () => {
@@ -161,7 +97,7 @@ test('cmd bridge runs --help through a JS CmdIO adapter', () => {
   assert.match(stdout.join(''), /Starshine Wasm Binary Toolkit/);
 });
 
-test('cmd bridge optimizes a wat input through JS IO hooks', () => {
+test('cmd bridge accepts optimization flags as no-ops through JS IO hooks', () => {
   const files = new Map();
   files.set('sample.wat', new TextEncoder().encode('(module (func (export "run")))'));
   const writes = new Map();
@@ -182,9 +118,10 @@ test('cmd bridge optimizes a wat input through JS IO hooks', () => {
     () => ({ ok: false, error: 'use in-process fallback' }),
   );
 
-  const result = cmd.runCmdWithAdapter(['sample.wat'], io);
+  const result = cmd.runCmdWithAdapter(['--vacuum', 'sample.wat'], io);
   assert.equal(result.ok, true);
   assert.deepEqual(result.value.outputFiles, ['sample.wasm']);
+  assert.deepEqual(result.value.resolvedPasses, ['vacuum']);
   assert.equal(writes.has('sample.wasm'), true);
   const decoded = binary.decodeModule(writes.get('sample.wasm'));
   assert.equal(decoded.ok, true);

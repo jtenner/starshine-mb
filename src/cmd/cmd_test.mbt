@@ -5,21 +5,7 @@ using @binary {trait Decode, trait Encode}
 using @cli {type CliInputFormat}
 
 ///|
-using @lib {
-  type Module,
-  type Func,
-  type CodeSec,
-  type TExpr,
-  type TInstr,
-  type TInstrKind,
-}
-
-///|
-using @passes {
-  optimize_module_with_options,
-  type ModulePass,
-  type OptimizeOptions,
-}
+using @lib {type Module, type Func, type CodeSec, type TExpr, type TInstr}
 
 ///|
 fn bytes_from_string(text : String) -> Bytes {
@@ -133,72 +119,6 @@ fn fixture_mergeable_block_module() -> Module {
   )
   .with_type_sec(@lib.TypeSec::new([t_void]))
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
-}
-
-///|
-fn fixture_invalid_drop_nop_module() -> Module {
-  let t_void = @lib.RecType::new(
-    @lib.SubType::comp_type(@lib.CompType::func([], [])),
-  )
-  Module::new()
-  .with_type_sec(@lib.TypeSec::new([t_void]))
-  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
-  .with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [],
-        @lib.Locals::empty(),
-        TExpr::new([TInstr::drop(TInstr::nop())]),
-      ),
-    ]),
-  )
-}
-
-///|
-fn fixture_merge_similar_repro_module() -> Module {
-  let t_i32 = @lib.RecType::new(
-    @lib.SubType::comp_type(
-      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
-    ),
-  )
-  let binary_body = fn(c0 : Int, c1 : Int) {
-    TExpr::new([
-      TInstr::return_([
-        TInstr::binary(
-          @lib.BinaryOp::i32_add(),
-          TInstr::binary(
-            @lib.BinaryOp::i32_mul(),
-            TInstr::local_get(@lib.LocalIdx::new(0)),
-            TInstr::i32_const(@lib.I32(c0)),
-          ),
-          TInstr::binary(
-            @lib.BinaryOp::i32_add(),
-            TInstr::i32_const(@lib.I32(c1)),
-            TInstr::i32_const(@lib.I32(7)),
-          ),
-        ),
-      ]),
-    ])
-  }
-  Module::new()
-  .with_type_sec(@lib.TypeSec::new([t_i32]))
-  .with_func_sec(
-    @lib.FuncSec::new([@lib.TypeIdx::new(0), @lib.TypeIdx::new(0)]),
-  )
-  .with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [@lib.ValType::i32()],
-        @lib.Locals::empty(),
-        binary_body(42, 10),
-      ),
-      Func::t_func(
-        [@lib.ValType::i32()],
-        @lib.Locals::empty(),
-        binary_body(43, 10),
-      ),
-    ]),
-  )
 }
 
 ///|
@@ -327,26 +247,6 @@ test "run_cmd_with_adapter --optimize handles examples/modules/simd_lane_mix.wat
 }
 
 ///|
-fn module_first_f32_const(mod : Module) -> Float? {
-  match mod.code_sec {
-    Some(CodeSec([Func(_, Expr([F32Const(F32(v))])), ..])) => Some(v)
-    Some(
-      CodeSec(
-        [
-          TFunc(
-            [],
-            _,
-            { instrs: [{ kind: TInstrKind::TF32Const(F32(v)), .. }], .. }
-          ),
-          ..,
-        ]
-      )
-    ) => Some(v)
-    _ => None
-  }
-}
-
-///|
 fn has_string(values : Array[String], needle : String) -> Bool {
   values.contains(needle)
 }
@@ -380,6 +280,7 @@ test "run_cmd_with_adapter infers optimize preset from -O level flags" {
   assert_eq(summary.shrink_level, 0)
   assert_eq(summary.output_files, ["out.wasm"])
   assert_eq(writes.length(), 1)
+  assert_eq(writes[0].1, wasm)
 }
 
 ///|
@@ -411,11 +312,13 @@ test "run_cmd_with_adapter infers shrink preset from -O level with z bias" {
   assert_eq(summary.shrink_level, 3)
   assert_eq(summary.output_files, ["out.wasm"])
   assert_eq(writes.length(), 1)
+  assert_eq(writes[0].1, wasm)
 }
 
 ///|
-test "run_cmd_with_adapter rejects unknown pass flags with strict diagnostics" {
+test "run_cmd_with_adapter accepts unknown pass flags as no-op pipeline entries" {
   let wasm = encode_module_bytes(fixture_i32_const_module(1))
+  let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
     list_candidates=fn() { ["a.wasm"] },
     file_exists=fn(path) { path == "a.wasm" },
@@ -426,13 +329,23 @@ test "run_cmd_with_adapter rejects unknown pass flags with strict diagnostics" {
         Err("missing fixture")
       }
     },
-    write_file=fn(_, _) { Ok(()) },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
   )
-  match run_cmd_with_adapter(["--not-a-real-pass", "a.wasm"], io) {
-    Ok(summary) =>
-      fail("expected strict unknown-pass error, got summary \{summary}")
-    Err(err) => assert_eq(err, CmdError::unknown_pass_flag("not-a-real-pass"))
+  let summary = match
+    run_cmd_with_adapter(
+      ["--not-a-real-pass", "--out", "out.wasm", "a.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(err) =>
+      fail("expected unknown pass to be accepted as no-op, got error \{err}")
   }
+  assert_eq(summary.resolved_passes, ["not-a-real-pass"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].1, wasm)
 }
 
 ///|
@@ -578,7 +491,7 @@ test "run_cmd_with_adapter lowers wast through in-process fallback when adapter 
 }
 
 ///|
-test "run_cmd_with_adapter runs requested passes for each module" {
+test "run_cmd_with_adapter preserves modules when pass flags are no-op" {
   let wasm = encode_module_bytes(fixture_f32_nan_module())
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -607,30 +520,15 @@ test "run_cmd_with_adapter runs requested passes for each module" {
   assert_eq(writes.length(), 2)
   for entry in writes {
     let (_, bytes) = entry
-    let mod = decode_module_bytes(bytes)
-    match module_first_f32_const(mod) {
-      Some(v) => assert_eq(v, 0.0)
-      None => fail("expected module to contain first f32 const")
-    }
+    assert_eq(bytes, wasm)
   }
   assert_true(has_string(summary.resolved_passes, "de-nan"))
 }
 
 ///|
-test "run_cmd_with_adapter runs re-reloop when requested" {
+test "run_cmd_with_adapter treats re-reloop as a no-op" {
   let input_mod = fixture_mergeable_block_module()
   let input_wasm = encode_module_bytes(input_mod)
-  let expected_mod = match
-    optimize_module_with_options(
-      input_mod,
-      [ModulePass::ReReloop],
-      OptimizeOptions::new(),
-    ) {
-    Ok(v) => v
-    Err(e) =>
-      fail("expected re_reloop fixture output, got optimize error: \{e}")
-  }
-  let expected_wasm = encode_module_bytes(expected_mod)
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
     list_candidates=fn() { ["a.wasm"] },
@@ -655,7 +553,7 @@ test "run_cmd_with_adapter runs re-reloop when requested" {
   assert_eq(summary.resolved_passes, ["re-reloop"])
   assert_eq(writes.length(), 1)
   assert_eq(writes[0].0, "out.wasm")
-  assert_eq(writes[0].1, expected_wasm)
+  assert_eq(writes[0].1, input_wasm)
 }
 
 ///|
@@ -679,70 +577,6 @@ test "run_cmd_with_adapter preserves repeated pass flags in cli order" {
     Err(e) => fail("unexpected run failure: \{e}")
   }
   assert_eq(summary.resolved_passes, ["vacuum", "optimize", "vacuum"])
-}
-
-///|
-test "run_cmd_with_adapter writes before.wasm and repro command after post-encode validation failure" {
-  let input_mod = fixture_merge_similar_repro_module()
-  let wasm = encode_module_bytes(input_mod)
-  let invalid_roundtrip = encode_module_bytes(fixture_invalid_drop_nop_module())
-  let expected_optimized = match
-    optimize_module_with_options(
-      input_mod,
-      [ModulePass::RemoveUnusedNames, ModulePass::MergeSimilarFunctions],
-      OptimizeOptions::new(),
-    ) {
-    Ok(out) => out
-    Err(e) => fail("expected repro fixture to optimize successfully: \{e}")
-  }
-  let writes : Array[(String, Bytes)] = []
-  let io = CmdIO::new(
-    list_candidates=fn() { ["a.wasm"] },
-    file_exists=fn(path) { path == "a.wasm" },
-    read_file=fn(path) {
-      if path == "a.wasm" {
-        Ok(wasm)
-      } else {
-        Err("missing fixture")
-      }
-    },
-    encode_module=fn(mod) {
-      if mod == expected_optimized {
-        Ok(invalid_roundtrip)
-      } else {
-        Ok(encode_module_bytes(mod))
-      }
-    },
-    write_file=fn(path, bytes) {
-      writes.push((path, bytes))
-      Ok(())
-    },
-  )
-  match
-    run_cmd_with_adapter(
-      [
-        "--remove-unused-names", "--merge-similar-functions", "--out", "out.wasm",
-        "a.wasm",
-      ],
-      io,
-    ) {
-    Ok(summary) =>
-      fail("expected post-encode validation failure, got summary \{summary}")
-    Err(err) => {
-      let text = match err {
-        EncodeFailed(_, Adapter(msg)) => msg
-        _ => fail("expected adapter encode error with repro text, got \{err}")
-      }
-      assert_true(text.contains("post-encode validation failed:"), msg=text)
-      assert_true(
-        text.contains("starshine --merge-similar-functions before.wasm"),
-        msg=text,
-      )
-      assert_eq(writes.length(), 1)
-      assert_eq(writes[0].0, "before.wasm")
-      ignore(decode_module_bytes(writes[0].1))
-    }
-  }
 }
 
 ///|
@@ -1337,12 +1171,12 @@ test "run_cmd_exit_code_with_adapter returns non-zero for failures" {
     },
     write_file=fn(_, _) { Ok(()) },
   )
-  let code = run_cmd_exit_code_with_adapter(["--not-a-real-pass", "a.wasm"], io)
+  let code = run_cmd_exit_code_with_adapter(["--stdin"], io)
   assert_eq(code, 1)
 }
 
 ///|
-test "run_cmd_exit_code_with_adapter writes CmdError details to stderr on failures" {
+test "run_cmd_exit_code_with_adapter writes CmdError details to stderr on parse failures" {
   let wasm = encode_module_bytes(fixture_i32_const_module(122))
   let stderr_writes : Array[Bytes] = []
   let io = CmdIO::new(
@@ -1361,12 +1195,12 @@ test "run_cmd_exit_code_with_adapter writes CmdError details to stderr on failur
       Ok(())
     },
   )
-  let code = run_cmd_exit_code_with_adapter(["--not-a-real-pass", "a.wasm"], io)
+  let code = run_cmd_exit_code_with_adapter(["--stdin"], io)
   assert_eq(code, 1)
   assert_eq(stderr_writes.length(), 1)
   let stderr_text = bytes_to_ascii_string(stderr_writes[0])
   assert_true(stderr_text.contains("error:"))
-  assert_true(stderr_text.contains("not-a-real-pass"))
+  assert_true(stderr_text.contains("stdin requires"))
 }
 
 ///|
