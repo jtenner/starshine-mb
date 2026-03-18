@@ -497,10 +497,13 @@ test "encode_module keeps typed-function body locals without prefix stripping" {
     Err(e) => fail("expected decode success, got \{e}")
   }
   match decoded.code_sec {
-    Some(CodeSec([Func(locals, _)])) =>
-      assert_eq(locals, Locals::from_types([ValType::i32(), ValType::i64()]))
-    Some(CodeSec([Func(locals, _)])) =>
-      fail("expected two declared body locals [i32, i64], got \{locals}")
+    Some(CodeSec([Func(locals, _)])) => {
+      let expected = Locals::from_types([ValType::i32(), ValType::i64()])
+      if locals != expected {
+        fail("expected two declared body locals [i32, i64], got \{locals}")
+      }
+      assert_eq(locals, expected)
+    }
     _ => fail("expected single decoded function body")
   }
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-18 Binary Test Cleanup: remove final unreachable-code warning
+
+- Updated [`src/binary/tests.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/tests.mbt) to collapse a duplicated `decoded.code_sec` match arm in the typed-locals round-trip test into a single checked branch, preserving the explicit failure message while removing the last unreachable-code warning reported by `moon info`.
+- Validation: `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-18 Docs/Node Package Sync: refresh locals docs after canonicalization
 
 - Updated [`README.md`](/home/jtenner/Projects/starshine-mb/README.md) and [`README.mbt.md`](/home/jtenner/Projects/starshine-mb/README.mbt.md) so the public library docs now describe the canonical `Locals` / `LocalRun` model, the mutable cached `indices`, `Locals::ensure_index()`, and the indexable lookup surface used after the flat-locals removal.
