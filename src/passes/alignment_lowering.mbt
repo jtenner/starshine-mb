@@ -39,6 +39,20 @@ fn ChunkSize::byte_count(self : ChunkSize) -> UInt {
 }
 
 ///|
+fn memarg_align_pow_from_byte_count(byte_count : UInt) -> U32 {
+  if byte_count <= 1 {
+    return U32(0)
+  }
+  let mut bytes = byte_count
+  let mut pow = 0
+  while bytes > 1 {
+    bytes = bytes / 2
+    pow += 1
+  }
+  U32(pow.reinterpret_as_uint())
+}
+
+///|
 fn store_op_stack_size(op : StoreOp) -> StackSize {
   match op {
     I64StoreOp => StackSize64
@@ -447,7 +461,11 @@ fn alignment_lowering_pass(
         }
         let first_load = TInstr::load(
           load_op,
-          MemArg::new(U32(chunk_byte_count), mem_option, U64(offset + first.1)),
+          MemArg::new(
+            memarg_align_pow_from_byte_count(chunk_byte_count),
+            mem_option,
+            U64(offset + first.1),
+          ),
           ptr_start_set,
         )
         let mut acc = load_shift_op(value_stack_size, first.1, first_load)
@@ -462,7 +480,7 @@ fn alignment_lowering_pass(
             let load_instr = TInstr::load(
               load_op,
               MemArg::new(
-                U32(chunk_byte_count),
+                memarg_align_pow_from_byte_count(chunk_byte_count),
                 mem_option,
                 U64(relative_offset + offset),
               ),
@@ -559,7 +577,7 @@ fn alignment_lowering_pass(
           let store_instr = TInstr::store(
             store_op,
             MemArg::new(
-              U32(chunk_byte_count),
+              memarg_align_pow_from_byte_count(chunk_byte_count),
               mem_option,
               U64(offset + relative_offset),
             ),
@@ -634,7 +652,11 @@ fn alignment_lowering_pass(
         }
         let first_load = TInstr::load(
           chunk_load_op,
-          MemArg::new(U32(chunk_byte_count), mem_option, U64(offset + first.1)),
+          MemArg::new(
+            memarg_align_pow_from_byte_count(chunk_byte_count),
+            mem_option,
+            U64(offset + first.1),
+          ),
           TInstr::local_tee(ptr_local, a),
         )
         let mut acc = load_shift_op(stack_size, first.1, first_load)
@@ -649,7 +671,7 @@ fn alignment_lowering_pass(
           let load_instr = TInstr::load(
             chunk_load_op,
             MemArg::new(
-              U32(chunk_byte_count),
+              memarg_align_pow_from_byte_count(chunk_byte_count),
               mem_option,
               U64(relative_offset + offset),
             ),
@@ -707,6 +729,17 @@ fn run_func_pass(
   match pass.walk_func(ctx, func) {
     Ok((TFunc(_, new_locals, new_body), _)) => Ok((new_locals, new_body))
     Ok((_, _)) => Err("Expected TFunc")
+    Err(e) => Err(e)
+  }
+}
+
+///|
+fn run_module_pass(mod : Module) -> Result[Module, String] {
+  let ctx = IRContext::new()
+  ctx.set_mod(mod)
+  let pass = alignment_lowering_pass(mod)
+  match pass.walk_module(ctx, mod) {
+    Ok((rewritten, _)) => Ok(rewritten)
     Err(e) => Err(e)
   }
 }
@@ -1992,6 +2025,100 @@ test "other instructions pass through unchanged" {
       }
     ) => ()
     _ => fail("Expected binary op to pass through unchanged")
+  }
+}
+
+///|
+test "alignment lowering leaves modules without memory ops unchanged" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_mem_sec(MemSec::new(make_i32_mem()))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+    )
+  let out = match run_module_pass(mod) {
+    Ok(next) => next
+    Err(e) => fail("unexpected module pass error: \{e}")
+  }
+  assert_eq(out, mod)
+}
+
+///|
+test "alignment lowering output validates for rewritten i32-memory loads" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_mem_sec(MemSec::new(make_i32_mem()))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          [],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::load(
+                LoadOp::i32_load(),
+                MemArg::new(U32(0), None, U64(0)),
+                TInstr::local_get(LocalIdx::new(0)),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = match run_module_pass(mod) {
+    Ok(next) => next
+    Err(e) => fail("unexpected module pass error: \{e}")
+  }
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected lowered i32-memory module to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "alignment lowering output validates for rewritten memory64 stores" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i64(), ValType::i64()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_mem_sec(MemSec::new([MemType::new(Limits::i64(1, None))]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i64(), ValType::i64()],
+          [],
+          TExpr::new([
+            TInstr::store(
+              StoreOp::i64_store(),
+              MemArg::new(U32(0), None, U64(0)),
+              TInstr::local_get(LocalIdx::new(0)),
+              TInstr::local_get(LocalIdx::new(1)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = match run_module_pass(mod) {
+    Ok(next) => next
+    Err(e) => fail("unexpected module pass error: \{e}")
+  }
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected lowered memory64 module to validate: \{validation_error_message(err)}",
+      )
   }
 }
 

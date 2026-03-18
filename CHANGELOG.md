@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-18 AlignmentLowering Follow-up: add module-level no-op and validator-backed lowering coverage
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/alignment_lowering.mbt](/home/jtenner/Projects/starshine-mb/src/passes/alignment_lowering.mbt) with module-level test helpers plus new regressions covering no-op modules and validator-backed post-lowering behavior for rewritten `i32`-memory loads and `memory64` stores, closing the missing coverage called out in the backlog.
+- Fixed the chunked `AlignmentLowering` rewrite sites in [/home/jtenner/Projects/starshine-mb/src/passes/alignment_lowering.mbt](/home/jtenner/Projects/starshine-mb/src/passes/alignment_lowering.mbt) so split loads, stores, and `v128.load*_lane` rewrites emit memarg alignment exponents derived from chunk byte widths instead of raw byte counts, which was producing validator-invalid rewritten modules.
+- Updated [/home/jtenner/Projects/starshine-mb/agent-todo.md](/home/jtenner/Projects/starshine-mb/agent-todo.md) to remove the completed `AlignmentLowering` coverage task and the already-completed validator end-of-body diagnostics task, keeping the backlog focused on open work only.
+- Validation: `moon test --package jtenner/starshine/passes -F 'alignment lowering*'`; `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-18 Validate Follow-up: distinguish end-of-body underflow, wrong results, and extra stack values
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) so function-body final-stack validation now classifies three distinct failures instead of collapsing them into a generic message: result-stack underflow, result type mismatch, and extra leftover values. The new diagnostics include both the expected result stack shape and the actual stack shape seen at the end of the body, and the same helper now covers both plain and typed function bodies.
