@@ -6954,7 +6954,9 @@ test "vacuum shape scan flags deep single-item block chain for degraded mode" {
       ),
     ),
   ])
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let shape = vq_measure_texpr_shape(body, env)
   assert_true(shape.total_instrs >= 49)
   assert_true(shape.max_depth >= 48)
@@ -6971,7 +6973,9 @@ test "vacuum bounded seed phase reports exhaustion without failing" {
       ),
     ),
   ])
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(4)
   assert_false(vq_seed_texpr_facts_bounded(body, env, cache, budget))
@@ -7005,7 +7009,9 @@ test "vacuum indexed analysis keeps duplicate subtree occurrences distinct" {
 ///|
 test "vacuum indexed lookup does not populate fallback type cache for original nodes" {
   let body = TExpr::new([TInstr::local_get(LocalIdx::new(0))])
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(64)
   let expr_id = match
@@ -7165,7 +7171,9 @@ test "vacuum indexed drop(local.tee) rewrite avoids generic stack-preservation h
     TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(9))),
   )
   let body = TExpr::new([instr])
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let seed_budget = Ref::new(64)
   assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
@@ -7209,7 +7217,9 @@ test "vacuum unindexed drop(local.tee) rewrite avoids generic stack-preservation
   let instr = TInstr::drop(
     TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(9))),
   )
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let process_budget = Ref::new(64)
   let out = match
@@ -7249,7 +7259,9 @@ test "vacuum changed block body reuses indexed break metadata when control-flow 
     ]),
   )
   let body = TExpr::new([instr])
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let seed_budget = Ref::new(64)
   assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
@@ -7422,7 +7434,9 @@ test "vacuum changed constant-if chosen arm reuses indexed break metadata" {
     Some(TExpr::new([TInstr::nop()])),
   )
   let body = TExpr::new([instr])
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let seed_budget = Ref::new(96)
   assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
@@ -7459,7 +7473,9 @@ test "vacuum traps-never-happen unreachable-arm rewrite reuses indexed break met
     Some(TExpr::new([TInstr::i32_const(I32(7))])),
   )
   let body = TExpr::new([instr])
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let seed_budget = Ref::new(96)
   assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
@@ -7526,7 +7542,9 @@ test "vacuum indexed dropped-result block avoids generic value-break helper" {
     ),
   )
   let body = TExpr::new([instr])
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let seed_budget = Ref::new(64)
   assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
@@ -7744,7 +7762,9 @@ test "vacuum indexed merged drop-if arms avoid generic type cache" {
     Some(TExpr::new([TInstr::drop(original_right)])),
   )
   let body = TExpr::new([instr])
-  let env = Env::new().with_module(mod).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(mod)
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let seed_budget = Ref::new(96)
   assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
@@ -7919,7 +7939,9 @@ test "vacuum changed try_table body reuses indexed metadata for throws and break
     original_body,
   )
   let body = TExpr::new([instr])
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let seed_budget = Ref::new(96)
   assert_true(vq_seed_texpr_facts_bounded(body, env, cache, seed_budget))
@@ -7977,7 +7999,9 @@ test "vacuum full-tier budget exhaustion falls back to degraded local.tee drop r
   let instr = TInstr::drop(
     TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(9))),
   )
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   cache.midpass_degraded_budget = Some(Ref::new(16))
   let budget = Ref::new(0)
@@ -8004,7 +8028,9 @@ test "vacuum full-tier fallback remains bounded when cheap-tier budget is exhaus
   let instr = TInstr::drop(
     TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(9))),
   )
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   cache.midpass_degraded_budget = Some(Ref::new(0))
   let budget = Ref::new(0)
@@ -8067,12 +8093,14 @@ test "vacuum degraded sequence keeps ambient-fed local.set chain intact" {
   ]
   let env = Env::new()
     .with_module(Module::new())
-    .with_locals([
-      ValType::i32(),
-      ValType::i32(),
-      ValType::i32(),
-      ValType::i32(),
-    ])
+    .with_locals(
+      Locals::from_types([
+        ValType::i32(),
+        ValType::i32(),
+        ValType::i32(),
+        ValType::i32(),
+      ]),
+    )
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(16)
   let seq = vq_optimize_sequence_degraded(
@@ -8149,7 +8177,9 @@ test "vacuum vq_optimize budget exhaustion falls back to cheap-tier rewrite" {
   let instr = TInstr::drop(
     TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(11))),
   )
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   cache.midpass_degraded_budget = Some(Ref::new(8))
   let budget = Ref::new(0)
@@ -8176,7 +8206,11 @@ test "vacuum degraded mode traps-never-happen rewrites unreachable if arm" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(7))]),
+        ),
       ]),
     )
   let cond = TInstr::local_get(LocalIdx::new(0))
@@ -8187,7 +8221,9 @@ test "vacuum degraded mode traps-never-happen rewrites unreachable if arm" {
     TExpr::new([TInstr::unreachable_()]),
     Some(TExpr::new([live])),
   )
-  let env = Env::new().with_module(mod).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(mod)
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(128)
   let out = match
@@ -8218,7 +8254,11 @@ test "vacuum vq_optimize fallback forwards traps-never-happen options" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(7))]),
+        ),
       ]),
     )
   let cond = TInstr::local_get(LocalIdx::new(0))
@@ -8229,7 +8269,9 @@ test "vacuum vq_optimize fallback forwards traps-never-happen options" {
     TExpr::new([TInstr::unreachable_()]),
     Some(TExpr::new([live])),
   )
-  let env = Env::new().with_module(mod).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(mod)
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   cache.midpass_degraded_budget = Some(Ref::new(64))
   let budget = Ref::new(0)
@@ -8405,7 +8447,11 @@ test "vacuum degraded mode peels dropped unary wrappers around calls" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(7))]),
+        ),
       ]),
     )
   let instr = vq_make_nested_void_blocks(
@@ -8448,7 +8494,11 @@ test "vacuum degraded mode collapses nested dropped call wrappers" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(7))]),
+        ),
       ]),
     )
   let call = TInstr::call(FuncIdx::new(0), [])
@@ -8504,7 +8554,9 @@ test "vacuum degraded mode nops pure typed condition when both if arms optimize 
     TExpr::new([TInstr::nop()]),
     Some(TExpr::new([TInstr::drop(TInstr::i32_const(I32(7)))])),
   )
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(64)
   let out = match
@@ -8532,7 +8584,11 @@ test "vacuum degraded mode keeps drop around effectful typed condition when both
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(7))]),
+        ),
       ]),
     )
   let condition = TInstr::call(FuncIdx::new(0), [])
@@ -8755,7 +8811,9 @@ test "vacuum degraded mode peels dropped i8x16.splat around pure local.get" {
   let instr = TInstr::drop(
     TInstr::i8x16_splat(TInstr::local_get(LocalIdx::new(0))),
   )
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(64)
   let out = match
@@ -8783,7 +8841,11 @@ test "vacuum degraded mode keeps drop around effectful child under i8x16.splat" 
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(0))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(0))]),
+        ),
       ]),
     )
   let condition = TInstr::call(FuncIdx::new(0), [])
@@ -8811,7 +8873,9 @@ test "vacuum degraded mode peels dropped f64x2.splat around pure local.get" {
   let instr = TInstr::drop(
     TInstr::f64x2_splat(TInstr::local_get(LocalIdx::new(0))),
   )
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::f64()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::f64()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(64)
   let out = match
@@ -8839,7 +8903,11 @@ test "vacuum degraded mode keeps drop around effectful child under f64x2.splat" 
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::f64_const(F64(0.0))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::f64_const(F64(0.0))]),
+        ),
       ]),
     )
   let condition = TInstr::call(FuncIdx::new(0), [])
@@ -8871,7 +8939,9 @@ test "vacuum degraded mode peels dropped i8x16.extract_lane_u around pure local.
       TInstr::local_get(LocalIdx::new(0)),
     ),
   )
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::v128()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::v128()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(64)
   let out = match
@@ -8945,7 +9015,9 @@ test "vacuum degraded mode peels dropped f64x2.extract_lane around pure local.ge
       TInstr::local_get(LocalIdx::new(0)),
     ),
   )
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::v128()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::v128()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(64)
   let out = match
@@ -9287,7 +9359,9 @@ test "vacuum degraded mode keeps drop around effectful child under i31.get_u" {
 ///|
 test "vacuum degraded mode peels dropped ref.i31 around pure local.get" {
   let instr = TInstr::drop(TInstr::ref_i31(TInstr::local_get(LocalIdx::new(0))))
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(64)
   let out = match
@@ -9314,7 +9388,9 @@ test "vacuum degraded mode keeps drop around effectful child under ref.i31" {
     .with_type_sec(TypeSec::new([t_ref]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(0)]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(0)])),
+      ]),
     )
   let condition = TInstr::call(FuncIdx::new(0), [])
   let instr = TInstr::drop(TInstr::ref_i31(condition))
@@ -9343,9 +9419,13 @@ test "vacuum degraded mode peels dropped ref.get_desc around pure local.get" {
   )
   let env = Env::new()
     .with_module(Module::new())
-    .with_locals([
-      ValType::ref_type(RefType::new(true, HeapType::abs(AbsHeapType::func()))),
-    ])
+    .with_locals(
+      Locals::from_types([
+        ValType::ref_type(
+          RefType::new(true, HeapType::abs(AbsHeapType::func())),
+        ),
+      ]),
+    )
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(64)
   let out = match
@@ -9417,7 +9497,9 @@ test "vacuum degraded mode nops dropped ref.eq around pure locals" {
       TInstr::local_get(LocalIdx::new(1)),
     ),
   )
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ref_t, ref_t]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ref_t, ref_t]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(64)
   let out = match
@@ -9564,8 +9646,16 @@ test "vacuum degraded mode preserves dropped non-trapping binary child order" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(10))])),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(20))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(10))]),
+        ),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(20))]),
+        ),
       ]),
     )
   let lhs = TInstr::call(FuncIdx::new(0), [])
@@ -9636,7 +9726,9 @@ test "vacuum degraded mode nops dropped select around pure locals" {
   )
   let env = Env::new()
     .with_module(Module::new())
-    .with_locals(Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32()]))
+    .with_locals(
+      Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32()]),
+    )
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let budget = Ref::new(64)
   let out = match
@@ -9666,9 +9758,21 @@ test "vacuum degraded mode preserves dropped select child order" {
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(10))])),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(20))])),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(1))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(10))]),
+        ),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(20))]),
+        ),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(1))]),
+        ),
       ]),
     )
   let if_true = TInstr::call(FuncIdx::new(0), [])
@@ -10118,7 +10222,13 @@ test "vacuum removes trailing dead code after unreachable in block body" {
     ]),
   )
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], Locals::from_types([ValType::i32()]), TExpr::new([block]))]),
+    CodeSec::new([
+      Func::t_func(
+        [],
+        Locals::from_types([ValType::i32()]),
+        TExpr::new([block]),
+      ),
+    ]),
   )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
@@ -10485,7 +10595,9 @@ test "vacuum removes try_table when body cannot throw" {
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_i32]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([instr]))]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([instr]))]),
+    )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
     [{ kind: TInstrKind::TI32Const(I32(v)), .. }] => assert_eq(v, 77)
@@ -10505,7 +10617,9 @@ test "vacuum keeps non-removable try_table body that may throw" {
       TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
-    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([instr]))]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([instr]))]),
+    )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
     [{ kind: TInstrKind::TTryTable(_, _, _), .. }] => ()
@@ -10516,7 +10630,9 @@ test "vacuum keeps non-removable try_table body that may throw" {
 ///|
 test "vacuum nops side-effect-free none-returning function body" {
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(1))]))]),
+    CodeSec::new([
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(1))])),
+    ]),
   )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
@@ -11069,7 +11185,12 @@ test "vacuum keeps stack-feeding sibling values in block bodies" {
       CodeSec::new([
         Func::t_func(
           [],
-          Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()]),
+          Locals::from_types([
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+          ]),
           TExpr::new([
             TInstr::block(
               BlockType::void_(),
@@ -11110,7 +11231,12 @@ test "vacuum keeps mixed-type stack-feeding sibling values in block bodies" {
       CodeSec::new([
         Func::t_func(
           [],
-          Locals::from_types([ValType::i64(), ValType::i64(), ValType::i32(), ValType::i32()]),
+          Locals::from_types([
+            ValType::i64(),
+            ValType::i64(),
+            ValType::i32(),
+            ValType::i32(),
+          ]),
           TExpr::new([
             TInstr::block(
               BlockType::void_(),
@@ -11153,7 +11279,12 @@ test "vacuum keeps stack-feeding sibling values in if arms with outer branch exi
       CodeSec::new([
         Func::t_func(
           [],
-          Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()]),
+          Locals::from_types([
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+          ]),
           TExpr::new([
             TInstr::block(
               BlockType::val_type(ValType::i32()),
@@ -11208,7 +11339,12 @@ test "vacuum keeps stack-feeding sibling values when if result feeds outer branc
       CodeSec::new([
         Func::t_func(
           [],
-          Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()]),
+          Locals::from_types([
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+          ]),
           TExpr::new([
             TInstr::block(
               BlockType::val_type(ValType::i32()),
@@ -11262,7 +11398,7 @@ test "vacuum keeps local.tee-fed sibling values before nested local.set chain" {
       CodeSec::new([
         Func::t_func(
           [],
-          [
+          Locals::from_types([
             ValType::i32(),
             ValType::i32(),
             ValType::i32(),
@@ -11274,7 +11410,7 @@ test "vacuum keeps local.tee-fed sibling values before nested local.set chain" {
             ValType::i32(),
             ValType::i32(),
             ValType::i32(),
-          ],
+          ]),
           TExpr::new([
             TInstr::local_set(
               LocalIdx::new(10),
@@ -11340,7 +11476,7 @@ test "vacuum keeps stack-fed local.set chains across surrounding call and if con
       CodeSec::new([
         Func::t_func(
           [ValType::i32()],
-          [
+          Locals::from_types([
             ValType::i32(),
             ValType::i32(),
             ValType::i32(),
@@ -11353,7 +11489,7 @@ test "vacuum keeps stack-fed local.set chains across surrounding call and if con
             ValType::i32(),
             ValType::i32(),
             ValType::i32(),
-          ],
+          ]),
           TExpr::new([
             TInstr::local_set(
               LocalIdx::new(10),
@@ -11433,7 +11569,11 @@ test "vacuum keeps stack-fed local.set chains across surrounding call and if con
           Locals::empty(),
           TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
         ),
-        Func::t_func([ValType::i32()], Locals::empty(), TExpr::new([TInstr::nop()])),
+        Func::t_func(
+          [ValType::i32()],
+          Locals::empty(),
+          TExpr::new([TInstr::nop()]),
+        ),
         Func::t_func(
           [ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()],
           Locals::empty(),
@@ -11631,7 +11771,11 @@ test "vacuum keeps stack-feeding sibling values with unknown stack signatures" {
             TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
           ]),
         ),
-        Func::t_func([ValType::i32()], Locals::empty(), TExpr::new([TInstr::nop()])),
+        Func::t_func(
+          [ValType::i32()],
+          Locals::empty(),
+          TExpr::new([TInstr::nop()]),
+        ),
       ]),
     )
   assert_eq(validate_module(mod), Ok(()))
@@ -11712,7 +11856,11 @@ test "vacuum preserves stack-carried table.get result across trailing side effec
             TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
           ]),
         ),
-        Func::t_func([ValType::i32()], Locals::empty(), TExpr::new([TInstr::nop()])),
+        Func::t_func(
+          [ValType::i32()],
+          Locals::empty(),
+          TExpr::new([TInstr::nop()]),
+        ),
       ]),
     )
   assert_eq(validate_module(mod), Ok(()))
@@ -11729,7 +11877,9 @@ test "vacuum preserves stack-carried table.get result across trailing side effec
 ///|
 test "vacuum is stable on nop-only function body across repeated runs" {
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+    CodeSec::new([
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+    ]),
   )
   let once = run_vacuum(mod)
   let twice = run_vacuum(once)
@@ -11746,13 +11896,13 @@ test "vacuum keeps ambient-fed effectful child inside dropped binary" {
       CodeSec::new([
         Func::t_func(
           [],
-          [
+          Locals::from_types([
             ValType::i32(),
             ValType::i32(),
             ValType::i32(),
             ValType::i32(),
             ValType::i32(),
-          ],
+          ]),
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),
             TInstr::local_get(LocalIdx::new(1)),
@@ -11974,7 +12124,9 @@ test "vacuum traps-never-happen keeps explicit unreachable trap propagation in f
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::unreachable_()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::unreachable_()])),
+      ]),
     )
   assert_eq(validate_module(mod), Ok(()))
   let out = run_vacuum_with_options(mod, true)
@@ -12321,7 +12473,9 @@ test "vacuum fallback pure leaf effect metadata skips generic collector" {
 
 ///|
 test "vacuum fallback pure leaf type metadata skips generic type inference" {
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
 
   assert_eq(
@@ -12337,7 +12491,9 @@ test "vacuum fallback pure leaf type metadata skips generic type inference" {
 
 ///|
 test "vacuum fallback wrapped local.tee type metadata skips generic type inference" {
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
   let instr = TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(3)))
 
@@ -12392,12 +12548,14 @@ test "vacuum fallback wrapped branch-transfer metadata skips generic collector" 
 test "vacuum stack signature sequence consumes prior stack output" {
   let env = Env::new()
     .with_module(Module::new())
-    .with_locals([
-      ValType::i32(),
-      ValType::i32(),
-      ValType::i32(),
-      ValType::i32(),
-    ])
+    .with_locals(
+      Locals::from_types([
+        ValType::i32(),
+        ValType::i32(),
+        ValType::i32(),
+        ValType::i32(),
+      ]),
+    )
   let seq = [
     TInstr::local_get(LocalIdx::new(0)),
     TInstr::local_set(
@@ -12420,12 +12578,14 @@ test "vacuum stack signature sequence consumes prior stack output" {
 test "vacuum nested local.set stack signature counts all ambient feeders" {
   let env = Env::new()
     .with_module(Module::new())
-    .with_locals([
-      ValType::i32(),
-      ValType::i32(),
-      ValType::i32(),
-      ValType::i32(),
-    ])
+    .with_locals(
+      Locals::from_types([
+        ValType::i32(),
+        ValType::i32(),
+        ValType::i32(),
+        ValType::i32(),
+      ]),
+    )
   let instr = TInstr::local_set(
     LocalIdx::new(0),
     TInstr::local_set(
@@ -12446,7 +12606,9 @@ test "vacuum nested local.set stack signature counts all ambient feeders" {
 
 ///|
 test "vacuum typed block stack signature keeps value break result" {
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let instr = TInstr::block(
     BlockType::val_type(ValType::i32()),
     TExpr::new([
@@ -12466,7 +12628,9 @@ test "vacuum typed block stack signature keeps value break result" {
 
 ///|
 test "vacuum fallback instr metadata queries avoid value-keyed instr cache entries" {
-  let env = Env::new().with_module(Module::new()).with_locals(Locals::from_types([ValType::i32()]))
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals(Locals::from_types([ValType::i32()]))
   let cache = VQAnalysisCache::new([], VQRunStats::new())
 
   let local_get = TInstr::local_get(LocalIdx::new(0))

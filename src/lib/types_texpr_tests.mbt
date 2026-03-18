@@ -59,11 +59,7 @@ test "FunctionLocals normalizes params and body locals" {
   assert_eq(locals.body_locals(), Locals::from_types([ValType::funcref()]))
   assert_eq(
     locals.all_locals(),
-    Locals::from_types([
-      ValType::i32(),
-      ValType::i64(),
-      ValType::funcref(),
-    ]),
+    Locals::from_types([ValType::i32(), ValType::i64(), ValType::funcref()]),
   )
 }
 

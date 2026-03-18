@@ -3650,7 +3650,7 @@ fn mb_extract_only_tfunc(mod : Module) -> Func? {
 }
 
 ///|
-fn mb_run_on_body(body : TExpr, locals? : Array[ValType] = []) -> TExpr {
+fn mb_run_on_body(body : TExpr, locals? : Locals = Locals::empty()) -> TExpr {
   let mod = mb_make_test_module_with_body(locals, body)
   let out = run_merge_blocks(mod)
   match mb_extract_only_tfunc(out) {
@@ -3856,7 +3856,11 @@ fn mb_make_non_control_child_iteration_stress_module(arg_count : Int) -> Module 
   .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
   .with_code_sec(
     CodeSec::new([
-      Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(1), args)])),
+      Func::t_func(
+        [],
+        Locals::empty(),
+        TExpr::new([TInstr::call(FuncIdx::new(1), args)]),
+      ),
       Func::t_func(params, Locals::empty(), TExpr::new([])),
     ]),
   )
@@ -3941,7 +3945,12 @@ test "merge blocks: stack sig never reports negative produced for reachable expr
 
 ///|
 test "merge blocks: does not produce underflowing call arg local-set chain" {
-  let locals = [ValType::i32(), ValType::i64(), ValType::i32(), ValType::i64()]
+  let locals = Locals::from_types([
+    ValType::i32(),
+    ValType::i64(),
+    ValType::i32(),
+    ValType::i64(),
+  ])
   let inner_body = TExpr::new([
     TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
     TInstr::local_set(
@@ -4216,7 +4225,7 @@ test "merge blocks: loop tail merge moves non-branching suffix outward" {
       ]),
     ),
   ])
-  let mod = mb_make_test_module_with_body([], body)
+  let mod = mb_make_test_module_with_body(Locals::empty(), body)
   let out = run_merge_blocks(mod)
   match mb_extract_only_tfunc(out) {
     Some(
@@ -4337,7 +4346,9 @@ test "merge blocks: typed loop concrete tail without back-branch is not extracte
       ]),
     ),
   ])
-  let mod = mb_make_test_module_with_body([], body, results=[ValType::i32()])
+  let mod = mb_make_test_module_with_body(Locals::empty(), body, results=[
+    ValType::i32(),
+  ])
   assert_eq(validate_module(mod), Ok(()))
   let out = run_merge_blocks(mod)
   match validate_module(out) {
@@ -4407,7 +4418,9 @@ test "merge blocks: typed loop non-concrete tail is extracted" {
       ]),
     ),
   ])
-  let mod = mb_make_test_module_with_body([], body, results=[ValType::i32()])
+  let mod = mb_make_test_module_with_body(Locals::empty(), body, results=[
+    ValType::i32(),
+  ])
   assert_eq(validate_module(mod), Ok(()))
   let out = run_merge_blocks(mod)
   match validate_module(out) {
@@ -4498,7 +4511,7 @@ test "merge blocks: dropped block pushes drop inward" {
       ),
     ),
   ])
-  let mod = mb_make_test_module_with_body([], body)
+  let mod = mb_make_test_module_with_body(Locals::empty(), body)
   let out = run_merge_blocks(mod)
   match mb_extract_only_tfunc(out) {
     Some(
@@ -4975,7 +4988,7 @@ test "merge blocks: function run performs at most one refinalize pass" {
       TInstr::i32_const(I32(3)),
     ),
   ])
-  let mod = mb_make_test_module_with_body([], body)
+  let mod = mb_make_test_module_with_body(Locals::empty(), body)
   let func = match mb_extract_only_tfunc(mod) {
     Some(value) => value
     None => fail("expected test module to contain one typed function")
@@ -4994,7 +5007,7 @@ test "merge blocks: function run performs at most one refinalize pass" {
 ///|
 test "merge blocks: deep nesting converges past legacy round budget without cap hits" {
   let body = TExpr::new([mb_make_nested_unnamed_block_chain(96)])
-  let mod = mb_make_test_module_with_body([], body)
+  let mod = mb_make_test_module_with_body(Locals::empty(), body)
   let func = match mb_extract_only_tfunc(mod) {
     Some(value) => value
     None => fail("expected test module to contain one typed function")
@@ -5016,7 +5029,7 @@ test "merge blocks: deep nesting converges past legacy round budget without cap 
 ///|
 test "merge blocks: safety-cap instrumentation reports forced cap hit" {
   let body = TExpr::new([mb_make_nested_unnamed_block_chain(96)])
-  let mod = mb_make_test_module_with_body([], body)
+  let mod = mb_make_test_module_with_body(Locals::empty(), body)
   let func = match mb_extract_only_tfunc(mod) {
     Some(value) => value
     None => fail("expected test module to contain one typed function")
@@ -5213,7 +5226,10 @@ test "merge blocks: preserves typed if result when branch inference is unknown" 
       ]),
     ),
   ])
-  let mod = mb_make_test_module_with_body([ValType::i32()], body)
+  let mod = mb_make_test_module_with_body(
+    Locals::from_types([ValType::i32()]),
+    body,
+  )
   let out = run_merge_blocks(mod)
   match validate_module(out) {
     Ok(_) => ()
@@ -5241,7 +5257,10 @@ test "merge blocks: preserves explicit typed block with branch-produced value" {
       ]),
     ),
   ])
-  let mod = mb_make_test_module_with_body([ValType::i32()], body)
+  let mod = mb_make_test_module_with_body(
+    Locals::from_types([ValType::i32()]),
+    body,
+  )
   assert_eq(validate_module(mod), Ok(()))
   let out = run_merge_blocks(mod)
   match validate_module(out) {
@@ -5272,7 +5291,10 @@ test "merge blocks: typed local.set source keeps explicit block result when infe
       ]),
     ),
   ])
-  let mod = mb_make_test_module_with_body([ValType::i32()], body)
+  let mod = mb_make_test_module_with_body(
+    Locals::from_types([ValType::i32()]),
+    body,
+  )
   assert_eq(validate_module(mod), Ok(()))
   let out = run_merge_blocks(mod)
   assert_false(out == mod)
@@ -5318,7 +5340,10 @@ test "merge blocks: keeps ambient-fed if condition stack valid after split merge
       ]),
     ),
   ])
-  let mod = mb_make_test_module_with_body([ValType::i32()], body)
+  let mod = mb_make_test_module_with_body(
+    Locals::from_types([ValType::i32()]),
+    body,
+  )
   assert_eq(validate_module(mod), Ok(()))
   let out = run_merge_blocks(mod)
   match validate_module(out) {
@@ -5356,7 +5381,12 @@ test "merge blocks: named split preserves ambient stack for nested local.set cha
     ),
   ])
   let mod = mb_make_test_module_with_body(
-    [ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()],
+    Locals::from_types([
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+    ]),
     body,
   )
   assert_eq(validate_module(mod), Ok(()))
@@ -5383,7 +5413,7 @@ test "merge blocks: transformed output stays typable and pass is idempotent" {
       ]),
     ),
   ])
-  let mod = mb_make_test_module_with_body([], body)
+  let mod = mb_make_test_module_with_body(Locals::empty(), body)
   let out = run_merge_blocks(mod)
   match mb_extract_only_tfunc(out) {
     Some(TFunc(params, locals, texpr)) => {
@@ -5422,7 +5452,9 @@ test "merge blocks: refinalization keeps param local index space valid" {
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([ValType::i32()], Locals::empty(), body)]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([ValType::i32()], Locals::empty(), body)]),
+    )
   let out = run_merge_blocks(mod)
   assert_eq(validate_module(out), Ok(()))
 }

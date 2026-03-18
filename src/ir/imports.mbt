@@ -32,6 +32,7 @@ using @lib {
   type AtomicRmwOp,
   type AtomicCmpxchgOp,
   type ValType,
+  type Locals,
   type TagIdx,
   type CastOp,
   type RefType,

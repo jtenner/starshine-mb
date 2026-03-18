@@ -327,7 +327,7 @@ pub struct IRContext {
   mut mod_ : Module?
   mut body : TExpr
   mut param_count : Int
-  mut locals : Array[ValType]
+  mut locals : Locals
   mut type_ctx : TypeContext?
   mut cfg : CFG?
   mut ssa : SSACFG?

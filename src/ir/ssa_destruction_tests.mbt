@@ -153,9 +153,12 @@ test "to_cfg inserts phi copies into predecessor blocks" {
     next_value: 3,
   }
   let (_, cfg) = ssa.to_cfg_with_locals(
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     0,
-    infer_ssa_types(ssa, ssa_destruction_type_ctx([ValType::i32()])),
+    infer_ssa_types(
+      ssa,
+      ssa_destruction_type_ctx(Locals::from_types([ValType::i32()])),
+    ),
   )
 
   assert_true(ends_with_local_copy(cfg.blocks[b0].instrs))
@@ -170,7 +173,7 @@ test "to_cfg inserts phi copies into predecessor blocks" {
 }
 
 ///|
-fn ssa_destruction_type_ctx(local_types : Array[ValType]) -> TypeContext {
+fn ssa_destruction_type_ctx(local_types : Locals) -> TypeContext {
   {
     func_types: [],
     global_types: [],

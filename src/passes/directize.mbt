@@ -2153,7 +2153,9 @@ test "directize: module without tables" {
     .with_type_sec(TypeSec::new([make_simple_functype()]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     )
   let result = directize_module(m, true)
   assert_true(result is Ok(_))

@@ -770,7 +770,12 @@ fn validate_const_expr(
 
   // typecheck it under an empty stack/locals/labels context
   // (but with access to env globals, funcs, etc)
-  let env_tc = Env::{ ..env, locals: Locals::empty(), labels: [], return_type: None }
+  let env_tc = Env::{
+    ..env,
+    locals: Locals::empty(),
+    labels: [],
+    return_type: None,
+  }
   let st0 = TcState::{
     env: env_tc,
     stack: [],
@@ -935,10 +940,7 @@ pub fn validate_tablesec(
 }
 
 ///|
-fn validate_locals_decls(
-  env : Env,
-  decls : Locals,
-) -> Result[Unit, String] {
+fn validate_locals_decls(env : Env, decls : Locals) -> Result[Unit, String] {
   for d in decls.runs() {
     let { count, vt } = d
     if Validate::validate(vt, env) is Err(e) {
@@ -2663,7 +2665,10 @@ test "validate_module requires data count section for memory.init and data.drop"
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
     .with_code_sec(
       CodeSec::new([
-        Func::new(Locals::empty(), Expr::new([Instruction::data_drop(DataIdx::new(0))])),
+        Func::new(
+          Locals::empty(),
+          Expr::new([Instruction::data_drop(DataIdx::new(0))]),
+        ),
       ]),
     )
     .with_data_sec(DataSec::new([data]))
@@ -3426,7 +3431,9 @@ test "validate_module reports wrong end-of-body result type with stack shape" {
     .with_type_sec(TypeSec::new([sig]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
     .with_code_sec(
-      CodeSec::new([Func::new(Locals::empty(), Expr::new([Instruction::f32_const(0.0)]))]),
+      CodeSec::new([
+        Func::new(Locals::empty(), Expr::new([Instruction::f32_const(0.0)])),
+      ]),
     )
   match validate_module(mod) {
     Ok(_) => fail("expected wrong function result type to fail validation")
@@ -3449,7 +3456,9 @@ test "validate_module reports end-of-body extra values with stack shape" {
     .with_type_sec(TypeSec::new([sig]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
     .with_code_sec(
-      CodeSec::new([Func::new(Locals::empty(), Expr::new([Instruction::i32_const(I32(1))]))]),
+      CodeSec::new([
+        Func::new(Locals::empty(), Expr::new([Instruction::i32_const(I32(1))])),
+      ]),
     )
   match validate_module(mod) {
     Ok(_) => fail("expected extra stack values to fail validation")

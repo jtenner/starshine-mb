@@ -2036,7 +2036,9 @@ test "alignment lowering leaves modules without memory ops unchanged" {
     .with_mem_sec(MemSec::new(make_i32_mem()))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     )
   let out = match run_module_pass(mod) {
     Ok(next) => next

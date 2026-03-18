@@ -91,7 +91,11 @@ fn ml_many_copy_func(pair_count : Int) -> Func {
     instrs.push(TInstr::local_set(x, TInstr::local_get(y)))
     instrs.push(TInstr::drop(TInstr::local_get(y)))
   }
-  Func::t_func([], Locals::from_types([ValType::i32(), ValType::i32()]), TExpr::new(instrs))
+  Func::t_func(
+    [],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
+    TExpr::new(instrs),
+  )
 }
 
 ///|
@@ -142,7 +146,11 @@ test "merge locals only instruments exact local.get copies with distinct indices
     TInstr::local_set(a, TInstr::local_get(a)),
     TInstr::drop(TInstr::local_get(b)),
   ])
-  let func = Func::t_func([], Locals::from_types([ValType::i32(), ValType::i32()]), input_body)
+  let func = Func::t_func(
+    [],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
+    input_body,
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let out = ml_run_merge_locals(mod)
   let body = ml_single_func_body(out)
@@ -371,7 +379,12 @@ test "merge locals handles multiple copy sites independently" {
   let d = LocalIdx::new(3)
   let func = Func::t_func(
     [],
-    Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()]),
+    Locals::from_types([
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+    ]),
     TExpr::new([
       TInstr::local_set(a, TInstr::i32_const(I32(1))),
       TInstr::local_set(b, TInstr::local_get(a)),

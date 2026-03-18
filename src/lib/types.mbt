@@ -228,7 +228,7 @@ pub struct LocalRun {
 ///|
 pub struct Locals {
   mut runs : Array[LocalRun]
-  mut indices : Option[Array[Int]]
+  mut indices : Array[Int]?
 } derive(Debug)
 
 ///|

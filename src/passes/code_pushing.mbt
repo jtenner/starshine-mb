@@ -1572,7 +1572,11 @@ test "code_pushing handles multiple sets before terminal if" {
       None,
     ),
   ])
-  let f = Func::t_func([], Locals::from_types([ValType::i32(), ValType::i32()]), body)
+  let f = Func::t_func(
+    [],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
+    body,
+  )
   match pass.on_func {
     Some(handler) =>
       match handler(pass, (), f) {

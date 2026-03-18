@@ -164,7 +164,7 @@ fn mbp_required_parity_matrix_categories() -> Array[String] {
 ///|
 fn mbp_named_block_boundary_module() -> Module {
   mb_make_test_module_with_body(
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::block(
         BlockType::void_(),
@@ -183,7 +183,7 @@ fn mbp_named_block_boundary_module() -> Module {
 ///|
 fn mbp_loop_tail_extract_module() -> Module {
   mb_make_test_module_with_body(
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::block(
         BlockType::void_(),
@@ -209,7 +209,7 @@ fn mbp_loop_tail_extract_module() -> Module {
 ///|
 fn mbp_dropped_value_removal_module() -> Module {
   mb_make_test_module_with_body(
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(
         TInstr::block(
@@ -382,7 +382,7 @@ fn mbp_restructure_effect_collision_module() -> Module {
 ///|
 fn mbp_typed_stack_signature_module() -> Module {
   mb_make_test_module_with_body(
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::block(
         BlockType::void_(),
@@ -406,7 +406,7 @@ fn mbp_typed_stack_signature_module() -> Module {
 ///|
 fn mbp_idempotence_matrix_module() -> Module {
   mb_make_test_module_with_body(
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::block(
         BlockType::void_(),
@@ -663,7 +663,7 @@ fn mbp_fixture_corpus() -> Array[MBParityFixture] {
   let fixtures : Array[MBParityFixture] = []
 
   let nested_unnamed = mb_make_test_module_with_body(
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::block(
         BlockType::void_(),
@@ -677,7 +677,7 @@ fn mbp_fixture_corpus() -> Array[MBParityFixture] {
   fixtures.push(MBParityFixture::new("nested_unnamed_merge", nested_unnamed))
 
   let two_level = mb_make_test_module_with_body(
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::block(
         BlockType::void_(),
@@ -693,7 +693,7 @@ fn mbp_fixture_corpus() -> Array[MBParityFixture] {
   fixtures.push(MBParityFixture::new("two_level_convergence", two_level))
 
   let dropped_br = mb_make_test_module_with_body(
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(
         TInstr::block(
@@ -709,13 +709,13 @@ fn mbp_fixture_corpus() -> Array[MBParityFixture] {
   fixtures.push(MBParityFixture::new("dropped_break_value_strip", dropped_br))
 
   let already_flat = mb_make_test_module_with_body(
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::drop(TInstr::i32_const(I32(9)))]),
   )
   fixtures.push(MBParityFixture::new("already_flat_noop", already_flat))
 
   let loop_tail_extract = mb_make_test_module_with_body(
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::block(
         BlockType::void_(),
@@ -744,7 +744,7 @@ fn mbp_fixture_corpus() -> Array[MBParityFixture] {
   )
 
   let restructure_operand = mb_make_test_module_with_body(
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(
         TInstr::binary(
@@ -766,7 +766,7 @@ fn mbp_fixture_corpus() -> Array[MBParityFixture] {
   )
 
   let idempotence_seed = mb_make_test_module_with_body(
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::block(
         BlockType::void_(),

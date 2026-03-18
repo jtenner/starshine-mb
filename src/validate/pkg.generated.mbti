@@ -98,7 +98,7 @@ pub(all) struct Env {
   elems : Array[@lib.Elem]
   datas : Array[@lib.Data]
   tags : Array[@lib.TagType]
-  locals : Array[@lib.ValType]
+  locals : @lib.Locals
   labels : Array[Array[@lib.ValType]]
   return_type : Array[@lib.ValType]?
 }
@@ -141,7 +141,7 @@ pub fn Env::with_funcs(Self, Array[@lib.FuncType]) -> Self
 pub fn Env::with_globals(Self, Array[@lib.GlobalType]) -> Self
 pub fn Env::with_label(Self, Array[@lib.ValType]) -> Self
 pub fn Env::with_labels(Self, Array[Array[@lib.ValType]]) -> Self
-pub fn Env::with_locals(Self, Array[@lib.ValType]) -> Self
+pub fn Env::with_locals(Self, @lib.Locals) -> Self
 pub fn Env::with_mems(Self, Array[@lib.MemType]) -> Self
 pub fn Env::with_module(Self, @lib.Module) -> Self
 pub fn Env::with_rectype(Self, @lib.RecType) -> Self

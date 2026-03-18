@@ -4460,7 +4460,7 @@ fn oi_run_module(
 ///|
 fn oi_run_func(
   body : Array[TInstr],
-  locals? : Array[ValType] = [],
+  locals? : Locals = Locals::empty(),
   options? : OptimizeOptions = OptimizeOptions::new(),
   with_memory? : Bool = false,
 ) -> TExpr {
@@ -4490,7 +4490,7 @@ test "optimize instructions eqz(sub) to eq" {
         ),
       ),
     ],
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
   )
   match body {
     {
@@ -4526,7 +4526,7 @@ test "optimize instructions eqz(add const) to eq neg const" {
         ),
       ),
     ],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   match body {
     {
@@ -4556,7 +4556,7 @@ test "optimize instructions de-morgan eqz and" {
         TInstr::unary(UnaryOp::i32_eqz(), TInstr::local_get(LocalIdx::new(1))),
       ),
     ],
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
   )
   match body {
     {
@@ -4585,7 +4585,7 @@ test "optimize instructions masks shift constants and removes zero shifts" {
         TInstr::i32_const(I32(32)),
       ),
     ],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   match body {
     { instrs: [{ kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }], .. } =>
@@ -4608,7 +4608,7 @@ test "optimize instructions removes rhs mask in shifts" {
         ),
       ),
     ],
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
   )
   match body {
     {
@@ -4638,7 +4638,7 @@ test "optimize instructions float add neg rhs to sub" {
         TInstr::unary(UnaryOp::f32_neg(), TInstr::local_get(LocalIdx::new(1))),
       ),
     ],
-    locals=[ValType::f32(), ValType::f32()],
+    locals=Locals::from_types([ValType::f32(), ValType::f32()]),
   )
   match body {
     {
@@ -4676,7 +4676,7 @@ test "optimize instructions int neg multiply patterns" {
         ),
       ),
     ],
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
   )
   match body {
     {
@@ -4714,7 +4714,7 @@ test "optimize instructions unsigned compare constants" {
         TInstr::i32_const(I32(0)),
       ),
     ],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   match body {
     { instrs: [_, _], .. } => ()
@@ -4779,7 +4779,7 @@ test "optimize instructions power-of-two integer arithmetic" {
         TInstr::i32_const(I32(8)),
       ),
     ],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   match body {
     { instrs: [mul_i, div_i, rem_i], .. } => {
@@ -4837,7 +4837,7 @@ test "optimize instructions arithmetic trivial constants" {
         TInstr::i32_const(I32(-1)),
       ),
     ],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   match body {
     { instrs: [a0, a1, a2, a3], .. } => {
@@ -4889,7 +4889,7 @@ test "optimize instructions constant-left subtraction patterns" {
         ),
       ),
     ],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   match body {
     {
@@ -4926,7 +4926,7 @@ test "optimize instructions relational x-y compare to zero" {
         TInstr::i32_const(I32(0)),
       ),
     ],
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
   )
   match body {
     {
@@ -4964,7 +4964,7 @@ test "optimize instructions deduplicate equal binary children" {
         TInstr::local_get(LocalIdx::new(1)),
       ),
     ],
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
   )
   match body {
     { instrs: [a0, a1], .. } => {
@@ -5001,7 +5001,7 @@ test "optimize instructions reinterpret chains and load reinterpret" {
         ),
       ),
     ],
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
     with_memory=true,
   )
   match body {
@@ -5037,7 +5037,7 @@ test "optimize instructions if eqz arm flip and fold identical arms" {
         Some(TExpr::new([TInstr::i32_const(I32(7))])),
       ),
     ],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   match body {
     { instrs: [a0, a1], .. } => {
@@ -5141,7 +5141,7 @@ test "optimize instructions store value truncation and wrap upgrade" {
         ),
       ),
     ],
-    locals=[ValType::i32(), ValType::i64()],
+    locals=Locals::from_types([ValType::i32(), ValType::i64()]),
     with_memory=true,
   )
   match body {
@@ -5183,7 +5183,7 @@ test "optimize instructions reinterpret store rewrites value type" {
         ),
       ),
     ],
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
     with_memory=true,
   )
   match body {
@@ -5224,7 +5224,7 @@ test "optimize instructions memory.copy rewrites constants" {
         TInstr::i32_const(I32(4)),
       ),
     ],
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
     with_memory=true,
   )
   match body {
@@ -5279,7 +5279,7 @@ test "optimize instructions memory.fill rewrites constants" {
         TInstr::i32_const(I32(4)),
       ),
     ],
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
     with_memory=true,
   )
   match body {
@@ -5333,7 +5333,7 @@ test "optimize instructions select constant condition and equal arms" {
         TInstr::i32_const(I32(7)),
       ),
     ],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   match body {
     { instrs: [s0, s1], .. } => {
@@ -5493,7 +5493,7 @@ test "optimize instructions i64 constant-right simplifications mirror i32 covera
         TInstr::i64_const(I64(-1L)),
       ),
     ],
-    locals=[ValType::i64()],
+    locals=Locals::from_types([ValType::i64()]),
   )
   match body {
     { instrs: [a0, a1, a2, a3, a4], .. } => {
@@ -5561,7 +5561,7 @@ test "optimize instructions candidate pre-scan reaches deeper nested candidates"
         ),
       ),
     ],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   match body {
     {

@@ -10,6 +10,7 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - Order items highest priority first within each section.
 
 ## Publishing blockers
+- Finish the canonical `Locals` refactor across `src/ir` and remaining passes: remove all `Array[ValType]` locals surfaces, migrate SSA/IR helpers to `Locals`, finish the `simplify_locals`/fixture sweep, and restore `moon check`/`moon test`.
 - Capture and commit optimize baseline measurements for `examples`, `spec-sanity`, `dist-optimized`, and the documented user-run `self-opt-debug` command.
 - Finish `docs/pass-audit.md`: for each current pass, record what it does well, where it is inefficient, the best local fixes, expected size/runtime impact, and the nearest Binaryen comparison or adaptation.
 - Refactor `SimplifyLocals` under strict TDD: use array-backed sinkable storage, compact invalidation buckets, dirty-index clearing, fused summaries with stronger early exits, and cheaper effect/validation handling without weakening correctness.

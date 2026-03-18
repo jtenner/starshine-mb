@@ -95,14 +95,17 @@ fn lift_to_texpr_module_with_trace(
           Func(locals, body) => {
             let abs_idx = imported_funcs + def_idx
             let func_idx = FuncIdx::new(abs_idx.reinterpret_as_uint())
-            let (params, results) = match base_env.get_functype_by_funcidx(func_idx) {
+            let (params, results) = match
+              base_env.get_functype_by_funcidx(func_idx) {
               Some(FuncType(ps, rs)) => (ps, rs)
               None =>
                 return Err(
                   "lift_to_texpr missing function type for function index \{abs_idx}",
                 )
             }
-            let env = base_env.with_locals(locals).with_return_type(Some(results))
+            let env = base_env
+              .with_locals(locals)
+              .with_return_type(Some(results))
             let Expr(body_instrs) = body
             if lt_instrs_have_parametric_blocktypes(body_instrs, env) {
               trace(
@@ -149,11 +152,10 @@ fn lift_to_texpr_pass_with_trace(
     match f {
       Func(l, t) =>
         match to_texpr(t, Env::new().with_locals(l)) {
-          Ok(t) =>
-            {
-              trace("func[\{seen_funcs}] lifted")
-              change((), Func::t_func([], l, t))
-            }
+          Ok(t) => {
+            trace("func[\{seen_funcs}] lifted")
+            change((), Func::t_func([], l, t))
+          }
           Err(e) => {
             trace("func[\{seen_funcs}] to_texpr failed: \{e}")
             unchanged()

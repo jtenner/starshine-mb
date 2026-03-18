@@ -562,10 +562,9 @@ fn ls_refine_function_locals(
   body : TExpr,
   base_env : Env,
   func_type_idx_by_func : Map[FuncIdx, TypeIdx],
-) -> (Array[ValType], Bool) {
+) -> (Locals, Bool) {
   let param_count = params.length()
-  let full_locals = params.copy()
-  full_locals.append(locals)
+  let full_locals = FunctionLocals::new(params, locals).all_locals()
   let relevant_locals : Set[Int] = Set::new()
   for i = param_count; i < full_locals.length(); i = i + 1 {
     if full_locals[i].is_ref_type() {
@@ -615,7 +614,7 @@ fn ls_refine_function_locals(
       if Match::matches(old_type, new_type, env) {
         continue
       }
-      full_locals[i] = new_type
+      ignore(full_locals.set(i, new_type))
       changed = true
       more = true
     }
@@ -699,7 +698,7 @@ fn ls_non_null_func_ref_value() -> TInstr {
 ///|
 test "local subtyping basic lub refinement and module validation" {
   let mod = ls_single_func_module(
-    [ValType::funcref()],
+    Locals::from_types([ValType::funcref()]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -711,9 +710,9 @@ test "local subtyping basic lub refinement and module validation" {
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, [vt], _)])) =>
+    Some(CodeSec([TFunc(_, locals, _)])) =>
       assert_eq(
-        vt,
+        locals[0],
         ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0)))),
       )
     _ => fail("expected one transformed function")
@@ -727,7 +726,7 @@ test "local subtyping basic lub refinement and module validation" {
 ///|
 test "local subtyping keeps locals defaultable while refining heap type under dominance" {
   let mod = ls_single_func_module(
-    [ValType::funcref()],
+    Locals::from_types([ValType::funcref()]),
     TExpr::new([
       TInstr::local_set(LocalIdx::new(0), ls_non_null_func_ref_value()),
       TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
@@ -735,8 +734,11 @@ test "local subtyping keeps locals defaultable while refining heap type under do
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, [RefTypeValType(rt)], _)])) =>
-      assert_true(rt.is_nullable())
+    Some(CodeSec([TFunc(_, locals, _)])) =>
+      match locals[0] {
+        RefTypeValType(rt) => assert_true(rt.is_nullable())
+        _ => fail("expected refined ref local")
+      }
     _ => fail("expected refined ref local")
   }
 }
@@ -744,7 +746,7 @@ test "local subtyping keeps locals defaultable while refining heap type under do
 ///|
 test "local subtyping rejects non-nullable refinement when default can be observed" {
   let mod = ls_single_func_module(
-    [ValType::funcref()],
+    Locals::from_types([ValType::funcref()]),
     TExpr::new([
       TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
       TInstr::local_set(LocalIdx::new(0), ls_non_null_func_ref_value()),
@@ -753,8 +755,11 @@ test "local subtyping rejects non-nullable refinement when default can be observ
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, [RefTypeValType(rt)], _)])) =>
-      assert_true(rt.is_nullable())
+    Some(CodeSec([TFunc(_, locals, _)])) =>
+      match locals[0] {
+        RefTypeValType(rt) => assert_true(rt.is_nullable())
+        _ => fail("expected transformed function")
+      }
     _ => fail("expected transformed function")
   }
 }
@@ -762,7 +767,7 @@ test "local subtyping rejects non-nullable refinement when default can be observ
 ///|
 test "local subtyping rejects non-nullable refinement when dominance fails across if" {
   let mod = ls_single_func_module(
-    [ValType::funcref()],
+    Locals::from_types([ValType::funcref()]),
     TExpr::new([
       TInstr::if_(
         BlockType::void_(),
@@ -777,8 +782,11 @@ test "local subtyping rejects non-nullable refinement when dominance fails acros
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, [RefTypeValType(rt)], _)])) =>
-      assert_true(rt.is_nullable())
+    Some(CodeSec([TFunc(_, locals, _)])) =>
+      match locals[0] {
+        RefTypeValType(rt) => assert_true(rt.is_nullable())
+        _ => fail("expected transformed function")
+      }
     _ => fail("expected transformed function")
   }
 }
@@ -789,7 +797,7 @@ test "local subtyping defaultability guard keeps incompatible non-defaultable ty
     RefType::new(false, HeapType::abs(AbsHeapType::func())),
   )
   let mod = ls_single_func_module(
-    [non_null_funcref],
+    Locals::from_types([non_null_funcref]),
     TExpr::new([
       TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
       TInstr::local_set(LocalIdx::new(0), ls_non_null_func_ref_value()),
@@ -797,7 +805,8 @@ test "local subtyping defaultability guard keeps incompatible non-defaultable ty
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, [vt], _)])) => assert_eq(vt, non_null_funcref)
+    Some(CodeSec([TFunc(_, locals, _)])) =>
+      assert_eq(locals[0], non_null_funcref)
     _ => fail("expected transformed function")
   }
 }
@@ -805,7 +814,7 @@ test "local subtyping defaultability guard keeps incompatible non-defaultable ty
 ///|
 test "local subtyping includes local tee assignments in refinement" {
   let mod = ls_single_func_module(
-    [ValType::anyref()],
+    Locals::from_types([ValType::anyref()]),
     TExpr::new([
       TInstr::drop(
         TInstr::local_tee(LocalIdx::new(0), ls_non_null_func_ref_value()),
@@ -819,7 +828,7 @@ test "local subtyping includes local tee assignments in refinement" {
         [
           TFunc(
             [],
-            [RefTypeValType(rt)],
+            locals,
             {
               instrs: [
                 {
@@ -834,7 +843,11 @@ test "local subtyping includes local tee assignments in refinement" {
           ),
         ]
       )
-    ) => assert_true(rt.is_nullable())
+    ) =>
+      match locals[0] {
+        RefTypeValType(rt) => assert_true(rt.is_nullable())
+        _ => fail("expected tee-driven refinement")
+      }
     _ => fail("expected tee-driven refinement")
   }
 }
@@ -842,7 +855,7 @@ test "local subtyping includes local tee assignments in refinement" {
 ///|
 test "local subtyping iterates to convergence across local-get dependency chain while keeping locals defaultable" {
   let mod = ls_single_func_module(
-    [ValType::anyref(), ValType::anyref(), ValType::anyref()],
+    Locals::from_types([ValType::anyref(), ValType::anyref(), ValType::anyref()]),
     TExpr::new([
       TInstr::local_set(LocalIdx::new(0), ls_non_null_func_ref_value()),
       TInstr::local_set(LocalIdx::new(1), TInstr::local_get(LocalIdx::new(0))),
@@ -852,8 +865,8 @@ test "local subtyping iterates to convergence across local-get dependency chain 
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, [vt0, vt1, vt2], _)])) =>
-      match (vt0, vt1, vt2) {
+    Some(CodeSec([TFunc(_, locals, _)])) =>
+      match (locals[0], locals[1], locals[2]) {
         (RefTypeValType(r0), RefTypeValType(r1), RefTypeValType(r2)) => {
           assert_true(r0.is_nullable())
           assert_true(r1.is_nullable())
@@ -868,7 +881,7 @@ test "local subtyping iterates to convergence across local-get dependency chain 
 ///|
 test "local subtyping ignores non-ref locals" {
   let mod = ls_single_func_module(
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     TExpr::new([
       TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7))),
       TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
@@ -881,12 +894,13 @@ test "local subtyping ignores non-ref locals" {
 ///|
 test "local subtyping ignores locals without sets" {
   let mod = ls_single_func_module(
-    [ValType::anyref()],
+    Locals::from_types([ValType::anyref()]),
     TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(0)))]),
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, [vt], _)])) => assert_eq(vt, ValType::anyref())
+    Some(CodeSec([TFunc(_, locals, _)])) =>
+      assert_eq(locals[0], ValType::anyref())
     _ => fail("expected one function")
   }
 }

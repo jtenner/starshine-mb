@@ -638,7 +638,9 @@ test "global refining refines exported immutable globals when refined type is pu
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     )
   let optimized = match global_refining(mod) {
     Ok(m) => m
@@ -705,7 +707,9 @@ test "global refining narrows broad typed select using branch merge" {
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     )
   let optimized = match global_refining(mod) {
     Ok(m) => m

@@ -3010,7 +3010,7 @@ fn af_assert_unwind_catch(mod : Module, runtime : AFApi) -> Module {
           state_global: runtime.state_global,
           base_local_count: func_locals.length(),
           temp_by_type: Map::new(),
-          extra_locals: [],
+          extra_locals: Locals::empty(),
         }
         let (next_body, _) = af_rewrite_catch_texpr(ctx, body, false)
         let next_locals = func_locals.copy()
@@ -3935,7 +3935,9 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_ref"
 ///|
 test "asyncify creates runtime globals and exports" {
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+    CodeSec::new([
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+    ]),
   )
   let out = match
     asyncify(mod, props=AsyncifyPassProps::new(export_globals=true)) {
@@ -3988,7 +3990,9 @@ test "asyncify creates runtime globals and exports" {
 ///|
 test "asyncify import-globals imports internal asyncify globals" {
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+    CodeSec::new([
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+    ]),
   )
   let out = match
     asyncify(mod, props=AsyncifyPassProps::new(import_globals=true)) {
@@ -4174,7 +4178,11 @@ test "asyncify ignore-imports keeps function non-instrumented" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(0), [])]),
+        ),
       ]),
     )
   let out = match
@@ -4209,7 +4217,11 @@ test "asyncify import allowlist controls state-changing imports" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(0), [])]),
+        ),
       ]),
     )
   let out = match
@@ -4562,7 +4574,11 @@ test "asyncify adds stack-end guard before unwind call-index push" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(0), [])]),
+        ),
       ]),
     )
   let out = match af_test_run(mod) {
@@ -4593,7 +4609,11 @@ test "asyncify asserts add non-instrumented state guard" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(0), [])]),
+        ),
       ]),
     )
   let out = match

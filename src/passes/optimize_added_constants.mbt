@@ -989,14 +989,14 @@ fn oac_run_module(
 ///|
 fn oac_run_func(
   body : Array[TInstr],
-  locals? : Array[ValType] = [],
+  locals? : Locals = Locals::empty(),
   options? : OptimizeOptions = OptimizeOptions::new(
     low_memory_unused=true,
     low_memory_bound=1024UL,
   ),
   propagate? : Bool = false,
   memory64? : Bool = false,
-) -> Result[(Array[ValType], TExpr), String] {
+) -> Result[(Locals, TExpr), String] {
   let memory = if memory64 {
     MemType::new(Limits::i64(1UL, None))
   } else {
@@ -1031,7 +1031,10 @@ test "optimize added constants folds load add-const into offset" {
       ),
     ),
   ]
-  let (_, out_body) = oac_run_func(body, locals=[ValType::i32()]).unwrap()
+  let (_, out_body) = oac_run_func(
+    body,
+    locals=Locals::from_types([ValType::i32()]),
+  ).unwrap()
   match out_body {
     { instrs: [instr], .. } =>
       match instr.kind {
@@ -1062,7 +1065,10 @@ test "optimize added constants folds store add-const into offset" {
       TInstr::local_get(v),
     ),
   ]
-  let (_, out_body) = oac_run_func(body, locals=[ValType::i32(), ValType::i32()]).unwrap()
+  let (_, out_body) = oac_run_func(
+    body,
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
+  ).unwrap()
   match out_body {
     { instrs: [instr], .. } =>
       match instr.kind {
@@ -1119,7 +1125,7 @@ test "optimize added constants respects low memory bound checks" {
   ]
   let (_, { instrs, .. }) = oac_run_func(
     body,
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
     options~,
   ).unwrap()
   match instrs[0].kind {
@@ -1244,7 +1250,7 @@ test "optimize added constants propagate mode reuses SSA base local" {
   ]
   let (locals, { instrs, .. }) = oac_run_func(
     body,
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
     propagate=true,
   ).unwrap()
   assert_eq(locals.length(), 2)
@@ -1284,7 +1290,7 @@ test "optimize added constants propagate rejects non-load-store parents" {
   ]
   let (_, { instrs, .. }) = oac_run_func(
     body,
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
     propagate=true,
   ).unwrap()
   match instrs.last().unwrap().kind {
@@ -1323,7 +1329,7 @@ test "optimize added constants propagate inserts helper local when needed" {
   ]
   let (locals, { instrs, .. }) = oac_run_func(
     body,
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
     propagate=true,
   ).unwrap()
   assert_eq(locals.length(), 3)
@@ -1372,7 +1378,7 @@ test "optimize added constants propagate iterates to reach fixpoint" {
   ]
   let (_, { instrs, .. }) = oac_run_func(
     body,
-    locals=[ValType::i32(), ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32()]),
     propagate=true,
   ).unwrap()
   match instrs.last().unwrap().kind {
@@ -1400,7 +1406,9 @@ test "optimize added constants requires low-memory-unused option" {
   let memory = MemType::new(Limits::i32(1, None))
   let mod_ = Module::new()
     .with_mem_sec(MemSec::new([memory]))
-    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new(body))]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new(body))]),
+    )
   match oac_run_module(mod_, OptimizeOptions::new(), false) {
     Ok(_) => fail("expected optimize added constants to fail without option")
     Err(e) => assert_eq(e, oac_fatal_message)

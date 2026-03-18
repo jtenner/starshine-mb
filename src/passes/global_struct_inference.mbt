@@ -1133,7 +1133,7 @@ test "global struct inference rewrites struct.get from singleton inferred global
       CodeSec::new([
         Func::t_func(
           [],
-          [global_ref],
+          Locals::from_types([global_ref]),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_get(
@@ -1227,7 +1227,7 @@ test "global struct inference rewrites two-value struct.get to select with ref.e
       CodeSec::new([
         Func::t_func(
           [],
-          [global_ref],
+          Locals::from_types([global_ref]),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_get(
@@ -1322,7 +1322,7 @@ test "global struct inference groups >2 globals into two values" {
       CodeSec::new([
         Func::t_func(
           [],
-          [global_ref],
+          Locals::from_types([global_ref]),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_get(
@@ -1406,7 +1406,7 @@ test "global struct inference handles non-null struct.get operands without ref.a
       CodeSec::new([
         Func::t_func(
           [],
-          [non_null_ref],
+          Locals::from_types([non_null_ref]),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_get(
@@ -1501,7 +1501,7 @@ test "global struct inference propagates globals through supertypes" {
       CodeSec::new([
         Func::t_func(
           [],
-          [super_ref],
+          Locals::from_types([super_ref]),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_get(
@@ -1587,7 +1587,13 @@ test "global struct inference does not optimize mutable struct fields" {
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::from_types([global_ref]), TExpr::new([get_instr]))]),
+      CodeSec::new([
+        Func::t_func(
+          [],
+          Locals::from_types([global_ref]),
+          TExpr::new([get_instr]),
+        ),
+      ]),
     )
   let optimized = match run_global_struct_inference(mod, false) {
     Ok(m) => m
@@ -1636,7 +1642,11 @@ test "global struct inference does not optimize when struct type is created in c
             ),
           ]),
         ),
-        Func::t_func([], Locals::from_types([global_ref]), TExpr::new([get_instr])),
+        Func::t_func(
+          [],
+          Locals::from_types([global_ref]),
+          TExpr::new([get_instr]),
+        ),
       ]),
     )
   let optimized = match run_global_struct_inference(mod, false) {
@@ -1679,7 +1689,13 @@ test "global struct inference does not optimize when source global is mutable" {
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::from_types([global_ref]), TExpr::new([get_instr]))]),
+      CodeSec::new([
+        Func::t_func(
+          [],
+          Locals::from_types([global_ref]),
+          TExpr::new([get_instr]),
+        ),
+      ]),
     )
   let optimized = match run_global_struct_inference(mod, false) {
     Ok(m) => m
@@ -1732,7 +1748,13 @@ test "global struct inference does not optimize with more than two unique values
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::from_types([global_ref]), TExpr::new([get_instr]))]),
+      CodeSec::new([
+        Func::t_func(
+          [],
+          Locals::from_types([global_ref]),
+          TExpr::new([get_instr]),
+        ),
+      ]),
     )
   let optimized = match run_global_struct_inference(mod, false) {
     Ok(m) => m
@@ -1836,7 +1858,7 @@ test "global struct inference rewrites singleton non-constant values via known g
       CodeSec::new([
         Func::t_func(
           [],
-          [outer_ref],
+          Locals::from_types([outer_ref]),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_get(
@@ -1950,7 +1972,7 @@ test "global struct inference rewrites non-constant two-value case to select" {
       CodeSec::new([
         Func::t_func(
           [],
-          [outer_ref],
+          Locals::from_types([outer_ref]),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_get(
@@ -2099,7 +2121,7 @@ test "global struct inference handles struct.get_u defaults for packed fields" {
       CodeSec::new([
         Func::t_func(
           [],
-          [global_ref],
+          Locals::from_types([global_ref]),
           TExpr::new([
             TInstr::drop(
               TInstr::struct_get_u(
@@ -2190,7 +2212,13 @@ test "global struct inference does not optimize non-eqref declared globals" {
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::from_types([struct_ref]), TExpr::new([get_instr]))]),
+      CodeSec::new([
+        Func::t_func(
+          [],
+          Locals::from_types([struct_ref]),
+          TExpr::new([get_instr]),
+        ),
+      ]),
     )
   let optimized = match run_global_struct_inference(mod, false) {
     Ok(m) => m
@@ -2247,7 +2275,11 @@ test "global struct inference propagates unoptimizable subtypes to supertypes" {
             ),
           ]),
         ),
-        Func::t_func([], Locals::from_types([super_ref]), TExpr::new([get_instr])),
+        Func::t_func(
+          [],
+          Locals::from_types([super_ref]),
+          TExpr::new([get_instr]),
+        ),
       ]),
     )
   let optimized = match run_global_struct_inference(mod, false) {
@@ -2483,7 +2515,11 @@ test "global struct inference descriptor mode rewrites ref.get_desc with singlet
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::from_types([global_ref]), TExpr::new([TInstr::drop(get_desc)])),
+        Func::t_func(
+          [],
+          Locals::from_types([global_ref]),
+          TExpr::new([TInstr::drop(get_desc)]),
+        ),
       ]),
     )
   let optimized = match run_global_struct_inference(mod, true) {
@@ -2577,7 +2613,7 @@ test "global struct inference descriptor mode rewrites ref.get_desc with select 
       CodeSec::new([
         Func::t_func(
           [],
-          [super_ref],
+          Locals::from_types([super_ref]),
           TExpr::new([
             TInstr::drop(
               TInstr::ref_get_desc(TInstr::local_get(LocalIdx::new(0))),

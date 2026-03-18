@@ -2384,7 +2384,7 @@ test "inlining always-inlines tiny callee by default" {
     il_make_type([], [ValType::i32()]),
     il_make_type([ValType::i32()], [ValType::i32()]),
     TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(7))])]),
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2404,7 +2404,7 @@ test "inlining honors one-caller-inline-max-size threshold" {
     il_make_type([], [ValType::i32()]),
     il_make_type([ValType::i32()], [ValType::i32()]),
     TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(7))])]),
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::binary(
         BinaryOp::i32_add(),
@@ -2466,7 +2466,11 @@ test "inlining can inline multi-use callee at higher optimize levels" {
             ),
           ]),
         ),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::local_get(LocalIdx::new(0))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+        ),
       ]),
     )
   let options = OptimizeOptions::new(optimize_level=3, shrink_level=0)
@@ -2489,7 +2493,7 @@ test "inlining enforces maxCombinedBinarySize growth cap" {
     il_make_type([], [ValType::i32()]),
     il_make_type([ValType::i32()], [ValType::i32()]),
     TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(7))])]),
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let options = OptimizeOptions::new(
@@ -2512,7 +2516,7 @@ test "inlining only plans callsites in reachable code" {
     il_make_type([], []),
     il_make_type([], []),
     TExpr::new([TInstr::unreachable_(), TInstr::call(FuncIdx::new(1), [])]),
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::nop()]),
   )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2533,7 +2537,7 @@ test "inlining shifts callee branch labels when wrapping callsite" {
     il_make_type([], []),
     il_make_type([], []),
     TExpr::new([TInstr::call(FuncIdx::new(1), [])]),
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::block(
         BlockType::void_(),
@@ -2560,7 +2564,7 @@ test "inlining maps locals and only zero-inits defaultable callee locals" {
     TExpr::new([
       TInstr::drop(TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(5))])),
     ]),
-    [ValType::i32(), ValType::i31ref()],
+    Locals::from_types([ValType::i32(), ValType::i31ref()]),
     TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(1)))]),
   )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2603,7 +2607,7 @@ test "inlining rewrites returns in callee body into breaks from wrapper" {
     il_make_type([], [ValType::i32()]),
     il_make_type([], [ValType::i32()]),
     TExpr::new([TInstr::call(FuncIdx::new(1), [])]),
-    [],
+    Locals::empty(),
     TExpr::new([TInstr::return_([TInstr::i32_const(I32(9))])]),
   )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2629,13 +2633,21 @@ test "inlining rewrites return_call in normal context to call plus break" {
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(1), [])]),
+        ),
         Func::t_func(
           [],
           Locals::empty(),
           TExpr::new([TInstr::return_call(FuncIdx::new(2), [])]),
         ),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(11))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(11))]),
+        ),
       ]),
     )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2672,7 +2684,11 @@ test "inlining preserves return_call chaining for tail-call callsites" {
           Locals::empty(),
           TExpr::new([TInstr::return_call(FuncIdx::new(2), [])]),
         ),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(4))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(4))]),
+        ),
       ]),
     )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2712,7 +2728,11 @@ test "inlining rewrites return_call under try_table context" {
           Locals::empty(),
           TExpr::new([TInstr::return_call(FuncIdx::new(2), [])]),
         ),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(3))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(3))]),
+        ),
       ]),
     )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2752,7 +2772,11 @@ test "inlining hoists tail-call inlining out of try_table context" {
           Locals::empty(),
           TExpr::new([TInstr::return_call(FuncIdx::new(2), [])]),
         ),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(19))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(19))]),
+        ),
       ]),
     )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2831,7 +2855,11 @@ test "inlining hoists tail-call-indirect inlining out of try_table context" {
             ),
           ]),
         ),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(23))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(23))]),
+        ),
       ]),
     )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -2887,7 +2915,11 @@ test "inlining hoists tail-call-ref inlining out of try_table context" {
             ),
           ]),
         ),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(29))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i32_const(I32(29))]),
+        ),
       ]),
     )
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
@@ -3409,7 +3441,9 @@ test "inlining does not synthesize wrapper type when no hoist rewrite applies" {
     .with_type_sec(TypeSec::new([t_param_multi]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     )
   let import_count = il_count_imported_funcs(mod)
   let total_funcs = il_total_functions(mod, import_count)
@@ -4041,7 +4075,11 @@ test "inline_main inlines __original_main into main on a single callsite" {
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(1), [])]),
+        ),
         Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
       ]),
     )

@@ -1448,7 +1448,7 @@ fn apply_replacements(
           TFunc(_, locals, body) => {
             let init_state = {
               next_local: param_count + locals.length(),
-              new_locals: [],
+              new_locals: Locals::empty(),
             }
             let rewriter = ModuleTransformer::new().on_tinstruction_evt(fn(
               self,

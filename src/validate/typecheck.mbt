@@ -5701,7 +5701,10 @@ test "Typecheck Select type mismatch fails" {
 
 ///|
 test "Typecheck LocalGet" {
-  let env : Env = { ..empty_env(), locals: Locals::from_types([ValType::i32()]) }
+  let env : Env = {
+    ..empty_env(),
+    locals: Locals::from_types([ValType::i32()]),
+  }
   let state = make_state(env, [])
   let t = Instruction::local_get(LocalIdx::new(0))
   let new_state = assert_ok(Typecheck::typecheck(t, state))
@@ -5718,7 +5721,10 @@ test "Typecheck LocalGet invalid index" {
 
 ///|
 test "Typecheck LocalSet" {
-  let env : Env = { ..empty_env(), locals: Locals::from_types([ValType::i32()]) }
+  let env : Env = {
+    ..empty_env(),
+    locals: Locals::from_types([ValType::i32()]),
+  }
   let state = make_state(env, [ValType::i32()])
   let t = Instruction::local_set(LocalIdx::new(0))
   let new_state = assert_ok(Typecheck::typecheck(t, state))
@@ -5735,7 +5741,10 @@ test "Typecheck LocalSet type mismatch" {
 
 ///|
 test "Typecheck LocalTee" {
-  let env : Env = { ..empty_env(), locals: Locals::from_types([ValType::i32()]) }
+  let env : Env = {
+    ..empty_env(),
+    locals: Locals::from_types([ValType::i32()]),
+  }
   let state = make_state(env, [ValType::i32()])
   let t = Instruction::local_tee(LocalIdx::new(0))
   let new_state = assert_ok(Typecheck::typecheck(t, state))
@@ -5744,7 +5753,10 @@ test "Typecheck LocalTee" {
 
 ///|
 test "Typecheck TLocalSet consumes child value without re-pushing it" {
-  let env : Env = { ..empty_env(), locals: Locals::from_types([ValType::i32(), ValType::i32()]) }
+  let env : Env = {
+    ..empty_env(),
+    locals: Locals::from_types([ValType::i32(), ValType::i32()]),
+  }
   let state = make_state(env, [])
   let t = TInstr::local_set(
     LocalIdx::new(0),
@@ -5756,7 +5768,10 @@ test "Typecheck TLocalSet consumes child value without re-pushing it" {
 
 ///|
 test "Typecheck TLocalTee preserves the child value on the stack" {
-  let env : Env = { ..empty_env(), locals: Locals::from_types([ValType::i32(), ValType::i32()]) }
+  let env : Env = {
+    ..empty_env(),
+    locals: Locals::from_types([ValType::i32(), ValType::i32()]),
+  }
   let state = make_state(env, [])
   let t = TInstr::local_tee(
     LocalIdx::new(0),

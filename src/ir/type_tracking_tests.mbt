@@ -1,5 +1,5 @@
 ///|
-fn empty_type_ctx_with_locals(local_types : Array[ValType]) -> TypeContext {
+fn empty_type_ctx_with_locals(local_types : Locals) -> TypeContext {
   TypeContext::{
     func_types: [],
     global_types: [],
@@ -34,9 +34,11 @@ test "infer_ssa_types infers ref_as_non_null from nullable input" {
     param_values: params,
     next_value: 2,
   }
-  let ctx = empty_type_ctx_with_locals([
-    ValType::ref_null(HeapType::abs(AbsHeapType::extern_())),
-  ])
+  let ctx = empty_type_ctx_with_locals(
+    Locals::from_types([
+      ValType::ref_null(HeapType::abs(AbsHeapType::extern_())),
+    ]),
+  )
   let types = infer_ssa_types(cfg, ctx)
   let expected = ValType::ref_type(
     RefType::new(false, HeapType::abs(AbsHeapType::extern_())),
@@ -67,7 +69,10 @@ test "infer_ssa_types select with empty annotation yields unknown type" {
     param_values: params,
     next_value: 2,
   }
-  let types = infer_ssa_types(cfg, empty_type_ctx_with_locals([ValType::i32()]))
+  let types = infer_ssa_types(
+    cfg,
+    empty_type_ctx_with_locals(Locals::from_types([ValType::i32()])),
+  )
   assert_eq(types.get(v1), None)
 }
 
@@ -93,7 +98,7 @@ test "infer_ssa_types ignores out-of-range local index in param_values" {
     param_values: params,
     next_value: 1,
   }
-  let types = infer_ssa_types(cfg, empty_type_ctx_with_locals([]))
+  let types = infer_ssa_types(cfg, empty_type_ctx_with_locals(Locals::empty()))
   assert_eq(types.get(v0), None)
 }
 
@@ -171,7 +176,7 @@ test "infer_ssa_types infers atomic results across branch-on-ref edges" {
     param_values: {},
     next_value: 8,
   }
-  let types = infer_ssa_types(cfg, empty_type_ctx_with_locals([]))
+  let types = infer_ssa_types(cfg, empty_type_ctx_with_locals(Locals::empty()))
 
   assert_eq(types.get(v_wait), Some(ValType::i32()))
   assert_eq(types.get(v_notify), Some(ValType::i32()))

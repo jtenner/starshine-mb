@@ -2993,7 +2993,7 @@ test "heap2local rewrites struct loc allocation/get/set" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3041,7 +3041,7 @@ test "heap2local does not optimize escaping struct reference in call" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3077,7 +3077,7 @@ test "heap2local rejects mixed loc sets for candidate loc" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3121,7 +3121,7 @@ test "heap2local rewrites fixed-size array to locals" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3215,7 +3215,7 @@ test "heap2local rewrites dropped loc.get of optimized allocation" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3252,7 +3252,7 @@ test "heap2local supports packed struct get_s/get_u semantics" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3307,7 +3307,7 @@ test "heap2local supports packed array get_s/get_u semantics" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3359,7 +3359,7 @@ test "heap2local rewrites ref.is_null/ref.eq over optimized allocation" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3410,7 +3410,7 @@ test "heap2local rejects candidate when get can read init value through branch" 
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::if_(
         BlockType::void_(),
@@ -3457,7 +3457,7 @@ test "heap2local optimizes array get OOB into trap" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3499,7 +3499,7 @@ test "heap2local masks packed writes" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3538,7 +3538,7 @@ test "heap2local rewrites ref.test and ref.as_non_null wrapped accesses" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3587,7 +3587,7 @@ test "heap2local rewrites ref.test false case to i32.const 0" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3629,7 +3629,7 @@ test "heap2local preserves optimization with ref.get_desc uses" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3672,7 +3672,7 @@ test "heap2local rewrites ref.test_desc with known allocation type" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3723,7 +3723,7 @@ test "heap2local rewrites ref.cast_desc_eq outcomes for known allocation type" {
   )
   let impossible = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3740,7 +3740,7 @@ test "heap2local rewrites ref.cast_desc_eq outcomes for known allocation type" {
   )
   let compatible = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3781,7 +3781,7 @@ test "heap2local treats ref.test_desc as exact and rejects strict-subtype alloca
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3821,7 +3821,7 @@ test "heap2local treats ref.cast_desc_eq as exact and traps on strict-subtype al
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3870,7 +3870,7 @@ test "heap2local rewrites array.new_data for fixed-size nonescaping arrays" {
   ])
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3927,7 +3927,7 @@ test "heap2local rewrites OOB array.new_data to trap" {
   let data = Data::new(DataMode::passive(), [(1).to_byte(), (2).to_byte()])
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -3972,7 +3972,7 @@ test "heap2local rewrites array.new_elem for fixed-size nonescaping arrays" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -4017,7 +4017,7 @@ test "heap2local rejects branchy allocation sets with later gets" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::block(
         BlockType::void_(),
@@ -4064,7 +4064,7 @@ test "heap2local skips optimization in synchronization-sensitive atomic contexts
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -4106,7 +4106,7 @@ test "heap2local skips optimization when atomic.rmw appears in function" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -4155,7 +4155,7 @@ test "heap2local skips optimization when atomic load/store appears in function" 
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -4205,7 +4205,7 @@ test "heap2local rejects candidate local when local.tee is used" {
   )
   let func = Func::t_func(
     [],
-    [local_ref],
+    Locals::from_types([local_ref]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),

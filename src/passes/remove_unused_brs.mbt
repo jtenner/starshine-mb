@@ -400,12 +400,12 @@ priv struct RUBWalkState {
   catchers : Array[RUBTryTableCatcher]
   tag_payload_types : Map[TagIdx, Array[ValType]]
   local_base_count : Int
-  scratch_locals : Ref[Array[ValType]]
+  scratch_locals : Ref[Locals]
 }
 
 ///|
-fn rub_new_scratch_locals_ref() -> Ref[Array[ValType]] {
-  Ref::new([])
+fn rub_new_scratch_locals_ref() -> Ref[Locals] {
+  Ref::new(Locals::empty())
 }
 
 ///|
@@ -417,7 +417,7 @@ fn rub_walk_state(
   catchers? : Array[RUBTryTableCatcher] = [],
   tag_payload_types? : Map[TagIdx, Array[ValType]] = Map::new(),
   local_base_count? : Int = 0,
-  scratch_locals? : Ref[Array[ValType]] = rub_new_scratch_locals_ref(),
+  scratch_locals? : Ref[Locals] = rub_new_scratch_locals_ref(),
 ) -> RUBWalkState {
   {
     in_function_body,
@@ -5243,7 +5243,7 @@ fn rub_optimize_func_fixpoint(
           options,
           trace_state=Some(round_trace),
         )
-        let round_scratch_locals : Ref[Array[ValType]] = Ref::new([])
+        let round_scratch_locals : Ref[Locals] = Ref::new(Locals::empty())
         let round_local_base_count = match curr {
           TFunc(params, locals, _) => params.length() + locals.length()
           _ => 0
@@ -5522,7 +5522,7 @@ fn rub_single_typed_func_module(
   params : Array[ValType],
   results : Array[ValType],
   body : TExpr,
-  locals? : Array[ValType] = [],
+  locals? : Locals = Locals::empty(),
 ) -> Module {
   Module::new()
   .with_type_sec(
@@ -5538,7 +5538,7 @@ fn rub_single_typed_func_module(
 fn rub_single_void_func_module(
   params : Array[ValType],
   body : TExpr,
-  locals? : Array[ValType] = [],
+  locals? : Locals = Locals::empty(),
 ) -> Module {
   rub_single_typed_func_module(params, [], body, locals~)
 }
@@ -5548,7 +5548,7 @@ fn rub_single_void_func_module_with_tags(
   params : Array[ValType],
   body : TExpr,
   tag_params : Array[Array[ValType]],
-  locals? : Array[ValType] = [],
+  locals? : Locals = Locals::empty(),
 ) -> Module {
   let types : Array[RecType] = [
     RecType::new(SubType::comp_type(CompType::func(params, []))),
@@ -9444,7 +9444,7 @@ test "remove_unused_brs rewrites if arm local.set + local.get tail to local.tee 
     [ValType::i32()],
     [ValType::i32()],
     body,
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   let out = rub_run(mod)
   rub_assert_valid_module(out)
@@ -9499,7 +9499,7 @@ test "remove_unused_brs keeps if arm local.set + local.get tail when arm value t
     [ValType::i32()],
     [ValType::i32()],
     body,
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   let out = rub_run(mod)
   rub_assert_valid_module(out)
@@ -9535,9 +9535,11 @@ test "remove_unused_brs rewrites if arm local.set pair to local.set select" {
       ),
     ),
   ])
-  let mod = rub_single_void_func_module([ValType::i32()], body, locals=[
-    ValType::i32(),
-  ])
+  let mod = rub_single_void_func_module(
+    [ValType::i32()],
+    body,
+    locals=Locals::from_types([ValType::i32()]),
+  )
   let out = rub_run(mod)
   rub_assert_valid_module(out)
   match rub_single_func(out) {
@@ -12666,7 +12668,7 @@ test "remove_unused_brs rewrites catch_all throw values to drops then branch" {
     [],
     body,
     [[ValType::i32()]],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   let out = rub_run(mod)
   rub_assert_valid_module(out)

@@ -680,12 +680,9 @@ fn tg_generalize_function(
   locals : Locals,
   body : TExpr,
   base_env : Env,
-) -> (Array[ValType], TExpr, Bool) {
+) -> (Locals, TExpr, Bool) {
   let normalized_body = tg_run_dce_body(body)
-  let full_locals = params.copy()
-  for vt in locals {
-    full_locals.push(vt)
-  }
+  let full_locals = FunctionLocals::new(params, locals).all_locals()
   let func_env = base_env
     .with_locals(full_locals)
     .with_labels([results])
@@ -818,12 +815,15 @@ test "type generalizing lifts unused typed function-ref local to top funcref" {
   let mod = tg_single_func_module(
     [tg_void_type()],
     TypeIdx::new(0),
-    [tg_funcref_to_type0_nullable()],
+    Locals::from_types([tg_funcref_to_type0_nullable()]),
     TExpr::new([TInstr::nop()]),
   )
   let out = run_type_generalizing(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, [vt], _)])) => assert_eq(vt, ValType::funcref())
+    Some(CodeSec([TFunc(_, locals, _)])) => {
+      assert_eq(locals.length(), 1)
+      assert_eq(locals[0], ValType::funcref())
+    }
     _ => fail("expected one transformed function")
   }
   match validate_module(out) {
@@ -837,15 +837,17 @@ test "type generalizing keeps call_ref target local at typed function reference"
   let mod = tg_single_func_module(
     [tg_void_type()],
     TypeIdx::new(0),
-    [tg_funcref_to_type0_nullable()],
+    Locals::from_types([tg_funcref_to_type0_nullable()]),
     TExpr::new([
       TInstr::call_ref(TypeIdx::new(0), [], TInstr::local_get(LocalIdx::new(0))),
     ]),
   )
   let out = run_type_generalizing(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, [vt], _)])) =>
-      assert_eq(vt, tg_funcref_to_type0_nullable())
+    Some(CodeSec([TFunc(_, locals, _)])) => {
+      assert_eq(locals.length(), 1)
+      assert_eq(locals[0], tg_funcref_to_type0_nullable())
+    }
     _ => fail("expected one transformed function")
   }
 }
@@ -855,7 +857,10 @@ test "type generalizing propagates requirements through local.set chains" {
   let mod = tg_single_func_module(
     [tg_void_type()],
     TypeIdx::new(0),
-    [tg_funcref_to_type0_nullable(), tg_funcref_to_type0_nullable()],
+    Locals::from_types([
+      tg_funcref_to_type0_nullable(),
+      tg_funcref_to_type0_nullable(),
+    ]),
     TExpr::new([
       TInstr::local_set(LocalIdx::new(1), TInstr::local_get(LocalIdx::new(0))),
       TInstr::call_ref(TypeIdx::new(0), [], TInstr::local_get(LocalIdx::new(1))),
@@ -863,9 +868,10 @@ test "type generalizing propagates requirements through local.set chains" {
   )
   let out = run_type_generalizing(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, [vt0, vt1], _)])) => {
-      assert_eq(vt0, tg_funcref_to_type0_nullable())
-      assert_eq(vt1, tg_funcref_to_type0_nullable())
+    Some(CodeSec([TFunc(_, locals, _)])) => {
+      assert_eq(locals.length(), 2)
+      assert_eq(locals[0], tg_funcref_to_type0_nullable())
+      assert_eq(locals[1], tg_funcref_to_type0_nullable())
     }
     _ => fail("expected one transformed function")
   }
@@ -876,14 +882,17 @@ test "type generalizing allows ref.is_null users to generalize to top funcref" {
   let mod = tg_single_func_module(
     [tg_void_type()],
     TypeIdx::new(0),
-    [tg_funcref_to_type0_nullable()],
+    Locals::from_types([tg_funcref_to_type0_nullable()]),
     TExpr::new([
       TInstr::drop(TInstr::ref_is_null(TInstr::local_get(LocalIdx::new(0)))),
     ]),
   )
   let out = run_type_generalizing(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, [vt], _)])) => assert_eq(vt, ValType::funcref())
+    Some(CodeSec([TFunc(_, locals, _)])) => {
+      assert_eq(locals.length(), 1)
+      assert_eq(locals[0], ValType::funcref())
+    }
     _ => fail("expected one transformed function")
   }
 }
@@ -893,7 +902,7 @@ test "type generalizing preserves branch value requirements from block labels" {
   let mod = tg_single_func_module(
     [tg_void_type()],
     TypeIdx::new(0),
-    [tg_funcref_to_type0_nullable()],
+    Locals::from_types([tg_funcref_to_type0_nullable()]),
     TExpr::new([
       TInstr::drop(
         TInstr::block(
@@ -908,8 +917,10 @@ test "type generalizing preserves branch value requirements from block labels" {
   )
   let out = run_type_generalizing(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, [vt], _)])) =>
-      assert_eq(vt, tg_funcref_to_type0_nullable())
+    Some(CodeSec([TFunc(_, locals, _)])) => {
+      assert_eq(locals.length(), 1)
+      assert_eq(locals[0], tg_funcref_to_type0_nullable())
+    }
     _ => fail("expected one transformed function")
   }
 }
@@ -934,7 +945,11 @@ test "type generalizing generalizes concrete struct local when only anyref is re
     .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(2)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([ValType::anyref()], Locals::empty(), TExpr::new([TInstr::nop()])),
+        Func::t_func(
+          [ValType::anyref()],
+          Locals::empty(),
+          TExpr::new([TInstr::nop()]),
+        ),
         Func::t_func(
           [],
           Locals::from_types([ValType::ref_null(HeapType::new(TypeIdx::new(0)))]),
@@ -946,7 +961,10 @@ test "type generalizing generalizes concrete struct local when only anyref is re
     )
   let out = run_type_generalizing(mod)
   match out.code_sec {
-    Some(CodeSec([_, TFunc(_, [vt], _)])) => assert_eq(vt, ValType::anyref())
+    Some(CodeSec([_, TFunc(_, locals, _)])) => {
+      assert_eq(locals.length(), 1)
+      assert_eq(locals[0], ValType::anyref())
+    }
     _ => fail("expected transformed second function")
   }
   match validate_module(out) {

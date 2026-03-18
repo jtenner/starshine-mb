@@ -4,7 +4,7 @@ pub fn IRContext::new() -> Self {
     mod_: None,
     body: TExpr::new([]),
     param_count: 0,
-    locals: [],
+    locals: Locals::empty(),
     type_ctx: None,
     cfg: None,
     ssa: None,
@@ -184,9 +184,7 @@ pub fn IRContext::local_graph_dirty(self : Self) -> Unit {
 
 ///|
 /// Lowers the (possibly GVN-optimized) SSA back to a CFG.
-pub fn IRContext::lower_to_cfg_with_locals(
-  self : Self,
-) -> (Array[ValType], CFG)? {
+pub fn IRContext::lower_to_cfg_with_locals(self : Self) -> (Locals, CFG)? {
   let ssa = self.get_gvn()
   match self.get_types() {
     Some(types) =>
@@ -754,18 +752,11 @@ fn cfg_to_texpr(cfg : CFG) -> TExpr? {
 }
 
 ///|
-fn ir_non_param_locals(
-  all_locals : Array[ValType],
-  param_count : Int,
-) -> Array[ValType] {
+fn ir_non_param_locals(all_locals : Locals, param_count : Int) -> Locals {
   if param_count <= 0 {
     return all_locals.copy()
   }
-  let locals : Array[ValType] = []
-  for i = param_count; i < all_locals.length(); i = i + 1 {
-    locals.push(all_locals[i])
-  }
-  locals
+  all_locals.without_prefix(param_count)
 }
 
 ///|
@@ -773,7 +764,7 @@ fn ir_non_param_locals(
 /// represented by the supported structured CFG subset.
 pub fn IRContext::optimize_body_with_ssa_with_locals(
   self : Self,
-) -> (Array[ValType], TExpr)? {
+) -> (Locals, TExpr)? {
   self.apply_ssa_optimize()
   let ssa = self.get_ssa()
   match self.get_types() {
@@ -811,7 +802,7 @@ pub fn IRContext::optimize_body_with_ssa(self : Self) -> TExpr? {
 pub fn IRContext::optimize_body_with_ssa_trace_with_locals(
   self : Self,
   trace : (String) -> Unit,
-) -> (Array[ValType], TExpr)? {
+) -> (Locals, TExpr)? {
   trace("phase=apply_ssa_optimize:start")
   self.apply_ssa_optimize()
   trace("phase=apply_ssa_optimize:done")
@@ -879,7 +870,7 @@ pub fn IRContext::validate(self : Self) -> Result[Unit, String] {
 ///|
 pub fn IRContext::set_locals(
   self : Self,
-  locals : Array[ValType],
+  locals : Locals,
   param_count? : Int = 0,
 ) -> Unit {
   self.locals = locals
@@ -909,10 +900,7 @@ fn resolve_func_type(comp_types : Array[CompType], idx : TypeIdx) -> FuncType {
 }
 
 ///|
-pub fn TypeContext::from_module(
-  mod_ : Module,
-  locals : Array[ValType],
-) -> TypeContext {
+pub fn TypeContext::from_module(mod_ : Module, locals : Locals) -> TypeContext {
   // 1. Flatten type section into CompTypes indexed by type index
   let comp_types : Array[CompType] = []
   match mod_.type_sec {

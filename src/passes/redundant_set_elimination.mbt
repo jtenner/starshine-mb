@@ -765,10 +765,7 @@ fn rse_optimize_function(
 ) -> (Func, Bool) {
   match func {
     TFunc(params, locals, body) => {
-      let all_locals = param_types.copy()
-      for local_ in locals {
-        all_locals.push(local_)
-      }
+      let all_locals = FunctionLocals::new(param_types, locals).all_locals()
       if all_locals.is_empty() {
         return (func, false)
       }
@@ -1182,12 +1179,12 @@ test "redundant_set_elimination refines local.get to more specific local" {
       CodeSec::new([
         Func::t_func(
           [],
-          [
+          Locals::from_types([
             ValType::funcref(),
             ValType::ref_type(
               RefType::new(true, HeapType::abs(AbsHeapType::no_func())),
             ),
-          ],
+          ]),
           TExpr::new([
             TInstr::local_set(
               LocalIdx::new(0),

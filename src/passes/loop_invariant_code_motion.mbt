@@ -749,7 +749,10 @@ test "licm hoists basic none-typed local.set from loop entrance" {
       ]),
     ),
   ])
-  let mod = licm_single_func_mod([ValType::i32(), ValType::i32()], body)
+  let mod = licm_single_func_mod(
+    Locals::from_types([ValType::i32(), ValType::i32()]),
+    body,
+  )
   let optimized = licm_optimize(mod)
   match optimized.code_sec {
     Some(
@@ -818,7 +821,7 @@ test "licm stops scanning after control-transfer instruction" {
     ),
   ])
   let mod = licm_single_func_mod(
-    [ValType::i32(), ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32()]),
     body,
   )
   let optimized = licm_optimize(mod)
@@ -884,7 +887,10 @@ test "licm does not hoist when get depends on loop local.set" {
       ]),
     ),
   ])
-  let mod = licm_single_func_mod([ValType::i32(), ValType::i32()], body)
+  let mod = licm_single_func_mod(
+    Locals::from_types([ValType::i32(), ValType::i32()]),
+    body,
+  )
   let optimized = licm_optimize(mod)
   assert_eq(optimized, mod)
 }
@@ -899,7 +905,7 @@ test "licm does not hoist global-state writers" {
       ]),
     ),
   ])
-  let mod = licm_single_func_mod([], body)
+  let mod = licm_single_func_mod(Locals::empty(), body)
   let optimized = licm_optimize(mod)
   assert_eq(optimized, mod)
 }
@@ -924,7 +930,7 @@ test "licm respects effectsSoFar invalidation" {
       ]),
     ),
   ])
-  let mod = licm_single_func_mod([ValType::i32()], body)
+  let mod = licm_single_func_mod(Locals::from_types([ValType::i32()]), body)
   let optimized = licm_optimize(mod)
   assert_eq(optimized, mod)
 }
@@ -949,7 +955,7 @@ test "licm blocks read-hoist when loop writes mutable global state" {
       ]),
     ),
   ])
-  let mod = licm_single_func_mod([ValType::i32()], body)
+  let mod = licm_single_func_mod(Locals::from_types([ValType::i32()]), body)
   let optimized = licm_optimize(mod)
   assert_eq(optimized, mod)
 }
@@ -972,7 +978,10 @@ test "licm local-set interference blocks hoisting when same index has other sets
       ]),
     ),
   ])
-  let mod = licm_single_func_mod([ValType::i32(), ValType::i32()], body)
+  let mod = licm_single_func_mod(
+    Locals::from_types([ValType::i32(), ValType::i32()]),
+    body,
+  )
   let optimized = licm_optimize(mod)
   assert_eq(optimized, mod)
 }
@@ -992,7 +1001,12 @@ test "licm rejects local.set copy and const-chain patterns" {
     ),
   ])
   let mod = licm_single_func_mod(
-    [ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()],
+    Locals::from_types([
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i32(),
+    ]),
     body,
   )
   let optimized = licm_optimize(mod)
@@ -1017,7 +1031,7 @@ test "licm hoists nested-loop invariant outward in one run" {
   )
   let outer = TInstr::loop_(BlockType::void_(), TExpr::new([inner]))
   let mod = licm_single_func_mod(
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     TExpr::new([outer]),
   )
   let optimized = licm_optimize(mod)
@@ -1069,7 +1083,10 @@ test "licm is conservative when loop may throw" {
       ]),
     ),
   ])
-  let mod = licm_single_func_mod([ValType::i32(), ValType::i32()], body)
+  let mod = licm_single_func_mod(
+    Locals::from_types([ValType::i32(), ValType::i32()]),
+    body,
+  )
   let optimized = licm_optimize(mod)
   assert_eq(optimized, mod)
 }
@@ -1097,7 +1114,10 @@ test "licm handles nested blocks/unreachable without crashing" {
       ]),
     ),
   ])
-  let mod = licm_single_func_mod([ValType::i32(), ValType::i32()], body)
+  let mod = licm_single_func_mod(
+    Locals::from_types([ValType::i32(), ValType::i32()]),
+    body,
+  )
   let optimized = licm_optimize(mod)
   match optimized.code_sec {
     Some(CodeSec(_)) => ()
@@ -1122,7 +1142,10 @@ test "licm is idempotent on second run" {
       ]),
     ),
   ])
-  let mod = licm_single_func_mod([ValType::i32(), ValType::i32()], body)
+  let mod = licm_single_func_mod(
+    Locals::from_types([ValType::i32(), ValType::i32()]),
+    body,
+  )
   let once = licm_optimize(mod)
   let twice = licm_optimize(once)
   assert_eq(once, twice)

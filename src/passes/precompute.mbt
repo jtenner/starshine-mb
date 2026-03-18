@@ -2431,7 +2431,7 @@ fn pc_top_level_result_types(
 ///|
 fn pc_single_func_module(
   body : Array[TInstr],
-  locals? : Array[ValType] = [],
+  locals? : Locals = Locals::empty(),
   base_mod? : Module = Module::new(),
 ) -> Module {
   let results = pc_top_level_result_types(body, locals, base_mod)
@@ -2720,7 +2720,7 @@ test "precompute propagate skips tiny function under strict gating" {
         TInstr::i32_const(I32(1)),
       ),
     ],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   let out = pc_run_module(mod, propagate=true).unwrap()
   match out.code_sec {
@@ -2782,7 +2782,7 @@ test "precompute propagate skips chained tiny function under strict gating" {
         TInstr::i32_const(I32(1)),
       ),
     ],
-    locals=[ValType::i32(), ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32()]),
   )
   let out = pc_run_module(mod, propagate=true).unwrap()
   match out.code_sec {
@@ -2831,7 +2831,7 @@ test "precompute propagate is conservative on conflicting if-merge sets" {
       ),
       TInstr::local_get(x),
     ],
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
   )
   let out = pc_run_module(mod, propagate=true).unwrap()
   match out.code_sec {
@@ -2871,7 +2871,7 @@ test "precompute unary over select arms remains unchanged without propagation" {
         ),
       ),
     ],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   let out = pc_run_module(mod).unwrap()
   match out.code_sec {
@@ -2926,7 +2926,7 @@ test "precompute binary over select arms remains unchanged without propagation" 
         TInstr::i32_const(I32(8)),
       ),
     ],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   let out = pc_run_module(mod).unwrap()
   match out.code_sec {
@@ -2975,7 +2975,7 @@ test "precompute partial precompute keeps non-constant sibling case unchanged" {
         TInstr::local_get(rhs),
       ),
     ],
-    locals=[ValType::i32(), ValType::i32()],
+    locals=Locals::from_types([ValType::i32(), ValType::i32()]),
   )
   let out = pc_run_module(mod).unwrap()
   match out.code_sec {
@@ -3018,7 +3018,7 @@ test "precompute pass is idempotent in propagate mode" {
         TInstr::i32_const(I32(2)),
       ),
     ],
-    locals=[ValType::i32()],
+    locals=Locals::from_types([ValType::i32()]),
   )
   let once = pc_run_module(mod, propagate=true).unwrap()
   let twice = pc_run_module(once, propagate=true).unwrap()

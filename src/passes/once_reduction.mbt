@@ -316,7 +316,7 @@ fn or_build_func_env(
     Some(FuncType(ps, _)) => ps
     None => []
   }
-  let locals = params.copy()
+  let locals = Locals::from_types(params.copy())
   for t in extra_locals {
     locals.push(t)
   }
@@ -1424,7 +1424,11 @@ test "once_reduction propagates once summaries to fixed point" {
             TInstr::call(FuncIdx::new(2), []),
           ]),
         ),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(2), [])])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(2), [])]),
+        ),
         Func::t_func([], Locals::empty(), or_once_body(0, 1, [TInstr::nop()])),
       ]),
     )
@@ -1598,7 +1602,9 @@ test "once_reduction cleanup removes no-payload boilerplate" {
     .with_type_sec(TypeSec::new([or_type([], [])]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_global_sec(GlobalSec::new([or_i32_global(0, true)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), or_once_body(0, 1, []))]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], Locals::empty(), or_once_body(0, 1, []))]),
+    )
   let out = or_run(mod)
   match out.code_sec {
     Some(

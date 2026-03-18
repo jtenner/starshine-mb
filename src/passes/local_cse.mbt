@@ -2052,7 +2052,7 @@ fn lcs_applier_finalize_node(
             )
             applier.locals.push(vt)
             applier.env = applier.env.with_locals(
-              applier.param_types + applier.locals,
+              FunctionLocals::new(applier.param_types, applier.locals).all_locals(),
             )
             applier.original_to_local[id] = local_idx
             out = TInstr::local_tee(local_idx, out)
@@ -2174,7 +2174,7 @@ fn run_local_cse_on_func(
   body : TExpr,
   shrink_level : Int,
   helper_timing_enabled? : Bool = false,
-) -> (Array[ValType], TExpr, Bool) {
+) -> (Locals, TExpr, Bool) {
   let scanner = Scanner::new(env, shrink_level)
   let scan_start_us = if helper_timing_enabled {
     local_cse_trace_now_us()

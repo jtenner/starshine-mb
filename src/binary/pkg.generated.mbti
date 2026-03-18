@@ -179,6 +179,7 @@ pub impl Decode for @lib.LabelIdx
 pub impl Decode for @lib.LaneIdx
 pub impl Decode for @lib.Limits
 pub impl Decode for @lib.LocalIdx
+pub impl Decode for @lib.LocalRun
 pub impl Decode for @lib.Locals
 pub impl Decode for @lib.MemArg
 pub impl Decode for @lib.MemIdx
@@ -255,6 +256,7 @@ pub impl Encode for @lib.LabelIdx
 pub impl Encode for @lib.LaneIdx
 pub impl Encode for @lib.Limits
 pub impl Encode for @lib.LocalIdx
+pub impl Encode for @lib.LocalRun
 pub impl Encode for @lib.Locals
 pub impl Encode for @lib.MemArg
 pub impl Encode for @lib.MemIdx

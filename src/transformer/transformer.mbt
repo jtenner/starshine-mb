@@ -952,11 +952,7 @@ pub fn[T, Err] ModuleTransformer::on_func_evt(
 ///|
 pub fn[T, Err] ModuleTransformer::on_locals_evt(
   self : ModuleTransformer[T, Err],
-  evt : (ModuleTransformer[T, Err], T, Locals) -> VisitAction[
-    T,
-    Locals,
-    Err,
-  ],
+  evt : (ModuleTransformer[T, Err], T, Locals) -> VisitAction[T, Locals, Err],
 ) -> ModuleTransformer[T, Err] {
   ModuleTransformer::{ ..self, on_locals: Some(evt) }
 }
@@ -4825,12 +4821,11 @@ fn[T, Err] ModuleTransformer::walk_opt_func_default(
         Ok(Some((t, params))) => (t, params)
         Err(t) => return Err(t)
       }
-      let (t, locals) = match
-        self.walk_opt_locals(t, locals) {
-          Ok(None) => (t, locals)
-          Ok(Some((t, locals))) => (t, locals)
-          Err(t) => return Err(t)
-        }
+      let (t, locals) = match self.walk_opt_locals(t, locals) {
+        Ok(None) => (t, locals)
+        Ok(Some((t, locals))) => (t, locals)
+        Err(t) => return Err(t)
+      }
       let (t, tbody) = match self.walk_opt_texpr(t, tbody) {
         Ok(None) => (t, tbody)
         Ok(Some(t)) => t
@@ -4866,7 +4861,8 @@ fn[T, Err] ModuleTransformer::walk_opt_locals_default(
   t : T,
   ls : Locals,
 ) -> TransformerOptResult[T, Locals, Err] {
-  match self.walk_opt_array(t, ModuleTransformer::walk_opt_local_run, ls.runs()) {
+  match
+    self.walk_opt_array(t, ModuleTransformer::walk_opt_local_run, ls.runs()) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
     Ok(Some((t, runs))) => Ok(Some((t, Locals::new(runs))))

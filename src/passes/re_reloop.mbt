@@ -510,7 +510,7 @@ fn rr_fixture_try_table_module() -> Module {
         [],
         Locals::empty(),
         TExpr::new([
-          TInstr::try_table(BlockType::void_(), Locals::empty(), TExpr::new([TInstr::nop()])),
+          TInstr::try_table(BlockType::void_(), [], TExpr::new([TInstr::nop()])),
         ]),
       ),
     ]),

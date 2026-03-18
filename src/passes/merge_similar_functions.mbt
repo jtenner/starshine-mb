@@ -3637,8 +3637,16 @@ priv struct MSFFixedCorpusMetrics {
 ///|
 fn msf_fixed_corpus_const_merge_mod() -> Module {
   let t = msf_i32_func_type()
-  let f0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(42, 10))
-  let f1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(43, 10))
+  let f0 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(42, 10),
+  )
+  let f1 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(43, 10),
+  )
   Module::new()
   .with_type_sec(TypeSec::new([t]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -3714,10 +3722,26 @@ fn msf_fixed_corpus_typed_ref_skip_mod() -> Module {
 ///|
 fn msf_fixed_corpus_multi_class_mod() -> Module {
   let t = msf_i32_func_type()
-  let a0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(10, 1))
-  let a1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(11, 1))
-  let b0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(20, 2))
-  let b1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(21, 2))
+  let a0 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(10, 1),
+  )
+  let a1 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(11, 1),
+  )
+  let b0 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(20, 2),
+  )
+  let b1 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(21, 2),
+  )
   Module::new()
   .with_type_sec(TypeSec::new([t]))
   .with_func_sec(
@@ -3910,7 +3934,11 @@ test "merge similar functions preflight rejects upstream-invalid call_ref arity"
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_sig, t_wrap]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], Locals::from_types([ValType::i32()]), body)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], Locals::from_types([ValType::i32()]), body),
+      ]),
+    )
   match merge_similar_functions(mod) {
     Ok(_) => fail("expected preflight to reject upstream-invalid call_ref")
     Err(e) => {
@@ -3937,7 +3965,11 @@ test "merge similar functions preflight rejects upstream-invalid call_indirect a
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_sig, t_wrap]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], Locals::from_types([ValType::i32()]), body)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], Locals::from_types([ValType::i32()]), body),
+      ]),
+    )
   match merge_similar_functions(mod) {
     Ok(_) => fail("expected preflight to reject upstream-invalid call_indirect")
     Err(e) => {
@@ -3991,8 +4023,16 @@ test "merge similar functions preflight accepts multi-value direct call producer
 ///|
 test "merge similar functions basic const merging creates shared + thunks" {
   let t = msf_i32_func_type()
-  let f0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(42, 10))
-  let f1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(43, 10))
+  let f0 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(42, 10),
+  )
+  let f1 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(43, 10),
+  )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -4120,8 +4160,16 @@ test "merge similar functions reuses parameter across repeated diff vector" {
 ///|
 test "merge similar functions creates multiple params for independent differences" {
   let t = msf_i32_func_type()
-  let f0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(10, 20))
-  let f1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(11, 21))
+  let f0 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(10, 20),
+  )
+  let f1 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(11, 21),
+  )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -4416,7 +4464,11 @@ test "merge similar functions rewrite validation errors include function diff du
   let f0_body = TExpr::new([
     TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
   ])
-  let f0 = Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), f0_body)
+  let f0 = Func::t_func(
+    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
+    f0_body,
+  )
   let f1 = Func::t_func(
     [ValType::i32()],
     Locals::from_types([ValType::i32()]),
@@ -4530,7 +4582,7 @@ test "merge similar functions rewrites call target params with unchanged ancesto
           ),
         ),
         FuncType::new([ValType::i32()], [ValType::i32()]),
-        [],
+        Locals::empty(),
       ),
       [TypeIdx::new(0), TypeIdx::new(0)],
     ) {
@@ -4635,7 +4687,7 @@ test "merge similar functions validates call-target arity by callee type idx" {
           ),
         ),
         FuncType::new([ValType::i32()], [ValType::i32()]),
-        [],
+        Locals::empty(),
       ),
       [TypeIdx::new(1), TypeIdx::new(0)],
     ) {
@@ -4753,7 +4805,7 @@ test "merge similar functions reports callee type mismatch details" {
           ),
         ),
         FuncType::new([ValType::i32()], [ValType::i32()]),
-        [],
+        Locals::empty(),
       ),
       [TypeIdx::new(0), TypeIdx::new(1)],
     ) {
@@ -4804,9 +4856,21 @@ test "merge similar functions dense node lookup preserves sparse param uses" {
 test "merge similar functions bucket build avoids copy growth and keeps order" {
   let t = msf_i32_func_type()
   let funcs = [
-    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(3, 9)),
-    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(5, 9)),
-    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(7, 9)),
+    Func::t_func(
+      [ValType::i32()],
+      Locals::from_types([ValType::i32()]),
+      msf_binary_body(3, 9),
+    ),
+    Func::t_func(
+      [ValType::i32()],
+      Locals::from_types([ValType::i32()]),
+      msf_binary_body(5, 9),
+    ),
+    Func::t_func(
+      [ValType::i32()],
+      Locals::from_types([ValType::i32()]),
+      msf_binary_body(7, 9),
+    ),
   ]
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
@@ -4963,10 +5027,26 @@ test "merge similar functions call-site ids reuse ordered site numbering" {
 test "merge similar functions analysis cache reuses per-function artifacts" {
   let t = msf_i32_func_type()
   let funcs = [
-    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(3, 9)),
-    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(5, 9)),
-    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(7, 9)),
-    Func::t_func([ValType::i32()], Locals::from_types([ValType::i32()]), msf_binary_body(11, 9)),
+    Func::t_func(
+      [ValType::i32()],
+      Locals::from_types([ValType::i32()]),
+      msf_binary_body(3, 9),
+    ),
+    Func::t_func(
+      [ValType::i32()],
+      Locals::from_types([ValType::i32()]),
+      msf_binary_body(5, 9),
+    ),
+    Func::t_func(
+      [ValType::i32()],
+      Locals::from_types([ValType::i32()]),
+      msf_binary_body(7, 9),
+    ),
+    Func::t_func(
+      [ValType::i32()],
+      Locals::from_types([ValType::i32()]),
+      msf_binary_body(11, 9),
+    ),
   ]
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
@@ -5363,7 +5443,11 @@ test "merge similar functions rejects call target type mismatch" {
   let t_i32 = msf_make_func_type([], [ValType::i32()])
   let t_i64 = msf_make_func_type([], [ValType::i64()])
   let t_void = msf_void_func_type()
-  let callee_i32 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(1))]))
+  let callee_i32 = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::i32_const(I32(1))]),
+  )
   let callee_i64 = Func::t_func(
     [],
     Locals::empty(),
@@ -5420,8 +5504,16 @@ test "merge similar functions rejects locals mismatch" {
 ///|
 test "merge similar functions profitability gate keeps tiny but merges larger" {
   let t = msf_void_func_type()
-  let tiny0 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(1))]))
-  let tiny1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(2))]))
+  let tiny0 = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::i32_const(I32(1))]),
+  )
+  let tiny1 = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::i32_const(I32(2))]),
+  )
   let mod_tiny = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -5432,8 +5524,16 @@ test "merge similar functions profitability gate keeps tiny but merges larger" {
     _ => fail("expected code section")
   }
   let t2 = msf_i32_func_type()
-  let big0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(100, 7))
-  let big1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(101, 7))
+  let big0 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(100, 7),
+  )
+  let big1 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(101, 7),
+  )
   let mod_big = Module::new()
     .with_type_sec(TypeSec::new([t2]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -5748,10 +5848,26 @@ test "merge similar functions traces synthetic param limit skip" {
 ///|
 test "merge similar functions is deterministic with multiple classes" {
   let t = msf_i32_func_type()
-  let a0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(10, 1))
-  let a1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(11, 1))
-  let b0 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(20, 2))
-  let b1 = Func::t_func([ValType::i32()], Locals::empty(), msf_binary_body(21, 2))
+  let a0 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(10, 1),
+  )
+  let a1 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(11, 1),
+  )
+  let b0 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(20, 2),
+  )
+  let b1 = Func::t_func(
+    [ValType::i32()],
+    Locals::empty(),
+    msf_binary_body(21, 2),
+  )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t]))
     .with_func_sec(

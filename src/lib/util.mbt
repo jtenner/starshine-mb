@@ -12,9 +12,8 @@ fn locals_normalize_runs(runs : Array[LocalRun]) -> Array[LocalRun] {
       continue
     }
     match out.last() {
-      Some(last) if last.vt == vt => {
+      Some(last) if last.vt == vt =>
         out[out.length() - 1] = { count: last.count + count, vt }
-      }
       _ => out.push({ count, vt })
     }
   }
@@ -161,7 +160,7 @@ pub fn Locals::iter(self : Locals) -> Iter[ValType] {
   let runs = self.runs.copy()
   let mut run_idx = 0
   let mut remaining = 0
-  let mut current : Option[ValType] = None
+  let mut current : ValType? = None
   Iter::new(fn() {
     while remaining == 0 {
       if run_idx >= runs.length() {
@@ -183,12 +182,11 @@ pub fn Locals::push_run(self : Locals, run : LocalRun) -> Unit {
     return
   }
   match self.runs.last() {
-    Some(last) if last.vt == run.vt => {
+    Some(last) if last.vt == run.vt =>
       self.runs[self.runs.length() - 1] = {
         count: last.count + run.count,
         vt: last.vt,
       }
-    }
     _ => self.runs.push(run)
   }
   self.invalidate_indices()
@@ -227,10 +225,7 @@ pub fn Locals::without_prefix(self : Locals, count : Int) -> Locals {
       continue
     }
     if remaining > 0 {
-      out.push({
-        count: (len - remaining).reinterpret_as_uint(),
-        vt: run.vt,
-      })
+      out.push({ count: (len - remaining).reinterpret_as_uint(), vt: run.vt })
       remaining = 0
     } else {
       out.push(run)
@@ -286,7 +281,7 @@ pub fn Locals::set_run_count(
   if run_idx < 0 || run_idx >= self.runs.length() {
     return false
   }
-  self.runs[run_idx] = { ..self.runs[run_idx], count }
+  self.runs[run_idx] = { ..self.runs[run_idx], count, }
   self.runs = locals_normalize_runs(self.runs)
   self.invalidate_indices()
   true

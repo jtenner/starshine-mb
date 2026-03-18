@@ -173,10 +173,10 @@ pub fn SSACFG::split_critical_edges(self : SSACFG) -> SSACFG {
 /// Convert SSA back to CFG with explicit locals and return any synthesized locals.
 pub fn SSACFG::to_cfg_with_locals(
   self : SSACFG,
-  original_locals : Array[ValType],
+  original_locals : Locals,
   param_count : Int,
   types : SSATypeInfo,
-) -> (Array[ValType], CFG) {
+) -> (Locals, CFG) {
   ignore(param_count)
   let destructor = SSADestructor::new(original_locals.length())
   let blocks : Map[BlockId, BasicBlock] = Map::new()

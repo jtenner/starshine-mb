@@ -5201,7 +5201,7 @@ pub fn ir__IRContext__lower_to_cfg(arg0 : @ir.IRContext) -> @ir.CFG {
 ///|
 pub fn ir__IRContext__lower_to_cfg_with_locals(
   arg0 : @ir.IRContext,
-) -> (Array[@lib.ValType], @ir.CFG)? {
+) -> (@lib.Locals, @ir.CFG)? {
   @ir.IRContext::lower_to_cfg_with_locals(arg0)
 }
 
@@ -5220,7 +5220,7 @@ pub fn ir__IRContext__optimize_body_with_ssa(
 ///|
 pub fn ir__IRContext__optimize_body_with_ssa_with_locals(
   arg0 : @ir.IRContext,
-) -> (Array[@lib.ValType], @lib.TExpr)? {
+) -> (@lib.Locals, @lib.TExpr)? {
   @ir.IRContext::optimize_body_with_ssa_with_locals(arg0)
 }
 
@@ -5232,7 +5232,7 @@ pub fn ir__IRContext__set_body(arg0 : @ir.IRContext, arg1 : @lib.TExpr) -> Unit 
 ///|
 pub fn ir__IRContext__set_locals__arity_2(
   arg0 : @ir.IRContext,
-  arg1 : Array[@lib.ValType],
+  arg1 : @lib.Locals,
 ) -> Unit {
   @ir.IRContext::set_locals(arg0, arg1)
 }
@@ -5240,7 +5240,7 @@ pub fn ir__IRContext__set_locals__arity_2(
 ///|
 pub fn ir__IRContext__set_locals(
   arg0 : @ir.IRContext,
-  arg1 : Array[@lib.ValType],
+  arg1 : @lib.Locals,
   arg2 : Int,
 ) -> Unit {
   @ir.IRContext::set_locals(arg0, arg1, param_count=arg2)
@@ -5346,10 +5346,10 @@ pub fn ir__SSACFG__to_cfg(arg0 : @ir.SSACFG, arg1 : Int) -> @ir.CFG {
 ///|
 pub fn ir__SSACFG__to_cfg_with_locals(
   arg0 : @ir.SSACFG,
-  arg1 : Array[@lib.ValType],
+  arg1 : @lib.Locals,
   arg2 : Int,
   arg3 : @ir.SSATypeInfo,
-) -> (Array[@lib.ValType], @ir.CFG) {
+) -> (@lib.Locals, @ir.CFG) {
   @ir.SSACFG::to_cfg_with_locals(arg0, arg1, arg2, arg3)
 }
 
@@ -5374,7 +5374,7 @@ pub fn ir__TypeContext__empty() -> @ir.TypeContext {
 ///|
 pub fn ir__TypeContext__from_module(
   arg0 : @lib.Module,
-  arg1 : Array[@lib.ValType],
+  arg1 : @lib.Locals,
 ) -> @ir.TypeContext {
   @ir.TypeContext::from_module(arg0, arg1)
 }
@@ -5419,13 +5419,6 @@ pub fn lib__array_comp_type(arg0 : @lib.FieldType) -> @lib.CompType {
 ///|
 pub fn lib__comp_type_sub_type(arg0 : @lib.CompType) -> @lib.SubType {
   @lib.comp_type_sub_type(arg0)
-}
-
-///|
-pub fn lib__expand_locals(
-  arg0 : Array[@lib.Locals],
-) -> Result[Array[@lib.ValType], String] {
-  @lib.expand_locals(arg0)
 }
 
 ///|
@@ -5574,11 +5567,6 @@ pub fn lib__tag_extern_type(arg0 : @lib.TagType) -> @lib.ExternType {
 ///|
 pub fn lib__tag_type(arg0 : @lib.TypeIdx) -> @lib.TagType {
   @lib.tag_type(arg0)
-}
-
-///|
-pub fn lib__tlocals_to_locals(arg0 : Array[@lib.ValType]) -> Array[@lib.Locals] {
-  @lib.tlocals_to_locals(arg0)
 }
 
 ///|
@@ -7259,14 +7247,14 @@ pub fn lib__FieldType__unpack(arg0 : @lib.FieldType) -> @lib.ValType {
 }
 
 ///|
-pub fn lib__Func__new(arg0 : Array[@lib.Locals], arg1 : @lib.Expr) -> @lib.Func {
+pub fn lib__Func__new(arg0 : @lib.Locals, arg1 : @lib.Expr) -> @lib.Func {
   @lib.Func::new(arg0, arg1)
 }
 
 ///|
 pub fn lib__Func__t_func(
   arg0 : Array[@lib.ValType],
-  arg1 : Array[@lib.ValType],
+  arg1 : @lib.Locals,
   arg2 : @lib.TExpr,
 ) -> @lib.Func {
   @lib.Func::t_func(arg0, arg1, arg2)
@@ -7303,21 +7291,21 @@ pub fn lib__FuncType__new(
 ///|
 pub fn lib__FunctionLocals__all_locals(
   arg0 : @lib.FunctionLocals,
-) -> Array[@lib.ValType] {
+) -> @lib.Locals {
   @lib.FunctionLocals::all_locals(arg0)
 }
 
 ///|
 pub fn lib__FunctionLocals__body_locals(
   arg0 : @lib.FunctionLocals,
-) -> Array[@lib.ValType] {
+) -> @lib.Locals {
   @lib.FunctionLocals::body_locals(arg0)
 }
 
 ///|
 pub fn lib__FunctionLocals__from_local_decls(
   arg0 : Array[@lib.ValType],
-  arg1 : Array[@lib.Locals],
+  arg1 : @lib.Locals,
 ) -> Result[@lib.FunctionLocals, String] {
   @lib.FunctionLocals::from_local_decls(arg0, arg1)
 }
@@ -7326,7 +7314,7 @@ pub fn lib__FunctionLocals__from_local_decls(
 pub fn lib__FunctionLocals__from_typed_func(
   arg0 : Array[@lib.ValType],
   arg1 : Array[@lib.ValType],
-  arg2 : Array[@lib.ValType],
+  arg2 : @lib.Locals,
 ) -> Result[@lib.FunctionLocals, String] {
   @lib.FunctionLocals::from_typed_func(arg0, arg1, arg2)
 }
@@ -7335,7 +7323,7 @@ pub fn lib__FunctionLocals__from_typed_func(
 pub fn lib__FunctionLocals__from_typed_func_for_pass(
   arg0 : Array[@lib.ValType],
   arg1 : Array[@lib.ValType],
-  arg2 : Array[@lib.ValType],
+  arg2 : @lib.Locals,
 ) -> Result[@lib.FunctionLocals, String] {
   @lib.FunctionLocals::from_typed_func_for_pass(arg0, arg1, arg2)
 }
@@ -7351,7 +7339,7 @@ pub fn lib__FunctionLocals__local_type(
 ///|
 pub fn lib__FunctionLocals__new(
   arg0 : Array[@lib.ValType],
-  arg1 : Array[@lib.ValType],
+  arg1 : @lib.Locals,
 ) -> @lib.FunctionLocals {
   @lib.FunctionLocals::new(arg0, arg1)
 }
@@ -10532,8 +10520,8 @@ pub fn lib__LocalIdx__new(arg0 : UInt) -> @lib.LocalIdx {
 }
 
 ///|
-pub fn lib__Locals__new(arg0 : UInt, arg1 : @lib.ValType) -> @lib.Locals {
-  @lib.Locals::new(arg0, arg1)
+pub fn lib__Locals__new(arg0 : Array[@lib.LocalRun]) -> @lib.Locals {
+  @lib.Locals::new(arg0)
 }
 
 ///|
@@ -14078,7 +14066,7 @@ pub fn validate__Env__with_labels(
 ///|
 pub fn validate__Env__with_locals(
   arg0 : @validate.Env,
-  arg1 : Array[@lib.ValType],
+  arg1 : @lib.Locals,
 ) -> @validate.Env {
   @validate.Env::with_locals(arg0, arg1)
 }

@@ -343,7 +343,11 @@ fn run_hoist(f : Func) -> Func raise {
 
 ///|
 test "const hoisting: single use does nothing" {
-  let f = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))]))
+  let f = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::i32_const(I32(7))]),
+  )
   let f2 = run_hoist(f)
   match f2 {
     TFunc(_, locals, { instrs, .. }) => {

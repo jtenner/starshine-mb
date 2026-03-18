@@ -3137,7 +3137,7 @@ test "flatten: block result produced by br value remains valid" {
   let mod = fl_mk_valid_one_func_module(
     [], // params
     [], // results
-    [], // locals
+    Locals::empty(), // locals
     TExpr::new([
       TInstr::drop(
         TInstr::block(
@@ -3166,7 +3166,7 @@ test "flatten: nested block br value remains valid" {
   let mod = fl_mk_valid_one_func_module(
     [],
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(
         TInstr::block(
@@ -3200,7 +3200,7 @@ test "flatten: idempotent on atomic local.get" {
   let mod = fl_mk_valid_one_func_module(
     [ValType::i32()], // params
     [], // results
-    [], // locals
+    Locals::empty(), // locals
     TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(0)))]),
   )
 
@@ -3219,7 +3219,7 @@ test "flatten: direct local.get branch value does not allocate temp local" {
   let mod = fl_mk_valid_one_func_module(
     [ValType::i32()],
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::br(LabelIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
       TInstr::i32_const(I32(0)),
@@ -3263,7 +3263,7 @@ test "flatten: direct local.tee branch value does not allocate temp local" {
   let mod = fl_mk_valid_one_func_module(
     [ValType::i32()],
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::br(LabelIdx::new(0), [
         TInstr::local_tee(LocalIdx::new(0), TInstr::local_get(LocalIdx::new(0))),
@@ -3309,7 +3309,7 @@ test "flatten: direct computed branch value does not allocate temp local" {
   let mod = fl_mk_valid_one_func_module(
     [ValType::i32()],
     [ValType::i32()],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::br(LabelIdx::new(0), [
         TInstr::binary(
@@ -3359,7 +3359,7 @@ test "flatten: result block with br inside if remains valid" {
   let mod = fl_mk_valid_one_func_module(
     [ValType::i32()], // params
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(
         TInstr::block(
@@ -3395,7 +3395,7 @@ test "flatten: dropped br_if targeting result block remains valid" {
   let mod = fl_mk_valid_one_func_module(
     [ValType::i32()],
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(
         TInstr::block(
@@ -3476,7 +3476,7 @@ test "flatten: br_table value targeting result block remains valid" {
   let mod = fl_mk_valid_one_func_module(
     [],
     [],
-    [],
+    Locals::empty(),
     TExpr::new([
       TInstr::drop(
         TInstr::block(

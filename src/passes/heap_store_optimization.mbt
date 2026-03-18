@@ -786,7 +786,7 @@ test "heap store optimization rewrites nested tee+struct.set" {
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::struct_set(
         TypeIdx::new(0),
@@ -858,7 +858,7 @@ test "heap store optimization folds following struct.set in block list" {
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -926,7 +926,7 @@ test "heap store optimization folds multiple struct.sets after local.set" {
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1004,7 +1004,7 @@ test "heap store optimization can swap down local.set of struct.new" {
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1044,7 +1044,7 @@ test "heap store optimization does not swap when effects conflict" {
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1084,7 +1084,7 @@ test "heap store optimization rejects set value that reads ref local" {
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1166,7 +1166,7 @@ test "heap store optimization keeps old operand effects via drop sequence" {
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1244,7 +1244,7 @@ test "heap store optimization folds into struct.new_default" {
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1312,7 +1312,7 @@ test "heap store optimization avoids branchy set value when local may be read la
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1352,7 +1352,7 @@ test "heap store optimization can skip local.set when later gets read only overw
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1403,7 +1403,7 @@ test "heap store optimization rejects call set value due struct.new invalidation
   )
   let root = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1417,7 +1417,11 @@ test "heap store optimization rejects call set value due struct.new invalidation
       ),
     ]),
   )
-  let callee = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::i32_const(I32(7))]),
+  )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_i32, t_void, struct_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(0)]))
@@ -1448,7 +1452,7 @@ test "heap store optimization rejects global side effects in set value due inval
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1503,7 +1507,7 @@ test "heap store optimization rejects atomic.rmw set value due invalidation" {
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1548,7 +1552,7 @@ test "heap store optimization rejects atomic.cmpxchg set value due invalidation"
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1594,7 +1598,7 @@ test "heap store optimization rejects memory.atomic.wait32 set value due invalid
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1638,7 +1642,7 @@ test "heap store optimization rejects fence-valued block due synchronization eff
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),
@@ -1681,7 +1685,7 @@ test "heap store optimization does not swap struct.new past atomic notify" {
   )
   let func = Func::t_func(
     [],
-    [ref_local],
+    Locals::from_types([ref_local]),
     TExpr::new([
       TInstr::local_set(
         LocalIdx::new(0),

@@ -72,7 +72,7 @@ pub struct ModuleTransformer[T, Err] {
   on_global : ((ModuleTransformer[T, Err], T, @lib.Global) -> VisitAction[T, @lib.Global, Err])?
   on_globaltype : ((ModuleTransformer[T, Err], T, @lib.GlobalType) -> VisitAction[T, @lib.GlobalType, Err])?
   on_func : ((ModuleTransformer[T, Err], T, @lib.Func) -> VisitAction[T, @lib.Func, Err])?
-  on_locals : ((ModuleTransformer[T, Err], T, Array[@lib.Locals]) -> VisitAction[T, Array[@lib.Locals], Err])?
+  on_locals : ((ModuleTransformer[T, Err], T, @lib.Locals) -> VisitAction[T, @lib.Locals, Err])?
   on_externidx : ((ModuleTransformer[T, Err], T, @lib.ExternIdx) -> VisitAction[T, @lib.ExternIdx, Err])?
   on_fieldtype : ((ModuleTransformer[T, Err], T, @lib.FieldType) -> VisitAction[T, @lib.FieldType, Err])?
   on_storagetype : ((ModuleTransformer[T, Err], T, @lib.StorageType) -> VisitAction[T, @lib.StorageType, Err])?
@@ -121,7 +121,7 @@ pub fn[T, Err] ModuleTransformer::on_laneidx_evt(Self[T, Err], (Self[T, Err], T,
 pub fn[T, Err] ModuleTransformer::on_limits_evt(Self[T, Err], (Self[T, Err], T, @lib.Limits) -> VisitAction[T, @lib.Limits, Err]) -> Self[T, Err]
 pub fn[T, Err] ModuleTransformer::on_loadop_evt(Self[T, Err], (Self[T, Err], T, @lib.LoadOp) -> VisitAction[T, @lib.LoadOp, Err]) -> Self[T, Err]
 pub fn[T, Err] ModuleTransformer::on_localidx_evt(Self[T, Err], (Self[T, Err], T, @lib.LocalIdx) -> VisitAction[T, @lib.LocalIdx, Err]) -> Self[T, Err]
-pub fn[T, Err] ModuleTransformer::on_locals_evt(Self[T, Err], (Self[T, Err], T, Array[@lib.Locals]) -> VisitAction[T, Array[@lib.Locals], Err]) -> Self[T, Err]
+pub fn[T, Err] ModuleTransformer::on_locals_evt(Self[T, Err], (Self[T, Err], T, @lib.Locals) -> VisitAction[T, @lib.Locals, Err]) -> Self[T, Err]
 pub fn[T, Err] ModuleTransformer::on_memarg_evt(Self[T, Err], (Self[T, Err], T, @lib.MemArg) -> VisitAction[T, @lib.MemArg, Err]) -> Self[T, Err]
 pub fn[T, Err] ModuleTransformer::on_memidx_evt(Self[T, Err], (Self[T, Err], T, @lib.MemIdx) -> VisitAction[T, @lib.MemIdx, Err]) -> Self[T, Err]
 pub fn[T, Err] ModuleTransformer::on_memsec_evt(Self[T, Err], (Self[T, Err], T, @lib.MemSec) -> VisitAction[T, @lib.MemSec, Err]) -> Self[T, Err]
@@ -212,8 +212,8 @@ pub fn[T, Err] ModuleTransformer::walk_laneidx(Self[T, Err], T, @lib.LaneIdx) ->
 pub fn[T, Err] ModuleTransformer::walk_limits(Self[T, Err], T, @lib.Limits) -> Result[(@lib.Limits, T), Err]
 pub fn[T, Err] ModuleTransformer::walk_loadop(Self[T, Err], T, @lib.LoadOp) -> Result[(@lib.LoadOp, T), Err]
 pub fn[T, Err] ModuleTransformer::walk_localidx(Self[T, Err], T, @lib.LocalIdx) -> Result[(@lib.LocalIdx, T), Err]
-pub fn[T, Err] ModuleTransformer::walk_locals(Self[T, Err], T, Array[@lib.Locals]) -> Result[(Array[@lib.Locals], T), Err]
-pub fn[T, Err] ModuleTransformer::walk_locals_default(Self[T, Err], T, Array[@lib.Locals]) -> Result[(Array[@lib.Locals], T), Err]
+pub fn[T, Err] ModuleTransformer::walk_locals(Self[T, Err], T, @lib.Locals) -> Result[(@lib.Locals, T), Err]
+pub fn[T, Err] ModuleTransformer::walk_locals_default(Self[T, Err], T, @lib.Locals) -> Result[(@lib.Locals, T), Err]
 pub fn[T, Err] ModuleTransformer::walk_memarg(Self[T, Err], T, @lib.MemArg) -> Result[(@lib.MemArg, T), Err]
 pub fn[T, Err] ModuleTransformer::walk_memidx(Self[T, Err], T, @lib.MemIdx) -> Result[(@lib.MemIdx, T), Err]
 pub fn[T, Err] ModuleTransformer::walk_memsec(Self[T, Err], T, @lib.MemSec) -> Result[(@lib.MemSec, T), Err]
@@ -229,7 +229,7 @@ pub fn[T, Err] ModuleTransformer::walk_rectype_default(Self[T, Err], T, @lib.Rec
 pub fn[T, Err] ModuleTransformer::walk_reftype(Self[T, Err], T, @lib.RefType) -> Result[(@lib.RefType, T), Err]
 pub fn[T, Err] ModuleTransformer::walk_reftype_default(Self[T, Err], T, @lib.RefType) -> Result[(@lib.RefType, T), Err]
 pub fn[T, Err] ModuleTransformer::walk_replacelaneop(Self[T, Err], T, @lib.ReplaceLaneOp) -> Result[(@lib.ReplaceLaneOp, T), Err]
-pub fn[T, Err] ModuleTransformer::walk_single_local(Self[T, Err], T, @lib.Locals) -> Result[(@lib.Locals, T), Err]
+pub fn[T, Err] ModuleTransformer::walk_single_local(Self[T, Err], T, @lib.LocalRun) -> Result[(@lib.LocalRun, T), Err]
 pub fn[T, Err] ModuleTransformer::walk_startsec(Self[T, Err], T, @lib.StartSec) -> Result[(@lib.StartSec, T), Err]
 pub fn[T, Err] ModuleTransformer::walk_startsec_default(Self[T, Err], T, @lib.StartSec) -> Result[(@lib.StartSec, T), Err]
 pub fn[T, Err] ModuleTransformer::walk_storagetype(Self[T, Err], T, @lib.StorageType) -> Result[(@lib.StorageType, T), Err]

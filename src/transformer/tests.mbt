@@ -69,7 +69,9 @@ test "walk_module forwards event errors" {
     }
   })
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+    CodeSec::new([
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+    ]),
   )
   match transformer.walk_module((), mod) {
     Ok(_) => fail("expected walk_module to return Err")
@@ -87,7 +89,9 @@ test "walk_module propagates on_module errors before traversal" {
       unchanged()
     })
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+    CodeSec::new([
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+    ]),
   )
   match transformer.walk_module((), mod) {
     Ok(_) => fail("expected walk_module to return Err")
@@ -607,7 +611,10 @@ test "core walkers dispatch corresponding hooks" {
     ),
   )
   ignore(
-    transformer.walk_locals((), Locals::new([LocalRun::new(1U, ValType::i32())])),
+    transformer.walk_locals(
+      (),
+      Locals::new([LocalRun::new(1U, ValType::i32())]),
+    ),
   )
   ignore(
     transformer.walk_func(

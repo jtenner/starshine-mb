@@ -451,7 +451,7 @@ fn tr_update_param_types(
   global_types : Array[ValType],
   env : Env,
   abs_idx : Int,
-) -> (Array[ValType], TExpr) {
+) -> (Locals, TExpr) {
   let param_fixups : Map[Int, Int] = Map::new()
   let next_local = [old_param_types.length() + locals.length()]
 

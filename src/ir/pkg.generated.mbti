@@ -83,7 +83,7 @@ pub struct IRContext {
   mut mod_ : @lib.Module?
   mut body : @lib.TExpr
   mut param_count : Int
-  mut locals : Array[@lib.ValType]
+  mut locals : @lib.Locals
   mut type_ctx : TypeContext?
   mut cfg : CFG?
   mut ssa : SSACFG?
@@ -109,14 +109,14 @@ pub fn IRContext::gvn_dirty(Self) -> Unit
 pub fn IRContext::liveness_dirty(Self) -> Unit
 pub fn IRContext::local_graph_dirty(Self) -> Unit
 pub fn IRContext::lower_to_cfg(Self) -> CFG
-pub fn IRContext::lower_to_cfg_with_locals(Self) -> (Array[@lib.ValType], CFG)?
+pub fn IRContext::lower_to_cfg_with_locals(Self) -> (@lib.Locals, CFG)?
 pub fn IRContext::new() -> Self
 pub fn IRContext::optimize_body_with_ssa(Self) -> @lib.TExpr?
 pub fn IRContext::optimize_body_with_ssa_trace(Self, (String) -> Unit) -> @lib.TExpr?
-pub fn IRContext::optimize_body_with_ssa_trace_with_locals(Self, (String) -> Unit) -> (Array[@lib.ValType], @lib.TExpr)?
-pub fn IRContext::optimize_body_with_ssa_with_locals(Self) -> (Array[@lib.ValType], @lib.TExpr)?
+pub fn IRContext::optimize_body_with_ssa_trace_with_locals(Self, (String) -> Unit) -> (@lib.Locals, @lib.TExpr)?
+pub fn IRContext::optimize_body_with_ssa_with_locals(Self) -> (@lib.Locals, @lib.TExpr)?
 pub fn IRContext::set_body(Self, @lib.TExpr) -> Unit
-pub fn IRContext::set_locals(Self, Array[@lib.ValType], param_count? : Int) -> Unit
+pub fn IRContext::set_locals(Self, @lib.Locals, param_count? : Int) -> Unit
 pub fn IRContext::set_mod(Self, @lib.Module) -> Unit
 pub fn IRContext::ssa_dirty(Self) -> Unit
 pub fn IRContext::types_dirty(Self) -> Unit
@@ -172,7 +172,7 @@ pub fn SSACFG::compute_liveness(Self) -> LivenessInfo
 pub fn SSACFG::optimize(Self) -> Self
 pub fn SSACFG::split_critical_edges(Self) -> Self
 pub fn SSACFG::to_cfg(Self, Int) -> CFG
-pub fn SSACFG::to_cfg_with_locals(Self, Array[@lib.ValType], Int, SSATypeInfo) -> (Array[@lib.ValType], CFG)
+pub fn SSACFG::to_cfg_with_locals(Self, @lib.Locals, Int, SSATypeInfo) -> (@lib.Locals, CFG)
 pub impl Show for SSACFG
 
 pub enum SSADef {
@@ -350,10 +350,10 @@ pub struct TypeContext {
   struct_types : Array[Array[@lib.FieldType]]
   array_types : Array[@lib.FieldType]
   tag_types : Array[@lib.TagType]
-  local_types : Array[@lib.ValType]
+  local_types : @lib.Locals
 }
 pub fn TypeContext::empty() -> Self
-pub fn TypeContext::from_module(@lib.Module, Array[@lib.ValType]) -> Self
+pub fn TypeContext::from_module(@lib.Module, @lib.Locals) -> Self
 
 pub struct UseDefInfo {
   defs : Map[SSAValue, (BlockId, SSADef)]

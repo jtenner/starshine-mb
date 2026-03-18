@@ -1613,19 +1613,19 @@ pub fn ir__IRContext__local_graph_dirty(@ir.IRContext) -> Unit
 
 pub fn ir__IRContext__lower_to_cfg(@ir.IRContext) -> @ir.CFG
 
-pub fn ir__IRContext__lower_to_cfg_with_locals(@ir.IRContext) -> (Array[@lib.ValType], @ir.CFG)?
+pub fn ir__IRContext__lower_to_cfg_with_locals(@ir.IRContext) -> (@lib.Locals, @ir.CFG)?
 
 pub fn ir__IRContext__new() -> @ir.IRContext
 
 pub fn ir__IRContext__optimize_body_with_ssa(@ir.IRContext) -> @lib.TExpr?
 
-pub fn ir__IRContext__optimize_body_with_ssa_with_locals(@ir.IRContext) -> (Array[@lib.ValType], @lib.TExpr)?
+pub fn ir__IRContext__optimize_body_with_ssa_with_locals(@ir.IRContext) -> (@lib.Locals, @lib.TExpr)?
 
 pub fn ir__IRContext__set_body(@ir.IRContext, @lib.TExpr) -> Unit
 
-pub fn ir__IRContext__set_locals(@ir.IRContext, Array[@lib.ValType], Int) -> Unit
+pub fn ir__IRContext__set_locals(@ir.IRContext, @lib.Locals, Int) -> Unit
 
-pub fn ir__IRContext__set_locals__arity_2(@ir.IRContext, Array[@lib.ValType]) -> Unit
+pub fn ir__IRContext__set_locals__arity_2(@ir.IRContext, @lib.Locals) -> Unit
 
 pub fn ir__IRContext__set_mod(@ir.IRContext, @lib.Module) -> Unit
 
@@ -1659,7 +1659,7 @@ pub fn ir__SSACFG__split_critical_edges(@ir.SSACFG) -> @ir.SSACFG
 
 pub fn ir__SSACFG__to_cfg(@ir.SSACFG, Int) -> @ir.CFG
 
-pub fn ir__SSACFG__to_cfg_with_locals(@ir.SSACFG, Array[@lib.ValType], Int, @ir.SSATypeInfo) -> (Array[@lib.ValType], @ir.CFG)
+pub fn ir__SSACFG__to_cfg_with_locals(@ir.SSACFG, @lib.Locals, Int, @ir.SSATypeInfo) -> (@lib.Locals, @ir.CFG)
 
 pub fn ir__SSATypeInfo__get(@ir.SSATypeInfo, @ir.SSAValue) -> @lib.ValType?
 
@@ -1667,7 +1667,7 @@ pub fn ir__SSAValue__inner(@ir.SSAValue) -> Int
 
 pub fn ir__TypeContext__empty() -> @ir.TypeContext
 
-pub fn ir__TypeContext__from_module(@lib.Module, Array[@lib.ValType]) -> @ir.TypeContext
+pub fn ir__TypeContext__from_module(@lib.Module, @lib.Locals) -> @ir.TypeContext
 
 pub fn ir__UseDefInfo__get_def(@ir.UseDefInfo, @ir.SSAValue) -> (@ir.BlockId, @ir.SSADef)?
 
@@ -2363,23 +2363,23 @@ pub fn lib__FuncSec__new(Array[@lib.TypeIdx]) -> @lib.FuncSec
 
 pub fn lib__FuncType__new(Array[@lib.ValType], Array[@lib.ValType]) -> @lib.FuncType
 
-pub fn lib__Func__new(Array[@lib.Locals], @lib.Expr) -> @lib.Func
+pub fn lib__Func__new(@lib.Locals, @lib.Expr) -> @lib.Func
 
-pub fn lib__Func__t_func(Array[@lib.ValType], Array[@lib.ValType], @lib.TExpr) -> @lib.Func
+pub fn lib__Func__t_func(Array[@lib.ValType], @lib.Locals, @lib.TExpr) -> @lib.Func
 
-pub fn lib__FunctionLocals__all_locals(@lib.FunctionLocals) -> Array[@lib.ValType]
+pub fn lib__FunctionLocals__all_locals(@lib.FunctionLocals) -> @lib.Locals
 
-pub fn lib__FunctionLocals__body_locals(@lib.FunctionLocals) -> Array[@lib.ValType]
+pub fn lib__FunctionLocals__body_locals(@lib.FunctionLocals) -> @lib.Locals
 
-pub fn lib__FunctionLocals__from_local_decls(Array[@lib.ValType], Array[@lib.Locals]) -> Result[@lib.FunctionLocals, String]
+pub fn lib__FunctionLocals__from_local_decls(Array[@lib.ValType], @lib.Locals) -> Result[@lib.FunctionLocals, String]
 
-pub fn lib__FunctionLocals__from_typed_func(Array[@lib.ValType], Array[@lib.ValType], Array[@lib.ValType]) -> Result[@lib.FunctionLocals, String]
+pub fn lib__FunctionLocals__from_typed_func(Array[@lib.ValType], Array[@lib.ValType], @lib.Locals) -> Result[@lib.FunctionLocals, String]
 
-pub fn lib__FunctionLocals__from_typed_func_for_pass(Array[@lib.ValType], Array[@lib.ValType], Array[@lib.ValType]) -> Result[@lib.FunctionLocals, String]
+pub fn lib__FunctionLocals__from_typed_func_for_pass(Array[@lib.ValType], Array[@lib.ValType], @lib.Locals) -> Result[@lib.FunctionLocals, String]
 
 pub fn lib__FunctionLocals__local_type(@lib.FunctionLocals, @lib.LocalIdx) -> @lib.ValType?
 
-pub fn lib__FunctionLocals__new(Array[@lib.ValType], Array[@lib.ValType]) -> @lib.FunctionLocals
+pub fn lib__FunctionLocals__new(Array[@lib.ValType], @lib.Locals) -> @lib.FunctionLocals
 
 pub fn lib__FunctionLocals__param_count(@lib.FunctionLocals) -> Int
 
@@ -3549,7 +3549,7 @@ pub fn lib__LocalIdx__inner(@lib.LocalIdx) -> UInt
 
 pub fn lib__LocalIdx__new(UInt) -> @lib.LocalIdx
 
-pub fn lib__Locals__new(UInt, @lib.ValType) -> @lib.Locals
+pub fn lib__Locals__new(Array[@lib.LocalRun]) -> @lib.Locals
 
 pub fn lib__MemArg__new(@lib.U32, @lib.MemIdx?, @lib.U64) -> @lib.MemArg
 
@@ -4373,8 +4373,6 @@ pub fn lib__array_comp_type(@lib.FieldType) -> @lib.CompType
 
 pub fn lib__comp_type_sub_type(@lib.CompType) -> @lib.SubType
 
-pub fn lib__expand_locals(Array[@lib.Locals]) -> Result[Array[@lib.ValType], String]
-
 pub fn lib__func_comp_type(Array[@lib.ValType], Array[@lib.ValType]) -> @lib.CompType
 
 pub fn lib__func_extern_idx(@lib.FuncIdx) -> @lib.ExternIdx
@@ -4428,8 +4426,6 @@ pub fn lib__tag_extern_idx(@lib.TagIdx) -> @lib.ExternIdx
 pub fn lib__tag_extern_type(@lib.TagType) -> @lib.ExternType
 
 pub fn lib__tag_type(@lib.TypeIdx) -> @lib.TagType
-
-pub fn lib__tlocals_to_locals(Array[@lib.ValType]) -> Array[@lib.Locals]
 
 pub fn passes__InliningOptions__new(Int, Int, Int, Int, Bool, Int) -> @passes.InliningOptions
 
@@ -4557,7 +4553,7 @@ pub fn validate__Env__with_label(@validate.Env, Array[@lib.ValType]) -> @validat
 
 pub fn validate__Env__with_labels(@validate.Env, Array[Array[@lib.ValType]]) -> @validate.Env
 
-pub fn validate__Env__with_locals(@validate.Env, Array[@lib.ValType]) -> @validate.Env
+pub fn validate__Env__with_locals(@validate.Env, @lib.Locals) -> @validate.Env
 
 pub fn validate__Env__with_mems(@validate.Env, Array[@lib.MemType]) -> @validate.Env
 

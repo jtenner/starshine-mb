@@ -478,10 +478,8 @@ fn process_func_worklist(ctx : AnalysisContext) -> Unit {
             scan_texpr(ctx, texpr)
           }
           Func(locals, expr) => {
-            for l in locals {
-              match l {
-                Locals(_, vt) => mark_valtype(ctx, vt)
-              }
+            for vt in locals {
+              mark_valtype(ctx, vt)
             }
             scan_expr(ctx, expr)
           }
@@ -1725,8 +1723,13 @@ fn build_remappings(
 fn make_func_unreachable(func : Func) -> Func {
   match func {
     TFunc(params, _, _) =>
-      Func::t_func(params, Locals::empty(), TExpr::new([TInstr::unreachable_()]))
-    Func(_, _) => Func::new([], Expr::new([Instruction::unreachable_()]))
+      Func::t_func(
+        params,
+        Locals::empty(),
+        TExpr::new([TInstr::unreachable_()]),
+      )
+    Func(_, _) =>
+      Func::new(Locals::empty(), Expr::new([Instruction::unreachable_()]))
   }
 }
 
@@ -2975,7 +2978,7 @@ test "untyped ref.get_desc path remains valid" {
   let func_sec = FuncSec::new([TypeIdx::new(1)])
   let code_sec = CodeSec::new([
     Func::new(
-      [],
+      Locals::empty(),
       Expr::new([
         Instruction::ref_null(HeapType::new(TypeIdx::new(0))),
         Instruction::ref_as_non_null(),
@@ -3092,7 +3095,7 @@ test "untyped ref.test_desc keeps target type alive" {
   let func_sec = FuncSec::new([TypeIdx::new(1)])
   let code_sec = CodeSec::new([
     Func::new(
-      [],
+      Locals::empty(),
       Expr::new([
         Instruction::ref_null(HeapType::abs(AbsHeapType::any())),
         Instruction::ref_test_desc(true, HeapType::new(TypeIdx::new(0))),
@@ -3128,7 +3131,7 @@ test "untyped ref.cast_desc_eq keeps target type alive" {
   let func_sec = FuncSec::new([TypeIdx::new(1)])
   let code_sec = CodeSec::new([
     Func::new(
-      [],
+      Locals::empty(),
       Expr::new([
         Instruction::ref_null(HeapType::abs(AbsHeapType::any())),
         Instruction::ref_cast_desc_eq(true, HeapType::new(TypeIdx::new(0))),

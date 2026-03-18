@@ -2091,7 +2091,7 @@ fn sl_try_sink_local_get(
   sinkable_indexes : SLSinkableIndexes,
   out : Array[TInstr],
   get_counts : SLMainGetCounts,
-  local_types : Array[ValType],
+  local_types : Locals,
   options : SLSimplifyOptions,
   in_value_position : Bool,
   changed : Ref[Bool],
@@ -2184,7 +2184,7 @@ fn sl_try_sink_local_get_traced(
   sinkable_indexes : SLSinkableIndexes,
   out : Array[TInstr],
   get_counts : SLMainGetCounts,
-  local_types : Array[ValType],
+  local_types : Locals,
   options : SLSimplifyOptions,
   in_value_position : Bool,
   changed : Ref[Bool],
@@ -2934,7 +2934,7 @@ fn sl_rewrite_block_exits_texpr(
 fn sl_try_structure_block(
   instr : TInstr,
   env : Env,
-  local_types : Array[ValType],
+  local_types : Locals,
   options : SLSimplifyOptions,
   in_value_position : Bool,
   changed : Ref[Bool],
@@ -2964,7 +2964,7 @@ fn sl_try_structure_block(
           if shared_raw != fall_raw {
             return instr
           }
-          let local_type = match local_types.get(shared_raw) {
+          let local_type = match local_types.at(shared_raw) {
             Some(vt) => vt
             None => return instr
           }
@@ -3015,7 +3015,7 @@ fn sl_try_structure_loop_sink(
   sinkables : Map[Int, SLSinkableInfo],
   sinkable_indexes : SLSinkableIndexes,
   out : Array[TInstr],
-  local_types : Array[ValType],
+  local_types : Locals,
   options : SLSimplifyOptions,
   changed : Ref[Bool],
 ) -> TInstr {
@@ -3037,7 +3037,7 @@ fn sl_try_structure_loop_sink(
           return instr
         }
         let good_local = sl_localidx_from_int(good_idx)
-        let local_type = match local_types.get(good_idx) {
+        let local_type = match local_types.at(good_idx) {
           Some(vt) => vt
           None => return instr
         }
@@ -3082,7 +3082,7 @@ fn sl_try_structure_loop_sink(
 fn sl_try_structure_if(
   instr : TInstr,
   env : Env,
-  local_types : Array[ValType],
+  local_types : Locals,
   get_counts : SLMainGetCounts,
   options : SLSimplifyOptions,
   in_value_position : Bool,
@@ -3106,7 +3106,7 @@ fn sl_try_structure_if(
             ) =>
               if then_idx == else_idx {
                 let idx_i = sl_localidx_to_int(then_idx)
-                match local_types.get(idx_i) {
+                match local_types.at(idx_i) {
                   Some(local_type) => {
                     let next_then = then_prefix.copy()
                     next_then.push(then_value)
@@ -3138,7 +3138,7 @@ fn sl_try_structure_if(
                 match then_set {
                   Some((then_prefix, then_idx, then_value)) => {
                     let idx_i = sl_localidx_to_int(then_idx)
-                    match local_types.get(idx_i) {
+                    match local_types.at(idx_i) {
                       Some(local_type) => {
                         let next_then = then_prefix.copy()
                         next_then.push(then_value)
@@ -3169,7 +3169,7 @@ fn sl_try_structure_if(
                 match else_set {
                   Some((else_prefix, else_idx, else_value)) => {
                     let idx_i = sl_localidx_to_int(else_idx)
-                    match local_types.get(idx_i) {
+                    match local_types.at(idx_i) {
                       Some(local_type) => {
                         let next_else = else_prefix.copy()
                         next_else.push(else_value)
@@ -3205,7 +3205,7 @@ fn sl_try_structure_if(
           match sl_take_terminal_local_set(then_body) {
             Some((then_prefix, then_idx, then_value)) => {
               let idx_i = sl_localidx_to_int(then_idx)
-              match local_types.get(idx_i) {
+              match local_types.at(idx_i) {
                 Some(local_type) =>
                   if sl_is_defaultable(local_type) {
                     let next_then = then_prefix.copy()
@@ -3247,7 +3247,7 @@ fn sl_rewrite_instr_main(
   sinkable_indexes : SLSinkableIndexes,
   effects_cache : Map[TInstr, LCSEffects],
   out : Array[TInstr],
-  local_types : Array[ValType],
+  local_types : Locals,
   get_counts : SLMainGetCounts,
   options : SLSimplifyOptions,
   in_value_position : Bool,
@@ -3367,7 +3367,7 @@ fn sl_rewrite_instr_main_traced(
   sinkable_indexes : SLSinkableIndexes,
   effects_cache : Map[TInstr, LCSEffects],
   out : Array[TInstr],
-  local_types : Array[ValType],
+  local_types : Locals,
   get_counts : SLMainGetCounts,
   options : SLSimplifyOptions,
   in_value_position : Bool,
@@ -3396,7 +3396,7 @@ fn sl_rewrite_instr_main_traced(
 fn sl_simplify_texpr_main(
   expr : TExpr,
   env : Env,
-  local_types : Array[ValType],
+  local_types : Locals,
   get_counts : SLMainGetCounts,
   options : SLSimplifyOptions,
   effects_cache : Map[TInstr, LCSEffects],
@@ -3728,7 +3728,7 @@ priv struct SLLateState {
   members_dirty_flags : Array[Bool]
   dirty_rep_idxs : Array[Int]
   dirty_member_idxs : Array[Int]
-  local_types : Array[ValType]
+  local_types : Locals
   get_counts : Array[Int]
   env : Env
   remove_equivalent_sets : Bool
@@ -3737,7 +3737,7 @@ priv struct SLLateState {
 
 ///|
 fn sl_late_state_new(
-  local_types : Array[ValType],
+  local_types : Locals,
   get_counts : Array[Int],
   env : Env,
   remove_equivalent_sets : Bool,
@@ -4198,7 +4198,7 @@ fn sl_has_late_candidate_texpr(body : TExpr) -> Bool {
 ///|
 fn sl_run_late_optimizations(
   body : TExpr,
-  local_types : Array[ValType],
+  local_types : Locals,
   remove_equivalent_sets : Bool,
 ) -> (TExpr, Bool) {
   let local_count = local_types.length()
@@ -4225,7 +4225,7 @@ fn sl_run_late_optimizations(
 ///|
 fn sl_run_late_optimizations_with_counts(
   body : TExpr,
-  local_types : Array[ValType],
+  local_types : Locals,
   get_counts : Array[Int],
   saw_late_candidate : Bool,
   remove_equivalent_sets : Bool,
@@ -4287,7 +4287,7 @@ fn sl_should_keep_tee_candidate(
 fn sl_run_main_phase(
   body : TExpr,
   env : Env,
-  local_types : Array[ValType],
+  local_types : Locals,
   options : SLSimplifyOptions,
   measure_for_tee : Bool,
   initial_get_counts? : SLMainGetCounts? = None,
@@ -4420,7 +4420,7 @@ fn sl_run_main_phase(
 ///|
 fn sl_run_cleanup_phase(
   body : TExpr,
-  local_types : Array[ValType],
+  local_types : Locals,
   remove_equivalent_sets : Bool,
   had_prior_changes : Bool,
   trace? : (String) -> Unit = sl_trace_noop,
@@ -5213,7 +5213,7 @@ fn sl_run_simplify_locals(
 }
 
 ///|
-fn sl_test_env(local_types : Array[ValType]) -> Env {
+fn sl_test_env(local_types : Locals) -> Env {
   Env::new().with_locals(local_types)
 }
 
@@ -5315,8 +5315,8 @@ test "simplify_locals tee profitability keeps shrinking tee rewrites" {
   ])
   let (rewritten, changed, shrank, _) = sl_run_main_phase(
     body,
-    sl_test_env([ValType::i32()]),
-    [ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32()])),
+    Locals::from_types([ValType::i32()]),
     { allow_tee: true, allow_structure: false, allow_nesting: true },
     true,
   )
@@ -5344,7 +5344,7 @@ test "simplify_locals tee profitability does not affect no-tee simplification pa
   )
   let (next_func, changed) = sl_simplify_function(
     func,
-    sl_test_env([ValType::i32()]),
+    sl_test_env(Locals::from_types([ValType::i32()])),
     [],
     { allow_tee: false, allow_structure: false, allow_nesting: true },
   )
@@ -5425,8 +5425,8 @@ test "simplify_locals structures if when terminal local.set is wrapped with trai
   let changed = Ref::new(false)
   let out = sl_try_structure_if(
     instr,
-    sl_test_env([ValType::i32()]),
-    [ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32()])),
+    Locals::from_types([ValType::i32()]),
     sl_main_get_counts_new(1, false),
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     false,
@@ -5457,8 +5457,8 @@ test "simplify_locals keeps if unstructured when trailing effectful instruction 
   let changed = Ref::new(false)
   let out = sl_try_structure_if(
     instr,
-    sl_test_env([ValType::i32()]),
-    [ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32()])),
+    Locals::from_types([ValType::i32()]),
     sl_main_get_counts_new(1, false),
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     false,
@@ -5480,8 +5480,8 @@ test "simplify_locals still structures plain terminal local.set branches" {
   let changed = Ref::new(false)
   let out = sl_try_structure_if(
     instr,
-    sl_test_env([ValType::i32()]),
-    [ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32()])),
+    Locals::from_types([ValType::i32()]),
     sl_main_get_counts_new(1, false),
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     false,
@@ -5576,14 +5576,14 @@ test "simplify_locals adjacent-boundary merge converges without rewrite oscillat
   )
   let (once, changed_once) = sl_simplify_function(
     base,
-    sl_test_env([ValType::i32()]),
+    sl_test_env(Locals::from_types([ValType::i32()])),
     [],
     { allow_tee: false, allow_structure: false, allow_nesting: true },
   )
   assert_true(changed_once)
   let (twice, changed_twice) = sl_simplify_function(
     once,
-    sl_test_env([ValType::i32()]),
+    sl_test_env(Locals::from_types([ValType::i32()])),
     [],
     { allow_tee: false, allow_structure: false, allow_nesting: true },
   )
@@ -5735,8 +5735,8 @@ test "simplify_locals direct block rewrite uses tee for conditional break value"
   let changed = Ref::new(false)
   let out = sl_try_structure_block(
     block,
-    sl_test_env([ValType::i32(), ValType::i32()]),
-    [ValType::i32(), ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32(), ValType::i32()])),
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     { allow_tee: true, allow_structure: true, allow_nesting: true },
     false,
     changed,
@@ -5765,8 +5765,8 @@ test "simplify_locals block rewrite skips conditional break coalescing when tee 
   let changed = Ref::new(false)
   let out = sl_try_structure_block(
     block,
-    sl_test_env([ValType::i32(), ValType::i32()]),
-    [ValType::i32(), ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32(), ValType::i32()])),
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     false,
     changed,
@@ -5835,8 +5835,8 @@ test "simplify_locals structures br_if when carried value is contained in condit
   let changed = Ref::new(false)
   let out = sl_try_structure_block(
     block,
-    sl_test_env([ValType::i32()]),
-    [ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32()])),
+    Locals::from_types([ValType::i32()]),
     { allow_tee: true, allow_structure: true, allow_nesting: true },
     false,
     changed,
@@ -5871,8 +5871,8 @@ test "simplify_locals skips cond-carried br_if rewrite when effect-order proof f
   let changed = Ref::new(false)
   let out = sl_try_structure_block(
     block,
-    sl_test_env([ValType::i32(), ValType::i32()]),
-    [ValType::i32(), ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32(), ValType::i32()])),
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     { allow_tee: true, allow_structure: true, allow_nesting: true },
     false,
     changed,
@@ -5901,8 +5901,8 @@ test "simplify_locals skips cond-carried br_if rewrite when carried value is typ
   let changed = Ref::new(false)
   let out = sl_try_structure_block(
     block,
-    sl_test_env([ValType::i32()]),
-    [ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32()])),
+    Locals::from_types([ValType::i32()]),
     { allow_tee: true, allow_structure: true, allow_nesting: true },
     false,
     changed,
@@ -5976,8 +5976,8 @@ test "simplify_locals structures supported single-target br_table subset" {
   let changed = Ref::new(false)
   let out = sl_try_structure_block(
     block,
-    sl_test_env([ValType::i32()]),
-    [ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32()])),
+    Locals::from_types([ValType::i32()]),
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     false,
     changed,
@@ -6014,8 +6014,8 @@ test "simplify_locals direct block structure rewrite emits outer set over result
   let changed = Ref::new(false)
   let out = sl_try_structure_block(
     block,
-    sl_test_env([ValType::i32(), ValType::i32()]),
-    [ValType::i32(), ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32(), ValType::i32()])),
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     false,
     changed,
@@ -6060,7 +6060,7 @@ test "simplify_locals function-level simplifier applies block coalescing pattern
       TInstr::drop(TInstr::local_get(idx)),
     ]),
   )
-  let local_types = [ValType::i32(), ValType::i32()]
+  let local_types = Locals::from_types([ValType::i32(), ValType::i32()])
   let (next_func, changed) = sl_simplify_function(
     func,
     sl_test_env(local_types),
@@ -6101,8 +6101,8 @@ test "simplify_locals main-step rewrite applies block coalescing pattern" {
   sl_main_collect_get_counts_texpr(body, counts)
   let (next_body, changed) = sl_simplify_texpr_main(
     body,
-    sl_test_env([ValType::i32(), ValType::i32()]),
-    [ValType::i32(), ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32(), ValType::i32()])),
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     counts,
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     Map::new(),
@@ -6137,12 +6137,12 @@ test "simplify_locals instruction-level rewrite applies block coalescing pattern
   let changed = Ref::new(false)
   let next = sl_rewrite_instr_main(
     block,
-    sl_test_env([ValType::i32(), ValType::i32()]),
+    sl_test_env(Locals::from_types([ValType::i32(), ValType::i32()])),
     sinkables,
     sinkable_indexes,
     effects_cache,
     out,
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     { local_count: 2, storage: Dense([2, 1]) },
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     false,
@@ -6304,7 +6304,7 @@ test "simplify_locals late equivalent-set removal follows structure option" {
     TInstr::drop(TInstr::local_get(y)),
     TInstr::drop(TInstr::local_get(y)),
   ])
-  let local_types = [ValType::i32(), ValType::i32()]
+  let local_types = Locals::from_types([ValType::i32(), ValType::i32()])
   let (with_removal, changed_with) = sl_run_late_optimizations(
     body, local_types, true,
   )
@@ -6331,7 +6331,11 @@ test "simplify_locals late equivalent-set removal skips nested value-position se
       TInstr::local_tee(z, TInstr::local_set(y, TInstr::local_get(x))),
     ),
   ])
-  let local_types = [ValType::i32(), ValType::i32(), ValType::i32()]
+  let local_types = Locals::from_types([
+    ValType::i32(),
+    ValType::i32(),
+    ValType::i32(),
+  ])
   let (rewritten, _) = sl_run_late_optimizations(body, local_types, true)
   let mod = Module::new()
     .with_type_sec(
@@ -6449,18 +6453,22 @@ test "simplify_locals sink helper keeps multi-use local.get when local types dif
   sl_main_get_counts_adjust_idx(get_counts, LocalIdx::new(1), 1)
   let rewritten = sl_try_sink_local_get(
     LocalIdx::new(0),
-    sl_test_env([
-      ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
-      ValType::funcref(),
-    ]),
+    sl_test_env(
+      Locals::from_types([
+        ValType::ref_type(
+          RefType::new(false, HeapType::abs(AbsHeapType::func())),
+        ),
+        ValType::funcref(),
+      ]),
+    ),
     sinkables,
     sinkable_indexes,
     out,
     get_counts,
-    [
+    Locals::from_types([
       ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
       ValType::funcref(),
-    ],
+    ]),
     { allow_tee: false, allow_structure: false, allow_nesting: false },
     false,
     changed,
@@ -6487,15 +6495,19 @@ test "simplify_locals sink helper allows single-use local.get to sink narrowing 
       TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([]))]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([]))]),
+    )
   let rewritten = sl_try_sink_local_get(
     LocalIdx::new(0),
-    Env::new().with_module(mod).with_locals(Locals::from_types([ValType::funcref()])),
+    Env::new()
+    .with_module(mod)
+    .with_locals(Locals::from_types([ValType::funcref()])),
     sinkables,
     sinkable_indexes,
     out,
     get_counts,
-    [ValType::funcref()],
+    Locals::from_types([ValType::funcref()]),
     { allow_tee: false, allow_structure: false, allow_nesting: true },
     false,
     changed,
@@ -6522,12 +6534,12 @@ test "simplify_locals sink helper keeps single-use local.get when sink value has
   sl_main_get_counts_adjust_idx(get_counts, x, 1)
   let rewritten = sl_try_sink_local_get(
     x,
-    sl_test_env([ValType::i32(), ValType::i32()]),
+    sl_test_env(Locals::from_types([ValType::i32(), ValType::i32()])),
     sinkables,
     sinkable_indexes,
     out,
     get_counts,
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     { allow_tee: false, allow_structure: false, allow_nesting: true },
     true,
     changed,
@@ -6554,12 +6566,12 @@ test "simplify_locals sink helper keeps multi-use local.get when tee sink value 
   sl_main_get_counts_adjust_idx(get_counts, x, 2)
   let rewritten = sl_try_sink_local_get(
     x,
-    sl_test_env([ValType::i32(), ValType::i32()]),
+    sl_test_env(Locals::from_types([ValType::i32(), ValType::i32()])),
     sinkables,
     sinkable_indexes,
     out,
     get_counts,
-    [ValType::i32(), ValType::i32()],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     { allow_tee: true, allow_structure: false, allow_nesting: true },
     true,
     changed,
@@ -6578,10 +6590,10 @@ test "simplify_locals late canonicalization prefers non-null equivalents over nu
     TInstr::drop(TInstr::local_get(wide)),
     TInstr::drop(TInstr::local_get(narrow)),
   ])
-  let local_types = [
+  let local_types = Locals::from_types([
     ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
     ValType::funcref(),
-  ]
+  ])
   let (rewritten, changed) = sl_run_late_optimizations(body, local_types, false)
   assert_true(changed)
   assert_true(sl_count_local_gets_for_idx_texpr(rewritten, 0) >= 3)
@@ -6601,12 +6613,12 @@ test "simplify_locals no-tee-no-structure preserves exact local type for untyped
       CodeSec::new([
         Func::t_func(
           [],
-          [
+          Locals::from_types([
             ValType::ref_type(
               RefType::new(false, HeapType::abs(AbsHeapType::func())),
             ),
             ValType::funcref(),
-          ],
+          ]),
           TExpr::new([
             TInstr::local_set(narrow, TInstr::ref_func(FuncIdx::new(0))),
             TInstr::local_set(wide, TInstr::local_get(narrow)),
@@ -6697,7 +6709,7 @@ test "simplify_locals local checker rejects result-if candidate with void branch
   assert_false(
     sl_can_emit_rewritten_instr(
       candidate,
-      sl_test_env([ValType::i32(), ValType::i32()]),
+      sl_test_env(Locals::from_types([ValType::i32(), ValType::i32()])),
     ),
   )
 }
@@ -6717,7 +6729,7 @@ test "simplify_locals typed local-set guard rejects env/local mismatch for resul
       x,
       ValType::i64(),
       result_value,
-      sl_test_env([ValType::i32(), ValType::i32()]),
+      sl_test_env(Locals::from_types([ValType::i32(), ValType::i32()])),
     ),
   )
 }
@@ -6733,7 +6745,10 @@ test "simplify_locals local checker rejects result-block candidate with void bra
     ),
   )
   assert_false(
-    sl_can_emit_rewritten_instr(candidate, sl_test_env([ValType::i32()])),
+    sl_can_emit_rewritten_instr(
+      candidate,
+      sl_test_env(Locals::from_types([ValType::i32()])),
+    ),
   )
 }
 
@@ -6748,7 +6763,7 @@ test "simplify_locals local checker rejects local.tee candidate whose value has 
   assert_false(
     sl_can_emit_rewritten_instr(
       candidate,
-      sl_test_env([ValType::i32(), ValType::i32()]),
+      sl_test_env(Locals::from_types([ValType::i32(), ValType::i32()])),
     ),
   )
 }
@@ -6833,7 +6848,11 @@ test "simplify_locals rewrite finalizer keeps original invalid candidate out" {
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   let env = Env::new().with_module(mod)
-  let original = Func::t_func([], Locals::from_types([ValType::i64()]), TExpr::new([]))
+  let original = Func::t_func(
+    [],
+    Locals::from_types([ValType::i64()]),
+    TExpr::new([]),
+  )
   let invalid_candidate = Func::t_func(
     [],
     Locals::from_types([ValType::i64()]),
@@ -6942,7 +6961,11 @@ test "simplify_locals validation counters record accepted rewrite candidates" {
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   let env = Env::new().with_module(mod)
-  let original = Func::t_func([], Locals::from_types([ValType::i32()]), TExpr::new([]))
+  let original = Func::t_func(
+    [],
+    Locals::from_types([ValType::i32()]),
+    TExpr::new([]),
+  )
   let candidate = Func::t_func(
     [],
     Locals::from_types([ValType::i32()]),
@@ -6971,7 +6994,11 @@ test "simplify_locals validation counters record rejected rewrite candidates wit
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   let env = Env::new().with_module(mod)
-  let original = Func::t_func([], Locals::from_types([ValType::i64()]), TExpr::new([]))
+  let original = Func::t_func(
+    [],
+    Locals::from_types([ValType::i64()]),
+    TExpr::new([]),
+  )
   let invalid_candidate = Func::t_func(
     [],
     Locals::from_types([ValType::i64()]),
@@ -7122,8 +7149,8 @@ test "simplify_locals ID-C2 updates get counts after one-sided if introduces new
   sl_main_collect_get_counts_texpr(body, counts)
   let (next_body, changed) = sl_simplify_texpr_main(
     body,
-    sl_test_env([ValType::i32()]),
-    [ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32()])),
+    Locals::from_types([ValType::i32()]),
     counts,
     { allow_tee: false, allow_structure: true, allow_nesting: false },
     Map::new(),
@@ -7147,8 +7174,8 @@ test "simplify_locals ID-P1 structures if-else when one arm is unreachable" {
   let changed = Ref::new(false)
   let out = sl_try_structure_if(
     instr,
-    sl_test_env([ValType::i32()]),
-    [ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32()])),
+    Locals::from_types([ValType::i32()]),
     sl_main_get_counts_new(1, false),
     { allow_tee: false, allow_structure: true, allow_nesting: true },
     false,
@@ -7181,7 +7208,9 @@ test "simplify_locals ID-P2 uses fixpoint cycles to unlock second sinking opport
   )
   let (next_func, changed) = sl_simplify_function(
     func,
-    sl_test_env([ValType::i32(), ValType::i32(), ValType::i32()]),
+    sl_test_env(
+      Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32()]),
+    ),
     [],
     { allow_tee: false, allow_structure: false, allow_nesting: true },
   )
@@ -7208,11 +7237,11 @@ test "simplify_locals ID-P3 structures loop into loop result local.set" {
   let changed = Ref::new(false)
   let rewritten = sl_try_structure_loop_sink(
     TInstr::loop_(BlockType::void_(), TExpr::new([TInstr::nop()])),
-    sl_test_env([ValType::i32()]),
+    sl_test_env(Locals::from_types([ValType::i32()])),
     sinkables,
     sinkable_indexes,
     out,
-    [ValType::i32()],
+    Locals::from_types([ValType::i32()]),
     { allow_tee: true, allow_structure: true, allow_nesting: true },
     changed,
   )
@@ -7280,10 +7309,10 @@ test "simplify_locals ID-P5 late canonicalization picks subtype-equivalent local
     TInstr::drop(TInstr::local_get(wide)),
     TInstr::drop(TInstr::local_get(narrow)),
   ])
-  let local_types = [
+  let local_types = Locals::from_types([
     ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
     ValType::funcref(),
-  ]
+  ])
   let (rewritten, changed) = sl_run_late_optimizations(body, local_types, false)
   assert_true(changed)
   let narrow_gets = sl_count_local_gets_for_idx_texpr(rewritten, 0)
@@ -7294,7 +7323,7 @@ test "simplify_locals ID-P5 late canonicalization picks subtype-equivalent local
 
 ///|
 test "simplify_locals ID-P5 late canonicalization runs for large local arrays" {
-  let local_types : Array[ValType] = []
+  let local_types : Locals = Locals::empty()
   for _ in 0..<129 {
     local_types.push(ValType::i32())
   }
@@ -7415,7 +7444,9 @@ test "simplify_locals ID-F3 reuses get counts across fixpoint cycles" {
   ignore(
     sl_simplify_function(
       func,
-      sl_test_env([ValType::i32(), ValType::i32(), ValType::i32()]),
+      sl_test_env(
+        Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32()]),
+      ),
       [],
       { allow_tee: false, allow_structure: false, allow_nesting: true },
     ),
@@ -7489,7 +7520,11 @@ test "simplify_locals ID-F4 avoids cloning late-phase state for every nested bra
   ])
   sl_perf_reset()
   ignore(
-    sl_run_late_optimizations(body, [ValType::i32(), ValType::i32()], false),
+    sl_run_late_optimizations(
+      body,
+      Locals::from_types([ValType::i32(), ValType::i32()]),
+      false,
+    ),
   )
   let perf = sl_perf_snapshot()
   if perf.late_state_clones > 3 {
@@ -7511,8 +7546,8 @@ test "simplify_locals short-circuits pathological deep-control rewrite in no-tee
       TInstr::local_set(LocalIdx::new(1), nested_value),
       TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
     ]),
-    sl_test_env([ValType::i32(), ValType::i32()]),
-    [ValType::i32(), ValType::i32()],
+    sl_test_env(Locals::from_types([ValType::i32(), ValType::i32()])),
+    Locals::from_types([ValType::i32(), ValType::i32()]),
     { allow_tee: false, allow_structure: false, allow_nesting: true },
     false,
   )

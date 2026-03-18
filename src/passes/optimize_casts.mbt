@@ -804,7 +804,7 @@ fn oc_apply_best_casts(
   let refinement_temps : Map[Int, LocalIdx] = Map::new()
   let new_locals = match func {
     TFunc(_, locals, _) => locals.copy()
-    _ => []
+    _ => Locals::empty()
   }
   let next_local = Ref::new(new_locals.length())
   let next_refinement_id = Ref::new(0)
@@ -1036,7 +1036,10 @@ test "optimize casts duplicates earlier cast and tees best cast" {
     TInstr::drop(TInstr::nop()),
     TInstr::local_get(LocalIdx::new(0)),
   ])
-  let mod_ = oc_add_func(oc_test_module(), Func::t_func([], [local_ty], body))
+  let mod_ = oc_add_func(
+    oc_test_module(),
+    Func::t_func([], Locals::from_types([local_ty]), body),
+  )
   let out = optimize_casts(mod_)
   match oc_get_func(out) {
     Some(TFunc(_, locals, new_body)) => {
@@ -1072,7 +1075,10 @@ test "optimize casts uses most refined cast" {
     TInstr::drop(TInstr::nop()),
     TInstr::local_get(LocalIdx::new(0)),
   ])
-  let mod_ = oc_add_func(oc_test_module(), Func::t_func([], [local_ty], body))
+  let mod_ = oc_add_func(
+    oc_test_module(),
+    Func::t_func([], Locals::from_types([local_ty]), body),
+  )
   let out = optimize_casts(mod_)
   match oc_get_func(out) {
     Some(TFunc(_, _, new_body)) => {
@@ -1108,7 +1114,10 @@ test "optimize casts handles ref.as_non_null movement" {
     TInstr::ref_as_non_null(TInstr::local_get(LocalIdx::new(0))),
     TInstr::drop(TInstr::nop()),
   ])
-  let mod_ = oc_add_func(oc_test_module(), Func::t_func([], [local_ty], body))
+  let mod_ = oc_add_func(
+    oc_test_module(),
+    Func::t_func([], Locals::from_types([local_ty]), body),
+  )
   let out = optimize_casts(mod_)
   match oc_get_func(out) {
     Some(TFunc(_, _, new_body)) => {
@@ -1149,7 +1158,10 @@ test "optimize casts resets at non linear boundaries" {
       TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
     ),
   ])
-  let mod_ = oc_add_func(oc_test_module(), Func::t_func([], [local_ty], body))
+  let mod_ = oc_add_func(
+    oc_test_module(),
+    Func::t_func([], Locals::from_types([local_ty]), body),
+  )
   let out = optimize_casts(mod_)
   match oc_get_func(out) {
     Some(TFunc(_, _, new_body)) =>

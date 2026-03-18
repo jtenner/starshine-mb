@@ -18,8 +18,6 @@ pub fn comp_type_sub_type(CompType) -> SubType
 
 pub fn[T : Eq] equals(Array[T], Array[T]) -> Bool
 
-pub fn expand_locals(Array[Locals]) -> Result[Array[ValType], String]
-
 pub fn func_comp_type(Array[ValType], Array[ValType]) -> CompType
 
 pub fn func_extern_idx(FuncIdx) -> ExternIdx
@@ -79,8 +77,6 @@ pub fn tag_extern_idx(TagIdx) -> ExternIdx
 pub fn tag_extern_type(TagType) -> ExternType
 
 pub fn tag_type(TypeIdx) -> TagType
-
-pub fn tlocals_to_locals(Array[ValType]) -> Array[Locals]
 
 pub fn trace_delta_us_to_ms(UInt64) -> UInt64
 
@@ -983,11 +979,11 @@ pub impl @debug.Debug for FieldType
 pub impl @quickcheck.Arbitrary for FieldType
 
 pub enum Func {
-  Func(Array[Locals], Expr)
-  TFunc(Array[ValType], Array[ValType], TExpr)
+  Func(Locals, Expr)
+  TFunc(Array[ValType], Locals, TExpr)
 }
-pub fn Func::new(Array[Locals], Expr) -> Self
-pub fn Func::t_func(Array[ValType], Array[ValType], TExpr) -> Self
+pub fn Func::new(Locals, Expr) -> Self
+pub fn Func::t_func(Array[ValType], Locals, TExpr) -> Self
 pub impl PrettyPrint for Func
 pub impl Eq for Func
 pub impl Hash for Func
@@ -1027,16 +1023,16 @@ pub impl @debug.Debug for FuncType
 
 pub struct FunctionLocals {
   params : Array[ValType]
-  body_locals : Array[ValType]
-  all_locals : Array[ValType]
+  body_locals : Locals
+  all_locals : Locals
 }
-pub fn FunctionLocals::all_locals(Self) -> Array[ValType]
-pub fn FunctionLocals::body_locals(Self) -> Array[ValType]
-pub fn FunctionLocals::from_local_decls(Array[ValType], Array[Locals]) -> Result[Self, String]
-pub fn FunctionLocals::from_typed_func(Array[ValType], Array[ValType], Array[ValType]) -> Result[Self, String]
-pub fn FunctionLocals::from_typed_func_for_pass(Array[ValType], Array[ValType], Array[ValType]) -> Result[Self, String]
+pub fn FunctionLocals::all_locals(Self) -> Locals
+pub fn FunctionLocals::body_locals(Self) -> Locals
+pub fn FunctionLocals::from_local_decls(Array[ValType], Locals) -> Result[Self, String]
+pub fn FunctionLocals::from_typed_func(Array[ValType], Array[ValType], Locals) -> Result[Self, String]
+pub fn FunctionLocals::from_typed_func_for_pass(Array[ValType], Array[ValType], Locals) -> Result[Self, String]
 pub fn FunctionLocals::local_type(Self, LocalIdx) -> ValType?
-pub fn FunctionLocals::new(Array[ValType], Array[ValType]) -> Self
+pub fn FunctionLocals::new(Array[ValType], Locals) -> Self
 pub fn FunctionLocals::param_count(Self) -> Int
 pub fn FunctionLocals::params(Self) -> Array[ValType]
 pub impl Eq for FunctionLocals
@@ -2311,8 +2307,49 @@ pub impl Show for LocalIdx
 pub impl @debug.Debug for LocalIdx
 pub impl @quickcheck.Arbitrary for LocalIdx
 
-pub struct Locals(UInt, ValType)
-pub fn Locals::new(UInt, ValType) -> Self
+pub struct LocalRun {
+  count : UInt
+  vt : ValType
+}
+pub fn LocalRun::count(Self) -> UInt
+pub fn LocalRun::new(UInt, ValType) -> Self
+pub fn LocalRun::val_type(Self) -> ValType
+pub impl Eq for LocalRun
+pub impl Hash for LocalRun
+pub impl Show for LocalRun
+pub impl @debug.Debug for LocalRun
+pub impl @quickcheck.Arbitrary for LocalRun
+
+pub struct Locals {
+  mut runs : Array[LocalRun]
+  mut indices : Array[Int]?
+}
+pub fn Locals::append(Self, Self) -> Unit
+pub fn Locals::append_types(Self, Array[ValType]) -> Unit
+pub fn Locals::at(Self, Int) -> ValType?
+pub fn Locals::copy(Self) -> Self
+pub fn Locals::empty() -> Self
+pub fn Locals::ensure_index(Self) -> Array[Int]
+pub fn Locals::from_types(Array[ValType]) -> Self
+#alias("_[_]")
+pub fn Locals::get(Self, Int) -> ValType
+pub fn Locals::insert_run(Self, Int, LocalRun) -> Unit
+pub fn Locals::invalidate_indices(Self) -> Unit
+pub fn Locals::is_empty(Self) -> Bool
+pub fn Locals::iter(Self) -> Iter[ValType]
+pub fn Locals::length(Self) -> Int
+pub fn Locals::merge_adjacent_runs(Self) -> Unit
+pub fn Locals::new(Array[LocalRun]) -> Self
+pub fn Locals::push(Self, ValType) -> Unit
+pub fn Locals::push_run(Self, LocalRun) -> Unit
+pub fn Locals::remove_run(Self, Int) -> LocalRun?
+pub fn Locals::run_count(Self) -> Int
+pub fn Locals::runs(Self) -> Array[LocalRun]
+pub fn Locals::set(Self, Int, ValType) -> Bool
+pub fn Locals::set_run_count(Self, Int, UInt) -> Bool
+pub fn Locals::single(UInt, ValType) -> Self
+pub fn Locals::unsafe_get(Self, Int) -> ValType
+pub fn Locals::without_prefix(Self, Int) -> Self
 pub impl PrettyPrint for Locals
 pub impl Eq for Locals
 pub impl Hash for Locals

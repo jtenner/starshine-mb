@@ -397,11 +397,7 @@ fn ml_local_type(locals : Locals, idx : LocalIdx) -> ValType? {
 }
 
 ///|
-fn ml_local_types_equal(
-  locals : Locals,
-  a : LocalIdx,
-  b : LocalIdx,
-) -> Bool {
+fn ml_local_types_equal(locals : Locals, a : LocalIdx, b : LocalIdx) -> Bool {
   match (ml_local_type(locals, a), ml_local_type(locals, b)) {
     (Some(ta), Some(tb)) => ta == tb
     _ => false

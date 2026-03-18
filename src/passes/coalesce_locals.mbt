@@ -863,7 +863,7 @@ fn cl_trim_trailing_unused_locals(
   locals : Locals,
   param_count : Int,
   max_local_used : Int,
-) -> (Array[ValType], Int) {
+) -> (Locals, Int) {
   let needed_locals = if max_local_used < param_count {
     0
   } else {
@@ -879,7 +879,7 @@ fn cl_trim_trailing_unused_locals(
   if bounded_needed_locals >= locals.length() {
     (locals, 0)
   } else {
-    let trimmed : Array[ValType] = []
+    let trimmed = Locals::empty()
     for i in 0..<bounded_needed_locals {
       trimmed.push(locals[i])
     }
@@ -1116,8 +1116,8 @@ fn compute_new_locals(
   locals : Locals,
   mapping : LocalMap,
   param_count : Int,
-) -> (Array[ValType], Map[LocalIdx, LocalIdx]) {
-  let new_locals = Array::new()
+) -> (Locals, Map[LocalIdx, LocalIdx]) {
+  let new_locals = Locals::empty()
   let rep_to_new = Map::new()
   for i in 0..<param_count {
     let idx = LocalIdx::new(i.reinterpret_as_uint())
@@ -1320,7 +1320,7 @@ test "CoalesceLocals: trivial coalesce" {
     TInstr::local_set(y, TInstr::i32_const(I32(2))),
     TInstr::local_get(y),
   ]
-  let locals = [ValType::i32(), ValType::i32()]
+  let locals = Locals::from_types([ValType::i32(), ValType::i32()])
   let inter = compute_interferences(instrs)
   let order = identity_order(locals.length())
   let map = compute_coalescing_simple(locals, inter, order)
@@ -1338,7 +1338,7 @@ test "CoalesceLocals: no coalesce when interfering" {
     TInstr::local_get(x),
     TInstr::local_get(y),
   ]
-  let locals = [ValType::i32(), ValType::i32()]
+  let locals = Locals::from_types([ValType::i32(), ValType::i32()])
   let inter = compute_interferences(instrs)
   let order = identity_order(locals.length())
   let map = compute_coalescing_simple(locals, inter, order)
@@ -1467,7 +1467,7 @@ test "CFG liveness: merge causes interference" {
     TInstr::local_get(x),
     TInstr::local_get(y),
   ]
-  let locals = [ValType::i32(), ValType::i32()]
+  let locals = Locals::from_types([ValType::i32(), ValType::i32()])
   let blocks = build_cfg(instrs)
   let (inter, _, _, _) = compute_interferences_cfg(blocks, locals)
   assert_true(inter.contains(ordered_pair(x, y)))
@@ -1490,7 +1490,7 @@ test "CFG liveness: diamond merge creates interference" {
       TInstr::local_get(y),
     ),
   ]
-  let locals = [ValType::i32(), ValType::i32()]
+  let locals = Locals::from_types([ValType::i32(), ValType::i32()])
   let blocks = build_cfg(instrs)
   let (inter, _, _, _) = compute_interferences_cfg(blocks, locals)
   assert_true(inter.contains(ordered_pair(x, y)))
@@ -1517,7 +1517,7 @@ test "CFG liveness: disjoint branch locals do not interfere" {
     ),
     TInstr::i32_const(I32(0)),
   ]
-  let locals = [ValType::i32(), ValType::i32()]
+  let locals = Locals::from_types([ValType::i32(), ValType::i32()])
   let blocks = build_cfg(instrs)
   let (inter, _, _, _) = compute_interferences_cfg(blocks, locals)
   assert_true(!inter.contains(ordered_pair(x, y)))
@@ -1611,7 +1611,7 @@ test "CFG liveness: nested ifs propagate interference correctly" {
       TInstr::local_get(y),
     ),
   ]
-  let locals = [ValType::i32(), ValType::i32()]
+  let locals = Locals::from_types([ValType::i32(), ValType::i32()])
   let blocks = build_cfg(instrs)
   let (inter, _, _, _) = compute_interferences_cfg(blocks, locals)
   assert_true(inter.contains(ordered_pair(x, y)))
@@ -1633,7 +1633,7 @@ test "CFG liveness: local live across loop interferes" {
     ),
     TInstr::local_get(y),
   ]
-  let locals = [ValType::i32(), ValType::i32()]
+  let locals = Locals::from_types([ValType::i32(), ValType::i32()])
   let blocks = build_cfg(instrs)
   let (inter, _, _, _) = compute_interferences_cfg(blocks, locals)
   assert_true(inter.contains(ordered_pair(x, y)))
@@ -1654,7 +1654,7 @@ test "CFG liveness: dead locals inside loop do not interfere" {
     TInstr::local_set(y, TInstr::i32_const(I32(2))),
     TInstr::local_get(y),
   ]
-  let locals = [ValType::i32(), ValType::i32()]
+  let locals = Locals::from_types([ValType::i32(), ValType::i32()])
   let blocks = build_cfg(instrs)
   let (inter, _, _, _) = compute_interferences_cfg(blocks, locals)
   assert_true(!inter.contains(ordered_pair(x, y)))
@@ -1893,7 +1893,11 @@ test "CoalesceLocals: imported functions do not shift param boundaries" {
     TInstr::local_get(y),
     TInstr::drop(TInstr::local_get(p)),
   ])
-  let func = Func::t_func([], Locals::from_types([ValType::i32(), ValType::i32()]), body)
+  let func = Func::t_func(
+    [],
+    Locals::from_types([ValType::i32(), ValType::i32()]),
+    body,
+  )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([imported_type, defined_type]))
     .with_import_sec(
@@ -1927,7 +1931,7 @@ test "CoalesceLocals: plain Func entries do not shift param boundaries" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
     .with_code_sec(
       CodeSec::new([
-        Func::new([], Expr::new([Instruction::nop()])),
+        Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
         Func::t_func(
           [],
           Locals::empty(),
@@ -1967,7 +1971,7 @@ test "CoalesceLocals: mixed Func/TFunc keeps typed params when func_sec is stale
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
     .with_code_sec(
       CodeSec::new([
-        Func::new([], Expr::new([Instruction::nop()])),
+        Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
         Func::t_func(
           typed_params,
           Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32()]),

@@ -3033,7 +3033,11 @@ test "i64_to_i32_lowering lowers i64 return through high-bits global" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i64_const(I64(9L))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i64_const(I64(9L))]),
+        ),
       ]),
     )
   let lowered = match i64_to_i32_lowering(mod) {
@@ -3449,7 +3453,11 @@ test "i64_to_i32_lowering lowers return_call_indirect/ref with i64 result" {
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i64_const(I64(7L))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i64_const(I64(7L))]),
+        ),
         Func::t_func(
           [],
           Locals::empty(),
@@ -3701,7 +3709,11 @@ test "i64_to_i32_lowering lowers return_call with i64 result" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::i64_const(I64(7L))])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::i64_const(I64(7L))]),
+        ),
         Func::t_func(
           [],
           Locals::empty(),

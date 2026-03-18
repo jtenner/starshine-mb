@@ -1816,7 +1816,9 @@ test "global type optimization keeps public struct types unchanged" {
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     )
   let optimized = match global_type_optimization(mod) {
     Ok(next_mod) => next_mod

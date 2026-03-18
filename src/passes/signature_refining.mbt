@@ -946,7 +946,7 @@ fn sr_update_param_types(
   env : Env,
   abs_idx : Int,
   func_type_idxs : Array[TypeIdx],
-) -> (Array[ValType], TExpr) {
+) -> (Locals, TExpr) {
   let param_fixups : Map[Int, Int] = Map::new()
   let next_local = [old_param_types.length() + locals.length()]
 
@@ -1949,7 +1949,11 @@ test "signature refining refines parameter types from call_ref sites" {
       ),
     ]),
   )
-  let callee = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::i32_const(I32(7))]),
+  )
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_caller, t_target]))
@@ -2181,7 +2185,11 @@ test "signature refining does not modify function types with subtypes" {
       TInstr::call(FuncIdx::new(1), [TInstr::ref_func(FuncIdx::new(1))]),
     ]),
   )
-  let super_func = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
+  let super_func = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::nop()]),
+  )
   let sub_func = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
@@ -2411,7 +2419,11 @@ test "signature refining does not refine start function parameter types" {
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let start_func = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
+  let start_func = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::nop()]),
+  )
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_caller, t_start]))

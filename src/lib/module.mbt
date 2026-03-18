@@ -1394,7 +1394,9 @@ pub fn Module::pretty_print_defined_func(
                 4,
                 "[\{i}] " +
                 pretty_val_type(full_locals.unsafe_get(i)) +
-                " (" + role + ")",
+                " (" +
+                role +
+                ")",
               )
             }
           }
@@ -1428,7 +1430,9 @@ pub fn Module::pretty_print_defined_func(
                 4,
                 "[\{i}] " +
                 pretty_val_type(full_locals.unsafe_get(i)) +
-                " (" + role + ")",
+                " (" +
+                role +
+                ")",
               )
             }
           }

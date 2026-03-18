@@ -22,7 +22,7 @@ fn optimize_tfunc_with_ssa(
   locals : Locals,
   body : TExpr,
   trace? : (String) -> Unit = fn(_) { () },
-) -> (Array[ValType], TExpr)? {
+) -> (Locals, TExpr)? {
   let function_locals = FunctionLocals::new(params, locals)
   ctx.set_mod(mod)
   ctx.set_locals(
@@ -100,7 +100,7 @@ priv enum SSANoMergeGetRewrite {
 
 ///|
 priv enum DataflowNormalizedFunc {
-  TFuncBody(Array[ValType], Array[ValType], TExpr)
+  TFuncBody(Array[ValType], Locals, TExpr)
   PlainFunc(Func)
 }
 
@@ -507,7 +507,7 @@ fn ssa_nomerge_tfunc(
   params : Array[ValType],
   locals : Locals,
   body : TExpr,
-) -> (Array[ValType], TExpr, Bool) {
+) -> (Locals, TExpr, Bool) {
   let function_locals = FunctionLocals::new(params, locals)
   let all_locals = function_locals.all_locals()
   let analysis = ssa_nomerge_build_analysis(body)
@@ -895,7 +895,7 @@ test "dataflow optimization pass normalizes non-texpr Func bodies" {
     .with_type_sec(TypeSec::new([func_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::new([], Expr::new([Instruction::nop()]))]),
+      CodeSec::new([Func::new(Locals::empty(), Expr::new([Instruction::nop()]))]),
     )
   let pass = dataflow_optimization_pass(mod)
   let ctx = IRContext::new()
@@ -913,7 +913,9 @@ test "dataflow optimization pass normalizes non-texpr Func bodies" {
 ///|
 test "dataflow optimization pass skips non-liftable Func bodies without failing" {
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::new([], Expr::new([Instruction::i32_add()]))]),
+    CodeSec::new([
+      Func::new(Locals::empty(), Expr::new([Instruction::i32_add()])),
+    ]),
   )
   let pass = dataflow_optimization_pass(mod)
   let ctx = IRContext::new()
@@ -951,7 +953,11 @@ test "dataflow optimization preserves valid locals for parameterized functions" 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([func_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], Locals::from_types([ValType::i32()]), body)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], Locals::from_types([ValType::i32()]), body),
+      ]),
+    )
   let pass = dataflow_optimization_pass(mod)
   let ctx = IRContext::new()
   let result = pass.walk_module(ctx, mod)
@@ -1293,13 +1299,13 @@ test "ssa no-merge preserves externref table-set values across control-flow rewr
   ])
   let alloc_externref = Func::t_func(
     [externref],
-    [
+    Locals::from_types([
       ValType::i32(),
       ValType::i32(),
       ValType::i32(),
       ValType::i32(),
       ValType::i32(),
-    ],
+    ]),
     alloc_body,
   )
   let mod = Module::new()

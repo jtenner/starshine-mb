@@ -1043,7 +1043,7 @@ fn make_mono_function_with_context(
       // The specialized function signature only contains the new params.
       // The *old params* must be represented as locals so the shifted body
       // can access them after the prologue local.sets.
-      let locals : Locals = old_params.copy()
+      let locals = Locals::from_types(old_params.copy())
       for local_ in extra_locals {
         locals.push(local_)
       }
@@ -1370,7 +1370,7 @@ fn mn_build_caller_env(mod : Module, caller_abs_idx : Int) -> Env {
     Some(FuncType(ps, _)) => ps
     None => []
   }
-  let locals = params.copy()
+  let locals = Locals::from_types(params.copy())
   match mn_get_func(mod, caller_abs_idx) {
     Some(TFunc(_, extra, _)) =>
       for vt in extra {

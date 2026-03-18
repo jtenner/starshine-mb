@@ -89,7 +89,7 @@ fn dfe_hash_hash_result(value : Int) -> UInt64 {
 }
 
 ///|
-fn dfe_hash_valtypes(types : Array[ValType]) -> UInt64 {
+fn dfe_hash_locals(types : Locals) -> UInt64 {
   let mut hash = dfe_hash_mix(dfe_hash_seed, dfe_hash_int(types.length()))
   for type_ in types {
     hash = dfe_hash_mix(hash, dfe_hash_hash_result(type_.hash()))
@@ -446,7 +446,7 @@ fn dfe_hash_func_under_map(
     TFunc(_, locals, body) => {
       let instrs = body.instrs
       let top_level_instr_count = instrs.length()
-      let local_types_fp = dfe_hash_valtypes(locals)
+      let local_types_fp = dfe_hash_locals(locals)
       let first_instr_fp = if instrs.is_empty() {
         0UL
       } else {
@@ -1063,8 +1063,16 @@ test "duplicate function elimination removes duplicate function bodies" {
 ///|
 test "duplicate function elimination limit respects optimize level" {
   let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
-  let a1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(2), [])]))
-  let a2 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(3), [])]))
+  let a1 = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::call(FuncIdx::new(2), [])]),
+  )
+  let a2 = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::call(FuncIdx::new(3), [])]),
+  )
   let b1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let b2 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new()
@@ -1101,8 +1109,16 @@ test "duplicate function elimination limit respects optimize level" {
 ///|
 test "duplicate function elimination uses shrink level for multi-iteration" {
   let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
-  let a1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(2), [])]))
-  let a2 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(3), [])]))
+  let a1 = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::call(FuncIdx::new(2), [])]),
+  )
+  let a2 = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::call(FuncIdx::new(3), [])]),
+  )
   let b1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let b2 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new()
@@ -1142,7 +1158,11 @@ test "duplicate function elimination does not merge equal bodies with different 
     ]),
   )
   let f_void = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
-  let f_i32_void = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
+  let f_i32_void = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::nop()]),
+  )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void, t_i32_void]))
     .with_func_sec(

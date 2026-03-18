@@ -3536,7 +3536,9 @@ fn opt_scheduler_denan_dispatch_module() -> Module {
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   .with_code_sec(
-    CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::f32_const(nan)]))]),
+    CodeSec::new([
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::f32_const(nan)])),
+    ]),
   )
 }
 
@@ -3683,7 +3685,7 @@ fn opt_scheduler_descriptor_target_retention_module() -> Module {
     ]),
   )
   let untyped = Func::new(
-    [],
+    Locals::empty(),
     Expr::new([
       Instruction::ref_null(HeapType::abs(AbsHeapType::any())),
       Instruction::ref_cast_desc_eq(true, HeapType::new(TypeIdx::new(1))),
@@ -3712,7 +3714,9 @@ fn opt_scheduler_type_unfinalizing_dispatch_module() -> Module {
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
   .with_code_sec(
-    CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+    CodeSec::new([
+      Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+    ]),
   )
 }
 
@@ -5322,7 +5326,11 @@ test "optimize_module runs GlobalEffects pass through IRContext kind" {
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(0), [])]),
+        ),
       ]),
     ),
   )
@@ -5355,7 +5363,8 @@ test "optimize_module dispatches TypeGeneralizing through module-runner kind" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, [vt], _)])) => assert_eq(vt, ValType::funcref())
+    Some(CodeSec([TFunc(_, locals, _)])) =>
+      assert_eq(locals[0], ValType::funcref())
     _ => fail("expected TypeGeneralizing to run through module-runner dispatch")
   }
 }
@@ -5656,7 +5665,11 @@ test "optimize_module runs DeadArgumentElimination pass" {
     Locals::empty(),
     TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(9))])]),
   )
-  let callee = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::i32_const(I32(7))]),
+  )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -5700,7 +5713,11 @@ test "optimize_module runs DeadArgumentEliminationOptimizing cleanup" {
       TInstr::return_([]),
     ]),
   )
-  let callee = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::i32_const(I32(7))]),
+  )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -5732,7 +5749,11 @@ test "optimize_module runs SignaturePruning pass" {
     Locals::empty(),
     TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(9))])]),
   )
-  let callee = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::i32_const(I32(7))]),
+  )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -5781,7 +5802,11 @@ test "optimize_module runs SignatureRefining pass" {
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let callee = Func::t_func([nullable_funcref], Locals::empty(), TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func(
+    [nullable_funcref],
+    Locals::empty(),
+    TExpr::new([TInstr::nop()]),
+  )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -5859,7 +5884,9 @@ test "optimize_module runs RemoveUnusedTypes pass" {
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     )
   let optimized = match optimize_module(mod, [RemoveUnusedTypes]) {
     Ok(m) => m
@@ -5948,7 +5975,11 @@ test "optimize_module runs DuplicateImportElimination pass" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(1), [])]),
+        ),
       ]),
     )
   let optimized = match optimize_module(mod, [DuplicateImportElimination]) {
@@ -5995,7 +6026,9 @@ test "optimize_module runs GlobalRefining pass" {
       ]),
     )
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     )
   let optimized = match optimize_module(mod, [GlobalRefining]) {
     Ok(m) => m
@@ -6018,7 +6051,9 @@ test "optimize_module runs GlobalStructInference pass" {
   assert_true(assert_pass_context_kind(GlobalStructInference, ModuleRunnerPass))
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     ),
   )
   let optimized = match optimize_module(mod, [GlobalStructInference]) {
@@ -6035,7 +6070,9 @@ test "optimize_module runs GlobalStructInferenceDescCast pass" {
   )
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     ),
   )
   let optimized = match optimize_module(mod, [GlobalStructInferenceDescCast]) {
@@ -6051,7 +6088,9 @@ test "optimize_module runs GlobalStructInferenceDescCast pass" {
 test "optimize_module schedules GlobalStructInferenceDescCast on valid modules" {
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     ),
   )
   let optimized = match optimize_module(mod, [GlobalStructInferenceDescCast]) {
@@ -6067,7 +6106,9 @@ test "optimize_module schedules GlobalStructInferenceDescCast on valid modules" 
 test "optimize_module schedules GlobalStructInferenceDescCast without invalid GC constant globals" {
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     ),
   )
   let optimized = match optimize_module(mod, [GlobalStructInferenceDescCast]) {
@@ -6146,7 +6187,7 @@ test "optimize_module runs Heap2Local pass" {
       CodeSec::new([
         Func::t_func(
           [],
-          [local_ref],
+          Locals::from_types([local_ref]),
           TExpr::new([
             TInstr::local_set(
               LocalIdx::new(0),
@@ -6199,7 +6240,7 @@ test "optimize_module runs HeapStoreOptimization pass" {
       CodeSec::new([
         Func::t_func(
           [],
-          [local_ref],
+          Locals::from_types([local_ref]),
           TExpr::new([
             TInstr::local_set(
               LocalIdx::new(0),
@@ -6638,8 +6679,16 @@ test "optimize_module runs SSANoMerge pass" {
 ///|
 test "optimize_module_with_options controls DuplicateFunctionElimination iterations" {
   let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
-  let a1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(2), [])]))
-  let a2 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(3), [])]))
+  let a1 = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::call(FuncIdx::new(2), [])]),
+  )
+  let a2 = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::call(FuncIdx::new(3), [])]),
+  )
   let b1 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let b2 = Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))
   let mod = Module::new()
@@ -6754,7 +6803,11 @@ test "optimize_module runs InlineMain pass" {
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(1), [])]),
+        ),
         Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
       ]),
     )
@@ -6914,7 +6967,9 @@ test "optimize_module runs Vacuum pass" {
 test "optimize_module trace skips redundant no-op vacuum pass" {
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     ),
   )
   let trace_lines : Array[String] = []
@@ -6984,7 +7039,9 @@ test "optimize_module trace runs second vacuum when first vacuum changed module"
 test "optimize_module trace reports separate transform and validation timings" {
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     ),
   )
   let trace_lines : Array[String] = []
@@ -7044,7 +7101,9 @@ test "optimize stacked runner allows pass trace and after-segment validation" {
 test "optimize_module helper trace reports scheduler pass segments" {
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     ),
   )
   let trace_lines : Array[String] = []
@@ -7092,7 +7151,9 @@ test "optimize_module helper trace reports scheduler pass segments" {
 test "optimize post-encode repro replay returns pre-segment module and segment passes" {
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     ),
   )
   let passes : Array[ModulePass] = [
@@ -7128,7 +7189,9 @@ test "optimize post-encode repro replay returns pre-segment module and segment p
 test "optimize post-encode repro replay returns none when every segment roundtrips" {
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     ),
   )
   let repro = match
@@ -7148,7 +7211,9 @@ test "optimize post-encode repro replay returns none when every segment roundtri
 test "optimize_module pass trace omits scheduler pass segments" {
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     ),
   )
   let trace_lines : Array[String] = []
@@ -7176,7 +7241,9 @@ test "optimize_module pass trace omits scheduler pass segments" {
 test "optimize_module helper trace reports scheduler segment execution boundaries" {
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     ),
   )
   let trace_lines : Array[String] = []
@@ -7224,7 +7291,9 @@ test "optimize_module helper trace reports scheduler segment execution boundarie
 test "optimize_module pass trace omits scheduler segment execution boundaries" {
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     ),
   )
   let trace_lines : Array[String] = []
@@ -7762,8 +7831,11 @@ test "optimize_module runs LocalSubtyping pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, [RefTypeValType(rt)], _)])) =>
-      assert_true(rt.is_nullable())
+    Some(CodeSec([TFunc(_, locals, _)])) =>
+      match locals[0] {
+        RefTypeValType(rt) => assert_true(rt.is_nullable())
+        _ => fail("expected refined local type")
+      }
     _ => fail("expected refined local type")
   }
 }
@@ -7977,7 +8049,9 @@ test "optimize_module runs MinimizeRecGroups pass" {
     .with_type_sec(TypeSec::new([t0, t1, t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     )
   let optimized = match optimize_module(mod, [MinimizeRecGroups]) {
     Ok(m) => m
@@ -8642,7 +8716,7 @@ test "pass invariant: heap2local validates and remap is stable" {
       CodeSec::new([
         Func::t_func(
           [],
-          [local_ref],
+          Locals::from_types([local_ref]),
           TExpr::new([
             TInstr::local_set(
               LocalIdx::new(0),
@@ -8785,7 +8859,11 @@ test "pass invariant: asyncify validates and remap is stable" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(0), [])]),
+        ),
       ]),
     )
   let out = opt_assert_pass_invariant(
@@ -8909,7 +8987,9 @@ test "pass invariant: minimize_rec_groups validates and remap is stable" {
     .with_type_sec(TypeSec::new([t0, t1, t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
     )
   let out = opt_assert_pass_invariant(
     mod,
@@ -9387,7 +9467,11 @@ test "opt_validate_post_encode_roundtrip_for_pass reports offending function dif
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::drop(TInstr::nop())])),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::drop(TInstr::nop())]),
+        ),
       ]),
     )
   let msg = match
@@ -9415,7 +9499,7 @@ test "optimize handles loop typeidx params through duplicate function eliminatio
     .with_code_sec(
       CodeSec::new([
         Func::new(
-          [],
+          Locals::empty(),
           Expr::new([
             Instruction::i32_const(I32(0)),
             Instruction::loop_(

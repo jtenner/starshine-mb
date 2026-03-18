@@ -1264,7 +1264,7 @@ fn uf_collect_initial_requirements(
                 params, tfunc_params, locals,
               ) {
               Ok(function_locals) => function_locals.all_locals()
-              Err(_) => params.copy()
+              Err(_) => Locals::from_types(params)
             }
             let func_env = env
               .with_locals(all_locals)
@@ -1281,7 +1281,7 @@ fn uf_collect_initial_requirements(
             let all_locals = match
               FunctionLocals::from_local_decls(params, locals) {
               Ok(function_locals) => function_locals.all_locals()
-              Err(_) => params.copy()
+              Err(_) => Locals::from_types(params)
             }
             let func_env = env
               .with_locals(all_locals)
@@ -1307,7 +1307,11 @@ fn uf_collect_initial_requirements(
     Some(GlobalSec(globals)) =>
       for global in globals {
         let Global(_, init) = global
-        match to_texpr(init, env.with_locals(Locals::empty()).with_return_type(Some([]))) {
+        match
+          to_texpr(
+            init,
+            env.with_locals(Locals::empty()).with_return_type(Some([])),
+          ) {
           Ok({ instrs, .. }) =>
             for instr in instrs {
               uf_collect_from_tinstr(
@@ -1747,7 +1751,9 @@ fn uf_test_control_flow_constraint_module(body : Array[TInstr]) -> Module {
   Module::new()
   .with_type_sec(TypeSec::new([top, mid, bot, main_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(3)]))
-  .with_code_sec(CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new(body))]))
+  .with_code_sec(
+    CodeSec::new([Func::t_func([], Locals::empty(), TExpr::new(body))]),
+  )
 }
 
 ///|
@@ -2050,7 +2056,11 @@ fn uf_test_multivalue_join_constraint_module(join_instr : TInstr) -> Module {
   .with_func_sec(FuncSec::new([TypeIdx::new(4)]))
   .with_code_sec(
     CodeSec::new([
-      Func::t_func([], Locals::empty(), TExpr::new([TInstr::return_([join_instr])])),
+      Func::t_func(
+        [],
+        Locals::empty(),
+        TExpr::new([TInstr::return_([join_instr])]),
+      ),
     ]),
   )
 }

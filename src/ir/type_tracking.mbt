@@ -11,7 +11,7 @@ pub struct TypeContext {
   struct_types : Array[Array[FieldType]]
   array_types : Array[FieldType]
   tag_types : Array[TagType]
-  local_types : Array[ValType] // For the current function
+  local_types : Locals // For the current function
 }
 
 ///|
@@ -23,7 +23,7 @@ pub fn TypeContext::empty() -> Self {
     struct_types: [],
     array_types: [],
     tag_types: [],
-    local_types: [],
+    local_types: Locals::empty(),
   }
 }
 

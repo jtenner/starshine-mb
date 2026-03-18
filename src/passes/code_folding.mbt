@@ -390,7 +390,7 @@ priv struct CodeFoldingState {
 fn CodeFoldingState::new(
   env? : Env = Env::new(),
   param_types? : Array[ValType] = [],
-  func_locals? : Array[ValType] = [],
+  func_locals? : Locals = Locals::empty(),
 ) -> CodeFoldingState {
   let initial_env = if func_locals.is_empty() {
     env
@@ -434,17 +434,8 @@ fn CodeFoldingState::prepare_func(
 }
 
 ///|
-fn cf_non_param_locals(
-  full_locals : Locals,
-  param_count : Int,
-) -> Array[ValType] {
-  let out : Array[ValType] = []
-  let mut i = if param_count < 0 { 0 } else { param_count }
-  while i < full_locals.length() {
-    out.push(full_locals[i])
-    i += 1
-  }
-  out
+fn cf_non_param_locals(full_locals : Locals, param_count : Int) -> Locals {
+  full_locals.without_prefix(param_count)
 }
 
 ///|
@@ -460,7 +451,7 @@ fn cf_build_tfunc(
 fn CodeFoldingState::preview_appended_local(
   self : CodeFoldingState,
   ty : ValType,
-) -> (LocalIdx, Array[ValType], Env) {
+) -> (LocalIdx, Locals, Env) {
   let next_locals = self.func_locals.copy()
   next_locals.push(ty)
   let idx = LocalIdx::new(self.func_locals.length().reinterpret_as_uint())
@@ -2667,10 +2658,7 @@ fn cf_validate_typed_function_candidate(
       if tfunc_params != params {
         return false
       }
-      let all_locals = params.copy()
-      for local_val in local_vals {
-        all_locals.push(local_val)
-      }
+      let all_locals = FunctionLocals::new(params, local_vals).all_locals()
       let env1 = env
         .with_locals(all_locals)
         .with_labels(
@@ -3204,7 +3192,7 @@ fn cf_preview_block_temp_local(
   tails : Array[ScopedTail],
   merged_instrs : Array[TInstr],
   results : Array[ValType],
-) -> (CodeFoldingTempLocal, Array[ValType], Env)? {
+) -> (CodeFoldingTempLocal, Locals, Env)? {
   let value_instr = match cf_find_block_tail_value(tails) {
     Some(value_instr) => value_instr
     None => return None
@@ -3230,7 +3218,7 @@ fn process_block(
   instrs : Array[TInstr],
   trace_stats : CodeFoldingRoundTraceStats,
   trace_ctx : CodeFoldingExprTraceCtx,
-) -> (TInstr, Array[ValType]?)? {
+) -> (TInstr, Locals?)? {
   trace_stats.block_visits += 1
   ignore(label)
   if instrs.is_empty() {
@@ -4145,7 +4133,7 @@ fn code_folding_ir_pass_with_trace(
               "code_folding_ir_pass: malformed typed function locals for function ordinal \{defined_func_ordinal}: \{e}",
             )
         }
-      _ => (param_types, [], func)
+      _ => (param_types, Locals::empty(), func)
     }
     let func_env = base_env
       .with_locals(func_locals)
@@ -4179,7 +4167,11 @@ test "code_folding_pass can be created" {
   }
 
   // Simple test: pass through a function
-  let func = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(42))]))
+  let func = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::i32_const(I32(42))]),
+  )
   match pass.walk_func(state, func) {
     Ok(_) => () // Pass completes without error
     Err(e) => fail("Unexpected error: " + e)
@@ -4211,9 +4203,9 @@ test "code_folding_pass keeps typed params when state param_types is stale" {
   )
   let state = CodeFoldingState::{
     ..CodeFoldingState::new(
-      env=Env::new().with_locals(typed_params),
+      env=Env::new().with_locals(Locals::from_types(typed_params)),
       param_types=[],
-      func_locals=typed_params,
+      func_locals=Locals::from_types(typed_params),
     ),
     another_pass: false,
   }
@@ -4525,7 +4517,11 @@ fn cf_assert_func_body_typechecks(
 
 ///|
 test "simple function unchanged" {
-  let f = Func::t_func([], Locals::empty(), TExpr::new([TInstr::i32_const(I32(42))]))
+  let f = Func::t_func(
+    [],
+    Locals::empty(),
+    TExpr::new([TInstr::i32_const(I32(42))]),
+  )
   let f2 = run_fold(f)
   match f2 {
     TFunc(_, _, { instrs, .. }) => assert_eq(instrs.length(), 1)
@@ -4714,7 +4710,7 @@ test "can_move rejects branches that exit the container entirely" {
 ///|
 test "can_move rejects moving throwing code across try_table" {
   let item = TInstr::throw_(TagIdx::new(0), [])
-  let container = TInstr::try_table(BlockType::void_(), Locals::empty(), TExpr::new([item]))
+  let container = TInstr::try_table(BlockType::void_(), [], TExpr::new([item]))
   assert_false(can_move([item], container))
 }
 
@@ -6814,7 +6810,12 @@ test "optimize_terminating_tails rejects stale scoped return tails after body re
 ///|
 test "preview_appended_local uses TFunc full-local index space" {
   let params = [ValType::i32(), ValType::i32(), ValType::i32()]
-  let func_locals = params + [ValType::i32()]
+  let func_locals = Locals::from_types([
+    ValType::i32(),
+    ValType::i32(),
+    ValType::i32(),
+    ValType::i32(),
+  ])
   let state = CodeFoldingState::new(
     env=Env::new().with_locals(func_locals),
     param_types=params,
@@ -6906,7 +6907,11 @@ test "code folding module pass keeps params-local indexing valid across terminat
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32()]), body),
+        Func::t_func(
+          [],
+          Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32()]),
+          body,
+        ),
       ]),
     )
   let folded = cf_run_fold_module(mod)
@@ -6946,13 +6951,13 @@ test "code folding module pass tracks param arity per function when creating tem
       CodeSec::new([
         Func::t_func(
           [],
-          [
+          Locals::from_types([
             ValType::i32(),
             ValType::i32(),
             ValType::i32(),
             ValType::i32(),
             ValType::i32(),
-          ],
+          ]),
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
         Func::t_func(
@@ -7015,16 +7020,16 @@ test "code folding module pass keeps temp local indices stable with mixed typed 
     )
     .with_code_sec(
       CodeSec::new([
-        Func::new([], Expr::new([])),
+        Func::new(Locals::empty(), Expr::new([])),
         Func::t_func(
           [],
-          [
+          Locals::from_types([
             ValType::i32(),
             ValType::i32(),
             ValType::i32(),
             ValType::i32(),
             ValType::i32(),
-          ],
+          ]),
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
         Func::t_func(

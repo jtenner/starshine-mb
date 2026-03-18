@@ -223,7 +223,12 @@ test "reorder_locals reorders vars by use count then first use and drops unused 
     CodeSec::new([
       Func::t_func(
         [],
-        Locals::from_types([ValType::i32(), ValType::i64(), ValType::f32(), ValType::f64()]),
+        Locals::from_types([
+          ValType::i32(),
+          ValType::i64(),
+          ValType::f32(),
+          ValType::f64(),
+        ]),
         TExpr::new([
           TInstr::local_set(LocalIdx::new(2), TInstr::i32_const(I32(0))),
           TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
