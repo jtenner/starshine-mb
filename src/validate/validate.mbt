@@ -2743,6 +2743,85 @@ test "validate_module accepts typed try_table with param input" {
 }
 
 ///|
+test "validate_module accepts typed block with control-flow input params" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          [],
+          TExpr::new([
+            TInstr::local_get(LocalIdx::new(0U)),
+            TInstr::block(BlockType::type_idx(TypeIdx::new(0U)), TExpr::new([])),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "validate_module accepts typed if with control-flow input params" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let func_sig = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+    ),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig, func_sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32(), ValType::i32()],
+          [],
+          TExpr::new([
+            TInstr::local_get(LocalIdx::new(1U)),
+            TInstr::if_(
+              BlockType::type_idx(TypeIdx::new(0U)),
+              TInstr::local_get(LocalIdx::new(0U)),
+              TExpr::new([]),
+              Some(TExpr::new([])),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "validate_module accepts typed loop with control-flow input params" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          [],
+          TExpr::new([
+            TInstr::local_get(LocalIdx::new(0U)),
+            TInstr::loop_(BlockType::type_idx(TypeIdx::new(0U)), TExpr::new([])),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
 test "validate_module accepts typed nested outer-label branch if" {
   let sig = RecType::new(
     SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),

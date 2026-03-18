@@ -355,6 +355,215 @@ fn pop_types_rev(st : TcState, ts : Array[ValType]) -> TcResult {
 }
 
 ///|
+fn typecheck_typed_texpr_body(
+  body : TExpr,
+  env : Env,
+  stack : Array[ValType],
+  reachable : Bool,
+  escape : TcEscape,
+) -> TcResult {
+  let mut st_body = TcState::{ env, stack: stack.copy(), reachable, escape }
+  let { instrs: body_instrs, .. } = body
+  for instr in body_instrs {
+    st_body = match Typecheck::typecheck(instr, st_body) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+  }
+  Ok(st_body)
+}
+
+///|
+fn typecheck_typed_block_form(
+  st : TcState,
+  bt : BlockType,
+  body : TExpr,
+  use_outer_params : Bool,
+) -> TcResult {
+  let (params, results) = match st.env.expand_blocktype(bt) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  let st_outer = if use_outer_params {
+    match st.pop_types(params) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+  } else {
+    st
+  }
+  let env2 = st_outer.env.with_label(results)
+  let init_stack = if use_outer_params {
+    tc_stack_from_types(params)
+  } else {
+    []
+  }
+  let st_body = match
+    typecheck_typed_texpr_body(
+      body,
+      env2,
+      init_stack,
+      st_outer.reachable,
+      st_outer.escape,
+    ) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let (reaches_merge, block_escape) = match
+    normalize_typed_block_exit(st_body, results) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  if reaches_merge {
+    let out = TcState::{
+      env: st.env,
+      stack: st_outer.stack,
+      reachable: st_outer.reachable,
+      escape: st_outer.escape,
+    }
+    return Ok(out.push_types(results))
+  }
+  Ok(TcState::{ env: st.env, stack: [], reachable: false, escape: block_escape })
+}
+
+///|
+fn typecheck_typed_loop_form(
+  st : TcState,
+  bt : BlockType,
+  body : TExpr,
+  use_outer_params : Bool,
+) -> TcResult {
+  let (params, results) = match st.env.expand_blocktype(bt) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  let st_outer = if use_outer_params {
+    match st.pop_types(params) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+  } else {
+    st
+  }
+  let env2 = st_outer.env.with_label(params)
+  let init_stack = if use_outer_params {
+    tc_stack_from_types(params)
+  } else {
+    []
+  }
+  let st_body = match
+    typecheck_typed_texpr_body(
+      body,
+      env2,
+      init_stack,
+      st_outer.reachable,
+      st_outer.escape,
+    ) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  match validate_end_stack(st_body, results) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
+  let out = TcState::{
+    env: st.env,
+    stack: st_outer.stack,
+    reachable: st_outer.reachable,
+    escape: st_outer.escape,
+  }
+  Ok(out.push_types(results))
+}
+
+///|
+fn typecheck_typed_if_form(
+  st : TcState,
+  bt : BlockType,
+  cond : TInstr,
+  then_instrs : TExpr,
+  else_instrs_opt : TExpr?,
+  use_outer_params : Bool,
+) -> TcResult {
+  let (params, results) = match st.env.expand_blocktype(bt) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  let st0 = match Typecheck::typecheck(cond, st) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st0 = match st0.pop_expect(ValType::i32()) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st_outer = if use_outer_params {
+    match st0.pop_types(params) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+  } else {
+    st0
+  }
+  let else_instrs = match else_instrs_opt {
+    None => []
+    Some({ instrs: xs, .. }) => xs
+  }
+  let env_branch = st_outer.env.with_label(results)
+  let init_stack = if use_outer_params {
+    tc_stack_from_types(params)
+  } else {
+    []
+  }
+  let st_then = match
+    typecheck_typed_texpr_body(
+      then_instrs,
+      env_branch,
+      init_stack,
+      st_outer.reachable,
+      st_outer.escape,
+    ) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st_else = match
+    typecheck_typed_texpr_body(
+      TExpr::new(else_instrs),
+      env_branch,
+      init_stack,
+      st_outer.reachable,
+      st_outer.escape,
+    ) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let (then_reach, then_escape) = match
+    normalize_typed_if_branch_exit(st_then, results) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  let (else_reach, else_escape) = match
+    normalize_typed_if_branch_exit(st_else, results) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  if then_reach || else_reach {
+    let out = TcState::{
+      env: st.env,
+      stack: st_outer.stack,
+      reachable: true,
+      escape: NoTcEscape,
+    }
+    return Ok(out.push_types(results))
+  }
+  Ok(TcState::{
+    env: st.env,
+    stack: [],
+    reachable: false,
+    escape: merge_nonfallthrough_if_exits(then_escape, else_escape),
+  })
+}
+
+///|
 pub impl Typecheck for Expr with typecheck(self, st0) {
   let Expr(instrs) = self
   let mut st = st0
@@ -4350,148 +4559,64 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
 
     // === Control Flow ===
     TInstrKind::TBlock(bt, body) => {
-      let (_params, results) = match st.env.expand_blocktype(bt) {
+      let (params, _) = match st.env.expand_blocktype(bt) {
         Err(e) => return Err(e)
         Ok(x) => x
       }
-      let env2 = st.env.with_label(results)
-      let mut st_body = TcState::{
-        env: env2,
-        stack: [],
-        reachable: st.reachable,
-        escape: st.escape,
+      match typecheck_typed_block_form(st, bt, body, false) {
+        Ok(out) => Ok(out)
+        Err(primary_err) =>
+          if params.is_empty() {
+            Err(primary_err)
+          } else {
+            match typecheck_typed_block_form(st, bt, body, true) {
+              Ok(out) => Ok(out)
+              Err(_) => Err(primary_err)
+            }
+          }
       }
-      let { instrs: body, .. } = body
-      for instr in body {
-        st_body = match Typecheck::typecheck(instr, st_body) {
-          Err(e) => return Err(e)
-          Ok(s) => s
-        }
-      }
-      let (reaches_merge, block_escape) = match
-        normalize_typed_block_exit(st_body, results) {
-        Err(e) => return Err(e)
-        Ok(x) => x
-      }
-      if reaches_merge {
-        let out = TcState::{
-          env: st.env,
-          stack: st.stack,
-          reachable: st.reachable,
-          escape: st.escape,
-        }
-        return Ok(out.push_types(results))
-      }
-      Ok(TcState::{
-        env: st.env,
-        stack: [],
-        reachable: false,
-        escape: block_escape,
-      })
     }
     TInstrKind::TLoop(bt, body) => {
-      let (params, results) = match st.env.expand_blocktype(bt) {
+      let (params, _) = match st.env.expand_blocktype(bt) {
         Err(e) => return Err(e)
         Ok(x) => x
       }
-      let env2 = st.env.with_label(params)
-      let mut st_body = TcState::{
-        env: env2,
-        stack: [],
-        reachable: st.reachable,
-        escape: st.escape,
+      match typecheck_typed_loop_form(st, bt, body, false) {
+        Ok(out) => Ok(out)
+        Err(primary_err) =>
+          if params.is_empty() {
+            Err(primary_err)
+          } else {
+            match typecheck_typed_loop_form(st, bt, body, true) {
+              Ok(out) => Ok(out)
+              Err(_) => Err(primary_err)
+            }
+          }
       }
-      let { instrs: body, .. } = body
-      for instr in body {
-        st_body = match Typecheck::typecheck(instr, st_body) {
-          Err(e) => return Err(e)
-          Ok(s) => s
-        }
-      }
-      match validate_end_stack(st_body, results) {
-        Err(e) => return Err(e)
-        Ok(_) => ()
-      }
-      let out = TcState::{
-        env: st.env,
-        stack: st.stack,
-        // Typed loop merge mirrors untyped loop reachability semantics.
-        reachable: st.reachable,
-        escape: st.escape,
-      }
-      Ok(out.push_types(results))
     }
     TInstrKind::TIf(bt, cond, then_instrs, else_instrs_opt) => {
-      let (_params, results) = match st.env.expand_blocktype(bt) {
+      let (params, _) = match st.env.expand_blocktype(bt) {
         Err(e) => return Err(e)
         Ok(x) => x
       }
-      let st0 = match Typecheck::typecheck(cond, st) {
-        Err(e) => return Err(e)
-        Ok(s) => s
+      match
+        typecheck_typed_if_form(
+          st, bt, cond, then_instrs, else_instrs_opt, false,
+        ) {
+        Ok(out) => Ok(out)
+        Err(primary_err) =>
+          if params.is_empty() {
+            Err(primary_err)
+          } else {
+            match
+              typecheck_typed_if_form(
+                st, bt, cond, then_instrs, else_instrs_opt, true,
+              ) {
+              Ok(out) => Ok(out)
+              Err(_) => Err(primary_err)
+            }
+          }
       }
-      let st0 = match st0.pop_expect(ValType::i32()) {
-        Err(e) => return Err(e)
-        Ok(s) => s
-      }
-      let st1 = st0
-      let else_instrs = match else_instrs_opt {
-        None => []
-        Some({ instrs: xs, .. }) => xs
-      }
-      let env_branch = st1.env.with_label(results)
-      let st_then0 = TcState::{
-        env: env_branch,
-        stack: [],
-        reachable: st1.reachable,
-        escape: st1.escape,
-      }
-      let mut st_then = st_then0
-      let { instrs: then_instrs, .. } = then_instrs
-      for instr in then_instrs {
-        st_then = match Typecheck::typecheck(instr, st_then) {
-          Err(e) => return Err(e)
-          Ok(s) => s
-        }
-      }
-      let st_else0 = TcState::{
-        env: env_branch,
-        stack: [],
-        reachable: st1.reachable,
-        escape: st1.escape,
-      }
-      let mut st_else = st_else0
-      for instr in else_instrs {
-        st_else = match Typecheck::typecheck(instr, st_else) {
-          Err(e) => return Err(e)
-          Ok(s) => s
-        }
-      }
-      let (then_reach, then_escape) = match
-        normalize_typed_if_branch_exit(st_then, results) {
-        Err(e) => return Err(e)
-        Ok(x) => x
-      }
-      let (else_reach, else_escape) = match
-        normalize_typed_if_branch_exit(st_else, results) {
-        Err(e) => return Err(e)
-        Ok(x) => x
-      }
-      if then_reach || else_reach {
-        let out = TcState::{
-          env: st.env,
-          stack: st1.stack,
-          reachable: true,
-          escape: NoTcEscape,
-        }
-        return Ok(out.push_types(results))
-      }
-      Ok(TcState::{
-        env: st.env,
-        stack: [],
-        reachable: false,
-        escape: merge_nonfallthrough_if_exits(then_escape, else_escape),
-      })
     }
     TInstrKind::TTryTable(bt, catches, body) => {
       let (params, results) = match st.env.expand_blocktype(bt) {

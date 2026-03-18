@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-18 Validate Follow-up: accept typed control-flow input params in both IR shapes
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so typed `block`, `if`, and `loop` validation now accepts both body-embedded control-flow inputs from `to_texpr(...)` and explicit outer-stack control-flow input forms emitted directly by pass code, fixing the typed-control `stack underflow` gap.
+- Added regressions in [/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) covering typed `block` / `if` / `loop` validation with `type_idx` control-flow input params.
+- Validation: `moon test src/validate`; `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-18 Optimize Follow-up: harden degraded `Vacuum` local retention and add branch-value regressions
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) so degraded `Vacuum` now retains standalone `local.get` / `local.set` nodes in the final standalone-removal path, propagates parent result-use signals into degraded structured bodies, and adds focused degraded/typed regressions around ambient-fed locals and nested outer-label branch-value shapes.
