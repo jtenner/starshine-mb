@@ -17,6 +17,7 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] `SimplifyLocals` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `70.579s` at `pass[25/48]`.
 - [ ] `MergeBlocks` performance blocker: optimize pass trace on `_build/wasm/debug/build/cmd/cmd.wasm` took `47.924s` at `pass[32/48]` and `22.256s` at `pass[35/48]`.
 - [ ] `MergeSimilarFunctions` correctness blocker: optimize pass trace failed at `pass[44/48]` with `upstream-invalid direct call in preflight: arg count mismatch expected=3 actual=4 kind=call caller_abs_idx=924 callee_abs_idx=9038 node_id=15`.
+- [ ] `Vacuum` correctness blocker: serial pass repro on `before.wasm` still fails at `pass=Vacuum` with `typed function stack underflow` in `Func 1360`; degraded local-retention hardening landed, but the root corruption remains unresolved.
 
 ## Post v0.1.0 blockers
 - [ ] Complete the `src/passes` inventory and map each scheduler entry in `src/passes/optimize.mbt` to its implementation file, tests, and closest Binaryen equivalent.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-18 Optimize Follow-up: harden degraded `Vacuum` local retention and add branch-value regressions
+
+- Updated [/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) so degraded `Vacuum` now retains standalone `local.get` / `local.set` nodes in the final standalone-removal path, propagates parent result-use signals into degraded structured bodies, and adds focused degraded/typed regressions around ambient-fed locals and nested outer-label branch-value shapes.
+- Updated [/home/jtenner/Projects/starshine-mb/agent-todo.md](/home/jtenner/Projects/starshine-mb/agent-todo.md) to record that the serial-pass `Vacuum` corruption on `before.wasm` / `Func 1360` is still unresolved after this hardening pass.
+- Validation: `moon test src/passes`; `moon info`; `moon fmt`; `moon test`. Known remaining issue: `moon run src/cmd --target native -- --debug-serial-passes --vacuum -o /tmp/vacuum-repro.wasm before.wasm` still fails with `typed function stack underflow` in `Func 1360`.
+
 ## 2026-03-18 Validate Follow-up: propagate typed outer-label block exits without regressing raw `if` checks
 
 - Updated [/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so raw wasm `if` merges, typed `if` merges, and typed `block` exits now normalize branch escapes separately. Typed blocks once again propagate outer-label `br` escapes upward instead of treating them as local stack underflows, while raw `if` validation still rejects missing result values after nested outer-label branches.

@@ -4920,9 +4920,19 @@ fn vq_optimize_sequence_degraded(
       child, env, used, budget, analysis_cache, pass_options,
     )
     if optimized is None {
-      if multi_value_results ||
-        keeps_sequence_result ||
-        is_unreachable_instr(child) {
+      if i == 0 && result_types.is_empty() {
+        match child.kind {
+          TInstrKind::TLocalGet(_) | TInstrKind::TLocalSet(_, _) =>
+            optimized = Some(child)
+          _ => ()
+        }
+      }
+      if optimized is None &&
+        (
+          multi_value_results ||
+          keeps_sequence_result ||
+          is_unreachable_instr(child)
+        ) {
         optimized = Some(child)
       } else if has_ambient_stack_terminator {
         match
@@ -5157,14 +5167,9 @@ fn vq_process_instr_degraded(
   match instr.kind {
     TInstrKind::TBlock(bt, body) => {
       let result_types = vq_block_result_types(bt, env)
+      let body_result_used = result_used || !result_types.is_empty()
       let next_body = vq_optimize_texpr_degraded(
-        body,
-        env,
-        result_types,
-        !result_types.is_empty(),
-        budget,
-        analysis_cache,
-        pass_options,
+        body, env, result_types, body_result_used, budget, analysis_cache, pass_options,
       )
       if result_types.is_empty() && vq_is_nop_texpr(next_body) {
         Some(TInstr::nop())
@@ -5181,25 +5186,16 @@ fn vq_process_instr_degraded(
         None => condition
       }
       let arm_result_types = vq_block_result_types(bt, env)
+      let arm_result_used = result_used || !arm_result_types.is_empty()
       let next_then = vq_optimize_texpr_degraded(
-        then_body,
-        env,
-        arm_result_types,
-        !arm_result_types.is_empty(),
-        budget,
-        analysis_cache,
+        then_body, env, arm_result_types, arm_result_used, budget, analysis_cache,
         pass_options,
       )
       let next_else = match else_body {
         Some(other) =>
           Some(
             vq_optimize_texpr_degraded(
-              other,
-              env,
-              arm_result_types,
-              !arm_result_types.is_empty(),
-              budget,
-              analysis_cache,
+              other, env, arm_result_types, arm_result_used, budget, analysis_cache,
               pass_options,
             ),
           )
@@ -5283,14 +5279,9 @@ fn vq_process_instr_degraded(
     }
     TInstrKind::TLoop(bt, body) => {
       let result_types = vq_block_result_types(bt, env)
+      let body_result_used = result_used || !result_types.is_empty()
       let next_body = vq_optimize_texpr_degraded(
-        body,
-        env,
-        result_types,
-        !result_types.is_empty(),
-        budget,
-        analysis_cache,
-        pass_options,
+        body, env, result_types, body_result_used, budget, analysis_cache, pass_options,
       )
       if result_types.is_empty() && vq_is_nop_texpr(next_body) {
         Some(TInstr::nop())
@@ -5310,14 +5301,9 @@ fn vq_process_instr_degraded(
     }
     TInstrKind::TTryTable(bt, catches, body) => {
       let result_types = vq_block_result_types(bt, env)
+      let body_result_used = result_used || !result_types.is_empty()
       let next_body = vq_optimize_texpr_degraded(
-        body,
-        env,
-        result_types,
-        !result_types.is_empty(),
-        budget,
-        analysis_cache,
-        pass_options,
+        body, env, result_types, body_result_used, budget, analysis_cache, pass_options,
       )
       if result_types.is_empty() && vq_is_nop_texpr(next_body) {
         Some(TInstr::nop())
@@ -5350,7 +5336,11 @@ fn vq_process_instr_degraded(
         !vq_degraded_can_remove_unused_instr(rebuilt, analysis_cache) {
         Some(rebuilt)
       } else {
-        None
+        match rebuilt.kind {
+          TInstrKind::TLocalGet(_) | TInstrKind::TLocalSet(_, _) =>
+            Some(rebuilt)
+          _ => None
+        }
       }
     }
   }
@@ -8097,6 +8087,31 @@ test "vacuum degraded sequence keeps ambient-fed local.set chain intact" {
 
   assert_eq(seq.items, items)
   assert_false(seq.changed)
+}
+
+///|
+test "vacuum degraded sequence keeps leading ambient-fed filler in void context" {
+  let items = [
+    TInstr::local_set(LocalIdx::new(1), TInstr::local_get(LocalIdx::new(0))),
+    TInstr::local_get(LocalIdx::new(1)),
+  ]
+  let env = Env::new()
+    .with_module(Module::new())
+    .with_locals([ValType::i32(), ValType::i32()])
+  let cache = VQAnalysisCache::new([], VQRunStats::new())
+  let budget = Ref::new(16)
+  let seq = vq_optimize_sequence_degraded(
+    items,
+    env,
+    [],
+    true,
+    budget,
+    cache,
+    VQPassOptions::new(),
+  )
+
+  assert_eq(seq.items[0], items[0])
+  assert_true(seq.items.length() >= 1)
 }
 
 ///|
@@ -10911,6 +10926,135 @@ test "vacuum preserves nested break-to-wrapper inside branch value tree" {
     _ =>
       fail(
         "expected vacuum to keep wrapper block when nested branch-value path targets it",
+      )
+  }
+}
+
+///|
+test "vacuum preserves typed nested outer-label branch if shapes" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(0))),
+                TInstr::drop(
+                  TInstr::if_(
+                    BlockType::val_type(ValType::i32()),
+                    TInstr::local_get(LocalIdx::new(0)),
+                    TExpr::new([TInstr::i32_const(I32(1000))]),
+                    Some(
+                      TExpr::new([
+                        TInstr::if_(
+                          BlockType::void_(),
+                          TInstr::local_get(LocalIdx::new(0)),
+                          TExpr::new([
+                            TInstr::drop(TInstr::i32_const(I32(0))),
+                            TInstr::br(LabelIdx::new(2), []),
+                            TInstr::local_set(
+                              LocalIdx::new(1),
+                              TInstr::i32_const(I32(7)),
+                            ),
+                          ]),
+                          Some(
+                            TExpr::new([
+                              TInstr::drop(TInstr::i32_const(I32(0))),
+                              TInstr::br(LabelIdx::new(2), []),
+                              TInstr::local_get(LocalIdx::new(1)),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+            TInstr::i32_const(I32(0)),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected typed nested outer-label branch if shape to survive vacuum: \{e}",
+      )
+  }
+}
+
+///|
+test "vacuum preserves typed result if with dead post-branch filler in nested outer-label arm" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::drop(
+                  TInstr::if_(
+                    BlockType::val_type(ValType::i32()),
+                    TInstr::local_get(LocalIdx::new(0)),
+                    TExpr::new([TInstr::i32_const(I32(1000))]),
+                    Some(
+                      TExpr::new([
+                        TInstr::if_(
+                          BlockType::void_(),
+                          TInstr::local_get(LocalIdx::new(0)),
+                          TExpr::new([
+                            TInstr::br(LabelIdx::new(2), []),
+                            TInstr::local_get(LocalIdx::new(1)),
+                          ]),
+                          Some(
+                            TExpr::new([
+                              TInstr::br(LabelIdx::new(2), []),
+                              TInstr::local_set(
+                                LocalIdx::new(1),
+                                TInstr::i32_const(I32(7)),
+                              ),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+            TInstr::i32_const(I32(0)),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected nested result-if outer-label filler shape to survive vacuum: \{e}",
       )
   }
 }
