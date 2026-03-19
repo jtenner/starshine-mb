@@ -65,6 +65,7 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - `./agent-todo.md` contains AI-friendly backlog items.
 - Keep backlog tasks as simple bullet points grouped by priority/section.
 - Do not mark completed backlog items in `agent-todo.md`; move completed work into `CHANGELOG.md` instead.
+- Before commit, investigate `agent-todo.md` and update the tasks with new blockers, risks, and removing completed items.
 
 ## Lost And Found Canary
 - `./agent-lost-and-found.md` is a local canary file for agent observations; it is intentionally gitignored and should not be committed.

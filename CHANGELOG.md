@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-19 Backlog/Docs: prune completed name-section blocker and require pre-commit backlog review
+
+- Removed the completed `name` custom-section publishing blocker from [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) now that the extended name-section subsection support landed and is recorded in the changelog, keeping the backlog limited to open work only.
+- Updated [`AGENTS.md`](/home/jtenner/Projects/starshine-mb/AGENTS.md) to require a pre-commit review of [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), including adding new blockers or risks and removing completed items before commit.
+
 ## 2026-03-19 Binary/Validate: implement remaining extended name-section subsections
 
 - Extended [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt) and the generated interface in [`src/lib/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/lib/pkg.generated.mbti) so `NameSec` now models the remaining extended-name-section proposal subsections: label, table, memory, global, elem, and data names in addition to the previously implemented module/function/local/type/field/tag names.

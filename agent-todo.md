@@ -13,7 +13,6 @@ Reach v0.1.0 "production-ready for MoonBit users" with a full native CLI, a spec
 - Other Binaryen pass-parity work is `v0.2.0` blocker work.
 
 ## Publishing blockers
-- Extend `name` custom section support to handle the subsection ids emitted by current MoonBit build artifacts (`6`, `7`, `8`, `9`) so the latest Starshine build decodes cleanly again.
 - Refresh `docs/pass-audit.md` so it describes the current `src/optimization` package, the replacement scheduler, the default-pipeline priority split, and the actual implemented-vs-stub pass status.
 
 ## v0.1.0 Default Optimize Pipeline Blockers
