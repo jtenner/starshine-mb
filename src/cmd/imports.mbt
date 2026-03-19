@@ -28,6 +28,20 @@ using @cli {
 using @lib {type Module}
 
 ///|
+using @optimization {
+  add_pass_to_pipeline,
+  default_optimize_pipeline,
+  type OptimizePass,
+  type PassGroup,
+  type PassKind,
+  type PipelineEntry,
+  type PipelineFeatures,
+  type PipelineGlobal,
+  type PipelineScratch,
+  type ValidationKind,
+}
+
+///|
 using @diff {render_line_diff}
 
 ///|

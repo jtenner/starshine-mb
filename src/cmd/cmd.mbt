@@ -1390,6 +1390,282 @@ fn make_optimize_options(
 }
 
 ///|
+fn cmd_generated_pipeline_validation_kind(
+  options : OptimizeOptions,
+) -> ValidationKind {
+  if options.validation_policy is AfterSegment {
+    ValidationKind::full()
+  } else {
+    ValidationKind::unchecked()
+  }
+}
+
+///|
+fn cmd_generated_pipeline_global(options : OptimizeOptions) -> PipelineGlobal {
+  PipelineGlobal::new(
+    opt_level=options.optimize_level,
+    shrink_level=options.shrink_level,
+    validate=options.validation_policy is AfterSegment,
+  )
+}
+
+///|
+fn cmd_generated_pipeline_features(
+  options : OptimizeOptions,
+) -> PipelineFeatures {
+  PipelineFeatures::new(low_memory_unused=options.low_memory_unused)
+}
+
+///|
+fn cmd_append_generated_pipeline_entries(
+  dst : Array[PipelineEntry],
+  src : Array[PipelineEntry],
+) -> Unit {
+  for entry in src {
+    dst.push(entry)
+  }
+}
+
+///|
+fn cmd_generated_pipeline_from_flags(
+  pass_flags : Array[String],
+  options : OptimizeOptions,
+) -> Array[PipelineEntry] {
+  let pipeline : Array[PipelineEntry] = []
+  let global = cmd_generated_pipeline_global(options)
+  let features = cmd_generated_pipeline_features(options)
+  let validation = cmd_generated_pipeline_validation_kind(options)
+  for flag in pass_flags {
+    match flag {
+      "optimize" =>
+        cmd_append_generated_pipeline_entries(
+          pipeline,
+          default_optimize_pipeline(global, features~),
+        )
+      "shrink" => {
+        let shrink_global = PipelineGlobal::new(
+          opt_level=options.optimize_level,
+          shrink_level=max_int(options.shrink_level, 2),
+          validate=global.validate,
+        )
+        cmd_append_generated_pipeline_entries(
+          pipeline,
+          default_optimize_pipeline(shrink_global, features~),
+        )
+      }
+      "duplicate-function-elimination" =>
+        add_pass_to_pipeline(
+          pipeline,
+          OptimizePass::DuplicateFunctionElimination,
+          validation_kind=validation,
+        )
+      _ => ()
+    }
+  }
+  pipeline
+}
+
+///|
+fn cmd_generated_pipeline_pass_count(pipeline : Array[PipelineEntry]) -> Int {
+  let mut count = 0
+  for entry in pipeline {
+    count += entry.passes.length()
+  }
+  count
+}
+
+///|
+fn cmd_truncate_generated_pipeline_entry(
+  entry : PipelineEntry,
+  keep : Int,
+) -> PipelineEntry {
+  if keep >= entry.passes.length() {
+    return entry
+  }
+  let kept_passes : Array[OptimizePass] = []
+  let mut i = 0
+  while i < keep {
+    kept_passes.push(entry.passes[i])
+    i += 1
+  }
+  let group = match entry.group.kind() {
+    FuncLocalGroup(funcs) => {
+      let kept_funcs : Array[
+        (Module, PipelineScratch) -> (Module, PipelineScratch),
+      ] = []
+      i = 0
+      while i < keep {
+        kept_funcs.push(funcs[i])
+        i += 1
+      }
+      PassGroup::new(
+        PassKind::func_local_group(kept_funcs),
+        entry.group.validation_kind(),
+      )
+    }
+    _ => entry.group
+  }
+  PipelineEntry::new(kept_passes, group)
+}
+
+///|
+fn limit_generated_pipeline_by_max_passes(
+  pipeline : Array[PipelineEntry],
+  max_passes : Int?,
+) -> (Array[PipelineEntry], Bool) {
+  match max_passes {
+    Some(limit) => {
+      let out : Array[PipelineEntry] = []
+      let mut remaining = limit
+      let mut truncated = false
+      for entry in pipeline {
+        if remaining <= 0 {
+          truncated = true
+          break
+        }
+        if entry.passes.length() <= remaining {
+          out.push(entry)
+          remaining -= entry.passes.length()
+        } else {
+          out.push(cmd_truncate_generated_pipeline_entry(entry, remaining))
+          truncated = true
+          remaining = 0
+        }
+      }
+      (out, truncated)
+    }
+    None => (pipeline, false)
+  }
+}
+
+///|
+fn expand_legacy_passes_for_module(
+  pass_flags : Array[String],
+  mod : Module,
+  options : OptimizeOptions,
+) -> Result[Array[ModulePass], CmdError] {
+  let filtered : Array[String] = []
+  for flag in pass_flags {
+    match flag {
+      "optimize" | "shrink" | "duplicate-function-elimination" => ()
+      _ => filtered.push(flag)
+    }
+  }
+  expand_passes_for_module(filtered, mod, options)
+}
+
+///|
+fn cmd_validate_generated_pipeline_step(mod : Module) -> Result[Unit, String] {
+  match validate_module(mod) {
+    Ok(_) => Ok(())
+    Err(err) => Err(validation_error_message(err))
+  }
+}
+
+///|
+fn run_generated_pipeline_with_options(
+  mod : Module,
+  pipeline : Array[PipelineEntry],
+  options : OptimizeOptions,
+) -> Result[Module, String] {
+  let mut current = mod
+  let mut global = cmd_generated_pipeline_global(options)
+  for entry in pipeline {
+    match entry.group.kind() {
+      Early(func) => {
+        let (next, next_global) = func(current, global)
+        current = next
+        global = next_global
+      }
+      ModuleWide(func) => {
+        let (next, next_global) = func(current, global)
+        current = next
+        global = next_global
+      }
+      FuncLocalGroup(funcs) => {
+        let mut scratch = PipelineScratch::new()
+        for func in funcs {
+          let (next, next_scratch) = func(current, scratch)
+          current = next
+          scratch = next_scratch
+        }
+      }
+    }
+    if options.validation_policy is AfterSegment &&
+      entry.group.validation_kind() != ValidationKind::unchecked() {
+      match cmd_validate_generated_pipeline_step(current) {
+        Ok(_) => ()
+        Err(err) => return Err("pipeline validation failed: \{err}")
+      }
+    }
+  }
+  Ok(current)
+}
+
+///|
+fn cmd_generated_pipeline_entry_trace_text(entry : PipelineEntry) -> String {
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < entry.passes.length() {
+    if i > 0 {
+      out.write_string(",")
+    }
+    out.write_string(entry.passes[i].to_string())
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+fn run_generated_pipeline_with_options_trace(
+  mod : Module,
+  pipeline : Array[PipelineEntry],
+  options : OptimizeOptions,
+  trace : (String) -> Unit,
+  trace_level? : OptimizeTracingLevel = OptimizeTracingLevel::pass(),
+) -> Result[Module, String] {
+  let _ = trace_level
+  let mut current = mod
+  let mut global = cmd_generated_pipeline_global(options)
+  for entry in pipeline {
+    trace(
+      "generated group start: \{cmd_generated_pipeline_entry_trace_text(entry)}",
+    )
+    match entry.group.kind() {
+      Early(func) => {
+        let (next, next_global) = func(current, global)
+        current = next
+        global = next_global
+      }
+      ModuleWide(func) => {
+        let (next, next_global) = func(current, global)
+        current = next
+        global = next_global
+      }
+      FuncLocalGroup(funcs) => {
+        let mut scratch = PipelineScratch::new()
+        for func in funcs {
+          let (next, next_scratch) = func(current, scratch)
+          current = next
+          scratch = next_scratch
+        }
+      }
+    }
+    if options.validation_policy is AfterSegment &&
+      entry.group.validation_kind() != ValidationKind::unchecked() {
+      match cmd_validate_generated_pipeline_step(current) {
+        Ok(_) => trace("generated group validate ok")
+        Err(err) => return Err("pipeline validation failed: \{err}")
+      }
+    }
+    trace(
+      "generated group done: \{cmd_generated_pipeline_entry_trace_text(entry)}",
+    )
+  }
+  Ok(current)
+}
+
+///|
 fn default_global_optimization_pre_passes(
   _mod : Module,
   _options : OptimizeOptions,
@@ -1434,7 +1710,7 @@ fn optimize_module_with_options_trace(
 ) -> Result[Module, String] {
   let _ = trace_level
   if passes.length() > 0 {
-    trace("optimizer disabled; requested passes are currently no-ops")
+    trace("legacy pass set is currently no-op: count=\{passes.length()}")
   }
   Ok(mod)
 }
@@ -2740,38 +3016,60 @@ pub fn run_cmd_with_adapter(
     }
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:decode done")
 
-    let expanded_passes = match
-      expand_passes_for_module(resolved_passes, mod, options) {
+    let generated_expanded_pipeline = cmd_generated_pipeline_from_flags(
+      resolved_passes, options,
+    )
+    let generated_expanded_pass_count = cmd_generated_pipeline_pass_count(
+      generated_expanded_pipeline,
+    )
+    let (generated_pipeline, generated_pipeline_truncated) = limit_generated_pipeline_by_max_passes(
+      generated_expanded_pipeline, max_passes,
+    )
+    let generated_pass_count = cmd_generated_pipeline_pass_count(
+      generated_pipeline,
+    )
+    let legacy_expanded_passes = match
+      expand_legacy_passes_for_module(resolved_passes, mod, options) {
       Ok(passes) => passes
       Err(e) => return Err(e)
     }
-    let (passes, expanded_passes_truncated) = limit_module_passes_by_max_passes(
-      expanded_passes, max_passes,
+    let legacy_max_passes = match max_passes {
+      Some(limit) => Some(max_int(limit - generated_pass_count, 0))
+      None => None
+    }
+    let (legacy_passes, legacy_passes_truncated) = limit_module_passes_by_max_passes(
+      legacy_expanded_passes, legacy_max_passes,
     )
+    let expanded_pass_count = generated_expanded_pass_count +
+      legacy_expanded_passes.length()
+    let effective_pass_count = generated_pass_count + legacy_passes.length()
+    let expanded_passes_truncated = generated_pipeline_truncated ||
+      legacy_passes_truncated ||
+      expanded_pass_count != effective_pass_count
     match max_passes {
       Some(limit) =>
         cmd_trace_emit(
           io,
           trace_optimize,
-          "input \{input_path}:pass_limit max_passes=\{limit} expanded_truncated=\{expanded_passes_truncated} expanded_pass_count=\{expanded_passes.length()} effective_pass_count=\{passes.length()}",
+          "input \{input_path}:pass_limit max_passes=\{limit} expanded_truncated=\{expanded_passes_truncated} expanded_pass_count=\{expanded_pass_count} effective_pass_count=\{effective_pass_count}",
         )
       None => ()
     }
     cmd_trace_emit(
       io,
       trace_optimize,
-      "input \{input_path}:pass_count=\{passes.length()} optimize:start",
+      "input \{input_path}:pass_count=\{effective_pass_count} optimize:start",
     )
 
-    let optimized = if trace_optimize {
+    let optimized_after_generated = if trace_optimize {
       let resolved_trace_level = match trace_level {
         Some(level) => level
         None => OptimizeTracingLevel::pass()
       }
       match
-        optimize_module_with_options_trace(
+        run_generated_pipeline_with_options_trace(
           mod,
-          passes,
+          generated_pipeline,
           options,
           fn(msg) { cmd_trace_emit(io, true, "input \{input_path}:opt \{msg}") },
           trace_level=resolved_trace_level,
@@ -2780,7 +3078,33 @@ pub fn run_cmd_with_adapter(
         Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
       }
     } else {
-      match optimize_module_with_options(mod, passes, options) {
+      match
+        run_generated_pipeline_with_options(mod, generated_pipeline, options) {
+        Ok(out) => out
+        Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
+      }
+    }
+    let optimized = if trace_optimize && legacy_passes.length() > 0 {
+      let resolved_trace_level = match trace_level {
+        Some(level) => level
+        None => OptimizeTracingLevel::pass()
+      }
+      match
+        optimize_module_with_options_trace(
+          optimized_after_generated,
+          legacy_passes,
+          options,
+          fn(msg) { cmd_trace_emit(io, true, "input \{input_path}:opt \{msg}") },
+          trace_level=resolved_trace_level,
+        ) {
+        Ok(out) => out
+        Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
+      }
+    } else {
+      match
+        optimize_module_with_options(
+          optimized_after_generated, legacy_passes, options,
+        ) {
         Ok(out) => out
         Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
       }
@@ -2810,7 +3134,7 @@ pub fn run_cmd_with_adapter(
           cmd_append_error_note(
             e,
             cmd_post_encode_repro_note(
-              io, mod, passes, options, optimize_level, shrink_level, traps_never_happen,
+              io, mod, legacy_passes, options, optimize_level, shrink_level, traps_never_happen,
               monomorphize_min_benefit, low_memory_unused, low_memory_bound,
             ),
           ),

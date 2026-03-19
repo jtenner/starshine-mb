@@ -122,6 +122,60 @@ fn fixture_mergeable_block_module() -> Module {
 }
 
 ///|
+fn fixture_duplicate_function_module() -> Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+  ])
+  Module::new()
+  .with_type_sec(type_sec)
+  .with_func_sec(
+    @lib.FuncSec::new([
+      @lib.TypeIdx::new(0U),
+      @lib.TypeIdx::new(1U),
+      @lib.TypeIdx::new(2U),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        @lib.Locals::empty(),
+        TExpr::new([
+          TInstr::call(@lib.FuncIdx::new(2U), []),
+          TInstr::drop(TInstr::ref_func(@lib.FuncIdx::new(2U))),
+        ]),
+      ),
+      Func::t_func([], @lib.Locals::empty(), TExpr::new([TInstr::nop()])),
+      Func::t_func([], @lib.Locals::empty(), TExpr::new([TInstr::nop()])),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("dup"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
+      ),
+    ]),
+  )
+  .with_start_sec(@lib.StartSec::new(@lib.FuncIdx::new(2U)))
+}
+
+///|
+fn assert_duplicate_fixture_deduped(bytes : Bytes) -> Unit raise Error {
+  let mod = decode_module_bytes(bytes)
+  match mod.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section after optimization")
+  }
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    None => fail("expected code section after optimization")
+  }
+}
+
+///|
 fn run_optimize_wat_fixture_regression(
   path : String,
   wat_text : String,
@@ -346,6 +400,74 @@ test "run_cmd_with_adapter accepts unknown pass flags as no-op pipeline entries"
   assert_eq(summary.resolved_passes, ["not-a-real-pass"])
   assert_eq(writes.length(), 1)
   assert_eq(writes[0].1, wasm)
+}
+
+///|
+test "run_cmd_with_adapter applies duplicate-function-elimination to wasm inputs" {
+  let wasm = encode_module_bytes(fixture_duplicate_function_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["dup.wasm"] },
+    file_exists=fn(path) { path == "dup.wasm" },
+    read_file=fn(path) {
+      if path == "dup.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--duplicate-function-elimination", "--out", "out.wasm", "dup.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["duplicate-function-elimination"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, "out.wasm")
+  try! assert_duplicate_fixture_deduped(writes[0].1)
+}
+
+///|
+test "run_cmd_with_adapter processes every input through generated optimize pipeline" {
+  let wasm = encode_module_bytes(fixture_duplicate_function_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm", "b.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" || path == "b.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" || path == "b.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--optimize", "--out-dir", "dist", "a.wasm", "b.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["optimize"])
+  assert_eq(summary.output_files, ["dist/a.wasm", "dist/b.wasm"])
+  assert_eq(writes.length(), 2)
+  for entry in writes {
+    try! assert_duplicate_fixture_deduped(entry.1)
+  }
 }
 
 ///|

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-18 CLI Optimize Cutover: route generated optimization pipeline through cmd
+
+- Updated [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) so CLI optimization flags now build and run the generated optimization pipeline before any legacy no-op pass handling, including pass-count limiting, grouped function-pass execution, segment-level validation, and trace output for generated pipeline segments.
+- Updated [`src/cmd/imports.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/imports.mbt) and [`src/cmd/moon.pkg`](/home/jtenner/Projects/starshine-mb/src/cmd/moon.pkg) to depend on the new [`src/optimization`](/home/jtenner/Projects/starshine-mb/src/optimization) package from the command package.
+- Added regressions in [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd_test.mbt) covering `--duplicate-function-elimination` on wasm input and `--optimize` processing across multiple input files through the generated pipeline.
+- Validation: `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-18 Optimization Package: add starter pipeline model and Binaryen-style duplicate-function elimination
 
 - Added the new [`src/optimization`](/home/jtenner/Projects/starshine-mb/src/optimization) package with starter pipeline data structures, the Binaryen pass inventory enums, pipeline grouping/validation metadata, and a default optimize pipeline builder that batches adjacent function-local passes into shared groups before validation.
