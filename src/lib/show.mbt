@@ -624,6 +624,77 @@ pub impl Show for Name with output(self, logger) {
 }
 
 ///|
+pub impl Show for NameAssoc with output(self, logger) {
+  let NameAssoc(idx, name) = self
+  logger.write_string("(NameAssoc ")
+  idx.output(logger)
+  logger.write_char(' ')
+  name.output(logger)
+  logger.write_char(')')
+}
+
+///|
+pub impl Show for NameMap with output(self, logger) {
+  let NameMap(entries) = self
+  logger.write_string("[NameMap")
+  if entries.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(": ")
+  entries.output(logger)
+  logger.write_char(']')
+}
+
+///|
+pub impl Show for IndirectNameAssoc with output(self, logger) {
+  let IndirectNameAssoc(idx, names) = self
+  logger.write_string("(IndirectNameAssoc ")
+  idx.output(logger)
+  logger.write_char(' ')
+  names.output(logger)
+  logger.write_char(')')
+}
+
+///|
+pub impl Show for IndirectNameMap with output(self, logger) {
+  let IndirectNameMap(entries) = self
+  logger.write_string("[IndirectNameMap")
+  if entries.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(": ")
+  entries.output(logger)
+  logger.write_char(']')
+}
+
+///|
+pub impl Show for NameSec with output(self, logger) {
+  let {
+    module_name,
+    func_names,
+    local_names,
+    type_names,
+    field_names,
+    tag_names,
+  } = self
+  logger.write_string("NameSec(module_name=")
+  module_name.output(logger)
+  logger.write_string(" func_names=")
+  func_names.output(logger)
+  logger.write_string(" local_names=")
+  local_names.output(logger)
+  logger.write_string(" type_names=")
+  type_names.output(logger)
+  logger.write_string(" field_names=")
+  field_names.output(logger)
+  logger.write_string(" tag_names=")
+  tag_names.output(logger)
+  logger.write_char(')')
+}
+
+///|
 pub impl Show for BlockType with output(self, logger) {
   match self {
     ValTypeBlockType(vt) => vt.output(logger)
@@ -2178,6 +2249,7 @@ pub impl Show for DataSec with output(self, logger) {
 pub impl Show for Module with output(self, logger) {
   let {
     custom_secs: customs,
+    name_sec,
     type_sec,
     import_sec,
     func_sec,
@@ -2195,6 +2267,9 @@ pub impl Show for Module with output(self, logger) {
   logger.write_string("Module[\n")
   logger.write_string("customs: ")
   customs.output(logger)
+  logger.write_char('\n')
+  logger.write_string("name_sec: ")
+  name_sec.output(logger)
   logger.write_char('\n')
   logger.write_string("type_sec: ")
   type_sec.output(logger)

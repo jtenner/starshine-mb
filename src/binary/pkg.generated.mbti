@@ -52,6 +52,10 @@ pub suberror BinaryDecodeError {
   InvalidSectionHeader
   SectionPayloadLengthOutOfRange
   InvalidSectionPayloadTrailingBytes
+  DuplicateNameSection
+  InvalidNameSubsectionId
+  InvalidNameSubsectionOrder
+  InvalidNameMapOrder
   InvalidMagicHeader
   InvalidModule
   InvalidElemHeader
@@ -90,6 +94,8 @@ pub suberror BinaryEncodeError {
   InvalidMemArgEncoding
   InvalidActiveElemSequence
   InvalidTypedFunctionLocals
+  InvalidNameMapOrder
+  RawNameCustomSectionUnsupported
 }
 pub impl Eq for BinaryEncodeError
 pub impl Show for BinaryEncodeError
@@ -174,6 +180,8 @@ pub impl Decode for @lib.I32
 pub impl Decode for @lib.I64
 pub impl Decode for @lib.Import
 pub impl Decode for @lib.ImportSec
+pub impl Decode for @lib.IndirectNameAssoc
+pub impl Decode for @lib.IndirectNameMap
 pub impl Decode for @lib.Instruction
 pub impl Decode for @lib.LabelIdx
 pub impl Decode for @lib.LaneIdx
@@ -188,6 +196,9 @@ pub impl Decode for @lib.MemType
 pub impl Decode for @lib.Module
 pub impl Decode for @lib.Mut
 pub impl Decode for @lib.Name
+pub impl Decode for @lib.NameAssoc
+pub impl Decode for @lib.NameMap
+pub impl Decode for @lib.NameSec
 pub impl Decode for @lib.NumType
 pub impl Decode for @lib.PackType
 pub impl Decode for @lib.RecType
@@ -251,6 +262,8 @@ pub impl Encode for @lib.I32
 pub impl Encode for @lib.I64
 pub impl Encode for @lib.Import
 pub impl Encode for @lib.ImportSec
+pub impl Encode for @lib.IndirectNameAssoc
+pub impl Encode for @lib.IndirectNameMap
 pub impl Encode for @lib.Instruction
 pub impl Encode for @lib.LabelIdx
 pub impl Encode for @lib.LaneIdx
@@ -265,6 +278,9 @@ pub impl Encode for @lib.MemType
 pub impl Encode for @lib.Module
 pub impl Encode for @lib.Mut
 pub impl Encode for @lib.Name
+pub impl Encode for @lib.NameAssoc
+pub impl Encode for @lib.NameMap
+pub impl Encode for @lib.NameSec
 pub impl Encode for @lib.NumType
 pub impl Encode for @lib.PackType
 pub impl Encode for @lib.RecType

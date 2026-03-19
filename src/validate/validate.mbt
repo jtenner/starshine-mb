@@ -24,6 +24,7 @@ pub enum ValidationIssue {
   StartSection(String)
   ExportSection(String)
   CodeSection(String)
+  NameSection(String)
   FunctionBody(String)
 } derive(Eq, Debug)
 
@@ -56,6 +57,7 @@ pub fn validation_issue_message(issue : ValidationIssue) -> String {
     | DataCountSection(msg)
     | StartSection(msg)
     | ExportSection(msg)
+    | NameSection(msg)
     | CodeSection(msg)
     | FunctionBody(msg) => msg
   }
@@ -243,7 +245,7 @@ fn validate_phase_totals_line() -> String {
   let phases = [
     "typesec", "importsec", "funcsec", "tablesec", "memsec", "tagsec", "globalsec",
     "elemsec", "datasec", "datacnt", "datacnt_requirement", "startsec", "exportsec",
-    "ref_func_declarations", "codesec",
+    "ref_func_declarations", "codesec", "namesec",
   ]
   let out = StringBuilder::new()
   out.write_string("phase_totals")
@@ -1751,6 +1753,135 @@ fn validate_exportsec_unique(
 }
 
 ///|
+fn validate_name_sec_total_locals(
+  m : Module,
+  env : Env,
+  imported_func_count : Int,
+  func_idx : UInt,
+) -> Int? {
+  let func_idx_int = func_idx.reinterpret_as_int()
+  let params_len = match env.get_functype_by_funcidx(FuncIdx::new(func_idx)) {
+    Some(FuncType(params, _)) => params.length()
+    None => return None
+  }
+  if func_idx_int < imported_func_count {
+    return Some(params_len)
+  }
+  let defined_idx = func_idx_int - imported_func_count
+  match m.code_sec {
+    None => None
+    Some(CodeSec(funcs)) =>
+      match funcs.get(defined_idx) {
+        Some(Func(locals, _)) => Some(params_len + locals.length())
+        Some(TFunc(_, locals, _)) => Some(params_len + locals.length())
+        None => None
+      }
+  }
+}
+
+///|
+fn validate_name_sec(
+  m : Module,
+  env : Env,
+  imported_func_count : Int,
+) -> Result[Unit, String] {
+  for custom in m.custom_secs {
+    let CustomSec(name, _) = custom
+    if name == Name::new("name") {
+      return Err("raw name custom section is unsupported; use Module.name_sec")
+    }
+  }
+  let name_sec = match m.name_sec {
+    Some(sec) => sec
+    None => return Ok(())
+  }
+  match name_sec.func_names {
+    Some(NameMap(entries)) =>
+      for entry in entries {
+        let NameAssoc(func_idx, _) = entry
+        if !env.has_func(FuncIdx::new(func_idx)) {
+          return Err(
+            "function name index out of range: func=\{func_idx} total_funcs=\{env.funcs.length()}",
+          )
+        }
+      }
+    None => ()
+  }
+  match name_sec.local_names {
+    Some(IndirectNameMap(entries)) =>
+      for entry in entries {
+        let IndirectNameAssoc(func_idx, NameMap(local_entries)) = entry
+        let total_locals = match
+          validate_name_sec_total_locals(m, env, imported_func_count, func_idx) {
+          Some(total) => total
+          None =>
+            return Err(
+              "local names reference missing function: func=\{func_idx}",
+            )
+        }
+        for local_entry in local_entries {
+          let NameAssoc(local_idx, _) = local_entry
+          if local_idx.reinterpret_as_int() >= total_locals {
+            return Err(
+              "local name index out of range: func=\{func_idx} local=\{local_idx} total_locals=\{total_locals}",
+            )
+          }
+        }
+      }
+    None => ()
+  }
+  match name_sec.type_names {
+    Some(NameMap(entries)) =>
+      for entry in entries {
+        let NameAssoc(type_idx, _) = entry
+        if env.resolve_subtype(TypeIdx::new(type_idx)) is None {
+          return Err(
+            "type name index out of range: type=\{type_idx} total_types=\{env.global_types.length()}",
+          )
+        }
+      }
+    None => ()
+  }
+  match name_sec.field_names {
+    Some(IndirectNameMap(entries)) =>
+      for entry in entries {
+        let IndirectNameAssoc(type_idx, NameMap(field_entries)) = entry
+        let fields = match env.resolve_comptype(TypeIdx::new(type_idx)) {
+          Some(StructCompType(fields)) => fields
+          Some(_) =>
+            return Err("field names require struct type: type=\{type_idx}")
+          None =>
+            return Err(
+              "field name type index out of range: type=\{type_idx} total_types=\{env.global_types.length()}",
+            )
+        }
+        for field_entry in field_entries {
+          let NameAssoc(field_idx, _) = field_entry
+          if field_idx.reinterpret_as_int() >= fields.length() {
+            return Err(
+              "field name index out of range: type=\{type_idx} field=\{field_idx} total_fields=\{fields.length()}",
+            )
+          }
+        }
+      }
+    None => ()
+  }
+  match name_sec.tag_names {
+    Some(NameMap(entries)) =>
+      for entry in entries {
+        let NameAssoc(tag_idx, _) = entry
+        if env.get_tag(TagIdx::new(tag_idx)) is None {
+          return Err(
+            "tag name index out of range: tag=\{tag_idx} total_tags=\{env.tags.length()}",
+          )
+        }
+      }
+    None => ()
+  }
+  Ok(())
+}
+
+///|
 fn mark_declared_func(declared : Array[Bool], f : FuncIdx) -> Unit {
   let FuncIdx(i) = f
   let ii = i.reinterpret_as_int()
@@ -2505,6 +2636,24 @@ fn validate_module_impl(
     Err(t) =>
       return validate_trace_module_error(
         trace, validate_start_ms, "codesec", codesec_start_ms, t, trace_enabled,
+      )
+  }
+  let namesec_start_ms = validate_trace_phase_start(
+    trace, "namesec", trace_enabled,
+  )
+  match validate_name_sec(m, env, imported_func_count) {
+    Ok(_) =>
+      validate_trace_phase_done(
+        trace, "namesec", namesec_start_ms, trace_enabled,
+      )
+    Err(t) =>
+      return validate_trace_module_error(
+        trace,
+        validate_start_ms,
+        "namesec",
+        namesec_start_ms,
+        ValidationDiagnostic::new(ValidationIssue::NameSection(t)),
+        trace_enabled,
       )
   }
   if trace_enabled {
@@ -4291,4 +4440,115 @@ test "Catch CatchAll fails with invalid label" {
   let env = empty_env()
   let c = Catch::all(LabelIdx::new(0))
   assert_eq(Validate::validate(c, env), Err("Invalid LabelIdx"))
+}
+
+///|
+fn validate_name_section_fixture_module() -> Module {
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), Const),
+      ]),
+    ),
+  )
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let name_sec = NameSec::new(
+    module_name=Some(Name::new("fixture")),
+    func_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("id"))])),
+    local_names=Some(
+      IndirectNameMap::new([
+        IndirectNameAssoc::new(
+          0U,
+          NameMap::new([NameAssoc::new(0U, Name::new("x"))]),
+        ),
+      ]),
+    ),
+    type_names=Some(
+      NameMap::new([
+        NameAssoc::new(0U, Name::new("Pair")),
+        NameAssoc::new(1U, Name::new("IdSig")),
+        NameAssoc::new(2U, Name::new("TagSig")),
+      ]),
+    ),
+    field_names=Some(
+      IndirectNameMap::new([
+        IndirectNameAssoc::new(
+          0U,
+          NameMap::new([NameAssoc::new(0U, Name::new("value"))]),
+        ),
+      ]),
+    ),
+    tag_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("boom"))])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([struct_type, func_type, tag_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(2U))]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::local_get(LocalIdx::new(0U))]),
+      ),
+    ]),
+  )
+  .with_name_sec(name_sec)
+}
+
+///|
+test "validate_module accepts structured name section" {
+  let mod = validate_name_section_fixture_module()
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "validate_module rejects out-of-range local name index in name section" {
+  let mod = validate_name_section_fixture_module().with_name_sec(
+    NameSec::new(
+      module_name=Some(Name::new("fixture")),
+      func_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("id"))])),
+      local_names=Some(
+        IndirectNameMap::new([
+          IndirectNameAssoc::new(
+            0U,
+            NameMap::new([NameAssoc::new(1U, Name::new("bad"))]),
+          ),
+        ]),
+      ),
+      type_names=Some(
+        NameMap::new([
+          NameAssoc::new(0U, Name::new("Pair")),
+          NameAssoc::new(1U, Name::new("IdSig")),
+          NameAssoc::new(2U, Name::new("TagSig")),
+        ]),
+      ),
+      field_names=Some(
+        IndirectNameMap::new([
+          IndirectNameAssoc::new(
+            0U,
+            NameMap::new([NameAssoc::new(0U, Name::new("value"))]),
+          ),
+        ]),
+      ),
+      tag_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("boom"))])),
+    ),
+  )
+
+  match validate_module(mod) {
+    Ok(_) => fail("expected invalid local name section validation failure")
+    Err(err) => {
+      assert_true(
+        validation_error_message(err).contains("local name index out of range"),
+      )
+      assert_eq(
+        validation_error_diagnostic(err).issue,
+        ValidationIssue::NameSection(
+          "local name index out of range: func=0 local=1 total_locals=1",
+        ),
+      )
+    }
+  }
 }

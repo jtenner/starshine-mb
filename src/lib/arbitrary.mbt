@@ -1713,6 +1713,7 @@ pub impl @quickcheck.Arbitrary for CustomSec with arbitrary(size, st) {
 pub impl @quickcheck.Arbitrary for Module with arbitrary(t, state) {
   Module::{
     custom_secs: array_of_arbitrary(5, t, state),
+    name_sec: None,
     type_sec: if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {

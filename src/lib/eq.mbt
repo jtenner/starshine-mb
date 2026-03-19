@@ -16,6 +16,7 @@ pub impl Eq for Module with equal(l, r) {
     }
   }
   l.type_sec == r.type_sec &&
+  l.name_sec == r.name_sec &&
   l.import_sec == r.import_sec &&
   l.func_sec == r.func_sec &&
   l.table_sec == r.table_sec &&

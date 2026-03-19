@@ -29,6 +29,10 @@ pub suberror BinaryDecodeError {
   InvalidSectionHeader
   SectionPayloadLengthOutOfRange
   InvalidSectionPayloadTrailingBytes
+  DuplicateNameSection
+  InvalidNameSubsectionId
+  InvalidNameSubsectionOrder
+  InvalidNameMapOrder
   InvalidMagicHeader
   InvalidModule
   InvalidElemHeader
@@ -664,6 +668,198 @@ pub impl Decode for Name with decode(bytes, i) {
 }
 
 ///|
+pub impl Decode for NameAssoc with decode(bytes, i) {
+  let (@lib.U32(idx), i) = match Decode::decode(bytes, i) {
+    Ok(t) => t
+    Err(err) => return Err(err)
+  }
+  let (name, i) = match Decode::decode(bytes, i) {
+    Ok(t) => t
+    Err(err) => return Err(err)
+  }
+  Ok((NameAssoc::new(idx, name), i))
+}
+
+///|
+pub impl Decode for NameMap with decode(bytes, i) {
+  let (@lib.U32(len_u), i) = match Decode::decode(bytes, i) {
+    Ok(t) => t
+    Err(err) => return Err(err)
+  }
+  let len = len_u.reinterpret_as_int()
+  let entries : Array[NameAssoc] = []
+  let mut next = i
+  let mut prev_idx : UInt? = None
+  loop len {
+    0 => break
+    remaining => {
+      let (entry, decoded_next) = match
+        (
+          Decode::decode(bytes, next) :
+          Result[(NameAssoc, Int), BinaryDecodeError]) {
+        Ok(t) => t
+        Err(err) => return Err(err)
+      }
+      let idx = entry.0
+      match prev_idx {
+        Some(prev) if idx <= prev =>
+          return Err(BinaryDecodeError::InvalidNameMapOrder)
+        _ => ()
+      }
+      prev_idx = Some(idx)
+      entries.push(entry)
+      next = decoded_next
+      continue remaining - 1
+    }
+  }
+  Ok((NameMap::new(entries), next))
+}
+
+///|
+pub impl Decode for IndirectNameAssoc with decode(bytes, i) {
+  let (@lib.U32(idx), i) = match Decode::decode(bytes, i) {
+    Ok(t) => t
+    Err(err) => return Err(err)
+  }
+  let (names, i) = match Decode::decode(bytes, i) {
+    Ok(t) => t
+    Err(err) => return Err(err)
+  }
+  Ok((IndirectNameAssoc::new(idx, names), i))
+}
+
+///|
+pub impl Decode for IndirectNameMap with decode(bytes, i) {
+  let (@lib.U32(len_u), i) = match Decode::decode(bytes, i) {
+    Ok(t) => t
+    Err(err) => return Err(err)
+  }
+  let len = len_u.reinterpret_as_int()
+  let entries : Array[IndirectNameAssoc] = []
+  let mut next = i
+  let mut prev_idx : UInt? = None
+  loop len {
+    0 => break
+    remaining => {
+      let (entry, decoded_next) = match
+        (
+          Decode::decode(bytes, next) :
+          Result[(IndirectNameAssoc, Int), BinaryDecodeError]) {
+        Ok(t) => t
+        Err(err) => return Err(err)
+      }
+      let idx = entry.0
+      match prev_idx {
+        Some(prev) if idx <= prev =>
+          return Err(BinaryDecodeError::InvalidNameMapOrder)
+        _ => ()
+      }
+      prev_idx = Some(idx)
+      entries.push(entry)
+      next = decoded_next
+      continue remaining - 1
+    }
+  }
+  Ok((IndirectNameMap::new(entries), next))
+}
+
+///|
+fn[T : Decode] decode_name_subsection_payload(
+  payload : Bytes,
+) -> Result[T, BinaryDecodeError] {
+  let (decoded, consumed) = match Decode::decode(payload, 0) {
+    Ok(t) => t
+    Err(err) => return Err(err)
+  }
+  if consumed != payload.length() {
+    return Err(BinaryDecodeError::InvalidSectionPayloadTrailingBytes)
+  }
+  Ok(decoded)
+}
+
+///|
+pub impl Decode for NameSec with decode(bytes, i) {
+  let mut next = i
+  let mut prev_subsection_id : Byte? = None
+  let mut module_name : Name? = None
+  let mut func_names : NameMap? = None
+  let mut local_names : IndirectNameMap? = None
+  let mut type_names : NameMap? = None
+  let mut field_names : IndirectNameMap? = None
+  let mut tag_names : NameMap? = None
+  while next < bytes.length() {
+    let subsection_id = match bytes.get(next) {
+      Some(id) => id
+      None => break
+    }
+    match prev_subsection_id {
+      Some(prev) if subsection_id <= prev =>
+        return Err(BinaryDecodeError::InvalidNameSubsectionOrder)
+      _ => ()
+    }
+    prev_subsection_id = Some(subsection_id)
+    let (@lib.U32(payload_len_u), payload_start) = match
+      Decode::decode(bytes, next + 1) {
+      Ok(t) => t
+      Err(err) => return Err(err)
+    }
+    let payload_len = payload_len_u.reinterpret_as_int()
+    let payload_end = payload_start + payload_len
+    if payload_end > bytes.length() {
+      return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
+    }
+    let payload = bytes[payload_start:payload_end].to_bytes()
+    match subsection_id {
+      0 =>
+        match decode_name_subsection_payload(payload) {
+          Ok(name) => module_name = Some(name)
+          Err(err) => return Err(err)
+        }
+      1 =>
+        match decode_name_subsection_payload(payload) {
+          Ok(names) => func_names = Some(names)
+          Err(err) => return Err(err)
+        }
+      2 =>
+        match decode_name_subsection_payload(payload) {
+          Ok(names) => local_names = Some(names)
+          Err(err) => return Err(err)
+        }
+      4 =>
+        match decode_name_subsection_payload(payload) {
+          Ok(names) => type_names = Some(names)
+          Err(err) => return Err(err)
+        }
+      10 =>
+        match decode_name_subsection_payload(payload) {
+          Ok(names) => field_names = Some(names)
+          Err(err) => return Err(err)
+        }
+      11 =>
+        match decode_name_subsection_payload(payload) {
+          Ok(names) => tag_names = Some(names)
+          Err(err) => return Err(err)
+        }
+      _ => return Err(BinaryDecodeError::InvalidNameSubsectionId)
+    }
+    next = payload_end
+  }
+  Ok(
+    (
+      NameSec::new(
+        module_name~,
+        func_names~,
+        local_names~,
+        type_names~,
+        field_names~,
+        tag_names~,
+      ),
+      next,
+    ),
+  )
+}
+
+///|
 fn[T : Decode] decode_section_vector_payload(
   bytes : Bytes,
   i : Int,
@@ -772,13 +968,45 @@ fn decode_custom_sections_with_detail(
   bytes : Bytes,
   i : Int,
   out : Array[CustomSec],
+  name_out : Array[NameSec],
 ) -> Result[Int, ModuleDecodeErrorDetail] {
   let mut i = i
   while bytes.get(i) == Some(0) {
     let section_start = i
-    match Decode::decode(bytes, i) {
+    match
+      (Decode::decode(bytes, i) : Result[(CustomSec, Int), BinaryDecodeError]) {
       Ok((sec, next)) => {
-        out.push(sec)
+        let name = sec.0
+        let payload = sec.1
+        if name == Name::new("name") {
+          if name_out.length() > 0 {
+            return Err(
+              module_section_decode_error(
+                bytes,
+                section_start,
+                BinaryDecodeError::DuplicateNameSection,
+              ),
+            )
+          }
+          match Decode::decode(payload, 0) {
+            Ok((name_sec, consumed)) => {
+              if consumed != payload.length() {
+                return Err(
+                  module_section_decode_error(
+                    bytes,
+                    section_start,
+                    BinaryDecodeError::InvalidSectionPayloadTrailingBytes,
+                  ),
+                )
+              }
+              name_out.push(name_sec)
+            }
+            Err(err) =>
+              return Err(module_section_decode_error(bytes, section_start, err))
+          }
+        } else {
+          out.push(sec)
+        }
         i = next
       }
       Err(err) =>
@@ -811,6 +1039,7 @@ pub fn decode_module_with_detail(
 ) -> Result[(Module, Int), ModuleDecodeErrorDetail] {
   let mut i = i
   let custom = Array::new()
+  let name_secs = Array::new()
   let mut mod = Module::new()
   for b in [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00] {
     if bytes.get(i) != Some(b.to_byte()) {
@@ -818,7 +1047,7 @@ pub fn decode_module_with_detail(
     }
     i = i + 1
   }
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -832,7 +1061,7 @@ pub fn decode_module_with_detail(
     mod = mod.with_type_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -846,7 +1075,7 @@ pub fn decode_module_with_detail(
     mod = mod.with_import_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -860,7 +1089,7 @@ pub fn decode_module_with_detail(
     mod = mod.with_func_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -874,7 +1103,7 @@ pub fn decode_module_with_detail(
     mod = mod.with_table_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -887,7 +1116,7 @@ pub fn decode_module_with_detail(
     mod = mod.with_mem_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -901,7 +1130,7 @@ pub fn decode_module_with_detail(
     mod = mod.with_tag_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -915,7 +1144,7 @@ pub fn decode_module_with_detail(
     mod = mod.with_global_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -929,7 +1158,7 @@ pub fn decode_module_with_detail(
     mod = mod.with_export_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -943,7 +1172,7 @@ pub fn decode_module_with_detail(
     mod = mod.with_start_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -957,7 +1186,7 @@ pub fn decode_module_with_detail(
     mod = mod.with_elem_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -971,7 +1200,7 @@ pub fn decode_module_with_detail(
     mod = mod.with_data_cnt_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -985,7 +1214,7 @@ pub fn decode_module_with_detail(
     mod = mod.with_code_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -999,12 +1228,16 @@ pub fn decode_module_with_detail(
     mod = mod.with_data_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
 
   mod = mod.with_custom_secs(custom)
+  match name_secs.get(0) {
+    Some(name_sec) => mod = mod.with_name_sec(name_sec)
+    None => ()
+  }
   if i == bytes.length() {
     Ok((mod, i))
   } else {

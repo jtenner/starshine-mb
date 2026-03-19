@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-03-19 Binary/Validate: add first-class names custom section support
+
+- Added structured name-section model types in [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt) and a dedicated `Module.name_sec` field with [`src/lib/module.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/module.mbt) helpers, so module, function, local, type, field, and tag names are represented explicitly instead of being carried as an opaque raw custom section.
+- Updated the binary codec in [`src/binary/decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt) and [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt) to parse and emit the WebAssembly `name` custom section as its own structured module section, enforce subsection and name-map ordering, place the encoded `name` section after the standard sections, and reject ambiguous raw `"name"` entries in `custom_secs`.
+- Updated [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) to validate structured name-section references against real module index spaces, including function-local name maps against the actual param-plus-local counts of imported and defined functions, with a dedicated `NameSection` diagnostic path.
+- Added binary and validator regressions in [`src/binary/tests.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/tests.mbt) and [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt), and refreshed the generated package interfaces in [`src/lib/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/lib/pkg.generated.mbti), [`src/binary/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/binary/pkg.generated.mbti), and [`src/validate/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/validate/pkg.generated.mbti).
+- Validation: `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-18 CLI Optimize Cutover: route generated optimization pipeline through cmd
 
 - Updated [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) so CLI optimization flags now build and run the generated optimization pipeline before any legacy no-op pass handling, including pass-count limiting, grouped function-pass execution, segment-level validation, and trace output for generated pipeline segments.

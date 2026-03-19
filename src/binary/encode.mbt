@@ -14,6 +14,8 @@ pub suberror BinaryEncodeError {
   InvalidMemArgEncoding
   InvalidActiveElemSequence
   InvalidTypedFunctionLocals
+  InvalidNameMapOrder
+  RawNameCustomSectionUnsupported
 } derive(Eq, Show, Debug)
 
 ///|
@@ -539,6 +541,165 @@ pub impl Encode for Name with encode(val, buf) {
 }
 
 ///|
+pub impl Encode for NameAssoc with encode(val, buf) {
+  let NameAssoc(idx, name) = val
+  match Encode::encode(@lib.U32(idx), buf) {
+    Err(err) => return Err(err)
+    Ok(_) => ()
+  }
+  Encode::encode(name, buf)
+}
+
+///|
+pub impl Encode for NameMap with encode(val, buf) {
+  let NameMap(entries) = val
+  match Encode::encode(@lib.U32(entries.length().reinterpret_as_uint()), buf) {
+    Err(err) => return Err(err)
+    Ok(_) => ()
+  }
+  let mut prev_idx : UInt? = None
+  for entry in entries {
+    let NameAssoc(idx, _) = entry
+    match prev_idx {
+      Some(prev) if idx <= prev =>
+        return Err(BinaryEncodeError::InvalidNameMapOrder)
+      _ => ()
+    }
+    prev_idx = Some(idx)
+    if Encode::encode(entry, buf) is Err(err) {
+      return Err(err)
+    }
+  }
+  Ok(())
+}
+
+///|
+pub impl Encode for IndirectNameAssoc with encode(val, buf) {
+  let IndirectNameAssoc(idx, names) = val
+  match Encode::encode(@lib.U32(idx), buf) {
+    Err(err) => return Err(err)
+    Ok(_) => ()
+  }
+  Encode::encode(names, buf)
+}
+
+///|
+pub impl Encode for IndirectNameMap with encode(val, buf) {
+  let IndirectNameMap(entries) = val
+  match Encode::encode(@lib.U32(entries.length().reinterpret_as_uint()), buf) {
+    Err(err) => return Err(err)
+    Ok(_) => ()
+  }
+  let mut prev_idx : UInt? = None
+  for entry in entries {
+    let IndirectNameAssoc(idx, _) = entry
+    match prev_idx {
+      Some(prev) if idx <= prev =>
+        return Err(BinaryEncodeError::InvalidNameMapOrder)
+      _ => ()
+    }
+    prev_idx = Some(idx)
+    if Encode::encode(entry, buf) is Err(err) {
+      return Err(err)
+    }
+  }
+  Ok(())
+}
+
+///|
+fn write_name_subsection(
+  subsection_id : Byte,
+  buf : @buffer.Buffer,
+  write_payload : (@buffer.Buffer) -> Result[Unit, BinaryEncodeError],
+) -> Result[Unit, BinaryEncodeError] {
+  buf.write_byte(subsection_id)
+  let payload = @buffer.new()
+  if write_payload(payload) is Err(err) {
+    return Err(err)
+  }
+  let payload_bytes = payload.to_bytes()
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
+    is Err(err) {
+    return Err(err)
+  }
+  buf.write_bytes(payload_bytes)
+  Ok(())
+}
+
+///|
+pub impl Encode for NameSec with encode(val, buf) {
+  let {
+    module_name,
+    func_names,
+    local_names,
+    type_names,
+    field_names,
+    tag_names,
+  } = val
+  match module_name {
+    Some(name) =>
+      if write_name_subsection(0, buf, fn(payload) {
+          Encode::encode(name, payload)
+        })
+        is Err(err) {
+        return Err(err)
+      }
+    None => ()
+  }
+  match func_names {
+    Some(names) =>
+      if write_name_subsection(1, buf, fn(payload) {
+          Encode::encode(names, payload)
+        })
+        is Err(err) {
+        return Err(err)
+      }
+    None => ()
+  }
+  match local_names {
+    Some(names) =>
+      if write_name_subsection(2, buf, fn(payload) {
+          Encode::encode(names, payload)
+        })
+        is Err(err) {
+        return Err(err)
+      }
+    None => ()
+  }
+  match type_names {
+    Some(names) =>
+      if write_name_subsection(4, buf, fn(payload) {
+          Encode::encode(names, payload)
+        })
+        is Err(err) {
+        return Err(err)
+      }
+    None => ()
+  }
+  match field_names {
+    Some(names) =>
+      if write_name_subsection(10, buf, fn(payload) {
+          Encode::encode(names, payload)
+        })
+        is Err(err) {
+        return Err(err)
+      }
+    None => ()
+  }
+  match tag_names {
+    Some(names) =>
+      if write_name_subsection(11, buf, fn(payload) {
+          Encode::encode(names, payload)
+        })
+        is Err(err) {
+        return Err(err)
+      }
+    None => ()
+  }
+  Ok(())
+}
+
+///|
 fn write_section(
   section_id : Int,
   buf : @buffer.Buffer,
@@ -556,6 +717,19 @@ fn write_section(
   }
   buf.write_bytes(payload_bytes)
   Ok(())
+}
+
+///|
+fn encode_name_sec_as_custom_section(
+  val : NameSec,
+  buf : @buffer.Buffer,
+) -> Result[Unit, BinaryEncodeError] {
+  write_section(0, buf, fn(payload) {
+    if Encode::encode(Name::new("name"), payload) is Err(err) {
+      return Err(err)
+    }
+    Encode::encode(val, payload)
+  })
 }
 
 ///|
@@ -959,6 +1133,10 @@ pub impl Encode for Module with encode(val, buf) {
   buf.write_bytes(b"\x00\x61\x73\x6D\x01\x00\x00\x00")
   // custom sections
   for sec in val.custom_secs {
+    let CustomSec(name, _) = sec
+    if name == Name::new("name") {
+      return Err(BinaryEncodeError::RawNameCustomSectionUnsupported)
+    }
     if Encode::encode(sec, buf) is Err(t) {
       return Err(t)
     }
@@ -1001,6 +1179,13 @@ pub impl Encode for Module with encode(val, buf) {
   }
   if Encode::encode(val.data_sec, buf) is Err(t) {
     return Err(t)
+  }
+  match val.name_sec {
+    Some(name_sec) =>
+      if encode_name_sec_as_custom_section(name_sec, buf) is Err(t) {
+        return Err(t)
+      }
+    None => ()
   }
   Ok(())
 }

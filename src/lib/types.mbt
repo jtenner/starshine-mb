@@ -244,8 +244,72 @@ pub struct Data(DataMode, Bytes) derive(Eq, Hash, Debug)
 pub struct Name(StringView) derive(Eq, Hash, Debug)
 
 ///|
+pub struct NameAssoc(UInt, Name) derive(Eq, Hash, Debug)
+
+///|
+pub fn NameAssoc::new(idx : UInt, name : Name) -> NameAssoc {
+  NameAssoc(idx, name)
+}
+
+///|
+pub struct NameMap(Array[NameAssoc]) derive(Eq, Hash, Debug)
+
+///|
+pub fn NameMap::new(entries : Array[NameAssoc]) -> NameMap {
+  NameMap(entries)
+}
+
+///|
+pub struct IndirectNameAssoc(UInt, NameMap) derive(Eq, Hash, Debug)
+
+///|
+pub fn IndirectNameAssoc::new(idx : UInt, names : NameMap) -> IndirectNameAssoc {
+  IndirectNameAssoc(idx, names)
+}
+
+///|
+pub struct IndirectNameMap(Array[IndirectNameAssoc]) derive(Eq, Hash, Debug)
+
+///|
+pub fn IndirectNameMap::new(
+  entries : Array[IndirectNameAssoc],
+) -> IndirectNameMap {
+  IndirectNameMap(entries)
+}
+
+///|
+pub struct NameSec {
+  module_name : Name?
+  func_names : NameMap?
+  local_names : IndirectNameMap?
+  type_names : NameMap?
+  field_names : IndirectNameMap?
+  tag_names : NameMap?
+} derive(Eq, Hash, Debug)
+
+///|
+pub fn NameSec::new(
+  module_name? : Name? = None,
+  func_names? : NameMap? = None,
+  local_names? : IndirectNameMap? = None,
+  type_names? : NameMap? = None,
+  field_names? : IndirectNameMap? = None,
+  tag_names? : NameMap? = None,
+) -> NameSec {
+  NameSec::{
+    module_name,
+    func_names,
+    local_names,
+    type_names,
+    field_names,
+    tag_names,
+  }
+}
+
+///|
 pub struct Module {
   custom_secs : Array[CustomSec]
+  name_sec : NameSec?
   type_sec : TypeSec?
   import_sec : ImportSec?
   func_sec : FuncSec?
@@ -277,9 +341,11 @@ pub fn Module::new(
   data_cnt_sec? : DataCntSec? = None,
   code_sec? : CodeSec? = None,
   data_sec? : DataSec? = None,
+  name_sec? : NameSec? = None,
 ) -> Module {
   Module::{
     custom_secs,
+    name_sec,
     type_sec,
     import_sec,
     func_sec,

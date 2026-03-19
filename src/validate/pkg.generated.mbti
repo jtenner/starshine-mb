@@ -217,6 +217,7 @@ pub enum ValidationIssue {
   StartSection(String)
   ExportSection(String)
   CodeSection(String)
+  NameSection(String)
   FunctionBody(String)
 }
 pub impl Eq for ValidationIssue

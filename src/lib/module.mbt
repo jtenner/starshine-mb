@@ -7,6 +7,11 @@ pub fn Module::with_custom_secs(
 }
 
 ///|
+pub fn Module::with_name_sec(self : Module, name_sec : NameSec) -> Module {
+  Module::{ ..self, name_sec: Some(name_sec) }
+}
+
+///|
 pub fn Module::with_type_sec(self : Module, type_sec : TypeSec) -> Module {
   Module::{ ..self, type_sec: Some(type_sec) }
 }

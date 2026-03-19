@@ -281,6 +281,31 @@ pub impl PrettyPrint for CustomSec with pretty_print(self, ctx) {
 }
 
 ///|
+pub impl PrettyPrint for NameAssoc with pretty_print(self, ctx) {
+  pretty_from_show(self, ctx)
+}
+
+///|
+pub impl PrettyPrint for NameMap with pretty_print(self, ctx) {
+  pretty_from_show(self, ctx)
+}
+
+///|
+pub impl PrettyPrint for IndirectNameAssoc with pretty_print(self, ctx) {
+  pretty_from_show(self, ctx)
+}
+
+///|
+pub impl PrettyPrint for IndirectNameMap with pretty_print(self, ctx) {
+  pretty_from_show(self, ctx)
+}
+
+///|
+pub impl PrettyPrint for NameSec with pretty_print(self, ctx) {
+  pretty_from_show(self, ctx)
+}
+
+///|
 pub impl PrettyPrint for Data with pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }

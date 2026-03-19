@@ -1474,3 +1474,93 @@ test "Descriptor instruction roundtrip" {
     Instruction::ref_cast_desc_eq(false, HeapType::new(TypeIdx::new(2))),
   )
 }
+
+///|
+fn binary_name_section_fixture_module() -> Module {
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), Const),
+      ]),
+    ),
+  )
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let name_sec = NameSec::new(
+    module_name=Some(Name::new("fixture")),
+    func_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("id"))])),
+    local_names=Some(
+      IndirectNameMap::new([
+        IndirectNameAssoc::new(
+          0U,
+          NameMap::new([NameAssoc::new(0U, Name::new("x"))]),
+        ),
+      ]),
+    ),
+    type_names=Some(
+      NameMap::new([
+        NameAssoc::new(0U, Name::new("Pair")),
+        NameAssoc::new(1U, Name::new("IdSig")),
+        NameAssoc::new(2U, Name::new("TagSig")),
+      ]),
+    ),
+    field_names=Some(
+      IndirectNameMap::new([
+        IndirectNameAssoc::new(
+          0U,
+          NameMap::new([NameAssoc::new(0U, Name::new("value"))]),
+        ),
+      ]),
+    ),
+    tag_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("boom"))])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([struct_type, func_type, tag_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(2U))]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::local_get(LocalIdx::new(0U))]),
+      ),
+    ]),
+  )
+  .with_name_sec(name_sec)
+}
+
+///|
+test "encode_module emits structured name section after standard sections and decode_module roundtrips it" {
+  let mod = binary_name_section_fixture_module()
+  let wasm = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected encode success, got \{e}")
+  }
+  assert_eq(wasm[8], 0x01)
+
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected decode success, got \{e}")
+  }
+  assert_eq(decoded, mod)
+  assert_eq(decoded.custom_secs.length(), 0)
+  assert_eq(decoded.name_sec, mod.name_sec)
+}
+
+///|
+test "decode_module rejects malformed function name map ordering inside name section" {
+  let bad = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x00\x0e\x04name\x01\x07\x02\x01\x01b\x00\x01a"
+  match decode_module(bad) {
+    Ok(_) => fail("expected malformed name section decode failure")
+    Err(
+      DecodeError::DecodeAt(BinaryDecodeError::InvalidNameMapOrder, offset, len)
+    ) => {
+      assert_eq(offset, 8)
+      assert_eq(len, 16)
+    }
+    Err(e) =>
+      fail("expected spanned malformed name-section decode error, got \{e}")
+  }
+}

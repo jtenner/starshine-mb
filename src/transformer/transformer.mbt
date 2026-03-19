@@ -4314,6 +4314,7 @@ fn[T, Err] ModuleTransformer::walk_opt_module_default(
 ) -> TransformerOptResult[T, Module, Err] {
   let {
     custom_secs,
+    name_sec,
     type_sec,
     import_sec,
     func_sec,
@@ -4469,6 +4470,7 @@ fn[T, Err] ModuleTransformer::walk_opt_module_default(
           data_cnt_sec~,
           code_sec~,
           data_sec~,
+          name_sec~,
         ),
       ),
     ),
