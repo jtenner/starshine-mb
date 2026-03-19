@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-03-19 Binary/Validate: implement remaining extended name-section subsections
+
+- Extended [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt) and the generated interface in [`src/lib/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/lib/pkg.generated.mbti) so `NameSec` now models the remaining extended-name-section proposal subsections: label, table, memory, global, elem, and data names in addition to the previously implemented module/function/local/type/field/tag names.
+- Updated [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt) and [`src/binary/decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt) to emit and parse subsection ids `3`, `5`, `6`, `7`, `8`, and `9`, preserving the existing ordering and payload validation rules for structured `name` sections.
+- Updated [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) to validate the new name maps against real module index spaces, including function-wide label-name validation based on the count of structured control labels in both untyped and typed function bodies.
+- Added round-trip and edge-case regressions in [`src/binary/tests.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/tests.mbt) and [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt), and updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) plus [`src/lib/show.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/show.mbt) to handle the expanded `NameSec` shape without dropping the new fields.
+- Validation: `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-19 Backlog: restructure optimize pass planning around release gates and per-pass workflow
 
 - Rewrote [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so optimizer planning now matches the post-cutover `src/optimization` world instead of the removed `src/passes` pipeline. The backlog scope now says every pass item must explicitly cover four phases: Binaryen research, strict-TDD implementation, validation-strategy investigation aligned with Binaryen even when it contradicts the current setup, and a Binaryen-vs-Starshine comparison phase.

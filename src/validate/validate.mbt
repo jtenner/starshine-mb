@@ -1780,6 +1780,94 @@ fn validate_name_sec_total_locals(
 }
 
 ///|
+fn validate_name_sec_instrs_label_count(instrs : Array[Instruction]) -> Int {
+  let mut total = 0
+  for instr in instrs {
+    total += validate_name_sec_instr_label_count(instr)
+  }
+  total
+}
+
+///|
+fn validate_name_sec_instr_label_count(instr : Instruction) -> Int {
+  match instr {
+    Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+      1 + validate_name_sec_expr_label_count(body)
+    If(_, then_instrs, else_instrs) => {
+      let else_count = match else_instrs {
+        Some(instrs) => validate_name_sec_instrs_label_count(instrs)
+        None => 0
+      }
+      1 + validate_name_sec_instrs_label_count(then_instrs) + else_count
+    }
+    _ => 0
+  }
+}
+
+///|
+fn validate_name_sec_expr_label_count(expr : Expr) -> Int {
+  let Expr(instrs) = expr
+  validate_name_sec_instrs_label_count(instrs)
+}
+
+///|
+fn validate_name_sec_tinstrs_label_count(instrs : Array[TInstr]) -> Int {
+  let mut total = 0
+  for instr in instrs {
+    total += validate_name_sec_tinstr_label_count(instr)
+  }
+  total
+}
+
+///|
+fn validate_name_sec_tinstr_label_count(instr : TInstr) -> Int {
+  match instr.kind {
+    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+      1 + validate_name_sec_texpr_label_count(body)
+    TIf(_, _, then_instrs, else_instrs) => {
+      let else_count = match else_instrs {
+        Some(instrs) => validate_name_sec_texpr_label_count(instrs)
+        None => 0
+      }
+      1 + validate_name_sec_texpr_label_count(then_instrs) + else_count
+    }
+    _ => 0
+  }
+}
+
+///|
+fn validate_name_sec_texpr_label_count(expr : TExpr) -> Int {
+  validate_name_sec_tinstrs_label_count(expr.instrs)
+}
+
+///|
+fn validate_name_sec_total_labels(
+  m : Module,
+  env : Env,
+  imported_func_count : Int,
+  func_idx : UInt,
+) -> Int? {
+  if !env.has_func(FuncIdx::new(func_idx)) {
+    return None
+  }
+  let func_idx_int = func_idx.reinterpret_as_int()
+  if func_idx_int < imported_func_count {
+    return Some(0)
+  }
+  let defined_idx = func_idx_int - imported_func_count
+  match m.code_sec {
+    None => None
+    Some(CodeSec(funcs)) =>
+      match funcs.get(defined_idx) {
+        Some(Func(_, expr)) => Some(validate_name_sec_expr_label_count(expr))
+        Some(TFunc(_, _, expr)) =>
+          Some(validate_name_sec_texpr_label_count(expr))
+        None => None
+      }
+  }
+}
+
+///|
 fn validate_name_sec(
   m : Module,
   env : Env,
@@ -1830,6 +1918,29 @@ fn validate_name_sec(
       }
     None => ()
   }
+  match name_sec.label_names {
+    Some(IndirectNameMap(entries)) =>
+      for entry in entries {
+        let IndirectNameAssoc(func_idx, NameMap(label_entries)) = entry
+        let total_labels = match
+          validate_name_sec_total_labels(m, env, imported_func_count, func_idx) {
+          Some(total) => total
+          None =>
+            return Err(
+              "label names reference missing function: func=\{func_idx}",
+            )
+        }
+        for label_entry in label_entries {
+          let NameAssoc(label_idx, _) = label_entry
+          if label_idx.reinterpret_as_int() >= total_labels {
+            return Err(
+              "label name index out of range: func=\{func_idx} label=\{label_idx} total_labels=\{total_labels}",
+            )
+          }
+        }
+      }
+    None => ()
+  }
   match name_sec.type_names {
     Some(NameMap(entries)) =>
       for entry in entries {
@@ -1837,6 +1948,66 @@ fn validate_name_sec(
         if env.resolve_subtype(TypeIdx::new(type_idx)) is None {
           return Err(
             "type name index out of range: type=\{type_idx} total_types=\{env.global_types.length()}",
+          )
+        }
+      }
+    None => ()
+  }
+  match name_sec.table_names {
+    Some(NameMap(entries)) =>
+      for entry in entries {
+        let NameAssoc(table_idx, _) = entry
+        if env.get_table_type(TableIdx::new(table_idx)) is None {
+          return Err(
+            "table name index out of range: table=\{table_idx} total_tables=\{env.tables.length()}",
+          )
+        }
+      }
+    None => ()
+  }
+  match name_sec.memory_names {
+    Some(NameMap(entries)) =>
+      for entry in entries {
+        let NameAssoc(mem_idx, _) = entry
+        if env.get_memtype(MemIdx::new(mem_idx)) is None {
+          return Err(
+            "memory name index out of range: memory=\{mem_idx} total_memories=\{env.mems.length()}",
+          )
+        }
+      }
+    None => ()
+  }
+  match name_sec.global_names {
+    Some(NameMap(entries)) =>
+      for entry in entries {
+        let NameAssoc(global_idx, _) = entry
+        if env.get_global_type(GlobalIdx::new(global_idx)) is None {
+          return Err(
+            "global name index out of range: global=\{global_idx} total_globals=\{env.globals.length()}",
+          )
+        }
+      }
+    None => ()
+  }
+  match name_sec.elem_names {
+    Some(NameMap(entries)) =>
+      for entry in entries {
+        let NameAssoc(elem_idx, _) = entry
+        if env.get_elem(ElemIdx::new(elem_idx)) is None {
+          return Err(
+            "elem name index out of range: elem=\{elem_idx} total_elem=\{env.elems.length()}",
+          )
+        }
+      }
+    None => ()
+  }
+  match name_sec.data_names {
+    Some(NameMap(entries)) =>
+      for entry in entries {
+        let NameAssoc(data_idx, _) = entry
+        if !env.has_data(DataIdx::new(data_idx)) {
+          return Err(
+            "data name index out of range: data=\{data_idx} total_data=\{env.datas.length()}",
           )
         }
       }
@@ -4455,6 +4626,10 @@ fn validate_name_section_fixture_module() -> Module {
     SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
   )
   let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let table_type = TableType::new(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+    Limits::i32(1U, Some(1U)),
+  )
   let name_sec = NameSec::new(
     module_name=Some(Name::new("fixture")),
     func_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("id"))])),
@@ -4466,6 +4641,18 @@ fn validate_name_section_fixture_module() -> Module {
         ),
       ]),
     ),
+    label_names=Some(
+      IndirectNameMap::new([
+        IndirectNameAssoc::new(
+          0U,
+          NameMap::new([
+            NameAssoc::new(0U, Name::new("entry")),
+            NameAssoc::new(1U, Name::new("repeat")),
+            NameAssoc::new(2U, Name::new("branch")),
+          ]),
+        ),
+      ]),
+    ),
     type_names=Some(
       NameMap::new([
         NameAssoc::new(0U, Name::new("Pair")),
@@ -4473,6 +4660,11 @@ fn validate_name_section_fixture_module() -> Module {
         NameAssoc::new(2U, Name::new("TagSig")),
       ]),
     ),
+    table_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("dispatch"))])),
+    memory_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("heap"))])),
+    global_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("flag"))])),
+    elem_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("targets"))])),
+    data_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("blob"))])),
     field_names=Some(
       IndirectNameMap::new([
         IndirectNameAssoc::new(
@@ -4486,12 +4678,50 @@ fn validate_name_section_fixture_module() -> Module {
   Module::new()
   .with_type_sec(TypeSec::new([struct_type, func_type, tag_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+  .with_table_sec(TableSec::new([Table::new(table_type, None)]))
+  .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]))
   .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(2U))]))
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), false),
+        Expr::new([Instruction::i32_const(I32(1))]),
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(
+        ElemMode::active(
+          TableIdx::new(0U),
+          Expr::new([Instruction::i32_const(I32(0))]),
+        ),
+        ElemKind::funcs([FuncIdx::new(0U)]),
+      ),
+    ]),
+  )
+  .with_data_sec(
+    DataSec::new([
+      Data::new(
+        DataMode::active(
+          MemIdx::new(0U),
+          Expr::new([Instruction::i32_const(I32(0))]),
+        ),
+        b"fixture",
+      ),
+    ]),
+  )
   .with_code_sec(
     CodeSec::new([
       Func::new(
         Locals::empty(),
-        Expr::new([Instruction::local_get(LocalIdx::new(0U))]),
+        Expr::new([
+          Instruction::block(BlockType::void_(), Expr::new([])),
+          Instruction::loop_(BlockType::void_(), Expr::new([])),
+          Instruction::i32_const(I32(1)),
+          Instruction::if_(BlockType::void_(), [], Some([])),
+          Instruction::local_get(LocalIdx::new(0U)),
+        ]),
       ),
     ]),
   )
@@ -4518,6 +4748,18 @@ test "validate_module rejects out-of-range local name index in name section" {
           ),
         ]),
       ),
+      label_names=Some(
+        IndirectNameMap::new([
+          IndirectNameAssoc::new(
+            0U,
+            NameMap::new([
+              NameAssoc::new(0U, Name::new("entry")),
+              NameAssoc::new(1U, Name::new("repeat")),
+              NameAssoc::new(2U, Name::new("branch")),
+            ]),
+          ),
+        ]),
+      ),
       type_names=Some(
         NameMap::new([
           NameAssoc::new(0U, Name::new("Pair")),
@@ -4525,6 +4767,13 @@ test "validate_module rejects out-of-range local name index in name section" {
           NameAssoc::new(2U, Name::new("TagSig")),
         ]),
       ),
+      table_names=Some(
+        NameMap::new([NameAssoc::new(0U, Name::new("dispatch"))]),
+      ),
+      memory_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("heap"))])),
+      global_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("flag"))])),
+      elem_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("targets"))])),
+      data_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("blob"))])),
       field_names=Some(
         IndirectNameMap::new([
           IndirectNameAssoc::new(
@@ -4547,6 +4796,138 @@ test "validate_module rejects out-of-range local name index in name section" {
         validation_error_diagnostic(err).issue,
         ValidationIssue::NameSection(
           "local name index out of range: func=0 local=1 total_locals=1",
+        ),
+      )
+    }
+  }
+}
+
+///|
+test "validate_module rejects out-of-range label name index in name section" {
+  let mod = validate_name_section_fixture_module().with_name_sec(
+    NameSec::new(
+      module_name=Some(Name::new("fixture")),
+      func_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("id"))])),
+      local_names=Some(
+        IndirectNameMap::new([
+          IndirectNameAssoc::new(
+            0U,
+            NameMap::new([NameAssoc::new(0U, Name::new("x"))]),
+          ),
+        ]),
+      ),
+      label_names=Some(
+        IndirectNameMap::new([
+          IndirectNameAssoc::new(
+            0U,
+            NameMap::new([NameAssoc::new(3U, Name::new("too-far"))]),
+          ),
+        ]),
+      ),
+      type_names=Some(
+        NameMap::new([
+          NameAssoc::new(0U, Name::new("Pair")),
+          NameAssoc::new(1U, Name::new("IdSig")),
+          NameAssoc::new(2U, Name::new("TagSig")),
+        ]),
+      ),
+      table_names=Some(
+        NameMap::new([NameAssoc::new(0U, Name::new("dispatch"))]),
+      ),
+      memory_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("heap"))])),
+      global_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("flag"))])),
+      elem_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("targets"))])),
+      data_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("blob"))])),
+      field_names=Some(
+        IndirectNameMap::new([
+          IndirectNameAssoc::new(
+            0U,
+            NameMap::new([NameAssoc::new(0U, Name::new("value"))]),
+          ),
+        ]),
+      ),
+      tag_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("boom"))])),
+    ),
+  )
+
+  match validate_module(mod) {
+    Ok(_) => fail("expected invalid label name section validation failure")
+    Err(err) => {
+      assert_true(
+        validation_error_message(err).contains("label name index out of range"),
+      )
+      assert_eq(
+        validation_error_diagnostic(err).issue,
+        ValidationIssue::NameSection(
+          "label name index out of range: func=0 label=3 total_labels=3",
+        ),
+      )
+    }
+  }
+}
+
+///|
+test "validate_module rejects out-of-range data name index in name section" {
+  let mod = validate_name_section_fixture_module().with_name_sec(
+    NameSec::new(
+      module_name=Some(Name::new("fixture")),
+      func_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("id"))])),
+      local_names=Some(
+        IndirectNameMap::new([
+          IndirectNameAssoc::new(
+            0U,
+            NameMap::new([NameAssoc::new(0U, Name::new("x"))]),
+          ),
+        ]),
+      ),
+      label_names=Some(
+        IndirectNameMap::new([
+          IndirectNameAssoc::new(
+            0U,
+            NameMap::new([
+              NameAssoc::new(0U, Name::new("entry")),
+              NameAssoc::new(1U, Name::new("repeat")),
+              NameAssoc::new(2U, Name::new("branch")),
+            ]),
+          ),
+        ]),
+      ),
+      type_names=Some(
+        NameMap::new([
+          NameAssoc::new(0U, Name::new("Pair")),
+          NameAssoc::new(1U, Name::new("IdSig")),
+          NameAssoc::new(2U, Name::new("TagSig")),
+        ]),
+      ),
+      table_names=Some(
+        NameMap::new([NameAssoc::new(0U, Name::new("dispatch"))]),
+      ),
+      memory_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("heap"))])),
+      global_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("flag"))])),
+      elem_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("targets"))])),
+      data_names=Some(NameMap::new([NameAssoc::new(1U, Name::new("bad"))])),
+      field_names=Some(
+        IndirectNameMap::new([
+          IndirectNameAssoc::new(
+            0U,
+            NameMap::new([NameAssoc::new(0U, Name::new("value"))]),
+          ),
+        ]),
+      ),
+      tag_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("boom"))])),
+    ),
+  )
+
+  match validate_module(mod) {
+    Ok(_) => fail("expected invalid data name section validation failure")
+    Err(err) => {
+      assert_true(
+        validation_error_message(err).contains("data name index out of range"),
+      )
+      assert_eq(
+        validation_error_diagnostic(err).issue,
+        ValidationIssue::NameSection(
+          "data name index out of range: data=1 total_data=1",
         ),
       )
     }

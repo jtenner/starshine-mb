@@ -714,7 +714,13 @@ fn optimization_rewrite_name_sec(
     module_name,
     func_names,
     local_names,
+    label_names,
     type_names,
+    table_names,
+    memory_names,
+    global_names,
+    elem_names,
+    data_names,
     field_names,
     tag_names,
   } = name_sec
@@ -728,7 +734,13 @@ fn optimization_rewrite_name_sec(
       Some(names) => Some(optimization_rewrite_local_name_map(names, remap))
       None => None
     },
+    label_names~,
     type_names~,
+    table_names~,
+    memory_names~,
+    global_names~,
+    elem_names~,
+    data_names~,
     field_names~,
     tag_names~,
   )

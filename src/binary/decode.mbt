@@ -784,7 +784,13 @@ pub impl Decode for NameSec with decode(bytes, i) {
   let mut module_name : Name? = None
   let mut func_names : NameMap? = None
   let mut local_names : IndirectNameMap? = None
+  let mut label_names : IndirectNameMap? = None
   let mut type_names : NameMap? = None
+  let mut table_names : NameMap? = None
+  let mut memory_names : NameMap? = None
+  let mut global_names : NameMap? = None
+  let mut elem_names : NameMap? = None
+  let mut data_names : NameMap? = None
   let mut field_names : IndirectNameMap? = None
   let mut tag_names : NameMap? = None
   while next < bytes.length() {
@@ -825,9 +831,39 @@ pub impl Decode for NameSec with decode(bytes, i) {
           Ok(names) => local_names = Some(names)
           Err(err) => return Err(err)
         }
+      3 =>
+        match decode_name_subsection_payload(payload) {
+          Ok(names) => label_names = Some(names)
+          Err(err) => return Err(err)
+        }
       4 =>
         match decode_name_subsection_payload(payload) {
           Ok(names) => type_names = Some(names)
+          Err(err) => return Err(err)
+        }
+      5 =>
+        match decode_name_subsection_payload(payload) {
+          Ok(names) => table_names = Some(names)
+          Err(err) => return Err(err)
+        }
+      6 =>
+        match decode_name_subsection_payload(payload) {
+          Ok(names) => memory_names = Some(names)
+          Err(err) => return Err(err)
+        }
+      7 =>
+        match decode_name_subsection_payload(payload) {
+          Ok(names) => global_names = Some(names)
+          Err(err) => return Err(err)
+        }
+      8 =>
+        match decode_name_subsection_payload(payload) {
+          Ok(names) => elem_names = Some(names)
+          Err(err) => return Err(err)
+        }
+      9 =>
+        match decode_name_subsection_payload(payload) {
+          Ok(names) => data_names = Some(names)
           Err(err) => return Err(err)
         }
       10 =>
@@ -850,7 +886,13 @@ pub impl Decode for NameSec with decode(bytes, i) {
         module_name~,
         func_names~,
         local_names~,
+        label_names~,
         type_names~,
+        table_names~,
+        memory_names~,
+        global_names~,
+        elem_names~,
+        data_names~,
         field_names~,
         tag_names~,
       ),

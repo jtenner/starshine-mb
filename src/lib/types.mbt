@@ -282,7 +282,13 @@ pub struct NameSec {
   module_name : Name?
   func_names : NameMap?
   local_names : IndirectNameMap?
+  label_names : IndirectNameMap?
   type_names : NameMap?
+  table_names : NameMap?
+  memory_names : NameMap?
+  global_names : NameMap?
+  elem_names : NameMap?
+  data_names : NameMap?
   field_names : IndirectNameMap?
   tag_names : NameMap?
 } derive(Eq, Hash, Debug)
@@ -292,7 +298,13 @@ pub fn NameSec::new(
   module_name? : Name? = None,
   func_names? : NameMap? = None,
   local_names? : IndirectNameMap? = None,
+  label_names? : IndirectNameMap? = None,
   type_names? : NameMap? = None,
+  table_names? : NameMap? = None,
+  memory_names? : NameMap? = None,
+  global_names? : NameMap? = None,
+  elem_names? : NameMap? = None,
+  data_names? : NameMap? = None,
   field_names? : IndirectNameMap? = None,
   tag_names? : NameMap? = None,
 ) -> NameSec {
@@ -300,7 +312,13 @@ pub fn NameSec::new(
     module_name,
     func_names,
     local_names,
+    label_names,
     type_names,
+    table_names,
+    memory_names,
+    global_names,
+    elem_names,
+    data_names,
     field_names,
     tag_names,
   }

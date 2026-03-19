@@ -1488,6 +1488,10 @@ fn binary_name_section_fixture_module() -> Module {
     SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
   )
   let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let table_type = TableType::new(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+    Limits::i32(1U, Some(1U)),
+  )
   let name_sec = NameSec::new(
     module_name=Some(Name::new("fixture")),
     func_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("id"))])),
@@ -1499,6 +1503,18 @@ fn binary_name_section_fixture_module() -> Module {
         ),
       ]),
     ),
+    label_names=Some(
+      IndirectNameMap::new([
+        IndirectNameAssoc::new(
+          0U,
+          NameMap::new([
+            NameAssoc::new(0U, Name::new("entry")),
+            NameAssoc::new(1U, Name::new("repeat")),
+            NameAssoc::new(2U, Name::new("branch")),
+          ]),
+        ),
+      ]),
+    ),
     type_names=Some(
       NameMap::new([
         NameAssoc::new(0U, Name::new("Pair")),
@@ -1506,6 +1522,11 @@ fn binary_name_section_fixture_module() -> Module {
         NameAssoc::new(2U, Name::new("TagSig")),
       ]),
     ),
+    table_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("dispatch"))])),
+    memory_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("heap"))])),
+    global_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("flag"))])),
+    elem_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("targets"))])),
+    data_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("blob"))])),
     field_names=Some(
       IndirectNameMap::new([
         IndirectNameAssoc::new(
@@ -1519,12 +1540,50 @@ fn binary_name_section_fixture_module() -> Module {
   Module::new()
   .with_type_sec(TypeSec::new([struct_type, func_type, tag_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+  .with_table_sec(TableSec::new([Table::new(table_type, None)]))
+  .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]))
   .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(2U))]))
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), false),
+        Expr::new([Instruction::i32_const(I32(1))]),
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(
+        ElemMode::active(
+          TableIdx::new(0U),
+          Expr::new([Instruction::i32_const(I32(0))]),
+        ),
+        ElemKind::funcs([FuncIdx::new(0U)]),
+      ),
+    ]),
+  )
+  .with_data_sec(
+    DataSec::new([
+      Data::new(
+        DataMode::active(
+          MemIdx::new(0U),
+          Expr::new([Instruction::i32_const(I32(0))]),
+        ),
+        b"fixture",
+      ),
+    ]),
+  )
   .with_code_sec(
     CodeSec::new([
       Func::new(
         Locals::empty(),
-        Expr::new([Instruction::local_get(LocalIdx::new(0U))]),
+        Expr::new([
+          Instruction::block(BlockType::void_(), Expr::new([])),
+          Instruction::loop_(BlockType::void_(), Expr::new([])),
+          Instruction::i32_const(I32(1)),
+          Instruction::if_(BlockType::void_(), [], Some([])),
+          Instruction::local_get(LocalIdx::new(0U)),
+        ]),
       ),
     ]),
   )

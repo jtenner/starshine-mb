@@ -2506,11 +2506,17 @@ pub struct NameSec {
   module_name : Name?
   func_names : NameMap?
   local_names : IndirectNameMap?
+  label_names : IndirectNameMap?
   type_names : NameMap?
+  table_names : NameMap?
+  memory_names : NameMap?
+  global_names : NameMap?
+  elem_names : NameMap?
+  data_names : NameMap?
   field_names : IndirectNameMap?
   tag_names : NameMap?
 }
-pub fn NameSec::new(module_name? : Name?, func_names? : NameMap?, local_names? : IndirectNameMap?, type_names? : NameMap?, field_names? : IndirectNameMap?, tag_names? : NameMap?) -> Self
+pub fn NameSec::new(module_name? : Name?, func_names? : NameMap?, local_names? : IndirectNameMap?, label_names? : IndirectNameMap?, type_names? : NameMap?, table_names? : NameMap?, memory_names? : NameMap?, global_names? : NameMap?, elem_names? : NameMap?, data_names? : NameMap?, field_names? : IndirectNameMap?, tag_names? : NameMap?) -> Self
 pub impl PrettyPrint for NameSec
 pub impl Eq for NameSec
 pub impl Hash for NameSec

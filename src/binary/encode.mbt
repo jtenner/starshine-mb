@@ -632,7 +632,13 @@ pub impl Encode for NameSec with encode(val, buf) {
     module_name,
     func_names,
     local_names,
+    label_names,
     type_names,
+    table_names,
+    memory_names,
+    global_names,
+    elem_names,
+    data_names,
     field_names,
     tag_names,
   } = val
@@ -666,9 +672,69 @@ pub impl Encode for NameSec with encode(val, buf) {
       }
     None => ()
   }
+  match label_names {
+    Some(names) =>
+      if write_name_subsection(3, buf, fn(payload) {
+          Encode::encode(names, payload)
+        })
+        is Err(err) {
+        return Err(err)
+      }
+    None => ()
+  }
   match type_names {
     Some(names) =>
       if write_name_subsection(4, buf, fn(payload) {
+          Encode::encode(names, payload)
+        })
+        is Err(err) {
+        return Err(err)
+      }
+    None => ()
+  }
+  match table_names {
+    Some(names) =>
+      if write_name_subsection(5, buf, fn(payload) {
+          Encode::encode(names, payload)
+        })
+        is Err(err) {
+        return Err(err)
+      }
+    None => ()
+  }
+  match memory_names {
+    Some(names) =>
+      if write_name_subsection(6, buf, fn(payload) {
+          Encode::encode(names, payload)
+        })
+        is Err(err) {
+        return Err(err)
+      }
+    None => ()
+  }
+  match global_names {
+    Some(names) =>
+      if write_name_subsection(7, buf, fn(payload) {
+          Encode::encode(names, payload)
+        })
+        is Err(err) {
+        return Err(err)
+      }
+    None => ()
+  }
+  match elem_names {
+    Some(names) =>
+      if write_name_subsection(8, buf, fn(payload) {
+          Encode::encode(names, payload)
+        })
+        is Err(err) {
+        return Err(err)
+      }
+    None => ()
+  }
+  match data_names {
+    Some(names) =>
+      if write_name_subsection(9, buf, fn(payload) {
           Encode::encode(names, payload)
         })
         is Err(err) {

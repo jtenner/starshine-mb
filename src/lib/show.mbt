@@ -675,7 +675,13 @@ pub impl Show for NameSec with output(self, logger) {
     module_name,
     func_names,
     local_names,
+    label_names,
     type_names,
+    table_names,
+    memory_names,
+    global_names,
+    elem_names,
+    data_names,
     field_names,
     tag_names,
   } = self
@@ -685,8 +691,20 @@ pub impl Show for NameSec with output(self, logger) {
   func_names.output(logger)
   logger.write_string(" local_names=")
   local_names.output(logger)
+  logger.write_string(" label_names=")
+  label_names.output(logger)
   logger.write_string(" type_names=")
   type_names.output(logger)
+  logger.write_string(" table_names=")
+  table_names.output(logger)
+  logger.write_string(" memory_names=")
+  memory_names.output(logger)
+  logger.write_string(" global_names=")
+  global_names.output(logger)
+  logger.write_string(" elem_names=")
+  elem_names.output(logger)
+  logger.write_string(" data_names=")
+  data_names.output(logger)
   logger.write_string(" field_names=")
   field_names.output(logger)
   logger.write_string(" tag_names=")
