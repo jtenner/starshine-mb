@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-18 Optimization Package: add starter pipeline model and Binaryen-style duplicate-function elimination
+
+- Added the new [`src/optimization`](/home/jtenner/Projects/starshine-mb/src/optimization) package with starter pipeline data structures, the Binaryen pass inventory enums, pipeline grouping/validation metadata, and a default optimize pipeline builder that batches adjacent function-local passes into shared groups before validation.
+- Implemented a real `DuplicateFunctionElimination` pipeline pass in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) based on Binaryen’s pass behavior: it hashes defined functions, compares function bodies plus resolved structural function signatures, iterates until no more duplicates are exposed, compacts the function/code sections, and rewrites all affected `FuncIdx` references across the module.
+- Added blackbox pipeline coverage in [`src/optimization/optimization_test.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization_test.mbt) and whitebox duplicate-elimination regressions in [`src/optimization/duplicate_function_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/duplicate_function_elimination_wbtest.mbt), including imported-function offsets, `call`/`ref.func`/`export`/`start` rewrites, transitive deduping, and mismatched-signature non-merge cases.
+- Validation: `moon test src/optimization`; `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-18 Optimize Refactor Cutover: remove `passes`, disable optimizer execution, and trim stale Node surfaces
 
 - Removed the entire MoonBit optimization package at [`src/passes`](/home/jtenner/Projects/starshine-mb/src/passes) and the obsolete Node bridge package at [`src/node_api`](/home/jtenner/Projects/starshine-mb/src/node_api). This is an intentionally breaking cleanup to stop shipping a fundamentally broken optimization pipeline while the pass architecture is redesigned.
