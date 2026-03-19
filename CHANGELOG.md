@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-19 Backlog: record DFE comparison blockers from latest build artifact
+
+- Added new publishing-blocker entries to [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) for the two issues found while comparing `DuplicateFunctionElimination` against Binaryen on the latest Starshine build artifact: unsupported `name` subsection ids emitted by current MoonBit builds and the stripped-artifact post-encode `Invalid subtype` failure in the DFE path.
+
 ## 2026-03-19 Optimization: rewrite name section entries during duplicate-function elimination
 
 - Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `DuplicateFunctionElimination` now rewrites `Module.name_sec.func_names` and `Module.name_sec.local_names` with the same absolute-function remap it already applies to code references, exports, and the start function. When duplicate functions collapse to one canonical body, the pass now keeps the first surviving name entry for that canonical function and drops the removed duplicate’s name entry instead of leaving stale indices behind.

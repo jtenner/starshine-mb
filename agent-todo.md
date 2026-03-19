@@ -10,6 +10,8 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - Order items highest priority first within each section.
 
 ## Publishing blockers
+- Extend `name` custom section support to handle the subsection ids emitted by current MoonBit build artifacts (`6`, `7`, `8`, `9`) so the latest Starshine build decodes cleanly again.
+- Fix `DuplicateFunctionElimination` on the latest Starshine wasm-gc build artifact under strict TDD: after stripping debug names, the pass currently fails post-encode validation with `Invalid subtype`.
 - Capture and commit optimize baseline measurements for `examples`, `spec-sanity`, `dist-optimized`, and the documented user-run `self-opt-debug` command.
 - Finish `docs/pass-audit.md`: for each current pass, record what it does well, where it is inefficient, the best local fixes, expected size/runtime impact, and the nearest Binaryen comparison or adaptation.
 - Refactor `SimplifyLocals` under strict TDD: use array-backed sinkable storage, compact invalidation buckets, dirty-index clearing, fused summaries with stronger early exits, and cheaper effect/validation handling without weakening correctness.
