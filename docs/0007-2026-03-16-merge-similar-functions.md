@@ -30,7 +30,7 @@ Relevant current source anchors for future implementation work:
 
 Completed publish-signoff companion:
 
-- `docs/plans/done/merge-similar-functions-publish-plan.md`
+- `docs/0008-2026-03-16-merge-similar-functions-publish-plan.md`
 
 ## Current supported envelope
 

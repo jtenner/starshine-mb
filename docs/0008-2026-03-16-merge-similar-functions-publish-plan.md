@@ -25,9 +25,9 @@ Recorded final gate:
 
 Recorded harness/signoff evidence:
 - fixed corpus validity/determinism/instrumentation tests in [`src/passes/merge_similar_functions.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt)
-- supported-envelope summary in [`docs/merge-similar-functions.md`](/home/jtenner/Projects/starshine-mb/docs/merge-similar-functions.md)
+- supported-envelope summary in [`docs/0007-2026-03-16-merge-similar-functions.md`](/home/jtenner/Projects/starshine-mb/docs/0007-2026-03-16-merge-similar-functions.md)
 
-This plan is now complete and moved to `docs/plans/done`.
+This plan is now complete and kept as a historical signoff record in `docs/`.
 
 ## 1. Objective
 
@@ -37,7 +37,7 @@ Primary implementation target:
 - [src/passes/merge_similar_functions.mbt](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt)
 
 Design/background target:
-- [docs/merge-similar-functions.md](/home/jtenner/Projects/starshine-mb/docs/merge-similar-functions.md)
+- [docs/0007-2026-03-16-merge-similar-functions.md](/home/jtenner/Projects/starshine-mb/docs/0007-2026-03-16-merge-similar-functions.md)
 
 ## 2. Current Supported Envelope
 
@@ -52,7 +52,7 @@ Design/background target:
 | Direct call kind mismatch (`call` vs `return_call`) | Explicitly rejected | `derive_params` or rewrite validation fails with precise mismatch details | [src/passes/merge_similar_functions.mbt](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) |
 | Direct callee type mismatch at the same site | Explicitly rejected | Merge is rejected before invalid rewrite proceeds | [src/passes/merge_similar_functions.mbt](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) |
 | Local-count mismatch / structurally different bodies outside supported site kinds | Explicitly skipped | No class forms, or `derive_params` fails cleanly | [src/passes/merge_similar_functions.mbt](/home/jtenner/Projects/starshine-mb/src/passes/merge_similar_functions.mbt) |
-| Immediate/index/offset differences beyond direct call targets | Unsupported today | No parameterization support; treated as non-equivalent or derive failure | [docs/merge-similar-functions.md](/home/jtenner/Projects/starshine-mb/docs/merge-similar-functions.md) |
+| Immediate/index/offset differences beyond direct call targets | Unsupported today | No parameterization support; treated as non-equivalent or derive failure | [docs/0007-2026-03-16-merge-similar-functions.md](/home/jtenner/Projects/starshine-mb/docs/0007-2026-03-16-merge-similar-functions.md) |
 
 ### 2.2 Lowering policy
 
@@ -148,6 +148,6 @@ Remaining signoff gap:
 
 ## 7. Immediate Next Steps
 
-1. Keep this plan as the historical signoff record under `docs/plans/done`.
-2. Use `docs/merge-similar-functions.md` for any future envelope expansion work.
+1. Keep this plan as the historical signoff record in `docs/`.
+2. Use `docs/0007-2026-03-16-merge-similar-functions.md` for any future envelope expansion work.
 3. If the supported envelope grows, reopen this plan or create a new one with fresh rerun evidence.

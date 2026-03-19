@@ -36,6 +36,7 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Do not use `git commit -m` or interactive commit editors.
 
 ## Repository Layout
+- `docs/`: canonical home for committed research, plans, signoff notes, and benchmark baselines; keep markdown docs directly in `docs/` using the serial/date/title naming rule below.
 - `examples/`: runnable usage examples and sample config/module inputs.
 - `scripts/`: top-level Bun task entrypoints only (`validate.ts`, `fuzz.ts`, `self-opt.ts`, `make.ts`, `examples.ts`).
 - `scripts/lib/`: reusable task modules and helper implementations; when adding or changing automation, put reusable logic here and keep the top-level task files as thin dispatchers.
@@ -60,6 +61,17 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Update inline/dispatch tests in the pass file and/or `src/passes/optimize.mbt`.
 - Run `moon test` and `moon info && moon fmt`.
 - Review `.mbti` diffs to confirm intended public API changes.
+
+## Research
+- Research must be detailed, technically relevant to `starshine-mb`, and actionable for implementation, validation, or release-signoff work.
+- Commit research as markdown directly under `docs/` using `docs/[unique serial id]-[date committed]-[title].md`.
+- Use a zero-padded numeric serial id and keep it unique by scanning existing `docs/*.md` files and incrementing the highest id.
+- Use the commit date in `YYYY-MM-DD` form and a short lowercase kebab-case title that matches the topic, pass, or investigation area.
+- Do not create nested markdown doc paths under `docs/`; the filename itself is the index key and metadata carrier.
+- Before writing new research, inspect `docs/` and grep both filenames and contents for the pass name, feature name, aliases, and related Binaryen terminology so you extend existing research instead of creating duplicates.
+- When a backlog item or older note mentions a legacy slug path such as `docs/pass-name.md`, treat that as a topic hint and resolve it against the serial-named file in `docs/` with the matching subject.
+- Research should usually capture: scope/status, source-code anchors, current repository behavior, upstream/Binaryen comparison when relevant, correctness constraints, validation/test plan, performance considerations, open questions, and a concrete next-step recommendation.
+- When you create or substantially revise research, update any repo references that point at the old filename or topic hint so future agents can find the canonical serial-named document quickly.
 
 ## Agent Task File
 - `./agent-todo.md` contains AI-friendly backlog items.

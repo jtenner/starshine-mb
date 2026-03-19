@@ -33,7 +33,7 @@ Primary source anchors used for this plan:
 - `src/passes/simplify_locals.mbt`
 - `src/passes/optimize.mbt`
 - `src/passes/local_cse.mbt`
-- `docs/tracing.md`
+- `docs/0001-2026-03-10-tracing.md`
 - Binaryen `src/passes/SimplifyLocals.cpp`
 - Binaryen `src/passes/pass.cpp`
 

@@ -13,7 +13,7 @@ Reach v0.1.0 "production-ready for MoonBit users" with a full native CLI, a spec
 - Other Binaryen pass-parity work is `v0.2.0` blocker work.
 
 ## Publishing blockers
-- Refresh `docs/pass-audit.md` so it describes the current `src/optimization` package, the replacement scheduler, the default-pipeline priority split, and the actual implemented-vs-stub pass status.
+- Refresh `docs/0011-2026-03-18-pass-audit.md` so it describes the current `src/optimization` package, the replacement scheduler, the default-pipeline priority split, and the actual implemented-vs-stub pass status.
 
 ## v0.1.0 Default Optimize Pipeline Blockers
 - Each pass item below must end with an exhaustive Binaryen behavior report in its pass doc, a strict-TDD implementation, a validation-strategy decision that matches Binaryen even when it conflicts with the current setup, and a Binaryen-vs-Starshine comparison report.
@@ -63,7 +63,7 @@ Reach v0.1.0 "production-ready for MoonBit users" with a full native CLI, a spec
 - `DeadArgumentEliminationOptimizing` (`docs/dead-argument-elimination-optimizing.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
 - `InliningOptimizing` (`docs/inlining-optimizing.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
 - `DuplicateImportElimination` (`docs/duplicate-import-elimination.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `MergeSimilarFunctions` (`docs/merge-similar-functions.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
+- `MergeSimilarFunctions` (`docs/0007-2026-03-16-merge-similar-functions.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
 - `SimplifyGlobalsOptimizing` (`docs/simplify-globals-optimizing.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
 - `SimplifyGlobals` (`docs/simplify-globals.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
 - `StringGathering` (`docs/string-gathering.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.

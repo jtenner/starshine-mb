@@ -55,7 +55,7 @@ Final local gate:
 - `moon info && moon fmt` (pass)
 - `moon test` (pass)
 
-This plan is now complete and moved to `docs/plans/done`.
+This plan is now complete and kept as a historical record in `docs/`.
 
 ## 1. Scope and Objective
 
@@ -416,4 +416,4 @@ Done when all are true:
 2. C-001..C-004 are resolved or formally deferred with issue IDs.
 3. Performance gates are met with recorded measurements.
 4. `moon info && moon fmt` and `moon test` pass.
-5. Plan moved from `docs/plans/active` to `docs/plans/done` with completion notes.
+5. Plan was promoted from active work to a completed historical record with completion notes.
