@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-19 Optimization: rewrite name section entries during duplicate-function elimination
+
+- Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `DuplicateFunctionElimination` now rewrites `Module.name_sec.func_names` and `Module.name_sec.local_names` with the same absolute-function remap it already applies to code references, exports, and the start function. When duplicate functions collapse to one canonical body, the pass now keeps the first surviving name entry for that canonical function and drops the removed duplicate’s name entry instead of leaving stale indices behind.
+- Added a whitebox regression in [`src/optimization/duplicate_function_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/duplicate_function_elimination_wbtest.mbt) that proves function-name maps and local-name maps are compacted correctly when deduping a middle function shifts later function indices down.
+- Updated [`src/optimization/imports.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/imports.mbt) to import the structured name-section types used by the new rewrite helpers.
+- Validation: `moon info`; `moon fmt`; `moon test`.
+
 ## 2026-03-19 Binary/Validate: add first-class names custom section support
 
 - Added structured name-section model types in [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt) and a dedicated `Module.name_sec` field with [`src/lib/module.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/module.mbt) helpers, so module, function, local, type, field, and tag names are represented explicitly instead of being carried as an opaque raw custom section.

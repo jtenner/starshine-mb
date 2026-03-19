@@ -666,6 +666,75 @@ fn optimization_rewrite_func_indices(
 }
 
 ///|
+fn optimization_rewrite_func_name_map(
+  names : NameMap,
+  remap : Map[UInt, UInt],
+) -> NameMap {
+  let NameMap(entries) = names
+  let rewritten : Array[NameAssoc] = []
+  let mut last_idx : UInt? = None
+  for entry in entries {
+    let NameAssoc(idx, name) = entry
+    let next_idx = remap.get(idx).unwrap_or(idx)
+    if last_idx == Some(next_idx) {
+      continue
+    }
+    rewritten.push(NameAssoc::new(next_idx, name))
+    last_idx = Some(next_idx)
+  }
+  NameMap::new(rewritten)
+}
+
+///|
+fn optimization_rewrite_local_name_map(
+  names : IndirectNameMap,
+  remap : Map[UInt, UInt],
+) -> IndirectNameMap {
+  let IndirectNameMap(entries) = names
+  let rewritten : Array[IndirectNameAssoc] = []
+  let mut last_idx : UInt? = None
+  for entry in entries {
+    let IndirectNameAssoc(idx, local_names) = entry
+    let next_idx = remap.get(idx).unwrap_or(idx)
+    if last_idx == Some(next_idx) {
+      continue
+    }
+    rewritten.push(IndirectNameAssoc::new(next_idx, local_names))
+    last_idx = Some(next_idx)
+  }
+  IndirectNameMap::new(rewritten)
+}
+
+///|
+fn optimization_rewrite_name_sec(
+  name_sec : NameSec,
+  remap : Map[UInt, UInt],
+) -> NameSec {
+  let {
+    module_name,
+    func_names,
+    local_names,
+    type_names,
+    field_names,
+    tag_names,
+  } = name_sec
+  NameSec::new(
+    module_name~,
+    func_names=match func_names {
+      Some(names) => Some(optimization_rewrite_func_name_map(names, remap))
+      None => None
+    },
+    local_names=match local_names {
+      Some(names) => Some(optimization_rewrite_local_name_map(names, remap))
+      None => None
+    },
+    type_names~,
+    field_names~,
+    tag_names~,
+  )
+}
+
+///|
 fn optimization_duplicate_function_iteration(mod : Module) -> Module? {
   match (mod.func_sec, mod.code_sec) {
     (Some(FuncSec(type_idxs)), Some(CodeSec(funcs))) => {
@@ -761,9 +830,16 @@ fn optimization_duplicate_function_iteration(mod : Module) -> Module? {
         i += 1
       }
 
-      let compacted = mod
+      let mut compacted = mod
         .with_func_sec(FuncSec::new(kept_types))
         .with_code_sec(CodeSec::new(kept_funcs))
+      match mod.name_sec {
+        Some(name_sec) =>
+          compacted = compacted.with_name_sec(
+            optimization_rewrite_name_sec(name_sec, abs_remap),
+          )
+        None => ()
+      }
       Some(optimization_rewrite_func_indices(compacted, abs_remap))
     }
     _ => None

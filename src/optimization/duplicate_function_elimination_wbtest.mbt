@@ -197,3 +197,106 @@ test "duplicate function elimination keeps same-body functions with different st
     None => fail("expected code section")
   }
 }
+
+///|
+test "duplicate function elimination rewrites name section function and local names" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      ]),
+    )
+    .with_func_sec(
+      FuncSec::new([
+        TypeIdx::new(0U),
+        TypeIdx::new(1U),
+        TypeIdx::new(1U),
+        TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+        Func::t_func(
+          [ValType::i32()],
+          Locals::from_types([ValType::i64()]),
+          TExpr::new([TInstr::nop()]),
+        ),
+        Func::t_func(
+          [ValType::i32()],
+          Locals::from_types([ValType::i64()]),
+          TExpr::new([TInstr::nop()]),
+        ),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::unreachable_()])),
+      ]),
+    )
+    .with_name_sec(
+      NameSec::new(
+        func_names=Some(
+          NameMap::new([
+            NameAssoc::new(0U, Name::from_string("entry")),
+            NameAssoc::new(1U, Name::from_string("kept")),
+            NameAssoc::new(2U, Name::from_string("removed")),
+            NameAssoc::new(3U, Name::from_string("tail")),
+          ]),
+        ),
+        local_names=Some(
+          IndirectNameMap::new([
+            IndirectNameAssoc::new(
+              1U,
+              NameMap::new([
+                NameAssoc::new(0U, Name::from_string("param")),
+                NameAssoc::new(1U, Name::from_string("tmp")),
+              ]),
+            ),
+            IndirectNameAssoc::new(
+              2U,
+              NameMap::new([
+                NameAssoc::new(0U, Name::from_string("gone_param")),
+                NameAssoc::new(1U, Name::from_string("gone_tmp")),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    )
+
+  let (optimized, _) = run_duplicate_function_elimination(
+    mod,
+    PipelineGlobal::new(),
+  )
+
+  match optimized.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 3)
+    None => fail("expected code section")
+  }
+  match optimized.name_sec {
+    Some(name_sec) => {
+      let { func_names, local_names, .. } = name_sec
+      let funcs = match func_names {
+        Some(NameMap(funcs)) => funcs
+        _ => fail("expected function names")
+      }
+      let locals = match local_names {
+        Some(IndirectNameMap(locals)) => locals
+        _ => fail("expected local names")
+      }
+      assert_eq(funcs, [
+        NameAssoc::new(0U, Name::from_string("entry")),
+        NameAssoc::new(1U, Name::from_string("kept")),
+        NameAssoc::new(2U, Name::from_string("tail")),
+      ])
+      assert_eq(locals, [
+        IndirectNameAssoc::new(
+          1U,
+          NameMap::new([
+            NameAssoc::new(0U, Name::from_string("param")),
+            NameAssoc::new(1U, Name::from_string("tmp")),
+          ]),
+        ),
+      ])
+    }
+    _ => fail("expected rewritten name section")
+  }
+}
