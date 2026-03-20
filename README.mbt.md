@@ -66,10 +66,46 @@ fn parse_validate_encode(source : String) -> Bool {
 
 - CLI optimization flags are currently accepted for compatibility but mostly no-op while the pipeline is being refactored.
 
-## Development Checks
+## Prerequisites
+
+- [bun](https://bun.sh) (for project scripts in `package.json`)
+- [MoonBit toolchain (`moon`)](https://www.moonbitlang.com/docs/zh/getting-started/installing-moonbit/) (for building and testing MoonBit packages)
+- Optional: [Node.js](https://nodejs.org/) if you also run `node/` package tooling
+
+Install script dependencies after installing `bun` and `moon`:
+
+Then install project script dependencies:
+
+```bash
+bun install
+```
+
+## Build, Test, and Fuzz
+
+Install script tooling and run the full project checks:
+
+```bash
+bun validate full
+```
+
+Run the minimum local quality gate used by this repo:
 
 ```bash
 moon info
 moon fmt
 moon test
+```
+
+Run fuzzing with default settings (suite/profile/seed/target):
+
+```bash
+bun fuzz run
+```
+
+Useful variant commands:
+
+```bash
+bun fuzz run --suite <suite> --profile <profile> --seed <seed> --target <target>
+bun validate coverage
+bun validate readme-api-sync
 ```

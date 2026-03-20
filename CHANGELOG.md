@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-03-20 Docs: add build/test/fuzz setup guidance to README
+
+- **README dependency and workflow update** by **@jtenner**. Expanded [`README.mbt.md`](/home/jtenner/Projects/starshine-mb/README.mbt.md) with explicit setup requirements and concrete build/test/fuzz commands for contributors.
+- Added documentation for:
+  - required local tooling (`bun`, `moon`, optional Node.js),
+  - dependency installation,
+  - full validation and regular quality-gate commands,
+  - fuzz and readme/API validation command variants.
+
 ## 2026-03-20 Docs: compact and align documentation workflow
 
 - **Documentation compaction pass** by **@jtenner**. Reworked the documentation corpus and onboarding guidance for easier scanning and higher signal-to-noise.
