@@ -1,14 +1,10 @@
 # Starshine
 
-Starshine is a MoonBit toolkit for working with WebAssembly text, binary modules, validation, typed IR, and module rewriting.
+MoonBit toolkit for parsing, validating, and rewriting WebAssembly.
 
-This README is MoonBit-first. If you want the JavaScript/npm package, see [node/README.md](./node/README.md).
+For JavaScript/npm usage, see [node/README.md](./node/README.md).
 
-## Install In MoonBit
-
-The package name is `jtenner/starshine`. This project has not been released yet, so consumers usually pin a local checkout or another source they already control.
-
-Minimal `moon.mod.json` shape:
+## Install in MoonBit
 
 ```json
 {
@@ -18,14 +14,14 @@ Minimal `moon.mod.json` shape:
 }
 ```
 
-## What You Can Do With It
+## What You Can Do
 
-- Parse WAT/WAST text into Starshine's `Module` model.
-- Validate modules and lift function bodies to typed IR.
-- Decode and encode binary wasm modules.
-- Build modules directly with constructor-based APIs.
-- Walk and rewrite modules with the transformer framework.
-- Drive the packaged CLI from MoonBit or from the bundled Node wrapper.
+- Parse and print WAT/WAST.
+- Validate modules and use typed-IR lifts.
+- Decode and encode WebAssembly binaries.
+- Build modules with `lib` constructors and IR utilities.
+- Rewrite modules via the transformer framework.
+- Use CLI and Node wrappers.
 
 ## Package Map
 
@@ -33,15 +29,15 @@ Minimal `moon.mod.json` shape:
 | --- | --- |
 | `jtenner/starshine/wast` | Parse and print WAT/WAST text. |
 | `jtenner/starshine/wat` | Text-format wasm helpers. |
-| `jtenner/starshine/validate` | Validation and typed IR conversion. |
-| `jtenner/starshine/binary` | Binary decode/encode and LEB128 helpers. |
-| `jtenner/starshine/lib` | Core Wasm model types and constructors. |
+| `jtenner/starshine/validate` | Validation + typed IR conversion. |
+| `jtenner/starshine/binary` | Binary encoding/decoding + LEB128 helpers. |
+| `jtenner/starshine/lib` | Core Wasm types and constructors. |
 | `jtenner/starshine/ir` | CFG/SSA/use-def/liveness utilities. |
 | `jtenner/starshine/transformer` | Event-driven traversal and rewrite hooks. |
-| `jtenner/starshine/cli` | CLI parsing, config, globbing, and flag resolution. |
-| `jtenner/starshine/cmd` | Command execution, fuzz helpers, and host adapters. |
+| `jtenner/starshine/cli` | CLI parsing, config, globbing, and flags. |
+| `jtenner/starshine/cmd` | Command execution and host adapters. |
 
-## First Pipeline
+## Quick Example
 
 ```mbt
 using @binary { encode_module }
@@ -66,13 +62,11 @@ fn parse_validate_encode(source : String) -> Bool {
 }
 ```
 
-## CLI Compatibility Note
+## Compatibility Note
 
-The optimization pipeline is currently being refactored. CLI optimization and pass flags are still accepted for compatibility, but they behave as no-ops for now.
+- CLI optimization flags are currently accepted for compatibility but mostly no-op while the pipeline is being refactored.
 
 ## Development Checks
-
-Preferred local check sequence:
 
 ```bash
 moon info

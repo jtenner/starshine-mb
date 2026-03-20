@@ -1,163 +1,155 @@
 # Agent Tasks
 
-## Goal
-Reach v0.1.0 "production-ready for MoonBit users" with a full native CLI, a spec-test passing validator and optimizer, a clean public API, and a maintainable codebase.
-
 ## Scope
-- Open work only.
-- Keep tasks as simple bullet points.
-- Move completed work to `CHANGELOG.md` instead of marking items done here.
-- Order items highest priority first within each section.
-- For pass work, every top-level pass item must cover four phases: research, implementation, validation strategy, and Binaryen comparison.
-- Default optimize pipeline passes are `v0.1.0` blockers.
-- Other Binaryen pass-parity work is `v0.2.0` blocker work.
+- Keep only active work.
+- Keep tasks as short priority buckets, grouped by release target.
+- For each started task, capture blockers, risks, and next-step evidence.
+- Do not mark completed tasks here; move finished items to `CHANGELOG.md`.
 
-## Publishing blockers
-- Refresh `docs/0011-2026-03-18-pass-audit.md` so it describes the current `src/optimization` package, the replacement scheduler, the default-pipeline priority split, and the actual implemented-vs-stub pass status.
+## Publishing and Validation Blockers
+- Refresh `docs/0011-2026-03-18-pass-audit.md` whenever pass inventory or runner behavior changes.
+- Keep `merge-similar-functions` correctness and publish-signoff docs aligned.
+- Keep release blockers in `agent-todo.md` and avoid losing unresolved risk notes in `CHANGELOG.md`.
 
-## v0.1.0 Default Optimize Pipeline Blockers
-- Each pass item below must end with an exhaustive Binaryen behavior report in its pass doc, a strict-TDD implementation, a validation-strategy decision that matches Binaryen even when it conflicts with the current setup, and a Binaryen-vs-Starshine comparison report.
-- `DuplicateFunctionElimination` (`docs/duplicate-function-elimination.md`, `v0.1.0 blocker`): refresh the research writeup, finish correctness hardening under strict TDD, align validation behavior with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `RemoveUnusedModuleElements` (`docs/remove-unused-module-elements.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `MemoryPacking` (`docs/memory-packing.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `OnceReduction` (`docs/once-reduction.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `TypeRefining` (`docs/type-refining.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SignaturePruning` (`docs/signature-pruning.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SignatureRefining` (`docs/signature-refining.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `GlobalRefining` (`docs/global-refining.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `GlobalTypeOptimization` (`docs/global-type-optimization.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `RemoveUnusedTypes` (`docs/remove-unused-types.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `ConstantFieldPropagationRefTest` (`docs/constant-field-propagation-ref-test.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `ConstantFieldPropagation` (`docs/constant-field-propagation.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `GlobalStructInference` (`docs/global-struct-inference.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `AbstractTypeRefining` (`docs/abstract-type-refining.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Unsubtyping` (`docs/unsubtyping.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SSANoMerge` (`docs/ssa-no-merge.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Flatten` (`docs/flatten.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SimplifyLocalsNoTeeNoStructure` (`docs/simplify-locals-no-tee-no-structure.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `LocalCSE` (`docs/local-cse.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `DeadCodeElimination` (`docs/dead-code-elimination.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `RemoveUnusedNames` (`docs/remove-unused-names.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `RemoveUnusedBrs` (`docs/remove-unused-brs.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `OptimizeInstructions` (`docs/optimize-instructions.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `HeapStoreOptimization` (`docs/heap-store-optimization.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `PickLoadSigns` (`docs/pick-load-signs.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `PrecomputePropagate` (`docs/precompute-propagate.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Precompute` (`docs/precompute.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `OptimizeAddedConstantsPropagate` (`docs/optimize-added-constants-propagate.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `OptimizeAddedConstants` (`docs/optimize-added-constants.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `CodePushing` (`docs/code-pushing.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `TupleOptimization` (`docs/tuple-optimization.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SimplifyLocalsNoStructure` (`docs/simplify-locals-no-structure.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Vacuum` (`docs/vacuum.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `ReorderLocals` (`docs/reorder-locals.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Heap2Local` (`docs/heap2-local.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `MergeLocals` (`docs/merge-locals.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `OptimizeCasts` (`docs/optimize-casts.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `LocalSubtyping` (`docs/local-subtyping.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `CoalesceLocals` (`docs/coalesce-locals.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SimplifyLocals` (`docs/simplify-locals.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `CodeFolding` (`docs/code-folding.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `MergeBlocks` (`docs/merge-blocks.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `RedundantSetElimination` (`docs/redundant-set-elimination.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `DeadArgumentEliminationOptimizing` (`docs/dead-argument-elimination-optimizing.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `InliningOptimizing` (`docs/inlining-optimizing.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `DuplicateImportElimination` (`docs/duplicate-import-elimination.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `MergeSimilarFunctions` (`docs/0007-2026-03-16-merge-similar-functions.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SimplifyGlobalsOptimizing` (`docs/simplify-globals-optimizing.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SimplifyGlobals` (`docs/simplify-globals.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `StringGathering` (`docs/string-gathering.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `ReorderGlobals` (`docs/reorder-globals.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Directize` (`docs/directize.md`, `v0.1.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
+## v0.1.0 Default Pipeline Blockers
+- DuplicateFunctionElimination
+- RemoveUnusedModuleElements
+- MemoryPacking
+- OnceReduction
+- TypeRefining
+- SignaturePruning
+- SignatureRefining
+- GlobalRefining
+- GlobalTypeOptimization
+- RemoveUnusedTypes
+- ConstantFieldPropagationRefTest
+- ConstantFieldPropagation
+- GlobalStructInference
+- AbstractTypeRefining
+- Unsubtyping
+- SSANoMerge
+- Flatten
+- DeadCodeElimination
+- RemoveUnusedNames
+- RemoveUnusedBrs
+- OptimizeInstructions
+- HeapStoreOptimization
+- PickLoadSigns
+- Precompute
+- PrecomputePropagate
+- OptimizeAddedConstants
+- OptimizeAddedConstantsPropagate
+- CodePushing
+- TupleOptimization
+- SimplifyLocalsNoTeeNoStructure
+- SimplifyLocalsNoStructure
+- SimplifyLocals
+- Vacuum
+- ReorderLocals
+- Heap2Local
+- MergeLocals
+- OptimizeCasts
+- LocalSubtyping
+- CoalesceLocals
+- LocalCSE
+- CodeFolding
+- MergeBlocks
+- RedundantSetElimination
+- DeadArgumentEliminationOptimizing
+- InliningOptimizing
+- DuplicateImportElimination
+- MergeSimilarFunctions
+- SimplifyGlobalsOptimizing
+- SimplifyGlobals
+- Directize
+- StringGathering
 
-## v0.2.0 Other Binaryen Pass Blockers
-- These are not required for the default optimize pipeline, but each one still needs the same research, implementation, validation-strategy, and comparison workflow before v0.2.0 can ship.
-- `AlignmentLowering` (`docs/alignment-lowering.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Asyncify` (`docs/asyncify.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `AvoidReinterprets` (`docs/avoid-reinterprets.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `ConstHoisting` (`docs/const-hoisting.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `DWARF` (`docs/dwarf.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `DataFlowOpts` (`docs/data-flow-opts.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `DeAlign` (`docs/de-align.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `DeNaN` (`docs/de-nan.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `DeadArgumentElimination2` (`docs/dead-argument-elimination-2.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `DebugLocationPropagation` (`docs/debug-location-propagation.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `EncloseWorld` (`docs/enclose-world.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `ExtractFunction` (`docs/extract-function.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `FuncCastEmulation` (`docs/func-cast-emulation.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `GUFA` (`docs/gufa.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `GenerateDynCalls` (`docs/generate-dyn-calls.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `GlobalEffects` (`docs/global-effects.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `I64ToI32Lowering` (`docs/i64-to-i32-lowering.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `InstrumentBranchHints` (`docs/instrument-branch-hints.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `InstrumentLocals` (`docs/instrument-locals.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `InstrumentMemory` (`docs/instrument-memory.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Intrinsics` (`docs/intrinsics.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `J2CLItableMerging` (`docs/j2cl-itable-merging.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `J2CLOpts` (`docs/j2cl-opts.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `LLVMMemoryCopyFillLowering` (`docs/llvm-memory-copy-fill-lowering.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `LLVMNontrappingFPToIntLowering` (`docs/llvm-nontrapping-fp-to-int-lowering.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `LegalizeJSInterface` (`docs/legalize-js-interface.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `LimitSegments` (`docs/limit-segments.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `LogExecution` (`docs/log-execution.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `LoopInvariantCodeMotion` (`docs/loop-invariant-code-motion.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Memory64Lowering` (`docs/memory64-lowering.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Metrics` (`docs/metrics.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `MinifyImportsAndExports` (`docs/minify-imports-and-exports.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `MinimizeRecGroups` (`docs/minimize-rec-groups.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Monomorphize` (`docs/monomorphize.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `MultiMemoryLowering` (`docs/multi-memory-lowering.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `NameList` (`docs/name-list.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `NameTypes` (`docs/name-types.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `NoInline` (`docs/no-inline.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `OptimizeForJS` (`docs/optimize-for-js.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Outlining` (`docs/outlining.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Poppify` (`docs/poppify.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `PostEmscripten` (`docs/post-emscripten.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Print` (`docs/print.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `PrintCallGraph` (`docs/print-call-graph.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `PrintFeatures` (`docs/print-features.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `PrintFunctionMap` (`docs/print-function-map.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `RandomizeBranchHints` (`docs/randomize-branch-hints.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `ReReloop` (`docs/re-reloop.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `RemoveImports` (`docs/remove-imports.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `RemoveMemoryInit` (`docs/remove-memory-init.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `RemoveNonJSOps` (`docs/remove-non-js-ops.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `RemoveRelaxedSIMD` (`docs/remove-relaxed-simd.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `ReorderFunctions` (`docs/reorder-functions.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `ReorderTypes` (`docs/reorder-types.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `RoundTrip` (`docs/round-trip.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SSAify` (`docs/ssaify.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SafeHeap` (`docs/safe-heap.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SeparateDataSegments` (`docs/separate-data-segments.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SetGlobals` (`docs/set-globals.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SignExtLowering` (`docs/sign-ext-lowering.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Souperify` (`docs/souperify.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `SpillPointers` (`docs/spill-pointers.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `StackCheck` (`docs/stack-check.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `StringLifting` (`docs/string-lifting.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `StringLowering` (`docs/string-lowering.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Strip` (`docs/strip.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `StripEH` (`docs/strip-eh.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `StripTargetFeatures` (`docs/strip-target-features.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `StripToolchainAnnotations` (`docs/strip-toolchain-annotations.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `TraceCalls` (`docs/trace-calls.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `TranslateEH` (`docs/translate-eh.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `TrapMode` (`docs/trap-mode.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `TypeFinalizing` (`docs/type-finalizing.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `TypeGeneralizing` (`docs/type-generalizing.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `TypeMerging` (`docs/type-merging.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `TypeSSA` (`docs/type-ssa.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
-- `Untee` (`docs/untee.md`, `v0.2.0 blocker`): write the research report, implement the pass under strict TDD, investigate and align the validation strategy with Binaryen, and compare Binaryen vs Starshine output on focused fixtures plus real modules.
+## Backlog Hygiene
+- Keep duplicate entries removed when pass scopes converge.
+- Keep scope groupings and blocker ordering synchronized with `docs/0011-2026-03-18-pass-audit.md`.
+- Move resolved items to `CHANGELOG.md` and clear stale evidence notes.
 
-## Longer-horizon non-pass work
-- Add `StackState` to traversal event callbacks to help debug validation issues.
-- Continue `string.const` support and string optimization work.
-- Replace deep-recursive native decode with a recursion-free control-instruction path, and add regression or benchmark coverage for deep nested-control decode.
-- Make `moduleToWast` output reliably parser-consumable in roundtrip tests.
-- Reach `>=75%` line coverage on hot paths: decoder, IR lift, and optimizer/validator hotspots.
-- Add a shared memarg-alignment helper (`byte width -> alignment exponent`), migrate remaining byte-count alignment emitters, and audit asyncify-generated `MemArg` alignments with validator-backed tests for both `i32` and `i64` memory.
-- Improve fuzzing: tune or replace `gen_valid_module`, add corpus replay, add automatic testcase reduction for non-pass failures, add first-class differential-validation CI profiles, and add runtime-budgeted adaptive profiles.
-- Replace conservative legacy-exception lowering with semantic-preserving lowering to `try_table` and `throw_ref`.
-- Tackle larger maintainability refactors: file splits for `typecheck`, `env`, `transformer`, `optimization`, and `parser`, plus `decode_instruction` helper decomposition.
-- Long-horizon platform/features: Component Model/WIT, streaming decoder API, custom sections/source maps, and a plugin system.
+## v0.2.0 Non-default Pass Blockers
+- AlignmentLowering
+- Asyncify
+- AvoidReinterprets
+- ConstHoisting
+- DataFlowOpts
+- DeAlign
+- DeNaN
+- DeadArgumentElimination2
+- DebugLocationPropagation
+- EncloseWorld
+- ExtractFunction
+- FuncCastEmulation
+- GUFA
+- GenerateDynCalls
+- GlobalEffects
+- I64ToI32Lowering
+- InstrumentBranchHints
+- InstrumentLocals
+- InstrumentMemory
+- Intrinsics
+- J2CLItableMerging
+- J2CLOpts
+- LLVMMemoryCopyFillLowering
+- LLVMNontrappingFPToIntLowering
+- LegalizeJSInterface
+- LimitSegments
+- LogExecution
+- LoopInvariantCodeMotion
+- Memory64Lowering
+- Metrics
+- MinifyImportsAndExports
+- MinimizeRecGroups
+- Monomorphize
+- MultiMemoryLowering
+- NameList
+- NameTypes
+- NoInline
+- OptimizeForJS
+- Outlining
+- Poppify
+- PostEmscripten
+- Print
+- PrintCallGraph
+- PrintFeatures
+- PrintFunctionMap
+- RandomizeBranchHints
+- ReReloop
+- RemoveImports
+- RemoveMemoryInit
+- RemoveNonJSOps
+- RemoveRelaxedSIMD
+- ReorderFunctions
+- ReorderTypes
+- RoundTrip
+- SSAify
+- SafeHeap
+- SeparateDataSegments
+- SetGlobals
+- SignExtLowering
+- Souperify
+- SpillPointers
+- StackCheck
+- StringLifting
+- StringLowering
+- Strip
+- StripEH
+- StripTargetFeatures
+- StripToolchainAnnotations
+- TraceCalls
+- TranslateEH
+- TrapMode
+- TypeFinalizing
+- TypeGeneralizing
+- TypeMerging
+- TypeSSA
+- Untee
+
+## Longer-horizon Backlog
+- String optimization completion in `tests/spec`.
+- Rewrite `src/transformer` for clearer separation of traversal and validation.
+- Refactor deep recursive decode paths and benchmark decode hot spots.
+- Improve fuzzing ergonomics for corpus replay and first-class differential checks.
+- Maintainability refactors in `typecheck`, `env`, `transformer`, `optimization`, `parser`.

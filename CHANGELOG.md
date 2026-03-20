@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-03-20 Docs: compact and align documentation workflow
+
+- **Documentation compaction pass** by **@jtenner**. Reworked the documentation corpus and onboarding guidance for easier scanning and higher signal-to-noise.
+- Updated all non-code docs to compact structure and wording:
+  - [`README.mbt.md`](/home/jtenner/Projects/starshine-mb/README.mbt.md)
+  - [`examples/README.md`](/home/jtenner/Projects/starshine-mb/examples/README.md)
+  - [`node/README.md`](/home/jtenner/Projects/starshine-mb/node/README.md)
+  - [`node/examples/README.md`](/home/jtenner/Projects/starshine-mb/node/examples/README.md)
+  - [`tests/spec/README.md`](/home/jtenner/Projects/starshine-mb/tests/spec/README.md)
+  - [`AGENTS.md`](/home/jtenner/Projects/starshine-mb/AGENTS.md)
+  - pass and planning docs under `docs/` (`docs/0001...0011`).
+- Kept pass/research history complete but made each doc action-oriented and concise:
+  - tracing contract, pipeline diff, fuzz migration, vacuum plan, simplify-locals, merge-related plan/doc, merge-similar-functions, merge publish gate, string gathering, and pass-audit docs.
+- Cleaned active backlog wording and duplicate blockers in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).
+
 ## 2026-03-19 Docs/Agents: canonicalize committed docs naming and research placement
 
 - Renamed the committed markdown documents under [`docs/`](/home/jtenner/Projects/starshine-mb/docs) into the canonical `docs/[unique serial id]-[date committed]-[title].md` format, flattening older nested plan and benchmark paths into a single indexed docs namespace.
