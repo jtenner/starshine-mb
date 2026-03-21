@@ -33,6 +33,9 @@ using @lib {
   type Table,
   type TableIdx,
   type TableSec,
+  type TagIdx,
+  type TagSec,
+  type TagType,
   type TypeIdx,
   type U32,
 }

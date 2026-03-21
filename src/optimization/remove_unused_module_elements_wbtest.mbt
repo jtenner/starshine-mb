@@ -82,6 +82,22 @@ fn remove_unused_test_main_memory_size_target(mod : Module) -> UInt raise Error 
 }
 
 ///|
+fn remove_unused_test_main_throw_tag_target(mod : Module) -> UInt raise Error {
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.TFunc(_, _, body) =>
+          match body.inner()[0].kind {
+            @lib.TThrow(@lib.TagIdx(target), _) => target
+            _ => fail("expected throw in first instruction")
+          }
+        _ => fail("expected typed function")
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
 fn remove_unused_test_run(mod : Module) -> Module {
   let (optimized, _) = run_remove_unused_module_elements(
     mod,
@@ -89,6 +105,11 @@ fn remove_unused_test_run(mod : Module) -> Module {
     PipelineFeatures::new(),
   )
   optimized
+}
+
+///|
+fn remove_unused_test_run_twice(mod : Module) -> Module {
+  remove_unused_test_run(remove_unused_test_run(mod))
 }
 
 ///|
@@ -1059,5 +1080,342 @@ test "remove unused module elements keeps tables and memories referenced by acti
     Some(@lib.DataSec([@lib.Data(@lib.Active(@lib.MemIdx(mem_idx), _), _)])) =>
       assert_eq(mem_idx, 0U)
     _ => fail("expected rewritten active data mode")
+  }
+}
+
+///|
+test "remove unused module elements does not let dead table initializers root helper functions" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            remove_unused_test_funcref(),
+            @lib.Limits::i32(1U, None),
+          ),
+          Some(
+            @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(2U))]),
+          ),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 1)
+    None => fail("expected func section")
+  }
+  match optimized.table_sec {
+    Some(@lib.TableSec(tables)) => assert_eq(tables.length(), 0)
+    None => fail("expected table section")
+  }
+}
+
+///|
+test "remove unused module elements is idempotent across mixed module-element compaction" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("ig"),
+          @lib.ExternType::global(
+            @lib.GlobalType::new(@lib.ValType::i32(), false),
+          ),
+        ),
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("it"),
+          @lib.ExternType::table(
+            @lib.TableType::new(
+              remove_unused_test_funcref(),
+              @lib.Limits::i32(1U, None),
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::drop(@lib.TInstr::global_get(@lib.GlobalIdx::new(2U))),
+            @lib.TInstr::drop(@lib.TInstr::table_size(@lib.TableIdx::new(1U))),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), false),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(7))]),
+        ),
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), false),
+          @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))]),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            remove_unused_test_funcref(),
+            @lib.Limits::i32(1U, None),
+          ),
+          Some(
+            @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(2U))]),
+          ),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::passive(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32::new(1U)))
+    .with_data_sec(
+      @lib.DataSec::new([@lib.Data::new(@lib.DataMode::passive(), b"dead")]),
+    )
+
+  let once = remove_unused_test_run(mod)
+  let twice = remove_unused_test_run_twice(mod)
+
+  assert_eq(once, twice)
+}
+
+///|
+test "remove unused module elements removes unused tags and rewrites tag indices and names" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("itag"),
+          @lib.ExternType::tag(@lib.TagType::new(@lib.TypeIdx::new(0U))),
+        ),
+      ]),
+    )
+    .with_tag_sec(
+      @lib.TagSec::new([
+        @lib.TagType::new(@lib.TypeIdx::new(0U)),
+        @lib.TagType::new(@lib.TypeIdx::new(0U)),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::throw_(@lib.TagIdx::new(2U), [])]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("live-tag"),
+          @lib.ExternIdx::tag(@lib.TagIdx::new(2U)),
+        ),
+      ]),
+    )
+    .with_name_sec(
+      @lib.NameSec::new(
+        tag_names=Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("itag")),
+            @lib.NameAssoc::new(1U, @lib.Name::from_string("dead-tag")),
+            @lib.NameAssoc::new(2U, @lib.Name::from_string("live-tag")),
+          ]),
+        ),
+      ),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 1)
+    None => fail("expected func section")
+  }
+  match optimized.tag_sec {
+    Some(@lib.TagSec(tags)) => assert_eq(tags.length(), 1)
+    None => fail("expected tag section")
+  }
+  assert_eq(try! remove_unused_test_main_throw_tag_target(optimized), 1U)
+  match optimized.export_sec {
+    Some(
+      @lib.ExportSec(
+        [
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(func_idx))),
+          @lib.Export(_, @lib.TagExternIdx(@lib.TagIdx(tag_idx))),
+        ]
+      )
+    ) => {
+      assert_eq(func_idx, 0U)
+      assert_eq(tag_idx, 1U)
+    }
+    _ => fail("expected rewritten exports")
+  }
+  match optimized.name_sec {
+    Some(name_sec) => {
+      let { tag_names, .. } = name_sec
+      assert_eq(
+        tag_names,
+        Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("itag")),
+            @lib.NameAssoc::new(1U, @lib.Name::from_string("live-tag")),
+          ]),
+        ),
+      )
+    }
+    None => fail("expected name section")
+  }
+}
+
+///|
+test "remove unused module elements keeps tags referenced by live catches" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_tag_sec(
+      @lib.TagSec::new([
+        @lib.TagType::new(@lib.TypeIdx::new(0U)),
+        @lib.TagType::new(@lib.TypeIdx::new(0U)),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::try_table(
+              @lib.BlockType::void_(),
+              [@lib.Catch::new(@lib.TagIdx::new(1U), @lib.LabelIdx::new(0U))],
+              @lib.TExpr::new([@lib.TInstr::nop()]),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.tag_sec {
+    Some(@lib.TagSec(tags)) => assert_eq(tags.length(), 1)
+    None => fail("expected tag section")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, body), ..])) =>
+      match body.inner()[0].kind {
+        @lib.TTryTable(
+          _,
+          [@lib.Catch(@lib.TagIdx(tag_idx), @lib.LabelIdx(label_idx))],
+          _
+        ) => {
+          assert_eq(tag_idx, 0U)
+          assert_eq(label_idx, 0U)
+        }
+        _ => fail("expected try_table catch")
+      }
+    _ => fail("expected code section")
   }
 }

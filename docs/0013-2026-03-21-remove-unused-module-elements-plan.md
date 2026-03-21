@@ -56,11 +56,16 @@ Status: researched rollout plan for Starshine's index-based IR.
 - The currently landed behavior is still intentionally conservative, but no longer function-only:
   - roots exported and start functions,
   - roots active elem/data segments conservatively,
-  - roots exported globals/tables/memories and preserves functions/global/table/memory operands named by surviving module elements and active segments that remain in the module,
+  - roots exported globals/tables/memories/tags and preserves functions/global/table/memory/tag operands named by surviving module elements and active segments that remain in the module,
   - walks only live function bodies,
-  - removes unreachable defined functions, unused defined globals/tables/memories, unused passive/declarative elem segments, and passive data segments,
-  - rewrites function/local, global, table, memory, elem, and data name maps plus `DataCntSec`,
-  - does not yet remove tags or produce referenced-only function shells.
+  - removes unreachable defined functions, unused defined globals/tables/memories/tags, unused passive/declarative elem segments, and passive data segments,
+  - rewrites function/local, global, table, memory, tag, elem, and data name maps plus `DataCntSec`,
+  - does not yet produce referenced-only function shells.
+- Test coverage now includes explicit edge regressions for:
+  - idempotence,
+  - dead global/table initializer non-roots,
+  - active segment mode remaps,
+  - and mixed import+defined remaps for every currently landed index kind.
 - Starshine IR is index-based, not name-based:
   - funcs, tables, memories, globals, and tags live in mixed import+defined index spaces,
   - elem and data segments live in section-local index spaces.
@@ -106,8 +111,8 @@ Status: researched rollout plan for Starshine's index-based IR.
   - `ALG-01`, `ALG-08`, `ALG-11`.
 - Status:
   - partial.
-  - landed subset: mixed-space `GlobalIdx`/`TableIdx`/`MemIdx` remap, section-local `ElemIdx`/`DataIdx` remap, exports plus `global.get`/`table.size`/`memory.size` and `table.init`/`elem.drop`/`memory.init`/`data.drop` rewrite coverage, `global`/`table`/`memory`/`elem`/`data` name-map compaction, and `DataCntSec` normalization.
-  - remaining work: broader retain/remap helpers for tags and more explicit generic remap utilities shared across future slices.
+  - landed subset: mixed-space `GlobalIdx`/`TableIdx`/`MemIdx`/`TagIdx` remap, section-local `ElemIdx`/`DataIdx` remap, exports plus `global.get`/`table.size`/`memory.size`/`throw`/`catch` and `table.init`/`elem.drop`/`memory.init`/`data.drop` rewrite coverage, `global`/`table`/`memory`/`tag`/`elem`/`data` name-map compaction, and `DataCntSec` normalization.
+  - remaining work: more explicit generic remap utilities shared across future slices.
 - Define local analysis keys for:
   - absolute function/table/memory/global/tag indices,
   - elem/data section indices.
@@ -129,8 +134,8 @@ Status: researched rollout plan for Starshine's index-based IR.
   - `ALG-00`, `ALG-02`, `ALG-03`, `ALG-08`, `ALG-10`, `ALG-11`.
 - Status:
   - partial.
-  - landed subset: open-world liveness for exports, start, exported globals/tables/memories, live table initializer roots, conservative active-segment roots, live direct calls, live `GlobalIdx`/`TableIdx`/`MemIdx`/`ElemIdx`/`DataIdx` users, function retention from kept globals/tables/elem segments, function/global/table/memory/name-map compaction, and elem/data/global/table/memory removal with remapped indices.
-  - remaining work: tags removal, indirect-call/table precision, active-segment trap precision, and any path that needs referenced-only shell preservation.
+  - landed subset: open-world liveness for exports, start, exported globals/tables/memories/tags, live table initializer roots, conservative active-segment roots, live direct calls, live `GlobalIdx`/`TableIdx`/`MemIdx`/`TagIdx`/`ElemIdx`/`DataIdx` users, function retention from kept globals/tables/elem segments, function/global/table/memory/tag/name-map compaction, and elem/data/global/table/memory/tag removal with remapped indices.
+  - remaining work: indirect-call/table precision, active-segment trap precision, and any path that needs referenced-only shell preservation.
 - Root exports and non-empty start.
 - Scan globals, function bodies, table initializers, elem expressions, and active segment offsets for direct references.
 - Treat direct calls/returns, global/table/memory/tag ops, `memory.init`, `data.drop`, `table.init`, `elem.drop`, `array.new_data`, and `array.new_elem` as strong uses.
@@ -217,5 +222,5 @@ Status: researched rollout plan for Starshine's index-based IR.
 ## Open Questions
 - Should unused imported funcs/tables/mems/globals/tags be removed in `v0.1.0`, or can MVP compact defined sections first and leave imports conservative?
 - Where should `closed_world`, `has_gc`, and related feature facts come from in the generated optimize path, given `cmd_generated_pipeline_features` currently only sets `low_memory_unused`?
-- Should the next removal/remap slice compact tags now, or defer them until the pass also handles referenced-only function shells and the closed-world handshake?
+- Should the next slice jump directly to indirect-call/table precision, or first implement referenced-only function shells so the current open-world/remap foundation can expose Binaryen’s three-state model more explicitly?
 - Is the local constant-expression trap model intentionally narrower, matching Binaryen’s nullable-`struct.new` approximation, or broader?

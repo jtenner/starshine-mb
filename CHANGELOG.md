@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization: compact tags and harden RemoveUnusedModuleElements tests
+
+- **RemoveUnusedModuleElements tag remap + coverage hardening** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the open-world pass now tracks tag liveness, removes unused defined tags, rewrites mixed import+defined `TagIdx` users, and compacts `NameSec.tag_names`.
+- Expanded whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) with edge-case regressions for idempotence, dead table-initializer non-roots, thrown-tag and caught-tag retention/remap, and the earlier global/table/memory/segment cases that now act as slice-to-slice guardrails.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the next carried-forward unimplemented areas are indirect-call/table precision, trap/observability precision, and referenced-only function shells.
+
 ## 2026-03-21 Optimization: compact tables and memories in RemoveUnusedModuleElements
 
 - **RemoveUnusedModuleElements table/memory remap slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the open-world pass now tracks table and memory liveness, removes unused defined tables and memories, rewrites mixed import+defined `TableIdx` and `MemIdx` users, and compacts `NameSec.table_names` plus `NameSec.memory_names`.
