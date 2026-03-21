@@ -11,7 +11,8 @@
 - Keep `merge-similar-functions` correctness and publish-signoff docs aligned.
 - Keep release blockers in `agent-todo.md` and avoid losing unresolved risk notes in `CHANGELOG.md`.
 - Generated optimize feature-source plumbing:
-  - module-wide passes now receive `PipelineFeatures` at execution time, but generated optimize runs still only populate `low_memory_unused`; closed-world and GC-aware slices still need real feature inputs.
+  - module-derived `has_gc` / `has_multivalue` and option-driven `closed_world` / `low_memory_unused` now flow through generated optimize expansion and module-wide execution.
+  - remaining policy question: decide whether `closed_world` should become CLI/config-visible before the closed-world `RemoveUnusedModuleElements` slices ship.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination
@@ -71,7 +72,7 @@
 - `RemoveUnusedModuleElements`: function + global + table + memory + tag + elem/data open-world compaction is landed; next implement referenced-only function shells and table-indirect precision.
 - `RemoveUnusedModuleElements`: active segments are still conservatively rooted; trap/observability precision remains open.
 - `RemoveUnusedModuleElements`: keep the new wbtest edge coverage visible as later slices land; current carried-forward gaps are indirect-call/table precision, trap roots, and closed-world function-reference precision.
-- `RemoveUnusedModuleElements`: closed-world and GC precision are now blocked on feature-source plumbing, not module-wide pass execution.
+- `RemoveUnusedModuleElements`: generated optimize feature-source plumbing is landed; remaining closed-world and GC work is analysis precision plus any future CLI/config exposure for `closed_world`.
 
 ## Backlog Hygiene
 - Keep duplicate entries removed when pass scopes converge.

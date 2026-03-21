@@ -297,6 +297,7 @@ pub struct OptimizeOptions {
   shrink_level : Int
   inlining : InliningOptions
   monomorphize_min_benefit : Int
+  closed_world : Bool
   low_memory_unused : Bool
   low_memory_bound : UInt64
   traps_never_happen : Bool
@@ -310,6 +311,7 @@ pub fn OptimizeOptions::new(
   shrink_level? : Int = 0,
   inlining? : InliningOptions = InliningOptions::new(),
   monomorphize_min_benefit? : Int = 5,
+  closed_world? : Bool = false,
   low_memory_unused? : Bool = false,
   low_memory_bound? : UInt64 = 1024UL,
   traps_never_happen? : Bool = false,
@@ -321,6 +323,7 @@ pub fn OptimizeOptions::new(
     shrink_level,
     inlining,
     monomorphize_min_benefit,
+    closed_world,
     low_memory_unused,
     low_memory_bound,
     traps_never_happen,
@@ -1410,10 +1413,202 @@ fn cmd_generated_pipeline_global(options : OptimizeOptions) -> PipelineGlobal {
 }
 
 ///|
+priv struct CmdGeneratedPipelineFeatureFacts {
+  mut has_gc : Bool
+  mut has_multivalue : Bool
+  has_strings : Bool
+}
+
+///|
+fn CmdGeneratedPipelineFeatureFacts::new() -> CmdGeneratedPipelineFeatureFacts {
+  { has_gc: false, has_multivalue: false, has_strings: false }
+}
+
+///|
+fn cmd_abs_heap_type_has_gc(abs : @lib.AbsHeapType) -> Bool {
+  match abs {
+    @lib.ArrayAbsHeapType
+    | @lib.StructAbsHeapType
+    | @lib.I31AbsHeapType
+    | @lib.EqAbsHeapType
+    | @lib.AnyAbsHeapType
+    | @lib.NoneAbsHeapType => true
+    _ => false
+  }
+}
+
+///|
+fn cmd_heap_type_has_gc(ht : @lib.HeapType) -> Bool {
+  match ht {
+    @lib.AbsHeapTypeHeapType(abs) => cmd_abs_heap_type_has_gc(abs)
+    @lib.DefTypeHeapType(def) =>
+      match def.project() {
+        Some(subtype) =>
+          match subtype.get_comptype() {
+            @lib.ArrayCompType(_) | @lib.StructCompType(_) => true
+            _ => false
+          }
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn cmd_instruction_has_gc(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.RefEq
+    | @lib.StructNew(_)
+    | @lib.StructNewDefault(_)
+    | @lib.StructGet(_, _)
+    | @lib.StructGetS(_, _)
+    | @lib.StructGetU(_, _)
+    | @lib.StructSet(_, _)
+    | @lib.ArrayNew(_)
+    | @lib.ArrayNewDefault(_)
+    | @lib.ArrayNewFixed(_, _)
+    | @lib.ArrayNewData(_, _)
+    | @lib.ArrayNewElem(_, _)
+    | @lib.ArrayGet(_)
+    | @lib.ArrayGetS(_)
+    | @lib.ArrayGetU(_)
+    | @lib.ArraySet(_)
+    | @lib.ArrayLen
+    | @lib.ArrayFill(_)
+    | @lib.ArrayCopy(_, _)
+    | @lib.ArrayInitData(_, _)
+    | @lib.ArrayInitElem(_, _)
+    | @lib.RefGetDesc
+    | @lib.RefTest(_, _)
+    | @lib.RefCast(_, _)
+    | @lib.RefTestDesc(_, _)
+    | @lib.RefCastDescEq(_, _)
+    | @lib.BrOnCast(_, _, _, _)
+    | @lib.BrOnCastFail(_, _, _, _)
+    | @lib.AnyConvertExtern
+    | @lib.ExternConvertAny
+    | @lib.RefI31
+    | @lib.I31GetS
+    | @lib.I31GetU => true
+    _ => false
+  }
+}
+
+///|
+fn cmd_tinstruction_has_gc(instr : @lib.TInstr) -> Bool {
+  match instr.kind {
+    @lib.TRefEq(_, _)
+    | @lib.TStructNew(_, _)
+    | @lib.TStructNewDefault(_)
+    | @lib.TStructGet(_, _, _)
+    | @lib.TStructGetS(_, _, _)
+    | @lib.TStructGetU(_, _, _)
+    | @lib.TStructSet(_, _, _, _)
+    | @lib.TArrayNew(_, _, _)
+    | @lib.TArrayNewDefault(_, _)
+    | @lib.TArrayNewFixed(_, _)
+    | @lib.TArrayNewData(_, _, _, _)
+    | @lib.TArrayNewElem(_, _, _, _)
+    | @lib.TArrayGet(_, _, _)
+    | @lib.TArrayGetS(_, _, _)
+    | @lib.TArrayGetU(_, _, _)
+    | @lib.TArraySet(_, _, _, _)
+    | @lib.TArrayLen(_)
+    | @lib.TArrayFill(_, _, _, _, _)
+    | @lib.TArrayCopy(_, _, _, _, _, _, _)
+    | @lib.TArrayInitData(_, _, _, _, _, _)
+    | @lib.TArrayInitElem(_, _, _, _, _, _)
+    | @lib.TRefGetDesc(_)
+    | @lib.TRefTest(_, _, _)
+    | @lib.TRefCast(_, _, _)
+    | @lib.TRefTestDesc(_, _, _)
+    | @lib.TRefCastDescEq(_, _, _)
+    | @lib.TBrOnCast(_, _, _, _, _, _)
+    | @lib.TBrOnCastFail(_, _, _, _, _, _)
+    | @lib.TAnyConvertExtern(_)
+    | @lib.TExternConvertAny(_)
+    | @lib.TRefI31(_)
+    | @lib.TI31GetS(_)
+    | @lib.TI31GetU(_) => true
+    _ => false
+  }
+}
+
+///|
+fn cmd_generated_pipeline_feature_facts(
+  mod : Module,
+) -> CmdGeneratedPipelineFeatureFacts {
+  let facts = CmdGeneratedPipelineFeatureFacts::new()
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+    .on_comptype_evt(fn(_, _, comp_type) {
+      match comp_type {
+        @lib.ArrayCompType(_) | @lib.StructCompType(_) => facts.has_gc = true
+        @lib.FuncCompType(_, results) =>
+          if results.length() > 1 {
+            facts.has_multivalue = true
+          }
+      }
+      unchanged()
+    })
+    .on_reftype_evt(fn(_, _, ref_type) {
+      match ref_type {
+        @lib.AbsHeapTypeRefType(abs) =>
+          if cmd_abs_heap_type_has_gc(abs) {
+            facts.has_gc = true
+          }
+        _ => ()
+      }
+      unchanged()
+    })
+    .on_heaptype_evt(fn(_, _, heap_type) {
+      if cmd_heap_type_has_gc(heap_type) {
+        facts.has_gc = true
+      }
+      unchanged()
+    })
+    .on_instruction_evt(fn(_, _, instr) {
+      if cmd_instruction_has_gc(instr) {
+        facts.has_gc = true
+      }
+      match instr {
+        @lib.Select(Some(types)) =>
+          if types.length() > 1 {
+            facts.has_multivalue = true
+          }
+        _ => ()
+      }
+      unchanged()
+    })
+    .on_tinstruction_evt(fn(_, _, instr) {
+      if cmd_tinstruction_has_gc(instr) {
+        facts.has_gc = true
+      }
+      match instr.kind {
+        @lib.TSelect(Some(types), _, _, _) =>
+          if types.length() > 1 {
+            facts.has_multivalue = true
+          }
+        _ => ()
+      }
+      unchanged()
+    })
+  ignore(walker.walk_module((), mod))
+  facts
+}
+
+///|
 fn cmd_generated_pipeline_features(
+  mod : Module,
   options : OptimizeOptions,
 ) -> PipelineFeatures {
-  PipelineFeatures::new(low_memory_unused=options.low_memory_unused)
+  let facts = cmd_generated_pipeline_feature_facts(mod)
+  PipelineFeatures::new(
+    has_gc=facts.has_gc,
+    has_multivalue=facts.has_multivalue,
+    has_strings=facts.has_strings,
+    closed_world=options.closed_world,
+    low_memory_unused=options.low_memory_unused,
+  )
 }
 
 ///|
@@ -1428,12 +1623,13 @@ fn cmd_append_generated_pipeline_entries(
 
 ///|
 fn cmd_generated_pipeline_from_flags(
+  mod : Module,
   pass_flags : Array[String],
   options : OptimizeOptions,
 ) -> Array[PipelineEntry] {
   let pipeline : Array[PipelineEntry] = []
   let global = cmd_generated_pipeline_global(options)
-  let features = cmd_generated_pipeline_features(options)
+  let features = cmd_generated_pipeline_features(mod, options)
   let validation = cmd_generated_pipeline_validation_kind(options)
   for flag in pass_flags {
     match flag {
@@ -1570,7 +1766,7 @@ fn run_generated_pipeline_with_options(
 ) -> Result[Module, String] {
   let mut current = mod
   let mut global = cmd_generated_pipeline_global(options)
-  let features = cmd_generated_pipeline_features(options)
+  let features = cmd_generated_pipeline_features(mod, options)
   for entry in pipeline {
     match entry.group.kind() {
       Early(func) => {
@@ -1628,7 +1824,7 @@ fn run_generated_pipeline_with_options_trace(
   let _ = trace_level
   let mut current = mod
   let mut global = cmd_generated_pipeline_global(options)
-  let features = cmd_generated_pipeline_features(options)
+  let features = cmd_generated_pipeline_features(mod, options)
   for entry in pipeline {
     trace(
       "generated group start: \{cmd_generated_pipeline_entry_trace_text(entry)}",
@@ -3019,7 +3215,7 @@ pub fn run_cmd_with_adapter(
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:decode done")
 
     let generated_expanded_pipeline = cmd_generated_pipeline_from_flags(
-      resolved_passes, options,
+      mod, resolved_passes, options,
     )
     let generated_expanded_pass_count = cmd_generated_pipeline_pass_count(
       generated_expanded_pipeline,

@@ -255,13 +255,14 @@ pub struct OptimizeOptions {
   shrink_level : Int
   inlining : InliningOptions
   monomorphize_min_benefit : Int
+  closed_world : Bool
   low_memory_unused : Bool
   low_memory_bound : UInt64
   traps_never_happen : Bool
   validation_policy : OptimizeValidationPolicy
   stack_function_passes : Bool
 }
-pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool, validation_policy? : OptimizeValidationPolicy, stack_function_passes? : Bool) -> Self
+pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, closed_world? : Bool, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool, validation_policy? : OptimizeValidationPolicy, stack_function_passes? : Bool) -> Self
 pub impl Eq for OptimizeOptions
 pub impl Show for OptimizeOptions
 pub impl @debug.Debug for OptimizeOptions

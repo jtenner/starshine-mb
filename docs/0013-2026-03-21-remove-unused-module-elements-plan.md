@@ -52,7 +52,10 @@ Status: researched rollout plan for Starshine's index-based IR.
   - and global post-passes.
 - Dispatch now routes to a real open-world function-only implementation.
 - Module-wide pass execution now receives `PipelineFeatures` at runtime.
-- Generated optimize options currently populate only `low_memory_unused` in `cmd_generated_pipeline_features`.
+- Generated optimize runs now derive:
+  - `has_gc` and `has_multivalue` from the decoded module,
+  - `closed_world` and `low_memory_unused` from `OptimizeOptions`,
+  - and currently leave `has_strings` false because Starshine does not yet model string instructions in IR.
 - The currently landed behavior is still intentionally conservative, but no longer function-only:
   - roots exported and start functions,
   - roots active elem/data segments conservatively,
@@ -103,7 +106,7 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Add `src/optimization/remove_unused_module_elements_wbtest.mbt` with failing tests that prove the current noop is replaced.
 - Decide execution config strategy:
   - MVP: open-world only, no new props.
-  - Follow-up: supply `closed_world`, `has_gc`, and trap-relevant feature inputs to the generated optimize path.
+  - Follow-up: complete generated optimize feature-source plumbing for module-derived `has_gc` / `has_multivalue` and option-driven `closed_world`.
 - Exit when the pass has a real entrypoint and red tests exist before analysis logic lands.
 
 ### Slice 1 — Module-Element Index and Remap Foundation
@@ -169,8 +172,11 @@ Status: researched rollout plan for Starshine's index-based IR.
 - References:
   - `ALG-00`, `ALG-05`, `ALG-06`, `ALG-14`.
 - Unblock feature-source config:
-  - either extend generated optimize options to populate `closed_world`, `has_gc`, and related feature flags,
-  - or derive a dedicated pass config struct from module/options state before module-wide execution.
+  - complete for generated optimize execution:
+    - `closed_world` now comes from `OptimizeOptions`,
+    - `has_gc` and `has_multivalue` now come from module-derived facts,
+    - `has_strings` remains inert until string IR exists locally.
+  - remaining product question: whether `closed_world` should become CLI/config visible before the closed-world analyzer slice ships.
 - Implement `calledSignatures` and `uncalledRefFuncs`.
 - In closed world, downgrade bare `ref.func` to reference until matching `call_ref`, mutable-table, or callable-signature evidence appears.
 - Add tests for:
@@ -221,6 +227,6 @@ Status: researched rollout plan for Starshine's index-based IR.
 
 ## Open Questions
 - Should unused imported funcs/tables/mems/globals/tags be removed in `v0.1.0`, or can MVP compact defined sections first and leave imports conservative?
-- Where should `closed_world`, `has_gc`, and related feature facts come from in the generated optimize path, given `cmd_generated_pipeline_features` currently only sets `low_memory_unused`?
+- Should `closed_world` remain an internal `OptimizeOptions` source until the closed-world slices land, or should CLI/config surface it earlier for experimentation?
 - Should the next slice jump directly to indirect-call/table precision, or first implement referenced-only function shells so the current open-world/remap foundation can expose Binaryen’s three-state model more explicitly?
 - Is the local constant-expression trap model intentionally narrower, matching Binaryen’s nullable-`struct.new` approximation, or broader?

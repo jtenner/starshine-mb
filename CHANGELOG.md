@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Cmd/Optimization: derive generated pipeline features from modules and options
+
+- **Generated optimize feature-source plumbing** by **@jtenner**. Extended [`OptimizeOptions`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) and the generated optimize helpers in [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) so generated pipeline expansion and module-wide execution now derive `PipelineFeatures.has_gc` and `PipelineFeatures.has_multivalue` from the input module, preserve `low_memory_unused`, and thread an explicit `closed_world` option instead of synthesizing a mostly-empty feature struct.
+- Added whitebox coverage in [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt) for positive and negative feature detection, runtime feature propagation to module-wide entries, and default optimize-pipeline expansion now picking up GC and multivalue passes from module-derived facts.
+- Updated [`src/cmd/imports.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/imports.mbt), [`src/cmd/moon.pkg`](/home/jtenner/Projects/starshine-mb/src/cmd/moon.pkg), [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the feature-source blocker is closed and the remaining visible `RemoveUnusedModuleElements` work is indirect-call/table precision, trap/observability precision, and closed-world function-reference analysis.
+
 ## 2026-03-21 Optimization: compact tags and harden RemoveUnusedModuleElements tests
 
 - **RemoveUnusedModuleElements tag remap + coverage hardening** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the open-world pass now tracks tag liveness, removes unused defined tags, rewrites mixed import+defined `TagIdx` users, and compacts `NameSec.tag_names`.

@@ -42,6 +42,9 @@ using @optimization {
 }
 
 ///|
+using @transformer {type ModuleTransformer, unchanged}
+
+///|
 using @diff {render_line_diff}
 
 ///|
