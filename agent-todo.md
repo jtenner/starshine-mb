@@ -10,6 +10,8 @@
 - Refresh `docs/0011-2026-03-18-pass-audit.md` whenever pass inventory or runner behavior changes.
 - Keep `merge-similar-functions` correctness and publish-signoff docs aligned.
 - Keep release blockers in `agent-todo.md` and avoid losing unresolved risk notes in `CHANGELOG.md`.
+- Pipeline-features plumbing for generated module-wide passes:
+  - `PipelineFeatures` is not available at execution time, which blocks closed-world and GC-aware `RemoveUnusedModuleElements` slices.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination
@@ -63,6 +65,11 @@
 - SimplifyGlobals
 - Directize
 - StringGathering
+
+## v0.1.0 Active Slice Focus
+- `RemoveUnusedModuleElements`: execute slices from `docs/0013-2026-03-21-remove-unused-module-elements-plan.md`.
+- `RemoveUnusedModuleElements`: land open-world roots + remap foundation before any closed-world or GC precision.
+- `RemoveUnusedModuleElements`: execution-time `closed_world` and GC precision are blocked on pipeline-features plumbing.
 
 ## Backlog Hygiene
 - Keep duplicate entries removed when pass scopes converge.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-21 Docs/Backlog: import RemoveUnusedModuleElements research and traceable rollout plan
+
+- **RemoveUnusedModuleElements research import and rollout plan** by **@jtenner**. Imported the latest upstream research into [`docs/0012-2026-03-21-remove-unused-module-elements.md`](/home/jtenner/Projects/starshine-mb/docs/0012-2026-03-21-remove-unused-module-elements.md) and added a Starshine-specific implementation plan in [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md) with algorithm slices cross-referenced back to the research material for later implementation and audit work.
+- Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to keep the active `RemoveUnusedModuleElements` slices visible and to add the generated-pipeline `PipelineFeatures` plumbing blocker that must be resolved before closed-world and GC-aware pass behavior can land.
+
 ## 2026-03-20 Docs: add build/test/fuzz setup guidance to README
 
 - **README dependency and workflow update** by **@jtenner**. Expanded [`README.mbt.md`](/home/jtenner/Projects/starshine-mb/README.mbt.md) with explicit setup requirements and concrete build/test/fuzz commands for contributors.
