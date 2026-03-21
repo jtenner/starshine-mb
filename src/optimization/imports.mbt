@@ -21,4 +21,4 @@ using @lib {
 }
 
 ///|
-using @transformer {type ModuleTransformer, change}
+using @transformer {type ModuleTransformer, change, unchanged}

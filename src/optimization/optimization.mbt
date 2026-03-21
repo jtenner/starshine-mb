@@ -691,6 +691,38 @@ fn optimization_rewrite_func_name_map(
 }
 
 ///|
+fn optimization_rewrite_func_name_map_filtered(
+  names : NameMap,
+  remap : Map[UInt, UInt],
+  drop_unmapped : Bool,
+) -> NameMap {
+  let NameMap(entries) = names
+  let rewritten : Array[NameAssoc] = []
+  let mut last_idx : UInt? = None
+  for entry in entries {
+    let NameAssoc(idx, name) = entry
+    match remap.get(idx) {
+      Some(next_idx) => {
+        if last_idx == Some(next_idx) {
+          continue
+        }
+        rewritten.push(NameAssoc::new(next_idx, name))
+        last_idx = Some(next_idx)
+      }
+      None =>
+        if !drop_unmapped {
+          if last_idx == Some(idx) {
+            continue
+          }
+          rewritten.push(entry)
+          last_idx = Some(idx)
+        }
+    }
+  }
+  NameMap::new(rewritten)
+}
+
+///|
 fn optimization_rewrite_local_name_map(
   names : IndirectNameMap,
   remap : Map[UInt, UInt],
@@ -706,6 +738,38 @@ fn optimization_rewrite_local_name_map(
     }
     rewritten.push(IndirectNameAssoc::new(next_idx, local_names))
     last_idx = Some(next_idx)
+  }
+  IndirectNameMap::new(rewritten)
+}
+
+///|
+fn optimization_rewrite_local_name_map_filtered(
+  names : IndirectNameMap,
+  remap : Map[UInt, UInt],
+  drop_unmapped : Bool,
+) -> IndirectNameMap {
+  let IndirectNameMap(entries) = names
+  let rewritten : Array[IndirectNameAssoc] = []
+  let mut last_idx : UInt? = None
+  for entry in entries {
+    let IndirectNameAssoc(idx, local_names) = entry
+    match remap.get(idx) {
+      Some(next_idx) => {
+        if last_idx == Some(next_idx) {
+          continue
+        }
+        rewritten.push(IndirectNameAssoc::new(next_idx, local_names))
+        last_idx = Some(next_idx)
+      }
+      None =>
+        if !drop_unmapped {
+          if last_idx == Some(idx) {
+            continue
+          }
+          rewritten.push(entry)
+          last_idx = Some(idx)
+        }
+    }
   }
   IndirectNameMap::new(rewritten)
 }
@@ -749,6 +813,316 @@ fn optimization_rewrite_name_sec(
     field_names~,
     tag_names~,
   )
+}
+
+///|
+fn optimization_rewrite_name_sec_filtered(
+  name_sec : NameSec,
+  remap : Map[UInt, UInt],
+  drop_unmapped : Bool,
+) -> NameSec {
+  let {
+    module_name,
+    func_names,
+    local_names,
+    label_names,
+    type_names,
+    table_names,
+    memory_names,
+    global_names,
+    elem_names,
+    data_names,
+    field_names,
+    tag_names,
+  } = name_sec
+  NameSec::new(
+    module_name~,
+    func_names=match func_names {
+      Some(names) =>
+        Some(
+          optimization_rewrite_func_name_map_filtered(
+            names, remap, drop_unmapped,
+          ),
+        )
+      None => None
+    },
+    local_names=match local_names {
+      Some(names) =>
+        Some(
+          optimization_rewrite_local_name_map_filtered(
+            names, remap, drop_unmapped,
+          ),
+        )
+      None => None
+    },
+    label_names~,
+    type_names~,
+    table_names~,
+    memory_names~,
+    global_names~,
+    elem_names~,
+    data_names~,
+    field_names~,
+    tag_names~,
+  )
+}
+
+///|
+fn optimization_note_used_func(
+  used : Array[Bool],
+  worklist : Array[Int],
+  imported_count : Int,
+  defined_count : Int,
+  idx : FuncIdx,
+) -> Unit {
+  let FuncIdx(raw) = idx
+  let abs_idx = raw.reinterpret_as_int()
+  if abs_idx < 0 || abs_idx >= used.length() {
+    return
+  }
+  if used[abs_idx] {
+    return
+  }
+  used[abs_idx] = true
+  if abs_idx >= imported_count && abs_idx < imported_count + defined_count {
+    worklist.push(abs_idx - imported_count)
+  }
+}
+
+///|
+fn optimization_collect_func_uses_in_expr(
+  expr : @lib.Expr,
+  used : Array[Bool],
+  worklist : Array[Int],
+  imported_count : Int,
+  defined_count : Int,
+) -> Unit {
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_funcidx_evt(fn(
+      _,
+      _,
+      idx,
+    ) {
+      optimization_note_used_func(
+        used, worklist, imported_count, defined_count, idx,
+      )
+      unchanged()
+    },
+  )
+  ignore(walker.walk_expr((), expr))
+}
+
+///|
+fn optimization_collect_func_uses_in_func(
+  func : Func,
+  used : Array[Bool],
+  worklist : Array[Int],
+  imported_count : Int,
+  defined_count : Int,
+) -> Unit {
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_funcidx_evt(fn(
+      _,
+      _,
+      idx,
+    ) {
+      optimization_note_used_func(
+        used, worklist, imported_count, defined_count, idx,
+      )
+      unchanged()
+    },
+  )
+  ignore(walker.walk_func((), func))
+}
+
+///|
+fn optimization_seed_non_function_func_uses(
+  mod : Module,
+  used : Array[Bool],
+  worklist : Array[Int],
+  imported_count : Int,
+  defined_count : Int,
+) -> Unit {
+  match mod.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, FuncExternIdx(idx)) =>
+            optimization_note_used_func(
+              used, worklist, imported_count, defined_count, idx,
+            )
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.start_sec {
+    Some(@lib.StartSec(idx)) =>
+      optimization_note_used_func(
+        used, worklist, imported_count, defined_count, idx,
+      )
+    None => ()
+  }
+  match mod.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for global_ in globals {
+        match global_ {
+          @lib.Global(_, init) =>
+            optimization_collect_func_uses_in_expr(
+              init, used, worklist, imported_count, defined_count,
+            )
+        }
+      }
+    None => ()
+  }
+  match mod.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      for table in tables {
+        match table {
+          @lib.Table(_, Some(init)) =>
+            optimization_collect_func_uses_in_expr(
+              init, used, worklist, imported_count, defined_count,
+            )
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      for elem in elems {
+        match elem {
+          @lib.Elem(_, @lib.FuncsElemKind(funcs)) =>
+            for idx in funcs {
+              optimization_note_used_func(
+                used, worklist, imported_count, defined_count, idx,
+              )
+            }
+          @lib.Elem(_, @lib.FuncExprsElemKind(exprs)) =>
+            for expr in exprs {
+              optimization_collect_func_uses_in_expr(
+                expr, used, worklist, imported_count, defined_count,
+              )
+            }
+          @lib.Elem(_, @lib.TypedExprsElemKind(_, exprs)) =>
+            for expr in exprs {
+              optimization_collect_func_uses_in_expr(
+                expr, used, worklist, imported_count, defined_count,
+              )
+            }
+        }
+      }
+    None => ()
+  }
+}
+
+///|
+fn optimization_compact_defined_functions(
+  mod : Module,
+  type_idxs : Array[TypeIdx],
+  funcs : Array[Func],
+  keep_defined : Array[Bool],
+) -> Module {
+  let imported_count = optimization_imported_func_count(mod)
+  let kept_types : Array[TypeIdx] = []
+  let kept_funcs : Array[Func] = []
+  let abs_remap : Map[UInt, UInt] = {}
+  let mut import_idx = 0
+  while import_idx < imported_count {
+    let raw = import_idx.reinterpret_as_uint()
+    abs_remap[raw] = raw
+    import_idx += 1
+  }
+  let mut next_abs = imported_count.reinterpret_as_uint()
+  let mut i = 0
+  while i < funcs.length() {
+    if keep_defined[i] {
+      abs_remap[(imported_count + i).reinterpret_as_uint()] = next_abs
+      kept_types.push(type_idxs[i])
+      kept_funcs.push(funcs[i])
+      next_abs += 1U
+    }
+    i += 1
+  }
+  let mut compacted = mod
+    .with_func_sec(FuncSec::new(kept_types))
+    .with_code_sec(CodeSec::new(kept_funcs))
+  match mod.name_sec {
+    Some(name_sec) =>
+      compacted = compacted.with_name_sec(
+        optimization_rewrite_name_sec_filtered(name_sec, abs_remap, true),
+      )
+    None => ()
+  }
+  optimization_rewrite_func_indices(compacted, abs_remap)
+}
+
+///|
+fn optimization_remove_unused_module_elements_iteration(
+  mod : Module,
+) -> Module? {
+  match (mod.func_sec, mod.code_sec) {
+    (Some(FuncSec(type_idxs)), Some(CodeSec(funcs))) => {
+      if type_idxs.length() != funcs.length() {
+        return None
+      }
+      let imported_count = optimization_imported_func_count(mod)
+      let total_func_count = imported_count + funcs.length()
+      let used : Array[Bool] = []
+      for _ in 0..<total_func_count {
+        used.push(false)
+      }
+      let worklist : Array[Int] = []
+      optimization_seed_non_function_func_uses(
+        mod,
+        used,
+        worklist,
+        imported_count,
+        funcs.length(),
+      )
+      while worklist.length() > 0 {
+        let local_idx = worklist.pop().unwrap()
+        optimization_collect_func_uses_in_func(
+          funcs[local_idx],
+          used,
+          worklist,
+          imported_count,
+          funcs.length(),
+        )
+      }
+      let keep_defined : Array[Bool] = []
+      let mut changed = false
+      let mut i = 0
+      while i < funcs.length() {
+        let keep = used[imported_count + i]
+        keep_defined.push(keep)
+        if !keep {
+          changed = true
+        }
+        i += 1
+      }
+      if !changed {
+        return None
+      }
+      Some(
+        optimization_compact_defined_functions(
+          mod, type_idxs, funcs, keep_defined,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
+pub fn run_remove_unused_module_elements(
+  mod : Module,
+  global : PipelineGlobal,
+  features : PipelineFeatures,
+) -> (Module, PipelineGlobal) {
+  let _ = features
+  match optimization_remove_unused_module_elements_iteration(mod) {
+    Some(next) => (next, global)
+    None => (mod, global)
+  }
 }
 
 ///|
@@ -953,6 +1327,8 @@ fn make_entry_kind(pass : OptimizePass) -> PassKind {
   match pass {
     DuplicateFunctionElimination =>
       PassKind::module_wide(run_duplicate_function_elimination)
+    RemoveUnusedModuleElements =>
+      PassKind::module_wide(run_remove_unused_module_elements)
     _ =>
       match optimize_pass_class(pass) {
         FuncLocal => PassKind::func_local_group([noop_func_local_pass])

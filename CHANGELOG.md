@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-21 Optimization: implement first open-world function slice of RemoveUnusedModuleElements
+
+- **RemoveUnusedModuleElements function-only MVP** by **@jtenner**. Added [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) and routed `OptimizePass::RemoveUnusedModuleElements` to it so the generated pipeline now removes unreachable defined functions instead of no-oping.
+- The landed slice is intentionally bounded: it roots exported and start functions, seeds live function identity from surviving globals/tables/elem segments, walks only live function bodies, and compacts function indices plus function/local name maps. It does not yet remove non-function module elements or implement closed-world referenced-only shell rewriting.
+- Added whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) for direct-call retention and remap, rootless chain removal, start rooting, and elem-segment rooting, and updated [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd_test.mbt) for the now-nontrivial optimize pipeline outputs.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to mark the completed slice and leave the remaining non-function, closed-world, and GC work visible.
+
 ## 2026-03-21 Optimization/Cmd: thread PipelineFeatures through generated module-wide pass execution
 
 - **Generated module-wide feature plumbing** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) and [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) so generated module-wide passes now receive `PipelineFeatures` at execution time instead of only `PipelineGlobal`, unblocking feature-aware module-pass work such as the later closed-world `RemoveUnusedModuleElements` slices.

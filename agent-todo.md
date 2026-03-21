@@ -68,7 +68,7 @@
 
 ## v0.1.0 Active Slice Focus
 - `RemoveUnusedModuleElements`: execute slices from `docs/0013-2026-03-21-remove-unused-module-elements-plan.md`.
-- `RemoveUnusedModuleElements`: land open-world roots + remap foundation before any closed-world or GC precision.
+- `RemoveUnusedModuleElements`: function-only open-world roots + remap slice is landed; next extend from function-only removal to non-function module elements and referenced-only function shells.
 - `RemoveUnusedModuleElements`: closed-world and GC precision are now blocked on feature-source plumbing, not module-wide pass execution.
 
 ## Backlog Hygiene

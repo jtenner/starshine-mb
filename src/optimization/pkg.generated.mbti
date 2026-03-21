@@ -15,6 +15,8 @@ pub fn default_optimize_pipeline(PipelineGlobal, features? : PipelineFeatures) -
 
 pub fn run_duplicate_function_elimination(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)
 
+pub fn run_remove_unused_module_elements(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)
+
 // Errors
 
 // Types and methods

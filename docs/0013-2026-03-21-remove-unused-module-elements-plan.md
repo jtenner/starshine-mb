@@ -50,9 +50,15 @@ Status: researched rollout plan for Starshine's index-based IR.
   - global pre-passes,
   - closed-world GC pre-passes,
   - and global post-passes.
-- Dispatch currently falls through to `noop_module_wide_pass`, so the pass is a no-op today.
+- Dispatch now routes to a real open-world function-only implementation.
 - Module-wide pass execution now receives `PipelineFeatures` at runtime.
 - Generated optimize options currently populate only `low_memory_unused` in `cmd_generated_pipeline_features`.
+- The currently landed behavior is intentionally narrow:
+  - roots exported and start functions,
+  - preserves functions named by globals/tables/elem segments that remain in the module,
+  - walks only live function bodies,
+  - removes unreachable defined functions and rewrites function/local name maps,
+  - does not yet remove non-function module elements or produce referenced-only function shells.
 - Starshine IR is index-based, not name-based:
   - funcs, tables, memories, globals, and tags live in mixed import+defined index spaces,
   - elem and data segments live in section-local index spaces.
@@ -84,6 +90,8 @@ Status: researched rollout plan for Starshine's index-based IR.
 ### Slice 0 — Execution Plumbing and Red Tests
 - References:
   - `ALG-10`, `ALG-11`, `ALG-14`.
+- Status:
+  - complete.
 - Add `run_remove_unused_module_elements(mod, global)` and route `OptimizePass::RemoveUnusedModuleElements` to it.
 - Add `src/optimization/remove_unused_module_elements_wbtest.mbt` with failing tests that prove the current noop is replaced.
 - Decide execution config strategy:
@@ -113,6 +121,10 @@ Status: researched rollout plan for Starshine's index-based IR.
 ### Slice 2 — Open-World MVP Roots and Conservative Liveness
 - References:
   - `ALG-00`, `ALG-02`, `ALG-03`, `ALG-08`, `ALG-10`, `ALG-11`.
+- Status:
+  - partial.
+  - landed subset: function-only open-world liveness for exports, start, globals/tables/elem roots, live direct calls, and `ref.func`-driven function retention with function-index/name-map compaction.
+  - remaining work: non-function element removal, active-segment/trap roots, and any path that needs referenced-only shell preservation.
 - Root exports and non-empty start.
 - Scan globals, function bodies, table initializers, elem expressions, and active segment offsets for direct references.
 - Treat direct calls/returns, global/table/memory/tag ops, `memory.init`, `data.drop`, `table.init`, `elem.drop`, `array.new_data`, and `array.new_elem` as strong uses.
@@ -199,4 +211,5 @@ Status: researched rollout plan for Starshine's index-based IR.
 ## Open Questions
 - Should unused imported funcs/tables/mems/globals/tags be removed in `v0.1.0`, or can MVP compact defined sections first and leave imports conservative?
 - Where should `closed_world`, `has_gc`, and related feature facts come from in the generated optimize path, given `cmd_generated_pipeline_features` currently only sets `low_memory_unused`?
+- Should the next slice continue the current “function-only but non-function-rooted refs stay valid” model, or add joint compaction/removal for globals, tables, memories, tags, data, and elem segments together?
 - Is the local constant-expression trap model intentionally narrower, matching Binaryen’s nullable-`struct.new` approximation, or broader?
