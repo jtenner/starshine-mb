@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization: compact globals in RemoveUnusedModuleElements
+
+- **RemoveUnusedModuleElements global remap slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the open-world pass now tracks global liveness, removes unused defined globals, rewrites mixed import+defined `GlobalIdx` users, and compacts `NameSec.global_names`.
+- Added whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) for exported/live global retention, dead-global removal that no longer pins dead helper functions, mixed import+defined global remapping, and active-data-offset global roots.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the next visible `RemoveUnusedModuleElements` work is tables, memories, tags, trap precision, indirect-call precision, and referenced-only function shells.
+
 ## 2026-03-21 Optimization: compact elem/data segments in RemoveUnusedModuleElements
 
 - **RemoveUnusedModuleElements elem/data remap slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the open-world pass now tracks `elem` and `data` segment liveness alongside functions, keeps active segments conservatively, removes unused passive/declarative segments, and rewrites `FuncIdx`/`ElemIdx`/`DataIdx` users plus `DataCntSec`.

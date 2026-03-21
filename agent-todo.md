@@ -68,7 +68,7 @@
 
 ## v0.1.0 Active Slice Focus
 - `RemoveUnusedModuleElements`: execute slices from `docs/0013-2026-03-21-remove-unused-module-elements-plan.md`.
-- `RemoveUnusedModuleElements`: function + elem/data open-world compaction is landed; next extend removal and remap coverage to globals/tables/memories/tags plus referenced-only function shells.
+- `RemoveUnusedModuleElements`: function + global + elem/data open-world compaction is landed; next extend removal and remap coverage to tables/memories/tags plus referenced-only function shells.
 - `RemoveUnusedModuleElements`: active segments are still conservatively rooted; trap/observability precision remains open.
 - `RemoveUnusedModuleElements`: closed-world and GC precision are now blocked on feature-source plumbing, not module-wide pass execution.
 

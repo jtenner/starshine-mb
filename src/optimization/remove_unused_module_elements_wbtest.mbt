@@ -22,6 +22,26 @@ fn remove_unused_test_main_call_target(mod : Module) -> UInt raise Error {
 }
 
 ///|
+fn remove_unused_test_main_global_get_target(mod : Module) -> UInt raise Error {
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.TFunc(_, _, body) =>
+          match body.inner()[0].kind {
+            @lib.TDrop(inner) =>
+              match inner.kind {
+                @lib.TGlobalGet(@lib.GlobalIdx(target)) => target
+                _ => fail("expected global.get inside drop")
+              }
+            _ => fail("expected drop in first function")
+          }
+        _ => fail("expected typed function")
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
 fn remove_unused_test_run(mod : Module) -> Module {
   let (optimized, _) = run_remove_unused_module_elements(
     mod,
@@ -556,5 +576,195 @@ test "remove unused module elements keeps active elem and data segments conserva
   match optimized.data_cnt_sec {
     Some(@lib.DataCntSec(@lib.U32(count))) => assert_eq(count, 1U)
     _ => fail("expected data count")
+  }
+}
+
+///|
+test "remove unused module elements removes unused globals and rewrites global indices and names" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("seed"),
+          @lib.ExternType::global(
+            @lib.GlobalType::new(@lib.ValType::i32(), false),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::drop(@lib.TInstr::global_get(@lib.GlobalIdx::new(2U))),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("live-global"),
+          @lib.ExternIdx::global(@lib.GlobalIdx::new(2U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+        ),
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), false),
+          @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))]),
+        ),
+      ]),
+    )
+    .with_name_sec(
+      @lib.NameSec::new(
+        global_names=Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("seed")),
+            @lib.NameAssoc::new(1U, @lib.Name::from_string("dead-global")),
+            @lib.NameAssoc::new(2U, @lib.Name::from_string("live-global")),
+          ]),
+        ),
+      ),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 1)
+    None => fail("expected func section")
+  }
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 1)
+    None => fail("expected global section")
+  }
+  assert_eq(try! remove_unused_test_main_global_get_target(optimized), 1U)
+  match optimized.export_sec {
+    Some(
+      @lib.ExportSec(
+        [
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(func_idx))),
+          @lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(global_idx))),
+        ]
+      )
+    ) => {
+      assert_eq(func_idx, 0U)
+      assert_eq(global_idx, 1U)
+    }
+    _ => fail("expected rewritten exports")
+  }
+  match optimized.name_sec {
+    Some(name_sec) => {
+      let { global_names, .. } = name_sec
+      assert_eq(
+        global_names,
+        Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("seed")),
+            @lib.NameAssoc::new(1U, @lib.Name::from_string("live-global")),
+          ]),
+        ),
+      )
+    }
+    None => fail("expected name section")
+  }
+}
+
+///|
+test "remove unused module elements keeps globals referenced by active data offsets" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), false),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(1))]),
+        ),
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), false),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+        ),
+      ]),
+    )
+    .with_data_sec(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::active(
+            @lib.MemIdx::new(0U),
+            @lib.Expr::new([
+              @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+            ]),
+          ),
+          b"active",
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 1)
+    None => fail("expected global section")
+  }
+  match optimized.data_sec {
+    Some(
+      @lib.DataSec(
+        [
+          @lib.Data(
+            @lib.Active(
+              @lib.MemIdx(mem_idx),
+              @lib.Expr([@lib.GlobalGet(@lib.GlobalIdx(global_idx))])
+            ),
+            _
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(mem_idx, 0U)
+      assert_eq(global_idx, 0U)
+    }
+    _ => fail("expected rewritten active data offset")
   }
 }
