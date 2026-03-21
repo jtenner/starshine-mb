@@ -671,7 +671,7 @@ fn optimization_rewrite_func_indices(
 }
 
 ///|
-fn optimization_rewrite_func_name_map(
+fn optimization_rewrite_name_map(
   names : NameMap,
   remap : Map[UInt, UInt],
 ) -> NameMap {
@@ -691,7 +691,7 @@ fn optimization_rewrite_func_name_map(
 }
 
 ///|
-fn optimization_rewrite_func_name_map_filtered(
+fn optimization_rewrite_name_map_filtered(
   names : NameMap,
   remap : Map[UInt, UInt],
   drop_unmapped : Bool,
@@ -720,6 +720,23 @@ fn optimization_rewrite_func_name_map_filtered(
     }
   }
   NameMap::new(rewritten)
+}
+
+///|
+fn optimization_rewrite_func_name_map(
+  names : NameMap,
+  remap : Map[UInt, UInt],
+) -> NameMap {
+  optimization_rewrite_name_map(names, remap)
+}
+
+///|
+fn optimization_rewrite_func_name_map_filtered(
+  names : NameMap,
+  remap : Map[UInt, UInt],
+  drop_unmapped : Bool,
+) -> NameMap {
+  optimization_rewrite_name_map_filtered(names, remap, drop_unmapped)
 }
 
 ///|
@@ -820,6 +837,8 @@ fn optimization_rewrite_name_sec_filtered(
   name_sec : NameSec,
   remap : Map[UInt, UInt],
   drop_unmapped : Bool,
+  elem_remap : Map[UInt, UInt]?,
+  data_remap : Map[UInt, UInt]?,
 ) -> NameSec {
   let {
     module_name,
@@ -860,8 +879,18 @@ fn optimization_rewrite_name_sec_filtered(
     table_names~,
     memory_names~,
     global_names~,
-    elem_names~,
-    data_names~,
+    elem_names=match (elem_names, elem_remap) {
+      (Some(names), Some(remap)) =>
+        Some(optimization_rewrite_name_map_filtered(names, remap, true))
+      (Some(names), None) => Some(names)
+      _ => None
+    },
+    data_names=match (data_names, data_remap) {
+      (Some(names), Some(remap)) =>
+        Some(optimization_rewrite_name_map_filtered(names, remap, true))
+      (Some(names), None) => Some(names)
+      _ => None
+    },
     field_names~,
     tag_names~,
   )
@@ -890,6 +919,42 @@ fn optimization_note_used_func(
 }
 
 ///|
+fn optimization_note_used_elem(
+  used : Array[Bool],
+  worklist : Array[Int],
+  idx : ElemIdx,
+) -> Unit {
+  let ElemIdx(raw) = idx
+  let elem_idx = raw.reinterpret_as_int()
+  if elem_idx < 0 || elem_idx >= used.length() {
+    return
+  }
+  if used[elem_idx] {
+    return
+  }
+  used[elem_idx] = true
+  worklist.push(elem_idx)
+}
+
+///|
+fn optimization_note_used_data(
+  used : Array[Bool],
+  worklist : Array[Int],
+  idx : DataIdx,
+) -> Unit {
+  let DataIdx(raw) = idx
+  let data_idx = raw.reinterpret_as_int()
+  if data_idx < 0 || data_idx >= used.length() {
+    return
+  }
+  if used[data_idx] {
+    return
+  }
+  used[data_idx] = true
+  worklist.push(data_idx)
+}
+
+///|
 fn optimization_collect_func_uses_in_expr(
   expr : @lib.Expr,
   used : Array[Bool],
@@ -912,24 +977,32 @@ fn optimization_collect_func_uses_in_expr(
 }
 
 ///|
-fn optimization_collect_func_uses_in_func(
+fn optimization_collect_module_element_uses_in_func(
   func : Func,
-  used : Array[Bool],
-  worklist : Array[Int],
-  imported_count : Int,
-  defined_count : Int,
+  used_funcs : Array[Bool],
+  func_worklist : Array[Int],
+  imported_func_count : Int,
+  defined_func_count : Int,
+  used_elems : Array[Bool],
+  elem_worklist : Array[Int],
+  used_datas : Array[Bool],
+  data_worklist : Array[Int],
 ) -> Unit {
-  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_funcidx_evt(fn(
-      _,
-      _,
-      idx,
-    ) {
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+    .on_funcidx_evt(fn(_, _, idx) {
       optimization_note_used_func(
-        used, worklist, imported_count, defined_count, idx,
+        used_funcs, func_worklist, imported_func_count, defined_func_count, idx,
       )
       unchanged()
-    },
-  )
+    })
+    .on_elemidx_evt(fn(_, _, idx) {
+      optimization_note_used_elem(used_elems, elem_worklist, idx)
+      unchanged()
+    })
+    .on_dataidx_evt(fn(_, _, idx) {
+      optimization_note_used_data(used_datas, data_worklist, idx)
+      unchanged()
+    })
   ignore(walker.walk_func((), func))
 }
 
@@ -986,31 +1059,126 @@ fn optimization_seed_non_function_func_uses(
       }
     None => ()
   }
+}
+
+///|
+fn optimization_seed_root_segments(
+  mod : Module,
+  used_elems : Array[Bool],
+  elem_worklist : Array[Int],
+  used_datas : Array[Bool],
+  data_worklist : Array[Int],
+) -> Unit {
   match mod.elem_sec {
-    Some(@lib.ElemSec(elems)) =>
-      for elem in elems {
-        match elem {
-          @lib.Elem(_, @lib.FuncsElemKind(funcs)) =>
-            for idx in funcs {
-              optimization_note_used_func(
-                used, worklist, imported_count, defined_count, idx,
-              )
-            }
-          @lib.Elem(_, @lib.FuncExprsElemKind(exprs)) =>
-            for expr in exprs {
-              optimization_collect_func_uses_in_expr(
-                expr, used, worklist, imported_count, defined_count,
-              )
-            }
-          @lib.Elem(_, @lib.TypedExprsElemKind(_, exprs)) =>
-            for expr in exprs {
-              optimization_collect_func_uses_in_expr(
-                expr, used, worklist, imported_count, defined_count,
-              )
-            }
+    Some(ElemSec(elems)) => {
+      let mut i = 0
+      while i < elems.length() {
+        match elems[i] {
+          Elem(@lib.Active(_, _), _) =>
+            optimization_note_used_elem(
+              used_elems,
+              elem_worklist,
+              ElemIdx::new(i.reinterpret_as_uint()),
+            )
+          _ => ()
         }
+        i += 1
       }
+    }
     None => ()
+  }
+  match mod.data_sec {
+    Some(DataSec(datas)) => {
+      let mut i = 0
+      while i < datas.length() {
+        match datas[i] {
+          Data(@lib.Active(_, _), _) =>
+            optimization_note_used_data(
+              used_datas,
+              data_worklist,
+              DataIdx::new(i.reinterpret_as_uint()),
+            )
+          _ => ()
+        }
+        i += 1
+      }
+    }
+    None => ()
+  }
+}
+
+///|
+fn optimization_collect_func_uses_in_elem(
+  elem : Elem,
+  used : Array[Bool],
+  worklist : Array[Int],
+  imported_count : Int,
+  defined_count : Int,
+) -> Unit {
+  match elem {
+    Elem(@lib.Active(_, offset), kind) => {
+      optimization_collect_func_uses_in_expr(
+        offset, used, worklist, imported_count, defined_count,
+      )
+      match kind {
+        @lib.FuncsElemKind(funcs) =>
+          for idx in funcs {
+            optimization_note_used_func(
+              used, worklist, imported_count, defined_count, idx,
+            )
+          }
+        @lib.FuncExprsElemKind(exprs) =>
+          for expr in exprs {
+            optimization_collect_func_uses_in_expr(
+              expr, used, worklist, imported_count, defined_count,
+            )
+          }
+        @lib.TypedExprsElemKind(_, exprs) =>
+          for expr in exprs {
+            optimization_collect_func_uses_in_expr(
+              expr, used, worklist, imported_count, defined_count,
+            )
+          }
+      }
+    }
+    Elem(_, kind) =>
+      match kind {
+        @lib.FuncsElemKind(funcs) =>
+          for idx in funcs {
+            optimization_note_used_func(
+              used, worklist, imported_count, defined_count, idx,
+            )
+          }
+        @lib.FuncExprsElemKind(exprs) =>
+          for expr in exprs {
+            optimization_collect_func_uses_in_expr(
+              expr, used, worklist, imported_count, defined_count,
+            )
+          }
+        @lib.TypedExprsElemKind(_, exprs) =>
+          for expr in exprs {
+            optimization_collect_func_uses_in_expr(
+              expr, used, worklist, imported_count, defined_count,
+            )
+          }
+      }
+  }
+}
+
+///|
+fn optimization_collect_func_uses_in_data(
+  data : Data,
+  used : Array[Bool],
+  worklist : Array[Int],
+  imported_count : Int,
+  defined_count : Int,
+) -> Unit {
+  match data {
+    Data(@lib.Active(_, offset), _) =>
+      optimization_collect_func_uses_in_expr(
+        offset, used, worklist, imported_count, defined_count,
+      )
+    _ => ()
   }
 }
 
@@ -1020,7 +1188,7 @@ fn optimization_compact_defined_functions(
   type_idxs : Array[TypeIdx],
   funcs : Array[Func],
   keep_defined : Array[Bool],
-) -> Module {
+) -> (Module, Map[UInt, UInt]) {
   let imported_count = optimization_imported_func_count(mod)
   let kept_types : Array[TypeIdx] = []
   let kept_funcs : Array[Func] = []
@@ -1042,74 +1210,260 @@ fn optimization_compact_defined_functions(
     }
     i += 1
   }
-  let mut compacted = mod
+  let compacted = mod
     .with_func_sec(FuncSec::new(kept_types))
     .with_code_sec(CodeSec::new(kept_funcs))
-  match mod.name_sec {
-    Some(name_sec) =>
-      compacted = compacted.with_name_sec(
-        optimization_rewrite_name_sec_filtered(name_sec, abs_remap, true),
+  (compacted, abs_remap)
+}
+
+///|
+fn optimization_rewrite_module_element_indices(
+  mod : Module,
+  func_remap : Map[UInt, UInt],
+  elem_remap : Map[UInt, UInt]?,
+  data_remap : Map[UInt, UInt]?,
+) -> Module {
+  let mut transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_funcidx_evt(fn(
+      _,
+      _,
+      idx : FuncIdx,
+    ) {
+      let FuncIdx(raw) = idx
+      let next = func_remap.get(raw).unwrap_or(raw)
+      change((), FuncIdx::new(next))
+    },
+  )
+  match elem_remap {
+    Some(remap) =>
+      transformer = transformer.on_elemidx_evt(fn(_, _, idx : ElemIdx) {
+        let ElemIdx(raw) = idx
+        let next = remap.get(raw).unwrap_or(raw)
+        change((), ElemIdx::new(next))
+      })
+    None => ()
+  }
+  match data_remap {
+    Some(remap) =>
+      transformer = transformer.on_dataidx_evt(fn(_, _, idx : DataIdx) {
+        let DataIdx(raw) = idx
+        let next = remap.get(raw).unwrap_or(raw)
+        change((), DataIdx::new(next))
+      })
+    None => ()
+  }
+  match transformer.walk_module((), mod) {
+    Ok((rewritten, _)) => rewritten
+    Err(_) => mod
+  }
+}
+
+///|
+fn optimization_compact_elem_sec(
+  mod : Module,
+  elems : Array[Elem],
+  keep_elems : Array[Bool],
+) -> (Module, Map[UInt, UInt]) {
+  let kept_elems : Array[Elem] = []
+  let elem_remap : Map[UInt, UInt] = {}
+  let mut next_idx = 0U
+  let mut i = 0
+  while i < elems.length() {
+    if keep_elems[i] {
+      elem_remap[i.reinterpret_as_uint()] = next_idx
+      kept_elems.push(elems[i])
+      next_idx += 1U
+    }
+    i += 1
+  }
+  (mod.with_elem_sec(ElemSec::new(kept_elems)), elem_remap)
+}
+
+///|
+fn optimization_compact_data_sec(
+  mod : Module,
+  datas : Array[Data],
+  keep_datas : Array[Bool],
+) -> (Module, Map[UInt, UInt]) {
+  let kept_datas : Array[Data] = []
+  let data_remap : Map[UInt, UInt] = {}
+  let mut next_idx = 0U
+  let mut i = 0
+  while i < datas.length() {
+    if keep_datas[i] {
+      data_remap[i.reinterpret_as_uint()] = next_idx
+      kept_datas.push(datas[i])
+      next_idx += 1U
+    }
+    i += 1
+  }
+  let mut compacted = mod.with_data_sec(DataSec::new(kept_datas))
+  match mod.data_cnt_sec {
+    Some(_) =>
+      compacted = compacted.with_data_cnt_sec(
+        DataCntSec::new(U32::new(next_idx)),
       )
     None => ()
   }
-  optimization_rewrite_func_indices(compacted, abs_remap)
+  (compacted, data_remap)
 }
 
 ///|
 fn optimization_remove_unused_module_elements_iteration(
   mod : Module,
 ) -> Module? {
-  match (mod.func_sec, mod.code_sec) {
+  let (type_idxs, funcs) = match (mod.func_sec, mod.code_sec) {
     (Some(FuncSec(type_idxs)), Some(CodeSec(funcs))) => {
       if type_idxs.length() != funcs.length() {
         return None
       }
-      let imported_count = optimization_imported_func_count(mod)
-      let total_func_count = imported_count + funcs.length()
-      let used : Array[Bool] = []
-      for _ in 0..<total_func_count {
-        used.push(false)
-      }
-      let worklist : Array[Int] = []
-      optimization_seed_non_function_func_uses(
-        mod,
-        used,
-        worklist,
+      (type_idxs, funcs)
+    }
+    _ => ([], [])
+  }
+  let elems = match mod.elem_sec {
+    Some(ElemSec(elems)) => elems
+    None => []
+  }
+  let datas = match mod.data_sec {
+    Some(DataSec(datas)) => datas
+    None => []
+  }
+
+  let imported_count = optimization_imported_func_count(mod)
+  let total_func_count = imported_count + funcs.length()
+  let used_funcs : Array[Bool] = []
+  for _ in 0..<total_func_count {
+    used_funcs.push(false)
+  }
+  let used_elems : Array[Bool] = []
+  for _ in 0..<elems.length() {
+    used_elems.push(false)
+  }
+  let used_datas : Array[Bool] = []
+  for _ in 0..<datas.length() {
+    used_datas.push(false)
+  }
+  let func_worklist : Array[Int] = []
+  let elem_worklist : Array[Int] = []
+  let data_worklist : Array[Int] = []
+  optimization_seed_non_function_func_uses(
+    mod,
+    used_funcs,
+    func_worklist,
+    imported_count,
+    funcs.length(),
+  )
+  optimization_seed_root_segments(
+    mod, used_elems, elem_worklist, used_datas, data_worklist,
+  )
+  while func_worklist.length() > 0 ||
+        elem_worklist.length() > 0 ||
+        data_worklist.length() > 0 {
+    while func_worklist.length() > 0 {
+      let local_idx = func_worklist.pop().unwrap()
+      optimization_collect_module_element_uses_in_func(
+        funcs[local_idx],
+        used_funcs,
+        func_worklist,
+        imported_count,
+        funcs.length(),
+        used_elems,
+        elem_worklist,
+        used_datas,
+        data_worklist,
+      )
+    }
+    while elem_worklist.length() > 0 {
+      let elem_idx = elem_worklist.pop().unwrap()
+      optimization_collect_func_uses_in_elem(
+        elems[elem_idx],
+        used_funcs,
+        func_worklist,
         imported_count,
         funcs.length(),
       )
-      while worklist.length() > 0 {
-        let local_idx = worklist.pop().unwrap()
-        optimization_collect_func_uses_in_func(
-          funcs[local_idx],
-          used,
-          worklist,
-          imported_count,
-          funcs.length(),
-        )
-      }
-      let keep_defined : Array[Bool] = []
-      let mut changed = false
-      let mut i = 0
-      while i < funcs.length() {
-        let keep = used[imported_count + i]
-        keep_defined.push(keep)
-        if !keep {
-          changed = true
-        }
-        i += 1
-      }
-      if !changed {
-        return None
-      }
-      Some(
-        optimization_compact_defined_functions(
-          mod, type_idxs, funcs, keep_defined,
-        ),
+    }
+    while data_worklist.length() > 0 {
+      let data_idx = data_worklist.pop().unwrap()
+      optimization_collect_func_uses_in_data(
+        datas[data_idx],
+        used_funcs,
+        func_worklist,
+        imported_count,
+        funcs.length(),
       )
     }
-    _ => None
   }
+
+  let keep_defined : Array[Bool] = []
+  let mut changed = false
+  let mut i = 0
+  while i < funcs.length() {
+    let keep = used_funcs[imported_count + i]
+    keep_defined.push(keep)
+    if !keep {
+      changed = true
+    }
+    i += 1
+  }
+  let keep_elems : Array[Bool] = []
+  i = 0
+  while i < elems.length() {
+    let keep = used_elems[i]
+    keep_elems.push(keep)
+    if !keep {
+      changed = true
+    }
+    i += 1
+  }
+  let keep_datas : Array[Bool] = []
+  i = 0
+  while i < datas.length() {
+    let keep = used_datas[i]
+    keep_datas.push(keep)
+    if !keep {
+      changed = true
+    }
+    i += 1
+  }
+  if !changed {
+    return None
+  }
+
+  let (initial_compacted, func_remap) = optimization_compact_defined_functions(
+    mod, type_idxs, funcs, keep_defined,
+  )
+  let mut compacted = initial_compacted
+  let mut elem_remap : Map[UInt, UInt]? = None
+  if mod.elem_sec is Some(_) {
+    let (next, remap) = optimization_compact_elem_sec(
+      compacted, elems, keep_elems,
+    )
+    compacted = next
+    elem_remap = Some(remap)
+  }
+  let mut data_remap : Map[UInt, UInt]? = None
+  if mod.data_sec is Some(_) {
+    let (next, remap) = optimization_compact_data_sec(
+      compacted, datas, keep_datas,
+    )
+    compacted = next
+    data_remap = Some(remap)
+  }
+  match mod.name_sec {
+    Some(name_sec) =>
+      compacted = compacted.with_name_sec(
+        optimization_rewrite_name_sec_filtered(
+          name_sec, func_remap, true, elem_remap, data_remap,
+        ),
+      )
+    None => ()
+  }
+  Some(
+    optimization_rewrite_module_element_indices(
+      compacted, func_remap, elem_remap, data_remap,
+    ),
+  )
 }
 
 ///|

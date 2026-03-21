@@ -2,6 +2,13 @@
 using @lib {
   type CodeSec,
   type CompType,
+  type Data,
+  type DataCntSec,
+  type DataIdx,
+  type DataSec,
+  type Elem,
+  type ElemIdx,
+  type ElemSec,
   type ExternType,
   type Func,
   type FuncIdx,
@@ -18,6 +25,7 @@ using @lib {
   type RecType,
   type SubType,
   type TypeIdx,
+  type U32,
 }
 
 ///|
