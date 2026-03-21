@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization: compact tables and memories in RemoveUnusedModuleElements
+
+- **RemoveUnusedModuleElements table/memory remap slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the open-world pass now tracks table and memory liveness, removes unused defined tables and memories, rewrites mixed import+defined `TableIdx` and `MemIdx` users, and compacts `NameSec.table_names` plus `NameSec.memory_names`.
+- Added whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) for dead table/memory removal, mixed-space remaps in exports and typed instructions, active elem/data mode rooting, and the fact that dead table initializer expressions no longer pin dead helper functions.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the next visible `RemoveUnusedModuleElements` work is tags, indirect-call/table precision, trap/observability precision, and referenced-only function shells.
+
 ## 2026-03-21 Optimization: compact globals in RemoveUnusedModuleElements
 
 - **RemoveUnusedModuleElements global remap slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the open-world pass now tracks global liveness, removes unused defined globals, rewrites mixed import+defined `GlobalIdx` users, and compacts `NameSec.global_names`.

@@ -42,6 +42,46 @@ fn remove_unused_test_main_global_get_target(mod : Module) -> UInt raise Error {
 }
 
 ///|
+fn remove_unused_test_main_table_size_target(mod : Module) -> UInt raise Error {
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.TFunc(_, _, body) =>
+          match body.inner()[0].kind {
+            @lib.TDrop(inner) =>
+              match inner.kind {
+                @lib.TTableSize(@lib.TableIdx(target)) => target
+                _ => fail("expected table.size inside drop")
+              }
+            _ => fail("expected drop in first function")
+          }
+        _ => fail("expected typed function")
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
+fn remove_unused_test_main_memory_size_target(mod : Module) -> UInt raise Error {
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.TFunc(_, _, body) =>
+          match body.inner()[1].kind {
+            @lib.TDrop(inner) =>
+              match inner.kind {
+                @lib.TMemorySize(@lib.MemIdx(target)) => target
+                _ => fail("expected memory.size inside drop")
+              }
+            _ => fail("expected drop in second instruction")
+          }
+        _ => fail("expected typed function")
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
 fn remove_unused_test_run(mod : Module) -> Module {
   let (optimized, _) = run_remove_unused_module_elements(
     mod,
@@ -766,5 +806,258 @@ test "remove unused module elements keeps globals referenced by active data offs
       assert_eq(global_idx, 0U)
     }
     _ => fail("expected rewritten active data offset")
+  }
+}
+
+///|
+test "remove unused module elements removes unused tables and memories and rewrites indices and names" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("itab"),
+          @lib.ExternType::table(
+            @lib.TableType::new(
+              remove_unused_test_funcref(),
+              @lib.Limits::i32(1U, None),
+            ),
+          ),
+        ),
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("imem"),
+          @lib.ExternType::mem(@lib.MemType::new(@lib.Limits::i32(1U, None))),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::drop(@lib.TInstr::table_size(@lib.TableIdx::new(2U))),
+            @lib.TInstr::drop(@lib.TInstr::memory_size(@lib.MemIdx::new(2U))),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("live-table"),
+          @lib.ExternIdx::table(@lib.TableIdx::new(2U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("live-mem"),
+          @lib.ExternIdx::mem(@lib.MemIdx::new(2U)),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            remove_unused_test_funcref(),
+            @lib.Limits::i32(1U, None),
+          ),
+          Some(
+            @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+          ),
+        ),
+        @lib.Table::new(
+          @lib.TableType::new(
+            remove_unused_test_funcref(),
+            @lib.Limits::i32(1U, None),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, None)),
+        @lib.MemType::new(@lib.Limits::i32(1U, None)),
+      ]),
+    )
+    .with_name_sec(
+      @lib.NameSec::new(
+        table_names=Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("itab")),
+            @lib.NameAssoc::new(1U, @lib.Name::from_string("dead-table")),
+            @lib.NameAssoc::new(2U, @lib.Name::from_string("live-table")),
+          ]),
+        ),
+        memory_names=Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("imem")),
+            @lib.NameAssoc::new(1U, @lib.Name::from_string("dead-mem")),
+            @lib.NameAssoc::new(2U, @lib.Name::from_string("live-mem")),
+          ]),
+        ),
+      ),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 1)
+    None => fail("expected func section")
+  }
+  match optimized.table_sec {
+    Some(@lib.TableSec(tables)) => assert_eq(tables.length(), 1)
+    None => fail("expected table section")
+  }
+  match optimized.mem_sec {
+    Some(@lib.MemSec(mems)) => assert_eq(mems.length(), 1)
+    None => fail("expected mem section")
+  }
+  assert_eq(try! remove_unused_test_main_table_size_target(optimized), 1U)
+  assert_eq(try! remove_unused_test_main_memory_size_target(optimized), 1U)
+  match optimized.export_sec {
+    Some(
+      @lib.ExportSec(
+        [
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(func_idx))),
+          @lib.Export(_, @lib.TableExternIdx(@lib.TableIdx(table_idx))),
+          @lib.Export(_, @lib.MemExternIdx(@lib.MemIdx(mem_idx))),
+        ]
+      )
+    ) => {
+      assert_eq(func_idx, 0U)
+      assert_eq(table_idx, 1U)
+      assert_eq(mem_idx, 1U)
+    }
+    _ => fail("expected rewritten exports")
+  }
+  match optimized.name_sec {
+    Some(name_sec) => {
+      let { table_names, memory_names, .. } = name_sec
+      assert_eq(
+        table_names,
+        Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("itab")),
+            @lib.NameAssoc::new(1U, @lib.Name::from_string("live-table")),
+          ]),
+        ),
+      )
+      assert_eq(
+        memory_names,
+        Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("imem")),
+            @lib.NameAssoc::new(1U, @lib.Name::from_string("live-mem")),
+          ]),
+        ),
+      )
+    }
+    None => fail("expected name section")
+  }
+}
+
+///|
+test "remove unused module elements keeps tables and memories referenced by active segments" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            remove_unused_test_funcref(),
+            @lib.Limits::i32(1U, None),
+          ),
+          None,
+        ),
+        @lib.Table::new(
+          @lib.TableType::new(
+            remove_unused_test_funcref(),
+            @lib.Limits::i32(1U, None),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, None)),
+        @lib.MemType::new(@lib.Limits::i32(1U, None)),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(1U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+          ),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_data_sec(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::active(
+            @lib.MemIdx::new(1U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+          ),
+          b"active",
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.table_sec {
+    Some(@lib.TableSec(tables)) => assert_eq(tables.length(), 1)
+    None => fail("expected table section")
+  }
+  match optimized.mem_sec {
+    Some(@lib.MemSec(mems)) => assert_eq(mems.length(), 1)
+    None => fail("expected mem section")
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec([@lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _)])) =>
+      assert_eq(table_idx, 0U)
+    _ => fail("expected rewritten active elem mode")
+  }
+  match optimized.data_sec {
+    Some(@lib.DataSec([@lib.Data(@lib.Active(@lib.MemIdx(mem_idx), _), _)])) =>
+      assert_eq(mem_idx, 0U)
+    _ => fail("expected rewritten active data mode")
   }
 }
