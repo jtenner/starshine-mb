@@ -371,7 +371,10 @@ pub type FuncLocalPassFn = (Module, PipelineScratch) -> (
 )
 
 ///|
-pub type ModuleWidePassFn = (Module, PipelineGlobal) -> (Module, PipelineGlobal)
+pub type ModuleWidePassFn = (Module, PipelineGlobal, PipelineFeatures) -> (
+  Module,
+  PipelineGlobal,
+)
 
 ///|
 pub(all) enum PassKind {
@@ -536,7 +539,9 @@ fn noop_func_local_pass(
 fn noop_module_wide_pass(
   mod : Module,
   global : PipelineGlobal,
+  features : PipelineFeatures,
 ) -> (Module, PipelineGlobal) {
+  let _ = features
   (mod, global)
 }
 
@@ -862,7 +867,9 @@ fn optimization_duplicate_function_iteration(mod : Module) -> Module? {
 pub fn run_duplicate_function_elimination(
   mod : Module,
   global : PipelineGlobal,
+  features : PipelineFeatures,
 ) -> (Module, PipelineGlobal) {
+  let _ = features
   let initial_count = match mod.code_sec {
     Some(CodeSec(funcs)) => funcs.length()
     None => 0

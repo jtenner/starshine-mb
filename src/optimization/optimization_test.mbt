@@ -23,7 +23,10 @@ test "pipeline scratch defaults are empty" {
 ///|
 test "pass kinds accept starter function shapes" {
   let early : EarlyPassFn = fn(mod, global) { (mod, global) }
-  let module_wide : ModuleWidePassFn = fn(mod, global) { (mod, global) }
+  let module_wide : ModuleWidePassFn = fn(mod, global, features) {
+    let _ = features
+    (mod, global)
+  }
   let func_local : FuncLocalPassFn = fn(mod, scratch) { (mod, scratch) }
   let kinds = [
     PassKind::early(early),
@@ -47,7 +50,10 @@ test "pass kinds accept starter function shapes" {
 ///|
 test "pass group pairs a kind with a validation level" {
   let group = PassGroup::new(
-    PassKind::module_wide(fn(mod, global) { (mod, global) }),
+    PassKind::module_wide(fn(mod, global, features) {
+      let _ = features
+      (mod, global)
+    }),
     ValidationKind::full(),
   )
   assert_eq(group.validation_kind(), ValidationKind::full())

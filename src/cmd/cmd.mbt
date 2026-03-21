@@ -1570,6 +1570,7 @@ fn run_generated_pipeline_with_options(
 ) -> Result[Module, String] {
   let mut current = mod
   let mut global = cmd_generated_pipeline_global(options)
+  let features = cmd_generated_pipeline_features(options)
   for entry in pipeline {
     match entry.group.kind() {
       Early(func) => {
@@ -1578,7 +1579,7 @@ fn run_generated_pipeline_with_options(
         global = next_global
       }
       ModuleWide(func) => {
-        let (next, next_global) = func(current, global)
+        let (next, next_global) = func(current, global, features)
         current = next
         global = next_global
       }
@@ -1627,6 +1628,7 @@ fn run_generated_pipeline_with_options_trace(
   let _ = trace_level
   let mut current = mod
   let mut global = cmd_generated_pipeline_global(options)
+  let features = cmd_generated_pipeline_features(options)
   for entry in pipeline {
     trace(
       "generated group start: \{cmd_generated_pipeline_entry_trace_text(entry)}",
@@ -1638,7 +1640,7 @@ fn run_generated_pipeline_with_options_trace(
         global = next_global
       }
       ModuleWide(func) => {
-        let (next, next_global) = func(current, global)
+        let (next, next_global) = func(current, global, features)
         current = next
         global = next_global
       }

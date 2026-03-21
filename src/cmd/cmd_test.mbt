@@ -215,8 +215,6 @@ fn run_optimize_wat_fixture_regression(
 }
 
 ///|
-
-///|
 test "run_cmd_with_adapter --optimize handles examples/modules/simple.wat" {
   let wat =
     #|(module

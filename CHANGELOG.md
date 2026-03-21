@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization/Cmd: thread PipelineFeatures through generated module-wide pass execution
+
+- **Generated module-wide feature plumbing** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) and [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) so generated module-wide passes now receive `PipelineFeatures` at execution time instead of only `PipelineGlobal`, unblocking feature-aware module-pass work such as the later closed-world `RemoveUnusedModuleElements` slices.
+- Added runtime coverage in [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt) and refreshed the optimization signature tests in [`src/optimization/optimization_test.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization_test.mbt) plus [`src/optimization/duplicate_function_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/duplicate_function_elimination_wbtest.mbt).
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to reflect that execution-time runner plumbing is done and the remaining blocker is feature-source plumbing for `closed_world`, `has_gc`, and related flags.
+
 ## 2026-03-21 Docs/Backlog: import RemoveUnusedModuleElements research and traceable rollout plan
 
 - **RemoveUnusedModuleElements research import and rollout plan** by **@jtenner**. Imported the latest upstream research into [`docs/0012-2026-03-21-remove-unused-module-elements.md`](/home/jtenner/Projects/starshine-mb/docs/0012-2026-03-21-remove-unused-module-elements.md) and added a Starshine-specific implementation plan in [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md) with algorithm slices cross-referenced back to the research material for later implementation and audit work.

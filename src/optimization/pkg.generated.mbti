@@ -13,7 +13,7 @@ pub fn all_binaryen_passes() -> Array[BinaryenPass]
 
 pub fn default_optimize_pipeline(PipelineGlobal, features? : PipelineFeatures) -> Array[PipelineEntry]
 
-pub fn run_duplicate_function_elimination(@lib.Module, PipelineGlobal) -> (@lib.Module, PipelineGlobal)
+pub fn run_duplicate_function_elimination(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)
 
 // Errors
 
@@ -210,11 +210,11 @@ pub fn PassGroup::validation_kind(Self) -> ValidationKind
 pub(all) enum PassKind {
   Early((@lib.Module, PipelineGlobal) -> (@lib.Module, PipelineGlobal))
   FuncLocalGroup(Array[(@lib.Module, PipelineScratch) -> (@lib.Module, PipelineScratch)])
-  ModuleWide((@lib.Module, PipelineGlobal) -> (@lib.Module, PipelineGlobal))
+  ModuleWide((@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal))
 }
 pub fn PassKind::early((@lib.Module, PipelineGlobal) -> (@lib.Module, PipelineGlobal)) -> Self
 pub fn PassKind::func_local_group(Array[(@lib.Module, PipelineScratch) -> (@lib.Module, PipelineScratch)]) -> Self
-pub fn PassKind::module_wide((@lib.Module, PipelineGlobal) -> (@lib.Module, PipelineGlobal)) -> Self
+pub fn PassKind::module_wide((@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)) -> Self
 
 pub(all) struct PipelineEntry {
   passes : Array[OptimizePass]
@@ -290,7 +290,7 @@ pub type EarlyPassFn = (@lib.Module, PipelineGlobal) -> (@lib.Module, PipelineGl
 
 pub type FuncLocalPassFn = (@lib.Module, PipelineScratch) -> (@lib.Module, PipelineScratch)
 
-pub type ModuleWidePassFn = (@lib.Module, PipelineGlobal) -> (@lib.Module, PipelineGlobal)
+pub type ModuleWidePassFn = (@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)
 
 // Traits
 

@@ -104,6 +104,7 @@ test "duplicate function elimination merges structural duplicates and rewrites f
   let (optimized, _) = run_duplicate_function_elimination(
     mod,
     PipelineGlobal::new(),
+    PipelineFeatures::new(),
   )
 
   match optimized.func_sec {
@@ -165,6 +166,7 @@ test "duplicate function elimination iterates when deduping callees unlocks more
   let (optimized, _) = run_duplicate_function_elimination(
     mod,
     PipelineGlobal::new(opt_level=2),
+    PipelineFeatures::new(),
   )
 
   match optimized.code_sec {
@@ -190,6 +192,7 @@ test "duplicate function elimination keeps same-body functions with different st
   let (optimized, _) = run_duplicate_function_elimination(
     mod,
     PipelineGlobal::new(),
+    PipelineFeatures::new(),
   )
 
   match optimized.code_sec {
@@ -265,6 +268,7 @@ test "duplicate function elimination rewrites name section function and local na
   let (optimized, _) = run_duplicate_function_elimination(
     mod,
     PipelineGlobal::new(),
+    PipelineFeatures::new(),
   )
 
   match optimized.code_sec {

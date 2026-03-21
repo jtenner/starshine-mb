@@ -51,7 +51,8 @@ Status: researched rollout plan for Starshine's index-based IR.
   - closed-world GC pre-passes,
   - and global post-passes.
 - Dispatch currently falls through to `noop_module_wide_pass`, so the pass is a no-op today.
-- Module-wide pass execution receives `PipelineGlobal` only; it does not receive `PipelineFeatures`.
+- Module-wide pass execution now receives `PipelineFeatures` at runtime.
+- Generated optimize options currently populate only `low_memory_unused` in `cmd_generated_pipeline_features`.
 - Starshine IR is index-based, not name-based:
   - funcs, tables, memories, globals, and tags live in mixed import+defined index spaces,
   - elem and data segments live in section-local index spaces.
@@ -87,7 +88,7 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Add `src/optimization/remove_unused_module_elements_wbtest.mbt` with failing tests that prove the current noop is replaced.
 - Decide execution config strategy:
   - MVP: open-world only, no new props.
-  - Follow-up: thread `PipelineFeatures` or pass-specific props for `closed_world` and trap policy.
+  - Follow-up: supply `closed_world`, `has_gc`, and trap-relevant feature inputs to the generated optimize path.
 - Exit when the pass has a real entrypoint and red tests exist before analysis logic lands.
 
 ### Slice 1 — Module-Element Index and Remap Foundation
@@ -144,9 +145,9 @@ Status: researched rollout plan for Starshine's index-based IR.
 ### Slice 5 — Closed-World Function-Reference Precision
 - References:
   - `ALG-00`, `ALG-05`, `ALG-06`, `ALG-14`.
-- Unblock execution-time config:
-  - either thread `PipelineFeatures` into module-wide passes,
-  - or add a dedicated pass config struct for `closed_world` and trap policy.
+- Unblock feature-source config:
+  - either extend generated optimize options to populate `closed_world`, `has_gc`, and related feature flags,
+  - or derive a dedicated pass config struct from module/options state before module-wide execution.
 - Implement `calledSignatures` and `uncalledRefFuncs`.
 - In closed world, downgrade bare `ref.func` to reference until matching `call_ref`, mutable-table, or callable-signature evidence appears.
 - Add tests for:
@@ -197,5 +198,5 @@ Status: researched rollout plan for Starshine's index-based IR.
 
 ## Open Questions
 - Should unused imported funcs/tables/mems/globals/tags be removed in `v0.1.0`, or can MVP compact defined sections first and leave imports conservative?
-- Where should `closed_world` live in the generated pipeline API, given module-wide passes currently receive only `PipelineGlobal`?
+- Where should `closed_world`, `has_gc`, and related feature facts come from in the generated optimize path, given `cmd_generated_pipeline_features` currently only sets `low_memory_unused`?
 - Is the local constant-expression trap model intentionally narrower, matching Binaryen’s nullable-`struct.new` approximation, or broader?
