@@ -1,6 +1,6 @@
 # MemoryPacking
 
-Status: research baseline plus slices 1-7. In Starshine today, the pass now has the first segment-materialization layer, including rebuilt split data segments, original-to-replacement `DataIdx` mapping, checked active-offset shifting, and rewritten `data_names`, and the generated optimizer applies that materialization whenever no passive segment-operation rewrite is required. The remaining open work is the final passive `memory.init` / `data.drop` replacement walk plus validation/idempotence cleanup. This document remains the implementation blueprint for those later semantic slices.
+Status: research baseline plus slices 1-8. In Starshine today, the pass now has the full segment-materialization and typed passive replacement layers, including rebuilt split data segments, original-to-replacement `DataIdx` mapping, checked active-offset shifting, rewritten `data_names`, dropped-segment state tracking, and temp-local allocation for nonconstant destinations. The remaining open work is validation/idempotence cleanup. This document remains the implementation blueprint for that final slice.
 
 ## Purpose
 
@@ -43,14 +43,15 @@ What exists now:
 8. The runner now collects per-`DataIdx` referrer lists for `memory.init`, `data.drop`, `array.new_data`, and `array.init_data`.
 9. The runner now removes passive segments that are unreferenced or only referenced by `data.drop`, rewrites removed drop-only `data.drop`s to `nop`, and remaps later `DataIdx` users, `DataCntSec`, and `data_names`.
 10. The runner now computes split eligibility plus final zero/nonzero range plans, including active/passive profitability thresholds, startup-trap preservation, and the Web segment-count cap merge rule.
-11. The runner now materializes rebuilt split data segments with original-to-replacement `DataIdx` mapping, checked active-offset shifting, and rebuilt `data_names`, and already applies that materialization end to end for cases that do not yet need passive segment-operation rewriting.
-12. The runner still lacks the final passive `memory.init` / `data.drop` replacement walk and the validation/idempotence cleanup slice.
+11. The runner now materializes rebuilt split data segments with original-to-replacement `DataIdx` mapping, checked active-offset shifting, and rebuilt `data_names`.
+12. The runner now rewrites typed passive `memory.init` and `data.drop` through the documented replacement walk, including dropped-segment state tracking and fresh locals for nonconstant destinations, and remaps later array data users after earlier segment expansion.
+13. The runner still lacks the validation/idempotence cleanup slice.
 
 That means:
 
 - The pass name and scheduling are real.
 - Slices 1-7 from the implementation plan are complete.
-- The semantics are now real for the active-only and otherwise no-passive-rewrite materialization cases.
+- The semantics are now real for the documented segment-materialization and typed passive replacement cases.
 - Any correctness validation for this pass must currently be done against upstream Binaryen behavior, then ported into Starshine-specific IR mechanics.
 
 ## Upstream Sources Used
