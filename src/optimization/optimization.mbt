@@ -661,6 +661,40 @@ fn optimization_dead_code_elimination_rewrite_instr(
       optimization_dead_code_elimination_rewrite_branch_table(
         labels, default_label, idx, values,
       )
+    @lib.TBrOnNull(label, ref_, values) =>
+      optimization_dead_code_elimination_rewrite_branch_on_ref(values, ref_, fn(
+        values,
+        ref_,
+      ) {
+        @lib.TInstr::br_on_null(label, ref_, values)
+      })
+    @lib.TBrOnNonNull(label, ref_, values) =>
+      optimization_dead_code_elimination_rewrite_branch_on_ref(values, ref_, fn(
+        values,
+        ref_,
+      ) {
+        @lib.TInstr::br_on_non_null(label, ref_, values)
+      })
+    @lib.TBrOnCast(label, cast_op, ht0, ht1, ref_, values) =>
+      optimization_dead_code_elimination_rewrite_branch_on_ref(values, ref_, fn(
+        values,
+        ref_,
+      ) {
+        let @lib.CastOp(source_nullable, target_nullable) = cast_op
+        @lib.TInstr::br_on_cast(
+          label, source_nullable, ht0, target_nullable, ht1, ref_, values,
+        )
+      })
+    @lib.TBrOnCastFail(label, cast_op, ht0, ht1, ref_, values) =>
+      optimization_dead_code_elimination_rewrite_branch_on_ref(values, ref_, fn(
+        values,
+        ref_,
+      ) {
+        let @lib.CastOp(source_nullable, target_nullable) = cast_op
+        @lib.TInstr::br_on_cast_fail(
+          label, source_nullable, ht0, target_nullable, ht1, ref_, values,
+        )
+      })
     @lib.TIf(block_type, cond, then_body, else_body) =>
       optimization_dead_code_elimination_rewrite_if(
         block_type, cond, then_body, else_body,
@@ -715,6 +749,23 @@ fn optimization_dead_code_elimination_rewrite_instr(
         None => @lib.TInstr::select(type_hint, cond, if_true, if_false)
       }
     _ => instr
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_rewrite_branch_on_ref(
+  values : Array[@lib.TInstr],
+  ref_ : @lib.TInstr,
+  rebuild : (Array[@lib.TInstr], @lib.TInstr) -> @lib.TInstr,
+) -> @lib.TInstr {
+  let children : Array[@lib.TInstr] = values.copy()
+  children.push(ref_)
+  match
+    optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
+      children,
+    ) {
+    Some(rewritten) => rewritten
+    None => rebuild(values, ref_)
   }
 }
 

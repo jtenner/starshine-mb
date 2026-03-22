@@ -18,6 +18,30 @@ fn dead_code_elimination_test_module(instrs : Array[@lib.TInstr]) -> Module {
 }
 
 ///|
+fn dead_code_elimination_test_result_module(
+  results : Array[@lib.ValType],
+  instrs : Array[@lib.TInstr],
+) -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], results)),
+      ),
+    ]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::t_func([], @lib.Locals::empty(), @lib.TExpr::new(instrs)),
+    ]),
+  )
+}
+
+///|
 fn dead_code_elimination_test_run(mod : Module) -> Module {
   let (optimized, _) = run_dead_code_elimination(mod, PipelineScratch::new())
   match @validate.validate_module(optimized) {
@@ -35,6 +59,20 @@ fn dead_code_elimination_test_body(
 ) -> Array[@lib.TInstr] {
   let optimized = dead_code_elimination_test_run(
     dead_code_elimination_test_module(instrs),
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => body.inner()
+    _ => abort("expected optimized single typed function body")
+  }
+}
+
+///|
+fn dead_code_elimination_test_result_body(
+  results : Array[@lib.ValType],
+  instrs : Array[@lib.TInstr],
+) -> Array[@lib.TInstr] {
+  let optimized = dead_code_elimination_test_run(
+    dead_code_elimination_test_result_module(results, instrs),
   )
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => body.inner()
@@ -494,4 +532,61 @@ test "dead code elimination drops stale outer block value after dead nested br_i
       ]),
     ),
   ])
+}
+
+///|
+test "dead code elimination replaces br_on_non_null when its ref is unreachable" {
+  let body = dead_code_elimination_test_result_body(
+    [
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+      ),
+    ],
+    [
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(
+          @lib.ValType::ref_type(
+            @lib.RefType::new(
+              false,
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+          ),
+        ),
+        @lib.TExpr::new([
+          @lib.TInstr::br_on_non_null(
+            @lib.LabelIdx::new(0U),
+            @lib.TInstr::unreachable_(),
+            [],
+          ),
+        ]),
+      ),
+    ],
+  )
+  assert_eq(body, [@lib.TInstr::unreachable_()])
+}
+
+///|
+test "dead code elimination replaces br_on_cast_fail when its ref is unreachable" {
+  let body = dead_code_elimination_test_result_body(
+    [@lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func()))],
+    [
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(
+          @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        ),
+        @lib.TExpr::new([
+          @lib.TInstr::br_on_cast_fail(
+            @lib.LabelIdx::new(0U),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            false,
+            @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            @lib.TInstr::unreachable_(),
+            [],
+          ),
+        ]),
+      ),
+    ],
+  )
+  assert_eq(body, [@lib.TInstr::unreachable_()])
 }

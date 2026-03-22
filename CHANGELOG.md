@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: land DeadCodeElimination GC branch-op rewrites
+
+- **DeadCodeElimination GC branch-op slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` now use the same evaluation-order-preserving unreachable-child rewrite as the earlier branch instructions, collapsing the branch op when its inspected ref or earlier prefix values become unreachable.
+- Added focused higher-level regressions in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) for `br_on_non_null` and `br_on_cast_fail` with unreachable inspected refs on valid one-result typed fixtures.
+- Recorded the checkpoint in [`docs/0041-2026-03-22-dead-code-elimination-gc-branch-ops.md`](/home/jtenner/Projects/starshine-mb/docs/0041-2026-03-22-dead-code-elimination-gc-branch-ops.md), which narrows the remaining DCE work to the `ref.cast` / reference-result no-over-refinalize cases, string-sensitive regressions, and the later EH `pop` fixup follow-up.
+
 ## 2026-03-22 Optimization: land DeadCodeElimination branch-value rewrites
 
 - **DeadCodeElimination branch-value slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `br`, `br_if`, and `br_table` now honor child evaluation order during DCE: unreachable branch values, conditions, and table indices collapse the branch to the preserved-prefix-plus-unreachable form instead of leaving stale control-flow instructions behind.
