@@ -77,7 +77,8 @@
   - exact `ref.null` immediates now survive WAST lowering, lib instructions, validation, and binary roundtrip as full nullable `RefType` immediates instead of degrading to inexact heap-only nulls.
   - bottom refs like `ref.null none` now also match compatible defined nullable refs during validation, which clears `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` on the native static path.
   - passive typed empty `elem` declarations like `(elem (ref null $func))` now parse, print, and lower, which moves `tests/spec/proposals/custom-descriptors/exact.wast` beyond its first higher-level text-surface stop.
-  - remaining follow-up work is the later exact-reference validation mismatch now exposed by `tests/spec/proposals/custom-descriptors/exact.wast`.
+  - exact refs to distinct but structurally equivalent defined struct types now validate instead of requiring literal type-index identity.
+  - remaining follow-up work is the later exact function-reference equivalence mismatch, plus full static harness coverage for `tests/spec/proposals/custom-descriptors/exact.wast`.
 
 ## Backlog Hygiene
 - Keep duplicate entries removed when pass scopes converge.

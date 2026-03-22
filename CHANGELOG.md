@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Validate: accept structurally equivalent exact struct refs
+
+- **Exact struct-reference equivalence slice** by **@jtenner**. Extended [`src/validate/match.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/match.mbt) so exact reference matching no longer requires raw heap-type identity when both sides point at distinct but structurally equivalent defined struct or array types. The new exact heap-type comparison unfolds referenced fields recursively instead of rejecting equivalent closures that happen to live at different type indices.
+- Added focused end-to-end coverage in [`src/wast/exact_type_equivalence_test.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/exact_type_equivalence_test.mbt), which moves [`tests/spec/proposals/custom-descriptors/exact.wast`](/home/jtenner/Projects/starshine-mb/tests/spec/proposals/custom-descriptors/exact.wast) beyond the structurally equivalent exact-struct case and onto the remaining exact-function-equivalence follow-up.
+
 ## 2026-03-22 WAST: accept passive typed empty elem declarations
 
 - **Elem text-surface parser slice** by **@jtenner**. Extended [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt) so `(elem (ref null $func))`-style passive typed empty element declarations are recognized as typed `elem` abbreviations instead of being misparsed as offset expressions.
