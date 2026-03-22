@@ -2024,6 +2024,7 @@ fn optimization_collect_uses_in_global(
 ///|
 fn optimization_collect_uses_in_table(
   table : Table,
+  table_local_idx : Int,
   used_funcs : Array[Bool],
   func_worklist : Array[Int],
   imported_func_count : Int,
@@ -2033,6 +2034,8 @@ fn optimization_collect_uses_in_table(
   imported_global_count : Int,
   defined_global_count : Int,
   used_tables : Array[Bool],
+  observable_tables : Array[Bool],
+  indirect_called_tables : Array[Bool],
   table_worklist : Array[Int],
   imported_table_count : Int,
   defined_table_count : Int,
@@ -2044,6 +2047,13 @@ fn optimization_collect_uses_in_table(
   imported_tag_count : Int,
   defined_tag_count : Int,
 ) -> Unit {
+  let abs_table_idx = imported_table_count + table_local_idx
+  if abs_table_idx < 0 || abs_table_idx >= used_tables.length() {
+    return
+  }
+  if !observable_tables[abs_table_idx] && !indirect_called_tables[abs_table_idx] {
+    return
+  }
   match table {
     Table(_, Some(init)) =>
       optimization_collect_func_uses_in_expr(
@@ -2532,6 +2542,7 @@ fn optimization_remove_unused_module_elements_iteration(
       let local_idx = table_worklist.pop().unwrap()
       optimization_collect_uses_in_table(
         tables[local_idx],
+        local_idx,
         used_funcs,
         func_worklist,
         imported_func_count,
@@ -2541,6 +2552,8 @@ fn optimization_remove_unused_module_elements_iteration(
         imported_global_count,
         globals.length(),
         used_tables,
+        observable_tables,
+        indirect_called_tables,
         table_worklist,
         imported_table_count,
         tables.length(),

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization: gate table initializer liveness on observable or indirect table use
+
+- **RemoveUnusedModuleElements table-initializer slice** by **@jtenner**. Refined [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so defined table initializer expressions are no longer scanned just because the table itself is live. Initializer contents are now retained only when the table’s contents are actually observable or when the table participates in indirect calls.
+- Expanded whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) for `table.size` and `table.set` no longer rooting table initializer helpers, while `call_indirect` and `table.copy` source observability still retain initializer-driven contents.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining table-precision work is now concentrated on Binaryen-style callable-signature fallback for mutated indirect tables.
+
 ## 2026-03-21 Optimization: narrow table-content observability for active elem retention
 
 - **RemoveUnusedModuleElements table-observability slice** by **@jtenner**. Refined [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so active `elem` segments are no longer kept just because live code touches table metadata or overwrites entries. `table.size`, `table.set`, `table.fill`, `table.grow`, and `table.init` now keep the table itself live without pinning prior contents, while exports, `table.get`, `table.copy` sources, and indirect-call tables with live mutation still retain the necessary active contents conservatively.

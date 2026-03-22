@@ -62,6 +62,7 @@ Status: researched rollout plan for Starshine's index-based IR.
   - roots active elem/data segments whose offsets are unknown or whose constant writes exceed the defined target's initial bounds when traps may happen,
   - lets non-mutated indirect-call tables keep only matching active elem contributors instead of every active elem on the table,
   - no longer treats `table.size` and pure table writes as observing prior active elem contents,
+  - only scans table initializer expressions when table contents are actually observable or when the table participates in indirect calls,
   - roots exported globals/tables/memories/tags and preserves functions/global/table/memory/tag operands named by surviving module elements and active segments that remain in the module,
   - walks only live function bodies,
   - removes unreachable defined functions, unused defined globals/tables/memories/tags, unused passive/declarative elem segments, and passive data segments,
@@ -75,6 +76,7 @@ Status: researched rollout plan for Starshine's index-based IR.
   - unknown-offset and out-of-bounds active-segment trap roots,
   - non-mutated indirect-call segment filtering,
   - table metadata and pure writes no longer pin dead active elem contents,
+  - non-observable live tables no longer pin table initializer helpers,
   - conservative fallback once the live code mutates the indirect-call table,
   - active segment mode remaps,
   - and mixed import+defined remaps for every currently landed index kind.
@@ -181,9 +183,9 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Keep open-world behavior conservative whenever feature/config evidence is missing.
 - Status:
   - partial.
-  - landed subset: non-mutated `call_indirect` and `return_call_indirect` now retain only matching active elem contributors for the target table; exports, `table.get`, and `table.copy` sources still root observable active contents; and pure metadata/write operations like `table.size`, `table.set`, `table.fill`, `table.grow`, and `table.init` no longer pin prior active contents on their own.
+  - landed subset: non-mutated `call_indirect` and `return_call_indirect` now retain only matching active elem contributors for the target table; exports, `table.get`, and `table.copy` sources still root observable active contents; pure metadata/write operations like `table.size`, `table.set`, `table.fill`, `table.grow`, and `table.init` no longer pin prior active contents on their own; and table initializer expressions are only scanned when table contents are observable or the table participates in indirect calls.
   - current conservative fallback: once live code both indirectly calls and mutates the same table, Starshine falls back to broad active-segment retention on that table instead of Binaryen's more precise callable-signature model.
-  - remaining work: table-initializer precision for indirect-only tables, Binaryen-style callable-signature fallback for mutated indirect tables, and any finer-grained per-item retention that depends on referenced-only function shells.
+  - remaining work: Binaryen-style callable-signature fallback for mutated indirect tables and any finer-grained per-item retention that depends on referenced-only function shells.
 - Exit when indirect-call retention is more precise than keeping every function reachable from every table.
 
 ### Slice 5 — Closed-World Function-Reference Precision
