@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-21 Docs: sync agent backlog with MemoryPacking research
+
+- **MemoryPacking backlog follow-through** by **@jtenner**. Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the active default-pipeline backlog now carries the new [`docs/0014-2026-03-21-memory-packing.md`](/home/jtenner/Projects/starshine-mb/docs/0014-2026-03-21-memory-packing.md) research baseline and the concrete implementation blockers it identified for a future Starshine port.
+
 ## 2026-03-21 Docs: add MemoryPacking research baseline
 
 - **MemoryPacking research pass** by **@jtenner**. Added [`docs/0014-2026-03-21-memory-packing.md`](/home/jtenner/Projects/starshine-mb/docs/0014-2026-03-21-memory-packing.md) as the detailed reference for the next default optimize pipeline pass after `RemoveUnusedModuleElements`, covering current Starshine scheduler reality, upstream Binaryen `MemoryPacking` semantics, pseudocode-level rewrite flow, trap-preservation rules, GC/data-user constraints, and the Starshine-specific `DataIdx` / `DataCntSec` porting requirements needed for a faithful implementation.
