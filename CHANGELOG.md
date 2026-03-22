@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: close MemoryPacking with validation and idempotence coverage
+
+- **MemoryPacking cleanup slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt), [`src/optimization/imports.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/imports.mbt), and [`src/optimization/moon.pkg`](/home/jtenner/Projects/starshine-mb/src/optimization/moon.pkg) so the optimization package now validates its rewritten `MemoryPacking` outputs directly and carries idempotence coverage for both the split-passive replacement path and the startup-trap-preserving active path.
+- Added final red-to-green internal regressions in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) asserting that rewritten `data_count`, memory/data index references, dropped-segment-state rewrites, and startup-trap-preserving active outputs all pass `validate_module(...)`, and that a second `MemoryPacking` run is a no-op on those rewritten modules.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0014-2026-03-21-memory-packing.md`](/home/jtenner/Projects/starshine-mb/docs/0014-2026-03-21-memory-packing.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so `MemoryPacking` is no longer tracked as an active default-pipeline blocker.
+
 ## 2026-03-22 Optimization: land MemoryPacking slice-8 instruction rewriting
 
 - **MemoryPacking rewrite slice** by **@jtenner**. Extended [`run_memory_packing`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now activates the full replacement walk after segment materialization: typed split passive `memory.init` lowers into the documented `memory.fill` plus replacement-`memory.init` sequence, typed `data.drop` lowers into replacement drops plus dropped-segment state tracking when needed, and later `array.new_data` / `array.init_data` users now remap through earlier segment expansion.

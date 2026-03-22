@@ -42,3 +42,6 @@ using @lib {
 
 ///|
 using @transformer {type ModuleTransformer, change, skip, unchanged}
+
+///|
+using @validate {validate_module}

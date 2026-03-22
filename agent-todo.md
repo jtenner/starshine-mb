@@ -16,7 +16,6 @@
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination
-- MemoryPacking
 - OnceReduction
 - TypeRefining
 - SignaturePruning
@@ -67,7 +66,6 @@
 - StringGathering
 
 ## v0.1.0 Active Slice Focus
-- `MemoryPacking`: slices 1-8 are now landed in the generated optimizer, with dedicated runner plumbing, `zero_filled_memory` / `traps_never_happen` threading, analysis-only bailouts for unsupported memory topologies and unsafe active layouts, the documented segment-op pre-normalization for obvious active/passive `memory.init` plus active `data.drop`, per-`DataIdx` referrer collection for `memory.init`, `data.drop`, `array.new_data`, and `array.init_data`, early removal of dead passive segments with `DataIdx` / `DataCntSec` plus `data_names` remapping, range analysis for split eligibility, zero/nonzero ranges, profitability thresholds, startup-trap preservation, and the data-segment cap, segment materialization with original-to-replacement mapping plus checked active-offset shifting, and the full typed passive `memory.init` / `data.drop` replacement walk with dropped-segment state tracking and temp-local allocation. Remaining implementation blocker is final validation/idempotence cleanup.
 - GC text-surface follow-up:
   - the higher-level WAST parser/printer/lowerer now models the `struct.new*` instruction family, including descriptor-bearing allocation forms.
   - remaining feature work is general GC module/type authoring: non-func `type` forms (`struct`, later `array`), `field` storage syntax, and descriptor/describes metadata in type definitions so `wast_to_binary_module` can author descriptor-bearing GC fixtures end to end.

@@ -3492,6 +3492,72 @@ test "memory packing remaps array.new_data after earlier segment expansion chang
 }
 
 ///|
+test "memory packing rewritten passive split output validates and is idempotent" {
+  let mod = optimization_memory_packing_test_defined_memory()
+    .with_data_sec(
+      DataSec::new([
+        Data::new(
+          @lib.DataMode::passive(),
+          b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00HELLO\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+        ),
+      ]),
+    )
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32::new(1U)))
+    .with_type_sec(
+      @lib.TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::memory_init(
+              DataIdx::new(0U),
+              @lib.MemIdx::new(0U),
+              @lib.TInstr::i32_const(@lib.I32::new(100)),
+              @lib.TInstr::i32_const(@lib.I32::new(0)),
+              @lib.TInstr::i32_const(@lib.I32::new(25)),
+            ),
+            @lib.TInstr::data_drop(DataIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimization_memory_packing_test_run(mod)
+  assert_eq(validate_module(optimized), Ok(()))
+  assert_eq(optimization_memory_packing_test_run(optimized), optimized)
+}
+
+///|
+test "memory packing startup-trap-preserving output validates and is idempotent" {
+  let mod = optimization_memory_packing_test_defined_memory().with_data_sec(
+    DataSec::new([
+      optimization_memory_packing_test_active_data(
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(65535))]),
+        b"\x00\x00",
+      ),
+    ]),
+  )
+  let optimized = optimization_memory_packing_test_run(mod)
+  match optimized.data_sec {
+    Some(DataSec(datas)) =>
+      assert_eq(datas, [
+        optimization_memory_packing_test_active_data(
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(65536))]),
+          b"\x00",
+        ),
+      ])
+    _ => fail("expected trap-preserving active output")
+  }
+  assert_eq(validate_module(optimized), Ok(()))
+  assert_eq(optimization_memory_packing_test_run(optimized), optimized)
+}
+
+///|
 fn optimization_imported_func_count(mod : Module) -> Int {
   let mut count = 0
   match mod.import_sec {

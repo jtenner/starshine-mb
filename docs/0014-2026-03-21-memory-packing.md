@@ -1,6 +1,6 @@
 # MemoryPacking
 
-Status: research baseline plus slices 1-8. In Starshine today, the pass now has the full segment-materialization and typed passive replacement layers, including rebuilt split data segments, original-to-replacement `DataIdx` mapping, checked active-offset shifting, rewritten `data_names`, dropped-segment state tracking, and temp-local allocation for nonconstant destinations. The remaining open work is validation/idempotence cleanup. This document remains the implementation blueprint for that final slice.
+Status: research baseline plus slices 1-9. In Starshine today, the pass now has the full segment-materialization and typed passive replacement layers, including rebuilt split data segments, original-to-replacement `DataIdx` mapping, checked active-offset shifting, rewritten `data_names`, dropped-segment state tracking, temp-local allocation for nonconstant destinations, and explicit validation/idempotence coverage on the rewritten outputs. `MemoryPacking` is no longer tracked as an active optimize-pipeline blocker.
 
 ## Purpose
 
@@ -45,13 +45,13 @@ What exists now:
 10. The runner now computes split eligibility plus final zero/nonzero range plans, including active/passive profitability thresholds, startup-trap preservation, and the Web segment-count cap merge rule.
 11. The runner now materializes rebuilt split data segments with original-to-replacement `DataIdx` mapping, checked active-offset shifting, and rebuilt `data_names`.
 12. The runner now rewrites typed passive `memory.init` and `data.drop` through the documented replacement walk, including dropped-segment state tracking and fresh locals for nonconstant destinations, and remaps later array data users after earlier segment expansion.
-13. The runner still lacks the validation/idempotence cleanup slice.
+13. The runner now has explicit validation/idempotence coverage for the rewritten split-passive and startup-trap-preserving active outputs.
 
 That means:
 
 - The pass name and scheduling are real.
 - Slices 1-7 from the implementation plan are complete.
-- The semantics are now real for the documented segment-materialization and typed passive replacement cases.
+- The semantics are now real for the documented segment-materialization and typed passive replacement cases, with validation/idempotence coverage on the rewritten outputs.
 - Any correctness validation for this pass must currently be done against upstream Binaryen behavior, then ported into Starshine-specific IR mechanics.
 
 ## Upstream Sources Used
