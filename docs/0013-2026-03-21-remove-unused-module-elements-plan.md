@@ -58,7 +58,7 @@ Status: researched rollout plan for Starshine's index-based IR.
   - and currently leave `has_strings` false because Starshine does not yet model string instructions in IR.
 - The currently landed behavior is still intentionally conservative, but no longer function-only:
   - roots exported and start functions,
-  - roots active elem/data segments conservatively,
+  - keeps active elem/data segments only when their target table or memory is imported or otherwise live,
   - roots exported globals/tables/memories/tags and preserves functions/global/table/memory/tag operands named by surviving module elements and active segments that remain in the module,
   - walks only live function bodies,
   - removes unreachable defined functions, unused defined globals/tables/memories/tags, unused passive/declarative elem segments, and passive data segments,
@@ -67,6 +67,8 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Test coverage now includes explicit edge regressions for:
   - idempotence,
   - dead global/table initializer non-roots,
+  - dead active-segment target removal,
+  - imported/exported active-segment observability,
   - active segment mode remaps,
   - and mixed import+defined remaps for every currently landed index kind.
 - Starshine IR is index-based, not name-based:
@@ -137,8 +139,8 @@ Status: researched rollout plan for Starshine's index-based IR.
   - `ALG-00`, `ALG-02`, `ALG-03`, `ALG-08`, `ALG-10`, `ALG-11`.
 - Status:
   - partial.
-  - landed subset: open-world liveness for exports, start, exported globals/tables/memories/tags, live table initializer roots, conservative active-segment roots, live direct calls, live `GlobalIdx`/`TableIdx`/`MemIdx`/`TagIdx`/`ElemIdx`/`DataIdx` users, function retention from kept globals/tables/elem segments, function/global/table/memory/tag/name-map compaction, and elem/data/global/table/memory/tag removal with remapped indices.
-  - remaining work: indirect-call/table precision, active-segment trap precision, and any path that needs referenced-only shell preservation.
+  - landed subset: open-world liveness for exports, start, exported globals/tables/memories/tags, live table initializer roots, active-segment retention for imported/live targets, live direct calls, live `GlobalIdx`/`TableIdx`/`MemIdx`/`TagIdx`/`ElemIdx`/`DataIdx` users, function retention from kept globals/tables/elem segments, function/global/table/memory/tag/name-map compaction, and elem/data/global/table/memory/tag removal with remapped indices.
+  - remaining work: fuller indirect-call/table precision, active-segment trap precision, and any path that needs referenced-only shell preservation.
 - Root exports and non-empty start.
 - Scan globals, function bodies, table initializers, elem expressions, and active segment offsets for direct references.
 - Treat direct calls/returns, global/table/memory/tag ops, `memory.init`, `data.drop`, `table.init`, `elem.drop`, `array.new_data`, and `array.new_elem` as strong uses.

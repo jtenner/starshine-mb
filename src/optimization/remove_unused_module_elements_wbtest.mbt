@@ -293,7 +293,7 @@ test "remove unused module elements keeps start-reachable functions" {
 }
 
 ///|
-test "remove unused module elements keeps functions referenced by active elem segments" {
+test "remove unused module elements keeps functions referenced by active elem segments on exported tables" {
   let mod = Module::new()
     .with_type_sec(remove_unused_test_type_sec())
     .with_table_sec(
@@ -339,6 +339,10 @@ test "remove unused module elements keeps functions referenced by active elem se
           @lib.Name::from_string("main"),
           @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
         ),
+        @lib.Export::new(
+          @lib.Name::from_string("table"),
+          @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+        ),
       ]),
     )
     .with_elem_sec(
@@ -363,6 +367,20 @@ test "remove unused module elements keeps functions referenced by active elem se
     Some(@lib.ElemSec([@lib.Elem(_, @lib.FuncsElemKind([@lib.FuncIdx(idx)]))])) =>
       assert_eq(idx, 1U)
     _ => fail("expected rewritten elem segment")
+  }
+  match optimized.export_sec {
+    Some(
+      @lib.ExportSec(
+        [
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(func_idx))),
+          @lib.Export(_, @lib.TableExternIdx(@lib.TableIdx(table_idx))),
+        ]
+      )
+    ) => {
+      assert_eq(func_idx, 0U)
+      assert_eq(table_idx, 0U)
+    }
+    _ => fail("expected rewritten exports")
   }
 }
 
@@ -554,7 +572,7 @@ test "remove unused module elements removes unused passive elem and data segment
 }
 
 ///|
-test "remove unused module elements keeps active elem and data segments conservatively" {
+test "remove unused module elements keeps active elem and data segments on exported defined targets" {
   let mod = Module::new()
     .with_type_sec(remove_unused_test_type_sec())
     .with_table_sec(
@@ -593,6 +611,14 @@ test "remove unused module elements keeps active elem and data segments conserva
         @lib.Export::new(
           @lib.Name::from_string("main"),
           @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("table"),
+          @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("memory"),
+          @lib.ExternIdx::mem(@lib.MemIdx::new(0U)),
         ),
       ]),
     )
@@ -775,7 +801,14 @@ test "remove unused module elements keeps globals referenced by active data offs
           @lib.Name::from_string("main"),
           @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
         ),
+        @lib.Export::new(
+          @lib.Name::from_string("memory"),
+          @lib.ExternIdx::mem(@lib.MemIdx::new(0U)),
+        ),
       ]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
     )
     .with_global_sec(
       @lib.GlobalSec::new([
@@ -993,12 +1026,19 @@ test "remove unused module elements removes unused tables and memories and rewri
 }
 
 ///|
-test "remove unused module elements keeps tables and memories referenced by active segments" {
+test "remove unused module elements removes dead active elem and data segments on dead defined targets" {
   let mod = Module::new()
     .with_type_sec(remove_unused_test_type_sec())
-    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
     .with_code_sec(
       @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
         @lib.Func::t_func(
           [],
           @lib.Locals::empty(),
@@ -1045,7 +1085,7 @@ test "remove unused module elements keeps tables and memories referenced by acti
             @lib.TableIdx::new(1U),
             @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
           ),
-          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
         ),
       ]),
     )
@@ -1063,23 +1103,192 @@ test "remove unused module elements keeps tables and memories referenced by acti
 
   let optimized = remove_unused_test_run(mod)
 
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 1)
+    None => fail("expected func section")
+  }
   match optimized.table_sec {
-    Some(@lib.TableSec(tables)) => assert_eq(tables.length(), 1)
+    Some(@lib.TableSec(tables)) => assert_eq(tables.length(), 0)
     None => fail("expected table section")
   }
   match optimized.mem_sec {
-    Some(@lib.MemSec(mems)) => assert_eq(mems.length(), 1)
+    Some(@lib.MemSec(mems)) => assert_eq(mems.length(), 0)
     None => fail("expected mem section")
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec(elems)) => assert_eq(elems.length(), 0)
+    None => fail("expected elem section")
+  }
+  match optimized.data_sec {
+    Some(@lib.DataSec(datas)) => assert_eq(datas.length(), 0)
+    None => fail("expected data section")
+  }
+}
+
+///|
+test "remove unused module elements keeps active elem and data segments on imported targets" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("itab"),
+          @lib.ExternType::table(
+            @lib.TableType::new(
+              remove_unused_test_funcref(),
+              @lib.Limits::i32(1U, None),
+            ),
+          ),
+        ),
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("imem"),
+          @lib.ExternType::mem(@lib.MemType::new(@lib.Limits::i32(1U, None))),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+          ),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_data_sec(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::active(
+            @lib.MemIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+          ),
+          b"visible",
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
   }
   match optimized.elem_sec {
     Some(@lib.ElemSec([@lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _)])) =>
       assert_eq(table_idx, 0U)
-    _ => fail("expected rewritten active elem mode")
+    _ => fail("expected active elem section")
   }
   match optimized.data_sec {
-    Some(@lib.DataSec([@lib.Data(@lib.Active(@lib.MemIdx(mem_idx), _), _)])) =>
+    Some(@lib.DataSec([@lib.Data(@lib.Active(@lib.MemIdx(mem_idx), _), bytes)])) => {
       assert_eq(mem_idx, 0U)
-    _ => fail("expected rewritten active data mode")
+      assert_eq(bytes, b"visible")
+    }
+    _ => fail("expected active data section")
+  }
+}
+
+///|
+test "remove unused module elements keeps active elem segments for indirectly called tables" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::call_indirect(
+              @lib.TypeIdx::new(0U),
+              @lib.TableIdx::new(0U),
+              [],
+              remove_unused_test_i32_const(0),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            remove_unused_test_funcref(),
+            @lib.Limits::i32(1U, None),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+          ),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  match optimized.table_sec {
+    Some(@lib.TableSec(tables)) => assert_eq(tables.length(), 1)
+    None => fail("expected table section")
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec([@lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _)])) =>
+      assert_eq(table_idx, 0U)
+    _ => fail("expected active elem section")
   }
 }
 

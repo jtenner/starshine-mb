@@ -1320,48 +1320,61 @@ fn optimization_seed_root_uses(
 }
 
 ///|
-fn optimization_seed_root_segments(
-  mod : Module,
+fn optimization_promote_live_active_segments(
+  elems : Array[Elem],
+  used_tables : Array[Bool],
+  imported_table_count : Int,
   used_elems : Array[Bool],
   elem_worklist : Array[Int],
+  datas : Array[Data],
+  used_mems : Array[Bool],
+  imported_mem_count : Int,
   used_datas : Array[Bool],
   data_worklist : Array[Int],
 ) -> Unit {
-  match mod.elem_sec {
-    Some(ElemSec(elems)) => {
-      let mut i = 0
-      while i < elems.length() {
-        match elems[i] {
-          Elem(@lib.Active(_, _), _) =>
+  let mut i = 0
+  while i < elems.length() {
+    if !used_elems[i] {
+      match elems[i] {
+        Elem(@lib.Active(@lib.TableIdx(table_idx), _), _) => {
+          let abs_table_idx = table_idx.reinterpret_as_int()
+          if abs_table_idx < 0 ||
+            abs_table_idx >= used_tables.length() ||
+            abs_table_idx < imported_table_count ||
+            used_tables[abs_table_idx] {
             optimization_note_used_elem(
               used_elems,
               elem_worklist,
               ElemIdx::new(i.reinterpret_as_uint()),
             )
-          _ => ()
+          }
         }
-        i += 1
+        _ => ()
       }
     }
-    None => ()
+    i += 1
   }
-  match mod.data_sec {
-    Some(DataSec(datas)) => {
-      let mut i = 0
-      while i < datas.length() {
-        match datas[i] {
-          Data(@lib.Active(_, _), _) =>
+  i = 0
+  while i < datas.length() {
+    if !used_datas[i] {
+      match datas[i] {
+        Data(@lib.Active(@lib.MemIdx(mem_idx), _), _) => {
+          let abs_mem_idx = mem_idx.reinterpret_as_int()
+          if abs_mem_idx < 0 ||
+            abs_mem_idx >= used_mems.length() ||
+            abs_mem_idx < imported_mem_count ||
+            used_mems[abs_mem_idx] {
             optimization_note_used_data(
               used_datas,
               data_worklist,
               DataIdx::new(i.reinterpret_as_uint()),
             )
-          _ => ()
+          }
         }
-        i += 1
+        _ => ()
       }
     }
-    None => ()
+    i += 1
   }
 }
 
@@ -1955,8 +1968,9 @@ fn optimization_remove_unused_module_elements_iteration(
     imported_tag_count,
     tags.length(),
   )
-  optimization_seed_root_segments(
-    mod, used_elems, elem_worklist, used_datas, data_worklist,
+  optimization_promote_live_active_segments(
+    elems, used_tables, imported_table_count, used_elems, elem_worklist, datas, used_mems,
+    imported_mem_count, used_datas, data_worklist,
   )
   while func_worklist.length() > 0 ||
         global_worklist.length() > 0 ||
@@ -2096,6 +2110,10 @@ fn optimization_remove_unused_module_elements_iteration(
         tags.length(),
       )
     }
+    optimization_promote_live_active_segments(
+      elems, used_tables, imported_table_count, used_elems, elem_worklist, datas,
+      used_mems, imported_mem_count, used_datas, data_worklist,
+    )
   }
 
   let keep_defined : Array[Bool] = []

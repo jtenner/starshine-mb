@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization: add live-target precision for active elem/data segments
+
+- **RemoveUnusedModuleElements active-segment precision slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so active `elem` and `data` segments are no longer unconditional roots. They now become live only when their target table or memory is imported or otherwise live, which lets dead active segments on dead defined targets disappear instead of pinning helper functions.
+- Expanded whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) for dead active-segment removal, imported-target observability, exported-target retention, and indirect-table use preserving active elem contents.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining visible `RemoveUnusedModuleElements` gaps are trap-root precision, fuller indirect-call/table precision, and closed-world referenced-only function handling.
+
 ## 2026-03-21 Cmd/Optimization: derive generated pipeline features from modules and options
 
 - **Generated optimize feature-source plumbing** by **@jtenner**. Extended [`OptimizeOptions`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) and the generated optimize helpers in [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) so generated pipeline expansion and module-wide execution now derive `PipelineFeatures.has_gc` and `PipelineFeatures.has_multivalue` from the input module, preserve `low_memory_unused`, and thread an explicit `closed_world` option instead of synthesizing a mostly-empty feature struct.
