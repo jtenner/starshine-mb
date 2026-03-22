@@ -723,6 +723,10 @@ fn optimization_dead_code_elimination_rewrite_instr(
       optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
         @lib.TInstr::load(op, memarg, args[0])
       })
+    @lib.TRefGetDesc(type_idx, child) =>
+      optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
+        @lib.TInstr::ref_get_desc(type_idx, args[0])
+      })
     @lib.TRefTest(nullable, ht, child) =>
       optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
         @lib.TInstr::ref_test(nullable, ht, args[0])

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: land DeadCodeElimination ref.get_desc rewrite
+
+- **DeadCodeElimination descriptor unary slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `ref.get_desc` now uses the same unary unreachable-child rewrite as the other typed one-child reference instructions.
+- Added a descriptor-bearing regression in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) that proves `drop(ref.get_desc(... unreachable))` now collapses to plain `unreachable`.
+- Recorded the checkpoint in [`docs/0044-2026-03-22-dead-code-elimination-ref-get-desc.md`](/home/jtenner/Projects/starshine-mb/docs/0044-2026-03-22-dead-code-elimination-ref-get-desc.md), which narrows the remaining DCE follow-up to the nested reference-result `try_table` coverage question plus the later string / EH-pop work.
+
 ## 2026-03-22 Optimization: land DeadCodeElimination unary ref-test rewrites
 
 - **DeadCodeElimination sibling GC unary slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `ref.test`, `ref.test_desc`, and `ref.cast_desc_eq` now use the same generic unreachable-child rewrite as the other one-child typed instructions.

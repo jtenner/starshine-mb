@@ -26,7 +26,8 @@
   - `docs/0041-2026-03-22-dead-code-elimination-gc-branch-ops.md` lands the GC branch-op part of Slice 9: `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` now collapse when their inspected ref or earlier prefix values become unreachable.
   - `docs/0042-2026-03-22-dead-code-elimination-ref-cast.md` lands the first no-over-refinalize GC unary slice: `ref.cast` now collapses directly when its operand is unreachable, even in concrete reference-result fixtures.
   - `docs/0043-2026-03-22-dead-code-elimination-unary-ref-tests.md` lands the sibling GC unary slice: `ref.test`, `ref.test_desc`, and `ref.cast_desc_eq` now collapse when their operand is unreachable.
-  - remaining implementation work is `ref.get_desc`, the nested reference-result `try_table` case, string-sensitive regressions, and later EH `pop` fixup follow-up.
+  - `docs/0044-2026-03-22-dead-code-elimination-ref-get-desc.md` lands the descriptor unary slice: `ref.get_desc` now collapses when its operand is unreachable in descriptor-bearing fixtures.
+  - remaining follow-up work is the nested reference-result `try_table` coverage question, string-sensitive regressions, and later EH `pop` fixup follow-up.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination

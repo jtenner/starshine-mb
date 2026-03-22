@@ -42,6 +42,39 @@ fn dead_code_elimination_test_result_module(
 }
 
 ///|
+fn dead_code_elimination_test_descriptor_module(
+  instrs : Array[@lib.TInstr],
+) -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      @lib.RecType::group([
+        @lib.SubType::comp_type(
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(
+            descriptor=Some(@lib.TypeIdx::new(2U)),
+          ),
+        ),
+        @lib.SubType::comp_type(
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(1U))),
+        ),
+      ]),
+    ]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::t_func([], @lib.Locals::empty(), @lib.TExpr::new(instrs)),
+    ]),
+  )
+}
+
+///|
 fn dead_code_elimination_test_run(mod : Module) -> Module {
   let (optimized, _) = run_dead_code_elimination(mod, PipelineScratch::new())
   match @validate.validate_module(optimized) {
@@ -73,6 +106,19 @@ fn dead_code_elimination_test_result_body(
 ) -> Array[@lib.TInstr] {
   let optimized = dead_code_elimination_test_run(
     dead_code_elimination_test_result_module(results, instrs),
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => body.inner()
+    _ => abort("expected optimized single typed function body")
+  }
+}
+
+///|
+fn dead_code_elimination_test_descriptor_body(
+  instrs : Array[@lib.TInstr],
+) -> Array[@lib.TInstr] {
+  let optimized = dead_code_elimination_test_run(
+    dead_code_elimination_test_descriptor_module(instrs),
   )
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => body.inner()
@@ -644,5 +690,18 @@ test "dead code elimination replaces ref_cast_desc_eq when its operand is unreac
       ),
     ],
   )
+  assert_eq(body, [@lib.TInstr::unreachable_()])
+}
+
+///|
+test "dead code elimination replaces ref_get_desc when its operand is unreachable" {
+  let body = dead_code_elimination_test_descriptor_body([
+    @lib.TInstr::drop(
+      @lib.TInstr::ref_get_desc(
+        @lib.TypeIdx::new(1U),
+        @lib.TInstr::unreachable_(),
+      ),
+    ),
+  ])
   assert_eq(body, [@lib.TInstr::unreachable_()])
 }
