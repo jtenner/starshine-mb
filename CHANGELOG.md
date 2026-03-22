@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 WAST: accept passive typed empty elem declarations
+
+- **Elem text-surface parser slice** by **@jtenner**. Extended [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt) so `(elem (ref null $func))`-style passive typed empty element declarations are recognized as typed `elem` abbreviations instead of being misparsed as offset expressions.
+- Updated [`src/wast/module_wast.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/module_wast.mbt) and added focused coverage in [`src/wast/passive_typed_elem_surface_test.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/passive_typed_elem_surface_test.mbt), so passive typed empty `elem` segments now print without a synthetic table index and lower into passive typed element sections correctly.
+- Recorded the slice in [`docs/0029-2026-03-22-passive-typed-empty-elem-surface.md`](/home/jtenner/Projects/starshine-mb/docs/0029-2026-03-22-passive-typed-empty-elem-surface.md), which moves `tests/spec/proposals/custom-descriptors/exact.wast` past its initial `elem` parse stop and onto the later exact-reference validation work.
+
 ## 2026-03-22 Validate: accept bottom nulls for ref.get_desc and defined refs
 
 - **Bottom-ref compatibility slice** by **@jtenner**. Extended [`src/validate/env.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt) and [`src/validate/match.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/match.mbt) so `ref.get_desc` and general validation now accept bottom refs like `ref.null none` against compatible defined struct and array references, while still reserving exact descriptor results for operands that match the exact inspected ref shape.

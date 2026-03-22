@@ -893,9 +893,9 @@ fn write_module_field(
         out.write_char(' ')
         out.write_string(id)
       }
-      out.write_char(' ')
-      out.write_string(index_text(elem.table_index))
       if elem.offset.length() > 0 {
+        out.write_char(' ')
+        out.write_string(index_text(elem.table_index))
         out.write_string(" (offset\n")
         write_instructions(out, elem.offset, indent + 4)
         out.write_string("\{pad}  )")

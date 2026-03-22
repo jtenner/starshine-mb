@@ -76,7 +76,8 @@
   - implicit inline functypes now append after grouped `rec` fields at flattened type indices instead of raw rec-entry indices.
   - exact `ref.null` immediates now survive WAST lowering, lib instructions, validation, and binary roundtrip as full nullable `RefType` immediates instead of degrading to inexact heap-only nulls.
   - bottom refs like `ref.null none` now also match compatible defined nullable refs during validation, which clears `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` on the native static path.
-  - remaining follow-up work is choosing the next mixed-runtime custom-descriptor fixture lift beyond `ref_get_desc.wast`.
+  - passive typed empty `elem` declarations like `(elem (ref null $func))` now parse, print, and lower, which moves `tests/spec/proposals/custom-descriptors/exact.wast` beyond its first higher-level text-surface stop.
+  - remaining follow-up work is the later exact-reference validation mismatch now exposed by `tests/spec/proposals/custom-descriptors/exact.wast`.
 
 ## Backlog Hygiene
 - Keep duplicate entries removed when pass scopes converge.

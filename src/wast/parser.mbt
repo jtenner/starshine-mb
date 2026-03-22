@@ -3202,36 +3202,55 @@ fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
   }
 
   let table_index = self.try_parse_index().unwrap_or(Index::Num(0))
+  let mut elem_type : ValueType? = None
 
   // Offset expression
   let offset = if self.check(Lpar) {
-    self.expect_lpar()
-    if self.check(Offset) {
-      let _ = self.advance()
-    }
-    let instrs = self.parse_instructions()
-    self.expect_rpar()
-    instrs
-  } else {
-    []
-  }
-
-  let mut elem_type : ValueType? = None
-  if self.check(Func) {
-    let _ = self.advance()
-  } else if self.can_start_value_type() {
     let saved_state = self.save_lexer_state()
     let saved_token = self.current
-    let parsed_type : ValueType? = Some(self.parse_value_type()) catch {
+    let parsed_elem_type : ValueType? = Some(self.parse_value_type()) catch {
       _ => {
         self.restore_lexer_state(saved_state)
         self.current = saved_token
         None
       }
     }
-    match parsed_type {
-      Some(v) => elem_type = Some(v)
-      None => ()
+    match parsed_elem_type {
+      Some(vt) => {
+        elem_type = Some(vt)
+        []
+      }
+      None => {
+        self.expect_lpar()
+        if self.check(Offset) {
+          let _ = self.advance()
+        }
+        let instrs = self.parse_instructions()
+        self.expect_rpar()
+        instrs
+      }
+    }
+  } else {
+    []
+  }
+
+  if elem_type is None {
+    if self.check(Func) {
+      let _ = self.advance()
+    } else if self.can_start_value_type() {
+      let saved_state = self.save_lexer_state()
+      let saved_token = self.current
+      let parsed_type : ValueType? = Some(self.parse_value_type()) catch {
+        _ => {
+          self.restore_lexer_state(saved_state)
+          self.current = saved_token
+          None
+        }
+      }
+      match parsed_type {
+        Some(v) => elem_type = Some(v)
+        None => ()
+      }
     }
   }
 
