@@ -568,21 +568,63 @@ pub fn run_memory_packing(
   }
   let prenormalized = optimization_memory_packing_prenormalize_segment_ops(mod)
   let referrers = optimization_memory_packing_collect_referrers(prenormalized)
-  (
-    optimization_memory_packing_remove_dead_passive_segments(
-      prenormalized, referrers,
-    ),
-    global,
+  let dead_removed = optimization_memory_packing_remove_dead_passive_segments(
+    prenormalized, referrers,
   )
+  let remaining_referrers = optimization_memory_packing_collect_referrers(
+    dead_removed,
+  )
+  ignore(
+    optimization_memory_packing_analyze_ranges(
+      dead_removed, remaining_referrers, features,
+    ),
+  )
+  (dead_removed, global)
 }
 
 ///|
 priv enum MemoryPackingSegmentReferrer {
-  MemoryInit
+  MemoryInit(Bool)
   DataDrop
   ArrayNewData
   ArrayInitData
 } derive(Eq, Show)
+
+///|
+priv struct MemoryPackingRange {
+  is_zero : Bool
+  start : Int
+  end : Int
+} derive(Eq, Show)
+
+///|
+fn MemoryPackingRange::new(
+  is_zero : Bool,
+  start : Int,
+  end : Int,
+) -> MemoryPackingRange {
+  { is_zero, start, end }
+}
+
+///|
+fn MemoryPackingRange::length(self : MemoryPackingRange) -> Int {
+  self.end - self.start
+}
+
+///|
+let optimization_memory_packing_memory_init_size = 10
+
+///|
+let optimization_memory_packing_memory_fill_size = 9
+
+///|
+let optimization_memory_packing_data_drop_size = 3
+
+///|
+let optimization_memory_packing_active_zero_threshold = 8
+
+///|
+let optimization_memory_packing_max_data_segments = 100000
 
 ///|
 fn optimization_memory_packing_defined_mem_count(mod : Module) -> Int {
@@ -727,7 +769,7 @@ fn optimization_memory_packing_collect_referrers(
           optimization_memory_packing_note_referrer(
             referrers,
             data_idx,
-            MemoryPackingSegmentReferrer::MemoryInit,
+            MemoryPackingSegmentReferrer::MemoryInit(false),
           )
         @lib.DataDrop(data_idx) =>
           optimization_memory_packing_note_referrer(
@@ -753,11 +795,14 @@ fn optimization_memory_packing_collect_referrers(
     })
     .on_tinstruction_evt(fn(_, _, instr) {
       match instr.kind {
-        @lib.TMemoryInit(data_idx, _, _, _, _) =>
+        @lib.TMemoryInit(data_idx, _, _, offset, size) =>
           optimization_memory_packing_note_referrer(
             referrers,
             data_idx,
-            MemoryPackingSegmentReferrer::MemoryInit,
+            MemoryPackingSegmentReferrer::MemoryInit(
+              optimization_memory_packing_tinstr_const_u64(offset) is Some(_) &&
+              optimization_memory_packing_tinstr_const_u64(size) is Some(_),
+            ),
           )
         @lib.TDataDrop(data_idx) =>
           optimization_memory_packing_note_referrer(
@@ -863,6 +908,383 @@ fn optimization_memory_packing_removed_data_idx(
     return false
   }
   removed[idx]
+}
+
+///|
+fn optimization_memory_packing_data_name(
+  mod : Module,
+  data_idx : DataIdx,
+) -> @lib.Name? {
+  let DataIdx(raw) = data_idx
+  let target = raw
+  match mod.name_sec {
+    Some(name_sec) =>
+      match name_sec.data_names {
+        Some(@lib.NameMap(entries)) =>
+          for entry in entries {
+            let @lib.NameAssoc(idx, name) = entry
+            if idx == target {
+              return Some(name)
+            }
+          }
+        None => ()
+      }
+    None => ()
+  }
+  None
+}
+
+///|
+fn optimization_memory_packing_can_split_segment(
+  mod : Module,
+  data_idx : DataIdx,
+  data : Data,
+  referrers : Array[MemoryPackingSegmentReferrer],
+) -> Bool {
+  match optimization_memory_packing_data_name(mod, data_idx) {
+    Some(name) => if name.0.has_prefix("__llvm") { return false }
+    None => ()
+  }
+  let Data(_, bytes) = data
+  if bytes.length() == 0 {
+    return false
+  }
+  let passive = match data {
+    Data(Passive, _) => true
+    _ => false
+  }
+  for referrer in referrers {
+    match referrer {
+      MemoryPackingSegmentReferrer::MemoryInit(can_split_memory_init) =>
+        if passive && !can_split_memory_init {
+          return false
+        }
+      MemoryPackingSegmentReferrer::ArrayNewData
+      | MemoryPackingSegmentReferrer::ArrayInitData => return false
+      _ => ()
+    }
+  }
+  match data {
+    Data(Passive, _) => true
+    Data(Active(_, offset_expr), _) =>
+      optimization_const_expr_u64(offset_expr) is Some(_)
+  }
+}
+
+///|
+fn optimization_memory_packing_raw_ranges(
+  bytes : Bytes,
+) -> Array[MemoryPackingRange] {
+  let ranges : Array[MemoryPackingRange] = []
+  if bytes.length() == 0 {
+    return ranges
+  }
+  let zero = (0).to_byte()
+  let mut start = 0
+  while start < bytes.length() {
+    let mut end = start
+    while end < bytes.length() && bytes[end] == zero {
+      end += 1
+    }
+    if end > start {
+      ranges.push(MemoryPackingRange::new(true, start, end))
+      start = end
+    }
+    while end < bytes.length() && bytes[end] != zero {
+      end += 1
+    }
+    if end > start {
+      ranges.push(MemoryPackingRange::new(false, start, end))
+      start = end
+    }
+  }
+  ranges
+}
+
+///|
+fn optimization_memory_packing_should_preserve_trap(
+  mod : Module,
+  data : Data,
+  features : PipelineFeatures,
+) -> Bool {
+  if features.traps_never_happen {
+    return false
+  }
+  match data {
+    Data(Active(mem_idx, offset_expr), bytes) =>
+      match
+        (
+          optimization_const_expr_u64(offset_expr),
+          optimization_memory_packing_mem_type(mod, mem_idx),
+        ) {
+        (Some(start), Some(@lib.MemType(limits))) => {
+          let size = bytes.length().to_uint64()
+          let end = start + size
+          let memory_size = optimization_limits_initial_length(limits) * 65536UL
+          end < start || end > memory_size
+        }
+        _ => true
+      }
+    _ => false
+  }
+}
+
+///|
+fn optimization_memory_packing_calculate_ranges(
+  mod : Module,
+  data : Data,
+  referrers : Array[MemoryPackingSegmentReferrer],
+  features : PipelineFeatures,
+) -> Array[MemoryPackingRange] {
+  let Data(_, bytes) = data
+  if bytes.length() == 0 {
+    return []
+  }
+  let preserve_trap = optimization_memory_packing_should_preserve_trap(
+    mod, data, features,
+  )
+  let ranges = optimization_memory_packing_raw_ranges(bytes)
+  let mut threshold = 0
+  match data {
+    Data(Passive, _) => {
+      threshold += 2
+      let mut edge_threshold = 0
+      for referrer in referrers {
+        match referrer {
+          MemoryPackingSegmentReferrer::MemoryInit(_) => {
+            threshold += optimization_memory_packing_memory_fill_size +
+              optimization_memory_packing_memory_init_size
+            edge_threshold += optimization_memory_packing_memory_fill_size
+          }
+          _ => threshold += optimization_memory_packing_data_drop_size
+        }
+      }
+      let trimmed_trailing : Array[MemoryPackingRange] = if ranges.length() >= 2 {
+        let last = ranges[ranges.length() - 1]
+        let penultimate = ranges[ranges.length() - 2]
+        if last.is_zero && last.length() <= edge_threshold {
+          let next : Array[MemoryPackingRange] = []
+          let mut i = 0
+          while i < ranges.length() - 2 {
+            next.push(ranges[i])
+            i += 1
+          }
+          next.push(
+            MemoryPackingRange::new(
+              penultimate.is_zero,
+              penultimate.start,
+              last.end,
+            ),
+          )
+          next
+        } else {
+          ranges
+        }
+      } else {
+        ranges
+      }
+      if trimmed_trailing.length() >= 2 {
+        let first = trimmed_trailing[0]
+        let second = trimmed_trailing[1]
+        if first.is_zero && first.length() <= edge_threshold {
+          let next : Array[MemoryPackingRange] = [
+            MemoryPackingRange::new(second.is_zero, first.start, second.end),
+          ]
+          let mut i = 2
+          while i < trimmed_trailing.length() {
+            next.push(trimmed_trailing[i])
+            i += 1
+          }
+          return optimization_memory_packing_merge_ranges(
+            next,
+            threshold,
+            bytes.length(),
+            preserve_trap,
+          )
+        }
+      }
+      optimization_memory_packing_merge_ranges(
+        trimmed_trailing,
+        threshold,
+        bytes.length(),
+        preserve_trap,
+      )
+    }
+    _ =>
+      optimization_memory_packing_merge_ranges(
+        ranges,
+        optimization_memory_packing_active_zero_threshold,
+        bytes.length(),
+        preserve_trap,
+      )
+  }
+}
+
+///|
+fn optimization_memory_packing_merge_ranges(
+  ranges : Array[MemoryPackingRange],
+  threshold : Int,
+  byte_len : Int,
+  preserve_trap : Bool,
+) -> Array[MemoryPackingRange] {
+  if ranges.is_empty() {
+    return ranges
+  }
+  let merged : Array[MemoryPackingRange] = [ranges[0]]
+  let mut i = 1
+  while i < ranges.length() - 1 {
+    let left = merged[merged.length() - 1]
+    let curr = ranges[i]
+    let right = ranges[i + 1]
+    if curr.is_zero && curr.length() <= threshold {
+      merged[merged.length() - 1] = MemoryPackingRange::new(
+        left.is_zero,
+        left.start,
+        right.end,
+      )
+      i += 2
+    } else {
+      merged.push(curr)
+      i += 1
+    }
+  }
+  if i < ranges.length() {
+    merged.push(ranges[ranges.length() - 1])
+  }
+  if preserve_trap && !merged.is_empty() {
+    let back = merged[merged.length() - 1]
+    if back.is_zero {
+      merged[merged.length() - 1] = MemoryPackingRange::new(
+        true,
+        back.start,
+        back.end - 1,
+      )
+      let last_byte = byte_len - 1
+      merged.push(MemoryPackingRange::new(false, last_byte, last_byte + 1))
+    }
+  }
+  merged
+}
+
+///|
+fn optimization_memory_packing_apply_segment_cap(
+  ranges : Array[MemoryPackingRange],
+  packed_count : Int,
+  segments_remaining : Int,
+  max_data_segments : Int,
+) -> Array[MemoryPackingRange] {
+  let mut adjusted = ranges
+  let mut emitted = packed_count
+  let mut i = 0
+  while i < adjusted.length() {
+    let range = adjusted[i]
+    if !range.is_zero {
+      if max_data_segments <= emitted + segments_remaining {
+        let mut last_nonzero = adjusted.length() - 1
+        if adjusted[last_nonzero].is_zero {
+          last_nonzero -= 1
+        }
+        let compacted : Array[MemoryPackingRange] = []
+        let mut j = 0
+        while j < adjusted.length() {
+          if j < i {
+            compacted.push(adjusted[j])
+          } else if j == i {
+            compacted.push(
+              MemoryPackingRange::new(
+                false,
+                range.start,
+                adjusted[last_nonzero].end,
+              ),
+            )
+          } else if j > last_nonzero {
+            compacted.push(adjusted[j])
+          }
+          j += 1
+        }
+        adjusted = compacted
+      }
+      emitted += 1
+    }
+    i += 1
+  }
+  adjusted
+}
+
+///|
+fn optimization_memory_packing_unsplit_ranges(
+  data : Data,
+) -> Array[MemoryPackingRange] {
+  let Data(_, bytes) = data
+  [MemoryPackingRange::new(false, 0, bytes.length())]
+}
+
+///|
+fn optimization_memory_packing_count_nonzero_ranges(
+  ranges : Array[MemoryPackingRange],
+) -> Int {
+  let mut count = 0
+  for range in ranges {
+    if !range.is_zero {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
+fn optimization_memory_packing_ranges_for_segment(
+  mod : Module,
+  data_idx : DataIdx,
+  data : Data,
+  referrers : Array[MemoryPackingSegmentReferrer],
+  features : PipelineFeatures,
+  packed_count : Int,
+  segments_remaining : Int,
+  max_data_segments : Int,
+) -> Array[MemoryPackingRange] {
+  if !optimization_memory_packing_can_split_segment(
+      mod, data_idx, data, referrers,
+    ) {
+    return optimization_memory_packing_unsplit_ranges(data)
+  }
+  optimization_memory_packing_apply_segment_cap(
+    optimization_memory_packing_calculate_ranges(mod, data, referrers, features),
+    packed_count,
+    segments_remaining,
+    max_data_segments,
+  )
+}
+
+///|
+fn optimization_memory_packing_analyze_ranges(
+  mod : Module,
+  referrers : Array[Array[MemoryPackingSegmentReferrer]],
+  features : PipelineFeatures,
+) -> Array[Array[MemoryPackingRange]] {
+  let datas = optimization_memory_packing_data_segments(mod)
+  if datas.length() != referrers.length() {
+    return []
+  }
+  let analyses : Array[Array[MemoryPackingRange]] = []
+  let mut packed_count = 0
+  let mut i = 0
+  while i < datas.length() {
+    let ranges = optimization_memory_packing_ranges_for_segment(
+      mod,
+      DataIdx::new(i.reinterpret_as_uint()),
+      datas[i],
+      referrers[i],
+      features,
+      packed_count,
+      datas.length() - i,
+      optimization_memory_packing_max_data_segments,
+    )
+    packed_count += optimization_memory_packing_count_nonzero_ranges(ranges)
+    analyses.push(ranges)
+    i += 1
+  }
+  analyses
 }
 
 ///|
@@ -1536,7 +1958,7 @@ test "memory packing collects typed segment referrers including GC consumers" {
     ),
   ])
   assert_eq(optimization_memory_packing_collect_referrers(mod), [
-    [MemoryPackingSegmentReferrer::MemoryInit],
+    [MemoryPackingSegmentReferrer::MemoryInit(true)],
     [
       MemoryPackingSegmentReferrer::ArrayNewData,
       MemoryPackingSegmentReferrer::ArrayInitData,
@@ -1569,7 +1991,7 @@ test "memory packing collects untyped segment referrers including GC consumers" 
   ])
   assert_eq(optimization_memory_packing_collect_referrers(mod), [
     [
-      MemoryPackingSegmentReferrer::MemoryInit,
+      MemoryPackingSegmentReferrer::MemoryInit(false),
       MemoryPackingSegmentReferrer::DataDrop,
     ],
     [],
@@ -1578,6 +2000,230 @@ test "memory packing collects untyped segment referrers including GC consumers" 
       MemoryPackingSegmentReferrer::ArrayInitData,
     ],
   ])
+}
+
+///|
+test "memory packing computes raw alternating zero and nonzero ranges" {
+  assert_eq(optimization_memory_packing_raw_ranges(b"ab\x00\x00cd\x00"), [
+    MemoryPackingRange::new(false, 0, 2),
+    MemoryPackingRange::new(true, 2, 4),
+    MemoryPackingRange::new(false, 4, 6),
+    MemoryPackingRange::new(true, 6, 7),
+  ])
+}
+
+///|
+test "memory packing range analysis merges small active zero runs" {
+  let mod = optimization_memory_packing_test_defined_memory().with_data_sec(
+    DataSec::new([
+      optimization_memory_packing_test_active_data(
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+        b"ab\x00\x00\x00\x00\x00cd",
+      ),
+    ]),
+  )
+  assert_eq(
+    optimization_memory_packing_ranges_for_segment(
+      mod,
+      DataIdx::new(0U),
+      optimization_memory_packing_data(mod, DataIdx::new(0U)).unwrap(),
+      [],
+      PipelineFeatures::new(),
+      0,
+      1,
+      optimization_memory_packing_max_data_segments,
+    ),
+    [MemoryPackingRange::new(false, 0, 9)],
+  )
+}
+
+///|
+test "memory packing range analysis keeps profitable passive edge zeroes for memory.init" {
+  let mod = optimization_memory_packing_test_defined_memory()
+    .with_data_sec(
+      DataSec::new([
+        Data::new(
+          @lib.DataMode::passive(),
+          b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00HELLO\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+        ),
+      ]),
+    )
+    .with_type_sec(
+      @lib.TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::memory_init(
+              DataIdx::new(0U),
+              @lib.MemIdx::new(0U),
+              @lib.TInstr::i32_const(@lib.I32::new(0)),
+              @lib.TInstr::i32_const(@lib.I32::new(0)),
+              @lib.TInstr::i32_const(@lib.I32::new(25)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let referrers = optimization_memory_packing_collect_referrers(mod)
+  assert_eq(
+    optimization_memory_packing_ranges_for_segment(
+      mod,
+      DataIdx::new(0U),
+      optimization_memory_packing_data(mod, DataIdx::new(0U)).unwrap(),
+      referrers[0],
+      PipelineFeatures::new(),
+      0,
+      1,
+      optimization_memory_packing_max_data_segments,
+    ),
+    [
+      MemoryPackingRange::new(true, 0, 10),
+      MemoryPackingRange::new(false, 10, 15),
+      MemoryPackingRange::new(true, 15, 25),
+    ],
+  )
+}
+
+///|
+test "memory packing range analysis preserves startup traps unless traps never happen" {
+  let mod = optimization_memory_packing_test_defined_memory().with_data_sec(
+    DataSec::new([
+      optimization_memory_packing_test_active_data(
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(65536))]),
+        b"\x00",
+      ),
+    ]),
+  )
+  let data = optimization_memory_packing_data(mod, DataIdx::new(0U)).unwrap()
+  assert_eq(
+    optimization_memory_packing_ranges_for_segment(
+      mod,
+      DataIdx::new(0U),
+      data,
+      [],
+      PipelineFeatures::new(),
+      0,
+      1,
+      optimization_memory_packing_max_data_segments,
+    ),
+    [MemoryPackingRange::new(true, 0, 0), MemoryPackingRange::new(false, 0, 1)],
+  )
+  assert_eq(
+    optimization_memory_packing_ranges_for_segment(
+      mod,
+      DataIdx::new(0U),
+      data,
+      [],
+      PipelineFeatures::new(traps_never_happen=true),
+      0,
+      1,
+      optimization_memory_packing_max_data_segments,
+    ),
+    [MemoryPackingRange::new(true, 0, 1)],
+  )
+}
+
+///|
+test "memory packing range analysis refuses GC data consumers and llvm named segments" {
+  let gc_mod = optimization_memory_packing_test_referrer_module([
+    Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32::new(0)),
+        @lib.Instruction::i32_const(@lib.I32::new(1)),
+        @lib.Instruction::array_new_data(TypeIdx::new(0U), DataIdx::new(0U)),
+      ]),
+    ),
+  ]).with_data_sec(
+    DataSec::new([
+      Data::new(
+        @lib.DataMode::passive(),
+        b"A\x00\x00\x00\x00\x00\x00\x00\x00\x00B",
+      ),
+    ]),
+  )
+  let gc_referrers = optimization_memory_packing_collect_referrers(gc_mod)
+  assert_eq(
+    optimization_memory_packing_ranges_for_segment(
+      gc_mod,
+      DataIdx::new(0U),
+      optimization_memory_packing_data(gc_mod, DataIdx::new(0U)).unwrap(),
+      gc_referrers[0],
+      PipelineFeatures::new(),
+      0,
+      1,
+      optimization_memory_packing_max_data_segments,
+    ),
+    [MemoryPackingRange::new(false, 0, 11)],
+  )
+
+  let llvm_mod = optimization_memory_packing_test_defined_memory()
+    .with_data_sec(
+      DataSec::new([
+        Data::new(
+          @lib.DataMode::passive(),
+          b"A\x00\x00\x00\x00\x00\x00\x00\x00\x00B",
+        ),
+      ]),
+    )
+    .with_name_sec(
+      NameSec::new(
+        data_names=Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("__llvm_covfun")),
+          ]),
+        ),
+      ),
+    )
+  assert_eq(
+    optimization_memory_packing_ranges_for_segment(
+      llvm_mod,
+      DataIdx::new(0U),
+      optimization_memory_packing_data(llvm_mod, DataIdx::new(0U)).unwrap(),
+      [],
+      PipelineFeatures::new(),
+      0,
+      1,
+      optimization_memory_packing_max_data_segments,
+    ),
+    [MemoryPackingRange::new(false, 0, 11)],
+  )
+}
+
+///|
+test "memory packing range analysis respects the segment-count cap" {
+  let mod = optimization_memory_packing_test_defined_memory().with_data_sec(
+    DataSec::new([
+      optimization_memory_packing_test_active_data(
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+        b"A\x00\x00\x00\x00\x00\x00\x00\x00\x00B\x00\x00\x00\x00\x00\x00\x00\x00\x00C",
+      ),
+    ]),
+  )
+  assert_eq(
+    optimization_memory_packing_ranges_for_segment(
+      mod,
+      DataIdx::new(0U),
+      optimization_memory_packing_data(mod, DataIdx::new(0U)).unwrap(),
+      [],
+      PipelineFeatures::new(),
+      2,
+      1,
+      4,
+    ),
+    [
+      MemoryPackingRange::new(false, 0, 1),
+      MemoryPackingRange::new(true, 1, 10),
+      MemoryPackingRange::new(false, 10, 21),
+    ],
+  )
 }
 
 ///|

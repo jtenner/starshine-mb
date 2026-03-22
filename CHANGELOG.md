@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-22 Optimization: land MemoryPacking slice-6 range analysis
+
+- **MemoryPacking range-analysis slice** by **@jtenner**. Extended [`run_memory_packing`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now computes per-segment range-analysis plans after dead passive removal, including the documented split eligibility checks, raw zero/nonzero range discovery, active/passive profitability thresholds, trap-preserving active trailing-byte fixups, and the Web data-segment cap merge rule.
+- Tightened the internal referrer model in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so typed `memory.init` referrers now record whether their segment offset and size are constant, which the new split-eligibility logic uses to conservatively reject unsupported passive-segment splitting cases.
+- Added focused red-to-green internal regressions in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) covering raw range discovery, active-threshold merging, profitable passive edge zeroes, startup-trap preservation with and without `traps_never_happen`, GC / `__llvm*` no-split handling, and the segment-count cap merge behavior.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0014-2026-03-21-memory-packing.md`](/home/jtenner/Projects/starshine-mb/docs/0014-2026-03-21-memory-packing.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining active `MemoryPacking` backlog now starts at segment materialization and later replacement rewriting.
+
 ## 2026-03-22 Optimization: land MemoryPacking slice-5 dead passive removal
 
 - **MemoryPacking dead-passive slice** by **@jtenner**. Extended [`run_memory_packing`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now removes passive data segments that are unreferenced or only referenced by `data.drop`, rewrites removed drop-only `data.drop`s to `nop`, compacts the data section, and updates `DataCntSec` plus later `DataIdx` users after the removal.
