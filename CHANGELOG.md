@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization: add fixed-point coverage for GC-heavy RemoveUnusedModuleElements paths
+
+- **RemoveUnusedModuleElements signoff slice** by **@jtenner**. Expanded [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) with repeated-pass equality coverage for the recent closed-world GC machinery, specifically the deferred mutable `struct.set` path and cross-type `array.copy` payload propagation. These fixtures assert that the first optimized module is already a fixed point when the pass runs again with the same GC/closed-world features.
+- Added [`remove_unused_test_run_twice_with_features`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) so repeated-pass checks can exercise non-default feature configurations directly instead of relying on the open-world default helper.
+- Updated [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so Slice 7 now records the landed idempotence coverage while the remaining pass work stays focused on future GC consumer expansion and later carrier hardening.
+
 ## 2026-03-21 Optimization: defer closed-world struct.set payloads in RemoveUnusedModuleElements
 
 - **RemoveUnusedModuleElements struct.set slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so closed-world mutable `struct.set` payloads now stay reference-only until a later live `struct.get` / `struct.get_s` / `struct.get_u` makes that field observable. This mirrors the earlier deferred array-writer behavior for mutable GC aggregates instead of eagerly promoting unread struct writes to used.

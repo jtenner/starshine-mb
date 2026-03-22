@@ -370,6 +370,17 @@ fn remove_unused_test_run_twice(mod : Module) -> Module {
 }
 
 ///|
+fn remove_unused_test_run_twice_with_features(
+  mod : Module,
+  features : PipelineFeatures,
+) -> Module {
+  remove_unused_test_run_with_features(
+    remove_unused_test_run_with_features(mod, features),
+    features,
+  )
+}
+
+///|
 fn remove_unused_test_i32_const(value : Int) -> @lib.TInstr {
   @lib.TInstr::i32_const(@lib.I32::new(value))
 }
@@ -3727,6 +3738,203 @@ test "remove unused module elements promotes struct.set funcref payloads once re
     None => fail("expected func section")
   }
   assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+}
+
+///|
+test "remove unused module elements reaches a fixed point for closed-world struct.set payloads" {
+  let mod = Module::new()
+    .with_type_sec(
+      remove_unused_test_mutable_struct_type_sec_with_funcref_field(),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::new([
+            @lib.LocalRun::new(
+              1U,
+              @lib.ValType::ref_type(
+                @lib.RefType::new(
+                  true,
+                  @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+                ),
+              ),
+            ),
+          ]),
+          @lib.TExpr::new([
+            @lib.TInstr::local_set(
+              @lib.LocalIdx::new(0U),
+              @lib.TInstr::struct_new_default(@lib.TypeIdx::new(1U)),
+            ),
+            @lib.TInstr::struct_set(
+              @lib.TypeIdx::new(1U),
+              0,
+              @lib.TInstr::local_get(@lib.LocalIdx::new(0U)),
+              @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+            ),
+            @lib.TInstr::call_ref(
+              @lib.TypeIdx::new(0U),
+              [],
+              @lib.TInstr::global_get(@lib.GlobalIdx::new(1U)),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::call(@lib.FuncIdx::new(2U), [])]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+        ),
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(2U))]),
+        ),
+      ]),
+    )
+
+  let first = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+  let second = remove_unused_test_run_twice_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  assert_eq(first.to_string(), second.to_string())
+}
+
+///|
+test "remove unused module elements reaches a fixed point for closed-world array.copy payload propagation" {
+  let mod = Module::new()
+    .with_type_sec(
+      remove_unused_test_two_mutable_array_types_with_funcref_elem(),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::new([
+            @lib.LocalRun::new(
+              1U,
+              @lib.ValType::ref_array_nullable(@lib.TypeIdx::new(2U)),
+            ),
+          ]),
+          @lib.TExpr::new([
+            @lib.TInstr::local_set(
+              @lib.LocalIdx::new(0U),
+              @lib.TInstr::array_new_default(
+                @lib.TypeIdx::new(2U),
+                remove_unused_test_i32_const(1),
+              ),
+            ),
+            @lib.TInstr::array_copy(
+              @lib.TypeIdx::new(2U),
+              @lib.TypeIdx::new(1U),
+              @lib.TInstr::local_get(@lib.LocalIdx::new(0U)),
+              remove_unused_test_i32_const(0),
+              @lib.TInstr::array_new_fixed(@lib.TypeIdx::new(1U), [
+                @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+              ]),
+              remove_unused_test_i32_const(0),
+              remove_unused_test_i32_const(1),
+            ),
+            @lib.TInstr::call_ref(
+              @lib.TypeIdx::new(0U),
+              [],
+              @lib.TInstr::global_get(@lib.GlobalIdx::new(1U)),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::call(@lib.FuncIdx::new(2U), [])]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+        ),
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(2U))]),
+        ),
+      ]),
+    )
+
+  let first = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+  let second = remove_unused_test_run_twice_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  assert_eq(first.to_string(), second.to_string())
 }
 
 ///|

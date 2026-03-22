@@ -227,6 +227,8 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Review `.mbti` diffs if pass APIs change.
 - Run `moon info && moon fmt`, then `moon test`.
 - Add `bun validate` coverage if the pass gains CLI-visible options.
+- Status:
+  - repeated-pass stability coverage is now landed for closed-world GC-heavy fixtures, including deferred `struct.set` payloads and cross-type `array.copy` payload propagation.
 - Exit when the pass is documented, tested, and safe to keep in the default pipeline.
 
 ## Validation Plan
