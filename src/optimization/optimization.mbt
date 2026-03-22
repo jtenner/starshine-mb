@@ -601,7 +601,155 @@ pub fn run_dead_code_elimination(
 fn optimization_dead_code_elimination_func(
   func : Func,
 ) -> (Func, Bool) {
-  (func, false)
+  match func {
+    @lib.TFunc(params, locals, body) => {
+      let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+        .on_tinstruction_evt(fn(self, _, instr) {
+          let (rewritten, _) = self.walk_tinstruction_default((), instr).unwrap()
+          change((), optimization_dead_code_elimination_rewrite_instr(rewritten))
+        })
+      match transformer.walk_texpr((), body) {
+        Ok((rewritten_body, _)) =>
+          if rewritten_body == body {
+            (func, false)
+          } else {
+            (@lib.Func::t_func(params, locals, rewritten_body), true)
+          }
+        Err(_) => (func, false)
+      }
+    }
+    _ => (func, false)
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_rewrite_instr(
+  instr : @lib.TInstr,
+) -> @lib.TInstr {
+  match instr.kind {
+    @lib.TUnary(op, child) =>
+      optimization_dead_code_elimination_rewrite_unary(
+        [child],
+        fn(args) { @lib.TInstr::unary(op, args[0]) },
+      )
+    @lib.TDrop(child) =>
+      optimization_dead_code_elimination_rewrite_unary(
+        [child],
+        fn(args) { @lib.TInstr::drop(args[0]) },
+      )
+    @lib.TLocalSet(idx, child) =>
+      optimization_dead_code_elimination_rewrite_unary(
+        [child],
+        fn(args) { @lib.TInstr::local_set(idx, args[0]) },
+      )
+    @lib.TLocalTee(idx, child) =>
+      optimization_dead_code_elimination_rewrite_unary(
+        [child],
+        fn(args) { @lib.TInstr::local_tee(idx, args[0]) },
+      )
+    @lib.TGlobalSet(idx, child) =>
+      optimization_dead_code_elimination_rewrite_unary(
+        [child],
+        fn(args) { @lib.TInstr::global_set(idx, args[0]) },
+      )
+    @lib.TLoad(op, memarg, child) =>
+      optimization_dead_code_elimination_rewrite_unary(
+        [child],
+        fn(args) { @lib.TInstr::load(op, memarg, args[0]) },
+      )
+    @lib.TBinary(op, left, right) =>
+      optimization_dead_code_elimination_rewrite_unary(
+        [left, right],
+        fn(args) { @lib.TInstr::binary(op, args[0], args[1]) },
+      )
+    @lib.TRefEq(left, right) =>
+      optimization_dead_code_elimination_rewrite_unary(
+        [left, right],
+        fn(args) { @lib.TInstr::ref_eq(args[0], args[1]) },
+      )
+    @lib.TStore(op, memarg, addr, value) =>
+      optimization_dead_code_elimination_rewrite_unary(
+        [addr, value],
+        fn(args) { @lib.TInstr::store(op, memarg, args[0], args[1]) },
+      )
+    @lib.TCall(func_idx, args) =>
+      optimization_dead_code_elimination_rewrite_unary(
+        args,
+        fn(args) { @lib.TInstr::call(func_idx, args) },
+      )
+    @lib.TSelect(type_hint, cond, if_true, if_false) =>
+      match optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
+        [if_true, if_false, cond],
+      ) {
+        Some(rewritten) => rewritten
+        None => @lib.TInstr::select(type_hint, cond, if_true, if_false)
+      }
+    _ => instr
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_rewrite_unary(
+  children : Array[@lib.TInstr],
+  rebuild : (Array[@lib.TInstr]) -> @lib.TInstr,
+) -> @lib.TInstr {
+  match optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
+    children,
+  ) {
+    Some(rewritten) => rewritten
+    None => rebuild(children)
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
+  children : Array[@lib.TInstr],
+) -> @lib.TInstr? {
+  let kept : Array[@lib.TInstr] = []
+  let mut found_unreachable = false
+  for child in children {
+    if found_unreachable {
+      continue
+    }
+    if optimization_dead_code_elimination_instr_is_unreachable(child) {
+      kept.push(child)
+      found_unreachable = true
+    } else {
+      kept.push(@lib.TInstr::drop(child))
+    }
+  }
+  if !found_unreachable {
+    return None
+  }
+  if kept.length() == 1 {
+    return Some(kept[0])
+  }
+  Some(@lib.TInstr::block(@lib.BlockType::void_(), @lib.TExpr::new(kept)))
+}
+
+///|
+fn optimization_dead_code_elimination_instr_is_unreachable(
+  instr : @lib.TInstr,
+) -> Bool {
+  match instr.kind {
+    @lib.TUnreachable
+    | @lib.TReturn(_)
+    | @lib.TReturnCall(_, _)
+    | @lib.TReturnCallIndirect(_, _, _, _)
+    | @lib.TReturnCallRef(_, _, _)
+    | @lib.TThrow(_, _)
+    | @lib.TThrowRef(_)
+    | @lib.TBr(_, _)
+    | @lib.TBrTable(_, _, _, _) => true
+    @lib.TBlock(_, body) =>
+      match body.inner() {
+        [] => false
+        instrs => optimization_dead_code_elimination_instr_is_unreachable(
+          instrs[instrs.length() - 1],
+        )
+      }
+    _ => false
+  }
 }
 
 ///|

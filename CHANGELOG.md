@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: add generic DeadCodeElimination unreachable-child rewrites
+
+- **DeadCodeElimination non-control-flow slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the dedicated DCE runner now performs the core evaluation-order-preserving rewrite for non-control-flow typed instructions: preserve reachable prefix effects as `drop`, keep the first unreachable child, and remove later children entirely.
+- Expanded [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) with focused ordering-sensitive regressions for binary ops, stores, `select`, and direct calls, all validated through the typed DCE runner.
+- Recorded the checkpoint in [`docs/0034-2026-03-22-dead-code-elimination-generic-unreachable-rewrites.md`](/home/jtenner/Projects/starshine-mb/docs/0034-2026-03-22-dead-code-elimination-generic-unreachable-rewrites.md), which narrows the next DCE work to enclosing block truncation and later type-sync logic.
+
 ## 2026-03-22 Optimization: wire DeadCodeElimination to a dedicated runner shell
 
 - **DeadCodeElimination plumbing slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `OptimizePass::DeadCodeElimination` now dispatches to a dedicated `run_dead_code_elimination` func-local runner instead of the generic `noop_func_local_pass`.

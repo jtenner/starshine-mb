@@ -8,12 +8,85 @@ fn dead_code_elimination_test_module(
       @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
     ]),
   )
+  .with_mem_sec(
+    @lib.MemSec::new([
+      @lib.MemType::new(@lib.Limits::i32(1U, None)),
+    ]),
+  )
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
   .with_code_sec(
     @lib.CodeSec::new([
       @lib.Func::t_func([], @lib.Locals::empty(), @lib.TExpr::new(instrs)),
     ]),
   )
+}
+
+///|
+fn dead_code_elimination_test_run(mod : Module) -> Module {
+  let (optimized, _) = run_dead_code_elimination(mod, PipelineScratch::new())
+  match @validate.validate_module(optimized) {
+    Ok(_) => optimized
+    Err(err) =>
+      abort(
+        "expected optimized DCE fixture to validate: \{@validate.validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+fn dead_code_elimination_test_body(
+  instrs : Array[@lib.TInstr],
+) -> Array[@lib.TInstr] {
+  let optimized = dead_code_elimination_test_run(
+    dead_code_elimination_test_module(instrs),
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => body.inner()
+    _ => abort("expected optimized single typed function body")
+  }
+}
+
+///|
+fn dead_code_elimination_test_call_body(
+  instr : @lib.TInstr,
+) -> Array[@lib.TInstr] {
+  let mod = Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, None)),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(1U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [@lib.ValType::i32(), @lib.ValType::i32()],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+        @lib.Func::t_func([], @lib.Locals::empty(), @lib.TExpr::new([instr])),
+      ]),
+    )
+  let optimized = dead_code_elimination_test_run(mod)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_, @lib.TFunc(_, _, body)])) => body.inner()
+    _ => abort("expected optimized typed caller body")
+  }
 }
 
 ///|
@@ -43,4 +116,93 @@ test "run_dead_code_elimination shell preserves empty typed function bodies" {
   assert_eq(scratch.funcs_visited, 1)
   assert_eq(scratch.funcs_changed, 0)
   assert_false(scratch.changed)
+}
+
+///|
+test "dead code elimination preserves prefix effects before an unreachable binary operand" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::drop(
+      @lib.TInstr::binary(
+        @lib.BinaryOp::i32_add(),
+        @lib.TInstr::i32_const(@lib.I32::new(1)),
+        @lib.TInstr::unreachable_(),
+      ),
+    ),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(1))),
+        @lib.TInstr::unreachable_(),
+      ]),
+    ),
+  ])
+}
+
+///|
+test "dead code elimination preserves store address effects before an unreachable value" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::store(
+      @lib.StoreOp::i32_store(),
+      @lib.MemArg::new(@lib.U32::new(0U), None, @lib.U64::new(0UL)),
+      @lib.TInstr::i32_const(@lib.I32::new(8)),
+      @lib.TInstr::unreachable_(),
+    ),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(8))),
+        @lib.TInstr::unreachable_(),
+      ]),
+    ),
+  ])
+}
+
+///|
+test "dead code elimination preserves select value effects before an unreachable condition" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::drop(
+      @lib.TInstr::select(
+        None,
+        @lib.TInstr::unreachable_(),
+        @lib.TInstr::i32_const(@lib.I32::new(10)),
+        @lib.TInstr::i32_const(@lib.I32::new(20)),
+      ),
+    ),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(10))),
+        @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(20))),
+        @lib.TInstr::unreachable_(),
+      ]),
+    ),
+  ])
+}
+
+///|
+test "dead code elimination preserves earlier direct call arguments before an unreachable one" {
+  let body = dead_code_elimination_test_call_body(
+    @lib.TInstr::call(
+      @lib.FuncIdx::new(0U),
+      [
+        @lib.TInstr::i32_const(@lib.I32::new(1)),
+        @lib.TInstr::unreachable_(),
+      ],
+    ),
+  )
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(1))),
+        @lib.TInstr::unreachable_(),
+      ]),
+    ),
+  ])
 }

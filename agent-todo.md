@@ -16,7 +16,8 @@
 - DeadCodeElimination research baseline:
   - `docs/0017-2026-03-22-dead-code-elimination.md` now documents Binaryen's full DCE surface, including synchronous type updates, EH `pop` fixups, GC/string regressions, and stack-switching constraints.
   - `docs/0033-2026-03-22-dead-code-elimination-runner-shell.md` lands Slice 1: `DeadCodeElimination` now dispatches through a dedicated typed func-local runner shell with whitebox coverage instead of the generic no-op entry.
-  - next implementation work is Slice 2 generic non-control-flow unreachable-child rewriting, then Slice 3 block-tail truncation before the local type/break updater work.
+  - `docs/0034-2026-03-22-dead-code-elimination-generic-unreachable-rewrites.md` lands Slice 2: the pass now preserves reachable prefix effects before the first unreachable child for non-control-flow typed instructions.
+  - next implementation work is Slice 3 block-tail truncation and single-unreachable collapse, then the local type/break updater work.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination
