@@ -567,8 +567,13 @@ pub fn run_memory_packing(
     return (mod, global)
   }
   let prenormalized = optimization_memory_packing_prenormalize_segment_ops(mod)
-  ignore(optimization_memory_packing_collect_referrers(prenormalized))
-  (prenormalized, global)
+  let referrers = optimization_memory_packing_collect_referrers(prenormalized)
+  (
+    optimization_memory_packing_remove_dead_passive_segments(
+      prenormalized, referrers,
+    ),
+    global,
+  )
 }
 
 ///|
@@ -792,6 +797,216 @@ fn optimization_memory_packing_note_referrer(
     return
   }
   referrers[idx].push(referrer)
+}
+
+///|
+fn optimization_memory_packing_all_referrers_are_data_drop(
+  referrers : Array[MemoryPackingSegmentReferrer],
+) -> Bool {
+  if referrers.is_empty() {
+    return false
+  }
+  for referrer in referrers {
+    if referrer != MemoryPackingSegmentReferrer::DataDrop {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn optimization_memory_packing_rewrite_removed_data_drops(
+  mod : Module,
+  removed_drop_only : Array[Bool],
+) -> Module {
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+    .on_instruction_evt(fn(_, _, instr) {
+      match instr {
+        @lib.DataDrop(data_idx) =>
+          if optimization_memory_packing_removed_data_idx(
+              removed_drop_only, data_idx,
+            ) {
+            change((), @lib.Instruction::nop())
+          } else {
+            unchanged()
+          }
+        _ => unchanged()
+      }
+    })
+    .on_tinstruction_evt(fn(_, _, instr) {
+      match instr.kind {
+        @lib.TDataDrop(data_idx) =>
+          if optimization_memory_packing_removed_data_idx(
+              removed_drop_only, data_idx,
+            ) {
+            change((), @lib.TInstr::nop())
+          } else {
+            unchanged()
+          }
+        _ => unchanged()
+      }
+    })
+  match transformer.walk_module((), mod) {
+    Ok((rewritten, _)) => rewritten
+    Err(_) => mod
+  }
+}
+
+///|
+fn optimization_memory_packing_removed_data_idx(
+  removed : Array[Bool],
+  data_idx : DataIdx,
+) -> Bool {
+  let DataIdx(raw) = data_idx
+  let idx = raw.reinterpret_as_int()
+  if idx < 0 || idx >= removed.length() {
+    return false
+  }
+  removed[idx]
+}
+
+///|
+fn optimization_memory_packing_remove_dead_passive_segments(
+  mod : Module,
+  referrers : Array[Array[MemoryPackingSegmentReferrer]],
+) -> Module {
+  let datas = optimization_memory_packing_data_segments(mod)
+  if datas.length() != referrers.length() {
+    return mod
+  }
+  let keep_datas : Array[Bool] = []
+  let removed_drop_only : Array[Bool] = []
+  let mut changed = false
+  let mut i = 0
+  while i < datas.length() {
+    let refs = referrers[i]
+    let keep = match datas[i] {
+      Data(Active(_, _), _) => true
+      Data(Passive, _) =>
+        !refs.is_empty() &&
+        !optimization_memory_packing_all_referrers_are_data_drop(refs)
+    }
+    keep_datas.push(keep)
+    let drop_only = !keep &&
+      optimization_memory_packing_all_referrers_are_data_drop(refs)
+    removed_drop_only.push(drop_only)
+    if !keep {
+      changed = true
+    }
+    i += 1
+  }
+  if !changed {
+    return mod
+  }
+  let rewritten = optimization_memory_packing_rewrite_removed_data_drops(
+    mod, removed_drop_only,
+  )
+  let (compacted, data_remap) = optimization_compact_data_sec(
+    rewritten, datas, keep_datas,
+  )
+  optimization_memory_packing_rewrite_data_indices(compacted, data_remap)
+}
+
+///|
+fn optimization_memory_packing_rewrite_data_indices(
+  mod : Module,
+  data_remap : Map[UInt, UInt],
+) -> Module {
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+    .on_instruction_evt(fn(_, _, instr) {
+      match instr {
+        @lib.MemoryInit(data_idx, mem_idx) =>
+          change(
+            (),
+            @lib.Instruction::memory_init(
+              optimization_memory_packing_remap_data_idx(data_remap, data_idx),
+              mem_idx,
+            ),
+          )
+        @lib.DataDrop(data_idx) =>
+          change(
+            (),
+            @lib.Instruction::data_drop(
+              optimization_memory_packing_remap_data_idx(data_remap, data_idx),
+            ),
+          )
+        @lib.ArrayNewData(type_idx, data_idx) =>
+          change(
+            (),
+            @lib.Instruction::array_new_data(
+              type_idx,
+              optimization_memory_packing_remap_data_idx(data_remap, data_idx),
+            ),
+          )
+        @lib.ArrayInitData(type_idx, data_idx) =>
+          change(
+            (),
+            @lib.Instruction::array_init_data(
+              type_idx,
+              optimization_memory_packing_remap_data_idx(data_remap, data_idx),
+            ),
+          )
+        _ => unchanged()
+      }
+    })
+    .on_tinstruction_evt(fn(_, _, instr) {
+      match instr.kind {
+        @lib.TMemoryInit(data_idx, mem_idx, dest, offset, size) =>
+          change(
+            (),
+            @lib.TInstr::memory_init(
+              optimization_memory_packing_remap_data_idx(data_remap, data_idx),
+              mem_idx,
+              dest,
+              offset,
+              size,
+            ),
+          )
+        @lib.TDataDrop(data_idx) =>
+          change(
+            (),
+            @lib.TInstr::data_drop(
+              optimization_memory_packing_remap_data_idx(data_remap, data_idx),
+            ),
+          )
+        @lib.TArrayNewData(type_idx, data_idx, offset, len) =>
+          change(
+            (),
+            @lib.TInstr::array_new_data(
+              type_idx,
+              optimization_memory_packing_remap_data_idx(data_remap, data_idx),
+              offset,
+              len,
+            ),
+          )
+        @lib.TArrayInitData(type_idx, data_idx, array, dst, src, len) =>
+          change(
+            (),
+            @lib.TInstr::array_init_data(
+              type_idx,
+              optimization_memory_packing_remap_data_idx(data_remap, data_idx),
+              array,
+              dst,
+              src,
+              len,
+            ),
+          )
+        _ => unchanged()
+      }
+    })
+  match transformer.walk_module((), mod) {
+    Ok((rewritten, _)) => rewritten
+    Err(_) => mod
+  }
+}
+
+///|
+fn optimization_memory_packing_remap_data_idx(
+  data_remap : Map[UInt, UInt],
+  data_idx : DataIdx,
+) -> DataIdx {
+  let DataIdx(raw) = data_idx
+  DataIdx::new(data_remap.get(raw).unwrap_or(raw))
 }
 
 ///|
@@ -1044,6 +1259,16 @@ fn optimization_memory_packing_test_passive_body(
     Some(CodeSec([TFunc(_, _, body)])) => body.inner()
     _ => abort("expected rewritten typed function body")
   }
+}
+
+///|
+fn optimization_memory_packing_test_run(mod : Module) -> Module {
+  let (optimized, _) = run_memory_packing(
+    mod,
+    PipelineGlobal::new(),
+    PipelineFeatures::new(),
+  )
+  optimized
 }
 
 ///|
@@ -1353,6 +1578,120 @@ test "memory packing collects untyped segment referrers including GC consumers" 
       MemoryPackingSegmentReferrer::ArrayInitData,
     ],
   ])
+}
+
+///|
+test "memory packing removes unreferenced passive segments and remaps later data indices" {
+  let mod = optimization_memory_packing_test_defined_memory()
+    .with_data_sec(
+      DataSec::new([
+        Data::new(@lib.DataMode::passive(), b"dead"),
+        optimization_memory_packing_test_active_data(
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+          b"a",
+        ),
+        Data::new(@lib.DataMode::passive(), b"live"),
+      ]),
+    )
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32::new(3U)))
+    .with_type_sec(
+      @lib.TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::memory_init(
+              DataIdx::new(2U),
+              @lib.MemIdx::new(0U),
+              @lib.TInstr::i32_const(@lib.I32::new(0)),
+              @lib.TInstr::i32_const(@lib.I32::new(0)),
+              @lib.TInstr::i32_const(@lib.I32::new(1)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimization_memory_packing_test_run(mod)
+  match optimized.data_sec {
+    Some(DataSec(datas)) =>
+      assert_eq(datas, [
+        optimization_memory_packing_test_active_data(
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+          b"a",
+        ),
+        Data::new(@lib.DataMode::passive(), b"live"),
+      ])
+    _ => fail("expected compacted data section")
+  }
+  match optimized.data_cnt_sec {
+    Some(@lib.DataCntSec(@lib.U32(count))) => assert_eq(count, 2U)
+    _ => fail("expected rewritten data count")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      match body.inner() {
+        [instr] =>
+          match instr.kind {
+            @lib.TMemoryInit(DataIdx(data_idx), @lib.MemIdx(mem_idx), _, _, _) => {
+              assert_eq(data_idx, 1U)
+              assert_eq(mem_idx, 0U)
+            }
+            _ => fail("expected remapped memory.init")
+          }
+        _ => fail("expected rewritten typed function body")
+      }
+    _ => fail("expected rewritten typed function body")
+  }
+}
+
+///|
+test "memory packing removes drop-only passive segments and rewrites data drops to nop" {
+  let mod = optimization_memory_packing_test_referrer_module([
+    Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new([
+        @lib.Instruction::data_drop(DataIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32::new(3)),
+        @lib.Instruction::i32_const(@lib.I32::new(4)),
+        @lib.Instruction::array_new_data(TypeIdx::new(0U), DataIdx::new(1U)),
+        @lib.Instruction::i32_const(@lib.I32::new(5)),
+        @lib.Instruction::i32_const(@lib.I32::new(6)),
+        @lib.Instruction::i32_const(@lib.I32::new(7)),
+        @lib.Instruction::i32_const(@lib.I32::new(8)),
+        @lib.Instruction::array_init_data(TypeIdx::new(0U), DataIdx::new(1U)),
+      ]),
+    ),
+  ]).with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32::new(3U)))
+  let optimized = optimization_memory_packing_test_run(mod)
+  match optimized.data_sec {
+    Some(DataSec(datas)) =>
+      assert_eq(datas, [Data::new(@lib.DataMode::passive(), b"b")])
+    _ => fail("expected compacted data section")
+  }
+  match optimized.data_cnt_sec {
+    Some(@lib.DataCntSec(@lib.U32(count))) => assert_eq(count, 1U)
+    _ => fail("expected rewritten data count")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([Func(_, @lib.Expr(instrs))])) => {
+      assert_eq(instrs[0], @lib.Instruction::nop())
+      assert_eq(
+        instrs[3],
+        @lib.Instruction::array_new_data(TypeIdx::new(0U), DataIdx::new(0U)),
+      )
+      assert_eq(
+        instrs[8],
+        @lib.Instruction::array_init_data(TypeIdx::new(0U), DataIdx::new(0U)),
+      )
+    }
+    _ => fail("expected rewritten untyped function body")
+  }
 }
 
 ///|

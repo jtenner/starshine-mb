@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: land MemoryPacking slice-5 dead passive removal
+
+- **MemoryPacking dead-passive slice** by **@jtenner**. Extended [`run_memory_packing`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now removes passive data segments that are unreferenced or only referenced by `data.drop`, rewrites removed drop-only `data.drop`s to `nop`, compacts the data section, and updates `DataCntSec` plus later `DataIdx` users after the removal.
+- Added focused red-to-green internal regressions in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) covering unreferenced passive removal with `memory.init` remap and drop-only passive removal with GC data-consumer remap.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0014-2026-03-21-memory-packing.md`](/home/jtenner/Projects/starshine-mb/docs/0014-2026-03-21-memory-packing.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining active `MemoryPacking` backlog now starts at range analysis and later segment materialization/rewrite slices.
+
 ## 2026-03-22 Optimization: land MemoryPacking slice-4 referrer collection
 
 - **MemoryPacking referrer slice** by **@jtenner**. Extended [`run_memory_packing`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now performs the documented stage-4 per-`DataIdx` referrer scan after pre-normalization, collecting `memory.init`, `data.drop`, `array.new_data`, and `array.init_data` users in one module walk as the foundation for later dead-segment removal and rewrite planning.

@@ -1,6 +1,6 @@
 # MemoryPacking
 
-Status: research baseline plus slices 1-4. In Starshine today, the pass still has no dead passive-segment removal, segment splitting/materialization, or data-index rewrite implementation, but the generated optimizer now dispatches `MemoryPacking` through a dedicated runner, threads the initial `zero_filled_memory` / `traps_never_happen` option surface, applies the documented analysis-only gating for unsupported memory/imported-memory/active-layout cases, performs the stage-3 pre-normalization of obvious `memory.init` / active `data.drop` cases, and collects per-`DataIdx` referrers for `memory.init`, `data.drop`, `array.new_data`, and `array.init_data`. This document remains the implementation blueprint for the later semantic slices.
+Status: research baseline plus slices 1-5. In Starshine today, the pass still has no range analysis, segment splitting/materialization, or final replacement-rewrite implementation, but the generated optimizer now dispatches `MemoryPacking` through a dedicated runner, threads the initial `zero_filled_memory` / `traps_never_happen` option surface, applies the documented analysis-only gating for unsupported memory/imported-memory/active-layout cases, performs the stage-3 pre-normalization of obvious `memory.init` / active `data.drop` cases, collects per-`DataIdx` referrers for `memory.init`, `data.drop`, `array.new_data`, and `array.init_data`, and removes dead passive segments with the required `DataIdx` / `DataCntSec` remap. This document remains the implementation blueprint for the later semantic slices.
 
 ## Purpose
 
@@ -41,7 +41,8 @@ What exists now:
 6. The runner now applies the documented analysis-only bailouts for unsupported memory topologies, imported memory without the zero-fill promise, overlapping active segments, and dynamic active offsets in the multi-segment case.
 7. The runner now pre-normalizes the obvious active/passive `memory.init` trap and zero-length cases plus active `data.drop`.
 8. The runner now collects per-`DataIdx` referrer lists for `memory.init`, `data.drop`, `array.new_data`, and `array.init_data`.
-9. The runner still has no dead-segment removal, splitting/materialization, or data-index rewrite logic.
+9. The runner now removes passive segments that are unreferenced or only referenced by `data.drop`, rewrites removed drop-only `data.drop`s to `nop`, and remaps later `DataIdx` users plus `DataCntSec`.
+10. The runner still has no range analysis, segment splitting/materialization, or final replacement-rewrite logic.
 
 That means:
 
