@@ -191,10 +191,10 @@ On the combined four-pass fixture:
 
 Binaryen is doing more semantic work there, but the inserted `memory.fill` / guard-global machinery outweighs the saved segment bytes on tiny modules.
 
-So the next step should not be "blindly copy Binaryen output." The next step should be:
+Policy decision:
 
-1. decide whether exact Binaryen parity for trivial once bodies is worth preserving,
-2. benchmark whether Binaryen-faithful `memory-packing` thresholds are actually desirable for Starshine's target corpus.
+1. keep Starshine's smaller trivial-once-body output
+2. benchmark whether Binaryen-faithful `memory-packing` thresholds are actually desirable for Starshine's target corpus
 
 ## Correctness Constraints
 
@@ -220,9 +220,8 @@ So the next step should not be "blindly copy Binaryen output." The next step sho
 - `OnceReduction`: the CLI path now removes redundant once-calls; the remaining parity delta is that Starshine also removes a redundant once-global set in trivial once bodies.
 - `MemoryPacking`: the CLI path now reaches the full split rewrite, and the targeted passive-segment fixture matches Binaryen.
 
-That leaves exact `OnceReduction` parity and broader `MemoryPacking` profitability as the remaining output-quality questions.
+That leaves broader `MemoryPacking` profitability as the remaining output-quality question in this comparison thread; the trivial once-body diff is now intentional policy.
 
 ## Open Questions
 
-1. Should Starshine keep its smaller trivial-once-body rewrite, or preserve Binaryen's exact retained `global.set` shape for closer textual parity?
-2. Do Starshine's target corpora actually want Binaryen's current `memory-packing` profitability policy once broader benchmarks are rerun?
+1. Do Starshine's target corpora actually want Binaryen's current `memory-packing` profitability policy once broader benchmarks are rerun?

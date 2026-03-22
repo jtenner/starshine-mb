@@ -91,6 +91,50 @@ fn generated_pipeline_raw_once_module() -> Module {
 }
 
 ///|
+fn generated_pipeline_raw_trivial_once_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [@lib.Instruction::return_()],
+            None,
+          ),
+          @lib.Instruction::i32_const(@lib.I32::new(1)),
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("run"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+      ),
+    ]),
+  )
+}
+
+///|
 fn generated_pipeline_raw_memory_module() -> Module {
   Module::new()
   .with_mem_sec(
@@ -287,6 +331,32 @@ test "run_generated_pipeline_with_options pre-lifts raw funcs before memory pack
   }
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.TFunc(_, _, _)])) => ()
+    _ => fail("expected generated pipeline to pre-lift raw funcs")
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options keeps Starshine's smaller trivial once body in the first four passes" {
+  let mod = generated_pipeline_raw_trivial_once_module()
+  let optimized = match
+    run_generated_pipeline_with_options(
+      mod,
+      generated_pipeline_first_four(mod),
+      OptimizeOptions::new(optimize_level=2),
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected generated pipeline success: \{e}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) =>
+      match body.inner() {
+        [instr] =>
+          match instr.kind {
+            @lib.TNop => ()
+            _ => fail("expected trivial once body to collapse to nop")
+          }
+        _ => fail("expected trivial once body to contain one instruction")
+      }
     _ => fail("expected generated pipeline to pre-lift raw funcs")
   }
 }

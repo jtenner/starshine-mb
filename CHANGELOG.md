@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Optimization: keep smaller trivial once-body output
+
+- **OnceReduction policy checkpoint** by **@jtenner**. Added generated-pipeline coverage in [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt) for the raw-input trivial once-body case and recorded the decision to keep Starshine's smaller `nop`-collapsed output rather than preserve Binaryen's retained redundant `global.set` text shape.
+- Recorded the decision in [`docs/0045-2026-03-22-once-reduction-trivial-once-body-policy.md`](/home/jtenner/Projects/starshine-mb/docs/0045-2026-03-22-once-reduction-trivial-once-body-policy.md) and updated [`docs/0016-2026-03-22-no-dwarf-four-pass-comparison.md`](/home/jtenner/Projects/starshine-mb/docs/0016-2026-03-22-no-dwarf-four-pass-comparison.md) plus [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the first-four-pass CLI parity note now treats that diff as intentional policy, not an open blocker.
+
 ## 2026-03-22 Docs: refresh pass audit for generated pipeline and DCE
 
 - **Pass-audit refresh** by **@jtenner**. Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md) so it now reflects generated-pipeline raw-function pre-lift, the no-DWARF first-four-pass parity state, and the current `OnceReduction` / `DeadCodeElimination` runner status instead of the earlier scheduled-no-op baseline.

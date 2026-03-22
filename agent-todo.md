@@ -14,8 +14,8 @@
   - future policy question: decide whether `closed_world` should become CLI/config-visible beyond the current internal/default-pipeline use.
 - No-DWARF first-four-pass CLI parity:
   - `docs/0016-2026-03-22-no-dwarf-four-pass-comparison.md` is now post-fix: generated optimize pre-lifts raw decoded functions before the pipeline, and explicit CLI flags for the four passes route through the generated surface.
-  - current comparison state: `examples/modules/*.wat` and the focused `memory-only` fixture match Binaryen at normalized WAT level; the only remaining focused diff is `OnceReduction` removing an extra now-redundant `global.set` in trivial once bodies.
-  - decide whether to keep Starshine's smaller trivial-once-body output or preserve Binaryen's exact retained once-body shape for closer textual parity.
+  - current comparison state: `examples/modules/*.wat` and the focused `memory-only` fixture match Binaryen at normalized WAT level; the only remaining focused textual diff is the intentional `OnceReduction` policy to collapse trivial once bodies to `nop` instead of preserving Binaryen's redundant retained `global.set`.
+  - `docs/0045-2026-03-22-once-reduction-trivial-once-body-policy.md` records the decision to keep the smaller Starshine output; the remaining no-DWARF comparison question is broader `MemoryPacking` profitability, not trivial once-body parity.
 - DeadCodeElimination research baseline:
   - `docs/0017-2026-03-22-dead-code-elimination.md` now documents Binaryen's full DCE surface, including synchronous type updates, EH `pop` fixups, GC/string regressions, and stack-switching constraints.
   - `docs/0033-2026-03-22-dead-code-elimination-runner-shell.md` lands Slice 1: `DeadCodeElimination` now dispatches through a dedicated typed func-local runner shell with whitebox coverage instead of the generic no-op entry.
