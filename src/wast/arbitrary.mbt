@@ -748,16 +748,24 @@ pub impl Arbitrary for ElemSegment with arbitrary(size, st) {
 
 ///|
 pub impl Arbitrary for ModuleField with arbitrary(size, st) {
-  match st.next_uint() % 10 {
+  match st.next_uint() % 11 {
     0 => TypeField(Arbitrary::arbitrary(size, st))
-    1 => FuncField(Arbitrary::arbitrary(size, st))
-    2 => TableField(Arbitrary::arbitrary(size, st))
-    3 => MemoryField(Arbitrary::arbitrary(size, st))
-    4 => GlobalField(Arbitrary::arbitrary(size, st))
-    5 => ImportField(Arbitrary::arbitrary(size, st))
-    6 => ExportField(Arbitrary::arbitrary(size, st))
-    7 => StartField(Arbitrary::arbitrary(size, st))
-    8 => ElemField(Arbitrary::arbitrary(size, st))
+    1 => {
+      let types : Array[TypeDef] = []
+      let n = rand_len(size, st, 3)
+      for _ in 0..<n {
+        types.push(Arbitrary::arbitrary(size, st))
+      }
+      RecField(types)
+    }
+    2 => FuncField(Arbitrary::arbitrary(size, st))
+    3 => TableField(Arbitrary::arbitrary(size, st))
+    4 => MemoryField(Arbitrary::arbitrary(size, st))
+    5 => GlobalField(Arbitrary::arbitrary(size, st))
+    6 => ImportField(Arbitrary::arbitrary(size, st))
+    7 => ExportField(Arbitrary::arbitrary(size, st))
+    8 => StartField(Arbitrary::arbitrary(size, st))
+    9 => ElemField(Arbitrary::arbitrary(size, st))
     _ => DataField(Arbitrary::arbitrary(size, st))
   }
 }

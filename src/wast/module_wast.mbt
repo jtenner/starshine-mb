@@ -639,6 +639,34 @@ fn write_elem_item_inline(
 }
 
 ///|
+fn write_type_field(out : StringBuilder, td : TypeDef, pad : String) -> Unit {
+  out.write_string("\{pad}(type")
+  if td.id is Some(id) {
+    out.write_char(' ')
+    out.write_string(id)
+  }
+  if td.is_sub {
+    out.write_string(" (sub")
+    if td.final_ {
+      out.write_string(" final")
+    }
+    for super_idx in td.supers {
+      out.write_char(' ')
+      out.write_string(index_text(super_idx))
+    }
+    out.write_string(render_type_metadata(td.metadata))
+    out.write_char(' ')
+    out.write_string(render_type_def_body(td.body))
+    out.write_string("))\n")
+  } else {
+    out.write_string(render_type_metadata(td.metadata))
+    out.write_char(' ')
+    out.write_string(render_type_def_body(td.body))
+    out.write_string(")\n")
+  }
+}
+
+///|
 fn write_module_field(
   out : StringBuilder,
   field : ModuleField,
@@ -646,32 +674,18 @@ fn write_module_field(
 ) -> Unit raise WastTextError {
   let pad = " ".repeat(indent)
   match field {
-    TypeField(td) => {
-      out.write_string("\{pad}(type")
-      if td.id is Some(id) {
-        out.write_char(' ')
-        out.write_string(id)
-      }
-      if td.is_sub {
-        out.write_string(" (sub")
-        if td.final_ {
-          out.write_string(" final")
-        }
-        for super_idx in td.supers {
-          out.write_char(' ')
-          out.write_string(index_text(super_idx))
-        }
-        out.write_string(render_type_metadata(td.metadata))
-        out.write_char(' ')
-        out.write_string(render_type_def_body(td.body))
-        out.write_string("))\n")
+    TypeField(td) => write_type_field(out, td, pad)
+    RecField(types) =>
+      if types.length() == 0 {
+        out.write_string("\{pad}(rec)\n")
       } else {
-        out.write_string(render_type_metadata(td.metadata))
-        out.write_char(' ')
-        out.write_string(render_type_def_body(td.body))
-        out.write_string(")\n")
+        out.write_string("\{pad}(rec\n")
+        let child_pad = " ".repeat(indent + 2)
+        for td in types {
+          write_type_field(out, td, child_pad)
+        }
+        out.write_string("\{pad})\n")
       }
-    }
     FuncField(func) => {
       out.write_string("\{pad}(func")
       if func.id is Some(id) {

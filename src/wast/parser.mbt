@@ -195,6 +195,7 @@ pub struct Start {
 ///|
 pub enum ModuleField {
   TypeField(TypeDef)
+  RecField(Array[TypeDef])
   FuncField(Func)
   TableField(Table)
   MemoryField(Memory)
@@ -3200,6 +3201,9 @@ fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
 fn WastParser::parse_module_field(
   self : WastParser,
 ) -> ModuleField raise ParserError {
+  if self.is_reserved_word("rec") {
+    return ModuleField::RecField(self.parse_rec_group())
+  }
   match self.current.token_type {
     Type => ModuleField::TypeField(self.parse_type_def())
     Func => self.parse_func()
@@ -3214,6 +3218,26 @@ fn WastParser::parse_module_field(
     Data => ModuleField::DataField(self.parse_data())
     _ => raise UnexpectedToken(self.current, "expected module field")
   }
+}
+
+///|
+fn WastParser::parse_rec_group(
+  self : WastParser,
+) -> Array[TypeDef] raise ParserError {
+  if !self.is_reserved_word("rec") {
+    raise UnexpectedToken(self.current, "expected rec")
+  }
+  let _ = self.advance()
+  let types : Array[TypeDef] = []
+  while self.check(Lpar) {
+    self.expect_lpar()
+    if !self.check(Type) {
+      raise UnexpectedToken(self.current, "expected type")
+    }
+    types.push(self.parse_type_def())
+    self.expect_rpar()
+  }
+  types
 }
 
 ///|
@@ -4038,6 +4062,63 @@ test "parse array type defs with subtype metadata" {
       )
     }
     _ => fail("expected three type fields in array subtype parse fixture")
+  }
+}
+
+///|
+test "parse rec groups with gc type defs" {
+  let source =
+    #|(module
+    #|  (rec
+    #|    (type $node
+    #|      (descriptor $node_desc)
+    #|      (struct (field (ref null $node))))
+    #|    (type $node_desc
+    #|      (describes $node)
+    #|      (struct)))
+    #|  (func))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [RecField([node, node_desc]), FuncField(_)] => {
+      assert_eq(node.id, Some("$node"))
+      assert_eq(node.metadata, {
+        describes: None,
+        descriptor: Some(Id("$node_desc")),
+      })
+      assert_eq(
+        node.body,
+        TypeDefBody::Struct([
+          {
+            storage: Value(TypedFuncRef(HeapTypeRef::TypeId("$node"))),
+            mutable_: false,
+          },
+        ]),
+      )
+      assert_eq(node_desc.id, Some("$node_desc"))
+      assert_eq(node_desc.metadata, {
+        describes: Some(Id("$node")),
+        descriptor: None,
+      })
+      assert_eq(node_desc.body, TypeDefBody::Struct([]))
+    }
+    _ => fail("expected rec group followed by function field")
+  }
+}
+
+///|
+test "parse empty rec groups" {
+  let source = "(module (rec) (type (func)))"
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [RecField([]), TypeField(td)] =>
+      assert_eq(td.body, TypeDefBody::Func({ params: [], results: [] }))
+    _ => fail("expected empty rec group followed by plain type field")
   }
 }
 

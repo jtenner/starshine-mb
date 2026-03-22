@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 WAST: add higher-level rec group authoring
+
+- **GC text-surface rec-group slice** by **@jtenner**. Extended [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt), [`src/wast/module_wast.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/module_wast.mbt), [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt), and related `src/wast` tests so higher-level WAST modules can now author grouped `(rec ...)` type fields directly, preserve them through normalized printing, and lower them into grouped `@lib.RecType` entries while keeping later type uses working against the flat index space.
+- Added the canonical slice doc in [`docs/0020-2026-03-22-wast-rec-group-surface.md`](/home/jtenner/Projects/starshine-mb/docs/0020-2026-03-22-wast-rec-group-surface.md), refreshed [`docs/0018-2026-03-22-wast-struct-type-surface.md`](/home/jtenner/Projects/starshine-mb/docs/0018-2026-03-22-wast-struct-type-surface.md) and [`docs/0019-2026-03-22-wast-array-type-surface.md`](/home/jtenner/Projects/starshine-mb/docs/0019-2026-03-22-wast-array-type-surface.md), and updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining GC text-surface follow-up is fixture migration rather than missing type syntax.
+
 ## 2026-03-22 WAST: add GC struct and array type authoring
 
 - **GC text-surface type-authoring slice** by **@jtenner**. Extended [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt), [`src/wast/module_wast.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/module_wast.mbt), [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt), and related `src/wast` / `src/wat` tests so the higher-level WAST surface now models both `struct` and `array` type definitions, `sub` / `final` wrappers, packed and ref-bearing field storage syntax, and `descriptor` / `describes` metadata, including forward-reference lowering for descriptor-bearing module fixtures.

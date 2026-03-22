@@ -360,6 +360,15 @@ fn wt_comp_type(
 
 ///|
 fn wt_type_def(ctx : WTLowerCtx, td : TypeDef) -> Result[@lib.RecType, String] {
+  let subtype = match wt_sub_type(ctx, td) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  Ok(@lib.RecType::new(subtype))
+}
+
+///|
+fn wt_sub_type(ctx : WTLowerCtx, td : TypeDef) -> Result[@lib.SubType, String] {
   let metadata = match wt_type_metadata(ctx, td.metadata) {
     Ok(v) => v
     Err(e) => return Err(e)
@@ -383,14 +392,26 @@ fn wt_type_def(ctx : WTLowerCtx, td : TypeDef) -> Result[@lib.RecType, String] {
       }
       supers.push(@lib.TypeIdx::new(idx))
     }
-    Ok(
-      @lib.RecType::new(
-        @lib.SubType::new(td.final_, supers, comp_type, metadata~),
-      ),
-    )
+    Ok(@lib.SubType::new(td.final_, supers, comp_type, metadata~))
   } else {
-    Ok(@lib.RecType::new(@lib.SubType::comp_type(comp_type, metadata~)))
+    Ok(@lib.SubType::comp_type(comp_type, metadata~))
   }
+}
+
+///|
+fn wt_type_group(
+  ctx : WTLowerCtx,
+  types : Array[TypeDef],
+) -> Result[@lib.RecType, String] {
+  let subtypes : Array[@lib.SubType] = []
+  for td in types {
+    let subtype = match wt_sub_type(ctx, td) {
+      Ok(v) => v
+      Err(e) => return Err(e)
+    }
+    subtypes.push(subtype)
+  }
+  Ok(@lib.RecType::group(subtypes))
 }
 
 ///|
@@ -2752,6 +2773,16 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
           }
           None => next_type_idx += 1
         }
+      RecField(types) =>
+        for td in types {
+          match td.id {
+            Some(id) => {
+              ctx.type_ids[id] = next_type_idx
+              next_type_idx += 1
+            }
+            None => next_type_idx += 1
+          }
+        }
       _ => ()
     }
   }
@@ -2759,6 +2790,13 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
     match field {
       TypeField(td) => {
         let rec = match wt_type_def(ctx, td) {
+          Ok(v) => v
+          Err(e) => return Err(e)
+        }
+        ctx.type_recs.push(rec)
+      }
+      RecField(types) => {
+        let rec = match wt_type_group(ctx, types) {
           Ok(v) => v
           Err(e) => return Err(e)
         }
@@ -2781,7 +2819,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
 
   for field in mod.fields {
     match field {
-      TypeField(_) => ()
+      TypeField(_) | RecField(_) => ()
       ImportField(im) =>
         match im.desc {
           Func(type_use) => {
@@ -4887,6 +4925,76 @@ test "wast_to_binary_module lowers array type defs with descriptor metadata" {
     }
     _ =>
       fail("expected lowered type section for array type-def metadata fixture")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers rec groups into grouped type entries" {
+  let src =
+    #|(module
+    #|  (rec
+    #|    (type $node
+    #|      (descriptor $node_desc)
+    #|      (struct (field (ref null $node))))
+    #|    (type $node_desc
+    #|      (describes $node)
+    #|      (struct)))
+    #|  (rec
+    #|    (type $sig (func (param i32) (result i32))))
+    #|  (func (type $sig) local.get 0))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected rec-group lowering success: \{e}")
+  }
+  match lowered.type_sec {
+    Some(
+      @lib.TypeSec(
+        [
+          @lib.GroupRecType([node_sub, node_desc_sub]),
+          @lib.GroupRecType([sig_sub]),
+        ]
+      )
+    ) => {
+      assert_eq(
+        node_sub,
+        @lib.SubType::comp_type(
+          @lib.CompType::struct_([
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(
+                @lib.ValType::ref_type(
+                  @lib.RefType::new(
+                    true,
+                    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+                  ),
+                ),
+              ),
+              @lib.Mut::const_(),
+            ),
+          ]),
+          metadata=@lib.TypeMetadata::new(
+            descriptor=Some(@lib.TypeIdx::new(1U)),
+          ),
+        ),
+      )
+      assert_eq(
+        node_desc_sub,
+        @lib.SubType::comp_type(
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(0U))),
+        ),
+      )
+      assert_eq(
+        sig_sub,
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+        ),
+      )
+    }
+    _ => fail("expected grouped rec entries in lowered type section")
+  }
+  match lowered.func_sec {
+    Some(@lib.FuncSec([@lib.TypeIdx::TypeIdx(2U)])) => ()
+    _ => fail("expected function section to reference grouped function type")
   }
 }
 

@@ -28,7 +28,7 @@ Document the higher-level WAST type-definition surface now supported in `src/was
 
 ## Deliberate Non-Scope
 
-- `rec` group authoring is still not modeled in the higher-level WAST AST.
+- This slice itself did not cover `array` or `rec` group authoring; those follow-ups landed later in `0019` and `0020`.
 - This slice does not change the binary parser or spec-harness policy for the broader custom-descriptors corpus.
 
 ## Correctness Constraints
@@ -55,8 +55,7 @@ Document the higher-level WAST type-definition surface now supported in `src/was
 
 ## Remaining Work
 
-- Add `rec` group authoring if higher-level fixtures need recursive text modules instead of binary-only coverage.
-- Expand spec-oriented descriptor fixtures once the remaining type-surface pieces land.
+- Expand spec-oriented descriptor fixtures now that the remaining higher-level type-surface pieces (`array` and `rec`) have landed.
 
 ## Open Questions
 

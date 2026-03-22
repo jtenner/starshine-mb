@@ -46,8 +46,7 @@ This slice closes that asymmetry.
 
 ## Remaining Work
 
-- Higher-level `rec` group authoring is still missing.
-- Some larger custom-descriptor text fixtures will still need binary-only coverage until `rec` groups are modeled.
+- Lift more custom-descriptor fixtures into higher-level text coverage now that `rec` groups are also modeled.
 
 ## Open Questions
 

@@ -494,6 +494,7 @@ pub impl @quickcheck.Arbitrary for Module
 
 pub enum ModuleField {
   TypeField(TypeDef)
+  RecField(Array[TypeDef])
   FuncField(Func)
   TableField(Table)
   MemoryField(Memory)

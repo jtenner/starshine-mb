@@ -374,6 +374,41 @@ test "module_to_wast preserves array type defs with subtype metadata" {
 }
 
 ///|
+test "module_to_wast preserves rec groups with gc type defs" {
+  let src =
+    #|(module
+    #|  (rec
+    #|    (type $node
+    #|      (descriptor $node_desc)
+    #|      (struct (field (ref null $node))))
+    #|    (type $node_desc
+    #|      (describes $node)
+    #|      (struct)))
+    #|  (rec
+    #|    (type $sig (func (param i32) (result i32)))))
+  let mod = match wast_to_module(src) {
+    Ok(m) => m
+    Err(e) => fail("unexpected parse error for rec-group fixture: \{e}")
+  }
+  let text = match module_to_wast(mod) {
+    Ok(t) => t
+    Err(e) => fail("unexpected print error for rec-group fixture: \{e}")
+  }
+  assert_true(text.contains("(rec"))
+  assert_true(text.contains("(type $node"))
+  assert_true(text.contains("(type $sig (func (param i32) (result i32)))"))
+  match wast_to_module(text, filename="printed-rec-groups.wat") {
+    Ok(roundtrip) =>
+      match roundtrip.fields {
+        [RecField([_, _]), RecField([_])] => ()
+        _ => fail("expected roundtripped rec groups to stay grouped")
+      }
+    Err(e) =>
+      fail("expected module_to_wast rec-group output to parse back: \{e}")
+  }
+}
+
+///|
 test "wast_to_module malformed fixtures return targeted parse diagnostics" {
   let fixtures : Array[(String, String, String, String)] = [
     (

@@ -67,9 +67,9 @@
 
 ## v0.1.0 Active Slice Focus
 - GC text-surface follow-up:
-  - the higher-level WAST parser/printer/lowerer now models descriptor-bearing `struct.new*` instructions plus `struct` and `array` `type` fields, including `sub` / `final`, packed/ref-bearing storage syntax, and `descriptor` / `describes` metadata.
-  - `wast_to_binary_module` now has targeted descriptor-bearing module coverage instead of only parser/printer/direct-instruction cases.
-  - remaining feature work is higher-level `rec` group surface so more custom-descriptor text fixtures can move out of binary-only coverage.
+  - the higher-level WAST parser/printer/lowerer now models descriptor-bearing `struct.new*` instructions, `struct` and `array` `type` fields, and grouped `(rec ...)` authoring, including `sub` / `final`, packed/ref-bearing storage syntax, and `descriptor` / `describes` metadata.
+  - `wast_to_binary_module` now lowers grouped `rec` fields into grouped type-section entries, and module-level descriptor-bearing coverage exists above direct instruction cases.
+  - remaining follow-up work is migrating more custom-descriptor fixtures out of binary-only coverage and deciding how much of that should move directly into spec-harness-backed text coverage.
 
 ## Backlog Hygiene
 - Keep duplicate entries removed when pass scopes converge.
