@@ -2375,6 +2375,30 @@ fn wt_instr_to_lib(
         _ => Err("internal error: unexpected struct allocation instruction")
       }
     }
+    StructGet(idx, field_idx)
+    | StructGetS(idx, field_idx)
+    | StructGetU(idx, field_idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let type_idx = @lib.TypeIdx::new(ti)
+      let lib_field_idx = @lib.U32(field_idx)
+      match instr {
+        StructGet(_, _) => Ok(@lib.Instruction::struct_get(type_idx, lib_field_idx))
+        StructGetS(_, _) =>
+          Ok(@lib.Instruction::struct_get_s(type_idx, lib_field_idx))
+        StructGetU(_, _) =>
+          Ok(@lib.Instruction::struct_get_u(type_idx, lib_field_idx))
+        _ => Err("internal error: unexpected struct access instruction")
+      }
+    }
     RefGetDesc(idx) =>
       match
         wt_resolve_named_or_num_index(

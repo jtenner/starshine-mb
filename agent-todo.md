@@ -71,7 +71,8 @@
   - `wast_to_binary_module` now lowers grouped `rec` fields into grouped type-section entries, and higher-level static descriptor coverage now reaches the full `tests/spec/proposals/custom-descriptors/descriptors.wast` fixture above the earlier direct instruction and binary-only cases.
   - `ref.get_desc` now carries its inspected type immediate through WAST lowering, lib instructions, binary encode/decode, and descriptor typechecking.
   - legacy GC aliases like `anyref`, `eqref`, `structref`, `arrayref`, and `nullref` now parse and lower through the higher-level WAST surface, including abstract `(ref struct)` and `(ref array)` spellings.
-  - remaining follow-up work is lifting mixed-runtime custom-descriptor fixtures cleanly, with `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` now blocked on missing higher-level GC accessor instruction surface such as folded `struct.get`.
+  - higher-level WAST now also accepts, prints, and lowers folded `struct.get`, `struct.get_s`, and `struct.get_u`.
+  - remaining follow-up work is lifting mixed-runtime custom-descriptor fixtures cleanly, with `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` now blocked on imported global parsing for parenthesized exact typed refs.
 
 ## Backlog Hygiene
 - Keep duplicate entries removed when pass scopes converge.

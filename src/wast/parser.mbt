@@ -337,6 +337,9 @@ pub enum Instruction {
   RefFunc(Index)
   StructNew(Index)
   StructNewDefault(Index)
+  StructGet(Index, UInt)
+  StructGetS(Index, UInt)
+  StructGetU(Index, UInt)
   StructNewDesc(Index)
   StructNewDefaultDesc(Index)
   RefGetDesc(Index)
@@ -704,6 +707,15 @@ fn parse_uint(s : String) -> UInt {
     }
   }
   result
+}
+
+///|
+fn WastParser::parse_nat(
+  self : WastParser,
+  what : String,
+) -> UInt raise ParserError {
+  let token = self.expect(Nat, what)
+  parse_uint(self.get_literal_text(token))
 }
 
 ///|
@@ -1692,6 +1704,21 @@ fn WastParser::parse_opcode_instruction(
     TryTable => self.parse_try_table_instruction(false)
     StructNew => StructNew(self.parse_index())
     StructNewDefault => StructNewDefault(self.parse_index())
+    StructGet => {
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructGet(type_idx, field_idx)
+    }
+    StructGetS => {
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructGetS(type_idx, field_idx)
+    }
+    StructGetU => {
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructGetU(type_idx, field_idx)
+    }
     StructNewDesc => StructNewDesc(self.parse_index())
     StructNewDefaultDesc => StructNewDefaultDesc(self.parse_index())
     RefGetDesc => RefGetDesc(self.parse_index())

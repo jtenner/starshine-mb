@@ -414,6 +414,12 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     RefFunc(idx) => "ref.func \{index_text(idx)}"
     StructNew(idx) => "struct.new \{index_text(idx)}"
     StructNewDefault(idx) => "struct.new_default \{index_text(idx)}"
+    StructGet(idx, field_idx) =>
+      "struct.get \{index_text(idx)} \{field_idx}"
+    StructGetS(idx, field_idx) =>
+      "struct.get_s \{index_text(idx)} \{field_idx}"
+    StructGetU(idx, field_idx) =>
+      "struct.get_u \{index_text(idx)} \{field_idx}"
     StructNewDesc(idx) => "struct.new_desc \{index_text(idx)}"
     StructNewDefaultDesc(idx) => "struct.new_default_desc \{index_text(idx)}"
     RefGetDesc(idx) => "ref.get_desc \{index_text(idx)}"

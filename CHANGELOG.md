@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 WAST: add higher-level struct access instructions
+
+- **GC accessor text-surface slice** by **@jtenner**. Extended [`src/wast/types.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/types.mbt), [`src/wast/keywords.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/keywords.mbt), [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt), [`src/wast/module_wast.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/module_wast.mbt), and [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt) so the higher-level WAST surface now accepts, prints, and lowers `struct.get`, `struct.get_s`, and `struct.get_u`, including folded forms with type and field immediates.
+- Added focused lexer and end-to-end WAST coverage in [`src/wast/lexer.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lexer.mbt) and [`src/wast/struct_get_surface_test.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/struct_get_surface_test.mbt), which moved `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` past the earlier parser stop on folded `struct.get` and onto the next higher-level fixture gap.
+
 ## 2026-03-22 WAST: accept legacy GC reference aliases
 
 - **GC text-surface compatibility slice** by **@jtenner**. Extended [`src/wast/types.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/types.mbt), [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt), [`src/wast/module_wast.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/module_wast.mbt), and [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt) so the higher-level WAST surface now accepts legacy GC reference aliases such as `anyref`, `eqref`, `i31ref`, `structref`, `arrayref`, and `nullref`, and also recognizes abstract heap keywords `struct` and `array` inside `(ref ...)` and `ref.null` forms.

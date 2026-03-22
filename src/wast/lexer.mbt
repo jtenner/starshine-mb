@@ -1368,6 +1368,14 @@ test "struct allocation opcodes" {
 }
 
 ///|
+test "struct access opcodes" {
+  let lexer = make_lexer("struct.get struct.get_s struct.get_u")
+  assert_token_type(lexer.get_token(), Opcode(StructGet))
+  assert_token_type(lexer.get_token(), Opcode(StructGetS))
+  assert_token_type(lexer.get_token(), Opcode(StructGetU))
+}
+
+///|
 test "advanced reference and exception keyword classification paths" {
   let lexer = make_lexer(
     "ref.eq ref.as_non_null any.convert_extern extern.convert_any ref.i31 i31.get_s i31.get_u throw throw_ref try_table try do catch catch_ref catch_all catch_all_ref delegate rethrow tag",
