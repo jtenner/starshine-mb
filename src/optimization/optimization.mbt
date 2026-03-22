@@ -574,12 +574,18 @@ pub fn run_memory_packing(
   let remaining_referrers = optimization_memory_packing_collect_referrers(
     dead_removed,
   )
-  ignore(
-    optimization_memory_packing_analyze_ranges(
-      dead_removed, remaining_referrers, features,
-    ),
+  let analyses = optimization_memory_packing_analyze_ranges(
+    dead_removed, remaining_referrers, features,
   )
-  (dead_removed, global)
+  if !optimization_memory_packing_can_apply_materialization_without_rewrite(
+      dead_removed, analyses,
+    ) {
+    return (dead_removed, global)
+  }
+  let (materialized, _) = optimization_memory_packing_materialize_segments(
+    dead_removed, analyses,
+  )
+  (materialized, global)
 }
 
 ///|
@@ -1288,6 +1294,225 @@ fn optimization_memory_packing_analyze_ranges(
 }
 
 ///|
+fn optimization_memory_packing_can_apply_materialization_without_rewrite(
+  mod : Module,
+  analyses : Array[Array[MemoryPackingRange]],
+) -> Bool {
+  let datas = optimization_memory_packing_data_segments(mod)
+  if datas.length() != analyses.length() {
+    return false
+  }
+  let mut i = 0
+  while i < datas.length() {
+    match datas[i] {
+      Data(Passive, _) =>
+        if analyses[i] != optimization_memory_packing_unsplit_ranges(datas[i]) {
+          return false
+        }
+      _ => ()
+    }
+    i += 1
+  }
+  true
+}
+
+///|
+fn optimization_memory_packing_materialize_segments(
+  mod : Module,
+  analyses : Array[Array[MemoryPackingRange]],
+) -> (Module, Array[Array[DataIdx]]) {
+  let datas = optimization_memory_packing_data_segments(mod)
+  if datas.length() != analyses.length() {
+    return (mod, [])
+  }
+  let packed_datas : Array[Data] = []
+  let packed_names : Array[@lib.NameAssoc] = []
+  let replacements : Array[Array[DataIdx]] = []
+  let mut i = 0
+  while i < datas.length() {
+    let data = datas[i]
+    let data_idx = DataIdx::new(i.reinterpret_as_uint())
+    let base_name = optimization_memory_packing_data_name(mod, data_idx)
+    let replacement_data_idxs : Array[DataIdx] = []
+    let mut emitted_name_count = 0
+    for range in analyses[i] {
+      if range.is_zero {
+        continue
+      }
+      let next_data_idx = DataIdx::new(
+        packed_datas.length().reinterpret_as_uint(),
+      )
+      replacement_data_idxs.push(next_data_idx)
+      packed_datas.push(
+        optimization_memory_packing_materialize_range(data, range),
+      )
+      match base_name {
+        Some(name) =>
+          packed_names.push(
+            @lib.NameAssoc::new(
+              next_data_idx.0,
+              optimization_memory_packing_replacement_name(
+                name, emitted_name_count,
+              ),
+            ),
+          )
+        None => ()
+      }
+      emitted_name_count += 1
+    }
+    replacements.push(replacement_data_idxs)
+    i += 1
+  }
+  let mut materialized = mod.with_data_sec(DataSec::new(packed_datas))
+  match mod.data_cnt_sec {
+    Some(_) =>
+      materialized = materialized.with_data_cnt_sec(
+        DataCntSec::new(U32::new(packed_datas.length().reinterpret_as_uint())),
+      )
+    None => ()
+  }
+  materialized = optimization_memory_packing_with_data_names(
+    materialized,
+    if packed_names.is_empty() {
+      None
+    } else {
+      Some(@lib.NameMap::new(packed_names))
+    },
+  )
+  (materialized, replacements)
+}
+
+///|
+fn optimization_memory_packing_materialize_range(
+  data : Data,
+  range : MemoryPackingRange,
+) -> Data {
+  let Data(mode, bytes) = data
+  let packed_bytes = bytes[range.start:range.end].to_bytes()
+  match mode {
+    @lib.Active(mem_idx, offset_expr) =>
+      Data::new(
+        @lib.DataMode::active(
+          mem_idx,
+          optimization_memory_packing_shift_active_offset(
+            offset_expr,
+            range.start.to_uint64(),
+          ),
+        ),
+        packed_bytes,
+      )
+    @lib.Passive => Data::new(@lib.DataMode::passive(), packed_bytes)
+  }
+}
+
+///|
+fn optimization_memory_packing_shift_active_offset(
+  offset_expr : @lib.Expr,
+  delta : UInt64,
+) -> @lib.Expr {
+  match offset_expr {
+    @lib.Expr([@lib.I32Const(@lib.I32(value))]) => {
+      let base = value.reinterpret_as_uint().to_uint64()
+      let next = optimization_memory_packing_saturating_add_u64(
+        base, delta, 4294967295UL,
+      )
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(
+          @lib.I32::new(next.to_uint().reinterpret_as_int()),
+        ),
+      ])
+    }
+    @lib.Expr([@lib.I64Const(@lib.I64(value))]) => {
+      let base = value.reinterpret_as_uint64()
+      let next = optimization_memory_packing_saturating_add_u64(
+        base, delta, 18446744073709551615UL,
+      )
+      @lib.Expr::new([
+        @lib.Instruction::i64_const(@lib.I64::new(next.reinterpret_as_int64())),
+      ])
+    }
+    _ => offset_expr
+  }
+}
+
+///|
+fn optimization_memory_packing_saturating_add_u64(
+  lhs : UInt64,
+  rhs : UInt64,
+  max_value : UInt64,
+) -> UInt64 {
+  if rhs > max_value - lhs {
+    max_value
+  } else {
+    lhs + rhs
+  }
+}
+
+///|
+fn optimization_memory_packing_replacement_name(
+  name : @lib.Name,
+  emitted_idx : Int,
+) -> @lib.Name {
+  if emitted_idx == 0 {
+    return name
+  }
+  @lib.Name::from_string("\{name.0.to_string()}.\{emitted_idx}")
+}
+
+///|
+fn optimization_memory_packing_with_data_names(
+  mod : Module,
+  data_names : @lib.NameMap?,
+) -> Module {
+  match mod.name_sec {
+    Some(name_sec) =>
+      mod.with_name_sec(
+        optimization_memory_packing_rewrite_data_name_sec(name_sec, data_names),
+      )
+    None =>
+      match data_names {
+        Some(names) => mod.with_name_sec(NameSec::new(data_names=Some(names)))
+        None => mod
+      }
+  }
+}
+
+///|
+fn optimization_memory_packing_rewrite_data_name_sec(
+  name_sec : NameSec,
+  data_names : @lib.NameMap?,
+) -> NameSec {
+  let {
+    module_name,
+    func_names,
+    local_names,
+    label_names,
+    type_names,
+    table_names,
+    memory_names,
+    global_names,
+    elem_names,
+    data_names: _,
+    field_names,
+    tag_names,
+  } = name_sec
+  NameSec::new(
+    module_name~,
+    func_names~,
+    local_names~,
+    label_names~,
+    type_names~,
+    table_names~,
+    memory_names~,
+    global_names~,
+    elem_names~,
+    data_names~,
+    field_names~,
+    tag_names~,
+  )
+}
+
+///|
 fn optimization_memory_packing_remove_dead_passive_segments(
   mod : Module,
   referrers : Array[Array[MemoryPackingSegmentReferrer]],
@@ -1326,7 +1551,35 @@ fn optimization_memory_packing_remove_dead_passive_segments(
   let (compacted, data_remap) = optimization_compact_data_sec(
     rewritten, datas, keep_datas,
   )
-  optimization_memory_packing_rewrite_data_indices(compacted, data_remap)
+  optimization_memory_packing_rewrite_data_indices(
+    optimization_memory_packing_rewrite_data_name_indices(compacted, data_remap),
+    data_remap,
+  )
+}
+
+///|
+fn optimization_memory_packing_rewrite_data_name_indices(
+  mod : Module,
+  data_remap : Map[UInt, UInt],
+) -> Module {
+  match mod.name_sec {
+    Some(name_sec) =>
+      mod.with_name_sec(
+        optimization_memory_packing_rewrite_data_name_sec(
+          name_sec,
+          match name_sec.data_names {
+            Some(data_names) =>
+              Some(
+                optimization_rewrite_name_map_filtered(
+                  data_names, data_remap, true,
+                ),
+              )
+            None => None
+          },
+        ),
+      )
+    None => mod
+  }
 }
 
 ///|
@@ -2337,6 +2590,99 @@ test "memory packing removes drop-only passive segments and rewrites data drops 
       )
     }
     _ => fail("expected rewritten untyped function body")
+  }
+}
+
+///|
+test "memory packing materializes split active segments with shifted offsets and names" {
+  let mod = optimization_memory_packing_test_defined_memory()
+    .with_data_sec(
+      DataSec::new([
+        optimization_memory_packing_test_active_data(
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(10))]),
+          b"AB\x00\x00CD",
+        ),
+      ]),
+    )
+    .with_name_sec(
+      NameSec::new(
+        data_names=Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("blob")),
+          ]),
+        ),
+      ),
+    )
+  let (materialized, replacements) = optimization_memory_packing_materialize_segments(
+    mod,
+    [
+      [
+        MemoryPackingRange::new(false, 0, 2),
+        MemoryPackingRange::new(true, 2, 4),
+        MemoryPackingRange::new(false, 4, 6),
+      ],
+    ],
+  )
+  assert_eq(replacements, [[DataIdx::new(0U), DataIdx::new(1U)]])
+  match materialized.data_sec {
+    Some(DataSec(datas)) =>
+      assert_eq(datas, [
+        optimization_memory_packing_test_active_data(
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(10))]),
+          b"AB",
+        ),
+        optimization_memory_packing_test_active_data(
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(14))]),
+          b"CD",
+        ),
+      ])
+    _ => fail("expected materialized data section")
+  }
+  match materialized.name_sec {
+    Some(name_sec) =>
+      assert_eq(
+        name_sec.data_names,
+        Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("blob")),
+            @lib.NameAssoc::new(1U, @lib.Name::from_string("blob.1")),
+          ]),
+        ),
+      )
+    None => fail("expected rewritten name section")
+  }
+}
+
+///|
+test "memory packing materialization saturates active i32 offsets instead of wrapping" {
+  let mod = optimization_memory_packing_test_defined_memory().with_data_sec(
+    DataSec::new([
+      optimization_memory_packing_test_active_data(
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(-1))]),
+        b"AB",
+      ),
+    ]),
+  )
+  let (materialized, replacements) = optimization_memory_packing_materialize_segments(
+    mod,
+    [
+      [
+        MemoryPackingRange::new(true, 0, 1),
+        MemoryPackingRange::new(false, 1, 2),
+      ],
+    ],
+  )
+  assert_eq(replacements, [[DataIdx::new(0U)]])
+  match materialized.data_sec {
+    Some(DataSec([Data(@lib.Active(@lib.MemIdx(mem_idx), offset_expr), bytes)])) => {
+      assert_eq(mem_idx, 0U)
+      assert_eq(
+        offset_expr,
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(-1))]),
+      )
+      assert_eq(bytes, b"B")
+    }
+    _ => fail("expected saturated active replacement")
   }
 }
 

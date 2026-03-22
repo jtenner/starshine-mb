@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-22 Optimization: land MemoryPacking slice-7 segment materialization
+
+- **MemoryPacking materialization slice** by **@jtenner**. Extended [`run_memory_packing`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now materializes analyzed split segments into a rebuilt data section with original-to-replacement `DataIdx` mapping, checked active-offset shifting with saturation instead of wraparound, and rebuilt `data_names`; the runner applies that materialization immediately when no passive segment-operation rewrite is required, which makes active-segment packing end to end instead of analysis-only.
+- Tightened the earlier dead-passive compaction step in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `data_names` now stay aligned with `DataIdx` compaction before later range analysis and materialization.
+- Added focused red-to-green internal regressions in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) covering split active-segment materialization, emitted replacement-index mapping, rebuilt data names, and saturating active `i32` offset shifting.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0014-2026-03-21-memory-packing.md`](/home/jtenner/Projects/starshine-mb/docs/0014-2026-03-21-memory-packing.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining active `MemoryPacking` backlog now starts at passive `memory.init` / `data.drop` replacement rewriting and final validation cleanup.
+
 ## 2026-03-22 Optimization: land MemoryPacking slice-6 range analysis
 
 - **MemoryPacking range-analysis slice** by **@jtenner**. Extended [`run_memory_packing`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now computes per-segment range-analysis plans after dead passive removal, including the documented split eligibility checks, raw zero/nonzero range discovery, active/passive profitability thresholds, trap-preserving active trailing-byte fixups, and the Web data-segment cap merge rule.
