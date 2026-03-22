@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Optimization: cover grouped-stage DCE output stability
+
+- **DeadCodeElimination grouped-stage checkpoint** by **@jtenner**. Added focused pipeline execution coverage in [`src/optimization/optimization_test.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization_test.mbt) to run the real default grouped function stage on a typed dead-tail fixture and assert the stage preserves `DeadCodeElimination`'s trimmed output and still validates.
+- Recorded the checkpoint in [`docs/0049-2026-03-22-dead-code-elimination-grouped-stage-output.md`](/home/jtenner/Projects/starshine-mb/docs/0049-2026-03-22-dead-code-elimination-grouped-stage-output.md) and narrowed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to dependency-blocked DCE follow-ups only.
+
 ## 2026-03-22 Optimization: lock DCE cleanup ordering in the default function stage
 
 - **DeadCodeElimination pipeline checkpoint** by **@jtenner**. Added focused default-pipeline coverage in [`src/optimization/optimization_test.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization_test.mbt) to assert the grouped function stage keeps `DeadCodeElimination` ahead of the first `RemoveUnusedNames`, the first `RemoveUnusedBrs`, and `Vacuum`.

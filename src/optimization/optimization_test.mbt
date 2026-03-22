@@ -116,6 +116,46 @@ fn optimize_pipeline_find_first_pass(
 }
 
 ///|
+fn optimize_pipeline_grouped_dead_tail_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::t_func(
+        [],
+        @lib.Locals::empty(),
+        @lib.TExpr::new([@lib.TInstr::return_([]), @lib.TInstr::nop()]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn optimize_pipeline_run_first_grouped_function_stage(mod : Module) -> Module {
+  let pipeline = default_optimize_pipeline(
+    PipelineGlobal::new(opt_level=2, validate=true),
+  )
+  match pipeline[4].group.kind() {
+    FuncLocalGroup(funcs) => {
+      let mut current = mod
+      let mut scratch = PipelineScratch::new()
+      for func in funcs {
+        let (next, next_scratch) = func(current, scratch)
+        current = next
+        scratch = next_scratch
+      }
+      current
+    }
+    _ => abort("expected grouped function stage at default pipeline slot 4")
+  }
+}
+
+///|
 test "default optimize pipeline groups function passes between global stages" {
   let pipeline = default_optimize_pipeline(
     PipelineGlobal::new(opt_level=2, validate=true),
@@ -169,6 +209,25 @@ test "default optimize pipeline keeps dead code elimination ahead of cleanup pas
       fail(
         "expected grouped function stage to contain DCE, RemoveUnusedNames, RemoveUnusedBrs, and Vacuum",
       )
+  }
+}
+
+///|
+test "default grouped function stage preserves dead-code-elimination tail trimming output" {
+  let optimized = optimize_pipeline_run_first_grouped_function_stage(
+    optimize_pipeline_grouped_dead_tail_module(),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected grouped function stage output to validate: \{@validate.validation_error_message(err)}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) =>
+      assert_eq(body.inner(), [@lib.TInstr::return_([])])
+    _ => fail("expected optimized single typed function body")
   }
 }
 
