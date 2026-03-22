@@ -645,6 +645,8 @@ fn optimization_dead_code_elimination_rewrite_instr(
   match instr.kind {
     @lib.TBlock(block_type, body) =>
       optimization_dead_code_elimination_rewrite_block(block_type, body)
+    @lib.TLoop(block_type, body) =>
+      optimization_dead_code_elimination_rewrite_loop(block_type, body)
     @lib.TIf(block_type, cond, then_body, else_body) =>
       optimization_dead_code_elimination_rewrite_if(
         block_type, cond, then_body, else_body,
@@ -699,6 +701,21 @@ fn optimization_dead_code_elimination_rewrite_instr(
         None => @lib.TInstr::select(type_hint, cond, if_true, if_false)
       }
     _ => instr
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_rewrite_loop(
+  block_type : @lib.BlockType,
+  body : @lib.TExpr,
+) -> @lib.TInstr {
+  match body.inner() {
+    [child] =>
+      match child.kind {
+        @lib.TUnreachable => child
+        _ => @lib.TInstr::loop_(block_type, body)
+      }
+    _ => @lib.TInstr::loop_(block_type, body)
   }
 }
 

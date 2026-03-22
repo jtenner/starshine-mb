@@ -353,3 +353,32 @@ test "dead code elimination retags ifs when both arms are unreachable" {
     ),
   ])
 }
+
+///|
+test "dead code elimination replaces loops whose body is literal unreachable" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::loop_(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+    ),
+  ])
+  assert_eq(body, [@lib.TInstr::unreachable_()])
+}
+
+///|
+test "dead code elimination leaves branch-back loops alone" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::loop_(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(0U), [])]),
+    ),
+    @lib.TInstr::nop(),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::loop_(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(0U), [])]),
+    ),
+    @lib.TInstr::nop(),
+  ])
+}

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: land DeadCodeElimination loop rewrite
+
+- **DeadCodeElimination loop slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so loops whose rewritten body is the literal `unreachable` node now collapse to that child, while ordinary branch-back loops remain untouched.
+- Expanded [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) with focused coverage for both the collapsing case and the “do not over-simplify loops” guard case.
+- Recorded the checkpoint in [`docs/0038-2026-03-22-dead-code-elimination-loop-rule.md`](/home/jtenner/Projects/starshine-mb/docs/0038-2026-03-22-dead-code-elimination-loop-rule.md), which moves the next DCE work onto EH `try` / `try_table` handling and later branch-value stress cases.
+
 ## 2026-03-22 Optimization: land DeadCodeElimination if rewrites
 
 - **DeadCodeElimination `if` slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `DeadCodeElimination` now applies the two control-flow-specific `if` rules: an unreachable condition replaces the entire `if`, and an `if` with both unreachable arms now degrades to an unreachable-equivalent void form instead of keeping a stale concrete result type.

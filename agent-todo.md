@@ -20,7 +20,8 @@
   - `docs/0035-2026-03-22-dead-code-elimination-block-tail-truncation.md` lands Slice 3: enclosing typed expression lists now truncate after the first terminating item, nested `block` tails only escape outer parents when they truly do, and trivial `[unreachable]` blocks collapse to the child.
   - `docs/0036-2026-03-22-dead-code-elimination-live-break-block-types.md` lands Slice 4: concrete typed blocks now only degrade to unreachable-equivalent structure when their tail escapes and no live incoming break still supplies the block result.
   - `docs/0037-2026-03-22-dead-code-elimination-if-rules.md` lands Slice 5: unreachable `if` conditions now replace the whole node, and concrete `if`s with two unreachable arms now degrade to unreachable-equivalent void form instead of keeping a stale value type.
-  - next implementation work is Slice 6 the conservative loop rule, then the EH-specific `try` / `try_table` handling.
+  - `docs/0038-2026-03-22-dead-code-elimination-loop-rule.md` lands Slice 6: loops now only collapse when the rewritten body is the literal `unreachable` node, while branch-back loops still stay intact.
+  - next implementation work is the EH-specific `try` / `try_table` handling, then the branch-value and ancestor-propagation stress cases.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination
