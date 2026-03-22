@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization: propagate closed-world array.copy payloads in RemoveUnusedModuleElements
+
+- **RemoveUnusedModuleElements array.copy slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so closed-world ref-bearing `array.copy` now propagates deferred payload identity from source array types into destination array types. Unread copies stay reference-only, while a later live `array.get` / `array.get_s` / `array.get_u` on the destination flushes the copied payloads to used.
+- Expanded whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) with red-to-green regressions proving that unread `array.copy` does not spuriously promote copied funcref payloads from unrelated `call_ref` traffic, while later destination reads do promote them correctly.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining GC payload work is now hardening around reference-only non-function retention and any future GC consumer expansion rather than the earlier missing `array.copy` reader path.
+
 ## 2026-03-21 Optimization: defer closed-world array.fill payloads in RemoveUnusedModuleElements
 
 - **RemoveUnusedModuleElements array.fill slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so closed-world ref-bearing `array.fill` payloads now stay reference-only until a later `array.get` / `array.get_s` / `array.get_u` makes those contents observable. This reuses the deferred array-content buckets from the previous array slices instead of eagerly promoting unread fill values to used.

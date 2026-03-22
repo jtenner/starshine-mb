@@ -213,12 +213,12 @@ Status: researched rollout plan for Starshine's index-based IR.
   - `ALG-02`, `ALG-03`, `ALG-07`.
 - Add subtype flattening and query helpers for closed-world GC analysis.
 - Implement `readStructFields` and deferred payload tracking for `struct.new`.
-- Wire `struct.get`, `struct.get_s`, `struct.get_u`, `array.new_data`, `array.new_elem`, and related GC consumers.
+- Wire `struct.get`, `struct.get_s`, `struct.get_u`, `array.new_elem`, `array.copy`, and related GC consumers.
 - Keep this slice disabled unless GC is present and closed-world config is available.
 - Status:
   - partial.
-  - landed subset: closed-world typed `struct.new` / `struct.new_desc` payloads now defer unread field payload uses, unread payloads keep only reference identity alive until a live `struct.get` / `struct.get_s` / `struct.get_u` read occurs, referenced globals are preserved through that deferred path so unread field payload graphs are not compacted away unsafely, ref-bearing `array.new` / `array.new_fixed` / `array.new_elem` payloads now defer unread payload uses until a live `array.get` / `array.get_s` / `array.get_u` read occurs, and mutable `array.set` / `array.init_elem` plus ref-bearing `array.fill` now feed the same deferred array-content buckets instead of eagerly promoting unread payloads.
-  - remaining work: broader source/content readers beyond the current typed struct and array get paths such as `array.copy`, and any extra hardening needed for reference-only non-function retention outside the current global + elem paths. `array.new_data` is not a remaining GC payload blocker under current Starshine validation because it is limited to numeric/vector element arrays.
+  - landed subset: closed-world typed `struct.new` / `struct.new_desc` payloads now defer unread field payload uses, unread payloads keep only reference identity alive until a live `struct.get` / `struct.get_s` / `struct.get_u` read occurs, referenced globals are preserved through that deferred path so unread field payload graphs are not compacted away unsafely, ref-bearing `array.new` / `array.new_fixed` / `array.new_elem` payloads now defer unread payload uses until a live `array.get` / `array.get_s` / `array.get_u` read occurs, mutable `array.set` / `array.init_elem` plus ref-bearing `array.fill` now feed the same deferred array-content buckets instead of eagerly promoting unread payloads, and ref-bearing `array.copy` now propagates deferred payload identity across array types so unread copies remain reference-only until a live destination read occurs.
+  - remaining work: extra hardening needed for reference-only non-function retention outside the current global + elem paths, plus any future GC consumer expansion beyond the current struct/array instruction surface. `array.new_data` is not a remaining GC payload blocker under current Starshine validation because it is limited to numeric/vector element arrays.
 - Exit when GC payload liveness is precise without risking open-world unsoundness.
 
 ### Slice 7 — Hardening, Docs, and Pipeline Signoff
