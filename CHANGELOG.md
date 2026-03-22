@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Docs: refresh pass audit for generated pipeline and DCE
+
+- **Pass-audit refresh** by **@jtenner**. Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md) so it now reflects generated-pipeline raw-function pre-lift, the no-DWARF first-four-pass parity state, and the current `OnceReduction` / `DeadCodeElimination` runner status instead of the earlier scheduled-no-op baseline.
+- Removed the stale audit-refresh reminder from [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) now that the canonical pass-audit doc matches the current runner behavior again.
+
 ## 2026-03-22 Tooling: land generated pipeline parity, annotations, and DCE groundwork
 
 - **Generated pipeline and API bundle** by **@jtenner**. Landed the generated-pipeline pre-lift path for raw decoded funcs, wired the explicit no-DWARF first-four-pass CLI flags through the same generated surface, and added the focused command/pipeline coverage and comparison docs in [`docs/0016-2026-03-22-no-dwarf-four-pass-comparison.md`](/home/jtenner/Projects/starshine-mb/docs/0016-2026-03-22-no-dwarf-four-pass-comparison.md).

@@ -7,7 +7,6 @@
 - Do not mark completed tasks here; move finished items to `CHANGELOG.md`.
 
 ## Publishing and Validation Blockers
-- Refresh `docs/0011-2026-03-18-pass-audit.md` whenever pass inventory or runner behavior changes.
 - Keep `merge-similar-functions` correctness and publish-signoff docs aligned.
 - Keep release blockers in `agent-todo.md` and avoid losing unresolved risk notes in `CHANGELOG.md`.
 - Generated optimize feature-source plumbing:
