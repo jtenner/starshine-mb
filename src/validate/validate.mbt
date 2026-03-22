@@ -627,7 +627,9 @@ fn validate_descriptor_metadata_group(
   sts : Array[SubType],
   env : Env,
 ) -> Result[Unit, String] {
-  let base = env.global_types.length()
+  // The rectype is already in `env`, so recover the starting absolute index of
+  // the current group before comparing metadata targets against sibling types.
+  let base = env.global_types.length() - sts.length()
   let mut i = 0
   while i < sts.length() {
     let st = sts[i]

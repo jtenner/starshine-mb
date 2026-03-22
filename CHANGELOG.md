@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Validate: land custom-descriptor static text coverage
+
+- **Custom-descriptor validator repair** by **@jtenner**. Fixed [`src/validate/match.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/match.mbt) and [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) so recursive-group validation now keeps current-group absolute type indices in scope, final defined types still match their declared supertypes, and struct subtype matching accepts trailing-field extensions. This clears the valid `final` and cross-`rec` descriptor subtype chains from the spec instead of rejecting them with spurious type-resolution or incompatible-supertype errors.
+- Lifted higher-level coverage in [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt), [`src/wast/spec_harness.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/spec_harness.mbt), and [`docs/0021-2026-03-22-custom-descriptor-static-text-coverage.md`](/home/jtenner/Projects/starshine-mb/docs/0021-2026-03-22-custom-descriptor-static-text-coverage.md) so `tests/spec/proposals/custom-descriptors/descriptors.wast` now runs as a dedicated native static-fixture check above the lower-level binary-only coverage.
+
 ## 2026-03-22 WAST: reject reversed descriptor metadata order
 
 - **GC text-surface parser tightening** by **@jtenner**. Tightened [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt) so higher-level type headers now reject `descriptor` clauses that appear before `describes` in the same type definition, matching the malformed custom-descriptor text cases instead of silently accepting and normalizing them.

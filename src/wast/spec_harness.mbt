@@ -699,6 +699,28 @@ test "wast spec harness covers binary and UTF-8 malformed static fixtures" {
 
 ///|
 #cfg(target="native")
+test "wast spec harness covers custom descriptor static fixtures" {
+  let paths : Array[String] = [
+    "tests/spec/proposals/custom-descriptors/binary-descriptors.wast", "tests/spec/proposals/custom-descriptors/descriptors.wast",
+  ]
+  for path in paths {
+    let source = match spec_native_read_bytes(path) {
+      Some(bytes) => spec_bytes_to_string_lossy(bytes)
+      None => fail("expected to read \{path}")
+    }
+    let report = run_wast_spec_file(path, source)
+    match report.status {
+      Passed => ()
+      Skipped(reason) =>
+        fail("expected \{path} to run without skipping, got: \{reason}")
+      Failed(msg) => fail("expected \{path} to pass static checks: \{msg}")
+    }
+    assert_true(report.checked_commands > 0)
+  }
+}
+
+///|
+#cfg(target="native")
 test "wast spec harness covers alignment and init-expression validation fixtures" {
   let paths : Array[String] = [
     "tests/spec/align.wast", "tests/spec/memory_copy.wast", "tests/spec/memory_redundancy.wast",

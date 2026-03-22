@@ -34,7 +34,19 @@ pub impl Match for CompType with matches(self, other, env) {
       // contravariant in params, covariant in results
       Match::matches(p_other, p_self, env) &&
       Match::matches(r_self, r_other, env)
-    (StructCompType(fs0), StructCompType(fs1)) => Match::matches(fs0, fs1, env)
+    (StructCompType(fs0), StructCompType(fs1)) => {
+      if fs0.length() < fs1.length() {
+        return false
+      }
+      let mut i = 0
+      while i < fs1.length() {
+        if !Match::matches(fs0[i], fs1[i], env) {
+          return false
+        }
+        i += 1
+      }
+      true
+    }
     (ArrayCompType(f0), ArrayCompType(f1)) => Match::matches(f0, f1, env)
     _ => false
   }
@@ -221,7 +233,7 @@ fn subtype_as_heap_fuel(
         return false
       }
     }
-    _ => if is_final { return false }
+    _ => ()
   }
 
   // 2) Chase declared supertypes
@@ -271,10 +283,7 @@ fn heap_vs_typeidx_fuel(
           let env1 = env_with_rectype(env, rt1)
           match st1 {
             CompTypeSubType(_, _) => false
-            SubType(is_final, supers, _, _) => {
-              if is_final {
-                return false
-              }
+            SubType(_, supers, _, _) => {
               for tu in supers {
                 if typeidx_leq_typeidx_with_fuel(tu, target, env1, fuel - 1) {
                   return true
@@ -333,9 +342,13 @@ fn env_with_rectype(env : Env, rt : RecType) -> Env {
 ///|
 fn env_add_rec_group(env : Env, group : Array[SubType]) -> Env {
   let rs = env.rec_stack.copy()
+  let gs = env.global_types.copy()
   rs.push(group)
+  for st in group {
+    gs.push(st)
+  }
   Env::{
-    global_types: env.global_types,
+    global_types: gs,
     rec_stack: rs,
     funcs: env.funcs,
     func_type_idxs: env.func_type_idxs,
@@ -380,11 +393,8 @@ fn deftype_matches_fuel(
     Some(st1) =>
       match st1 {
         CompTypeSubType(_, _) => false
-        SubType(is_final, supers, _, _) => {
-          // final types have no proper subtypes
-          if is_final {
-            return false
-          }
+        SubType(_, supers, _, _) => {
+          // final types still match their declared supertypes.
           let ht2 = HeapType::def_type(dt2)
           for tu in supers {
             // “typeuse*[i] matches heaptype deftype2”
@@ -492,10 +502,7 @@ fn typeidx_leq_typeidx_fuel(
     Some(st) =>
       match st {
         CompTypeSubType(_, _) => false
-        SubType(is_final, _, _, _) => {
-          if is_final {
-            return false
-          }
+        SubType(_, _, _, _) => {
           visited.push(a)
           for s in st.super_types() {
             if typeidx_leq_typeidx_fuel(s, b, env, fuel - 1, visited) {
@@ -969,6 +976,20 @@ test "CompType: StructCompType - field matching" {
 }
 
 ///|
+test "CompType: StructCompType allows trailing subtype fields" {
+  let env = Env::new()
+  let super_struct = CompType::struct_([
+    FieldType::new(StorageType::pack_type(PackType::i8()), Const),
+  ])
+  let sub_struct = CompType::struct_([
+    FieldType::new(StorageType::pack_type(PackType::i8()), Const),
+    FieldType::new(StorageType::pack_type(PackType::i16()), Const),
+  ])
+  assert_true(Match::matches(sub_struct, super_struct, env))
+  assert_false(Match::matches(super_struct, sub_struct, env))
+}
+
+///|
 test "CompType: ArrayCompType - field matching" {
   let env = Env::new()
   let a1 = CompType::array(
@@ -1182,4 +1203,19 @@ test "nested ref type in struct field" {
   let f2 = FieldType::new(st_any, Const)
   assert_true(Match::matches(f1, f2, env))
   assert_false(Match::matches(f2, f1, env))
+}
+
+///|
+test "HeapType matches let final defined types keep declared supertypes" {
+  let env = Env::new().with_types([
+    SubType::comp_type(CompType::struct_([])),
+    SubType::new(true, [TypeIdx::new(0U)], CompType::struct_([])),
+  ])
+  assert_true(
+    Match::matches(
+      HeapType::new(TypeIdx::new(1U)),
+      HeapType::new(TypeIdx::new(0U)),
+      env,
+    ),
+  )
 }

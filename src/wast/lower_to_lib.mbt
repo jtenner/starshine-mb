@@ -4999,6 +4999,132 @@ test "wast_to_binary_module lowers rec groups into grouped type entries" {
 }
 
 ///|
+test "wast_to_binary_module validates descriptor final-subtype pair from text" {
+  let src =
+    #|(module
+    #|  (rec
+    #|    (type $base (sub (descriptor $base_desc) (struct)))
+    #|    (type $base_desc (sub (describes $base) (struct)))
+    #|    (type $leaf (sub final $base (descriptor $leaf_desc) (struct (field i32))))
+    #|    (type $leaf_desc (sub final $base_desc (describes $leaf) (struct (field f32))))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected descriptor final-subtype fixture lowering success: \{e}")
+  }
+  match lowered.type_sec {
+    Some(@lib.TypeSec([@lib.GroupRecType([base, base_desc, leaf, leaf_desc])])) => {
+      assert_eq(
+        base,
+        @lib.SubType::new(
+          false,
+          [],
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(
+            descriptor=Some(@lib.TypeIdx::new(1U)),
+          ),
+        ),
+      )
+      assert_eq(
+        base_desc,
+        @lib.SubType::new(
+          false,
+          [],
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(0U))),
+        ),
+      )
+      assert_eq(
+        leaf,
+        @lib.SubType::new(
+          true,
+          [@lib.TypeIdx::new(0U)],
+          @lib.CompType::struct_([
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(@lib.ValType::i32()),
+              @lib.Mut::const_(),
+            ),
+          ]),
+          metadata=@lib.TypeMetadata::new(
+            descriptor=Some(@lib.TypeIdx::new(3U)),
+          ),
+        ),
+      )
+      assert_eq(
+        leaf_desc,
+        @lib.SubType::new(
+          true,
+          [@lib.TypeIdx::new(1U)],
+          @lib.CompType::struct_([
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(@lib.ValType::f32()),
+              @lib.Mut::const_(),
+            ),
+          ]),
+          metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(2U))),
+        ),
+      )
+    }
+    _ => fail("expected grouped descriptor final-subtype lowering shape")
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected descriptor final-subtype fixture to validate after lowering: \{e}",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module validates nested descriptor chains from text" {
+  let src =
+    #|(module
+    #|  (rec
+    #|    (type $node (descriptor $node_desc) (struct))
+    #|    (type $node_desc (describes $node) (descriptor $node_meta) (struct))
+    #|    (type $node_meta (describes $node_desc) (struct))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected nested descriptor-chain fixture lowering success: \{e}")
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected nested descriptor-chain fixture to validate after lowering: \{e}",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module validates cross-rec descriptor subtype chains from text" {
+  let src =
+    #|(module
+    #|  (rec
+    #|    (type $base (sub (descriptor $base_desc) (struct)))
+    #|    (type $base_desc (sub (describes $base) (struct))))
+    #|  (rec
+    #|    (type $leaf (sub $base (descriptor $leaf_desc) (struct)))
+    #|    (type $leaf_desc (sub $base_desc (describes $leaf) (struct)))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected cross-rec descriptor subtype-chain fixture lowering success: \{e}",
+      )
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected cross-rec descriptor subtype-chain fixture to validate after lowering: \{e}",
+      )
+  }
+}
+
+///|
 fn wt_lower_error_contains(source : String, needle : String) -> Bool {
   match wast_to_binary_module(source) {
     Ok(_) => false
