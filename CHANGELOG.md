@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Validate: accept structurally equivalent exact func refs
+
+- **Exact function-reference equivalence slice** by **@jtenner**. Extended [`src/validate/match.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/match.mbt) so exact closure comparison now also treats function params and results structurally, instead of stopping at raw type-index identity for exact function references with equivalent signatures.
+- Expanded end-to-end coverage in [`src/wast/exact_type_equivalence_test.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/exact_type_equivalence_test.mbt), and confirmed the broader static path by running the CLI spec harness on [`tests/spec/proposals/custom-descriptors/exact.wast`](/home/jtenner/Projects/starshine-mb/tests/spec/proposals/custom-descriptors/exact.wast). The remaining follow-up is now native harness coverage for that full fixture, not another validator mismatch.
+
 ## 2026-03-22 Validate: accept structurally equivalent exact struct refs
 
 - **Exact struct-reference equivalence slice** by **@jtenner**. Extended [`src/validate/match.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/match.mbt) so exact reference matching no longer requires raw heap-type identity when both sides point at distinct but structurally equivalent defined struct or array types. The new exact heap-type comparison unfolds referenced fields recursively instead of rejecting equivalent closures that happen to live at different type indices.

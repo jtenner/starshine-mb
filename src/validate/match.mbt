@@ -214,6 +214,9 @@ fn exact_comptype_matches_fuel(
     return false
   }
   match (ct0, ct1) {
+    (FuncCompType(ps0, rs0), FuncCompType(ps1, rs1)) =>
+      exact_resulttype_matches_fuel(ps0, ps1, env, fuel - 1, visited) &&
+      exact_resulttype_matches_fuel(rs0, rs1, env, fuel - 1, visited)
     (StructCompType(fs0), StructCompType(fs1)) => {
       if fs0.length() != fs1.length() {
         return false
@@ -229,6 +232,28 @@ fn exact_comptype_matches_fuel(
       exact_field_matches_fuel(f0, f1, env, fuel - 1, visited)
     _ => false
   }
+}
+
+///|
+fn exact_resulttype_matches_fuel(
+  rt0 : ResultType,
+  rt1 : ResultType,
+  env : Env,
+  fuel : Int,
+  visited : Array[(TypeIdx, TypeIdx)],
+) -> Bool {
+  if fuel <= 0 {
+    return false
+  }
+  if rt0.length() != rt1.length() {
+    return false
+  }
+  for i in 0..<rt0.length() {
+    if !exact_valtype_matches_fuel(rt0[i], rt1[i], env, fuel - 1, visited) {
+      return false
+    }
+  }
+  true
 }
 
 ///|
