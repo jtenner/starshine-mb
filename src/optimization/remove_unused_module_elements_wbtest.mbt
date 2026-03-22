@@ -419,6 +419,85 @@ fn remove_unused_test_anyref_struct_global_funcref_carrier_module(
 }
 
 ///|
+fn remove_unused_test_array_global_funcref_carrier_module(
+  probe : @lib.TInstr,
+) -> Module {
+  Module::new()
+  .with_type_sec(remove_unused_test_array_type_sec_with_funcref_elem())
+  .with_func_sec(
+    @lib.FuncSec::new([
+      @lib.TypeIdx::new(0U),
+      @lib.TypeIdx::new(0U),
+      @lib.TypeIdx::new(0U),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::t_func(
+        [],
+        @lib.Locals::empty(),
+        @lib.TExpr::new([
+          @lib.TInstr::drop(probe),
+          @lib.TInstr::call_ref(
+            @lib.TypeIdx::new(0U),
+            [],
+            @lib.TInstr::global_get(@lib.GlobalIdx::new(1U)),
+          ),
+        ]),
+      ),
+      @lib.Func::t_func(
+        [],
+        @lib.Locals::empty(),
+        @lib.TExpr::new([@lib.TInstr::call(@lib.FuncIdx::new(2U), [])]),
+      ),
+      @lib.Func::t_func(
+        [],
+        @lib.Locals::empty(),
+        @lib.TExpr::new([@lib.TInstr::nop()]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("main"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(
+          @lib.ValType::ref_type(
+            @lib.RefType::new(
+              false,
+              @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+              exact=true,
+            ),
+          ),
+          false,
+        ),
+        @lib.Expr::new([
+          @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+          @lib.Instruction::array_new_fixed(
+            @lib.TypeIdx::new(1U),
+            @lib.U32::new(1U),
+          ),
+        ]),
+      ),
+      @lib.Global::new(
+        @lib.GlobalType::new(
+          @lib.ValType::ref_type(remove_unused_test_funcref()),
+          false,
+        ),
+        @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(2U))]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn remove_unused_test_descriptor_global_funcref_carrier_module(
   probe : @lib.TInstr,
 ) -> Module {
@@ -2670,6 +2749,30 @@ test "remove unused module elements does not promote descriptor payloads through
 test "remove unused module elements does not promote dropped struct carriers" {
   let mod = remove_unused_test_struct_global_funcref_carrier_module(
     @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+  )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 2)
+    None => fail("expected global section")
+  }
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 1), 2U)
+  assert_true(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 2))
+}
+
+///|
+test "remove unused module elements does not promote array global carriers through array.len" {
+  let mod = remove_unused_test_array_global_funcref_carrier_module(
+    @lib.TInstr::array_len(@lib.TInstr::global_get(@lib.GlobalIdx::new(0U))),
   )
 
   let optimized = remove_unused_test_run_with_features(

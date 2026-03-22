@@ -12,11 +12,10 @@
 - Keep release blockers in `agent-todo.md` and avoid losing unresolved risk notes in `CHANGELOG.md`.
 - Generated optimize feature-source plumbing:
   - module-derived `has_gc` / `has_multivalue` and option-driven `closed_world` / `low_memory_unused` now flow through generated optimize expansion and module-wide execution.
-  - remaining policy question: decide whether `closed_world` should become CLI/config-visible before the closed-world `RemoveUnusedModuleElements` slices ship.
+  - future policy question: decide whether `closed_world` should become CLI/config-visible beyond the current internal/default-pipeline use.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination
-- RemoveUnusedModuleElements
 - MemoryPacking
 - OnceReduction
 - TypeRefining
@@ -68,12 +67,6 @@
 - StringGathering
 
 ## v0.1.0 Active Slice Focus
-- `RemoveUnusedModuleElements`: execute slices from `docs/0013-2026-03-21-remove-unused-module-elements-plan.md`.
-- `RemoveUnusedModuleElements`: function + global + table + memory + tag + elem/data compaction is landed, including active-segment retention for imported/live targets, trap roots, indirect-call table precision for both initial active `elem` contents and mutated-table callable-signature fallback, and closed-world referenced-only function shells with `call_ref` promotion.
-- `RemoveUnusedModuleElements`: active-segment trap roots and descriptor-bearing constant-initializer trap roots are now gated correctly by execution-time `traps_never_happen`; the remaining GC work is later payload precision and any future closed-world/GC interaction hardening.
-- `RemoveUnusedModuleElements`: closed-world typed `struct.new` / `struct.new_desc`, `struct.new_default_desc` descriptor operands, mutable `struct.set`, ref-bearing `array.new` / `array.new_fixed` / `array.new_elem`, mutable `array.set` / `array.init_elem`, ref-bearing `array.fill`, ref-bearing `array.copy`, reference-identity consumers (`ref.is_null`, `ref.as_non_null`, `ref.test`, `ref.cast`, `ref.eq`, `ref.get_desc`, `ref.test_desc`, `ref.cast_desc_eq`, `br_on_null`, `br_on_non_null`, `br_on_cast`, `br_on_cast_fail`), conversion-style wrappers (`extern.convert_any`, nested `any.convert_extern`), and dropped carrier globals (`drop(global.get(...))`) now preserve unread funcref/global/elem references until a live `struct.get*` or `array.get*` read makes payload contents observable, and repeated-pass fixed-point coverage now exists for the GC-heavy closed-world paths; remaining GC precision is future GC consumer expansion plus any later hardening around reference-only carriers beyond dropped globals.
-- `RemoveUnusedModuleElements`: table metadata ops, pure writes, non-observable live tables, and mutated-indirect same-table fallback no longer pin dead active contents or table initializer helpers; the remaining indirect-call/table work is hardening/coverage rather than the earlier missing callable-signature model.
-- `RemoveUnusedModuleElements`: generated optimize feature-source plumbing is landed; remaining closed-world/GC work is later GC payload analysis and any future CLI/config exposure for `closed_world`.
 - `MemoryPacking`: research baseline is now in `docs/0014-2026-03-21-memory-packing.md`; main implementation blockers are zero-filled-memory gating for imported memories, trap-preserving active-segment splitting, `memory.init`/`data.drop` lowering with dropped-segment state tracking, GC data-user no-split handling, and Starshine-wide `DataIdx`/`DataCntSec` remapping after segment removal or splitting.
 - GC text-surface follow-up:
   - the higher-level WAST parser/printer/lowerer now models the `struct.new*` instruction family, including descriptor-bearing allocation forms.

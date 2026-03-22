@@ -2942,6 +2942,34 @@ fn optimization_collect_module_element_uses_in_tinstr(
           )
           skip()
         }
+        @lib.TArrayLen(child) => {
+          if features.closed_world && features.has_gc {
+            match child.kind {
+              @lib.TGlobalGet(idx) => {
+                optimization_note_referenced_global(
+                  referenced_globals, referenced_global_worklist, imported_global_count,
+                  defined_global_count, idx,
+                )
+                return skip()
+              }
+              _ => ()
+            }
+          }
+          optimization_collect_module_element_uses_in_tinstr(
+            child, features, called_ref_types, indirect_call_types_by_table, subtypes,
+            struct_subtype_children, func_type_idxs, referenced_funcs, call_ref_candidate_funcs,
+            used_funcs, func_worklist, imported_func_count, defined_func_count, used_globals,
+            referenced_globals, global_worklist, referenced_global_worklist, imported_global_count,
+            defined_global_count, used_tables, observable_tables, indirect_called_tables,
+            mutated_tables, table_worklist, imported_table_count, defined_table_count,
+            used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
+            imported_tag_count, defined_tag_count, used_elems, elem_worklist, used_datas,
+            data_worklist, elems, active_elem_indices_by_table, read_struct_fields,
+            unread_struct_field_payloads, read_array_contents, unread_array_payloads,
+            unread_array_elem_payloads, referenced_elems, referenced_elem_worklist,
+          )
+          skip()
+        }
         @lib.TStructGet(type_idx, field_idx, struct_ref)
         | @lib.TStructGetS(type_idx, field_idx, struct_ref)
         | @lib.TStructGetU(type_idx, field_idx, struct_ref) => {
