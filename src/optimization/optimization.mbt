@@ -645,6 +645,10 @@ fn optimization_dead_code_elimination_rewrite_instr(
   match instr.kind {
     @lib.TBlock(block_type, body) =>
       optimization_dead_code_elimination_rewrite_block(block_type, body)
+    @lib.TIf(block_type, cond, then_body, else_body) =>
+      optimization_dead_code_elimination_rewrite_if(
+        block_type, cond, then_body, else_body,
+      )
     @lib.TUnary(op, child) =>
       optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
         @lib.TInstr::unary(op, args[0])
@@ -696,6 +700,38 @@ fn optimization_dead_code_elimination_rewrite_instr(
       }
     _ => instr
   }
+}
+
+///|
+fn optimization_dead_code_elimination_rewrite_if(
+  block_type : @lib.BlockType,
+  cond : @lib.TInstr,
+  then_body : @lib.TExpr,
+  else_body : @lib.TExpr?,
+) -> @lib.TInstr {
+  if optimization_dead_code_elimination_instr_is_unreachable(cond) {
+    return cond
+  }
+  match else_body {
+    Some(else_body) =>
+      if optimization_dead_code_elimination_expr_is_unreachable(then_body) &&
+        optimization_dead_code_elimination_expr_is_unreachable(else_body) {
+        return @lib.TInstr::if_(
+          if optimization_dead_code_elimination_block_type_is_concrete(
+              block_type,
+            ) {
+            @lib.BlockType::void_()
+          } else {
+            block_type
+          },
+          cond,
+          then_body,
+          Some(else_body),
+        )
+      }
+    None => ()
+  }
+  @lib.TInstr::if_(block_type, cond, then_body, else_body)
 }
 
 ///|
@@ -763,12 +799,42 @@ fn optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
 }
 
 ///|
+fn optimization_dead_code_elimination_expr_is_unreachable(
+  expr : @lib.TExpr,
+) -> Bool {
+  match expr.inner() {
+    [] => false
+    instrs =>
+      optimization_dead_code_elimination_instr_is_unreachable(
+        instrs[instrs.length() - 1],
+      )
+  }
+}
+
+///|
 fn optimization_dead_code_elimination_block_type_is_concrete(
   block_type : @lib.BlockType,
 ) -> Bool {
   match block_type {
     @lib.VoidBlockType => false
     _ => true
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_if_is_unreachable(
+  cond : @lib.TInstr,
+  then_body : @lib.TExpr,
+  else_body : @lib.TExpr?,
+) -> Bool {
+  if optimization_dead_code_elimination_instr_is_unreachable(cond) {
+    return true
+  }
+  match else_body {
+    Some(else_body) =>
+      optimization_dead_code_elimination_expr_is_unreachable(then_body) &&
+      optimization_dead_code_elimination_expr_is_unreachable(else_body)
+    None => false
   }
 }
 
@@ -1029,6 +1095,10 @@ fn optimization_dead_code_elimination_instr_terminates_current_expr(
     | @lib.TThrowRef(_)
     | @lib.TBr(_, _)
     | @lib.TBrTable(_, _, _, _) => true
+    @lib.TIf(_, cond, then_body, else_body) =>
+      optimization_dead_code_elimination_if_is_unreachable(
+        cond, then_body, else_body,
+      )
     @lib.TBlock(block_type, body) =>
       optimization_dead_code_elimination_block_escapes_parent(block_type, body)
     _ => false
@@ -1047,6 +1117,10 @@ fn optimization_dead_code_elimination_instr_escapes_enclosing_expr(
     | @lib.TReturnCallRef(_, _, _)
     | @lib.TThrow(_, _)
     | @lib.TThrowRef(_) => true
+    @lib.TIf(_, cond, then_body, else_body) =>
+      optimization_dead_code_elimination_if_is_unreachable(
+        cond, then_body, else_body,
+      )
     @lib.TBlock(block_type, body) =>
       optimization_dead_code_elimination_block_escapes_parent(block_type, body)
     _ => false
@@ -1067,6 +1141,10 @@ fn optimization_dead_code_elimination_instr_is_unreachable(
     | @lib.TThrowRef(_)
     | @lib.TBr(_, _)
     | @lib.TBrTable(_, _, _, _) => true
+    @lib.TIf(_, cond, then_body, else_body) =>
+      optimization_dead_code_elimination_if_is_unreachable(
+        cond, then_body, else_body,
+      )
     @lib.TBlock(block_type, body) =>
       optimization_dead_code_elimination_block_escapes_parent(block_type, body)
     _ => false

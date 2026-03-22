@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: land DeadCodeElimination if rewrites
+
+- **DeadCodeElimination `if` slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `DeadCodeElimination` now applies the two control-flow-specific `if` rules: an unreachable condition replaces the entire `if`, and an `if` with both unreachable arms now degrades to an unreachable-equivalent void form instead of keeping a stale concrete result type.
+- Expanded [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) with focused regressions for both new cases, including the parent-poisoning path through `drop`.
+- Recorded the checkpoint in [`docs/0037-2026-03-22-dead-code-elimination-if-rules.md`](/home/jtenner/Projects/starshine-mb/docs/0037-2026-03-22-dead-code-elimination-if-rules.md), which narrows the remaining near-term DCE work to the conservative loop rule and later EH handling.
+
 ## 2026-03-22 Optimization: preserve live typed block breaks in DeadCodeElimination
 
 - **DeadCodeElimination typed-block slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so concrete typed `block` instructions now only count as outer-unreachable when their tail escapes and no live incoming break still targets the block, instead of blindly poisoning parents whenever the surviving tail is `unreachable`.

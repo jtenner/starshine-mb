@@ -316,3 +316,40 @@ test "dead code elimination keeps concrete blocks with live incoming br_if value
     ),
   ])
 }
+
+///|
+test "dead code elimination replaces ifs whose condition is unreachable" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::drop(
+      @lib.TInstr::if_(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.TInstr::unreachable_(),
+        @lib.TExpr::new([@lib.TInstr::i32_const(@lib.I32::new(1))]),
+        Some(@lib.TExpr::new([@lib.TInstr::i32_const(@lib.I32::new(2))])),
+      ),
+    ),
+  ])
+  assert_eq(body, [@lib.TInstr::unreachable_()])
+}
+
+///|
+test "dead code elimination retags ifs when both arms are unreachable" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::drop(
+      @lib.TInstr::if_(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.TInstr::i32_const(@lib.I32::new(1)),
+        @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+        Some(@lib.TExpr::new([@lib.TInstr::unreachable_()])),
+      ),
+    ),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::if_(
+      @lib.BlockType::void_(),
+      @lib.TInstr::i32_const(@lib.I32::new(1)),
+      @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+      Some(@lib.TExpr::new([@lib.TInstr::unreachable_()])),
+    ),
+  ])
+}
