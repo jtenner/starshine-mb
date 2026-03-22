@@ -2036,6 +2036,11 @@ fn WastParser::parse_type_metadata_clauses(
     match self.try_parse_type_metadata_clause() {
       Some((kind, idx)) =>
         if kind == "describes" {
+          if descriptor is Some(_) {
+            raise InvalidInstruction(
+              "describes clause must precede descriptor clause in type definition",
+            )
+          }
           if describes is Some(_) {
             raise InvalidInstruction(
               "duplicate describes clause in type definition",

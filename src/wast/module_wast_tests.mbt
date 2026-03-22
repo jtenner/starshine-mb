@@ -442,3 +442,15 @@ test "wast_to_module malformed fixtures return targeted parse diagnostics" {
     }
   }
 }
+
+///|
+test "wast_to_module rejects descriptor clauses before describes clauses" {
+  let source = "(module (rec (type $a (descriptor $b) (struct)) (type $b (descriptor $c) (describes $a) (struct)) (type $c (describes $b) (struct))))"
+  match wast_to_module(source, filename="descriptor-order-fixture.wast") {
+    Ok(_) => fail("expected descriptor metadata order fixture to fail")
+    Err(msg) =>
+      assert_true(
+        msg.contains("describes clause must precede descriptor clause"),
+      )
+  }
+}

@@ -20,6 +20,7 @@ Document the higher-level WAST `rec` group surface now supported in `src/wast`, 
   - supertypes,
   - `descriptor`,
   - `describes`.
+- Within a single grouped or standalone type header, `describes` must appear before `descriptor`; the parser now rejects the reversed order instead of silently normalizing it.
 - Empty and singleton groups are preserved textually as `(rec)` and `(rec (type ...))`.
 - `module_to_wast` now prints grouped type defs back as normalized `rec` blocks.
 - `wast_to_binary_module` now lowers grouped type defs into real `@lib.RecType::group(...)` entries while preserving the same flat type index space used by later type uses and descriptor metadata.
@@ -34,12 +35,14 @@ This slice closes that gap.
 
 - `rec` groups must remain distinct in the AST from a flat list of standalone `type` fields because validation and authoring semantics depend on group boundaries.
 - Type ids declared inside grouped defs must still pre-register into the flat explicit type index space before lowering type uses, supertypes, or descriptor metadata.
+- Descriptor metadata clause order must stay source-stable enough to reject `descriptor`-before-`describes` spellings that the spec treats as malformed.
 - Lowering a grouped field must produce one grouped `@lib.RecType` entry rather than multiple single entries.
 - Printed `rec` blocks must roundtrip through the same higher-level parser without losing grouping structure.
 
 ## Validation
 
 - Added parser coverage for populated and empty `rec` groups.
+- Added malformed-text coverage for reversed `descriptor` / `describes` clause ordering in grouped type headers.
 - Added printer roundtrip coverage proving grouped type definitions stay grouped after `module_to_wast`.
 - Added lowering coverage proving grouped defs become `@lib.GroupRecType(...)` entries and that later function type uses can still reference grouped function signatures.
 - Package gate for this slice: `moon test src/wast`.

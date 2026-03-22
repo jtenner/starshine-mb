@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 WAST: reject reversed descriptor metadata order
+
+- **GC text-surface parser tightening** by **@jtenner**. Tightened [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt) so higher-level type headers now reject `descriptor` clauses that appear before `describes` in the same type definition, matching the malformed custom-descriptor text cases instead of silently accepting and normalizing them.
+- Extended malformed fixture coverage in [`src/wast/module_wast_tests.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/module_wast_tests.mbt) and updated [`docs/0020-2026-03-22-wast-rec-group-surface.md`](/home/jtenner/Projects/starshine-mb/docs/0020-2026-03-22-wast-rec-group-surface.md) so the rec-group text-surface contract now explicitly includes metadata clause ordering.
+
 ## 2026-03-22 WAST: add higher-level rec group authoring
 
 - **GC text-surface rec-group slice** by **@jtenner**. Extended [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt), [`src/wast/module_wast.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/module_wast.mbt), [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt), and related `src/wast` tests so higher-level WAST modules can now author grouped `(rec ...)` type fields directly, preserve them through normalized printing, and lower them into grouped `@lib.RecType` entries while keeping later type uses working against the flat index space.
