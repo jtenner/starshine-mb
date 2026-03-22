@@ -25,6 +25,7 @@ test "run_generated_pipeline_with_options passes PipelineFeatures to module-wide
   let mut saw_has_multivalue = false
   let mut saw_closed_world = false
   let mut saw_low_memory_unused = false
+  let mut saw_traps_never_happen = false
   let pipeline = [
     PipelineEntry::new(
       [],
@@ -34,13 +35,18 @@ test "run_generated_pipeline_with_options passes PipelineFeatures to module-wide
           saw_has_multivalue = features.has_multivalue
           saw_closed_world = features.closed_world
           saw_low_memory_unused = features.low_memory_unused
+          saw_traps_never_happen = features.traps_never_happen
           (mod, global)
         }),
         ValidationKind::unchecked(),
       ),
     ),
   ]
-  let options = OptimizeOptions::new(low_memory_unused=true, closed_world=true)
+  let options = OptimizeOptions::new(
+    low_memory_unused=true,
+    closed_world=true,
+    traps_never_happen=true,
+  )
   let mod = Module::new().with_type_sec(generated_pipeline_test_type_sec())
   match run_generated_pipeline_with_options(mod, pipeline, options) {
     Ok(_) => ()
@@ -50,6 +56,7 @@ test "run_generated_pipeline_with_options passes PipelineFeatures to module-wide
   assert_true(saw_has_multivalue)
   assert_true(saw_closed_world)
   assert_true(saw_low_memory_unused)
+  assert_true(saw_traps_never_happen)
 }
 
 ///|

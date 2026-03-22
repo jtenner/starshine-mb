@@ -430,6 +430,7 @@ pub(all) struct PipelineFeatures {
   has_strings : Bool
   closed_world : Bool
   low_memory_unused : Bool
+  traps_never_happen : Bool
 } derive(Eq, Show, Debug)
 
 ///|
@@ -439,8 +440,16 @@ pub fn PipelineFeatures::new(
   has_strings? : Bool = false,
   closed_world? : Bool = false,
   low_memory_unused? : Bool = false,
+  traps_never_happen? : Bool = false,
 ) -> PipelineFeatures {
-  { has_gc, has_multivalue, has_strings, closed_world, low_memory_unused }
+  {
+    has_gc,
+    has_multivalue,
+    has_strings,
+    closed_world,
+    low_memory_unused,
+    traps_never_happen,
+  }
 }
 
 ///|
@@ -2262,6 +2271,7 @@ fn optimization_compact_data_sec(
 ///|
 fn optimization_remove_unused_module_elements_iteration(
   mod : Module,
+  features : PipelineFeatures,
 ) -> Module? {
   let subtypes = optimization_flatten_subtypes(mod)
   let (type_idxs, funcs) = match (mod.func_sec, mod.code_sec) {
@@ -2375,10 +2385,12 @@ fn optimization_remove_unused_module_elements_iteration(
     elems, observable_tables, imported_table_count, used_elems, elem_worklist, datas,
     used_mems, imported_mem_count, used_datas, data_worklist,
   )
-  optimization_seed_trapping_active_segments(
-    elems, tables, imported_table_count, used_elems, elem_worklist, datas, mems,
-    imported_mem_count, used_datas, data_worklist,
-  )
+  if !features.traps_never_happen {
+    optimization_seed_trapping_active_segments(
+      elems, tables, imported_table_count, used_elems, elem_worklist, datas, mems,
+      imported_mem_count, used_datas, data_worklist,
+    )
+  }
   while func_worklist.length() > 0 ||
         global_worklist.length() > 0 ||
         table_worklist.length() > 0 ||
@@ -2679,8 +2691,7 @@ pub fn run_remove_unused_module_elements(
   global : PipelineGlobal,
   features : PipelineFeatures,
 ) -> (Module, PipelineGlobal) {
-  let _ = features
-  match optimization_remove_unused_module_elements_iteration(mod) {
+  match optimization_remove_unused_module_elements_iteration(mod, features) {
     Some(next) => (next, global)
     None => (mod, global)
   }

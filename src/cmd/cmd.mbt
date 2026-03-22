@@ -1608,6 +1608,7 @@ fn cmd_generated_pipeline_features(
     has_strings=facts.has_strings,
     closed_world=options.closed_world,
     low_memory_unused=options.low_memory_unused,
+    traps_never_happen=options.traps_never_happen,
   )
 }
 

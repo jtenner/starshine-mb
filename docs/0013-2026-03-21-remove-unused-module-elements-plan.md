@@ -54,12 +54,12 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Module-wide pass execution now receives `PipelineFeatures` at runtime.
 - Generated optimize runs now derive:
   - `has_gc` and `has_multivalue` from the decoded module,
-  - `closed_world` and `low_memory_unused` from `OptimizeOptions`,
+  - `closed_world`, `low_memory_unused`, and `traps_never_happen` from `OptimizeOptions`,
   - and currently leave `has_strings` false because Starshine does not yet model string instructions in IR.
 - The currently landed behavior is still intentionally conservative, but no longer function-only:
   - roots exported and start functions,
   - keeps active elem/data segments only when their target table or memory is imported or otherwise live,
-  - roots active elem/data segments whose offsets are unknown or whose constant writes exceed the defined target's initial bounds,
+  - roots active elem/data segments whose offsets are unknown or whose constant writes exceed the defined target's initial bounds when traps may happen,
   - lets non-mutated indirect-call tables keep only matching active elem contributors instead of every active elem on the table,
   - roots exported globals/tables/memories/tags and preserves functions/global/table/memory/tag operands named by surviving module elements and active segments that remain in the module,
   - walks only live function bodies,
@@ -163,8 +163,8 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Preserve maybe-trapping constant initializers in globals and elem expressions.
 - Status:
   - partial.
-  - landed subset: imported-target observability, live-target active-segment retention, and conservative rooting for unknown or definitely out-of-bounds active segment offsets on defined targets.
-  - remaining work: thread `traps_never_happen` into this pass and revisit Binaryen-style maybe-trapping constant initializer handling if local const-expr support expands beyond the current non-trapping subset.
+  - landed subset: imported-target observability, live-target active-segment retention, conservative rooting for unknown or definitely out-of-bounds active segment offsets on defined targets when traps may happen, and execution-time `traps_never_happen` plumbing for generated optimize execution.
+  - remaining work: revisit Binaryen-style maybe-trapping constant initializer handling if local const-expr support expands beyond the current non-trapping subset.
 - Add regressions for:
   - imported memory/table visibility,
   - out-of-bounds instantiation traps.

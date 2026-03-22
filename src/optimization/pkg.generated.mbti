@@ -230,8 +230,9 @@ pub(all) struct PipelineFeatures {
   has_strings : Bool
   closed_world : Bool
   low_memory_unused : Bool
+  traps_never_happen : Bool
 }
-pub fn PipelineFeatures::new(has_gc? : Bool, has_multivalue? : Bool, has_strings? : Bool, closed_world? : Bool, low_memory_unused? : Bool) -> Self
+pub fn PipelineFeatures::new(has_gc? : Bool, has_multivalue? : Bool, has_strings? : Bool, closed_world? : Bool, low_memory_unused? : Bool, traps_never_happen? : Bool) -> Self
 pub impl Eq for PipelineFeatures
 pub impl Show for PipelineFeatures
 pub impl @debug.Debug for PipelineFeatures

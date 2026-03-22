@@ -109,10 +109,18 @@ fn remove_unused_test_main_throw_tag_target(mod : Module) -> UInt raise Error {
 
 ///|
 fn remove_unused_test_run(mod : Module) -> Module {
+  remove_unused_test_run_with_features(mod, PipelineFeatures::new())
+}
+
+///|
+fn remove_unused_test_run_with_features(
+  mod : Module,
+  features : PipelineFeatures,
+) -> Module {
   let (optimized, _) = run_remove_unused_module_elements(
     mod,
     PipelineGlobal::new(),
-    PipelineFeatures::new(),
+    features,
   )
   optimized
 }
@@ -1647,6 +1655,71 @@ test "remove unused module elements keeps active elem segments with out of bound
     Some(@lib.ElemSec([@lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _)])) =>
       assert_eq(table_idx, 0U)
     _ => fail("expected active elem section")
+  }
+}
+
+///|
+test "remove unused module elements drops maybe-trapping active segments when traps never happen" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("offset"),
+          @lib.ExternType::global(
+            @lib.GlobalType::new(@lib.ValType::i32(), false),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_data_sec(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::active(
+            @lib.MemIdx::new(0U),
+            @lib.Expr::new([
+              @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            ]),
+          ),
+          b"trap?",
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(traps_never_happen=true),
+  )
+
+  match optimized.mem_sec {
+    Some(@lib.MemSec(mems)) => assert_eq(mems.length(), 0)
+    None => fail("expected mem section")
+  }
+  match optimized.data_sec {
+    Some(@lib.DataSec(datas)) => assert_eq(datas.length(), 0)
+    None => fail("expected data section")
   }
 }
 
