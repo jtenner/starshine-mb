@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Optimization: lock DCE cleanup ordering in the default function stage
+
+- **DeadCodeElimination pipeline checkpoint** by **@jtenner**. Added focused default-pipeline coverage in [`src/optimization/optimization_test.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization_test.mbt) to assert the grouped function stage keeps `DeadCodeElimination` ahead of the first `RemoveUnusedNames`, the first `RemoveUnusedBrs`, and `Vacuum`.
+- Recorded the checkpoint in [`docs/0048-2026-03-22-dead-code-elimination-default-stage-ordering.md`](/home/jtenner/Projects/starshine-mb/docs/0048-2026-03-22-dead-code-elimination-default-stage-ordering.md) and narrowed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to the remaining grouped-pipeline interaction/output coverage after ordering.
+
 ## 2026-03-22 Docs: mark DCE string and EH pop follow-ups blocked on typed surface gaps
 
 - **DeadCodeElimination blocker audit** by **@jtenner**. Updated the canonical DCE research/backlog to state that the remaining string-sensitive and EH `pop` follow-ups are blocked on missing typed IR surfaces in this repo, not on known unlanded rewrite logic in the current `TTryTable`-only optimizer port.

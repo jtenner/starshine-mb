@@ -32,7 +32,8 @@
   - `docs/0044-2026-03-22-dead-code-elimination-ref-get-desc.md` lands the descriptor unary slice: `ref.get_desc` now collapses when its operand is unreachable in descriptor-bearing fixtures.
   - `docs/0046-2026-03-22-dead-code-elimination-nested-try-table-coverage.md` closes the remaining nested reference-result `try_table` coverage question and proves the current void-retagging rewrite already validates in the focused concrete ref-result shape.
   - `docs/0047-2026-03-22-dead-code-elimination-typed-surface-blockers.md` records that the remaining string-sensitive and EH `pop` follow-ups are currently blocked on missing typed IR support for string ops and EH `try` / `pop`, not on known gaps in the landed `TTryTable`-based DCE port.
-  - remaining actionable DCE work is grouped-pipeline interaction coverage; the string-sensitive and EH `pop` slices stay blocked until those typed surfaces land elsewhere in the repo.
+  - `docs/0048-2026-03-22-dead-code-elimination-default-stage-ordering.md` locks the first grouped-pipeline interaction guarantee: the default function stage still runs `DeadCodeElimination` before the first `RemoveUnusedNames`, the first `RemoveUnusedBrs`, and `Vacuum`.
+  - remaining actionable DCE work is grouped-pipeline output coverage; the string-sensitive and EH `pop` slices stay blocked until those typed surfaces land elsewhere in the repo.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination
