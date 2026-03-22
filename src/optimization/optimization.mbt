@@ -1167,6 +1167,11 @@ fn optimization_note_used_data(
 ///|
 fn optimization_collect_func_uses_in_expr(
   expr : @lib.Expr,
+  features : PipelineFeatures,
+  called_ref_types : Array[Bool],
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+  referenced_funcs : Array[Bool],
   used_funcs : Array[Bool],
   func_worklist : Array[Int],
   imported_func_count : Int,
@@ -1188,10 +1193,15 @@ fn optimization_collect_func_uses_in_expr(
   defined_tag_count : Int,
 ) -> Unit {
   let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
-    .on_funcidx_evt(fn(_, _, idx) {
-      optimization_note_used_func(
-        used_funcs, func_worklist, imported_func_count, defined_func_count, idx,
-      )
+    .on_instruction_evt(fn(_, _, instr) {
+      match instr {
+        @lib.RefFunc(idx) =>
+          optimization_note_ref_func(
+            idx, features, called_ref_types, subtypes, func_type_idxs, referenced_funcs,
+            used_funcs, func_worklist, imported_func_count, defined_func_count,
+          )
+        _ => ()
+      }
       unchanged()
     })
     .on_globalidx_evt(fn(_, _, idx) {
@@ -1248,6 +1258,112 @@ fn optimization_all_func_type_idxs(
     type_idxs.push(type_idx)
   }
   type_idxs
+}
+
+///|
+fn optimization_note_referenced_func(
+  referenced_funcs : Array[Bool],
+  func_idx : FuncIdx,
+) -> Unit {
+  let FuncIdx(raw) = func_idx
+  let abs_idx = raw.reinterpret_as_int()
+  if abs_idx < 0 || abs_idx >= referenced_funcs.length() {
+    return
+  }
+  referenced_funcs[abs_idx] = true
+}
+
+///|
+fn optimization_called_ref_type_matches_func(
+  called_ref_types : Array[Bool],
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+  func_idx : FuncIdx,
+) -> Bool {
+  let mut i = 0
+  while i < called_ref_types.length() {
+    if called_ref_types[i] &&
+      optimization_func_matches_call_type(
+        subtypes,
+        func_type_idxs,
+        func_idx,
+        TypeIdx::new(i.reinterpret_as_uint()),
+      ) {
+      return true
+    }
+    i += 1
+  }
+  false
+}
+
+///|
+fn optimization_note_called_ref_type(
+  call_type_idx : TypeIdx,
+  called_ref_types : Array[Bool],
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+  referenced_funcs : Array[Bool],
+  used_funcs : Array[Bool],
+  func_worklist : Array[Int],
+  imported_func_count : Int,
+  defined_func_count : Int,
+) -> Unit {
+  match call_type_idx {
+    TypeIdx(raw) | RecIdx(raw) => {
+      let raw_idx = raw.reinterpret_as_int()
+      if raw_idx >= 0 && raw_idx < called_ref_types.length() {
+        called_ref_types[raw_idx] = true
+      }
+    }
+  }
+  let mut abs_func_idx = 0
+  while abs_func_idx < referenced_funcs.length() {
+    if referenced_funcs[abs_func_idx] &&
+      optimization_func_matches_call_type(
+        subtypes,
+        func_type_idxs,
+        FuncIdx::new(abs_func_idx.reinterpret_as_uint()),
+        call_type_idx,
+      ) {
+      optimization_note_used_func(
+        used_funcs,
+        func_worklist,
+        imported_func_count,
+        defined_func_count,
+        FuncIdx::new(abs_func_idx.reinterpret_as_uint()),
+      )
+    }
+    abs_func_idx += 1
+  }
+}
+
+///|
+fn optimization_note_ref_func(
+  func_idx : FuncIdx,
+  features : PipelineFeatures,
+  called_ref_types : Array[Bool],
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+  referenced_funcs : Array[Bool],
+  used_funcs : Array[Bool],
+  func_worklist : Array[Int],
+  imported_func_count : Int,
+  defined_func_count : Int,
+) -> Unit {
+  if !features.closed_world {
+    optimization_note_used_func(
+      used_funcs, func_worklist, imported_func_count, defined_func_count, func_idx,
+    )
+    return
+  }
+  optimization_note_referenced_func(referenced_funcs, func_idx)
+  if optimization_called_ref_type_matches_func(
+      called_ref_types, subtypes, func_type_idxs, func_idx,
+    ) {
+    optimization_note_used_func(
+      used_funcs, func_worklist, imported_func_count, defined_func_count, func_idx,
+    )
+  }
 }
 
 ///|
@@ -1413,8 +1529,11 @@ fn optimization_mark_mutated_table(
 ///|
 fn optimization_collect_module_element_uses_in_func(
   func : Func,
+  features : PipelineFeatures,
+  called_ref_types : Array[Bool],
   subtypes : Array[SubType],
   func_type_idxs : Array[TypeIdx],
+  referenced_funcs : Array[Bool],
   used_funcs : Array[Bool],
   func_worklist : Array[Int],
   imported_func_count : Int,
@@ -1445,12 +1564,6 @@ fn optimization_collect_module_element_uses_in_func(
   active_elem_indices_by_table : Array[Array[Int]],
 ) -> Unit {
   let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
-    .on_funcidx_evt(fn(_, _, idx) {
-      optimization_note_used_func(
-        used_funcs, func_worklist, imported_func_count, defined_func_count, idx,
-      )
-      unchanged()
-    })
     .on_globalidx_evt(fn(_, _, idx) {
       optimization_note_used_global(
         used_globals, global_worklist, imported_global_count, defined_global_count,
@@ -1480,6 +1593,20 @@ fn optimization_collect_module_element_uses_in_func(
     })
     .on_instruction_evt(fn(_, _, instr) {
       match instr {
+        @lib.Call(func_idx) | @lib.ReturnCall(func_idx) =>
+          optimization_note_used_func(
+            used_funcs, func_worklist, imported_func_count, defined_func_count, func_idx,
+          )
+        @lib.CallRef(type_idx) | @lib.ReturnCallRef(type_idx) =>
+          optimization_note_called_ref_type(
+            type_idx, called_ref_types, subtypes, func_type_idxs, referenced_funcs,
+            used_funcs, func_worklist, imported_func_count, defined_func_count,
+          )
+        @lib.RefFunc(func_idx) =>
+          optimization_note_ref_func(
+            func_idx, features, called_ref_types, subtypes, func_type_idxs, referenced_funcs,
+            used_funcs, func_worklist, imported_func_count, defined_func_count,
+          )
         @lib.CallIndirect(type_idx, table_idx)
         | @lib.ReturnCallIndirect(type_idx, table_idx) => {
           optimization_mark_indirect_called_table(
@@ -1525,6 +1652,10 @@ fn optimization_collect_module_element_uses_in_func(
     })
     .on_tinstruction_evt(fn(_, _, instr) {
       match instr.kind {
+        @lib.TCall(func_idx, _) | @lib.TReturnCall(func_idx, _) =>
+          optimization_note_used_func(
+            used_funcs, func_worklist, imported_func_count, defined_func_count, func_idx,
+          )
         @lib.TCallIndirect(type_idx, table_idx, _, _)
         | @lib.TReturnCallIndirect(type_idx, table_idx, _, _) => {
           optimization_mark_indirect_called_table(
@@ -1536,6 +1667,16 @@ fn optimization_collect_module_element_uses_in_func(
             used_elems, elem_worklist,
           )
         }
+        @lib.TCallRef(type_idx, _, _) | @lib.TReturnCallRef(type_idx, _, _) =>
+          optimization_note_called_ref_type(
+            type_idx, called_ref_types, subtypes, func_type_idxs, referenced_funcs,
+            used_funcs, func_worklist, imported_func_count, defined_func_count,
+          )
+        @lib.TRefFunc(func_idx) =>
+          optimization_note_ref_func(
+            func_idx, features, called_ref_types, subtypes, func_type_idxs, referenced_funcs,
+            used_funcs, func_worklist, imported_func_count, defined_func_count,
+          )
         @lib.TTableGet(table_idx, _) =>
           optimization_note_observable_table(
             used_tables, observable_tables, table_worklist, imported_table_count,
@@ -1835,6 +1976,11 @@ fn optimization_promote_live_active_segments(
 ///|
 fn optimization_collect_func_uses_in_elem(
   elem : Elem,
+  features : PipelineFeatures,
+  called_ref_types : Array[Bool],
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+  referenced_funcs : Array[Bool],
   used_funcs : Array[Bool],
   func_worklist : Array[Int],
   imported_func_count : Int,
@@ -1861,11 +2007,11 @@ fn optimization_collect_func_uses_in_elem(
         used_tables, table_worklist, imported_table_count, defined_table_count, table_idx,
       )
       optimization_collect_func_uses_in_expr(
-        offset, used_funcs, func_worklist, imported_func_count, defined_func_count,
-        used_globals, global_worklist, imported_global_count, defined_global_count,
-        used_tables, table_worklist, imported_table_count, defined_table_count, used_mems,
-        imported_mem_count, defined_mem_count, used_tags, tag_worklist, imported_tag_count,
-        defined_tag_count,
+        offset, features, called_ref_types, subtypes, func_type_idxs, referenced_funcs,
+        used_funcs, func_worklist, imported_func_count, defined_func_count, used_globals,
+        global_worklist, imported_global_count, defined_global_count, used_tables,
+        table_worklist, imported_table_count, defined_table_count, used_mems, imported_mem_count,
+        defined_mem_count, used_tags, tag_worklist, imported_tag_count, defined_tag_count,
       )
       match kind {
         @lib.FuncsElemKind(funcs) =>
@@ -1878,7 +2024,8 @@ fn optimization_collect_func_uses_in_elem(
         @lib.FuncExprsElemKind(exprs) =>
           for expr in exprs {
             optimization_collect_func_uses_in_expr(
-              expr, used_funcs, func_worklist, imported_func_count, defined_func_count,
+              expr, features, called_ref_types, subtypes, func_type_idxs, referenced_funcs,
+              used_funcs, func_worklist, imported_func_count, defined_func_count,
               used_globals, global_worklist, imported_global_count, defined_global_count,
               used_tables, table_worklist, imported_table_count, defined_table_count,
               used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
@@ -1888,7 +2035,8 @@ fn optimization_collect_func_uses_in_elem(
         @lib.TypedExprsElemKind(_, exprs) =>
           for expr in exprs {
             optimization_collect_func_uses_in_expr(
-              expr, used_funcs, func_worklist, imported_func_count, defined_func_count,
+              expr, features, called_ref_types, subtypes, func_type_idxs, referenced_funcs,
+              used_funcs, func_worklist, imported_func_count, defined_func_count,
               used_globals, global_worklist, imported_global_count, defined_global_count,
               used_tables, table_worklist, imported_table_count, defined_table_count,
               used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
@@ -1909,7 +2057,8 @@ fn optimization_collect_func_uses_in_elem(
         @lib.FuncExprsElemKind(exprs) =>
           for expr in exprs {
             optimization_collect_func_uses_in_expr(
-              expr, used_funcs, func_worklist, imported_func_count, defined_func_count,
+              expr, features, called_ref_types, subtypes, func_type_idxs, referenced_funcs,
+              used_funcs, func_worklist, imported_func_count, defined_func_count,
               used_globals, global_worklist, imported_global_count, defined_global_count,
               used_tables, table_worklist, imported_table_count, defined_table_count,
               used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
@@ -1919,7 +2068,8 @@ fn optimization_collect_func_uses_in_elem(
         @lib.TypedExprsElemKind(_, exprs) =>
           for expr in exprs {
             optimization_collect_func_uses_in_expr(
-              expr, used_funcs, func_worklist, imported_func_count, defined_func_count,
+              expr, features, called_ref_types, subtypes, func_type_idxs, referenced_funcs,
+              used_funcs, func_worklist, imported_func_count, defined_func_count,
               used_globals, global_worklist, imported_global_count, defined_global_count,
               used_tables, table_worklist, imported_table_count, defined_table_count,
               used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
@@ -1933,6 +2083,11 @@ fn optimization_collect_func_uses_in_elem(
 ///|
 fn optimization_collect_func_uses_in_data(
   data : Data,
+  features : PipelineFeatures,
+  called_ref_types : Array[Bool],
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+  referenced_funcs : Array[Bool],
   used_funcs : Array[Bool],
   func_worklist : Array[Int],
   imported_func_count : Int,
@@ -1959,11 +2114,11 @@ fn optimization_collect_func_uses_in_data(
         used_mems, imported_mem_count, defined_mem_count, mem_idx,
       )
       optimization_collect_func_uses_in_expr(
-        offset, used_funcs, func_worklist, imported_func_count, defined_func_count,
-        used_globals, global_worklist, imported_global_count, defined_global_count,
-        used_tables, table_worklist, imported_table_count, defined_table_count, used_mems,
-        imported_mem_count, defined_mem_count, used_tags, tag_worklist, imported_tag_count,
-        defined_tag_count,
+        offset, features, called_ref_types, subtypes, func_type_idxs, referenced_funcs,
+        used_funcs, func_worklist, imported_func_count, defined_func_count, used_globals,
+        global_worklist, imported_global_count, defined_global_count, used_tables,
+        table_worklist, imported_table_count, defined_table_count, used_mems, imported_mem_count,
+        defined_mem_count, used_tags, tag_worklist, imported_tag_count, defined_tag_count,
       )
     }
     _ => ()
@@ -1973,6 +2128,11 @@ fn optimization_collect_func_uses_in_data(
 ///|
 fn optimization_collect_uses_in_global(
   global_ : Global,
+  features : PipelineFeatures,
+  called_ref_types : Array[Bool],
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+  referenced_funcs : Array[Bool],
   used_funcs : Array[Bool],
   func_worklist : Array[Int],
   imported_func_count : Int,
@@ -1996,11 +2156,11 @@ fn optimization_collect_uses_in_global(
   match global_ {
     @lib.Global(_, init) =>
       optimization_collect_func_uses_in_expr(
-        init, used_funcs, func_worklist, imported_func_count, defined_func_count,
-        used_globals, global_worklist, imported_global_count, defined_global_count,
-        used_tables, table_worklist, imported_table_count, defined_table_count, used_mems,
-        imported_mem_count, defined_mem_count, used_tags, tag_worklist, imported_tag_count,
-        defined_tag_count,
+        init, features, called_ref_types, subtypes, func_type_idxs, referenced_funcs,
+        used_funcs, func_worklist, imported_func_count, defined_func_count, used_globals,
+        global_worklist, imported_global_count, defined_global_count, used_tables,
+        table_worklist, imported_table_count, defined_table_count, used_mems, imported_mem_count,
+        defined_mem_count, used_tags, tag_worklist, imported_tag_count, defined_tag_count,
       )
   }
 }
@@ -2009,6 +2169,11 @@ fn optimization_collect_uses_in_global(
 fn optimization_collect_uses_in_table(
   table : Table,
   table_local_idx : Int,
+  features : PipelineFeatures,
+  called_ref_types : Array[Bool],
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+  referenced_funcs : Array[Bool],
   used_funcs : Array[Bool],
   func_worklist : Array[Int],
   imported_func_count : Int,
@@ -2041,11 +2206,11 @@ fn optimization_collect_uses_in_table(
   match table {
     Table(_, Some(init)) =>
       optimization_collect_func_uses_in_expr(
-        init, used_funcs, func_worklist, imported_func_count, defined_func_count,
-        used_globals, global_worklist, imported_global_count, defined_global_count,
-        used_tables, table_worklist, imported_table_count, defined_table_count, used_mems,
-        imported_mem_count, defined_mem_count, used_tags, tag_worklist, imported_tag_count,
-        defined_tag_count,
+        init, features, called_ref_types, subtypes, func_type_idxs, referenced_funcs,
+        used_funcs, func_worklist, imported_func_count, defined_func_count, used_globals,
+        global_worklist, imported_global_count, defined_global_count, used_tables,
+        table_worklist, imported_table_count, defined_table_count, used_mems, imported_mem_count,
+        defined_mem_count, used_tags, tag_worklist, imported_tag_count, defined_tag_count,
       )
     _ => ()
   }
@@ -2057,6 +2222,7 @@ fn optimization_compact_defined_functions(
   type_idxs : Array[TypeIdx],
   funcs : Array[Func],
   keep_defined : Array[Bool],
+  shell_defined : Array[Bool],
 ) -> (Module, Map[UInt, UInt]) {
   let imported_count = optimization_imported_func_count(mod)
   let kept_types : Array[TypeIdx] = []
@@ -2074,7 +2240,27 @@ fn optimization_compact_defined_functions(
     if keep_defined[i] {
       abs_remap[(imported_count + i).reinterpret_as_uint()] = next_abs
       kept_types.push(type_idxs[i])
-      kept_funcs.push(funcs[i])
+      if shell_defined[i] {
+        match funcs[i] {
+          Func(locals, _) =>
+            kept_funcs.push(
+              Func::new(
+                locals,
+                @lib.Expr::new([@lib.Instruction::unreachable_()]),
+              ),
+            )
+          TFunc(params, locals, _) =>
+            kept_funcs.push(
+              Func::t_func(
+                params,
+                locals,
+                @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+              ),
+            )
+        }
+      } else {
+        kept_funcs.push(funcs[i])
+      }
       next_abs += 1U
     }
     i += 1
@@ -2371,8 +2557,10 @@ fn optimization_remove_unused_module_elements_iteration(
   let imported_func_count = optimization_imported_func_count(mod)
   let total_func_count = imported_func_count + funcs.length()
   let used_funcs : Array[Bool] = []
+  let referenced_funcs : Array[Bool] = []
   for _ in 0..<total_func_count {
     used_funcs.push(false)
+    referenced_funcs.push(false)
   }
   let imported_global_count = optimization_imported_global_count(mod)
   let total_global_count = imported_global_count + globals.length()
@@ -2419,6 +2607,10 @@ fn optimization_remove_unused_module_elements_iteration(
   let elem_worklist : Array[Int] = []
   let data_worklist : Array[Int] = []
   let func_type_idxs = optimization_all_func_type_idxs(mod, type_idxs)
+  let called_ref_types : Array[Bool] = []
+  for _ in 0..<subtypes.length() {
+    called_ref_types.push(false)
+  }
   let active_elem_indices_by_table = optimization_active_elem_indices_by_table(
     elems, total_table_count,
   )
@@ -2465,8 +2657,11 @@ fn optimization_remove_unused_module_elements_iteration(
       let local_idx = func_worklist.pop().unwrap()
       optimization_collect_module_element_uses_in_func(
         funcs[local_idx],
+        features,
+        called_ref_types,
         subtypes,
         func_type_idxs,
+        referenced_funcs,
         used_funcs,
         func_worklist,
         imported_func_count,
@@ -2501,6 +2696,11 @@ fn optimization_remove_unused_module_elements_iteration(
       let local_idx = global_worklist.pop().unwrap()
       optimization_collect_uses_in_global(
         globals[local_idx],
+        features,
+        called_ref_types,
+        subtypes,
+        func_type_idxs,
+        referenced_funcs,
         used_funcs,
         func_worklist,
         imported_func_count,
@@ -2527,6 +2727,11 @@ fn optimization_remove_unused_module_elements_iteration(
       optimization_collect_uses_in_table(
         tables[local_idx],
         local_idx,
+        features,
+        called_ref_types,
+        subtypes,
+        func_type_idxs,
+        referenced_funcs,
         used_funcs,
         func_worklist,
         imported_func_count,
@@ -2557,6 +2762,11 @@ fn optimization_remove_unused_module_elements_iteration(
       let elem_idx = elem_worklist.pop().unwrap()
       optimization_collect_func_uses_in_elem(
         elems[elem_idx],
+        features,
+        called_ref_types,
+        subtypes,
+        func_type_idxs,
+        referenced_funcs,
         used_funcs,
         func_worklist,
         imported_func_count,
@@ -2582,6 +2792,11 @@ fn optimization_remove_unused_module_elements_iteration(
       let data_idx = data_worklist.pop().unwrap()
       optimization_collect_func_uses_in_data(
         datas[data_idx],
+        features,
+        called_ref_types,
+        subtypes,
+        func_type_idxs,
+        referenced_funcs,
         used_funcs,
         func_worklist,
         imported_func_count,
@@ -2610,12 +2825,18 @@ fn optimization_remove_unused_module_elements_iteration(
   }
 
   let keep_defined : Array[Bool] = []
+  let shell_defined : Array[Bool] = []
   let mut changed = false
   let mut i = 0
   while i < funcs.length() {
-    let keep = used_funcs[imported_func_count + i]
+    let abs_idx = imported_func_count + i
+    let keep = used_funcs[abs_idx] || referenced_funcs[abs_idx]
+    let shell = !used_funcs[abs_idx] && referenced_funcs[abs_idx]
     keep_defined.push(keep)
+    shell_defined.push(shell)
     if !keep {
+      changed = true
+    } else if shell {
       changed = true
     }
     i += 1
@@ -2685,7 +2906,7 @@ fn optimization_remove_unused_module_elements_iteration(
   }
 
   let (initial_compacted, func_remap) = optimization_compact_defined_functions(
-    mod, type_idxs, funcs, keep_defined,
+    mod, type_idxs, funcs, keep_defined, shell_defined,
   )
   let mut compacted = initial_compacted
   let mut table_remap : Map[UInt, UInt]? = None

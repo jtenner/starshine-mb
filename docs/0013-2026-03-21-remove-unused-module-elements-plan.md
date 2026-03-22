@@ -66,8 +66,9 @@ Status: researched rollout plan for Starshine's index-based IR.
   - roots exported globals/tables/memories/tags and preserves functions/global/table/memory/tag operands named by surviving module elements and active segments that remain in the module,
   - walks only live function bodies,
   - removes unreachable defined functions, unused defined globals/tables/memories/tags, unused passive/declarative elem segments, and passive data segments,
+  - in closed world, treats bare `ref.func` as reference-only until matching `call_ref` / `return_call_ref` evidence appears and rewrites referenced-only defined function bodies to `unreachable`,
   - rewrites function/local, global, table, memory, tag, elem, and data name maps plus `DataCntSec`,
-  - does not yet produce referenced-only function shells.
+  - and still lacks the mutated-indirect callable-signature model plus the later GC payload-precision slice.
 - Test coverage now includes explicit edge regressions for:
   - idempotence,
   - dead global/table initializer non-roots,
@@ -203,6 +204,10 @@ Status: researched rollout plan for Starshine's index-based IR.
   - bare `ref.func` shell rewrite,
   - later `call_ref` promotion to used,
   - open-world fallback keeping the full body.
+- Status:
+  - partial.
+  - landed subset: closed-world generated-pipeline feature sourcing, referenced-vs-used function tracking for bare `ref.func`, `call_ref` / `return_call_ref` promotion of matching referenced functions back to used, open-world fallback keeping `ref.func` conservative, and `unreachable` shell rewriting for referenced-only defined functions.
+  - remaining work: connect mutated indirect tables to Binaryen-style callable-signature liveness, decide whether `closed_world` should become CLI/config visible before the later slices, and revisit any per-item retention logic that wants referenced-only shells outside the current function-body rewrite.
 - Exit when Starshine supports Binaryen’s central referenced-vs-used function distinction where local execution config can express it.
 
 ### Slice 6 — GC Struct and Array Precision

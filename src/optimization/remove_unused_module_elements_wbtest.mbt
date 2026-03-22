@@ -108,6 +108,85 @@ fn remove_unused_test_main_throw_tag_target(mod : Module) -> UInt raise Error {
 }
 
 ///|
+fn remove_unused_test_func_call_target(
+  mod : Module,
+  func_idx : Int,
+) -> UInt raise Error {
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[func_idx] {
+        @lib.TFunc(_, _, body) =>
+          match body.inner()[0].kind {
+            @lib.TCall(@lib.FuncIdx(target), _) => target
+            _ => fail("expected direct call in function body")
+          }
+        _ => fail("expected typed function")
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
+fn remove_unused_test_func_body_is_unreachable(
+  mod : Module,
+  func_idx : Int,
+) -> Bool raise Error {
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[func_idx] {
+        @lib.TFunc(_, _, body) =>
+          match body.inner() {
+            [first] => first.kind is @lib.TUnreachable
+            _ => false
+          }
+        _ => fail("expected typed function")
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
+fn remove_unused_test_main_ref_global_target(mod : Module) -> UInt raise Error {
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.TFunc(_, _, body) =>
+          match body.inner()[0].kind {
+            @lib.TDrop(inner) =>
+              match inner.kind {
+                @lib.TGlobalGet(@lib.GlobalIdx(target)) => target
+                _ => fail("expected global.get inside drop")
+              }
+            @lib.TCallRef(_, _, ref_) =>
+              match ref_.kind {
+                @lib.TGlobalGet(@lib.GlobalIdx(target)) => target
+                _ => fail("expected global.get as call_ref target")
+              }
+            _ => fail("expected drop(global.get) or call_ref(global.get)")
+          }
+        _ => fail("expected typed function")
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
+fn remove_unused_test_global_ref_func_target(
+  mod : Module,
+  global_idx : Int,
+) -> UInt raise Error {
+  match mod.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      match globals[global_idx] {
+        @lib.Global(_, @lib.Expr([@lib.RefFunc(@lib.FuncIdx(target))])) =>
+          target
+        _ => fail("expected ref.func global initializer")
+      }
+    None => fail("expected global section")
+  }
+}
+
+///|
 fn remove_unused_test_run(mod : Module) -> Module {
   remove_unused_test_run_with_features(mod, PipelineFeatures::new())
 }
@@ -261,6 +340,54 @@ test "remove unused module elements removes rootless function call chains" {
   }
   match optimized.code_sec {
     Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 0)
+    None => fail("expected code section")
+  }
+}
+
+///|
+test "remove unused module elements keeps live call chains in untyped function bodies" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(2U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 3)
     None => fail("expected code section")
   }
 }
@@ -2283,6 +2410,211 @@ test "remove unused module elements does not let dead table initializers root he
     Some(@lib.TableSec(tables)) => assert_eq(tables.length(), 0)
     None => fail("expected table section")
   }
+}
+
+///|
+test "remove unused module elements shells closed-world bare ref.func targets" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::drop(@lib.TInstr::global_get(@lib.GlobalIdx::new(0U))),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::call(@lib.FuncIdx::new(2U), [])]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 1)
+    None => fail("expected global section")
+  }
+  assert_eq(try! remove_unused_test_main_ref_global_target(optimized), 0U)
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 0), 1U)
+  assert_true(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+}
+
+///|
+test "remove unused module elements promotes closed-world ref.func targets used by call_ref" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::call_ref(
+              @lib.TypeIdx::new(0U),
+              [],
+              @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::call(@lib.FuncIdx::new(2U), [])]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  assert_eq(try! remove_unused_test_main_ref_global_target(optimized), 0U)
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 0), 1U)
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+  assert_eq(try! remove_unused_test_func_call_target(optimized, 1), 2U)
+}
+
+///|
+test "remove unused module elements keeps open-world bare ref.func targets fully live" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::drop(@lib.TInstr::global_get(@lib.GlobalIdx::new(0U))),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::call(@lib.FuncIdx::new(2U), [])]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  assert_eq(try! remove_unused_test_main_ref_global_target(optimized), 0U)
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 0), 1U)
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+  assert_eq(try! remove_unused_test_func_call_target(optimized, 1), 2U)
 }
 
 ///|
