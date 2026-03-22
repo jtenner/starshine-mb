@@ -1373,9 +1373,7 @@ fn optimization_collect_indirect_call_elem_uses(
 ///|
 fn optimization_mark_indirect_called_table(
   used_tables : Array[Bool],
-  observable_tables : Array[Bool],
   indirect_called_tables : Array[Bool],
-  mutated_tables : Array[Bool],
   table_worklist : Array[Int],
   imported_table_count : Int,
   defined_table_count : Int,
@@ -1390,19 +1388,11 @@ fn optimization_mark_indirect_called_table(
     return
   }
   indirect_called_tables[abs_idx] = true
-  if mutated_tables[abs_idx] {
-    optimization_note_observable_table(
-      used_tables, observable_tables, table_worklist, imported_table_count, defined_table_count,
-      table_idx,
-    )
-  }
 }
 
 ///|
 fn optimization_mark_mutated_table(
   used_tables : Array[Bool],
-  observable_tables : Array[Bool],
-  indirect_called_tables : Array[Bool],
   mutated_tables : Array[Bool],
   table_worklist : Array[Int],
   imported_table_count : Int,
@@ -1418,12 +1408,6 @@ fn optimization_mark_mutated_table(
     return
   }
   mutated_tables[abs_idx] = true
-  if indirect_called_tables[abs_idx] {
-    optimization_note_observable_table(
-      used_tables, observable_tables, table_worklist, imported_table_count, defined_table_count,
-      table_idx,
-    )
-  }
 }
 
 ///|
@@ -1499,8 +1483,8 @@ fn optimization_collect_module_element_uses_in_func(
         @lib.CallIndirect(type_idx, table_idx)
         | @lib.ReturnCallIndirect(type_idx, table_idx) => {
           optimization_mark_indirect_called_table(
-            used_tables, observable_tables, indirect_called_tables, mutated_tables,
-            table_worklist, imported_table_count, defined_table_count, table_idx,
+            used_tables, indirect_called_tables, table_worklist, imported_table_count,
+            defined_table_count, table_idx,
           )
           optimization_collect_indirect_call_elem_uses(
             table_idx, type_idx, active_elem_indices_by_table, elems, subtypes, func_type_idxs,
@@ -1527,8 +1511,8 @@ fn optimization_collect_module_element_uses_in_func(
         | @lib.TableFill(table_idx)
         | @lib.TableInit(_, table_idx) =>
           optimization_mark_mutated_table(
-            used_tables, observable_tables, indirect_called_tables, mutated_tables,
-            table_worklist, imported_table_count, defined_table_count, table_idx,
+            used_tables, mutated_tables, table_worklist, imported_table_count, defined_table_count,
+            table_idx,
           )
         @lib.TableSize(table_idx) =>
           optimization_note_used_table(
@@ -1544,8 +1528,8 @@ fn optimization_collect_module_element_uses_in_func(
         @lib.TCallIndirect(type_idx, table_idx, _, _)
         | @lib.TReturnCallIndirect(type_idx, table_idx, _, _) => {
           optimization_mark_indirect_called_table(
-            used_tables, observable_tables, indirect_called_tables, mutated_tables,
-            table_worklist, imported_table_count, defined_table_count, table_idx,
+            used_tables, indirect_called_tables, table_worklist, imported_table_count,
+            defined_table_count, table_idx,
           )
           optimization_collect_indirect_call_elem_uses(
             table_idx, type_idx, active_elem_indices_by_table, elems, subtypes, func_type_idxs,
@@ -1572,8 +1556,8 @@ fn optimization_collect_module_element_uses_in_func(
         | @lib.TTableFill(table_idx, _, _, _)
         | @lib.TTableInit(_, table_idx, _, _, _) =>
           optimization_mark_mutated_table(
-            used_tables, observable_tables, indirect_called_tables, mutated_tables,
-            table_worklist, imported_table_count, defined_table_count, table_idx,
+            used_tables, mutated_tables, table_worklist, imported_table_count, defined_table_count,
+            table_idx,
           )
         @lib.TTableSize(table_idx) =>
           optimization_note_used_table(

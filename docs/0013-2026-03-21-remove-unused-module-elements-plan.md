@@ -184,8 +184,8 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Status:
   - partial.
   - landed subset: non-mutated `call_indirect` and `return_call_indirect` now retain only matching active elem contributors for the target table; exports, `table.get`, and `table.copy` sources still root observable active contents; pure metadata/write operations like `table.size`, `table.set`, `table.fill`, `table.grow`, and `table.init` no longer pin prior active contents on their own; and table initializer expressions are only scanned when table contents are observable or the table participates in indirect calls.
-  - current conservative fallback: once live code both indirectly calls and mutates the same table, Starshine falls back to broad active-segment retention on that table instead of Binaryen's more precise callable-signature model.
-  - remaining work: Binaryen-style callable-signature fallback for mutated indirect tables and any finer-grained per-item retention that depends on referenced-only function shells.
+  - current local behavior for mutated indirect tables: Starshine no longer broadens to same-table active-segment retention, but it still lacks Binaryen's explicit callable-signature tracking for future writes beyond the initial matching contributors and whatever live direct `ref.func` uses already expose.
+  - remaining work: Binaryen-style callable-signature tracking for mutated indirect tables and any finer-grained per-item retention that depends on referenced-only function shells.
 - Exit when indirect-call retention is more precise than keeping every function reachable from every table.
 
 ### Slice 5 — Closed-World Function-Reference Precision

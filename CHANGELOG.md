@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization: drop broad same-table fallback for mutated indirect tables
+
+- **RemoveUnusedModuleElements mutated-indirect slice** by **@jtenner**. Refined [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so a table being both mutated and used by `call_indirect` no longer causes all active `elem` contents on that table to stay alive. Mutated indirect tables now still keep matching initial contributors, but nonmatching active segments are no longer pinned just by that conjunction.
+- Updated whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) so the mutated-indirect case now proves nonmatching active `elem` contents are removable.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining mutated-indirect work is now explicitly the missing Binaryen-style callable-signature model rather than the older broad same-table retention fallback.
+
 ## 2026-03-21 Optimization: gate table initializer liveness on observable or indirect table use
 
 - **RemoveUnusedModuleElements table-initializer slice** by **@jtenner**. Refined [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so defined table initializer expressions are no longer scanned just because the table itself is live. Initializer contents are now retained only when the table’s contents are actually observable or when the table participates in indirect calls.

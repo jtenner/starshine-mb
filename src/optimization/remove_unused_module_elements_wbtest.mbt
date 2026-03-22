@@ -1418,7 +1418,7 @@ test "remove unused module elements keeps only matching active elem segments for
 }
 
 ///|
-test "remove unused module elements falls back conservatively for mutated indirectly called tables" {
+test "remove unused module elements does not let mutated indirectly called tables pin nonmatching active elem contents" {
   let mod = Module::new()
     .with_type_sec(remove_unused_test_two_type_sec())
     .with_func_sec(
@@ -1502,12 +1502,28 @@ test "remove unused module elements falls back conservatively for mutated indire
   let optimized = remove_unused_test_run(mod)
 
   match optimized.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
     None => fail("expected func section")
   }
   match optimized.elem_sec {
-    Some(@lib.ElemSec(elems)) => assert_eq(elems.length(), 2)
-    None => fail("expected elem section")
+    Some(
+      @lib.ElemSec(
+        [
+          @lib.Elem(
+            @lib.Active(
+              @lib.TableIdx(table_idx),
+              @lib.Expr([@lib.I32Const(@lib.I32(offset))])
+            ),
+            @lib.FuncsElemKind([@lib.FuncIdx(func_idx)])
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(table_idx, 0U)
+      assert_eq(offset, 0)
+      assert_eq(func_idx, 1U)
+    }
+    _ => fail("expected only the matching active elem segment")
   }
 }
 
