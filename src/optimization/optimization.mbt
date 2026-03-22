@@ -1192,6 +1192,24 @@ fn optimization_note_used_elem(
 }
 
 ///|
+fn optimization_note_referenced_elem(
+  referenced : Array[Bool],
+  worklist : Array[Int],
+  idx : ElemIdx,
+) -> Unit {
+  let ElemIdx(raw) = idx
+  let elem_idx = raw.reinterpret_as_int()
+  if elem_idx < 0 || elem_idx >= referenced.length() {
+    return
+  }
+  if referenced[elem_idx] {
+    return
+  }
+  referenced[elem_idx] = true
+  worklist.push(elem_idx)
+}
+
+///|
 fn optimization_note_used_data(
   used : Array[Bool],
   worklist : Array[Int],
@@ -1351,6 +1369,31 @@ fn optimization_collect_references_in_global(
         init, referenced_funcs, referenced_globals, referenced_global_worklist, imported_global_count,
         defined_global_count,
       )
+  }
+}
+
+///|
+fn optimization_collect_references_in_elem(
+  elem : Elem,
+  referenced_funcs : Array[Bool],
+  referenced_globals : Array[Bool],
+  referenced_global_worklist : Array[Int],
+  imported_global_count : Int,
+  defined_global_count : Int,
+) -> Unit {
+  match elem {
+    Elem(_, @lib.FuncsElemKind(funcs)) =>
+      for func_idx in funcs {
+        optimization_note_referenced_func(referenced_funcs, func_idx)
+      }
+    Elem(_, @lib.FuncExprsElemKind(exprs))
+    | Elem(_, @lib.TypedExprsElemKind(_, exprs)) =>
+      for expr in exprs {
+        optimization_collect_references_in_expr(
+          expr, referenced_funcs, referenced_globals, referenced_global_worklist,
+          imported_global_count, defined_global_count,
+        )
+      }
   }
 }
 
@@ -1760,8 +1803,13 @@ fn optimization_collect_module_element_uses_in_func(
   struct_subtype_children : Array[Array[Int]],
   read_struct_fields : Array[Array[Bool]],
   unread_struct_field_payloads : Array[Array[Array[@lib.TInstr]]],
+  read_array_contents : Array[Bool],
+  unread_array_payloads : Array[Array[@lib.TInstr]],
+  unread_array_elem_payloads : Array[Array[Int]],
   referenced_globals : Array[Bool],
   referenced_global_worklist : Array[Int],
+  referenced_elems : Array[Bool],
+  referenced_elem_worklist : Array[Int],
 ) -> Unit {
   let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
     .on_globalidx_evt(fn(_, _, idx) {
@@ -1885,7 +1933,8 @@ fn optimization_collect_module_element_uses_in_func(
           used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
           imported_tag_count, defined_tag_count, used_elems, elem_worklist, used_datas,
           data_worklist, elems, active_elem_indices_by_table, read_struct_fields,
-          unread_struct_field_payloads,
+          unread_struct_field_payloads, read_array_contents, unread_array_payloads,
+          unread_array_elem_payloads, referenced_elems, referenced_elem_worklist,
         )
       }
   }
@@ -2155,6 +2204,82 @@ fn optimization_init_unread_struct_field_payloads(
         }
         unread_payloads.push(per_type)
       }
+      _ => unread_payloads.push([])
+    }
+  }
+  unread_payloads
+}
+
+///|
+fn optimization_array_ref_payload_type_idx(
+  subtypes : Array[SubType],
+  type_idx : TypeIdx,
+) -> Int? {
+  let abs_type_idx = match optimization_type_idx_bucket(type_idx) {
+    Some(idx) => idx
+    None => return None
+  }
+  if abs_type_idx < 0 || abs_type_idx >= subtypes.length() {
+    return None
+  }
+  match subtypes[abs_type_idx].get_comptype() {
+    @lib.ArrayCompType(field) =>
+      if field.unpack().is_ref_type() {
+        Some(abs_type_idx)
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn optimization_init_read_array_contents(
+  subtypes : Array[SubType],
+) -> Array[Bool] {
+  let read_contents : Array[Bool] = []
+  for subtype in subtypes {
+    match subtype.get_comptype() {
+      @lib.ArrayCompType(field) =>
+        read_contents.push(!field.unpack().is_ref_type())
+      _ => read_contents.push(true)
+    }
+  }
+  read_contents
+}
+
+///|
+fn optimization_init_unread_array_payloads(
+  subtypes : Array[SubType],
+) -> Array[Array[@lib.TInstr]] {
+  let unread_payloads : Array[Array[@lib.TInstr]] = []
+  for subtype in subtypes {
+    match subtype.get_comptype() {
+      @lib.ArrayCompType(field) =>
+        if field.unpack().is_ref_type() {
+          unread_payloads.push([])
+        } else {
+          unread_payloads.push([])
+        }
+      _ => unread_payloads.push([])
+    }
+  }
+  unread_payloads
+}
+
+///|
+fn optimization_init_unread_array_elem_payloads(
+  subtypes : Array[SubType],
+) -> Array[Array[Int]] {
+  let unread_payloads : Array[Array[Int]] = []
+  for subtype in subtypes {
+    match subtype.get_comptype() {
+      @lib.ArrayCompType(field) =>
+        if field.unpack().is_ref_type() {
+          unread_payloads.push([])
+        } else {
+          unread_payloads.push([])
+        }
       _ => unread_payloads.push([])
     }
   }
@@ -2689,6 +2814,11 @@ fn optimization_collect_module_element_uses_in_tinstr(
   active_elem_indices_by_table : Array[Array[Int]],
   read_struct_fields : Array[Array[Bool]],
   unread_struct_field_payloads : Array[Array[Array[@lib.TInstr]]],
+  read_array_contents : Array[Bool],
+  unread_array_payloads : Array[Array[@lib.TInstr]],
+  unread_array_elem_payloads : Array[Array[Int]],
+  referenced_elems : Array[Bool],
+  referenced_elem_worklist : Array[Int],
 ) -> Unit {
   let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
     .on_globalidx_evt(fn(_, _, idx) {
@@ -2734,6 +2864,8 @@ fn optimization_collect_module_element_uses_in_tinstr(
             imported_mem_count, defined_mem_count, used_tags, tag_worklist, imported_tag_count,
             defined_tag_count, used_elems, elem_worklist, used_datas, data_worklist,
             elems, active_elem_indices_by_table, read_struct_fields, unread_struct_field_payloads,
+            read_array_contents, unread_array_payloads, unread_array_elem_payloads,
+            referenced_elems, referenced_elem_worklist,
           )
           optimization_mark_struct_field_read(
             type_idx, field_idx, features, called_ref_types, indirect_call_types_by_table,
@@ -2746,6 +2878,8 @@ fn optimization_collect_module_element_uses_in_tinstr(
             imported_mem_count, defined_mem_count, used_tags, tag_worklist, imported_tag_count,
             defined_tag_count, used_elems, elem_worklist, used_datas, data_worklist,
             elems, active_elem_indices_by_table, read_struct_fields, unread_struct_field_payloads,
+            read_array_contents, unread_array_payloads, unread_array_elem_payloads,
+            referenced_elems, referenced_elem_worklist,
           )
           skip()
         }
@@ -2807,6 +2941,11 @@ fn optimization_collect_module_element_uses_in_tinstr(
                       active_elem_indices_by_table,
                       read_struct_fields,
                       unread_struct_field_payloads,
+                      read_array_contents,
+                      unread_array_payloads,
+                      unread_array_elem_payloads,
+                      referenced_elems,
+                      referenced_elem_worklist,
                     )
                   } else {
                     unread_struct_field_payloads[abs_idx][field_idx].push(
@@ -2888,6 +3027,11 @@ fn optimization_collect_module_element_uses_in_tinstr(
                       active_elem_indices_by_table,
                       read_struct_fields,
                       unread_struct_field_payloads,
+                      read_array_contents,
+                      unread_array_payloads,
+                      unread_array_elem_payloads,
+                      referenced_elems,
+                      referenced_elem_worklist,
                     )
                   } else {
                     unread_struct_field_payloads[abs_idx][field_idx].push(
@@ -2946,12 +3090,196 @@ fn optimization_collect_module_element_uses_in_tinstr(
                   active_elem_indices_by_table,
                   read_struct_fields,
                   unread_struct_field_payloads,
+                  read_array_contents,
+                  unread_array_payloads,
+                  unread_array_elem_payloads,
+                  referenced_elems,
+                  referenced_elem_worklist,
                 )
                 return skip()
               }
             None => ()
           }
           unchanged()
+        }
+        @lib.TArrayGet(type_idx, array_ref, index)
+        | @lib.TArrayGetS(type_idx, array_ref, index)
+        | @lib.TArrayGetU(type_idx, array_ref, index) => {
+          optimization_collect_module_element_uses_in_tinstr(
+            array_ref, features, called_ref_types, indirect_call_types_by_table,
+            subtypes, struct_subtype_children, func_type_idxs, referenced_funcs,
+            call_ref_candidate_funcs, used_funcs, func_worklist, imported_func_count,
+            defined_func_count, used_globals, referenced_globals, global_worklist,
+            referenced_global_worklist, imported_global_count, defined_global_count,
+            used_tables, observable_tables, indirect_called_tables, mutated_tables,
+            table_worklist, imported_table_count, defined_table_count, used_mems,
+            imported_mem_count, defined_mem_count, used_tags, tag_worklist, imported_tag_count,
+            defined_tag_count, used_elems, elem_worklist, used_datas, data_worklist,
+            elems, active_elem_indices_by_table, read_struct_fields, unread_struct_field_payloads,
+            read_array_contents, unread_array_payloads, unread_array_elem_payloads,
+            referenced_elems, referenced_elem_worklist,
+          )
+          optimization_collect_module_element_uses_in_tinstr(
+            index, features, called_ref_types, indirect_call_types_by_table, subtypes,
+            struct_subtype_children, func_type_idxs, referenced_funcs, call_ref_candidate_funcs,
+            used_funcs, func_worklist, imported_func_count, defined_func_count, used_globals,
+            referenced_globals, global_worklist, referenced_global_worklist, imported_global_count,
+            defined_global_count, used_tables, observable_tables, indirect_called_tables,
+            mutated_tables, table_worklist, imported_table_count, defined_table_count,
+            used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
+            imported_tag_count, defined_tag_count, used_elems, elem_worklist, used_datas,
+            data_worklist, elems, active_elem_indices_by_table, read_struct_fields,
+            unread_struct_field_payloads, read_array_contents, unread_array_payloads,
+            unread_array_elem_payloads, referenced_elems, referenced_elem_worklist,
+          )
+          optimization_mark_array_content_read(
+            type_idx, features, called_ref_types, indirect_call_types_by_table, subtypes,
+            struct_subtype_children, func_type_idxs, referenced_funcs, call_ref_candidate_funcs,
+            used_funcs, func_worklist, imported_func_count, defined_func_count, used_globals,
+            referenced_globals, global_worklist, referenced_global_worklist, imported_global_count,
+            defined_global_count, used_tables, observable_tables, indirect_called_tables,
+            mutated_tables, table_worklist, imported_table_count, defined_table_count,
+            used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
+            imported_tag_count, defined_tag_count, used_elems, elem_worklist, used_datas,
+            data_worklist, elems, active_elem_indices_by_table, read_struct_fields,
+            unread_struct_field_payloads, read_array_contents, unread_array_payloads,
+            unread_array_elem_payloads, referenced_elems, referenced_elem_worklist,
+          )
+          skip()
+        }
+        @lib.TArrayNew(type_idx, init, len) => {
+          optimization_collect_module_element_uses_in_tinstr(
+            len, features, called_ref_types, indirect_call_types_by_table, subtypes,
+            struct_subtype_children, func_type_idxs, referenced_funcs, call_ref_candidate_funcs,
+            used_funcs, func_worklist, imported_func_count, defined_func_count, used_globals,
+            referenced_globals, global_worklist, referenced_global_worklist, imported_global_count,
+            defined_global_count, used_tables, observable_tables, indirect_called_tables,
+            mutated_tables, table_worklist, imported_table_count, defined_table_count,
+            used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
+            imported_tag_count, defined_tag_count, used_elems, elem_worklist, used_datas,
+            data_worklist, elems, active_elem_indices_by_table, read_struct_fields,
+            unread_struct_field_payloads, read_array_contents, unread_array_payloads,
+            unread_array_elem_payloads, referenced_elems, referenced_elem_worklist,
+          )
+          match optimization_array_ref_payload_type_idx(subtypes, type_idx) {
+            Some(abs_type_idx) =>
+              if features.closed_world &&
+                features.has_gc &&
+                abs_type_idx >= 0 &&
+                abs_type_idx < read_array_contents.length() &&
+                !read_array_contents[abs_type_idx] &&
+                optimization_tinstr_can_defer_struct_payload(init) {
+                unread_array_payloads[abs_type_idx].push(init)
+                optimization_collect_references_in_tinstr(
+                  init, referenced_funcs, referenced_globals, referenced_global_worklist,
+                  imported_global_count, defined_global_count,
+                )
+                return skip()
+              }
+            None => ()
+          }
+          optimization_collect_module_element_uses_in_tinstr(
+            init, features, called_ref_types, indirect_call_types_by_table, subtypes,
+            struct_subtype_children, func_type_idxs, referenced_funcs, call_ref_candidate_funcs,
+            used_funcs, func_worklist, imported_func_count, defined_func_count, used_globals,
+            referenced_globals, global_worklist, referenced_global_worklist, imported_global_count,
+            defined_global_count, used_tables, observable_tables, indirect_called_tables,
+            mutated_tables, table_worklist, imported_table_count, defined_table_count,
+            used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
+            imported_tag_count, defined_tag_count, used_elems, elem_worklist, used_datas,
+            data_worklist, elems, active_elem_indices_by_table, read_struct_fields,
+            unread_struct_field_payloads, read_array_contents, unread_array_payloads,
+            unread_array_elem_payloads, referenced_elems, referenced_elem_worklist,
+          )
+          skip()
+        }
+        @lib.TArrayNewFixed(type_idx, payloads) => {
+          match optimization_array_ref_payload_type_idx(subtypes, type_idx) {
+            Some(abs_type_idx) =>
+              if features.closed_world &&
+                features.has_gc &&
+                abs_type_idx >= 0 &&
+                abs_type_idx < read_array_contents.length() &&
+                !read_array_contents[abs_type_idx] {
+                for payload in payloads {
+                  if optimization_tinstr_can_defer_struct_payload(payload) {
+                    unread_array_payloads[abs_type_idx].push(payload)
+                    optimization_collect_references_in_tinstr(
+                      payload, referenced_funcs, referenced_globals, referenced_global_worklist,
+                      imported_global_count, defined_global_count,
+                    )
+                  } else {
+                    optimization_collect_module_element_uses_in_tinstr(
+                      payload, features, called_ref_types, indirect_call_types_by_table,
+                      subtypes, struct_subtype_children, func_type_idxs, referenced_funcs,
+                      call_ref_candidate_funcs, used_funcs, func_worklist, imported_func_count,
+                      defined_func_count, used_globals, referenced_globals, global_worklist,
+                      referenced_global_worklist, imported_global_count, defined_global_count,
+                      used_tables, observable_tables, indirect_called_tables, mutated_tables,
+                      table_worklist, imported_table_count, defined_table_count,
+                      used_mems, imported_mem_count, defined_mem_count, used_tags,
+                      tag_worklist, imported_tag_count, defined_tag_count, used_elems,
+                      elem_worklist, used_datas, data_worklist, elems, active_elem_indices_by_table,
+                      read_struct_fields, unread_struct_field_payloads, read_array_contents,
+                      unread_array_payloads, unread_array_elem_payloads, referenced_elems,
+                      referenced_elem_worklist,
+                    )
+                  }
+                }
+                return skip()
+              }
+            None => ()
+          }
+          unchanged()
+        }
+        @lib.TArrayNewElem(type_idx, elem_idx, offset, len) => {
+          optimization_collect_module_element_uses_in_tinstr(
+            offset, features, called_ref_types, indirect_call_types_by_table, subtypes,
+            struct_subtype_children, func_type_idxs, referenced_funcs, call_ref_candidate_funcs,
+            used_funcs, func_worklist, imported_func_count, defined_func_count, used_globals,
+            referenced_globals, global_worklist, referenced_global_worklist, imported_global_count,
+            defined_global_count, used_tables, observable_tables, indirect_called_tables,
+            mutated_tables, table_worklist, imported_table_count, defined_table_count,
+            used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
+            imported_tag_count, defined_tag_count, used_elems, elem_worklist, used_datas,
+            data_worklist, elems, active_elem_indices_by_table, read_struct_fields,
+            unread_struct_field_payloads, read_array_contents, unread_array_payloads,
+            unread_array_elem_payloads, referenced_elems, referenced_elem_worklist,
+          )
+          optimization_collect_module_element_uses_in_tinstr(
+            len, features, called_ref_types, indirect_call_types_by_table, subtypes,
+            struct_subtype_children, func_type_idxs, referenced_funcs, call_ref_candidate_funcs,
+            used_funcs, func_worklist, imported_func_count, defined_func_count, used_globals,
+            referenced_globals, global_worklist, referenced_global_worklist, imported_global_count,
+            defined_global_count, used_tables, observable_tables, indirect_called_tables,
+            mutated_tables, table_worklist, imported_table_count, defined_table_count,
+            used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
+            imported_tag_count, defined_tag_count, used_elems, elem_worklist, used_datas,
+            data_worklist, elems, active_elem_indices_by_table, read_struct_fields,
+            unread_struct_field_payloads, read_array_contents, unread_array_payloads,
+            unread_array_elem_payloads, referenced_elems, referenced_elem_worklist,
+          )
+          match optimization_array_ref_payload_type_idx(subtypes, type_idx) {
+            Some(abs_type_idx) =>
+              if features.closed_world &&
+                features.has_gc &&
+                abs_type_idx >= 0 &&
+                abs_type_idx < read_array_contents.length() &&
+                !read_array_contents[abs_type_idx] {
+                optimization_note_referenced_elem(
+                  referenced_elems, referenced_elem_worklist, elem_idx,
+                )
+                unread_array_elem_payloads[abs_type_idx].push(
+                  match elem_idx {
+                    @lib.ElemIdx(raw_idx) => raw_idx.reinterpret_as_int()
+                  },
+                )
+                return skip()
+              }
+            None => ()
+          }
+          optimization_note_used_elem(used_elems, elem_worklist, elem_idx)
+          skip()
         }
         @lib.TCall(func_idx, _) | @lib.TReturnCall(func_idx, _) => {
           optimization_note_used_func(
@@ -3090,6 +3418,11 @@ fn optimization_mark_struct_field_read(
   active_elem_indices_by_table : Array[Array[Int]],
   read_struct_fields : Array[Array[Bool]],
   unread_struct_field_payloads : Array[Array[Array[@lib.TInstr]]],
+  read_array_contents : Array[Bool],
+  unread_array_payloads : Array[Array[@lib.TInstr]],
+  unread_array_elem_payloads : Array[Array[Int]],
+  referenced_elems : Array[Bool],
+  referenced_elem_worklist : Array[Int],
 ) -> Unit {
   let abs_type_idx = match optimization_type_idx_bucket(type_idx) {
     Some(idx) => idx
@@ -3120,6 +3453,8 @@ fn optimization_mark_struct_field_read(
       used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
       imported_tag_count, defined_tag_count, used_elems, elem_worklist, used_datas,
       data_worklist, elems, active_elem_indices_by_table, read_struct_fields, unread_struct_field_payloads,
+      read_array_contents, unread_array_payloads, unread_array_elem_payloads, referenced_elems,
+      referenced_elem_worklist,
     )
   }
   for child_type_idx in struct_subtype_children[abs_type_idx] {
@@ -3166,6 +3501,150 @@ fn optimization_mark_struct_field_read(
       active_elem_indices_by_table,
       read_struct_fields,
       unread_struct_field_payloads,
+      read_array_contents,
+      unread_array_payloads,
+      unread_array_elem_payloads,
+      referenced_elems,
+      referenced_elem_worklist,
+    )
+  }
+}
+
+///|
+fn optimization_mark_array_content_read(
+  type_idx : TypeIdx,
+  features : PipelineFeatures,
+  called_ref_types : Array[Bool],
+  indirect_call_types_by_table : Array[Array[Bool]],
+  subtypes : Array[SubType],
+  struct_subtype_children : Array[Array[Int]],
+  func_type_idxs : Array[TypeIdx],
+  referenced_funcs : Array[Bool],
+  call_ref_candidate_funcs : Array[Bool],
+  used_funcs : Array[Bool],
+  func_worklist : Array[Int],
+  imported_func_count : Int,
+  defined_func_count : Int,
+  used_globals : Array[Bool],
+  referenced_globals : Array[Bool],
+  global_worklist : Array[Int],
+  referenced_global_worklist : Array[Int],
+  imported_global_count : Int,
+  defined_global_count : Int,
+  used_tables : Array[Bool],
+  observable_tables : Array[Bool],
+  indirect_called_tables : Array[Bool],
+  mutated_tables : Array[Bool],
+  table_worklist : Array[Int],
+  imported_table_count : Int,
+  defined_table_count : Int,
+  used_mems : Array[Bool],
+  imported_mem_count : Int,
+  defined_mem_count : Int,
+  used_tags : Array[Bool],
+  tag_worklist : Array[Int],
+  imported_tag_count : Int,
+  defined_tag_count : Int,
+  used_elems : Array[Bool],
+  elem_worklist : Array[Int],
+  used_datas : Array[Bool],
+  data_worklist : Array[Int],
+  elems : Array[Elem],
+  active_elem_indices_by_table : Array[Array[Int]],
+  read_struct_fields : Array[Array[Bool]],
+  unread_struct_field_payloads : Array[Array[Array[@lib.TInstr]]],
+  read_array_contents : Array[Bool],
+  unread_array_payloads : Array[Array[@lib.TInstr]],
+  unread_array_elem_payloads : Array[Array[Int]],
+  referenced_elems : Array[Bool],
+  referenced_elem_worklist : Array[Int],
+) -> Unit {
+  let abs_type_idx = match
+    optimization_array_ref_payload_type_idx(subtypes, type_idx) {
+    Some(idx) => idx
+    None => return
+  }
+  if abs_type_idx < 0 || abs_type_idx >= read_array_contents.length() {
+    return
+  }
+  if read_array_contents[abs_type_idx] {
+    return
+  }
+  read_array_contents[abs_type_idx] = true
+  let deferred_payloads = unread_array_payloads[abs_type_idx]
+  unread_array_payloads[abs_type_idx] = []
+  for payload in deferred_payloads {
+    optimization_collect_module_element_uses_in_tinstr(
+      payload, features, called_ref_types, indirect_call_types_by_table, subtypes,
+      struct_subtype_children, func_type_idxs, referenced_funcs, call_ref_candidate_funcs,
+      used_funcs, func_worklist, imported_func_count, defined_func_count, used_globals,
+      referenced_globals, global_worklist, referenced_global_worklist, imported_global_count,
+      defined_global_count, used_tables, observable_tables, indirect_called_tables,
+      mutated_tables, table_worklist, imported_table_count, defined_table_count,
+      used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
+      imported_tag_count, defined_tag_count, used_elems, elem_worklist, used_datas,
+      data_worklist, elems, active_elem_indices_by_table, read_struct_fields, unread_struct_field_payloads,
+      read_array_contents, unread_array_payloads, unread_array_elem_payloads, referenced_elems,
+      referenced_elem_worklist,
+    )
+  }
+  let deferred_elem_idxs = unread_array_elem_payloads[abs_type_idx]
+  unread_array_elem_payloads[abs_type_idx] = []
+  for elem_idx in deferred_elem_idxs {
+    optimization_note_used_elem(
+      used_elems,
+      elem_worklist,
+      ElemIdx::new(elem_idx.reinterpret_as_uint()),
+    )
+  }
+  for child_type_idx in struct_subtype_children[abs_type_idx] {
+    optimization_mark_array_content_read(
+      @lib.TypeIdx::new(child_type_idx.reinterpret_as_uint()),
+      features,
+      called_ref_types,
+      indirect_call_types_by_table,
+      subtypes,
+      struct_subtype_children,
+      func_type_idxs,
+      referenced_funcs,
+      call_ref_candidate_funcs,
+      used_funcs,
+      func_worklist,
+      imported_func_count,
+      defined_func_count,
+      used_globals,
+      referenced_globals,
+      global_worklist,
+      referenced_global_worklist,
+      imported_global_count,
+      defined_global_count,
+      used_tables,
+      observable_tables,
+      indirect_called_tables,
+      mutated_tables,
+      table_worklist,
+      imported_table_count,
+      defined_table_count,
+      used_mems,
+      imported_mem_count,
+      defined_mem_count,
+      used_tags,
+      tag_worklist,
+      imported_tag_count,
+      defined_tag_count,
+      used_elems,
+      elem_worklist,
+      used_datas,
+      data_worklist,
+      elems,
+      active_elem_indices_by_table,
+      read_struct_fields,
+      unread_struct_field_payloads,
+      read_array_contents,
+      unread_array_payloads,
+      unread_array_elem_payloads,
+      referenced_elems,
+      referenced_elem_worklist,
     )
   }
 }
@@ -3605,8 +4084,10 @@ fn optimization_remove_unused_module_elements_iteration(
     used_tags.push(false)
   }
   let used_elems : Array[Bool] = []
+  let referenced_elems : Array[Bool] = []
   for _ in 0..<elems.length() {
     used_elems.push(false)
+    referenced_elems.push(false)
   }
   let used_datas : Array[Bool] = []
   for _ in 0..<datas.length() {
@@ -3618,6 +4099,7 @@ fn optimization_remove_unused_module_elements_iteration(
   let table_worklist : Array[Int] = []
   let tag_worklist : Array[Int] = []
   let elem_worklist : Array[Int] = []
+  let referenced_elem_worklist : Array[Int] = []
   let data_worklist : Array[Int] = []
   let func_type_idxs = optimization_all_func_type_idxs(mod, type_idxs)
   let called_ref_types : Array[Bool] = []
@@ -3638,6 +4120,11 @@ fn optimization_remove_unused_module_elements_iteration(
   let struct_subtype_children = optimization_struct_subtype_children(subtypes)
   let read_struct_fields = optimization_init_read_struct_fields(subtypes)
   let unread_struct_field_payloads = optimization_init_unread_struct_field_payloads(
+    subtypes,
+  )
+  let read_array_contents = optimization_init_read_array_contents(subtypes)
+  let unread_array_payloads = optimization_init_unread_array_payloads(subtypes)
+  let unread_array_elem_payloads = optimization_init_unread_array_elem_payloads(
     subtypes,
   )
   optimization_seed_root_uses(
@@ -3733,8 +4220,13 @@ fn optimization_remove_unused_module_elements_iteration(
         struct_subtype_children,
         read_struct_fields,
         unread_struct_field_payloads,
+        read_array_contents,
+        unread_array_payloads,
+        unread_array_elem_payloads,
         referenced_globals,
         referenced_global_worklist,
+        referenced_elems,
+        referenced_elem_worklist,
       )
     }
     while referenced_global_worklist.length() > 0 {
@@ -3782,6 +4274,19 @@ fn optimization_remove_unused_module_elements_iteration(
         imported_tag_count,
         tags.length(),
       )
+    }
+    while referenced_elem_worklist.length() > 0 {
+      let elem_idx = referenced_elem_worklist.pop().unwrap()
+      if elem_idx >= 0 && elem_idx < elems.length() && !used_elems[elem_idx] {
+        optimization_collect_references_in_elem(
+          elems[elem_idx],
+          referenced_funcs,
+          referenced_globals,
+          referenced_global_worklist,
+          imported_global_count,
+          globals.length(),
+        )
+      }
     }
     while table_worklist.length() > 0 {
       let local_idx = table_worklist.pop().unwrap()
@@ -3949,7 +4454,7 @@ fn optimization_remove_unused_module_elements_iteration(
   let keep_elems : Array[Bool] = []
   i = 0
   while i < elems.length() {
-    let keep = used_elems[i]
+    let keep = used_elems[i] || referenced_elems[i]
     keep_elems.push(keep)
     if !keep {
       changed = true

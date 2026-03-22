@@ -35,6 +35,25 @@ fn remove_unused_test_struct_type_sec_with_funcref_field() -> @lib.TypeSec {
 }
 
 ///|
+fn remove_unused_test_array_type_sec_with_funcref_elem() -> @lib.TypeSec {
+  @lib.TypeSec::new([
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::array(
+          @lib.FieldType::new(
+            @lib.StorageType::val_type(
+              @lib.ValType::ref_type(remove_unused_test_funcref()),
+            ),
+            @lib.Mut::const_(),
+          ),
+        ),
+      ),
+    ),
+  ])
+}
+
+///|
 fn remove_unused_test_struct_reftype() -> @lib.RefType {
   @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U)))
 }
@@ -3242,6 +3261,321 @@ test "remove unused module elements promotes struct field funcref payloads once 
   match optimized.func_sec {
     Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
     None => fail("expected func section")
+  }
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+}
+
+///|
+test "remove unused module elements does not promote unread array.new_fixed funcref payloads from unrelated call_ref" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_array_type_sec_with_funcref_elem())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::drop(
+              @lib.TInstr::array_new_fixed(@lib.TypeIdx::new(1U), [
+                @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+              ]),
+            ),
+            @lib.TInstr::call_ref(
+              @lib.TypeIdx::new(0U),
+              [],
+              @lib.TInstr::global_get(@lib.GlobalIdx::new(1U)),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::call(@lib.FuncIdx::new(2U), [])]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+        ),
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(2U))]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 0), 1U)
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 1), 2U)
+  assert_true(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 2))
+}
+
+///|
+test "remove unused module elements promotes array.new_fixed funcref payloads once read" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_array_type_sec_with_funcref_elem())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::call_ref(
+              @lib.TypeIdx::new(0U),
+              [],
+              @lib.TInstr::array_get(
+                @lib.TypeIdx::new(1U),
+                @lib.TInstr::array_new_fixed(@lib.TypeIdx::new(1U), [
+                  @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+                ]),
+                remove_unused_test_i32_const(0),
+              ),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+}
+
+///|
+test "remove unused module elements does not promote unread array.new_elem funcref payloads from unrelated call_ref" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_array_type_sec_with_funcref_elem())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::drop(
+              @lib.TInstr::array_new_elem(
+                @lib.TypeIdx::new(1U),
+                @lib.ElemIdx::new(0U),
+                remove_unused_test_i32_const(0),
+                remove_unused_test_i32_const(1),
+              ),
+            ),
+            @lib.TInstr::call_ref(
+              @lib.TypeIdx::new(0U),
+              [],
+              @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::call(@lib.FuncIdx::new(2U), [])]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(2U))]),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::passive(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  match optimized.elem_sec {
+    Some(
+      @lib.ElemSec(
+        [@lib.Elem(@lib.Passive, @lib.FuncsElemKind([@lib.FuncIdx(idx)]))]
+      )
+    ) => assert_eq(idx, 1U)
+    _ => fail("expected retained passive elem section")
+  }
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 0), 2U)
+  assert_true(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 2))
+}
+
+///|
+test "remove unused module elements promotes array.new_elem funcref payloads once read" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_array_type_sec_with_funcref_elem())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::call_ref(
+              @lib.TypeIdx::new(0U),
+              [],
+              @lib.TInstr::array_get(
+                @lib.TypeIdx::new(1U),
+                @lib.TInstr::array_new_elem(
+                  @lib.TypeIdx::new(1U),
+                  @lib.ElemIdx::new(0U),
+                  remove_unused_test_i32_const(0),
+                  remove_unused_test_i32_const(1),
+                ),
+                remove_unused_test_i32_const(0),
+              ),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::passive(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  match optimized.elem_sec {
+    Some(
+      @lib.ElemSec(
+        [@lib.Elem(@lib.Passive, @lib.FuncsElemKind([@lib.FuncIdx(idx)]))]
+      )
+    ) => assert_eq(idx, 1U)
+    _ => fail("expected retained passive elem section")
   }
   assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
 }
