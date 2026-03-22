@@ -131,12 +131,14 @@ fn keyword_from_heap_type_ref(ht : HeapTypeRef) -> String {
     ExactTypeNum(n) => "(exact \{n})"
     ExactTypeId(id) => "(exact \{id})"
     Any => "any"
+    Array => "array"
     Eq => "eq"
     I31 => "i31"
     None_ => "none"
     NoFunc => "nofunc"
     NoExtern => "noextern"
     NoExn => "noexn"
+    Struct => "struct"
   }
 }
 

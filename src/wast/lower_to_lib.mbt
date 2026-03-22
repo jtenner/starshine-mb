@@ -61,12 +61,14 @@ fn wt_resolve_heap_type_ref(
         None => Err("unknown type id: \{id}")
       }
     Any => Ok((@lib.HeapType::abs(@lib.AbsHeapType::any()), false))
+    Array => Ok((@lib.HeapType::abs(@lib.AbsHeapType::array()), false))
     Eq => Ok((@lib.HeapType::abs(@lib.AbsHeapType::eq()), false))
     I31 => Ok((@lib.HeapType::abs(@lib.AbsHeapType::i31()), false))
     None_ => Ok((@lib.HeapType::abs(@lib.AbsHeapType::none()), false))
     NoFunc => Ok((@lib.HeapType::abs(@lib.AbsHeapType::no_func()), false))
     NoExtern => Ok((@lib.HeapType::abs(@lib.AbsHeapType::no_extern()), false))
     NoExn => Ok((@lib.HeapType::abs(@lib.AbsHeapType::no_exn()), false))
+    Struct => Ok((@lib.HeapType::abs(@lib.AbsHeapType::struct_()), false))
   }
 }
 

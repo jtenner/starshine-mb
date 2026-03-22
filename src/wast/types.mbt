@@ -60,6 +60,8 @@ pub enum HeapTypeRef {
   Any
   Eq
   I31
+  Struct
+  Array
   None_
   NoFunc
   NoExtern

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 WAST: accept legacy GC reference aliases
+
+- **GC text-surface compatibility slice** by **@jtenner**. Extended [`src/wast/types.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/types.mbt), [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt), [`src/wast/module_wast.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/module_wast.mbt), and [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt) so the higher-level WAST surface now accepts legacy GC reference aliases such as `anyref`, `eqref`, `i31ref`, `structref`, `arrayref`, and `nullref`, and also recognizes abstract heap keywords `struct` and `array` inside `(ref ...)` and `ref.null` forms.
+- Added focused parser and lowering coverage in [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt) and [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt) so legacy aliases normalize onto the existing typed-ref model and lower into the expected abstract heap types instead of failing before the mixed-runtime custom-descriptor fixtures reach later instruction coverage.
+
 ## 2026-03-22 Validate: carry ref.get_desc type immediates end to end
 
 - **Custom-descriptor immediate slice** by **@jtenner**. Extended [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt), [`src/wast/module_wast.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/module_wast.mbt), [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt), [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt), [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt), and [`src/binary/decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt) so `ref.get_desc` now carries its inspected type immediate through the higher-level WAST surface, lowered lib instruction model, and GC binary encoding instead of treating it as an immediate-free opcode.

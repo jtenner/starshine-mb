@@ -770,6 +770,7 @@ fn WastParser::is_heap_type_token(self : WastParser) -> Bool {
     Reserved => {
       let text = self.get_text(self.current)
       text == "any" ||
+      text == "array" ||
       text == "eq" ||
       text == "exn" ||
       text == "extern" ||
@@ -778,7 +779,8 @@ fn WastParser::is_heap_type_token(self : WastParser) -> Bool {
       text == "none" ||
       text == "nofunc" ||
       text == "noextern" ||
-      text == "noexn"
+      text == "noexn" ||
+      text == "struct"
     }
     _ => false
   }
@@ -804,12 +806,27 @@ fn exact_heap_type_ref_from_index(idx : Index) -> HeapTypeRef {
 fn heap_type_ref_from_reserved_keyword(text : String) -> HeapTypeRef? {
   match text {
     "any" => Some(HeapTypeRef::Any)
+    "array" => Some(HeapTypeRef::Array)
     "eq" => Some(HeapTypeRef::Eq)
     "i31" => Some(HeapTypeRef::I31)
     "none" => Some(HeapTypeRef::None_)
     "nofunc" => Some(HeapTypeRef::NoFunc)
     "noextern" => Some(HeapTypeRef::NoExtern)
     "noexn" => Some(HeapTypeRef::NoExn)
+    "struct" => Some(HeapTypeRef::Struct)
+    _ => None
+  }
+}
+
+///|
+fn legacy_alias_value_type_from_reserved_keyword(text : String) -> ValueType? {
+  match text {
+    "anyref" => Some(TypedFuncRef(HeapTypeRef::Any))
+    "arrayref" => Some(TypedFuncRef(HeapTypeRef::Array))
+    "eqref" => Some(TypedFuncRef(HeapTypeRef::Eq))
+    "i31ref" => Some(TypedFuncRef(HeapTypeRef::I31))
+    "nullref" => Some(TypedFuncRef(HeapTypeRef::None_))
+    "structref" => Some(TypedFuncRef(HeapTypeRef::Struct))
     _ => None
   }
 }
@@ -820,7 +837,9 @@ fn WastParser::can_start_value_type(self : WastParser) -> Bool {
     ValueType(_) | Func => true
     Reserved => {
       let text = self.get_text(self.current)
-      text == "exn" || text == "extern"
+      text == "exn" ||
+      text == "extern" ||
+      legacy_alias_value_type_from_reserved_keyword(text) is Some(_)
     }
     Lpar => true
     _ => false
@@ -984,7 +1003,13 @@ fn WastParser::parse_value_type(
         let _ = self.advance()
         ExternRef
       } else {
-        raise UnexpectedToken(self.current, "expected value type")
+        match legacy_alias_value_type_from_reserved_keyword(text) {
+          Some(vt) => {
+            let _ = self.advance()
+            vt
+          }
+          None => raise UnexpectedToken(self.current, "expected value type")
+        }
       }
     }
     Lpar =>
@@ -5238,6 +5263,46 @@ test "parse abstract heap ref forms preserve non-func heap kinds" {
     }
     _ =>
       fail("expected single function field in abstract heap-ref parse fixture")
+  }
+}
+
+///|
+test "parse legacy gc reference aliases and abstract struct array refs" {
+  let source =
+    #|(module
+    #|  (table 1 anyref)
+    #|  (func
+    #|    (param anyref eqref i31ref structref arrayref nullref)
+    #|    (result anyref structref arrayref nullref)
+    #|    (ref.null struct)
+    #|    (ref.null array)))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [TableField(table), FuncField(func)] => {
+      assert_eq(table.table_type.elem_type, TypedFuncRef(HeapTypeRef::Any))
+      assert_eq(func.type_use.func_type.params, [
+        TypedFuncRef(HeapTypeRef::Any),
+        TypedFuncRef(HeapTypeRef::Eq),
+        TypedFuncRef(HeapTypeRef::I31),
+        TypedFuncRef(HeapTypeRef::Struct),
+        TypedFuncRef(HeapTypeRef::Array),
+        TypedFuncRef(HeapTypeRef::None_),
+      ])
+      assert_eq(func.type_use.func_type.results, [
+        TypedFuncRef(HeapTypeRef::Any),
+        TypedFuncRef(HeapTypeRef::Struct),
+        TypedFuncRef(HeapTypeRef::Array),
+        TypedFuncRef(HeapTypeRef::None_),
+      ])
+      assert_eq(func.body, [
+        RefNull(TypedFuncRef(HeapTypeRef::Struct)),
+        RefNull(TypedFuncRef(HeapTypeRef::Array)),
+      ])
+    }
+    _ => fail("expected table + function fields in legacy alias parse fixture")
   }
 }
 
