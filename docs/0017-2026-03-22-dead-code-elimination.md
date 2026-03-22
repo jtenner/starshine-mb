@@ -905,8 +905,12 @@ Current status:
 - `docs/0046-2026-03-22-dead-code-elimination-nested-try-table-coverage.md`
   closes the separate nested concrete ref-result `try_table` coverage question
   that stayed open after the EH rewrite slice.
-- Remaining follow-up in this lane is the string-sensitive regressions; the EH
-  `pop` fixup remains a later control-flow cleanup item.
+- `docs/0047-2026-03-22-dead-code-elimination-typed-surface-blockers.md`
+  records that the remaining string-sensitive and EH `pop` follow-ups are
+  blocked in this repo today because the typed IR does not yet expose string
+  operators or EH `try` / `pop`.
+- Remaining actionable work in this lane is therefore grouped-pipeline
+  interaction coverage for the already-landed `TTryTable` / GC rewrite set.
 
 Checkpoint:
 
@@ -992,3 +996,9 @@ This is still a high-value pass because it is the first cleanup pass in the main
 1. Should Starshine build a tiny DCE-specific type updater, or factor out a reusable typed control-flow updater for later local passes too?
 2. Is there already enough local EH block/pop infrastructure to mirror Binaryen's nested-pop fixup, or does that need its own prep slice?
 3. Should the first landed version deliberately exclude stack-switching fixtures behind a temporary feature gate, or is full-feature parity required immediately for this pass?
+
+Current blocker note:
+
+- In the current repo state, typed `TTry` / `pop` nodes and typed string
+  operators are not exposed in the local IR surface, so those follow-ups cannot
+  be ported directly until the underlying instruction surface exists.

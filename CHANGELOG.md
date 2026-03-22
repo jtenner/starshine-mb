@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Docs: mark DCE string and EH pop follow-ups blocked on typed surface gaps
+
+- **DeadCodeElimination blocker audit** by **@jtenner**. Updated the canonical DCE research/backlog to state that the remaining string-sensitive and EH `pop` follow-ups are blocked on missing typed IR surfaces in this repo, not on known unlanded rewrite logic in the current `TTryTable`-only optimizer port.
+- Recorded the blocker state in [`docs/0047-2026-03-22-dead-code-elimination-typed-surface-blockers.md`](/home/jtenner/Projects/starshine-mb/docs/0047-2026-03-22-dead-code-elimination-typed-surface-blockers.md) and narrowed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) plus [`docs/0017-2026-03-22-dead-code-elimination.md`](/home/jtenner/Projects/starshine-mb/docs/0017-2026-03-22-dead-code-elimination.md) to actionable DCE work only.
+
 ## 2026-03-22 Optimization: close nested ref-result try_table DCE coverage
 
 - **DeadCodeElimination coverage checkpoint** by **@jtenner**. Added a focused typed-IR regression in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) that proves nested concrete ref-result `try_table` rewrites stay valid after DCE retags the inner EH node to `void`.
