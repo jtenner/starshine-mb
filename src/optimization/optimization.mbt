@@ -4390,7 +4390,7 @@ fn optimization_collect_reference_identity_in_tinstr(
     | @lib.TRefAsNonNull(descriptor)
     | @lib.TAnyConvertExtern(descriptor)
     | @lib.TExternConvertAny(descriptor)
-    | @lib.TRefGetDesc(descriptor)
+    | @lib.TRefGetDesc(_, descriptor)
     | @lib.TRefTest(_, _, descriptor)
     | @lib.TRefCast(_, _, descriptor)
     | @lib.TRefTestDesc(_, _, descriptor)
@@ -6320,7 +6320,7 @@ fn optimization_collect_module_element_uses_in_tinstr(
         | @lib.TRefAsNonNull(child)
         | @lib.TAnyConvertExtern(child)
         | @lib.TExternConvertAny(child)
-        | @lib.TRefGetDesc(child)
+        | @lib.TRefGetDesc(_, child)
         | @lib.TRefTest(_, _, child)
         | @lib.TRefCast(_, _, child)
         | @lib.TRefTestDesc(_, _, child) => {

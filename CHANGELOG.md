@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Validate: carry ref.get_desc type immediates end to end
+
+- **Custom-descriptor immediate slice** by **@jtenner**. Extended [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt), [`src/wast/module_wast.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/module_wast.mbt), [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt), [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt), [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt), and [`src/binary/decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt) so `ref.get_desc` now carries its inspected type immediate through the higher-level WAST surface, lowered lib instruction model, and GC binary encoding instead of treating it as an immediate-free opcode.
+- Tightened descriptor typechecking in [`src/validate/env.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt) and [`src/validate/typecheck.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so `ref.get_desc` now validates the inspected target type, rejects descriptor-less types and incompatible operands, and computes the descriptor result reftype from the inspected type metadata instead of returning a fixed scalar placeholder.
+
 ## 2026-03-22 Validate: land custom-descriptor static text coverage
 
 - **Custom-descriptor validator repair** by **@jtenner**. Fixed [`src/validate/match.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/match.mbt) and [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) so recursive-group validation now keeps current-group absolute type indices in scope, final defined types still match their declared supertypes, and struct subtype matching accepts trailing-field extensions. This clears the valid `final` and cross-`rec` descriptor subtype chains from the spec instead of rejecting them with spurious type-resolution or incompatible-supertype errors.

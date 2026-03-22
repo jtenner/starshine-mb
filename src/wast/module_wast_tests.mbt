@@ -30,7 +30,7 @@ test "module_to_wast preserves descriptor instruction keywords" {
   let src =
     #|(module
     #|  (func (param funcref) (result i32)
-    #|    (drop (ref.get_desc (local.get 0)))
+    #|    (drop (ref.get_desc 0 (local.get 0)))
     #|    (drop (ref.test_desc 0 (local.get 0)))
     #|    (drop (ref.test_desc_null 0 (local.get 0)))
     #|    (drop (ref.cast_desc_eq 0 (local.get 0)))

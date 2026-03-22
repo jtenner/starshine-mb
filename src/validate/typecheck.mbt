@@ -1965,19 +1965,20 @@ fn typecheck_ref_eq(st : TcState) -> TcResult {
 }
 
 ///|
-fn typecheck_ref_get_desc(st : TcState) -> TcResult {
+fn typecheck_ref_get_desc(st : TcState, type_idx : TypeIdx) -> TcResult {
   let (st1, rt_in_opt) = match st.pop_ref_or_bot() {
     Err(e) => return Err(e)
     Ok(x) => x
   }
   match rt_in_opt {
-    None => return Ok(st1.push1(st.env.descriptor_result_type()))
-    Some(rt_in) =>
-      if rt_in.is_nullable() {
-        return Err("ref.get_desc expects a non-null reference operand")
-      }
+    None => ()
+    Some(rt_in) => ignore(rt_in)
   }
-  Ok(st1.push1(st.env.descriptor_result_type()))
+  let result_vt = match st.env.descriptor_result_type(type_idx, rt_in_opt) {
+    Ok(vt) => vt
+    Err(e) => return Err(e)
+  }
+  Ok(st1.push1(result_vt))
 }
 
 ///|
@@ -3236,7 +3237,7 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     RefFunc(f) => typecheck_ref_func(st, f)
     RefAsNonNull => typecheck_ref_as_non_null(st)
     RefEq => typecheck_ref_eq(st)
-    RefGetDesc => typecheck_ref_get_desc(st)
+    RefGetDesc(type_idx) => typecheck_ref_get_desc(st, type_idx)
     RefTest(nullable, ht) => typecheck_ref_test(st, nullable, ht)
     RefCast(nullable, ht) => typecheck_ref_cast(st, nullable, ht)
     RefTestDesc(nullable, ht) => typecheck_ref_test_desc(st, nullable, ht)
@@ -5145,12 +5146,12 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === GC: Casts ===
-    TInstrKind::TRefGetDesc(child) => {
+    TInstrKind::TRefGetDesc(type_idx, child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
-      typecheck_ref_get_desc(st1)
+      typecheck_ref_get_desc(st1, type_idx)
     }
     TInstrKind::TRefTest(nullable, ht, child) => {
       let st1 = match Typecheck::typecheck(child, st) {
@@ -8094,13 +8095,22 @@ test "Typecheck RefCast non-nullable" {
 
 ///|
 test "Typecheck RefGetDesc stack effect" {
-  let env = empty_env()
+  let env = typecheck_descriptor_struct_env()
   let state = make_state(env, [
-    ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::i31()))),
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(TypeIdx::new(0)), exact=true),
+    ),
   ])
-  let result = Typecheck::typecheck(Instruction::ref_get_desc(), state)
+  let result = Typecheck::typecheck(
+    Instruction::ref_get_desc(TypeIdx::new(0)),
+    state,
+  )
   let final_state = assert_ok(result)
-  assert_stack(final_state, [ValType::i32()])
+  assert_stack(final_state, [
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(TypeIdx::new(1)), exact=true),
+    ),
+  ])
 }
 
 ///|

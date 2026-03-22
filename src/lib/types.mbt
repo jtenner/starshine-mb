@@ -698,7 +698,7 @@ pub enum Instruction {
   ArrayCopy(TypeIdx, TypeIdx)
   ArrayInitData(TypeIdx, DataIdx)
   ArrayInitElem(TypeIdx, ElemIdx)
-  RefGetDesc
+  RefGetDesc(TypeIdx)
   RefTest(Bool, HeapType)
   RefCast(Bool, HeapType)
   RefTestDesc(Bool, HeapType)
@@ -1494,7 +1494,7 @@ pub enum TInstrKind {
   TArrayInitElem(TypeIdx, ElemIdx, TInstr, TInstr, TInstr, TInstr)
 
   // === GC: Casts ===
-  TRefGetDesc(TInstr)
+  TRefGetDesc(TypeIdx, TInstr)
   TRefTest(Bool, HeapType, TInstr)
   TRefCast(Bool, HeapType, TInstr)
   TRefTestDesc(Bool, HeapType, TInstr)
@@ -1632,7 +1632,7 @@ fn tinstr_size(kind : TInstrKind) -> Int {
     | TExtractLane(_, _, child)
     | TRefTest(_, _, child)
     | TRefCast(_, _, child)
-    | TRefGetDesc(child)
+    | TRefGetDesc(_, child)
     | TRefTestDesc(_, _, child)
     | TRefCastDescEq(_, _, child) => child.size
 
@@ -3852,8 +3852,8 @@ pub fn Instruction::array_init_elem(ti : TypeIdx, ei : ElemIdx) -> Instruction {
 }
 
 ///|
-pub fn Instruction::ref_get_desc() -> Instruction {
-  RefGetDesc
+pub fn Instruction::ref_get_desc(ti : TypeIdx) -> Instruction {
+  RefGetDesc(ti)
 }
 
 ///|
@@ -5983,8 +5983,8 @@ pub fn TInstr::array_init_elem(
 }
 
 ///|
-pub fn TInstr::ref_get_desc(i : TInstr) -> TInstr {
-  tinstr(TRefGetDesc(i))
+pub fn TInstr::ref_get_desc(ti : TypeIdx, i : TInstr) -> TInstr {
+  tinstr(TRefGetDesc(ti, i))
 }
 
 ///|

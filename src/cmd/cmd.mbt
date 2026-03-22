@@ -1485,7 +1485,7 @@ fn cmd_instruction_has_gc(instr : @lib.Instruction) -> Bool {
     | @lib.ArrayCopy(_, _)
     | @lib.ArrayInitData(_, _)
     | @lib.ArrayInitElem(_, _)
-    | @lib.RefGetDesc
+    | @lib.RefGetDesc(_)
     | @lib.RefTest(_, _)
     | @lib.RefCast(_, _)
     | @lib.RefTestDesc(_, _)

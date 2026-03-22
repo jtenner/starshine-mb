@@ -2664,13 +2664,13 @@ fn[T, Err] ModuleTransformer::walk_opt_tinstruction_default(
     }
 
     // === GC: Casts ===
-    TInstrKind::TRefGetDesc(i) => {
+    TInstrKind::TRefGetDesc(type_idx, i) => {
       let (t, i) = match self.walk_opt_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TInstr::ref_get_desc(i))))
+      Ok(Some((t, TInstr::ref_get_desc(type_idx, i))))
     }
     TInstrKind::TRefTest(b, ht, i) => {
       let (t, ht) = match self.walk_opt_heaptype(t, ht) {
@@ -3471,7 +3471,7 @@ fn[T, Err] ModuleTransformer::walk_opt_instruction_default(
         Ok(None) => Ok(None)
         Ok(Some((t, ht))) => Ok(Some((t, Instruction::ref_cast(nullable, ht))))
       }
-    RefGetDesc => Ok(Some((t, Instruction::ref_get_desc())))
+    RefGetDesc(type_idx) => Ok(Some((t, Instruction::ref_get_desc(type_idx))))
     RefTestDesc(nullable, ht) =>
       match self.walk_opt_heaptype(t, ht) {
         Err(e) => Err(e)

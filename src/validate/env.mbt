@@ -308,8 +308,30 @@ pub fn Env::resolve_descriptor_target_ref_type(
 }
 
 ///|
-pub fn Env::descriptor_result_type(_env : Env) -> ValType {
-  ValType::i32()
+pub fn Env::descriptor_result_type(
+  env : Env,
+  inspected : TypeIdx,
+  operand : RefType?,
+) -> Result[ValType, String] {
+  let descriptor_type = match env.resolve_struct_descriptor_type(inspected) {
+    Ok(Some(ti)) => ti
+    Ok(None) => return Err("type without descriptor")
+    Err(e) => return Err(e)
+  }
+  let exact = match operand {
+    None => true
+    Some(rt_in) => {
+      if !Match::matches(rt_in.get_heap_type(), HeapType::new(inspected), env) {
+        return Err("ref.get_desc target does not match operand type")
+      }
+      rt_in.is_exact() && rt_in.get_heap_type() == HeapType::new(inspected)
+    }
+  }
+  Ok(
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(descriptor_type), exact~),
+    ),
+  )
 }
 
 ///|
@@ -809,7 +831,7 @@ pub fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
     | TInstrKind::TStructGet(_, _, child)
     | TInstrKind::TStructGetS(_, _, child)
     | TInstrKind::TStructGetU(_, _, child)
-    | TInstrKind::TRefGetDesc(child)
+    | TInstrKind::TRefGetDesc(_, child)
     | TInstrKind::TRefTest(_, _, child)
     | TInstrKind::TRefCast(_, _, child)
     | TInstrKind::TRefTestDesc(_, _, child)
@@ -3583,12 +3605,12 @@ fn instr_to_tinstr(
     }
 
     // === GC: Casts ===
-    RefGetDesc => {
+    RefGetDesc(type_idx) => {
       let ref_ = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::ref_get_desc(ref_))
+      stack.push(TInstr::ref_get_desc(type_idx, ref_))
     }
     RefTest(nullable, ht) => {
       let ref_ = match pop(stack) {

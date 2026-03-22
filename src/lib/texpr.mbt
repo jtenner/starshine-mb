@@ -501,9 +501,9 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
 
     // === GC: Casts ===
-    TInstrKind::TRefGetDesc(ref_) => {
+    TInstrKind::TRefGetDesc(type_idx, ref_) => {
       tinstr_to_instr(ref_, instrs)
-      instrs.push(RefGetDesc)
+      instrs.push(RefGetDesc(type_idx))
     }
     TInstrKind::TRefTest(nullable, ht, ref_) => {
       tinstr_to_instr(ref_, instrs)

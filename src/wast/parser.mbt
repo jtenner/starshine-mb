@@ -339,7 +339,7 @@ pub enum Instruction {
   StructNewDefault(Index)
   StructNewDesc(Index)
   StructNewDefaultDesc(Index)
-  RefGetDesc
+  RefGetDesc(Index)
   RefTestDesc(Bool, Index)
   RefCastDescEq(Bool, Index)
 
@@ -1669,7 +1669,7 @@ fn WastParser::parse_opcode_instruction(
     StructNewDefault => StructNewDefault(self.parse_index())
     StructNewDesc => StructNewDesc(self.parse_index())
     StructNewDefaultDesc => StructNewDefaultDesc(self.parse_index())
-    RefGetDesc => RefGetDesc
+    RefGetDesc => RefGetDesc(self.parse_index())
     RefTestDesc => RefTestDesc(false, self.parse_index())
     RefTestDescNull => RefTestDesc(true, self.parse_index())
     RefCastDescEq => RefCastDescEq(false, self.parse_index())
@@ -4969,7 +4969,7 @@ test "parse ref func" {
 
 ///|
 test "parse ref get desc" {
-  let source = "(module (func (param funcref) (result i32) (ref.get_desc (local.get 0))))"
+  let source = "(module (func (param funcref) (result i32) (ref.get_desc 0 (local.get 0))))"
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()

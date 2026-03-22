@@ -2453,6 +2453,7 @@ test "remove unused module elements does not promote struct.new_default_desc des
           @lib.TExpr::new([
             @lib.TInstr::drop(
               @lib.TInstr::ref_get_desc(
+                @lib.TypeIdx::new(0U),
                 @lib.TInstr::struct_new_default_desc(
                   @lib.TypeIdx::new(1U),
                   @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
@@ -2614,7 +2615,10 @@ test "remove unused module elements does not promote struct payloads through ref
 ///|
 test "remove unused module elements does not promote descriptor payloads through direct ref.get_desc" {
   let mod = remove_unused_test_descriptor_global_funcref_carrier_module(
-    @lib.TInstr::ref_get_desc(@lib.TInstr::global_get(@lib.GlobalIdx::new(0U))),
+    @lib.TInstr::ref_get_desc(
+      @lib.TypeIdx::new(0U),
+      @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+    ),
   )
 
   let optimized = remove_unused_test_run_with_features(

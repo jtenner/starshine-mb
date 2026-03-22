@@ -59,19 +59,26 @@ fn tcneg_descriptor_struct_env() -> Env {
 }
 
 ///|
-test "Typecheck RefGetDesc rejects nullable operand" {
-  let state = tcneg_make_state(empty_env(), [
-    tcneg_nullable_ref(HeapType::abs(AbsHeapType::i31())),
-  ])
-  let result = Typecheck::typecheck(Instruction::ref_get_desc(), state)
-  tcneg_assert_err_contains(result, "non-null reference operand")
+test "Typecheck RefGetDesc rejects non-reference operand" {
+  let state = tcneg_make_state(tcneg_descriptor_struct_env(), [ValType::i32()])
+  let result = Typecheck::typecheck(
+    Instruction::ref_get_desc(TypeIdx::new(0)),
+    state,
+  )
+  tcneg_assert_err_contains(result, "expected a reference operand")
 }
 
 ///|
-test "Typecheck RefGetDesc rejects non-reference operand" {
-  let state = tcneg_make_state(empty_env(), [ValType::i32()])
-  let result = Typecheck::typecheck(Instruction::ref_get_desc(), state)
-  tcneg_assert_err_contains(result, "expected a reference operand")
+test "Typecheck RefGetDesc rejects types without descriptors" {
+  let state = tcneg_make_state(
+    { ..empty_env(), global_types: [SubType::comp_type(CompType::struct_([]))] },
+    [tcneg_non_nullable_ref(HeapType::new(TypeIdx::new(0)))],
+  )
+  let result = Typecheck::typecheck(
+    Instruction::ref_get_desc(TypeIdx::new(0)),
+    state,
+  )
+  tcneg_assert_err_contains(result, "type without descriptor")
 }
 
 ///|

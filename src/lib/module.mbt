@@ -459,7 +459,7 @@ fn md_render_tinstr(
     | TAnyConvertExtern(child)
     | TExternConvertAny(child)
     | TThrowRef(child)
-    | TRefGetDesc(child)
+    | TRefGetDesc(_, child)
     | TI8x16Splat(child)
     | TI16x8Splat(child)
     | TI32x4Splat(child)

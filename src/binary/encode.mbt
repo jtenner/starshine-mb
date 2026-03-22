@@ -2407,9 +2407,12 @@ pub impl Encode for Instruction with encode(val, buf) {
         return Err(t)
       }
     }
-    RefGetDesc => {
+    RefGetDesc(ti) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(34), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(ti, buf) is Err(t) {
         return Err(t)
       }
     }

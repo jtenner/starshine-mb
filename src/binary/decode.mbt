@@ -2807,7 +2807,11 @@ fn decode_instruction_with_depth(
         Ok((U32(28), i)) => Ok((Instruction::ref_i31(), i))
         Ok((U32(29), i)) => Ok((Instruction::i31_get_s(), i))
         Ok((U32(30), i)) => Ok((Instruction::i31_get_u(), i))
-        Ok((U32(34), i)) => Ok((Instruction::ref_get_desc(), i))
+        Ok((U32(34), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((ti, i)) => Ok((Instruction::ref_get_desc(ti), i))
+            Err(t) => Err(t)
+          }
         Ok((@lib.U32(35), i)) =>
           match Decode::decode(bytes, i) {
             Ok((ht, i)) => Ok((Instruction::ref_test_desc(false, ht), i))

@@ -1667,7 +1667,7 @@ fn transformer_tinstruction_corpus() -> Array[TInstr] {
     TInstr::array_copy(TypeIdx::new(0), TypeIdx::new(1), i0, i1, i2, i3, i4),
     TInstr::array_init_data(TypeIdx::new(0), DataIdx::new(0), i0, i1, i2, i3),
     TInstr::array_init_elem(TypeIdx::new(0), ElemIdx::new(0), i0, i1, i2, i3),
-    TInstr::ref_get_desc(i0),
+    TInstr::ref_get_desc(TypeIdx::new(0), i0),
     TInstr::ref_test(true, ht0, i0),
     TInstr::ref_cast(true, ht1, i0),
     TInstr::ref_test_desc(false, ht1, i0),

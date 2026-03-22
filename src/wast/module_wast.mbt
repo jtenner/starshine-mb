@@ -414,7 +414,7 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     StructNewDefault(idx) => "struct.new_default \{index_text(idx)}"
     StructNewDesc(idx) => "struct.new_desc \{index_text(idx)}"
     StructNewDefaultDesc(idx) => "struct.new_default_desc \{index_text(idx)}"
-    RefGetDesc => "ref.get_desc"
+    RefGetDesc(idx) => "ref.get_desc \{index_text(idx)}"
     RefTestDesc(false, idx) => "ref.test_desc \{index_text(idx)}"
     RefTestDesc(true, idx) => "ref.test_desc_null \{index_text(idx)}"
     RefCastDescEq(false, idx) => "ref.cast_desc_eq \{index_text(idx)}"

@@ -1471,7 +1471,11 @@ pub impl Show for Instruction with output(self, logger) {
       n.output(logger)
       logger.write_char(')')
     }
-    RefGetDesc => logger.write_string("ref.get_desc")
+    RefGetDesc(ti) => {
+      logger.write_string("(ref.get_desc ")
+      ti.output(logger)
+      logger.write_char(')')
+    }
     RefTest(n, ht) => {
       logger.write_string("(ref.test ")
       HeapTypeRefType(n, false, ht).output(logger)

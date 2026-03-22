@@ -1392,7 +1392,7 @@ pub enum Instruction {
   ArrayCopy(TypeIdx, TypeIdx)
   ArrayInitData(TypeIdx, DataIdx)
   ArrayInitElem(TypeIdx, ElemIdx)
-  RefGetDesc
+  RefGetDesc(TypeIdx)
   RefTest(Bool, HeapType)
   RefCast(Bool, HeapType)
   RefTestDesc(Bool, HeapType)
@@ -2138,7 +2138,7 @@ pub fn Instruction::ref_cast(Bool, HeapType) -> Self
 pub fn Instruction::ref_cast_desc_eq(Bool, HeapType) -> Self
 pub fn Instruction::ref_eq() -> Self
 pub fn Instruction::ref_func(FuncIdx) -> Self
-pub fn Instruction::ref_get_desc() -> Self
+pub fn Instruction::ref_get_desc(TypeIdx) -> Self
 pub fn Instruction::ref_i31() -> Self
 pub fn Instruction::ref_is_null() -> Self
 pub fn Instruction::ref_null(HeapType) -> Self
@@ -2810,7 +2810,7 @@ pub fn TInstr::ref_cast(Bool, HeapType, Self) -> Self
 pub fn TInstr::ref_cast_desc_eq(Bool, HeapType, Self) -> Self
 pub fn TInstr::ref_eq(Self, Self) -> Self
 pub fn TInstr::ref_func(FuncIdx) -> Self
-pub fn TInstr::ref_get_desc(Self) -> Self
+pub fn TInstr::ref_get_desc(TypeIdx, Self) -> Self
 pub fn TInstr::ref_i31(Self) -> Self
 pub fn TInstr::ref_is_null(Self) -> Self
 pub fn TInstr::ref_null(HeapType) -> Self
@@ -2945,7 +2945,7 @@ pub enum TInstrKind {
   TArrayCopy(TypeIdx, TypeIdx, TInstr, TInstr, TInstr, TInstr, TInstr)
   TArrayInitData(TypeIdx, DataIdx, TInstr, TInstr, TInstr, TInstr)
   TArrayInitElem(TypeIdx, ElemIdx, TInstr, TInstr, TInstr, TInstr)
-  TRefGetDesc(TInstr)
+  TRefGetDesc(TypeIdx, TInstr)
   TRefTest(Bool, HeapType, TInstr)
   TRefCast(Bool, HeapType, TInstr)
   TRefTestDesc(Bool, HeapType, TInstr)

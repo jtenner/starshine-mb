@@ -250,7 +250,7 @@ fn collect_instr_locals(instr : TInstr, locals : Set[LocalIdx]) -> Unit {
       collect_instr_locals(c, locals)
       collect_instr_locals(d, locals)
     }
-    TInstrKind::TRefGetDesc(a)
+    TInstrKind::TRefGetDesc(_, a)
     | TInstrKind::TRefTest(_, _, a)
     | TInstrKind::TRefCast(_, _, a)
     | TInstrKind::TRefTestDesc(_, _, a)
@@ -980,7 +980,7 @@ fn rename_instr(
         }
         None => None
       }
-    TInstrKind::TRefGetDesc(a) =>
+    TInstrKind::TRefGetDesc(_, a) =>
       match rename_instr(a, builder, out) {
         Some(_) => None
         None => None

@@ -2373,7 +2373,17 @@ fn wt_instr_to_lib(
         _ => Err("internal error: unexpected struct allocation instruction")
       }
     }
-    RefGetDesc => Ok(@lib.Instruction::ref_get_desc())
+    RefGetDesc(idx) =>
+      match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => Ok(@lib.Instruction::ref_get_desc(@lib.TypeIdx::new(v)))
+        Err(e) => Err(e)
+      }
     RefTestDesc(nullable, idx) | RefCastDescEq(nullable, idx) => {
       let ti = match
         wt_resolve_named_or_num_index(
@@ -4663,7 +4673,7 @@ test "wast_text_binary_roundtrip preserves descriptor instruction families" {
     #|(module
     #|  (func (param funcref) (result i32)
     #|    local.get 0
-    #|    ref.get_desc
+    #|    ref.get_desc 0
     #|    drop
     #|    local.get 0
     #|    ref.test_desc 0

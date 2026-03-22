@@ -663,7 +663,23 @@ test "Env.resolve_heaptype_subtype projects DefType heap types" {
     env.resolve_heaptype_subtype(HeapType::def_type(dt))
     is Some(CompTypeSubType(_, StructCompType(_))),
   )
-  assert_eq(env.descriptor_result_type(), ValType::i32())
+  let described = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(descriptor=Some(TypeIdx::new(1U))),
+  )
+  let descriptor = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(describes=Some(TypeIdx::new(0U))),
+  )
+  let descriptor_env = Env::{ ..env, global_types: [described, descriptor] }
+  assert_eq(
+    descriptor_env.descriptor_result_type(TypeIdx::new(0U), None),
+    Ok(
+      ValType::ref_type(
+        RefType::new(false, HeapType::new(TypeIdx::new(1U)), exact=true),
+      ),
+    ),
+  )
 }
 
 ///|
