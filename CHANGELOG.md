@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: land DeadCodeElimination ref.cast rewrite
+
+- **DeadCodeElimination GC cast slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `ref.cast` now uses the same evaluation-order-preserving unreachable-child rewrite as the other unary typed instructions, collapsing directly to the unreachable operand instead of leaving a stale concrete-result wrapper.
+- Added a focused reference-result regression in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) that proves a concrete `(ref null func)` fixture now optimizes to plain `unreachable`.
+- Recorded the checkpoint in [`docs/0042-2026-03-22-dead-code-elimination-ref-cast.md`](/home/jtenner/Projects/starshine-mb/docs/0042-2026-03-22-dead-code-elimination-ref-cast.md), which narrows the remaining DCE GC/reference work to the sibling unary ref ops, the nested reference-result `try_table` case, and the later string / EH-pop follow-ups.
+
 ## 2026-03-22 Optimization: land DeadCodeElimination GC branch-op rewrites
 
 - **DeadCodeElimination GC branch-op slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` now use the same evaluation-order-preserving unreachable-child rewrite as the earlier branch instructions, collapsing the branch op when its inspected ref or earlier prefix values become unreachable.

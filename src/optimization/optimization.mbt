@@ -723,6 +723,10 @@ fn optimization_dead_code_elimination_rewrite_instr(
       optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
         @lib.TInstr::load(op, memarg, args[0])
       })
+    @lib.TRefCast(nullable, ht, child) =>
+      optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
+        @lib.TInstr::ref_cast(nullable, ht, args[0])
+      })
     @lib.TBinary(op, left, right) =>
       optimization_dead_code_elimination_rewrite_unary([left, right], fn(args) {
         @lib.TInstr::binary(op, args[0], args[1])

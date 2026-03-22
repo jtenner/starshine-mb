@@ -590,3 +590,25 @@ test "dead code elimination replaces br_on_cast_fail when its ref is unreachable
   )
   assert_eq(body, [@lib.TInstr::unreachable_()])
 }
+
+///|
+test "dead code elimination replaces ref_cast when its operand is unreachable" {
+  let body = dead_code_elimination_test_result_body(
+    [@lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func()))],
+    [
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(
+          @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        ),
+        @lib.TExpr::new([
+          @lib.TInstr::ref_cast(
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            @lib.TInstr::unreachable_(),
+          ),
+        ]),
+      ),
+    ],
+  )
+  assert_eq(body, [@lib.TInstr::unreachable_()])
+}
