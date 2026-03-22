@@ -1355,6 +1355,57 @@ fn optimization_collect_references_in_tinstr(
 }
 
 ///|
+fn optimization_collect_reference_identity_in_tinstr(
+  instr : @lib.TInstr,
+  referenced_funcs : Array[Bool],
+  referenced_globals : Array[Bool],
+  referenced_global_worklist : Array[Int],
+  imported_global_count : Int,
+  defined_global_count : Int,
+) -> Unit {
+  match instr.kind {
+    @lib.TRefFunc(idx) =>
+      optimization_note_referenced_func(referenced_funcs, idx)
+    @lib.TGlobalGet(idx) =>
+      optimization_note_referenced_global(
+        referenced_globals, referenced_global_worklist, imported_global_count, defined_global_count,
+        idx,
+      )
+    @lib.TStructNewDesc(_, operands) =>
+      if operands.length() > 0 {
+        optimization_collect_reference_identity_in_tinstr(
+          operands[operands.length() - 1],
+          referenced_funcs,
+          referenced_globals,
+          referenced_global_worklist,
+          imported_global_count,
+          defined_global_count,
+        )
+      }
+    @lib.TStructNewDefaultDesc(_, descriptor)
+    | @lib.TRefIsNull(descriptor)
+    | @lib.TRefGetDesc(descriptor)
+    | @lib.TRefTest(_, _, descriptor)
+    | @lib.TRefTestDesc(_, _, descriptor) =>
+      optimization_collect_reference_identity_in_tinstr(
+        descriptor, referenced_funcs, referenced_globals, referenced_global_worklist,
+        imported_global_count, defined_global_count,
+      )
+    @lib.TRefEq(left, right) => {
+      optimization_collect_reference_identity_in_tinstr(
+        left, referenced_funcs, referenced_globals, referenced_global_worklist, imported_global_count,
+        defined_global_count,
+      )
+      optimization_collect_reference_identity_in_tinstr(
+        right, referenced_funcs, referenced_globals, referenced_global_worklist,
+        imported_global_count, defined_global_count,
+      )
+    }
+    _ => ()
+  }
+}
+
+///|
 fn optimization_collect_references_in_global(
   global_ : Global,
   referenced_funcs : Array[Bool],
@@ -3191,6 +3242,75 @@ fn optimization_collect_module_element_uses_in_tinstr(
             read_array_contents, unread_array_payloads, unread_array_elem_payloads,
             referenced_elems, referenced_elem_worklist,
           )
+          skip()
+        }
+        @lib.TRefIsNull(child)
+        | @lib.TRefGetDesc(child)
+        | @lib.TRefTest(_, _, child)
+        | @lib.TRefTestDesc(_, _, child) => {
+          if features.closed_world && features.has_gc {
+            optimization_collect_reference_identity_in_tinstr(
+              child, referenced_funcs, referenced_globals, referenced_global_worklist,
+              imported_global_count, defined_global_count,
+            )
+          } else {
+            optimization_collect_module_element_uses_in_tinstr(
+              child, features, called_ref_types, indirect_call_types_by_table, subtypes,
+              struct_subtype_children, func_type_idxs, referenced_funcs, call_ref_candidate_funcs,
+              used_funcs, func_worklist, imported_func_count, defined_func_count,
+              used_globals, referenced_globals, global_worklist, referenced_global_worklist,
+              imported_global_count, defined_global_count, used_tables, observable_tables,
+              indirect_called_tables, mutated_tables, table_worklist, imported_table_count,
+              defined_table_count, used_mems, imported_mem_count, defined_mem_count,
+              used_tags, tag_worklist, imported_tag_count, defined_tag_count, used_elems,
+              elem_worklist, used_datas, data_worklist, elems, active_elem_indices_by_table,
+              read_struct_fields, unread_struct_field_payloads, read_array_contents,
+              unread_array_payloads, unread_array_elem_payloads, referenced_elems,
+              referenced_elem_worklist,
+            )
+          }
+          skip()
+        }
+        @lib.TRefEq(left, right) => {
+          if features.closed_world && features.has_gc {
+            optimization_collect_reference_identity_in_tinstr(
+              left, referenced_funcs, referenced_globals, referenced_global_worklist,
+              imported_global_count, defined_global_count,
+            )
+            optimization_collect_reference_identity_in_tinstr(
+              right, referenced_funcs, referenced_globals, referenced_global_worklist,
+              imported_global_count, defined_global_count,
+            )
+          } else {
+            optimization_collect_module_element_uses_in_tinstr(
+              left, features, called_ref_types, indirect_call_types_by_table, subtypes,
+              struct_subtype_children, func_type_idxs, referenced_funcs, call_ref_candidate_funcs,
+              used_funcs, func_worklist, imported_func_count, defined_func_count,
+              used_globals, referenced_globals, global_worklist, referenced_global_worklist,
+              imported_global_count, defined_global_count, used_tables, observable_tables,
+              indirect_called_tables, mutated_tables, table_worklist, imported_table_count,
+              defined_table_count, used_mems, imported_mem_count, defined_mem_count,
+              used_tags, tag_worklist, imported_tag_count, defined_tag_count, used_elems,
+              elem_worklist, used_datas, data_worklist, elems, active_elem_indices_by_table,
+              read_struct_fields, unread_struct_field_payloads, read_array_contents,
+              unread_array_payloads, unread_array_elem_payloads, referenced_elems,
+              referenced_elem_worklist,
+            )
+            optimization_collect_module_element_uses_in_tinstr(
+              right, features, called_ref_types, indirect_call_types_by_table, subtypes,
+              struct_subtype_children, func_type_idxs, referenced_funcs, call_ref_candidate_funcs,
+              used_funcs, func_worklist, imported_func_count, defined_func_count,
+              used_globals, referenced_globals, global_worklist, referenced_global_worklist,
+              imported_global_count, defined_global_count, used_tables, observable_tables,
+              indirect_called_tables, mutated_tables, table_worklist, imported_table_count,
+              defined_table_count, used_mems, imported_mem_count, defined_mem_count,
+              used_tags, tag_worklist, imported_tag_count, defined_tag_count, used_elems,
+              elem_worklist, used_datas, data_worklist, elems, active_elem_indices_by_table,
+              read_struct_fields, unread_struct_field_payloads, read_array_contents,
+              unread_array_payloads, unread_array_elem_payloads, referenced_elems,
+              referenced_elem_worklist,
+            )
+          }
           skip()
         }
         @lib.TArrayGet(type_idx, array_ref, index)
