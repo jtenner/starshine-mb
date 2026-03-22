@@ -250,7 +250,7 @@ fn wt_append_type(ctx : WTLowerCtx, ft : FuncType) -> Result[UInt, String] {
   let rec = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func(params, results)),
   )
-  let idx = ctx.type_recs.length().reinterpret_as_uint()
+  let idx = wt_flat_type_count(ctx)
   ctx.type_recs.push(rec)
   Ok(idx)
 }
@@ -425,9 +425,21 @@ fn wt_append_lib_func_type(
   let rec = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func(params, results)),
   )
-  let idx = ctx.type_recs.length().reinterpret_as_uint()
+  let idx = wt_flat_type_count(ctx)
   ctx.type_recs.push(rec)
   idx
+}
+
+///|
+fn wt_flat_type_count(ctx : WTLowerCtx) -> UInt {
+  let mut count = 0U
+  for rec in ctx.type_recs {
+    match rec {
+      SingleRecType(_) => count += 1
+      GroupRecType(sts) => count += sts.length().reinterpret_as_uint()
+    }
+  }
+  count
 }
 
 ///|

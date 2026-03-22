@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 WAST: fix implicit functype indices after rec groups
+
+- **Grouped-type index repair** by **@jtenner**. Extended [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt) so implicit function types appended during lowering now use flattened type indices instead of raw rec-entry counts, which keeps later `funcsec` entries aligned when a module starts with grouped `(rec ...)` type fields.
+- Added focused coverage in [`src/wast/rec_group_typeuse_test.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/rec_group_typeuse_test.mbt), which moved `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` beyond the grouped-rec functype-index bug and onto the remaining `ref.get_desc` null/exact validation work.
+
 ## 2026-03-22 WAST: accept parenthesized exact ref types on global imports
 
 - **Imported global ref-type parser slice** by **@jtenner**. Extended [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt) so imported globals now reuse the same global-type parser as defined globals, which means parenthesized ref types such as `(ref null (exact $b))` no longer get misread as mandatory `(mut ...)` wrappers.
