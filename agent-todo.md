@@ -30,7 +30,8 @@
   - `docs/0042-2026-03-22-dead-code-elimination-ref-cast.md` lands the first no-over-refinalize GC unary slice: `ref.cast` now collapses directly when its operand is unreachable, even in concrete reference-result fixtures.
   - `docs/0043-2026-03-22-dead-code-elimination-unary-ref-tests.md` lands the sibling GC unary slice: `ref.test`, `ref.test_desc`, and `ref.cast_desc_eq` now collapse when their operand is unreachable.
   - `docs/0044-2026-03-22-dead-code-elimination-ref-get-desc.md` lands the descriptor unary slice: `ref.get_desc` now collapses when its operand is unreachable in descriptor-bearing fixtures.
-  - remaining follow-up work is the nested reference-result `try_table` coverage question, string-sensitive regressions, and later EH `pop` fixup follow-up.
+  - `docs/0046-2026-03-22-dead-code-elimination-nested-try-table-coverage.md` closes the remaining nested reference-result `try_table` coverage question and proves the current void-retagging rewrite already validates in the focused concrete ref-result shape.
+  - remaining follow-up work is the string-sensitive regressions and later EH `pop` fixup follow-up.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination

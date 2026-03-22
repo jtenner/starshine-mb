@@ -488,6 +488,38 @@ test "dead code elimination retags try_table when its body is unreachable" {
 }
 
 ///|
+test "dead code elimination keeps nested ref-result try_table rewrites valid" {
+  let body = dead_code_elimination_test_result_body(
+    [@lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func()))],
+    [
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(
+          @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        ),
+        @lib.TExpr::new([
+          @lib.TInstr::try_table(
+            @lib.BlockType::val_type(
+              @lib.ValType::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::func()),
+              ),
+            ),
+            [],
+            @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+          ),
+        ]),
+      ),
+    ],
+  )
+  assert_eq(body, [
+    @lib.TInstr::try_table(
+      @lib.BlockType::void_(),
+      [],
+      @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+    ),
+  ])
+}
+
+///|
 test "dead code elimination replaces br when its branch value is unreachable" {
   let body = dead_code_elimination_test_body([
     @lib.TInstr::drop(

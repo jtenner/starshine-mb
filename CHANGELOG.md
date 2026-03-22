@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Optimization: close nested ref-result try_table DCE coverage
+
+- **DeadCodeElimination coverage checkpoint** by **@jtenner**. Added a focused typed-IR regression in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) that proves nested concrete ref-result `try_table` rewrites stay valid after DCE retags the inner EH node to `void`.
+- Recorded the result in [`docs/0046-2026-03-22-dead-code-elimination-nested-try-table-coverage.md`](/home/jtenner/Projects/starshine-mb/docs/0046-2026-03-22-dead-code-elimination-nested-try-table-coverage.md), refreshed the DCE research status in [`docs/0017-2026-03-22-dead-code-elimination.md`](/home/jtenner/Projects/starshine-mb/docs/0017-2026-03-22-dead-code-elimination.md), and narrowed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to the remaining string-sensitive and EH `pop` follow-ups.
+
 ## 2026-03-22 Optimization: keep smaller trivial once-body output
 
 - **OnceReduction policy checkpoint** by **@jtenner**. Added generated-pipeline coverage in [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt) for the raw-input trivial once-body case and recorded the decision to keep Starshine's smaller `nop`-collapsed output rather than preserve Binaryen's retained redundant `global.set` text shape.

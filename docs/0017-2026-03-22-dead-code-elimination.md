@@ -895,6 +895,19 @@ Work:
 3. Port `try` reference-result no-over-refinalize test.
 4. Port the `string.new_wtf16_array` / `local.tee` regressions.
 
+Current status:
+
+- `docs/0041-2026-03-22-dead-code-elimination-gc-branch-ops.md`,
+  `docs/0042-2026-03-22-dead-code-elimination-ref-cast.md`,
+  `docs/0043-2026-03-22-dead-code-elimination-unary-ref-tests.md`, and
+  `docs/0044-2026-03-22-dead-code-elimination-ref-get-desc.md` land the GC
+  branch and unary rewrites.
+- `docs/0046-2026-03-22-dead-code-elimination-nested-try-table-coverage.md`
+  closes the separate nested concrete ref-result `try_table` coverage question
+  that stayed open after the EH rewrite slice.
+- Remaining follow-up in this lane is the string-sensitive regressions; the EH
+  `pop` fixup remains a later control-flow cleanup item.
+
 Checkpoint:
 
 - DCE propagates unreachability without inventing unrelated type refinements
