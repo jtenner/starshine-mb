@@ -1051,6 +1051,33 @@ fn optimization_note_used_table(
 }
 
 ///|
+fn optimization_note_observable_table(
+  used : Array[Bool],
+  observable : Array[Bool],
+  worklist : Array[Int],
+  imported_count : Int,
+  defined_count : Int,
+  idx : TableIdx,
+) -> Unit {
+  let TableIdx(raw) = idx
+  let abs_idx = raw.reinterpret_as_int()
+  if abs_idx < 0 || abs_idx >= used.length() {
+    return
+  }
+  let was_observable = observable[abs_idx]
+  if !used[abs_idx] {
+    used[abs_idx] = true
+  }
+  if was_observable {
+    return
+  }
+  observable[abs_idx] = true
+  if abs_idx >= imported_count && abs_idx < imported_count + defined_count {
+    worklist.push(abs_idx - imported_count)
+  }
+}
+
+///|
 fn optimization_note_used_mem(
   used : Array[Bool],
   imported_count : Int,
@@ -1187,8 +1214,158 @@ fn optimization_collect_func_uses_in_expr(
 }
 
 ///|
+fn optimization_imported_func_type_idxs(mod : Module) -> Array[TypeIdx] {
+  let type_idxs : Array[TypeIdx] = []
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          Import(_, _, FuncExternType(type_idx)) => type_idxs.push(type_idx)
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  type_idxs
+}
+
+///|
+fn optimization_all_func_type_idxs(
+  mod : Module,
+  defined_type_idxs : Array[TypeIdx],
+) -> Array[TypeIdx] {
+  let type_idxs = optimization_imported_func_type_idxs(mod)
+  for type_idx in defined_type_idxs {
+    type_idxs.push(type_idx)
+  }
+  type_idxs
+}
+
+///|
+fn optimization_func_matches_call_type(
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+  func_idx : FuncIdx,
+  call_type_idx : TypeIdx,
+) -> Bool {
+  let FuncIdx(raw) = func_idx
+  match func_type_idxs.get(raw.reinterpret_as_int()) {
+    Some(func_type_idx) =>
+      match
+        (
+          optimization_resolve_func_type(subtypes, func_type_idx),
+          optimization_resolve_func_type(subtypes, call_type_idx),
+        ) {
+        (Some(func_type), Some(call_type)) => func_type == call_type
+        _ => func_type_idx == call_type_idx
+      }
+    None => false
+  }
+}
+
+///|
+fn optimization_expr_ref_func_idx(expr : @lib.Expr) -> FuncIdx? {
+  match expr {
+    Expr([@lib.RefFunc(func_idx)]) => Some(func_idx)
+    _ => None
+  }
+}
+
+///|
+fn optimization_elem_matches_call_type(
+  elem : Elem,
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+  call_type_idx : TypeIdx,
+) -> Bool {
+  match elem {
+    Elem(_, @lib.FuncsElemKind(funcs)) =>
+      for func_idx in funcs {
+        if optimization_func_matches_call_type(
+            subtypes, func_type_idxs, func_idx, call_type_idx,
+          ) {
+          return true
+        }
+      }
+    Elem(_, @lib.FuncExprsElemKind(exprs))
+    | Elem(_, @lib.TypedExprsElemKind(_, exprs)) =>
+      for expr in exprs {
+        match optimization_expr_ref_func_idx(expr) {
+          Some(func_idx) =>
+            if optimization_func_matches_call_type(
+                subtypes, func_type_idxs, func_idx, call_type_idx,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+  }
+  false
+}
+
+///|
+fn optimization_active_elem_indices_by_table(
+  elems : Array[Elem],
+  total_table_count : Int,
+) -> Array[Array[Int]] {
+  let by_table : Array[Array[Int]] = []
+  for _ in 0..<total_table_count {
+    by_table.push([])
+  }
+  let mut i = 0
+  while i < elems.length() {
+    match elems[i] {
+      Elem(@lib.Active(@lib.TableIdx(table_idx), _), _) => {
+        let abs_table_idx = table_idx.reinterpret_as_int()
+        if abs_table_idx >= 0 && abs_table_idx < by_table.length() {
+          by_table[abs_table_idx].push(i)
+        }
+      }
+      _ => ()
+    }
+    i += 1
+  }
+  by_table
+}
+
+///|
+fn optimization_collect_indirect_call_elem_uses(
+  table_idx : TableIdx,
+  call_type_idx : TypeIdx,
+  active_elem_indices_by_table : Array[Array[Int]],
+  elems : Array[Elem],
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+  used_elems : Array[Bool],
+  elem_worklist : Array[Int],
+) -> Unit {
+  let TableIdx(raw) = table_idx
+  let abs_table_idx = raw.reinterpret_as_int()
+  if abs_table_idx < 0 || abs_table_idx >= active_elem_indices_by_table.length() {
+    return
+  }
+  for elem_idx in active_elem_indices_by_table[abs_table_idx] {
+    if optimization_elem_matches_call_type(
+        elems[elem_idx],
+        subtypes,
+        func_type_idxs,
+        call_type_idx,
+      ) {
+      optimization_note_used_elem(
+        used_elems,
+        elem_worklist,
+        ElemIdx::new(elem_idx.reinterpret_as_uint()),
+      )
+    }
+  }
+}
+
+///|
 fn optimization_collect_module_element_uses_in_func(
   func : Func,
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
   used_funcs : Array[Bool],
   func_worklist : Array[Int],
   imported_func_count : Int,
@@ -1198,6 +1375,7 @@ fn optimization_collect_module_element_uses_in_func(
   imported_global_count : Int,
   defined_global_count : Int,
   used_tables : Array[Bool],
+  observable_tables : Array[Bool],
   table_worklist : Array[Int],
   imported_table_count : Int,
   defined_table_count : Int,
@@ -1212,6 +1390,8 @@ fn optimization_collect_module_element_uses_in_func(
   elem_worklist : Array[Int],
   used_datas : Array[Bool],
   data_worklist : Array[Int],
+  elems : Array[Elem],
+  active_elem_indices_by_table : Array[Array[Int]],
 ) -> Unit {
   let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
     .on_funcidx_evt(fn(_, _, idx) {
@@ -1224,12 +1404,6 @@ fn optimization_collect_module_element_uses_in_func(
       optimization_note_used_global(
         used_globals, global_worklist, imported_global_count, defined_global_count,
         idx,
-      )
-      unchanged()
-    })
-    .on_tableidx_evt(fn(_, _, idx) {
-      optimization_note_used_table(
-        used_tables, table_worklist, imported_table_count, defined_table_count, idx,
       )
       unchanged()
     })
@@ -1253,6 +1427,88 @@ fn optimization_collect_module_element_uses_in_func(
       optimization_note_used_data(used_datas, data_worklist, idx)
       unchanged()
     })
+    .on_instruction_evt(fn(_, _, instr) {
+      match instr {
+        @lib.CallIndirect(type_idx, table_idx)
+        | @lib.ReturnCallIndirect(type_idx, table_idx) => {
+          optimization_note_used_table(
+            used_tables, table_worklist, imported_table_count, defined_table_count,
+            table_idx,
+          )
+          optimization_collect_indirect_call_elem_uses(
+            table_idx, type_idx, active_elem_indices_by_table, elems, subtypes, func_type_idxs,
+            used_elems, elem_worklist,
+          )
+        }
+        @lib.TableGet(table_idx)
+        | @lib.TableSet(table_idx)
+        | @lib.TableGrow(table_idx)
+        | @lib.TableFill(table_idx)
+        | @lib.TableInit(_, table_idx) =>
+          optimization_note_observable_table(
+            used_tables, observable_tables, table_worklist, imported_table_count,
+            defined_table_count, table_idx,
+          )
+        @lib.TableCopy(dst_idx, src_idx) => {
+          optimization_note_observable_table(
+            used_tables, observable_tables, table_worklist, imported_table_count,
+            defined_table_count, dst_idx,
+          )
+          optimization_note_observable_table(
+            used_tables, observable_tables, table_worklist, imported_table_count,
+            defined_table_count, src_idx,
+          )
+        }
+        @lib.TableSize(table_idx) =>
+          optimization_note_observable_table(
+            used_tables, observable_tables, table_worklist, imported_table_count,
+            defined_table_count, table_idx,
+          )
+        _ => ()
+      }
+      unchanged()
+    })
+    .on_tinstruction_evt(fn(_, _, instr) {
+      match instr.kind {
+        @lib.TCallIndirect(type_idx, table_idx, _, _)
+        | @lib.TReturnCallIndirect(type_idx, table_idx, _, _) => {
+          optimization_note_used_table(
+            used_tables, table_worklist, imported_table_count, defined_table_count,
+            table_idx,
+          )
+          optimization_collect_indirect_call_elem_uses(
+            table_idx, type_idx, active_elem_indices_by_table, elems, subtypes, func_type_idxs,
+            used_elems, elem_worklist,
+          )
+        }
+        @lib.TTableGet(table_idx, _)
+        | @lib.TTableSet(table_idx, _, _)
+        | @lib.TTableGrow(table_idx, _, _)
+        | @lib.TTableFill(table_idx, _, _, _)
+        | @lib.TTableInit(_, table_idx, _, _, _) =>
+          optimization_note_observable_table(
+            used_tables, observable_tables, table_worklist, imported_table_count,
+            defined_table_count, table_idx,
+          )
+        @lib.TTableCopy(dst_idx, src_idx, _, _, _) => {
+          optimization_note_observable_table(
+            used_tables, observable_tables, table_worklist, imported_table_count,
+            defined_table_count, dst_idx,
+          )
+          optimization_note_observable_table(
+            used_tables, observable_tables, table_worklist, imported_table_count,
+            defined_table_count, src_idx,
+          )
+        }
+        @lib.TTableSize(table_idx) =>
+          optimization_note_observable_table(
+            used_tables, observable_tables, table_worklist, imported_table_count,
+            defined_table_count, table_idx,
+          )
+        _ => ()
+      }
+      unchanged()
+    })
   ignore(walker.walk_func((), func))
 }
 
@@ -1268,6 +1524,7 @@ fn optimization_seed_root_uses(
   imported_global_count : Int,
   defined_global_count : Int,
   used_tables : Array[Bool],
+  observable_tables : Array[Bool],
   table_worklist : Array[Int],
   imported_table_count : Int,
   defined_table_count : Int,
@@ -1294,9 +1551,9 @@ fn optimization_seed_root_uses(
               idx,
             )
           @lib.Export(_, TableExternIdx(idx)) =>
-            optimization_note_used_table(
-              used_tables, table_worklist, imported_table_count, defined_table_count,
-              idx,
+            optimization_note_observable_table(
+              used_tables, observable_tables, table_worklist, imported_table_count,
+              defined_table_count, idx,
             )
           @lib.Export(_, MemExternIdx(idx)) =>
             optimization_note_used_mem(
@@ -1460,7 +1717,7 @@ fn optimization_seed_trapping_active_segments(
 ///|
 fn optimization_promote_live_active_segments(
   elems : Array[Elem],
-  used_tables : Array[Bool],
+  observable_tables : Array[Bool],
   imported_table_count : Int,
   used_elems : Array[Bool],
   elem_worklist : Array[Int],
@@ -1477,9 +1734,9 @@ fn optimization_promote_live_active_segments(
         Elem(@lib.Active(@lib.TableIdx(table_idx), _), _) => {
           let abs_table_idx = table_idx.reinterpret_as_int()
           if abs_table_idx < 0 ||
-            abs_table_idx >= used_tables.length() ||
+            abs_table_idx >= observable_tables.length() ||
             abs_table_idx < imported_table_count ||
-            used_tables[abs_table_idx] {
+            observable_tables[abs_table_idx] {
             optimization_note_used_elem(
               used_elems,
               elem_worklist,
@@ -2006,6 +2263,7 @@ fn optimization_compact_data_sec(
 fn optimization_remove_unused_module_elements_iteration(
   mod : Module,
 ) -> Module? {
+  let subtypes = optimization_flatten_subtypes(mod)
   let (type_idxs, funcs) = match (mod.func_sec, mod.code_sec) {
     (Some(FuncSec(type_idxs)), Some(CodeSec(funcs))) => {
       if type_idxs.length() != funcs.length() {
@@ -2055,8 +2313,10 @@ fn optimization_remove_unused_module_elements_iteration(
   let imported_table_count = optimization_imported_table_count(mod)
   let total_table_count = imported_table_count + tables.length()
   let used_tables : Array[Bool] = []
+  let observable_tables : Array[Bool] = []
   for _ in 0..<total_table_count {
     used_tables.push(false)
+    observable_tables.push(false)
   }
   let imported_mem_count = optimization_imported_mem_count(mod)
   let total_mem_count = imported_mem_count + mems.length()
@@ -2084,6 +2344,10 @@ fn optimization_remove_unused_module_elements_iteration(
   let tag_worklist : Array[Int] = []
   let elem_worklist : Array[Int] = []
   let data_worklist : Array[Int] = []
+  let func_type_idxs = optimization_all_func_type_idxs(mod, type_idxs)
+  let active_elem_indices_by_table = optimization_active_elem_indices_by_table(
+    elems, total_table_count,
+  )
   optimization_seed_root_uses(
     mod,
     used_funcs,
@@ -2095,6 +2359,7 @@ fn optimization_remove_unused_module_elements_iteration(
     imported_global_count,
     globals.length(),
     used_tables,
+    observable_tables,
     table_worklist,
     imported_table_count,
     tables.length(),
@@ -2107,8 +2372,8 @@ fn optimization_remove_unused_module_elements_iteration(
     tags.length(),
   )
   optimization_promote_live_active_segments(
-    elems, used_tables, imported_table_count, used_elems, elem_worklist, datas, used_mems,
-    imported_mem_count, used_datas, data_worklist,
+    elems, observable_tables, imported_table_count, used_elems, elem_worklist, datas,
+    used_mems, imported_mem_count, used_datas, data_worklist,
   )
   optimization_seed_trapping_active_segments(
     elems, tables, imported_table_count, used_elems, elem_worklist, datas, mems,
@@ -2124,6 +2389,8 @@ fn optimization_remove_unused_module_elements_iteration(
       let local_idx = func_worklist.pop().unwrap()
       optimization_collect_module_element_uses_in_func(
         funcs[local_idx],
+        subtypes,
+        func_type_idxs,
         used_funcs,
         func_worklist,
         imported_func_count,
@@ -2133,6 +2400,7 @@ fn optimization_remove_unused_module_elements_iteration(
         imported_global_count,
         globals.length(),
         used_tables,
+        observable_tables,
         table_worklist,
         imported_table_count,
         tables.length(),
@@ -2147,6 +2415,8 @@ fn optimization_remove_unused_module_elements_iteration(
         elem_worklist,
         used_datas,
         data_worklist,
+        elems,
+        active_elem_indices_by_table,
       )
     }
     while global_worklist.length() > 0 {
@@ -2253,8 +2523,8 @@ fn optimization_remove_unused_module_elements_iteration(
       )
     }
     optimization_promote_live_active_segments(
-      elems, used_tables, imported_table_count, used_elems, elem_worklist, datas,
-      used_mems, imported_mem_count, used_datas, data_worklist,
+      elems, observable_tables, imported_table_count, used_elems, elem_worklist,
+      datas, used_mems, imported_mem_count, used_datas, data_worklist,
     )
   }
 

@@ -6,6 +6,16 @@ fn remove_unused_test_type_sec() -> @lib.TypeSec {
 }
 
 ///|
+fn remove_unused_test_two_type_sec() -> @lib.TypeSec {
+  @lib.TypeSec::new([
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+    ),
+  ])
+}
+
+///|
 fn remove_unused_test_main_call_target(mod : Module) -> UInt raise Error {
   match mod.code_sec {
     Some(@lib.CodeSec(funcs)) =>
@@ -1289,6 +1299,207 @@ test "remove unused module elements keeps active elem segments for indirectly ca
     Some(@lib.ElemSec([@lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _)])) =>
       assert_eq(table_idx, 0U)
     _ => fail("expected active elem section")
+  }
+}
+
+///|
+test "remove unused module elements keeps only matching active elem segments for non-mutated indirectly called tables" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_two_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(1U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::call_indirect(
+              @lib.TypeIdx::new(0U),
+              @lib.TableIdx::new(0U),
+              [],
+              remove_unused_test_i32_const(0),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+        @lib.Func::t_func(
+          [@lib.ValType::i32()],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            remove_unused_test_funcref(),
+            @lib.Limits::i32(2U, None),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+          ),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+        ),
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(1))]),
+          ),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(2U)]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => {
+      assert_eq(type_idxs.length(), 2)
+      assert_eq(type_idxs[0], @lib.TypeIdx::new(0U))
+      assert_eq(type_idxs[1], @lib.TypeIdx::new(0U))
+    }
+    None => fail("expected func section")
+  }
+  match optimized.elem_sec {
+    Some(
+      @lib.ElemSec(
+        [
+          @lib.Elem(
+            @lib.Active(
+              @lib.TableIdx(table_idx),
+              @lib.Expr([@lib.I32Const(@lib.I32(offset))])
+            ),
+            @lib.FuncsElemKind([@lib.FuncIdx(func_idx)])
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(table_idx, 0U)
+      assert_eq(offset, 0)
+      assert_eq(func_idx, 1U)
+    }
+    _ => fail("expected only the matching active elem segment")
+  }
+}
+
+///|
+test "remove unused module elements falls back conservatively for mutated indirectly called tables" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_two_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(1U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::call_indirect(
+              @lib.TypeIdx::new(0U),
+              @lib.TableIdx::new(0U),
+              [],
+              remove_unused_test_i32_const(0),
+            ),
+            @lib.TInstr::table_set(
+              @lib.TableIdx::new(0U),
+              remove_unused_test_i32_const(0),
+              @lib.TInstr::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::func()),
+              ),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+        @lib.Func::t_func(
+          [@lib.ValType::i32()],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            remove_unused_test_funcref(),
+            @lib.Limits::i32(2U, None),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+          ),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+        ),
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(1))]),
+          ),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(2U)]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec(elems)) => assert_eq(elems.length(), 2)
+    None => fail("expected elem section")
   }
 }
 

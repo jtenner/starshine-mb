@@ -60,6 +60,7 @@ Status: researched rollout plan for Starshine's index-based IR.
   - roots exported and start functions,
   - keeps active elem/data segments only when their target table or memory is imported or otherwise live,
   - roots active elem/data segments whose offsets are unknown or whose constant writes exceed the defined target's initial bounds,
+  - lets non-mutated indirect-call tables keep only matching active elem contributors instead of every active elem on the table,
   - roots exported globals/tables/memories/tags and preserves functions/global/table/memory/tag operands named by surviving module elements and active segments that remain in the module,
   - walks only live function bodies,
   - removes unreachable defined functions, unused defined globals/tables/memories/tags, unused passive/declarative elem segments, and passive data segments,
@@ -71,6 +72,8 @@ Status: researched rollout plan for Starshine's index-based IR.
   - dead active-segment target removal,
   - imported/exported active-segment observability,
   - unknown-offset and out-of-bounds active-segment trap roots,
+  - non-mutated indirect-call segment filtering,
+  - conservative fallback once the live code mutates the indirect-call table,
   - active segment mode remaps,
   - and mixed import+defined remaps for every currently landed index kind.
 - Starshine IR is index-based, not name-based:
@@ -174,6 +177,11 @@ Status: researched rollout plan for Starshine's index-based IR.
 - On `call_indirect` and `return_call_indirect`, reference the table and resolve matching functions and contributing segments.
 - Detect mutable tables; if a table may be modified, fall back to callable-signature liveness.
 - Keep open-world behavior conservative whenever feature/config evidence is missing.
+- Status:
+  - partial.
+  - landed subset: non-mutated `call_indirect` and `return_call_indirect` now retain only matching active elem contributors for the target table, while table exports and concrete table reads/writes still root full active-segment observability.
+  - current conservative fallback: once live code mutates the table, Starshine falls back to broad active-segment retention on that table instead of Binaryen's more precise callable-signature model.
+  - remaining work: table-initializer precision for indirect-only tables, Binaryen-style callable-signature fallback for mutated tables, and any finer-grained per-item retention that depends on referenced-only function shells.
 - Exit when indirect-call retention is more precise than keeping every function reachable from every table.
 
 ### Slice 5 — Closed-World Function-Reference Precision
