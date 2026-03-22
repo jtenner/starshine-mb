@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-22 Docs: add explicit blocked DCE follow-ups to the backlog
+
+- **Backlog hygiene** by **@jtenner**. Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to list the blocked `DeadCodeElimination` string-sensitive, EH `pop`, and stack-switching follow-ups as explicit todo items instead of leaving them implied in the research summary.
+
 ## 2026-03-22 Optimization: cover grouped-stage DCE output stability
 
 - **DeadCodeElimination grouped-stage checkpoint** by **@jtenner**. Added focused pipeline execution coverage in [`src/optimization/optimization_test.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization_test.mbt) to run the real default grouped function stage on a typed dead-tail fixture and assert the stage preserves `DeadCodeElimination`'s trimmed output and still validates.

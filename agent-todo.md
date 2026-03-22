@@ -34,7 +34,10 @@
   - `docs/0047-2026-03-22-dead-code-elimination-typed-surface-blockers.md` records that the remaining string-sensitive and EH `pop` follow-ups are currently blocked on missing typed IR support for string ops and EH `try` / `pop`, not on known gaps in the landed `TTryTable`-based DCE port.
   - `docs/0048-2026-03-22-dead-code-elimination-default-stage-ordering.md` locks the first grouped-pipeline interaction guarantee: the default function stage still runs `DeadCodeElimination` before the first `RemoveUnusedNames`, the first `RemoveUnusedBrs`, and `Vacuum`.
   - `docs/0049-2026-03-22-dead-code-elimination-grouped-stage-output.md` covers the real grouped function-stage execution path and proves the current stage preserves DCE-trimmed dead-tail output on a validating typed fixture.
-  - no further actionable DCE slices remain on the current typed IR surface; the remaining string-sensitive, EH `pop`, and stack-switching follow-ups are blocked until those instruction surfaces land elsewhere in the repo.
+  - blocked follow-up: port the DCE string-sensitive regressions, especially `string.new_wtf16_array` / `local.tee`, once typed string ops exist in the local IR surface.
+  - blocked follow-up: port the DCE EH `pop` fixup slice once typed EH `try` / `pop` nodes exist in the local IR surface.
+  - blocked follow-up: port the DCE stack-switching `resume` / `resume_throw` fixtures once those instructions exist in the local IR surface.
+  - no further unblocked DCE slices remain on the current typed IR surface until one of those instruction-surface dependencies lands elsewhere in the repo.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination
