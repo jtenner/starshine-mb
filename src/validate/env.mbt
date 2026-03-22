@@ -318,13 +318,16 @@ pub fn Env::descriptor_result_type(
     Ok(None) => return Err("type without descriptor")
     Err(e) => return Err(e)
   }
+  let expected = RefType::new(true, HeapType::new(inspected))
+  let expected_exact = RefType::new(true, HeapType::new(inspected), exact=true)
   let exact = match operand {
     None => true
     Some(rt_in) => {
-      if !Match::matches(rt_in.get_heap_type(), HeapType::new(inspected), env) {
+      if !Match::matches(rt_in, expected, env) &&
+        !Match::matches(rt_in, expected_exact, env) {
         return Err("ref.get_desc target does not match operand type")
       }
-      rt_in.is_exact() && rt_in.get_heap_type() == HeapType::new(inspected)
+      Match::matches(rt_in, expected_exact, env)
     }
   }
   Ok(

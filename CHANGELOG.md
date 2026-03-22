@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Validate: accept bottom nulls for ref.get_desc and defined refs
+
+- **Bottom-ref compatibility slice** by **@jtenner**. Extended [`src/validate/env.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt) and [`src/validate/match.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/match.mbt) so `ref.get_desc` and general validation now accept bottom refs like `ref.null none` against compatible defined struct and array references, while still reserving exact descriptor results for operands that match the exact inspected ref shape.
+- Added focused coverage in [`src/validate/env_tests.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env_tests.mbt), [`src/validate/match.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/match.mbt), and [`src/wast/ref_null_exact_surface_test.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/ref_null_exact_surface_test.mbt), and recorded the slice in [`docs/0028-2026-03-22-ref-get-desc-bottom-null-operands.md`](/home/jtenner/Projects/starshine-mb/docs/0028-2026-03-22-ref-get-desc-bottom-null-operands.md).
+- The native mixed-runtime custom-descriptor harness in [`src/wast/spec_harness.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/spec_harness.mbt) now passes `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` end to end instead of stopping on descriptor-target or const-expression mismatches.
+
 ## 2026-03-22 Validate: preserve exact ref.null immediates end to end
 
 - **Exact nullable ref-null slice** by **@jtenner**. Extended [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt), [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt), [`src/validate/env.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt), and [`src/validate/typecheck.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so `ref.null` now carries a full nullable `RefType` through lowering and validation instead of collapsing to a heap-type-only immediate that loses exactness.

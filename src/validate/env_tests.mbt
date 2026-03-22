@@ -680,6 +680,17 @@ test "Env.resolve_heaptype_subtype projects DefType heap types" {
       ),
     ),
   )
+  assert_eq(
+    descriptor_env.descriptor_result_type(
+      TypeIdx::new(0U),
+      Some(RefType::new(true, HeapType::abs(AbsHeapType::none()))),
+    ),
+    Ok(
+      ValType::ref_type(
+        RefType::new(false, HeapType::new(TypeIdx::new(1U)), exact=true),
+      ),
+    ),
+  )
 }
 
 ///|

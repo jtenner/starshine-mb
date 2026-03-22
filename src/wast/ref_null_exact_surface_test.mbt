@@ -57,3 +57,27 @@ test "wast_text_binary_roundtrip preserves exact ref.null immediates" {
     _ => fail("expected decoded exact ref.null immediate")
   }
 }
+
+///|
+test "wast_to_binary_module validates ref.null none through ref.get_desc" {
+  let src =
+    #|(module
+    #|  (rec
+    #|    (type $a (descriptor $b) (struct))
+    #|    (type $b (describes $a) (struct))
+    #|  )
+    #|  (func (result (ref (exact $b)))
+    #|    (ref.get_desc $a (ref.null none))))
+  let lowered = match
+    wast_to_binary_module(src, filename="none-ref-null-desc-fixture.wast") {
+    Ok(m) => m
+    Err(e) => fail("expected ref.null none descriptor fixture to lower: \{e}")
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected ref.null none descriptor fixture to validate: \{@validate.validation_error_message(e)}",
+      )
+  }
+}

@@ -272,7 +272,7 @@ fn heap_vs_typeidx_fuel(
     return false
   }
   match h {
-    AbsHeapTypeHeapType(_) => false
+    AbsHeapTypeHeapType(abs) => abs_vs_typeidx_fuel(abs, target, env, fuel - 1)
     HeapType(tidx1) =>
       typeidx_leq_typeidx_with_fuel(tidx1, target, env, fuel - 1)
     DefTypeHeapType(dt1) =>
@@ -294,6 +294,28 @@ fn heap_vs_typeidx_fuel(
           }
         }
       }
+  }
+}
+
+///|
+fn abs_vs_typeidx_fuel(
+  abs : AbsHeapType,
+  target : TypeIdx,
+  env : Env,
+  fuel : Int,
+) -> Bool {
+  if fuel <= 0 {
+    return false
+  }
+  match env.resolve_subtype(target) {
+    Some(st) =>
+      match (abs, st.get_comptype()) {
+        (NoneAbsHeapType, StructCompType(_)) => true
+        (NoneAbsHeapType, ArrayCompType(_)) => true
+        (NoFuncAbsHeapType, FuncCompType(_, _)) => true
+        _ => false
+      }
+    None => false
   }
 }
 
@@ -1215,6 +1237,45 @@ test "HeapType matches let final defined types keep declared supertypes" {
     Match::matches(
       HeapType::new(TypeIdx::new(1U)),
       HeapType::new(TypeIdx::new(0U)),
+      env,
+    ),
+  )
+}
+
+///|
+test "HeapType matches bottom refs against compatible defined types" {
+  let env = Env::new().with_types([
+    SubType::comp_type(CompType::struct_([])),
+    SubType::comp_type(
+      CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Const)),
+    ),
+    SubType::comp_type(CompType::func([], [])),
+  ])
+  assert_true(
+    Match::matches(
+      HeapType::abs(AbsHeapType::none()),
+      HeapType::new(TypeIdx::new(0U)),
+      env,
+    ),
+  )
+  assert_true(
+    Match::matches(
+      HeapType::abs(AbsHeapType::none()),
+      HeapType::new(TypeIdx::new(1U)),
+      env,
+    ),
+  )
+  assert_true(
+    Match::matches(
+      HeapType::abs(AbsHeapType::no_func()),
+      HeapType::new(TypeIdx::new(2U)),
+      env,
+    ),
+  )
+  assert_false(
+    Match::matches(
+      HeapType::abs(AbsHeapType::none()),
+      HeapType::new(TypeIdx::new(2U)),
       env,
     ),
   )
