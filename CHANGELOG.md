@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: land MemoryPacking slice-3 segment-op pre-normalization
+
+- **MemoryPacking pre-normalization slice** by **@jtenner**. Extended [`run_memory_packing`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now performs the documented segment-op simplifications after entry gating: active `data.drop` rewrites to `nop`, active `memory.init` collapses to either the exact trap block or the zero-length destination bounds check, and passive `memory.init` now rewrites the obvious trap and zero-length cases before any later splitting work.
+- Added focused red-to-green internal regressions in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) covering active trap reduction, active zero-length bounds-check lowering, passive proven-trap lowering, and passive zero-length bounds-check lowering.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0014-2026-03-21-memory-packing.md`](/home/jtenner/Projects/starshine-mb/docs/0014-2026-03-21-memory-packing.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining active `MemoryPacking` work now starts at referrer collection and later data-index/materialization rewrites.
+
 ## 2026-03-22 Optimization: land MemoryPacking slice-2 analysis gating
 
 - **MemoryPacking gating slice** by **@jtenner**. Extended [`run_memory_packing`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) with the documented stage-2 entry gating: the pass now bails out on unsupported memory topologies, imported memory without a `zero_filled_memory` promise, overlapping active segments, and dynamic active offsets in multi-segment modules, while still leaving later semantic rewrite slices for follow-up work.

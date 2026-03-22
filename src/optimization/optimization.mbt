@@ -566,8 +566,7 @@ pub fn run_memory_packing(
   if !optimization_memory_packing_can_optimize(mod, features) {
     return (mod, global)
   }
-  let _ = features
-  (mod, global)
+  (optimization_memory_packing_prenormalize_segment_ops(mod), global)
 }
 
 ///|
@@ -656,6 +655,205 @@ fn optimization_memory_packing_can_optimize(
 }
 
 ///|
+fn optimization_memory_packing_all_mem_types(
+  mod : Module,
+) -> Array[@lib.MemType] {
+  let mems : Array[@lib.MemType] = []
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          Import(_, _, MemExternType(mem_type)) => mems.push(mem_type)
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.mem_sec {
+    Some(MemSec(defined_mems)) =>
+      for mem in defined_mems {
+        mems.push(mem)
+      }
+    None => ()
+  }
+  mems
+}
+
+///|
+fn optimization_memory_packing_mem_type(
+  mod : Module,
+  mem_idx : @lib.MemIdx,
+) -> @lib.MemType? {
+  let @lib.MemIdx(raw) = mem_idx
+  optimization_memory_packing_all_mem_types(mod).get(raw.reinterpret_as_int())
+}
+
+///|
+fn optimization_memory_packing_data(mod : Module, data_idx : DataIdx) -> Data? {
+  let DataIdx(raw) = data_idx
+  match mod.data_sec {
+    Some(DataSec(datas)) => datas.get(raw.reinterpret_as_int())
+    None => None
+  }
+}
+
+///|
+fn optimization_memory_packing_tinstr_const_u64(instr : @lib.TInstr) -> UInt64? {
+  match instr.kind {
+    @lib.TI32Const(@lib.I32(value)) =>
+      Some(value.reinterpret_as_uint().to_uint64())
+    @lib.TI64Const(@lib.I64(value)) => Some(value.reinterpret_as_uint64())
+    _ => None
+  }
+}
+
+///|
+fn optimization_memory_packing_trap_block(
+  dest : @lib.TInstr,
+  offset : @lib.TInstr,
+  size : @lib.TInstr,
+) -> @lib.TInstr {
+  @lib.TInstr::block(
+    @lib.BlockType::void_(),
+    @lib.TExpr::new([
+      @lib.TInstr::drop(dest),
+      @lib.TInstr::drop(offset),
+      @lib.TInstr::drop(size),
+      @lib.TInstr::unreachable_(),
+    ]),
+  )
+}
+
+///|
+fn optimization_memory_packing_zero_length_bounds_check(
+  mod : Module,
+  mem_idx : @lib.MemIdx,
+  dest : @lib.TInstr,
+) -> @lib.TInstr? {
+  match optimization_memory_packing_mem_type(mod, mem_idx) {
+    Some(@lib.MemType(@lib.I32Limits(_, _))) =>
+      Some(
+        @lib.TInstr::if_(
+          @lib.BlockType::void_(),
+          @lib.TInstr::binary(
+            @lib.BinaryOp::i32_gt_u(),
+            dest,
+            @lib.TInstr::binary(
+              @lib.BinaryOp::i32_shl(),
+              @lib.TInstr::memory_size(mem_idx),
+              @lib.TInstr::i32_const(@lib.I32::new(16)),
+            ),
+          ),
+          @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+          None,
+        ),
+      )
+    Some(@lib.MemType(@lib.I64Limits(_, _))) =>
+      Some(
+        @lib.TInstr::if_(
+          @lib.BlockType::void_(),
+          @lib.TInstr::binary(
+            @lib.BinaryOp::i64_gt_u(),
+            dest,
+            @lib.TInstr::binary(
+              @lib.BinaryOp::i64_shl(),
+              @lib.TInstr::memory_size(mem_idx),
+              @lib.TInstr::i64_const(@lib.I64::new(16L)),
+            ),
+          ),
+          @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+          None,
+        ),
+      )
+    None => None
+  }
+}
+
+///|
+fn optimization_memory_packing_passive_init_traps(
+  segment_len : UInt64,
+  offset : UInt64,
+  size : UInt64,
+) -> Bool {
+  if offset > segment_len || size > segment_len {
+    return true
+  }
+  let end = offset + size
+  end < offset || end > segment_len
+}
+
+///|
+fn optimization_memory_packing_rewrite_tmemory_init(
+  mod : Module,
+  data_idx : DataIdx,
+  mem_idx : @lib.MemIdx,
+  dest : @lib.TInstr,
+  offset : @lib.TInstr,
+  size : @lib.TInstr,
+) -> @lib.TInstr? {
+  let offset_u64 = match optimization_memory_packing_tinstr_const_u64(offset) {
+    Some(value) => value
+    None => return None
+  }
+  let size_u64 = match optimization_memory_packing_tinstr_const_u64(size) {
+    Some(value) => value
+    None => return None
+  }
+  match optimization_memory_packing_data(mod, data_idx) {
+    Some(Data(Active(_, _), _)) =>
+      if offset_u64 == 0UL && size_u64 == 0UL {
+        optimization_memory_packing_zero_length_bounds_check(mod, mem_idx, dest)
+      } else {
+        Some(optimization_memory_packing_trap_block(dest, offset, size))
+      }
+    Some(Data(Passive, bytes)) =>
+      if offset_u64 == 0UL && size_u64 == 0UL {
+        optimization_memory_packing_zero_length_bounds_check(mod, mem_idx, dest)
+      } else if optimization_memory_packing_passive_init_traps(
+          bytes.length().to_uint64(),
+          offset_u64,
+          size_u64,
+        ) {
+        Some(optimization_memory_packing_trap_block(dest, offset, size))
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
+fn optimization_memory_packing_prenormalize_segment_ops(mod : Module) -> Module {
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      _,
+      _,
+      instr,
+    ) {
+      match instr.kind {
+        @lib.TMemoryInit(data_idx, mem_idx, dest, offset, size) =>
+          match
+            optimization_memory_packing_rewrite_tmemory_init(
+              mod, data_idx, mem_idx, dest, offset, size,
+            ) {
+            Some(rewritten) => change((), rewritten)
+            None => unchanged()
+          }
+        @lib.TDataDrop(data_idx) =>
+          match optimization_memory_packing_data(mod, data_idx) {
+            Some(Data(Active(_, _), _)) => change((), @lib.TInstr::nop())
+            _ => unchanged()
+          }
+        _ => unchanged()
+      }
+    },
+  )
+  match transformer.walk_module((), mod) {
+    Ok((rewritten, _)) => rewritten
+    Err(_) => mod
+  }
+}
+
+///|
 fn optimization_memory_packing_test_defined_memory(
   limits? : @lib.Limits = @lib.Limits::i32(1U, None),
 ) -> Module {
@@ -683,6 +881,72 @@ fn optimization_memory_packing_test_active_data(
   bytes : Bytes,
 ) -> Data {
   Data::new(@lib.DataMode::active(@lib.MemIdx::new(0U), offset_expr), bytes)
+}
+
+///|
+fn optimization_memory_packing_test_typed_body(
+  instrs : Array[@lib.TInstr],
+) -> Array[@lib.TInstr] {
+  let mod = optimization_memory_packing_test_defined_memory()
+    .with_data_sec(
+      DataSec::new([
+        optimization_memory_packing_test_active_data(
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+          b"abc",
+        ),
+      ]),
+    )
+    .with_type_sec(
+      @lib.TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], @lib.Locals::empty(), @lib.TExpr::new(instrs)),
+      ]),
+    )
+  let (optimized, _) = run_memory_packing(
+    mod,
+    PipelineGlobal::new(),
+    PipelineFeatures::new(),
+  )
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, _, body)])) => body.inner()
+    _ => abort("expected rewritten typed function body")
+  }
+}
+
+///|
+fn optimization_memory_packing_test_passive_body(
+  data_bytes : Bytes,
+  instrs : Array[@lib.TInstr],
+) -> Array[@lib.TInstr] {
+  let mod = optimization_memory_packing_test_defined_memory()
+    .with_data_sec(
+      DataSec::new([Data::new(@lib.DataMode::passive(), data_bytes)]),
+    )
+    .with_type_sec(
+      @lib.TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], @lib.Locals::empty(), @lib.TExpr::new(instrs)),
+      ]),
+    )
+  let (optimized, _) = run_memory_packing(
+    mod,
+    PipelineGlobal::new(),
+    PipelineFeatures::new(),
+  )
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, _, body)])) => body.inner()
+    _ => abort("expected rewritten typed function body")
+  }
 }
 
 ///|
@@ -784,6 +1048,114 @@ test "memory packing analysis allows disjoint active segments" {
   assert_true(
     optimization_memory_packing_can_optimize(mod, PipelineFeatures::new()),
   )
+}
+
+///|
+test "memory packing pre-normalizes active memory.init traps and active data.drop" {
+  let body = optimization_memory_packing_test_typed_body([
+    @lib.TInstr::memory_init(
+      DataIdx::new(0U),
+      @lib.MemIdx::new(0U),
+      @lib.TInstr::i32_const(@lib.I32::new(42)),
+      @lib.TInstr::i32_const(@lib.I32::new(13)),
+      @lib.TInstr::i32_const(@lib.I32::new(0)),
+    ),
+    @lib.TInstr::data_drop(DataIdx::new(0U)),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(42))),
+        @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(13))),
+        @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(0))),
+        @lib.TInstr::unreachable_(),
+      ]),
+    ),
+    @lib.TInstr::nop(),
+  ])
+}
+
+///|
+test "memory packing pre-normalizes zero-length active memory.init to bounds check" {
+  let body = optimization_memory_packing_test_typed_body([
+    @lib.TInstr::memory_init(
+      DataIdx::new(0U),
+      @lib.MemIdx::new(0U),
+      @lib.TInstr::i32_const(@lib.I32::new(42)),
+      @lib.TInstr::i32_const(@lib.I32::new(0)),
+      @lib.TInstr::i32_const(@lib.I32::new(0)),
+    ),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::if_(
+      @lib.BlockType::void_(),
+      @lib.TInstr::binary(
+        @lib.BinaryOp::i32_gt_u(),
+        @lib.TInstr::i32_const(@lib.I32::new(42)),
+        @lib.TInstr::binary(
+          @lib.BinaryOp::i32_shl(),
+          @lib.TInstr::memory_size(@lib.MemIdx::new(0U)),
+          @lib.TInstr::i32_const(@lib.I32::new(16)),
+        ),
+      ),
+      @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+      None,
+    ),
+  ])
+}
+
+///|
+test "memory packing pre-normalizes passive memory.init proven traps" {
+  let body = optimization_memory_packing_test_passive_body(b"abc", [
+    @lib.TInstr::memory_init(
+      DataIdx::new(0U),
+      @lib.MemIdx::new(0U),
+      @lib.TInstr::i32_const(@lib.I32::new(7)),
+      @lib.TInstr::i32_const(@lib.I32::new(4)),
+      @lib.TInstr::i32_const(@lib.I32::new(0)),
+    ),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(7))),
+        @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(4))),
+        @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(0))),
+        @lib.TInstr::unreachable_(),
+      ]),
+    ),
+  ])
+}
+
+///|
+test "memory packing pre-normalizes zero-length passive memory.init to bounds check" {
+  let body = optimization_memory_packing_test_passive_body(b"abc", [
+    @lib.TInstr::memory_init(
+      DataIdx::new(0U),
+      @lib.MemIdx::new(0U),
+      @lib.TInstr::i32_const(@lib.I32::new(9)),
+      @lib.TInstr::i32_const(@lib.I32::new(0)),
+      @lib.TInstr::i32_const(@lib.I32::new(0)),
+    ),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::if_(
+      @lib.BlockType::void_(),
+      @lib.TInstr::binary(
+        @lib.BinaryOp::i32_gt_u(),
+        @lib.TInstr::i32_const(@lib.I32::new(9)),
+        @lib.TInstr::binary(
+          @lib.BinaryOp::i32_shl(),
+          @lib.TInstr::memory_size(@lib.MemIdx::new(0U)),
+          @lib.TInstr::i32_const(@lib.I32::new(16)),
+        ),
+      ),
+      @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+      None,
+    ),
+  ])
 }
 
 ///|
