@@ -71,7 +71,7 @@
 - `RemoveUnusedModuleElements`: execute slices from `docs/0013-2026-03-21-remove-unused-module-elements-plan.md`.
 - `RemoveUnusedModuleElements`: function + global + table + memory + tag + elem/data open-world compaction is landed, including active-segment retention for imported/live targets, trap roots, and non-mutated indirect-call tables retaining only matching active elem contributors.
 - `RemoveUnusedModuleElements`: active-segment trap roots are now gated by execution-time `traps_never_happen`; remaining trap gap is the still-narrow local constant-initializer model.
-- `RemoveUnusedModuleElements`: the remaining indirect-call/table gap is the still-coarse mutable-table and table-initializer fallback; keep the new wbtest edge coverage visible as later slices land alongside the narrow constant-initializer trap model and closed-world function-reference precision.
+- `RemoveUnusedModuleElements`: table metadata ops and pure writes no longer pin dead active elem contents; the remaining indirect-call/table gap is table-initializer handling for indirect-only tables plus Binaryen-style callable-signature fallback for mutated indirect tables.
 - `RemoveUnusedModuleElements`: generated optimize feature-source plumbing is landed; remaining closed-world and GC work is analysis precision plus any future CLI/config exposure for `closed_world`.
 
 ## Backlog Hygiene

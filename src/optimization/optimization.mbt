@@ -1371,6 +1371,62 @@ fn optimization_collect_indirect_call_elem_uses(
 }
 
 ///|
+fn optimization_mark_indirect_called_table(
+  used_tables : Array[Bool],
+  observable_tables : Array[Bool],
+  indirect_called_tables : Array[Bool],
+  mutated_tables : Array[Bool],
+  table_worklist : Array[Int],
+  imported_table_count : Int,
+  defined_table_count : Int,
+  table_idx : TableIdx,
+) -> Unit {
+  optimization_note_used_table(
+    used_tables, table_worklist, imported_table_count, defined_table_count, table_idx,
+  )
+  let TableIdx(raw) = table_idx
+  let abs_idx = raw.reinterpret_as_int()
+  if abs_idx < 0 || abs_idx >= indirect_called_tables.length() {
+    return
+  }
+  indirect_called_tables[abs_idx] = true
+  if mutated_tables[abs_idx] {
+    optimization_note_observable_table(
+      used_tables, observable_tables, table_worklist, imported_table_count, defined_table_count,
+      table_idx,
+    )
+  }
+}
+
+///|
+fn optimization_mark_mutated_table(
+  used_tables : Array[Bool],
+  observable_tables : Array[Bool],
+  indirect_called_tables : Array[Bool],
+  mutated_tables : Array[Bool],
+  table_worklist : Array[Int],
+  imported_table_count : Int,
+  defined_table_count : Int,
+  table_idx : TableIdx,
+) -> Unit {
+  optimization_note_used_table(
+    used_tables, table_worklist, imported_table_count, defined_table_count, table_idx,
+  )
+  let TableIdx(raw) = table_idx
+  let abs_idx = raw.reinterpret_as_int()
+  if abs_idx < 0 || abs_idx >= mutated_tables.length() {
+    return
+  }
+  mutated_tables[abs_idx] = true
+  if indirect_called_tables[abs_idx] {
+    optimization_note_observable_table(
+      used_tables, observable_tables, table_worklist, imported_table_count, defined_table_count,
+      table_idx,
+    )
+  }
+}
+
+///|
 fn optimization_collect_module_element_uses_in_func(
   func : Func,
   subtypes : Array[SubType],
@@ -1385,6 +1441,8 @@ fn optimization_collect_module_element_uses_in_func(
   defined_global_count : Int,
   used_tables : Array[Bool],
   observable_tables : Array[Bool],
+  indirect_called_tables : Array[Bool],
+  mutated_tables : Array[Bool],
   table_worklist : Array[Int],
   imported_table_count : Int,
   defined_table_count : Int,
@@ -1440,38 +1498,42 @@ fn optimization_collect_module_element_uses_in_func(
       match instr {
         @lib.CallIndirect(type_idx, table_idx)
         | @lib.ReturnCallIndirect(type_idx, table_idx) => {
-          optimization_note_used_table(
-            used_tables, table_worklist, imported_table_count, defined_table_count,
-            table_idx,
+          optimization_mark_indirect_called_table(
+            used_tables, observable_tables, indirect_called_tables, mutated_tables,
+            table_worklist, imported_table_count, defined_table_count, table_idx,
           )
           optimization_collect_indirect_call_elem_uses(
             table_idx, type_idx, active_elem_indices_by_table, elems, subtypes, func_type_idxs,
             used_elems, elem_worklist,
           )
         }
-        @lib.TableGet(table_idx)
-        | @lib.TableSet(table_idx)
-        | @lib.TableGrow(table_idx)
-        | @lib.TableFill(table_idx)
-        | @lib.TableInit(_, table_idx) =>
+        @lib.TableGet(table_idx) =>
           optimization_note_observable_table(
             used_tables, observable_tables, table_worklist, imported_table_count,
             defined_table_count, table_idx,
           )
         @lib.TableCopy(dst_idx, src_idx) => {
-          optimization_note_observable_table(
-            used_tables, observable_tables, table_worklist, imported_table_count,
-            defined_table_count, dst_idx,
+          optimization_note_used_table(
+            used_tables, table_worklist, imported_table_count, defined_table_count,
+            dst_idx,
           )
           optimization_note_observable_table(
             used_tables, observable_tables, table_worklist, imported_table_count,
             defined_table_count, src_idx,
           )
         }
+        @lib.TableSet(table_idx)
+        | @lib.TableGrow(table_idx)
+        | @lib.TableFill(table_idx)
+        | @lib.TableInit(_, table_idx) =>
+          optimization_mark_mutated_table(
+            used_tables, observable_tables, indirect_called_tables, mutated_tables,
+            table_worklist, imported_table_count, defined_table_count, table_idx,
+          )
         @lib.TableSize(table_idx) =>
-          optimization_note_observable_table(
-            used_tables, observable_tables, table_worklist, imported_table_count,
-            defined_table_count, table_idx,
+          optimization_note_used_table(
+            used_tables, table_worklist, imported_table_count, defined_table_count,
+            table_idx,
           )
         _ => ()
       }
@@ -1481,38 +1543,42 @@ fn optimization_collect_module_element_uses_in_func(
       match instr.kind {
         @lib.TCallIndirect(type_idx, table_idx, _, _)
         | @lib.TReturnCallIndirect(type_idx, table_idx, _, _) => {
-          optimization_note_used_table(
-            used_tables, table_worklist, imported_table_count, defined_table_count,
-            table_idx,
+          optimization_mark_indirect_called_table(
+            used_tables, observable_tables, indirect_called_tables, mutated_tables,
+            table_worklist, imported_table_count, defined_table_count, table_idx,
           )
           optimization_collect_indirect_call_elem_uses(
             table_idx, type_idx, active_elem_indices_by_table, elems, subtypes, func_type_idxs,
             used_elems, elem_worklist,
           )
         }
-        @lib.TTableGet(table_idx, _)
-        | @lib.TTableSet(table_idx, _, _)
-        | @lib.TTableGrow(table_idx, _, _)
-        | @lib.TTableFill(table_idx, _, _, _)
-        | @lib.TTableInit(_, table_idx, _, _, _) =>
+        @lib.TTableGet(table_idx, _) =>
           optimization_note_observable_table(
             used_tables, observable_tables, table_worklist, imported_table_count,
             defined_table_count, table_idx,
           )
         @lib.TTableCopy(dst_idx, src_idx, _, _, _) => {
-          optimization_note_observable_table(
-            used_tables, observable_tables, table_worklist, imported_table_count,
-            defined_table_count, dst_idx,
+          optimization_note_used_table(
+            used_tables, table_worklist, imported_table_count, defined_table_count,
+            dst_idx,
           )
           optimization_note_observable_table(
             used_tables, observable_tables, table_worklist, imported_table_count,
             defined_table_count, src_idx,
           )
         }
+        @lib.TTableSet(table_idx, _, _)
+        | @lib.TTableGrow(table_idx, _, _)
+        | @lib.TTableFill(table_idx, _, _, _)
+        | @lib.TTableInit(_, table_idx, _, _, _) =>
+          optimization_mark_mutated_table(
+            used_tables, observable_tables, indirect_called_tables, mutated_tables,
+            table_worklist, imported_table_count, defined_table_count, table_idx,
+          )
         @lib.TTableSize(table_idx) =>
-          optimization_note_observable_table(
-            used_tables, observable_tables, table_worklist, imported_table_count,
-            defined_table_count, table_idx,
+          optimization_note_used_table(
+            used_tables, table_worklist, imported_table_count, defined_table_count,
+            table_idx,
           )
         _ => ()
       }
@@ -2324,9 +2390,13 @@ fn optimization_remove_unused_module_elements_iteration(
   let total_table_count = imported_table_count + tables.length()
   let used_tables : Array[Bool] = []
   let observable_tables : Array[Bool] = []
+  let indirect_called_tables : Array[Bool] = []
+  let mutated_tables : Array[Bool] = []
   for _ in 0..<total_table_count {
     used_tables.push(false)
     observable_tables.push(false)
+    indirect_called_tables.push(false)
+    mutated_tables.push(false)
   }
   let imported_mem_count = optimization_imported_mem_count(mod)
   let total_mem_count = imported_mem_count + mems.length()
@@ -2413,6 +2483,8 @@ fn optimization_remove_unused_module_elements_iteration(
         globals.length(),
         used_tables,
         observable_tables,
+        indirect_called_tables,
+        mutated_tables,
         table_worklist,
         imported_table_count,
         tables.length(),
