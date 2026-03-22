@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 WAST: accept parenthesized exact ref types on global imports
+
+- **Imported global ref-type parser slice** by **@jtenner**. Extended [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt) so imported globals now reuse the same global-type parser as defined globals, which means parenthesized ref types such as `(ref null (exact $b))` no longer get misread as mandatory `(mut ...)` wrappers.
+- Added focused parse, print, and lowering coverage in [`src/wast/global_import_ref_type_test.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/global_import_ref_type_test.mbt), which moved `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` beyond the imported-global exact-ref parse failure and onto the next grouped-type index gap.
+
 ## 2026-03-22 WAST: add higher-level struct access instructions
 
 - **GC accessor text-surface slice** by **@jtenner**. Extended [`src/wast/types.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/types.mbt), [`src/wast/keywords.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/keywords.mbt), [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt), [`src/wast/module_wast.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/module_wast.mbt), and [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt) so the higher-level WAST surface now accepts, prints, and lowers `struct.get`, `struct.get_s`, and `struct.get_u`, including folded forms with type and field immediates.

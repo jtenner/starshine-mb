@@ -72,7 +72,8 @@
   - `ref.get_desc` now carries its inspected type immediate through WAST lowering, lib instructions, binary encode/decode, and descriptor typechecking.
   - legacy GC aliases like `anyref`, `eqref`, `structref`, `arrayref`, and `nullref` now parse and lower through the higher-level WAST surface, including abstract `(ref struct)` and `(ref array)` spellings.
   - higher-level WAST now also accepts, prints, and lowers folded `struct.get`, `struct.get_s`, and `struct.get_u`.
-  - remaining follow-up work is lifting mixed-runtime custom-descriptor fixtures cleanly, with `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` now blocked on imported global parsing for parenthesized exact typed refs.
+  - imported globals now also accept parenthesized exact typed refs instead of requiring a spurious `(mut ...)` wrapper.
+  - remaining follow-up work is lifting mixed-runtime custom-descriptor fixtures cleanly, with `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` now blocked on implicit functype indices after grouped `rec` entries.
 
 ## Backlog Hygiene
 - Keep duplicate entries removed when pass scopes converge.

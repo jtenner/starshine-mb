@@ -2595,8 +2595,15 @@ fn WastParser::parse_global(self : WastParser) -> Global raise ParserError {
     None
   }
   let exports = self.parse_inline_exports()
+  let global_type = self.parse_global_type()
+  let init = self.parse_instructions()
+  { id, exports, global_type, init }
+}
 
-  // Parse global type
+///|
+fn WastParser::parse_global_type(
+  self : WastParser,
+) -> GlobalType raise ParserError {
   let (val_type, mutable_) = if self.check(Lpar) {
     let saved_state = self.save_lexer_state()
     let saved_token = self.current
@@ -2614,8 +2621,7 @@ fn WastParser::parse_global(self : WastParser) -> Global raise ParserError {
   } else {
     (self.parse_value_type(), false)
   }
-  let init = self.parse_instructions()
-  { id, exports, global_type: { val_type, mutable_ }, init }
+  { val_type, mutable_ }
 }
 
 ///|
@@ -2669,16 +2675,7 @@ fn WastParser::parse_import(self : WastParser) -> Import raise ParserError {
       } else {
         None
       }
-      let (val_type, mutable_) = if self.check(Lpar) {
-        self.expect_lpar()
-        let _ = self.expect(Mut, "expected 'mut'")
-        let vt = self.parse_value_type()
-        self.expect_rpar()
-        (vt, true)
-      } else {
-        (self.parse_value_type(), false)
-      }
-      (ImportDesc::Global({ val_type, mutable_ }), global_id)
+      (ImportDesc::Global(self.parse_global_type()), global_id)
     }
     Tag => {
       let _ = self.advance()
