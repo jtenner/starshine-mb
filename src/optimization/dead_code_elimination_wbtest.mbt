@@ -1,7 +1,5 @@
 ///|
-fn dead_code_elimination_test_module(
-  instrs : Array[@lib.TInstr],
-) -> Module {
+fn dead_code_elimination_test_module(instrs : Array[@lib.TInstr]) -> Module {
   Module::new()
   .with_type_sec(
     @lib.TypeSec::new([
@@ -9,9 +7,7 @@ fn dead_code_elimination_test_module(
     ]),
   )
   .with_mem_sec(
-    @lib.MemSec::new([
-      @lib.MemType::new(@lib.Limits::i32(1U, None)),
-    ]),
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
   )
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
   .with_code_sec(
@@ -62,15 +58,10 @@ fn dead_code_elimination_test_call_body(
       ]),
     )
     .with_mem_sec(
-      @lib.MemSec::new([
-        @lib.MemType::new(@lib.Limits::i32(1U, None)),
-      ]),
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
     )
     .with_func_sec(
-      @lib.FuncSec::new([
-        @lib.TypeIdx::new(0U),
-        @lib.TypeIdx::new(1U),
-      ]),
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
     )
     .with_code_sec(
       @lib.CodeSec::new([
@@ -188,13 +179,10 @@ test "dead code elimination preserves select value effects before an unreachable
 ///|
 test "dead code elimination preserves earlier direct call arguments before an unreachable one" {
   let body = dead_code_elimination_test_call_body(
-    @lib.TInstr::call(
-      @lib.FuncIdx::new(0U),
-      [
-        @lib.TInstr::i32_const(@lib.I32::new(1)),
-        @lib.TInstr::unreachable_(),
-      ],
-    ),
+    @lib.TInstr::call(@lib.FuncIdx::new(0U), [
+      @lib.TInstr::i32_const(@lib.I32::new(1)),
+      @lib.TInstr::unreachable_(),
+    ]),
   )
   assert_eq(body, [
     @lib.TInstr::block(
@@ -205,4 +193,68 @@ test "dead code elimination preserves earlier direct call arguments before an un
       ]),
     ),
   ])
+}
+
+///|
+test "dead code elimination truncates typed function bodies after return" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::return_([]),
+    @lib.TInstr::nop(),
+  ])
+  assert_eq(body, [@lib.TInstr::return_([])])
+}
+
+///|
+test "dead code elimination truncates nested block tails after br without dropping outer code" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::br(@lib.LabelIdx::new(0U), []),
+        @lib.TInstr::nop(),
+      ]),
+    ),
+    @lib.TInstr::nop(),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(0U), [])]),
+    ),
+    @lib.TInstr::nop(),
+  ])
+}
+
+///|
+test "dead code elimination truncates code after a rewritten unreachable block" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::drop(
+      @lib.TInstr::binary(
+        @lib.BinaryOp::i32_add(),
+        @lib.TInstr::i32_const(@lib.I32::new(1)),
+        @lib.TInstr::unreachable_(),
+      ),
+    ),
+    @lib.TInstr::nop(),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(1))),
+        @lib.TInstr::unreachable_(),
+      ]),
+    ),
+  ])
+}
+
+///|
+test "dead code elimination collapses trivial unreachable blocks" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([@lib.TInstr::unreachable_(), @lib.TInstr::nop()]),
+    ),
+  ])
+  assert_eq(body, [@lib.TInstr::unreachable_()])
 }

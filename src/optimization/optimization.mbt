@@ -573,7 +573,9 @@ pub fn run_dead_code_elimination(
   let mut funcs_changed = scratch.funcs_changed
   for func in funcs {
     funcs_visited += 1
-    let (rewritten, func_changed) = optimization_dead_code_elimination_func(func)
+    let (rewritten, func_changed) = optimization_dead_code_elimination_func(
+      func,
+    )
     rewritten_funcs.push(rewritten)
     if func_changed {
       changed = true
@@ -598,15 +600,29 @@ pub fn run_dead_code_elimination(
 }
 
 ///|
-fn optimization_dead_code_elimination_func(
-  func : Func,
-) -> (Func, Bool) {
+fn optimization_dead_code_elimination_func(func : Func) -> (Func, Bool) {
   match func {
     @lib.TFunc(params, locals, body) => {
       let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+        .on_texpr_evt(fn(self, _, expr) {
+          let (rewritten, _) = self.walk_texpr_default((), expr).unwrap()
+          change(
+            (),
+            @lib.TExpr::new(
+              optimization_dead_code_elimination_truncate_after_first_unreachable(
+                rewritten.inner(),
+              ),
+            ),
+          )
+        })
         .on_tinstruction_evt(fn(self, _, instr) {
-          let (rewritten, _) = self.walk_tinstruction_default((), instr).unwrap()
-          change((), optimization_dead_code_elimination_rewrite_instr(rewritten))
+          let (rewritten, _) = self
+            .walk_tinstruction_default((), instr)
+            .unwrap()
+          change(
+            (),
+            optimization_dead_code_elimination_rewrite_instr(rewritten),
+          )
         })
       match transformer.walk_texpr((), body) {
         Ok((rewritten_body, _)) =>
@@ -627,60 +643,61 @@ fn optimization_dead_code_elimination_rewrite_instr(
   instr : @lib.TInstr,
 ) -> @lib.TInstr {
   match instr.kind {
+    @lib.TBlock(_, body) =>
+      match body.inner() {
+        [child] =>
+          match child.kind {
+            @lib.TUnreachable => child
+            _ => instr
+          }
+        _ => instr
+      }
     @lib.TUnary(op, child) =>
-      optimization_dead_code_elimination_rewrite_unary(
-        [child],
-        fn(args) { @lib.TInstr::unary(op, args[0]) },
-      )
+      optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
+        @lib.TInstr::unary(op, args[0])
+      })
     @lib.TDrop(child) =>
-      optimization_dead_code_elimination_rewrite_unary(
-        [child],
-        fn(args) { @lib.TInstr::drop(args[0]) },
-      )
+      optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
+        @lib.TInstr::drop(args[0])
+      })
     @lib.TLocalSet(idx, child) =>
-      optimization_dead_code_elimination_rewrite_unary(
-        [child],
-        fn(args) { @lib.TInstr::local_set(idx, args[0]) },
-      )
+      optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
+        @lib.TInstr::local_set(idx, args[0])
+      })
     @lib.TLocalTee(idx, child) =>
-      optimization_dead_code_elimination_rewrite_unary(
-        [child],
-        fn(args) { @lib.TInstr::local_tee(idx, args[0]) },
-      )
+      optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
+        @lib.TInstr::local_tee(idx, args[0])
+      })
     @lib.TGlobalSet(idx, child) =>
-      optimization_dead_code_elimination_rewrite_unary(
-        [child],
-        fn(args) { @lib.TInstr::global_set(idx, args[0]) },
-      )
+      optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
+        @lib.TInstr::global_set(idx, args[0])
+      })
     @lib.TLoad(op, memarg, child) =>
-      optimization_dead_code_elimination_rewrite_unary(
-        [child],
-        fn(args) { @lib.TInstr::load(op, memarg, args[0]) },
-      )
+      optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
+        @lib.TInstr::load(op, memarg, args[0])
+      })
     @lib.TBinary(op, left, right) =>
-      optimization_dead_code_elimination_rewrite_unary(
-        [left, right],
-        fn(args) { @lib.TInstr::binary(op, args[0], args[1]) },
-      )
+      optimization_dead_code_elimination_rewrite_unary([left, right], fn(args) {
+        @lib.TInstr::binary(op, args[0], args[1])
+      })
     @lib.TRefEq(left, right) =>
-      optimization_dead_code_elimination_rewrite_unary(
-        [left, right],
-        fn(args) { @lib.TInstr::ref_eq(args[0], args[1]) },
-      )
+      optimization_dead_code_elimination_rewrite_unary([left, right], fn(args) {
+        @lib.TInstr::ref_eq(args[0], args[1])
+      })
     @lib.TStore(op, memarg, addr, value) =>
-      optimization_dead_code_elimination_rewrite_unary(
-        [addr, value],
-        fn(args) { @lib.TInstr::store(op, memarg, args[0], args[1]) },
-      )
+      optimization_dead_code_elimination_rewrite_unary([addr, value], fn(args) {
+        @lib.TInstr::store(op, memarg, args[0], args[1])
+      })
     @lib.TCall(func_idx, args) =>
-      optimization_dead_code_elimination_rewrite_unary(
-        args,
-        fn(args) { @lib.TInstr::call(func_idx, args) },
-      )
+      optimization_dead_code_elimination_rewrite_unary(args, fn(args) {
+        @lib.TInstr::call(func_idx, args)
+      })
     @lib.TSelect(type_hint, cond, if_true, if_false) =>
-      match optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
-        [if_true, if_false, cond],
-      ) {
+      match
+        optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable([
+            if_true, if_false, cond,
+          ],
+        ) {
         Some(rewritten) => rewritten
         None => @lib.TInstr::select(type_hint, cond, if_true, if_false)
       }
@@ -693,9 +710,10 @@ fn optimization_dead_code_elimination_rewrite_unary(
   children : Array[@lib.TInstr],
   rebuild : (Array[@lib.TInstr]) -> @lib.TInstr,
 ) -> @lib.TInstr {
-  match optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
-    children,
-  ) {
+  match
+    optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
+      children,
+    ) {
     Some(rewritten) => rewritten
     None => rebuild(children)
   }
@@ -728,6 +746,70 @@ fn optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
 }
 
 ///|
+fn optimization_dead_code_elimination_truncate_after_first_unreachable(
+  instrs : Array[@lib.TInstr],
+) -> Array[@lib.TInstr] {
+  let kept : Array[@lib.TInstr] = []
+  for instr in instrs {
+    kept.push(instr)
+    if optimization_dead_code_elimination_instr_terminates_current_expr(instr) {
+      break
+    }
+  }
+  kept
+}
+
+///|
+fn optimization_dead_code_elimination_instr_terminates_current_expr(
+  instr : @lib.TInstr,
+) -> Bool {
+  match instr.kind {
+    @lib.TUnreachable
+    | @lib.TReturn(_)
+    | @lib.TReturnCall(_, _)
+    | @lib.TReturnCallIndirect(_, _, _, _)
+    | @lib.TReturnCallRef(_, _, _)
+    | @lib.TThrow(_, _)
+    | @lib.TThrowRef(_)
+    | @lib.TBr(_, _)
+    | @lib.TBrTable(_, _, _, _) => true
+    @lib.TBlock(_, body) =>
+      match body.inner() {
+        [] => false
+        instrs =>
+          optimization_dead_code_elimination_instr_escapes_enclosing_expr(
+            instrs[instrs.length() - 1],
+          )
+      }
+    _ => false
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_instr_escapes_enclosing_expr(
+  instr : @lib.TInstr,
+) -> Bool {
+  match instr.kind {
+    @lib.TUnreachable
+    | @lib.TReturn(_)
+    | @lib.TReturnCall(_, _)
+    | @lib.TReturnCallIndirect(_, _, _, _)
+    | @lib.TReturnCallRef(_, _, _)
+    | @lib.TThrow(_, _)
+    | @lib.TThrowRef(_) => true
+    @lib.TBlock(_, body) =>
+      match body.inner() {
+        [] => false
+        instrs =>
+          optimization_dead_code_elimination_instr_escapes_enclosing_expr(
+            instrs[instrs.length() - 1],
+          )
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimization_dead_code_elimination_instr_is_unreachable(
   instr : @lib.TInstr,
 ) -> Bool {
@@ -744,9 +826,10 @@ fn optimization_dead_code_elimination_instr_is_unreachable(
     @lib.TBlock(_, body) =>
       match body.inner() {
         [] => false
-        instrs => optimization_dead_code_elimination_instr_is_unreachable(
-          instrs[instrs.length() - 1],
-        )
+        instrs =>
+          optimization_dead_code_elimination_instr_escapes_enclosing_expr(
+            instrs[instrs.length() - 1],
+          )
       }
     _ => false
   }

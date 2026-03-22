@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-22 Optimization: truncate DeadCodeElimination block tails
+
+- **DeadCodeElimination block-tail slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the typed DCE runner now trims `TExpr` instruction lists after the first terminating item, which removes dead code after `return`, after direct `br` within nested blocks, and after newly rewritten unreachable blocks.
+- Tightened the local DCE reachability model so nested `block` instructions only poison enclosing parents when they end in an actually escaping `unreachable` / `return` / `throw` tail, instead of treating every trailing branch as outer unreachability.
+- Expanded [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) with regressions for function-body truncation, nested-block tail truncation, rewritten-unreachable tail cleanup, and trivial `[unreachable]` block collapse.
+- Recorded the checkpoint in [`docs/0035-2026-03-22-dead-code-elimination-block-tail-truncation.md`](/home/jtenner/Projects/starshine-mb/docs/0035-2026-03-22-dead-code-elimination-block-tail-truncation.md), which narrows the remaining DCE work to live-break tracking and synchronous block type updates.
+
 ## 2026-03-22 Optimization: add generic DeadCodeElimination unreachable-child rewrites
 
 - **DeadCodeElimination non-control-flow slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the dedicated DCE runner now performs the core evaluation-order-preserving rewrite for non-control-flow typed instructions: preserve reachable prefix effects as `drop`, keep the first unreachable child, and remove later children entirely.
