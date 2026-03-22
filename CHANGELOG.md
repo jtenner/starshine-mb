@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-21 Docs: add MemoryPacking research baseline
+
+- **MemoryPacking research pass** by **@jtenner**. Added [`docs/0014-2026-03-21-memory-packing.md`](/home/jtenner/Projects/starshine-mb/docs/0014-2026-03-21-memory-packing.md) as the detailed reference for the next default optimize pipeline pass after `RemoveUnusedModuleElements`, covering current Starshine scheduler reality, upstream Binaryen `MemoryPacking` semantics, pseudocode-level rewrite flow, trap-preservation rules, GC/data-user constraints, and the Starshine-specific `DataIdx` / `DataCntSec` porting requirements needed for a faithful implementation.
+
 ## 2026-03-21 Optimization: make constant-initializer trap boundary explicit
 
 - **RemoveUnusedModuleElements constant-initializer boundary slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) with an explicit constant-initializer trap-root hook alongside the existing active-segment trap handling. The hook is intentionally a no-op today because Starshine still lacks descriptor-bearing `struct.new_desc` constant-expression support, which is the local feature work required for Binaryen-style maybe-trapping initializer rooting.
