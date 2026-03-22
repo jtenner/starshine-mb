@@ -2883,6 +2883,58 @@ fn optimization_collect_module_element_uses_in_tinstr(
           )
           skip()
         }
+        @lib.TStructSet(type_idx, field_idx, struct_ref, value) => {
+          optimization_collect_module_element_uses_in_tinstr(
+            struct_ref, features, called_ref_types, indirect_call_types_by_table,
+            subtypes, struct_subtype_children, func_type_idxs, referenced_funcs,
+            call_ref_candidate_funcs, used_funcs, func_worklist, imported_func_count,
+            defined_func_count, used_globals, referenced_globals, global_worklist,
+            referenced_global_worklist, imported_global_count, defined_global_count,
+            used_tables, observable_tables, indirect_called_tables, mutated_tables,
+            table_worklist, imported_table_count, defined_table_count, used_mems,
+            imported_mem_count, defined_mem_count, used_tags, tag_worklist, imported_tag_count,
+            defined_tag_count, used_elems, elem_worklist, used_datas, data_worklist,
+            elems, active_elem_indices_by_table, read_struct_fields, unread_struct_field_payloads,
+            read_array_contents, unread_array_payloads, unread_array_elem_payloads,
+            referenced_elems, referenced_elem_worklist,
+          )
+          let abs_type_idx = optimization_type_idx_bucket(type_idx)
+          let @lib.U32(raw_field_idx) = field_idx
+          let field = raw_field_idx.reinterpret_as_int()
+          match abs_type_idx {
+            Some(abs_idx) =>
+              if features.closed_world &&
+                features.has_gc &&
+                abs_idx >= 0 &&
+                abs_idx < unread_struct_field_payloads.length() &&
+                field >= 0 &&
+                field < unread_struct_field_payloads[abs_idx].length() &&
+                !read_struct_fields[abs_idx][field] &&
+                optimization_tinstr_can_defer_struct_payload(value) {
+                unread_struct_field_payloads[abs_idx][field].push(value)
+                optimization_collect_references_in_tinstr(
+                  value, referenced_funcs, referenced_globals, referenced_global_worklist,
+                  imported_global_count, defined_global_count,
+                )
+                return skip()
+              }
+            None => ()
+          }
+          optimization_collect_module_element_uses_in_tinstr(
+            value, features, called_ref_types, indirect_call_types_by_table, subtypes,
+            struct_subtype_children, func_type_idxs, referenced_funcs, call_ref_candidate_funcs,
+            used_funcs, func_worklist, imported_func_count, defined_func_count, used_globals,
+            referenced_globals, global_worklist, referenced_global_worklist, imported_global_count,
+            defined_global_count, used_tables, observable_tables, indirect_called_tables,
+            mutated_tables, table_worklist, imported_table_count, defined_table_count,
+            used_mems, imported_mem_count, defined_mem_count, used_tags, tag_worklist,
+            imported_tag_count, defined_tag_count, used_elems, elem_worklist, used_datas,
+            data_worklist, elems, active_elem_indices_by_table, read_struct_fields,
+            unread_struct_field_payloads, read_array_contents, unread_array_payloads,
+            unread_array_elem_payloads, referenced_elems, referenced_elem_worklist,
+          )
+          skip()
+        }
         @lib.TStructNew(type_idx, fields) => {
           let abs_type_idx = optimization_type_idx_bucket(type_idx)
           match abs_type_idx {

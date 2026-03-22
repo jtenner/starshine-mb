@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization: defer closed-world struct.set payloads in RemoveUnusedModuleElements
+
+- **RemoveUnusedModuleElements struct.set slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so closed-world mutable `struct.set` payloads now stay reference-only until a later live `struct.get` / `struct.get_s` / `struct.get_u` makes that field observable. This mirrors the earlier deferred array-writer behavior for mutable GC aggregates instead of eagerly promoting unread struct writes to used.
+- Expanded whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) with red-to-green regressions for unread and later-read `struct.set` payloads, plus nested struct-field/array payload guardrails.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining GC payload work is narrowed to future GC consumer expansion and any later reference-only carrier hardening rather than missing mutable struct-write handling.
+
 ## 2026-03-21 Optimization: propagate closed-world array.copy payloads in RemoveUnusedModuleElements
 
 - **RemoveUnusedModuleElements array.copy slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so closed-world ref-bearing `array.copy` now propagates deferred payload identity from source array types into destination array types. Unread copies stay reference-only, while a later live `array.get` / `array.get_s` / `array.get_u` on the destination flushes the copied payloads to used.
