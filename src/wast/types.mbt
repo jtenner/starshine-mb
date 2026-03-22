@@ -116,6 +116,10 @@ pub enum Opcode {
   RefI31
   I31GetS
   I31GetU
+  StructNew
+  StructNewDefault
+  StructNewDesc
+  StructNewDefaultDesc
   RefGetDesc
   RefTestDesc
   RefTestDescNull

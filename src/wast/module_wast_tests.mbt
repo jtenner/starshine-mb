@@ -52,6 +52,29 @@ test "module_to_wast preserves descriptor instruction keywords" {
 }
 
 ///|
+test "module_to_wast preserves struct allocation instruction keywords" {
+  let src =
+    #|(module
+    #|  (func
+    #|    (drop (struct.new 0))
+    #|    (drop (struct.new_default 0))
+    #|    (drop (struct.new_desc 0 (ref.null none)))
+    #|    (drop (struct.new_default_desc 0 (ref.null none)))))
+  let mod = match wast_to_module(src) {
+    Ok(m) => m
+    Err(e) => fail("unexpected parse error: \{e}")
+  }
+  let text = match module_to_wast(mod) {
+    Ok(t) => t
+    Err(e) => fail("unexpected print error: \{e}")
+  }
+  assert_true(text.contains("struct.new 0"))
+  assert_true(text.contains("struct.new_default 0"))
+  assert_true(text.contains("struct.new_desc 0"))
+  assert_true(text.contains("struct.new_default_desc 0"))
+}
+
+///|
 test "module_to_wast preserves table elem-abbreviation offsets and typed items" {
   let src =
     #|(module

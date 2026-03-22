@@ -75,7 +75,9 @@
 - `RemoveUnusedModuleElements`: generated optimize feature-source plumbing is landed; remaining closed-world/GC work is later GC payload analysis and any future CLI/config exposure for `closed_world`.
 - `MemoryPacking`: research baseline is now in `docs/0014-2026-03-21-memory-packing.md`; main implementation blockers are zero-filled-memory gating for imported memories, trap-preserving active-segment splitting, `memory.init`/`data.drop` lowering with dropped-segment state tracking, GC data-user no-split handling, and Starshine-wide `DataIdx`/`DataCntSec` remapping after segment removal or splitting.
 - GC text-surface follow-up:
-  - the core binary/lib/validator/optimizer `struct.new_desc` work is landed, but the higher-level WAST AST still does not model the full general GC type/instruction surface; if script-text authoring for descriptor-bearing struct instructions becomes a product requirement, that broader parser/AST expansion should be tracked as a separate feature instead of as an optimizer blocker.
+  - the higher-level WAST parser/printer/lowerer now models the `struct.new*` instruction family, including descriptor-bearing allocation forms.
+  - remaining feature work is general GC module/type authoring: non-func `type` forms (`struct`, later `array`), `field` storage syntax, and descriptor/describes metadata in type definitions so `wast_to_binary_module` can author descriptor-bearing GC fixtures end to end.
+  - after that type-surface work lands, add targeted WAST coverage for descriptor-bearing module fixtures instead of only parser/printer/direct-lowering instruction cases.
 
 ## Backlog Hygiene
 - Keep duplicate entries removed when pass scopes converge.

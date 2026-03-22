@@ -304,6 +304,10 @@ pub enum Instruction {
   RefNull(ValueType)
   RefIsNull
   RefFunc(Index)
+  StructNew(Index)
+  StructNewDefault(Index)
+  StructNewDesc(Index)
+  StructNewDefaultDesc(Index)
   RefGetDesc
   RefTestDesc(Bool, Index)
   RefCastDescEq(Bool, Index)
@@ -1630,6 +1634,10 @@ fn WastParser::parse_opcode_instruction(
     Throw => Throw(self.parse_index())
     ThrowRef => ThrowRef
     TryTable => self.parse_try_table_instruction(false)
+    StructNew => StructNew(self.parse_index())
+    StructNewDefault => StructNewDefault(self.parse_index())
+    StructNewDesc => StructNewDesc(self.parse_index())
+    StructNewDefaultDesc => StructNewDefaultDesc(self.parse_index())
     RefGetDesc => RefGetDesc
     RefTestDesc => RefTestDesc(false, self.parse_index())
     RefTestDescNull => RefTestDesc(true, self.parse_index())
@@ -4563,6 +4571,38 @@ test "parse ref test desc and cast desc eq" {
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
+}
+
+///|
+test "parse struct allocation instruction families" {
+  let source =
+    #|(module
+    #|  (func
+    #|    (drop (struct.new 0))
+    #|    (drop (struct.new_default 0))
+    #|    (drop (struct.new_desc 0 (ref.null none)))
+    #|    (drop (struct.new_default_desc 0 (ref.null none)))))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [FuncField(func)] =>
+      assert_eq(func.body, [
+        StructNew(Num(0U)),
+        Drop,
+        StructNewDefault(Num(0U)),
+        Drop,
+        RefNull(TypedFuncRef(HeapTypeRef::None_)),
+        StructNewDesc(Num(0U)),
+        Drop,
+        RefNull(TypedFuncRef(HeapTypeRef::None_)),
+        StructNewDefaultDesc(Num(0U)),
+        Drop,
+      ])
+    _ =>
+      fail("expected single function field in struct allocation parse fixture")
+  }
 }
 
 ///|

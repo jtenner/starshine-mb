@@ -2187,6 +2187,31 @@ fn wt_instr_to_lib(
       }
       Ok(@lib.Instruction::ref_func(@lib.FuncIdx::new(fi)))
     }
+    StructNew(idx)
+    | StructNewDefault(idx)
+    | StructNewDesc(idx)
+    | StructNewDefaultDesc(idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let type_idx = @lib.TypeIdx::new(ti)
+      match instr {
+        StructNew(_) => Ok(@lib.Instruction::struct_new(type_idx))
+        StructNewDefault(_) =>
+          Ok(@lib.Instruction::struct_new_default(type_idx))
+        StructNewDesc(_) => Ok(@lib.Instruction::struct_new_desc(type_idx))
+        StructNewDefaultDesc(_) =>
+          Ok(@lib.Instruction::struct_new_default_desc(type_idx))
+        _ => Err("internal error: unexpected struct allocation instruction")
+      }
+    }
     RefGetDesc => Ok(@lib.Instruction::ref_get_desc())
     RefTestDesc(nullable, idx) | RefCastDescEq(nullable, idx) => {
       let ti = match
@@ -4470,6 +4495,73 @@ test "wast_text_binary_roundtrip preserves descriptor instruction families" {
   assert_true(normalized.contains("ref.get_desc"))
   assert_true(normalized.contains("ref.test_desc 0"))
   assert_true(normalized.contains("ref.cast_desc_eq_null 0"))
+}
+
+///|
+test "wt_instr_to_lib lowers struct allocation instruction families" {
+  let ctx = wt_new_ctx()
+  ctx.type_recs.push(
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+  )
+  ctx.type_recs.push(
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::struct_([]),
+        metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::new(1U))),
+      ),
+    ),
+  )
+  let struct_new = match
+    wt_instr_to_lib(ctx, StructNew(Num(0U)), {}, [], wt_default_legacy_ctx()) {
+    Ok(instr) => instr
+    Err(e) => fail("expected struct.new lowering success: \{e}")
+  }
+  assert_eq(struct_new, @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)))
+  let struct_new_default = match
+    wt_instr_to_lib(
+      ctx,
+      StructNewDefault(Num(0U)),
+      {},
+      [],
+      wt_default_legacy_ctx(),
+    ) {
+    Ok(instr) => instr
+    Err(e) => fail("expected struct.new_default lowering success: \{e}")
+  }
+  assert_eq(
+    struct_new_default,
+    @lib.Instruction::struct_new_default(@lib.TypeIdx::new(0U)),
+  )
+  let struct_new_desc = match
+    wt_instr_to_lib(
+      ctx,
+      StructNewDesc(Num(1U)),
+      {},
+      [],
+      wt_default_legacy_ctx(),
+    ) {
+    Ok(instr) => instr
+    Err(e) => fail("expected struct.new_desc lowering success: \{e}")
+  }
+  assert_eq(
+    struct_new_desc,
+    @lib.Instruction::struct_new_desc(@lib.TypeIdx::new(1U)),
+  )
+  let struct_new_default_desc = match
+    wt_instr_to_lib(
+      ctx,
+      StructNewDefaultDesc(Num(1U)),
+      {},
+      [],
+      wt_default_legacy_ctx(),
+    ) {
+    Ok(instr) => instr
+    Err(e) => fail("expected struct.new_default_desc lowering success: \{e}")
+  }
+  assert_eq(
+    struct_new_default_desc,
+    @lib.Instruction::struct_new_default_desc(@lib.TypeIdx::new(1U)),
+  )
 }
 
 ///|

@@ -1357,6 +1357,17 @@ test "descriptor reference opcodes" {
 }
 
 ///|
+test "struct allocation opcodes" {
+  let lexer = make_lexer(
+    "struct.new struct.new_default struct.new_desc struct.new_default_desc",
+  )
+  assert_token_type(lexer.get_token(), Opcode(StructNew))
+  assert_token_type(lexer.get_token(), Opcode(StructNewDefault))
+  assert_token_type(lexer.get_token(), Opcode(StructNewDesc))
+  assert_token_type(lexer.get_token(), Opcode(StructNewDefaultDesc))
+}
+
+///|
 test "advanced reference and exception keyword classification paths" {
   let lexer = make_lexer(
     "ref.eq ref.as_non_null any.convert_extern extern.convert_any ref.i31 i31.get_s i31.get_u throw throw_ref try_table try do catch catch_ref catch_all catch_all_ref delegate rethrow tag",
