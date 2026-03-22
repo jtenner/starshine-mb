@@ -17,6 +17,8 @@ pub fn run_duplicate_function_elimination(@lib.Module, PipelineGlobal, PipelineF
 
 pub fn run_memory_packing(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)
 
+pub fn run_once_reduction(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)
+
 pub fn run_remove_unused_module_elements(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)
 
 // Errors

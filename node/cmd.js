@@ -652,6 +652,7 @@ function buildCliParseResult(state) {
     Boolean(state.glob_enabled),
     Boolean(state.help_requested),
     Boolean(state.version_requested),
+    Boolean(state.debug_serial_passes),
     Boolean(state.read_stdin),
     state.input_format ?? null,
     state.output_targets ?? [],

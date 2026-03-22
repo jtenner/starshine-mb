@@ -34,7 +34,10 @@ test "wast_to_binary_module lowers legacy gc reference aliases" {
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
         ),
         @lib.ValType::ref_type(
-          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+          @lib.RefType::new(
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::struct_()),
+          ),
         ),
         @lib.ValType::ref_type(
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::array())),
@@ -48,7 +51,10 @@ test "wast_to_binary_module lowers legacy gc reference aliases" {
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
         ),
         @lib.ValType::ref_type(
-          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+          @lib.RefType::new(
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::struct_()),
+          ),
         ),
         @lib.ValType::ref_type(
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::array())),

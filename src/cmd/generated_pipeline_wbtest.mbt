@@ -20,6 +20,125 @@ fn generated_pipeline_test_type_sec() -> @lib.TypeSec {
 }
 
 ///|
+fn generated_pipeline_first_four(mod : Module) -> Array[PipelineEntry] {
+  let (pipeline, truncated) = limit_generated_pipeline_by_max_passes(
+    cmd_generated_pipeline_from_flags(
+      mod,
+      ["optimize"],
+      OptimizeOptions::new(optimize_level=2),
+    ),
+    Some(4),
+  )
+  if !truncated {
+    abort("expected first-four-pass truncation to be active")
+  }
+  pipeline
+}
+
+///|
+fn generated_pipeline_raw_once_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [@lib.Instruction::return_()],
+            None,
+          ),
+          @lib.Instruction::i32_const(@lib.I32::new(1)),
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+          @lib.Instruction::nop(),
+        ]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("run"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+      ),
+    ]),
+  )
+}
+
+///|
+fn generated_pipeline_raw_memory_module() -> Module {
+  Module::new()
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32::new(100)),
+          @lib.Instruction::i32_const(@lib.I32::new(0)),
+          @lib.Instruction::i32_const(@lib.I32::new(25)),
+          @lib.Instruction::memory_init(
+            @lib.DataIdx::new(0U),
+            @lib.MemIdx::new(0U),
+          ),
+          @lib.Instruction::data_drop(@lib.DataIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+  .with_data_sec(
+    @lib.DataSec::new([
+      @lib.Data::new(
+        @lib.DataMode::passive(),
+        b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00HELLO\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+      ),
+    ]),
+  )
+  .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32::new(1U)))
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("run"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+      ),
+    ]),
+  )
+}
+
+///|
 test "run_generated_pipeline_with_options passes PipelineFeatures to module-wide entries" {
   let mut saw_has_gc = false
   let mut saw_has_multivalue = false
@@ -114,6 +233,65 @@ test "run_generated_pipeline_with_options keeps gc and multivalue disabled for p
 }
 
 ///|
+test "run_generated_pipeline_with_options pre-lifts raw funcs before any pipeline entry runs" {
+  let mod = generated_pipeline_raw_once_module()
+  let optimized = match
+    run_generated_pipeline_with_options(mod, [], OptimizeOptions::new()) {
+    Ok(v) => v
+    Err(e) => fail("expected generated pipeline success: \{e}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, _), @lib.TFunc(_, _, _)])) => ()
+    _ => fail("expected generated pipeline to pre-lift raw funcs before passes")
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options pre-lifts raw funcs before once reduction in the first four passes" {
+  let mod = generated_pipeline_raw_once_module()
+  let optimized = match
+    run_generated_pipeline_with_options(
+      mod,
+      generated_pipeline_first_four(mod),
+      OptimizeOptions::new(optimize_level=2),
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected generated pipeline success: \{e}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, _), @lib.TFunc(_, _, body)])) =>
+      match body.inner()[1].kind {
+        @lib.TNop => ()
+        _ => fail("expected second once call to be removed after pre-lift")
+      }
+    _ => fail("expected generated pipeline to pre-lift raw funcs")
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options pre-lifts raw funcs before memory packing in the first four passes" {
+  let mod = generated_pipeline_raw_memory_module()
+  let optimized = match
+    run_generated_pipeline_with_options(
+      mod,
+      generated_pipeline_first_four(mod),
+      OptimizeOptions::new(optimize_level=2),
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected generated pipeline success: \{e}")
+  }
+  match optimized.data_sec {
+    Some(@lib.DataSec([@lib.Data(@lib.Passive, bytes)])) =>
+      assert_eq(bytes, b"HELLO")
+    _ => fail("expected packed passive payload after pre-lift")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, _)])) => ()
+    _ => fail("expected generated pipeline to pre-lift raw funcs")
+  }
+}
+
+///|
 test "cmd_generated_pipeline_from_flags expands default optimize pipeline with module-derived gc and multivalue features" {
   let pipeline = cmd_generated_pipeline_from_flags(
     Module::new().with_type_sec(generated_pipeline_test_type_sec()),
@@ -128,4 +306,28 @@ test "cmd_generated_pipeline_from_flags expands default optimize pipeline with m
   }
   assert_true(passes.contains(OptimizePass::TypeRefining))
   assert_true(passes.contains(OptimizePass::TupleOptimization))
+}
+
+///|
+test "cmd_generated_pipeline_from_flags includes explicit no-dwarf prepasses on the generated path" {
+  let pipeline = cmd_generated_pipeline_from_flags(
+    Module::new(),
+    [
+      "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
+      "once-reduction",
+    ],
+    OptimizeOptions::new(optimize_level=2),
+  )
+  let passes : Array[OptimizePass] = []
+  for entry in pipeline {
+    for pass in entry.passes {
+      passes.push(pass)
+    }
+  }
+  assert_eq(passes, [
+    OptimizePass::DuplicateFunctionElimination,
+    OptimizePass::RemoveUnusedModuleElements,
+    OptimizePass::MemoryPacking,
+    OptimizePass::OnceReduction,
+  ])
 }

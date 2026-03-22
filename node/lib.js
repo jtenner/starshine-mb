@@ -1338,6 +1338,44 @@ export const Func = Object.freeze({
   },
 });
 
+export const FuncAnnotation = Object.freeze({
+  new(arg0, arg1) {
+    const provided = countProvidedArgs(arguments);
+    switch (provided) {
+      case 1:
+        return liftValue({ kind: "named", brand: "lib.FuncAnnotation", showExport: "__js_show_lib_FuncAnnotation" }, wasm["lib__FuncAnnotation__new__arity_1"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
+      case 2:
+        return liftValue({ kind: "named", brand: "lib.FuncAnnotation", showExport: "__js_show_lib_FuncAnnotation" }, wasm["lib__FuncAnnotation__new"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_1_new","push":"__js_array_1_push","length":"__js_array_1_length","get":"__js_array_1_get"}, item: { kind: "string" } }, arg1, wasm)), wasm);
+      default:
+        throw new TypeError("Invalid argument count for lib.FuncAnnotation.new.");
+    }
+  },
+  show(value) {
+    return wasm["__js_show_lib_FuncAnnotation"](value);
+  },
+});
+
+export const FuncAnnotationAssoc = Object.freeze({
+  new(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.FuncAnnotationAssoc", showExport: "__js_show_lib_FuncAnnotationAssoc" }, wasm["lib__FuncAnnotationAssoc__new"](lowerValue({ kind: "number" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_38_new","push":"__js_array_38_push","length":"__js_array_38_length","get":"__js_array_38_get"}, item: { kind: "named", brand: "lib.FuncAnnotation", showExport: "__js_show_lib_FuncAnnotation" } }, arg1, wasm)), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_lib_FuncAnnotationAssoc"](value);
+  },
+});
+
+export const FuncAnnotationSec = Object.freeze({
+  inner(arg0) {
+    return liftValue({ kind: "array", helper: {"new":"__js_array_39_new","push":"__js_array_39_push","length":"__js_array_39_length","get":"__js_array_39_get"}, item: { kind: "named", brand: "lib.FuncAnnotationAssoc", showExport: "__js_show_lib_FuncAnnotationAssoc" } }, wasm["lib__FuncAnnotationSec__inner"](lowerValue({ kind: "named", brand: "lib.FuncAnnotationSec", showExport: "__js_show_lib_FuncAnnotationSec" }, arg0, wasm)), wasm);
+  },
+  new(arg0) {
+    return liftValue({ kind: "named", brand: "lib.FuncAnnotationSec", showExport: "__js_show_lib_FuncAnnotationSec" }, wasm["lib__FuncAnnotationSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_39_new","push":"__js_array_39_push","length":"__js_array_39_length","get":"__js_array_39_get"}, item: { kind: "named", brand: "lib.FuncAnnotationAssoc", showExport: "__js_show_lib_FuncAnnotationAssoc" } }, arg0, wasm)), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_lib_FuncAnnotationSec"](value);
+  },
+});
+
 export const FuncIdx = Object.freeze({
   inner(arg0) {
     return liftValue({ kind: "number" }, wasm["lib__FuncIdx__inner"](lowerValue({ kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" }, arg0, wasm)), wasm);
@@ -3386,9 +3424,54 @@ export const MemType = Object.freeze({
   },
 });
 
+function canLowerFuncAnnotationSec(value) {
+  if (value == null) {
+    return true;
+  }
+  try {
+    wasm["__js_show_lib_FuncAnnotationSec"](value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const Module = Object.freeze({
-  new(customSecs, typeSec, importSec, funcSec, tableSec, memSec, tagSec, globalSec, exportSec, startSec, elemSec, dataCntSec, codeSec, dataSec) {
+  new(customSecs, typeSec, importSec, funcAnnotationSecOrFuncSec, funcSecOrTableSec, tableSecOrMemSec, memSecOrTagSec, tagSecOrGlobalSec, globalSecOrExportSec, exportSecOrStartSec, startSecOrElemSec, elemSecOrDataCntSec, dataCntSecOrCodeSec, codeSecOrDataSec, dataSec) {
     const provided = countProvidedArgs(arguments);
+    if (provided >= 4) {
+      const funcAnnotationSec = funcAnnotationSecOrFuncSec;
+      if (canLowerFuncAnnotationSec(funcAnnotationSec)) {
+        const mod = Module.new(
+          customSecs,
+          typeSec,
+          importSec,
+          funcSecOrTableSec,
+          tableSecOrMemSec,
+          memSecOrTagSec,
+          tagSecOrGlobalSec,
+          globalSecOrExportSec,
+          exportSecOrStartSec,
+          startSecOrElemSec,
+          elemSecOrDataCntSec,
+          dataCntSecOrCodeSec,
+          codeSecOrDataSec,
+          dataSec,
+        );
+        return funcAnnotationSec == null ? mod : Module.withFuncAnnotationSec(mod, funcAnnotationSec);
+      }
+    }
+    const funcSec = funcAnnotationSecOrFuncSec;
+    const tableSec = funcSecOrTableSec;
+    const memSec = tableSecOrMemSec;
+    const tagSec = memSecOrTagSec;
+    const globalSec = tagSecOrGlobalSec;
+    const exportSec = globalSecOrExportSec;
+    const startSec = exportSecOrStartSec;
+    const elemSec = startSecOrElemSec;
+    const dataCntSec = elemSecOrDataCntSec;
+    const codeSec = dataCntSecOrCodeSec;
+    const dataSecLegacy = codeSecOrDataSec;
     switch (provided) {
       case 0:
         return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_0"](), wasm);
@@ -3419,7 +3502,7 @@ export const Module = Object.freeze({
       case 13:
         return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_13"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_25_none","some":"__js_option_25_some","isSome":"__js_option_25_is_some","unwrap":"__js_option_25_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } }, tableSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_26_none","some":"__js_option_26_some","isSome":"__js_option_26_is_some","unwrap":"__js_option_26_unwrap"}, item: { kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" } }, memSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_27_none","some":"__js_option_27_some","isSome":"__js_option_27_is_some","unwrap":"__js_option_27_unwrap"}, item: { kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" } }, tagSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" } }, globalSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_29_none","some":"__js_option_29_some","isSome":"__js_option_29_is_some","unwrap":"__js_option_29_unwrap"}, item: { kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" } }, exportSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_30_none","some":"__js_option_30_some","isSome":"__js_option_30_is_some","unwrap":"__js_option_30_unwrap"}, item: { kind: "named", brand: "lib.StartSec", showExport: "__js_show_lib_StartSec" } }, startSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.ElemSec", showExport: "__js_show_lib_ElemSec" } }, elemSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_32_none","some":"__js_option_32_some","isSome":"__js_option_32_is_some","unwrap":"__js_option_32_unwrap"}, item: { kind: "named", brand: "lib.DataCntSec", showExport: "__js_show_lib_DataCntSec" } }, dataCntSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_33_none","some":"__js_option_33_some","isSome":"__js_option_33_is_some","unwrap":"__js_option_33_unwrap"}, item: { kind: "named", brand: "lib.CodeSec", showExport: "__js_show_lib_CodeSec" } }, codeSec, wasm)), wasm);
       case 14:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_25_none","some":"__js_option_25_some","isSome":"__js_option_25_is_some","unwrap":"__js_option_25_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } }, tableSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_26_none","some":"__js_option_26_some","isSome":"__js_option_26_is_some","unwrap":"__js_option_26_unwrap"}, item: { kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" } }, memSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_27_none","some":"__js_option_27_some","isSome":"__js_option_27_is_some","unwrap":"__js_option_27_unwrap"}, item: { kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" } }, tagSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" } }, globalSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_29_none","some":"__js_option_29_some","isSome":"__js_option_29_is_some","unwrap":"__js_option_29_unwrap"}, item: { kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" } }, exportSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_30_none","some":"__js_option_30_some","isSome":"__js_option_30_is_some","unwrap":"__js_option_30_unwrap"}, item: { kind: "named", brand: "lib.StartSec", showExport: "__js_show_lib_StartSec" } }, startSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.ElemSec", showExport: "__js_show_lib_ElemSec" } }, elemSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_32_none","some":"__js_option_32_some","isSome":"__js_option_32_is_some","unwrap":"__js_option_32_unwrap"}, item: { kind: "named", brand: "lib.DataCntSec", showExport: "__js_show_lib_DataCntSec" } }, dataCntSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_33_none","some":"__js_option_33_some","isSome":"__js_option_33_is_some","unwrap":"__js_option_33_unwrap"}, item: { kind: "named", brand: "lib.CodeSec", showExport: "__js_show_lib_CodeSec" } }, codeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_34_none","some":"__js_option_34_some","isSome":"__js_option_34_is_some","unwrap":"__js_option_34_unwrap"}, item: { kind: "named", brand: "lib.DataSec", showExport: "__js_show_lib_DataSec" } }, dataSec, wasm)), wasm);
+        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_25_none","some":"__js_option_25_some","isSome":"__js_option_25_is_some","unwrap":"__js_option_25_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } }, tableSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_26_none","some":"__js_option_26_some","isSome":"__js_option_26_is_some","unwrap":"__js_option_26_unwrap"}, item: { kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" } }, memSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_27_none","some":"__js_option_27_some","isSome":"__js_option_27_is_some","unwrap":"__js_option_27_unwrap"}, item: { kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" } }, tagSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" } }, globalSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_29_none","some":"__js_option_29_some","isSome":"__js_option_29_is_some","unwrap":"__js_option_29_unwrap"}, item: { kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" } }, exportSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_30_none","some":"__js_option_30_some","isSome":"__js_option_30_is_some","unwrap":"__js_option_30_unwrap"}, item: { kind: "named", brand: "lib.StartSec", showExport: "__js_show_lib_StartSec" } }, startSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.ElemSec", showExport: "__js_show_lib_ElemSec" } }, elemSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_32_none","some":"__js_option_32_some","isSome":"__js_option_32_is_some","unwrap":"__js_option_32_unwrap"}, item: { kind: "named", brand: "lib.DataCntSec", showExport: "__js_show_lib_DataCntSec" } }, dataCntSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_33_none","some":"__js_option_33_some","isSome":"__js_option_33_is_some","unwrap":"__js_option_33_unwrap"}, item: { kind: "named", brand: "lib.CodeSec", showExport: "__js_show_lib_CodeSec" } }, codeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_34_none","some":"__js_option_34_some","isSome":"__js_option_34_is_some","unwrap":"__js_option_34_unwrap"}, item: { kind: "named", brand: "lib.DataSec", showExport: "__js_show_lib_DataSec" } }, dataSecLegacy, wasm)), wasm);
       default:
         throw new TypeError("Invalid argument count for lib.Module.new.");
     }
@@ -3447,6 +3530,9 @@ export const Module = Object.freeze({
   },
   withExportSec(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_export_sec"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" }, arg1, wasm)), wasm);
+  },
+  withFuncAnnotationSec(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_func_annotation_sec"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.FuncAnnotationSec", showExport: "__js_show_lib_FuncAnnotationSec" }, arg1, wasm)), wasm);
   },
   withFuncSec(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_func_sec"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" }, arg1, wasm)), wasm);

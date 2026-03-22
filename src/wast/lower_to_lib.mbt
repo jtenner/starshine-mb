@@ -192,6 +192,17 @@ fn wt_limits(lim : Limits) -> @lib.Limits {
 }
 
 ///|
+fn wt_func_annotations(
+  annotations : Array[Annotation],
+) -> Array[@lib.FuncAnnotation] {
+  let lowered : Array[@lib.FuncAnnotation] = []
+  for ann in annotations {
+    lowered.push(@lib.FuncAnnotation::new(ann.name, args=ann.args))
+  }
+  lowered
+}
+
+///|
 fn wt_align_pow_from_text_align(align : UInt64) -> Result[UInt, String] {
   if align == 0UL {
     return Err("alignment must be a positive power of two")
@@ -2404,7 +2415,8 @@ fn wt_instr_to_lib(
       let type_idx = @lib.TypeIdx::new(ti)
       let lib_field_idx = @lib.U32(field_idx)
       match instr {
-        StructGet(_, _) => Ok(@lib.Instruction::struct_get(type_idx, lib_field_idx))
+        StructGet(_, _) =>
+          Ok(@lib.Instruction::struct_get(type_idx, lib_field_idx))
         StructGetS(_, _) =>
           Ok(@lib.Instruction::struct_get_s(type_idx, lib_field_idx))
         StructGetU(_, _) =>
@@ -2856,6 +2868,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
   }
 
   let imports : Array[@lib.Import] = []
+  let func_annotation_entries : Array[@lib.FuncAnnotationAssoc] = []
   let func_defs : Array[(Func, UInt)] = []
   let table_defs_raw : Array[Table] = []
   let mem_defs_raw : Array[Memory] = []
@@ -2875,6 +2888,14 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
             let ti = match wt_resolve_type_use(ctx, type_use) {
               Ok(v) => v
               Err(e) => return Err(e)
+            }
+            if im.annotations.length() > 0 {
+              func_annotation_entries.push(
+                @lib.FuncAnnotationAssoc::new(
+                  ctx.next_func_idx,
+                  wt_func_annotations(im.annotations),
+                ),
+              )
             }
             imports.push(
               @lib.Import::new(
@@ -2968,6 +2989,14 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
         }
       FuncField(f) => {
         let func_idx = ctx.next_func_idx
+        if f.annotations.length() > 0 {
+          func_annotation_entries.push(
+            @lib.FuncAnnotationAssoc::new(
+              func_idx,
+              wt_func_annotations(f.annotations),
+            ),
+          )
+        }
         for inline_export in f.exports {
           match inline_export {
             Export(name) =>
@@ -3444,6 +3473,11 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
   }
   if imports.length() > 0 {
     out = out.with_import_sec(@lib.ImportSec::new(imports))
+  }
+  if func_annotation_entries.length() > 0 {
+    out = out.with_func_annotation_sec(
+      @lib.FuncAnnotationSec::new(func_annotation_entries),
+    )
   }
   if func_type_idxs.length() > 0 {
     out = out.with_func_sec(@lib.FuncSec::new(func_type_idxs))
@@ -5218,6 +5252,111 @@ test "wast_to_binary_module supports imported funcs exported via explicit export
     }
     _ =>
       fail("expected lowered export section for explicit import+export fixture")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers function annotations for imports and defs" {
+  let src =
+    #|(module
+    #|  (type $t (func))
+    #|  (@binaryen.js.called)
+    #|  (import "env" "imp" (func $imp (type $t)))
+    #|  (@binaryen.idempotent)
+    #|  (@metadata.code.inline "\00")
+    #|  (func $f (type $t)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected function annotation lowering success: \{e}")
+  }
+  match lowered.func_annotation_sec {
+    Some(
+      @lib.FuncAnnotationSec(
+        [
+          @lib.FuncAnnotationAssoc(0U, import_annotations),
+          @lib.FuncAnnotationAssoc(1U, func_annotations),
+        ]
+      )
+    ) => {
+      assert_eq(import_annotations, [
+        @lib.FuncAnnotation::new("binaryen.js.called"),
+      ])
+      assert_eq(func_annotations, [
+        @lib.FuncAnnotation::new("binaryen.idempotent"),
+        @lib.FuncAnnotation::new("metadata.code.inline", args=["\"\\00\""]),
+      ])
+    }
+    _ => fail("expected lowered function annotation section")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers legacy gc reference aliases" {
+  let src =
+    #|(module
+    #|  (table 1 anyref)
+    #|  (func
+    #|    (param anyref eqref i31ref structref arrayref nullref)
+    #|    (result anyref structref arrayref nullref)
+    #|    (ref.null struct)
+    #|    (ref.null array)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected legacy alias lowering success: \{e}")
+  }
+  match lowered.table_sec {
+    Some(@lib.TableSec([@lib.Table(@lib.TableType(elem_type, _), _)])) =>
+      assert_eq(
+        elem_type,
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+      )
+    _ => fail("expected lowered table section")
+  }
+  let env = @validate.Env::new().with_module(lowered)
+  match env.resolve_functype(@lib.TypeIdx::new(0U)) {
+    Some(@lib.FuncType(params, results)) => {
+      assert_eq(params, [
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::struct_()),
+          ),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::array())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::none())),
+        ),
+      ])
+      assert_eq(results, [
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::struct_()),
+          ),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::array())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::none())),
+        ),
+      ])
+    }
+    _ => fail("expected lowered function type")
   }
 }
 

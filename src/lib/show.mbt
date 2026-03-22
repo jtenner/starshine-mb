@@ -2313,12 +2313,49 @@ pub impl Show for DataSec with output(self, logger) {
 }
 
 ///|
+pub impl Show for FuncAnnotation with output(self, logger) {
+  logger.write_string("FuncAnnotation(name=")
+  logger.write_string(self.name)
+  logger.write_string(", args=")
+  self.args.output(logger)
+  logger.write_char(')')
+}
+
+///|
+pub impl Show for FuncAnnotationAssoc with output(self, logger) {
+  let FuncAnnotationAssoc(idx, annotations) = self
+  logger.write_string("FuncAnnotationAssoc(")
+  idx.output(logger)
+  logger.write_string(", ")
+  annotations.output(logger)
+  logger.write_char(')')
+}
+
+///|
+pub impl Show for FuncAnnotationSec with output(self, logger) {
+  let FuncAnnotationSec(entries) = self
+  logger.write_string("[FuncAnnotationSec")
+  if entries.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(": \n")
+  for entry in entries {
+    logger.write_string("  - ")
+    entry.output(logger)
+    logger.write_char('\n')
+  }
+  logger.write_char(']')
+}
+
+///|
 pub impl Show for Module with output(self, logger) {
   let {
     custom_secs: customs,
     name_sec,
     type_sec,
     import_sec,
+    func_annotation_sec,
     func_sec,
     table_sec,
     mem_sec,
@@ -2343,6 +2380,9 @@ pub impl Show for Module with output(self, logger) {
   logger.write_char('\n')
   logger.write_string("import_sec: ")
   import_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("func_annotation_sec: ")
+  func_annotation_sec.output(logger)
   logger.write_char('\n')
   logger.write_string("func_sec: ")
   func_sec.output(logger)

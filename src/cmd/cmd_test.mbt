@@ -163,6 +163,93 @@ fn fixture_duplicate_function_module() -> Module {
 }
 
 ///|
+fn fixture_raw_once_reduction_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [@lib.Instruction::return_()],
+            None,
+          ),
+          @lib.Instruction::i32_const(@lib.I32::new(1)),
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+          @lib.Instruction::nop(),
+        ]),
+      ),
+      Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn fixture_raw_memory_packing_module() -> Module {
+  Module::new()
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32::new(100)),
+          @lib.Instruction::i32_const(@lib.I32::new(0)),
+          @lib.Instruction::i32_const(@lib.I32::new(25)),
+          @lib.Instruction::memory_init(
+            @lib.DataIdx::new(0U),
+            @lib.MemIdx::new(0U),
+          ),
+          @lib.Instruction::data_drop(@lib.DataIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+  .with_data_sec(
+    @lib.DataSec::new([
+      @lib.Data::new(
+        @lib.DataMode::passive(),
+        b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00HELLO\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+      ),
+    ]),
+  )
+  .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32::new(1U)))
+}
+
+///|
 fn assert_duplicate_fixture_deduped(bytes : Bytes) -> Unit raise Error {
   let mod = decode_module_bytes(bytes)
   match mod.func_sec {
@@ -172,6 +259,28 @@ fn assert_duplicate_fixture_deduped(bytes : Bytes) -> Unit raise Error {
   match mod.code_sec {
     Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
     None => fail("expected code section after optimization")
+  }
+}
+
+///|
+fn assert_raw_once_fixture_reduced(bytes : Bytes) -> Unit raise Error {
+  let mod = decode_module_bytes(bytes)
+  match mod.code_sec {
+    Some(CodeSec([_, Func(_, @lib.Expr(instrs))])) => {
+      assert_eq(instrs[0], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
+      assert_eq(instrs[1], @lib.Instruction::nop())
+    }
+    _ => fail("expected reduced raw once fixture")
+  }
+}
+
+///|
+fn assert_raw_memory_fixture_packed(bytes : Bytes) -> Unit raise Error {
+  let mod = decode_module_bytes(bytes)
+  match mod.data_sec {
+    Some(@lib.DataSec([@lib.Data(@lib.Passive, data)])) =>
+      assert_eq(data, b"HELLO")
+    _ => fail("expected packed passive data payload")
   }
 }
 
@@ -431,6 +540,70 @@ test "run_cmd_with_adapter applies duplicate-function-elimination to wasm inputs
   assert_eq(writes.length(), 1)
   assert_eq(writes[0].0, "out.wasm")
   try! assert_duplicate_fixture_deduped(writes[0].1)
+}
+
+///|
+test "run_cmd_with_adapter applies once-reduction to wasm inputs" {
+  let wasm = encode_module_bytes(fixture_raw_once_reduction_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["once.wasm"] },
+    file_exists=fn(path) { path == "once.wasm" },
+    read_file=fn(path) {
+      if path == "once.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--once-reduction", "--out", "out.wasm", "once.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["once-reduction"])
+  assert_eq(writes.length(), 1)
+  try! assert_raw_once_fixture_reduced(writes[0].1)
+}
+
+///|
+test "run_cmd_with_adapter applies memory-packing to wasm inputs" {
+  let wasm = encode_module_bytes(fixture_raw_memory_packing_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["memory.wasm"] },
+    file_exists=fn(path) { path == "memory.wasm" },
+    read_file=fn(path) {
+      if path == "memory.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--memory-packing", "--out", "out.wasm", "memory.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["memory-packing"])
+  assert_eq(writes.length(), 1)
+  try! assert_raw_memory_fixture_packed(writes[0].1)
 }
 
 ///|

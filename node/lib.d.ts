@@ -31,6 +31,9 @@ export type F32 = OpaqueHandle<"lib.F32">;
 export type F64 = OpaqueHandle<"lib.F64">;
 export type FieldType = OpaqueHandle<"lib.FieldType">;
 export type Func = OpaqueHandle<"lib.Func">;
+export type FuncAnnotation = OpaqueHandle<"lib.FuncAnnotation">;
+export type FuncAnnotationAssoc = OpaqueHandle<"lib.FuncAnnotationAssoc">;
+export type FuncAnnotationSec = OpaqueHandle<"lib.FuncAnnotationSec">;
 export type FuncIdx = OpaqueHandle<"lib.FuncIdx">;
 export type FuncSec = OpaqueHandle<"lib.FuncSec">;
 export type FuncType = OpaqueHandle<"lib.FuncType">;
@@ -590,6 +593,22 @@ export const Func: {
   new(arg0: Locals, arg1: Expr): Func;
   tFunc(arg0: Array<ValType>, arg1: Locals, arg2: TExpr): Func;
   show(value: Func): string;
+};
+
+export const FuncAnnotation: {
+  new(arg0: string, arg1?: Array<string>): FuncAnnotation;
+  show(value: FuncAnnotation): string;
+};
+
+export const FuncAnnotationAssoc: {
+  new(arg0: number, arg1: Array<FuncAnnotation>): FuncAnnotationAssoc;
+  show(value: FuncAnnotationAssoc): string;
+};
+
+export const FuncAnnotationSec: {
+  inner(arg0: FuncAnnotationSec): Array<FuncAnnotationAssoc>;
+  new(arg0: Array<FuncAnnotationAssoc>): FuncAnnotationSec;
+  show(value: FuncAnnotationSec): string;
 };
 
 export const FuncIdx: {
@@ -1325,7 +1344,7 @@ export const MemType: {
 };
 
 export const Module: {
-  new(customSecs?: Array<CustomSec>, typeSec?: TypeSec | null, importSec?: ImportSec | null, funcSec?: FuncSec | null, tableSec?: TableSec | null, memSec?: MemSec | null, tagSec?: TagSec | null, globalSec?: GlobalSec | null, exportSec?: ExportSec | null, startSec?: StartSec | null, elemSec?: ElemSec | null, dataCntSec?: DataCntSec | null, codeSec?: CodeSec | null, dataSec?: DataSec | null): Module;
+  new(customSecs?: Array<CustomSec>, typeSec?: TypeSec | null, importSec?: ImportSec | null, funcAnnotationSec?: FuncAnnotationSec | null, funcSec?: FuncSec | null, tableSec?: TableSec | null, memSec?: MemSec | null, tagSec?: TagSec | null, globalSec?: GlobalSec | null, exportSec?: ExportSec | null, startSec?: StartSec | null, elemSec?: ElemSec | null, dataCntSec?: DataCntSec | null, codeSec?: CodeSec | null, dataSec?: DataSec | null): Module;
   prettyPrintDefinedFunc(arg0: Module, arg1: number): string;
   prettyPrintFunc(arg0: Module, arg1: FuncIdx): string;
   withCodeSec(arg0: Module, arg1: CodeSec): Module;
@@ -1334,6 +1353,7 @@ export const Module: {
   withDataSec(arg0: Module, arg1: DataSec): Module;
   withElemSec(arg0: Module, arg1: ElemSec): Module;
   withExportSec(arg0: Module, arg1: ExportSec): Module;
+  withFuncAnnotationSec(arg0: Module, arg1: FuncAnnotationSec): Module;
   withFuncSec(arg0: Module, arg1: FuncSec): Module;
   withGlobalSec(arg0: Module, arg1: GlobalSec): Module;
   withImportSec(arg0: Module, arg1: ImportSec): Module;

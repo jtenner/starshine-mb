@@ -331,11 +331,28 @@ pub fn NameSec::new(
 }
 
 ///|
+pub struct FuncAnnotation {
+  name : String
+  args : Array[String]
+} derive(Eq, Hash, Debug)
+
+///|
+pub struct FuncAnnotationAssoc(UInt, Array[FuncAnnotation]) derive (
+  Eq,
+  Hash,
+  Debug,
+)
+
+///|
+pub struct FuncAnnotationSec(Array[FuncAnnotationAssoc]) derive(Eq, Hash, Debug)
+
+///|
 pub struct Module {
   custom_secs : Array[CustomSec]
   name_sec : NameSec?
   type_sec : TypeSec?
   import_sec : ImportSec?
+  func_annotation_sec : FuncAnnotationSec?
   func_sec : FuncSec?
   table_sec : TableSec?
   mem_sec : MemSec?
@@ -354,6 +371,7 @@ pub fn Module::new(
   custom_secs? : Array[CustomSec] = [],
   type_sec? : TypeSec? = None,
   import_sec? : ImportSec? = None,
+  func_annotation_sec? : FuncAnnotationSec? = None,
   func_sec? : FuncSec? = None,
   table_sec? : TableSec? = None,
   mem_sec? : MemSec? = None,
@@ -372,6 +390,7 @@ pub fn Module::new(
     name_sec,
     type_sec,
     import_sec,
+    func_annotation_sec,
     func_sec,
     table_sec,
     mem_sec,
@@ -8597,6 +8616,29 @@ pub fn CustomSec::new(name : Name, payload : Bytes) -> CustomSec {
 ///|
 pub fn ImportSec::new(imports : Array[Import]) -> ImportSec {
   ImportSec(imports)
+}
+
+///|
+pub fn FuncAnnotation::new(
+  name : String,
+  args? : Array[String] = [],
+) -> FuncAnnotation {
+  { name, args }
+}
+
+///|
+pub fn FuncAnnotationAssoc::new(
+  idx : UInt,
+  annotations : Array[FuncAnnotation],
+) -> FuncAnnotationAssoc {
+  FuncAnnotationAssoc(idx, annotations)
+}
+
+///|
+pub fn FuncAnnotationSec::new(
+  entries : Array[FuncAnnotationAssoc],
+) -> FuncAnnotationSec {
+  FuncAnnotationSec(entries)
 }
 
 ///|

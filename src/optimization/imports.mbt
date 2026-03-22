@@ -9,7 +9,6 @@ using @lib {
   type Elem,
   type ElemIdx,
   type ElemSec,
-  type ExternType,
   type Func,
   type FuncIdx,
   type FuncSec,

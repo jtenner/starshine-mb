@@ -1664,6 +1664,24 @@ fn cmd_generated_pipeline_from_flags(
           OptimizePass::DuplicateFunctionElimination,
           validation_kind=validation,
         )
+      "remove-unused-module-elements" =>
+        add_pass_to_pipeline(
+          pipeline,
+          OptimizePass::RemoveUnusedModuleElements,
+          validation_kind=validation,
+        )
+      "memory-packing" =>
+        add_pass_to_pipeline(
+          pipeline,
+          OptimizePass::MemoryPacking,
+          validation_kind=validation,
+        )
+      "once-reduction" =>
+        add_pass_to_pipeline(
+          pipeline,
+          OptimizePass::OnceReduction,
+          validation_kind=validation,
+        )
       _ => ()
     }
   }
@@ -1677,6 +1695,80 @@ fn cmd_generated_pipeline_pass_count(pipeline : Array[PipelineEntry]) -> Int {
     count += entry.passes.length()
   }
   count
+}
+
+///|
+fn cmd_generated_pipeline_all_locals(
+  params : Array[@lib.ValType],
+  local_decls : @lib.Locals,
+) -> @lib.Locals {
+  let all = @lib.Locals::from_types(params)
+  all.append(local_decls)
+  all
+}
+
+///|
+fn cmd_generated_pipeline_type_lift_func(
+  env : Env,
+  type_idx : @lib.TypeIdx,
+  func : @lib.Func,
+  defined_idx : Int,
+) -> Result[@lib.Func, String] {
+  match func {
+    @lib.TFunc(_, _, _) => Ok(func)
+    @lib.Func(local_decls, expr) =>
+      match env.resolve_functype(type_idx) {
+        Some(@lib.FuncType(params, results)) => {
+          let func_env = env
+            .with_locals(cmd_generated_pipeline_all_locals(params, local_decls))
+            .with_labels([results])
+            .with_return_type(Some(results))
+          match to_texpr(expr, func_env) {
+            Ok(texpr) => Ok(@lib.Func::t_func(params, local_decls, texpr))
+            Err(err) => Err("function[\{defined_idx}] pre-lift failed: \{err}")
+          }
+        }
+        None => Err("function[\{defined_idx}] has unresolved type index")
+      }
+  }
+}
+
+///|
+fn cmd_generated_pipeline_type_lift_module(
+  mod : Module,
+) -> Result[Module, String] {
+  match (mod.func_sec, mod.code_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) =>
+      if type_idxs.length() != funcs.length() {
+        Err("generated pipeline pre-lift requires matching func/code lengths")
+      } else {
+        let env = Env::new().with_module(mod)
+        let rewritten : Array[@lib.Func] = []
+        let mut changed = false
+        for i in 0..<funcs.length() {
+          let next = match
+            cmd_generated_pipeline_type_lift_func(
+              env,
+              type_idxs[i],
+              funcs[i],
+              i,
+            ) {
+            Ok(func) => func
+            Err(err) => return Err(err)
+          }
+          if next != funcs[i] {
+            changed = true
+          }
+          rewritten.push(next)
+        }
+        if changed {
+          Ok(mod.with_code_sec(@lib.CodeSec::new(rewritten)))
+        } else {
+          Ok(mod)
+        }
+      }
+    _ => Ok(mod)
+  }
 }
 
 ///|
@@ -1752,7 +1844,12 @@ fn expand_legacy_passes_for_module(
   let filtered : Array[String] = []
   for flag in pass_flags {
     match flag {
-      "optimize" | "shrink" | "duplicate-function-elimination" => ()
+      "optimize"
+      | "shrink"
+      | "duplicate-function-elimination"
+      | "remove-unused-module-elements"
+      | "memory-packing"
+      | "once-reduction" => ()
       _ => filtered.push(flag)
     }
   }
@@ -1773,9 +1870,12 @@ fn run_generated_pipeline_with_options(
   pipeline : Array[PipelineEntry],
   options : OptimizeOptions,
 ) -> Result[Module, String] {
-  let mut current = mod
+  let mut current = match cmd_generated_pipeline_type_lift_module(mod) {
+    Ok(v) => v
+    Err(err) => return Err("pipeline pre-lift failed: \{err}")
+  }
   let mut global = cmd_generated_pipeline_global(options)
-  let features = cmd_generated_pipeline_features(mod, options)
+  let features = cmd_generated_pipeline_features(current, options)
   for entry in pipeline {
     match entry.group.kind() {
       Early(func) => {
@@ -1831,9 +1931,12 @@ fn run_generated_pipeline_with_options_trace(
   trace_level? : OptimizeTracingLevel = OptimizeTracingLevel::pass(),
 ) -> Result[Module, String] {
   let _ = trace_level
-  let mut current = mod
+  let mut current = match cmd_generated_pipeline_type_lift_module(mod) {
+    Ok(v) => v
+    Err(err) => return Err("pipeline pre-lift failed: \{err}")
+  }
   let mut global = cmd_generated_pipeline_global(options)
-  let features = cmd_generated_pipeline_features(mod, options)
+  let features = cmd_generated_pipeline_features(current, options)
   for entry in pipeline {
     trace(
       "generated group start: \{cmd_generated_pipeline_entry_trace_text(entry)}",
@@ -2143,7 +2246,7 @@ fn explicit_pass_entries() -> Array[(String, String, ModulePass)] {
     ),
     (
       "once-reduction",
-      "Collapse operations used once into direct forms.",
+      "Remove redundant direct calls to provably run-once functions.",
       ModulePass::OnceReduction,
     ),
     (

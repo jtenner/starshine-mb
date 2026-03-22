@@ -991,6 +991,32 @@ pub impl Show for Func
 pub impl @debug.Debug for Func
 pub impl @quickcheck.Arbitrary for Func
 
+pub struct FuncAnnotation {
+  name : String
+  args : Array[String]
+}
+pub fn FuncAnnotation::new(String, args? : Array[String]) -> Self
+pub impl Eq for FuncAnnotation
+pub impl Hash for FuncAnnotation
+pub impl Show for FuncAnnotation
+pub impl @debug.Debug for FuncAnnotation
+
+pub struct FuncAnnotationAssoc(UInt, Array[FuncAnnotation])
+pub fn FuncAnnotationAssoc::new(UInt, Array[FuncAnnotation]) -> Self
+pub impl Eq for FuncAnnotationAssoc
+pub impl Hash for FuncAnnotationAssoc
+pub impl Show for FuncAnnotationAssoc
+pub impl @debug.Debug for FuncAnnotationAssoc
+
+pub struct FuncAnnotationSec(Array[FuncAnnotationAssoc])
+#deprecated
+pub fn FuncAnnotationSec::inner(Self) -> Array[FuncAnnotationAssoc]
+pub fn FuncAnnotationSec::new(Array[FuncAnnotationAssoc]) -> Self
+pub impl Eq for FuncAnnotationSec
+pub impl Hash for FuncAnnotationSec
+pub impl Show for FuncAnnotationSec
+pub impl @debug.Debug for FuncAnnotationSec
+
 pub struct FuncIdx(UInt)
 #deprecated
 pub fn FuncIdx::inner(Self) -> UInt
@@ -2142,6 +2168,7 @@ pub fn Instruction::ref_get_desc(TypeIdx) -> Self
 pub fn Instruction::ref_i31() -> Self
 pub fn Instruction::ref_is_null() -> Self
 pub fn Instruction::ref_null(HeapType) -> Self
+pub fn Instruction::ref_null_type(RefType) -> Self
 pub fn Instruction::ref_test(Bool, HeapType) -> Self
 pub fn Instruction::ref_test_desc(Bool, HeapType) -> Self
 pub fn Instruction::return_() -> Self
@@ -2168,7 +2195,6 @@ pub fn Instruction::throw_(TagIdx) -> Self
 pub fn Instruction::throw_ref() -> Self
 pub fn Instruction::try_table(BlockType, Array[Catch], Expr) -> Self
 pub fn Instruction::unreachable_() -> Self
-pub fn Instruction::ref_null_type(RefType) -> Self
 pub fn Instruction::v128_and() -> Self
 pub fn Instruction::v128_andnot() -> Self
 pub fn Instruction::v128_any_true() -> Self
@@ -2427,6 +2453,7 @@ pub struct Module {
   name_sec : NameSec?
   type_sec : TypeSec?
   import_sec : ImportSec?
+  func_annotation_sec : FuncAnnotationSec?
   func_sec : FuncSec?
   table_sec : TableSec?
   mem_sec : MemSec?
@@ -2439,7 +2466,7 @@ pub struct Module {
   code_sec : CodeSec?
   data_sec : DataSec?
 }
-pub fn Module::new(custom_secs? : Array[CustomSec], type_sec? : TypeSec?, import_sec? : ImportSec?, func_sec? : FuncSec?, table_sec? : TableSec?, mem_sec? : MemSec?, tag_sec? : TagSec?, global_sec? : GlobalSec?, export_sec? : ExportSec?, start_sec? : StartSec?, elem_sec? : ElemSec?, data_cnt_sec? : DataCntSec?, code_sec? : CodeSec?, data_sec? : DataSec?, name_sec? : NameSec?) -> Self
+pub fn Module::new(custom_secs? : Array[CustomSec], type_sec? : TypeSec?, import_sec? : ImportSec?, func_annotation_sec? : FuncAnnotationSec?, func_sec? : FuncSec?, table_sec? : TableSec?, mem_sec? : MemSec?, tag_sec? : TagSec?, global_sec? : GlobalSec?, export_sec? : ExportSec?, start_sec? : StartSec?, elem_sec? : ElemSec?, data_cnt_sec? : DataCntSec?, code_sec? : CodeSec?, data_sec? : DataSec?, name_sec? : NameSec?) -> Self
 pub fn Module::pretty_print_defined_func(Self, UInt) -> String
 pub fn Module::pretty_print_func(Self, FuncIdx) -> String
 pub fn Module::with_code_sec(Self, CodeSec) -> Self
@@ -2448,6 +2475,7 @@ pub fn Module::with_data_cnt_sec(Self, DataCntSec) -> Self
 pub fn Module::with_data_sec(Self, DataSec) -> Self
 pub fn Module::with_elem_sec(Self, ElemSec) -> Self
 pub fn Module::with_export_sec(Self, ExportSec) -> Self
+pub fn Module::with_func_annotation_sec(Self, FuncAnnotationSec) -> Self
 pub fn Module::with_func_sec(Self, FuncSec) -> Self
 pub fn Module::with_global_sec(Self, GlobalSec) -> Self
 pub fn Module::with_import_sec(Self, ImportSec) -> Self
@@ -2815,6 +2843,7 @@ pub fn TInstr::ref_get_desc(TypeIdx, Self) -> Self
 pub fn TInstr::ref_i31(Self) -> Self
 pub fn TInstr::ref_is_null(Self) -> Self
 pub fn TInstr::ref_null(HeapType) -> Self
+pub fn TInstr::ref_null_type(RefType) -> Self
 pub fn TInstr::ref_test(Bool, HeapType, Self) -> Self
 pub fn TInstr::ref_test_desc(Bool, HeapType, Self) -> Self
 pub fn TInstr::replace_lane(ReplaceLaneOp, LaneIdx, Self, Self) -> Self
@@ -2843,7 +2872,6 @@ pub fn TInstr::throw_(TagIdx, Array[Self]) -> Self
 pub fn TInstr::throw_ref(Self) -> Self
 pub fn TInstr::try_table(BlockType, Array[Catch], TExpr) -> Self
 pub fn TInstr::unary(UnaryOp, Self) -> Self
-pub fn TInstr::ref_null_type(RefType) -> Self
 pub fn TInstr::unreachable_() -> Self
 pub fn TInstr::v128_const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte) -> Self
 pub fn TInstr::v128_load_lane(V128LoadLaneOp, MemArg, LaneIdx, Self, Self) -> Self
@@ -3479,6 +3507,7 @@ pub fn ValType::num_type(NumType) -> Self
 pub fn ValType::ref_array_nonnull(TypeIdx) -> Self
 pub fn ValType::ref_array_nullable(TypeIdx) -> Self
 pub fn ValType::ref_null(HeapType) -> Self
+pub fn ValType::ref_null_type(RefType) -> Self
 pub fn ValType::ref_null_array_of(TypeIdx) -> Self
 pub fn ValType::ref_null_exn() -> Self
 pub fn ValType::ref_type(RefType) -> Self
@@ -3499,5 +3528,3 @@ pub type ResultType = Array[ValType]
 pub(open) trait PrettyPrint {
   pretty_print(Self, PrettyPrintContext) -> String
 }
-
-pub fn ValType::ref_null_type(RefType) -> Self

@@ -49,8 +49,10 @@ using @diff {render_line_diff}
 
 ///|
 using @validate {
+  type Env,
   type ValidationError,
   gen_valid_module,
+  to_texpr,
   validate_module,
   validation_error_func_idx,
   validation_error_message,

@@ -169,3 +169,16 @@ test "memory packing runner accepts option-bearing pipeline features" {
   assert_eq(next, mod)
   assert_eq(next_global, global)
 }
+
+///|
+test "once reduction runner accepts empty modules" {
+  let mod = Module::new()
+  let global = PipelineGlobal::new()
+  let (next, next_global) = run_once_reduction(
+    mod,
+    global,
+    PipelineFeatures::new(),
+  )
+  assert_eq(next, mod)
+  assert_eq(next_global, global)
+}

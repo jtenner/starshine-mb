@@ -6375,3 +6375,91 @@ test "remove unused module elements keeps tags referenced by live catches" {
     _ => fail("expected code section")
   }
 }
+
+///|
+test "remove unused module elements keeps js-called ref.func targets live and remaps annotations" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::drop(@lib.TInstr::ref_func(@lib.FuncIdx::new(2U))),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_func_annotation_sec(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(2U, [
+          @lib.FuncAnnotation::new("binaryen.js.called"),
+        ]),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    _ => fail("expected compacted func section")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec([@lib.TFunc(_, _, main_body), @lib.TFunc(_, _, target_body)])
+    ) => {
+      match main_body.inner() {
+        [instr] =>
+          match instr.kind {
+            @lib.TDrop(dropped) =>
+              match dropped.kind {
+                @lib.TRefFunc(@lib.FuncIdx(target)) => assert_eq(target, 1U)
+                _ => fail("expected ref.func target to be remapped")
+              }
+            _ => fail("expected main body to keep dropped ref.func")
+          }
+        _ => fail("expected one instruction in main body")
+      }
+      match target_body.inner() {
+        [instr] =>
+          match instr.kind {
+            @lib.TNop => ()
+            _ => fail("expected js-called target body to remain intact")
+          }
+        _ => fail("expected one instruction in js-called target body")
+      }
+    }
+    _ => fail("expected compacted code section")
+  }
+  match optimized.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec([@lib.FuncAnnotationAssoc(1U, annotations)])) =>
+      assert_eq(annotations, [@lib.FuncAnnotation::new("binaryen.js.called")])
+    _ => fail("expected remapped function annotation section")
+  }
+}

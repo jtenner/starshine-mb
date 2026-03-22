@@ -28,6 +28,12 @@ pub struct TypeUse {
 } derive(Eq, Show, Debug)
 
 ///|
+pub struct Annotation {
+  name : String
+  args : Array[String]
+} derive(Eq, Show, Debug)
+
+///|
 pub enum InlineExport {
   Export(String)
 } derive(Eq, Show, Debug)
@@ -47,6 +53,7 @@ pub struct Import {
   field_name : String
   desc : ImportDesc
   id : String?
+  annotations : Array[Annotation]
 } derive(Eq, Show, Debug)
 
 ///|
@@ -88,6 +95,7 @@ pub struct Local {
 ///|
 pub struct Func {
   id : String?
+  annotations : Array[Annotation]
   exports : Array[InlineExport]
   type_use : TypeUse
   locals : Array[Local]
@@ -614,6 +622,76 @@ fn WastParser::get_literal_text(_ : WastParser, token : Token) -> String {
     Literal(lit) => lit.text
     _ => ""
   }
+}
+
+///|
+fn WastParser::get_annotation_arg_text(
+  self : WastParser,
+  token : Token,
+) -> String raise ParserError {
+  let text = self.get_text(token)
+  if text.length() > 0 {
+    return text
+  }
+  let literal = self.get_literal_text(token)
+  if literal.length() > 0 {
+    return literal
+  }
+  raise UnexpectedToken(token, "expected annotation argument")
+}
+
+///|
+fn WastParser::parse_annotation(
+  self : WastParser,
+) -> Annotation raise ParserError {
+  let token = self.expect(LparAnn, "expected annotation")
+  let name = self.get_text(token)
+  let args : Array[String] = []
+  while !self.check(Rpar) {
+    args.push(self.get_annotation_arg_text(self.advance()))
+  }
+  self.expect_rpar()
+  { name, args }
+}
+
+///|
+fn WastParser::attach_annotations(
+  _ : WastParser,
+  field : ModuleField,
+  annotations : Array[Annotation],
+) -> ModuleField raise ParserError {
+  if annotations.length() == 0 {
+    return field
+  }
+  match field {
+    FuncField(func) => ModuleField::FuncField({ ..func, annotations, })
+    ImportField(im) =>
+      match im.desc {
+        Func(_) => ModuleField::ImportField({ ..im, annotations, })
+        _ =>
+          raise Custom(
+            "function annotations are only supported on functions and func imports",
+          )
+      }
+    _ =>
+      raise Custom(
+        "function annotations are only supported on functions and func imports",
+      )
+  }
+}
+
+///|
+fn WastParser::parse_annotated_module_field(
+  self : WastParser,
+) -> ModuleField raise ParserError {
+  let annotations : Array[Annotation] = []
+  while self.check(LparAnn) {
+    annotations.push(self.parse_annotation())
+  }
+  self.expect_lpar()
+  let field = self.parse_module_field()
+  self.expect_rpar()
+  self.attach_annotations(field, annotations)
 }
 
 // ============================================================================
@@ -2313,6 +2391,7 @@ fn WastParser::parse_func(self : WastParser) -> ModuleField raise ParserError {
         field_name,
         desc: ImportDesc::Func(type_use),
         id,
+        annotations: [],
       })
     }
     self.restore_lexer_state(saved_state)
@@ -2348,7 +2427,14 @@ fn WastParser::parse_func(self : WastParser) -> ModuleField raise ParserError {
     }
   }
   let body = self.parse_instructions()
-  ModuleField::FuncField({ id, exports, type_use, locals, body })
+  ModuleField::FuncField({
+    id,
+    annotations: [],
+    exports,
+    type_use,
+    locals,
+    body,
+  })
 }
 
 ///|
@@ -2579,6 +2665,7 @@ fn WastParser::parse_tag_field(
         field_name,
         desc: ImportDesc::Tag(type_use),
         id,
+        annotations: [],
       })
     }
     None => ModuleField::TagField({ id, exports, type_use })
@@ -2691,7 +2778,7 @@ fn WastParser::parse_import(self : WastParser) -> Import raise ParserError {
     _ => raise UnexpectedToken(self.current, "expected import descriptor")
   }
   self.expect_rpar()
-  { module_name, field_name, desc, id }
+  { module_name, field_name, desc, id, annotations: [] }
 }
 
 ///|
@@ -2790,10 +2877,8 @@ fn WastParser::parse_module_command(
     _ => {
       // Regular module - parse fields
       let fields : Array[ModuleField] = []
-      while self.check(Lpar) {
-        self.expect_lpar()
-        fields.push(self.parse_module_field())
-        self.expect_rpar()
+      while self.check(Lpar) || self.check(LparAnn) {
+        fields.push(self.parse_annotated_module_field())
       }
       WastCommand::Module({ id, fields })
     }
@@ -3080,10 +3165,8 @@ fn WastParser::parse_module_def(
     }
     _ => {
       let fields : Array[ModuleField] = []
-      while self.check(Lpar) {
-        self.expect_lpar()
-        fields.push(self.parse_module_field())
-        self.expect_rpar()
+      while self.check(Lpar) || self.check(LparAnn) {
+        fields.push(self.parse_annotated_module_field())
       }
       WastModuleDef::Inline({ id: None, fields })
     }
@@ -3729,10 +3812,8 @@ pub fn WastParser::parse_module(self : WastParser) -> Module raise ParserError {
     None
   }
   let fields : Array[ModuleField] = []
-  while self.check(Lpar) {
-    self.expect_lpar()
-    fields.push(self.parse_module_field())
-    self.expect_rpar()
+  while self.check(Lpar) || self.check(LparAnn) {
+    fields.push(self.parse_annotated_module_field())
   }
   self.expect_rpar()
   { id, fields }
@@ -5168,6 +5249,49 @@ test "parse legacy delegate and rethrow forms" {
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
+}
+
+///|
+test "parse function annotations on defined functions" {
+  let source =
+    #|(module
+    #|  (@binaryen.idempotent)
+    #|  (@metadata.code.inline "\00")
+    #|  (func $f))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [FuncField(func)] =>
+      assert_eq(func.annotations, [
+        { name: "binaryen.idempotent", args: [] },
+        { name: "metadata.code.inline", args: ["\"\\00\""] },
+      ])
+    _ => fail("expected single annotated function field")
+  }
+}
+
+///|
+test "parse function annotations on func imports" {
+  let source =
+    #|(module
+    #|  (@binaryen.js.called)
+    #|  (import "env" "f" (func $f)))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [ImportField(im)] => {
+      assert_eq(im.annotations, [{ name: "binaryen.js.called", args: [] }])
+      match im.desc {
+        Func(_) => ()
+        _ => fail("expected function import descriptor")
+      }
+    }
+    _ => fail("expected single annotated import field")
+  }
 }
 
 ///|

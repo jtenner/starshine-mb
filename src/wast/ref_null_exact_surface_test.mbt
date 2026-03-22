@@ -39,20 +39,24 @@ test "wast_text_binary_roundtrip preserves exact ref.null immediates" {
   }
   match decoded.code_sec {
     Some(
-      @lib.CodeSec([
-        @lib.Func(
-          _,
-          @lib.Expr([
-            @lib.RefNull(
-              @lib.HeapTypeRefType(
-                true,
-                true,
-                @lib.HeapType(@lib.TypeIdx(0U)),
-              ),
-            ),
-          ]),
-        ),
-      ])
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.RefNull(
+                  @lib.HeapTypeRefType(
+                    true,
+                    true,
+                    @lib.HeapType(@lib.TypeIdx(0U))
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
     ) => ()
     _ => fail("expected decoded exact ref.null immediate")
   }

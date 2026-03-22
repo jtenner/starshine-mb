@@ -338,6 +338,7 @@ fn gen_module(size : Int, st : RandomState) -> Module {
         field_name: "imp\{st.next_uint() % 8}",
         desc: ImportDesc::Func(gen_type_use(st, type_count)),
         id: Some("$imp\{st.next_uint() % 8}"),
+        annotations: [],
       }),
     )
     func_count += 1
@@ -389,6 +390,7 @@ fn gen_module(size : Int, st : RandomState) -> Module {
     fields.push(
       FuncField({
         id: Some("$f\{i}"),
+        annotations: [],
         exports: [],
         type_use: gen_type_use(st, type_count),
         locals,
@@ -532,6 +534,7 @@ pub impl Arbitrary for Import with arbitrary(size, st) {
     } else {
       None
     },
+    annotations: [],
   }
 }
 
@@ -652,6 +655,7 @@ pub impl Arbitrary for Func with arbitrary(size, st) {
     } else {
       None
     },
+    annotations: [],
     exports: [],
     type_use: gen_type_use(st, (size + 1).reinterpret_as_uint()),
     locals,

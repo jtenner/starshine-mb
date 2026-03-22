@@ -73,7 +73,7 @@ test "duplicate function elimination merges structural duplicates and rewrites f
         Import::new(
           Name::from_string("env"),
           Name::from_string("imported"),
-          ExternType::func(TypeIdx::new(0U)),
+          @lib.ExternType::func(TypeIdx::new(0U)),
         ),
       ]),
     )
@@ -198,6 +198,81 @@ test "duplicate function elimination keeps same-body functions with different st
   match optimized.code_sec {
     Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
     None => fail("expected code section")
+  }
+}
+
+///|
+test "duplicate function elimination keeps duplicates with different function annotations" {
+  let mod = Module::new()
+    .with_type_sec(duplicate_func_test_type_sec())
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
+    )
+    .with_func_annotation_sec(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("binaryen.js.called"),
+        ]),
+      ]),
+    )
+
+  let (optimized, _) = run_duplicate_function_elimination(
+    mod,
+    PipelineGlobal::new(),
+    PipelineFeatures::new(),
+  )
+
+  match optimized.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    None => fail("expected code section")
+  }
+  match optimized.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec([@lib.FuncAnnotationAssoc(0U, annotations)])) =>
+      assert_eq(annotations, [@lib.FuncAnnotation::new("binaryen.js.called")])
+    _ => fail("expected unchanged function annotation section")
+  }
+}
+
+///|
+test "duplicate function elimination merges duplicates with identical function annotations" {
+  let mod = Module::new()
+    .with_type_sec(duplicate_func_test_type_sec())
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
+    )
+    .with_func_annotation_sec(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("binaryen.js.called"),
+        ]),
+        @lib.FuncAnnotationAssoc::new(1U, [
+          @lib.FuncAnnotation::new("binaryen.js.called"),
+        ]),
+      ]),
+    )
+
+  let (optimized, _) = run_duplicate_function_elimination(
+    mod,
+    PipelineGlobal::new(),
+    PipelineFeatures::new(),
+  )
+
+  match optimized.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 1)
+    None => fail("expected code section")
+  }
+  match optimized.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec([@lib.FuncAnnotationAssoc(0U, annotations)])) =>
+      assert_eq(annotations, [@lib.FuncAnnotation::new("binaryen.js.called")])
+    _ => fail("expected merged function annotation section")
   }
 }
 

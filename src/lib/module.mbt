@@ -22,6 +22,14 @@ pub fn Module::with_import_sec(self : Module, import_sec : ImportSec) -> Module 
 }
 
 ///|
+pub fn Module::with_func_annotation_sec(
+  self : Module,
+  func_annotation_sec : FuncAnnotationSec,
+) -> Module {
+  Module::{ ..self, func_annotation_sec: Some(func_annotation_sec) }
+}
+
+///|
 pub fn Module::with_func_sec(self : Module, func_sec : FuncSec) -> Module {
   Module::{ ..self, func_sec: Some(func_sec) }
 }

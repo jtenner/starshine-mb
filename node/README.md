@@ -37,4 +37,5 @@ if (!encoded.ok) throw new Error(encoded.display ?? 'failed to encode');
 
 ## Build Note
 - CLI optimization flags are accepted for compatibility but no-op while pipeline refactors continue.
-- Node package regeneration is temporarily disabled during this transition.
+- `npm run build` rebuilds the checked-in wasm artifacts from `src/node_api` and `src/cmd`.
+- JS/TS adapter source regeneration is still manual.

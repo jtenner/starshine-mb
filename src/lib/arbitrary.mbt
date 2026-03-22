@@ -1728,6 +1728,7 @@ pub impl @quickcheck.Arbitrary for Module with arbitrary(t, state) {
     } else {
       None
     },
+    func_annotation_sec: None,
     func_sec: if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {

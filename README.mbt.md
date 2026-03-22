@@ -17,6 +17,7 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 ## What You Can Do
 
 - Parse and print WAT/WAST.
+- Preserve Binaryen-style function annotations in WAT/WAST text and lowered modules.
 - Validate modules and use typed-IR lifts.
 - Decode and encode WebAssembly binaries.
 - Build modules with `lib` constructors and IR utilities.

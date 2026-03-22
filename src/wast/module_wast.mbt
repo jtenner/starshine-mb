@@ -414,12 +414,9 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     RefFunc(idx) => "ref.func \{index_text(idx)}"
     StructNew(idx) => "struct.new \{index_text(idx)}"
     StructNewDefault(idx) => "struct.new_default \{index_text(idx)}"
-    StructGet(idx, field_idx) =>
-      "struct.get \{index_text(idx)} \{field_idx}"
-    StructGetS(idx, field_idx) =>
-      "struct.get_s \{index_text(idx)} \{field_idx}"
-    StructGetU(idx, field_idx) =>
-      "struct.get_u \{index_text(idx)} \{field_idx}"
+    StructGet(idx, field_idx) => "struct.get \{index_text(idx)} \{field_idx}"
+    StructGetS(idx, field_idx) => "struct.get_s \{index_text(idx)} \{field_idx}"
+    StructGetU(idx, field_idx) => "struct.get_u \{index_text(idx)} \{field_idx}"
     StructNewDesc(idx) => "struct.new_desc \{index_text(idx)}"
     StructNewDefaultDesc(idx) => "struct.new_default_desc \{index_text(idx)}"
     RefGetDesc(idx) => "ref.get_desc \{index_text(idx)}"
@@ -594,6 +591,23 @@ fn write_inline_exports(
 }
 
 ///|
+fn write_annotations(
+  out : StringBuilder,
+  annotations : Array[Annotation],
+  pad : String,
+) -> Unit {
+  for ann in annotations {
+    out.write_string("\{pad}(@")
+    out.write_string(ann.name)
+    for arg in ann.args {
+      out.write_char(' ')
+      out.write_string(arg)
+    }
+    out.write_string(")\n")
+  }
+}
+
+///|
 fn is_default_elem_offset(offset : Array[Instruction]?) -> Bool {
   match offset {
     Some([Const(I32Const, "0")]) => true
@@ -695,6 +709,7 @@ fn write_module_field(
         out.write_string("\{pad})\n")
       }
     FuncField(func) => {
+      write_annotations(out, func.annotations, pad)
       out.write_string("\{pad}(func")
       if func.id is Some(id) {
         out.write_char(' ')
@@ -815,6 +830,7 @@ fn write_module_field(
       out.write_string(")\n")
     }
     ImportField(im) => {
+      write_annotations(out, im.annotations, pad)
       out.write_string(
         "\{pad}(import \{quote_wast_string(im.module_name)} \{quote_wast_string(im.field_name)} (",
       )

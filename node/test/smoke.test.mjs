@@ -4,7 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { binary, cli, cmd, validate, wast } from '../index.js';
+import { binary, cli, cmd, lib, validate, wast } from '../index.js';
 import { runWasmStart } from '../internal/wasi-runner.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -23,6 +23,74 @@ test('wast and binary adapters roundtrip a binary module', () => {
   assert.equal(decoded.ok, true);
 
   const validated = validate.validateModule(decoded.value);
+  assert.equal(validated.ok, true);
+});
+
+test('lib exposes function annotations through direct constructors', () => {
+  const typeSec = lib.TypeSec.new([
+    lib.RecType.new(lib.compTypeSubType(lib.CompType.func([], []))),
+  ]);
+  const funcSec = lib.FuncSec.new([lib.TypeIdx.new(0)]);
+  const codeSec = lib.CodeSec.new([
+    lib.Func.new(lib.Locals.new([]), lib.Expr.new([])),
+  ]);
+  const annotations = lib.FuncAnnotationSec.new([
+    lib.FuncAnnotationAssoc.new(0, [
+      lib.FuncAnnotation.new('binaryen.idempotent'),
+      lib.FuncAnnotation.new('metadata.code.inline', ['"\\00"']),
+    ]),
+  ]);
+
+  let mod = lib.Module.new();
+  mod = lib.Module.withTypeSec(mod, typeSec);
+  mod = lib.Module.withFuncSec(mod, funcSec);
+  mod = lib.Module.withCodeSec(mod, codeSec);
+  mod = lib.Module.withFuncAnnotationSec(mod, annotations);
+
+  assert.match(lib.FuncAnnotation.show(lib.FuncAnnotation.new('binaryen.idempotent')), /binaryen\.idempotent/);
+  assert.match(lib.Module.show(mod), /binaryen\.idempotent/);
+  assert.match(lib.Module.show(mod), /metadata\.code\.inline/);
+
+  const validated = validate.validateModule(mod);
+  assert.equal(validated.ok, true);
+});
+
+test('lib Module.new accepts function annotations before func sec', () => {
+  const typeSec = lib.TypeSec.new([
+    lib.RecType.new(lib.compTypeSubType(lib.CompType.func([], []))),
+  ]);
+  const funcSec = lib.FuncSec.new([lib.TypeIdx.new(0)]);
+  const codeSec = lib.CodeSec.new([
+    lib.Func.new(lib.Locals.new([]), lib.Expr.new([])),
+  ]);
+  const annotations = lib.FuncAnnotationSec.new([
+    lib.FuncAnnotationAssoc.new(0, [
+      lib.FuncAnnotation.new('binaryen.idempotent'),
+    ]),
+  ]);
+
+  const mod = lib.Module.new(
+    [],
+    typeSec,
+    null,
+    annotations,
+    funcSec,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    codeSec,
+    null,
+  );
+
+  assert.match(lib.Module.show(mod), /func_annotation_sec: Some/);
+  assert.match(lib.Module.show(mod), /binaryen\.idempotent/);
+
+  const validated = validate.validateModule(mod);
   assert.equal(validated.ok, true);
 });
 

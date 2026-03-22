@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-22 Tooling: land generated pipeline parity, annotations, and DCE groundwork
+
+- **Generated pipeline and API bundle** by **@jtenner**. Landed the generated-pipeline pre-lift path for raw decoded funcs, wired the explicit no-DWARF first-four-pass CLI flags through the same generated surface, and added the focused command/pipeline coverage and comparison docs in [`docs/0016-2026-03-22-no-dwarf-four-pass-comparison.md`](/home/jtenner/Projects/starshine-mb/docs/0016-2026-03-22-no-dwarf-four-pass-comparison.md).
+- Added module-level function annotation support across [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt), [`src/lib/module.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/module.mbt), [`src/lib/show.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/show.mbt), WAST lowering, optimizer remapping, the generated Node API, and the Node examples/tests, including the new [`src/node_api/`](/home/jtenner/Projects/starshine-mb/src/node_api) package and [`node/examples/18-lib-module-function-annotations.mjs`](/home/jtenner/Projects/starshine-mb/node/examples/18-lib-module-function-annotations.mjs).
+- Landed the current WAST GC/exact-ref text-surface bundle: higher-level struct access instructions, exact ref global imports, `rec`-group flat type-index fixes, exact `ref.null` handling, exact-type equivalence validation, passive typed empty elems, legacy GC aliases, and exact custom-descriptor fixture coverage.
+- Landed the first real `DeadCodeElimination` implementation slices and research baseline in [`docs/0017-2026-03-22-dead-code-elimination.md`](/home/jtenner/Projects/starshine-mb/docs/0017-2026-03-22-dead-code-elimination.md) plus the follow-up checkpoint docs, bringing the pass from scheduled-no-op status to a typed runner with block/if/loop/branch/GC unary rewrite coverage.
+
 ## 2026-03-22 Optimization: land DeadCodeElimination ref.get_desc rewrite
 
 - **DeadCodeElimination descriptor unary slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `ref.get_desc` now uses the same unary unreachable-child rewrite as the other typed one-child reference instructions.

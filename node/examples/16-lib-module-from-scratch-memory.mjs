@@ -23,7 +23,7 @@ const dataSec = lib.DataSec.new([
 ]);
 const codeSec = lib.CodeSec.new([
   lib.Func.new(
-    [],
+    lib.Locals.new([]),
     lib.Expr.new([
       lib.Instruction.i32Const(lib.I32.new(0)),
       lib.Instruction.i32Load8u(

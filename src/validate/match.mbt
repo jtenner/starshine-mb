@@ -185,7 +185,13 @@ fn exact_subtype_matches_fuel(
     return false
   }
   for i in 0..<supers0.length() {
-    if !exact_typeidx_matches_fuel(supers0[i], supers1[i], env, fuel - 1, visited) {
+    if !exact_typeidx_matches_fuel(
+        supers0[i],
+        supers1[i],
+        env,
+        fuel - 1,
+        visited,
+      ) {
       return false
     }
   }
@@ -269,8 +275,7 @@ fn exact_field_matches_fuel(
   }
   let FieldType(st0, m0) = f0
   let FieldType(st1, m1) = f1
-  m0 == m1 &&
-  exact_storage_matches_fuel(st0, st1, env, fuel - 1, visited)
+  m0 == m1 && exact_storage_matches_fuel(st0, st1, env, fuel - 1, visited)
 }
 
 ///|
@@ -1474,7 +1479,9 @@ test "HeapType matches bottom refs against compatible defined types" {
   let env = Env::new().with_types([
     SubType::comp_type(CompType::struct_([])),
     SubType::comp_type(
-      CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Const)),
+      CompType::array(
+        FieldType::new(StorageType::val_type(ValType::i32()), Const),
+      ),
     ),
     SubType::comp_type(CompType::func([], [])),
   ])

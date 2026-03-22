@@ -1350,6 +1350,845 @@ pub fn run_memory_packing(
 }
 
 ///|
+pub fn run_once_reduction(
+  mod : Module,
+  global : PipelineGlobal,
+  features : PipelineFeatures,
+) -> (Module, PipelineGlobal) {
+  let _ = features
+  let analysis = optimization_once_reduction_analyze_candidates(mod)
+  let mut found_once = false
+  for once_global in analysis.once_func_globals {
+    if once_global is Some(_) {
+      found_once = true
+    }
+  }
+
+  let imported_func_count = optimization_imported_func_count(mod)
+  let func_type_idxs = optimization_all_func_type_idxs(
+    mod,
+    match mod.func_sec {
+      Some(@lib.FuncSec(type_idxs)) => type_idxs
+      None => []
+    },
+  )
+  let subtypes = optimization_flatten_subtypes(mod)
+  let defined_func_count = match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.length()
+    None => 0
+  }
+  let total_func_count = imported_func_count + defined_func_count
+  let once_func_real_globals_abs : Array[@lib.GlobalIdx?] = []
+  for _ in 0..<imported_func_count {
+    once_func_real_globals_abs.push(None)
+  }
+  for once_global in analysis.once_func_globals {
+    once_func_real_globals_abs.push(once_global)
+  }
+  let once_func_tokens_abs : Array[Int?] = []
+  for abs_idx in 0..<total_func_count {
+    match once_func_real_globals_abs[abs_idx] {
+      Some(@lib.GlobalIdx(raw)) => {
+        once_func_tokens_abs.push(Some(raw.reinterpret_as_int()))
+        found_once = true
+      }
+      None =>
+        if optimization_once_reduction_can_use_idempotent(
+            mod, subtypes, func_type_idxs, abs_idx,
+          ) {
+          once_func_tokens_abs.push(
+            Some(analysis.once_globals.length() + abs_idx),
+          )
+          found_once = true
+        } else {
+          once_func_tokens_abs.push(None)
+        }
+    }
+  }
+  if !found_once {
+    return (mod, global)
+  }
+
+  let mut summaries = optimization_once_reduction_seed_summaries(
+    total_func_count,
+    analysis.once_globals.length() + total_func_count,
+    once_func_tokens_abs,
+  )
+  let mut last_total = optimization_once_reduction_summary_total(summaries)
+  let mut current = mod
+  while true {
+    let (next_mod, next_summaries) = optimization_once_reduction_iteration(
+      current,
+      analysis.once_globals,
+      once_func_tokens_abs,
+      summaries,
+    )
+    current = next_mod
+    summaries = next_summaries
+    let next_total = optimization_once_reduction_summary_total(summaries)
+    if next_total > last_total {
+      last_total = next_total
+      continue
+    }
+    break
+  }
+  current = optimization_once_reduction_optimize_once_bodies(
+    current, once_func_real_globals_abs,
+  )
+  (current, global)
+}
+
+///|
+priv struct OnceReductionCandidateAnalysis {
+  once_globals : Array[Bool]
+  once_func_globals : Array[@lib.GlobalIdx?]
+}
+
+///|
+fn OnceReductionCandidateAnalysis::new(
+  once_globals : Array[Bool],
+  once_func_globals : Array[@lib.GlobalIdx?],
+) -> OnceReductionCandidateAnalysis {
+  { once_globals, once_func_globals }
+}
+
+///|
+fn optimization_once_reduction_can_use_idempotent(
+  mod : Module,
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+  abs_idx : Int,
+) -> Bool {
+  if !optimization_func_has_annotation(mod, abs_idx, "binaryen.idempotent") {
+    return false
+  }
+  match func_type_idxs.get(abs_idx) {
+    Some(type_idx) =>
+      match optimization_resolve_func_type(subtypes, type_idx) {
+        Some(@lib.FuncType(params, results)) =>
+          params.length() == 0 && results.length() == 0
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
+fn optimization_once_reduction_match_once_global(
+  body : @lib.TExpr,
+) -> @lib.GlobalIdx? {
+  let instrs = body.inner()
+  if instrs.length() < 2 {
+    return None
+  }
+  let global_idx = match instrs[0].kind {
+    @lib.TIf(_, cond, then_body, else_body) =>
+      if else_body is Some(_) {
+        return None
+      } else {
+        match cond.kind {
+          @lib.TGlobalGet(idx) =>
+            match then_body.inner() {
+              [ret] =>
+                match ret.kind {
+                  @lib.TReturn([]) => idx
+                  _ => return None
+                }
+              _ => return None
+            }
+          _ => return None
+        }
+      }
+    _ => return None
+  }
+  match instrs[1].kind {
+    @lib.TGlobalSet(set_idx, value) =>
+      if set_idx == global_idx {
+        match value.kind {
+          @lib.TUnreachable => None
+          _ => Some(global_idx)
+        }
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn optimization_once_reduction_global_type_is_integer(
+  global_type : @lib.GlobalType,
+) -> Bool {
+  match global_type {
+    @lib.GlobalType(@lib.NumTypeValType(@lib.I32NumType), _)
+    | @lib.GlobalType(@lib.NumTypeValType(@lib.I64NumType), _) => true
+    _ => false
+  }
+}
+
+///|
+fn optimization_once_reduction_value_is_positive_const(
+  value : @lib.TInstr,
+) -> Bool {
+  match value.kind {
+    @lib.TI32Const(@lib.I32(raw)) => raw > 0
+    @lib.TI64Const(@lib.I64(raw)) => raw > 0L
+    _ => false
+  }
+}
+
+///|
+fn optimization_once_reduction_scan_func_reads_and_writes(
+  body : @lib.TExpr,
+  once_globals : Array[Bool],
+  read_counts : Array[Int],
+) -> Unit {
+  let walker : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      _,
+      _,
+      instr,
+    ) {
+      match instr.kind {
+        @lib.TGlobalGet(@lib.GlobalIdx(raw)) => {
+          let idx = raw.reinterpret_as_int()
+          if idx >= 0 && idx < read_counts.length() {
+            read_counts[idx] += 1
+          }
+          skip()
+        }
+        @lib.TGlobalSet(@lib.GlobalIdx(raw), value) => {
+          let idx = raw.reinterpret_as_int()
+          if idx >= 0 && idx < once_globals.length() && once_globals[idx] {
+            match value.kind {
+              @lib.TUnreachable => return unchanged()
+              _ => ()
+            }
+            if !optimization_once_reduction_value_is_positive_const(value) {
+              once_globals[idx] = false
+            }
+          }
+          unchanged()
+        }
+        _ => unchanged()
+      }
+    },
+  )
+  ignore(walker.walk_texpr((), body))
+}
+
+///|
+fn optimization_once_reduction_analyze_candidates(
+  mod : Module,
+) -> OnceReductionCandidateAnalysis {
+  let imported_global_count = optimization_imported_global_count(mod)
+  let defined_globals = match mod.global_sec {
+    Some(@lib.GlobalSec(globals)) => globals
+    None => []
+  }
+  let all_global_types = optimization_all_global_types(mod, defined_globals)
+  let once_globals : Array[Bool] = []
+  for i in 0..<all_global_types.length() {
+    once_globals.push(
+      i >= imported_global_count &&
+      optimization_once_reduction_global_type_is_integer(all_global_types[i]),
+    )
+  }
+
+  match mod.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(raw))) => {
+            let idx = raw.reinterpret_as_int()
+            if idx >= 0 && idx < once_globals.length() {
+              once_globals[idx] = false
+            }
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+
+  let once_func_globals : Array[@lib.GlobalIdx?] = []
+  let subtypes = optimization_flatten_subtypes(mod)
+  match (mod.func_sec, mod.code_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) =>
+      if type_idxs.length() == funcs.length() {
+        for i in 0..<funcs.length() {
+          let mut once_global : @lib.GlobalIdx? = None
+          let read_counts : Array[Int] = []
+          for _ in 0..<once_globals.length() {
+            read_counts.push(0)
+          }
+
+          match funcs[i] {
+            @lib.TFunc(params, _, body) => {
+              optimization_once_reduction_scan_func_reads_and_writes(
+                body, once_globals, read_counts,
+              )
+              let results_empty = match
+                optimization_resolve_func_type(subtypes, type_idxs[i]) {
+                Some(@lib.FuncType(_, results)) => results.length() == 0
+                None => false
+              }
+              if params.length() == 0 && results_empty {
+                once_global = optimization_once_reduction_match_once_global(
+                  body,
+                )
+                match once_global {
+                  Some(@lib.GlobalIdx(raw)) => {
+                    let idx = raw.reinterpret_as_int()
+                    if idx >= 0 && idx < read_counts.length() {
+                      read_counts[idx] -= 1
+                    }
+                  }
+                  None => ()
+                }
+              }
+            }
+            _ => ()
+          }
+
+          for j in 0..<read_counts.length() {
+            if read_counts[j] > 0 {
+              once_globals[j] = false
+            }
+          }
+          once_func_globals.push(once_global)
+        }
+      } else {
+        for _ in funcs {
+          once_func_globals.push(None)
+        }
+      }
+    (_, Some(@lib.CodeSec(funcs))) =>
+      for _ in funcs {
+        once_func_globals.push(None)
+      }
+    _ => ()
+  }
+
+  for i in 0..<once_func_globals.length() {
+    match once_func_globals[i] {
+      Some(@lib.GlobalIdx(raw)) => {
+        let idx = raw.reinterpret_as_int()
+        if idx < 0 || idx >= once_globals.length() || !once_globals[idx] {
+          once_func_globals[i] = None
+        }
+      }
+      None => ()
+    }
+  }
+
+  OnceReductionCandidateAnalysis::new(once_globals, once_func_globals)
+}
+
+///|
+priv struct OnceReductionRewriteState {
+  known_once_globals : Array[Bool]
+  reachable : Bool
+}
+
+///|
+fn OnceReductionRewriteState::new(
+  known_once_globals : Array[Bool],
+  reachable? : Bool = true,
+) -> OnceReductionRewriteState {
+  { known_once_globals, reachable }
+}
+
+///|
+fn optimization_once_reduction_copy_known(known : Array[Bool]) -> Array[Bool] {
+  known.copy()
+}
+
+///|
+fn optimization_once_reduction_set_known_token(
+  known : Array[Bool],
+  token : Int,
+) -> Unit {
+  if token >= 0 && token < known.length() {
+    known[token] = true
+  }
+}
+
+///|
+fn optimization_once_reduction_set_known(
+  known : Array[Bool],
+  global_idx : @lib.GlobalIdx,
+) -> Unit {
+  let @lib.GlobalIdx(raw) = global_idx
+  optimization_once_reduction_set_known_token(known, raw.reinterpret_as_int())
+}
+
+///|
+fn optimization_once_reduction_is_known_token(
+  known : Array[Bool],
+  token : Int,
+) -> Bool {
+  token >= 0 && token < known.length() && known[token]
+}
+
+///|
+fn optimization_once_reduction_is_known(
+  known : Array[Bool],
+  global_idx : @lib.GlobalIdx,
+) -> Bool {
+  let @lib.GlobalIdx(raw) = global_idx
+  optimization_once_reduction_is_known_token(known, raw.reinterpret_as_int())
+}
+
+///|
+fn optimization_once_reduction_global_is_once(
+  once_globals : Array[Bool],
+  global_idx : @lib.GlobalIdx,
+) -> Bool {
+  let @lib.GlobalIdx(raw) = global_idx
+  let idx = raw.reinterpret_as_int()
+  idx >= 0 && idx < once_globals.length() && once_globals[idx]
+}
+
+///|
+fn optimization_once_reduction_merge_summary_into_known(
+  known : Array[Bool],
+  summary : Array[Bool],
+) -> Unit {
+  let limit = if known.length() < summary.length() {
+    known.length()
+  } else {
+    summary.length()
+  }
+  for i in 0..<limit {
+    if summary[i] {
+      known[i] = true
+    }
+  }
+}
+
+///|
+fn optimization_once_reduction_intersect_known(
+  left : Array[Bool],
+  right : Array[Bool],
+) -> Array[Bool] {
+  let limit = if left.length() < right.length() {
+    left.length()
+  } else {
+    right.length()
+  }
+  let out : Array[Bool] = []
+  for i in 0..<limit {
+    out.push(left[i] && right[i])
+  }
+  out
+}
+
+///|
+fn optimization_once_reduction_summary_total(
+  summaries : Array[Array[Bool]],
+) -> Int {
+  let mut total = 0
+  for summary in summaries {
+    for value in summary {
+      if value {
+        total += 1
+      }
+    }
+  }
+  total
+}
+
+///|
+fn optimization_once_reduction_seed_summaries(
+  total_func_count : Int,
+  total_once_token_count : Int,
+  once_func_tokens_abs : Array[Int?],
+) -> Array[Array[Bool]] {
+  let summaries : Array[Array[Bool]] = []
+  for i in 0..<total_func_count {
+    let summary : Array[Bool] = []
+    for _ in 0..<total_once_token_count {
+      summary.push(false)
+    }
+    match once_func_tokens_abs.get(i) {
+      Some(Some(token)) =>
+        optimization_once_reduction_set_known_token(summary, token)
+      _ => ()
+    }
+    summaries.push(summary)
+  }
+  summaries
+}
+
+///|
+fn optimization_once_reduction_iteration(
+  mod : Module,
+  once_globals : Array[Bool],
+  once_func_tokens_abs : Array[Int?],
+  summaries : Array[Array[Bool]],
+) -> (Module, Array[Array[Bool]]) {
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let imported_func_count = optimization_imported_func_count(mod)
+      let once_token_count = once_globals.length() +
+        once_func_tokens_abs.length()
+      let rewritten_funcs : Array[@lib.Func] = []
+      let next_summaries = optimization_once_reduction_seed_summaries(
+        summaries.length(),
+        once_token_count,
+        once_func_tokens_abs,
+      )
+      for i in 0..<funcs.length() {
+        let abs_idx = imported_func_count + i
+        let (rewritten, summary) = optimization_once_reduction_optimize_func(
+          funcs[i],
+          abs_idx,
+          once_token_count,
+          once_globals,
+          once_func_tokens_abs,
+          summaries,
+        )
+        rewritten_funcs.push(rewritten)
+        if abs_idx >= 0 && abs_idx < next_summaries.length() {
+          next_summaries[abs_idx] = summary
+        }
+      }
+      (mod.with_code_sec(@lib.CodeSec::new(rewritten_funcs)), next_summaries)
+    }
+    _ => (mod, summaries)
+  }
+}
+
+///|
+fn optimization_once_reduction_optimize_func(
+  func : @lib.Func,
+  abs_idx : Int,
+  once_token_count : Int,
+  once_globals : Array[Bool],
+  once_func_tokens_abs : Array[Int?],
+  summaries : Array[Array[Bool]],
+) -> (@lib.Func, Array[Bool]) {
+  let summary : Array[Bool] = []
+  for _ in 0..<once_token_count {
+    summary.push(false)
+  }
+  match once_func_tokens_abs.get(abs_idx) {
+    Some(Some(token)) =>
+      optimization_once_reduction_set_known_token(summary, token)
+    _ => ()
+  }
+  match func {
+    @lib.TFunc(params, locals, body) => {
+      let transformer : ModuleTransformer[OnceReductionRewriteState, Unit] = ModuleTransformer::new()
+        .on_texpr_evt(fn(self, state, expr) {
+          let rewritten_instrs : Array[@lib.TInstr] = []
+          let mut current : OnceReductionRewriteState = state
+          for instr in expr.inner() {
+            if !current.reachable {
+              rewritten_instrs.push(instr)
+              continue
+            }
+            let (rewritten_instr, next_state) = self
+              .walk_tinstruction(current, instr)
+              .unwrap()
+            rewritten_instrs.push(rewritten_instr)
+            current = next_state
+          }
+          change(current, @lib.TExpr::new(rewritten_instrs))
+        })
+        .on_tinstruction_evt(fn(self, state, instr) {
+          match instr.kind {
+            @lib.TIf(block_type, cond, then_body, else_body) => {
+              let (rewritten_cond, after_cond) = self
+                .walk_tinstruction(state, cond)
+                .unwrap()
+              if !after_cond.reachable {
+                return change(
+                  after_cond,
+                  @lib.TInstr::if_(
+                    block_type, rewritten_cond, then_body, else_body,
+                  ),
+                )
+              }
+
+              let (rewritten_then, then_state) = self
+                .walk_texpr(
+                  OnceReductionRewriteState::new(
+                    optimization_once_reduction_copy_known(
+                      after_cond.known_once_globals,
+                    ),
+                  ),
+                  then_body,
+                )
+                .unwrap()
+
+              let merged_state = match else_body {
+                Some(else_expr) => {
+                  let (rewritten_else, else_state) = self
+                    .walk_texpr(
+                      OnceReductionRewriteState::new(
+                        optimization_once_reduction_copy_known(
+                          after_cond.known_once_globals,
+                        ),
+                      ),
+                      else_expr,
+                    )
+                    .unwrap()
+                  let next_state = if then_state.reachable &&
+                    else_state.reachable {
+                    OnceReductionRewriteState::new(
+                      optimization_once_reduction_intersect_known(
+                        then_state.known_once_globals,
+                        else_state.known_once_globals,
+                      ),
+                    )
+                  } else if then_state.reachable {
+                    OnceReductionRewriteState::new(
+                      then_state.known_once_globals,
+                    )
+                  } else if else_state.reachable {
+                    OnceReductionRewriteState::new(
+                      else_state.known_once_globals,
+                    )
+                  } else {
+                    OnceReductionRewriteState::new(
+                      optimization_once_reduction_copy_known(
+                        after_cond.known_once_globals,
+                      ),
+                      reachable=false,
+                    )
+                  }
+                  return change(
+                    next_state,
+                    @lib.TInstr::if_(
+                      block_type,
+                      rewritten_cond,
+                      rewritten_then,
+                      Some(rewritten_else),
+                    ),
+                  )
+                }
+                None =>
+                  if then_state.reachable {
+                    OnceReductionRewriteState::new(
+                      optimization_once_reduction_intersect_known(
+                        after_cond.known_once_globals,
+                        then_state.known_once_globals,
+                      ),
+                    )
+                  } else {
+                    OnceReductionRewriteState::new(
+                      optimization_once_reduction_copy_known(
+                        after_cond.known_once_globals,
+                      ),
+                    )
+                  }
+              }
+              change(
+                merged_state,
+                @lib.TInstr::if_(
+                  block_type,
+                  rewritten_cond,
+                  rewritten_then,
+                  None,
+                ),
+              )
+            }
+            @lib.TCall(func_idx, args) => {
+              let rewritten_args : Array[@lib.TInstr] = []
+              let mut current : OnceReductionRewriteState = state
+              for arg in args {
+                let (rewritten_arg, next_state) = self
+                  .walk_tinstruction(current, arg)
+                  .unwrap()
+                rewritten_args.push(rewritten_arg)
+                current = next_state
+                if !current.reachable {
+                  break
+                }
+              }
+              if current.reachable {
+                let @lib.FuncIdx(raw) = func_idx
+                let callee_idx = raw.reinterpret_as_int()
+                match once_func_tokens_abs.get(callee_idx) {
+                  Some(Some(token)) =>
+                    if rewritten_args.length() == 0 {
+                      if optimization_once_reduction_is_known_token(
+                          current.known_once_globals,
+                          token,
+                        ) {
+                        return change(current, @lib.TInstr::nop())
+                      }
+                      let next_known = optimization_once_reduction_copy_known(
+                        current.known_once_globals,
+                      )
+                      optimization_once_reduction_set_known_token(
+                        next_known, token,
+                      )
+                      return change(
+                        OnceReductionRewriteState::new(next_known),
+                        @lib.TInstr::call(func_idx, rewritten_args),
+                      )
+                    }
+                  _ => ()
+                }
+                match summaries.get(callee_idx) {
+                  Some(summary) =>
+                    optimization_once_reduction_merge_summary_into_known(
+                      current.known_once_globals,
+                      summary,
+                    )
+                  None => ()
+                }
+              }
+              change(current, @lib.TInstr::call(func_idx, rewritten_args))
+            }
+            @lib.TGlobalSet(global_idx, value) => {
+              let (rewritten_value, next_state) = self
+                .walk_tinstruction(state, value)
+                .unwrap()
+              if !next_state.reachable {
+                return change(
+                  next_state,
+                  @lib.TInstr::global_set(global_idx, rewritten_value),
+                )
+              }
+              if optimization_once_reduction_global_is_once(
+                  once_globals, global_idx,
+                ) &&
+                optimization_once_reduction_value_is_positive_const(
+                  rewritten_value,
+                ) {
+                if optimization_once_reduction_is_known(
+                    next_state.known_once_globals,
+                    global_idx,
+                  ) {
+                  return change(next_state, @lib.TInstr::nop())
+                }
+                let next_known = optimization_once_reduction_copy_known(
+                  next_state.known_once_globals,
+                )
+                optimization_once_reduction_set_known(next_known, global_idx)
+                return change(
+                  OnceReductionRewriteState::new(next_known),
+                  @lib.TInstr::global_set(global_idx, rewritten_value),
+                )
+              }
+              change(
+                next_state,
+                @lib.TInstr::global_set(global_idx, rewritten_value),
+              )
+            }
+            @lib.TReturn(_)
+            | @lib.TThrow(_, _)
+            | @lib.TThrowRef(_)
+            | @lib.TBr(_, _)
+            | @lib.TBrTable(_, _, _, _)
+            | @lib.TUnreachable => {
+              let (rewritten, next_state) = self
+                .walk_tinstruction_default(state, instr)
+                .unwrap()
+              change(
+                OnceReductionRewriteState::new(
+                  next_state.known_once_globals,
+                  reachable=false,
+                ),
+                rewritten,
+              )
+            }
+            _ => {
+              let (rewritten, next_state) = self
+                .walk_tinstruction_default(state, instr)
+                .unwrap()
+              change(next_state, rewritten)
+            }
+          }
+        })
+      match
+        transformer.walk_texpr(
+          OnceReductionRewriteState::new(
+            optimization_once_reduction_copy_known(summary),
+          ),
+          body,
+        ) {
+        Ok((rewritten_body, end_state)) =>
+          (
+            @lib.Func::t_func(params, locals, rewritten_body),
+            end_state.known_once_globals,
+          )
+        Err(_) => (func, summary)
+      }
+    }
+    _ => (func, summary)
+  }
+}
+
+///|
+fn optimization_once_reduction_optimize_once_bodies(
+  mod : Module,
+  once_func_globals_abs : Array[@lib.GlobalIdx?],
+) -> Module {
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let imported_func_count = optimization_imported_func_count(mod)
+      let removed_exit_logic : Array[Bool] = []
+      for _ in 0..<once_func_globals_abs.length() {
+        removed_exit_logic.push(false)
+      }
+      let rewritten_funcs : Array[@lib.Func] = []
+      for i in 0..<funcs.length() {
+        let abs_idx = imported_func_count + i
+        match (funcs[i], once_func_globals_abs.get(abs_idx)) {
+          (@lib.TFunc(params, locals, body), Some(Some(_))) => {
+            let instrs = body.inner()
+            if instrs.length() == 2 {
+              rewritten_funcs.push(
+                @lib.Func::t_func(
+                  params,
+                  locals,
+                  @lib.TExpr::new([@lib.TInstr::nop()]),
+                ),
+              )
+              continue
+            }
+            if instrs.length() == 3 {
+              match instrs[2].kind {
+                @lib.TCall(@lib.FuncIdx(target), []) => {
+                  let target_idx = target.reinterpret_as_int()
+                  if target_idx >= 0 &&
+                    target_idx < once_func_globals_abs.length() &&
+                    once_func_globals_abs[target_idx] is Some(_) &&
+                    !removed_exit_logic[target_idx] {
+                    removed_exit_logic[abs_idx] = true
+                    rewritten_funcs.push(
+                      @lib.Func::t_func(
+                        params,
+                        locals,
+                        @lib.TExpr::new([
+                          @lib.TInstr::nop(),
+                          @lib.TInstr::nop(),
+                          instrs[2],
+                        ]),
+                      ),
+                    )
+                    continue
+                  }
+                }
+                _ => ()
+              }
+            }
+            rewritten_funcs.push(funcs[i])
+          }
+          _ => rewritten_funcs.push(funcs[i])
+        }
+      }
+      mod.with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    }
+    None => mod
+  }
+}
+
+///|
 priv enum MemoryPackingSegmentReferrer {
   MemoryInit(Bool)
   DataDrop
@@ -2344,35 +3183,52 @@ fn optimization_memory_packing_rewrite_typed_segment_ops_func(
       let transformer : ModuleTransformer[
         MemoryPackingTypedRewriteFuncState,
         Unit,
-      ] = ModuleTransformer::new().on_tinstruction_evt(fn(self, state, instr) {
-        match instr.kind {
-          @lib.TMemoryInit(data_idx, mem_idx, dest, offset, size) => {
-            let (dest, state) = self.walk_tinstruction(state, dest).unwrap()
-            let (offset, state) = self.walk_tinstruction(state, offset).unwrap()
-            let (size, state) = self.walk_tinstruction(state, size).unwrap()
-            change(
-              state,
-              optimization_memory_packing_rewrite_typed_memory_init_instr(
-                mod, analyses, replacements, drop_globals, state, data_idx, mem_idx,
-                dest, offset, size,
-              ),
-            )
-          }
-          @lib.TDataDrop(data_idx) =>
-            change(
-              state,
-              optimization_memory_packing_rewrite_typed_data_drop_instr(
-                replacements, drop_globals, data_idx,
-              ),
-            )
-          _ => {
-            let (rewritten, state) = self
-              .walk_tinstruction_default(state, instr)
+      ] = ModuleTransformer::new()
+        .on_texpr_evt(fn(self, state, expr) {
+          let rewritten_instrs : Array[@lib.TInstr] = []
+          let mut current = state
+          for instr in expr.inner() {
+            let (rewritten, next_state) = self
+              .walk_tinstruction(current, instr)
               .unwrap()
-            change(state, rewritten)
+            optimization_memory_packing_append_rewritten_instr(
+              rewritten_instrs, instr, rewritten,
+            )
+            current = next_state
           }
-        }
-      })
+          change(current, @lib.TExpr::new(rewritten_instrs))
+        })
+        .on_tinstruction_evt(fn(self, state, instr) {
+          match instr.kind {
+            @lib.TMemoryInit(data_idx, mem_idx, dest, offset, size) => {
+              let (dest, state) = self.walk_tinstruction(state, dest).unwrap()
+              let (offset, state) = self
+                .walk_tinstruction(state, offset)
+                .unwrap()
+              let (size, state) = self.walk_tinstruction(state, size).unwrap()
+              change(
+                state,
+                optimization_memory_packing_rewrite_typed_memory_init_instr(
+                  mod, analyses, replacements, drop_globals, state, data_idx, mem_idx,
+                  dest, offset, size,
+                ),
+              )
+            }
+            @lib.TDataDrop(data_idx) =>
+              change(
+                state,
+                optimization_memory_packing_rewrite_typed_data_drop_instr(
+                  replacements, drop_globals, data_idx,
+                ),
+              )
+            _ => {
+              let (rewritten, state) = self
+                .walk_tinstruction_default(state, instr)
+                .unwrap()
+              change(state, rewritten)
+            }
+          }
+        })
       match
         transformer.walk_texpr(
           MemoryPackingTypedRewriteFuncState::new(
@@ -2387,6 +3243,29 @@ fn optimization_memory_packing_rewrite_typed_segment_ops_func(
       }
     }
     _ => func
+  }
+}
+
+///|
+fn optimization_memory_packing_append_rewritten_instr(
+  rewritten_instrs : Array[@lib.TInstr],
+  original : @lib.TInstr,
+  rewritten : @lib.TInstr,
+) -> Unit {
+  let flatten = match (original.kind, rewritten.kind) {
+    (
+      @lib.TMemoryInit(_, _, _, _, _)
+      | @lib.TDataDrop(_),
+      @lib.TBlock(@lib.VoidBlockType, body),
+    ) => Some(body)
+    _ => None
+  }
+  match flatten {
+    Some(body) =>
+      for instr in body.inner() {
+        rewritten_instrs.push(instr)
+      }
+    None => rewritten_instrs.push(rewritten)
   }
 }
 
@@ -2651,6 +3530,24 @@ fn optimization_memory_packing_add_to_dest(
 ) -> @lib.TInstr {
   if delta == 0UL {
     return dest
+  }
+  match optimization_memory_packing_tinstr_const_u64(dest) {
+    Some(base) =>
+      match optimization_memory_packing_mem_type(mod, mem_idx) {
+        Some(@lib.MemType(@lib.I64Limits(_, _))) =>
+          if base <= 0xFFFF_FFFF_FFFF_FFFFUL - delta {
+            return @lib.TInstr::i64_const(
+              @lib.I64::new((base + delta).reinterpret_as_int64()),
+            )
+          }
+        _ =>
+          if base <= 0xFFFF_FFFFUL - delta {
+            return @lib.TInstr::i32_const(
+              @lib.I32::new((base + delta).to_uint().reinterpret_as_int()),
+            )
+          }
+      }
+    None => ()
   }
   match optimization_memory_packing_mem_type(mod, mem_idx) {
     Some(@lib.MemType(@lib.I64Limits(_, _))) =>
@@ -4055,54 +4952,36 @@ test "memory packing rewrites split passive memory.init and data.drop with drop-
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, _, body)])) =>
       assert_eq(body.inner(), [
-        @lib.TInstr::block(
+        @lib.TInstr::if_(
           @lib.BlockType::void_(),
-          @lib.TExpr::new([
-            @lib.TInstr::if_(
-              @lib.BlockType::void_(),
-              @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
-              @lib.TExpr::new([@lib.TInstr::unreachable_()]),
-              None,
-            ),
-            @lib.TInstr::memory_fill(
-              @lib.MemIdx::new(0U),
-              @lib.TInstr::i32_const(@lib.I32::new(100)),
-              @lib.TInstr::i32_const(@lib.I32::new(0)),
-              @lib.TInstr::i32_const(@lib.I32::new(10)),
-            ),
-            @lib.TInstr::memory_init(
-              DataIdx::new(0U),
-              @lib.MemIdx::new(0U),
-              @lib.TInstr::binary(
-                @lib.BinaryOp::i32_add(),
-                @lib.TInstr::i32_const(@lib.I32::new(100)),
-                @lib.TInstr::i32_const(@lib.I32::new(10)),
-              ),
-              @lib.TInstr::i32_const(@lib.I32::new(0)),
-              @lib.TInstr::i32_const(@lib.I32::new(5)),
-            ),
-            @lib.TInstr::memory_fill(
-              @lib.MemIdx::new(0U),
-              @lib.TInstr::binary(
-                @lib.BinaryOp::i32_add(),
-                @lib.TInstr::i32_const(@lib.I32::new(100)),
-                @lib.TInstr::i32_const(@lib.I32::new(15)),
-              ),
-              @lib.TInstr::i32_const(@lib.I32::new(0)),
-              @lib.TInstr::i32_const(@lib.I32::new(10)),
-            ),
-          ]),
+          @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+          @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+          None,
         ),
-        @lib.TInstr::block(
-          @lib.BlockType::void_(),
-          @lib.TExpr::new([
-            @lib.TInstr::global_set(
-              @lib.GlobalIdx::new(0U),
-              @lib.TInstr::i32_const(@lib.I32::new(1)),
-            ),
-            @lib.TInstr::data_drop(DataIdx::new(0U)),
-          ]),
+        @lib.TInstr::memory_fill(
+          @lib.MemIdx::new(0U),
+          @lib.TInstr::i32_const(@lib.I32::new(100)),
+          @lib.TInstr::i32_const(@lib.I32::new(0)),
+          @lib.TInstr::i32_const(@lib.I32::new(10)),
         ),
+        @lib.TInstr::memory_init(
+          DataIdx::new(0U),
+          @lib.MemIdx::new(0U),
+          @lib.TInstr::i32_const(@lib.I32::new(110)),
+          @lib.TInstr::i32_const(@lib.I32::new(0)),
+          @lib.TInstr::i32_const(@lib.I32::new(5)),
+        ),
+        @lib.TInstr::memory_fill(
+          @lib.MemIdx::new(0U),
+          @lib.TInstr::i32_const(@lib.I32::new(115)),
+          @lib.TInstr::i32_const(@lib.I32::new(0)),
+          @lib.TInstr::i32_const(@lib.I32::new(10)),
+        ),
+        @lib.TInstr::global_set(
+          @lib.GlobalIdx::new(0U),
+          @lib.TInstr::i32_const(@lib.I32::new(1)),
+        ),
+        @lib.TInstr::data_drop(DataIdx::new(0U)),
       ])
     _ => fail("expected rewritten typed body")
   }
@@ -4151,41 +5030,36 @@ test "memory packing rewrites split passive memory.init with a fresh local for n
       assert_eq(params, [@lib.ValType::i32()])
       assert_eq(locals, @lib.Locals::single(1U, @lib.ValType::i32()))
       assert_eq(body.inner(), [
-        @lib.TInstr::block(
-          @lib.BlockType::void_(),
-          @lib.TExpr::new([
-            @lib.TInstr::local_set(
-              @lib.LocalIdx::new(1U),
-              @lib.TInstr::local_get(@lib.LocalIdx::new(0U)),
-            ),
-            @lib.TInstr::memory_fill(
-              @lib.MemIdx::new(0U),
-              @lib.TInstr::local_get(@lib.LocalIdx::new(1U)),
-              @lib.TInstr::i32_const(@lib.I32::new(0)),
-              @lib.TInstr::i32_const(@lib.I32::new(10)),
-            ),
-            @lib.TInstr::memory_init(
-              DataIdx::new(0U),
-              @lib.MemIdx::new(0U),
-              @lib.TInstr::binary(
-                @lib.BinaryOp::i32_add(),
-                @lib.TInstr::local_get(@lib.LocalIdx::new(1U)),
-                @lib.TInstr::i32_const(@lib.I32::new(10)),
-              ),
-              @lib.TInstr::i32_const(@lib.I32::new(0)),
-              @lib.TInstr::i32_const(@lib.I32::new(5)),
-            ),
-            @lib.TInstr::memory_fill(
-              @lib.MemIdx::new(0U),
-              @lib.TInstr::binary(
-                @lib.BinaryOp::i32_add(),
-                @lib.TInstr::local_get(@lib.LocalIdx::new(1U)),
-                @lib.TInstr::i32_const(@lib.I32::new(15)),
-              ),
-              @lib.TInstr::i32_const(@lib.I32::new(0)),
-              @lib.TInstr::i32_const(@lib.I32::new(10)),
-            ),
-          ]),
+        @lib.TInstr::local_set(
+          @lib.LocalIdx::new(1U),
+          @lib.TInstr::local_get(@lib.LocalIdx::new(0U)),
+        ),
+        @lib.TInstr::memory_fill(
+          @lib.MemIdx::new(0U),
+          @lib.TInstr::local_get(@lib.LocalIdx::new(1U)),
+          @lib.TInstr::i32_const(@lib.I32::new(0)),
+          @lib.TInstr::i32_const(@lib.I32::new(10)),
+        ),
+        @lib.TInstr::memory_init(
+          DataIdx::new(0U),
+          @lib.MemIdx::new(0U),
+          @lib.TInstr::binary(
+            @lib.BinaryOp::i32_add(),
+            @lib.TInstr::local_get(@lib.LocalIdx::new(1U)),
+            @lib.TInstr::i32_const(@lib.I32::new(10)),
+          ),
+          @lib.TInstr::i32_const(@lib.I32::new(0)),
+          @lib.TInstr::i32_const(@lib.I32::new(5)),
+        ),
+        @lib.TInstr::memory_fill(
+          @lib.MemIdx::new(0U),
+          @lib.TInstr::binary(
+            @lib.BinaryOp::i32_add(),
+            @lib.TInstr::local_get(@lib.LocalIdx::new(1U)),
+            @lib.TInstr::i32_const(@lib.I32::new(15)),
+          ),
+          @lib.TInstr::i32_const(@lib.I32::new(0)),
+          @lib.TInstr::i32_const(@lib.I32::new(10)),
         ),
       ])
     }
@@ -4458,14 +5332,52 @@ fn optimization_resolve_func_type(
 }
 
 ///|
+fn optimization_func_annotations(
+  mod : Module,
+  abs_idx : Int,
+) -> Array[@lib.FuncAnnotation] {
+  if abs_idx < 0 {
+    return []
+  }
+  let idx = abs_idx.reinterpret_as_uint()
+  match mod.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      for entry in entries {
+        let @lib.FuncAnnotationAssoc(entry_idx, annotations) = entry
+        if entry_idx == idx {
+          return annotations
+        }
+      }
+    None => ()
+  }
+  []
+}
+
+///|
+fn optimization_func_has_annotation(
+  mod : Module,
+  abs_idx : Int,
+  name : String,
+) -> Bool {
+  for ann in optimization_func_annotations(mod, abs_idx) {
+    if ann.name == name {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn optimization_functions_equivalent(
   subtypes : Array[SubType],
   left_type : TypeIdx,
   left_func : Func,
+  left_annotations : Array[@lib.FuncAnnotation],
   right_type : TypeIdx,
   right_func : Func,
+  right_annotations : Array[@lib.FuncAnnotation],
 ) -> Bool {
-  if left_func != right_func {
+  if left_func != right_func || left_annotations != right_annotations {
     return false
   }
   match
@@ -4483,12 +5395,13 @@ fn optimization_function_hash_key(
   subtypes : Array[SubType],
   type_idx : TypeIdx,
   func : Func,
+  annotations : Array[@lib.FuncAnnotation],
 ) -> Int {
   let type_hash = match optimization_resolve_func_type(subtypes, type_idx) {
     Some(func_type) => func_type.hash()
     None => type_idx.hash()
   }
-  func.hash() * 31 + type_hash
+  (func.hash() * 31 + type_hash) * 31 + annotations.hash()
 }
 
 ///|
@@ -4522,8 +5435,58 @@ fn optimization_rewrite_func_indices(
     },
   )
   match transformer.walk_module((), mod) {
-    Ok((rewritten, _)) => rewritten
+    Ok((rewritten, _)) =>
+      optimization_rewrite_func_annotation_sec_in_module(
+        rewritten, remap, false,
+      )
     Err(_) => mod
+  }
+}
+
+///|
+fn optimization_rewrite_func_annotation_sec(
+  sec : @lib.FuncAnnotationSec,
+  remap : Map[UInt, UInt],
+  drop_unmapped : Bool,
+) -> @lib.FuncAnnotationSec {
+  let @lib.FuncAnnotationSec(entries) = sec
+  let rewritten : Array[@lib.FuncAnnotationAssoc] = []
+  let mut last_idx : UInt? = None
+  for entry in entries {
+    let @lib.FuncAnnotationAssoc(idx, annotations) = entry
+    match remap.get(idx) {
+      Some(next_idx) => {
+        if last_idx == Some(next_idx) {
+          continue
+        }
+        rewritten.push(@lib.FuncAnnotationAssoc::new(next_idx, annotations))
+        last_idx = Some(next_idx)
+      }
+      None =>
+        if !drop_unmapped {
+          if last_idx == Some(idx) {
+            continue
+          }
+          rewritten.push(entry)
+          last_idx = Some(idx)
+        }
+    }
+  }
+  @lib.FuncAnnotationSec::new(rewritten)
+}
+
+///|
+fn optimization_rewrite_func_annotation_sec_in_module(
+  mod : Module,
+  remap : Map[UInt, UInt],
+  drop_unmapped : Bool,
+) -> Module {
+  match mod.func_annotation_sec {
+    Some(sec) =>
+      mod.with_func_annotation_sec(
+        optimization_rewrite_func_annotation_sec(sec, remap, drop_unmapped),
+      )
+    None => mod
   }
 }
 
@@ -5424,6 +6387,44 @@ fn optimization_note_ref_func(
     optimization_note_used_func(
       used_funcs, func_worklist, imported_func_count, defined_func_count, func_idx,
     )
+  }
+}
+
+///|
+fn optimization_promote_js_called_references(
+  mod : Module,
+  referenced_funcs : Array[Bool],
+  used_funcs : Array[Bool],
+  func_worklist : Array[Int],
+  imported_func_count : Int,
+  defined_func_count : Int,
+) -> Unit {
+  match mod.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      for entry in entries {
+        let @lib.FuncAnnotationAssoc(idx, annotations) = entry
+        let abs_idx = idx.reinterpret_as_int()
+        if abs_idx < 0 ||
+          abs_idx >= referenced_funcs.length() ||
+          abs_idx >= used_funcs.length() ||
+          !referenced_funcs[abs_idx] ||
+          used_funcs[abs_idx] {
+          continue
+        }
+        for ann in annotations {
+          if ann.name == "binaryen.js.called" {
+            optimization_note_used_func(
+              used_funcs,
+              func_worklist,
+              imported_func_count,
+              defined_func_count,
+              FuncIdx::new(idx),
+            )
+            break
+          }
+        }
+      }
+    None => ()
   }
 }
 
@@ -8266,7 +9267,10 @@ fn optimization_rewrite_module_element_indices(
     None => ()
   }
   match transformer.walk_module((), mod) {
-    Ok((rewritten, _)) => rewritten
+    Ok((rewritten, _)) =>
+      optimization_rewrite_func_annotation_sec_in_module(
+        rewritten, func_remap, true,
+      )
     Err(_) => mod
   }
 }
@@ -8820,6 +9824,14 @@ fn optimization_remove_unused_module_elements_iteration(
         tags.length(),
       )
     }
+    optimization_promote_js_called_references(
+      mod,
+      referenced_funcs,
+      used_funcs,
+      func_worklist,
+      imported_func_count,
+      funcs.length(),
+    )
     optimization_promote_live_active_segments(
       elems, observable_tables, imported_table_count, used_elems, elem_worklist,
       datas, used_mems, imported_mem_count, used_datas, data_worklist,
@@ -8999,13 +10011,16 @@ fn optimization_duplicate_function_iteration(mod : Module) -> Module? {
       }
 
       let subtypes = optimization_flatten_subtypes(mod)
+      let imported_count = optimization_imported_func_count(mod)
       let hash_groups : Map[Int, Array[Int]] = {}
       let mut local_idx = 0
       while local_idx < funcs.length() {
+        let abs_idx = imported_count + local_idx
         let key = optimization_function_hash_key(
           subtypes,
           type_idxs[local_idx],
           funcs[local_idx],
+          optimization_func_annotations(mod, abs_idx),
         )
         hash_groups.get_or_init(key, fn() { [] }).push(local_idx)
         local_idx += 1
@@ -9035,8 +10050,10 @@ fn optimization_duplicate_function_iteration(mod : Module) -> Module? {
                 subtypes,
                 type_idxs[first],
                 funcs[first],
+                optimization_func_annotations(mod, imported_count + first),
                 type_idxs[second],
                 funcs[second],
+                optimization_func_annotations(mod, imported_count + second),
               ) {
               replacements[second] = first
               changed = true
@@ -9054,7 +10071,6 @@ fn optimization_duplicate_function_iteration(mod : Module) -> Module? {
       let kept_types : Array[TypeIdx] = []
       let kept_funcs : Array[Func] = []
       let kept_abs : Map[Int, UInt] = {}
-      let imported_count = optimization_imported_func_count(mod)
       let mut next_abs = imported_count.reinterpret_as_uint()
       let mut i = 0
       while i < funcs.length() {
@@ -9195,6 +10211,7 @@ fn make_entry_kind(pass : OptimizePass) -> PassKind {
     RemoveUnusedModuleElements =>
       PassKind::module_wide(run_remove_unused_module_elements)
     MemoryPacking => PassKind::module_wide(run_memory_packing)
+    OnceReduction => PassKind::module_wide(run_once_reduction)
     DeadCodeElimination =>
       PassKind::func_local_group([run_dead_code_elimination])
     _ =>

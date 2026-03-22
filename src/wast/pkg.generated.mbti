@@ -52,6 +52,14 @@ pub suberror WastTextError {
 }
 
 // Types and methods
+pub struct Annotation {
+  name : String
+  args : Array[String]
+}
+pub impl Eq for Annotation
+pub impl Show for Annotation
+pub impl @debug.Debug for Annotation
+
 pub struct BlockType {
   label : String?
   type_use : TypeUse?
@@ -148,6 +156,7 @@ pub impl @debug.Debug for FieldStorage
 
 pub struct Func {
   id : String?
+  annotations : Array[Annotation]
   exports : Array[InlineExport]
   type_use : TypeUse
   locals : Array[Local]
@@ -215,6 +224,7 @@ pub struct Import {
   field_name : String
   desc : ImportDesc
   id : String?
+  annotations : Array[Annotation]
 }
 pub impl @lib.PrettyPrint for Import
 pub impl Eq for Import
@@ -313,7 +323,7 @@ pub enum Instruction {
   StructGetU(Index, UInt)
   StructNewDesc(Index)
   StructNewDefaultDesc(Index)
-  RefGetDesc
+  RefGetDesc(Index)
   RefTestDesc(Bool, Index)
   RefCastDescEq(Bool, Index)
   V128Const(V128Const)
@@ -1411,4 +1421,3 @@ pub impl @quickcheck.Arbitrary for WastValue
 // Type aliases
 
 // Traits
-

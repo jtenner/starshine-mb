@@ -5,7 +5,8 @@ test "wast_to_module parses passive typed empty elem declarations" {
     #|  (type $func (func))
     #|  (table 0 (ref null $func))
     #|  (elem (ref null $func)))
-  let mod = match wast_to_module(src, filename="passive-typed-empty-elem.wast") {
+  let mod = match
+    wast_to_module(src, filename="passive-typed-empty-elem.wast") {
     Ok(m) => m
     Err(e) => fail("expected passive typed empty elem parse success: \{e}")
   }
@@ -30,7 +31,8 @@ test "module_to_wast preserves passive typed empty elem declarations" {
     #|  (type $func (func))
     #|  (table 0 (ref null $func))
     #|  (elem (ref null $func)))
-  let mod = match wast_to_module(src, filename="passive-typed-empty-elem-print.wast") {
+  let mod = match
+    wast_to_module(src, filename="passive-typed-empty-elem-print.wast") {
     Ok(m) => m
     Err(e) => fail("expected passive typed empty elem parse success: \{e}")
   }
@@ -77,8 +79,6 @@ test "wast_to_binary_module lowers passive typed empty elem declarations" {
   match @validate.validate_module(lowered) {
     Ok(_) => ()
     Err(e) =>
-      fail(
-        "expected passive typed empty elem fixture to validate: \{e}",
-      )
+      fail("expected passive typed empty elem fixture to validate: \{e}")
   }
 }

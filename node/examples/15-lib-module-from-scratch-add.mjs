@@ -15,7 +15,7 @@ const typeSec = singleFunctionType(params, results);
 const funcSec = lib.FuncSec.new([lib.TypeIdx.new(0)]);
 const codeSec = lib.CodeSec.new([
   lib.Func.new(
-    [],
+    lib.Locals.new([]),
     lib.Expr.new([
       lib.Instruction.localGet(lib.LocalIdx.new(0)),
       lib.Instruction.localGet(lib.LocalIdx.new(1)),

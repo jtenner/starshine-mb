@@ -9,13 +9,9 @@ test "wast_to_binary_module validates structurally equivalent exact struct refs"
     #|  (func (param (ref (exact 2))) (result (ref (exact 3)))
     #|    (local.get 0)))
   let lowered = match
-    wast_to_binary_module(
-      src,
-      filename="exact-struct-equivalence-fixture.wast",
-    ) {
+    wast_to_binary_module(src, filename="exact-struct-equivalence-fixture.wast") {
     Ok(m) => m
-    Err(e) =>
-      fail("expected exact struct equivalence fixture to lower: \{e}")
+    Err(e) => fail("expected exact struct equivalence fixture to lower: \{e}")
   }
   match @validate.validate_module(lowered) {
     Ok(_) => ()
@@ -37,13 +33,9 @@ test "wast_to_binary_module validates structurally equivalent exact func refs" {
     #|  (func (param (ref (exact 3))) (result (ref (exact 2)))
     #|    (local.get 0)))
   let lowered = match
-    wast_to_binary_module(
-      src,
-      filename="exact-func-equivalence-fixture.wast",
-    ) {
+    wast_to_binary_module(src, filename="exact-func-equivalence-fixture.wast") {
     Ok(m) => m
-    Err(e) =>
-      fail("expected exact func equivalence fixture to lower: \{e}")
+    Err(e) => fail("expected exact func equivalence fixture to lower: \{e}")
   }
   match @validate.validate_module(lowered) {
     Ok(_) => ()
