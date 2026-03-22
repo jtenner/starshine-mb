@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 WAST: cover exact custom-descriptor fixture on native static path
+
+- **Exact fixture harness slice** by **@jtenner**. Added dedicated native spec-harness coverage in [`src/wast/spec_harness.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/spec_harness.mbt) for [`tests/spec/proposals/custom-descriptors/exact.wast`](/home/jtenner/Projects/starshine-mb/tests/spec/proposals/custom-descriptors/exact.wast), so the full exact-reference custom-descriptor fixture is now pinned on the static validation path alongside the earlier `descriptors.wast` and `ref_get_desc.wast` coverage.
+- Recorded the closure in [`docs/0032-2026-03-22-exact-custom-descriptor-static-harness.md`](/home/jtenner/Projects/starshine-mb/docs/0032-2026-03-22-exact-custom-descriptor-static-harness.md), which retires the remaining exact-reference custom-descriptor follow-up from the active backlog.
+
 ## 2026-03-22 Validate: accept structurally equivalent exact func refs
 
 - **Exact function-reference equivalence slice** by **@jtenner**. Extended [`src/validate/match.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/match.mbt) so exact closure comparison now also treats function params and results structurally, instead of stopping at raw type-index identity for exact function references with equivalent signatures.

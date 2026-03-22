@@ -79,7 +79,7 @@
   - passive typed empty `elem` declarations like `(elem (ref null $func))` now parse, print, and lower, which moves `tests/spec/proposals/custom-descriptors/exact.wast` beyond its first higher-level text-surface stop.
   - exact refs to distinct but structurally equivalent defined struct types now validate instead of requiring literal type-index identity.
   - exact refs to distinct but structurally equivalent defined function types now also validate, which clears the later static validator mismatch in `tests/spec/proposals/custom-descriptors/exact.wast`.
-  - remaining follow-up work is full native static harness coverage for `tests/spec/proposals/custom-descriptors/exact.wast`.
+  - the full `tests/spec/proposals/custom-descriptors/exact.wast` fixture now also stays on the native static harness path, closing the remaining exact-reference custom-descriptor follow-up.
 
 ## Backlog Hygiene
 - Keep duplicate entries removed when pass scopes converge.
