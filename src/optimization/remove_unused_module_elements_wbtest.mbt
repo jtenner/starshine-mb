@@ -1293,6 +1293,153 @@ test "remove unused module elements keeps active elem segments for indirectly ca
 }
 
 ///|
+test "remove unused module elements keeps active data segments with unknown offsets because instantiation may trap" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("offset"),
+          @lib.ExternType::global(
+            @lib.GlobalType::new(@lib.ValType::i32(), false),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_data_sec(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::active(
+            @lib.MemIdx::new(0U),
+            @lib.Expr::new([
+              @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            ]),
+          ),
+          b"trap?",
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.mem_sec {
+    Some(@lib.MemSec(mems)) => assert_eq(mems.length(), 1)
+    None => fail("expected mem section")
+  }
+  match optimized.data_sec {
+    Some(
+      @lib.DataSec(
+        [
+          @lib.Data(
+            @lib.Active(
+              @lib.MemIdx(mem_idx),
+              @lib.Expr([@lib.GlobalGet(@lib.GlobalIdx(global_idx))])
+            ),
+            bytes
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(mem_idx, 0U)
+      assert_eq(global_idx, 0U)
+      assert_eq(bytes, b"trap?")
+    }
+    _ => fail("expected active data section")
+  }
+}
+
+///|
+test "remove unused module elements keeps active elem segments with out of bounds writes because instantiation may trap" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            remove_unused_test_funcref(),
+            @lib.Limits::i32(1U, None),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(1))]),
+          ),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  match optimized.table_sec {
+    Some(@lib.TableSec(tables)) => assert_eq(tables.length(), 1)
+    None => fail("expected table section")
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec([@lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _)])) =>
+      assert_eq(table_idx, 0U)
+    _ => fail("expected active elem section")
+  }
+}
+
+///|
 test "remove unused module elements does not let dead table initializers root helper functions" {
   let mod = Module::new()
     .with_type_sec(remove_unused_test_type_sec())

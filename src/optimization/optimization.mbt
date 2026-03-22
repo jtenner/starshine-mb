@@ -1320,6 +1320,144 @@ fn optimization_seed_root_uses(
 }
 
 ///|
+fn optimization_const_expr_u64(expr : @lib.Expr) -> UInt64? {
+  match expr {
+    @lib.Expr([@lib.I32Const(@lib.I32(value))]) =>
+      Some(value.reinterpret_as_uint().to_uint64())
+    @lib.Expr([@lib.I64Const(@lib.I64(value))]) =>
+      Some(value.reinterpret_as_uint64())
+    _ => None
+  }
+}
+
+///|
+fn optimization_elem_item_count(elem : Elem) -> UInt64 {
+  match elem {
+    Elem(_, @lib.FuncsElemKind(funcs)) => funcs.length().to_uint64()
+    Elem(_, @lib.FuncExprsElemKind(exprs)) => exprs.length().to_uint64()
+    Elem(_, @lib.TypedExprsElemKind(_, exprs)) => exprs.length().to_uint64()
+  }
+}
+
+///|
+fn optimization_limits_initial_length(limits : @lib.Limits) -> UInt64 {
+  match limits {
+    @lib.I32Limits(min, _) => min.to_uint64()
+    @lib.I64Limits(min, _) => min
+  }
+}
+
+///|
+fn optimization_maybe_trapping_active_write(
+  offset : @lib.Expr,
+  item_count : UInt64,
+  initial_bound : UInt64,
+) -> Bool {
+  match optimization_const_expr_u64(offset) {
+    Some(start) => {
+      let end = start + item_count
+      end < start || end > initial_bound
+    }
+    None => true
+  }
+}
+
+///|
+fn optimization_active_elem_maybe_traps(
+  elem : Elem,
+  tables : Array[Table],
+  imported_table_count : Int,
+) -> Bool {
+  match elem {
+    Elem(@lib.Active(@lib.TableIdx(table_idx), offset), _) => {
+      let abs_table_idx = table_idx.reinterpret_as_int()
+      if abs_table_idx < 0 || abs_table_idx < imported_table_count {
+        return true
+      }
+      let local_idx = abs_table_idx - imported_table_count
+      if local_idx < 0 || local_idx >= tables.length() {
+        return true
+      }
+      let Table(@lib.TableType(_, limits), _) = tables[local_idx]
+      optimization_maybe_trapping_active_write(
+        offset,
+        optimization_elem_item_count(elem),
+        optimization_limits_initial_length(limits),
+      )
+    }
+    _ => false
+  }
+}
+
+///|
+fn optimization_active_data_maybe_traps(
+  data : Data,
+  mems : Array[@lib.MemType],
+  imported_mem_count : Int,
+) -> Bool {
+  match data {
+    Data(@lib.Active(@lib.MemIdx(mem_idx), offset), bytes) => {
+      let abs_mem_idx = mem_idx.reinterpret_as_int()
+      if abs_mem_idx < 0 || abs_mem_idx < imported_mem_count {
+        return true
+      }
+      let local_idx = abs_mem_idx - imported_mem_count
+      if local_idx < 0 || local_idx >= mems.length() {
+        return true
+      }
+      let @lib.MemType(limits) = mems[local_idx]
+      optimization_maybe_trapping_active_write(
+        offset,
+        bytes.length().to_uint64(),
+        optimization_limits_initial_length(limits) * 65536UL,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
+fn optimization_seed_trapping_active_segments(
+  elems : Array[Elem],
+  tables : Array[Table],
+  imported_table_count : Int,
+  used_elems : Array[Bool],
+  elem_worklist : Array[Int],
+  datas : Array[Data],
+  mems : Array[@lib.MemType],
+  imported_mem_count : Int,
+  used_datas : Array[Bool],
+  data_worklist : Array[Int],
+) -> Unit {
+  let mut i = 0
+  while i < elems.length() {
+    if optimization_active_elem_maybe_traps(
+        elems[i],
+        tables,
+        imported_table_count,
+      ) {
+      optimization_note_used_elem(
+        used_elems,
+        elem_worklist,
+        ElemIdx::new(i.reinterpret_as_uint()),
+      )
+    }
+    i += 1
+  }
+  i = 0
+  while i < datas.length() {
+    if optimization_active_data_maybe_traps(datas[i], mems, imported_mem_count) {
+      optimization_note_used_data(
+        used_datas,
+        data_worklist,
+        DataIdx::new(i.reinterpret_as_uint()),
+      )
+    }
+    i += 1
+  }
+}
+
+///|
 fn optimization_promote_live_active_segments(
   elems : Array[Elem],
   used_tables : Array[Bool],
@@ -1970,6 +2108,10 @@ fn optimization_remove_unused_module_elements_iteration(
   )
   optimization_promote_live_active_segments(
     elems, used_tables, imported_table_count, used_elems, elem_worklist, datas, used_mems,
+    imported_mem_count, used_datas, data_worklist,
+  )
+  optimization_seed_trapping_active_segments(
+    elems, tables, imported_table_count, used_elems, elem_worklist, datas, mems,
     imported_mem_count, used_datas, data_worklist,
   )
   while func_worklist.length() > 0 ||

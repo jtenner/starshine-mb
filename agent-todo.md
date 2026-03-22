@@ -70,8 +70,8 @@
 ## v0.1.0 Active Slice Focus
 - `RemoveUnusedModuleElements`: execute slices from `docs/0013-2026-03-21-remove-unused-module-elements-plan.md`.
 - `RemoveUnusedModuleElements`: function + global + table + memory + tag + elem/data open-world compaction is landed, including active-segment retention only for imported/live targets; next implement referenced-only function shells and fuller table-indirect precision.
-- `RemoveUnusedModuleElements`: trap-root precision for active segments and initializers remains open.
-- `RemoveUnusedModuleElements`: keep the new wbtest edge coverage visible as later slices land; current carried-forward gaps are fuller indirect-call/table precision, trap roots, and closed-world function-reference precision.
+- `RemoveUnusedModuleElements`: active-segment trap roots are now conservatively preserved for unknown and out-of-bounds offsets; remaining trap gap is the still-narrow local constant-initializer model plus any future `traps_never_happen` plumbing.
+- `RemoveUnusedModuleElements`: keep the new wbtest edge coverage visible as later slices land; current carried-forward gaps are fuller indirect-call/table precision, the narrow constant-initializer trap model, and closed-world function-reference precision.
 - `RemoveUnusedModuleElements`: generated optimize feature-source plumbing is landed; remaining closed-world and GC work is analysis precision plus any future CLI/config exposure for `closed_world`.
 
 ## Backlog Hygiene

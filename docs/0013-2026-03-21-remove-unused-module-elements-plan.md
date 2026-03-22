@@ -59,6 +59,7 @@ Status: researched rollout plan for Starshine's index-based IR.
 - The currently landed behavior is still intentionally conservative, but no longer function-only:
   - roots exported and start functions,
   - keeps active elem/data segments only when their target table or memory is imported or otherwise live,
+  - roots active elem/data segments whose offsets are unknown or whose constant writes exceed the defined target's initial bounds,
   - roots exported globals/tables/memories/tags and preserves functions/global/table/memory/tag operands named by surviving module elements and active segments that remain in the module,
   - walks only live function bodies,
   - removes unreachable defined functions, unused defined globals/tables/memories/tags, unused passive/declarative elem segments, and passive data segments,
@@ -69,6 +70,7 @@ Status: researched rollout plan for Starshine's index-based IR.
   - dead global/table initializer non-roots,
   - dead active-segment target removal,
   - imported/exported active-segment observability,
+  - unknown-offset and out-of-bounds active-segment trap roots,
   - active segment mode remaps,
   - and mixed import+defined remaps for every currently landed index kind.
 - Starshine IR is index-based, not name-based:
@@ -139,8 +141,8 @@ Status: researched rollout plan for Starshine's index-based IR.
   - `ALG-00`, `ALG-02`, `ALG-03`, `ALG-08`, `ALG-10`, `ALG-11`.
 - Status:
   - partial.
-  - landed subset: open-world liveness for exports, start, exported globals/tables/memories/tags, live table initializer roots, active-segment retention for imported/live targets, live direct calls, live `GlobalIdx`/`TableIdx`/`MemIdx`/`TagIdx`/`ElemIdx`/`DataIdx` users, function retention from kept globals/tables/elem segments, function/global/table/memory/tag/name-map compaction, and elem/data/global/table/memory/tag removal with remapped indices.
-  - remaining work: fuller indirect-call/table precision, active-segment trap precision, and any path that needs referenced-only shell preservation.
+  - landed subset: open-world liveness for exports, start, exported globals/tables/memories/tags, live table initializer roots, active-segment retention for imported/live targets, conservative active-segment trap roots for unknown/out-of-bounds offsets, live direct calls, live `GlobalIdx`/`TableIdx`/`MemIdx`/`TagIdx`/`ElemIdx`/`DataIdx` users, function retention from kept globals/tables/elem segments, function/global/table/memory/tag/name-map compaction, and elem/data/global/table/memory/tag removal with remapped indices.
+  - remaining work: fuller indirect-call/table precision, the still-narrow local constant-initializer trap model, and any path that needs referenced-only shell preservation.
 - Root exports and non-empty start.
 - Scan globals, function bodies, table initializers, elem expressions, and active segment offsets for direct references.
 - Treat direct calls/returns, global/table/memory/tag ops, `memory.init`, `data.drop`, `table.init`, `elem.drop`, `array.new_data`, and `array.new_elem` as strong uses.
@@ -156,6 +158,10 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Preserve active data/elem segments that write to imported memory/table.
 - Preserve active segments whose offset/size may trap when `traps_never_happen` is false.
 - Preserve maybe-trapping constant initializers in globals and elem expressions.
+- Status:
+  - partial.
+  - landed subset: imported-target observability, live-target active-segment retention, and conservative rooting for unknown or definitely out-of-bounds active segment offsets on defined targets.
+  - remaining work: thread `traps_never_happen` into this pass and revisit Binaryen-style maybe-trapping constant initializer handling if local const-expr support expands beyond the current non-trapping subset.
 - Add regressions for:
   - imported memory/table visibility,
   - out-of-bounds instantiation traps.

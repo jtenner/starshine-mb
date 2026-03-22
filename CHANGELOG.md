@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization: preserve maybe-trapping active segment instantiation behavior
+
+- **RemoveUnusedModuleElements trap-root slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so active `elem` and `data` segments are rooted when they may trap at instantiation time, including unknown constant offsets via immutable `global.get` and constant writes that exceed the defined target’s initial bounds.
+- Expanded whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) for unknown-offset active data segments and out-of-bounds active elem segments, alongside the earlier live-target and observability regressions.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining visible `RemoveUnusedModuleElements` work is fuller indirect-call/table precision, the still-narrow local constant-initializer trap model, and closed-world referenced-only function handling.
+
 ## 2026-03-21 Optimization: add live-target precision for active elem/data segments
 
 - **RemoveUnusedModuleElements active-segment precision slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so active `elem` and `data` segments are no longer unconditional roots. They now become live only when their target table or memory is imported or otherwise live, which lets dead active segments on dead defined targets disappear instead of pinning helper functions.
