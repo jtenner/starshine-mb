@@ -121,7 +121,6 @@ pub impl Decode for RefType with decode(bytes, i) {
         match Decode::decode(bytes, i + 1) {
           Ok((@lib.S33(s), next)) =>
             Ok((true, HeapType::new(TypeIdx::new(s)), next))
-          Ok((_, _)) => Err(BinaryDecodeError::InvalidValType)
           Err(err) => Err(err)
         }
       _ =>

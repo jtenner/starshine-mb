@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-22 Binary: remove unreachable RefType decoder arm
+
+- **Binary decode warning cleanup** by **@jtenner**. Simplified [`src/binary/decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt) to remove an unreachable `S33` match arm in `RefType.decode`, eliminating the lingering `moon info` warning without changing decoder behavior.
+
 ## 2026-03-22 Optimization: close MemoryPacking with validation and idempotence coverage
 
 - **MemoryPacking cleanup slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt), [`src/optimization/imports.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/imports.mbt), and [`src/optimization/moon.pkg`](/home/jtenner/Projects/starshine-mb/src/optimization/moon.pkg) so the optimization package now validates its rewritten `MemoryPacking` outputs directly and carries idempotence coverage for both the split-passive replacement path and the startup-trap-preserving active path.
