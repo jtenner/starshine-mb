@@ -1274,6 +1274,13 @@ fn optimization_note_referenced_func(
 }
 
 ///|
+fn optimization_type_idx_bucket(type_idx : TypeIdx) -> Int? {
+  match type_idx {
+    TypeIdx(raw) | RecIdx(raw) => Some(raw.reinterpret_as_int())
+  }
+}
+
+///|
 fn optimization_called_ref_type_matches_func(
   called_ref_types : Array[Bool],
   subtypes : Array[SubType],
@@ -1308,13 +1315,12 @@ fn optimization_note_called_ref_type(
   imported_func_count : Int,
   defined_func_count : Int,
 ) -> Unit {
-  match call_type_idx {
-    TypeIdx(raw) | RecIdx(raw) => {
-      let raw_idx = raw.reinterpret_as_int()
+  match optimization_type_idx_bucket(call_type_idx) {
+    Some(raw_idx) =>
       if raw_idx >= 0 && raw_idx < called_ref_types.length() {
         called_ref_types[raw_idx] = true
       }
-    }
+    None => ()
   }
   let mut abs_func_idx = 0
   while abs_func_idx < referenced_funcs.length() {
@@ -1334,6 +1340,65 @@ fn optimization_note_called_ref_type(
       )
     }
     abs_func_idx += 1
+  }
+}
+
+///|
+fn optimization_note_indirect_call_type_for_table(
+  indirect_call_types_by_table : Array[Array[Bool]],
+  table_idx : TableIdx,
+  call_type_idx : TypeIdx,
+) -> Unit {
+  let TableIdx(raw_table_idx) = table_idx
+  let abs_table_idx = raw_table_idx.reinterpret_as_int()
+  if abs_table_idx < 0 || abs_table_idx >= indirect_call_types_by_table.length() {
+    return
+  }
+  match optimization_type_idx_bucket(call_type_idx) {
+    Some(type_idx) =>
+      if type_idx >= 0 &&
+        type_idx < indirect_call_types_by_table[abs_table_idx].length() {
+        indirect_call_types_by_table[abs_table_idx][type_idx] = true
+      }
+    None => ()
+  }
+}
+
+///|
+fn optimization_promote_mutated_indirect_table_signatures(
+  indirect_call_types_by_table : Array[Array[Bool]],
+  table_idx : TableIdx,
+  called_ref_types : Array[Bool],
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+  referenced_funcs : Array[Bool],
+  used_funcs : Array[Bool],
+  func_worklist : Array[Int],
+  imported_func_count : Int,
+  defined_func_count : Int,
+) -> Unit {
+  let TableIdx(raw_table_idx) = table_idx
+  let abs_table_idx = raw_table_idx.reinterpret_as_int()
+  if abs_table_idx < 0 || abs_table_idx >= indirect_call_types_by_table.length() {
+    return
+  }
+  let table_types = indirect_call_types_by_table[abs_table_idx]
+  let mut type_idx = 0
+  while type_idx < table_types.length() {
+    if table_types[type_idx] {
+      optimization_note_called_ref_type(
+        TypeIdx::new(type_idx.reinterpret_as_uint()),
+        called_ref_types,
+        subtypes,
+        func_type_idxs,
+        referenced_funcs,
+        used_funcs,
+        func_worklist,
+        imported_func_count,
+        defined_func_count,
+      )
+    }
+    type_idx += 1
   }
 }
 
@@ -1531,6 +1596,7 @@ fn optimization_collect_module_element_uses_in_func(
   func : Func,
   features : PipelineFeatures,
   called_ref_types : Array[Bool],
+  indirect_call_types_by_table : Array[Array[Bool]],
   subtypes : Array[SubType],
   func_type_idxs : Array[TypeIdx],
   referenced_funcs : Array[Bool],
@@ -1613,10 +1679,24 @@ fn optimization_collect_module_element_uses_in_func(
             used_tables, indirect_called_tables, table_worklist, imported_table_count,
             defined_table_count, table_idx,
           )
+          optimization_note_indirect_call_type_for_table(
+            indirect_call_types_by_table, table_idx, type_idx,
+          )
           optimization_collect_indirect_call_elem_uses(
             table_idx, type_idx, active_elem_indices_by_table, elems, subtypes, func_type_idxs,
             used_elems, elem_worklist,
           )
+          let TableIdx(raw_table_idx) = table_idx
+          let abs_table_idx = raw_table_idx.reinterpret_as_int()
+          if abs_table_idx >= 0 &&
+            abs_table_idx < mutated_tables.length() &&
+            mutated_tables[abs_table_idx] {
+            optimization_promote_mutated_indirect_table_signatures(
+              indirect_call_types_by_table, table_idx, called_ref_types, subtypes,
+              func_type_idxs, referenced_funcs, used_funcs, func_worklist, imported_func_count,
+              defined_func_count,
+            )
+          }
         }
         @lib.TableGet(table_idx) =>
           optimization_note_observable_table(
@@ -1636,11 +1716,17 @@ fn optimization_collect_module_element_uses_in_func(
         @lib.TableSet(table_idx)
         | @lib.TableGrow(table_idx)
         | @lib.TableFill(table_idx)
-        | @lib.TableInit(_, table_idx) =>
+        | @lib.TableInit(_, table_idx) => {
           optimization_mark_mutated_table(
             used_tables, mutated_tables, table_worklist, imported_table_count, defined_table_count,
             table_idx,
           )
+          optimization_promote_mutated_indirect_table_signatures(
+            indirect_call_types_by_table, table_idx, called_ref_types, subtypes,
+            func_type_idxs, referenced_funcs, used_funcs, func_worklist, imported_func_count,
+            defined_func_count,
+          )
+        }
         @lib.TableSize(table_idx) =>
           optimization_note_used_table(
             used_tables, table_worklist, imported_table_count, defined_table_count,
@@ -1662,10 +1748,24 @@ fn optimization_collect_module_element_uses_in_func(
             used_tables, indirect_called_tables, table_worklist, imported_table_count,
             defined_table_count, table_idx,
           )
+          optimization_note_indirect_call_type_for_table(
+            indirect_call_types_by_table, table_idx, type_idx,
+          )
           optimization_collect_indirect_call_elem_uses(
             table_idx, type_idx, active_elem_indices_by_table, elems, subtypes, func_type_idxs,
             used_elems, elem_worklist,
           )
+          let TableIdx(raw_table_idx) = table_idx
+          let abs_table_idx = raw_table_idx.reinterpret_as_int()
+          if abs_table_idx >= 0 &&
+            abs_table_idx < mutated_tables.length() &&
+            mutated_tables[abs_table_idx] {
+            optimization_promote_mutated_indirect_table_signatures(
+              indirect_call_types_by_table, table_idx, called_ref_types, subtypes,
+              func_type_idxs, referenced_funcs, used_funcs, func_worklist, imported_func_count,
+              defined_func_count,
+            )
+          }
         }
         @lib.TCallRef(type_idx, _, _) | @lib.TReturnCallRef(type_idx, _, _) =>
           optimization_note_called_ref_type(
@@ -1695,11 +1795,17 @@ fn optimization_collect_module_element_uses_in_func(
         @lib.TTableSet(table_idx, _, _)
         | @lib.TTableGrow(table_idx, _, _)
         | @lib.TTableFill(table_idx, _, _, _)
-        | @lib.TTableInit(_, table_idx, _, _, _) =>
+        | @lib.TTableInit(_, table_idx, _, _, _) => {
           optimization_mark_mutated_table(
             used_tables, mutated_tables, table_worklist, imported_table_count, defined_table_count,
             table_idx,
           )
+          optimization_promote_mutated_indirect_table_signatures(
+            indirect_call_types_by_table, table_idx, called_ref_types, subtypes,
+            func_type_idxs, referenced_funcs, used_funcs, func_worklist, imported_func_count,
+            defined_func_count,
+          )
+        }
         @lib.TTableSize(table_idx) =>
           optimization_note_used_table(
             used_tables, table_worklist, imported_table_count, defined_table_count,
@@ -2611,6 +2717,14 @@ fn optimization_remove_unused_module_elements_iteration(
   for _ in 0..<subtypes.length() {
     called_ref_types.push(false)
   }
+  let indirect_call_types_by_table : Array[Array[Bool]] = []
+  for _ in 0..<total_table_count {
+    let row : Array[Bool] = []
+    for _ in 0..<subtypes.length() {
+      row.push(false)
+    }
+    indirect_call_types_by_table.push(row)
+  }
   let active_elem_indices_by_table = optimization_active_elem_indices_by_table(
     elems, total_table_count,
   )
@@ -2659,6 +2773,7 @@ fn optimization_remove_unused_module_elements_iteration(
         funcs[local_idx],
         features,
         called_ref_types,
+        indirect_call_types_by_table,
         subtypes,
         func_type_idxs,
         referenced_funcs,

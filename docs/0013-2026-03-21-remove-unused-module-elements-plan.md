@@ -183,10 +183,8 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Detect mutable tables; if a table may be modified, fall back to callable-signature liveness.
 - Keep open-world behavior conservative whenever feature/config evidence is missing.
 - Status:
-  - partial.
-  - landed subset: non-mutated `call_indirect` and `return_call_indirect` now retain only matching active elem contributors for the target table; exports, `table.get`, and `table.copy` sources still root observable active contents; pure metadata/write operations like `table.size`, `table.set`, `table.fill`, `table.grow`, and `table.init` no longer pin prior active contents on their own; and table initializer expressions are only scanned when table contents are observable or the table participates in indirect calls.
-  - current local behavior for mutated indirect tables: Starshine no longer broadens to same-table active-segment retention, but it still lacks Binaryen's explicit callable-signature tracking for future writes beyond the initial matching contributors and whatever live direct `ref.func` uses already expose.
-  - remaining work: Binaryen-style callable-signature tracking for mutated indirect tables and any finer-grained per-item retention that depends on referenced-only function shells.
+  - complete for the current non-GC/function-reference scope.
+  - landed subset: non-mutated `call_indirect` and `return_call_indirect` now retain only matching active elem contributors for the target table; exports, `table.get`, and `table.copy` sources still root observable active contents; pure metadata/write operations like `table.size`, `table.set`, `table.fill`, `table.grow`, and `table.init` no longer pin prior active contents on their own; table initializer expressions are only scanned when table contents are observable or the table participates in indirect calls; and mutated indirect tables now feed their callable signatures into the closed-world `ref.func` / `call_ref` liveness machinery so later matching writes become used even when they were not present in the initial active segments.
 - Exit when indirect-call retention is more precise than keeping every function reachable from every table.
 
 ### Slice 5 — Closed-World Function-Reference Precision
@@ -206,8 +204,8 @@ Status: researched rollout plan for Starshine's index-based IR.
   - open-world fallback keeping the full body.
 - Status:
   - partial.
-  - landed subset: closed-world generated-pipeline feature sourcing, referenced-vs-used function tracking for bare `ref.func`, `call_ref` / `return_call_ref` promotion of matching referenced functions back to used, open-world fallback keeping `ref.func` conservative, and `unreachable` shell rewriting for referenced-only defined functions.
-  - remaining work: connect mutated indirect tables to Binaryen-style callable-signature liveness, decide whether `closed_world` should become CLI/config visible before the later slices, and revisit any per-item retention logic that wants referenced-only shells outside the current function-body rewrite.
+  - landed subset: closed-world generated-pipeline feature sourcing, referenced-vs-used function tracking for bare `ref.func`, `call_ref` / `return_call_ref` promotion of matching referenced functions back to used, mutated-indirect-table callable-signature fallback into that same machinery, open-world fallback keeping `ref.func` conservative, and `unreachable` shell rewriting for referenced-only defined functions.
+  - remaining work: decide whether `closed_world` should become CLI/config visible before the later slices, and revisit any per-item retention logic that wants referenced-only shells outside the current function-body rewrite.
 - Exit when Starshine supports Binaryen’s central referenced-vs-used function distinction where local execution config can express it.
 
 ### Slice 6 — GC Struct and Array Precision

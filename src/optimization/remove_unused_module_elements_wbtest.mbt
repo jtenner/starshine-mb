@@ -1655,6 +1655,179 @@ test "remove unused module elements does not let mutated indirectly called table
 }
 
 ///|
+test "remove unused module elements promotes matching closed-world ref.func writes for mutated indirectly called tables" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::table_set(
+              @lib.TableIdx::new(0U),
+              remove_unused_test_i32_const(0),
+              @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+            ),
+            @lib.TInstr::call_indirect(
+              @lib.TypeIdx::new(0U),
+              @lib.TableIdx::new(0U),
+              [],
+              remove_unused_test_i32_const(0),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::call(@lib.FuncIdx::new(2U), [])]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            remove_unused_test_funcref(),
+            @lib.Limits::i32(1U, None),
+          ),
+          None,
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 0), 1U)
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+  assert_eq(try! remove_unused_test_func_call_target(optimized, 1), 2U)
+}
+
+///|
+test "remove unused module elements keeps mutated indirect-table callable fallback signature-filtered" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_two_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(1U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::call_indirect(
+              @lib.TypeIdx::new(0U),
+              @lib.TableIdx::new(0U),
+              [],
+              remove_unused_test_i32_const(0),
+            ),
+            @lib.TInstr::table_set(
+              @lib.TableIdx::new(0U),
+              remove_unused_test_i32_const(0),
+              @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [@lib.ValType::i32()],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::call(@lib.FuncIdx::new(2U), [])]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            remove_unused_test_funcref(),
+            @lib.Limits::i32(1U, None),
+          ),
+          None,
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 0), 1U)
+  assert_true(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+}
+
+///|
 test "remove unused module elements does not let table.size root active elem contents" {
   let mod = Module::new()
     .with_type_sec(remove_unused_test_type_sec())
