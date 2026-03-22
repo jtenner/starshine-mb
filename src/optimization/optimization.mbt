@@ -647,6 +647,10 @@ fn optimization_dead_code_elimination_rewrite_instr(
       optimization_dead_code_elimination_rewrite_block(block_type, body)
     @lib.TLoop(block_type, body) =>
       optimization_dead_code_elimination_rewrite_loop(block_type, body)
+    @lib.TTryTable(block_type, catches, body) =>
+      optimization_dead_code_elimination_rewrite_try_table(
+        block_type, catches, body,
+      )
     @lib.TIf(block_type, cond, then_body, else_body) =>
       optimization_dead_code_elimination_rewrite_if(
         block_type, cond, then_body, else_body,
@@ -701,6 +705,20 @@ fn optimization_dead_code_elimination_rewrite_instr(
         None => @lib.TInstr::select(type_hint, cond, if_true, if_false)
       }
     _ => instr
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_rewrite_try_table(
+  block_type : @lib.BlockType,
+  catches : Array[@lib.Catch],
+  body : @lib.TExpr,
+) -> @lib.TInstr {
+  if optimization_dead_code_elimination_expr_is_unreachable(body) &&
+    optimization_dead_code_elimination_block_type_is_concrete(block_type) {
+    @lib.TInstr::try_table(@lib.BlockType::void_(), catches, body)
+  } else {
+    @lib.TInstr::try_table(block_type, catches, body)
   }
 }
 
@@ -853,6 +871,13 @@ fn optimization_dead_code_elimination_if_is_unreachable(
       optimization_dead_code_elimination_expr_is_unreachable(else_body)
     None => false
   }
+}
+
+///|
+fn optimization_dead_code_elimination_try_table_is_unreachable(
+  body : @lib.TExpr,
+) -> Bool {
+  optimization_dead_code_elimination_expr_is_unreachable(body)
 }
 
 ///|
@@ -1112,6 +1137,8 @@ fn optimization_dead_code_elimination_instr_terminates_current_expr(
     | @lib.TThrowRef(_)
     | @lib.TBr(_, _)
     | @lib.TBrTable(_, _, _, _) => true
+    @lib.TTryTable(_, _, body) =>
+      optimization_dead_code_elimination_try_table_is_unreachable(body)
     @lib.TIf(_, cond, then_body, else_body) =>
       optimization_dead_code_elimination_if_is_unreachable(
         cond, then_body, else_body,
@@ -1134,6 +1161,8 @@ fn optimization_dead_code_elimination_instr_escapes_enclosing_expr(
     | @lib.TReturnCallRef(_, _, _)
     | @lib.TThrow(_, _)
     | @lib.TThrowRef(_) => true
+    @lib.TTryTable(_, _, body) =>
+      optimization_dead_code_elimination_try_table_is_unreachable(body)
     @lib.TIf(_, cond, then_body, else_body) =>
       optimization_dead_code_elimination_if_is_unreachable(
         cond, then_body, else_body,
@@ -1158,6 +1187,8 @@ fn optimization_dead_code_elimination_instr_is_unreachable(
     | @lib.TThrowRef(_)
     | @lib.TBr(_, _)
     | @lib.TBrTable(_, _, _, _) => true
+    @lib.TTryTable(_, _, body) =>
+      optimization_dead_code_elimination_try_table_is_unreachable(body)
     @lib.TIf(_, cond, then_body, else_body) =>
       optimization_dead_code_elimination_if_is_unreachable(
         cond, then_body, else_body,

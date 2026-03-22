@@ -382,3 +382,23 @@ test "dead code elimination leaves branch-back loops alone" {
     @lib.TInstr::nop(),
   ])
 }
+
+///|
+test "dead code elimination retags try_table when its body is unreachable" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::drop(
+      @lib.TInstr::try_table(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        [],
+        @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+      ),
+    ),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::try_table(
+      @lib.BlockType::void_(),
+      [],
+      @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+    ),
+  ])
+}

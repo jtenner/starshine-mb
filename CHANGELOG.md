@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: land DeadCodeElimination try_table rewrite
+
+- **DeadCodeElimination EH slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so typed `try_table` instructions now degrade to unreachable-equivalent void form when their rewritten body is unreachable, which lets parent rewrites observe the EH node as unreachable without dropping the wrapper.
+- Added focused coverage in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) for the concrete-result `try_table` case under `drop`.
+- Recorded the checkpoint in [`docs/0039-2026-03-22-dead-code-elimination-try-table-rule.md`](/home/jtenner/Projects/starshine-mb/docs/0039-2026-03-22-dead-code-elimination-try-table-rule.md), which narrows the remaining DCE work in this codebase to branch-value stress cases, GC/reference-sensitive regressions, and the later EH `pop` fixup follow-up.
+
 ## 2026-03-22 Optimization: land DeadCodeElimination loop rewrite
 
 - **DeadCodeElimination loop slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so loops whose rewritten body is the literal `unreachable` node now collapse to that child, while ordinary branch-back loops remain untouched.
