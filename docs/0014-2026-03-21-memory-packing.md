@@ -1,6 +1,6 @@
 # MemoryPacking
 
-Status: research baseline plus slices 1-3. In Starshine today, the pass still has no segment splitting or data-index rewrite implementation, but the generated optimizer now dispatches `MemoryPacking` through a dedicated runner, threads the initial `zero_filled_memory` / `traps_never_happen` option surface, applies the documented analysis-only gating for unsupported memory/imported-memory/active-layout cases, and performs the stage-3 pre-normalization of obvious `memory.init` / active `data.drop` cases. This document remains the implementation blueprint for the later semantic slices.
+Status: research baseline plus slices 1-4. In Starshine today, the pass still has no dead passive-segment removal, segment splitting/materialization, or data-index rewrite implementation, but the generated optimizer now dispatches `MemoryPacking` through a dedicated runner, threads the initial `zero_filled_memory` / `traps_never_happen` option surface, applies the documented analysis-only gating for unsupported memory/imported-memory/active-layout cases, performs the stage-3 pre-normalization of obvious `memory.init` / active `data.drop` cases, and collects per-`DataIdx` referrers for `memory.init`, `data.drop`, `array.new_data`, and `array.init_data`. This document remains the implementation blueprint for the later semantic slices.
 
 ## Purpose
 
@@ -40,7 +40,8 @@ What exists now:
 5. The initial pass-option plumbing for `zero_filled_memory` and `traps_never_happen` now threads through generated-pipeline features and explicit pass expansion.
 6. The runner now applies the documented analysis-only bailouts for unsupported memory topologies, imported memory without the zero-fill promise, overlapping active segments, and dynamic active offsets in the multi-segment case.
 7. The runner now pre-normalizes the obvious active/passive `memory.init` trap and zero-length cases plus active `data.drop`.
-8. The runner still has no referrer collection, dead-segment removal, splitting/materialization, or data-index rewrite logic.
+8. The runner now collects per-`DataIdx` referrer lists for `memory.init`, `data.drop`, `array.new_data`, and `array.init_data`.
+9. The runner still has no dead-segment removal, splitting/materialization, or data-index rewrite logic.
 
 That means:
 

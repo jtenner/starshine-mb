@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: land MemoryPacking slice-4 referrer collection
+
+- **MemoryPacking referrer slice** by **@jtenner**. Extended [`run_memory_packing`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now performs the documented stage-4 per-`DataIdx` referrer scan after pre-normalization, collecting `memory.init`, `data.drop`, `array.new_data`, and `array.init_data` users in one module walk as the foundation for later dead-segment removal and rewrite planning.
+- Added focused red-to-green internal regressions in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) covering both typed and untyped referrer collection, including the GC data consumers required by [`docs/0014-2026-03-21-memory-packing.md`](/home/jtenner/Projects/starshine-mb/docs/0014-2026-03-21-memory-packing.md).
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0014-2026-03-21-memory-packing.md`](/home/jtenner/Projects/starshine-mb/docs/0014-2026-03-21-memory-packing.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining active `MemoryPacking` backlog now starts at dead passive-segment removal and later segment materialization/rewrite slices.
+
 ## 2026-03-22 Optimization: land MemoryPacking slice-3 segment-op pre-normalization
 
 - **MemoryPacking pre-normalization slice** by **@jtenner**. Extended [`run_memory_packing`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now performs the documented segment-op simplifications after entry gating: active `data.drop` rewrites to `nop`, active `memory.init` collapses to either the exact trap block or the zero-length destination bounds check, and passive `memory.init` now rewrites the obvious trap and zero-length cases before any later splitting work.

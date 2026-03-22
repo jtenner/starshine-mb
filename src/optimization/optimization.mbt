@@ -566,8 +566,18 @@ pub fn run_memory_packing(
   if !optimization_memory_packing_can_optimize(mod, features) {
     return (mod, global)
   }
-  (optimization_memory_packing_prenormalize_segment_ops(mod), global)
+  let prenormalized = optimization_memory_packing_prenormalize_segment_ops(mod)
+  ignore(optimization_memory_packing_collect_referrers(prenormalized))
+  (prenormalized, global)
 }
+
+///|
+priv enum MemoryPackingSegmentReferrer {
+  MemoryInit
+  DataDrop
+  ArrayNewData
+  ArrayInitData
+} derive(Eq, Show)
 
 ///|
 fn optimization_memory_packing_defined_mem_count(mod : Module) -> Int {
@@ -695,6 +705,93 @@ fn optimization_memory_packing_data(mod : Module, data_idx : DataIdx) -> Data? {
     Some(DataSec(datas)) => datas.get(raw.reinterpret_as_int())
     None => None
   }
+}
+
+///|
+fn optimization_memory_packing_collect_referrers(
+  mod : Module,
+) -> Array[Array[MemoryPackingSegmentReferrer]] {
+  let referrers : Array[Array[MemoryPackingSegmentReferrer]] = []
+  for _ in optimization_memory_packing_data_segments(mod) {
+    referrers.push([])
+  }
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+    .on_instruction_evt(fn(_, _, instr) {
+      match instr {
+        @lib.MemoryInit(data_idx, _) =>
+          optimization_memory_packing_note_referrer(
+            referrers,
+            data_idx,
+            MemoryPackingSegmentReferrer::MemoryInit,
+          )
+        @lib.DataDrop(data_idx) =>
+          optimization_memory_packing_note_referrer(
+            referrers,
+            data_idx,
+            MemoryPackingSegmentReferrer::DataDrop,
+          )
+        @lib.ArrayNewData(_, data_idx) =>
+          optimization_memory_packing_note_referrer(
+            referrers,
+            data_idx,
+            MemoryPackingSegmentReferrer::ArrayNewData,
+          )
+        @lib.ArrayInitData(_, data_idx) =>
+          optimization_memory_packing_note_referrer(
+            referrers,
+            data_idx,
+            MemoryPackingSegmentReferrer::ArrayInitData,
+          )
+        _ => ()
+      }
+      unchanged()
+    })
+    .on_tinstruction_evt(fn(_, _, instr) {
+      match instr.kind {
+        @lib.TMemoryInit(data_idx, _, _, _, _) =>
+          optimization_memory_packing_note_referrer(
+            referrers,
+            data_idx,
+            MemoryPackingSegmentReferrer::MemoryInit,
+          )
+        @lib.TDataDrop(data_idx) =>
+          optimization_memory_packing_note_referrer(
+            referrers,
+            data_idx,
+            MemoryPackingSegmentReferrer::DataDrop,
+          )
+        @lib.TArrayNewData(_, data_idx, _, _) =>
+          optimization_memory_packing_note_referrer(
+            referrers,
+            data_idx,
+            MemoryPackingSegmentReferrer::ArrayNewData,
+          )
+        @lib.TArrayInitData(_, data_idx, _, _, _, _) =>
+          optimization_memory_packing_note_referrer(
+            referrers,
+            data_idx,
+            MemoryPackingSegmentReferrer::ArrayInitData,
+          )
+        _ => ()
+      }
+      unchanged()
+    })
+  ignore(transformer.walk_module((), mod))
+  referrers
+}
+
+///|
+fn optimization_memory_packing_note_referrer(
+  referrers : Array[Array[MemoryPackingSegmentReferrer]],
+  data_idx : DataIdx,
+  referrer : MemoryPackingSegmentReferrer,
+) -> Unit {
+  let DataIdx(raw) = data_idx
+  let idx = raw.reinterpret_as_int()
+  if idx < 0 || idx >= referrers.length() {
+    return
+  }
+  referrers[idx].push(referrer)
 }
 
 ///|
@@ -950,6 +1047,29 @@ fn optimization_memory_packing_test_passive_body(
 }
 
 ///|
+fn optimization_memory_packing_test_referrer_module(
+  funcs : Array[Func],
+) -> Module {
+  let func_types : Array[TypeIdx] = []
+  for _ in funcs {
+    func_types.push(TypeIdx::new(0U))
+  }
+  optimization_memory_packing_test_defined_memory()
+  .with_data_sec(
+    DataSec::new([
+      Data::new(@lib.DataMode::passive(), b"a"),
+      Data::new(@lib.DataMode::passive(), b"b"),
+      Data::new(@lib.DataMode::passive(), b"c"),
+    ]),
+  )
+  .with_type_sec(
+    @lib.TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+  )
+  .with_func_sec(FuncSec::new(func_types))
+  .with_code_sec(CodeSec::new(funcs))
+}
+
+///|
 test "memory packing analysis rejects unsupported memory topologies" {
   assert_false(
     optimization_memory_packing_can_optimize(
@@ -1155,6 +1275,83 @@ test "memory packing pre-normalizes zero-length passive memory.init to bounds ch
       @lib.TExpr::new([@lib.TInstr::unreachable_()]),
       None,
     ),
+  ])
+}
+
+///|
+test "memory packing collects typed segment referrers including GC consumers" {
+  let mod = optimization_memory_packing_test_referrer_module([
+    Func::t_func(
+      [],
+      @lib.Locals::empty(),
+      @lib.TExpr::new([
+        @lib.TInstr::memory_init(
+          DataIdx::new(0U),
+          @lib.MemIdx::new(0U),
+          @lib.TInstr::i32_const(@lib.I32::new(11)),
+          @lib.TInstr::i32_const(@lib.I32::new(0)),
+          @lib.TInstr::i32_const(@lib.I32::new(1)),
+        ),
+        @lib.TInstr::array_new_data(
+          TypeIdx::new(0U),
+          DataIdx::new(1U),
+          @lib.TInstr::i32_const(@lib.I32::new(2)),
+          @lib.TInstr::i32_const(@lib.I32::new(3)),
+        ),
+        @lib.TInstr::array_init_data(
+          TypeIdx::new(0U),
+          DataIdx::new(1U),
+          @lib.TInstr::i32_const(@lib.I32::new(4)),
+          @lib.TInstr::i32_const(@lib.I32::new(5)),
+          @lib.TInstr::i32_const(@lib.I32::new(6)),
+          @lib.TInstr::i32_const(@lib.I32::new(7)),
+        ),
+        @lib.TInstr::data_drop(DataIdx::new(2U)),
+      ]),
+    ),
+  ])
+  assert_eq(optimization_memory_packing_collect_referrers(mod), [
+    [MemoryPackingSegmentReferrer::MemoryInit],
+    [
+      MemoryPackingSegmentReferrer::ArrayNewData,
+      MemoryPackingSegmentReferrer::ArrayInitData,
+    ],
+    [MemoryPackingSegmentReferrer::DataDrop],
+  ])
+}
+
+///|
+test "memory packing collects untyped segment referrers including GC consumers" {
+  let mod = optimization_memory_packing_test_referrer_module([
+    Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32::new(0)),
+        @lib.Instruction::i32_const(@lib.I32::new(1)),
+        @lib.Instruction::i32_const(@lib.I32::new(2)),
+        @lib.Instruction::memory_init(DataIdx::new(0U), @lib.MemIdx::new(0U)),
+        @lib.Instruction::data_drop(DataIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32::new(3)),
+        @lib.Instruction::i32_const(@lib.I32::new(4)),
+        @lib.Instruction::array_new_data(TypeIdx::new(0U), DataIdx::new(2U)),
+        @lib.Instruction::i32_const(@lib.I32::new(5)),
+        @lib.Instruction::i32_const(@lib.I32::new(6)),
+        @lib.Instruction::i32_const(@lib.I32::new(7)),
+        @lib.Instruction::i32_const(@lib.I32::new(8)),
+        @lib.Instruction::array_init_data(TypeIdx::new(0U), DataIdx::new(2U)),
+      ]),
+    ),
+  ])
+  assert_eq(optimization_memory_packing_collect_referrers(mod), [
+    [
+      MemoryPackingSegmentReferrer::MemoryInit,
+      MemoryPackingSegmentReferrer::DataDrop,
+    ],
+    [],
+    [
+      MemoryPackingSegmentReferrer::ArrayNewData,
+      MemoryPackingSegmentReferrer::ArrayInitData,
+    ],
   ])
 }
 
