@@ -20,7 +20,7 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     TInstrKind::TI64Const(v) => instrs.push(I64Const(v))
     TInstrKind::TF32Const(v) => instrs.push(F32Const(v))
     TInstrKind::TF64Const(v) => instrs.push(F64Const(v))
-    TInstrKind::TRefNull(ht) => instrs.push(RefNull(ht))
+    TInstrKind::TRefNull(rt) => instrs.push(RefNull(rt))
     TInstrKind::TRefFunc(idx) => instrs.push(RefFunc(idx))
     TInstrKind::TV128Const(
       b0,

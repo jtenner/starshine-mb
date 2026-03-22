@@ -157,9 +157,9 @@ fn wt_ref_type_for_elem_value_type(
   ctx : WTLowerCtx,
   vt : ValueType,
 ) -> Result[@lib.RefType, String] {
-  match wt_ref_heap_type(ctx, vt) {
-    Ok(Some(ht)) => Ok(@lib.RefType::new(true, ht))
-    Ok(None) =>
+  match wt_value_type(ctx, vt) {
+    Ok(@lib.RefTypeValType(rt)) => Ok(rt.make_nullable())
+    Ok(_) =>
       Err(
         "elem type must be a reference type, got non-reference value type: \{vt}",
       )
@@ -2343,9 +2343,10 @@ fn wt_instr_to_lib(
     | SimdConvert(op)
     | SimdRelaxed(op) => wt_numeric_noarg(op)
     RefNull(vt) =>
-      match wt_ref_heap_type(ctx, vt) {
-        Ok(Some(ht)) => Ok(@lib.Instruction::ref_null(ht))
-        Ok(None) => Err("unsupported ref.null type: \{vt}")
+      match wt_value_type(ctx, vt) {
+        Ok(@lib.RefTypeValType(rt)) =>
+          Ok(@lib.Instruction::ref_null_type(rt.make_nullable()))
+        Ok(_) => Err("unsupported ref.null type: \{vt}")
         Err(e) => Err(e)
       }
     RefIsNull => Ok(@lib.Instruction::ref_is_null())

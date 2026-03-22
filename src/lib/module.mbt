@@ -209,6 +209,19 @@ fn md_format_heap_type(
 }
 
 ///|
+fn md_format_ref_null_type(
+  ctx : ModuleDebugContext,
+  ref_type : RefType,
+) -> String {
+  let heap_text = md_format_heap_type(ctx, ref_type.get_heap_type())
+  if ref_type.is_exact() {
+    "(exact \{heap_text})"
+  } else {
+    heap_text
+  }
+}
+
+///|
 fn md_format_func_idx(ctx : ModuleDebugContext, idx : FuncIdx) -> String {
   let FuncIdx(i) = idx
   let raw = idx.to_string()
@@ -378,11 +391,11 @@ fn md_render_tinstr(
     TI64Const(v) => md_write_line(out, depth, "- i64.const " + v.to_string())
     TF32Const(v) => md_write_line(out, depth, "- f32.const " + v.to_string())
     TF64Const(v) => md_write_line(out, depth, "- f64.const " + v.to_string())
-    TRefNull(heap_type) =>
+    TRefNull(ref_type) =>
       md_write_line(
         out,
         depth,
-        "- ref.null " + md_format_heap_type(ctx, heap_type),
+        "- ref.null " + md_format_ref_null_type(ctx, ref_type),
       )
     TRefFunc(func_idx) =>
       md_write_line(

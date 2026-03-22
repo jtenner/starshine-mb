@@ -1086,7 +1086,7 @@ fn instr_to_tinstr(
     I64Const(v) => stack.push(TInstr::i64_const(v))
     F32Const(v) => stack.push(TInstr::f32_const(v))
     F64Const(v) => stack.push(TInstr::f64_const(v))
-    RefNull(ht) => stack.push(TInstr::ref_null(ht))
+    RefNull(rt) => stack.push(TInstr::ref_null_type(rt))
     RefFunc(idx) => stack.push(TInstr::ref_func(idx))
     V128Const(
       b0,

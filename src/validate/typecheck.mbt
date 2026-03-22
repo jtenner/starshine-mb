@@ -1865,11 +1865,11 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
 }
 
 ///|
-fn typecheck_ref_null(st : TcState, ht : HeapType) -> TcResult {
-  if Validate::validate(ht, st.env) is Err(t) {
+fn typecheck_ref_null(st : TcState, rt : RefType) -> TcResult {
+  if Validate::validate(rt, st.env) is Err(t) {
     return Err(t)
   }
-  Ok(st.push1(ValType::ref_null(ht)))
+  Ok(st.push1(ValType::ref_null_type(rt)))
 }
 
 ///|

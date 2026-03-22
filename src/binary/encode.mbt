@@ -2119,9 +2119,9 @@ pub impl Encode for Instruction with encode(val, buf) {
     I64Extend8S => buf.write_byte(0xC2)
     I64Extend16S => buf.write_byte(0xC3)
     I64Extend32S => buf.write_byte(0xC4)
-    RefNull(ht) => {
+    RefNull(rt) => {
       buf.write_byte(0xD0)
-      if Encode::encode(ht, buf) is Err(t) {
+      if Encode::encode(rt, buf) is Err(t) {
         return Err(t)
       }
     }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Validate: preserve exact ref.null immediates end to end
+
+- **Exact nullable ref-null slice** by **@jtenner**. Extended [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt), [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt), [`src/validate/env.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt), and [`src/validate/typecheck.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so `ref.null` now carries a full nullable `RefType` through lowering and validation instead of collapsing to a heap-type-only immediate that loses exactness.
+- Extended [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt), [`src/binary/decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt), [`src/transformer/transformer.mbt`](/home/jtenner/Projects/starshine-mb/src/transformer/transformer.mbt), and [`src/lib/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/lib/pkg.generated.mbti) so exact nullable `ref.null` immediates survive binary roundtrip and public lib consumers see the widened instruction shape consistently.
+- Added focused black-box coverage in [`src/wast/ref_null_exact_surface_test.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/ref_null_exact_surface_test.mbt) and recorded the slice in [`docs/0027-2026-03-22-exact-ref-null-immediates.md`](/home/jtenner/Projects/starshine-mb/docs/0027-2026-03-22-exact-ref-null-immediates.md), which moves the remaining mixed-runtime custom-descriptor blocker from exact typed null loss onto the separate `ref.null none` descriptor-compatibility rule.
+
 ## 2026-03-22 WAST: fix implicit functype indices after rec groups
 
 - **Grouped-type index repair** by **@jtenner**. Extended [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt) so implicit function types appended during lowering now use flattened type indices instead of raw rec-entry counts, which keeps later `funcsec` entries aligned when a module starts with grouped `(rec ...)` type fields.

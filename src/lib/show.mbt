@@ -1322,9 +1322,9 @@ pub impl Show for Instruction with output(self, logger) {
     I64Extend8S => logger.write_string("i64.extend8s")
     I64Extend16S => logger.write_string("i64.extend16s")
     I64Extend32S => logger.write_string("i64.extend32s")
-    RefNull(ht) => {
+    RefNull(rt) => {
       logger.write_string("(ref.null ")
-      ht.output(logger)
+      rt.output(logger)
       logger.write_char(')')
     }
     RefIsNull => logger.write_string("ref.null")

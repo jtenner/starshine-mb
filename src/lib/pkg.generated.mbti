@@ -1363,7 +1363,7 @@ pub enum Instruction {
   I64Extend8S
   I64Extend16S
   I64Extend32S
-  RefNull(HeapType)
+  RefNull(RefType)
   RefIsNull
   RefFunc(FuncIdx)
   RefEq
@@ -2168,6 +2168,7 @@ pub fn Instruction::throw_(TagIdx) -> Self
 pub fn Instruction::throw_ref() -> Self
 pub fn Instruction::try_table(BlockType, Array[Catch], Expr) -> Self
 pub fn Instruction::unreachable_() -> Self
+pub fn Instruction::ref_null_type(RefType) -> Self
 pub fn Instruction::v128_and() -> Self
 pub fn Instruction::v128_andnot() -> Self
 pub fn Instruction::v128_any_true() -> Self
@@ -2842,6 +2843,7 @@ pub fn TInstr::throw_(TagIdx, Array[Self]) -> Self
 pub fn TInstr::throw_ref(Self) -> Self
 pub fn TInstr::try_table(BlockType, Array[Catch], TExpr) -> Self
 pub fn TInstr::unary(UnaryOp, Self) -> Self
+pub fn TInstr::ref_null_type(RefType) -> Self
 pub fn TInstr::unreachable_() -> Self
 pub fn TInstr::v128_const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte) -> Self
 pub fn TInstr::v128_load_lane(V128LoadLaneOp, MemArg, LaneIdx, Self, Self) -> Self
@@ -2859,7 +2861,7 @@ pub enum TInstrKind {
   TI64Const(I64)
   TF32Const(F32)
   TF64Const(F64)
-  TRefNull(HeapType)
+  TRefNull(RefType)
   TRefFunc(FuncIdx)
   TV128Const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte)
   TUnreachable
@@ -3498,3 +3500,4 @@ pub(open) trait PrettyPrint {
   pretty_print(Self, PrettyPrintContext) -> String
 }
 
+pub fn ValType::ref_null_type(RefType) -> Self

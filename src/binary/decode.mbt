@@ -2416,7 +2416,7 @@ fn decode_instruction_with_depth(
       }
     Some(0xD0) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((ht, i)) => Ok((Instruction::ref_null(ht), i))
+        Ok((rt, i)) => Ok((Instruction::ref_null_type(rt), i))
         Err(t) => Err(t)
       }
     Some(0xD1) => Ok((Instruction::ref_is_null(), i + 1))

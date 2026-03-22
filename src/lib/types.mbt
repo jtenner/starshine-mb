@@ -669,7 +669,7 @@ pub enum Instruction {
   I64Extend8S
   I64Extend16S
   I64Extend32S
-  RefNull(HeapType)
+  RefNull(RefType)
   RefIsNull
   RefFunc(FuncIdx)
   RefEq
@@ -1228,7 +1228,12 @@ pub fn Elem::reftype(self : Elem) -> RefType {
 
 ///|
 pub fn ValType::ref_null(ht : HeapType) -> ValType {
-  RefTypeValType(HeapTypeRefType(true, false, ht))
+  ValType::ref_null_type(RefType::new(true, ht))
+}
+
+///|
+pub fn ValType::ref_null_type(rt : RefType) -> ValType {
+  RefTypeValType(rt.make_nullable())
 }
 
 ///|
@@ -1365,7 +1370,7 @@ pub enum TInstrKind {
   TI64Const(I64)
   TF32Const(F32)
   TF64Const(F64)
-  TRefNull(HeapType)
+  TRefNull(RefType)
   TRefFunc(FuncIdx)
   TV128Const(
     Byte,
@@ -3708,7 +3713,12 @@ pub fn Instruction::i64_extend32s() -> Instruction {
 
 ///|
 pub fn Instruction::ref_null(ht : HeapType) -> Instruction {
-  RefNull(ht)
+  Instruction::ref_null_type(RefType::new(true, ht))
+}
+
+///|
+pub fn Instruction::ref_null_type(rt : RefType) -> Instruction {
+  RefNull(rt.make_nullable())
 }
 
 ///|
@@ -5360,7 +5370,12 @@ pub fn TInstr::f64_const(val : F64) -> TInstr {
 
 ///|
 pub fn TInstr::ref_null(val : HeapType) -> TInstr {
-  tinstr(TRefNull(val))
+  TInstr::ref_null_type(RefType::new(true, val))
+}
+
+///|
+pub fn TInstr::ref_null_type(val : RefType) -> TInstr {
+  tinstr(TRefNull(val.make_nullable()))
 }
 
 ///|

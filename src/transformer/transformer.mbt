@@ -1275,13 +1275,13 @@ fn[T, Err] ModuleTransformer::walk_opt_tinstruction_default(
   match tinstr.kind {
     // === Constants (0 children, 1 result) ===
 
-    TInstrKind::TRefNull(ht) => {
-      let (t, ht) = match self.walk_opt_heaptype(t, ht) {
-        Ok(None) => (t, ht)
+    TInstrKind::TRefNull(rt) => {
+      let (t, rt) = match self.walk_opt_reftype(t, rt) {
+        Ok(None) => (t, rt)
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TInstr::ref_null(ht))))
+      Ok(Some((t, TInstr::ref_null_type(rt))))
     }
     TInstrKind::TRefFunc(fi) => {
       let (t, fi) = match self.walk_opt_funcidx(t, fi) {
@@ -3447,11 +3447,11 @@ fn[T, Err] ModuleTransformer::walk_opt_instruction_default(
       }
 
     // Reference instructions
-    RefNull(ht) =>
-      match self.walk_opt_heaptype(t, ht) {
+    RefNull(rt) =>
+      match self.walk_opt_reftype(t, rt) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ht))) => Ok(Some((t, Instruction::ref_null(ht))))
+        Ok(Some((t, rt))) => Ok(Some((t, Instruction::ref_null_type(rt))))
       }
     RefFunc(f) =>
       match self.walk_opt_funcidx(t, f) {

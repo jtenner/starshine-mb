@@ -929,7 +929,7 @@ fn validate_const_instr(env : Env, ins : Instruction) -> Result[Unit, String] {
     F32Const(_) => Ok(())
     F64Const(_) => Ok(())
     V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => Ok(())
-    RefNull(_) => Ok(())
+    RefNull(rt) => Validate::validate(rt, env)
     RefFunc(_) => Ok(())
     StructNew(type_idx)
     | StructNewDefault(type_idx)

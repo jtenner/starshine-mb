@@ -74,7 +74,8 @@
   - higher-level WAST now also accepts, prints, and lowers folded `struct.get`, `struct.get_s`, and `struct.get_u`.
   - imported globals now also accept parenthesized exact typed refs instead of requiring a spurious `(mut ...)` wrapper.
   - implicit inline functypes now append after grouped `rec` fields at flattened type indices instead of raw rec-entry indices.
-  - remaining follow-up work is lifting mixed-runtime custom-descriptor fixtures cleanly, with `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` now blocked on `ref.get_desc` null/exact operand semantics, especially exact `ref.null` results.
+  - exact `ref.null` immediates now survive WAST lowering, lib instructions, validation, and binary roundtrip as full nullable `RefType` immediates instead of degrading to inexact heap-only nulls.
+  - remaining follow-up work is lifting mixed-runtime custom-descriptor fixtures cleanly, with `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` now narrowed to the descriptor-compatibility rule for bottom null operands like `ref.null none`.
 
 ## Backlog Hygiene
 - Keep duplicate entries removed when pass scopes converge.
