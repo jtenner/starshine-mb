@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: land DeadCodeElimination unary ref-test rewrites
+
+- **DeadCodeElimination sibling GC unary slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `ref.test`, `ref.test_desc`, and `ref.cast_desc_eq` now use the same generic unreachable-child rewrite as the other one-child typed instructions.
+- Added focused regressions in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) for unreachable `ref.test_desc` and `ref.cast_desc_eq` operands, including a concrete `eqref` result fixture.
+- Recorded the checkpoint in [`docs/0043-2026-03-22-dead-code-elimination-unary-ref-tests.md`](/home/jtenner/Projects/starshine-mb/docs/0043-2026-03-22-dead-code-elimination-unary-ref-tests.md), which narrows the remaining DCE GC/reference work to `ref.get_desc`, the nested reference-result `try_table` case, and the later string / EH-pop follow-ups.
+
 ## 2026-03-22 Optimization: land DeadCodeElimination ref.cast rewrite
 
 - **DeadCodeElimination GC cast slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `ref.cast` now uses the same evaluation-order-preserving unreachable-child rewrite as the other unary typed instructions, collapsing directly to the unreachable operand instead of leaving a stale concrete-result wrapper.
