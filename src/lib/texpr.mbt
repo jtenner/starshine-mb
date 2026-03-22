@@ -385,6 +385,16 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
     TInstrKind::TStructNewDefault(type_idx) =>
       instrs.push(StructNewDefault(type_idx))
+    TInstrKind::TStructNewDesc(type_idx, fields) => {
+      for field in fields {
+        tinstr_to_instr(field, instrs)
+      }
+      instrs.push(StructNewDesc(type_idx))
+    }
+    TInstrKind::TStructNewDefaultDesc(type_idx, descriptor) => {
+      tinstr_to_instr(descriptor, instrs)
+      instrs.push(StructNewDefaultDesc(type_idx))
+    }
     TInstrKind::TStructGet(type_idx, field_idx, struct_ref) => {
       tinstr_to_instr(struct_ref, instrs)
       instrs.push(StructGet(type_idx, field_idx))

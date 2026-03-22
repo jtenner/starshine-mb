@@ -40,6 +40,23 @@ fn remove_unused_test_struct_reftype() -> @lib.RefType {
 }
 
 ///|
+fn remove_unused_test_descriptor_struct_type_sec() -> @lib.TypeSec {
+  @lib.TypeSec::new([
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    @lib.RecType::group([
+      @lib.SubType::comp_type(
+        @lib.CompType::struct_([]),
+        metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::new(2U))),
+      ),
+      @lib.SubType::comp_type(
+        @lib.CompType::struct_([]),
+        metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(1U))),
+      ),
+    ]),
+  ])
+}
+
+///|
 fn remove_unused_test_main_call_target(mod : Module) -> UInt raise Error {
   match mod.code_sec {
     Some(@lib.CodeSec(funcs)) =>
@@ -1569,6 +1586,222 @@ test "remove unused module elements does not root dead struct.new elem expressio
   match optimized.elem_sec {
     Some(@lib.ElemSec(elems)) => assert_eq(elems.length(), 0)
     None => fail("expected elem section")
+  }
+}
+
+///|
+test "remove unused module elements roots dead nullable descriptor global initializers" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_descriptor_struct_type_sec())
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("desc"),
+          @lib.ExternType::global(
+            @lib.GlobalType::new(
+              @lib.ValType::ref_type(
+                @lib.RefType::new(
+                  true,
+                  @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+                  exact=true,
+                ),
+              ),
+              false,
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(
+              @lib.RefType::new(
+                false,
+                @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+                exact=true,
+              ),
+            ),
+            false,
+          ),
+          @lib.Expr::new([
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::struct_new_default_desc(@lib.TypeIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 1)
+    None => fail("expected global section")
+  }
+}
+
+///|
+test "remove unused module elements drops dead non-null descriptor global initializers" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_descriptor_struct_type_sec())
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("desc"),
+          @lib.ExternType::global(
+            @lib.GlobalType::new(
+              @lib.ValType::ref_type(
+                @lib.RefType::new(
+                  false,
+                  @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+                  exact=true,
+                ),
+              ),
+              false,
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(
+              @lib.RefType::new(
+                false,
+                @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+                exact=true,
+              ),
+            ),
+            false,
+          ),
+          @lib.Expr::new([
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::struct_new_default_desc(@lib.TypeIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 0)
+    None => fail("expected global section")
+  }
+}
+
+///|
+test "remove unused module elements respects traps_never_happen for nullable descriptor globals" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_descriptor_struct_type_sec())
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("desc"),
+          @lib.ExternType::global(
+            @lib.GlobalType::new(
+              @lib.ValType::ref_type(
+                @lib.RefType::new(
+                  true,
+                  @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+                  exact=true,
+                ),
+              ),
+              false,
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(
+              @lib.RefType::new(
+                false,
+                @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+                exact=true,
+              ),
+            ),
+            false,
+          ),
+          @lib.Expr::new([
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::struct_new_default_desc(@lib.TypeIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(traps_never_happen=true),
+  )
+
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 0)
+    None => fail("expected global section")
   }
 }
 

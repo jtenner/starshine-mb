@@ -112,17 +112,36 @@ pub impl Decode for AbsHeapType with decode(bytes, i) {
 
 ///|
 pub impl Decode for RefType with decode(bytes, i) {
+  fn decode_ref_heap_type(
+    bytes : Bytes,
+    i : Int,
+  ) -> Result[(Bool, HeapType, Int), BinaryDecodeError] {
+    match bytes.get(i) {
+      Some(0x62) =>
+        match Decode::decode(bytes, i + 1) {
+          Ok((@lib.S33(s), next)) =>
+            Ok((true, HeapType::new(TypeIdx::new(s)), next))
+          Ok((_, _)) => Err(BinaryDecodeError::InvalidValType)
+          Err(err) => Err(err)
+        }
+      _ =>
+        match Decode::decode(bytes, i) {
+          Ok((ht, next)) => Ok((false, ht, next))
+          Err(err) => Err(err)
+        }
+    }
+  }
   match bytes.get(i) {
     None => Err(BinaryDecodeError::IndexOutOfBounds)
     Some(0x63) =>
-      match Decode::decode(bytes, i + 1) {
+      match decode_ref_heap_type(bytes, i + 1) {
         Err(err) => Err(err)
-        Ok((ht, i)) => Ok((RefType::new(true, ht), i))
+        Ok((exact, ht, i)) => Ok((RefType::new(true, ht, exact~), i))
       }
     Some(0x64) =>
-      match Decode::decode(bytes, i + 1) {
+      match decode_ref_heap_type(bytes, i + 1) {
         Err(err) => Err(err)
-        Ok((ht, i)) => Ok((RefType::new(false, ht), i))
+        Ok((exact, ht, i)) => Ok((RefType::new(false, ht, exact~), i))
       }
     Some(_) =>
       match Decode::decode(bytes, i) {
@@ -251,42 +270,46 @@ pub impl Decode for RecType with decode(buf, i) {
 fn decode_descriptor_clauses(
   buf : Bytes,
   i : Int,
-) -> Result[Int, BinaryDecodeError] {
+) -> Result[(TypeMetadata, Int), BinaryDecodeError] {
   let mut cursor = i
-  let mut has_describes = false
-  let mut has_descriptor = false
+  let mut describes : TypeIdx? = None
+  let mut descriptor : TypeIdx? = None
   while true {
     match buf.get(cursor) {
       Some(0x4C) => {
-        if has_describes || has_descriptor {
+        if describes is Some(_) || descriptor is Some(_) {
           return Err(BinaryDecodeError::InvalidCompType)
         }
-        has_describes = true
         cursor = match
           (
             Decode::decode(buf, cursor + 1) :
             Result[(TypeIdx, Int), BinaryDecodeError]) {
-          Ok((_, next)) => next
+          Ok((idx, next)) => {
+            describes = Some(idx)
+            next
+          }
           Err(err) => return Err(err)
         }
       }
       Some(0x4D) => {
-        if has_descriptor {
+        if descriptor is Some(_) {
           return Err(BinaryDecodeError::InvalidCompType)
         }
-        has_descriptor = true
         cursor = match
           (
             Decode::decode(buf, cursor + 1) :
             Result[(TypeIdx, Int), BinaryDecodeError]) {
-          Ok((_, next)) => next
+          Ok((idx, next)) => {
+            descriptor = Some(idx)
+            next
+          }
           Err(err) => return Err(err)
         }
       }
       _ => break
     }
   }
-  Ok(cursor)
+  Ok((TypeMetadata::new(describes~, descriptor~), cursor))
 }
 
 ///|
@@ -296,12 +319,12 @@ pub impl Decode for SubType with decode(buf, i) {
     Some(0x4F) =>
       match Decode::decode(buf, i + 1) {
         Ok((idxs, i)) => {
-          let next = match decode_descriptor_clauses(buf, i) {
+          let (meta, next) = match decode_descriptor_clauses(buf, i) {
             Ok(v) => v
             Err(err) => return Err(err)
           }
           match Decode::decode(buf, next) {
-            Ok((ct, i)) => Ok((SubType::new(true, idxs, ct), i))
+            Ok((ct, i)) => Ok((SubType::new(true, idxs, ct, metadata=meta), i))
             Err(err) => Err(err)
           }
         }
@@ -311,12 +334,12 @@ pub impl Decode for SubType with decode(buf, i) {
     Some(0x50) =>
       match Decode::decode(buf, i + 1) {
         Ok((idxs, i)) => {
-          let next = match decode_descriptor_clauses(buf, i) {
+          let (meta, next) = match decode_descriptor_clauses(buf, i) {
             Ok(v) => v
             Err(err) => return Err(err)
           }
           match Decode::decode(buf, next) {
-            Ok((ct, i)) => Ok((SubType::new(false, idxs, ct), i))
+            Ok((ct, i)) => Ok((SubType::new(false, idxs, ct, metadata=meta), i))
             Err(err) => Err(err)
           }
         }
@@ -324,12 +347,12 @@ pub impl Decode for SubType with decode(buf, i) {
       }
     // CompType, defer to comp type decoder
     Some(_) => {
-      let next = match decode_descriptor_clauses(buf, i) {
+      let (meta, next) = match decode_descriptor_clauses(buf, i) {
         Ok(v) => v
         Err(err) => return Err(err)
       }
       match Decode::decode(buf, next) {
-        Ok((ct, i)) => Ok((SubType::comp_type(ct), i))
+        Ok((ct, i)) => Ok((SubType::comp_type(ct, metadata=meta), i))
         Err(err) => Err(err)
       }
     }
@@ -2567,6 +2590,16 @@ fn decode_instruction_with_depth(
             Ok((x, i)) => Ok((Instruction::struct_new_default(x), i))
             Err(t) => Err(t)
           }
+        Ok((@lib.U32(32), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((x, i)) => Ok((Instruction::struct_new_desc(x), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(33), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((x, i)) => Ok((Instruction::struct_new_default_desc(x), i))
+            Err(t) => Err(t)
+          }
         Ok((@lib.U32(2), i)) =>
           match Decode::decode(bytes, i) {
             Ok((x, i)) =>
@@ -2775,23 +2808,23 @@ fn decode_instruction_with_depth(
         Ok((U32(28), i)) => Ok((Instruction::ref_i31(), i))
         Ok((U32(29), i)) => Ok((Instruction::i31_get_s(), i))
         Ok((U32(30), i)) => Ok((Instruction::i31_get_u(), i))
-        Ok((U32(31), i)) => Ok((Instruction::ref_get_desc(), i))
-        Ok((@lib.U32(32), i)) =>
+        Ok((U32(34), i)) => Ok((Instruction::ref_get_desc(), i))
+        Ok((@lib.U32(35), i)) =>
           match Decode::decode(bytes, i) {
             Ok((ht, i)) => Ok((Instruction::ref_test_desc(false, ht), i))
             Err(t) => Err(t)
           }
-        Ok((@lib.U32(33), i)) =>
+        Ok((@lib.U32(36), i)) =>
           match Decode::decode(bytes, i) {
             Ok((ht, i)) => Ok((Instruction::ref_test_desc(true, ht), i))
             Err(t) => Err(t)
           }
-        Ok((@lib.U32(34), i)) =>
+        Ok((@lib.U32(37), i)) =>
           match Decode::decode(bytes, i) {
             Ok((ht, i)) => Ok((Instruction::ref_cast_desc_eq(false, ht), i))
             Err(t) => Err(t)
           }
-        Ok((@lib.U32(35), i)) =>
+        Ok((@lib.U32(38), i)) =>
           match Decode::decode(bytes, i) {
             Ok((ht, i)) => Ok((Instruction::ref_cast_desc_eq(true, ht), i))
             Err(t) => Err(t)

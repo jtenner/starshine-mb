@@ -269,6 +269,32 @@ pub fn Env::resolve_struct_fields(
 }
 
 ///|
+pub fn Env::resolve_struct_subtype(
+  env : Env,
+  x : TypeIdx,
+) -> Result[SubType, String] {
+  match env.resolve_subtype(x) {
+    None => Err("unknown type index")
+    Some(st) =>
+      match st.get_comptype() {
+        StructCompType(_) => Ok(st)
+        _ => Err("type is not a struct")
+      }
+  }
+}
+
+///|
+pub fn Env::resolve_struct_descriptor_type(
+  env : Env,
+  x : TypeIdx,
+) -> Result[TypeIdx?, String] {
+  match env.resolve_struct_subtype(x) {
+    Ok(st) => Ok(st.descriptor_type())
+    Err(e) => Err(e)
+  }
+}
+
+///|
 pub fn Env::resolve_descriptor_target_ref_type(
   env : Env,
   nullable : Bool,
@@ -752,7 +778,8 @@ pub fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
     | TInstrKind::TGlobalGet(_)
     | TInstrKind::TMemorySize(_)
     | TInstrKind::TTableSize(_)
-    | TInstrKind::TStructNewDefault(_) => 1
+    | TInstrKind::TStructNewDefault(_)
+    | TInstrKind::TStructNewDefaultDesc(_, _) => 1
     TInstrKind::TUnreachable
     | TInstrKind::TNop
     | TInstrKind::TDataDrop(_)
@@ -962,7 +989,7 @@ pub fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
         tinstr_result_arity(v2, env)
       arity_apply(total, 1 + n_vals * 2, n_vals)
     }
-    TInstrKind::TStructNew(_, fields) =>
+    TInstrKind::TStructNew(_, fields) | TInstrKind::TStructNewDesc(_, fields) =>
       arity_apply(tinstrs_result_arity(fields, env), fields.length(), 1)
     TInstrKind::TArrayNewFixed(_, elems) =>
       arity_apply(tinstrs_result_arity(elems, env), elems.length(), 1)
@@ -3317,8 +3344,26 @@ fn instr_to_tinstr(
       }
       stack.push(TInstr::struct_new(type_idx, fields))
     }
+    StructNewDesc(type_idx) => {
+      let n_fields = match env.resolve_comptype(type_idx) {
+        Some(StructCompType(fields)) => fields.length()
+        _ => 0
+      }
+      let fields = match pop_n(stack, n_fields + 1, env) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::struct_new_desc(type_idx, fields))
+    }
     StructNewDefault(type_idx) =>
       stack.push(TInstr::struct_new_default(type_idx))
+    StructNewDefaultDesc(type_idx) => {
+      let descriptor = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::struct_new_default_desc(type_idx, descriptor))
+    }
     StructGet(type_idx, field_idx) => {
       let struct_ref = match pop(stack) {
         Ok(t) => t

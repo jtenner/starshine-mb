@@ -84,6 +84,7 @@ using @lib {
   type TExpr,
   type TInstr,
   type TInstrKind,
+  type TypeMetadata,
   type TypeIdx,
   type TypeSec,
   type U32,

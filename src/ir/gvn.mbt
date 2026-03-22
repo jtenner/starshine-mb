@@ -118,6 +118,8 @@ fn apply_gvn_to_op(op : SSAOp, state : GVNState) -> SSAOp {
     | SSAOp::DataDrop(_)
     | SSAOp::ElemDrop(_)
     | SSAOp::StructNewDefault(_) => op
+    SSAOp::StructNewDefaultDesc(ty, descriptor) =>
+      SSAOp::StructNewDefaultDesc(ty, r(descriptor))
     SSAOp::Unary(unop, v) => SSAOp::Unary(unop, r(v))
     SSAOp::Binary(binop, a, b) => SSAOp::Binary(binop, r(a), r(b))
     SSAOp::Select(tys, a, b, c) => SSAOp::Select(tys, r(a), r(b), r(c))
@@ -164,6 +166,7 @@ fn apply_gvn_to_op(op : SSAOp, state : GVNState) -> SSAOp {
     SSAOp::AnyConvertExtern(v) => SSAOp::AnyConvertExtern(r(v))
     SSAOp::ExternConvertAny(v) => SSAOp::ExternConvertAny(r(v))
     SSAOp::StructNew(ty, args) => SSAOp::StructNew(ty, r_args(args))
+    SSAOp::StructNewDesc(ty, args) => SSAOp::StructNewDesc(ty, r_args(args))
     SSAOp::StructGet(ty, field, v) => SSAOp::StructGet(ty, field, r(v))
     SSAOp::StructGetS(ty, field, v) => SSAOp::StructGetS(ty, field, r(v))
     SSAOp::StructGetU(ty, field, v) => SSAOp::StructGetU(ty, field, r(v))
@@ -341,6 +344,8 @@ fn has_side_effects(op : SSAOp) -> Bool {
     // Allocations have effects (even if pure from a value perspective)
     SSAOp::StructNew(_, _)
     | SSAOp::StructNewDefault(_)
+    | SSAOp::StructNewDesc(_, _)
+    | SSAOp::StructNewDefaultDesc(_, _)
     | SSAOp::ArrayNew(_, _, _)
     | SSAOp::ArrayNewDefault(_, _)
     | SSAOp::ArrayNewFixed(_, _)

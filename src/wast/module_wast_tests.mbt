@@ -110,6 +110,39 @@ test "module_to_wast preserves concrete typed-heap value types" {
 }
 
 ///|
+test "module_to_wast preserves exact typed-heap value types" {
+  let src =
+    #|(module
+    #|  (type $t (func))
+    #|  (func (param (ref (exact $t))) (result (ref (exact $t)))
+    #|    (local.get 0)))
+  let mod = match wast_to_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "unexpected parse error for exact typed-heap value-type fixture: \{e}",
+      )
+  }
+  let text = match module_to_wast(mod) {
+    Ok(t) => t
+    Err(e) =>
+      fail(
+        "unexpected print error for exact typed-heap value-type fixture: \{e}",
+      )
+  }
+  assert_true(text.contains("(param (ref (exact $t)))"))
+  assert_true(text.contains("(result (ref (exact $t)))"))
+  assert_true(text.contains("local.get 0"))
+  match wast_to_module(text, filename="printed-exact-typed-heap-values.wat") {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected module_to_wast exact typed-heap value-type output to parse back: \{e}",
+      )
+  }
+}
+
+///|
 test "module_to_wast preserves abstract non-func heap refs in value types and ref.null" {
   let src =
     #|(module

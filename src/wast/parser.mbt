@@ -758,6 +758,14 @@ fn heap_type_ref_from_index(idx : Index) -> HeapTypeRef {
 }
 
 ///|
+fn exact_heap_type_ref_from_index(idx : Index) -> HeapTypeRef {
+  match idx {
+    Num(n) => HeapTypeRef::ExactTypeNum(n)
+    Id(id) => HeapTypeRef::ExactTypeId(id)
+  }
+}
+
+///|
 fn heap_type_ref_from_reserved_keyword(text : String) -> HeapTypeRef? {
   match text {
     "any" => Some(HeapTypeRef::Any)
@@ -806,6 +814,40 @@ fn ref_value_type_with_nullability(
 }
 
 ///|
+fn WastParser::parse_heap_type_ref(
+  self : WastParser,
+) -> HeapTypeRef raise ParserError {
+  match self.current.token_type {
+    Var | Nat => {
+      let idx = self.parse_index()
+      heap_type_ref_from_index(idx)
+    }
+    Reserved => {
+      let token = self.advance()
+      let text = self.get_text(token)
+      if text == "func" || text == "extern" || text == "exn" {
+        raise UnexpectedToken(token, "expected heap type")
+      }
+      match heap_type_ref_from_reserved_keyword(text) {
+        Some(heap_ref) => heap_ref
+        None => raise UnexpectedToken(token, "expected heap type")
+      }
+    }
+    Lpar => {
+      self.expect_lpar()
+      if !self.is_reserved_word("exact") {
+        raise UnexpectedToken(self.current, "expected heap type")
+      }
+      let _ = self.advance()
+      let idx = self.parse_index()
+      self.expect_rpar()
+      exact_heap_type_ref_from_index(idx)
+    }
+    _ => raise UnexpectedToken(self.current, "expected heap type")
+  }
+}
+
+///|
 fn WastParser::parse_heap_type_value_type(
   self : WastParser,
   nullable : Bool,
@@ -818,15 +860,6 @@ fn WastParser::parse_heap_type_value_type(
     Func => {
       let _ = self.advance()
       ref_value_type_with_nullability(FuncRef, nullable)
-    }
-    Var | Nat => {
-      let idx = self.parse_index()
-      let heap_ref = heap_type_ref_from_index(idx)
-      if nullable {
-        TypedFuncRef(heap_ref)
-      } else {
-        NonNullTypedFuncRef(heap_ref)
-      }
     }
     Reserved => {
       let token = self.advance()
@@ -847,6 +880,14 @@ fn WastParser::parse_heap_type_value_type(
             }
           None => raise UnexpectedToken(token, "expected heap type")
         }
+      }
+    }
+    Var | Nat | Lpar => {
+      let heap_ref = self.parse_heap_type_ref()
+      if nullable {
+        TypedFuncRef(heap_ref)
+      } else {
+        NonNullTypedFuncRef(heap_ref)
       }
     }
     _ => raise UnexpectedToken(self.current, "expected heap type")
@@ -875,7 +916,7 @@ fn WastParser::try_parse_ref_value_type(
   } else {
     false
   }
-  if !self.is_heap_type_token() {
+  if !(self.is_heap_type_token() || self.check(Lpar)) {
     self.restore_lexer_state(saved_state)
     self.current = saved_token
     return None
@@ -4653,6 +4694,38 @@ test "parse typed-heap value types preserve concrete type references" {
       }
     }
     _ => fail("expected type + function fields in typed-heap parse fixture")
+  }
+}
+
+///|
+test "parse exact typed-heap value types preserve exact concrete references" {
+  let source =
+    #|(module
+    #|  (type $t (func))
+    #|  (func (param (ref (exact $t))) (result (ref (exact $t)))
+    #|    (local.get 0)))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [TypeField(_), FuncField(func)] => {
+      assert_eq(func.type_use.func_type.params, [
+        NonNullTypedFuncRef(HeapTypeRef::ExactTypeId("$t")),
+      ])
+      assert_eq(func.type_use.func_type.results, [
+        NonNullTypedFuncRef(HeapTypeRef::ExactTypeId("$t")),
+      ])
+      match func.body {
+        [LocalGet(Num(0U))] => ()
+        _ =>
+          fail(
+            "expected single local.get instruction in exact typed-heap fixture",
+          )
+      }
+    }
+    _ =>
+      fail("expected type + function fields in exact typed-heap parse fixture")
   }
 }
 

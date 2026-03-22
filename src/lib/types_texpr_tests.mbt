@@ -8,8 +8,9 @@ test "types constructors and accessors keep heap reference shape" {
   let nullable_ref = ref_type.make_nullable()
   assert_true(nullable_ref.is_nullable())
   match nullable_ref {
-    HeapTypeRefType(nullable, HeapType(TypeIdx(i))) => {
+    HeapTypeRefType(nullable, exact, HeapType(TypeIdx(i))) => {
       assert_true(nullable)
+      assert_false(exact)
       assert_eq(i, 7U)
     }
     _ => fail("expected nullable ref over concrete TypeIdx")

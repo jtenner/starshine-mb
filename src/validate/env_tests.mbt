@@ -661,7 +661,7 @@ test "Env.resolve_heaptype_subtype projects DefType heap types" {
   let env = Env::new()
   assert_true(
     env.resolve_heaptype_subtype(HeapType::def_type(dt))
-    is Some(CompTypeSubType(StructCompType(_))),
+    is Some(CompTypeSubType(_, StructCompType(_))),
   )
   assert_eq(env.descriptor_result_type(), ValType::i32())
 }

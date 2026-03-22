@@ -128,6 +128,8 @@ fn keyword_from_heap_type_ref(ht : HeapTypeRef) -> String {
   match ht {
     TypeNum(n) => "\{n}"
     TypeId(id) => id
+    ExactTypeNum(n) => "(exact \{n})"
+    ExactTypeId(id) => "(exact \{id})"
     Any => "any"
     Eq => "eq"
     I31 => "i31"

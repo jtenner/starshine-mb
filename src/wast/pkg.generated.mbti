@@ -185,6 +185,8 @@ pub impl @quickcheck.Arbitrary for GlobalType
 pub enum HeapTypeRef {
   TypeNum(UInt)
   TypeId(String)
+  ExactTypeNum(UInt)
+  ExactTypeId(String)
   Any
   Eq
   I31

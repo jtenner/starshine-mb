@@ -173,7 +173,7 @@ fn collect_op_uses(
       record(uses, a, use_)
       record(uses, b, use_)
     }
-    SSAOp::StructNew(_, args) =>
+    SSAOp::StructNew(_, args) | SSAOp::StructNewDesc(_, args) =>
       for a in args {
         record(uses, a, use_)
       }
@@ -275,6 +275,7 @@ fn collect_op_uses(
     | SSAOp::DataDrop(_)
     | SSAOp::ElemDrop(_)
     | SSAOp::StructNewDefault(_) => ()
+    SSAOp::StructNewDefaultDesc(_, descriptor) => record(uses, descriptor, use_)
   }
 }
 

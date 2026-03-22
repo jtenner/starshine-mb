@@ -107,7 +107,7 @@ fn collect_op_values(op : SSAOp, out : Set[SSAValue]) -> Unit {
       out.add(a)
       out.add(b)
     }
-    SSAOp::StructNew(_, args) =>
+    SSAOp::StructNew(_, args) | SSAOp::StructNewDesc(_, args) =>
       for a in args {
         out.add(a)
       }
@@ -206,6 +206,7 @@ fn collect_op_values(op : SSAOp, out : Set[SSAValue]) -> Unit {
     | SSAOp::DataDrop(_)
     | SSAOp::ElemDrop(_)
     | SSAOp::StructNewDefault(_) => ()
+    SSAOp::StructNewDefaultDesc(_, descriptor) => out.add(descriptor)
   }
 }
 

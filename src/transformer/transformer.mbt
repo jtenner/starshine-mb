@@ -4216,14 +4216,56 @@ fn[T, Err] ModuleTransformer::walk_opt_reftype_default(
   rt : RefType,
 ) -> TransformerOptResult[T, RefType, Err] {
   match rt {
-    HeapTypeRefType(nullable, ht) =>
+    HeapTypeRefType(nullable, exact, ht) =>
       match self.walk_opt_heaptype(t, ht) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ht))) => Ok(Some((t, RefType::new(nullable, ht))))
+        Ok(Some((t, ht))) => Ok(Some((t, RefType::new(nullable, ht, exact~))))
       }
     _ => Ok(None)
   }
+}
+
+///|
+fn[T, Err] ModuleTransformer::walk_opt_type_metadata_default(
+  self : ModuleTransformer[T, Err],
+  t : T,
+  meta : TypeMetadata,
+) -> TransformerOptResult[T, TypeMetadata, Err] {
+  let mut next_t = t
+  let mut next_describes = meta.describes
+  let mut next_descriptor = meta.descriptor
+  match meta.describes {
+    Some(idx) =>
+      match self.walk_opt_typeidx(next_t, idx) {
+        Err(e) => return Err(e)
+        Ok(None) => ()
+        Ok(Some((t2, idx2))) => {
+          next_t = t2
+          next_describes = Some(idx2)
+        }
+      }
+    None => ()
+  }
+  match meta.descriptor {
+    Some(idx) =>
+      match self.walk_opt_typeidx(next_t, idx) {
+        Err(e) => return Err(e)
+        Ok(None) => ()
+        Ok(Some((t2, idx2))) => {
+          next_t = t2
+          next_descriptor = Some(idx2)
+        }
+      }
+    None => ()
+  }
+  Ok(
+    (
+      next_t,
+      TypeMetadata::new(describes=next_describes, descriptor=next_descriptor),
+    )
+    |> Some,
+  )
 }
 
 ///|
@@ -5293,7 +5335,12 @@ fn[T, Err] ModuleTransformer::walk_opt_subtype_default(
   st : SubType,
 ) -> TransformerOptResult[T, SubType, Err] {
   match st {
-    SubType(f, supers, ct) => {
+    SubType(f, supers, meta, ct) => {
+      let (t, meta) = match self.walk_opt_type_metadata_default(t, meta) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, meta)
+        Ok(Some((t, meta))) => (t, meta)
+      }
       let (t, supers) = match
         self.walk_opt_array(t, ModuleTransformer::walk_opt_typeidx, supers) {
         Err(e) => return Err(e)
@@ -5305,14 +5352,21 @@ fn[T, Err] ModuleTransformer::walk_opt_subtype_default(
         Ok(None) => (t, ct)
         Ok(Some((t, ct))) => (t, ct)
       }
-      Ok(Some((t, SubType::new(f, supers, ct))))
+      Ok(Some((t, SubType::new(f, supers, ct, metadata=meta))))
     }
-    CompTypeSubType(ct) =>
+    CompTypeSubType(meta, ct) => {
+      let (t, meta) = match self.walk_opt_type_metadata_default(t, meta) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, meta)
+        Ok(Some((t, meta))) => (t, meta)
+      }
       match self.walk_opt_comptype(t, ct) {
         Err(e) => Err(e)
-        Ok(None) => Ok(None)
-        Ok(Some((t, ct))) => Ok(Some((t, SubType::comp_type(ct))))
+        Ok(None) => Ok(Some((t, SubType::comp_type(ct, metadata=meta))))
+        Ok(Some((t, ct))) =>
+          Ok(Some((t, SubType::comp_type(ct, metadata=meta))))
       }
+    }
   }
 }
 

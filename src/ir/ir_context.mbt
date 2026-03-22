@@ -882,8 +882,8 @@ pub fn IRContext::set_locals(
 ///|
 fn extract_comp_type(sub_type : SubType) -> CompType {
   match sub_type {
-    SubType(_, _, comp) => comp
-    CompTypeSubType(comp) => comp
+    SubType(_, _, _, comp) => comp
+    CompTypeSubType(_, comp) => comp
   }
 }
 

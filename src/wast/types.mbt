@@ -55,6 +55,8 @@ priv enum ReservedChars {
 pub enum HeapTypeRef {
   TypeNum(UInt)
   TypeId(String)
+  ExactTypeNum(UInt)
+  ExactTypeId(String)
   Any
   Eq
   I31

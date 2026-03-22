@@ -251,15 +251,16 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit, String] {
   ) -> VisitAction[Unit, RefType, String] {
     match rt {
       // Force all ref types to be non-nullable
-      HeapTypeRefType(true, ht) => change((), RefType::new(false, ht))
+      HeapTypeRefType(true, exact, ht) =>
+        change((), RefType::new(false, ht, exact~))
       // Already non-nullable - convert to bottom type to cause more errors
-      HeapTypeRefType(false, AbsHeapTypeHeapType(NoneAbsHeapType)) =>
+      HeapTypeRefType(false, _, AbsHeapTypeHeapType(NoneAbsHeapType)) =>
         unchanged()
-      HeapTypeRefType(false, AbsHeapTypeHeapType(NoFuncAbsHeapType)) =>
+      HeapTypeRefType(false, _, AbsHeapTypeHeapType(NoFuncAbsHeapType)) =>
         unchanged()
-      HeapTypeRefType(false, AbsHeapTypeHeapType(NoExternAbsHeapType)) =>
+      HeapTypeRefType(false, _, AbsHeapTypeHeapType(NoExternAbsHeapType)) =>
         unchanged()
-      HeapTypeRefType(false, ht) =>
+      HeapTypeRefType(false, _, ht) =>
         // Change to bottom type of same hierarchy - very restrictive
         match ht {
           AbsHeapTypeHeapType(FuncAbsHeapType)

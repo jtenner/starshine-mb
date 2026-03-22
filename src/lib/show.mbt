@@ -120,12 +120,15 @@ pub impl Show for DefType with output(self, logger) {
 ///|
 pub impl Show for RefType with output(self, logger) {
   match self {
-    HeapTypeRefType(n, ht) => {
+    HeapTypeRefType(n, exact, ht) => {
       logger.write_string("(RefType ")
       if !n {
         logger.write_string("Not ")
       }
       logger.write_string("Null ")
+      if exact {
+        logger.write_string("Exact ")
+      }
       ht.output(logger)
       logger.write_char(')')
     }
@@ -320,10 +323,26 @@ pub impl Show for CompType with output(self, logger) {
 ///|
 pub impl Show for SubType with output(self, logger) {
   match self {
-    SubType(f, sts, ct) => {
+    SubType(f, sts, meta, ct) => {
       logger.write_string("(Sub ")
       if f {
         logger.write_string("Final ")
+      }
+      match meta.describes {
+        Some(t) => {
+          logger.write_string("(describes ")
+          t.output(logger)
+          logger.write_string(") ")
+        }
+        None => ()
+      }
+      match meta.descriptor {
+        Some(t) => {
+          logger.write_string("(descriptor ")
+          t.output(logger)
+          logger.write_string(") ")
+        }
+        None => ()
       }
       for st in sts {
         st.output(logger)
@@ -332,8 +351,24 @@ pub impl Show for SubType with output(self, logger) {
       ct.output(logger)
       logger.write_char(')')
     }
-    CompTypeSubType(ct) => {
+    CompTypeSubType(meta, ct) => {
       logger.write_string("(Sub Final ")
+      match meta.describes {
+        Some(t) => {
+          logger.write_string("(describes ")
+          t.output(logger)
+          logger.write_string(") ")
+        }
+        None => ()
+      }
+      match meta.descriptor {
+        Some(t) => {
+          logger.write_string("(descriptor ")
+          t.output(logger)
+          logger.write_string(") ")
+        }
+        None => ()
+      }
       ct.output(logger)
       logger.write_char(')')
     }
@@ -1320,6 +1355,16 @@ pub impl Show for Instruction with output(self, logger) {
       i.output(logger)
       logger.write_char(')')
     }
+    StructNewDesc(i) => {
+      logger.write_string("(struct.new_desc ")
+      i.output(logger)
+      logger.write_char(')')
+    }
+    StructNewDefaultDesc(i) => {
+      logger.write_string("(struct.new_default_desc ")
+      i.output(logger)
+      logger.write_char(')')
+    }
     StructGet(t, i) => {
       logger.write_string("(struct.get ")
       t.output(logger)
@@ -1429,40 +1474,40 @@ pub impl Show for Instruction with output(self, logger) {
     RefGetDesc => logger.write_string("ref.get_desc")
     RefTest(n, ht) => {
       logger.write_string("(ref.test ")
-      HeapTypeRefType(n, ht).output(logger)
+      HeapTypeRefType(n, false, ht).output(logger)
       logger.write_char(')')
     }
     RefCast(n, ht) => {
       logger.write_string("(ref.cast ")
-      HeapTypeRefType(n, ht).output(logger)
+      HeapTypeRefType(n, false, ht).output(logger)
       logger.write_char(')')
     }
     RefTestDesc(n, ht) => {
       logger.write_string("(ref.test_desc ")
-      HeapTypeRefType(n, ht).output(logger)
+      HeapTypeRefType(n, false, ht).output(logger)
       logger.write_char(')')
     }
     RefCastDescEq(n, ht) => {
       logger.write_string("(ref.cast_desc_eq ")
-      HeapTypeRefType(n, ht).output(logger)
+      HeapTypeRefType(n, false, ht).output(logger)
       logger.write_char(')')
     }
     BrOnCast(i, CastOp(l, r), lht, rht) => {
       logger.write_string("(br_on_cast ")
       i.output(logger)
       logger.write_char(' ')
-      HeapTypeRefType(l, lht).output(logger)
+      HeapTypeRefType(l, false, lht).output(logger)
       logger.write_char(' ')
-      HeapTypeRefType(r, rht).output(logger)
+      HeapTypeRefType(r, false, rht).output(logger)
       logger.write_char(')')
     }
     BrOnCastFail(i, CastOp(l, r), lht, rht) => {
       logger.write_string("(br_on_cast_fail ")
       i.output(logger)
       logger.write_char(' ')
-      HeapTypeRefType(l, lht).output(logger)
+      HeapTypeRefType(l, false, lht).output(logger)
       logger.write_char(' ')
-      HeapTypeRefType(r, rht).output(logger)
+      HeapTypeRefType(r, false, rht).output(logger)
       logger.write_char(')')
     }
     AnyConvertExtern => logger.write_string("any.convert_extern")

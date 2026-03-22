@@ -138,6 +138,8 @@ pub enum SSAOp {
   // Structs
   StructNew(TypeIdx, Array[SSAValue])
   StructNewDefault(TypeIdx)
+  StructNewDesc(TypeIdx, Array[SSAValue])
+  StructNewDefaultDesc(TypeIdx, SSAValue)
   StructGet(TypeIdx, U32, SSAValue)
   StructGetS(TypeIdx, U32, SSAValue)
   StructGetU(TypeIdx, U32, SSAValue)

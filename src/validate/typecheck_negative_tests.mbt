@@ -46,6 +46,19 @@ fn tcneg_single_functype_subtype(
 }
 
 ///|
+fn tcneg_descriptor_struct_env() -> Env {
+  let described = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(descriptor=Some(TypeIdx::new(1U))),
+  )
+  let descriptor = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(describes=Some(TypeIdx::new(0U))),
+  )
+  { ..empty_env(), global_types: [described, descriptor] }
+}
+
+///|
 test "Typecheck RefGetDesc rejects nullable operand" {
   let state = tcneg_make_state(empty_env(), [
     tcneg_nullable_ref(HeapType::abs(AbsHeapType::i31())),
@@ -133,6 +146,30 @@ test "Typecheck RefCastDescEq accepts polymorphic stack in unreachable state" {
     Ok(next) =>
       assert_stack(next, [ValType::ref_null(HeapType::abs(AbsHeapType::eq()))])
   }
+}
+
+///|
+test "Typecheck StructNew rejects descriptor-bearing structs" {
+  let env = tcneg_descriptor_struct_env()
+  let state = tcneg_make_state(env, [])
+  let result = Typecheck::typecheck(
+    Instruction::struct_new(TypeIdx::new(0U)),
+    state,
+  )
+  tcneg_assert_err_contains(result, "struct.new_desc")
+}
+
+///|
+test "Typecheck StructNewDesc rejects inexact descriptor operand" {
+  let env = tcneg_descriptor_struct_env()
+  let state = tcneg_make_state(env, [
+    ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(1U)))),
+  ])
+  let result = Typecheck::typecheck(
+    Instruction::struct_new_default_desc(TypeIdx::new(0U)),
+    state,
+  )
+  tcneg_assert_err_contains(result, "type mismatch")
 }
 
 ///|

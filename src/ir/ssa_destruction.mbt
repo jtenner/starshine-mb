@@ -436,6 +436,10 @@ fn convert_ssa_op_to_tinstr(op : SSAOp, d : SSADestructor) -> TInstr {
     SSAOp::ExternConvertAny(v) => TInstr::extern_convert_any(get(d, v))
     SSAOp::StructNew(ty, args) => TInstr::struct_new(ty, get_args(d, args))
     SSAOp::StructNewDefault(ty) => TInstr::struct_new_default(ty)
+    SSAOp::StructNewDesc(ty, args) =>
+      TInstr::struct_new_desc(ty, get_args(d, args))
+    SSAOp::StructNewDefaultDesc(ty, descriptor) =>
+      TInstr::struct_new_default_desc(ty, get(d, descriptor))
     SSAOp::StructGet(ty, field, v) => TInstr::struct_get(ty, field, get(d, v))
     SSAOp::StructGetS(ty, field, v) =>
       TInstr::struct_get_s(ty, field, get(d, v))

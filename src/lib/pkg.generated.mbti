@@ -14,7 +14,7 @@ pub fn array_comp_type(FieldType) -> CompType
 
 pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(UInt, Int, @splitmix.RandomState) -> Array[T]
 
-pub fn comp_type_sub_type(CompType) -> SubType
+pub fn comp_type_sub_type(CompType, metadata? : TypeMetadata) -> SubType
 
 pub fn[T : Eq] equals(Array[T], Array[T]) -> Bool
 
@@ -64,7 +64,7 @@ pub fn single_rec_type(SubType) -> RecType
 
 pub fn struct_comp_type(Array[FieldType]) -> CompType
 
-pub fn sub_type(Bool, Array[TypeIdx], CompType) -> SubType
+pub fn sub_type(Bool, Array[TypeIdx], CompType, metadata? : TypeMetadata) -> SubType
 
 pub fn table_extern_idx(TableIdx) -> ExternIdx
 
@@ -1372,6 +1372,8 @@ pub enum Instruction {
   BrOnNonNull(LabelIdx)
   StructNew(TypeIdx)
   StructNewDefault(TypeIdx)
+  StructNewDesc(TypeIdx)
+  StructNewDefaultDesc(TypeIdx)
   StructGet(TypeIdx, U32)
   StructGetS(TypeIdx, U32)
   StructGetU(TypeIdx, U32)
@@ -2152,6 +2154,8 @@ pub fn Instruction::struct_get_s(TypeIdx, U32) -> Self
 pub fn Instruction::struct_get_u(TypeIdx, U32) -> Self
 pub fn Instruction::struct_new(TypeIdx) -> Self
 pub fn Instruction::struct_new_default(TypeIdx) -> Self
+pub fn Instruction::struct_new_default_desc(TypeIdx) -> Self
+pub fn Instruction::struct_new_desc(TypeIdx) -> Self
 pub fn Instruction::struct_set(TypeIdx, U32) -> Self
 pub fn Instruction::table_copy(TableIdx, TableIdx) -> Self
 pub fn Instruction::table_fill(TableIdx) -> Self
@@ -2582,16 +2586,17 @@ pub impl @debug.Debug for RecType
 pub impl @quickcheck.Arbitrary for RecType
 
 pub enum RefType {
-  HeapTypeRefType(Bool, HeapType)
+  HeapTypeRefType(Bool, Bool, HeapType)
   AbsHeapTypeRefType(AbsHeapType)
 }
 pub fn RefType::abs(AbsHeapType) -> Self
 pub fn RefType::get_heap_type(Self) -> HeapType
 pub fn RefType::is_defaultable(Self) -> Bool
+pub fn RefType::is_exact(Self) -> Bool
 pub fn RefType::is_non_nullable(Self) -> Bool
 pub fn RefType::is_nullable(Self) -> Bool
 pub fn RefType::make_nullable(Self) -> Self
-pub fn RefType::new(Bool, HeapType) -> Self
+pub fn RefType::new(Bool, HeapType, exact? : Bool) -> Self
 pub impl PrettyPrint for RefType
 pub impl Eq for RefType
 pub impl Hash for RefType
@@ -2698,12 +2703,15 @@ pub impl Show for StoreOp
 pub impl @debug.Debug for StoreOp
 
 pub enum SubType {
-  SubType(Bool, Array[TypeIdx], CompType)
-  CompTypeSubType(CompType)
+  SubType(Bool, Array[TypeIdx], TypeMetadata, CompType)
+  CompTypeSubType(TypeMetadata, CompType)
 }
-pub fn SubType::comp_type(CompType) -> Self
+pub fn SubType::comp_type(CompType, metadata? : TypeMetadata) -> Self
+pub fn SubType::describes_type(Self) -> TypeIdx?
+pub fn SubType::descriptor_type(Self) -> TypeIdx?
 pub fn SubType::get_comptype(Self) -> CompType
-pub fn SubType::new(Bool, Array[TypeIdx], CompType) -> Self
+pub fn SubType::metadata(Self) -> TypeMetadata
+pub fn SubType::new(Bool, Array[TypeIdx], CompType, metadata? : TypeMetadata) -> Self
 pub fn SubType::super_types(Self) -> Array[TypeIdx]
 pub impl PrettyPrint for SubType
 pub impl Eq for SubType
@@ -2820,6 +2828,8 @@ pub fn TInstr::struct_get_s(TypeIdx, U32, Self) -> Self
 pub fn TInstr::struct_get_u(TypeIdx, U32, Self) -> Self
 pub fn TInstr::struct_new(TypeIdx, Array[Self]) -> Self
 pub fn TInstr::struct_new_default(TypeIdx) -> Self
+pub fn TInstr::struct_new_default_desc(TypeIdx, Self) -> Self
+pub fn TInstr::struct_new_desc(TypeIdx, Array[Self]) -> Self
 pub fn TInstr::struct_set(TypeIdx, U32, Self, Self) -> Self
 pub fn TInstr::table_copy(TableIdx, TableIdx, Self, Self, Self) -> Self
 pub fn TInstr::table_fill(TableIdx, Self, Self, Self) -> Self
@@ -2916,6 +2926,8 @@ pub enum TInstrKind {
   TSelect(Array[ValType]?, TInstr, TInstr, TInstr)
   TStructNew(TypeIdx, Array[TInstr])
   TStructNewDefault(TypeIdx)
+  TStructNewDesc(TypeIdx, Array[TInstr])
+  TStructNewDefaultDesc(TypeIdx, TInstr)
   TStructGet(TypeIdx, U32, TInstr)
   TStructGetS(TypeIdx, U32, TInstr)
   TStructGetU(TypeIdx, U32, TInstr)
@@ -3054,6 +3066,15 @@ pub impl Hash for TypeIdx
 pub impl Show for TypeIdx
 pub impl @debug.Debug for TypeIdx
 pub impl @quickcheck.Arbitrary for TypeIdx
+
+pub struct TypeMetadata {
+  describes : TypeIdx?
+  descriptor : TypeIdx?
+}
+pub fn TypeMetadata::new(describes? : TypeIdx?, descriptor? : TypeIdx?) -> Self
+pub impl Eq for TypeMetadata
+pub impl Hash for TypeMetadata
+pub impl @debug.Debug for TypeMetadata
 
 pub struct TypeSec(Array[RecType])
 #deprecated

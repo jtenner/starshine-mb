@@ -135,7 +135,11 @@ fn infer_op_type(
     SSAOp::RefAsNonNull(v) =>
       match types.get(v) {
         Some(ValType::RefTypeValType(rt)) =>
-          Some(ValType::ref_type(RefType::new(false, rt.get_heap_type())))
+          Some(
+            ValType::ref_type(
+              RefType::new(false, rt.get_heap_type(), exact=rt.is_exact()),
+            ),
+          )
         _ => None
       }
     SSAOp::RefI31(_) =>
@@ -160,8 +164,13 @@ fn infer_op_type(
           RefType::new(false, HeapType::abs(AbsHeapType::extern_())),
         ),
       )
-    SSAOp::StructNew(ty, _) | SSAOp::StructNewDefault(ty) =>
-      Some(ValType::ref_type(RefType::new(false, HeapType::new(ty))))
+    SSAOp::StructNew(ty, _)
+    | SSAOp::StructNewDefault(ty)
+    | SSAOp::StructNewDesc(ty, _)
+    | SSAOp::StructNewDefaultDesc(ty, _) =>
+      Some(
+        ValType::ref_type(RefType::new(false, HeapType::new(ty), exact=true)),
+      )
     SSAOp::StructGet(ty, field, _)
     | SSAOp::StructGetS(ty, field, _)
     | SSAOp::StructGetU(ty, field, _) => {

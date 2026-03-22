@@ -192,10 +192,12 @@ fn collect_instr_locals(instr : TInstr, locals : Set[LocalIdx]) -> Unit {
       }
       collect_instr_locals(func, locals)
     }
-    TInstrKind::TStructNew(_, args) =>
+    TInstrKind::TStructNew(_, args) | TInstrKind::TStructNewDesc(_, args) =>
       for a in args {
         collect_instr_locals(a, locals)
       }
+    TInstrKind::TStructNewDefaultDesc(_, descriptor) =>
+      collect_instr_locals(descriptor, locals)
     TInstrKind::TStructGet(_, _, a)
     | TInstrKind::TStructGetS(_, _, a)
     | TInstrKind::TStructGetU(_, _, a) => collect_instr_locals(a, locals)
@@ -1024,6 +1026,21 @@ fn rename_instr(
       out.push(SSAInstr::Assign(v, SSAOp::StructNewDefault(ty)))
       Some(v)
     }
+    TInstrKind::TStructNewDesc(ty, args) => {
+      let ssa_args = rename_args(args, builder, out)
+      let v = builder.fresh()
+      out.push(SSAInstr::Assign(v, SSAOp::StructNewDesc(ty, ssa_args)))
+      Some(v)
+    }
+    TInstrKind::TStructNewDefaultDesc(ty, descriptor) =>
+      match rename_instr(descriptor, builder, out) {
+        Some(desc) => {
+          let v = builder.fresh()
+          out.push(SSAInstr::Assign(v, SSAOp::StructNewDefaultDesc(ty, desc)))
+          Some(v)
+        }
+        None => None
+      }
     TInstrKind::TStructGet(ty, field, a) =>
       match rename_instr(a, builder, out) {
         Some(av) => {

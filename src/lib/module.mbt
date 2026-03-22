@@ -954,6 +954,38 @@ fn md_render_tinstr(
         depth,
         "- struct.new_default " + md_format_type_idx(ctx, type_idx),
       )
+    TStructNewDesc(type_idx, values) => {
+      md_write_line(
+        out,
+        depth,
+        "- struct.new_desc " + md_format_type_idx(ctx, type_idx),
+      )
+      md_render_children(
+        out,
+        depth + 2,
+        "operands",
+        ctx,
+        locals,
+        param_count,
+        values,
+      )
+    }
+    TStructNewDefaultDesc(type_idx, descriptor) => {
+      md_write_line(
+        out,
+        depth,
+        "- struct.new_default_desc " + md_format_type_idx(ctx, type_idx),
+      )
+      md_render_child(
+        out,
+        depth + 2,
+        "descriptor",
+        ctx,
+        locals,
+        param_count,
+        descriptor,
+      )
+    }
     TStructGet(type_idx, field_idx, value)
     | TStructGetS(type_idx, field_idx, value)
     | TStructGetU(type_idx, field_idx, value) => {

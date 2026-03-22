@@ -246,6 +246,8 @@ pub enum SSAOp {
   ExternConvertAny(SSAValue)
   StructNew(@lib.TypeIdx, Array[SSAValue])
   StructNewDefault(@lib.TypeIdx)
+  StructNewDesc(@lib.TypeIdx, Array[SSAValue])
+  StructNewDefaultDesc(@lib.TypeIdx, SSAValue)
   StructGet(@lib.TypeIdx, @lib.U32, SSAValue)
   StructGetS(@lib.TypeIdx, @lib.U32, SSAValue)
   StructGetU(@lib.TypeIdx, @lib.U32, SSAValue)

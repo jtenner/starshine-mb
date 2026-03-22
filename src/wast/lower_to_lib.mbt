@@ -46,21 +46,27 @@ fn wt_new_ctx() -> WTLowerCtx {
 fn wt_resolve_heap_type_ref(
   ctx : WTLowerCtx,
   ht : HeapTypeRef,
-) -> Result[@lib.HeapType, String] {
+) -> Result[(@lib.HeapType, Bool), String] {
   match ht {
-    TypeNum(n) => Ok(@lib.HeapType::new(@lib.TypeIdx::new(n)))
+    TypeNum(n) => Ok((@lib.HeapType::new(@lib.TypeIdx::new(n)), false))
     TypeId(id) =>
       match ctx.type_ids.get(id) {
-        Some(v) => Ok(@lib.HeapType::new(@lib.TypeIdx::new(v)))
+        Some(v) => Ok((@lib.HeapType::new(@lib.TypeIdx::new(v)), false))
         None => Err("unknown type id: \{id}")
       }
-    Any => Ok(@lib.HeapType::abs(@lib.AbsHeapType::any()))
-    Eq => Ok(@lib.HeapType::abs(@lib.AbsHeapType::eq()))
-    I31 => Ok(@lib.HeapType::abs(@lib.AbsHeapType::i31()))
-    None_ => Ok(@lib.HeapType::abs(@lib.AbsHeapType::none()))
-    NoFunc => Ok(@lib.HeapType::abs(@lib.AbsHeapType::no_func()))
-    NoExtern => Ok(@lib.HeapType::abs(@lib.AbsHeapType::no_extern()))
-    NoExn => Ok(@lib.HeapType::abs(@lib.AbsHeapType::no_exn()))
+    ExactTypeNum(n) => Ok((@lib.HeapType::new(@lib.TypeIdx::new(n)), true))
+    ExactTypeId(id) =>
+      match ctx.type_ids.get(id) {
+        Some(v) => Ok((@lib.HeapType::new(@lib.TypeIdx::new(v)), true))
+        None => Err("unknown type id: \{id}")
+      }
+    Any => Ok((@lib.HeapType::abs(@lib.AbsHeapType::any()), false))
+    Eq => Ok((@lib.HeapType::abs(@lib.AbsHeapType::eq()), false))
+    I31 => Ok((@lib.HeapType::abs(@lib.AbsHeapType::i31()), false))
+    None_ => Ok((@lib.HeapType::abs(@lib.AbsHeapType::none()), false))
+    NoFunc => Ok((@lib.HeapType::abs(@lib.AbsHeapType::no_func()), false))
+    NoExtern => Ok((@lib.HeapType::abs(@lib.AbsHeapType::no_extern()), false))
+    NoExn => Ok((@lib.HeapType::abs(@lib.AbsHeapType::no_exn()), false))
   }
 }
 
@@ -105,18 +111,18 @@ fn wt_value_type(
         ),
       )
     TypedFuncRef(ht) => {
-      let resolved = match wt_resolve_heap_type_ref(ctx, ht) {
+      let (resolved, exact) = match wt_resolve_heap_type_ref(ctx, ht) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      Ok(@lib.ValType::ref_type(@lib.RefType::new(true, resolved)))
+      Ok(@lib.ValType::ref_type(@lib.RefType::new(true, resolved, exact~)))
     }
     NonNullTypedFuncRef(ht) => {
-      let resolved = match wt_resolve_heap_type_ref(ctx, ht) {
+      let (resolved, exact) = match wt_resolve_heap_type_ref(ctx, ht) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      Ok(@lib.ValType::ref_type(@lib.RefType::new(false, resolved)))
+      Ok(@lib.ValType::ref_type(@lib.RefType::new(false, resolved, exact~)))
     }
   }
 }
@@ -134,7 +140,7 @@ fn wt_ref_heap_type(
     ExnRef | NonNullExnRef =>
       Ok(Some(@lib.HeapType::abs(@lib.AbsHeapType::exn())))
     TypedFuncRef(ht) | NonNullTypedFuncRef(ht) => {
-      let resolved = match wt_resolve_heap_type_ref(ctx, ht) {
+      let (resolved, _) = match wt_resolve_heap_type_ref(ctx, ht) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
@@ -270,19 +276,20 @@ fn wt_find_matching_func_type_index(
   let mut flat = 0U
   for rec in ctx.type_recs {
     match rec {
-      SingleRecType(CompTypeSubType(FuncCompType(ps, rs)))
-      | SingleRecType(SubType(_, _, FuncCompType(ps, rs))) => {
-        if ps == params && rs == results {
-          return Some(flat)
+      SingleRecType(st) =>
+        match st.get_comptype() {
+          FuncCompType(ps, rs) => {
+            if ps == params && rs == results {
+              return Some(flat)
+            }
+            flat += 1
+          }
+          _ => flat += 1
         }
-        flat += 1
-      }
-      SingleRecType(_) => flat += 1
       GroupRecType(sts) =>
         for st in sts {
-          match st {
-            CompTypeSubType(FuncCompType(ps, rs))
-            | SubType(_, _, FuncCompType(ps, rs)) => {
+          match st.get_comptype() {
+            FuncCompType(ps, rs) => {
               if ps == params && rs == results {
                 return Some(flat)
               }
@@ -304,26 +311,27 @@ fn wt_resolve_functype_sig_by_index(
   let mut flat = 0U
   for rec in ctx.type_recs {
     match rec {
-      SingleRecType(CompTypeSubType(FuncCompType(params, results)))
-      | SingleRecType(SubType(_, _, FuncCompType(params, results))) => {
-        if flat == type_idx {
-          return Ok((params, results))
+      SingleRecType(st) =>
+        match st.get_comptype() {
+          FuncCompType(params, results) => {
+            if flat == type_idx {
+              return Ok((params, results))
+            }
+            flat += 1
+          }
+          _ => {
+            if flat == type_idx {
+              return Err(
+                "type index does not reference a function type: \{type_idx}",
+              )
+            }
+            flat += 1
+          }
         }
-        flat += 1
-      }
-      SingleRecType(_) => {
-        if flat == type_idx {
-          return Err(
-            "type index does not reference a function type: \{type_idx}",
-          )
-        }
-        flat += 1
-      }
       GroupRecType(sts) =>
         for st in sts {
-          match st {
-            CompTypeSubType(FuncCompType(params, results))
-            | SubType(_, _, FuncCompType(params, results)) => {
+          match st.get_comptype() {
+            FuncCompType(params, results) => {
               if flat == type_idx {
                 return Ok((params, results))
               }
@@ -493,26 +501,27 @@ fn wt_type_param_count(
   let mut flat = 0U
   for rec in ctx.type_recs {
     match rec {
-      SingleRecType(CompTypeSubType(FuncCompType(params, _)))
-      | SingleRecType(SubType(_, _, FuncCompType(params, _))) => {
-        if flat == type_idx {
-          return Ok(params.length().reinterpret_as_uint())
+      SingleRecType(st) =>
+        match st.get_comptype() {
+          FuncCompType(params, _) => {
+            if flat == type_idx {
+              return Ok(params.length().reinterpret_as_uint())
+            }
+            flat += 1
+          }
+          _ => {
+            if flat == type_idx {
+              return Err(
+                "type index does not reference a function type: \{type_idx}",
+              )
+            }
+            flat += 1
+          }
         }
-        flat += 1
-      }
-      SingleRecType(_) => {
-        if flat == type_idx {
-          return Err(
-            "type index does not reference a function type: \{type_idx}",
-          )
-        }
-        flat += 1
-      }
       GroupRecType(sts) =>
         for st in sts {
-          match st {
-            CompTypeSubType(FuncCompType(params, _))
-            | SubType(_, _, FuncCompType(params, _)) =>
+          match st.get_comptype() {
+            FuncCompType(params, _) =>
               if flat == type_idx {
                 return Ok(params.length().reinterpret_as_uint())
               }
@@ -4904,6 +4913,62 @@ test "wast_to_binary_module lowers typed-heap value types to concrete TypeIdx re
 }
 
 ///|
+test "wast_to_binary_module lowers exact typed-heap value types to exact refs" {
+  let src =
+    #|(module
+    #|  (type $t (func))
+    #|  (func (param (ref (exact $t))) (result (ref (exact $t)))
+    #|    (local.get 0)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected exact typed-heap value-type lowering success: \{e}")
+  }
+  match lowered.type_sec {
+    Some(@lib.TypeSec(types)) => {
+      assert_eq(types.length(), 2)
+      assert_eq(
+        types[1],
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::ref_type(
+                  @lib.RefType::new(
+                    false,
+                    @lib.HeapType::new(@lib.TypeIdx::new(0)),
+                    exact=true,
+                  ),
+                ),
+              ],
+              [
+                @lib.ValType::ref_type(
+                  @lib.RefType::new(
+                    false,
+                    @lib.HeapType::new(@lib.TypeIdx::new(0)),
+                    exact=true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      )
+    }
+    _ => fail("expected exact concrete TypeIdx-backed ref param/result types")
+  }
+  match lowered.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([instr]))])) =>
+      assert_eq(instr, @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+    _ => fail("expected exact typed ref.null instruction lowering")
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) => fail("expected exact typed-heap fixture to validate: \{e}")
+  }
+}
+
+///|
 test "wast_to_binary_module lowers abstract heap ref kinds without collapsing to func" {
   let src =
     #|(module
@@ -4928,6 +4993,7 @@ test "wast_to_binary_module lowers abstract heap ref kinds without collapsing to
         [
           @lib.RecType::SingleRecType(
             @lib.SubType::CompTypeSubType(
+              _,
               @lib.CompType::FuncCompType(params, results)
             )
           ),

@@ -67,12 +67,18 @@ pub impl Encode for AbsHeapType with encode(val, buf) {
 ///|
 pub impl Encode for RefType with encode(val, buf) {
   match val {
-    HeapTypeRefType(true, ht) => {
+    HeapTypeRefType(true, exact, ht) => {
       buf.write_byte(0x63)
+      if exact {
+        buf.write_byte(0x62)
+      }
       Encode::encode(ht, buf)
     }
-    HeapTypeRefType(false, ht) => {
+    HeapTypeRefType(false, exact, ht) => {
       buf.write_byte(0x64)
+      if exact {
+        buf.write_byte(0x62)
+      }
       Encode::encode(ht, buf)
     }
     AbsHeapTypeRefType(abs) => Encode::encode(abs, buf)
@@ -186,7 +192,7 @@ pub impl Encode for RecType with encode(val, buf) {
 ///|
 pub impl Encode for SubType with encode(val, buf) {
   match val {
-    SubType(f, indexes, ct) => {
+    SubType(f, indexes, meta, ct) => {
       match f {
         true => buf.write_byte(0x4F)
         false => buf.write_byte(0x50)
@@ -194,9 +200,47 @@ pub impl Encode for SubType with encode(val, buf) {
       if Encode::encode(indexes, buf) is Err(t) {
         return Err(t)
       }
+      match meta.describes {
+        Some(i) => {
+          buf.write_byte(0x4C)
+          if Encode::encode(i, buf) is Err(t) {
+            return Err(t)
+          }
+        }
+        None => ()
+      }
+      match meta.descriptor {
+        Some(i) => {
+          buf.write_byte(0x4D)
+          if Encode::encode(i, buf) is Err(t) {
+            return Err(t)
+          }
+        }
+        None => ()
+      }
       Encode::encode(ct, buf)
     }
-    CompTypeSubType(ct) => Encode::encode(ct, buf)
+    CompTypeSubType(meta, ct) => {
+      match meta.describes {
+        Some(i) => {
+          buf.write_byte(0x4C)
+          if Encode::encode(i, buf) is Err(t) {
+            return Err(t)
+          }
+        }
+        None => ()
+      }
+      match meta.descriptor {
+        Some(i) => {
+          buf.write_byte(0x4D)
+          if Encode::encode(i, buf) is Err(t) {
+            return Err(t)
+          }
+        }
+        None => ()
+      }
+      Encode::encode(ct, buf)
+    }
   }
 }
 
@@ -2120,6 +2164,24 @@ pub impl Encode for Instruction with encode(val, buf) {
         return Err(t)
       }
     }
+    StructNewDesc(i) => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(32), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StructNewDefaultDesc(i) => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(33), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+    }
     StructGet(i, idx) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(2), buf) is Err(t) {
@@ -2347,13 +2409,13 @@ pub impl Encode for Instruction with encode(val, buf) {
     }
     RefGetDesc => {
       buf.write_byte(0xFB)
-      if Encode::encode(@lib.U32(31), buf) is Err(t) {
+      if Encode::encode(@lib.U32(34), buf) is Err(t) {
         return Err(t)
       }
     }
     RefTestDesc(false, ht) => {
       buf.write_byte(0xFB)
-      if Encode::encode(@lib.U32(32), buf) is Err(t) {
+      if Encode::encode(@lib.U32(35), buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(ht, buf) is Err(t) {
@@ -2362,7 +2424,7 @@ pub impl Encode for Instruction with encode(val, buf) {
     }
     RefTestDesc(true, ht) => {
       buf.write_byte(0xFB)
-      if Encode::encode(@lib.U32(33), buf) is Err(t) {
+      if Encode::encode(@lib.U32(36), buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(ht, buf) is Err(t) {
@@ -2371,7 +2433,7 @@ pub impl Encode for Instruction with encode(val, buf) {
     }
     RefCastDescEq(false, ht) => {
       buf.write_byte(0xFB)
-      if Encode::encode(@lib.U32(34), buf) is Err(t) {
+      if Encode::encode(@lib.U32(37), buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(ht, buf) is Err(t) {
@@ -2380,7 +2442,7 @@ pub impl Encode for Instruction with encode(val, buf) {
     }
     RefCastDescEq(true, ht) => {
       buf.write_byte(0xFB)
-      if Encode::encode(@lib.U32(35), buf) is Err(t) {
+      if Encode::encode(@lib.U32(38), buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(ht, buf) is Err(t) {

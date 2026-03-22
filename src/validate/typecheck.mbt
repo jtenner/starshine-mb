@@ -332,8 +332,8 @@ fn expect_ref_null_heaptype(v : ValType) -> Result[HeapType, String] {
   match v {
     RefTypeValType(rt) =>
       match rt {
-        HeapTypeRefType(true, ht) => Ok(ht)
-        HeapTypeRefType(false, _) =>
+        HeapTypeRefType(true, _, ht) => Ok(ht)
+        HeapTypeRefType(false, _, _) =>
           Err("expected (ref null ht), got non-null ref")
         AbsHeapTypeRefType(_) =>
           Err("expected (ref null ht), got abstract ref type")
@@ -1937,9 +1937,9 @@ fn typecheck_ref_as_non_null(st : TcState) -> TcResult {
   match v {
     RefTypeValType(rt) =>
       match rt {
-        HeapTypeRefType(true, ht) =>
-          Ok(st1.push1(ValType::ref_type(RefType::new(false, ht))))
-        HeapTypeRefType(false, _) =>
+        HeapTypeRefType(true, exact, ht) =>
+          Ok(st1.push1(ValType::ref_type(RefType::new(false, ht, exact~))))
+        HeapTypeRefType(false, _, _) =>
           Err("ref.as_non_null expects (ref null ht), got non-null ref")
         AbsHeapTypeRefType(_) =>
           Err("ref.as_non_null expects (ref null ht), got abstract ref type")
@@ -2072,6 +2072,14 @@ fn typecheck_ref_cast_desc_eq(
 
 ///|
 fn typecheck_struct_new(st : TcState, x : TypeIdx) -> TcResult {
+  match st.env.resolve_struct_descriptor_type(x) {
+    Ok(Some(_)) =>
+      return Err(
+        "struct.new requires struct.new_desc for descriptor-bearing struct types",
+      )
+    Ok(None) => ()
+    Err(e) => return Err(e)
+  }
   let fields = match st.env.resolve_struct_fields(x) {
     Err(e) => return Err(e)
     Ok(fs) => fs
@@ -2089,11 +2097,23 @@ fn typecheck_struct_new(st : TcState, x : TypeIdx) -> TcResult {
   }
 
   // push (ref x)
-  Ok(st1.push1(ValType::ref_type(RefType::new(false, HeapType::new(x)))))
+  Ok(
+    st1.push1(
+      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+    ),
+  )
 }
 
 ///|
 fn typecheck_struct_new_default(st : TcState, x : TypeIdx) -> TcResult {
+  match st.env.resolve_struct_descriptor_type(x) {
+    Ok(Some(_)) =>
+      return Err(
+        "struct.new_default requires struct.new_default_desc for descriptor-bearing struct types",
+      )
+    Ok(None) => ()
+    Err(e) => return Err(e)
+  }
   let fields = match st.env.resolve_struct_fields(x) {
     Err(e) => return Err(e)
     Ok(fs) => fs
@@ -2105,7 +2125,85 @@ fn typecheck_struct_new_default(st : TcState, x : TypeIdx) -> TcResult {
       return Err("struct.new_default: no default for a non-null field type")
     }
   }
-  Ok(st.push1(ValType::ref_type(RefType::new(false, HeapType::new(x)))))
+  Ok(
+    st.push1(
+      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+    ),
+  )
+}
+
+///|
+fn typecheck_struct_new_desc(st : TcState, x : TypeIdx) -> TcResult {
+  let descriptor_type = match st.env.resolve_struct_descriptor_type(x) {
+    Ok(Some(t)) => t
+    Ok(None) =>
+      return Err("struct.new_desc requires a descriptor-bearing struct type")
+    Err(e) => return Err(e)
+  }
+  let fields = match st.env.resolve_struct_fields(x) {
+    Err(e) => return Err(e)
+    Ok(fs) => fs
+  }
+
+  let args : Array[ValType] = []
+  for f in fields {
+    let FieldType(stor, _) = f
+    args.push(stor.unpack())
+  }
+  args.push(
+    ValType::ref_type(
+      RefType::new(true, HeapType::new(descriptor_type), exact=true),
+    ),
+  )
+
+  let st1 = match st.pop_types(args) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  Ok(
+    st1.push1(
+      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+    ),
+  )
+}
+
+///|
+fn typecheck_struct_new_default_desc(st : TcState, x : TypeIdx) -> TcResult {
+  let descriptor_type = match st.env.resolve_struct_descriptor_type(x) {
+    Ok(Some(t)) => t
+    Ok(None) =>
+      return Err(
+        "struct.new_default_desc requires a descriptor-bearing struct type",
+      )
+    Err(e) => return Err(e)
+  }
+  let fields = match st.env.resolve_struct_fields(x) {
+    Err(e) => return Err(e)
+    Ok(fs) => fs
+  }
+  for f in fields {
+    let FieldType(stor, _) = f
+    let vt = stor.unpack()
+    if !has_default(vt) {
+      return Err(
+        "struct.new_default_desc: no default for a non-null field type",
+      )
+    }
+  }
+  let st1 = match
+    st.pop_expect(
+      ValType::ref_type(
+        RefType::new(true, HeapType::new(descriptor_type), exact=true),
+      ),
+    ) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  Ok(
+    st1.push1(
+      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+    ),
+  )
 }
 
 ///|
@@ -3149,7 +3247,9 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     I31GetS => typecheck_i31_get(st)
     I31GetU => typecheck_i31_get(st)
     StructNew(x) => typecheck_struct_new(st, x)
+    StructNewDesc(x) => typecheck_struct_new_desc(st, x)
     StructNewDefault(x) => typecheck_struct_new_default(st, x)
+    StructNewDefaultDesc(x) => typecheck_struct_new_default_desc(st, x)
     StructGet(x, i) => typecheck_struct_get(st, x, i)
     StructGetS(x, i) => typecheck_struct_get_s(st, x, i)
     StructGetU(x, i) => typecheck_struct_get_u(st, x, i)
@@ -4809,7 +4909,24 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_struct_new(st_acc, x)
     }
+    TInstrKind::TStructNewDesc(x, fields) => {
+      let mut st_acc = st
+      for f in fields {
+        st_acc = match Typecheck::typecheck(f, st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      typecheck_struct_new_desc(st_acc, x)
+    }
     TInstrKind::TStructNewDefault(x) => typecheck_struct_new_default(st, x)
+    TInstrKind::TStructNewDefaultDesc(x, descriptor) => {
+      let st1 = match Typecheck::typecheck(descriptor, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_struct_new_default_desc(st1, x)
+    }
     TInstrKind::TStructGet(x, i, s) => {
       let st1 = match Typecheck::typecheck(s, st) {
         Ok(st) => st
@@ -8207,6 +8324,19 @@ test "Typecheck TryTable catch label 1 uses outer depth semantics" {
 // =============================================================================
 
 ///|
+fn typecheck_descriptor_struct_env() -> Env {
+  let described = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(descriptor=Some(TypeIdx::new(1U))),
+  )
+  let descriptor = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(describes=Some(TypeIdx::new(0U))),
+  )
+  { ..empty_env(), global_types: [described, descriptor] }
+}
+
+///|
 test "Typecheck StructNew" {
   let struct_type = SubType::comp_type(
     CompType::struct_([
@@ -8238,6 +8368,26 @@ test "Typecheck StructNewDefault" {
   )
   let final_state = assert_ok(result)
   assert_eq(final_state.stack.length(), 1)
+}
+
+///|
+test "Typecheck StructNewDesc" {
+  let env = typecheck_descriptor_struct_env()
+  let state = make_state(env, [
+    ValType::ref_type(
+      RefType::new(true, HeapType::new(TypeIdx::new(1U)), exact=true),
+    ),
+  ])
+  let result = Typecheck::typecheck(
+    Instruction::struct_new_default_desc(TypeIdx::new(0U)),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true),
+    ),
+  ])
 }
 
 ///|

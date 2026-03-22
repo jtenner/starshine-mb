@@ -45,12 +45,17 @@ pub impl Eq for RecType with equal(l, r) {
 ///|
 pub impl Eq for RefType with equal(l, r) {
   match (l, r) {
-    (HeapTypeRefType(l0, l1), HeapTypeRefType(r0, r1)) => l0 == r0 && l1 == r1
+    (HeapTypeRefType(l0, l1, l2), HeapTypeRefType(r0, r1, r2)) =>
+      l0 == r0 && l1 == r1 && l2 == r2
     (AbsHeapTypeRefType(l0), AbsHeapTypeRefType(r0)) => l0 == r0
-    (AbsHeapTypeRefType(l0), HeapTypeRefType(true, AbsHeapTypeHeapType(r0))) =>
-      l0 == r0
-    (HeapTypeRefType(true, AbsHeapTypeHeapType(l0)), AbsHeapTypeRefType(r0)) =>
-      l0 == r0
+    (
+      AbsHeapTypeRefType(l0),
+      HeapTypeRefType(true, false, AbsHeapTypeHeapType(r0)),
+    ) => l0 == r0
+    (
+      HeapTypeRefType(true, false, AbsHeapTypeHeapType(l0)),
+      AbsHeapTypeRefType(r0),
+    ) => l0 == r0
     _ => false
   }
 }
@@ -64,14 +69,14 @@ pub impl Eq for MemArg with equal(l, r) {
 
 ///|
 test "RecType equality edge cases" {
-  let st = CompTypeSubType(FuncCompType([], []))
+  let st = SubType::comp_type(FuncCompType([], []))
 
   // SingleRecType should equal GroupRecType with single element
   assert_eq(SingleRecType(st), GroupRecType([st]))
   assert_eq(GroupRecType([st]), SingleRecType(st))
 
   // But different subtypes should not be equal
-  let st2 = CompTypeSubType(FuncCompType([NumTypeValType(I32NumType)], []))
+  let st2 = SubType::comp_type(FuncCompType([NumTypeValType(I32NumType)], []))
   assert_not_eq(SingleRecType(st), SingleRecType(st2))
   assert_not_eq(SingleRecType(st), GroupRecType([st2]))
 
@@ -84,17 +89,17 @@ test "RefType equality edge cases" {
   // AbsHeapTypeRefType should equal HeapTypeRefType with nullable + AbsHeapTypeHeapType
   assert_eq(
     AbsHeapTypeRefType(FuncAbsHeapType),
-    HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+    HeapTypeRefType(true, false, AbsHeapTypeHeapType(FuncAbsHeapType)),
   )
   assert_eq(
-    HeapTypeRefType(true, AbsHeapTypeHeapType(ExternAbsHeapType)),
+    HeapTypeRefType(true, false, AbsHeapTypeHeapType(ExternAbsHeapType)),
     AbsHeapTypeRefType(ExternAbsHeapType),
   )
 
   // Non-nullable should NOT equal AbsHeapTypeRefType
   assert_not_eq(
     AbsHeapTypeRefType(FuncAbsHeapType),
-    HeapTypeRefType(false, AbsHeapTypeHeapType(FuncAbsHeapType)),
+    HeapTypeRefType(false, false, AbsHeapTypeHeapType(FuncAbsHeapType)),
   )
 
   // Different heap types should not be equal
@@ -104,7 +109,7 @@ test "RefType equality edge cases" {
   )
   assert_not_eq(
     AbsHeapTypeRefType(FuncAbsHeapType),
-    HeapTypeRefType(true, AbsHeapTypeHeapType(ExternAbsHeapType)),
+    HeapTypeRefType(true, false, AbsHeapTypeHeapType(ExternAbsHeapType)),
   )
 }
 
@@ -147,8 +152,16 @@ test "HeapType equality - verify transformer changes are detected" {
 ///|
 test "RefType with transformed HeapType should not be equal" {
   // The transformer changes HeapType inside RefType
-  let before = HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
-  let after = HeapTypeRefType(true, AbsHeapTypeHeapType(ExternAbsHeapType))
+  let before = HeapTypeRefType(
+    true,
+    false,
+    AbsHeapTypeHeapType(FuncAbsHeapType),
+  )
+  let after = HeapTypeRefType(
+    true,
+    false,
+    AbsHeapTypeHeapType(ExternAbsHeapType),
+  )
   assert_not_eq(before, after)
 
   // But AbsHeapTypeRefType doesn't contain HeapType - verify these are different

@@ -52,9 +52,38 @@ pub impl Match for ValType with matches(self, other, env) {
 pub impl Match for RefType with matches(self, other, env) {
   let ht0 = self.get_heap_type()
   let ht1 = other.get_heap_type()
+  let exact0 = self.is_exact()
+  let exact1 = other.is_exact()
 
-  // Heap type compatibility (start with equality; extend later)
-  if !Match::matches(ht0, ht1, env) {
+  if exact1 {
+    if exact0 {
+      if ht0 != ht1 {
+        return false
+      }
+    } else {
+      match ht0 {
+        AbsHeapTypeHeapType(NoneAbsHeapType) =>
+          match env.resolve_heaptype_subtype(ht1) {
+            Some(st) =>
+              match st.get_comptype() {
+                StructCompType(_) | ArrayCompType(_) => ()
+                _ => return false
+              }
+            None => return false
+          }
+        AbsHeapTypeHeapType(NoFuncAbsHeapType) =>
+          match env.resolve_heaptype_subtype(ht1) {
+            Some(st) =>
+              match st.get_comptype() {
+                FuncCompType(_, _) => ()
+                _ => return false
+              }
+            None => return false
+          }
+        _ => return false
+      }
+    }
+  } else if !Match::matches(ht0, ht1, env) {
     return false
   }
 
@@ -178,8 +207,8 @@ fn subtype_as_heap_fuel(
     return false
   }
   let (is_final, supers, ct) = match st {
-    CompTypeSubType(ct) => (false, [], ct)
-    SubType(is_final, supers, ct) => (is_final, supers, ct)
+    CompTypeSubType(_, ct) => (false, [], ct)
+    SubType(is_final, supers, _, ct) => (is_final, supers, ct)
   }
 
   // 1) Direct shape match against abstract heap supertypes
@@ -241,8 +270,8 @@ fn heap_vs_typeidx_fuel(
           let DefType(rt1, _) = dt1
           let env1 = env_with_rectype(env, rt1)
           match st1 {
-            CompTypeSubType(_) => false
-            SubType(is_final, supers, _) => {
+            CompTypeSubType(_, _) => false
+            SubType(is_final, supers, _, _) => {
               if is_final {
                 return false
               }
@@ -350,8 +379,8 @@ fn deftype_matches_fuel(
     None => false
     Some(st1) =>
       match st1 {
-        CompTypeSubType(_) => false
-        SubType(is_final, supers, _) => {
+        CompTypeSubType(_, _) => false
+        SubType(is_final, supers, _, _) => {
           // final types have no proper subtypes
           if is_final {
             return false
@@ -462,8 +491,8 @@ fn typeidx_leq_typeidx_fuel(
     None => false
     Some(st) =>
       match st {
-        CompTypeSubType(_) => false
-        SubType(is_final, _, _) => {
+        CompTypeSubType(_, _) => false
+        SubType(is_final, _, _, _) => {
           if is_final {
             return false
           }

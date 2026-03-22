@@ -587,6 +587,29 @@ fn optimization_imported_global_count(mod : Module) -> Int {
 }
 
 ///|
+fn optimization_all_global_types(
+  mod : Module,
+  globals : Array[Global],
+) -> Array[@lib.GlobalType] {
+  let out : Array[@lib.GlobalType] = []
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          Import(_, _, GlobalExternType(gt)) => out.push(gt)
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  for global in globals {
+    let Global(gt, _) = global
+    out.push(gt)
+  }
+  out
+}
+
+///|
 fn optimization_imported_table_count(mod : Module) -> Int {
   let mut count = 0
   match mod.import_sec {
@@ -1883,12 +1906,144 @@ fn optimization_seed_root_uses(
 }
 
 ///|
-fn optimization_init_expr_maybe_traps(_expr : @lib.Expr) -> Bool {
-  // Binaryen roots descriptor-bearing constant initializers here, notably
-  // nullable-descriptor struct.new_desc. Starshine does not currently model
-  // descriptor-bearing constant initializer ops, so the supported init subset
-  // has no extra runtime trap source beyond the active segment bounds checks
-  // handled separately below.
+priv enum OptimizationInitExprValueKind {
+  Other
+  MaybeNullRef
+  NonNullRef
+} derive(Eq)
+
+///|
+fn optimization_init_expr_struct_field_count(
+  subtypes : Array[@lib.SubType],
+  type_idx : @lib.TypeIdx,
+) -> Int? {
+  let idx = match type_idx {
+    @lib.TypeIdx(idx) => idx.reinterpret_as_int()
+    @lib.RecIdx(idx) => idx.reinterpret_as_int()
+  }
+  if idx < 0 || idx >= subtypes.length() {
+    return None
+  }
+  match subtypes[idx].get_comptype() {
+    @lib.StructCompType(fields) => Some(fields.length())
+    _ => None
+  }
+}
+
+///|
+fn optimization_init_expr_push_global_get_kind(
+  stack : Array[OptimizationInitExprValueKind],
+  global_types : Array[@lib.GlobalType],
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  let @lib.GlobalIdx(idx) = idx
+  let abs_idx = idx.reinterpret_as_int()
+  if abs_idx < 0 || abs_idx >= global_types.length() {
+    return false
+  }
+  let @lib.GlobalType(vt, _) = global_types[abs_idx]
+  match vt {
+    @lib.RefTypeValType(rt) =>
+      if rt.is_nullable() {
+        stack.push(MaybeNullRef)
+      } else {
+        stack.push(NonNullRef)
+      }
+    _ => stack.push(Other)
+  }
+  true
+}
+
+///|
+fn optimization_init_expr_pop_fields(
+  stack : Array[OptimizationInitExprValueKind],
+  field_count : Int,
+) -> Bool {
+  let mut remaining = field_count
+  while remaining > 0 {
+    if stack.pop() is None {
+      return false
+    }
+    remaining -= 1
+  }
+  true
+}
+
+///|
+fn optimization_init_expr_maybe_traps(
+  expr : @lib.Expr,
+  global_types : Array[@lib.GlobalType],
+  subtypes : Array[@lib.SubType],
+) -> Bool {
+  let @lib.Expr(instrs) = expr
+  let stack : Array[OptimizationInitExprValueKind] = []
+  for instr in instrs {
+    match instr {
+      @lib.I32Const(_)
+      | @lib.I64Const(_)
+      | @lib.F32Const(_)
+      | @lib.F64Const(_)
+      | @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        stack.push(Other)
+      @lib.RefNull(_) => stack.push(MaybeNullRef)
+      @lib.RefFunc(_) => stack.push(NonNullRef)
+      @lib.GlobalGet(idx) =>
+        if !optimization_init_expr_push_global_get_kind(
+            stack, global_types, idx,
+          ) {
+          return true
+        }
+      @lib.StructNew(type_idx) => {
+        let field_count = match
+          optimization_init_expr_struct_field_count(subtypes, type_idx) {
+          Some(field_count) => field_count
+          None => return true
+        }
+        if !optimization_init_expr_pop_fields(stack, field_count) {
+          return true
+        }
+        stack.push(NonNullRef)
+      }
+      @lib.StructNewDefault(type_idx) =>
+        match optimization_init_expr_struct_field_count(subtypes, type_idx) {
+          Some(_) => stack.push(NonNullRef)
+          None => return true
+        }
+      @lib.StructNewDesc(type_idx) => {
+        let field_count = match
+          optimization_init_expr_struct_field_count(subtypes, type_idx) {
+          Some(field_count) => field_count
+          None => return true
+        }
+        let descriptor = match stack.pop() {
+          Some(descriptor) => descriptor
+          None => return true
+        }
+        if !optimization_init_expr_pop_fields(stack, field_count) {
+          return true
+        }
+        if descriptor != NonNullRef {
+          return true
+        }
+        stack.push(NonNullRef)
+      }
+      @lib.StructNewDefaultDesc(type_idx) => {
+        match optimization_init_expr_struct_field_count(subtypes, type_idx) {
+          Some(_) => ()
+          None => return true
+        }
+        let descriptor = match stack.pop() {
+          Some(descriptor) => descriptor
+          None => return true
+        }
+        if descriptor != NonNullRef {
+          return true
+        }
+        stack.push(NonNullRef)
+      }
+      _ => stack.push(Other)
+    }
+  }
   false
 }
 
@@ -2033,6 +2188,8 @@ fn optimization_seed_trapping_active_segments(
 ///|
 fn optimization_seed_trapping_constant_initializers(
   globals : Array[Global],
+  global_types : Array[@lib.GlobalType],
+  subtypes : Array[@lib.SubType],
   used_globals : Array[Bool],
   global_worklist : Array[Int],
   imported_global_count : Int,
@@ -2045,7 +2202,7 @@ fn optimization_seed_trapping_constant_initializers(
   while global_idx < globals.length() {
     match globals[global_idx] {
       @lib.Global(_, init) =>
-        if optimization_init_expr_maybe_traps(init) {
+        if optimization_init_expr_maybe_traps(init, global_types, subtypes) {
           optimization_note_used_global(
             used_globals,
             global_worklist,
@@ -2066,7 +2223,7 @@ fn optimization_seed_trapping_constant_initializers(
       Elem(_, @lib.FuncExprsElemKind(exprs))
       | Elem(_, @lib.TypedExprsElemKind(_, exprs)) =>
         for expr in exprs {
-          if optimization_init_expr_maybe_traps(expr) {
+          if optimization_init_expr_maybe_traps(expr, global_types, subtypes) {
             maybe_traps = true
           }
         }
@@ -2722,6 +2879,7 @@ fn optimization_remove_unused_module_elements_iteration(
     Some(DataSec(datas)) => datas
     None => []
   }
+  let global_types = optimization_all_global_types(mod, globals)
 
   let imported_func_count = optimization_imported_func_count(mod)
   let total_func_count = imported_func_count + funcs.length()
@@ -2825,6 +2983,8 @@ fn optimization_remove_unused_module_elements_iteration(
     )
     optimization_seed_trapping_constant_initializers(
       globals,
+      global_types,
+      subtypes,
       used_globals,
       global_worklist,
       imported_global_count,

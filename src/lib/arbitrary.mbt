@@ -58,10 +58,14 @@ pub impl @quickcheck.Arbitrary for SubType with arbitrary(t, st) {
     SubType(
       st.next_uint() % 2 == 1,
       array_of_arbitrary(1, t, st),
+      TypeMetadata::new(),
       @quickcheck.Arbitrary::arbitrary(t, st),
     )
   } else {
-    CompTypeSubType(@quickcheck.Arbitrary::arbitrary(t, st))
+    CompTypeSubType(
+      TypeMetadata::new(),
+      @quickcheck.Arbitrary::arbitrary(t, st),
+    )
   }
 }
 

@@ -1197,6 +1197,8 @@ fn SSAOptCtx::rewrite_op(self : SSAOptCtx, op : SSAOp) -> SSAOp {
     | TableSize(_)
     | ElemDrop(_)
     | StructNewDefault(_) => op
+    StructNewDefaultDesc(ti, descriptor) =>
+      StructNewDefaultDesc(ti, self.rewrite_value(descriptor))
     Copy(v) => Copy(self.rewrite_value(v))
     Binary(bop, a, b) =>
       Binary(bop, self.rewrite_value(a), self.rewrite_value(b))
@@ -1303,6 +1305,7 @@ fn SSAOptCtx::rewrite_op(self : SSAOptCtx, op : SSAOp) -> SSAOp {
     AnyConvertExtern(a) => AnyConvertExtern(self.rewrite_value(a))
     ExternConvertAny(a) => ExternConvertAny(self.rewrite_value(a))
     StructNew(ti, vs) => StructNew(ti, self.rewrite_values(vs))
+    StructNewDesc(ti, vs) => StructNewDesc(ti, self.rewrite_values(vs))
     StructGet(ti, fi, a) => StructGet(ti, fi, self.rewrite_value(a))
     StructGetS(ti, fi, a) => StructGetS(ti, fi, self.rewrite_value(a))
     StructGetU(ti, fi, a) => StructGetU(ti, fi, self.rewrite_value(a))
@@ -1464,6 +1467,7 @@ fn SSAOptCtx::mark_op_uses(self : SSAOptCtx, op : SSAOp) -> Unit {
     | TableSize(_)
     | ElemDrop(_)
     | StructNewDefault(_) => ()
+    StructNewDefaultDesc(_, a) => self.mark_value_used(a)
     Copy(v) => self.mark_value_used(v)
     Binary(_, a, b) => {
       self.mark_value_used(a)
@@ -1564,7 +1568,11 @@ fn SSAOptCtx::mark_op_uses(self : SSAOptCtx, op : SSAOp) -> Unit {
       self.mark_value_used(d)
       self.mark_value_used(e)
     }
-    Call(_, vs) | StructNew(_, vs) | ArrayNewFixed(_, vs) | Throw(_, vs) =>
+    Call(_, vs)
+    | StructNew(_, vs)
+    | StructNewDesc(_, vs)
+    | ArrayNewFixed(_, vs)
+    | Throw(_, vs) =>
       for v in vs {
         self.mark_value_used(v)
       }

@@ -52,7 +52,7 @@ pub enum HeapType {
 
 ///|
 pub enum RefType {
-  HeapTypeRefType(Bool, HeapType)
+  HeapTypeRefType(Bool, Bool, HeapType)
   AbsHeapTypeRefType(AbsHeapType)
 } derive(Arbitrary, Hash, Debug)
 
@@ -137,9 +137,15 @@ pub enum CompType {
 } derive(Eq, Hash, Debug)
 
 ///|
+pub struct TypeMetadata {
+  describes : TypeIdx?
+  descriptor : TypeIdx?
+} derive(Eq, Hash, Debug)
+
+///|
 pub enum SubType {
-  SubType(Bool, Array[TypeIdx], CompType)
-  CompTypeSubType(CompType)
+  SubType(Bool, Array[TypeIdx], TypeMetadata, CompType)
+  CompTypeSubType(TypeMetadata, CompType)
 } derive(Eq, Hash, Debug)
 
 ///|
@@ -672,6 +678,8 @@ pub enum Instruction {
   BrOnNonNull(LabelIdx)
   StructNew(TypeIdx)
   StructNewDefault(TypeIdx)
+  StructNewDesc(TypeIdx)
+  StructNewDefaultDesc(TypeIdx)
   StructGet(TypeIdx, U32)
   StructGetS(TypeIdx, U32)
   StructGetU(TypeIdx, U32)
@@ -1023,7 +1031,7 @@ pub fn Limits::mem_addr_bits(lim : Limits) -> Int {
 ///|
 pub fn RefType::is_nullable(rt : RefType) -> Bool {
   match rt {
-    HeapTypeRefType(b, _) => b
+    HeapTypeRefType(b, _, _) => b
     AbsHeapTypeRefType(_) => true
   }
 }
@@ -1036,8 +1044,16 @@ pub fn RefType::is_non_nullable(rt : RefType) -> Bool {
 ///|
 pub fn RefType::get_heap_type(rt : RefType) -> HeapType {
   match rt {
-    HeapTypeRefType(_, ht) => ht
+    HeapTypeRefType(_, _, ht) => ht
     AbsHeapTypeRefType(ahs) => AbsHeapTypeHeapType(ahs)
+  }
+}
+
+///|
+pub fn RefType::is_exact(rt : RefType) -> Bool {
+  match rt {
+    HeapTypeRefType(_, exact, _) => exact
+    AbsHeapTypeRefType(_) => false
   }
 }
 
@@ -1045,7 +1061,7 @@ pub fn RefType::get_heap_type(rt : RefType) -> HeapType {
 pub fn RefType::make_nullable(rt : RefType) -> RefType {
   match rt {
     AbsHeapTypeRefType(ahs) => AbsHeapTypeRefType(ahs)
-    HeapTypeRefType(_, ht) => HeapTypeRefType(true, ht)
+    HeapTypeRefType(_, exact, ht) => HeapTypeRefType(true, exact, ht)
   }
 }
 
@@ -1057,17 +1073,35 @@ pub fn RefType::is_defaultable(rt : RefType) -> Bool {
 ///|
 pub fn SubType::super_types(self : SubType) -> Array[TypeIdx] {
   match self {
-    SubType(_, sts, _) => sts
-    CompTypeSubType(_) => []
+    SubType(_, sts, _, _) => sts
+    CompTypeSubType(_, _) => []
   }
 }
 
 ///|
 pub fn SubType::get_comptype(self : SubType) -> CompType {
   match self {
-    SubType(_, _, ct) => ct
-    CompTypeSubType(ct) => ct
+    SubType(_, _, _, ct) => ct
+    CompTypeSubType(_, ct) => ct
   }
+}
+
+///|
+pub fn SubType::metadata(self : SubType) -> TypeMetadata {
+  match self {
+    SubType(_, _, meta, _) => meta
+    CompTypeSubType(meta, _) => meta
+  }
+}
+
+///|
+pub fn SubType::describes_type(self : SubType) -> TypeIdx? {
+  self.metadata().describes
+}
+
+///|
+pub fn SubType::descriptor_type(self : SubType) -> TypeIdx? {
+  self.metadata().descriptor
 }
 
 ///|
@@ -1133,7 +1167,9 @@ pub fn ValType::is_ref_type(vt : ValType) -> Bool {
 
 ///|
 pub fn ValType::ref_null_exn() -> ValType {
-  RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(ExnAbsHeapType)))
+  RefTypeValType(
+    HeapTypeRefType(true, false, AbsHeapTypeHeapType(ExnAbsHeapType)),
+  )
 }
 
 ///|
@@ -1192,12 +1228,14 @@ pub fn Elem::reftype(self : Elem) -> RefType {
 
 ///|
 pub fn ValType::ref_null(ht : HeapType) -> ValType {
-  RefTypeValType(HeapTypeRefType(true, ht))
+  RefTypeValType(HeapTypeRefType(true, false, ht))
 }
 
 ///|
 pub fn ValType::eqref_null() -> ValType {
-  RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(EqAbsHeapType)))
+  RefTypeValType(
+    HeapTypeRefType(true, false, AbsHeapTypeHeapType(EqAbsHeapType)),
+  )
 }
 
 ///|
@@ -1268,39 +1306,47 @@ pub fn min_addr_valtype(l1 : Limits, l2 : Limits) -> ValType {
 ///|
 pub fn ValType::anyref() -> ValType {
   // (ref null any)
-  RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType)))
+  RefTypeValType(
+    HeapTypeRefType(true, false, AbsHeapTypeHeapType(AnyAbsHeapType)),
+  )
 }
 
 ///|
 pub fn ValType::externref() -> ValType {
   // (ref null extern)
-  RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(ExternAbsHeapType)))
+  RefTypeValType(
+    HeapTypeRefType(true, false, AbsHeapTypeHeapType(ExternAbsHeapType)),
+  )
 }
 
 ///|
 pub fn ValType::i31ref() -> ValType {
   // (ref i31) (non-null)
-  RefTypeValType(HeapTypeRefType(false, AbsHeapTypeHeapType(I31AbsHeapType)))
+  RefTypeValType(
+    HeapTypeRefType(false, false, AbsHeapTypeHeapType(I31AbsHeapType)),
+  )
 }
 
 ///|
 pub fn ValType::i31ref_nullable() -> ValType {
-  RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(I31AbsHeapType)))
+  RefTypeValType(
+    HeapTypeRefType(true, false, AbsHeapTypeHeapType(I31AbsHeapType)),
+  )
 }
 
 ///|
 pub fn ValType::ref_array_nonnull(x : TypeIdx) -> ValType {
-  RefTypeValType(HeapTypeRefType(false, HeapType(x)))
+  RefTypeValType(HeapTypeRefType(false, false, HeapType(x)))
 }
 
 ///|
 pub fn ValType::ref_array_nullable(x : TypeIdx) -> ValType {
-  RefTypeValType(HeapTypeRefType(true, HeapType(x)))
+  RefTypeValType(HeapTypeRefType(true, false, HeapType(x)))
 }
 
 ///|
 pub fn ValType::ref_null_array_of(x : TypeIdx) -> ValType {
-  RefTypeValType(HeapTypeRefType(true, HeapType(x)))
+  RefTypeValType(HeapTypeRefType(true, false, HeapType(x)))
 }
 
 ///|
@@ -1425,6 +1471,8 @@ pub enum TInstrKind {
   // === GC: Structs ===
   TStructNew(TypeIdx, Array[TInstr])
   TStructNewDefault(TypeIdx)
+  TStructNewDesc(TypeIdx, Array[TInstr])
+  TStructNewDefaultDesc(TypeIdx, TInstr)
   TStructGet(TypeIdx, U32, TInstr)
   TStructGetS(TypeIdx, U32, TInstr)
   TStructGetU(TypeIdx, U32, TInstr)
@@ -1571,6 +1619,7 @@ fn tinstr_size(kind : TInstrKind) -> Int {
     | TTableGet(_, child)
     | TLoad(_, _, child)
     | TArrayNewDefault(_, child)
+    | TStructNewDefaultDesc(_, child)
     | TStructGet(_, _, child)
     | TStructGetS(_, _, child)
     | TStructGetU(_, _, child)
@@ -1629,6 +1678,7 @@ fn tinstr_size(kind : TInstrKind) -> Int {
     | TBr(_, args)
     | TReturn(args)
     | TStructNew(_, args)
+    | TStructNewDesc(_, args)
     | TArrayNewFixed(_, args) => tinstr_array_size(args)
     TCallIndirect(_, _, args, index) | TReturnCallIndirect(_, _, args, index) =>
       tinstr_array_size(args) + index.size
@@ -2362,8 +2412,12 @@ pub fn HeapType::def_type(dt : DefType) -> HeapType {
 }
 
 ///|
-pub fn RefType::new(nullable : Bool, ht : HeapType) -> RefType {
-  HeapTypeRefType(nullable, ht)
+pub fn RefType::new(
+  nullable : Bool,
+  ht : HeapType,
+  exact? : Bool = false,
+) -> RefType {
+  HeapTypeRefType(nullable, exact, ht)
 }
 
 ///|
@@ -2442,13 +2496,29 @@ pub fn func_comp_type(props : ResultType, results : ResultType) -> CompType {
 }
 
 ///|
-pub fn sub_type(f : Bool, supers : Array[TypeIdx], ct : CompType) -> SubType {
-  SubType(f, supers, ct)
+pub fn TypeMetadata::new(
+  describes? : TypeIdx? = None,
+  descriptor? : TypeIdx? = None,
+) -> TypeMetadata {
+  { describes, descriptor }
 }
 
 ///|
-pub fn comp_type_sub_type(ct : CompType) -> SubType {
-  CompTypeSubType(ct)
+pub fn sub_type(
+  f : Bool,
+  supers : Array[TypeIdx],
+  ct : CompType,
+  metadata? : TypeMetadata = TypeMetadata::new(),
+) -> SubType {
+  SubType(f, supers, metadata, ct)
+}
+
+///|
+pub fn comp_type_sub_type(
+  ct : CompType,
+  metadata? : TypeMetadata = TypeMetadata::new(),
+) -> SubType {
+  CompTypeSubType(metadata, ct)
 }
 
 ///|
@@ -3724,6 +3794,16 @@ pub fn Instruction::array_new_data(ti : TypeIdx, di : DataIdx) -> Instruction {
 ///|
 pub fn Instruction::array_new_elem(ti : TypeIdx, ei : ElemIdx) -> Instruction {
   ArrayNewElem(ti, ei)
+}
+
+///|
+pub fn Instruction::struct_new_desc(ti : TypeIdx) -> Instruction {
+  StructNewDesc(ti)
+}
+
+///|
+pub fn Instruction::struct_new_default_desc(ti : TypeIdx) -> Instruction {
+  StructNewDefaultDesc(ti)
 }
 
 ///|
@@ -5757,6 +5837,16 @@ pub fn TInstr::struct_new(ti : TypeIdx, i : Array[TInstr]) -> TInstr {
 ///|
 pub fn TInstr::struct_new_default(ti : TypeIdx) -> TInstr {
   tinstr(TStructNewDefault(ti))
+}
+
+///|
+pub fn TInstr::struct_new_desc(ti : TypeIdx, i : Array[TInstr]) -> TInstr {
+  tinstr(TStructNewDesc(ti, i))
+}
+
+///|
+pub fn TInstr::struct_new_default_desc(ti : TypeIdx, i : TInstr) -> TInstr {
+  tinstr(TStructNewDefaultDesc(ti, i))
 }
 
 ///|
@@ -8745,13 +8835,17 @@ pub fn SubType::new(
   f : Bool,
   supers : Array[TypeIdx],
   ct : CompType,
+  metadata? : TypeMetadata = TypeMetadata::new(),
 ) -> SubType {
-  SubType(f, supers, ct)
+  SubType(f, supers, metadata, ct)
 }
 
 ///|
-pub fn SubType::comp_type(ct : CompType) -> SubType {
-  CompTypeSubType(ct)
+pub fn SubType::comp_type(
+  ct : CompType,
+  metadata? : TypeMetadata = TypeMetadata::new(),
+) -> SubType {
+  CompTypeSubType(metadata, ct)
 }
 
 ///|

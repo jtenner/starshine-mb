@@ -13,6 +13,7 @@ using @lib {
   type RefType,
   type ValType,
   type CompType,
+  type TypeMetadata,
   type FieldType,
   type FunctionLocals,
   type Mut,

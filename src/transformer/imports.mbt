@@ -54,6 +54,7 @@ using @lib {
   type Table,
   type NumType,
   type SubType,
+  type TypeMetadata,
   type RecType,
   type CompType,
   type HeapType,

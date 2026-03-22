@@ -102,8 +102,8 @@ fn pretty_comp_type(comp_type : CompType) -> String {
 ///|
 fn pretty_sub_type(sub_type : SubType) -> String {
   match sub_type {
-    CompTypeSubType(comp_type) => pretty_comp_type(comp_type)
-    SubType(is_final, super_types, comp_type) => {
+    CompTypeSubType(_, comp_type) => pretty_comp_type(comp_type)
+    SubType(is_final, super_types, _, comp_type) => {
       if super_types.is_empty() && !is_final {
         return pretty_comp_type(comp_type)
       }
@@ -153,12 +153,18 @@ fn pretty_heap_type(heap_type : HeapType) -> String {
 ///|
 fn pretty_ref_type(ref_type : RefType) -> String {
   match ref_type {
-    HeapTypeRefType(nullable, heap_type) =>
-      if nullable {
-        "(Ref Null " + pretty_heap_type(heap_type) + ")"
+    HeapTypeRefType(nullable, exact, heap_type) => {
+      let heap_text = if exact {
+        "(Exact " + pretty_heap_type(heap_type) + ")"
       } else {
-        "(Ref " + pretty_heap_type(heap_type) + ")"
+        pretty_heap_type(heap_type)
       }
+      if nullable {
+        "(Ref Null " + heap_text + ")"
+      } else {
+        "(Ref " + heap_text + ")"
+      }
+    }
     AbsHeapTypeRefType(abs_heap_type) =>
       "(Ref Null " + pretty_abs_heap_type(abs_heap_type) + ")"
   }

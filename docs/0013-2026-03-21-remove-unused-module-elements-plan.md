@@ -167,10 +167,9 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Preserve active segments whose offset/size may trap when `traps_never_happen` is false.
 - Preserve maybe-trapping constant initializers in globals and elem expressions.
 - Status:
-  - partial.
-  - landed subset: imported-target observability, live-target active-segment retention, conservative rooting for unknown or definitely out-of-bounds active segment offsets on defined targets when traps may happen, and execution-time `traps_never_happen` plumbing for generated optimize execution.
-  - current local boundary: Starshine now has an explicit initializer-trap hook, but it is a no-op because the local constant-expression subset does not yet model Binaryen's descriptor-bearing `struct.new_desc` form.
-  - remaining work: add descriptor-bearing constant initializer support first (`struct.new_desc` IR/parser/binary/validator coverage), then teach the helper to root nullable-descriptor globals and elem expressions when traps may happen.
+  - substantially landed.
+  - landed subset: imported-target observability, live-target active-segment retention, conservative rooting for unknown or definitely out-of-bounds active segment offsets on defined targets when traps may happen, execution-time `traps_never_happen` plumbing for generated optimize execution, and descriptor-bearing constant-initializer trap rooting for globals and elem expressions via `struct.new_desc` / `struct.new_default_desc`.
+  - remaining work: later GC payload-precision hardening, not the earlier constant-initializer feature blocker.
 - Add regressions for:
   - imported memory/table visibility,
   - out-of-bounds instantiation traps.

@@ -546,7 +546,15 @@ pub impl Validate for CompType with validate(self, env) {
 ///|
 pub impl Validate for RefType with validate(self, env) {
   match self {
-    HeapTypeRefType(_, ht) => Validate::validate(ht, env)
+    HeapTypeRefType(_, exact, ht) =>
+      if exact {
+        match ht {
+          HeapType(_) => Validate::validate(ht, env)
+          _ => Err("exact refs require a defined heap type")
+        }
+      } else {
+        Validate::validate(ht, env)
+      }
     AbsHeapTypeRefType(abs) => Validate::validate(abs, env)
   }
 }
@@ -567,16 +575,199 @@ pub impl Validate for StorageType with validate(self, env) {
 
 ///|
 pub impl Validate for RecType with validate(self, env) {
-  match self {
-    SingleRecType(st) => Validate::validate(st, env)
-    GroupRecType(sts) => Validate::validate(sts, env)
+  let sts = match self {
+    SingleRecType(st) => [st]
+    GroupRecType(sts) => sts
   }
+  if Validate::validate(sts, env) is Err(t) {
+    return Err(t)
+  }
+  validate_descriptor_metadata_group(sts, env)
+}
+
+///|
+fn descriptor_target_absolute_index(
+  target : TypeIdx,
+  base : Int,
+  group_len : Int,
+) -> Int? {
+  match target {
+    TypeIdx(idx) => Some(idx.reinterpret_as_int())
+    RecIdx(idx) => {
+      let rel = idx.reinterpret_as_int()
+      if rel < 0 || rel >= group_len {
+        None
+      } else {
+        Some(base + rel)
+      }
+    }
+  }
+}
+
+///|
+fn descriptor_target_lookup_subtype(
+  target : TypeIdx,
+  sts : Array[SubType],
+  env : Env,
+  base : Int,
+) -> SubType? {
+  let target_abs = match
+    descriptor_target_absolute_index(target, base, sts.length()) {
+    Some(target_abs) => target_abs
+    None => return None
+  }
+  if target_abs >= base && target_abs < base + sts.length() {
+    return sts.get(target_abs - base)
+  }
+  env.resolve_subtype(target)
+}
+
+///|
+fn validate_descriptor_metadata_group(
+  sts : Array[SubType],
+  env : Env,
+) -> Result[Unit, String] {
+  let base = env.global_types.length()
+  let mut i = 0
+  while i < sts.length() {
+    let st = sts[i]
+    let ct = st.get_comptype()
+    let meta = st.metadata()
+    let self_abs = base + i
+
+    if (meta.describes is Some(_) || meta.descriptor is Some(_)) &&
+      !(ct is StructCompType(_)) {
+      return Err("descriptor/describes clauses may only appear on struct types")
+    }
+
+    match meta.describes {
+      Some(target) => {
+        let target_abs = match
+          descriptor_target_absolute_index(target, base, sts.length()) {
+          Some(target_abs) => target_abs
+          None => return Err("describes target must be a valid type")
+        }
+        if target_abs >= self_abs {
+          return Err("describes target must be previously defined")
+        }
+        let target_st = match
+          descriptor_target_lookup_subtype(target, sts, env, base) {
+          Some(target_st) => target_st
+          None => return Err("describes target must be a valid type")
+        }
+        if !(target_st.get_comptype() is StructCompType(_)) {
+          return Err("describes target must be a struct type")
+        }
+        let target_descriptor_abs = match target_st.descriptor_type() {
+          Some(target_descriptor) =>
+            descriptor_target_absolute_index(
+              target_descriptor,
+              base,
+              sts.length(),
+            )
+          None => None
+        }
+        if target_descriptor_abs != Some(self_abs) {
+          return Err("descriptor/describes clauses must agree")
+        }
+      }
+      None => ()
+    }
+
+    match meta.descriptor {
+      Some(target) => {
+        let target_st = match
+          descriptor_target_lookup_subtype(target, sts, env, base) {
+          Some(target_st) => target_st
+          None => return Err("descriptor target must be a valid type")
+        }
+        if !(target_st.get_comptype() is StructCompType(_)) {
+          return Err("descriptor target must be a struct type")
+        }
+        let target_describes_abs = match target_st.describes_type() {
+          Some(target_describes) =>
+            descriptor_target_absolute_index(
+              target_describes,
+              base,
+              sts.length(),
+            )
+          None => None
+        }
+        if target_describes_abs != Some(self_abs) {
+          return Err("descriptor/describes clauses must agree")
+        }
+      }
+      None => ()
+    }
+
+    match st {
+      SubType(_, supers, _, _) =>
+        for super_idx in supers {
+          let super_st = match env.resolve_subtype(super_idx) {
+            Some(super_st) => super_st
+            None => return Err("Invalid subtype")
+          }
+          let super_descriptor = super_st.descriptor_type()
+          let super_describes = super_st.describes_type()
+          match meta.descriptor {
+            Some(desc_idx) =>
+              match super_descriptor {
+                Some(super_desc_idx) =>
+                  if !Match::matches(
+                      HeapType::new(desc_idx),
+                      HeapType::new(super_desc_idx),
+                      env,
+                    ) {
+                    return Err(
+                      "descriptor clause is incompatible with supertype",
+                    )
+                  }
+                None => ()
+              }
+            None =>
+              if super_descriptor is Some(_) {
+                return Err(
+                  "descriptor-less subtype cannot extend descriptor-bearing supertype",
+                )
+              }
+          }
+          match meta.describes {
+            Some(describes_idx) =>
+              match super_describes {
+                Some(super_describes_idx) =>
+                  if !Match::matches(
+                      HeapType::new(describes_idx),
+                      HeapType::new(super_describes_idx),
+                      env,
+                    ) {
+                    return Err(
+                      "describes clause is incompatible with supertype",
+                    )
+                  }
+                None =>
+                  return Err(
+                    "describing subtype must extend a describing supertype",
+                  )
+              }
+            None =>
+              if super_describes is Some(_) {
+                return Err(
+                  "non-describing subtype cannot extend describing supertype",
+                )
+              }
+          }
+        }
+      _ => ()
+    }
+    i += 1
+  }
+  Ok(())
 }
 
 ///|
 pub impl Validate for SubType with validate(self, env) {
   match self {
-    SubType(_, matches, ct) => {
+    SubType(_, matches, _, ct) => {
       for m in matches {
         match Validate::validate(m, env) {
           Ok(_) if env.resolve_subtype(m) is Some(t) &&
@@ -587,7 +778,7 @@ pub impl Validate for SubType with validate(self, env) {
       }
       Ok(())
     }
-    CompTypeSubType(ct) => Validate::validate(ct, env)
+    CompTypeSubType(_, ct) => Validate::validate(ct, env)
   }
 }
 
@@ -738,6 +929,14 @@ fn validate_const_instr(env : Env, ins : Instruction) -> Result[Unit, String] {
     V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => Ok(())
     RefNull(_) => Ok(())
     RefFunc(_) => Ok(())
+    StructNew(type_idx)
+    | StructNewDefault(type_idx)
+    | StructNewDesc(type_idx)
+    | StructNewDefaultDesc(type_idx) =>
+      match env.resolve_struct_fields(type_idx) {
+        Ok(_) => Ok(())
+        Err(e) => Err(e)
+      }
     GlobalGet(idx) =>
       match env.get_global_type(idx) {
         None => Err("constant expression references an unknown global")
@@ -3680,6 +3879,96 @@ test "validate_module accepts ref.null in const global initializer" {
       fail(
         "expected ref.null const global initializer to validate: \{validation_error_message(err)}",
       )
+  }
+}
+
+///|
+test "validate_module accepts descriptor-bearing struct.new_default_desc const initializers" {
+  let descriptor_group = RecType::group([
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(descriptor=Some(TypeIdx::new(1U))),
+    ),
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(describes=Some(TypeIdx::new(0U))),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([descriptor_group]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("desc"),
+          ExternType::global(
+            GlobalType::new(
+              ValType::ref_type(
+                RefType::new(true, HeapType::new(TypeIdx::new(1U)), exact=true),
+              ),
+              false,
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(
+            ValType::ref_type(
+              RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true),
+            ),
+            false,
+          ),
+          Expr::new([
+            Instruction::global_get(GlobalIdx::new(0U)),
+            Instruction::struct_new_default_desc(TypeIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected descriptor-bearing const initializer to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module rejects descriptor clauses on non-struct types" {
+  let bad_group = RecType::new(
+    SubType::comp_type(
+      CompType::func([], []),
+      metadata=TypeMetadata::new(descriptor=Some(TypeIdx::new(0U))),
+    ),
+  )
+  let mod = Module::new().with_type_sec(TypeSec::new([bad_group]))
+  match validate_module(mod) {
+    Ok(_) => fail("expected non-struct descriptor metadata to fail validation")
+    Err(err) =>
+      assert_true(
+        validation_error_message(err).contains("only appear on struct"),
+      )
+  }
+}
+
+///|
+test "validate_module rejects describes targets that are not previously defined" {
+  let bad_group = RecType::group([
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(describes=Some(TypeIdx::new(1U))),
+    ),
+    SubType::comp_type(CompType::struct_([])),
+  ])
+  let mod = Module::new().with_type_sec(TypeSec::new([bad_group]))
+  match validate_module(mod) {
+    Ok(_) => fail("expected forward describes target to fail validation")
+    Err(err) =>
+      assert_true(validation_error_message(err).contains("previously defined"))
   }
 }
 
