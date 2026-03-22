@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization: make constant-initializer trap boundary explicit
+
+- **RemoveUnusedModuleElements constant-initializer boundary slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) with an explicit constant-initializer trap-root hook alongside the existing active-segment trap handling. The hook is intentionally a no-op today because Starshine still lacks descriptor-bearing `struct.new_desc` constant-expression support, which is the local feature work required for Binaryen-style maybe-trapping initializer rooting.
+- Expanded whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) with guardrail regressions showing that dead `struct.new` globals and passive `elem` expressions do not get treated as fake trap roots under the current constant-initializer subset.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining trap-root work is broken into concrete `struct.new_desc` feature tasks before the optimizer hook is turned on.
+
 ## 2026-03-21 Optimization: add mutated-indirect callable-signature fallback to RemoveUnusedModuleElements
 
 - **RemoveUnusedModuleElements mutated-indirect callable-signature slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so tables that are both mutated and used by `call_indirect` or `return_call_indirect` now feed their signature facts into the closed-world `ref.func` / `call_ref` liveness machinery. Matching referenced functions become used even when they arrive through later table writes rather than initial active `elem` contents.

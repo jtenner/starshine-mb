@@ -70,9 +70,14 @@
 ## v0.1.0 Active Slice Focus
 - `RemoveUnusedModuleElements`: execute slices from `docs/0013-2026-03-21-remove-unused-module-elements-plan.md`.
 - `RemoveUnusedModuleElements`: function + global + table + memory + tag + elem/data compaction is landed, including active-segment retention for imported/live targets, trap roots, indirect-call table precision for both initial active `elem` contents and mutated-table callable-signature fallback, and closed-world referenced-only function shells with `call_ref` promotion.
-- `RemoveUnusedModuleElements`: active-segment trap roots are now gated by execution-time `traps_never_happen`; remaining trap gap is the still-narrow local constant-initializer model.
+- `RemoveUnusedModuleElements`: active-segment trap roots are now gated by execution-time `traps_never_happen`; remaining trap gap is descriptor-bearing constant initializers, which currently need a local `struct.new_desc` feature before Binaryen-style maybe-trapping init rooting is implementable.
 - `RemoveUnusedModuleElements`: table metadata ops, pure writes, non-observable live tables, and mutated-indirect same-table fallback no longer pin dead active contents or table initializer helpers; the remaining indirect-call/table work is hardening/coverage rather than the earlier missing callable-signature model.
-- `RemoveUnusedModuleElements`: generated optimize feature-source plumbing is landed; remaining closed-world/GC work is the still-narrow constant-initializer trap model, later GC payload analysis, and any future CLI/config exposure for `closed_world`.
+- `RemoveUnusedModuleElements`: generated optimize feature-source plumbing is landed; remaining closed-world/GC work is descriptor-bearing constant initializer support, later GC payload analysis, and any future CLI/config exposure for `closed_world`.
+- `struct.new_desc` feature tasks for the remaining trap-init slice:
+  - add IR surface and printers for descriptor-bearing struct construction in `src/lib`, `src/binary`, `src/wat`, and `src/wast`,
+  - teach validation/typechecking the const-expression and descriptor-nullability rules for globals and elem expressions,
+  - add binary/text/spec coverage for custom-descriptor globals and elem expressions, including nullable-descriptor trap cases,
+  - then wire `RemoveUnusedModuleElements` initializer trap-root detection to the new descriptor-bearing init form.
 
 ## Backlog Hygiene
 - Keep duplicate entries removed when pass scopes converge.

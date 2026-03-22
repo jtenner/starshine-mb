@@ -16,6 +16,30 @@ fn remove_unused_test_two_type_sec() -> @lib.TypeSec {
 }
 
 ///|
+fn remove_unused_test_struct_type_sec_with_funcref_field() -> @lib.TypeSec {
+  @lib.TypeSec::new([
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::struct_([
+          @lib.FieldType::new(
+            @lib.StorageType::val_type(
+              @lib.ValType::ref_type(remove_unused_test_funcref()),
+            ),
+            @lib.Mut::const_(),
+          ),
+        ]),
+      ),
+    ),
+  ])
+}
+
+///|
+fn remove_unused_test_struct_reftype() -> @lib.RefType {
+  @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U)))
+}
+
+///|
 fn remove_unused_test_main_call_target(mod : Module) -> UInt raise Error {
   match mod.code_sec {
     Some(@lib.CodeSec(funcs)) =>
@@ -1434,6 +1458,117 @@ test "remove unused module elements keeps active elem segments for indirectly ca
     Some(@lib.ElemSec([@lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _)])) =>
       assert_eq(table_idx, 0U)
     _ => fail("expected active elem section")
+  }
+}
+
+///|
+test "remove unused module elements does not root dead struct.new global initializers" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_struct_type_sec_with_funcref_field())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_struct_reftype()),
+            false,
+          ),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::struct_new(@lib.TypeIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 1)
+    None => fail("expected func section")
+  }
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 0)
+    None => fail("expected global section")
+  }
+}
+
+///|
+test "remove unused module elements does not root dead struct.new elem expressions" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_struct_type_sec_with_funcref_field())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::passive(),
+          @lib.ElemKind::typed_exprs(remove_unused_test_struct_reftype(), [
+            @lib.Expr::new([
+              @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+              @lib.Instruction::struct_new(@lib.TypeIdx::new(1U)),
+            ]),
+          ]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run(mod)
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 1)
+    None => fail("expected func section")
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec(elems)) => assert_eq(elems.length(), 0)
+    None => fail("expected elem section")
   }
 }
 

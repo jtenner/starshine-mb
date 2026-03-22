@@ -1883,6 +1883,16 @@ fn optimization_seed_root_uses(
 }
 
 ///|
+fn optimization_init_expr_maybe_traps(_expr : @lib.Expr) -> Bool {
+  // Binaryen roots descriptor-bearing constant initializers here, notably
+  // nullable-descriptor struct.new_desc. Starshine does not currently model
+  // descriptor-bearing constant initializer ops, so the supported init subset
+  // has no extra runtime trap source beyond the active segment bounds checks
+  // handled separately below.
+  false
+}
+
+///|
 fn optimization_const_expr_u64(expr : @lib.Expr) -> UInt64? {
   match expr {
     @lib.Expr([@lib.I32Const(@lib.I32(value))]) =>
@@ -2017,6 +2027,59 @@ fn optimization_seed_trapping_active_segments(
       )
     }
     i += 1
+  }
+}
+
+///|
+fn optimization_seed_trapping_constant_initializers(
+  globals : Array[Global],
+  used_globals : Array[Bool],
+  global_worklist : Array[Int],
+  imported_global_count : Int,
+  defined_global_count : Int,
+  elems : Array[Elem],
+  used_elems : Array[Bool],
+  elem_worklist : Array[Int],
+) -> Unit {
+  let mut global_idx = 0
+  while global_idx < globals.length() {
+    match globals[global_idx] {
+      @lib.Global(_, init) =>
+        if optimization_init_expr_maybe_traps(init) {
+          optimization_note_used_global(
+            used_globals,
+            global_worklist,
+            imported_global_count,
+            defined_global_count,
+            GlobalIdx::new(
+              (imported_global_count + global_idx).reinterpret_as_uint(),
+            ),
+          )
+        }
+    }
+    global_idx += 1
+  }
+  let mut elem_idx = 0
+  while elem_idx < elems.length() {
+    let mut maybe_traps = false
+    match elems[elem_idx] {
+      Elem(_, @lib.FuncExprsElemKind(exprs))
+      | Elem(_, @lib.TypedExprsElemKind(_, exprs)) =>
+        for expr in exprs {
+          if optimization_init_expr_maybe_traps(expr) {
+            maybe_traps = true
+          }
+        }
+      _ => ()
+    }
+    if maybe_traps {
+      optimization_note_used_elem(
+        used_elems,
+        elem_worklist,
+        ElemIdx::new(elem_idx.reinterpret_as_uint()),
+      )
+    }
+    elem_idx += 1
   }
 }
 
@@ -2759,6 +2822,16 @@ fn optimization_remove_unused_module_elements_iteration(
     optimization_seed_trapping_active_segments(
       elems, tables, imported_table_count, used_elems, elem_worklist, datas, mems,
       imported_mem_count, used_datas, data_worklist,
+    )
+    optimization_seed_trapping_constant_initializers(
+      globals,
+      used_globals,
+      global_worklist,
+      imported_global_count,
+      globals.length(),
+      elems,
+      used_elems,
+      elem_worklist,
     )
   }
   while func_worklist.length() > 0 ||
