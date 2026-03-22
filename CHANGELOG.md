@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: land DeadCodeElimination branch-value rewrites
+
+- **DeadCodeElimination branch-value slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `br`, `br_if`, and `br_table` now honor child evaluation order during DCE: unreachable branch values, conditions, and table indices collapse the branch to the preserved-prefix-plus-unreachable form instead of leaving stale control-flow instructions behind.
+- Expanded [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) with focused regressions for unreachable `br` values, unreachable `br_if` conditions, unreachable `br_table` indices, and the ancestor case where removing a dead nested branch drops an outer block's stale value requirement.
+- Recorded the checkpoint in [`docs/0040-2026-03-22-dead-code-elimination-branch-value-stress.md`](/home/jtenner/Projects/starshine-mb/docs/0040-2026-03-22-dead-code-elimination-branch-value-stress.md), which narrows the remaining DCE work to GC/reference-sensitive regressions and the later EH `pop` fixup follow-up.
+
 ## 2026-03-22 Optimization: land DeadCodeElimination try_table rewrite
 
 - **DeadCodeElimination EH slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so typed `try_table` instructions now degrade to unreachable-equivalent void form when their rewritten body is unreachable, which lets parent rewrites observe the EH node as unreachable without dropping the wrapper.

@@ -651,6 +651,16 @@ fn optimization_dead_code_elimination_rewrite_instr(
       optimization_dead_code_elimination_rewrite_try_table(
         block_type, catches, body,
       )
+    @lib.TBr(label, values) =>
+      optimization_dead_code_elimination_rewrite_unary(values, fn(args) {
+        @lib.TInstr::br(label, args)
+      })
+    @lib.TBrIf(label, cond, values) =>
+      optimization_dead_code_elimination_rewrite_branch_if(label, cond, values)
+    @lib.TBrTable(labels, default_label, idx, values) =>
+      optimization_dead_code_elimination_rewrite_branch_table(
+        labels, default_label, idx, values,
+      )
     @lib.TIf(block_type, cond, then_body, else_body) =>
       optimization_dead_code_elimination_rewrite_if(
         block_type, cond, then_body, else_body,
@@ -705,6 +715,41 @@ fn optimization_dead_code_elimination_rewrite_instr(
         None => @lib.TInstr::select(type_hint, cond, if_true, if_false)
       }
     _ => instr
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_rewrite_branch_if(
+  label : @lib.LabelIdx,
+  cond : @lib.TInstr,
+  values : Array[@lib.TInstr],
+) -> @lib.TInstr {
+  let children : Array[@lib.TInstr] = values.copy()
+  children.push(cond)
+  match
+    optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
+      children,
+    ) {
+    Some(rewritten) => rewritten
+    None => @lib.TInstr::br_if(label, cond, values)
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_rewrite_branch_table(
+  labels : Array[@lib.LabelIdx],
+  default_label : @lib.LabelIdx,
+  idx : @lib.TInstr,
+  values : Array[@lib.TInstr],
+) -> @lib.TInstr {
+  let children : Array[@lib.TInstr] = values.copy()
+  children.push(idx)
+  match
+    optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
+      children,
+    ) {
+    Some(rewritten) => rewritten
+    None => @lib.TInstr::br_table(labels, default_label, idx, values)
   }
 }
 

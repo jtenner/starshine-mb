@@ -402,3 +402,96 @@ test "dead code elimination retags try_table when its body is unreachable" {
     ),
   ])
 }
+
+///|
+test "dead code elimination replaces br when its branch value is unreachable" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::drop(
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.TExpr::new([
+          @lib.TInstr::br(@lib.LabelIdx::new(0U), [@lib.TInstr::unreachable_()]),
+          @lib.TInstr::i32_const(@lib.I32::new(1)),
+        ]),
+      ),
+    ),
+  ])
+  assert_eq(body, [@lib.TInstr::unreachable_()])
+}
+
+///|
+test "dead code elimination replaces br_if when its condition is unreachable" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::br_if(
+          @lib.LabelIdx::new(0U),
+          @lib.TInstr::unreachable_(),
+          [],
+        ),
+        @lib.TInstr::nop(),
+      ]),
+    ),
+    @lib.TInstr::nop(),
+  ])
+  assert_eq(body, [@lib.TInstr::unreachable_()])
+}
+
+///|
+test "dead code elimination replaces br_table when its index is unreachable" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::br_table(
+          [],
+          @lib.LabelIdx::new(0U),
+          @lib.TInstr::unreachable_(),
+          [],
+        ),
+        @lib.TInstr::nop(),
+      ]),
+    ),
+    @lib.TInstr::nop(),
+  ])
+  assert_eq(body, [@lib.TInstr::unreachable_()])
+}
+
+///|
+test "dead code elimination drops stale outer block value after dead nested br_if" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::drop(
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.TExpr::new([
+          @lib.TInstr::block(
+            @lib.BlockType::void_(),
+            @lib.TExpr::new([
+              @lib.TInstr::br_if(
+                @lib.LabelIdx::new(1U),
+                @lib.TInstr::unreachable_(),
+                [@lib.TInstr::i32_const(@lib.I32::new(7))],
+              ),
+            ]),
+          ),
+          @lib.TInstr::unreachable_(),
+        ]),
+      ),
+    ),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::block(
+          @lib.BlockType::void_(),
+          @lib.TExpr::new([
+            @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(7))),
+            @lib.TInstr::unreachable_(),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+}

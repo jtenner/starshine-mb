@@ -22,7 +22,8 @@
   - `docs/0037-2026-03-22-dead-code-elimination-if-rules.md` lands Slice 5: unreachable `if` conditions now replace the whole node, and concrete `if`s with two unreachable arms now degrade to unreachable-equivalent void form instead of keeping a stale value type.
   - `docs/0038-2026-03-22-dead-code-elimination-loop-rule.md` lands Slice 6: loops now only collapse when the rewritten body is the literal `unreachable` node, while branch-back loops still stay intact.
   - `docs/0039-2026-03-22-dead-code-elimination-try-table-rule.md` lands the typed-IR EH half of Slice 7: concrete `try_table` nodes now degrade to unreachable-equivalent void form when their body is unreachable.
-  - remaining implementation work is the branch-value and ancestor-propagation stress cases, then the GC/reference-sensitive regressions and later EH `pop` fixup follow-up.
+  - `docs/0040-2026-03-22-dead-code-elimination-branch-value-stress.md` lands Slice 8: branch values, `br_if` conditions, and `br_table` indices now collapse the branch when they become unreachable, and the focused ancestor case drops the outer block's stale value requirement.
+  - remaining implementation work is the GC/reference-sensitive regressions and later EH `pop` fixup follow-up.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination
