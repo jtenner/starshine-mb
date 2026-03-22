@@ -75,6 +75,45 @@ test "module_to_wast preserves struct allocation instruction keywords" {
 }
 
 ///|
+test "module_to_wast preserves function annotations" {
+  let src =
+    #|(module
+    #|  (@binaryen.js.called)
+    #|  (import "env" "imp" (func $imp))
+    #|  (@binaryen.idempotent)
+    #|  (@metadata.code.inline "\00")
+    #|  (func $f))
+  let mod = match wast_to_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("unexpected parse error for function annotation fixture: \{e}")
+  }
+  let text = match module_to_wast(mod) {
+    Ok(t) => t
+    Err(e) =>
+      fail("unexpected print error for function annotation fixture: \{e}")
+  }
+  assert_true(text.contains("(@binaryen.js.called)"))
+  assert_true(text.contains("(@binaryen.idempotent)"))
+  assert_true(text.contains("(@metadata.code.inline \"\\00\")"))
+  match wast_to_module(text, filename="printed-function-annotations.wat") {
+    Ok(parsed) =>
+      match parsed.fields {
+        [ImportField(im), FuncField(func)] => {
+          assert_eq(im.annotations, [{ name: "binaryen.js.called", args: [] }])
+          assert_eq(func.annotations, [
+            { name: "binaryen.idempotent", args: [] },
+            { name: "metadata.code.inline", args: ["\"\\00\""] },
+          ])
+        }
+        _ =>
+          fail("expected import + function fields after annotation roundtrip")
+      }
+    Err(e) => fail("expected function annotation output to parse back: \{e}")
+  }
+}
+
+///|
 test "module_to_wast preserves table elem-abbreviation offsets and typed items" {
   let src =
     #|(module
@@ -262,6 +301,75 @@ test "module_to_wast preserves abstract heap refs across table global tag and im
       fail(
         "expected module_to_wast abstract heap-kind module-surface output to parse back: \{e}",
       )
+  }
+}
+
+///|
+test "module_to_wast preserves struct type defs with subtype metadata" {
+  let src =
+    #|(module
+    #|  (type $base (struct))
+    #|  (type $node
+    #|    (sub final $base
+    #|      (descriptor $node_desc)
+    #|      (struct
+    #|        (field i32)
+    #|        (field (mut (ref null $base))))))
+    #|  (type $node_desc
+    #|    (describes $node)
+    #|    (struct (field (ref $node)))))
+  let mod = match wast_to_module(src) {
+    Ok(m) => m
+    Err(e) => fail("unexpected parse error for struct type-def fixture: \{e}")
+  }
+  let text = match module_to_wast(mod) {
+    Ok(t) => t
+    Err(e) => fail("unexpected print error for struct type-def fixture: \{e}")
+  }
+  assert_true(text.contains("(type $base (struct))"))
+  assert_true(text.contains("(sub final $base"))
+  assert_true(text.contains("(descriptor $node_desc)"))
+  assert_true(text.contains("(field i32)"))
+  assert_true(text.contains("(field (mut (ref null $base)))"))
+  assert_true(text.contains("(describes $node)"))
+  assert_true(text.contains("(field (ref $node))"))
+  match wast_to_module(text, filename="printed-struct-type-defs.wat") {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected module_to_wast struct type-def output to parse back: \{e}")
+  }
+}
+
+///|
+test "module_to_wast preserves array type defs with subtype metadata" {
+  let src =
+    #|(module
+    #|  (type $bytes (array i8))
+    #|  (type $arr
+    #|    (sub $bytes
+    #|      (descriptor $arr_desc)
+    #|      (array (mut (ref null $bytes)))))
+    #|  (type $arr_desc
+    #|    (describes $arr)
+    #|    (array i16)))
+  let mod = match wast_to_module(src) {
+    Ok(m) => m
+    Err(e) => fail("unexpected parse error for array type-def fixture: \{e}")
+  }
+  let text = match module_to_wast(mod) {
+    Ok(t) => t
+    Err(e) => fail("unexpected print error for array type-def fixture: \{e}")
+  }
+  assert_true(text.contains("(type $bytes (array i8))"))
+  assert_true(text.contains("(sub $bytes"))
+  assert_true(text.contains("(descriptor $arr_desc)"))
+  assert_true(text.contains("(array (mut (ref null $bytes)))"))
+  assert_true(text.contains("(describes $arr)"))
+  assert_true(text.contains("(array i16)"))
+  match wast_to_module(text, filename="printed-array-type-defs.wat") {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected module_to_wast array type-def output to parse back: \{e}")
   }
 }
 

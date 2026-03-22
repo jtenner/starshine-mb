@@ -17,7 +17,7 @@ test "wast module snapshots for show debug and pretty print" {
   inspect(mod, content="(module\n  (type (func (param i32) (result i32)))\n)\n")
   inspect_debug(
     mod,
-    content="{\n  id: None,\n  fields: [TypeField({ id: None, func_type: { params: [I32], results: [I32] } })],\n}",
+    content="{\n  id: None,\n  fields: [\n    TypeField(\n      {\n        id: None,\n        is_sub: false,\n        final_: false,\n        supers: [],\n        metadata: { describes: None, descriptor: None },\n        body: Func({ params: [I32], results: [I32] }),\n      },\n    ),\n  ],\n}",
   )
   inspect_pretty_print(
     mod,

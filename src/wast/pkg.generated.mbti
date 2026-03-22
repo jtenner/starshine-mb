@@ -137,6 +137,15 @@ pub impl Show for ExportDesc
 pub impl @debug.Debug for ExportDesc
 pub impl @quickcheck.Arbitrary for ExportDesc
 
+pub enum FieldStorage {
+  Value(ValueType)
+  I8
+  I16
+}
+pub impl Eq for FieldStorage
+pub impl Show for FieldStorage
+pub impl @debug.Debug for FieldStorage
+
 pub struct Func {
   id : String?
   exports : Array[InlineExport]
@@ -1021,6 +1030,14 @@ pub impl Show for Start
 pub impl @debug.Debug for Start
 pub impl @quickcheck.Arbitrary for Start
 
+pub struct StructFieldDef {
+  storage : FieldStorage
+  mutable_ : Bool
+}
+pub impl Eq for StructFieldDef
+pub impl Show for StructFieldDef
+pub impl @debug.Debug for StructFieldDef
+
 pub struct Table {
   id : String?
   exports : Array[InlineExport]
@@ -1151,13 +1168,34 @@ pub impl @debug.Debug for TokenValue
 
 pub struct TypeDef {
   id : String?
-  func_type : FuncType
+  is_sub : Bool
+  final_ : Bool
+  supers : Array[Index]
+  metadata : TypeDefMetadata
+  body : TypeDefBody
 }
 pub impl @lib.PrettyPrint for TypeDef
 pub impl Eq for TypeDef
 pub impl Show for TypeDef
 pub impl @debug.Debug for TypeDef
 pub impl @quickcheck.Arbitrary for TypeDef
+
+pub enum TypeDefBody {
+  Func(FuncType)
+  Struct(Array[StructFieldDef])
+  Array(StructFieldDef)
+}
+pub impl Eq for TypeDefBody
+pub impl Show for TypeDefBody
+pub impl @debug.Debug for TypeDefBody
+
+pub struct TypeDefMetadata {
+  describes : Index?
+  descriptor : Index?
+}
+pub impl Eq for TypeDefMetadata
+pub impl Show for TypeDefMetadata
+pub impl @debug.Debug for TypeDefMetadata
 
 pub struct TypeUse {
   type_index : Index?

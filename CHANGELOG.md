@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 WAST: add GC struct and array type authoring
+
+- **GC text-surface type-authoring slice** by **@jtenner**. Extended [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt), [`src/wast/module_wast.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/module_wast.mbt), [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt), and related `src/wast` / `src/wat` tests so the higher-level WAST surface now models both `struct` and `array` type definitions, `sub` / `final` wrappers, packed and ref-bearing field storage syntax, and `descriptor` / `describes` metadata, including forward-reference lowering for descriptor-bearing module fixtures.
+- Added slice documentation in [`docs/0018-2026-03-22-wast-struct-type-surface.md`](/home/jtenner/Projects/starshine-mb/docs/0018-2026-03-22-wast-struct-type-surface.md) and [`docs/0019-2026-03-22-wast-array-type-surface.md`](/home/jtenner/Projects/starshine-mb/docs/0019-2026-03-22-wast-array-type-surface.md), and trimmed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining GC text-surface backlog is now higher-level `rec` group authoring rather than missing non-function type bodies.
+
 ## 2026-03-22 Binary: remove unreachable RefType decoder arm
 
 - **Binary decode warning cleanup** by **@jtenner**. Simplified [`src/binary/decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt) to remove an unreachable `S33` match arm in `RefType.decode`, eliminating the lingering `moon info` warning without changing decoder behavior.

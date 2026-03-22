@@ -128,9 +128,39 @@ pub struct Tag {
 } derive(Eq, Show, Debug)
 
 ///|
+pub enum FieldStorage {
+  Value(ValueType)
+  I8
+  I16
+} derive(Eq, Show, Debug)
+
+///|
+pub struct StructFieldDef {
+  storage : FieldStorage
+  mutable_ : Bool
+} derive(Eq, Show, Debug)
+
+///|
+pub enum TypeDefBody {
+  Func(FuncType)
+  Struct(Array[StructFieldDef])
+  Array(StructFieldDef)
+} derive(Eq, Show, Debug)
+
+///|
+pub struct TypeDefMetadata {
+  describes : Index?
+  descriptor : Index?
+} derive(Eq, Show, Debug)
+
+///|
 pub struct TypeDef {
   id : String?
-  func_type : FuncType
+  is_sub : Bool
+  final_ : Bool
+  supers : Array[Index]
+  metadata : TypeDefMetadata
+  body : TypeDefBody
 } derive(Eq, Show, Debug)
 
 ///|
@@ -1927,14 +1957,140 @@ fn WastParser::parse_type_def(self : WastParser) -> TypeDef raise ParserError {
   } else {
     None
   }
+  match self.try_parse_type_sub_wrapper() {
+    Some((final_, supers, metadata)) => {
+      let body = self.parse_type_def_body()
+      self.expect_rpar()
+      return { id, is_sub: true, final_, supers, metadata, body }
+    }
+    None => ()
+  }
+  let metadata = self.parse_type_metadata_clauses()
+  let body = self.parse_type_def_body()
+  { id, is_sub: false, final_: false, supers: [], metadata, body }
+}
 
-  // (func ...)
+///|
+fn WastParser::try_parse_type_sub_wrapper(
+  self : WastParser,
+) -> (Bool, Array[Index], TypeDefMetadata)? raise ParserError {
+  if !self.check(Lpar) {
+    return None
+  }
+  let saved_state = self.save_lexer_state()
+  let saved_token = self.current
   self.expect_lpar()
-  let _ = self.expect(Func, "expected 'func'")
+  if !self.is_reserved_word("sub") {
+    self.restore_lexer_state(saved_state)
+    self.current = saved_token
+    return None
+  }
+  let _ = self.advance()
+  let mut final_ = false
+  if self.is_reserved_word("final") {
+    let _ = self.advance()
+    final_ = true
+  }
+  let supers : Array[Index] = []
+  while self.current.token_type is Var || self.current.token_type is Nat {
+    supers.push(self.parse_index())
+  }
+  let metadata = self.parse_type_metadata_clauses()
+  Some((final_, supers, metadata))
+}
+
+///|
+fn WastParser::try_parse_type_metadata_clause(
+  self : WastParser,
+) -> (String, Index)? raise ParserError {
+  if !self.check(Lpar) {
+    return None
+  }
+  let saved_state = self.save_lexer_state()
+  let saved_token = self.current
+  self.expect_lpar()
+  let kind = if self.is_reserved_word("describes") {
+    let _ = self.advance()
+    "describes"
+  } else if self.is_reserved_word("descriptor") {
+    let _ = self.advance()
+    "descriptor"
+  } else {
+    self.restore_lexer_state(saved_state)
+    self.current = saved_token
+    return None
+  }
+  let idx = self.parse_index()
+  self.expect_rpar()
+  Some((kind, idx))
+}
+
+///|
+fn WastParser::parse_type_metadata_clauses(
+  self : WastParser,
+) -> TypeDefMetadata raise ParserError {
+  let mut describes : Index? = None
+  let mut descriptor : Index? = None
+  while true {
+    match self.try_parse_type_metadata_clause() {
+      Some((kind, idx)) =>
+        if kind == "describes" {
+          if describes is Some(_) {
+            raise InvalidInstruction(
+              "duplicate describes clause in type definition",
+            )
+          }
+          describes = Some(idx)
+        } else {
+          if descriptor is Some(_) {
+            raise InvalidInstruction(
+              "duplicate descriptor clause in type definition",
+            )
+          }
+          descriptor = Some(idx)
+        }
+      None => break
+    }
+  }
+  { describes, descriptor }
+}
+
+///|
+fn WastParser::parse_type_def_body(
+  self : WastParser,
+) -> TypeDefBody raise ParserError {
+  self.expect_lpar()
+  if self.check(Func) {
+    let _ = self.advance()
+    let func_type = self.parse_func_type_signature()
+    self.expect_rpar()
+    return TypeDefBody::Func(func_type)
+  }
+  if self.is_reserved_word("struct") {
+    let _ = self.advance()
+    let fields : Array[StructFieldDef] = []
+    while self.check(Lpar) {
+      fields.append(self.parse_struct_field_group())
+    }
+    self.expect_rpar()
+    return TypeDefBody::Struct(fields)
+  }
+  if self.is_reserved_word("array") {
+    let _ = self.advance()
+    let field = self.parse_struct_field_item()
+    self.expect_rpar()
+    return TypeDefBody::Array(field)
+  }
+  raise UnexpectedToken(self.current, "expected type body")
+}
+
+///|
+fn WastParser::parse_func_type_signature(
+  self : WastParser,
+) -> FuncType raise ParserError {
   let params : Array[ValueType] = []
   let results : Array[ValueType] = []
 
-  // Parse params
   while self.check(Lpar) {
     let saved_state = self.save_lexer_state()
     let saved_token = self.current
@@ -1957,7 +2113,6 @@ fn WastParser::parse_type_def(self : WastParser) -> TypeDef raise ParserError {
     }
   }
 
-  // Parse results
   while self.check(Lpar) {
     let saved_state = self.save_lexer_state()
     let saved_token = self.current
@@ -1974,8 +2129,66 @@ fn WastParser::parse_type_def(self : WastParser) -> TypeDef raise ParserError {
       break
     }
   }
-  self.expect_rpar() // close func
-  { id, func_type: { params, results } }
+  { params, results }
+}
+
+///|
+fn WastParser::parse_field_storage(
+  self : WastParser,
+) -> FieldStorage raise ParserError {
+  match self.current.token_type {
+    Reserved => {
+      let text = self.get_text(self.current)
+      if text == "i8" {
+        let _ = self.advance()
+        FieldStorage::I8
+      } else if text == "i16" {
+        let _ = self.advance()
+        FieldStorage::I16
+      } else {
+        FieldStorage::Value(self.parse_value_type())
+      }
+    }
+    _ => FieldStorage::Value(self.parse_value_type())
+  }
+}
+
+///|
+fn WastParser::parse_struct_field_item(
+  self : WastParser,
+) -> StructFieldDef raise ParserError {
+  if self.check(Lpar) {
+    let saved_state = self.save_lexer_state()
+    let saved_token = self.current
+    self.expect_lpar()
+    if self.check(Mut) {
+      let _ = self.advance()
+      let storage = self.parse_field_storage()
+      self.expect_rpar()
+      return { storage, mutable_: true }
+    }
+    self.restore_lexer_state(saved_state)
+    self.current = saved_token
+  }
+  let storage = self.parse_field_storage()
+  { storage, mutable_: false }
+}
+
+///|
+fn WastParser::parse_struct_field_group(
+  self : WastParser,
+) -> Array[StructFieldDef] raise ParserError {
+  self.expect_lpar()
+  if !self.is_reserved_word("field") {
+    raise UnexpectedToken(self.current, "expected field")
+  }
+  let _ = self.advance()
+  let fields : Array[StructFieldDef] = []
+  while !self.check(Rpar) {
+    fields.push(self.parse_struct_field_item())
+  }
+  self.expect_rpar()
+  fields
 }
 
 ///|
@@ -3706,6 +3919,126 @@ test "parse type with named params" {
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
+}
+
+///|
+test "parse struct type defs with subtype metadata and fields" {
+  let source =
+    #|(module
+    #|  (type $base (struct))
+    #|  (type $node
+    #|    (sub final $base
+    #|      (descriptor $node_desc)
+    #|      (struct
+    #|        (field i32)
+    #|        (field (mut (ref null $base))))))
+    #|  (type $node_desc
+    #|    (describes $node)
+    #|    (struct (field (ref $node)))))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [TypeField(base), TypeField(node), TypeField(node_desc)] => {
+      assert_eq(base.id, Some("$base"))
+      assert_eq(base.is_sub, false)
+      assert_eq(base.final_, false)
+      assert_eq(base.supers, [])
+      assert_eq(base.metadata, { describes: None, descriptor: None })
+      assert_eq(base.body, TypeDefBody::Struct([]))
+      assert_eq(node.id, Some("$node"))
+      assert_eq(node.is_sub, true)
+      assert_eq(node.final_, true)
+      assert_eq(node.supers, [Id("$base")])
+      assert_eq(node.metadata, {
+        describes: None,
+        descriptor: Some(Id("$node_desc")),
+      })
+      assert_eq(
+        node.body,
+        TypeDefBody::Struct([
+          { storage: Value(I32), mutable_: false },
+          {
+            storage: Value(TypedFuncRef(HeapTypeRef::TypeId("$base"))),
+            mutable_: true,
+          },
+        ]),
+      )
+      assert_eq(node_desc.id, Some("$node_desc"))
+      assert_eq(node_desc.is_sub, false)
+      assert_eq(node_desc.final_, false)
+      assert_eq(node_desc.supers, [])
+      assert_eq(node_desc.metadata, {
+        describes: Some(Id("$node")),
+        descriptor: None,
+      })
+      assert_eq(
+        node_desc.body,
+        TypeDefBody::Struct([
+          {
+            storage: Value(NonNullTypedFuncRef(HeapTypeRef::TypeId("$node"))),
+            mutable_: false,
+          },
+        ]),
+      )
+    }
+    _ => fail("expected three type fields in struct subtype parse fixture")
+  }
+}
+
+///|
+test "parse array type defs with subtype metadata" {
+  let source =
+    #|(module
+    #|  (type $bytes (array i8))
+    #|  (type $arr
+    #|    (sub $bytes
+    #|      (descriptor $arr_desc)
+    #|      (array (mut (ref null $bytes)))))
+    #|  (type $arr_desc
+    #|    (describes $arr)
+    #|    (array i16)))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [TypeField(bytes), TypeField(arr), TypeField(arr_desc)] => {
+      assert_eq(bytes.id, Some("$bytes"))
+      assert_eq(bytes.is_sub, false)
+      assert_eq(
+        bytes.body,
+        TypeDefBody::Array({ storage: FieldStorage::I8, mutable_: false }),
+      )
+      assert_eq(arr.id, Some("$arr"))
+      assert_eq(arr.is_sub, true)
+      assert_eq(arr.supers, [Index::Id("$bytes")])
+      assert_eq(arr.metadata, {
+        describes: None,
+        descriptor: Some(Index::Id("$arr_desc")),
+      })
+      assert_eq(
+        arr.body,
+        TypeDefBody::Array({
+          storage: FieldStorage::Value(
+            TypedFuncRef(HeapTypeRef::TypeId("$bytes")),
+          ),
+          mutable_: true,
+        }),
+      )
+      assert_eq(arr_desc.id, Some("$arr_desc"))
+      assert_eq(arr_desc.metadata, {
+        describes: Some(Index::Id("$arr")),
+        descriptor: None,
+      })
+      assert_eq(
+        arr_desc.body,
+        TypeDefBody::Array({ storage: FieldStorage::I16, mutable_: false }),
+      )
+    }
+    _ => fail("expected three type fields in array subtype parse fixture")
+  }
 }
 
 // ----------------------------------------------------------------------------

@@ -254,6 +254,146 @@ fn wt_append_type(ctx : WTLowerCtx, ft : FuncType) -> Result[UInt, String] {
 }
 
 ///|
+fn wt_field_storage(
+  ctx : WTLowerCtx,
+  storage : FieldStorage,
+) -> Result[@lib.StorageType, String] {
+  match storage {
+    FieldStorage::Value(vt) =>
+      match wt_value_type(ctx, vt) {
+        Ok(v) => Ok(@lib.StorageType::val_type(v))
+        Err(e) => Err(e)
+      }
+    FieldStorage::I8 => Ok(@lib.StorageType::pack_type(@lib.PackType::i8()))
+    FieldStorage::I16 => Ok(@lib.StorageType::pack_type(@lib.PackType::i16()))
+  }
+}
+
+///|
+fn wt_struct_field(
+  ctx : WTLowerCtx,
+  field : StructFieldDef,
+) -> Result[@lib.FieldType, String] {
+  let storage = match wt_field_storage(ctx, field.storage) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  Ok(
+    @lib.FieldType::new(
+      storage,
+      if field.mutable_ {
+        @lib.Mut::var_()
+      } else {
+        @lib.Mut::const_()
+      },
+    ),
+  )
+}
+
+///|
+fn wt_type_metadata(
+  ctx : WTLowerCtx,
+  metadata : TypeDefMetadata,
+) -> Result[@lib.TypeMetadata, String] {
+  let describes : @lib.TypeIdx? = match metadata.describes {
+    Some(idx) =>
+      match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => Some(@lib.TypeIdx::new(v))
+        Err(e) => return Err(e)
+      }
+    None => None
+  }
+  let descriptor : @lib.TypeIdx? = match metadata.descriptor {
+    Some(idx) =>
+      match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => Some(@lib.TypeIdx::new(v))
+        Err(e) => return Err(e)
+      }
+    None => None
+  }
+  Ok(@lib.TypeMetadata::new(describes~, descriptor~))
+}
+
+///|
+fn wt_comp_type(
+  ctx : WTLowerCtx,
+  body : TypeDefBody,
+) -> Result[@lib.CompType, String] {
+  match body {
+    TypeDefBody::Func(ft) => {
+      let (params, results) = match wt_func_sig(ctx, ft) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.CompType::func(params, results))
+    }
+    TypeDefBody::Struct(fields) => {
+      let lowered : Array[@lib.FieldType] = []
+      for field in fields {
+        let ft = match wt_struct_field(ctx, field) {
+          Ok(v) => v
+          Err(e) => return Err(e)
+        }
+        lowered.push(ft)
+      }
+      Ok(@lib.CompType::struct_(lowered))
+    }
+    TypeDefBody::Array(field) =>
+      match wt_struct_field(ctx, field) {
+        Ok(v) => Ok(@lib.CompType::array(v))
+        Err(e) => Err(e)
+      }
+  }
+}
+
+///|
+fn wt_type_def(ctx : WTLowerCtx, td : TypeDef) -> Result[@lib.RecType, String] {
+  let metadata = match wt_type_metadata(ctx, td.metadata) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let comp_type = match wt_comp_type(ctx, td.body) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  if td.is_sub {
+    let supers : Array[@lib.TypeIdx] = []
+    for super_idx in td.supers {
+      let idx = match
+        wt_resolve_named_or_num_index(
+          super_idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      supers.push(@lib.TypeIdx::new(idx))
+    }
+    Ok(
+      @lib.RecType::new(
+        @lib.SubType::new(td.final_, supers, comp_type, metadata~),
+      ),
+    )
+  } else {
+    Ok(@lib.RecType::new(@lib.SubType::comp_type(comp_type, metadata~)))
+  }
+}
+
+///|
 fn wt_append_lib_func_type(
   ctx : WTLowerCtx,
   params : Array[@lib.ValType],
@@ -2601,17 +2741,28 @@ fn wt_instr_to_lib(
 ///|
 fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
   let ctx = wt_new_ctx()
+  let mut next_type_idx = 0U
+  for field in mod.fields {
+    match field {
+      TypeField(td) =>
+        match td.id {
+          Some(id) => {
+            ctx.type_ids[id] = next_type_idx
+            next_type_idx += 1
+          }
+          None => next_type_idx += 1
+        }
+      _ => ()
+    }
+  }
   for field in mod.fields {
     match field {
       TypeField(td) => {
-        let idx = match wt_append_type(ctx, td.func_type) {
+        let rec = match wt_type_def(ctx, td) {
           Ok(v) => v
           Err(e) => return Err(e)
         }
-        match td.id {
-          Some(id) => ctx.type_ids[id] = idx
-          None => ()
-        }
+        ctx.type_recs.push(rec)
       }
       _ => ()
     }
@@ -4562,6 +4713,181 @@ test "wt_instr_to_lib lowers struct allocation instruction families" {
     struct_new_default_desc,
     @lib.Instruction::struct_new_default_desc(@lib.TypeIdx::new(1U)),
   )
+}
+
+///|
+test "wast_to_binary_module lowers struct type defs with forward descriptor metadata" {
+  let src =
+    #|(module
+    #|  (type $node
+    #|    (descriptor $node_desc)
+    #|    (struct
+    #|      (field i32)
+    #|      (field (mut (ref null $node)))))
+    #|  (type $node_desc
+    #|    (describes $node)
+    #|    (struct))
+    #|  (func (result (ref null $node))
+    #|    (struct.new_desc $node (struct.new $node_desc))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected struct type-def lowering success with forward metadata: \{e}",
+      )
+  }
+  match lowered.type_sec {
+    Some(@lib.TypeSec(types)) => {
+      assert_true(types.length() >= 2)
+      let node_sub = match types[0] {
+        @lib.SingleRecType(node_sub) => node_sub
+        _ => fail("expected first lowered type to be a single rec subtype")
+      }
+      let node_desc_sub = match types[1] {
+        @lib.SingleRecType(node_desc_sub) => node_desc_sub
+        _ => fail("expected second lowered type to be a single rec subtype")
+      }
+      assert_eq(
+        node_sub,
+        @lib.SubType::comp_type(
+          @lib.CompType::struct_([
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(@lib.ValType::i32()),
+              @lib.Mut::const_(),
+            ),
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(
+                @lib.ValType::ref_type(
+                  @lib.RefType::new(
+                    true,
+                    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+                  ),
+                ),
+              ),
+              @lib.Mut::var_(),
+            ),
+          ]),
+          metadata=@lib.TypeMetadata::new(
+            descriptor=Some(@lib.TypeIdx::new(1U)),
+          ),
+        ),
+      )
+      assert_eq(
+        node_desc_sub,
+        @lib.SubType::comp_type(
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(0U))),
+        ),
+      )
+    }
+    _ =>
+      fail("expected lowered type section for struct type-def metadata fixture")
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.StructNew(@lib.TypeIdx::TypeIdx(1U)),
+                @lib.StructNewDesc(@lib.TypeIdx::TypeIdx(0U)),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ =>
+      fail(
+        "expected lowered code section using descriptor-bearing struct constructors",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module lowers array type defs with descriptor metadata" {
+  let src =
+    #|(module
+    #|  (type $bytes (array i8))
+    #|  (type $arr
+    #|    (sub $bytes
+    #|      (descriptor $arr_desc)
+    #|      (array (mut (ref null $bytes)))))
+    #|  (type $arr_desc
+    #|    (describes $arr)
+    #|    (array i16)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected array type-def lowering success with metadata: \{e}")
+  }
+  match lowered.type_sec {
+    Some(@lib.TypeSec(types)) => {
+      assert_true(types.length() >= 3)
+      let bytes_sub = match types[0] {
+        @lib.SingleRecType(bytes_sub) => bytes_sub
+        _ => fail("expected first lowered type to be a single rec subtype")
+      }
+      let arr_sub = match types[1] {
+        @lib.SingleRecType(arr_sub) => arr_sub
+        _ => fail("expected second lowered type to be a single rec subtype")
+      }
+      let arr_desc_sub = match types[2] {
+        @lib.SingleRecType(arr_desc_sub) => arr_desc_sub
+        _ => fail("expected third lowered type to be a single rec subtype")
+      }
+      assert_eq(
+        bytes_sub,
+        @lib.SubType::comp_type(
+          @lib.CompType::array(
+            @lib.FieldType::new(
+              @lib.StorageType::pack_type(@lib.PackType::i8()),
+              @lib.Mut::const_(),
+            ),
+          ),
+        ),
+      )
+      assert_eq(
+        arr_sub,
+        @lib.SubType::new(
+          false,
+          [@lib.TypeIdx::new(0U)],
+          @lib.CompType::array(
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(
+                @lib.ValType::ref_type(
+                  @lib.RefType::new(
+                    true,
+                    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+                  ),
+                ),
+              ),
+              @lib.Mut::var_(),
+            ),
+          ),
+          metadata=@lib.TypeMetadata::new(
+            descriptor=Some(@lib.TypeIdx::new(2U)),
+          ),
+        ),
+      )
+      assert_eq(
+        arr_desc_sub,
+        @lib.SubType::comp_type(
+          @lib.CompType::array(
+            @lib.FieldType::new(
+              @lib.StorageType::pack_type(@lib.PackType::i16()),
+              @lib.Mut::const_(),
+            ),
+          ),
+          metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(1U))),
+        ),
+      )
+    }
+    _ =>
+      fail("expected lowered type section for array type-def metadata fixture")
+  }
 }
 
 ///|

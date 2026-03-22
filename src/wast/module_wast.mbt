@@ -214,6 +214,66 @@ fn render_type_use(type_use : TypeUse) -> String {
 }
 
 ///|
+fn render_field_storage(storage : FieldStorage) -> String {
+  match storage {
+    FieldStorage::Value(vt) => keyword_from_value_type(vt)
+    FieldStorage::I8 => "i8"
+    FieldStorage::I16 => "i16"
+  }
+}
+
+///|
+fn render_struct_field(field : StructFieldDef) -> String {
+  if field.mutable_ {
+    "(field (mut \{render_field_storage(field.storage)}))"
+  } else {
+    "(field \{render_field_storage(field.storage)})"
+  }
+}
+
+///|
+fn render_type_metadata(metadata : TypeDefMetadata) -> String {
+  let out = StringBuilder::new()
+  match metadata.describes {
+    Some(idx) => out.write_string(" (describes \{index_text(idx)})")
+    None => ()
+  }
+  match metadata.descriptor {
+    Some(idx) => out.write_string(" (descriptor \{index_text(idx)})")
+    None => ()
+  }
+  out.to_string()
+}
+
+///|
+fn render_type_def_body(body : TypeDefBody) -> String {
+  match body {
+    TypeDefBody::Func(func_type) => {
+      let tu = { type_index: None, func_type, param_ids: [] }
+      "(func\{render_type_use(tu)})"
+    }
+    TypeDefBody::Struct(fields) => {
+      let out = StringBuilder::new()
+      out.write_string("(struct")
+      for field in fields {
+        out.write_char(' ')
+        out.write_string(render_struct_field(field))
+      }
+      out.write_char(')')
+      out.to_string()
+    }
+    TypeDefBody::Array(field) => {
+      let field_text = if field.mutable_ {
+        "(mut \{render_field_storage(field.storage)})"
+      } else {
+        render_field_storage(field.storage)
+      }
+      "(array \{field_text})"
+    }
+  }
+}
+
+///|
 fn render_block_type(bt : BlockType) -> String {
   let out = StringBuilder::new()
   match bt.label {
@@ -592,10 +652,25 @@ fn write_module_field(
         out.write_char(' ')
         out.write_string(id)
       }
-      out.write_string(" (func")
-      let tu = { type_index: None, func_type: td.func_type, param_ids: [] }
-      out.write_string(render_type_use(tu))
-      out.write_string("))\n")
+      if td.is_sub {
+        out.write_string(" (sub")
+        if td.final_ {
+          out.write_string(" final")
+        }
+        for super_idx in td.supers {
+          out.write_char(' ')
+          out.write_string(index_text(super_idx))
+        }
+        out.write_string(render_type_metadata(td.metadata))
+        out.write_char(' ')
+        out.write_string(render_type_def_body(td.body))
+        out.write_string("))\n")
+      } else {
+        out.write_string(render_type_metadata(td.metadata))
+        out.write_char(' ')
+        out.write_string(render_type_def_body(td.body))
+        out.write_string(")\n")
+      }
     }
     FuncField(func) => {
       out.write_string("\{pad}(func")

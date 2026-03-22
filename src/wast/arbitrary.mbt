@@ -317,7 +317,16 @@ fn gen_module(size : Int, st : RandomState) -> Module {
   // Always provide at least one func type for call_indirect / signature references.
   let type_count : UInt = st.next_uint() % 2 + 1
   for _ in 0..<type_count.reinterpret_as_int() {
-    fields.push(TypeField({ id: None, func_type: gen_func_type(st) }))
+    fields.push(
+      TypeField({
+        id: None,
+        is_sub: false,
+        final_: false,
+        supers: [],
+        metadata: { describes: None, descriptor: None },
+        body: TypeDefBody::Func(gen_func_type(st)),
+      }),
+    )
   }
   let mut func_count : UInt = 0
 
@@ -702,7 +711,11 @@ pub impl Arbitrary for TypeDef with arbitrary(size, st) {
     } else {
       None
     },
-    func_type: Arbitrary::arbitrary(size, st),
+    is_sub: false,
+    final_: false,
+    supers: [],
+    metadata: { describes: None, descriptor: None },
+    body: TypeDefBody::Func(Arbitrary::arbitrary(size, st)),
   }
 }
 
