@@ -1,6 +1,6 @@
 # MemoryPacking
 
-Status: research baseline plus slice-1 scheduler plumbing. In Starshine today, the pass still has no semantic rewrite implementation, but the generated optimizer now dispatches `MemoryPacking` through a dedicated runner and threads the initial `zero_filled_memory` / `traps_never_happen` option surface. This document remains the implementation blueprint for the later semantic slices.
+Status: research baseline plus slices 1-2. In Starshine today, the pass still has no semantic rewrite implementation, but the generated optimizer now dispatches `MemoryPacking` through a dedicated runner, threads the initial `zero_filled_memory` / `traps_never_happen` option surface, and applies the documented analysis-only gating for unsupported memory/imported-memory/active-layout cases. This document remains the implementation blueprint for the later semantic slices.
 
 ## Purpose
 
@@ -38,12 +38,13 @@ What exists now:
 3. The pass is classified as `ModuleWide`.
 4. The generated optimizer dispatches `MemoryPacking` through a dedicated `run_memory_packing` runner.
 5. The initial pass-option plumbing for `zero_filled_memory` and `traps_never_happen` now threads through generated-pipeline features and explicit pass expansion.
-6. The runner is still intentionally semantic no-op until the later analysis and rewrite slices land.
+6. The runner now applies the documented analysis-only bailouts for unsupported memory topologies, imported memory without the zero-fill promise, overlapping active segments, and dynamic active offsets in the multi-segment case.
+7. The runner is still intentionally semantic no-op after those gates until the later analysis and rewrite slices land.
 
 That means:
 
 - The pass name and scheduling are real.
-- Slice 1 from the implementation plan is complete.
+- Slices 1-2 from the implementation plan are complete.
 - The semantics are not yet real in Starshine.
 - Any correctness validation for this pass must currently be done against upstream Binaryen behavior, then ported into Starshine-specific IR mechanics.
 

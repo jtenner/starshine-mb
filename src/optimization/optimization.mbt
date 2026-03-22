@@ -563,8 +563,227 @@ pub fn run_memory_packing(
   global : PipelineGlobal,
   features : PipelineFeatures,
 ) -> (Module, PipelineGlobal) {
+  if !optimization_memory_packing_can_optimize(mod, features) {
+    return (mod, global)
+  }
   let _ = features
   (mod, global)
+}
+
+///|
+fn optimization_memory_packing_defined_mem_count(mod : Module) -> Int {
+  match mod.mem_sec {
+    Some(MemSec(mems)) => mems.length()
+    None => 0
+  }
+}
+
+///|
+fn optimization_memory_packing_data_segments(mod : Module) -> Array[Data] {
+  match mod.data_sec {
+    Some(DataSec(datas)) => datas
+    None => []
+  }
+}
+
+///|
+fn optimization_memory_packing_active_span(data : Data) -> (UInt64, UInt64)? {
+  match data {
+    Data(Active(_, offset_expr), bytes) =>
+      match optimization_const_expr_u64(offset_expr) {
+        Some(offset) => {
+          let len = bytes.length().to_uint64()
+          let end = offset + len
+          if end < offset {
+            None
+          } else {
+            Some((offset, end))
+          }
+        }
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn optimization_memory_packing_active_spans_overlap(
+  lhs : (UInt64, UInt64),
+  rhs : (UInt64, UInt64),
+) -> Bool {
+  let (lhs_start, lhs_end) = lhs
+  let (rhs_start, rhs_end) = rhs
+  lhs_start < rhs_end && rhs_start < lhs_end
+}
+
+///|
+fn optimization_memory_packing_can_optimize(
+  mod : Module,
+  features : PipelineFeatures,
+) -> Bool {
+  let total_memories = optimization_imported_mem_count(mod) +
+    optimization_memory_packing_defined_mem_count(mod)
+  if total_memories != 1 {
+    return false
+  }
+  if optimization_imported_mem_count(mod) > 0 && !features.zero_filled_memory {
+    return false
+  }
+  let datas = optimization_memory_packing_data_segments(mod)
+  if datas.length() <= 1 {
+    return true
+  }
+
+  let active_spans : Array[(UInt64, UInt64)] = []
+  for data in datas {
+    match data {
+      Data(Active(_, _), _) =>
+        match optimization_memory_packing_active_span(data) {
+          Some(span) => {
+            for other in active_spans {
+              if optimization_memory_packing_active_spans_overlap(other, span) {
+                return false
+              }
+            }
+            active_spans.push(span)
+          }
+          None => return false
+        }
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn optimization_memory_packing_test_defined_memory(
+  limits? : @lib.Limits = @lib.Limits::i32(1U, None),
+) -> Module {
+  Module::new().with_mem_sec(MemSec::new([@lib.MemType::new(limits)]))
+}
+
+///|
+fn optimization_memory_packing_test_imported_memory(
+  limits? : @lib.Limits = @lib.Limits::i32(1U, None),
+) -> Module {
+  Module::new().with_import_sec(
+    ImportSec::new([
+      Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("memory"),
+        @lib.ExternType::mem(@lib.MemType::new(limits)),
+      ),
+    ]),
+  )
+}
+
+///|
+fn optimization_memory_packing_test_active_data(
+  offset_expr : @lib.Expr,
+  bytes : Bytes,
+) -> Data {
+  Data::new(@lib.DataMode::active(@lib.MemIdx::new(0U), offset_expr), bytes)
+}
+
+///|
+test "memory packing analysis rejects unsupported memory topologies" {
+  assert_false(
+    optimization_memory_packing_can_optimize(
+      Module::new(),
+      PipelineFeatures::new(),
+    ),
+  )
+  assert_false(
+    optimization_memory_packing_can_optimize(
+      Module::new().with_mem_sec(
+        MemSec::new([
+          @lib.MemType::new(@lib.Limits::i32(1U, None)),
+          @lib.MemType::new(@lib.Limits::i32(1U, None)),
+        ]),
+      ),
+      PipelineFeatures::new(),
+    ),
+  )
+}
+
+///|
+test "memory packing analysis rejects imported memory without zero-filled promise" {
+  assert_false(
+    optimization_memory_packing_can_optimize(
+      optimization_memory_packing_test_imported_memory(),
+      PipelineFeatures::new(),
+    ),
+  )
+  assert_true(
+    optimization_memory_packing_can_optimize(
+      optimization_memory_packing_test_imported_memory(),
+      PipelineFeatures::new(zero_filled_memory=true),
+    ),
+  )
+}
+
+///|
+test "memory packing analysis allows single dynamic active segment but rejects it in multi-segment modules" {
+  let dynamic = optimization_memory_packing_test_active_data(
+    @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))]),
+    b"\x00",
+  )
+  let passive = Data::new(@lib.DataMode::passive(), b"abc")
+
+  assert_true(
+    optimization_memory_packing_can_optimize(
+      optimization_memory_packing_test_defined_memory().with_data_sec(
+        DataSec::new([dynamic]),
+      ),
+      PipelineFeatures::new(),
+    ),
+  )
+  assert_false(
+    optimization_memory_packing_can_optimize(
+      optimization_memory_packing_test_defined_memory().with_data_sec(
+        DataSec::new([dynamic, passive]),
+      ),
+      PipelineFeatures::new(),
+    ),
+  )
+}
+
+///|
+test "memory packing analysis rejects overlapping active segments" {
+  let mod = optimization_memory_packing_test_defined_memory().with_data_sec(
+    DataSec::new([
+      optimization_memory_packing_test_active_data(
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+        b"abc",
+      ),
+      optimization_memory_packing_test_active_data(
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(2))]),
+        b"def",
+      ),
+    ]),
+  )
+  assert_false(
+    optimization_memory_packing_can_optimize(mod, PipelineFeatures::new()),
+  )
+}
+
+///|
+test "memory packing analysis allows disjoint active segments" {
+  let mod = optimization_memory_packing_test_defined_memory().with_data_sec(
+    DataSec::new([
+      optimization_memory_packing_test_active_data(
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
+        b"abc",
+      ),
+      optimization_memory_packing_test_active_data(
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(3))]),
+        b"def",
+      ),
+    ]),
+  )
+  assert_true(
+    optimization_memory_packing_can_optimize(mod, PipelineFeatures::new()),
+  )
 }
 
 ///|
