@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization: keep GC conversion-style consumers reference-only in RemoveUnusedModuleElements
+
+- **RemoveUnusedModuleElements conversion slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `extern.convert_any` and nested `any.convert_extern` now use the same closed-world GC reference-identity logic as the earlier `ref.*` and `br_on_*` consumers. These conversion-style wrappers no longer force struct carrier payloads to become full uses just because a carrier is converted through the anyref/externref boundary.
+- Expanded whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) with red-to-green regressions for `extern.convert_any` on an `anyref` struct carrier and `any.convert_extern(extern.convert_any(...))` on the same carrier path.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining GC work is narrowed again to future consumer expansion beyond the currently modeled struct/array, identity, and conversion instruction surface.
+
 ## 2026-03-21 Optimization: keep GC branch-style identity consumers reference-only in RemoveUnusedModuleElements
 
 - **RemoveUnusedModuleElements branch-identity slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` now use the same closed-world GC reference-identity logic as the earlier `ref.*` identity consumers. These branch-style checks/refinements no longer force struct carrier payloads to become full uses just because control flow inspects or refines the reference.

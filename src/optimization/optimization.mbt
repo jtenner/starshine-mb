@@ -1385,6 +1385,8 @@ fn optimization_collect_reference_identity_in_tinstr(
     @lib.TStructNewDefaultDesc(_, descriptor)
     | @lib.TRefIsNull(descriptor)
     | @lib.TRefAsNonNull(descriptor)
+    | @lib.TAnyConvertExtern(descriptor)
+    | @lib.TExternConvertAny(descriptor)
     | @lib.TRefGetDesc(descriptor)
     | @lib.TRefTest(_, _, descriptor)
     | @lib.TRefCast(_, _, descriptor)
@@ -3257,6 +3259,8 @@ fn optimization_collect_module_element_uses_in_tinstr(
         }
         @lib.TRefIsNull(child)
         | @lib.TRefAsNonNull(child)
+        | @lib.TAnyConvertExtern(child)
+        | @lib.TExternConvertAny(child)
         | @lib.TRefGetDesc(child)
         | @lib.TRefTest(_, _, child)
         | @lib.TRefCast(_, _, child)
