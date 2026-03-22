@@ -215,6 +215,10 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Implement `readStructFields` and deferred payload tracking for `struct.new`.
 - Wire `struct.get`, `struct.get_s`, `struct.get_u`, `array.new_data`, `array.new_elem`, and related GC consumers.
 - Keep this slice disabled unless GC is present and closed-world config is available.
+- Status:
+  - partial.
+  - landed subset: closed-world typed `struct.new` / `struct.new_desc` payloads now defer unread field payload uses, unread payloads keep only reference identity alive until a live `struct.get` / `struct.get_s` / `struct.get_u` read occurs, and referenced globals are preserved through that deferred path so unread field payload graphs are not compacted away unsafely.
+  - remaining work: array payload precision (`array.new_data`, `array.new_elem`, later array readers), broader GC content readers beyond the current typed struct field reads, and any extra hardening needed for reference-only non-function retention outside the current global path.
 - Exit when GC payload liveness is precise without risking open-world unsoundness.
 
 ### Slice 7 — Hardening, Docs, and Pipeline Signoff

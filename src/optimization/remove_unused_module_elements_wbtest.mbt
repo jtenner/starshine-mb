@@ -3095,6 +3095,158 @@ test "remove unused module elements promotes closed-world ref.func targets used 
 }
 
 ///|
+test "remove unused module elements does not promote unread struct field funcref payloads from unrelated call_ref" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_struct_type_sec_with_funcref_field())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::drop(
+              @lib.TInstr::struct_new(@lib.TypeIdx::new(1U), [
+                @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+              ]),
+            ),
+            @lib.TInstr::call_ref(
+              @lib.TypeIdx::new(0U),
+              [],
+              @lib.TInstr::global_get(@lib.GlobalIdx::new(1U)),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::call(@lib.FuncIdx::new(2U), [])]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+        ),
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(2U))]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 2)
+    None => fail("expected global section")
+  }
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 0), 1U)
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 1), 2U)
+  assert_true(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 2))
+}
+
+///|
+test "remove unused module elements promotes struct field funcref payloads once read" {
+  let mod = Module::new()
+    .with_type_sec(remove_unused_test_struct_type_sec_with_funcref_field())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::call_ref(
+              @lib.TypeIdx::new(0U),
+              [],
+              @lib.TInstr::struct_get(
+                @lib.TypeIdx::new(1U),
+                0,
+                @lib.TInstr::struct_new(@lib.TypeIdx::new(1U), [
+                  @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    None => fail("expected func section")
+  }
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+}
+
+///|
 test "remove unused module elements keeps open-world bare ref.func targets fully live" {
   let mod = Module::new()
     .with_type_sec(remove_unused_test_type_sec())
