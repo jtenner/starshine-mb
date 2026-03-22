@@ -176,6 +176,30 @@ fn remove_unused_test_descriptor_struct_type_sec() -> @lib.TypeSec {
 }
 
 ///|
+fn remove_unused_test_descriptor_struct_type_sec_with_funcref_descriptor_field() -> @lib.TypeSec {
+  @lib.TypeSec::new([
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    @lib.RecType::group([
+      @lib.SubType::comp_type(
+        @lib.CompType::struct_([]),
+        metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::new(2U))),
+      ),
+      @lib.SubType::comp_type(
+        @lib.CompType::struct_([
+          @lib.FieldType::new(
+            @lib.StorageType::val_type(
+              @lib.ValType::ref_type(remove_unused_test_funcref()),
+            ),
+            @lib.Mut::const_(),
+          ),
+        ]),
+        metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(1U))),
+      ),
+    ]),
+  ])
+}
+
+///|
 fn remove_unused_test_main_call_target(mod : Module) -> UInt raise Error {
   match mod.code_sec {
     Some(@lib.CodeSec(funcs)) =>
@@ -1933,6 +1957,203 @@ test "remove unused module elements respects traps_never_happen for nullable des
     Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 0)
     None => fail("expected global section")
   }
+}
+
+///|
+test "remove unused module elements does not promote unread struct.new_desc descriptor funcref payloads" {
+  let mod = Module::new()
+    .with_type_sec(
+      remove_unused_test_descriptor_struct_type_sec_with_funcref_descriptor_field(),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::drop(
+              @lib.TInstr::struct_new_desc(@lib.TypeIdx::new(1U), [
+                @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+              ]),
+            ),
+            @lib.TInstr::call_ref(
+              @lib.TypeIdx::new(0U),
+              [],
+              @lib.TInstr::global_get(@lib.GlobalIdx::new(1U)),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::call(@lib.FuncIdx::new(2U), [])]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(
+              @lib.RefType::new(
+                false,
+                @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+                exact=true,
+              ),
+            ),
+            false,
+          ),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::struct_new(@lib.TypeIdx::new(2U)),
+          ]),
+        ),
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(2U))]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 2)
+    None => fail("expected global section")
+  }
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 1), 2U)
+  assert_true(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 2))
+}
+
+///|
+test "remove unused module elements does not promote struct.new_default_desc descriptor funcref payloads through ref.get_desc" {
+  let mod = Module::new()
+    .with_type_sec(
+      remove_unused_test_descriptor_struct_type_sec_with_funcref_descriptor_field(),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([
+            @lib.TInstr::drop(
+              @lib.TInstr::ref_get_desc(
+                @lib.TInstr::struct_new_default_desc(
+                  @lib.TypeIdx::new(1U),
+                  @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+                ),
+              ),
+            ),
+            @lib.TInstr::call_ref(
+              @lib.TypeIdx::new(0U),
+              [],
+              @lib.TInstr::global_get(@lib.GlobalIdx::new(1U)),
+            ),
+          ]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::call(@lib.FuncIdx::new(2U), [])]),
+        ),
+        @lib.Func::t_func(
+          [],
+          @lib.Locals::empty(),
+          @lib.TExpr::new([@lib.TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(
+              @lib.RefType::new(
+                false,
+                @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+                exact=true,
+              ),
+            ),
+            false,
+          ),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::struct_new(@lib.TypeIdx::new(2U)),
+          ]),
+        ),
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(remove_unused_test_funcref()),
+            false,
+          ),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(2U))]),
+        ),
+      ]),
+    )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 2)
+    None => fail("expected global section")
+  }
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 1), 2U)
+  assert_true(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 2))
 }
 
 ///|
