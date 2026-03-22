@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: keep dropped GC carrier globals reference-only in RemoveUnusedModuleElements
+
+- **RemoveUnusedModuleElements drop-carrier slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so closed-world GC `drop(global.get(...))` no longer forces referenced carrier globals down the full-use path. Dropped struct carrier globals now stay live as carriers while their embedded funcref payloads remain referenced-only.
+- Expanded whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) with a red-to-green regression for a dropped struct carrier global, and verified it does not regress the existing `struct.new_desc` descriptor deferral cases.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining GC work is narrowed again to future consumer expansion and carrier-hardening beyond the now-landed dropped-global case.
+
 ## 2026-03-21 Optimization: keep GC conversion-style consumers reference-only in RemoveUnusedModuleElements
 
 - **RemoveUnusedModuleElements conversion slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `extern.convert_any` and nested `any.convert_extern` now use the same closed-world GC reference-identity logic as the earlier `ref.*` and `br_on_*` consumers. These conversion-style wrappers no longer force struct carrier payloads to become full uses just because a carrier is converted through the anyref/externref boundary.
