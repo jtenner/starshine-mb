@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: wire DeadCodeElimination to a dedicated runner shell
+
+- **DeadCodeElimination plumbing slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `OptimizePass::DeadCodeElimination` now dispatches to a dedicated `run_dead_code_elimination` func-local runner instead of the generic `noop_func_local_pass`.
+- Added whitebox coverage in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) proving the pipeline entry uses the dedicated shell and that the new runner visits typed functions without rewriting them yet.
+- Recorded the checkpoint in [`docs/0033-2026-03-22-dead-code-elimination-runner-shell.md`](/home/jtenner/Projects/starshine-mb/docs/0033-2026-03-22-dead-code-elimination-runner-shell.md), which narrows the remaining DCE work to the actual unreachable-code rewrites and type-sync follow-up.
+
 ## 2026-03-22 WAST: cover exact custom-descriptor fixture on native static path
 
 - **Exact fixture harness slice** by **@jtenner**. Added dedicated native spec-harness coverage in [`src/wast/spec_harness.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/spec_harness.mbt) for [`tests/spec/proposals/custom-descriptors/exact.wast`](/home/jtenner/Projects/starshine-mb/tests/spec/proposals/custom-descriptors/exact.wast), so the full exact-reference custom-descriptor fixture is now pinned on the static validation path alongside the earlier `descriptors.wast` and `ref_get_desc.wast` coverage.

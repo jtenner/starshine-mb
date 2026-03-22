@@ -558,6 +558,53 @@ fn noop_module_wide_pass(
 }
 
 ///|
+pub fn run_dead_code_elimination(
+  mod : Module,
+  scratch : PipelineScratch,
+) -> (Module, PipelineScratch) {
+  let funcs = match mod.code_sec {
+    Some(CodeSec(funcs)) => funcs
+    None => return (mod, scratch)
+  }
+
+  let rewritten_funcs : Array[Func] = []
+  let mut changed = false
+  let mut funcs_visited = scratch.funcs_visited
+  let mut funcs_changed = scratch.funcs_changed
+  for func in funcs {
+    funcs_visited += 1
+    let (rewritten, func_changed) = optimization_dead_code_elimination_func(func)
+    rewritten_funcs.push(rewritten)
+    if func_changed {
+      changed = true
+      funcs_changed += 1
+    }
+  }
+
+  let next_scratch = PipelineScratch::new(
+    changed=scratch.changed || changed,
+    func_idx=None,
+    funcs_visited~,
+    funcs_changed~,
+    module_shape_changed=scratch.module_shape_changed,
+    call_graph_dirty=scratch.call_graph_dirty,
+    locals_dirty=scratch.locals_dirty,
+  )
+  if changed {
+    (mod.with_code_sec(CodeSec::new(rewritten_funcs)), next_scratch)
+  } else {
+    (mod, next_scratch)
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_func(
+  func : Func,
+) -> (Func, Bool) {
+  (func, false)
+}
+
+///|
 pub fn run_memory_packing(
   mod : Module,
   global : PipelineGlobal,
@@ -8437,6 +8484,8 @@ fn make_entry_kind(pass : OptimizePass) -> PassKind {
     RemoveUnusedModuleElements =>
       PassKind::module_wide(run_remove_unused_module_elements)
     MemoryPacking => PassKind::module_wide(run_memory_packing)
+    DeadCodeElimination =>
+      PassKind::func_local_group([run_dead_code_elimination])
     _ =>
       match optimize_pass_class(pass) {
         FuncLocal => PassKind::func_local_group([noop_func_local_pass])

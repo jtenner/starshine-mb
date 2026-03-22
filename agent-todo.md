@@ -13,6 +13,10 @@
 - Generated optimize feature-source plumbing:
   - module-derived `has_gc` / `has_multivalue` and option-driven `closed_world` / `zero_filled_memory` / `low_memory_unused` / `traps_never_happen` now flow through generated optimize expansion and module-wide execution.
   - future policy question: decide whether `closed_world` should become CLI/config-visible beyond the current internal/default-pipeline use.
+- DeadCodeElimination research baseline:
+  - `docs/0017-2026-03-22-dead-code-elimination.md` now documents Binaryen's full DCE surface, including synchronous type updates, EH `pop` fixups, GC/string regressions, and stack-switching constraints.
+  - `docs/0033-2026-03-22-dead-code-elimination-runner-shell.md` lands Slice 1: `DeadCodeElimination` now dispatches through a dedicated typed func-local runner shell with whitebox coverage instead of the generic no-op entry.
+  - next implementation work is Slice 2 generic non-control-flow unreachable-child rewriting, then Slice 3 block-tail truncation before the local type/break updater work.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination
