@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22 Optimization: preserve live typed block breaks in DeadCodeElimination
+
+- **DeadCodeElimination typed-block slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so concrete typed `block` instructions now only count as outer-unreachable when their tail escapes and no live incoming break still targets the block, instead of blindly poisoning parents whenever the surviving tail is `unreachable`.
+- Added focused live-break regressions in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) covering both sides of the slice: concrete blocks that really became value-dead are rewritten to unreachable-equivalent void structure, while blocks with a surviving `br_if` value path keep their concrete type.
+- Recorded the checkpoint in [`docs/0036-2026-03-22-dead-code-elimination-live-break-block-types.md`](/home/jtenner/Projects/starshine-mb/docs/0036-2026-03-22-dead-code-elimination-live-break-block-types.md), which narrows the remaining DCE work to the `if`, `loop`, and EH-specific rules.
+
 ## 2026-03-22 Optimization: truncate DeadCodeElimination block tails
 
 - **DeadCodeElimination block-tail slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the typed DCE runner now trims `TExpr` instruction lists after the first terminating item, which removes dead code after `return`, after direct `br` within nested blocks, and after newly rewritten unreachable blocks.

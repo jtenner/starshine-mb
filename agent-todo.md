@@ -18,7 +18,8 @@
   - `docs/0033-2026-03-22-dead-code-elimination-runner-shell.md` lands Slice 1: `DeadCodeElimination` now dispatches through a dedicated typed func-local runner shell with whitebox coverage instead of the generic no-op entry.
   - `docs/0034-2026-03-22-dead-code-elimination-generic-unreachable-rewrites.md` lands Slice 2: the pass now preserves reachable prefix effects before the first unreachable child for non-control-flow typed instructions.
   - `docs/0035-2026-03-22-dead-code-elimination-block-tail-truncation.md` lands Slice 3: enclosing typed expression lists now truncate after the first terminating item, nested `block` tails only escape outer parents when they truly do, and trivial `[unreachable]` blocks collapse to the child.
-  - next implementation work is Slice 4 live-break tracking and synchronous block type updates, then the `if`-specific rules.
+  - `docs/0036-2026-03-22-dead-code-elimination-live-break-block-types.md` lands Slice 4: concrete typed blocks now only degrade to unreachable-equivalent structure when their tail escapes and no live incoming break still supplies the block result.
+  - next implementation work is Slice 5 `if` handling, then the conservative loop rule.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination

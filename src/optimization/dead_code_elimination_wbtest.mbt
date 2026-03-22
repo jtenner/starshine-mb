@@ -258,3 +258,61 @@ test "dead code elimination collapses trivial unreachable blocks" {
   ])
   assert_eq(body, [@lib.TInstr::unreachable_()])
 }
+
+///|
+test "dead code elimination retags concrete blocks when no live breaks remain" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::drop(
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.TExpr::new([
+          @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(1))),
+          @lib.TInstr::unreachable_(),
+        ]),
+      ),
+    ),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(1))),
+        @lib.TInstr::unreachable_(),
+      ]),
+    ),
+  ])
+}
+
+///|
+test "dead code elimination keeps concrete blocks with live incoming br_if values" {
+  let body = dead_code_elimination_test_body([
+    @lib.TInstr::drop(
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.TExpr::new([
+          @lib.TInstr::br_if(
+            @lib.LabelIdx::new(0U),
+            @lib.TInstr::i32_const(@lib.I32::new(1)),
+            [@lib.TInstr::i32_const(@lib.I32::new(7))],
+          ),
+          @lib.TInstr::unreachable_(),
+        ]),
+      ),
+    ),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::drop(
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.TExpr::new([
+          @lib.TInstr::br_if(
+            @lib.LabelIdx::new(0U),
+            @lib.TInstr::i32_const(@lib.I32::new(1)),
+            [@lib.TInstr::i32_const(@lib.I32::new(7))],
+          ),
+          @lib.TInstr::unreachable_(),
+        ]),
+      ),
+    ),
+  ])
+}
