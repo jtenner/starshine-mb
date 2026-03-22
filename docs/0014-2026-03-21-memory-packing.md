@@ -1,6 +1,6 @@
 # MemoryPacking
 
-Status: research baseline for the next default optimize pipeline pass. In Starshine today, the pass is scheduled but not implemented; the generated optimizer currently treats it as a module-wide no-op. This document is therefore both a pass audit and an implementation blueprint.
+Status: research baseline plus slice-1 scheduler plumbing. In Starshine today, the pass still has no semantic rewrite implementation, but the generated optimizer now dispatches `MemoryPacking` through a dedicated runner and threads the initial `zero_filled_memory` / `traps_never_happen` option surface. This document remains the implementation blueprint for the later semantic slices.
 
 ## Purpose
 
@@ -36,12 +36,14 @@ What exists now:
 1. The pass is represented in the `OptimizePass` enum.
 2. The pass is scheduled in the generated default pipeline.
 3. The pass is classified as `ModuleWide`.
-4. The generated optimizer dispatches unimplemented module-wide passes to `noop_module_wide_pass`.
-5. The legacy CLI pass record also marks `MemoryPackingPassProps::new()` as `no_op: true`.
+4. The generated optimizer dispatches `MemoryPacking` through a dedicated `run_memory_packing` runner.
+5. The initial pass-option plumbing for `zero_filled_memory` and `traps_never_happen` now threads through generated-pipeline features and explicit pass expansion.
+6. The runner is still intentionally semantic no-op until the later analysis and rewrite slices land.
 
 That means:
 
 - The pass name and scheduling are real.
+- Slice 1 from the implementation plan is complete.
 - The semantics are not yet real in Starshine.
 - Any correctness validation for this pass must currently be done against upstream Binaryen behavior, then ported into Starshine-specific IR mechanics.
 

@@ -147,12 +147,16 @@ pub fn AbstractTypeRefiningPassProps::new(
 
 ///|
 pub struct MemoryPackingPassProps {
-  no_op : Bool
+  zero_filled_memory : Bool
+  traps_never_happen : Bool
 } derive(Eq, Show, Debug)
 
 ///|
-pub fn MemoryPackingPassProps::new() -> MemoryPackingPassProps {
-  { no_op: true }
+pub fn MemoryPackingPassProps::new(
+  zero_filled_memory? : Bool = false,
+  traps_never_happen? : Bool = false,
+) -> MemoryPackingPassProps {
+  { zero_filled_memory, traps_never_happen }
 }
 
 ///|
@@ -298,6 +302,7 @@ pub struct OptimizeOptions {
   inlining : InliningOptions
   monomorphize_min_benefit : Int
   closed_world : Bool
+  zero_filled_memory : Bool
   low_memory_unused : Bool
   low_memory_bound : UInt64
   traps_never_happen : Bool
@@ -312,6 +317,7 @@ pub fn OptimizeOptions::new(
   inlining? : InliningOptions = InliningOptions::new(),
   monomorphize_min_benefit? : Int = 5,
   closed_world? : Bool = false,
+  zero_filled_memory? : Bool = false,
   low_memory_unused? : Bool = false,
   low_memory_bound? : UInt64 = 1024UL,
   traps_never_happen? : Bool = false,
@@ -324,6 +330,7 @@ pub fn OptimizeOptions::new(
     inlining,
     monomorphize_min_benefit,
     closed_world,
+    zero_filled_memory,
     low_memory_unused,
     low_memory_bound,
     traps_never_happen,
@@ -1607,6 +1614,7 @@ fn cmd_generated_pipeline_features(
     has_multivalue=facts.has_multivalue,
     has_strings=facts.has_strings,
     closed_world=options.closed_world,
+    zero_filled_memory=options.zero_filled_memory,
     low_memory_unused=options.low_memory_unused,
     traps_never_happen=options.traps_never_happen,
   )
@@ -2738,7 +2746,14 @@ fn expand_passes_for_module(
           ),
         )
       "memory-packing" =>
-        push_pass(ModulePass::MemoryPacking(MemoryPackingPassProps::new()))
+        push_pass(
+          ModulePass::MemoryPacking(
+            MemoryPackingPassProps::new(
+              zero_filled_memory=options.zero_filled_memory,
+              traps_never_happen=options.traps_never_happen,
+            ),
+          ),
+        )
       "directize" => push_pass(ModulePass::Directize(true))
       "optimize" => {
         for pass in default_global_optimization_pre_passes(mod, options) {
@@ -2757,6 +2772,7 @@ fn expand_passes_for_module(
           shrink_level=max_int(options.shrink_level, 2),
           inlining=options.inlining,
           monomorphize_min_benefit=options.monomorphize_min_benefit,
+          zero_filled_memory=options.zero_filled_memory,
           low_memory_unused=options.low_memory_unused,
           low_memory_bound=options.low_memory_bound,
           traps_never_happen=options.traps_never_happen,
@@ -2837,6 +2853,27 @@ test "expand_passes_for_module turns unknown flags into explicit no-op markers" 
     Err(e) => fail("expected unknown pass flag to expand as no-op, got \{e}")
   }
   assert_eq(expanded, [ModulePass::NoOp("not-a-real-pass")])
+}
+
+///|
+test "expand_passes_for_module threads memory packing options from optimize options" {
+  let expanded = match
+    expand_passes_for_module(
+      ["memory-packing"],
+      Module::new(),
+      OptimizeOptions::new(traps_never_happen=true, zero_filled_memory=true),
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected memory-packing expansion success, got \{e}")
+  }
+  assert_eq(expanded, [
+    ModulePass::MemoryPacking(
+      MemoryPackingPassProps::new(
+        traps_never_happen=true,
+        zero_filled_memory=true,
+      ),
+    ),
+  ])
 }
 
 ///|

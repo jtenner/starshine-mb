@@ -153,9 +153,10 @@ pub impl Show for InliningOptions
 pub impl @debug.Debug for InliningOptions
 
 pub struct MemoryPackingPassProps {
-  no_op : Bool
+  zero_filled_memory : Bool
+  traps_never_happen : Bool
 }
-pub fn MemoryPackingPassProps::new() -> Self
+pub fn MemoryPackingPassProps::new(zero_filled_memory? : Bool, traps_never_happen? : Bool) -> Self
 pub impl Eq for MemoryPackingPassProps
 pub impl Show for MemoryPackingPassProps
 pub impl @debug.Debug for MemoryPackingPassProps
@@ -256,13 +257,14 @@ pub struct OptimizeOptions {
   inlining : InliningOptions
   monomorphize_min_benefit : Int
   closed_world : Bool
+  zero_filled_memory : Bool
   low_memory_unused : Bool
   low_memory_bound : UInt64
   traps_never_happen : Bool
   validation_policy : OptimizeValidationPolicy
   stack_function_passes : Bool
 }
-pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, closed_world? : Bool, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool, validation_policy? : OptimizeValidationPolicy, stack_function_passes? : Bool) -> Self
+pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, closed_world? : Bool, zero_filled_memory? : Bool, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool, validation_policy? : OptimizeValidationPolicy, stack_function_passes? : Bool) -> Self
 pub impl Eq for OptimizeOptions
 pub impl Show for OptimizeOptions
 pub impl @debug.Debug for OptimizeOptions

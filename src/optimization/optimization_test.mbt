@@ -1,4 +1,7 @@
 ///|
+using @lib {type Module}
+
+///|
 test "pipeline global defaults are stable" {
   let global = PipelineGlobal::new()
   assert_eq(global.opt_level, 0)
@@ -152,4 +155,17 @@ test "default optimize pipeline includes closed-world gc prepasses when enabled"
     }
     assert_true(found)
   }
+}
+
+///|
+test "memory packing runner accepts option-bearing pipeline features" {
+  let mod = Module::new()
+  let global = PipelineGlobal::new()
+  let (next, next_global) = run_memory_packing(
+    mod,
+    global,
+    PipelineFeatures::new(traps_never_happen=true, zero_filled_memory=true),
+  )
+  assert_eq(next, mod)
+  assert_eq(next_global, global)
 }

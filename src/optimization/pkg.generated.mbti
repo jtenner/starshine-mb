@@ -15,6 +15,8 @@ pub fn default_optimize_pipeline(PipelineGlobal, features? : PipelineFeatures) -
 
 pub fn run_duplicate_function_elimination(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)
 
+pub fn run_memory_packing(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)
+
 pub fn run_remove_unused_module_elements(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)
 
 // Errors
@@ -229,10 +231,11 @@ pub(all) struct PipelineFeatures {
   has_multivalue : Bool
   has_strings : Bool
   closed_world : Bool
+  zero_filled_memory : Bool
   low_memory_unused : Bool
   traps_never_happen : Bool
 }
-pub fn PipelineFeatures::new(has_gc? : Bool, has_multivalue? : Bool, has_strings? : Bool, closed_world? : Bool, low_memory_unused? : Bool, traps_never_happen? : Bool) -> Self
+pub fn PipelineFeatures::new(has_gc? : Bool, has_multivalue? : Bool, has_strings? : Bool, closed_world? : Bool, zero_filled_memory? : Bool, low_memory_unused? : Bool, traps_never_happen? : Bool) -> Self
 pub impl Eq for PipelineFeatures
 pub impl Show for PipelineFeatures
 pub impl @debug.Debug for PipelineFeatures

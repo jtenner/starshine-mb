@@ -26,6 +26,7 @@ test "run_generated_pipeline_with_options passes PipelineFeatures to module-wide
   let mut saw_closed_world = false
   let mut saw_low_memory_unused = false
   let mut saw_traps_never_happen = false
+  let mut saw_zero_filled_memory = false
   let pipeline = [
     PipelineEntry::new(
       [],
@@ -36,6 +37,7 @@ test "run_generated_pipeline_with_options passes PipelineFeatures to module-wide
           saw_closed_world = features.closed_world
           saw_low_memory_unused = features.low_memory_unused
           saw_traps_never_happen = features.traps_never_happen
+          saw_zero_filled_memory = features.zero_filled_memory
           (mod, global)
         }),
         ValidationKind::unchecked(),
@@ -46,6 +48,7 @@ test "run_generated_pipeline_with_options passes PipelineFeatures to module-wide
     low_memory_unused=true,
     closed_world=true,
     traps_never_happen=true,
+    zero_filled_memory=true,
   )
   let mod = Module::new().with_type_sec(generated_pipeline_test_type_sec())
   match run_generated_pipeline_with_options(mod, pipeline, options) {
@@ -57,6 +60,7 @@ test "run_generated_pipeline_with_options passes PipelineFeatures to module-wide
   assert_true(saw_closed_world)
   assert_true(saw_low_memory_unused)
   assert_true(saw_traps_never_happen)
+  assert_true(saw_zero_filled_memory)
 }
 
 ///|

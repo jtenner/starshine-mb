@@ -11,7 +11,7 @@
 - Keep `merge-similar-functions` correctness and publish-signoff docs aligned.
 - Keep release blockers in `agent-todo.md` and avoid losing unresolved risk notes in `CHANGELOG.md`.
 - Generated optimize feature-source plumbing:
-  - module-derived `has_gc` / `has_multivalue` and option-driven `closed_world` / `low_memory_unused` now flow through generated optimize expansion and module-wide execution.
+  - module-derived `has_gc` / `has_multivalue` and option-driven `closed_world` / `zero_filled_memory` / `low_memory_unused` / `traps_never_happen` now flow through generated optimize expansion and module-wide execution.
   - future policy question: decide whether `closed_world` should become CLI/config-visible beyond the current internal/default-pipeline use.
 
 ## v0.1.0 Default Pipeline Blockers
@@ -67,7 +67,7 @@
 - StringGathering
 
 ## v0.1.0 Active Slice Focus
-- `MemoryPacking`: research baseline is now in `docs/0014-2026-03-21-memory-packing.md`; main implementation blockers are zero-filled-memory gating for imported memories, trap-preserving active-segment splitting, `memory.init`/`data.drop` lowering with dropped-segment state tracking, GC data-user no-split handling, and Starshine-wide `DataIdx`/`DataCntSec` remapping after segment removal or splitting.
+- `MemoryPacking`: slice 1 is now landed in the generated optimizer and explicit pass expansion, with dedicated runner plumbing plus `zero_filled_memory` / `traps_never_happen` threading. Remaining implementation blockers are analysis-only gating for imported memories and unsupported active layouts, trap-preserving active-segment splitting, `memory.init`/`data.drop` lowering with dropped-segment state tracking, GC data-user no-split handling, and Starshine-wide `DataIdx`/`DataCntSec` remapping after segment removal or splitting.
 - GC text-surface follow-up:
   - the higher-level WAST parser/printer/lowerer now models the `struct.new*` instruction family, including descriptor-bearing allocation forms.
   - remaining feature work is general GC module/type authoring: non-func `type` forms (`struct`, later `array`), `field` storage syntax, and descriptor/describes metadata in type definitions so `wast_to_binary_module` can author descriptor-bearing GC fixtures end to end.

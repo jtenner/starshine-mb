@@ -429,6 +429,7 @@ pub(all) struct PipelineFeatures {
   has_multivalue : Bool
   has_strings : Bool
   closed_world : Bool
+  zero_filled_memory : Bool
   low_memory_unused : Bool
   traps_never_happen : Bool
 } derive(Eq, Show, Debug)
@@ -439,6 +440,7 @@ pub fn PipelineFeatures::new(
   has_multivalue? : Bool = false,
   has_strings? : Bool = false,
   closed_world? : Bool = false,
+  zero_filled_memory? : Bool = false,
   low_memory_unused? : Bool = false,
   traps_never_happen? : Bool = false,
 ) -> PipelineFeatures {
@@ -447,6 +449,7 @@ pub fn PipelineFeatures::new(
     has_multivalue,
     has_strings,
     closed_world,
+    zero_filled_memory,
     low_memory_unused,
     traps_never_happen,
   }
@@ -546,6 +549,16 @@ fn noop_func_local_pass(
 
 ///|
 fn noop_module_wide_pass(
+  mod : Module,
+  global : PipelineGlobal,
+  features : PipelineFeatures,
+) -> (Module, PipelineGlobal) {
+  let _ = features
+  (mod, global)
+}
+
+///|
+pub fn run_memory_packing(
   mod : Module,
   global : PipelineGlobal,
   features : PipelineFeatures,
@@ -5433,6 +5446,7 @@ fn make_entry_kind(pass : OptimizePass) -> PassKind {
       PassKind::module_wide(run_duplicate_function_elimination)
     RemoveUnusedModuleElements =>
       PassKind::module_wide(run_remove_unused_module_elements)
+    MemoryPacking => PassKind::module_wide(run_memory_packing)
     _ =>
       match optimize_pass_class(pass) {
         FuncLocal => PassKind::func_local_group([noop_func_local_pass])
