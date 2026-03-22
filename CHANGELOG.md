@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-21 Optimization: keep GC branch-style identity consumers reference-only in RemoveUnusedModuleElements
+
+- **RemoveUnusedModuleElements branch-identity slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` now use the same closed-world GC reference-identity logic as the earlier `ref.*` identity consumers. These branch-style checks/refinements no longer force struct carrier payloads to become full uses just because control flow inspects or refines the reference.
+- Expanded whitebox coverage in [`src/optimization/remove_unused_module_elements_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_module_elements_wbtest.mbt) with red-to-green regressions for nullable struct carriers under `br_on_null` and `br_on_non_null`, plus exact struct carriers under `br_on_cast` and `br_on_cast_fail`.
+- Updated [`docs/0011-2026-03-18-pass-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0011-2026-03-18-pass-audit.md), [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining GC work is narrowed again to future consumer expansion beyond the currently modeled struct/array and reference-identity instruction surface.
+
 ## 2026-03-21 Optimization: keep GC cast-style identity consumers reference-only in RemoveUnusedModuleElements
 
 - **RemoveUnusedModuleElements cast-identity slice** by **@jtenner**. Extended [`run_remove_unused_module_elements`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `ref.as_non_null`, `ref.cast`, and `ref.cast_desc_eq` now use the same closed-world GC reference-identity logic as the earlier non-ref identity consumers. These ops no longer force struct or descriptor global carriers to become full uses just because a cast-style identity check or refinement happens.

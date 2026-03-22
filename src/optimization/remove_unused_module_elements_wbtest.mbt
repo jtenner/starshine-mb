@@ -2600,6 +2600,167 @@ test "remove unused module elements does not promote descriptor payloads through
 }
 
 ///|
+test "remove unused module elements does not promote struct payloads through br_on_null" {
+  let mod = remove_unused_test_nullable_struct_global_funcref_carrier_module(
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::drop(
+          @lib.TInstr::br_on_null(
+            @lib.LabelIdx::new(0U),
+            @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+            [],
+          ),
+        ),
+      ]),
+    ),
+  )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 2)
+    None => fail("expected global section")
+  }
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 1), 2U)
+  assert_true(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 2))
+}
+
+///|
+test "remove unused module elements does not promote struct payloads through br_on_non_null" {
+  let mod = remove_unused_test_nullable_struct_global_funcref_carrier_module(
+    @lib.TInstr::drop(
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(
+          @lib.ValType::ref_type(
+            @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+          ),
+        ),
+        @lib.TExpr::new([
+          @lib.TInstr::br_on_non_null(
+            @lib.LabelIdx::new(0U),
+            @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+            [],
+          ),
+          @lib.TInstr::ref_null(@lib.HeapType::new(@lib.TypeIdx::new(1U))),
+        ]),
+      ),
+    ),
+  )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 2)
+    None => fail("expected global section")
+  }
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 1), 2U)
+  assert_true(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 2))
+}
+
+///|
+test "remove unused module elements does not promote struct payloads through br_on_cast" {
+  let mod = remove_unused_test_struct_global_funcref_carrier_module(
+    @lib.TInstr::drop(
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(
+          @lib.ValType::ref_type(
+            @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+          ),
+        ),
+        @lib.TExpr::new([
+          @lib.TInstr::br_on_cast(
+            @lib.LabelIdx::new(0U),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::any()),
+            false,
+            @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+            @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+            [],
+          ),
+        ]),
+      ),
+    ),
+  )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 2)
+    None => fail("expected global section")
+  }
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 1), 2U)
+  assert_true(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 2))
+}
+
+///|
+test "remove unused module elements does not promote struct payloads through br_on_cast_fail" {
+  let mod = remove_unused_test_struct_global_funcref_carrier_module(
+    @lib.TInstr::drop(
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(
+          @lib.ValType::ref_type(
+            @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+          ),
+        ),
+        @lib.TExpr::new([
+          @lib.TInstr::br_on_cast_fail(
+            @lib.LabelIdx::new(0U),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::any()),
+            false,
+            @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+            @lib.TInstr::global_get(@lib.GlobalIdx::new(0U)),
+            [],
+          ),
+        ]),
+      ),
+    ),
+  )
+
+  let optimized = remove_unused_test_run_with_features(
+    mod,
+    PipelineFeatures::new(has_gc=true, closed_world=true),
+  )
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 3)
+    None => fail("expected func section")
+  }
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 2)
+    None => fail("expected global section")
+  }
+  assert_eq(try! remove_unused_test_global_ref_func_target(optimized, 1), 2U)
+  assert_true(try! remove_unused_test_func_body_is_unreachable(optimized, 1))
+  assert_false(try! remove_unused_test_func_body_is_unreachable(optimized, 2))
+}
+
+///|
 test "remove unused module elements keeps only matching active elem segments for non-mutated indirectly called tables" {
   let mod = Module::new()
     .with_type_sec(remove_unused_test_two_type_sec())
