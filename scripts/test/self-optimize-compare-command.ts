@@ -34,6 +34,7 @@ export function runSelfOptimizeCompareCommandTest(): void {
   const outDir = path.join(tmpdir, "out");
   const starshineLog = path.join(tmpdir, "starshine.log");
   const binaryenLog = path.join(tmpdir, "binaryen.log");
+  const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
   fs.writeFileSync(inputPath, "input");
 
   const fakeStarshine = makeExecutable(
@@ -81,6 +82,16 @@ fs.writeFileSync(args[outIndex + 1], "binaryen-wasm");
 `,
   );
 
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.writeFileSync(process.env.FAKE_WASM_TOOLS_LOG, JSON.stringify(args, null, 2));
+process.exit(0);
+`,
+  );
+
   const result = spawnSync(
     "bun",
     [
@@ -92,6 +103,8 @@ fs.writeFileSync(args[outIndex + 1], "binaryen-wasm");
       fakeStarshine,
       "--wasm-opt-bin",
       fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
       "--duplicate-function-elimination",
       "--dead-code-elimination",
     ],
@@ -101,6 +114,7 @@ fs.writeFileSync(args[outIndex + 1], "binaryen-wasm");
         ...process.env,
         FAKE_STARSHINE_LOG: starshineLog,
         FAKE_BINARYEN_LOG: binaryenLog,
+        FAKE_WASM_TOOLS_LOG: wasmToolsLog,
       },
       encoding: "utf8",
     },
@@ -113,6 +127,11 @@ fs.writeFileSync(args[outIndex + 1], "binaryen-wasm");
   }
 
   const starshineArgs = JSON.parse(fs.readFileSync(starshineLog, "utf8")) as string[];
+  const wasmToolsArgs = JSON.parse(fs.readFileSync(wasmToolsLog, "utf8")) as string[];
+  assert(
+    JSON.stringify(wasmToolsArgs) === JSON.stringify(["validate", inputPath]),
+    `unexpected wasm-tools args:\n${JSON.stringify(wasmToolsArgs, null, 2)}`,
+  );
   assert(
     JSON.stringify(starshineArgs) === JSON.stringify([
       "--duplicate-function-elimination",

@@ -16,6 +16,7 @@ type SelfOptimizeCompareOptions = {
   moonBin: string;
   starshineBin: string | null;
   wasmOptBin: string;
+  wasmToolsBin: string;
   passFlags: string[];
 };
 
@@ -31,7 +32,13 @@ type ComparisonSummary = {
   normalizedWatEqual: boolean;
 };
 
-const RESERVED_OPTIONS = new Set(["--out-dir", "--starshine-bin", "--wasm-opt-bin", "--moon"]);
+const RESERVED_OPTIONS = new Set([
+  "--out-dir",
+  "--starshine-bin",
+  "--wasm-opt-bin",
+  "--wasm-tools-bin",
+  "--moon",
+]);
 
 const BINARYEN_FLAG_ALIASES = new Map<string, string>([
   ["--dead-code-elimination", "--dce"],
@@ -90,12 +97,25 @@ function normalizePrintWat(wasmOptBin: string, wasmPath: string, repoRoot: strin
   ).stdout;
 }
 
+function validateInputBaseline(wasmToolsBin: string, inputPath: string, repoRoot: string): void {
+  try {
+    runOrThrow(wasmToolsBin, ["validate", inputPath], {
+      cwd: repoRoot,
+      stdio: "pipe",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    fail(`input baseline is invalid and cannot be compared: ${inputPath}\n${message}`);
+  }
+}
+
 export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompareOptions {
   let inputPath: string | null = null;
   let outDir: string | null = null;
   let moonBin = resolveMoonBin();
   let starshineBin: string | null = null;
   let wasmOptBin = process.env.WASM_OPT_BIN || "wasm-opt";
+  let wasmToolsBin = process.env.WASM_TOOLS_BIN || "wasm-tools";
   const passFlags: string[] = [];
 
   for (let i = 0; i < argv.length; ) {
@@ -115,6 +135,10 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
         break;
       case "--moon":
         moonBin = argv[i + 1] ?? fail("missing value for --moon");
+        i += 2;
+        break;
+      case "--wasm-tools-bin":
+        wasmToolsBin = argv[i + 1] ?? fail("missing value for --wasm-tools-bin");
         i += 2;
         break;
       default:
@@ -148,6 +172,7 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
     moonBin,
     starshineBin,
     wasmOptBin,
+    wasmToolsBin,
     passFlags,
   };
 }
@@ -169,6 +194,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   }
 
   fs.mkdirSync(outDir, { recursive: true });
+  validateInputBaseline(options.wasmToolsBin, inputPath, repoRoot);
 
   const binaryenPassFlags = options.passFlags.map(normalizeBinaryenPassFlag);
   const starshineInvocation = resolveStarshineInvocation(

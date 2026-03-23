@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Scripts: reject invalid self-optimize compare baselines up front
+
+- **Compare baseline validation** by **@jtenner**. Updated [`scripts/lib/self-optimize-compare-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/self-optimize-compare-task.ts) so `self-optimize-compare` validates the input module before running either tool and fails immediately with the baseline validation error instead of reporting misleading pass-parity output for already-invalid fixtures.
+- Added harness coverage in [`scripts/test/self-optimize-compare-command.ts`](/home/jtenner/Projects/starshine-mb/scripts/test/self-optimize-compare-command.ts) for the new `wasm-tools validate` preflight and in [`scripts/test/self-optimize-compare-invalid-input.ts`](/home/jtenner/Projects/starshine-mb/scripts/test/self-optimize-compare-invalid-input.ts) for the invalid-baseline failure path.
+
 ## 2026-03-22 Binary: preserve typed control-flow parameter seeds during encoding
 
 - **Typed control-flow encoding repair** by **@jtenner**. Fixed module-context typed-function lowering in [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt) so `block`/`loop`/`if`/`try_table` instructions with `BlockType::type_idx(...)` hoist explicit parameter seed values back in front of the control instruction instead of leaving them buried inside the lowered body and corrupting raw stack form during encode.
