@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-23 Validation: align bun fuzz arg parsing with moon entrypoint
+
+- **Seed/output alias support in Bun fuzz wrapper** by **@jtenner**. Updated [`scripts/lib/fuzz-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/fuzz-task.ts) to accept `--seed=<hex>` and `--output=<text|jsonl>` in addition to the existing space-separated variants.
+
 ## 2026-03-23 Validation: strengthen validate-valid fuzz stability checks
 
 - **Validator fuzz stability hardening** by **@jtenner**. Updated [`src/fuzz/main.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/main.mbt) so the `validate-valid` suite now validates each generated module through binary encode/decode roundtrip before acceptance and exercises optional WAT roundtrip stability in CI/stress profiles. Added profile-tuned text-roundtrip attempts/stability floors and shared whitespace-normalized comparison logic.

@@ -32,6 +32,25 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
   const positional: string[] = [];
   for (let i = 0; i < argv.length; ) {
     const token = argv[i];
+    if (token.startsWith("--seed=")) {
+      options.seed = token.substring("--seed=".length);
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--output=")) {
+      switch (token.substring("--output=".length)) {
+        case "text":
+          options.output = "text";
+          break;
+        case "jsonl":
+          options.output = "jsonl";
+          break;
+        default:
+          fail("unknown output mode: " + (token.substring("--output=".length) ?? "<missing>"));
+      }
+      i += 1;
+      continue;
+    }
     switch (token) {
       case "--profile":
         options.profile = argv[i + 1] ?? fail("missing value for --profile");
@@ -166,7 +185,7 @@ export function main(argv: string[]): void {
   const [subcommand, ...rest] = argv;
   if (subcommand !== "run") {
     fail(
-      "usage: bun fuzz run [--profile <name>] [--suite <name>] [--seed <hex>] [--output text|jsonl|--jsonl] [--target <target>] [--moon <path>] [--list-suites|--list-profiles|--help]",
+      "usage: bun fuzz run [--profile <name>] [--suite <name>] [--seed <hex>|--seed=<hex>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>] [--moon <path>] [--list-suites|--list-profiles|--help]",
     );
   }
   runFuzz(parseFuzzRunArgs(rest));

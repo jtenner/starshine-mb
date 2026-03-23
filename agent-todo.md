@@ -139,7 +139,7 @@
   - blockers:
     - none currently; completed hardening blockers are now tracked in `CHANGELOG.md`.
   - risks:
-    - `bun fuzz run` still diverges from `src/fuzz` defaults and output features, so automation can drift by entrypoint until the wrapper surface is fully aligned.
+    - none currently.
   - implementation features:
     - none currently; validator fuzz implementation features are currently folded into `CHANGELOG.md` milestones.
 - String compatibility:
