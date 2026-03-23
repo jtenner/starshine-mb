@@ -107,6 +107,10 @@ Useful variant commands:
 
 ```bash
 bun fuzz run --suite <suite> --profile <profile> --seed <seed> --target <target>
+bun fuzz run --profile <profile> --suite <suite> --output jsonl
+bun fuzz run --list-suites
+bun fuzz run --list-profiles
+bun fuzz run --help
 bun validate coverage
 bun validate readme-api-sync
 ```
