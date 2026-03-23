@@ -1673,12 +1673,10 @@ fn optimization_dead_code_elimination_block_escapes_parent(
   if body_instrs.length() == 0 {
     return false
   }
-  if !optimization_dead_code_elimination_instr_escapes_enclosing_expr(
+  if !optimization_dead_code_elimination_instr_tail_escapes_parent(
       body_instrs[body_instrs.length() - 1],
+      0,
     ) {
-    return false
-  }
-  if optimization_dead_code_elimination_expr_has_live_break_to_label(body, 0) {
     return false
   }
   if body_instrs.length() <= 1 {
@@ -1687,6 +1685,12 @@ fn optimization_dead_code_elimination_block_escapes_parent(
   let prefix : Array[@lib.TInstr] = []
   for i in 0..<(body_instrs.length() - 1) {
     prefix.push(body_instrs[i])
+  }
+  if optimization_dead_code_elimination_expr_has_live_break_to_label(
+      @lib.TExpr::new(prefix),
+      0,
+    ) {
+    return false
   }
   !optimization_dead_code_elimination_expr_has_live_break_to_label(
     @lib.TExpr::new(prefix),
@@ -2421,15 +2425,23 @@ fn optimization_dead_code_elimination_truncate_after_first_unreachable(
   let kept : Array[@lib.TInstr] = []
   for instr in instrs {
     if optimization_dead_code_elimination_instr_terminates_current_expr(instr) {
-      kept.push(
+      let cleaned_prefix : Array[@lib.TInstr] = []
+      for kept_instr in kept {
+        cleaned_prefix.push(
+          optimization_dead_code_elimination_drop_dead_structured_result(
+            kept_instr,
+          ),
+        )
+      }
+      cleaned_prefix.push(
         optimization_dead_code_elimination_drop_dead_structured_result(instr),
       )
       if optimization_dead_code_elimination_instr_needs_unreachable_barrier(
           instr,
         ) {
-        kept.push(@lib.TInstr::unreachable_())
+        cleaned_prefix.push(@lib.TInstr::unreachable_())
       }
-      break
+      return cleaned_prefix
     }
     kept.push(instr)
   }
@@ -2467,8 +2479,9 @@ fn optimization_dead_code_elimination_drop_dead_structured_result(
       }
     @lib.TBlock(block_type, body) =>
       if optimization_dead_code_elimination_block_type_is_concrete(block_type) &&
-        optimization_dead_code_elimination_block_escapes_parent(
-          block_type, body,
+        optimization_dead_code_elimination_expr_tail_escapes_parent(body, 0) &&
+        !optimization_dead_code_elimination_expr_has_live_break_to_label(
+          body, 0,
         ) {
         @lib.TInstr::block(
           @lib.BlockType::void_(),
@@ -2480,15 +2493,15 @@ fn optimization_dead_code_elimination_drop_dead_structured_result(
         instr
       }
     @lib.TLoop(block_type, body) =>
-      if optimization_dead_code_elimination_block_type_is_concrete(block_type) {
-        @lib.TInstr::loop_(
-          @lib.BlockType::void_(),
-          optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-            body,
-          ),
-        )
-      } else {
-        instr
+      match block_type {
+        @lib.ValTypeBlockType(_) =>
+          @lib.TInstr::loop_(
+            @lib.BlockType::void_(),
+            optimization_dead_code_elimination_drop_dead_terminal_expr_result(
+              body,
+            ),
+          )
+        _ => instr
       }
     @lib.TTryTable(block_type, catches, body) =>
       if optimization_dead_code_elimination_block_type_is_concrete(block_type) &&
@@ -2561,31 +2574,6 @@ fn optimization_dead_code_elimination_instr_terminates_current_expr(
     | @lib.TThrowRef(_)
     | @lib.TBr(_, _)
     | @lib.TBrTable(_, _, _, _) =>
-      !optimization_dead_code_elimination_instr_pre_effects_may_escape(instr)
-    @lib.TTryTable(_, _, body) =>
-      optimization_dead_code_elimination_try_table_is_unreachable(body)
-    @lib.TIf(_, cond, then_body, else_body) =>
-      optimization_dead_code_elimination_if_is_unreachable(
-        cond, then_body, else_body,
-      )
-    @lib.TBlock(block_type, body) =>
-      optimization_dead_code_elimination_block_escapes_parent(block_type, body)
-    _ => false
-  }
-}
-
-///|
-fn optimization_dead_code_elimination_instr_escapes_enclosing_expr(
-  instr : @lib.TInstr,
-) -> Bool {
-  match instr.kind {
-    @lib.TUnreachable
-    | @lib.TReturn(_)
-    | @lib.TReturnCall(_, _)
-    | @lib.TReturnCallIndirect(_, _, _, _)
-    | @lib.TReturnCallRef(_, _, _)
-    | @lib.TThrow(_, _)
-    | @lib.TThrowRef(_) =>
       !optimization_dead_code_elimination_instr_pre_effects_may_escape(instr)
     @lib.TTryTable(_, _, body) =>
       optimization_dead_code_elimination_try_table_is_unreachable(body)

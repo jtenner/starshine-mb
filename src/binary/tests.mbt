@@ -1540,6 +1540,135 @@ test "encode_module roundtrips pre-lifted nested branch ladder that skips later 
 }
 
 ///|
+test "encode_module roundtrips pre-lifted return branch-payload bypass fixture" {
+  let raw_mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+        RecType::new(
+          SubType::comp_type(CompType::func([ValType::i32()], [ValType::i64()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::drop(),
+          ]),
+        ),
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([
+                Instruction::block(
+                  BlockType::val_type(ValType::i32()),
+                  Expr::new([
+                    Instruction::block(
+                      BlockType::void_(),
+                      Expr::new([
+                        Instruction::i32_const(I32(1)),
+                        Instruction::if_(
+                          BlockType::val_type(ValType::i32()),
+                          [
+                            Instruction::i32_const(I32(0)),
+                            Instruction::if_(
+                              BlockType::val_type(ValType::i32()),
+                              [Instruction::local_get(LocalIdx::new(0U))],
+                              Some([
+                                Instruction::local_get(LocalIdx::new(0U)),
+                                Instruction::call(FuncIdx::new(0U)),
+                                Instruction::br(LabelIdx::new(2U)),
+                              ]),
+                            ),
+                          ],
+                          Some([
+                            Instruction::local_get(LocalIdx::new(0U)),
+                            Instruction::call(FuncIdx::new(0U)),
+                            Instruction::br(LabelIdx::new(1U)),
+                          ]),
+                        ),
+                        Instruction::br(LabelIdx::new(1U)),
+                      ]),
+                    ),
+                    Instruction::unreachable_(),
+                  ]),
+                ),
+                Instruction::local_get(LocalIdx::new(0U)),
+                Instruction::call(FuncIdx::new(0U)),
+                Instruction::i64_const(I64(4294967296L)),
+                Instruction::return_(),
+              ]),
+            ),
+            Instruction::unreachable_(),
+          ]),
+        ),
+      ]),
+    )
+  let env = @validate.Env::new().with_module(raw_mod)
+  let typed_main = match
+    @validate.to_texpr(
+      match raw_mod.code_sec {
+        Some(CodeSec([_, Func(_, expr)])) => expr
+        _ => abort("expected raw return branch-payload bypass body")
+      },
+      env
+      .with_locals(Locals::from_types([ValType::i32()]))
+      .with_labels([[ValType::i64()]])
+      .with_return_type(Some([ValType::i64()])),
+    ) {
+    Ok(texpr) => texpr
+    Err(e) =>
+      fail("expected pre-lift return branch-payload bypass success, got \{e}")
+  }
+  let mod = raw_mod.with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::drop(),
+        ]),
+      ),
+      Func::t_func([ValType::i32()], Locals::empty(), typed_main),
+    ]),
+  )
+  match @validate.validate_module(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected typed return branch-payload bypass fixture to validate before encode, got \{@validate.validation_error_message(e)}",
+      )
+  }
+  let wasm = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) =>
+      fail(
+        "expected typed return branch-payload bypass encode success, got \{e}",
+      )
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected typed return branch-payload bypass decode success, got \{e}",
+      )
+  }
+  match @validate.validate_module(decoded) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected typed return branch-payload bypass fixture to stay valid after encode, got \{@validate.validation_error_message(e)}",
+      )
+  }
+}
+
+///|
 test "decode_module accepts elem header 6 with explicit reftype and roundtrips module semantics" {
   let wasm = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x09\x0b\x01\x06\x00\x41\x00\x0b\x70\x01\xd2\x00\x0b"
   let mod = match decode_module(wasm) {

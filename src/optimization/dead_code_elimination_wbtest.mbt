@@ -588,7 +588,7 @@ test "dead code elimination retags concrete block when only outer breaks remain"
   )
   assert_eq(body, [
     @lib.TInstr::block(
-      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.BlockType::void_(),
       @lib.TExpr::new([
         @lib.TInstr::block(
           @lib.BlockType::void_(),
@@ -613,9 +613,10 @@ test "dead code elimination retags concrete block when only outer breaks remain"
             ),
           ]),
         ),
-        @lib.TInstr::i32_const(@lib.I32::new(7)),
+        @lib.TInstr::unreachable_(),
       ]),
     ),
+    @lib.TInstr::unreachable_(),
   ])
 }
 
@@ -774,6 +775,105 @@ test "dead code elimination retags concrete if when both arms only break out to 
     ),
     @lib.TInstr::i32_const(@lib.I32::new(7)),
   ])
+}
+
+///|
+test "dead code elimination keeps type-index loop block types during dead-result cleanup" {
+  let loop_instr = @lib.TInstr::loop_(
+    @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+    @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+  )
+  match
+    optimization_dead_code_elimination_drop_dead_structured_result(loop_instr).kind {
+    @lib.TLoop(block_type, body) => {
+      assert_eq(block_type, @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)))
+      assert_eq(body.inner(), [@lib.TInstr::unreachable_()])
+    }
+    _ => fail("expected loop to remain a loop")
+  }
+}
+
+///|
+test "dead code elimination retags dead concrete prefix blocks before terminal returns" {
+  let body = dead_code_elimination_test_result_body_unchecked(
+    [@lib.ValType::i64()],
+    [
+      @lib.TInstr::block(
+        @lib.BlockType::void_(),
+        @lib.TExpr::new([
+          @lib.TInstr::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])]),
+          ),
+          @lib.TInstr::return_([@lib.TInstr::i64_const(@lib.I64::new(42L))]),
+        ]),
+      ),
+    ],
+  )
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::block(
+          @lib.BlockType::void_(),
+          @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])]),
+        ),
+        @lib.TInstr::unreachable_(),
+      ]),
+    ),
+  ])
+}
+
+///|
+test "dead code elimination keeps concrete block types with live current-label branch values" {
+  let instr = @lib.TInstr::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.TExpr::new([
+      @lib.TInstr::block(
+        @lib.BlockType::void_(),
+        @lib.TExpr::new([
+          @lib.TInstr::br(@lib.LabelIdx::new(1U), [
+            @lib.TInstr::i32_const(@lib.I32::new(7)),
+          ]),
+        ]),
+      ),
+    ]),
+  )
+  assert_eq(
+    optimization_dead_code_elimination_drop_dead_structured_result(instr),
+    instr,
+  )
+}
+
+///|
+test "dead code elimination treats branch-value escape blocks as terminal" {
+  let body = @lib.TExpr::new([
+    @lib.TInstr::br(@lib.LabelIdx::new(1U), [
+      @lib.TInstr::if_(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.TInstr::i32_const(@lib.I32::new(1)),
+        @lib.TExpr::new([
+          @lib.TInstr::if_(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.TInstr::i32_const(@lib.I32::new(1)),
+            @lib.TExpr::new([@lib.TInstr::i32_const(@lib.I32::new(7))]),
+            Some(@lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(2U), [])])),
+          ),
+        ]),
+        Some(@lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])])),
+      ),
+    ]),
+  ])
+  assert_eq(
+    optimization_dead_code_elimination_truncate_after_first_unreachable([
+      @lib.TInstr::block(@lib.BlockType::void_(), body),
+      @lib.TInstr::return_([@lib.TInstr::i64_const(@lib.I64::new(42L))]),
+    ]),
+    [
+      @lib.TInstr::block(@lib.BlockType::void_(), body),
+      @lib.TInstr::unreachable_(),
+    ],
+  )
 }
 
 ///|
@@ -1106,7 +1206,7 @@ test "dead code elimination may retag nested result-typed ifs whose arms escape 
         ]),
       ]),
     ),
-    @lib.TInstr::i32_const(@lib.I32::new(0)),
+    @lib.TInstr::unreachable_(),
   ])
 }
 

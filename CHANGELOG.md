@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Validation: keep live current-label branch targets concrete during DCE dead-result cleanup
+
+- **DCE live-branch retag guard** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so dead-result cleanup no longer retags a concrete `block` to `void` when the block body still contains a live branch targeting that block’s own label. That keeps branch payload expectations aligned with the surviving target block type instead of producing a later invalid encode/decode mismatch.
+- Added focused regressions in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt), [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt), and [`src/binary/tests.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/tests.mbt) for current-label branch-value dead-result cleanup, the reduced raw return branch-payload bypass fixture, and the matching pre-lifted binary roundtrip.
+- This slice removes the later invalid direct-DCE `Func 3175` family on the fresh release artifact, but the earlier `Func 716` direct-DCE blocker remains as the next live parity target.
+
 ## 2026-03-23 Validation: recursively drop dead terminal structured results during DCE truncation
 
 - **DCE recursive dead-result cleanup** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the structured dead-tail truncation path now drops dead terminal result types recursively instead of only at the outermost instruction. When DCE truncates an enclosing expression after a terminal `if` / `block` / `try_table`, the pass now also rewrites the terminal result-carrying child expression that became dead under that truncation, including nested `loop` results in taken arms.
