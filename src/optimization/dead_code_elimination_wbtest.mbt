@@ -701,10 +701,9 @@ test "dead code elimination sees prefix parent-label breaks through nested ifs" 
       ]),
     ),
     @lib.TInstr::i32_const(@lib.I32::new(0)),
-    @lib.TInstr::br(
-      @lib.LabelIdx::new(0U),
-      [@lib.TInstr::i32_const(@lib.I32::new(1))],
-    ),
+    @lib.TInstr::br(@lib.LabelIdx::new(0U), [
+      @lib.TInstr::i32_const(@lib.I32::new(1)),
+    ]),
   ])
   assert_true(
     optimization_dead_code_elimination_expr_has_live_break_to_label(body, 1),
@@ -715,6 +714,178 @@ test "dead code elimination sees prefix parent-label breaks through nested ifs" 
       body,
     ),
   )
+}
+
+///|
+test "dead code elimination sees mixed current and outer breaks before payload tail" {
+  let body = @lib.TExpr::new([
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::if_(
+          @lib.BlockType::void_(),
+          @lib.TInstr::i32_const(@lib.I32::new(1)),
+          @lib.TExpr::new([
+            @lib.TInstr::if_(
+              @lib.BlockType::void_(),
+              @lib.TInstr::i32_const(@lib.I32::new(1)),
+              @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(2U), [])]),
+              Some(
+                @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(3U), [])]),
+              ),
+            ),
+          ]),
+          Some(
+            @lib.TExpr::new([
+              @lib.TInstr::return_([@lib.TInstr::i32_const(@lib.I32::new(0))]),
+            ]),
+          ),
+        ),
+      ]),
+    ),
+    @lib.TInstr::i32_const(@lib.I32::new(0)),
+    @lib.TInstr::br(@lib.LabelIdx::new(0U), [
+      @lib.TInstr::i32_const(@lib.I32::new(1)),
+    ]),
+  ])
+  assert_false(
+    optimization_dead_code_elimination_block_escapes_parent(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      body,
+    ),
+  )
+}
+
+///|
+test "dead code elimination sees deep label-five current breaks before payload tail" {
+  let body = @lib.TExpr::new([
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::if_(
+          @lib.BlockType::void_(),
+          @lib.TInstr::i32_const(@lib.I32::new(1)),
+          @lib.TExpr::new([
+            @lib.TInstr::if_(
+              @lib.BlockType::void_(),
+              @lib.TInstr::i32_const(@lib.I32::new(1)),
+              @lib.TExpr::new([
+                @lib.TInstr::if_(
+                  @lib.BlockType::void_(),
+                  @lib.TInstr::i32_const(@lib.I32::new(1)),
+                  @lib.TExpr::new([
+                    @lib.TInstr::if_(
+                      @lib.BlockType::void_(),
+                      @lib.TInstr::i32_const(@lib.I32::new(1)),
+                      @lib.TExpr::new([
+                        @lib.TInstr::br(@lib.LabelIdx::new(5U), []),
+                      ]),
+                      Some(
+                        @lib.TExpr::new([
+                          @lib.TInstr::return_([
+                            @lib.TInstr::i32_const(@lib.I32::new(0)),
+                          ]),
+                        ]),
+                      ),
+                    ),
+                  ]),
+                  Some(
+                    @lib.TExpr::new([
+                      @lib.TInstr::return_([
+                        @lib.TInstr::i32_const(@lib.I32::new(0)),
+                      ]),
+                    ]),
+                  ),
+                ),
+              ]),
+              Some(
+                @lib.TExpr::new([
+                  @lib.TInstr::return_([
+                    @lib.TInstr::i32_const(@lib.I32::new(0)),
+                  ]),
+                ]),
+              ),
+            ),
+          ]),
+          Some(
+            @lib.TExpr::new([
+              @lib.TInstr::return_([@lib.TInstr::i32_const(@lib.I32::new(0))]),
+            ]),
+          ),
+        ),
+      ]),
+    ),
+    @lib.TInstr::i32_const(@lib.I32::new(0)),
+    @lib.TInstr::br(@lib.LabelIdx::new(0U), [
+      @lib.TInstr::i32_const(@lib.I32::new(1)),
+    ]),
+  ])
+  assert_true(
+    optimization_dead_code_elimination_expr_has_live_break_to_label(body, 0),
+  )
+  assert_false(
+    optimization_dead_code_elimination_block_escapes_parent(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      body,
+    ),
+  )
+}
+
+///|
+test "dead code elimination does not treat current-label if breaks as truncating" {
+  let then_body = @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(0U), [])])
+  let else_body = Some(
+    @lib.TExpr::new([
+      @lib.TInstr::return_([@lib.TInstr::i32_const(@lib.I32::new(0))]),
+    ]),
+  )
+  assert_false(
+    optimization_dead_code_elimination_if_is_unreachable(
+      @lib.TInstr::i32_const(@lib.I32::new(1)),
+      then_body,
+      else_body,
+    ),
+  )
+}
+
+///|
+test "dead code elimination preserves result tails after current-label if breaks" {
+  let body = dead_code_elimination_test_result_body([@lib.ValType::i32()], [
+    @lib.TInstr::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.TExpr::new([
+        @lib.TInstr::if_(
+          @lib.BlockType::void_(),
+          @lib.TInstr::i32_const(@lib.I32::new(1)),
+          @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(0U), [])]),
+          Some(
+            @lib.TExpr::new([
+              @lib.TInstr::return_([@lib.TInstr::i32_const(@lib.I32::new(0))]),
+            ]),
+          ),
+        ),
+        @lib.TInstr::i32_const(@lib.I32::new(7)),
+      ]),
+    ),
+  ])
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.TExpr::new([
+        @lib.TInstr::if_(
+          @lib.BlockType::void_(),
+          @lib.TInstr::i32_const(@lib.I32::new(1)),
+          @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(0U), [])]),
+          Some(
+            @lib.TExpr::new([
+              @lib.TInstr::return_([@lib.TInstr::i32_const(@lib.I32::new(0))]),
+            ]),
+          ),
+        ),
+        @lib.TInstr::i32_const(@lib.I32::new(7)),
+      ]),
+    ),
+  ])
 }
 
 ///|

@@ -1114,9 +1114,7 @@ fn optimization_dead_code_elimination_rewrite_instr(
         block_type, catches, body,
       )
     @lib.TBr(label, values) =>
-      optimization_dead_code_elimination_rewrite_unary(values, fn(args) {
-        @lib.TInstr::br(label, args)
-      })
+      optimization_dead_code_elimination_rewrite_branch(label, values)
     @lib.TBrIf(label, cond, values) =>
       optimization_dead_code_elimination_rewrite_branch_if(label, cond, values)
     @lib.TBrTable(labels, default_label, idx, values) =>
@@ -1292,11 +1290,25 @@ fn optimization_dead_code_elimination_rewrite_branch_on_ref(
   let children : Array[@lib.TInstr] = values.copy()
   children.push(ref_)
   match
-    optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
+    optimization_dead_code_elimination_preserve_prefix_effects_then_strict_terminal(
       children,
     ) {
     Some(rewritten) => rewritten
     None => rebuild(values, ref_)
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_rewrite_branch(
+  label : @lib.LabelIdx,
+  values : Array[@lib.TInstr],
+) -> @lib.TInstr {
+  match
+    optimization_dead_code_elimination_preserve_prefix_effects_then_strict_terminal(
+      values,
+    ) {
+    Some(rewritten) => rewritten
+    None => @lib.TInstr::br(label, values)
   }
 }
 
@@ -1309,7 +1321,7 @@ fn optimization_dead_code_elimination_rewrite_branch_if(
   let children : Array[@lib.TInstr] = values.copy()
   children.push(cond)
   match
-    optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
+    optimization_dead_code_elimination_preserve_prefix_effects_then_strict_terminal(
       children,
     ) {
     Some(rewritten) => rewritten
@@ -1327,7 +1339,7 @@ fn optimization_dead_code_elimination_rewrite_branch_table(
   let children : Array[@lib.TInstr] = values.copy()
   children.push(idx)
   match
-    optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
+    optimization_dead_code_elimination_preserve_prefix_effects_then_strict_terminal(
       children,
     ) {
     Some(rewritten) => rewritten
@@ -1474,6 +1486,51 @@ fn optimization_dead_code_elimination_preserve_prefix_effects_then_unreachable(
 }
 
 ///|
+fn optimization_dead_code_elimination_preserve_prefix_effects_then_strict_terminal(
+  children : Array[@lib.TInstr],
+) -> @lib.TInstr? {
+  let kept : Array[@lib.TInstr] = []
+  let mut found_terminal = false
+  for child in children {
+    if found_terminal {
+      continue
+    }
+    if optimization_dead_code_elimination_instr_is_strict_terminal(child) {
+      kept.push(child)
+      found_terminal = true
+    } else {
+      kept.push(@lib.TInstr::drop(child))
+    }
+  }
+  if !found_terminal {
+    return None
+  }
+  if kept.length() == 1 {
+    return Some(kept[0])
+  }
+  Some(@lib.TInstr::block(@lib.BlockType::void_(), @lib.TExpr::new(kept)))
+}
+
+///|
+fn optimization_dead_code_elimination_instr_is_strict_terminal(
+  instr : @lib.TInstr,
+) -> Bool {
+  match instr.kind {
+    @lib.TUnreachable
+    | @lib.TReturn(_)
+    | @lib.TReturnCall(_, _)
+    | @lib.TReturnCallIndirect(_, _, _, _)
+    | @lib.TReturnCallRef(_, _, _)
+    | @lib.TThrow(_, _)
+    | @lib.TThrowRef(_)
+    | @lib.TBr(_, _)
+    | @lib.TBrTable(_, _, _, _) =>
+      !optimization_dead_code_elimination_instr_pre_effects_may_escape(instr)
+    _ => false
+  }
+}
+
+///|
 fn optimization_dead_code_elimination_expr_is_unreachable(
   expr : @lib.TExpr,
 ) -> Bool {
@@ -1507,9 +1564,80 @@ fn optimization_dead_code_elimination_if_is_unreachable(
   }
   match else_body {
     Some(else_body) =>
-      optimization_dead_code_elimination_expr_is_unreachable(then_body) &&
-      optimization_dead_code_elimination_expr_is_unreachable(else_body)
+      optimization_dead_code_elimination_expr_tail_escapes_parent(then_body, 0) &&
+      optimization_dead_code_elimination_expr_tail_escapes_parent(else_body, 0)
     None => false
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_expr_tail_escapes_parent(
+  expr : @lib.TExpr,
+  current_depth : Int,
+) -> Bool {
+  match expr.inner() {
+    [] => false
+    instrs =>
+      optimization_dead_code_elimination_instr_tail_escapes_parent(
+        instrs[instrs.length() - 1],
+        current_depth,
+      )
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_instr_tail_escapes_parent(
+  instr : @lib.TInstr,
+  current_depth : Int,
+) -> Bool {
+  match instr.kind {
+    @lib.TUnreachable
+    | @lib.TReturn(_)
+    | @lib.TReturnCall(_, _)
+    | @lib.TReturnCallIndirect(_, _, _, _)
+    | @lib.TReturnCallRef(_, _, _)
+    | @lib.TThrow(_, _)
+    | @lib.TThrowRef(_) => true
+    @lib.TBr(label, _) => {
+      let @lib.LabelIdx(raw) = label
+      raw.reinterpret_as_int() > current_depth
+    }
+    @lib.TBrTable(labels, default_label, _, _) => {
+      let @lib.LabelIdx(default_raw) = default_label
+      if default_raw.reinterpret_as_int() <= current_depth {
+        return false
+      }
+      for label in labels {
+        let @lib.LabelIdx(raw) = label
+        if raw.reinterpret_as_int() <= current_depth {
+          return false
+        }
+      }
+      true
+    }
+    @lib.TBlock(_, body) | @lib.TLoop(_, body) | @lib.TTryTable(_, _, body) =>
+      optimization_dead_code_elimination_expr_tail_escapes_parent(
+        body,
+        current_depth + 1,
+      )
+    @lib.TIf(_, cond, then_body, else_body) => {
+      if optimization_dead_code_elimination_instr_is_unreachable(cond) {
+        return true
+      }
+      match else_body {
+        Some(else_body) =>
+          optimization_dead_code_elimination_expr_tail_escapes_parent(
+            then_body,
+            current_depth + 1,
+          ) &&
+          optimization_dead_code_elimination_expr_tail_escapes_parent(
+            else_body,
+            current_depth + 1,
+          )
+        None => false
+      }
+    }
+    _ => false
   }
 }
 

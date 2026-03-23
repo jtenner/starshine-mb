@@ -655,6 +655,298 @@ fn generated_pipeline_raw_outer_break_result_block_module() -> Module {
 }
 
 ///|
+fn generated_pipeline_raw_branch_payload_if_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::block(
+                @lib.BlockType::void_(),
+                @lib.Expr::new([
+                  @lib.Instruction::i32_const(@lib.I32::new(1)),
+                  @lib.Instruction::if_(
+                    @lib.BlockType::val_type(@lib.ValType::i32()),
+                    [
+                      @lib.Instruction::i32_const(@lib.I32::new(1)),
+                      @lib.Instruction::if_(
+                        @lib.BlockType::val_type(@lib.ValType::i32()),
+                        [@lib.Instruction::i32_const(@lib.I32::new(7))],
+                        Some([@lib.Instruction::br(@lib.LabelIdx::new(2U))]),
+                      ),
+                    ],
+                    Some([@lib.Instruction::br(@lib.LabelIdx::new(1U))]),
+                  ),
+                  @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn generated_pipeline_raw_dead_result_branch_payload_if_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i64()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32::new(1)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [
+              @lib.Instruction::block(
+                @lib.BlockType::val_type(@lib.ValType::i32()),
+                @lib.Expr::new([
+                  @lib.Instruction::block(
+                    @lib.BlockType::void_(),
+                    @lib.Expr::new([
+                      @lib.Instruction::i32_const(@lib.I32::new(1)),
+                      @lib.Instruction::if_(
+                        @lib.BlockType::val_type(@lib.ValType::i32()),
+                        [
+                          @lib.Instruction::i32_const(@lib.I32::new(1)),
+                          @lib.Instruction::if_(
+                            @lib.BlockType::val_type(@lib.ValType::i32()),
+                            [
+                              @lib.Instruction::local_get(
+                                @lib.LocalIdx::new(0U),
+                              ),
+                            ],
+                            Some([@lib.Instruction::br(@lib.LabelIdx::new(2U))]),
+                          ),
+                        ],
+                        Some([@lib.Instruction::br(@lib.LabelIdx::new(1U))]),
+                      ),
+                      @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                    ]),
+                  ),
+                ]),
+              ),
+              @lib.Instruction::i64_const(@lib.I64::new(42L)),
+              @lib.Instruction::return_(),
+            ],
+            Some([
+              @lib.Instruction::i64_const(@lib.I64::new(0L)),
+              @lib.Instruction::return_(),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn generated_pipeline_typed_dead_result_branch_payload_if_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i64()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::t_func(
+        [@lib.ValType::i32()],
+        @lib.Locals::empty(),
+        @lib.TExpr::new([
+          @lib.TInstr::block(
+            @lib.BlockType::void_(),
+            @lib.TExpr::new([
+              @lib.TInstr::block(
+                @lib.BlockType::val_type(@lib.ValType::i32()),
+                @lib.TExpr::new([
+                  @lib.TInstr::block(
+                    @lib.BlockType::void_(),
+                    @lib.TExpr::new([
+                      @lib.TInstr::br(@lib.LabelIdx::new(1U), [
+                        @lib.TInstr::if_(
+                          @lib.BlockType::val_type(@lib.ValType::i32()),
+                          @lib.TInstr::i32_const(@lib.I32::new(1)),
+                          @lib.TExpr::new([
+                            @lib.TInstr::if_(
+                              @lib.BlockType::val_type(@lib.ValType::i32()),
+                              @lib.TInstr::i32_const(@lib.I32::new(1)),
+                              @lib.TExpr::new([
+                                @lib.TInstr::local_get(@lib.LocalIdx::new(0U)),
+                              ]),
+                              Some(
+                                @lib.TExpr::new([
+                                  @lib.TInstr::br(@lib.LabelIdx::new(2U), []),
+                                ]),
+                              ),
+                            ),
+                          ]),
+                          Some(
+                            @lib.TExpr::new([
+                              @lib.TInstr::br(@lib.LabelIdx::new(1U), []),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                    ]),
+                  ),
+                  @lib.TInstr::return_([
+                    @lib.TInstr::i64_const(@lib.I64::new(42L)),
+                  ]),
+                ]),
+              ),
+              @lib.TInstr::return_([@lib.TInstr::i64_const(@lib.I64::new(0L))]),
+            ]),
+          ),
+          @lib.TInstr::i64_const(@lib.I64::new(1L)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn generated_pipeline_typed_nested_dead_result_branch_payload_if_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i64()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::t_func(
+        [@lib.ValType::i32()],
+        @lib.Locals::empty(),
+        @lib.TExpr::new([
+          @lib.TInstr::block(
+            @lib.BlockType::void_(),
+            @lib.TExpr::new([
+              @lib.TInstr::block(
+                @lib.BlockType::val_type(@lib.ValType::i32()),
+                @lib.TExpr::new([
+                  @lib.TInstr::block(
+                    @lib.BlockType::void_(),
+                    @lib.TExpr::new([
+                      @lib.TInstr::br(@lib.LabelIdx::new(1U), [
+                        @lib.TInstr::if_(
+                          @lib.BlockType::val_type(@lib.ValType::i32()),
+                          @lib.TInstr::i32_const(@lib.I32::new(1)),
+                          @lib.TExpr::new([
+                            @lib.TInstr::block(
+                              @lib.BlockType::val_type(@lib.ValType::i32()),
+                              @lib.TExpr::new([
+                                @lib.TInstr::block(
+                                  @lib.BlockType::void_(),
+                                  @lib.TExpr::new([
+                                    @lib.TInstr::br(@lib.LabelIdx::new(1U), [
+                                      @lib.TInstr::if_(
+                                        @lib.BlockType::val_type(
+                                          @lib.ValType::i32(),
+                                        ),
+                                        @lib.TInstr::i32_const(@lib.I32::new(1)),
+                                        @lib.TExpr::new([
+                                          @lib.TInstr::if_(
+                                            @lib.BlockType::val_type(
+                                              @lib.ValType::i32(),
+                                            ),
+                                            @lib.TInstr::i32_const(
+                                              @lib.I32::new(1),
+                                            ),
+                                            @lib.TExpr::new([
+                                              @lib.TInstr::local_get(
+                                                @lib.LocalIdx::new(0U),
+                                              ),
+                                            ]),
+                                            Some(
+                                              @lib.TExpr::new([
+                                                @lib.TInstr::br(
+                                                  @lib.LabelIdx::new(2U),
+                                                  [],
+                                                ),
+                                              ]),
+                                            ),
+                                          ),
+                                        ]),
+                                        Some(
+                                          @lib.TExpr::new([
+                                            @lib.TInstr::br(
+                                              @lib.LabelIdx::new(1U),
+                                              [],
+                                            ),
+                                          ]),
+                                        ),
+                                      ),
+                                    ]),
+                                  ]),
+                                ),
+                                @lib.TInstr::return_([
+                                  @lib.TInstr::i64_const(@lib.I64::new(42L)),
+                                ]),
+                              ]),
+                            ),
+                          ]),
+                          Some(
+                            @lib.TExpr::new([
+                              @lib.TInstr::return_([
+                                @lib.TInstr::i64_const(@lib.I64::new(0L)),
+                              ]),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                    ]),
+                  ),
+                  @lib.TInstr::return_([
+                    @lib.TInstr::i64_const(@lib.I64::new(9L)),
+                  ]),
+                ]),
+              ),
+              @lib.TInstr::return_([@lib.TInstr::i64_const(@lib.I64::new(1L))]),
+            ]),
+          ),
+          @lib.TInstr::i64_const(@lib.I64::new(2L)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn generated_pipeline_dead_branch_drop_lowered(optimized : Module) -> Bool {
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => {
@@ -1002,6 +1294,177 @@ test "run_generated_pipeline_with_options dead code elimination retags outer-bre
     Err(e) =>
       fail(
         "expected generated DCE outer-break result block output to stay valid after encode: \{validation_error_message(e)}",
+      )
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options dead code elimination keeps branch-payload if encodable" {
+  let mod = generated_pipeline_raw_branch_payload_if_module()
+  let pipeline = cmd_generated_pipeline_from_flags(
+    mod,
+    ["dead-code-elimination"],
+    OptimizeOptions::new(),
+  )
+  let optimized = match
+    run_generated_pipeline_with_options(mod, pipeline, OptimizeOptions::new()) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected generated DCE branch-payload if pipeline success: \{e}")
+  }
+  let wasm = match encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(e) =>
+      fail("expected generated DCE branch-payload if encode success: \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected generated DCE branch-payload if decode success: \{e}")
+  }
+  match validate_module(decoded) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected generated DCE branch-payload if output to stay valid after encode: \{validation_error_message(e)}",
+      )
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options dead code elimination keeps dead result branch-payload if encodable" {
+  let mod = generated_pipeline_raw_dead_result_branch_payload_if_module()
+  let pipeline = cmd_generated_pipeline_from_flags(
+    mod,
+    ["dead-code-elimination"],
+    OptimizeOptions::new(),
+  )
+  let optimized = match
+    run_generated_pipeline_with_options(mod, pipeline, OptimizeOptions::new()) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected generated DCE dead result branch-payload if pipeline success: \{e}",
+      )
+  }
+  let wasm = match encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(e) =>
+      fail(
+        "expected generated DCE dead result branch-payload if encode success: \{e}",
+      )
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected generated DCE dead result branch-payload if decode success: \{e}",
+      )
+  }
+  match validate_module(decoded) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected generated DCE dead result branch-payload if output to stay valid after encode: \{validation_error_message(e)}",
+      )
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options dead code elimination keeps typed dead result branch-payload if encodable" {
+  let mod = generated_pipeline_typed_dead_result_branch_payload_if_module()
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected typed generated DCE dead result branch-payload if fixture to validate before optimize: \{validation_error_message(e)}",
+      )
+  }
+  let pipeline = cmd_generated_pipeline_from_flags(
+    mod,
+    ["dead-code-elimination"],
+    OptimizeOptions::new(),
+  )
+  let optimized = match
+    run_generated_pipeline_with_options(mod, pipeline, OptimizeOptions::new()) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected typed generated DCE dead result branch-payload if pipeline success: \{e}",
+      )
+  }
+  let wasm = match encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(e) =>
+      fail(
+        "expected typed generated DCE dead result branch-payload if encode success: \{e}",
+      )
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected typed generated DCE dead result branch-payload if decode success: \{e}",
+      )
+  }
+  match validate_module(decoded) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected typed generated DCE dead result branch-payload if output to stay valid after encode: \{validation_error_message(e)}",
+      )
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options dead code elimination keeps typed nested dead result branch-payload if encodable" {
+  let mod = generated_pipeline_typed_nested_dead_result_branch_payload_if_module()
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected typed generated DCE nested dead result branch-payload if fixture to validate before optimize: \{validation_error_message(e)}",
+      )
+  }
+  let pipeline = cmd_generated_pipeline_from_flags(
+    mod,
+    ["dead-code-elimination"],
+    OptimizeOptions::new(),
+  )
+  let optimized = match
+    run_generated_pipeline_with_options(mod, pipeline, OptimizeOptions::new()) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected typed generated DCE nested dead result branch-payload if pipeline success: \{e}",
+      )
+  }
+  match validate_module(optimized) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected typed generated DCE nested dead result branch-payload if optimized fixture to validate before encode: \{validation_error_message(e)}",
+      )
+  }
+  let wasm = match encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(e) =>
+      fail(
+        "expected typed generated DCE nested dead result branch-payload if encode success: \{e}",
+      )
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected typed generated DCE nested dead result branch-payload if decode success: \{e}",
+      )
+  }
+  match validate_module(decoded) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected typed generated DCE nested dead result branch-payload if output to stay valid after encode: \{validation_error_message(e)}",
       )
   }
 }

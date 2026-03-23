@@ -1230,6 +1230,90 @@ test "encode_module preserves validating typed result if with non-fallthrough lo
 }
 
 ///|
+test "encode_module preserves typed branch payload if with escaping arms inside dead result block" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(CompType::func([ValType::i32()], [ValType::i64()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          Locals::empty(),
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::block(
+                  BlockType::val_type(ValType::i32()),
+                  TExpr::new([
+                    TInstr::block(
+                      BlockType::void_(),
+                      TExpr::new([
+                        TInstr::br(LabelIdx::new(1U), [
+                          TInstr::if_(
+                            BlockType::val_type(ValType::i32()),
+                            TInstr::i32_const(I32(1)),
+                            TExpr::new([
+                              TInstr::if_(
+                                BlockType::val_type(ValType::i32()),
+                                TInstr::i32_const(I32(1)),
+                                TExpr::new([
+                                  TInstr::local_get(LocalIdx::new(0U)),
+                                ]),
+                                Some(
+                                  TExpr::new([TInstr::br(LabelIdx::new(2U), [])]),
+                                ),
+                              ),
+                            ]),
+                            Some(
+                              TExpr::new([TInstr::br(LabelIdx::new(1U), [])]),
+                            ),
+                          ),
+                        ]),
+                      ]),
+                    ),
+                    TInstr::return_([TInstr::i64_const(I64(42L))]),
+                  ]),
+                ),
+                TInstr::return_([TInstr::i64_const(I64(0L))]),
+              ]),
+            ),
+            TInstr::i64_const(I64(1L)),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected typed branch-payload-if fixture to validate before encode, got \{@validate.validation_error_message(e)}",
+      )
+  }
+  let wasm = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected branch-payload-if encode success, got \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected branch-payload-if decode success, got \{e}")
+  }
+  match @validate.validate_module(decoded) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected typed branch-payload-if fixture to stay valid after encode, got \{@validate.validation_error_message(e)}",
+      )
+  }
+}
+
+///|
 test "encode_module roundtrips raw nested branch ladder that skips later returns" {
   let mod = Module::new()
     .with_type_sec(
