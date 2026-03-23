@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-23 Validation: queue validator fuzz hardening follow-ups
+
+- **Validator fuzz backlog slicing** by **@jtenner**. Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to turn the new validator fuzz research in [`docs/0058-2026-03-23-validate-fuzz-hardening-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0058-2026-03-23-validate-fuzz-hardening-plan.md) into pickup-ready follow-up work, including the immediate `HeapTypeSwap` dispatch fix, invalid-strategy coverage hardening, generator/export coverage work, and the later repro/spec-seed/binary-text fuzz extensions.
+
 ## 2026-03-23 Optimization: record fresh-artifact `DFE -> RUME -> MP` parity checkpoint
 
 - **MemoryPacking parity checkpoint** by **@jtenner**. Added [`docs/0058-2026-03-23-dfe-rume-memory-packing-fresh-artifact-parity.md`](/home/jtenner/Projects/starshine-mb/docs/0058-2026-03-23-dfe-rume-memory-packing-fresh-artifact-parity.md) to record the fresh rebuilt release-artifact replay after the DFE direct-pass alignment: `DuplicateFunctionElimination -> RemoveUnusedModuleElements -> MemoryPacking` validates on both tools and shrinks both outputs by the same `1792` bytes, with unchanged code sections and matching `data` / `data count` section effects.
