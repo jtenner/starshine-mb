@@ -1534,7 +1534,20 @@ fn optimization_dead_code_elimination_block_escapes_parent(
     ) {
     return false
   }
-  !optimization_dead_code_elimination_expr_has_live_break_to_label(body, 0)
+  if optimization_dead_code_elimination_expr_has_live_break_to_label(body, 0) {
+    return false
+  }
+  if body_instrs.length() <= 1 {
+    return true
+  }
+  let prefix : Array[@lib.TInstr] = []
+  for i in 0..<(body_instrs.length() - 1) {
+    prefix.push(body_instrs[i])
+  }
+  !optimization_dead_code_elimination_expr_has_live_break_to_label(
+    @lib.TExpr::new(prefix),
+    1,
+  )
 }
 
 ///|

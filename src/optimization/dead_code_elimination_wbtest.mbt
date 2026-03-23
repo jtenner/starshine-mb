@@ -583,6 +583,141 @@ test "dead code elimination sees no current-label break in outer-break result bo
 }
 
 ///|
+test "dead code elimination sees deep current-label breaks through nested ifs" {
+  let body = @lib.TExpr::new([
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::block(
+          @lib.BlockType::void_(),
+          @lib.TExpr::new([
+            @lib.TInstr::block(
+              @lib.BlockType::void_(),
+              @lib.TExpr::new([
+                @lib.TInstr::if_(
+                  @lib.BlockType::void_(),
+                  @lib.TInstr::i32_const(@lib.I32::new(1)),
+                  @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(4U), [])]),
+                  Some(
+                    @lib.TExpr::new([
+                      @lib.TInstr::return_([
+                        @lib.TInstr::i32_const(@lib.I32::new(0)),
+                      ]),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.TInstr::i32_const(@lib.I32::new(0)),
+    @lib.TInstr::br(@lib.LabelIdx::new(0U), [
+      @lib.TInstr::i32_const(@lib.I32::new(1)),
+    ]),
+  ])
+  assert_true(
+    optimization_dead_code_elimination_expr_has_live_break_to_label(body, 0),
+  )
+  assert_false(
+    optimization_dead_code_elimination_block_escapes_parent(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      body,
+    ),
+  )
+}
+
+///|
+test "dead code elimination sees stacked if current-label breaks" {
+  let body = @lib.TExpr::new([
+    @lib.TInstr::if_(
+      @lib.BlockType::void_(),
+      @lib.TInstr::i32_const(@lib.I32::new(1)),
+      @lib.TExpr::new([
+        @lib.TInstr::if_(
+          @lib.BlockType::void_(),
+          @lib.TInstr::i32_const(@lib.I32::new(1)),
+          @lib.TExpr::new([
+            @lib.TInstr::if_(
+              @lib.BlockType::void_(),
+              @lib.TInstr::i32_const(@lib.I32::new(1)),
+              @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(3U), [])]),
+              Some(
+                @lib.TExpr::new([
+                  @lib.TInstr::return_([
+                    @lib.TInstr::i32_const(@lib.I32::new(0)),
+                  ]),
+                ]),
+              ),
+            ),
+          ]),
+          Some(
+            @lib.TExpr::new([
+              @lib.TInstr::return_([@lib.TInstr::i32_const(@lib.I32::new(0))]),
+            ]),
+          ),
+        ),
+      ]),
+      Some(
+        @lib.TExpr::new([
+          @lib.TInstr::return_([@lib.TInstr::i32_const(@lib.I32::new(0))]),
+        ]),
+      ),
+    ),
+    @lib.TInstr::i32_const(@lib.I32::new(0)),
+    @lib.TInstr::br(@lib.LabelIdx::new(0U), [
+      @lib.TInstr::i32_const(@lib.I32::new(1)),
+    ]),
+  ])
+  assert_true(
+    optimization_dead_code_elimination_expr_has_live_break_to_label(body, 0),
+  )
+}
+
+///|
+test "dead code elimination sees prefix parent-label breaks through nested ifs" {
+  let body = @lib.TExpr::new([
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::block(
+          @lib.BlockType::void_(),
+          @lib.TExpr::new([
+            @lib.TInstr::if_(
+              @lib.BlockType::void_(),
+              @lib.TInstr::i32_const(@lib.I32::new(1)),
+              @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(4U), [])]),
+              Some(
+                @lib.TExpr::new([
+                  @lib.TInstr::return_([
+                    @lib.TInstr::i32_const(@lib.I32::new(0)),
+                  ]),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.TInstr::i32_const(@lib.I32::new(0)),
+    @lib.TInstr::br(
+      @lib.LabelIdx::new(0U),
+      [@lib.TInstr::i32_const(@lib.I32::new(1))],
+    ),
+  ])
+  assert_true(
+    optimization_dead_code_elimination_expr_has_live_break_to_label(body, 1),
+  )
+  assert_false(
+    optimization_dead_code_elimination_block_escapes_parent(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      body,
+    ),
+  )
+}
+
+///|
 test "dead code elimination replaces ifs whose condition is unreachable" {
   let body = dead_code_elimination_test_body([
     @lib.TInstr::drop(

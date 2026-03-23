@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Validation: treat prefix parent-continuation breaks as non-escaping in DCE block analysis
+
+- **DCE parent-continuation escape analysis** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `optimization_dead_code_elimination_block_escapes_parent` now still blocks escape classification on live label-`0` breaks anywhere in the body, and also on live label-`1` breaks that appear before the tail instruction. This fixes the overly aggressive “tail escapes parent” classification for nested child blocks that rejoin the current block body before its final escaping tail.
+- Added focused whitebox regressions in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) for deep current-label breaks, stacked-`if` current-label breaks, and deep parent-label breaks. Documented the rule and rationale in [`docs/0066-2026-03-23-dce-parent-continuation-escape-analysis.md`](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-23-dce-parent-continuation-escape-analysis.md).
+
 ## 2026-03-23 Validation: preserve void wrappers when DCE demotes concrete outer-break blocks
 
 - **DCE concrete-block wrapper preservation** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `DeadCodeElimination` now keeps a `void` block wrapper when an escaping concrete block collapses to a single child that still has live breaks past the current label. This preserves label depth while still demoting away the dead concrete result type.
