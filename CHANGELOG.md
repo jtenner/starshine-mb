@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Optimization: record fresh-artifact `DFE -> RUME -> MP` parity checkpoint
+
+- **MemoryPacking parity checkpoint** by **@jtenner**. Added [`docs/0058-2026-03-23-dfe-rume-memory-packing-fresh-artifact-parity.md`](/home/jtenner/Projects/starshine-mb/docs/0058-2026-03-23-dfe-rume-memory-packing-fresh-artifact-parity.md) to record the fresh rebuilt release-artifact replay after the DFE direct-pass alignment: `DuplicateFunctionElimination -> RemoveUnusedModuleElements -> MemoryPacking` validates on both tools and shrinks both outputs by the same `1792` bytes, with unchanged code sections and matching `data` / `data count` section effects.
+- Refreshed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the active parity backlog now treats `MemoryPacking` as another clean fresh-artifact checkpoint and points the next investigation at later passes or the residual serializer/layout drift.
+
 ## 2026-03-23 Optimization: record fresh-artifact `DFE -> RUME` parity checkpoint
 
 - **RemoveUnusedModuleElements parity checkpoint** by **@jtenner**. Added [`docs/0057-2026-03-23-dfe-rume-fresh-artifact-parity.md`](/home/jtenner/Projects/starshine-mb/docs/0057-2026-03-23-dfe-rume-fresh-artifact-parity.md) to record the fresh rebuilt release-artifact replay after the DFE direct-pass alignment: `DuplicateFunctionElimination -> RemoveUnusedModuleElements` is byte-identical to direct `DuplicateFunctionElimination` on both Starshine and Binaryen, so there is no new RUME-specific parity gap on that artifact.
