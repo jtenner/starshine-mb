@@ -1369,6 +1369,7 @@ fn SSAOptCtx::rewrite_op(self : SSAOptCtx, op : SSAOp) -> SSAOp {
         self.rewrite_value(c),
         self.rewrite_value(d),
       )
+    StringConst(bytes) => StringConst(bytes)
     StringNewUtf8Array(array, start, end_) =>
       StringNewUtf8Array(
         self.rewrite_value(array),
@@ -1616,6 +1617,7 @@ fn SSAOptCtx::mark_op_uses(self : SSAOptCtx, op : SSAOp) -> Unit {
       self.mark_value_used(d)
       self.mark_value_used(e)
     }
+    StringConst(_) => ()
     StringNewUtf8Array(array, start, end_)
     | StringNewWtf16Array(array, start, end_)
     | StringNewLossyUtf8Array(array, start, end_)

@@ -931,6 +931,7 @@ fn validate_const_instr(env : Env, ins : Instruction) -> Result[Unit, String] {
     V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => Ok(())
     RefNull(rt) => Validate::validate(rt, env)
     RefFunc(_) => Ok(())
+    StringConst(_) => Ok(())
     StructNew(type_idx)
     | StructNewDefault(type_idx)
     | StructNewDesc(type_idx)

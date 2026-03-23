@@ -3159,6 +3159,11 @@ fn typecheck_string_encode_array(
 }
 
 ///|
+fn typecheck_string_const(st : TcState) -> TcResult {
+  Ok(st.push1(ValType::stringref()))
+}
+
+///|
 pub impl Typecheck for Instruction with typecheck(self, st) {
   match self {
     Unreachable => Ok(st.set_unreachable())
@@ -3321,6 +3326,7 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     RefFunc(f) => typecheck_ref_func(st, f)
     RefAsNonNull => typecheck_ref_as_non_null(st)
     RefEq => typecheck_ref_eq(st)
+    StringConst(_) => typecheck_string_const(st)
     StringNewUtf8Array =>
       typecheck_string_new_array(st, StorageType::pack_type(PackType::i8()))
     StringNewWtf16Array =>
@@ -5016,6 +5022,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === Strings ===
+    TInstrKind::TStringConst(_) => typecheck_string_const(st)
     TInstrKind::TStringNewUtf8Array(array, start, end_) => {
       let st1 = match Typecheck::typecheck(array, st) {
         Ok(st) => st
@@ -8803,6 +8810,14 @@ test "Typecheck StringNewWtf16Array" {
     Instruction::string_new_wtf16_array(),
     state,
   )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [ValType::stringref()])
+}
+
+///|
+test "Typecheck StringConst" {
+  let state = make_state(empty_env(), [])
+  let result = Typecheck::typecheck(Instruction::string_const(b"hello"), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [ValType::stringref()])
 }

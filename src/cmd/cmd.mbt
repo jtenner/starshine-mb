@@ -1613,7 +1613,8 @@ fn cmd_generated_pipeline_feature_facts(
         facts.has_gc = true
       }
       match instr {
-        @lib.StringNewUtf8Array
+        @lib.StringConst(_)
+        | @lib.StringNewUtf8Array
         | @lib.StringNewWtf16Array
         | @lib.StringEncodeUtf8Array
         | @lib.StringEncodeWtf16Array
@@ -1637,7 +1638,8 @@ fn cmd_generated_pipeline_feature_facts(
         facts.has_gc = true
       }
       match instr.kind {
-        @lib.TStringNewUtf8Array(_, _, _)
+        @lib.TStringConst(_)
+        | @lib.TStringNewUtf8Array(_, _, _)
         | @lib.TStringNewWtf16Array(_, _, _)
         | @lib.TStringEncodeUtf8Array(_, _, _)
         | @lib.TStringEncodeWtf16Array(_, _, _)

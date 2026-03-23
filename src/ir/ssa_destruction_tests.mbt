@@ -206,6 +206,15 @@ test "to_instr lowers string array SSA ops back to typed instructions" {
 }
 
 ///|
+test "to_instr lowers string.const SSA ops back to typed instructions" {
+  let instr = convert_ssa_op_to_tinstr(
+    SSAOp::StringConst(b"hello"),
+    SSADestructor::new(0),
+  )
+  assert_eq(instr, TInstr::string_const(b"hello"))
+}
+
+///|
 fn ssa_destruction_type_ctx(local_types : Locals) -> TypeContext {
   {
     func_types: [],

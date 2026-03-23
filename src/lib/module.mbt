@@ -50,6 +50,14 @@ pub fn Module::with_tag_sec(self : Module, tag_sec : TagSec) -> Module {
 }
 
 ///|
+pub fn Module::with_stringrefs_sec(
+  self : Module,
+  stringrefs_sec : StringRefsSec,
+) -> Module {
+  Module::{ ..self, stringrefs_sec: Some(stringrefs_sec) }
+}
+
+///|
 pub fn Module::with_global_sec(self : Module, global_sec : GlobalSec) -> Module {
   Module::{ ..self, global_sec: Some(global_sec) }
 }
@@ -953,6 +961,12 @@ fn md_render_tinstr(
         if_false,
       )
     }
+    TStringConst(bytes) =>
+      md_write_line(
+        out,
+        depth,
+        "- string.const " + bytes.to_array().to_string(),
+      )
     TStringNewUtf8Array(array, start, end_) => {
       md_write_line(out, depth, "- string.new_utf8_array")
       md_render_child(out, depth + 2, "array", ctx, locals, param_count, array)

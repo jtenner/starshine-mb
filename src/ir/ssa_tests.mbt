@@ -157,6 +157,13 @@ test "collect_instr_locals covers string array operators" {
 }
 
 ///|
+test "collect_instr_locals ignores string.const literals" {
+  let locals : Set[LocalIdx] = Set::new()
+  collect_instr_locals(TInstr::string_const(b"hello"), locals)
+  assert_true(locals.is_empty())
+}
+
+///|
 test "collect_terminator_locals covers return_call_ref operands" {
   let locals : Set[LocalIdx] = Set::new()
   collect_terminator_locals(

@@ -1489,6 +1489,47 @@ test "String array instruction roundtrip" {
 }
 
 ///|
+test "module roundtrip preserves string.const literals and stringrefs section" {
+  let bytes = b"hello"
+  let mod = Module::new(
+    type_sec=Some(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(CompType::func([], [ValType::stringref()])),
+        ),
+      ]),
+    ),
+    stringrefs_sec=Some(StringRefsSec::new([bytes])),
+    func_sec=Some(FuncSec::new([TypeIdx::new(0)])),
+    global_sec=Some(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::stringref(), false),
+          Expr::new([Instruction::string_const(bytes)]),
+        ),
+      ]),
+    ),
+    code_sec=Some(
+      CodeSec::new([
+        Func::new(
+          Locals::new([]),
+          Expr::new([Instruction::string_const(bytes)]),
+        ),
+      ]),
+    ),
+  )
+  let wasm = match encode_module(mod) {
+    Ok(wasm) => wasm
+    Err(err) => fail("expected string.const module to encode: \{err}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(decoded) => decoded
+    Err(err) => fail("expected string.const module to decode: \{err}")
+  }
+  assert_eq(decoded, mod)
+}
+
+///|
 fn binary_name_section_fixture_module() -> Module {
   let struct_type = RecType::new(
     SubType::comp_type(

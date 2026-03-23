@@ -229,6 +229,7 @@ fn collect_op_uses(
       record(uses, d_off, use_)
       record(uses, l, use_)
     }
+    SSAOp::StringConst(_) => ()
     SSAOp::StringNewUtf8Array(array, start, end_)
     | SSAOp::StringNewWtf16Array(array, start, end_)
     | SSAOp::StringNewLossyUtf8Array(array, start, end_)

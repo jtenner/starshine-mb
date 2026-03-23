@@ -251,3 +251,39 @@ test "infer_ssa_types handles string array operators" {
   assert_eq(types.get(v_new), Some(ValType::stringref()))
   assert_eq(types.get(v_encode), Some(ValType::i32()))
 }
+
+///|
+test "type tracking infers string.const results" {
+  let b0 = BlockId(0)
+  let v_const = SSAValue(0)
+
+  let blocks : Map[BlockId, SSABlock] = {}
+  blocks[b0] = SSABlock::{
+    id: b0,
+    phis: [],
+    instrs: [Assign(v_const, SSAOp::StringConst(b"hello"))],
+    terminator: SSATerminator::Return([v_const]),
+  }
+  let preds : Map[BlockId, Array[BlockId]] = {}
+  preds[b0] = []
+  let cfg = SSACFG::{
+    entry: b0,
+    blocks,
+    preds,
+    param_values: {},
+    next_value: 1,
+  }
+
+  let ctx = TypeContext::{
+    func_types: [],
+    global_types: [],
+    table_types: [],
+    struct_types: [],
+    array_types: [],
+    tag_types: [],
+    local_types: Locals::from_types([]),
+  }
+  let types = infer_ssa_types(cfg, ctx)
+
+  assert_eq(types.get(v_const), Some(ValType::stringref()))
+}

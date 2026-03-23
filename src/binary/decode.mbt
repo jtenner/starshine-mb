@@ -47,6 +47,8 @@ pub suberror BinaryDecodeError {
   InvalidCatch
   InvalidCastOp
   InvalidMemArg
+  InvalidStringRefSection
+  InvalidStringLiteralIndex
   InvalidInstruction
   InvalidAtomicFenceImmediate
   InvalidAtomicInstruction
@@ -64,6 +66,35 @@ pub struct ModuleDecodeErrorDetail {
 ///|
 pub trait Decode {
   decode(Bytes, Int) -> Result[(Self, Int), BinaryDecodeError]
+}
+
+///|
+let binary_decode_stringrefs_context : Ref[Array[Bytes]?] = Ref::new(None)
+
+///|
+fn[T] with_binary_decode_stringrefs_context(
+  stringrefs : Array[Bytes]?,
+  f : () -> Result[T, ModuleDecodeErrorDetail],
+) -> Result[T, ModuleDecodeErrorDetail] {
+  let saved = binary_decode_stringrefs_context.val
+  binary_decode_stringrefs_context.val = stringrefs
+  let result = f()
+  binary_decode_stringrefs_context.val = saved
+  result
+}
+
+///|
+fn decode_string_const_literal(
+  idx : @lib.U32,
+) -> Result[Bytes, BinaryDecodeError] {
+  match binary_decode_stringrefs_context.val {
+    Some(stringrefs) =>
+      match stringrefs.get(idx.0.reinterpret_as_int()) {
+        Some(bytes) => Ok(bytes)
+        None => Err(BinaryDecodeError::InvalidStringLiteralIndex)
+      }
+    None => Err(BinaryDecodeError::InvalidStringLiteralIndex)
+  }
 }
 
 ///|
@@ -136,7 +167,11 @@ pub impl Decode for RefType with decode(bytes, i) {
     Some(0x63) =>
       match decode_ref_heap_type(bytes, i + 1) {
         Err(err) => Err(err)
-        Ok((exact, ht, i)) => Ok((RefType::new(true, ht, exact~), i))
+        Ok((exact, ht, i)) =>
+          match (exact, ht) {
+            (false, AbsHeapTypeHeapType(abs)) => Ok((RefType::abs(abs), i))
+            _ => Ok((RefType::new(true, ht, exact~), i))
+          }
       }
     Some(0x64) =>
       match decode_ref_heap_type(bytes, i + 1) {
@@ -1199,104 +1234,137 @@ pub fn decode_module_with_detail(
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
-  let (global_sec, next) = match
-    decode_optional_section_with_detail(bytes, i, 6) {
+  let (stringrefs_sec, next) = match
+    (
+      decode_optional_section_with_detail(bytes, i, 14) :
+      Result[(StringRefsSec?, Int), ModuleDecodeErrorDetail]) {
     Ok(t) => t
     Err(detail) => return Err(detail)
   }
   i = next
-  if global_sec is Some(sec) {
-    mod = mod.with_global_sec(sec)
+  let stringrefs_ctx = match stringrefs_sec {
+    Some(sec) => {
+      let StringRefsSec(strings) = sec
+      mod = mod.with_stringrefs_sec(sec)
+      Some(strings)
+    }
+    None => None
   }
+  let tail = with_binary_decode_stringrefs_context(stringrefs_ctx, fn() {
+    let mut i = i
+    let mut mod = mod
+    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+      Ok(next) => next
+      Err(detail) => return Err(detail)
+    }
+    let (global_sec, next) = match
+      decode_optional_section_with_detail(bytes, i, 6) {
+      Ok(t) => t
+      Err(detail) => return Err(detail)
+    }
+    i = next
+    if global_sec is Some(sec) {
+      mod = mod.with_global_sec(sec)
+    }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
-    Ok(next) => next
-    Err(detail) => return Err(detail)
-  }
-  let (export_sec, next) = match
-    decode_optional_section_with_detail(bytes, i, 7) {
-    Ok(t) => t
-    Err(detail) => return Err(detail)
-  }
-  i = next
-  if export_sec is Some(sec) {
-    mod = mod.with_export_sec(sec)
-  }
+    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+      Ok(next) => next
+      Err(detail) => return Err(detail)
+    }
+    let (export_sec, next) = match
+      decode_optional_section_with_detail(bytes, i, 7) {
+      Ok(t) => t
+      Err(detail) => return Err(detail)
+    }
+    i = next
+    if export_sec is Some(sec) {
+      mod = mod.with_export_sec(sec)
+    }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
-    Ok(next) => next
-    Err(detail) => return Err(detail)
-  }
-  let (start_sec, next) = match
-    decode_optional_section_with_detail(bytes, i, 8) {
-    Ok(t) => t
-    Err(detail) => return Err(detail)
-  }
-  i = next
-  if start_sec is Some(sec) {
-    mod = mod.with_start_sec(sec)
-  }
+    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+      Ok(next) => next
+      Err(detail) => return Err(detail)
+    }
+    let (start_sec, next) = match
+      decode_optional_section_with_detail(bytes, i, 8) {
+      Ok(t) => t
+      Err(detail) => return Err(detail)
+    }
+    i = next
+    if start_sec is Some(sec) {
+      mod = mod.with_start_sec(sec)
+    }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
-    Ok(next) => next
-    Err(detail) => return Err(detail)
-  }
-  let (elem_sec, next) = match
-    decode_optional_section_with_detail(bytes, i, 9) {
-    Ok(t) => t
-    Err(detail) => return Err(detail)
-  }
-  i = next
-  if elem_sec is Some(sec) {
-    mod = mod.with_elem_sec(sec)
-  }
+    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+      Ok(next) => next
+      Err(detail) => return Err(detail)
+    }
+    let (elem_sec, next) = match
+      decode_optional_section_with_detail(bytes, i, 9) {
+      Ok(t) => t
+      Err(detail) => return Err(detail)
+    }
+    i = next
+    if elem_sec is Some(sec) {
+      mod = mod.with_elem_sec(sec)
+    }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
-    Ok(next) => next
-    Err(detail) => return Err(detail)
-  }
-  let (data_cnt_sec, next) = match
-    decode_optional_section_with_detail(bytes, i, 12) {
-    Ok(t) => t
-    Err(detail) => return Err(detail)
-  }
-  i = next
-  if data_cnt_sec is Some(sec) {
-    mod = mod.with_data_cnt_sec(sec)
-  }
+    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+      Ok(next) => next
+      Err(detail) => return Err(detail)
+    }
+    let (data_cnt_sec, next) = match
+      decode_optional_section_with_detail(bytes, i, 12) {
+      Ok(t) => t
+      Err(detail) => return Err(detail)
+    }
+    i = next
+    if data_cnt_sec is Some(sec) {
+      mod = mod.with_data_cnt_sec(sec)
+    }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
-    Ok(next) => next
-    Err(detail) => return Err(detail)
-  }
-  let (code_sec, next) = match
-    decode_optional_section_with_detail(bytes, i, 10) {
-    Ok(t) => t
-    Err(detail) => return Err(detail)
-  }
-  i = next
-  if code_sec is Some(sec) {
-    mod = mod.with_code_sec(sec)
-  }
+    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+      Ok(next) => next
+      Err(detail) => return Err(detail)
+    }
+    let (code_sec, next) = match
+      decode_optional_section_with_detail(bytes, i, 10) {
+      Ok(t) => t
+      Err(detail) => return Err(detail)
+    }
+    i = next
+    if code_sec is Some(sec) {
+      mod = mod.with_code_sec(sec)
+    }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
-    Ok(next) => next
-    Err(detail) => return Err(detail)
-  }
-  let (data_sec, next) = match
-    decode_optional_section_with_detail(bytes, i, 11) {
-    Ok(t) => t
-    Err(detail) => return Err(detail)
-  }
-  i = next
-  if data_sec is Some(sec) {
-    mod = mod.with_data_sec(sec)
-  }
+    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+      Ok(next) => next
+      Err(detail) => return Err(detail)
+    }
+    let (data_sec, next) = match
+      decode_optional_section_with_detail(bytes, i, 11) {
+      Ok(t) => t
+      Err(detail) => return Err(detail)
+    }
+    i = next
+    if data_sec is Some(sec) {
+      mod = mod.with_data_sec(sec)
+    }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
-    Ok(next) => next
+    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+      Ok(next) => next
+      Err(detail) => return Err(detail)
+    }
+    Ok((mod, i))
+  })
+  let tail_result = match tail {
+    Ok(result) => result
     Err(detail) => return Err(detail)
   }
+  let tail_mod = tail_result.0
+  let tail_i = tail_result.1
+  mod = tail_mod
+  i = tail_i
 
   mod = mod.with_custom_secs(custom)
   match name_secs.get(0) {
@@ -1612,6 +1680,36 @@ pub impl Decode for DataSec with decode(bytes, i) {
   match decode_section_vector_payload(bytes, i, 11) {
     Ok((content, next)) => Ok((DataSec::new(content), next))
     Err(t) => Err(t)
+  }
+}
+
+///|
+pub impl Decode for StringRefsSec with decode(bytes, i) {
+  if bytes.get(i) != Some(14) {
+    return Err(BinaryDecodeError::InvalidSectionHeader)
+  }
+  let (@lib.U32(len_u), payload_start) = match Decode::decode(bytes, i + 1) {
+    Ok(t) => t
+    Err(t) => return Err(t)
+  }
+  let len = len_u.reinterpret_as_int()
+  let payload_end = payload_start + len
+  if payload_end > bytes.length() {
+    return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
+  }
+  let payload = bytes[payload_start:payload_end].to_bytes()
+  if payload.length() == 0 || payload[0] != 0x00 {
+    return Err(BinaryDecodeError::InvalidStringRefSection)
+  }
+  match
+    (Decode::decode(payload, 1) : Result[(Array[Bytes], Int), BinaryDecodeError]) {
+    Ok((strings, consumed)) =>
+      if consumed == payload.length() {
+        Ok((StringRefsSec::new(strings), payload_end))
+      } else {
+        Err(BinaryDecodeError::InvalidStringRefSection)
+      }
+    Err(err) => Err(err)
   }
 }
 
@@ -2723,6 +2821,15 @@ fn decode_instruction_with_depth(
               match Decode::decode(bytes, i) {
                 Ok((x2, i)) => Ok((Instruction::array_init_elem(x1, x2), i))
                 Err(t) => Err(t)
+              }
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(0x82), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((idx, i)) =>
+              match decode_string_const_literal(idx) {
+                Ok(literal) => Ok((Instruction::string_const(literal), i))
+                Err(err) => Err(err)
               }
             Err(t) => Err(t)
           }

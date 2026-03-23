@@ -192,6 +192,7 @@ fn apply_gvn_to_op(op : SSAOp, state : GVNState) -> SSAOp {
       SSAOp::ArrayInitData(ty, data, r(arr), r(ao), r(do_), r(l))
     SSAOp::ArrayInitElem(ty, elem, arr, ao, eo, l) =>
       SSAOp::ArrayInitElem(ty, elem, r(arr), r(ao), r(eo), r(l))
+    SSAOp::StringConst(bytes) => SSAOp::StringConst(bytes)
     SSAOp::StringNewUtf8Array(array, start, end_) =>
       SSAOp::StringNewUtf8Array(r(array), r(start), r(end_))
     SSAOp::StringNewWtf16Array(array, start, end_) =>
@@ -322,6 +323,7 @@ fn has_side_effects(op : SSAOp) -> Bool {
     | SSAOp::ArrayGetS(_, _, _)
     | SSAOp::ArrayGetU(_, _, _)
     | SSAOp::ArrayLen(_)
+    | SSAOp::StringConst(_)
     | SSAOp::StringEncodeUtf8Array(_, _, _)
     | SSAOp::StringEncodeWtf16Array(_, _, _)
     | SSAOp::StringEncodeLossyUtf8Array(_, _, _)

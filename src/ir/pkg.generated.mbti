@@ -203,6 +203,7 @@ pub enum SSAOp {
   F64Const(@lib.F64)
   RefNull(@lib.HeapType)
   RefFunc(@lib.FuncIdx)
+  StringConst(Bytes)
   V128Const(Bytes)
   Copy(SSAValue)
   Binary(@lib.BinaryOp, SSAValue, SSAValue)

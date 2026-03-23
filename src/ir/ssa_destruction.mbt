@@ -498,6 +498,7 @@ fn convert_ssa_op_to_tinstr(op : SSAOp, d : SSADestructor) -> TInstr {
       )
     SSAOp::StringNewUtf8Array(array, start, end_) =>
       TInstr::string_new_utf8_array(get(d, array), get(d, start), get(d, end_))
+    SSAOp::StringConst(bytes) => TInstr::string_const(bytes)
     SSAOp::StringNewWtf16Array(array, start, end_) =>
       TInstr::string_new_wtf16_array(get(d, array), get(d, start), get(d, end_))
     SSAOp::StringEncodeUtf8Array(string, array, start) =>

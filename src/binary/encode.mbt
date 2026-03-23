@@ -16,11 +16,47 @@ pub suberror BinaryEncodeError {
   InvalidTypedFunctionLocals
   InvalidNameMapOrder
   RawNameCustomSectionUnsupported
+  CannotEncodeStringConstWithoutModuleContext
+  StringConstLiteralMissingFromSection
 } derive(Eq, Show, Debug)
 
 ///|
 pub trait Encode {
   encode(Self, @buffer.Buffer) -> Result[Unit, BinaryEncodeError]
+}
+
+///|
+let binary_encode_stringrefs_context : Ref[Array[Bytes]?] = Ref::new(None)
+
+///|
+fn[T] with_binary_encode_stringrefs_context(
+  stringrefs : Array[Bytes]?,
+  f : () -> Result[T, BinaryEncodeError],
+) -> Result[T, BinaryEncodeError] {
+  let saved = binary_encode_stringrefs_context.val
+  binary_encode_stringrefs_context.val = stringrefs
+  let result = f()
+  binary_encode_stringrefs_context.val = saved
+  result
+}
+
+///|
+fn encode_string_const_index(
+  bytes : Bytes,
+) -> Result[@lib.U32, BinaryEncodeError] {
+  match binary_encode_stringrefs_context.val {
+    Some(stringrefs) => {
+      let mut i = 0
+      while i < stringrefs.length() {
+        if stringrefs[i] == bytes {
+          return Ok(@lib.U32(i.reinterpret_as_uint()))
+        }
+        i += 1
+      }
+      Err(BinaryEncodeError::StringConstLiteralMissingFromSection)
+    }
+    None => Err(BinaryEncodeError::CannotEncodeStringConstWithoutModuleContext)
+  }
 }
 
 ///|
@@ -81,6 +117,10 @@ pub impl Encode for RefType with encode(val, buf) {
         buf.write_byte(0x62)
       }
       Encode::encode(ht, buf)
+    }
+    AbsHeapTypeRefType(StringAbsHeapType) => {
+      buf.write_byte(0x63)
+      Encode::encode(AbsHeapType::string_(), buf)
     }
     AbsHeapTypeRefType(abs) => Encode::encode(abs, buf)
   }
@@ -1229,6 +1269,15 @@ pub impl Encode for TagSec with encode(val, buf) {
 }
 
 ///|
+pub impl Encode for StringRefsSec with encode(val, buf) {
+  let StringRefsSec(strings) = val
+  write_section(14, buf, fn(payload) {
+    payload.write_byte(0x00)
+    Encode::encode(strings, payload)
+  })
+}
+
+///|
 pub impl Encode for CastOp with encode(val, buf) {
   match val {
     CastOp(false, false) => buf.write_byte(0x00)
@@ -1237,6 +1286,77 @@ pub impl Encode for CastOp with encode(val, buf) {
     CastOp(true, true) => buf.write_byte(0x03)
   }
   Ok(())
+}
+
+///|
+fn encode_module_stringrefs(mod_ : Module) -> Array[Bytes] {
+  fn push_unique(out : Array[Bytes], bytes : Bytes) -> Unit {
+    for existing in out {
+      if existing == bytes {
+        return
+      }
+    }
+    out.push(bytes)
+  }
+
+  fn collect_instruction(instr : Instruction, out : Array[Bytes]) -> Unit {
+    match instr {
+      StringConst(bytes) => push_unique(out, bytes)
+      Block(_, Expr(instrs))
+      | Loop(_, Expr(instrs))
+      | TryTable(_, _, Expr(instrs)) =>
+        for child in instrs {
+          collect_instruction(child, out)
+        }
+      If(_, if_block, else_block) => {
+        for child in if_block {
+          collect_instruction(child, out)
+        }
+        match else_block {
+          Some(instrs) =>
+            for child in instrs {
+              collect_instruction(child, out)
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+
+  let out : Array[Bytes] = []
+  match mod_.stringrefs_sec {
+    Some(StringRefsSec(strings)) =>
+      for bytes in strings {
+        push_unique(out, bytes)
+      }
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(GlobalSec(globals)) =>
+      for global in globals {
+        let Global(_, Expr(instrs)) = global
+        for instr in instrs {
+          collect_instruction(instr, out)
+        }
+      }
+    None => ()
+  }
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let expr = match func {
+          Func(_, expr) => expr
+          TFunc(_, _, texpr) => texpr.to_expr()
+        }
+        let Expr(instrs) = expr
+        for instr in instrs {
+          collect_instruction(instr, out)
+        }
+      }
+    None => ()
+  }
+  out
 }
 
 ///|
@@ -1270,25 +1390,48 @@ pub impl Encode for Module with encode(val, buf) {
   if Encode::encode(val.tag_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.global_sec, buf) is Err(t) {
-    return Err(t)
+  let stringrefs = encode_module_stringrefs(val)
+  let stringrefs_sec = if stringrefs.length() > 0 ||
+    val.stringrefs_sec is Some(_) {
+    Some(StringRefsSec::new(stringrefs))
+  } else {
+    None
   }
-  if Encode::encode(val.export_sec, buf) is Err(t) {
-    return Err(t)
-  }
-  if Encode::encode(val.start_sec, buf) is Err(t) {
-    return Err(t)
-  }
-  if Encode::encode(val.elem_sec, buf) is Err(t) {
-    return Err(t)
-  }
-  if Encode::encode(val.data_cnt_sec, buf) is Err(t) {
-    return Err(t)
-  }
-  if Encode::encode(val.code_sec, buf) is Err(t) {
-    return Err(t)
-  }
-  if Encode::encode(val.data_sec, buf) is Err(t) {
+  if with_binary_encode_stringrefs_context(
+      if stringrefs.length() > 0 {
+        Some(stringrefs)
+      } else {
+        None
+      },
+      fn() {
+        if Encode::encode(stringrefs_sec, buf) is Err(t) {
+          return Err(t)
+        }
+        if Encode::encode(val.global_sec, buf) is Err(t) {
+          return Err(t)
+        }
+        if Encode::encode(val.export_sec, buf) is Err(t) {
+          return Err(t)
+        }
+        if Encode::encode(val.start_sec, buf) is Err(t) {
+          return Err(t)
+        }
+        if Encode::encode(val.elem_sec, buf) is Err(t) {
+          return Err(t)
+        }
+        if Encode::encode(val.data_cnt_sec, buf) is Err(t) {
+          return Err(t)
+        }
+        if Encode::encode(val.code_sec, buf) is Err(t) {
+          return Err(t)
+        }
+        if Encode::encode(val.data_sec, buf) is Err(t) {
+          return Err(t)
+        }
+        Ok(())
+      },
+    )
+    is Err(t) {
     return Err(t)
   }
   match val.name_sec {
@@ -2369,6 +2512,19 @@ pub impl Encode for Instruction with encode(val, buf) {
         return Err(t)
       }
       if Encode::encode(y, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringConst(bytes) => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0x82), buf) is Err(t) {
+        return Err(t)
+      }
+      let idx = match encode_string_const_index(bytes) {
+        Ok(idx) => idx
+        Err(err) => return Err(err)
+      }
+      if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
     }

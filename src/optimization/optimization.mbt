@@ -699,6 +699,7 @@ fn optimization_dead_code_elimination_rewrite_instr(
       optimization_dead_code_elimination_rewrite_if(
         block_type, cond, then_body, else_body,
       )
+    @lib.TStringConst(_) => instr
     @lib.TStringNewUtf8Array(array, start, end_) =>
       optimization_dead_code_elimination_rewrite_unary([array, start, end_], fn(
         args,
@@ -1131,6 +1132,7 @@ fn optimization_dead_code_elimination_instr_has_live_break_to_label(
       optimization_dead_code_elimination_instr_has_live_break_to_label(
         value, target_depth,
       )
+    @lib.TStringConst(_) => false
     @lib.TStringNewUtf8Array(array, start, end_)
     | @lib.TStringNewWtf16Array(array, start, end_)
     | @lib.TStringEncodeUtf8Array(array, start, end_)

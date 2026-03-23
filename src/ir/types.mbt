@@ -79,6 +79,7 @@ pub enum SSAOp {
   F64Const(F64)
   RefNull(HeapType)
   RefFunc(FuncIdx)
+  StringConst(Bytes)
   V128Const(Bytes)
 
   // Copy (replaces local.get/set/tee)

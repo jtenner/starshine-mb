@@ -114,6 +114,7 @@ pub enum Opcode {
   RefFunc
   RefEq
   RefAsNonNull
+  StringConst
   StringNewUtf8Array
   StringNewWtf16Array
   StringEncodeUtf8Array

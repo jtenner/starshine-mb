@@ -1749,6 +1749,7 @@ pub impl @quickcheck.Arbitrary for Module with arbitrary(t, state) {
     } else {
       None
     },
+    stringrefs_sec: None,
     global_sec: if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {

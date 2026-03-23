@@ -41,7 +41,9 @@
   - no further unblocked DCE slices remain on the current typed IR surface until one of those EH or stack-switching instruction-surface dependencies lands elsewhere in the repo.
 - String compatibility follow-up:
   - `stringref` now covers array-backed construction and encode ops through text, validation, binary, DCE, and SSA compatibility paths.
-  - next unlanded compatibility slice: add `string.const` end to end so the broader string surface and the researched `StringGathering` pass stop depending on a missing literal instruction.
+  - `docs/0052-2026-03-22-string-const-surface.md` lands `string.const` end to end, including WAST text support, constant-expression validation, module string-literal section encode/decode, generated `has_strings` facts, and SSA compatibility.
+  - next practical follow-up: start `StringGathering` itself now that direct string literals no longer block the pass preconditions from `docs/0009-2026-03-16-string-optimization.md`.
+  - open binary-interoperability question: local module roundtrip currently routes abstract `stringref` through the existing nullable ref encoding to avoid the current `0x64` collision with the repo's non-null typed-ref prefix. Reconcile that with canonical proposal bytes before claiming broader external stringref binary parity.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination
@@ -97,7 +99,8 @@
 ## v0.1.0 Active Slice Focus
 - String compatibility:
   - the minimal array-backed string instruction set now exists end to end in the lib, validator, binary, WAST, DCE, and SSA layers.
-  - the next practical compatibility slice is `string.const`, which is also the missing prerequisite for the researched `StringGathering` pass in `docs/0009-2026-03-16-string-optimization.md`.
+  - `string.const` now also exists end to end, which closes the main prerequisite that was blocking the researched `StringGathering` pass in `docs/0009-2026-03-16-string-optimization.md`.
+  - the next practical string slice is the pass work itself, with the remaining binary-interoperability caveat tracked above.
 - GC text-surface follow-up:
   - the higher-level WAST parser/printer/lowerer now models descriptor-bearing `struct.new*` instructions, `struct` and `array` `type` fields, and grouped `(rec ...)` authoring, including `sub` / `final`, packed/ref-bearing storage syntax, and `descriptor` / `describes` metadata.
   - `wast_to_binary_module` now lowers grouped `rec` fields into grouped type-section entries, and higher-level static descriptor coverage now reaches the full `tests/spec/proposals/custom-descriptors/descriptors.wast` fixture above the earlier direct instruction and binary-only cases.

@@ -798,6 +798,7 @@ pub fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
     | TInstrKind::TF64Const(_)
     | TInstrKind::TRefNull(_)
     | TInstrKind::TRefFunc(_)
+    | TInstrKind::TStringConst(_)
     | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
     | TInstrKind::TLocalGet(_)
     | TInstrKind::TGlobalGet(_)
@@ -1107,6 +1108,7 @@ fn instr_to_tinstr(
     F64Const(v) => stack.push(TInstr::f64_const(v))
     RefNull(rt) => stack.push(TInstr::ref_null_type(rt))
     RefFunc(idx) => stack.push(TInstr::ref_func(idx))
+    StringConst(bytes) => stack.push(TInstr::string_const(bytes))
     V128Const(
       b0,
       b1,

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 String: land `string.const` text, validation, binary, and SSA support
+
+- **String literal compatibility** by **@jtenner**. Landed `string.const` end to end across the public lib surface, validator/typechecker, WAST parser/printer/lowerer, module binary string-literal section support, generated `has_strings` detection, constant-expression validation, and SSA compatibility in [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt), [`src/validate/typecheck.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt), [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt), [`src/wast/parser.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/parser.mbt), [`src/wast/module_wast.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/module_wast.mbt), [`src/wast/lower_to_lib.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/lower_to_lib.mbt), [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt), [`src/binary/decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt), and the IR files under [`src/ir/`](/home/jtenner/Projects/starshine-mb/src/ir).
+- Recorded the slice in [`docs/0052-2026-03-22-string-const-surface.md`](/home/jtenner/Projects/starshine-mb/docs/0052-2026-03-22-string-const-surface.md), refreshed the `StringGathering` prerequisite note in [`docs/0009-2026-03-16-string-optimization.md`](/home/jtenner/Projects/starshine-mb/docs/0009-2026-03-16-string-optimization.md), and updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the next string follow-up is the pass work itself plus the remaining binary-interoperability question around canonical `stringref` bytes.
+
 ## 2026-03-22 IR: clean string GVN diagnostics
 
 - **Diagnostics cleanup** by **@jtenner**. Removed the duplicate `string.encode_*_array` `has_side_effects` cases in [`src/ir/gvn.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/gvn.mbt) so the new string-array SSA compatibility slice no longer leaves `moon info` / `moon test` with avoidable unreachable-code warnings.

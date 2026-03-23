@@ -70,6 +70,8 @@ pub suberror BinaryDecodeError {
   InvalidCatch
   InvalidCastOp
   InvalidMemArg
+  InvalidStringRefSection
+  InvalidStringLiteralIndex
   InvalidInstruction
   InvalidAtomicFenceImmediate
   InvalidAtomicInstruction
@@ -96,6 +98,8 @@ pub suberror BinaryEncodeError {
   InvalidTypedFunctionLocals
   InvalidNameMapOrder
   RawNameCustomSectionUnsupported
+  CannotEncodeStringConstWithoutModuleContext
+  StringConstLiteralMissingFromSection
 }
 pub impl Eq for BinaryEncodeError
 pub impl Show for BinaryEncodeError
@@ -206,6 +210,7 @@ pub impl Decode for @lib.RefType
 pub impl Decode for @lib.S33
 pub impl Decode for @lib.StartSec
 pub impl Decode for @lib.StorageType
+pub impl Decode for @lib.StringRefsSec
 pub impl Decode for @lib.SubType
 pub impl Decode for @lib.Table
 pub impl Decode for @lib.TableIdx
@@ -288,6 +293,7 @@ pub impl Encode for @lib.RefType
 pub impl Encode for @lib.S33
 pub impl Encode for @lib.StartSec
 pub impl Encode for @lib.StorageType
+pub impl Encode for @lib.StringRefsSec
 pub impl Encode for @lib.SubType
 pub impl Encode for @lib.Table
 pub impl Encode for @lib.TableIdx

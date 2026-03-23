@@ -414,6 +414,7 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     RefNull(vt) => "ref.null \{keyword_from_ref_null_immediate(vt)}"
     RefIsNull => "ref.is_null"
     RefFunc(idx) => "ref.func \{index_text(idx)}"
+    StringConst(bytes) => "string.const \{quote_wast_bytes(bytes)}"
     StringNewUtf8Array => "string.new_utf8_array"
     StringNewWtf16Array => "string.new_wtf16_array"
     StringEncodeUtf8Array => "string.encode_utf8_array"

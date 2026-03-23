@@ -55,6 +55,7 @@ using @lib {
   type MemSec,
   type GlobalSec,
   type Global,
+  type StringRefsSec,
   type ExportSec,
   type Export,
   type StartSec,

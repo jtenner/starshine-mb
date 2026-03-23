@@ -1296,6 +1296,7 @@ fn wt_numeric_noarg(op : Opcode) -> Result[@lib.Instruction, String] {
     I64TruncSatF64U => Ok(@lib.Instruction::i64_trunc_sat_f64u())
     RefEq => Ok(@lib.Instruction::ref_eq())
     RefAsNonNull => Ok(@lib.Instruction::ref_as_non_null())
+    StringConst => Err("string.const requires a literal")
     StringNewUtf8Array => Ok(@lib.Instruction::string_new_utf8_array())
     StringNewWtf16Array => Ok(@lib.Instruction::string_new_wtf16_array())
     StringEncodeUtf8Array => Ok(@lib.Instruction::string_encode_utf8_array())
@@ -2385,6 +2386,7 @@ fn wt_instr_to_lib(
       }
       Ok(@lib.Instruction::ref_func(@lib.FuncIdx::new(fi)))
     }
+    StringConst(bytes) => Ok(@lib.Instruction::string_const(bytes))
     StringNewUtf8Array => Ok(@lib.Instruction::string_new_utf8_array())
     StringNewWtf16Array => Ok(@lib.Instruction::string_new_wtf16_array())
     StringEncodeUtf8Array => Ok(@lib.Instruction::string_encode_utf8_array())
@@ -7234,5 +7236,32 @@ test "wast_to_binary_module lowers string array instructions and stringref types
   match @validate.validate_module(lowered) {
     Ok(_) => ()
     Err(e) => fail("expected lowered string array fixture to validate: \{e}")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers string.const literals" {
+  let src =
+    #|(module
+    #|  (global $g stringref string.const "hello")
+    #|  (func $f (result stringref)
+    #|    string.const "hello"))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected string.const lowering fixture to succeed: \{e}")
+  }
+  match lowered.global_sec {
+    Some(@lib.GlobalSec([@lib.Global(_, @lib.Expr([instr]))])) =>
+      assert_eq(instr, @lib.Instruction::string_const(b"hello"))
+    _ => fail("expected lowered global string.const initializer")
+  }
+  match lowered.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([instr]))])) =>
+      assert_eq(instr, @lib.Instruction::string_const(b"hello"))
+    _ => fail("expected lowered function string.const body")
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) => fail("expected lowered string.const fixture to validate: \{e}")
   }
 }

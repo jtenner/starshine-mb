@@ -205,6 +205,7 @@ fn infer_op_type(
       }
     }
     SSAOp::ArrayLen(_) => Some(ValType::i32())
+    SSAOp::StringConst(_) => Some(ValType::stringref())
     SSAOp::StringNewUtf8Array(_, _, _)
     | SSAOp::StringNewWtf16Array(_, _, _)
     | SSAOp::StringNewLossyUtf8Array(_, _, _)

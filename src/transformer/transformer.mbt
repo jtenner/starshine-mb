@@ -2281,6 +2281,8 @@ fn[T, Err] ModuleTransformer::walk_opt_tinstruction_default(
     }
 
     // === Strings ===
+    TInstrKind::TStringConst(bytes) =>
+      Ok(Some((t, TInstr::string_const(bytes))))
     TInstrKind::TStringNewUtf8Array(array, start, end_) => {
       let (t, array) = match self.walk_opt_tinstruction(t, array) {
         Ok(None) => (t, array)
@@ -4512,6 +4514,7 @@ fn[T, Err] ModuleTransformer::walk_opt_module_default(
     table_sec,
     mem_sec,
     tag_sec,
+    stringrefs_sec,
     global_sec,
     export_sec,
     start_sec,
@@ -4655,6 +4658,7 @@ fn[T, Err] ModuleTransformer::walk_opt_module_default(
           table_sec~,
           mem_sec~,
           tag_sec~,
+          stringrefs_sec~,
           global_sec~,
           export_sec~,
           start_sec~,

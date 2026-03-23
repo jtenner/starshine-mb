@@ -98,6 +98,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("ref.func", Opcode(RefFunc))
   map.set("ref.eq", Opcode(RefEq))
   map.set("ref.as_non_null", Opcode(RefAsNonNull))
+  map.set("string.const", Opcode(StringConst))
   map.set("string.new_utf8_array", Opcode(StringNewUtf8Array))
   map.set("string.new_wtf16_array", Opcode(StringNewWtf16Array))
   map.set("string.encode_utf8_array", Opcode(StringEncodeUtf8Array))

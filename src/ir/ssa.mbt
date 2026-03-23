@@ -89,6 +89,7 @@ fn collect_instr_locals(instr : TInstr, locals : Set[LocalIdx]) -> Unit {
       collect_instr_locals(a, locals)
     TInstrKind::TRefI31(a) => collect_instr_locals(a, locals)
     TInstrKind::TArrayLen(a) => collect_instr_locals(a, locals)
+    TInstrKind::TStringConst(_) => ()
     TInstrKind::TStringNewUtf8Array(array, start, end_)
     | TInstrKind::TStringNewWtf16Array(array, start, end_)
     | TInstrKind::TStringNewLossyUtf8Array(array, start, end_)
@@ -474,6 +475,7 @@ fn instr_defines_local(instr : TInstr, target : LocalIdx) -> Bool {
       instr_defines_local(a, target) ||
       instr_defines_local(b, target) ||
       instr_defines_local(c, target)
+    TInstrKind::TStringConst(_) => false
     TInstrKind::TStringNewUtf8Array(array, start, end_)
     | TInstrKind::TStringNewWtf16Array(array, start, end_)
     | TInstrKind::TStringNewLossyUtf8Array(array, start, end_)
@@ -1043,6 +1045,11 @@ fn rename_instr(
         }
         None => None
       }
+    TInstrKind::TStringConst(bytes) => {
+      let v = builder.fresh()
+      out.push(SSAInstr::Assign(v, SSAOp::StringConst(bytes)))
+      Some(v)
+    }
     TInstrKind::TStringNewUtf8Array(array, start, end_) => {
       let array_v = rename_instr(array, builder, out)
       let start_v = rename_instr(start, builder, out)

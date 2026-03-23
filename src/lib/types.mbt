@@ -358,6 +358,7 @@ pub struct Module {
   table_sec : TableSec?
   mem_sec : MemSec?
   tag_sec : TagSec?
+  stringrefs_sec : StringRefsSec?
   global_sec : GlobalSec?
   export_sec : ExportSec?
   start_sec : StartSec?
@@ -377,6 +378,7 @@ pub fn Module::new(
   table_sec? : TableSec? = None,
   mem_sec? : MemSec? = None,
   tag_sec? : TagSec? = None,
+  stringrefs_sec? : StringRefsSec? = None,
   global_sec? : GlobalSec? = None,
   export_sec? : ExportSec? = None,
   start_sec? : StartSec? = None,
@@ -396,6 +398,7 @@ pub fn Module::new(
     table_sec,
     mem_sec,
     tag_sec,
+    stringrefs_sec,
     global_sec,
     export_sec,
     start_sec,
@@ -435,6 +438,14 @@ pub struct MemSec(Array[MemType]) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub struct GlobalSec(Array[Global]) derive(Eq, Arbitrary, Hash, Debug)
+
+///|
+pub struct StringRefsSec(Array[Bytes]) derive(Eq, Show, Hash, Debug)
+
+///|
+pub fn StringRefsSec::new(strings : Array[Bytes]) -> StringRefsSec {
+  StringRefsSec(strings)
+}
 
 ///|
 pub struct ExportSec(Array[Export]) derive(Eq, Arbitrary, Hash, Debug)
@@ -694,6 +705,7 @@ pub enum Instruction {
   RefFunc(FuncIdx)
   RefEq
   RefAsNonNull
+  StringConst(Bytes)
   BrOnNull(LabelIdx)
   BrOnNonNull(LabelIdx)
   StringNewUtf8Array
@@ -1405,6 +1417,7 @@ pub enum TInstrKind {
   TF64Const(F64)
   TRefNull(RefType)
   TRefFunc(FuncIdx)
+  TStringConst(Bytes)
   TV128Const(
     Byte,
     Byte,
@@ -1636,6 +1649,7 @@ fn tinstr_size(kind : TInstrKind) -> Int {
     | TF64Const(_)
     | TRefNull(_)
     | TRefFunc(_)
+    | TStringConst(_)
     | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
     | TUnreachable
     | TNop
@@ -3793,6 +3807,11 @@ pub fn Instruction::ref_eq() -> Instruction {
 }
 
 ///|
+pub fn Instruction::string_const(bytes : Bytes) -> Instruction {
+  StringConst(bytes)
+}
+
+///|
 pub fn Instruction::ref_as_non_null() -> Instruction {
   RefAsNonNull
 }
@@ -5938,6 +5957,11 @@ pub fn TInstr::select(
   i2 : TInstr,
 ) -> TInstr {
   tinstr(TSelect(tys, i0, i1, i2))
+}
+
+///|
+pub fn TInstr::string_const(bytes : Bytes) -> TInstr {
+  tinstr(TStringConst(bytes))
 }
 
 ///|

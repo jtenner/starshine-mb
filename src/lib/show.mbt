@@ -1425,6 +1425,11 @@ pub impl Show for Instruction with output(self, logger) {
       n.output(logger)
       logger.write_char(')')
     }
+    StringConst(bytes) => {
+      logger.write_string("(string.const ")
+      bytes.output(logger)
+      logger.write_char(')')
+    }
     StringNewUtf8Array => logger.write_string("string.new_utf8_array")
     StringNewWtf16Array => logger.write_string("string.new_wtf16_array")
     StringEncodeUtf8Array => logger.write_string("string.encode_utf8_array")
@@ -2371,6 +2376,7 @@ pub impl Show for Module with output(self, logger) {
     table_sec,
     mem_sec,
     tag_sec,
+    stringrefs_sec,
     global_sec,
     export_sec,
     start_sec,
@@ -2406,6 +2412,9 @@ pub impl Show for Module with output(self, logger) {
   logger.write_char('\n')
   logger.write_string("tag_sec: ")
   tag_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("stringrefs_sec: ")
+  stringrefs_sec.output(logger)
   logger.write_char('\n')
   logger.write_string("global_sec: ")
   global_sec.output(logger)

@@ -163,6 +163,7 @@ fn collect_op_values(op : SSAOp, out : Set[SSAValue]) -> Unit {
       out.add(do_)
       out.add(l)
     }
+    SSAOp::StringConst(_) => ()
     SSAOp::StringNewUtf8Array(array, start, end_)
     | SSAOp::StringNewWtf16Array(array, start, end_)
     | SSAOp::StringNewLossyUtf8Array(array, start, end_)
