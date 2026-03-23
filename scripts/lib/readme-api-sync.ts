@@ -60,6 +60,9 @@ function collectDefaultInterfacePaths(repoRoot: string): string[] {
   return out;
 }
 
+// README sync blocks are intentionally explicit and strict:
+// each marker points at one interface path and is followed by a non-empty mbti block,
+// so drift is surfaced exactly where the marker declares expected signatures.
 function parseVerifyBlocks(readmeText: string): VerifyBlock[] {
   const lines = readmeText.split(/\r?\n/);
   const blocks: VerifyBlock[] = [];

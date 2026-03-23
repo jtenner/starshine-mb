@@ -344,6 +344,9 @@ function parsePassList(raw) {
     .filter((part) => part.length > 0);
 }
 
+// Config parser accepts a permissive JSON shape and mirrors the MoonBit-side parser:
+// known keys are normalized into host-side fields, aliases are honored, and bad
+// leaves are ignored instead of hard-failing the whole parse.
 function parseConfigJson(text) {
   let root;
   try {
@@ -605,6 +608,9 @@ function parseEnvOverlay(io) {
   return out;
 }
 
+// Merge order is CLI > env > config for each field, but output/input collections
+// are sourced as ordered unions with dedupe so precedence can be applied with
+// minimal surprise.
 function mergeParseResults(config, env, parsedCli) {
   const out = createParseState();
 
@@ -1234,6 +1240,9 @@ function expandPassesForCli(resolvedPasses) {
   return ok([...resolvedPasses]);
 }
 
+// Convert parsed CLI/config/env state into an adapter-friendly pipeline state and
+// execute spec-mode early, then perform decoding/optimization/writing with
+// explicit ambiguity checks (multi-input + --out).
 function run_cmd_with_adapter(args, io, config_json) {
   if (!isBranded(io, BRAND_CMD_IO)) {
     throw new TypeError('Expected a CmdIO created with cmd.CmdIO.new().');

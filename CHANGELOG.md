@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Docs: refresh CLI docs and clarify command/pipeline behavior
+
+- **README and CLI-doc refresh** by **@jtenner**. Updated [`README.mbt.md`](/home/jtenner/Projects/starshine-mb/README.mbt.md), [`examples/README.md`](/home/jtenner/Projects/starshine-mb/examples/README.md), [`node/README.md`](/home/jtenner/Projects/starshine-mb/node/README.md), [`node/examples/README.md`](/home/jtenner/Projects/starshine-mb/node/examples/README.md), and [`tests/spec/README.md`](/home/jtenner/Projects/starshine-mb/tests/spec/README.md) to replace outdated compatibility notes, clarify config/env/CLI precedence, and keep example indexes aligned with current scripts.
+- **Round 2 command-path comments** by **@jtenner**. Added focused comments in [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt), [`node/cmd.js`](/home/jtenner/Projects/starshine-mb/node/cmd.js), and [`src/node_api/custom.mbt`](/home/jtenner/Projects/starshine-mb/src/node_api/custom.mbt) for parser precedence, generated-pass scheduling, and legacy compatibility behavior.
+- **Source-tooling annotation clarity** by **@jtenner**. Added short helper/context comments in [`scripts/lib/readme-api-sync.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/readme-api-sync.ts) and [`scripts/lib/validate-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/validate-task.ts) to reduce future drift and clarify internal assumptions for CI-facing behavior.
+
 ## 2026-03-23 Validation: propagate non-fallthrough block exits so dead-code-eliminated control blocks no longer require fake fallthrough results
 
 - **Raw and typed block-exit propagation** by **@jtenner**. Updated [`src/validate/typecheck.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so raw and typed `block` validation now distinguishes real block merges from bodies that end in `return`, `unreachable`, or an outer-label branch. Non-fallthrough blocks now keep the enclosing state unreachable with the appropriate escape instead of being treated as if they always reach the block merge.

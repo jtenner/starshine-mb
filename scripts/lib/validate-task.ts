@@ -147,6 +147,8 @@ export function parseValidateTraceBenchmarkArgs(argv: string[]): ValidateTraceBe
   return options;
 }
 
+// Parse "moon coverage analyze" text into structured counts and sorted file rows so
+// CI can fail only when uncovered-lines regress versus an optional baseline.
 export function parseCoverageOutput(report: string): { totalUncovered: number; fileCount: number; entries: Array<{ count: number; file: string }> } {
   let totalUncovered: number | null = null;
   let fileCount: number | null = null;

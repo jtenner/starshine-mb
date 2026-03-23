@@ -1,4 +1,7 @@
 ///|
+/// CLI parse result field accessors used by the Node JS adapter.
+/// MoonBit exposes private/opaque fields via these helpers so JS can safely read
+/// structured parse state produced by CLI/config/env merge.
 pub fn __node_cli_parse_result_has_config_path(
   value : @cli.CliParseResult,
 ) -> Bool {
@@ -233,6 +236,10 @@ pub fn __node_cli_output_target_path(value : @cli.CliOutputTarget) -> String {
 }
 
 ///|
+/// Node-facing optimization-flag and trap-mode conversions used by adapter code
+/// when rendering flags and normalizing behavior checks.
+
+///|
 pub fn __node_cli_optimization_flag_kind(
   value : @cli.CliOptimizationFlag,
 ) -> String {
@@ -270,6 +277,9 @@ pub fn __node_cli_trap_mode_name(value : @cli.TrapMode) -> String {
     @cli.TrapMode::Never => "never"
   }
 }
+
+///|
+/// Spec-suite result accessors used by Node-side reporting and mismatch output.
 
 ///|
 pub fn __node_wast_spec_run_summary_total_files(

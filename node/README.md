@@ -36,6 +36,7 @@ if (!encoded.ok) throw new Error(encoded.display ?? 'failed to encode');
 ```
 
 ## Build Note
-- CLI optimization flags are accepted for compatibility but no-op while pipeline refactors continue.
+- Legacy explicit CLI pass flags are still accepted for compatibility, including unknown values, but currently resolve as compatibility no-ops.
+- `--optimize` / `--shrink` are the active compatibility path that drives the generated optimization pipeline.
 - `npm run build` rebuilds the checked-in wasm artifacts from `src/node_api` and `src/cmd`.
 - JS/TS adapter source regeneration is still manual.

@@ -6,6 +6,6 @@ This folder mirrors upstream test corpora:
 - proposal repos and forked proposal fixtures
 
 ## Update Process
-- Weekly updates via upstream workflow.
-- Manual contributor updates via `./update-testsuite.py` and PR.
-- Keep PRs in the upstream repos when possible; this mirror tracks source updates.
+- Weekly updates via upstream workflow or mirror bots.
+- Manual contributor updates via `./update-testsuite.py` (run from repo root) and PR.
+- Keep PRs in upstream repos when possible; this mirror tracks source updates.

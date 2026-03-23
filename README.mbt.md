@@ -65,7 +65,9 @@ fn parse_validate_encode(source : String) -> Bool {
 
 ## Compatibility Note
 
-- CLI optimization flags are currently accepted for compatibility but mostly no-op while the pipeline is being refactored.
+- `--optimize` / `--shrink` resolve into the generated optimization pipeline.
+- Legacy explicit pass flags (`--flatten`, `--global-effects`, unknown pass names, etc.) are still accepted for compatibility, then run as no-op markers in the legacy pass layer.
+- `--vacuum`, `--optimize`, and `--shrink` still affect pass scheduling/capping exactly as documented in tests, even when explicit compatibility passes are no-op today.
 
 ## Prerequisites
 

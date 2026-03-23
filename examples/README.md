@@ -24,9 +24,11 @@ starshine --vacuum --out-dir out examples/modules/simple.wat
 starshine --config examples/config/optimize-release.json
 source examples/env/starshine.env && starshine examples/modules/feature_mix.wat
 starshine --global-effects --flatten --vacuum --out-dir out examples/modules/table_dispatch.wat examples/modules/simd_lane_mix.wat
+starshine --optimize --shrink --out-dir out examples/modules/feature_mix.wat
 ```
 
 ## Notes
 - Build/install CLI first if `starshine` is not found.
-- Use config/env in the order: `config -> env -> cli`; output/optimization flags in env/cli override config.
+- Config/env/CLI precedence is `config -> env -> cli`; in practice, CLI overrides all, env overrides config, and config provides defaults.
+- `--optimize` and `--shrink` are the current compatibility-supported optimization entrypoint; explicit pass-only flags are accepted for legacy compatibility.
 - Prefer small-module checks before running long command sequences on large inputs.

@@ -657,6 +657,10 @@ fn parse_json_bool(value : Json) -> Bool? {
 }
 
 ///|
+/// Parse configuration JSON from a file or stdin string.
+/// This parser is permissive by design: unknown keys are ignored, alias keys are
+/// supported, and bad leaf values are dropped so that partial config can still be
+/// combined with CLI/environment layers instead of aborting entirely.
 fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
   let root = parse(text) catch {
     e => return Err(CmdError::InvalidConfig("invalid config json: \{e}"))
@@ -964,6 +968,10 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
 }
 
 ///|
+/// Parse environment overlay variables into a parse result shape.
+/// Environment values follow the same normalization rules as `parse_config_json`
+/// (trimmed values, alias keys, permissive leaf handling), and they are merged
+/// later with config+CLI using explicit precedence.
 fn parse_env_overlay(io : CmdIO) -> CliParseResult {
   let mut input_format : CliInputFormat? = None
   let output_targets : Array[CliOutputTarget] = []
@@ -1132,6 +1140,10 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
 }
 
 ///|
+/// Merge config + env + cli parse layers with explicit precedence:
+/// CLI overrides env, env overrides config for scalar fields and selected lists.
+/// Input globs are concatenated with dedupe to preserve all sources while avoiding
+/// duplicate entries from overlapping layers.
 fn merge_parse_results(
   config : CliParseResult,
   env : CliParseResult,
@@ -1400,6 +1412,8 @@ fn make_optimize_options(
 }
 
 ///|
+/// Choose validation strategy for generated passes: after each segment when debug
+/// tracing is enabled, otherwise only module-level validation checks are kept.
 fn cmd_generated_pipeline_validation_kind(
   options : OptimizeOptions,
 ) -> ValidationKind {
@@ -1690,6 +1704,10 @@ fn cmd_append_generated_pipeline_entries(
 }
 
 ///|
+/// Translate user-facing pass names into the generated pipeline.
+/// `optimize`/`shrink` and explicit generated-pass names land here first; unknown
+/// legacy names are intentionally ignored here and handled below as compatibility
+/// legacy pass requests.
 fn cmd_generated_pipeline_from_flags(
   mod : Module,
   pass_flags : Array[String],
@@ -1805,6 +1823,9 @@ fn cmd_generated_pipeline_type_lift_func(
 }
 
 ///|
+/// Ensure every code section function is converted to typed form before running
+/// generated passes; skip when module doesn't have a typed raw/code pairing to
+/// convert, because then no pre-lift stage is necessary.
 fn cmd_generated_pipeline_type_lift_module(
   mod : Module,
 ) -> Result[Module, String] {
@@ -1907,6 +1928,10 @@ fn limit_generated_pipeline_by_max_passes(
 }
 
 ///|
+/// Expand pass names that are not handled by the generated pipeline.
+/// This keeps `--optimize`/`--shrink` compatibility in sync with generated
+/// execution while leaving old pass names and unknown names to the legacy
+/// compatibility layer.
 fn expand_legacy_passes_for_module(
   pass_flags : Array[String],
   mod : Module,
@@ -1938,6 +1963,8 @@ fn cmd_validate_generated_pipeline_step(mod : Module) -> Result[Unit, String] {
 }
 
 ///|
+/// Execute the generated pass pipeline in sequence, validating after each segment
+/// when requested; this is the primary path for modern `generated` optimization.
 fn run_generated_pipeline_with_options(
   mod : Module,
   pipeline : Array[PipelineEntry],
@@ -1996,6 +2023,8 @@ fn cmd_generated_pipeline_entry_trace_text(entry : PipelineEntry) -> String {
 }
 
 ///|
+/// Same as `run_generated_pipeline_with_options`, but emits per-segment trace
+/// markers so callers can observe progress and validation boundaries.
 fn run_generated_pipeline_with_options_trace(
   mod : Module,
   pipeline : Array[PipelineEntry],
@@ -2075,6 +2104,9 @@ fn default_global_optimization_post_passes(
 }
 
 ///|
+/// Compatibility execution entry for legacy module-level passes.
+/// Explicit pass names still resolve and are reported, but the current build keeps
+/// this path intentionally identity/no-op.
 fn optimize_module_with_options(
   mod : Module,
   _passes : Array[ModulePass],
@@ -2084,6 +2116,9 @@ fn optimize_module_with_options(
 }
 
 ///|
+/// Compatibility tracing entry for legacy passes.
+/// Still emits a trace marker when legacy passes are present, then returns input
+/// unchanged for no-op behavior.
 fn optimize_module_with_options_trace(
   mod : Module,
   passes : Array[ModulePass],
@@ -3221,6 +3256,9 @@ fn output_path_for_default_target(
 }
 
 ///|
+/// CLI entrypoint used by the Node runtime bridge and tests.
+/// It builds a merged CLI/env/config view, constructs a scheduled pass list, then
+/// executes generated pipeline passes followed by compatibility legacy passes.
 pub fn run_cmd_with_adapter(
   args : Array[String],
   io : CmdIO,
