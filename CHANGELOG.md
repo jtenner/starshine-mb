@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Optimization: record fresh-artifact `DFE -> RUME -> MP -> OR -> DCE` parity gap
+
+- **DeadCodeElimination fresh-artifact checkpoint** by **@jtenner**. Added [`docs/0059-2026-03-23-dfe-rume-memory-packing-once-dce-fresh-artifact-parity.md`](/home/jtenner/Projects/starshine-mb/docs/0059-2026-03-23-dfe-rume-memory-packing-once-dce-fresh-artifact-parity.md) to record the first later shared-pass divergence after the repaired DFE merge set: on the fresh rebuilt release artifact, Starshine `DeadCodeElimination` is a byte-for-byte no-op after `DFE -> RUME -> MemoryPacking -> OnceReduction`, while Binaryen still shrinks the code section by `4` bytes by removing dead branch-tail cleanup.
+- Refreshed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the active parity backlog now treats fresh-artifact `DeadCodeElimination` as the next real optimization blocker instead of `RemoveUnusedModuleElements`, `MemoryPacking`, or `OnceReduction`.
+
 ## 2026-03-23 Validation: queue validator fuzz hardening follow-ups
 
 - **Validator fuzz backlog slicing** by **@jtenner**. Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to turn the new validator fuzz research in [`docs/0058-2026-03-23-validate-fuzz-hardening-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0058-2026-03-23-validate-fuzz-hardening-plan.md) into pickup-ready follow-up work, including the immediate `HeapTypeSwap` dispatch fix, invalid-strategy coverage hardening, generator/export coverage work, and the later repro/spec-seed/binary-text fuzz extensions.
