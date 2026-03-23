@@ -122,16 +122,17 @@
   - RemoveUnusedNames completion:
   - canonical plan: [`docs/0061-2026-03-23-remove-unused-names-implementation-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0061-2026-03-23-remove-unused-names-implementation-plan.md).
   - blockers:
-    - rebuild `RemoveUnusedNames` to match Binaryen's single-pass `branchesSeen` model instead of extending the current local rewrite heuristics.
-    - rerun the fresh-artifact explicit shared prefix through Starshine and Binaryen only after that rework; earlier explicit `--dead-code-elimination` / `--remove-unused-names` replay numbers are stale because those generated-path flags were being dropped in `src/cmd/cmd.mbt`.
+    - rerun the fresh-artifact explicit shared prefix through Starshine and Binaryen after the next candidate pre-scan slice; earlier explicit `--dead-code-elimination` / `--remove-unused-names` replay numbers are stale because those generated-path flags were being dropped in `src/cmd/cmd.mbt`, and the current release-binary replay is still too slow to use as a checkpoint.
+    - direct native replay is still blocked before a trustworthy parity check by the post-encode validation failure in `Func 27` on `_build/wasm/release/build/cmd/cmd.wasm`, even without `RemoveUnusedNames`.
   - risks:
     - slice 1 is now live: dedicated runner wiring, same-typed block peeling, and typed branch-payload rebasing landed in `src/optimization/optimization.mbt` with focused regressions in `src/optimization/remove_unused_names_wbtest.mbt`.
     - slice 2 is now live: nested control that still targets a removed scope now blocks peeling through the depth-aware label scan, with a focused valid nested-`if` regression in `src/optimization/remove_unused_names_wbtest.mbt`.
     - slice 3 is now live: loops now demote to blocks only when the loop label has no remaining continue edge, with both void and value-loop regressions in `src/optimization/remove_unused_names_wbtest.mbt`.
-    - now that the generated replay path really runs `RemoveUnusedNames`, the current implementation shows fresh-artifact runtime risk from repeated subtree rescans; keep parity work on up-front branch-target analysis or Binaryen's direct bookkeeping model, not broader speculative cleanups.
+    - slice 4 is now live: [`docs/0062-2026-03-23-remove-unused-names-branch-summary-rework.md`](/home/jtenner/Projects/starshine-mb/docs/0062-2026-03-23-remove-unused-names-branch-summary-rework.md) replaces repeated subtree rescans with one memoized external-target-depth summary per typed body and adds `try_table` catch-target bailout coverage.
+    - even after the branch-summary rework, the current release binary still spends about a minute of CPU on the fresh-artifact shared prefix ending in `RemoveUnusedNames`; the next defensible performance slice is a cheap candidate pre-scan, not broader cleanup semantics.
   - implementation features:
     - the current `RemoveUnusedNames` port is typed-only by design; raw functions are already pre-lifted before the grouped default stage.
-    - the next step is a Binaryen-aligned pass rewrite, then the first trustworthy fresh-artifact parity checkpoint with the repaired generated replay path.
+    - the next step is candidate pre-scan work to skip the full rewrite walk on functions with no same-typed block-peel or loop-demotion candidates, then another fresh-artifact parity rerun with the repaired generated replay path.
 - Validator fuzz hardening:
   - canonical research doc: [`docs/0058-2026-03-23-validate-fuzz-hardening-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0058-2026-03-23-validate-fuzz-hardening-plan.md).
   - blockers:

@@ -643,6 +643,7 @@ pub fn run_remove_unused_names(
 fn optimization_remove_unused_names_func(func : Func) -> (Func, Bool) {
   match func {
     @lib.TFunc(params, locals, body) => {
+      let min_target_depth_cache : Map[@lib.TExpr, Int] = Map::new()
       let transformer : ModuleTransformer[Unit, String] = ModuleTransformer::new().on_tinstruction_evt(fn(
           self,
           _,
@@ -657,7 +658,7 @@ fn optimization_remove_unused_names_func(func : Func) -> (Func, Bool) {
               if removed_scopes > 0 {
                 match
                   optimization_remove_unused_names_has_branch_to_removed_scope(
-                    peeled_body, removed_scopes,
+                    peeled_body, removed_scopes, min_target_depth_cache,
                   ) {
                   Ok(true) => walked
                   Ok(false) =>
@@ -677,7 +678,7 @@ fn optimization_remove_unused_names_func(func : Func) -> (Func, Bool) {
             @lib.TLoop(block_type, loop_body) =>
               match
                 optimization_remove_unused_names_has_branch_to_current_scope(
-                  loop_body,
+                  loop_body, min_target_depth_cache,
                 ) {
                 Ok(true) => walked
                 Ok(false) => @lib.TInstr::block(block_type, loop_body)
@@ -832,49 +833,139 @@ fn optimization_remove_unused_names_rebase_label(
 }
 
 ///|
-fn optimization_remove_unused_names_label_targets_removed_scope(
-  label : @lib.LabelIdx,
-  depth : Int,
-  removed_scopes : Int,
-) -> Bool {
-  if removed_scopes <= 0 {
-    return false
+fn optimization_remove_unused_names_label_depth(label : @lib.LabelIdx) -> Int {
+  let @lib.LabelIdx(raw_label) = label
+  raw_label.reinterpret_as_int()
+}
+
+///|
+fn optimization_remove_unused_names_min_target_depth_min(
+  lhs : Int,
+  rhs : Int,
+) -> Int {
+  if lhs < 0 {
+    rhs
+  } else if rhs < 0 {
+    lhs
+  } else if lhs < rhs {
+    lhs
+  } else {
+    rhs
   }
-  let @lib.LabelIdx(raw_label) = label
-  let label_depth = raw_label.reinterpret_as_int()
-  label_depth >= depth && label_depth < depth + removed_scopes
 }
 
 ///|
-fn optimization_remove_unused_names_label_matches_depth(
-  label : @lib.LabelIdx,
-  depth : Int,
-) -> Bool {
-  let @lib.LabelIdx(raw_label) = label
-  raw_label.reinterpret_as_int() == depth
+fn optimization_remove_unused_names_min_target_depth_parent(depth : Int) -> Int {
+  if depth <= 0 {
+    -1
+  } else {
+    depth - 1
+  }
 }
 
 ///|
-fn optimization_remove_unused_names_has_label_match(
-  body : @lib.TExpr,
-  predicate : (@lib.LabelIdx, Int) -> Bool,
-) -> Result[Bool, String] {
-  let found = Ref::new(false)
+fn optimization_remove_unused_names_min_target_depth_tinstr(
+  instr : @lib.TInstr,
+  cache : Map[@lib.TExpr, Int],
+) -> Int {
+  let min_depth = Ref::new(-1)
+  let note_depth = fn(depth : Int) {
+    min_depth.val = optimization_remove_unused_names_min_target_depth_min(
+      min_depth.val,
+      depth,
+    )
+  }
   let transformer : ModuleTransformer[Int, String] = ModuleTransformer::new()
-    .on_labelidx_evt(fn(_, depth, label) {
-      if predicate(label, depth) {
-        found.val = true
-      }
+    .on_labelidx_evt(fn(_, _, label) {
+      note_depth(optimization_remove_unused_names_label_depth(label))
       unchanged()
     })
-    .on_tinstruction_evt(fn(self, depth, instr) {
-      optimization_remove_unused_names_walk_tinstruction_with_depth(
-        self, depth, instr,
-      )
+    .on_tinstruction_evt(fn(self, depth, curr) {
+      match curr.kind {
+        @lib.TBlock(_, body) | @lib.TLoop(_, body) => {
+          note_depth(
+            optimization_remove_unused_names_min_target_depth_parent(
+              optimization_remove_unused_names_min_target_depth_texpr(
+                body, cache,
+              ),
+            ),
+          )
+          unchanged()
+        }
+        @lib.TIf(_, cond, then_body, else_body) => {
+          note_depth(
+            optimization_remove_unused_names_min_target_depth_tinstr(
+              cond, cache,
+            ),
+          )
+          note_depth(
+            optimization_remove_unused_names_min_target_depth_parent(
+              optimization_remove_unused_names_min_target_depth_texpr(
+                then_body, cache,
+              ),
+            ),
+          )
+          match else_body {
+            Some(other) =>
+              note_depth(
+                optimization_remove_unused_names_min_target_depth_parent(
+                  optimization_remove_unused_names_min_target_depth_texpr(
+                    other, cache,
+                  ),
+                ),
+              )
+            None => ()
+          }
+          unchanged()
+        }
+        @lib.TTryTable(_, catches, body) => {
+          note_depth(
+            optimization_remove_unused_names_min_target_depth_parent(
+              optimization_remove_unused_names_min_target_depth_texpr(
+                body, cache,
+              ),
+            ),
+          )
+          for catch_ in catches {
+            let label = match catch_ {
+              @lib.Catch(_, label)
+              | @lib.CatchRef(_, label)
+              | @lib.CatchAll(label)
+              | @lib.CatchAllRef(label) => label
+            }
+            note_depth(
+              optimization_remove_unused_names_min_target_depth_parent(
+                optimization_remove_unused_names_label_depth(label),
+              ),
+            )
+          }
+          unchanged()
+        }
+        _ => from_walk(self.walk_tinstruction_default(depth, curr))
+      }
     })
-  match transformer.walk_texpr(0, body) {
-    Ok(_) => Ok(found.val)
-    Err(err) => Err(err)
+  ignore(transformer.walk_tinstruction(0, instr))
+  min_depth.val
+}
+
+///|
+fn optimization_remove_unused_names_min_target_depth_texpr(
+  body : @lib.TExpr,
+  cache : Map[@lib.TExpr, Int],
+) -> Int {
+  match cache.get(body) {
+    Some(depth) => depth
+    None => {
+      let mut min_depth = -1
+      for instr in body.inner() {
+        min_depth = optimization_remove_unused_names_min_target_depth_min(
+          min_depth,
+          optimization_remove_unused_names_min_target_depth_tinstr(instr, cache),
+        )
+      }
+      cache.set(body, min_depth)
+      min_depth
+    }
   }
 }
 
@@ -882,21 +973,20 @@ fn optimization_remove_unused_names_has_label_match(
 fn optimization_remove_unused_names_has_branch_to_removed_scope(
   body : @lib.TExpr,
   removed_scopes : Int,
+  cache : Map[@lib.TExpr, Int],
 ) -> Result[Bool, String] {
-  optimization_remove_unused_names_has_label_match(body, fn(label, depth) {
-    optimization_remove_unused_names_label_targets_removed_scope(
-      label, depth, removed_scopes,
-    )
-  })
+  let min_depth = optimization_remove_unused_names_min_target_depth_texpr(
+    body, cache,
+  )
+  Ok(min_depth >= 0 && min_depth < removed_scopes)
 }
 
 ///|
 fn optimization_remove_unused_names_has_branch_to_current_scope(
   body : @lib.TExpr,
+  cache : Map[@lib.TExpr, Int],
 ) -> Result[Bool, String] {
-  optimization_remove_unused_names_has_label_match(body, fn(label, depth) {
-    optimization_remove_unused_names_label_matches_depth(label, depth)
-  })
+  Ok(optimization_remove_unused_names_min_target_depth_texpr(body, cache) == 0)
 }
 
 ///|

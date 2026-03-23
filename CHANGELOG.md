@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Optimization: memoize `RemoveUnusedNames` branch-target summaries
+
+- **`RemoveUnusedNames` branch-summary rework** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now answers its live-target queries from one memoized typed-body summary of the nearest escaping branch/catch target depth instead of repeatedly rescanning whole subtrees, while keeping the rewrite surface aligned with Binaryen's narrow name-cleanup behavior.
+- Added focused `try_table` catch-target coverage in [`src/optimization/remove_unused_names_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_names_wbtest.mbt) so peeled same-typed blocks still bail out when a catch target would be retargeted incorrectly.
+- Documented the algorithm, pseudocode, and remaining fresh-artifact blockers in [`docs/0062-2026-03-23-remove-unused-names-branch-summary-rework.md`](/home/jtenner/Projects/starshine-mb/docs/0062-2026-03-23-remove-unused-names-branch-summary-rework.md), and refreshed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the next `RemoveUnusedNames` slice is now candidate pre-scan work plus the still-blocked fresh-artifact parity rerun.
+
 ## 2026-03-23 CLI: honor explicit generated replay flags for late shared passes
 
 - **Generated replay flag wiring** by **@jtenner**. Updated [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) so the explicit generated-pipeline path now actually schedules `DeadCodeElimination` and `RemoveUnusedNames` when the user passes `--dead-code-elimination` or `--remove-unused-names`, instead of silently dropping those flags from the generated replay.

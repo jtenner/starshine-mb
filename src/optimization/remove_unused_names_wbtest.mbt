@@ -213,6 +213,29 @@ test "remove unused names skips merge when nested control still targets a remove
 }
 
 ///|
+test "remove unused names skips merge when try_table catch still targets a removed scope" {
+  let mod = remove_unused_names_test_module([
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::block(
+          @lib.BlockType::void_(),
+          @lib.TExpr::new([
+            @lib.TInstr::try_table(
+              @lib.BlockType::void_(),
+              [@lib.Catch::all(@lib.LabelIdx::new(1U))],
+              @lib.TExpr::new([@lib.TInstr::nop()]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let (optimized, _) = run_remove_unused_names(mod, PipelineScratch::new())
+  assert_eq(optimized, mod)
+}
+
+///|
 test "remove unused names rewrites loop to block when no continue branch remains" {
   let body = remove_unused_names_test_body([
     @lib.TInstr::loop_(
