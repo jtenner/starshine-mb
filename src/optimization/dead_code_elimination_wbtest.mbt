@@ -249,6 +249,7 @@ test "dead code elimination preserves prefix effects before an unreachable binar
         @lib.TInstr::unreachable_(),
       ]),
     ),
+    @lib.TInstr::unreachable_(),
   ])
 }
 
@@ -270,6 +271,7 @@ test "dead code elimination preserves store address effects before an unreachabl
         @lib.TInstr::unreachable_(),
       ]),
     ),
+    @lib.TInstr::unreachable_(),
   ])
 }
 
@@ -294,6 +296,7 @@ test "dead code elimination preserves select value effects before an unreachable
         @lib.TInstr::unreachable_(),
       ]),
     ),
+    @lib.TInstr::unreachable_(),
   ])
 }
 
@@ -313,6 +316,7 @@ test "dead code elimination preserves earlier direct call arguments before an un
         @lib.TInstr::unreachable_(),
       ]),
     ),
+    @lib.TInstr::unreachable_(),
   ])
 }
 
@@ -366,6 +370,7 @@ test "dead code elimination truncates code after a rewritten unreachable block" 
         @lib.TInstr::unreachable_(),
       ]),
     ),
+    @lib.TInstr::unreachable_(),
   ])
 }
 
@@ -401,6 +406,7 @@ test "dead code elimination retags concrete blocks when no live breaks remain" {
         @lib.TInstr::unreachable_(),
       ]),
     ),
+    @lib.TInstr::unreachable_(),
   ])
 }
 
@@ -455,6 +461,7 @@ test "dead code elimination keeps trailing result after inner self-break block" 
                 @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])]),
               ),
             ),
+            @lib.TInstr::unreachable_(),
           ]),
         ),
         @lib.TInstr::i32_const(@lib.I32::new(7)),
@@ -476,6 +483,7 @@ test "dead code elimination keeps trailing result after inner self-break block" 
                 @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])]),
               ),
             ),
+            @lib.TInstr::unreachable_(),
           ]),
         ),
         @lib.TInstr::i32_const(@lib.I32::new(7)),
@@ -532,7 +540,7 @@ test "dead code elimination retags concrete block when only outer breaks remain"
           @lib.BlockType::void_(),
           @lib.TExpr::new([
             @lib.TInstr::block(
-              @lib.BlockType::void_(),
+              @lib.BlockType::val_type(@lib.ValType::i32()),
               @lib.TExpr::new([
                 @lib.TInstr::if_(
                   @lib.BlockType::void_(),
@@ -546,6 +554,7 @@ test "dead code elimination retags concrete block when only outer breaks remain"
                     ]),
                   ),
                 ),
+                @lib.TInstr::unreachable_(),
               ]),
             ),
           ]),
@@ -606,6 +615,7 @@ test "dead code elimination sees deep current-label breaks through nested ifs" {
                     ]),
                   ),
                 ),
+                @lib.TInstr::unreachable_(),
               ]),
             ),
           ]),
@@ -922,6 +932,7 @@ test "dead code elimination retags ifs when both arms are unreachable" {
       @lib.TExpr::new([@lib.TInstr::unreachable_()]),
       Some(@lib.TExpr::new([@lib.TInstr::unreachable_()])),
     ),
+    @lib.TInstr::unreachable_(),
   ])
 }
 
@@ -948,6 +959,7 @@ test "dead code elimination preserves result-typed ifs whose arms escape an oute
                     ]),
                   ),
                 ),
+                @lib.TInstr::unreachable_(),
               ]),
             ),
           ),
@@ -996,6 +1008,7 @@ test "dead code elimination preserves result-typed ifs whose arms escape an oute
                     ]),
                   ),
                 ),
+                @lib.TInstr::unreachable_(),
               ]),
             ),
           ),
@@ -1052,6 +1065,7 @@ test "dead code elimination retags try_table when its body is unreachable" {
       [],
       @lib.TExpr::new([@lib.TInstr::unreachable_()]),
     ),
+    @lib.TInstr::unreachable_(),
   ])
 }
 
@@ -1079,11 +1093,18 @@ test "dead code elimination keeps nested ref-result try_table rewrites valid" {
     ],
   )
   assert_eq(body, [
-    @lib.TInstr::try_table(
+    @lib.TInstr::block(
       @lib.BlockType::void_(),
-      [],
-      @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+      @lib.TExpr::new([
+        @lib.TInstr::try_table(
+          @lib.BlockType::void_(),
+          [],
+          @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+        ),
+        @lib.TInstr::unreachable_(),
+      ]),
     ),
+    @lib.TInstr::unreachable_(),
   ])
 }
 
@@ -1171,12 +1192,20 @@ test "dead code elimination drops stale outer block value after dead nested br_i
         @lib.TInstr::block(
           @lib.BlockType::void_(),
           @lib.TExpr::new([
-            @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(7))),
+            @lib.TInstr::block(
+              @lib.BlockType::void_(),
+              @lib.TExpr::new([
+                @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(7))),
+                @lib.TInstr::unreachable_(),
+              ]),
+            ),
             @lib.TInstr::unreachable_(),
           ]),
         ),
+        @lib.TInstr::unreachable_(),
       ]),
     ),
+    @lib.TInstr::unreachable_(),
   ])
 }
 
@@ -1339,5 +1368,6 @@ test "dead code elimination removes dead string.new_wtf16_array tee tails" {
         @lib.TInstr::unreachable_(),
       ]),
     ),
+    @lib.TInstr::unreachable_(),
   ])
 }

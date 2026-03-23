@@ -2406,10 +2406,32 @@ fn optimization_dead_code_elimination_truncate_after_first_unreachable(
   for instr in instrs {
     kept.push(instr)
     if optimization_dead_code_elimination_instr_terminates_current_expr(instr) {
+      if optimization_dead_code_elimination_instr_needs_unreachable_barrier(
+          instr,
+        ) {
+        kept.push(@lib.TInstr::unreachable_())
+      }
       break
     }
   }
   kept
+}
+
+///|
+fn optimization_dead_code_elimination_instr_needs_unreachable_barrier(
+  instr : @lib.TInstr,
+) -> Bool {
+  match instr.kind {
+    @lib.TTryTable(_, _, body) =>
+      optimization_dead_code_elimination_try_table_is_unreachable(body)
+    @lib.TIf(_, cond, then_body, else_body) =>
+      optimization_dead_code_elimination_if_is_unreachable(
+        cond, then_body, else_body,
+      )
+    @lib.TBlock(block_type, body) =>
+      optimization_dead_code_elimination_block_escapes_parent(block_type, body)
+    _ => false
+  }
 }
 
 ///|

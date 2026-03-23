@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Validation: preserve explicit raw non-fallthrough after structured DCE rewrites
+
+- **DCE structured terminal barrier** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so dead-tail truncation now inserts an explicit trailing `unreachable` after structured instructions (`block`, `if`, `try_table`) that DCE proves are semantically non-fallthrough. This keeps the optimization while preserving raw Wasm validity instead of assuming those structured instructions are terminal by themselves after lowering.
+- Added focused regressions in [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt), [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt), and [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) for the reduced branch-payload-bypass repro, the new structured-terminal barrier expectations, and the branch-or-return validator shape.
+- Documented the reduced repro, Binaryen comparison, and parity checkpoint in [`docs/0067-2026-03-23-dce-structured-terminal-unreachable-barrier.md`](/home/jtenner/Projects/starshine-mb/docs/0067-2026-03-23-dce-structured-terminal-unreachable-barrier.md). The minimized raw repro now validates after `--dead-code-elimination`, and the fresh artifact direct `--dead-code-elimination` plus `DFE -> RUME -> MemoryPacking -> OnceReduction -> DCE` prefix both validate again (`2517968` and `2352767` bytes respectively).
+
 ## 2026-03-23 Validation: tighten DCE control-flow termination and branch-payload handling
 
 - **DCE `if` tail-escape check** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `DeadCodeElimination` no longer treats result-typed `if`s as body-terminating just because both branches are recursively “unreachable”. The pass now requires each branch tail to actually escape the enclosing expression, which preserves later required result tails after current-label `br 0` paths.

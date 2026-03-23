@@ -4410,6 +4410,47 @@ test "validate_module accepts result if that can either return or escape to late
   }
 }
 
+///|
+test "validate_module accepts result if that can either branch to current block or return" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::block(
+              BlockType::val_type(ValType::i32()),
+              Expr::new([
+                Instruction::i32_const(I32(1)),
+                Instruction::if_(
+                  BlockType::val_type(ValType::i32()),
+                  [
+                    Instruction::i32_const(I32(7)),
+                    Instruction::br(LabelIdx::new(1U)),
+                  ],
+                  Some([Instruction::i32_const(I32(8)), Instruction::return_()]),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected branch-or-return result if fixture to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
 // ============ NumType Tests ============
 
 ///|
