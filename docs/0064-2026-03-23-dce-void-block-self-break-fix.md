@@ -22,7 +22,7 @@
 - The remaining typed result block still kept result type `i32`, so typed-to-raw encode produced an invalid block with no fallthrough value.
 
 ## Root cause
-- `optimization_dead_code_elimination_block_escapes_parent` used:
+- The first bad predicate was in `optimization_dead_code_elimination_block_escapes_parent`:
 
 ```text
 if tail_does_not_escape_current_expr:
@@ -36,9 +36,14 @@ else:
 - That `void => true` branch was too aggressive.
 - A tail `if` whose branches only `br 1` from inside the `if` exits the current `void` block, but it does not escape the parent expression when that break targets the block itself.
 - Expression truncation then removed later siblings that were still needed to produce the enclosing concrete block result.
+- The second bad predicate was in `optimization_dead_code_elimination_instr_has_live_break_to_label`:
+  - recursion through `if` bodies kept the same `target_depth`
+  - but `if` introduces a label, so a branch inside `then` / `else` that targets the immediately enclosing block must be matched at `target_depth + 1`
+- Without that depth adjustment, nested `br 1` edges inside `if` arms were invisible to the enclosing block-preservation logic.
 
 ## Fixed behavior
 - The escape test now always requires `no_live_break_to_label_0(body)`, regardless of block result type.
+- The live-break scan now also increments target depth when descending through `if` bodies.
 - Pseudocode:
 
 ```text
@@ -48,6 +53,12 @@ block_escapes_parent(body):
   if tail does not escape the current expr:
     return false
   return not has_live_break_to_label(body, 0)
+
+has_live_break_to_label(instr, target_depth):
+  if instr is if(cond, then, else):
+    return has_live_break_to_label(cond, target_depth) or
+      has_live_break_to_label(then, target_depth + 1) or
+      has_live_break_to_label(else, target_depth + 1)
 ```
 
 - This keeps DCE local and linear in the existing analysis surface.
@@ -73,7 +84,8 @@ _build/native/release/build/cmd/cmd.exe \
 ```
 
 - Before the fix, that failed post-encode validation with `stack underflow` and printed a `block I32` with no remaining fallthrough value.
-- Full workspace `moon info`, `moon fmt`, and `moon test` are still blocked by unrelated compile errors in `src/fs/fs.mbt` and `src/validate/invalid_fuzzer.mbt`, so this slice used direct package compilation with `moonc build-package` against cached dependency artifacts.
+- After the follow-up `if`-depth fix, the minimized repro now encodes and validates cleanly again.
+- Full workspace `moon info`, `moon fmt`, and `moon test` now pass again after the separate API-drift unblock slice, so artifact reruns can use the rebuilt native `src/cmd` binary again.
 
 ## Performance impact
 - None intended beyond removing a false-positive truncation.
@@ -83,4 +95,7 @@ _build/native/release/build/cmd/cmd.exe \
 - Rebuild `src/cmd` once the unrelated workspace compile blockers are cleared and rerun:
   - direct `--dead-code-elimination` on `_build/wasm/release/build/cmd/cmd.wasm`
   - the shared five-pass prefix ending in DCE
-- If `Func 531` / `Func 527` still fail after that rerun, reduce the next remaining post-encode shape separately instead of widening this rule again.
+- That rerun is now unblocked and moves the first remaining artifact failure forward:
+  - direct DCE output now first fails `wasm-tools validate` at `func 407`
+  - the five-pass prefix now first fails `wasm-tools validate` at `func 403`
+- Reduce that later “values remaining on stack at end of block” shape separately instead of widening this rule again.

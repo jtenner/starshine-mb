@@ -133,8 +133,9 @@
     - even after the branch-summary rework and candidate pre-scan, the current release binary still spends about a minute of CPU on the fresh-artifact shared prefix ending in `RemoveUnusedNames`; the remaining hotspot is now inside candidate-bearing functions.
   - implementation features:
     - the current `RemoveUnusedNames` port is typed-only by design; raw functions are already pre-lifted before the grouped default stage.
-    - [`docs/0064-2026-03-23-dce-void-block-self-break-fix.md`](/home/jtenner/Projects/starshine-mb/docs/0064-2026-03-23-dce-void-block-self-break-fix.md) reduces the latest DCE post-encode blocker to a focused `void`-block self-break case and fixes that source predicate in `src/optimization/optimization.mbt`.
-    - the next step is to rebuild `src/cmd`, rerun direct DCE plus the five-pass shared prefix on `_build/wasm/release/build/cmd/cmd.wasm`, and confirm whether `Func 531` / `Func 527` are now cleared or whether another post-encode shape still remains behind them.
+    - [`docs/0064-2026-03-23-dce-void-block-self-break-fix.md`](/home/jtenner/Projects/starshine-mb/docs/0064-2026-03-23-dce-void-block-self-break-fix.md) now covers both halves of the self-break fix: removing the overbroad void-block escape fast path and accounting for `if` label depth in the live-break-to-label scan.
+    - direct native replay and the five-pass shared prefix now get past the old `Func 531` / `Func 527` `stack underflow` blocker; the next first failures are later post-encode `values remaining on stack at end of block` shapes (`func 407` for direct DCE, `func 403` for the five-pass prefix).
+    - the next step is to reduce that later post-encode block-end stack residue shape to a focused regression, then rerun parity once the new first blocker is fixed.
 - Validator fuzz hardening:
   - canonical research doc: [`docs/0058-2026-03-23-validate-fuzz-hardening-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0058-2026-03-23-validate-fuzz-hardening-plan.md).
   - blockers:

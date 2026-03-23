@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Validation: account for `if` label depth in DCE live-break scans
+
+- **DCE `if` label-depth fix** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `DeadCodeElimination`’s live-break-to-label scan now treats `if` bodies like other structured labels and increments target depth when descending into `then` / `else`. This keeps nested `br 1` edges visible as breaks to the enclosing block instead of misclassifying them as outer escapes.
+- The focused regression in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) now passes, the minimized raw WAT repro from [`docs/0064-2026-03-23-dce-void-block-self-break-fix.md`](/home/jtenner/Projects/starshine-mb/docs/0064-2026-03-23-dce-void-block-self-break-fix.md) no longer trips the old post-encode `stack underflow`, and the release-artifact first blocker moved forward from `Func 531` / `Func 527` to a later `values remaining on stack at end of block` failure (`func 407` direct DCE, `func 403` on the five-pass prefix).
+
 ## 2026-03-23 Validation: restore workspace moon checks after fs/validate/fuzz API drift
 
 - **Workspace rebuild unblock** by **@jtenner**. Updated [`src/fs/fs.mbt`](/home/jtenner/Projects/starshine-mb/src/fs/fs.mbt) and [`src/fs/moon.pkg`](/home/jtenner/Projects/starshine-mb/src/fs/moon.pkg) so `read_file_sync` now decodes UTF-8 through the imported core `encoding/utf8` package instead of calling the removed `Bytes.text()` API.

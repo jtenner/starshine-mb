@@ -425,32 +425,27 @@ test "dead code elimination keeps concrete blocks with live incoming br_if value
 
 ///|
 test "dead code elimination keeps trailing result after inner self-break block" {
-  let body = dead_code_elimination_test_result_body(
-    [@lib.ValType::i32()],
-    [
-      @lib.TInstr::block(
-        @lib.BlockType::val_type(@lib.ValType::i32()),
-        @lib.TExpr::new([
-          @lib.TInstr::block(
-            @lib.BlockType::void_(),
-            @lib.TExpr::new([
-              @lib.TInstr::if_(
-                @lib.BlockType::void_(),
-                @lib.TInstr::i32_const(@lib.I32::new(1)),
+  let body = dead_code_elimination_test_result_body([@lib.ValType::i32()], [
+    @lib.TInstr::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.TExpr::new([
+        @lib.TInstr::block(
+          @lib.BlockType::void_(),
+          @lib.TExpr::new([
+            @lib.TInstr::if_(
+              @lib.BlockType::void_(),
+              @lib.TInstr::i32_const(@lib.I32::new(1)),
+              @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])]),
+              Some(
                 @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])]),
-                Some(
-                  @lib.TExpr::new([
-                    @lib.TInstr::br(@lib.LabelIdx::new(1U), []),
-                  ]),
-                ),
               ),
-            ]),
-          ),
-          @lib.TInstr::i32_const(@lib.I32::new(7)),
-        ]),
-      ),
-    ],
-  )
+            ),
+          ]),
+        ),
+        @lib.TInstr::i32_const(@lib.I32::new(7)),
+      ]),
+    ),
+  ])
   assert_eq(body, [
     @lib.TInstr::block(
       @lib.BlockType::val_type(@lib.ValType::i32()),
@@ -463,9 +458,7 @@ test "dead code elimination keeps trailing result after inner self-break block" 
               @lib.TInstr::i32_const(@lib.I32::new(1)),
               @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])]),
               Some(
-                @lib.TExpr::new([
-                  @lib.TInstr::br(@lib.LabelIdx::new(1U), []),
-                ]),
+                @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])]),
               ),
             ),
           ]),

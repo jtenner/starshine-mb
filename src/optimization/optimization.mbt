@@ -1671,14 +1671,14 @@ fn optimization_dead_code_elimination_instr_has_live_break_to_label(
         return true
       }
       if optimization_dead_code_elimination_expr_has_live_break_to_label(
-          then_body, target_depth,
+          then_body, target_depth + 1,
         ) {
         return true
       }
       match else_body {
         Some(else_body) =>
           optimization_dead_code_elimination_expr_has_live_break_to_label(
-            else_body, target_depth,
+            else_body, target_depth + 1,
           )
         None => false
       }
