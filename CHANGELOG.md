@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Optimization: record fresh-artifact `DFE -> RUME` parity checkpoint
+
+- **RemoveUnusedModuleElements parity checkpoint** by **@jtenner**. Added [`docs/0057-2026-03-23-dfe-rume-fresh-artifact-parity.md`](/home/jtenner/Projects/starshine-mb/docs/0057-2026-03-23-dfe-rume-fresh-artifact-parity.md) to record the fresh rebuilt release-artifact replay after the DFE direct-pass alignment: `DuplicateFunctionElimination -> RemoveUnusedModuleElements` is byte-identical to direct `DuplicateFunctionElimination` on both Starshine and Binaryen, so there is no new RUME-specific parity gap on that artifact.
+- Refreshed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the active parity backlog explicitly tracks that the next fresh-artifact blocker is still post-DFE serialization/layout drift or a later pass, not `RemoveUnusedModuleElements`.
+
 ## 2026-03-23 Optimization: align direct DFE with Binaryen’s single-pass merge set
 
 - **DuplicateFunctionElimination direct-pass parity** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so explicit `DuplicateFunctionElimination` now behaves like Binaryen’s direct pass instead of running to a private fixpoint, while still canonicalizing duplicate simple function type indices inside typed function bodies for equality and hashing. On the fresh rebuilt release artifact this lands the same direct-pass merge count as Binaryen: `2892` defined functions after one DFE run.
