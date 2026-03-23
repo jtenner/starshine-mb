@@ -2142,6 +2142,20 @@ pub fn gen_valid_module(rnd : RandomState) -> Module {
   }
 
   // Build module
+  let exports : Array[Export] = []
+  let max_exports = if func_specs.length() > 3 {
+    3
+  } else {
+    func_specs.length()
+  }
+  for i in 0..<max_exports {
+    exports.push(
+      Export::new(
+        Name::new("f_" + i.to_string()),
+        ExternIdx::func(FuncIdx::new(i.reinterpret_as_uint())),
+      ),
+    )
+  }
   let mut mod = Module::new()
     .with_type_sec(TypeSec::new(all_types))
     .with_func_sec(FuncSec::new(func_type_indices))
@@ -2153,6 +2167,10 @@ pub fn gen_valid_module(rnd : RandomState) -> Module {
 
   // Always add memory
   mod = mod.with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, Some(10)))]))
+
+  if exports.length() > 0 {
+    mod = mod.with_export_sec(ExportSec::new(exports))
+  }
 
   // Always add table with initializer
   mod = mod.with_table_sec(TableSec::new([Table::new(table_type, table_init)]))

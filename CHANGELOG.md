@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Validation: harden invalid-fuzz strategy execution and coverage
+
+- **Validator fuzz hardening** by **@jtenner**. Updated [`src/validate/gen_valid.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/gen_valid.mbt), [`src/validate/invalid_fuzzer.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/invalid_fuzzer.mbt) so generated valid modules now include exports (making `DuplicateExportName` exercisable), `HeapTypeSwap` uses its dedicated heap-type mutation path, and invalid-fuzz stats now track per-strategy attempt/mutation/rejection counts with expected diagnostic-family checks.
+- Added focused invalid-fuzz regressions in [`src/validate/invalid_fuzzer.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/invalid_fuzzer.mbt) for the real `HeapTypeSwap` path and module mutation validity.
+
 ## 2026-03-23 Remove-unused-names test formatting cleanup
 
 - **Finalize candidate-scan regression formatting** by **@jtenner**. Updated [`src/optimization/remove_unused_names_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_names_wbtest.mbt) to make candidate-scan fixtures use explicit multiline array formatting for readability without changing test behavior.

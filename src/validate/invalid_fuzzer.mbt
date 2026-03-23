@@ -240,6 +240,43 @@ fn make_numtype_swap_transformer() -> ModuleTransformer[Unit, String] {
 }
 
 ///|
+fn make_heaptype_swap_transformer() -> ModuleTransformer[Unit, String] {
+  let next_abs_heaptype = fn(ht : AbsHeapType) -> AbsHeapType {
+    match ht {
+      FuncAbsHeapType => AbsHeapType::extern_()
+      ExternAbsHeapType => AbsHeapType::any()
+      ExnAbsHeapType => AbsHeapType::func()
+      AnyAbsHeapType => AbsHeapType::eq()
+      EqAbsHeapType => AbsHeapType::i31()
+      I31AbsHeapType => AbsHeapType::struct_()
+      StructAbsHeapType => AbsHeapType::array()
+      ArrayAbsHeapType => AbsHeapType::exn()
+      NoneAbsHeapType => AbsHeapType::no_func()
+      NoFuncAbsHeapType => AbsHeapType::func()
+      NoExternAbsHeapType => AbsHeapType::extern_()
+      NoExnAbsHeapType => AbsHeapType::any()
+      StringAbsHeapType => AbsHeapType::func()
+    }
+  }
+  ModuleTransformer::new().on_heaptype_evt(fn(
+    _ : ModuleTransformer[Unit, String],
+    _ctx : Unit,
+    ht : HeapType,
+  ) -> VisitAction[Unit, HeapType, String] {
+    let swapped = match ht {
+      AbsHeapTypeHeapType(aht) => HeapType::abs(next_abs_heaptype(aht))
+      HeapType(_) => HeapType::abs(AbsHeapType::func())
+      DefTypeHeapType(_) => HeapType::abs(AbsHeapType::extern_())
+    }
+    if swapped == ht {
+      unchanged()
+    } else {
+      change((), swapped)
+    }
+  })
+}
+
+///|
 /// Aggressive nullability flip - make ALL ref types non-nullable
 /// This will fail if there's any ref.null, table without init, or nullable parameter
 fn make_nullability_flip_transformer() -> ModuleTransformer[Unit, String] {
@@ -669,7 +706,7 @@ fn apply_strategy(
         _ => (false, mod_)
       }
     HeapTypeSwap =>
-      match make_drop_insertion_transformer().walk_module(false, mod_) {
+      match make_heaptype_swap_transformer().walk_module(false, mod_) {
         Ok((new_mod, _)) => (new_mod != mod_, new_mod)
         _ => (false, mod_)
       }
@@ -740,29 +777,136 @@ fn InvalidationStrategy::to_string(self : InvalidationStrategy) -> String {
 }
 
 ///|
+fn validate_invalid_fuzz_expected_issue(
+  strategy : InvalidationStrategy,
+  issue : ValidationIssue,
+) -> Bool {
+  match strategy {
+    DuplicateExportName =>
+      match issue {
+        ExportSection(_) => true
+        _ => false
+      }
+    NumTypeSwap =>
+      match issue {
+        FunctionSection(_) => true
+        TypeSection(_) => true
+        GlobalSection(_) => true
+        FunctionBody(_) => true
+        _ => false
+      }
+    NullabilityFlip =>
+      match issue {
+        FunctionSection(_) => true
+        TypeSection(_) => true
+        GlobalSection(_) => true
+        FunctionBody(_) => true
+        _ => false
+      }
+    HeapTypeSwap =>
+      match issue {
+        FunctionSection(_) => true
+        TypeSection(_) => true
+        FunctionBody(_) => true
+        _ => false
+      }
+    InstructionTypeMismatch => match issue {
+      FunctionBody(_) => true
+      _ => false
+    }
+    BlockTypeMismatch => match issue {
+      FunctionBody(_) => true
+      _ => false
+    }
+    DropInsertion => match issue {
+      FunctionBody(_) => true
+      _ => false
+    }
+    BlockCorruption => match issue {
+      FunctionBody(_) => true
+      _ => false
+    }
+    SignatureCorruption =>
+      match issue {
+        TypeSection(_) => true
+        FunctionSection(_) => true
+        _ => false
+      }
+    GlobalInitMismatch =>
+      match issue {
+        GlobalSection(_) => true
+        _ => false
+      }
+    TableInitMismatch =>
+      match issue {
+        TableSection(_) => true
+        _ => false
+      }
+    FuncIdxOOB(_)
+    | TypeIdxOOB(_)
+    | LocalIdxOOB(_)
+    | GlobalIdxOOB(_)
+    | LabelIdxOOB(_)
+    | TableIdxOOB(_)
+    | MemIdxOOB(_)
+    | DataIdxOOB(_)
+    | ElemIdxOOB(_)
+    | TagIdxOOB(_)
+    | StartIdxOOB(_) =>
+      match issue {
+      FunctionSection(_) => true
+      FunctionBody(_) => true
+      TypeSection(_) => true
+      GlobalSection(_) => true
+      TableSection(_) => true
+      TagSection(_) => true
+      MemorySection(_) => true
+      DataSection(_) => true
+      DataCountSection(_) => true
+      StartSection(_) => true
+      ExportSection(_) => true
+      _ => false
+    }
+  }
+}
+
+///|
 /// Result of testing a single strategy
 fn fuzz_invalid_module_with_coverage(
   valid_module : Module,
   strategy : InvalidationStrategy,
-) -> (String, Bool, Bool) {
+) -> (String, Int, Int, Int, Int, ValidationIssue?) {
   let strategy_name = strategy.to_string()
   let (was_modified, invalid_module) = apply_strategy(strategy, valid_module)
 
   // Not tested if no modification was made OR module unchanged
   if not(was_modified) || invalid_module == valid_module {
-    return (strategy_name, false, true)
+    return (strategy_name, 0, 0, 0, 0, None)
   }
   match validate_module(invalid_module) {
-    Ok(_) => (strategy_name, true, false)
-    Err(_) => (strategy_name, true, true)
+    Ok(_) => (strategy_name, 1, 1, 0, 0, None)
+    Err(err) => {
+      let issue = validation_error_diagnostic(err).issue
+      if validate_invalid_fuzz_expected_issue(strategy, issue) {
+        (strategy_name, 1, 1, 1, 1, None)
+      } else {
+        (strategy_name, 1, 1, 1, 0, Some(issue))
+      }
+    }
   }
 }
 
 ///|
 fn fuzz_all_strategies_with_coverage(
   valid_module : Module,
-) -> Array[(String, Bool, Bool)] {
-  let strategies : Array[InvalidationStrategy] = [
+) -> Array[(String, Int, Int, Int, Int, ValidationIssue?)] {
+  let strategies : Array[InvalidationStrategy] = validate_invalid_fuzz_strategies()
+  strategies.map(fn(s) { fuzz_invalid_module_with_coverage(valid_module, s) })
+}
+
+///|
+fn validate_invalid_fuzz_strategies() -> Array[InvalidationStrategy] {
+  [
     FuncIdxOOB(1),
     FuncIdxOOB(100),
     TypeIdxOOB(1),
@@ -789,7 +933,6 @@ fn fuzz_all_strategies_with_coverage(
     GlobalInitMismatch,
     TableInitMismatch,
   ]
-  strategies.map(fn(s) { fuzz_invalid_module_with_coverage(valid_module, s) })
 }
 
 ///|
@@ -807,14 +950,16 @@ fn validate_invalid_fuzz_ascii_lower(input : String) -> String {
 
 ///|
 fn validate_invalid_fuzz_strategy_names() -> Array[String] {
-  [
-    "FuncIdxOOB", "TypeIdxOOB", "LocalIdxOOB", "GlobalIdxOOB", "LabelIdxOOB", "TableIdxOOB",
-    "MemIdxOOB", "DataIdxOOB", "ElemIdxOOB", "TagIdxOOB", "StartIdxOOB", "DuplicateExportName",
-    "NumTypeSwap", "NullabilityFlip", "HeapTypeSwap", "InstructionTypeMismatch",
-    "BlockTypeMismatch", "DropInsertion", "BlockCorruption", "SignatureCorruption",
-    "GlobalInitMismatch", "TableInitMismatch",
-  ]
+  validate_invalid_fuzz_strategies().map(fn(s) { s.to_string() })
 }
+
+///|
+pub struct ValidateInvalidStrategyCounts {
+  name : String
+  attempted : Int
+  mutated : Int
+  rejected : Int
+} derive(Eq, Show, Debug)
 
 ///|
 pub struct ValidateInvalidFuzzStats {
@@ -822,6 +967,7 @@ pub struct ValidateInvalidFuzzStats {
   seed : UInt64
   module_attempts : Int
   modules_tested : Int
+  strategy_counts : Array[ValidateInvalidStrategyCounts]
   strategies_with_low_rejection : Array[String]
 } derive(Eq, Show, Debug)
 
@@ -841,12 +987,17 @@ pub fn run_validate_invalid_fuzz(
       )
   }
   let rnd = @splitmix.new(seed~)
-  let tested_count : Map[String, Int] = {}
-  let rejected_count : Map[String, Int] = {}
   let strategy_names = validate_invalid_fuzz_strategy_names()
+  let tested_count : Map[String, Int] = {}
+  let mutated_count : Map[String, Int] = {}
+  let rejected_count : Map[String, Int] = {}
+  let matched_count : Map[String, Int] = {}
+  let problems : Array[String] = []
   for s in strategy_names {
     tested_count[s] = 0
+    mutated_count[s] = 0
     rejected_count[s] = 0
+    matched_count[s] = 0
   }
   let mut modules_tested = 0
   for _ in 0..<module_attempts {
@@ -857,30 +1008,66 @@ pub fn run_validate_invalid_fuzz(
     modules_tested += 1
     let results = fuzz_all_strategies_with_coverage(valid_module)
     for result in results {
-      let (strategy_name, was_tested, passed) = result
-      if was_tested {
+      let (
+        strategy_name,
+        attempted,
+        mutated,
+        rejected,
+        matched,
+        mismatch_issue,
+      ) = result
+      if attempted > 0 {
         tested_count[strategy_name] = tested_count
           .get(strategy_name)
           .unwrap_or(0) +
-          1
-        if passed {
-          rejected_count[strategy_name] = rejected_count
-            .get(strategy_name)
-            .unwrap_or(0) +
-            1
-        }
+          attempted
+      }
+      if mutated > 0 {
+        mutated_count[strategy_name] = mutated_count
+          .get(strategy_name)
+          .unwrap_or(0) +
+          mutated
+      }
+      if rejected > 0 {
+        rejected_count[strategy_name] = rejected_count
+          .get(strategy_name)
+          .unwrap_or(0) +
+          rejected
+      }
+      if matched > 0 {
+        matched_count[strategy_name] = matched_count
+          .get(strategy_name)
+          .unwrap_or(0) +
+          matched
+      }
+      match mismatch_issue {
+        Some(mismatch_issue) =>
+          problems.push(
+            "\{strategy_name}: unexpected issue family \{validation_issue_message(mismatch_issue)}",
+          )
+        None => ()
       }
     }
   }
-  let problems : Array[String] = []
+  if modules_tested == 0 {
+    return Err(
+      "validate-invalid fuzz found zero valid modules: profile=\{normalized} seed=\{seed}",
+    )
+  }
   for s in strategy_names {
     let tested = tested_count.get(s).unwrap_or(0)
-    let rejected = rejected_count.get(s).unwrap_or(0)
-    if tested >= 10 {
-      let reject_rate = rejected * 100 / tested
-      if reject_rate < 80 {
-        problems.push("\{s}: \{reject_rate}% (\{rejected}/\{tested})")
-      }
+    let matched = matched_count.get(s).unwrap_or(0)
+    if tested == 0 {
+      problems.push("\{s}: not executed")
+      continue
+    }
+    if tested < 2 {
+      problems.push("\{s}: too few attempts (\{tested})")
+      continue
+    }
+    let reject_rate = matched * 100 / tested
+    if tested >= 2 && reject_rate < 80 {
+      problems.push("\{s}: \{reject_rate}% expected rejections (\{matched}/\{tested})")
     }
   }
   let stats = ValidateInvalidFuzzStats::{
@@ -888,6 +1075,14 @@ pub fn run_validate_invalid_fuzz(
     seed,
     module_attempts,
     modules_tested,
+    strategy_counts: strategy_names.map(fn(name) {
+      ValidateInvalidStrategyCounts::{
+        name,
+        attempted: tested_count.get(name).unwrap_or(0),
+        mutated: mutated_count.get(name).unwrap_or(0),
+        rejected: rejected_count.get(name).unwrap_or(0),
+      }
+    }),
     strategies_with_low_rejection: problems,
   }
   if problems.length() > 0 {
@@ -908,24 +1103,50 @@ test "run_validate_invalid_fuzz rejects unknown profile" {
 }
 
 ///|
-test "HeapTypeSwap transformer actually modifies heap types" {
-  // Test that each swap produces a different heap type
-  let swaps : Array[(HeapType, HeapType)] = [
-    (HeapType::abs(AbsHeapType::func()), HeapType::abs(AbsHeapType::extern_())),
-    (HeapType::abs(AbsHeapType::extern_()), HeapType::abs(AbsHeapType::func())),
-    (HeapType::abs(AbsHeapType::any()), HeapType::abs(AbsHeapType::func())),
-    (HeapType::abs(AbsHeapType::eq()), HeapType::abs(AbsHeapType::extern_())),
-    (HeapType::abs(AbsHeapType::i31()), HeapType::abs(AbsHeapType::func())),
-    (
-      HeapType::abs(AbsHeapType::struct_()),
-      HeapType::abs(AbsHeapType::extern_()),
-    ),
-    (HeapType::abs(AbsHeapType::array()), HeapType::abs(AbsHeapType::func())),
-    (HeapType::abs(AbsHeapType::exn()), HeapType::abs(AbsHeapType::any())),
-  ]
-  for pair in swaps {
-    let (before, after) = pair
-    assert_not_eq(before, after)
+test "HeapTypeSwap strategy mutates concrete heap types and rejects mutated module" {
+  let table_ty = TableType::new(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+    Limits::i32(10, Some(10)),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
+    )
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          table_ty,
+          Some(
+            Expr::new([Instruction::ref_func(FuncIdx::new(0U))]),
+          ),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let (modified, invalid) = apply_strategy(HeapTypeSwap, mod)
+  assert_true(modified)
+  assert_not_eq(invalid, mod)
+  match invalid.table_sec {
+    Some(TableSec(tables)) if tables.length() > 0 =>
+      match tables[0] {
+        Table(TableType(mutated_elem_ty, _), _) =>
+          assert_not_eq(
+            mutated_elem_ty,
+            RefType::new(true, HeapType::abs(AbsHeapType::func())),
+          )
+        _ => fail("expected a table in heaptype-swap invalid module")
+      }
+    _ => fail("expected table section in heaptype-swap invalid module")
+  }
+  match validate_module(invalid) {
+    Ok(_) => fail("expected heaptype swap to produce invalid module")
+    Err(_) => ()
   }
 }
 
