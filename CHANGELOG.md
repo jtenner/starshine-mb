@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Optimization: plan `RemoveUnusedNames` completion slices
+
+- **`RemoveUnusedNames` implementation plan** by **@jtenner**. Added [`docs/0061-2026-03-23-remove-unused-names-implementation-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0061-2026-03-23-remove-unused-names-implementation-plan.md) to document the current no-op gap, Binaryen-facing pass behavior, the minimal typed-IR algorithm to port, pseudocode for block peeling / label rebasing / loop demotion, and the concrete implementation slices needed to close the pass.
+- Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the active parity backlog now treats `RemoveUnusedNames` as the next concrete shared-pass implementation target after the generated pre-lift DCE recheck, with explicit slice ordering and parity checkpoints.
+
 ## 2026-03-23 Validate: truncate unreachable raw branch tails during generated pre-lift
 
 - **Generated raw-to-typed dead-tail cleanup** by **@jtenner**. Updated [`src/validate/env.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt) so nested raw `block` / `loop` / `if` / `try_table` body conversion stops consuming sibling instructions after the first stack-polymorphic terminator instead of preserving dead raw branch tails inside typed IR, while keeping top-level `to_texpr` stack-polymorphic tails intact.

@@ -29,6 +29,7 @@
     - adding `OnceReduction` after `DFE -> RUME -> MemoryPacking` is byte-identical on both tools for the fresh artifact, so it is not the first later-pass blocker here.
     - `docs/0060-2026-03-23-generated-prelift-dead-branch-tail-cleanup.md` supersedes the earlier fresh-artifact `DeadCodeElimination` gap claim from `docs/0059-2026-03-23-dfe-rume-memory-packing-once-dce-fresh-artifact-parity.md`: the observed dead `drop` after unconditional `br` tails was a generated raw-to-typed conversion bug, and the fresh Starshine `DFE -> RUME -> MemoryPacking -> OnceReduction` checkpoint now already drops those tails before DCE runs (`2352785` bytes, `2165100` code bytes).
     - adding `DeadCodeElimination` after that repaired four-pass prefix is now byte-identical on the fresh Starshine artifact, while Binaryen still spends `4` code bytes in `--dce`; treat that as a pass-boundary timing difference, not as the next proven Starshine DCE omission.
+    - `RemoveUnusedNames` is the next concrete shared-pass implementation target: [`docs/0061-2026-03-23-remove-unused-names-implementation-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0061-2026-03-23-remove-unused-names-implementation-plan.md) records the current no-op dispatch gap and the four implementation slices needed to close it.
     - the remaining fresh-artifact gap after that merge-set fix is now post-merge layout/serialization drift, not missing direct DFE merges: Binaryen lands at `2376579` bytes with `110` printed types, while Starshine lands at `2355110` bytes with `109` printed types, including the longstanding `elements` section representation gap (`1192` vs `562`) that is already present in no-op roundtrips.
     - rerun the full shared-prefix comparison on a regenerated fresh artifact before treating the older `docs/0054` / `docs/0056` release-artifact size numbers as current.
   - Binaryen `wasm-opt version 125` does not expose a literal `-O4z` CLI preset, so the exact shared comparison method for this question is explicit ordered replay of the first five fully implemented passes, not a direct preset-to-preset run.
@@ -118,6 +119,20 @@
 - StringGathering
 
 ## v0.1.0 Active Slice Focus
+- RemoveUnusedNames completion:
+  - canonical plan: [`docs/0061-2026-03-23-remove-unused-names-implementation-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0061-2026-03-23-remove-unused-names-implementation-plan.md).
+  - blockers:
+    - wire `OptimizePass::RemoveUnusedNames` to a dedicated func-local runner instead of `noop_func_local_pass`.
+    - port same-typed single-child block peeling plus label rebasing, with typed regressions for the no-candidate, peel, and branch-depth cases.
+    - port the live-target bailout so peeling skips nested control flow that still branches to a removed scope.
+    - port loop-to-block demotion when no continue branch remains, with the matching keep-loop case when `br 0` survives.
+    - rerun the fresh-artifact explicit shared prefix through Starshine and Binaryen once the pass is live.
+  - risks:
+    - incorrect label rebasing can silently retarget value-producing branches, so keep the typed branch-payload regressions in the first slice instead of deferring them.
+    - the old standalone pass had candidate and walk budgets; start without that complexity, but be prepared to restore a minimal budget if fresh-artifact runtime regresses.
+  - implementation features:
+    - keep the first port typed-only; raw functions are already pre-lifted before the grouped default stage.
+    - treat the first parity checkpoint after implementation as evidence for whether `RemoveUnusedNames` is a real fresh-artifact blocker or another clean no-op.
 - Validator fuzz hardening:
   - canonical research doc: [`docs/0058-2026-03-23-validate-fuzz-hardening-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0058-2026-03-23-validate-fuzz-hardening-plan.md).
   - blockers:
