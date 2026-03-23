@@ -20,6 +20,10 @@
 
 - **README CLI examples for equals-form wrapper flags** by **@jtenner**. Updated [`README.mbt.md`](/home/jtenner/Projects/starshine-mb/README.mbt.md) to include `--suite=`, `--profile=`, `--seed=`, `--target=`, and `--output=` usage examples for `bun fuzz run`.
 
+## 2026-03-23 Validation: assert fuzz-help passthrough in task-family commands
+
+- **Regression coverage for `bun fuzz run --help`** by **@jtenner**. Added a task-family command assertion in [`scripts/test/task-family-commands.ts`](/home/jtenner/Projects/starshine-mb/scripts/test/task-family-commands.ts) to ensure help mode passes through to `moon run src/fuzz -- --help` with default target behavior.
+
 ## 2026-03-23 Validation: strengthen validate-valid fuzz stability checks
 
 - **Validator fuzz stability hardening** by **@jtenner**. Updated [`src/fuzz/main.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/main.mbt) so the `validate-valid` suite now validates each generated module through binary encode/decode roundtrip before acceptance and exercises optional WAT roundtrip stability in CI/stress profiles. Added profile-tuned text-roundtrip attempts/stability floors and shared whitespace-normalized comparison logic.

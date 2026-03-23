@@ -176,6 +176,14 @@ process.exit(0);
   assert(coverageOutput.includes(`Coverage delta vs baseline (${baselinePath}): lines +6, files +1`), `unexpected coverage delta:\n${coverageOutput}`);
 
   fs.writeFileSync(logPath, "");
+  runBun(repoRoot, ["fuzz", "run", "--help"], env);
+  const actualFuzzHelp = fs.readFileSync(logPath, "utf8").trim();
+  assert(
+    actualFuzzHelp === "run --target wasm-gc src/fuzz -- --help",
+    `unexpected fuzz help command log:\n${actualFuzzHelp}`,
+  );
+
+  fs.writeFileSync(logPath, "");
   runBun(
     repoRoot,
     ["validate", "trace-benchmark", "--repeat", "2", "--corpus", "deep-control", "--corpus", "ref-func-heavy", "--target", "native"],
