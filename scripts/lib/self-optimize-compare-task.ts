@@ -50,12 +50,16 @@ const BINARYEN_FLAG_ALIASES = new Map<string, string>([
 
 const UNSUPPORTED_PRESET_FLAGS = new Set(["--optimize", "--shrink"]);
 
+// Build a deterministic temp directory name so multiple runs can run without
+// clobbering each other (and still be easy to clean up).
 function defaultOutDir(inputPath: string): string {
   const stem = path.basename(inputPath).replace(/\.[^.]+$/, "");
   return path.join(os.tmpdir(), `starshine-self-optimize-compare-${stem}-${process.pid}`);
 }
 
 function normalizeBinaryenPassFlag(flag: string): string {
+  // Translate compatible Starshine-style flags to Binaryen CLI names; reject
+  // preset-style options that would alter whole-tool behavior.
   if (UNSUPPORTED_PRESET_FLAGS.has(flag) || /^-O\d/.test(flag)) {
     fail(`unsupported preset flag for self-optimize compare: ${flag}`);
   }
@@ -89,6 +93,8 @@ function resolveStarshineInvocation(
 }
 
 function normalizePrintWat(wasmOptBin: string, wasmPath: string, repoRoot: string): string {
+  // Run wasm-opt in print mode and capture canonicalized text; we discard the
+  // emitted binary and use stdout for byte-stable normalization.
   const nullPath = process.platform === "win32" ? "NUL" : "/dev/null";
   return runOrThrow(
     wasmOptBin,
@@ -98,6 +104,8 @@ function normalizePrintWat(wasmOptBin: string, wasmPath: string, repoRoot: strin
 }
 
 function validateInputBaseline(wasmToolsBin: string, inputPath: string, repoRoot: string): void {
+  // Fail fast if baseline input is malformed, because compare results are not
+  // meaningful when either input or reference decoder rejects it first.
   try {
     runOrThrow(wasmToolsBin, ["validate", inputPath], {
       cwd: repoRoot,
@@ -177,6 +185,8 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
   };
 }
 
+// Run Starshine and Binaryen side-by-side, normalize both outputs to WAT, and
+// persist an explicit command/size summary for reproducibility.
 export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   const repoRoot = resolveWorkspaceRoot();
   const options = parseSelfOptimizeCompareArgs(argv);

@@ -8,6 +8,8 @@ import { repoRootFromScript, resolveMoonBin, run } from './self-optimized-artifa
 
 const repoRoot = repoRootFromScript(import.meta.url);
 
+// Copy one generated artifact from build tree into the packaged path and return
+// the copied size so callers can print size deltas.
 function copyArtifact(root, fromRelativePath, toRelativePath) {
   const sourcePath = path.join(root, fromRelativePath);
   const targetPath = path.join(root, toRelativePath);
@@ -19,6 +21,8 @@ function copyArtifact(root, fromRelativePath, toRelativePath) {
   return fs.statSync(targetPath).size;
 }
 
+// Build Node and CLI release artifacts then sync outputs into node/internal with
+// deterministic target filenames used by package consumers.
 export function buildNodePackage({
   repoRoot: root = repoRoot,
   moonBin = resolveMoonBin(),

@@ -23,6 +23,7 @@ export type ValidateTraceBenchmarkOptions = {
   listCorpora: boolean;
 };
 
+// Parse top-level validation defaults and enforce the requested MoonBit target.
 export function parseValidateFullArgs(argv: string[]): FullOptions {
   const options: FullOptions = {
     profile: "ci",
@@ -100,6 +101,8 @@ export function parseValidateCoverageArgs(argv: string[]): CoverageOptions {
   return options;
 }
 
+// Parse trace benchmark options; validates repeat values and target before runtime
+// executes any trace runs.
 export function parseValidateTraceBenchmarkArgs(argv: string[]): ValidateTraceBenchmarkOptions {
   const options: ValidateTraceBenchmarkOptions = {
     repeats: 1,
@@ -179,6 +182,8 @@ export function parseCoverageOutput(report: string): { totalUncovered: number; f
   return { totalUncovered, fileCount, entries };
 }
 
+// Validate by running MoonBit's core quality gate exactly as the local minimum CI
+// path expects: info, format check, full check, and test before fuzz.
 export function runValidateFull(options: FullOptions): void {
   const repoRoot = resolveWorkspaceRoot();
   runOrThrow(options.moonBin, ["info"], { cwd: repoRoot });
@@ -201,6 +206,9 @@ export function runValidateCoverage(options: CoverageOptions): void {
   const repoRoot = resolveWorkspaceRoot();
   const report = runOrThrow(options.moonBin, ["coverage", "analyze"], { cwd: repoRoot, stdio: "pipe" }).stdout;
   const parsed = parseCoverageOutput(report);
+
+  // Emit top-N uncovered files as operator-readable diff context before
+  // applying baseline deltas.
 
   process.stdout.write(`Coverage summary: total uncovered lines=${parsed.totalUncovered}, files=${parsed.fileCount}\n`);
   process.stdout.write(`Top ${options.top} uncovered files:\n`);
@@ -255,6 +263,7 @@ export function runValidateCoverage(options: CoverageOptions): void {
   }
 }
 
+// Execute the trace benchmark suite with optional list-only mode.
 export function runValidateTraceBenchmark(options: ValidateTraceBenchmarkOptions): void {
   const repoRoot = resolveWorkspaceRoot();
   const args = ["run", "--target", options.target, "src/validate_trace", "--"];

@@ -75,9 +75,7 @@ fn parse_validate_encode(source : String) -> Bool {
 - [MoonBit toolchain (`moon`)](https://www.moonbitlang.com/docs/zh/getting-started/installing-moonbit/) (for building and testing MoonBit packages)
 - Optional: [Node.js](https://nodejs.org/) if you also run `node/` package tooling
 
-Install script dependencies after installing `bun` and `moon`:
-
-Then install project script dependencies:
+Install script dependencies after installing `bun` and `moon` (run from repo root):
 
 ```bash
 bun install
@@ -85,10 +83,10 @@ bun install
 
 ## Build, Test, and Fuzz
 
-Install script tooling and run the full project checks:
+Run the full project checks (same as CI defaults):
 
 ```bash
-bun validate full
+bun validate full --profile ci --target wasm-gc
 ```
 
 Run the minimum local quality gate used by this repo:

@@ -7,5 +7,5 @@ This folder mirrors upstream test corpora:
 
 ## Update Process
 - Weekly updates via upstream workflow or mirror bots.
-- Manual contributor updates via `./update-testsuite.py` (run from repo root) and PR.
+- Manual contributor updates via `python3 tests/spec/update-testsuite.py` and PR.
 - Keep PRs in upstream repos when possible; this mirror tracks source updates.

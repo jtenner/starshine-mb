@@ -39,6 +39,11 @@ fn spec_bytes_to_string_lossy(bytes : Bytes) -> String {
 }
 
 ///|
+
+///| Convert quoted script lines into a contiguous source string used by the
+
+///|
+/// inline parser path.
 fn spec_quote_lines_to_source(lines : Array[String]) -> String {
   let out = StringBuilder::new()
   let mut i = 0
@@ -93,6 +98,11 @@ fn spec_is_runtime_only_command(cmd : WastCommand) -> Bool {
 }
 
 ///|
+
+///| Return per-command checked/skipped counts while enforcing static validation
+
+///|
+/// semantics before any runtime execution path.
 fn spec_check_command(
   cmd : WastCommand,
   path : String,
@@ -188,6 +198,11 @@ fn spec_is_known_unsupported_error(msg : String) -> Bool {
 }
 
 ///|
+
+///| Maintain a narrow allowlist for known spec mismatches so a few unstable
+
+///|
+/// fixture expectations don't block the entire suite run.
 fn spec_is_known_specsuite_mismatch(path : String, msg : String) -> Bool {
   if !path.has_prefix("tests/spec/") {
     return false
@@ -219,6 +234,11 @@ fn spec_is_known_specsuite_mismatch(path : String, msg : String) -> Bool {
 }
 
 ///|
+
+///| Drive one file through full parse/check and fold command-level failures into
+
+///|
+/// pass/skip/fail reporting used by summary consumers.
 pub fn run_wast_spec_file(path : String, source : String) -> WastSpecFileReport {
   let script = match wast_to_script(source, filename=path) {
     Ok(v) => v
@@ -291,6 +311,11 @@ pub fn run_wast_spec_file(path : String, source : String) -> WastSpecFileReport 
 }
 
 ///|
+
+///| Aggregate file-level reports into a suite summary while preserving exact
+
+///|
+/// per-file diagnostics for downstream CLI/test rendering.
 pub fn run_wast_spec_suite(
   files : Array[(String, String)],
 ) -> WastSpecRunSummary {

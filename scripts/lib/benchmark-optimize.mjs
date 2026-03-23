@@ -14,6 +14,8 @@ import {
   run,
 } from './self-optimized-artifacts.mjs';
 
+// Named input sets used for benchmarking; each corpus is a deterministic list so
+// scripts can compare runs across machines.
 const CORPORA = {
   examples: [
     'examples/modules/simple.wat',
@@ -80,6 +82,8 @@ function fail(message) {
   throw new Error(message);
 }
 
+// Parse CLI options and enforce value constraints before running any process-
+// intensive benchmark command.
 function parseArgs(argv) {
   const options = {
     preset: 'optimize',
@@ -194,6 +198,8 @@ function parseArgs(argv) {
 }
 
 function resolveBinary(repoRoot, overridePath) {
+  // Accept explicit binary override first; otherwise walk known native output
+  // locations from build tooling and fail with the first expected path.
   if (overridePath) {
     const absolute = path.resolve(overridePath);
     if (!fs.existsSync(absolute)) {
@@ -211,6 +217,8 @@ function resolveBinary(repoRoot, overridePath) {
 }
 
 function resolveInputs(repoRoot, explicitInputs, corpora) {
+  // Merge explicit inputs + corpus selections, dedupe by absolute path, and
+  // fail fast when any requested file is missing.
   const resolved = [];
   const seen = new Set();
 
@@ -255,6 +263,8 @@ function resolveInputs(repoRoot, explicitInputs, corpora) {
 }
 
 function makeCommandArgs(options, outputPath, inputPath) {
+  // Convert benchmark mode configuration into Starshine CLI args, preserving
+  // explicit pass strings that may already include a leading --.
   const args = ['--tracing', options.traceLevel];
   if (options.serialPasses) {
     args.push('--debug-serial-passes');
@@ -318,6 +328,8 @@ function parseKeyValueMetrics(text) {
 }
 
 function parseTraceLog(logText) {
+  // Trace lines are prefixed by `[trace] `; only those lines participate in
+  // benchmark metrics, everything else is ignored as command noise.
   const lines = logText.split(/\r?\n/);
   const parsed = {
     rawBytes: null,
@@ -458,6 +470,8 @@ function formatTable(headers, rows) {
 }
 
 function aggregateRuns(runRecords) {
+  // Build two independent summaries: one grouped by input file and one by pass
+  // name so both workload-level and pass-level deltas can be inspected.
   const byInput = new Map();
   const byPass = new Map();
 
@@ -640,6 +654,8 @@ function renderSummary(options, binaryPath, inputs, runRecords, aggregates) {
 }
 
 function runOneCase(repoRoot, binaryPath, options, input, iteration) {
+  // Benchmark one input/iteration pair in an ephemeral directory to avoid stale
+  // state leaking into subsequent runs.
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'starshine-bench-'));
   const outputPath = path.join(tempDir, `run-${iteration}.wasm`);
   const args = makeCommandArgs(options, outputPath, input.absolute);

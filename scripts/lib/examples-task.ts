@@ -43,6 +43,8 @@ const SMOKE_CASES: SmokeCase[] = [
   },
 ];
 
+// Keep this list in sync with CI examples workflow cache wiring so the local
+// "workflow-contract" check can detect drift in cache/install prerequisites.
 const WORKFLOW_PATTERNS = [
   ["WASM_TOOLS_VERSION:", "WASM_TOOLS_VERSION env declaration"],
   ["name: Cache wasm-tools cargo install artifacts", "wasm-tools cache step name"],
@@ -54,6 +56,8 @@ const WORKFLOW_PATTERNS = [
   ['echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"', "cargo bin path export"],
 ] as const;
 
+// Parse smoke-test options; defaults keep CI-style native binary and a repo
+// relative output directory even when no flags are passed.
 export function parseExamplesSmokeArgs(argv: string[]): SmokeOptions {
   const options: SmokeOptions = {
     smokeRoot: null,
@@ -80,6 +84,8 @@ export function parseExamplesSmokeArgs(argv: string[]): SmokeOptions {
 }
 
 export function parseExamplesWorkflowArgs(argv: string[]): WorkflowOptions {
+  // The workflow file can be overridden, but all unknown flags are hard
+  // failures to avoid masking an accidental path mistake.
   let workflowPath = ".github/workflows/examples-cli-native.yml";
   for (let i = 0; i < argv.length; ) {
     const token = argv[i];
@@ -96,6 +102,8 @@ export function parseExamplesWorkflowArgs(argv: string[]): WorkflowOptions {
 }
 
 export function runExamplesSmoke(options: SmokeOptions): void {
+  // Each case runs in its own output directory so artifacts and checks do not
+  // interfere across cases.
   const repoRoot = resolveWorkspaceRoot();
   const smokeRoot = options.smokeRoot === null
     ? path.join(repoRoot, "_build", "examples-smoke")
@@ -127,6 +135,8 @@ export function runExamplesSmoke(options: SmokeOptions): void {
 }
 
 export function checkExamplesWorkflowContract(options: WorkflowOptions): void {
+  // The contract checks for explicit snippets that must exist in the CI workflow
+  // because these examples smoke inputs depend on them.
   const repoRoot = resolveWorkspaceRoot();
   const workflowPath = resolveRepoPath(repoRoot, options.workflowPath);
   if (!fs.existsSync(workflowPath)) {

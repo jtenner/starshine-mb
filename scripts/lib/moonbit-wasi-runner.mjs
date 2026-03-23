@@ -3,8 +3,11 @@ import process from "node:process";
 import { WASI } from "node:wasi";
 import path from "node:path";
 
+// Sentinel value used by read_string_array readers to mark completion.
 const ARRAY_SENTINEL = "ffi_end_of_/string_array";
 
+// Convert JS string input into Unicode code points for MoonBit's manual string
+// builder/read API.
 function toCodePoints(value) {
   const out = [];
   for (const char of value) {
@@ -14,6 +17,9 @@ function toCodePoints(value) {
 }
 
 function createMoonbitFsHost({ args = [], cwd = process.cwd() } = {}) {
+  // The MoonBit runtime talks only through this host object and raw numeric
+  // handles, so this function centralizes ownership and type checks for all
+  // transient resources.
   let nextHandle = 1;
   const handles = new Map();
   let lastError = "";
@@ -292,6 +298,9 @@ function extractExitCode(error) {
   return null;
 }
 
+// Instantiate and run a WASI-targeted module with the custom MoonBit host
+// imports (filesystem + time + spectest) wired in. Supports direct exit code
+// extraction from thrown traps as a compatibility path for older runtime exits.
 export async function runWasmStart({
   wasmPath,
   args = [],
