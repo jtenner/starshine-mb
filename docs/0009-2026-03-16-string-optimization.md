@@ -3,6 +3,7 @@
 Status: researched and implementation-ready blueprint.
 
 Prerequisite status: the direct `string.const` instruction surface is now landed in [`docs/0052-2026-03-22-string-const-surface.md`](/home/jtenner/Projects/starshine-mb/docs/0052-2026-03-22-string-const-surface.md), so this pass is no longer blocked on missing literal IR support.
+Slice status: [`docs/0053-2026-03-22-string-gathering-existing-global-reuse.md`](/home/jtenner/Projects/starshine-mb/docs/0053-2026-03-22-string-gathering-existing-global-reuse.md) lands the first implementation slice, reusing existing immutable defining globals in raw and typed function bodies; missing-global synthesis, module-level patchpoints, and global-order repair are still open.
 
 ## Executive Summary
 `StringGathering` lifts all `string.const` to immutable globals and rewrites uses to `global.get`, reducing runtime creation cost.

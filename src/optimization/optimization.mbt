@@ -2256,6 +2256,140 @@ fn optimization_once_reduction_optimize_once_bodies(
 }
 
 ///|
+fn optimization_string_gathering_lookup_global(
+  canonicals : Array[(Bytes, @lib.GlobalIdx)],
+  bytes : Bytes,
+) -> @lib.GlobalIdx? {
+  for entry in canonicals {
+    let (candidate, global_idx) = entry
+    if candidate == bytes {
+      return Some(global_idx)
+    }
+  }
+  None
+}
+
+///|
+fn optimization_string_gathering_collect_existing_globals(
+  mod : Module,
+) -> Array[(Bytes, @lib.GlobalIdx)] {
+  let canonicals : Array[(Bytes, @lib.GlobalIdx)] = []
+  let imported_global_count = optimization_imported_global_count(mod)
+  match mod.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for i in 0..<globals.length() {
+        match globals[i] {
+          @lib.Global(
+            @lib.GlobalType(vt, mutable),
+            @lib.Expr([@lib.StringConst(bytes)])
+          ) if !mutable && vt == @lib.ValType::stringref() =>
+            if optimization_string_gathering_lookup_global(canonicals, bytes)
+              is None {
+              canonicals.push(
+                (
+                  bytes,
+                  @lib.GlobalIdx::new(
+                    (imported_global_count + i).reinterpret_as_uint(),
+                  ),
+                ),
+              )
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  canonicals
+}
+
+///|
+fn optimization_string_gathering_rewrite_func(
+  func : @lib.Func,
+  canonicals : Array[(Bytes, @lib.GlobalIdx)],
+) -> (@lib.Func, Bool) {
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+    .on_instruction_evt(fn(self, _, instr) {
+      match instr {
+        @lib.StringConst(bytes) =>
+          match optimization_string_gathering_lookup_global(canonicals, bytes) {
+            Some(global_idx) =>
+              change((), @lib.Instruction::global_get(global_idx))
+            None => from_walk(self.walk_instruction_default((), instr))
+          }
+        _ => from_walk(self.walk_instruction_default((), instr))
+      }
+    })
+    .on_tinstruction_evt(fn(self, _, instr) {
+      match instr.kind {
+        @lib.TStringConst(bytes) =>
+          match optimization_string_gathering_lookup_global(canonicals, bytes) {
+            Some(global_idx) => change((), @lib.TInstr::global_get(global_idx))
+            None => from_walk(self.walk_tinstruction_default((), instr))
+          }
+        _ => from_walk(self.walk_tinstruction_default((), instr))
+      }
+    })
+  match func {
+    @lib.Func(locals, body) =>
+      match transformer.walk_expr((), body) {
+        Ok((rewritten_body, _)) =>
+          if rewritten_body == body {
+            (func, false)
+          } else {
+            (@lib.Func::new(locals, rewritten_body), true)
+          }
+        Err(_) => (func, false)
+      }
+    @lib.TFunc(params, locals, body) =>
+      match transformer.walk_texpr((), body) {
+        Ok((rewritten_body, _)) =>
+          if rewritten_body == body {
+            (func, false)
+          } else {
+            (@lib.Func::t_func(params, locals, rewritten_body), true)
+          }
+        Err(_) => (func, false)
+      }
+  }
+}
+
+///|
+pub fn run_string_gathering(
+  mod : Module,
+  global : PipelineGlobal,
+  features : PipelineFeatures,
+) -> (Module, PipelineGlobal) {
+  if !features.has_strings {
+    return (mod, global)
+  }
+  let canonicals = optimization_string_gathering_collect_existing_globals(mod)
+  if canonicals.length() == 0 {
+    return (mod, global)
+  }
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let rewritten_funcs : Array[@lib.Func] = []
+      let mut changed = false
+      for func in funcs {
+        let (rewritten, func_changed) = optimization_string_gathering_rewrite_func(
+          func, canonicals,
+        )
+        rewritten_funcs.push(rewritten)
+        if func_changed {
+          changed = true
+        }
+      }
+      if changed {
+        (mod.with_code_sec(@lib.CodeSec::new(rewritten_funcs)), global)
+      } else {
+        (mod, global)
+      }
+    }
+    None => (mod, global)
+  }
+}
+
+///|
 priv enum MemoryPackingSegmentReferrer {
   MemoryInit(Bool)
   DataDrop
@@ -10279,6 +10413,7 @@ fn make_entry_kind(pass : OptimizePass) -> PassKind {
       PassKind::module_wide(run_remove_unused_module_elements)
     MemoryPacking => PassKind::module_wide(run_memory_packing)
     OnceReduction => PassKind::module_wide(run_once_reduction)
+    StringGathering => PassKind::module_wide(run_string_gathering)
     DeadCodeElimination =>
       PassKind::func_local_group([run_dead_code_elimination])
     _ =>

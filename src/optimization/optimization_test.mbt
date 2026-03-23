@@ -180,6 +180,77 @@ test "default optimize pipeline groups function passes between global stages" {
 }
 
 ///|
+test "string gathering pipeline entry uses the live module-wide runner" {
+  let pipeline = default_optimize_pipeline(
+    PipelineGlobal::new(opt_level=2, validate=true),
+    features=PipelineFeatures::new(has_strings=true),
+  )
+  let mut entry : PipelineEntry? = None
+  for candidate in pipeline {
+    if candidate.passes == [OptimizePass::StringGathering] {
+      entry = Some(candidate)
+      break
+    }
+  }
+  let mod = Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::stringref(), false),
+          @lib.Expr::new([@lib.Instruction::string_const(b"hello")]),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::string_const(b"hello"),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+
+  match entry {
+    Some(entry) =>
+      match entry.group.kind() {
+        ModuleWide(run) => {
+          let (optimized, _) = run(
+            mod,
+            PipelineGlobal::new(opt_level=2, validate=true),
+            PipelineFeatures::new(has_strings=true),
+          )
+          match optimized.code_sec {
+            Some(
+              @lib.CodeSec(
+                [
+                  @lib.Func(
+                    _,
+                    @lib.Expr(
+                      [@lib.GlobalGet(@lib.GlobalIdx(global_idx)), @lib.Drop]
+                    )
+                  ),
+                ]
+              )
+            ) => assert_eq(global_idx, 0U)
+            _ => fail("expected StringGathering entry to rewrite string.const")
+          }
+        }
+        _ => fail("expected StringGathering to stay module-wide")
+      }
+    None => fail("expected default pipeline to contain StringGathering")
+  }
+}
+
+///|
 test "default optimize pipeline keeps dead code elimination ahead of cleanup passes in the grouped function stage" {
   let pipeline = default_optimize_pipeline(
     PipelineGlobal::new(opt_level=2, validate=true),
