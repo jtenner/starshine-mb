@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Validate: truncate unreachable raw branch tails during generated pre-lift
+
+- **Generated raw-to-typed dead-tail cleanup** by **@jtenner**. Updated [`src/validate/env.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt) so nested raw `block` / `loop` / `if` / `try_table` body conversion stops consuming sibling instructions after the first stack-polymorphic terminator instead of preserving dead raw branch tails inside typed IR, while keeping top-level `to_texpr` stack-polymorphic tails intact.
+- Added focused generated-pipeline regressions in [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt) proving the dead `drop` after an unconditional raw `br` is already gone after generated pre-lift with no passes and remains gone when the explicit `DeadCodeElimination` pass is added.
+- Recorded the parity recheck in [`docs/0060-2026-03-23-generated-prelift-dead-branch-tail-cleanup.md`](/home/jtenner/Projects/starshine-mb/docs/0060-2026-03-23-generated-prelift-dead-branch-tail-cleanup.md), which supersedes the earlier fresh-artifact `DeadCodeElimination` parity claim: on the rebuilt release artifact, Starshine `DFE -> RUME -> MemoryPacking -> OnceReduction` now shrinks from `2353318` to `2352785` before DCE, so the old `-4` Binaryen `DCE` delta was evidence of a generated lifting bug, not a remaining Starshine DCE omission.
+
 ## 2026-03-23 Optimization: record fresh-artifact `DFE -> RUME -> MP -> OR -> DCE` parity gap
 
 - **DeadCodeElimination fresh-artifact checkpoint** by **@jtenner**. Added [`docs/0059-2026-03-23-dfe-rume-memory-packing-once-dce-fresh-artifact-parity.md`](/home/jtenner/Projects/starshine-mb/docs/0059-2026-03-23-dfe-rume-memory-packing-once-dce-fresh-artifact-parity.md) to record the first later shared-pass divergence after the repaired DFE merge set: on the fresh rebuilt release artifact, Starshine `DeadCodeElimination` is a byte-for-byte no-op after `DFE -> RUME -> MemoryPacking -> OnceReduction`, while Binaryen still shrinks the code section by `4` bytes by removing dead branch-tail cleanup.

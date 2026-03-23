@@ -687,6 +687,25 @@ pub fn to_texpr(expr : Expr, env : Env) -> Result[TExpr, String] {
 }
 
 ///|
+fn convert_expr_instrs(
+  instrs : Array[Instruction],
+  stack : Array[TInstr],
+  env : Env,
+) -> Result[Unit, String] {
+  for instr in instrs {
+    match instr_to_tinstr(instr, stack, env) {
+      Ok(_) => ()
+      Err(t) => return Err(t)
+    }
+    if stack.length() > 0 &&
+      is_stack_polymorphic_source(stack[stack.length() - 1]) {
+      break
+    }
+  }
+  Ok(())
+}
+
+///|
 fn is_stack_polymorphic_source(instr : TInstr) -> Bool {
   match instr.kind {
     TInstrKind::TUnreachable => true
@@ -3080,11 +3099,9 @@ fn instr_to_tinstr(
         body_stack.push(input)
       }
       let body_env = env.with_label(block_label_types(bt, env, false))
-      for instr in body.0 {
-        match instr_to_tinstr(instr, body_stack, body_env) {
-          Ok(_) => ()
-          Err(t) => return Err(t)
-        }
+      match convert_expr_instrs(body.0, body_stack, body_env) {
+        Ok(_) => ()
+        Err(t) => return Err(t)
       }
       stack.push(TInstr::block(bt, TExpr::new(body_stack)))
     }
@@ -3099,11 +3116,9 @@ fn instr_to_tinstr(
         body_stack.push(input)
       }
       let body_env = env.with_label(block_label_types(bt, env, true))
-      for instr in body.0 {
-        match instr_to_tinstr(instr, body_stack, body_env) {
-          Ok(_) => ()
-          Err(t) => return Err(t)
-        }
+      match convert_expr_instrs(body.0, body_stack, body_env) {
+        Ok(_) => ()
+        Err(t) => return Err(t)
       }
       stack.push(TInstr::loop_(bt, TExpr::new(body_stack)))
     }
@@ -3122,11 +3137,9 @@ fn instr_to_tinstr(
         then_stack.push(input)
       }
       let branch_env = env.with_label(block_label_types(bt, env, false))
-      for instr in then_branch {
-        match instr_to_tinstr(instr, then_stack, branch_env) {
-          Ok(_) => ()
-          Err(t) => return Err(t)
-        }
+      match convert_expr_instrs(then_branch, then_stack, branch_env) {
+        Ok(_) => ()
+        Err(t) => return Err(t)
       }
       let else_texpr : TExpr? = match else_branch {
         Some(else_instrs) => {
@@ -3134,11 +3147,9 @@ fn instr_to_tinstr(
           for input in inputs {
             else_stack.push(input)
           }
-          for instr in else_instrs {
-            match instr_to_tinstr(instr, else_stack, branch_env) {
-              Ok(_) => ()
-              Err(t) => return Err(t)
-            }
+          match convert_expr_instrs(else_instrs, else_stack, branch_env) {
+            Ok(_) => ()
+            Err(t) => return Err(t)
           }
           Some(TExpr::new(else_stack))
         }
@@ -3157,11 +3168,9 @@ fn instr_to_tinstr(
         body_stack.push(input)
       }
       let body_env = env.with_label(block_label_types(bt, env, false))
-      for instr in body.0 {
-        match instr_to_tinstr(instr, body_stack, body_env) {
-          Ok(_) => ()
-          Err(t) => return Err(t)
-        }
+      match convert_expr_instrs(body.0, body_stack, body_env) {
+        Ok(_) => ()
+        Err(t) => return Err(t)
       }
       stack.push(TInstr::try_table(bt, catches, TExpr::new(body_stack)))
     }

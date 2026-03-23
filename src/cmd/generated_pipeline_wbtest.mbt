@@ -183,6 +183,71 @@ fn generated_pipeline_raw_memory_module() -> Module {
 }
 
 ///|
+fn generated_pipeline_raw_dead_branch_drop_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::block(
+                @lib.BlockType::void_(),
+                @lib.Expr::new([
+                  @lib.Instruction::i32_const(@lib.I32::new(1)),
+                  @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                  @lib.Instruction::drop(),
+                ]),
+              ),
+              @lib.Instruction::i32_const(@lib.I32::new(0)),
+            ]),
+          ),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn generated_pipeline_dead_branch_drop_lowered(optimized : Module) -> Bool {
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => {
+      let @lib.Expr(raw_instrs) = body.to_expr()
+      match raw_instrs {
+        [
+          @lib.Block(
+            @lib.ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
+            @lib.Expr(
+              [
+                @lib.Block(
+                  @lib.VoidBlockType,
+                  @lib.Expr(
+                    [@lib.I32Const(@lib.I32(1)), @lib.Br(@lib.LabelIdx(1U))]
+                  )
+                ),
+                @lib.I32Const(@lib.I32(0)),
+              ]
+            )
+          ),
+          @lib.Drop,
+        ] => true
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
 test "run_generated_pipeline_with_options passes PipelineFeatures to module-wide entries" {
   let mut saw_has_gc = false
   let mut saw_has_multivalue = false
@@ -332,6 +397,37 @@ test "run_generated_pipeline_with_options pre-lifts raw funcs before memory pack
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.TFunc(_, _, _)])) => ()
     _ => fail("expected generated pipeline to pre-lift raw funcs")
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options pre-lift truncates dead raw branch-tail drops before any pass" {
+  let mod = generated_pipeline_raw_dead_branch_drop_module()
+  let optimized = match
+    run_generated_pipeline_with_options(mod, [], OptimizeOptions::new()) {
+    Ok(v) => v
+    Err(e) => fail("expected generated pipeline success: \{e}")
+  }
+  if !generated_pipeline_dead_branch_drop_lowered(optimized) {
+    fail("unexpected lowered body shape after generated pre-lift")
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options dead code elimination drops dead raw branch-tail drops" {
+  let mod = generated_pipeline_raw_dead_branch_drop_module()
+  let pipeline = cmd_generated_pipeline_from_flags(
+    mod,
+    ["dead-code-elimination"],
+    OptimizeOptions::new(),
+  )
+  let optimized = match
+    run_generated_pipeline_with_options(mod, pipeline, OptimizeOptions::new()) {
+    Ok(v) => v
+    Err(e) => fail("expected generated DCE pipeline success: \{e}")
+  }
+  if !generated_pipeline_dead_branch_drop_lowered(optimized) {
+    fail("unexpected lowered body shape after DCE")
   }
 }
 
