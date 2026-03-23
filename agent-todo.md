@@ -122,12 +122,11 @@
   - RemoveUnusedNames completion:
   - canonical plan: [`docs/0061-2026-03-23-remove-unused-names-implementation-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0061-2026-03-23-remove-unused-names-implementation-plan.md).
   - blockers:
-    - port the live-target bailout so peeling skips nested control flow that still branches to a removed scope.
     - port loop-to-block demotion when no continue branch remains, with the matching keep-loop case when `br 0` survives.
     - rerun the fresh-artifact explicit shared prefix through Starshine and Binaryen once the pass is live.
   - risks:
     - slice 1 is now live: dedicated runner wiring, same-typed block peeling, and typed branch-payload rebasing landed in `src/optimization/optimization.mbt` with focused regressions in `src/optimization/remove_unused_names_wbtest.mbt`.
-    - incorrect label rebasing can still silently retarget control flow when peeling should have been blocked, so the live-target bailout slice remains correctness-critical.
+    - slice 2 is now live: nested control that still targets a removed scope now blocks peeling through the depth-aware label scan, with a focused valid nested-`if` regression in `src/optimization/remove_unused_names_wbtest.mbt`.
     - the old standalone pass had candidate and walk budgets; start without that complexity, but be prepared to restore a minimal budget if fresh-artifact runtime regresses.
   - implementation features:
     - keep the first port typed-only; raw functions are already pre-lifted before the grouped default stage.

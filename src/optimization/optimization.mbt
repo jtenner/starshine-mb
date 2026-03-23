@@ -656,10 +656,18 @@ fn optimization_remove_unused_names_func(func : Func) -> (Func, Bool) {
               )
               if removed_scopes > 0 {
                 match
-                  optimization_remove_unused_names_rebase_labels(
+                  optimization_remove_unused_names_has_branch_to_removed_scope(
                     peeled_body, removed_scopes,
                   ) {
-                  Ok(rebased) => @lib.TInstr::block(block_type, rebased)
+                  Ok(true) => walked
+                  Ok(false) =>
+                    match
+                      optimization_remove_unused_names_rebase_labels(
+                        peeled_body, removed_scopes,
+                      ) {
+                      Ok(rebased) => @lib.TInstr::block(block_type, rebased)
+                      Err(_) => walked
+                    }
                   Err(_) => walked
                 }
               } else {
@@ -812,6 +820,56 @@ fn optimization_remove_unused_names_rebase_label(
   } else {
     @lib.LabelIdx::new((label_depth - removed_scopes).reinterpret_as_uint())
   }
+}
+
+///|
+fn optimization_remove_unused_names_label_targets_removed_scope(
+  label : @lib.LabelIdx,
+  depth : Int,
+  removed_scopes : Int,
+) -> Bool {
+  if removed_scopes <= 0 {
+    return false
+  }
+  let @lib.LabelIdx(raw_label) = label
+  let label_depth = raw_label.reinterpret_as_int()
+  label_depth >= depth && label_depth < depth + removed_scopes
+}
+
+///|
+fn optimization_remove_unused_names_has_label_match(
+  body : @lib.TExpr,
+  predicate : (@lib.LabelIdx, Int) -> Bool,
+) -> Result[Bool, String] {
+  let found = Ref::new(false)
+  let transformer : ModuleTransformer[Int, String] = ModuleTransformer::new()
+    .on_labelidx_evt(fn(_, depth, label) {
+      if predicate(label, depth) {
+        found.val = true
+      }
+      unchanged()
+    })
+    .on_tinstruction_evt(fn(self, depth, instr) {
+      optimization_remove_unused_names_walk_tinstruction_with_depth(
+        self, depth, instr,
+      )
+    })
+  match transformer.walk_texpr(0, body) {
+    Ok(_) => Ok(found.val)
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn optimization_remove_unused_names_has_branch_to_removed_scope(
+  body : @lib.TExpr,
+  removed_scopes : Int,
+) -> Result[Bool, String] {
+  optimization_remove_unused_names_has_label_match(body, fn(label, depth) {
+    optimization_remove_unused_names_label_targets_removed_scope(
+      label, depth, removed_scopes,
+    )
+  })
 }
 
 ///|

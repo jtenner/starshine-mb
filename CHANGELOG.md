@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Optimization: land `RemoveUnusedNames` live-target bailout
+
+- **`RemoveUnusedNames` slice 2** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so same-typed block peeling now first scans nested typed control for labels that still target one of the scopes about to be removed and bails out instead of rebasing those branches into a different meaning.
+- Added the focused valid bailout regression in [`src/optimization/remove_unused_names_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_names_wbtest.mbt), covering the nested `if` arm branch that must keep the redundant-looking block because it is still a live control-flow target.
+- Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining `RemoveUnusedNames` work is now narrowed to loop demotion plus the fresh-artifact parity replay.
+
 ## 2026-03-23 Optimization: land `RemoveUnusedNames` block-peeling slice
 
 - **`RemoveUnusedNames` slice 1** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `OptimizePass::RemoveUnusedNames` now uses a dedicated func-local runner instead of `noop_func_local_pass`, and the first live typed rewrite peels single-child same-typed nested blocks while rebasing typed branch labels through the removed scopes.

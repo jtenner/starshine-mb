@@ -187,6 +187,32 @@ test "remove unused names preserves typed branch payloads when rebasing" {
 }
 
 ///|
+test "remove unused names skips merge when nested control still targets a removed scope" {
+  let mod = remove_unused_names_test_module([
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::block(
+          @lib.BlockType::void_(),
+          @lib.TExpr::new([
+            @lib.TInstr::if_(
+              @lib.BlockType::void_(),
+              @lib.TInstr::i32_const(@lib.I32::new(0)),
+              @lib.TExpr::new([@lib.TInstr::nop()]),
+              Some(
+                @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let (optimized, _) = run_remove_unused_names(mod, PipelineScratch::new())
+  assert_eq(optimized, mod)
+}
+
+///|
 test "remove unused names keeps scratch unchanged when fixture body is untouched" {
   let mod = remove_unused_names_test_module([@lib.TInstr::nop()])
   let (_, scratch) = run_remove_unused_names(mod, PipelineScratch::new())
