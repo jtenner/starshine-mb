@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-23 Remove-unused-names test formatting cleanup
+
+- **Finalize candidate-scan regression formatting** by **@jtenner**. Updated [`src/optimization/remove_unused_names_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_names_wbtest.mbt) to make candidate-scan fixtures use explicit multiline array formatting for readability without changing test behavior.
+
 ## 2026-03-23 Docs and scripts comment refresh
 
 - **Update README and scripts clarity for second-round maintenance** by **@jtenner**. Updated [`README.mbt.md`](/home/jtenner/Projects/starshine-mb/README.mbt.md) and [`tests/spec/README.md`](/home/jtenner/Projects/starshine-mb/tests/spec/README.md) to refresh stale command usage and check guidance, and added/adjusted clarifying comments in [`scripts/lib/benchmark-optimize.mjs`](/home/jtenner/Projects/starshine-mb/scripts/lib/benchmark-optimize.mjs), [`scripts/lib/build-node-package.mjs`](/home/jtenner/Projects/starshine-mb/scripts/lib/build-node-package.mjs), [`scripts/lib/examples-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/examples-task.ts), [`scripts/lib/moonbit-wasi-runner.mjs`](/home/jtenner/Projects/starshine-mb/scripts/lib/moonbit-wasi-runner.mjs), [`scripts/lib/self-optimize-compare-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/self-optimize-compare-task.ts), [`scripts/lib/validate-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/validate-task.ts), and [`src/wast/spec_harness.mbt`](/home/jtenner/Projects/starshine-mb/src/wast/spec_harness.mbt).
