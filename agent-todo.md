@@ -22,7 +22,8 @@
   - `docs/0056-2026-03-22-o4z-five-pass-parity-audit.md` records the current shared-prefix `-O4z` five-pass audit on `tests/node/dist/starshine-optimized-wasi.wasm`.
   - fresh rebuilt release-artifact status:
     - `DuplicateFunctionElimination` on `_build/wasm/release/build/cmd/cmd.wasm` now emits a validating Starshine module again after the binary encoder fix for typed multi-value block-param lowering.
-    - current next DFE parity gap on that fresh artifact is now size-only: Starshine lands at `2485347` bytes while Binaryen lands at `2376579`, so Binaryen is still `108768` bytes smaller after the same single pass.
+    - direct explicit-pass DFE now also reaches the same Starshine fixpoint without needing `-O2`: both paths land at `2475148` bytes and `2875` defined functions on the fresh artifact.
+    - the remaining DFE parity gap on that fresh artifact is now concentrated in post-merge compaction, not pass iteration: Binaryen lands at `2376579` bytes with `2892` defined functions and only `110` printed types, while Starshine keeps `381` printed types and still carries an extra `98569` bytes (`2137` type section, `2831` function section, `561` element section, `93023` code section, `17` import section).
     - rerun the full shared-prefix comparison on a regenerated fresh artifact before treating the older `docs/0054` / `docs/0056` release-artifact size numbers as current.
   - Binaryen `wasm-opt version 125` does not expose a literal `-O4z` CLI preset, so the exact shared comparison method for this question is explicit ordered replay of the first five fully implemented passes, not a direct preset-to-preset run.
   - `tests/node/dist/starshine-debug-wasi.wasm` is still blocked as a canonical parity target, but the blocker has shifted: under the current working-tree investigation the final Starshine `--optimize -O2` run now gets past name-map ordering and instead fails post-encode validation with `stack underflow`.

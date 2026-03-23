@@ -178,6 +178,55 @@ test "duplicate function elimination iterates when deduping callees unlocks more
 }
 
 ///|
+test "duplicate function elimination iterates to fixpoint without opt presets" {
+  let mod = Module::new()
+    .with_type_sec(duplicate_func_test_type_sec())
+    .with_func_sec(
+      FuncSec::new([
+        TypeIdx::new(0U),
+        TypeIdx::new(1U),
+        TypeIdx::new(2U),
+        TypeIdx::new(1U),
+        TypeIdx::new(2U),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(1U), [])]),
+        ),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(3U), [])]),
+        ),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([TInstr::call(FuncIdx::new(4U), [])]),
+        ),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+      ]),
+    )
+
+  let (optimized, _) = run_duplicate_function_elimination(
+    mod,
+    PipelineGlobal::new(),
+    PipelineFeatures::new(),
+  )
+
+  match optimized.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 3)
+    None => fail("expected code section")
+  }
+  assert_eq(try! duplicate_func_test_call_target(optimized, 0), 1U)
+  assert_eq(try! duplicate_func_test_call_target(optimized, 1), 2U)
+}
+
+///|
 test "duplicate function elimination keeps same-body functions with different structural signatures" {
   let mod = Module::new()
     .with_type_sec(duplicate_func_test_type_sec())

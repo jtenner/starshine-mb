@@ -10352,13 +10352,7 @@ pub fn run_duplicate_function_elimination(
     Some(CodeSec(funcs)) => funcs.length()
     None => 0
   }
-  let mut remaining = if global.opt_level >= 3 || global.shrink_level >= 1 {
-    initial_count
-  } else if global.opt_level >= 2 {
-    10
-  } else {
-    1
-  }
+  let mut remaining = initial_count
   let mut current = mod
   while remaining > 0 {
     remaining -= 1

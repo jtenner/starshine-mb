@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Optimization: make direct DFE iterate to a fixpoint
+
+- **DuplicateFunctionElimination fixpoint parity** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so explicit `DuplicateFunctionElimination` no longer stops after a single iteration at default settings and instead runs until the pass reaches its own bounded fixpoint, matching the already-correct `-O2` behavior on the fresh rebuilt release artifact.
+- Added focused regression coverage in [`src/optimization/duplicate_function_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/duplicate_function_elimination_wbtest.mbt) for the default no-opt-preset fixpoint case, and refreshed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the next DFE parity blocker is the remaining type/index compaction gap versus Binaryen, not the old default-iteration mismatch.
+
 ## 2026-03-22 Binary: hoist typed multi-value control seeds by stack effect
 
 - **Typed multi-value control lowering repair** by **@jtenner**. Updated [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt) so typed `block` / `loop` / `if` / `try_table` lowering finds the shortest raw prefix that produces each control instruction's required parameter values in full function-local validation context instead of assuming the first `N` instructions are the seed prefix.
