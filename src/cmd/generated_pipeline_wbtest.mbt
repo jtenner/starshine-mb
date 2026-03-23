@@ -1757,6 +1757,95 @@ fn generated_pipeline_raw_return_branch_payload_bypass_module() -> Module {
 }
 
 ///|
+fn generated_pipeline_raw_if_return_branch_payload_bypass_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i64()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [
+              @lib.Instruction::block(
+                @lib.BlockType::val_type(@lib.ValType::i32()),
+                @lib.Expr::new([
+                  @lib.Instruction::block(
+                    @lib.BlockType::void_(),
+                    @lib.Expr::new([
+                      @lib.Instruction::i32_const(@lib.I32::new(1)),
+                      @lib.Instruction::if_(
+                        @lib.BlockType::val_type(@lib.ValType::i32()),
+                        [
+                          @lib.Instruction::i32_const(@lib.I32::new(0)),
+                          @lib.Instruction::if_(
+                            @lib.BlockType::val_type(@lib.ValType::i32()),
+                            [
+                              @lib.Instruction::local_get(
+                                @lib.LocalIdx::new(0U),
+                              ),
+                            ],
+                            Some([
+                              @lib.Instruction::local_get(
+                                @lib.LocalIdx::new(0U),
+                              ),
+                              @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                              @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                            ]),
+                          ),
+                        ],
+                        Some([
+                          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                          @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                        ]),
+                      ),
+                      @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                    ]),
+                  ),
+                  @lib.Instruction::unreachable_(),
+                ]),
+              ),
+              @lib.Instruction::unreachable_(),
+            ],
+            Some([
+              @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+              @lib.Instruction::i64_const(@lib.I64::new(0L)),
+              @lib.Instruction::return_(),
+            ]),
+          ),
+          @lib.Instruction::i64_const(@lib.I64::new(1L)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 test "run_generated_pipeline_with_options remove unused names rewrites generated-path candidates" {
   let mod = generated_pipeline_raw_remove_unused_names_module()
   let pipeline = cmd_generated_pipeline_from_flags(
@@ -1844,6 +1933,59 @@ test "run_generated_pipeline_with_options dead code elimination keeps raw return
     Err(e) =>
       fail(
         "expected raw generated DCE return branch-payload bypass output to stay valid after encode: \{validation_error_message(e)}",
+      )
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options dead code elimination keeps raw if-return branch-payload bypass encodable" {
+  let mod = generated_pipeline_raw_if_return_branch_payload_bypass_module()
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected raw generated DCE if-return branch-payload bypass fixture to validate before optimize: \{validation_error_message(e)}",
+      )
+  }
+  let pipeline = cmd_generated_pipeline_from_flags(
+    mod,
+    ["dead-code-elimination"],
+    OptimizeOptions::new(),
+  )
+  let optimized = match
+    run_generated_pipeline_with_options(mod, pipeline, OptimizeOptions::new()) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected raw generated DCE if-return branch-payload bypass pipeline success: \{e}",
+      )
+  }
+  match validate_module(optimized) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected raw generated DCE if-return branch-payload bypass optimized fixture to validate before encode: \{validation_error_message(e)}",
+      )
+  }
+  let wasm = match encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(e) =>
+      fail(
+        "expected raw generated DCE if-return branch-payload bypass encode success: \{e}",
+      )
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected raw generated DCE if-return branch-payload bypass decode success: \{e}",
+      )
+  }
+  match validate_module(decoded) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected raw generated DCE if-return branch-payload bypass output to stay valid after encode: \{validation_error_message(e)}",
       )
   }
 }

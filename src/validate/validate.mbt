@@ -4950,6 +4950,129 @@ test "BlockType TypeIdxBlockType with non-func type fails" {
   )
 }
 
+///|
+test "validate_module accepts raw type-index loop with terminal return continuation" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i64()]))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::i32_const(@lib.I32::new(0)),
+            Instruction::loop_(
+              BlockType::type_idx(TypeIdx::new(0U)),
+              Expr::new([Instruction::unreachable_()]),
+            ),
+            Instruction::i64_const(@lib.I64::new(1L)),
+            Instruction::return_(),
+            Instruction::unreachable_(),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected raw type-index loop terminal-return fixture to validate, got \{validation_error_message(e)}",
+      )
+  }
+}
+
+///|
+test "validate_module accepts raw type-index loop branch-payload bypass with terminal return" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+        RecType::new(
+          SubType::comp_type(CompType::func([ValType::i32()], [ValType::i64()])),
+        ),
+        RecType::new(
+          SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::drop(),
+          ]),
+        ),
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::i32_const(@lib.I32::new(0)),
+            Instruction::loop_(
+              BlockType::type_idx(TypeIdx::new(2U)),
+              Expr::new([
+                Instruction::block(
+                  BlockType::val_type(ValType::i32()),
+                  Expr::new([
+                    Instruction::block(
+                      BlockType::void_(),
+                      Expr::new([
+                        Instruction::i32_const(@lib.I32::new(1)),
+                        Instruction::if_(
+                          BlockType::val_type(ValType::i32()),
+                          [
+                            Instruction::i32_const(@lib.I32::new(0)),
+                            Instruction::if_(
+                              BlockType::val_type(ValType::i32()),
+                              [Instruction::local_get(LocalIdx::new(0U))],
+                              Some([
+                                Instruction::local_get(LocalIdx::new(0U)),
+                                Instruction::call(FuncIdx::new(0U)),
+                                Instruction::br(LabelIdx::new(2U)),
+                              ]),
+                            ),
+                          ],
+                          Some([
+                            Instruction::local_get(LocalIdx::new(0U)),
+                            Instruction::call(FuncIdx::new(0U)),
+                            Instruction::br(LabelIdx::new(1U)),
+                          ]),
+                        ),
+                        Instruction::br(LabelIdx::new(1U)),
+                      ]),
+                    ),
+                    Instruction::unreachable_(),
+                  ]),
+                ),
+                Instruction::unreachable_(),
+              ]),
+            ),
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::call(FuncIdx::new(0U)),
+            Instruction::i64_const(@lib.I64::new(1L)),
+            Instruction::return_(),
+            Instruction::unreachable_(),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected raw type-index loop branch-payload bypass fixture to validate, got \{validation_error_message(e)}",
+      )
+  }
+}
+
 // ============ ExternType Tests ============
 
 ///|

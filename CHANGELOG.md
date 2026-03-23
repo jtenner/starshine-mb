@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Validation: add loop-wrapped branch-payload bypass coverage around the remaining DCE blocker
+
+- **DCE loop-wrapper coverage** by **@jtenner**. Added focused regressions in [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt), [`src/binary/tests.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/tests.mbt), and [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) for raw and pre-lifted loop-wrapped branch-payload bypass shapes, including the surrounding `if`/`return` context that shows up near the current fresh-artifact `Func 716` direct-DCE blocker.
+- The new coverage confirms that the reduced raw loop/branch-payload forms themselves validate and roundtrip locally, which narrows the remaining fresh-artifact failure to a later, more artifact-specific DCE rewrite or lowering interaction rather than the generic reduced loop-wrapper pattern.
+
 ## 2026-03-23 Validation: keep live current-label branch targets concrete during DCE dead-result cleanup
 
 - **DCE live-branch retag guard** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so dead-result cleanup no longer retags a concrete `block` to `void` when the block body still contains a live branch targeting that block’s own label. That keeps branch payload expectations aligned with the surviving target block type instead of producing a later invalid encode/decode mismatch.
