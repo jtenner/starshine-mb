@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Optimization: audit five-pass `-O4z` parity gaps
+
+- **Five-pass parity audit** by **@jtenner**. Added [`docs/0056-2026-03-22-o4z-five-pass-parity-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0056-2026-03-22-o4z-five-pass-parity-audit.md) to record the current release-artifact comparison for the five fully implemented `-O4z` passes, including the current prefix matrix, the early `DuplicateFunctionElimination` validity failure, the surviving size gaps versus Binaryen, and the remaining methodology/tooling constraints around explicit five-pass replay.
+- Refreshed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the active optimization blockers now reflect the new `-O4z` five-pass evidence: release-artifact DFE is the first correctness blocker, `MemoryPacking` is not the source of the surviving gap on this artifact, and Binaryen's direct `-O4z` preset is not available in `wasm-opt version 125`.
+
 ## 2026-03-22 Optimization: add Binaryen pass-compare harness and stabilize rewritten name maps
 
 - **Artifact comparison and name-map repair** by **@jtenner**. Canonicalized rewritten function and local name maps in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so non-monotonic function remaps no longer preserve invalid name ordering, and added focused regressions in [`src/optimization/duplicate_function_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/duplicate_function_elimination_wbtest.mbt) and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd_test.mbt) for duplicate-function elimination name-section rewrites.
