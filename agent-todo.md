@@ -9,6 +9,7 @@
 ## Publishing and Validation Blockers
 - Keep `merge-similar-functions` correctness and publish-signoff docs aligned.
 - Keep release blockers in `agent-todo.md` and avoid losing unresolved risk notes in `CHANGELOG.md`.
+- Workspace validation is currently blocked by unrelated compile errors in [`src/fs/fs.mbt`](/home/jtenner/Projects/starshine-mb/src/fs/fs.mbt) and [`src/validate/invalid_fuzzer.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/invalid_fuzzer.mbt); pass slices that need fresh native rebuilds currently require direct `moonc build-package` checks or a separate unblock.
 - Generated optimize feature-source plumbing:
   - module-derived `has_gc` / `has_multivalue` and option-driven `closed_world` / `zero_filled_memory` / `low_memory_unused` / `traps_never_happen` now flow through generated optimize expansion and module-wide execution.
   - future policy question: decide whether `closed_world` should become CLI/config-visible beyond the current internal/default-pipeline use.
@@ -133,7 +134,8 @@
     - even after the branch-summary rework and candidate pre-scan, the current release binary still spends about a minute of CPU on the fresh-artifact shared prefix ending in `RemoveUnusedNames`; the remaining hotspot is now inside candidate-bearing functions.
   - implementation features:
     - the current `RemoveUnusedNames` port is typed-only by design; raw functions are already pre-lifted before the grouped default stage.
-    - the next step is to reduce the new `Func 531` / `Func 527` mixed return-or-escape post-encode validation blocker to a generated-path regression, then reduce traversal cost inside candidate-bearing functions and rerun the fresh-artifact parity prefix with the repaired generated replay path.
+    - [`docs/0064-2026-03-23-dce-void-block-self-break-fix.md`](/home/jtenner/Projects/starshine-mb/docs/0064-2026-03-23-dce-void-block-self-break-fix.md) reduces the latest DCE post-encode blocker to a focused `void`-block self-break case and fixes that source predicate in `src/optimization/optimization.mbt`.
+    - the next step is to rebuild `src/cmd`, rerun direct DCE plus the five-pass shared prefix on `_build/wasm/release/build/cmd/cmd.wasm`, and confirm whether `Func 531` / `Func 527` are now cleared or whether another post-encode shape still remains behind them.
 - Validator fuzz hardening:
   - canonical research doc: [`docs/0058-2026-03-23-validate-fuzz-hardening-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0058-2026-03-23-validate-fuzz-hardening-plan.md).
   - blockers:

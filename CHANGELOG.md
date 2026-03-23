@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Validation: keep DCE from truncating result blocks after inner self-break void blocks
+
+- **Dead-code-elimination block escape fix** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `DeadCodeElimination` no longer treats a `void` block as escaping its parent when the only live breaks still target that block itself. That prevents enclosing concrete result blocks from losing their trailing value producer during nested-expression truncation.
+- Added a focused regression in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) for the reduced `block (result i32) { block { if { br 1 } else { br 1 } } i32.const 7 }` shape that previously optimized to an invalid result block after DCE. Documented the minimized repro and follow-up validation constraints in [`docs/0064-2026-03-23-dce-void-block-self-break-fix.md`](/home/jtenner/Projects/starshine-mb/docs/0064-2026-03-23-dce-void-block-self-break-fix.md).
+
 ## 2026-03-23 Validation: align bun fuzz arg parsing with moon entrypoint
 
 - **Seed/output alias support in Bun fuzz wrapper** by **@jtenner**. Updated [`scripts/lib/fuzz-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/fuzz-task.ts) to accept `--seed=<hex>` and `--output=<text|jsonl>` in addition to the existing space-separated variants.

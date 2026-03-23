@@ -1520,7 +1520,7 @@ fn optimization_dead_code_elimination_try_table_is_unreachable(
 
 ///|
 fn optimization_dead_code_elimination_block_escapes_parent(
-  block_type : @lib.BlockType,
+  _block_type : @lib.BlockType,
   body : @lib.TExpr,
 ) -> Bool {
   let body_instrs = body.inner()
@@ -1531,9 +1531,6 @@ fn optimization_dead_code_elimination_block_escapes_parent(
       body_instrs[body_instrs.length() - 1],
     ) {
     return false
-  }
-  if !optimization_dead_code_elimination_block_type_is_concrete(block_type) {
-    return true
   }
   !optimization_dead_code_elimination_expr_has_live_break_to_label(body, 0)
 }
