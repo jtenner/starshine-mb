@@ -55,6 +55,120 @@ fn decode_module_bytes(bytes : Bytes) -> Module {
 }
 
 ///|
+fn name_map_order_error(label : String, names : @lib.NameMap) -> String? {
+  let @lib.NameMap(entries) = names
+  let mut prev_idx : UInt? = None
+  for entry in entries {
+    let @lib.NameAssoc(idx, _) = entry
+    match prev_idx {
+      Some(prev) if idx <= prev =>
+        return Some("\{label} out of order: \{prev} then \{idx}")
+      _ => prev_idx = Some(idx)
+    }
+  }
+  None
+}
+
+///|
+fn indirect_name_map_order_error(
+  label : String,
+  names : @lib.IndirectNameMap,
+) -> String? {
+  let @lib.IndirectNameMap(entries) = names
+  let mut prev_idx : UInt? = None
+  for entry in entries {
+    let @lib.IndirectNameAssoc(idx, inner) = entry
+    match prev_idx {
+      Some(prev) if idx <= prev =>
+        return Some("\{label} out of order: \{prev} then \{idx}")
+      _ => ()
+    }
+    prev_idx = Some(idx)
+    match name_map_order_error("\{label}[\{idx}]", inner) {
+      Some(err) => return Some(err)
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+fn module_name_section_order_error(mod : Module) -> String? {
+  match mod.name_sec {
+    Some(name_sec) => {
+      let {
+        func_names,
+        local_names,
+        label_names,
+        type_names,
+        table_names,
+        memory_names,
+        global_names,
+        elem_names,
+        data_names,
+        field_names,
+        tag_names,
+        ..,
+      } = name_sec
+      for
+        check in [
+          match func_names {
+            Some(names) => name_map_order_error("func_names", names)
+            None => None
+          },
+          match local_names {
+            Some(names) => indirect_name_map_order_error("local_names", names)
+            None => None
+          },
+          match label_names {
+            Some(names) => indirect_name_map_order_error("label_names", names)
+            None => None
+          },
+          match type_names {
+            Some(names) => name_map_order_error("type_names", names)
+            None => None
+          },
+          match table_names {
+            Some(names) => name_map_order_error("table_names", names)
+            None => None
+          },
+          match memory_names {
+            Some(names) => name_map_order_error("memory_names", names)
+            None => None
+          },
+          match global_names {
+            Some(names) => name_map_order_error("global_names", names)
+            None => None
+          },
+          match elem_names {
+            Some(names) => name_map_order_error("elem_names", names)
+            None => None
+          },
+          match data_names {
+            Some(names) => name_map_order_error("data_names", names)
+            None => None
+          },
+          match field_names {
+            Some(names) => indirect_name_map_order_error("field_names", names)
+            None => None
+          },
+          match tag_names {
+            Some(names) => name_map_order_error("tag_names", names)
+            None => None
+          },
+        ] {
+        match check {
+          Some(err) => return Some(err)
+          None => ()
+        }
+      }
+      None
+    }
+    None => None
+  }
+}
+
+///|
 fn fixture_i32_const_module(value : Int) -> Module {
   let t_i32 = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -160,6 +274,80 @@ fn fixture_duplicate_function_module() -> Module {
     ]),
   )
   .with_start_sec(@lib.StartSec::new(@lib.FuncIdx::new(2U)))
+}
+
+///|
+fn fixture_duplicate_function_name_order_module() -> Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+  ])
+  Module::new()
+  .with_type_sec(type_sec)
+  .with_func_sec(
+    @lib.FuncSec::new([
+      @lib.TypeIdx::new(0U),
+      @lib.TypeIdx::new(0U),
+      @lib.TypeIdx::new(0U),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        TExpr::new([TInstr::nop()]),
+      ),
+      Func::t_func(
+        [],
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        TExpr::new([TInstr::unreachable_()]),
+      ),
+      Func::t_func(
+        [],
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        TExpr::new([TInstr::nop()]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("middle"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("dup"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
+      ),
+    ]),
+  )
+  .with_name_sec(
+    @lib.NameSec::new(
+      func_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("left")),
+          @lib.NameAssoc::new(1U, @lib.Name::from_string("middle")),
+          @lib.NameAssoc::new(2U, @lib.Name::from_string("right")),
+        ]),
+      ),
+      local_names=Some(
+        @lib.IndirectNameMap::new([
+          @lib.IndirectNameAssoc::new(
+            1U,
+            @lib.NameMap::new([
+              @lib.NameAssoc::new(0U, @lib.Name::from_string("mid_local")),
+            ]),
+          ),
+          @lib.IndirectNameAssoc::new(
+            2U,
+            @lib.NameMap::new([
+              @lib.NameAssoc::new(0U, @lib.Name::from_string("dup_local")),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  )
 }
 
 ///|
@@ -540,6 +728,116 @@ test "run_cmd_with_adapter applies duplicate-function-elimination to wasm inputs
   assert_eq(writes.length(), 1)
   assert_eq(writes[0].0, "out.wasm")
   try! assert_duplicate_fixture_deduped(writes[0].1)
+}
+
+///|
+test "run_cmd_with_adapter --optimize preserves sorted rewritten name maps after duplicate function elimination" {
+  let wasm = encode_module_bytes(fixture_duplicate_function_name_order_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["dup-names.wasm"] },
+    file_exists=fn(path) { path == "dup-names.wasm" },
+    read_file=fn(path) {
+      if path == "dup-names.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--optimize", "--out", "out.wasm", "dup-names.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected optimize failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["optimize"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.name_sec {
+    Some(name_sec) => {
+      let { func_names, local_names, .. } = name_sec
+      assert_eq(
+        func_names,
+        Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("left")),
+            @lib.NameAssoc::new(1U, @lib.Name::from_string("middle")),
+          ]),
+        ),
+      )
+      assert_eq(
+        local_names,
+        Some(
+          @lib.IndirectNameMap::new([
+            @lib.IndirectNameAssoc::new(
+              1U,
+              @lib.NameMap::new([
+                @lib.NameAssoc::new(0U, @lib.Name::from_string("mid_local")),
+              ]),
+            ),
+          ]),
+        ),
+      )
+    }
+    None => fail("expected rewritten name section")
+  }
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter keeps real debug artifact name maps ordered after first optimize pass" {
+  let wasm = match
+    native_read_bytes("tests/node/dist/starshine-debug-wasi.wasm") {
+    Some(bytes) => bytes
+    None => fail("failed to read debug artifact fixture")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    get_env=fn(name) {
+      if name == "STARSHINE_OPTIMIZE_MAX_PASSES" {
+        Some("1")
+      } else {
+        None
+      }
+    },
+    list_candidates=fn() { ["debug.wasm"] },
+    file_exists=fn(path) { path == "debug.wasm" },
+    read_file=fn(path) {
+      if path == "debug.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    encode_module=fn(mod) {
+      match module_name_section_order_error(mod) {
+        Some(err) => Err(CmdEncodeError::adapter(err))
+        None =>
+          match @binary.encode_module(mod) {
+            Ok(bytes) => Ok(bytes)
+            Err(err) => Err(CmdEncodeError::encode(err))
+          }
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(["--optimize", "--out", "out.wasm", "debug.wasm"], io) {
+    Ok(v) => v
+    Err(e) => fail("unexpected debug artifact optimize failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["optimize"])
+  assert_eq(writes.length(), 1)
 }
 
 ///|

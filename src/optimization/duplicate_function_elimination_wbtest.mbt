@@ -379,3 +379,101 @@ test "duplicate function elimination rewrites name section function and local na
     _ => fail("expected rewritten name section")
   }
 }
+
+///|
+test "duplicate function elimination keeps non-adjacent rewritten name maps sorted" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+    )
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U), TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          Locals::from_types([ValType::i32()]),
+          TExpr::new([TInstr::nop()]),
+        ),
+        Func::t_func(
+          [],
+          Locals::from_types([ValType::i32()]),
+          TExpr::new([TInstr::unreachable_()]),
+        ),
+        Func::t_func(
+          [],
+          Locals::from_types([ValType::i32()]),
+          TExpr::new([TInstr::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("middle"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("dup"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
+        ),
+      ]),
+    )
+    .with_name_sec(
+      NameSec::new(
+        func_names=Some(
+          NameMap::new([
+            NameAssoc::new(0U, Name::from_string("left")),
+            NameAssoc::new(1U, Name::from_string("middle")),
+            NameAssoc::new(2U, Name::from_string("right")),
+          ]),
+        ),
+        local_names=Some(
+          IndirectNameMap::new([
+            IndirectNameAssoc::new(
+              1U,
+              NameMap::new([NameAssoc::new(0U, Name::from_string("mid_local"))]),
+            ),
+            IndirectNameAssoc::new(
+              2U,
+              NameMap::new([NameAssoc::new(0U, Name::from_string("dup_local"))]),
+            ),
+          ]),
+        ),
+      ),
+    )
+
+  let (optimized, _) = run_duplicate_function_elimination(
+    mod,
+    PipelineGlobal::new(),
+    PipelineFeatures::new(),
+  )
+
+  match optimized.name_sec {
+    Some(name_sec) => {
+      let { func_names, local_names, .. } = name_sec
+      assert_eq(
+        func_names,
+        Some(
+          NameMap::new([
+            NameAssoc::new(0U, Name::from_string("left")),
+            NameAssoc::new(1U, Name::from_string("middle")),
+          ]),
+        ),
+      )
+      assert_eq(
+        local_names,
+        Some(
+          IndirectNameMap::new([
+            IndirectNameAssoc::new(
+              1U,
+              NameMap::new([NameAssoc::new(0U, Name::from_string("mid_local"))]),
+            ),
+          ]),
+        ),
+      )
+    }
+    None => fail("expected rewritten name section")
+  }
+}

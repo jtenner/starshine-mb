@@ -1,0 +1,233 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import process from "node:process";
+
+import { fail, resolveMoonBin, resolveRepoPath, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
+
+type StarshineInvocation = {
+  command: string;
+  argsPrefix: string[];
+};
+
+type SelfOptimizeCompareOptions = {
+  inputPath: string;
+  outDir: string;
+  moonBin: string;
+  starshineBin: string | null;
+  wasmOptBin: string;
+  passFlags: string[];
+};
+
+type ComparisonSummary = {
+  inputPath: string;
+  outDir: string;
+  passFlags: string[];
+  binaryenPassFlags: string[];
+  starshineCommand: string[];
+  binaryenCommand: string[];
+  starshineSize: number;
+  binaryenSize: number;
+  normalizedWatEqual: boolean;
+};
+
+const RESERVED_OPTIONS = new Set(["--out-dir", "--starshine-bin", "--wasm-opt-bin", "--moon"]);
+
+const BINARYEN_FLAG_ALIASES = new Map<string, string>([
+  ["--dead-code-elimination", "--dce"],
+  ["--dead-argument-elimination", "--dae"],
+  ["--dead-argument-elimination-optimizing", "--dae-optimizing"],
+  ["--global-struct-inference", "--gsi"],
+  ["--redundant-set-elimination", "--rse"],
+]);
+
+const UNSUPPORTED_PRESET_FLAGS = new Set(["--optimize", "--shrink"]);
+
+function defaultOutDir(inputPath: string): string {
+  const stem = path.basename(inputPath).replace(/\.[^.]+$/, "");
+  return path.join(os.tmpdir(), `starshine-self-optimize-compare-${stem}-${process.pid}`);
+}
+
+function normalizeBinaryenPassFlag(flag: string): string {
+  if (UNSUPPORTED_PRESET_FLAGS.has(flag) || /^-O\d/.test(flag)) {
+    fail(`unsupported preset flag for self-optimize compare: ${flag}`);
+  }
+  return BINARYEN_FLAG_ALIASES.get(flag) ?? flag;
+}
+
+function resolveStarshineInvocation(
+  repoRoot: string,
+  starshineBin: string | null,
+  moonBin: string,
+): StarshineInvocation {
+  if (starshineBin !== null) {
+    return {
+      command: resolveRepoPath(repoRoot, starshineBin),
+      argsPrefix: [],
+    };
+  }
+
+  const releaseBinaryExe = path.join(repoRoot, "_build", "native", "release", "build", "cmd", "cmd.exe");
+  const releaseBinary = path.join(repoRoot, "_build", "native", "release", "build", "cmd", "cmd");
+  if (fs.existsSync(releaseBinaryExe)) {
+    return { command: releaseBinaryExe, argsPrefix: [] };
+  }
+  if (fs.existsSync(releaseBinary)) {
+    return { command: releaseBinary, argsPrefix: [] };
+  }
+  return {
+    command: moonBin,
+    argsPrefix: ["run", "--target", "native", "--release", "src/cmd", "--"],
+  };
+}
+
+function normalizePrintWat(wasmOptBin: string, wasmPath: string, repoRoot: string): string {
+  const nullPath = process.platform === "win32" ? "NUL" : "/dev/null";
+  return runOrThrow(
+    wasmOptBin,
+    [wasmPath, "--all-features", "--print", "-o", nullPath],
+    { cwd: repoRoot, stdio: "pipe" },
+  ).stdout;
+}
+
+export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompareOptions {
+  let inputPath: string | null = null;
+  let outDir: string | null = null;
+  let moonBin = resolveMoonBin();
+  let starshineBin: string | null = null;
+  let wasmOptBin = process.env.WASM_OPT_BIN || "wasm-opt";
+  const passFlags: string[] = [];
+
+  for (let i = 0; i < argv.length; ) {
+    const token = argv[i];
+    switch (token) {
+      case "--out-dir":
+        outDir = argv[i + 1] ?? fail("missing value for --out-dir");
+        i += 2;
+        break;
+      case "--starshine-bin":
+        starshineBin = argv[i + 1] ?? fail("missing value for --starshine-bin");
+        i += 2;
+        break;
+      case "--wasm-opt-bin":
+        wasmOptBin = argv[i + 1] ?? fail("missing value for --wasm-opt-bin");
+        i += 2;
+        break;
+      case "--moon":
+        moonBin = argv[i + 1] ?? fail("missing value for --moon");
+        i += 2;
+        break;
+      default:
+        if (RESERVED_OPTIONS.has(token)) {
+          fail(`missing value for ${token}`);
+        }
+        if (token.startsWith("--")) {
+          passFlags.push(token);
+          i += 1;
+          break;
+        }
+        if (inputPath === null) {
+          inputPath = token;
+          i += 1;
+          break;
+        }
+        fail(`unexpected positional argument: ${token}`);
+    }
+  }
+
+  if (inputPath === null) {
+    fail("usage: bun scripts/self-optimize-compare.ts <input.wasm> [options] [--pass ...]");
+  }
+  if (passFlags.length === 0) {
+    fail("expected at least one pass flag to compare");
+  }
+
+  return {
+    inputPath,
+    outDir: outDir ?? defaultOutDir(inputPath),
+    moonBin,
+    starshineBin,
+    wasmOptBin,
+    passFlags,
+  };
+}
+
+export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
+  const repoRoot = resolveWorkspaceRoot();
+  const options = parseSelfOptimizeCompareArgs(argv);
+  const inputPath = resolveRepoPath(repoRoot, options.inputPath);
+  const outDir = resolveRepoPath(repoRoot, options.outDir);
+  const starshineOutputPath = path.join(outDir, "starshine.wasm");
+  const binaryenOutputPath = path.join(outDir, "binaryen.wasm");
+  const starshineWatPath = path.join(outDir, "starshine.print.wat");
+  const binaryenWatPath = path.join(outDir, "binaryen.print.wat");
+  const summaryPath = path.join(outDir, "result.json");
+  const commandsPath = path.join(outDir, "commands.txt");
+
+  if (!fs.existsSync(inputPath)) {
+    fail(`input file not found: ${inputPath}`);
+  }
+
+  fs.mkdirSync(outDir, { recursive: true });
+
+  const binaryenPassFlags = options.passFlags.map(normalizeBinaryenPassFlag);
+  const starshineInvocation = resolveStarshineInvocation(
+    repoRoot,
+    options.starshineBin,
+    options.moonBin,
+  );
+  const starshineArgs = [
+    ...starshineInvocation.argsPrefix,
+    ...options.passFlags,
+    "--out",
+    starshineOutputPath,
+    inputPath,
+  ];
+  const binaryenArgs = [
+    inputPath,
+    "--all-features",
+    ...binaryenPassFlags,
+    "-o",
+    binaryenOutputPath,
+  ];
+
+  runOrThrow(starshineInvocation.command, starshineArgs, { cwd: repoRoot, stdio: "pipe" });
+  runOrThrow(options.wasmOptBin, binaryenArgs, { cwd: repoRoot, stdio: "pipe" });
+
+  const starshineWat = normalizePrintWat(options.wasmOptBin, starshineOutputPath, repoRoot);
+  const binaryenWat = normalizePrintWat(options.wasmOptBin, binaryenOutputPath, repoRoot);
+  fs.writeFileSync(starshineWatPath, starshineWat);
+  fs.writeFileSync(binaryenWatPath, binaryenWat);
+
+  const summary: ComparisonSummary = {
+    inputPath,
+    outDir,
+    passFlags: options.passFlags,
+    binaryenPassFlags,
+    starshineCommand: [starshineInvocation.command, ...starshineArgs],
+    binaryenCommand: [options.wasmOptBin, ...binaryenArgs],
+    starshineSize: fs.statSync(starshineOutputPath).size,
+    binaryenSize: fs.statSync(binaryenOutputPath).size,
+    normalizedWatEqual: starshineWat === binaryenWat,
+  };
+
+  fs.writeFileSync(
+    commandsPath,
+    [
+      `starshine: ${summary.starshineCommand.join(" ")}`,
+      `binaryen: ${summary.binaryenCommand.join(" ")}`,
+    ].join("\n") + "\n",
+  );
+  fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2) + "\n");
+
+  process.stdout.write(`Wrote comparison artifacts to ${outDir}\n`);
+  process.stdout.write(`Starshine wasm: ${starshineOutputPath}\n`);
+  process.stdout.write(`Binaryen wasm: ${binaryenOutputPath}\n`);
+  process.stdout.write(`Starshine normalized WAT: ${starshineWatPath}\n`);
+  process.stdout.write(`Binaryen normalized WAT: ${binaryenWatPath}\n`);
+  process.stdout.write(`Normalized WAT equal: ${summary.normalizedWatEqual ? "yes" : "no"}\n`);
+}
+
+export async function main(argv: string[]): Promise<void> {
+  await runSelfOptimizeCompare(argv);
+}

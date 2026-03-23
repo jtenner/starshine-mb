@@ -8,4 +8,10 @@ trace.json
 after.wasm
 before.wasm
 output.log
+starshine.wasm
+binaryen.wasm
+starshine.print.wat
+binaryen.print.wat
+commands.txt
+result.json
 agent-lost-and-found.md

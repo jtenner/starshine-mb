@@ -5692,23 +5692,29 @@ fn optimization_rewrite_func_annotation_sec_in_module(
 }
 
 ///|
+fn optimization_canonical_remap_sources(
+  remap : Map[UInt, UInt],
+) -> Map[UInt, UInt] {
+  let canonical : Map[UInt, UInt] = {}
+  for source_idx in remap.keys() {
+    let target_idx = remap[source_idx]
+    match canonical.get(target_idx) {
+      Some(existing) =>
+        if source_idx < existing {
+          canonical[target_idx] = source_idx
+        }
+      None => canonical[target_idx] = source_idx
+    }
+  }
+  canonical
+}
+
+///|
 fn optimization_rewrite_name_map(
   names : NameMap,
   remap : Map[UInt, UInt],
 ) -> NameMap {
-  let NameMap(entries) = names
-  let rewritten : Array[NameAssoc] = []
-  let mut last_idx : UInt? = None
-  for entry in entries {
-    let NameAssoc(idx, name) = entry
-    let next_idx = remap.get(idx).unwrap_or(idx)
-    if last_idx == Some(next_idx) {
-      continue
-    }
-    rewritten.push(NameAssoc::new(next_idx, name))
-    last_idx = Some(next_idx)
-  }
-  NameMap::new(rewritten)
+  optimization_rewrite_name_map_filtered(names, remap, false)
 }
 
 ///|
@@ -5718,26 +5724,40 @@ fn optimization_rewrite_name_map_filtered(
   drop_unmapped : Bool,
 ) -> NameMap {
   let NameMap(entries) = names
-  let rewritten : Array[NameAssoc] = []
-  let mut last_idx : UInt? = None
+  let canonical_sources = optimization_canonical_remap_sources(remap)
+  let by_idx : Map[UInt, NameAssoc] = {}
   for entry in entries {
     let NameAssoc(idx, name) = entry
     match remap.get(idx) {
-      Some(next_idx) => {
-        if last_idx == Some(next_idx) {
-          continue
+      Some(next_idx) =>
+        if canonical_sources.get(next_idx) == Some(idx) &&
+          by_idx.get(next_idx) is None {
+          by_idx[next_idx] = NameAssoc::new(next_idx, name)
         }
-        rewritten.push(NameAssoc::new(next_idx, name))
-        last_idx = Some(next_idx)
-      }
       None =>
-        if !drop_unmapped {
-          if last_idx == Some(idx) {
-            continue
-          }
-          rewritten.push(entry)
-          last_idx = Some(idx)
+        if !drop_unmapped && by_idx.get(idx) is None {
+          by_idx[idx] = entry
         }
+    }
+  }
+  let ordered_idxs : Array[UInt] = []
+  for idx in by_idx.keys() {
+    ordered_idxs.push(idx)
+  }
+  ordered_idxs.sort_by(fn(a, b) {
+    if a < b {
+      -1
+    } else if a > b {
+      1
+    } else {
+      0
+    }
+  })
+  let rewritten : Array[NameAssoc] = []
+  for idx in ordered_idxs {
+    match by_idx.get(idx) {
+      Some(entry) => rewritten.push(entry)
+      None => abort("expected rewritten name-map entry for idx \{idx}")
     }
   }
   NameMap::new(rewritten)
@@ -5765,19 +5785,7 @@ fn optimization_rewrite_local_name_map(
   names : IndirectNameMap,
   remap : Map[UInt, UInt],
 ) -> IndirectNameMap {
-  let IndirectNameMap(entries) = names
-  let rewritten : Array[IndirectNameAssoc] = []
-  let mut last_idx : UInt? = None
-  for entry in entries {
-    let IndirectNameAssoc(idx, local_names) = entry
-    let next_idx = remap.get(idx).unwrap_or(idx)
-    if last_idx == Some(next_idx) {
-      continue
-    }
-    rewritten.push(IndirectNameAssoc::new(next_idx, local_names))
-    last_idx = Some(next_idx)
-  }
-  IndirectNameMap::new(rewritten)
+  optimization_rewrite_local_name_map_filtered(names, remap, false)
 }
 
 ///|
@@ -5787,26 +5795,40 @@ fn optimization_rewrite_local_name_map_filtered(
   drop_unmapped : Bool,
 ) -> IndirectNameMap {
   let IndirectNameMap(entries) = names
-  let rewritten : Array[IndirectNameAssoc] = []
-  let mut last_idx : UInt? = None
+  let canonical_sources = optimization_canonical_remap_sources(remap)
+  let by_idx : Map[UInt, IndirectNameAssoc] = {}
   for entry in entries {
     let IndirectNameAssoc(idx, local_names) = entry
     match remap.get(idx) {
-      Some(next_idx) => {
-        if last_idx == Some(next_idx) {
-          continue
+      Some(next_idx) =>
+        if canonical_sources.get(next_idx) == Some(idx) &&
+          by_idx.get(next_idx) is None {
+          by_idx[next_idx] = IndirectNameAssoc::new(next_idx, local_names)
         }
-        rewritten.push(IndirectNameAssoc::new(next_idx, local_names))
-        last_idx = Some(next_idx)
-      }
       None =>
-        if !drop_unmapped {
-          if last_idx == Some(idx) {
-            continue
-          }
-          rewritten.push(entry)
-          last_idx = Some(idx)
+        if !drop_unmapped && by_idx.get(idx) is None {
+          by_idx[idx] = entry
         }
+    }
+  }
+  let ordered_idxs : Array[UInt] = []
+  for idx in by_idx.keys() {
+    ordered_idxs.push(idx)
+  }
+  ordered_idxs.sort_by(fn(a, b) {
+    if a < b {
+      -1
+    } else if a > b {
+      1
+    } else {
+      0
+    }
+  })
+  let rewritten : Array[IndirectNameAssoc] = []
+  for idx in ordered_idxs {
+    match by_idx.get(idx) {
+      Some(entry) => rewritten.push(entry)
+      None => abort("expected rewritten indirect name-map entry for idx \{idx}")
     }
   }
   IndirectNameMap::new(rewritten)
