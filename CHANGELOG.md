@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Validation: recursively drop dead terminal structured results during DCE truncation
+
+- **DCE recursive dead-result cleanup** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the structured dead-tail truncation path now drops dead terminal result types recursively instead of only at the outermost instruction. When DCE truncates an enclosing expression after a terminal `if` / `block` / `try_table`, the pass now also rewrites the terminal result-carrying child expression that became dead under that truncation, including nested `loop` results in taken arms.
+- Added focused regressions in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) for the new direct outer-break `if` retag case and the nested escaping-`if` case whose expected shape is now the stronger Binaryen-style dead-result cleanup.
+- Documented the fresh-artifact blocker movement and recursive cleanup rule in [`docs/0069-2026-03-23-dce-recursive-dead-terminal-result-cleanup.md`](/home/jtenner/Projects/starshine-mb/docs/0069-2026-03-23-dce-recursive-dead-terminal-result-cleanup.md). This slice clears the earlier direct-DCE fresh-artifact failure at `Func 27`; the next direct artifact blocker is now later at `Func 716`.
+
 ## 2026-03-23 Validation: canonicalize duplicate simple type indices after DCE rewrites
 
 - **DCE post-rewrite type cleanup** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `run_dead_code_elimination(...)` now reuses the existing duplicate-simple-type canonicalization helper after a changed rewrite. This compacts duplicate simple function/block types left behind when DCE deletes their last distinguishing uses, while preserving the same rewritten function bodies and function count.

@@ -740,6 +740,43 @@ test "dead code elimination sees stacked if current-label breaks" {
 }
 
 ///|
+test "dead code elimination retags concrete if when both arms only break out to parent" {
+  let body = dead_code_elimination_test_result_body_unchecked(
+    [@lib.ValType::i32()],
+    [
+      @lib.TInstr::block(
+        @lib.BlockType::void_(),
+        @lib.TExpr::new([
+          @lib.TInstr::if_(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.TInstr::i32_const(@lib.I32::new(1)),
+            @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])]),
+            Some(@lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])])),
+          ),
+          @lib.TInstr::return_([]),
+        ]),
+      ),
+      @lib.TInstr::i32_const(@lib.I32::new(7)),
+    ],
+  )
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::if_(
+          @lib.BlockType::void_(),
+          @lib.TInstr::i32_const(@lib.I32::new(1)),
+          @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])]),
+          Some(@lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])])),
+        ),
+        @lib.TInstr::unreachable_(),
+      ]),
+    ),
+    @lib.TInstr::i32_const(@lib.I32::new(7)),
+  ])
+}
+
+///|
 test "dead code elimination sees prefix parent-label breaks through nested ifs" {
   let body = @lib.TExpr::new([
     @lib.TInstr::block(
@@ -991,7 +1028,7 @@ test "dead code elimination retags ifs when both arms are unreachable" {
 }
 
 ///|
-test "dead code elimination preserves result-typed ifs whose arms escape an outer label" {
+test "dead code elimination may retag nested result-typed ifs whose arms escape an outer label" {
   let mod = dead_code_elimination_test_result_module([@lib.ValType::i32()], [
     @lib.TInstr::block(
       @lib.BlockType::void_(),
@@ -1004,7 +1041,7 @@ test "dead code elimination preserves result-typed ifs whose arms escape an oute
             Some(
               @lib.TExpr::new([
                 @lib.TInstr::if_(
-                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  @lib.BlockType::void_(),
                   @lib.TInstr::i32_const(@lib.I32::new(1)),
                   @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(2U), [])]),
                   Some(
@@ -1053,7 +1090,7 @@ test "dead code elimination preserves result-typed ifs whose arms escape an oute
             Some(
               @lib.TExpr::new([
                 @lib.TInstr::if_(
-                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  @lib.BlockType::void_(),
                   @lib.TInstr::i32_const(@lib.I32::new(1)),
                   @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(2U), [])]),
                   Some(

@@ -2420,8 +2420,10 @@ fn optimization_dead_code_elimination_truncate_after_first_unreachable(
 ) -> Array[@lib.TInstr] {
   let kept : Array[@lib.TInstr] = []
   for instr in instrs {
-    kept.push(instr)
     if optimization_dead_code_elimination_instr_terminates_current_expr(instr) {
+      kept.push(
+        optimization_dead_code_elimination_drop_dead_structured_result(instr),
+      )
       if optimization_dead_code_elimination_instr_needs_unreachable_barrier(
           instr,
         ) {
@@ -2429,8 +2431,103 @@ fn optimization_dead_code_elimination_truncate_after_first_unreachable(
       }
       break
     }
+    kept.push(instr)
   }
   kept
+}
+
+///|
+fn optimization_dead_code_elimination_drop_dead_structured_result(
+  instr : @lib.TInstr,
+) -> @lib.TInstr {
+  match instr.kind {
+    @lib.TIf(block_type, cond, then_body, else_body) =>
+      if optimization_dead_code_elimination_block_type_is_concrete(block_type) &&
+        optimization_dead_code_elimination_if_is_unreachable(
+          cond, then_body, else_body,
+        ) {
+        @lib.TInstr::if_(
+          @lib.BlockType::void_(),
+          cond,
+          optimization_dead_code_elimination_drop_dead_terminal_expr_result(
+            then_body,
+          ),
+          match else_body {
+            Some(else_body) =>
+              Some(
+                optimization_dead_code_elimination_drop_dead_terminal_expr_result(
+                  else_body,
+                ),
+              )
+            None => None
+          },
+        )
+      } else {
+        instr
+      }
+    @lib.TBlock(block_type, body) =>
+      if optimization_dead_code_elimination_block_type_is_concrete(block_type) &&
+        optimization_dead_code_elimination_block_escapes_parent(
+          block_type, body,
+        ) {
+        @lib.TInstr::block(
+          @lib.BlockType::void_(),
+          optimization_dead_code_elimination_drop_dead_terminal_expr_result(
+            body,
+          ),
+        )
+      } else {
+        instr
+      }
+    @lib.TLoop(block_type, body) =>
+      if optimization_dead_code_elimination_block_type_is_concrete(block_type) {
+        @lib.TInstr::loop_(
+          @lib.BlockType::void_(),
+          optimization_dead_code_elimination_drop_dead_terminal_expr_result(
+            body,
+          ),
+        )
+      } else {
+        instr
+      }
+    @lib.TTryTable(block_type, catches, body) =>
+      if optimization_dead_code_elimination_block_type_is_concrete(block_type) &&
+        optimization_dead_code_elimination_try_table_is_unreachable(body) {
+        @lib.TInstr::try_table(
+          @lib.BlockType::void_(),
+          catches,
+          optimization_dead_code_elimination_drop_dead_terminal_expr_result(
+            body,
+          ),
+        )
+      } else {
+        instr
+      }
+    _ => instr
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_drop_dead_terminal_expr_result(
+  expr : @lib.TExpr,
+) -> @lib.TExpr {
+  let instrs = expr.inner()
+  if instrs.length() == 0 {
+    return expr
+  }
+  let rewritten : Array[@lib.TInstr] = []
+  for i in 0..<instrs.length() {
+    rewritten.push(
+      if i == instrs.length() - 1 {
+        optimization_dead_code_elimination_drop_dead_structured_result(
+          instrs[i],
+        )
+      } else {
+        instrs[i]
+      },
+    )
+  }
+  @lib.TExpr::new(rewritten)
 }
 
 ///|
