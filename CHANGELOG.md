@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Validation: canonicalize duplicate simple type indices after DCE rewrites
+
+- **DCE post-rewrite type cleanup** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `run_dead_code_elimination(...)` now reuses the existing duplicate-simple-type canonicalization helper after a changed rewrite. This compacts duplicate simple function/block types left behind when DCE deletes their last distinguishing uses, while preserving the same rewritten function bodies and function count.
+- Added a focused regression in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) that starts with duplicate simple block and function types, runs DCE, and asserts the resulting module compacts to the canonical type indices and the rewritten body remains valid.
+- Documented the rationale, pseudo-code, and fresh-artifact parity checkpoint in [`docs/0068-2026-03-23-dce-post-rewrite-type-canonicalization.md`](/home/jtenner/Projects/starshine-mb/docs/0068-2026-03-23-dce-post-rewrite-type-canonicalization.md). On the fresh release artifact, direct Starshine `--dead-code-elimination` still validates, keeps `3294` printed functions, and drops from `381` printed types to `109`, which is now close to Binaryen’s `110`.
+
 ## 2026-03-23 Validation: preserve explicit raw non-fallthrough after structured DCE rewrites
 
 - **DCE structured terminal barrier** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so dead-tail truncation now inserts an explicit trailing `unreachable` after structured instructions (`block`, `if`, `try_table`) that DCE proves are semantically non-fallthrough. This keeps the optimization while preserving raw Wasm validity instead of assuming those structured instructions are terminal by themselves after lowering.

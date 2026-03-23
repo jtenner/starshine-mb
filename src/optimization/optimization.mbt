@@ -593,7 +593,23 @@ pub fn run_dead_code_elimination(
     locals_dirty=scratch.locals_dirty,
   )
   if changed {
-    (mod.with_code_sec(CodeSec::new(rewritten_funcs)), next_scratch)
+    let rewritten = mod.with_code_sec(CodeSec::new(rewritten_funcs))
+    let canonicalized = optimization_canonicalize_duplicate_simple_type_indices(
+      rewritten,
+    )
+    let canonicalized_types_changed = canonicalized.type_sec !=
+      rewritten.type_sec
+    let final_scratch = PipelineScratch::new(
+      changed=next_scratch.changed,
+      func_idx=next_scratch.func_idx,
+      funcs_visited=next_scratch.funcs_visited,
+      funcs_changed=next_scratch.funcs_changed,
+      module_shape_changed=next_scratch.module_shape_changed ||
+        canonicalized_types_changed,
+      call_graph_dirty=next_scratch.call_graph_dirty,
+      locals_dirty=next_scratch.locals_dirty,
+    )
+    (canonicalized, final_scratch)
   } else {
     (mod, next_scratch)
   }

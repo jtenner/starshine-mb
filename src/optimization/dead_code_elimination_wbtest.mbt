@@ -75,6 +75,40 @@ fn dead_code_elimination_test_descriptor_module(
 }
 
 ///|
+fn dead_code_elimination_test_duplicate_type_module() -> Module {
+  let block_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([block_type, block_type, func_type, func_type]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(3U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::t_func(
+        [],
+        @lib.Locals::empty(),
+        @lib.TExpr::new([
+          @lib.TInstr::drop(
+            @lib.TInstr::block(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+              @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+            ),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn dead_code_elimination_test_run(mod : Module) -> Module {
   let (optimized, _) = run_dead_code_elimination(mod, PipelineScratch::new())
   match @validate.validate_module(optimized) {
@@ -228,6 +262,26 @@ test "run_dead_code_elimination shell preserves empty typed function bodies" {
   assert_eq(scratch.funcs_visited, 1)
   assert_eq(scratch.funcs_changed, 0)
   assert_false(scratch.changed)
+}
+
+///|
+test "dead code elimination canonicalizes duplicate simple type indices after rewrite" {
+  let optimized = dead_code_elimination_test_run(
+    dead_code_elimination_test_duplicate_type_module(),
+  )
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 2)
+    None => fail("expected compacted type section")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec([@lib.TypeIdx(type_idx)])) => assert_eq(type_idx, 1U)
+    _ => fail("expected compacted func type index")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) =>
+      assert_eq(body.inner(), [@lib.TInstr::unreachable_()])
+    _ => fail("expected optimized typed function body")
+  }
 }
 
 ///|
