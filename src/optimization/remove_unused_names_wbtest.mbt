@@ -62,6 +62,34 @@ test "remove unused names skips walk when no candidates exist" {
 }
 
 ///|
+test "remove unused names candidate scan returns false when no peel or loop candidate exists" {
+  assert_false(
+    optimization_remove_unused_names_has_candidate_texpr(
+      @lib.TExpr::new([@lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(1)))]),
+    ),
+  )
+}
+
+///|
+test "remove unused names candidate scan finds nested same-typed block candidates" {
+  assert_true(
+    optimization_remove_unused_names_has_candidate_texpr(
+      @lib.TExpr::new([@lib.TInstr::drop(
+        @lib.TInstr::block(
+          @lib.BlockType::void_(),
+          @lib.TExpr::new([
+            @lib.TInstr::block(
+              @lib.BlockType::void_(),
+              @lib.TExpr::new([@lib.TInstr::nop()]),
+            ),
+          ]),
+        ),
+      )]),
+    ),
+  )
+}
+
+///|
 test "remove unused names merges single-child same-typed nested blocks" {
   let body = remove_unused_names_test_body([
     @lib.TInstr::block(

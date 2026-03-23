@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Optimization: pre-scan `RemoveUnusedNames` candidate-free functions
+
+- **`RemoveUnusedNames` candidate pre-scan** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now skips the full rewrite walk on typed function bodies that contain neither a `loop` nor a same-typed single-child block-peel opportunity.
+- Added direct candidate-scan coverage in [`src/optimization/remove_unused_names_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_names_wbtest.mbt), covering both the no-candidate and nested same-typed block cases.
+- Recorded the slice and the still-open large-artifact runtime blocker in [`docs/0063-2026-03-23-remove-unused-names-candidate-prescan.md`](/home/jtenner/Projects/starshine-mb/docs/0063-2026-03-23-remove-unused-names-candidate-prescan.md), and refreshed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the next work stays focused on traversal cost inside candidate-bearing functions rather than broader pass semantics.
+
 ## 2026-03-23 Optimization: memoize `RemoveUnusedNames` branch-target summaries
 
 - **`RemoveUnusedNames` branch-summary rework** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now answers its live-target queries from one memoized typed-body summary of the nearest escaping branch/catch target depth instead of repeatedly rescanning whole subtrees, while keeping the rewrite surface aligned with Binaryen's narrow name-cleanup behavior.

@@ -640,9 +640,47 @@ pub fn run_remove_unused_names(
 }
 
 ///|
+const OPTIMIZATION_REMOVE_UNUSED_NAMES_CANDIDATE_FOUND : String =
+  "__remove_unused_names_candidate_found__"
+
+///|
+fn optimization_remove_unused_names_has_candidate_texpr(
+  body : @lib.TExpr,
+) -> Bool {
+  let transformer : ModuleTransformer[Unit, String] = ModuleTransformer::new()
+    .on_tinstruction_evt(fn(self, _, instr) {
+      match instr.kind {
+        @lib.TLoop(_, _) => error(OPTIMIZATION_REMOVE_UNUSED_NAMES_CANDIDATE_FOUND)
+        @lib.TBlock(block_type, block_body) =>
+          match block_body.inner() {
+            [child] =>
+              match child.kind {
+                @lib.TBlock(child_type, _) =>
+                  if child_type == block_type {
+                    error(OPTIMIZATION_REMOVE_UNUSED_NAMES_CANDIDATE_FOUND)
+                  } else {
+                    from_walk(self.walk_tinstruction_default((), instr))
+                  }
+                _ => from_walk(self.walk_tinstruction_default((), instr))
+              }
+            _ => from_walk(self.walk_tinstruction_default((), instr))
+          }
+        _ => from_walk(self.walk_tinstruction_default((), instr))
+      }
+    })
+  match transformer.walk_texpr((), body) {
+    Ok(_) => false
+    Err(err) => err == OPTIMIZATION_REMOVE_UNUSED_NAMES_CANDIDATE_FOUND
+  }
+}
+
+///|
 fn optimization_remove_unused_names_func(func : Func) -> (Func, Bool) {
   match func {
     @lib.TFunc(params, locals, body) => {
+      if !optimization_remove_unused_names_has_candidate_texpr(body) {
+        return (func, false)
+      }
       let min_target_depth_cache : Map[@lib.TExpr, Int] = Map::new()
       let transformer : ModuleTransformer[Unit, String] = ModuleTransformer::new().on_tinstruction_evt(fn(
           self,

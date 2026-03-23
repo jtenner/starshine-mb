@@ -129,10 +129,11 @@
     - slice 2 is now live: nested control that still targets a removed scope now blocks peeling through the depth-aware label scan, with a focused valid nested-`if` regression in `src/optimization/remove_unused_names_wbtest.mbt`.
     - slice 3 is now live: loops now demote to blocks only when the loop label has no remaining continue edge, with both void and value-loop regressions in `src/optimization/remove_unused_names_wbtest.mbt`.
     - slice 4 is now live: [`docs/0062-2026-03-23-remove-unused-names-branch-summary-rework.md`](/home/jtenner/Projects/starshine-mb/docs/0062-2026-03-23-remove-unused-names-branch-summary-rework.md) replaces repeated subtree rescans with one memoized external-target-depth summary per typed body and adds `try_table` catch-target bailout coverage.
-    - even after the branch-summary rework, the current release binary still spends about a minute of CPU on the fresh-artifact shared prefix ending in `RemoveUnusedNames`; the next defensible performance slice is a cheap candidate pre-scan, not broader cleanup semantics.
+    - slice 5 is now live: [`docs/0063-2026-03-23-remove-unused-names-candidate-prescan.md`](/home/jtenner/Projects/starshine-mb/docs/0063-2026-03-23-remove-unused-names-candidate-prescan.md) adds a cheap early candidate scan so candidate-free functions skip the full rewrite walk entirely.
+    - even after the branch-summary rework and candidate pre-scan, the current release binary still spends about a minute of CPU on the fresh-artifact shared prefix ending in `RemoveUnusedNames`; the remaining hotspot is now inside candidate-bearing functions.
   - implementation features:
     - the current `RemoveUnusedNames` port is typed-only by design; raw functions are already pre-lifted before the grouped default stage.
-    - the next step is candidate pre-scan work to skip the full rewrite walk on functions with no same-typed block-peel or loop-demotion candidates, then another fresh-artifact parity rerun with the repaired generated replay path.
+    - the next step is to reduce traversal cost inside candidate-bearing functions, then rerun the fresh-artifact parity prefix with the repaired generated replay path.
 - Validator fuzz hardening:
   - canonical research doc: [`docs/0058-2026-03-23-validate-fuzz-hardening-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0058-2026-03-23-validate-fuzz-hardening-plan.md).
   - blockers:
