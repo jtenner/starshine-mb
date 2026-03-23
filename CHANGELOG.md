@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Validation: extend DCE branch-payload coverage through stacked if/return wrappers
+
+- **DCE nested wrapper coverage** by **@jtenner**. Added a deeper generated-path regression in [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt) that stacks multiple `if (void) ... else { call; return }` wrappers around the same branch-payload bypass core seen in the fresh direct-DCE `Func 716` family.
+- That reduction still validates and roundtrips after `--dead-code-elimination`, which narrows the remaining blocker further: the live artifact failure is not explained by the generic nested-wrapper shape alone.
+
 ## 2026-03-23 Validation: add loop-wrapped branch-payload bypass coverage around the remaining DCE blocker
 
 - **DCE loop-wrapper coverage** by **@jtenner**. Added focused regressions in [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt), [`src/binary/tests.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/tests.mbt), and [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) for raw and pre-lifted loop-wrapped branch-payload bypass shapes, including the surrounding `if`/`return` context that shows up near the current fresh-artifact `Func 716` direct-DCE blocker.
