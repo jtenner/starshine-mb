@@ -640,17 +640,20 @@ pub fn run_remove_unused_names(
 }
 
 ///|
-const OPTIMIZATION_REMOVE_UNUSED_NAMES_CANDIDATE_FOUND : String =
-  "__remove_unused_names_candidate_found__"
+const OPTIMIZATION_REMOVE_UNUSED_NAMES_CANDIDATE_FOUND : String = "__remove_unused_names_candidate_found__"
 
 ///|
 fn optimization_remove_unused_names_has_candidate_texpr(
   body : @lib.TExpr,
 ) -> Bool {
-  let transformer : ModuleTransformer[Unit, String] = ModuleTransformer::new()
-    .on_tinstruction_evt(fn(self, _, instr) {
+  let transformer : ModuleTransformer[Unit, String] = ModuleTransformer::new().on_tinstruction_evt(fn(
+      self,
+      _,
+      instr,
+    ) {
       match instr.kind {
-        @lib.TLoop(_, _) => error(OPTIMIZATION_REMOVE_UNUSED_NAMES_CANDIDATE_FOUND)
+        @lib.TLoop(_, _) =>
+          error(OPTIMIZATION_REMOVE_UNUSED_NAMES_CANDIDATE_FOUND)
         @lib.TBlock(block_type, block_body) =>
           match block_body.inner() {
             [child] =>
@@ -667,7 +670,8 @@ fn optimization_remove_unused_names_has_candidate_texpr(
           }
         _ => from_walk(self.walk_tinstruction_default((), instr))
       }
-    })
+    },
+  )
   match transformer.walk_texpr((), body) {
     Ok(_) => false
     Err(err) => err == OPTIMIZATION_REMOVE_UNUSED_NAMES_CANDIDATE_FOUND
@@ -1377,6 +1381,12 @@ fn optimization_dead_code_elimination_rewrite_if(
         return @lib.TInstr::if_(
           if optimization_dead_code_elimination_block_type_is_concrete(
               block_type,
+            ) &&
+            !optimization_dead_code_elimination_expr_has_live_break_past_current_label(
+              then_body, 0,
+            ) &&
+            !optimization_dead_code_elimination_expr_has_live_break_past_current_label(
+              else_body, 0,
             ) {
             @lib.BlockType::void_()
           } else {
@@ -1407,6 +1417,11 @@ fn optimization_dead_code_elimination_rewrite_block(
   }
   if optimization_dead_code_elimination_block_escapes_parent(block_type, body) &&
     optimization_dead_code_elimination_block_type_is_concrete(block_type) {
+    if optimization_dead_code_elimination_expr_has_live_break_past_current_label(
+        body, 0,
+      ) {
+      return @lib.TInstr::block(block_type, body)
+    }
     match body.inner() {
       [child] => child
       _ => @lib.TInstr::block(@lib.BlockType::void_(), body)
@@ -1751,6 +1766,497 @@ fn optimization_dead_code_elimination_instrs_have_live_break_to_label(
 }
 
 ///|
+fn optimization_dead_code_elimination_expr_has_live_break_past_current_label(
+  expr : @lib.TExpr,
+  current_depth : Int,
+) -> Bool {
+  for instr in expr.inner() {
+    if optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        instr, current_depth,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+  instr : @lib.TInstr,
+  current_depth : Int,
+) -> Bool {
+  match instr.kind {
+    @lib.TUnary(_, child)
+    | @lib.TDrop(child)
+    | @lib.TLocalSet(_, child)
+    | @lib.TLocalTee(_, child)
+    | @lib.TGlobalSet(_, child)
+    | @lib.TLoad(_, _, child)
+    | @lib.TRefGetDesc(_, child)
+    | @lib.TRefTest(_, _, child)
+    | @lib.TRefCast(_, _, child)
+    | @lib.TRefTestDesc(_, _, child)
+    | @lib.TRefCastDescEq(_, _, child) =>
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        child, current_depth,
+      )
+    @lib.TBinary(_, left, right)
+    | @lib.TRefEq(left, right)
+    | @lib.TTableSet(_, left, right)
+    | @lib.TTableGrow(_, left, right)
+    | @lib.TArrayNew(_, left, right)
+    | @lib.TArrayGet(_, left, right)
+    | @lib.TArrayGetS(_, left, right)
+    | @lib.TArrayGetU(_, left, right)
+    | @lib.TReplaceLane(_, _, left, right)
+    | @lib.TI8x16Swizzle(left, right)
+    | @lib.TI8x16RelaxedSwizzle(left, right)
+    | @lib.TV128Shift(_, left, right)
+    | @lib.TV128LoadLane(_, _, _, left, right)
+    | @lib.TV128StoreLane(_, _, _, left, right) =>
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        left, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        right, current_depth,
+      )
+    @lib.TExtractLane(_, _, child) =>
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        child, current_depth,
+      )
+    @lib.TStore(_, _, addr, value) | @lib.TStructSet(_, _, addr, value) =>
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        addr, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        value, current_depth,
+      )
+    @lib.TStringConst(_) => false
+    @lib.TStringNewUtf8Array(array, start, end_)
+    | @lib.TStringNewWtf16Array(array, start, end_)
+    | @lib.TStringEncodeUtf8Array(array, start, end_)
+    | @lib.TStringEncodeWtf16Array(array, start, end_)
+    | @lib.TStringNewLossyUtf8Array(array, start, end_)
+    | @lib.TStringNewWtf8Array(array, start, end_)
+    | @lib.TStringEncodeLossyUtf8Array(array, start, end_)
+    | @lib.TStringEncodeWtf8Array(array, start, end_) =>
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        array, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        start, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        end_, current_depth,
+      )
+    @lib.TTableGet(_, child) | @lib.TArrayNewDefault(_, child) =>
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        child, current_depth,
+      )
+    @lib.TSelect(_, cond, if_true, if_false) =>
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        cond, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        if_true, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        if_false, current_depth,
+      )
+    @lib.TCall(_, args)
+    | @lib.TReturnCall(_, args)
+    | @lib.TThrow(_, args)
+    | @lib.TStructNew(_, args)
+    | @lib.TStructNewDesc(_, args)
+    | @lib.TArrayNewFixed(_, args)
+    | @lib.TReturn(args) =>
+      optimization_dead_code_elimination_instrs_have_live_break_past_current_label(
+        args, current_depth,
+      )
+    @lib.TCallIndirect(_, _, args, idx)
+    | @lib.TReturnCallIndirect(_, _, args, idx) =>
+      optimization_dead_code_elimination_instrs_have_live_break_past_current_label(
+        args, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        idx, current_depth,
+      )
+    @lib.TCallRef(_, args, ref_) | @lib.TReturnCallRef(_, args, ref_) =>
+      optimization_dead_code_elimination_instrs_have_live_break_past_current_label(
+        args, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        ref_, current_depth,
+      )
+    @lib.TBlock(_, body) | @lib.TLoop(_, body) | @lib.TTryTable(_, _, body) =>
+      optimization_dead_code_elimination_expr_has_live_break_past_current_label(
+        body,
+        current_depth + 1,
+      )
+    @lib.TIf(_, cond, then_body, else_body) => {
+      if optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+          cond, current_depth,
+        ) {
+        return true
+      }
+      if optimization_dead_code_elimination_expr_has_live_break_past_current_label(
+          then_body,
+          current_depth + 1,
+        ) {
+        return true
+      }
+      match else_body {
+        Some(else_body) =>
+          optimization_dead_code_elimination_expr_has_live_break_past_current_label(
+            else_body,
+            current_depth + 1,
+          )
+        None => false
+      }
+    }
+    @lib.TBr(label, values) => {
+      let @lib.LabelIdx(raw) = label
+      if raw.reinterpret_as_int() > current_depth {
+        return true
+      }
+      optimization_dead_code_elimination_instrs_have_live_break_past_current_label(
+        values, current_depth,
+      )
+    }
+    @lib.TBrIf(label, cond, values) => {
+      let @lib.LabelIdx(raw) = label
+      if raw.reinterpret_as_int() > current_depth {
+        return true
+      }
+      if optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+          cond, current_depth,
+        ) {
+        return true
+      }
+      optimization_dead_code_elimination_instrs_have_live_break_past_current_label(
+        values, current_depth,
+      )
+    }
+    @lib.TBrTable(labels, default_label, idx, values) => {
+      let @lib.LabelIdx(default_raw) = default_label
+      if default_raw.reinterpret_as_int() > current_depth {
+        return true
+      }
+      for label in labels {
+        let @lib.LabelIdx(raw) = label
+        if raw.reinterpret_as_int() > current_depth {
+          return true
+        }
+      }
+      if optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+          idx, current_depth,
+        ) {
+        return true
+      }
+      optimization_dead_code_elimination_instrs_have_live_break_past_current_label(
+        values, current_depth,
+      )
+    }
+    @lib.TBrOnNull(label, ref_, values)
+    | @lib.TBrOnNonNull(label, ref_, values)
+    | @lib.TBrOnCast(label, _, _, _, ref_, values)
+    | @lib.TBrOnCastFail(label, _, _, _, ref_, values) => {
+      let @lib.LabelIdx(raw) = label
+      if raw.reinterpret_as_int() > current_depth {
+        return true
+      }
+      if optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+          ref_, current_depth,
+        ) {
+        return true
+      }
+      optimization_dead_code_elimination_instrs_have_live_break_past_current_label(
+        values, current_depth,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_instrs_have_live_break_past_current_label(
+  instrs : Array[@lib.TInstr],
+  current_depth : Int,
+) -> Bool {
+  for instr in instrs {
+    if optimization_dead_code_elimination_instr_has_live_break_past_current_label(
+        instr, current_depth,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn optimization_dead_code_elimination_expr_has_live_break_out_of_current_expr(
+  expr : @lib.TExpr,
+  current_depth : Int,
+) -> Bool {
+  for instr in expr.inner() {
+    if optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        instr, current_depth,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+  instr : @lib.TInstr,
+  current_depth : Int,
+) -> Bool {
+  match instr.kind {
+    @lib.TUnary(_, child)
+    | @lib.TDrop(child)
+    | @lib.TLocalSet(_, child)
+    | @lib.TLocalTee(_, child)
+    | @lib.TGlobalSet(_, child)
+    | @lib.TLoad(_, _, child)
+    | @lib.TRefGetDesc(_, child)
+    | @lib.TRefTest(_, _, child)
+    | @lib.TRefCast(_, _, child)
+    | @lib.TRefTestDesc(_, _, child)
+    | @lib.TRefCastDescEq(_, _, child) =>
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        child, current_depth,
+      )
+    @lib.TBinary(_, left, right)
+    | @lib.TRefEq(left, right)
+    | @lib.TTableSet(_, left, right)
+    | @lib.TTableGrow(_, left, right)
+    | @lib.TArrayNew(_, left, right)
+    | @lib.TArrayGet(_, left, right)
+    | @lib.TArrayGetS(_, left, right)
+    | @lib.TArrayGetU(_, left, right)
+    | @lib.TReplaceLane(_, _, left, right)
+    | @lib.TI8x16Swizzle(left, right)
+    | @lib.TI8x16RelaxedSwizzle(left, right)
+    | @lib.TV128Shift(_, left, right)
+    | @lib.TV128LoadLane(_, _, _, left, right)
+    | @lib.TV128StoreLane(_, _, _, left, right) =>
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        left, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        right, current_depth,
+      )
+    @lib.TExtractLane(_, _, child) =>
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        child, current_depth,
+      )
+    @lib.TStore(_, _, addr, value) | @lib.TStructSet(_, _, addr, value) =>
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        addr, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        value, current_depth,
+      )
+    @lib.TStringConst(_) => false
+    @lib.TStringNewUtf8Array(array, start, end_)
+    | @lib.TStringNewWtf16Array(array, start, end_)
+    | @lib.TStringEncodeUtf8Array(array, start, end_)
+    | @lib.TStringEncodeWtf16Array(array, start, end_)
+    | @lib.TStringNewLossyUtf8Array(array, start, end_)
+    | @lib.TStringNewWtf8Array(array, start, end_)
+    | @lib.TStringEncodeLossyUtf8Array(array, start, end_)
+    | @lib.TStringEncodeWtf8Array(array, start, end_) =>
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        array, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        start, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        end_, current_depth,
+      )
+    @lib.TTableGet(_, child) | @lib.TArrayNewDefault(_, child) =>
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        child, current_depth,
+      )
+    @lib.TSelect(_, cond, if_true, if_false) =>
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        cond, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        if_true, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        if_false, current_depth,
+      )
+    @lib.TCall(_, args)
+    | @lib.TReturnCall(_, args)
+    | @lib.TThrow(_, args)
+    | @lib.TStructNew(_, args)
+    | @lib.TStructNewDesc(_, args)
+    | @lib.TArrayNewFixed(_, args)
+    | @lib.TReturn(args) =>
+      optimization_dead_code_elimination_instrs_have_live_break_out_of_current_expr(
+        args, current_depth,
+      )
+    @lib.TCallIndirect(_, _, args, idx)
+    | @lib.TReturnCallIndirect(_, _, args, idx) =>
+      optimization_dead_code_elimination_instrs_have_live_break_out_of_current_expr(
+        args, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        idx, current_depth,
+      )
+    @lib.TCallRef(_, args, ref_) | @lib.TReturnCallRef(_, args, ref_) =>
+      optimization_dead_code_elimination_instrs_have_live_break_out_of_current_expr(
+        args, current_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        ref_, current_depth,
+      )
+    @lib.TBlock(_, body) | @lib.TLoop(_, body) | @lib.TTryTable(_, _, body) =>
+      optimization_dead_code_elimination_expr_has_live_break_out_of_current_expr(
+        body,
+        current_depth + 1,
+      )
+    @lib.TIf(_, cond, then_body, else_body) => {
+      if optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+          cond, current_depth,
+        ) {
+        return true
+      }
+      if optimization_dead_code_elimination_expr_has_live_break_out_of_current_expr(
+          then_body,
+          current_depth + 1,
+        ) {
+        return true
+      }
+      match else_body {
+        Some(else_body) =>
+          optimization_dead_code_elimination_expr_has_live_break_out_of_current_expr(
+            else_body,
+            current_depth + 1,
+          )
+        None => false
+      }
+    }
+    @lib.TBr(label, values) => {
+      let @lib.LabelIdx(raw) = label
+      if raw.reinterpret_as_int() >= current_depth {
+        return true
+      }
+      optimization_dead_code_elimination_instrs_have_live_break_out_of_current_expr(
+        values, current_depth,
+      )
+    }
+    @lib.TBrIf(label, cond, values) => {
+      let @lib.LabelIdx(raw) = label
+      if raw.reinterpret_as_int() >= current_depth {
+        return true
+      }
+      if optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+          cond, current_depth,
+        ) {
+        return true
+      }
+      optimization_dead_code_elimination_instrs_have_live_break_out_of_current_expr(
+        values, current_depth,
+      )
+    }
+    @lib.TBrTable(labels, default_label, idx, values) => {
+      let @lib.LabelIdx(default_raw) = default_label
+      if default_raw.reinterpret_as_int() >= current_depth {
+        return true
+      }
+      for label in labels {
+        let @lib.LabelIdx(raw) = label
+        if raw.reinterpret_as_int() >= current_depth {
+          return true
+        }
+      }
+      if optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+          idx, current_depth,
+        ) {
+        return true
+      }
+      optimization_dead_code_elimination_instrs_have_live_break_out_of_current_expr(
+        values, current_depth,
+      )
+    }
+    @lib.TBrOnNull(label, ref_, values)
+    | @lib.TBrOnNonNull(label, ref_, values)
+    | @lib.TBrOnCast(label, _, _, _, ref_, values)
+    | @lib.TBrOnCastFail(label, _, _, _, ref_, values) => {
+      let @lib.LabelIdx(raw) = label
+      if raw.reinterpret_as_int() >= current_depth {
+        return true
+      }
+      if optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+          ref_, current_depth,
+        ) {
+        return true
+      }
+      optimization_dead_code_elimination_instrs_have_live_break_out_of_current_expr(
+        values, current_depth,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_instrs_have_live_break_out_of_current_expr(
+  instrs : Array[@lib.TInstr],
+  current_depth : Int,
+) -> Bool {
+  for instr in instrs {
+    if optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        instr, current_depth,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn optimization_dead_code_elimination_instr_pre_effects_may_escape(
+  instr : @lib.TInstr,
+) -> Bool {
+  match instr.kind {
+    @lib.TBr(_, values)
+    | @lib.TReturnCall(_, values)
+    | @lib.TThrow(_, values)
+    | @lib.TReturn(values) =>
+      optimization_dead_code_elimination_instrs_have_live_break_out_of_current_expr(
+        values, 0,
+      )
+    @lib.TBrTable(_, _, idx, values)
+    | @lib.TReturnCallIndirect(_, _, values, idx) =>
+      optimization_dead_code_elimination_instrs_have_live_break_out_of_current_expr(
+        values, 0,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        idx, 0,
+      )
+    @lib.TReturnCallRef(_, args, ref_) =>
+      optimization_dead_code_elimination_instrs_have_live_break_out_of_current_expr(
+        args, 0,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        ref_, 0,
+      )
+    @lib.TThrowRef(child) =>
+      optimization_dead_code_elimination_instr_has_live_break_out_of_current_expr(
+        child, 0,
+      )
+    _ => false
+  }
+}
+
+///|
 fn optimization_dead_code_elimination_truncate_after_first_unreachable(
   instrs : Array[@lib.TInstr],
 ) -> Array[@lib.TInstr] {
@@ -1777,7 +2283,8 @@ fn optimization_dead_code_elimination_instr_terminates_current_expr(
     | @lib.TThrow(_, _)
     | @lib.TThrowRef(_)
     | @lib.TBr(_, _)
-    | @lib.TBrTable(_, _, _, _) => true
+    | @lib.TBrTable(_, _, _, _) =>
+      !optimization_dead_code_elimination_instr_pre_effects_may_escape(instr)
     @lib.TTryTable(_, _, body) =>
       optimization_dead_code_elimination_try_table_is_unreachable(body)
     @lib.TIf(_, cond, then_body, else_body) =>
@@ -1801,7 +2308,8 @@ fn optimization_dead_code_elimination_instr_escapes_enclosing_expr(
     | @lib.TReturnCallIndirect(_, _, _, _)
     | @lib.TReturnCallRef(_, _, _)
     | @lib.TThrow(_, _)
-    | @lib.TThrowRef(_) => true
+    | @lib.TThrowRef(_) =>
+      !optimization_dead_code_elimination_instr_pre_effects_may_escape(instr)
     @lib.TTryTable(_, _, body) =>
       optimization_dead_code_elimination_try_table_is_unreachable(body)
     @lib.TIf(_, cond, then_body, else_body) =>
@@ -1827,7 +2335,8 @@ fn optimization_dead_code_elimination_instr_is_unreachable(
     | @lib.TThrow(_, _)
     | @lib.TThrowRef(_)
     | @lib.TBr(_, _)
-    | @lib.TBrTable(_, _, _, _) => true
+    | @lib.TBrTable(_, _, _, _) =>
+      !optimization_dead_code_elimination_instr_pre_effects_may_escape(instr)
     @lib.TTryTable(_, _, body) =>
       optimization_dead_code_elimination_try_table_is_unreachable(body)
     @lib.TIf(_, cond, then_body, else_body) =>

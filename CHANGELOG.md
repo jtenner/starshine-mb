@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Validation: fix raw nested-`if` escape merges and DCE pre-effect escape tracking
+
+- **Nested escape correctness repair** by **@jtenner**. Updated [`src/validate/typecheck.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so raw `if` validation no longer treats every escaping branch arm as reaching the `if` merge, which was rejecting valid typed-to-raw encodes where one arm branches past the `if` and the other arm reaches normally.
+- **DCE pre-effect escape tracking** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `DeadCodeElimination` no longer treats `return` / `return_call*` / `throw*` / branch terminators as guaranteed current-expression terminators when one of their pre-effect child expressions can branch away first, and so result-typed `if` rewrites keep their result type when both arms only escape outer labels.
+- Added focused regressions in [`src/binary/tests.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/tests.mbt), [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt), and [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) for the typed encode roundtrip and the DCE escaping-`if` case, and refreshed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) with the next remaining native replay blocker after `Func 27` / `Func 227`.
+
 ## 2026-03-23 Optimization: pre-scan `RemoveUnusedNames` candidate-free functions
 
 - **`RemoveUnusedNames` candidate pre-scan** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the pass now skips the full rewrite walk on typed function bodies that contain neither a `loop` nor a same-typed single-child block-peel opportunity.

@@ -4207,7 +4207,7 @@ test "validate_module rejects outer if result missing after inner current-label 
 }
 
 ///|
-test "validate_module rejects outer if result missing after nested outer-label branches" {
+test "validate_module accepts outer if when nested outer-label branches skip the merge" {
   let sig = RecType::new(
     SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
   )
@@ -4246,14 +4246,11 @@ test "validate_module rejects outer if result missing after nested outer-label b
       ]),
     )
   match validate_module(mod) {
-    Ok(_) =>
+    Ok(_) => ()
+    Err(err) =>
       fail(
-        "expected nested outer-label branches to leave the outer if result missing",
+        "expected nested outer-label branches to skip the outer if merge cleanly: \{validation_error_message(err)}",
       )
-    Err(err) => {
-      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
-      assert_true(validation_error_message(err).length() > 0)
-    }
   }
 }
 

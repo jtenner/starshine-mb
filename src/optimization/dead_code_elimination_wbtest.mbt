@@ -461,6 +461,87 @@ test "dead code elimination retags ifs when both arms are unreachable" {
 }
 
 ///|
+test "dead code elimination preserves result-typed ifs whose arms escape an outer label" {
+  let mod = dead_code_elimination_test_result_module([@lib.ValType::i32()], [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::return_([
+          @lib.TInstr::if_(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.TInstr::i32_const(@lib.I32::new(1)),
+            @lib.TExpr::new([@lib.TInstr::i32_const(@lib.I32::new(7))]),
+            Some(
+              @lib.TExpr::new([
+                @lib.TInstr::if_(
+                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  @lib.TInstr::i32_const(@lib.I32::new(1)),
+                  @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(2U), [])]),
+                  Some(
+                    @lib.TExpr::new([
+                      @lib.TInstr::br(@lib.LabelIdx::new(2U), []),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
+      ]),
+    ),
+    @lib.TInstr::i32_const(@lib.I32::new(0)),
+  ])
+  match @validate.validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected pre-DCE escaping if fixture to validate: \{@validate.validation_error_message(err)}",
+      )
+  }
+  let (optimized, _) = run_dead_code_elimination(mod, PipelineScratch::new())
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected DCE result-typed escaping-if rewrite to stay valid: \{@validate.validation_error_message(err)}\n\{optimized.pretty_print_func(@lib.FuncIdx::new(0U))}",
+      )
+  }
+  let body = match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => body.inner()
+    _ => abort("expected optimized single typed function body")
+  }
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::return_([
+          @lib.TInstr::if_(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.TInstr::i32_const(@lib.I32::new(1)),
+            @lib.TExpr::new([@lib.TInstr::i32_const(@lib.I32::new(7))]),
+            Some(
+              @lib.TExpr::new([
+                @lib.TInstr::if_(
+                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  @lib.TInstr::i32_const(@lib.I32::new(1)),
+                  @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(2U), [])]),
+                  Some(
+                    @lib.TExpr::new([
+                      @lib.TInstr::br(@lib.LabelIdx::new(2U), []),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
+      ]),
+    ),
+    @lib.TInstr::i32_const(@lib.I32::new(0)),
+  ])
+}
+
+///|
 test "dead code elimination replaces loops whose body is literal unreachable" {
   let body = dead_code_elimination_test_body([
     @lib.TInstr::loop_(

@@ -246,9 +246,8 @@ fn normalize_untyped_if_branch_exit(
       }
       Ok((false, TerminalTcEscape))
     }
-    // `if` merges absorb branch escapes. Any branch out of a child arm reaches
-    // the `if` merge with the construct's declared result shape.
-    BranchTcEscape(_) => Ok((true, NoTcEscape))
+    BranchTcEscape(0) => Ok((true, NoTcEscape))
+    BranchTcEscape(depth) => Ok((false, BranchTcEscape(depth - 1)))
     TerminalTcEscape => Ok((false, TerminalTcEscape))
   }
 }
@@ -5805,6 +5804,33 @@ test "Typecheck If fails without condition" {
     None,
   )
   assert_err(Typecheck::typecheck(if_instr, state))
+}
+
+///|
+test "Typecheck loop accepts nested if branches that escape to the loop and function return" {
+  let env = empty_env().with_return_type(Some([ValType::i32()]))
+  let state = make_state(env, [])
+  let loop_instr = Instruction::loop_(
+    BlockType::val_type(ValType::i32()),
+    Expr::new([
+      Instruction::i32_const(I32(1)),
+      Instruction::if_(
+        BlockType::void_(),
+        [
+          Instruction::i32_const(I32(1)),
+          Instruction::if_(
+            BlockType::void_(),
+            [Instruction::br(LabelIdx::new(2))],
+            Some([Instruction::i32_const(I32(0)), Instruction::return_()]),
+          ),
+        ],
+        Some([Instruction::i32_const(I32(1)), Instruction::return_()]),
+      ),
+    ]),
+  )
+  let new_state = assert_ok(Typecheck::typecheck(loop_instr, state))
+  assert_true(new_state.reachable)
+  assert_stack(new_state, [ValType::i32()])
 }
 
 ///|

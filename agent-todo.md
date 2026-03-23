@@ -123,7 +123,7 @@
   - canonical plan: [`docs/0061-2026-03-23-remove-unused-names-implementation-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0061-2026-03-23-remove-unused-names-implementation-plan.md).
   - blockers:
     - rerun the fresh-artifact explicit shared prefix through Starshine and Binaryen after the next candidate pre-scan slice; earlier explicit `--dead-code-elimination` / `--remove-unused-names` replay numbers are stale because those generated-path flags were being dropped in `src/cmd/cmd.mbt`, and the current release-binary replay is still too slow to use as a checkpoint.
-    - direct native replay is still blocked before a trustworthy parity check by the post-encode validation failure in `Func 27` on `_build/wasm/release/build/cmd/cmd.wasm`, even without `RemoveUnusedNames`.
+    - direct native replay now gets past the earlier `Func 27` raw nested-`if` merge bug and the `Func 227` DCE pre-effect truncation bug, but it is still blocked before a trustworthy parity check by the later post-encode validation failure in `Func 313` on `_build/wasm/release/build/cmd/cmd.wasm`.
   - risks:
     - slice 1 is now live: dedicated runner wiring, same-typed block peeling, and typed branch-payload rebasing landed in `src/optimization/optimization.mbt` with focused regressions in `src/optimization/remove_unused_names_wbtest.mbt`.
     - slice 2 is now live: nested control that still targets a removed scope now blocks peeling through the depth-aware label scan, with a focused valid nested-`if` regression in `src/optimization/remove_unused_names_wbtest.mbt`.
@@ -133,7 +133,7 @@
     - even after the branch-summary rework and candidate pre-scan, the current release binary still spends about a minute of CPU on the fresh-artifact shared prefix ending in `RemoveUnusedNames`; the remaining hotspot is now inside candidate-bearing functions.
   - implementation features:
     - the current `RemoveUnusedNames` port is typed-only by design; raw functions are already pre-lifted before the grouped default stage.
-    - the next step is to reduce traversal cost inside candidate-bearing functions, then rerun the fresh-artifact parity prefix with the repaired generated replay path.
+    - the next step is to finish the remaining `Func 313` raw-validator/native-replay blocker, then reduce traversal cost inside candidate-bearing functions and rerun the fresh-artifact parity prefix with the repaired generated replay path.
 - Validator fuzz hardening:
   - canonical research doc: [`docs/0058-2026-03-23-validate-fuzz-hardening-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0058-2026-03-23-validate-fuzz-hardening-plan.md).
   - blockers:

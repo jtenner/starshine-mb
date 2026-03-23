@@ -1154,6 +1154,82 @@ test "module roundtrip preserves raw high-type-index multi-value loop seed order
 }
 
 ///|
+test "encode_module preserves validating typed result if with non-fallthrough loop branch" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::val_type(ValType::i32()),
+              TInstr::i32_const(I32(1)),
+              TExpr::new([
+                TInstr::loop_(
+                  BlockType::val_type(ValType::i32()),
+                  TExpr::new([
+                    TInstr::if_(
+                      BlockType::void_(),
+                      TInstr::i32_const(I32(1)),
+                      TExpr::new([
+                        TInstr::if_(
+                          BlockType::void_(),
+                          TInstr::i32_const(I32(1)),
+                          TExpr::new([TInstr::br(LabelIdx::new(2U), [])]),
+                          Some(
+                            TExpr::new([
+                              TInstr::return_([TInstr::i32_const(I32(0))]),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                      Some(
+                        TExpr::new([
+                          TInstr::return_([TInstr::i32_const(I32(1))]),
+                        ]),
+                      ),
+                    ),
+                  ]),
+                ),
+              ]),
+              Some(TExpr::new([TInstr::return_([TInstr::i32_const(I32(0))])])),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected minimized typed control fixture to validate before encode, got \{@validate.validation_error_message(e)}",
+      )
+  }
+  let wasm = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected encode success, got \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected decode success, got \{e}")
+  }
+  match @validate.validate_module(decoded) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected minimized typed control fixture to stay valid after encode, got \{@validate.validation_error_message(e)}",
+      )
+  }
+}
+
+///|
 test "decode_module accepts elem header 6 with explicit reftype and roundtrips module semantics" {
   let wasm = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x09\x0b\x01\x06\x00\x41\x00\x0b\x70\x01\xd2\x00\x0b"
   let mod = match decode_module(wasm) {
