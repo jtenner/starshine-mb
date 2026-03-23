@@ -119,16 +119,15 @@
 - StringGathering
 
 ## v0.1.0 Active Slice Focus
-- RemoveUnusedNames completion:
+  - RemoveUnusedNames completion:
   - canonical plan: [`docs/0061-2026-03-23-remove-unused-names-implementation-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0061-2026-03-23-remove-unused-names-implementation-plan.md).
   - blockers:
-    - wire `OptimizePass::RemoveUnusedNames` to a dedicated func-local runner instead of `noop_func_local_pass`.
-    - port same-typed single-child block peeling plus label rebasing, with typed regressions for the no-candidate, peel, and branch-depth cases.
     - port the live-target bailout so peeling skips nested control flow that still branches to a removed scope.
     - port loop-to-block demotion when no continue branch remains, with the matching keep-loop case when `br 0` survives.
     - rerun the fresh-artifact explicit shared prefix through Starshine and Binaryen once the pass is live.
   - risks:
-    - incorrect label rebasing can silently retarget value-producing branches, so keep the typed branch-payload regressions in the first slice instead of deferring them.
+    - slice 1 is now live: dedicated runner wiring, same-typed block peeling, and typed branch-payload rebasing landed in `src/optimization/optimization.mbt` with focused regressions in `src/optimization/remove_unused_names_wbtest.mbt`.
+    - incorrect label rebasing can still silently retarget control flow when peeling should have been blocked, so the live-target bailout slice remains correctness-critical.
     - the old standalone pass had candidate and walk budgets; start without that complexity, but be prepared to restore a minimal budget if fresh-artifact runtime regresses.
   - implementation features:
     - keep the first port typed-only; raw functions are already pre-lifted before the grouped default stage.

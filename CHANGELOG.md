@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Optimization: land `RemoveUnusedNames` block-peeling slice
+
+- **`RemoveUnusedNames` slice 1** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `OptimizePass::RemoveUnusedNames` now uses a dedicated func-local runner instead of `noop_func_local_pass`, and the first live typed rewrite peels single-child same-typed nested blocks while rebasing typed branch labels through the removed scopes.
+- Added focused whitebox coverage in [`src/optimization/remove_unused_names_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_names_wbtest.mbt) for runner dispatch, no-candidate no-op behavior, same-typed block peeling, branch-depth rebasing, and typed branch-payload preservation.
+- Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining `RemoveUnusedNames` work is now narrowed to the live-target bailout slice, loop demotion, and the fresh-artifact parity replay.
+
 ## 2026-03-23 Optimization: plan `RemoveUnusedNames` completion slices
 
 - **`RemoveUnusedNames` implementation plan** by **@jtenner**. Added [`docs/0061-2026-03-23-remove-unused-names-implementation-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0061-2026-03-23-remove-unused-names-implementation-plan.md) to document the current no-op gap, Binaryen-facing pass behavior, the minimal typed-IR algorithm to port, pseudocode for block peeling / label rebasing / loop demotion, and the concrete implementation slices needed to close the pass.

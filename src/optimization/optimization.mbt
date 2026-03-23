@@ -600,6 +600,251 @@ pub fn run_dead_code_elimination(
 }
 
 ///|
+pub fn run_remove_unused_names(
+  mod : Module,
+  scratch : PipelineScratch,
+) -> (Module, PipelineScratch) {
+  let funcs = match mod.code_sec {
+    Some(CodeSec(funcs)) => funcs
+    None => return (mod, scratch)
+  }
+
+  let rewritten_funcs : Array[Func] = []
+  let mut changed = false
+  let mut funcs_visited = scratch.funcs_visited
+  let mut funcs_changed = scratch.funcs_changed
+  for func in funcs {
+    funcs_visited += 1
+    let (rewritten, func_changed) = optimization_remove_unused_names_func(func)
+    rewritten_funcs.push(rewritten)
+    if func_changed {
+      changed = true
+      funcs_changed += 1
+    }
+  }
+
+  let next_scratch = PipelineScratch::new(
+    changed=scratch.changed || changed,
+    func_idx=None,
+    funcs_visited~,
+    funcs_changed~,
+    module_shape_changed=scratch.module_shape_changed,
+    call_graph_dirty=scratch.call_graph_dirty,
+    locals_dirty=scratch.locals_dirty,
+  )
+  if changed {
+    (mod.with_code_sec(CodeSec::new(rewritten_funcs)), next_scratch)
+  } else {
+    (mod, next_scratch)
+  }
+}
+
+///|
+fn optimization_remove_unused_names_func(func : Func) -> (Func, Bool) {
+  match func {
+    @lib.TFunc(params, locals, body) => {
+      let transformer : ModuleTransformer[Unit, String] = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          _,
+          instr,
+        ) {
+          let (walked, _) = self.walk_tinstruction_default((), instr).unwrap()
+          let rewritten = match walked.kind {
+            @lib.TBlock(block_type, block_body) => {
+              let (removed_scopes, peeled_body) = optimization_remove_unused_names_peel_same_typed_blocks(
+                block_type, block_body,
+              )
+              if removed_scopes > 0 {
+                match
+                  optimization_remove_unused_names_rebase_labels(
+                    peeled_body, removed_scopes,
+                  ) {
+                  Ok(rebased) => @lib.TInstr::block(block_type, rebased)
+                  Err(_) => walked
+                }
+              } else {
+                walked
+              }
+            }
+            _ => walked
+          }
+          if rewritten == instr {
+            unchanged()
+          } else {
+            change((), rewritten)
+          }
+        },
+      )
+      match transformer.walk_texpr((), body) {
+        Ok((rewritten_body, _)) =>
+          if rewritten_body == body {
+            (func, false)
+          } else {
+            (@lib.Func::t_func(params, locals, rewritten_body), true)
+          }
+        Err(_) => (func, false)
+      }
+    }
+    _ => (func, false)
+  }
+}
+
+///|
+fn optimization_remove_unused_names_peel_same_typed_blocks(
+  block_type : @lib.BlockType,
+  body : @lib.TExpr,
+) -> (Int, @lib.TExpr) {
+  let mut removed_scopes = 0
+  let mut current = body
+  while true {
+    match current.inner() {
+      [child] =>
+        match child.kind {
+          @lib.TBlock(child_type, child_body) if child_type == block_type => {
+            removed_scopes += 1
+            current = child_body
+          }
+          _ => break
+        }
+      _ => break
+    }
+  }
+  (removed_scopes, current)
+}
+
+///|
+fn optimization_remove_unused_names_walk_tinstruction_with_depth(
+  transformer : ModuleTransformer[Int, String],
+  depth : Int,
+  instr : @lib.TInstr,
+) -> VisitAction[Int, @lib.TInstr, String] {
+  match instr.kind {
+    @lib.TBlock(block_type, body) => {
+      let next_body = match transformer.walk_texpr(depth + 1, body) {
+        Ok((rewritten, _)) => rewritten
+        Err(err) => return error(err)
+      }
+      if next_body == body {
+        unchanged()
+      } else {
+        change(depth, @lib.TInstr::block(block_type, next_body))
+      }
+    }
+    @lib.TLoop(block_type, body) => {
+      let next_body = match transformer.walk_texpr(depth + 1, body) {
+        Ok((rewritten, _)) => rewritten
+        Err(err) => return error(err)
+      }
+      if next_body == body {
+        unchanged()
+      } else {
+        change(depth, @lib.TInstr::loop_(block_type, next_body))
+      }
+    }
+    @lib.TIf(block_type, cond, then_body, else_body) => {
+      let next_cond = match transformer.walk_tinstruction(depth, cond) {
+        Ok((rewritten, _)) => rewritten
+        Err(err) => return error(err)
+      }
+      let next_then = match transformer.walk_texpr(depth + 1, then_body) {
+        Ok((rewritten, _)) => rewritten
+        Err(err) => return error(err)
+      }
+      let next_else = match else_body {
+        Some(other) =>
+          match transformer.walk_texpr(depth + 1, other) {
+            Ok((rewritten, _)) => Some(rewritten)
+            Err(err) => return error(err)
+          }
+        None => None
+      }
+      let next_instr = @lib.TInstr::if_(
+        block_type, next_cond, next_then, next_else,
+      )
+      if next_instr == instr {
+        unchanged()
+      } else {
+        change(depth, next_instr)
+      }
+    }
+    @lib.TTryTable(block_type, catches, body) => {
+      let next_catches = match
+        transformer.walk_array(
+          depth + 1,
+          ModuleTransformer::walk_catch,
+          catches,
+        ) {
+        Ok((rewritten, _)) => rewritten
+        Err(err) => return error(err)
+      }
+      let next_body = match transformer.walk_texpr(depth + 1, body) {
+        Ok((rewritten, _)) => rewritten
+        Err(err) => return error(err)
+      }
+      let next_instr = @lib.TInstr::try_table(
+        block_type, next_catches, next_body,
+      )
+      if next_instr == instr {
+        unchanged()
+      } else {
+        change(depth, next_instr)
+      }
+    }
+    _ => from_walk(transformer.walk_tinstruction_default(depth, instr))
+  }
+}
+
+///|
+fn optimization_remove_unused_names_rebase_label(
+  label : @lib.LabelIdx,
+  depth : Int,
+  removed_scopes : Int,
+) -> @lib.LabelIdx {
+  if removed_scopes <= 0 {
+    return label
+  }
+  let @lib.LabelIdx(raw_label) = label
+  let label_depth = raw_label.reinterpret_as_int()
+  if label_depth < depth {
+    label
+  } else if label_depth <= depth + removed_scopes {
+    @lib.LabelIdx::new(depth.reinterpret_as_uint())
+  } else {
+    @lib.LabelIdx::new((label_depth - removed_scopes).reinterpret_as_uint())
+  }
+}
+
+///|
+fn optimization_remove_unused_names_rebase_labels(
+  body : @lib.TExpr,
+  removed_scopes : Int,
+) -> Result[@lib.TExpr, String] {
+  if removed_scopes <= 0 {
+    return Ok(body)
+  }
+  let transformer : ModuleTransformer[Int, String] = ModuleTransformer::new()
+    .on_labelidx_evt(fn(_, depth, label) {
+      let next = optimization_remove_unused_names_rebase_label(
+        label, depth, removed_scopes,
+      )
+      if next == label {
+        unchanged()
+      } else {
+        change(depth, next)
+      }
+    })
+    .on_tinstruction_evt(fn(self, depth, instr) {
+      optimization_remove_unused_names_walk_tinstruction_with_depth(
+        self, depth, instr,
+      )
+    })
+  match transformer.walk_texpr(0, body) {
+    Ok((rewritten, _)) => Ok(rewritten)
+    Err(err) => Err(err)
+  }
+}
+
+///|
 fn optimization_dead_code_elimination_func(func : Func) -> (Func, Bool) {
   match func {
     @lib.TFunc(params, locals, body) => {
@@ -10683,6 +10928,7 @@ fn make_entry_kind(pass : OptimizePass) -> PassKind {
     StringGathering => PassKind::module_wide(run_string_gathering)
     DeadCodeElimination =>
       PassKind::func_local_group([run_dead_code_elimination])
+    RemoveUnusedNames => PassKind::func_local_group([run_remove_unused_names])
     _ =>
       match optimize_pass_class(pass) {
         FuncLocal => PassKind::func_local_group([noop_func_local_pass])

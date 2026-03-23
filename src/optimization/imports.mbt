@@ -42,7 +42,15 @@ using @lib {
 }
 
 ///|
-using @transformer {type ModuleTransformer, change, from_walk, skip, unchanged}
+using @transformer {
+  type ModuleTransformer,
+  type VisitAction,
+  change,
+  error,
+  from_walk,
+  skip,
+  unchanged,
+}
 
 ///|
 using @validate {validate_module}
