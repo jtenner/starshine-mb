@@ -582,6 +582,578 @@ test "encode_module hoists typed loop param seeds before type-index block loops"
 }
 
 ///|
+test "encode_module hoists nested typed loop param seeds before type-index block loops" {
+  let loop_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([loop_type, func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          Locals::from_types([ValType::i32()]),
+          TExpr::new([
+            TInstr::loop_(
+              BlockType::type_idx(TypeIdx::new(0U)),
+              TExpr::new([
+                TInstr::if_(
+                  BlockType::void_(),
+                  TInstr::binary(
+                    @lib.BinaryOp::i32_lt_s(),
+                    TInstr::local_tee(
+                      LocalIdx::new(0U),
+                      TInstr::i32_const(I32(0)),
+                    ),
+                    TInstr::i32_const(I32(1)),
+                  ),
+                  TExpr::new([
+                    TInstr::br(LabelIdx::new(0U), [
+                      TInstr::binary(
+                        @lib.BinaryOp::i32_add(),
+                        TInstr::local_get(LocalIdx::new(0U)),
+                        TInstr::i32_const(I32(1)),
+                      ),
+                    ]),
+                  ]),
+                  Some(TExpr::new([])),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let wasm = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected encode success, got \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected decode success, got \{e}")
+  }
+  match decoded.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                I32Const(I32(seed)),
+                Loop(
+                  TypeIdxBlockType(TypeIdx(loop_type_idx)),
+                  Expr(
+                    [
+                      LocalTee(LocalIdx(tee_idx)),
+                      I32Const(I32(limit)),
+                      I32LtS,
+                      If(
+                        VoidBlockType,
+                        [
+                          LocalGet(LocalIdx(br_arg_idx)),
+                          I32Const(I32(step)),
+                          I32Add,
+                          Br(LabelIdx(br_label)),
+                        ],
+                        Some([])
+                      ),
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(seed, 0)
+      assert_eq(loop_type_idx, 0U)
+      assert_eq(tee_idx, 0U)
+      assert_eq(limit, 1)
+      assert_eq(br_arg_idx, 0U)
+      assert_eq(step, 1)
+      assert_eq(br_label, 0U)
+    }
+    _ =>
+      fail("expected nested typed loop seed to lower before the decoded loop")
+  }
+}
+
+///|
+test "encode_module hoists nested typed loop param seeds inside typed if branches" {
+  let loop_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([loop_type, func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          Locals::from_types([ValType::i32()]),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::local_get(LocalIdx::new(0U)),
+              TExpr::new([
+                TInstr::loop_(
+                  BlockType::type_idx(TypeIdx::new(0U)),
+                  TExpr::new([
+                    TInstr::if_(
+                      BlockType::void_(),
+                      TInstr::binary(
+                        @lib.BinaryOp::i32_lt_s(),
+                        TInstr::local_tee(
+                          LocalIdx::new(1U),
+                          TInstr::i32_const(I32(0)),
+                        ),
+                        TInstr::i32_const(I32(1)),
+                      ),
+                      TExpr::new([
+                        TInstr::br(LabelIdx::new(0U), [
+                          TInstr::binary(
+                            @lib.BinaryOp::i32_add(),
+                            TInstr::local_get(LocalIdx::new(1U)),
+                            TInstr::i32_const(I32(1)),
+                          ),
+                        ]),
+                      ]),
+                      Some(TExpr::new([])),
+                    ),
+                  ]),
+                ),
+              ]),
+              Some(TExpr::new([])),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let wasm = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected encode success, got \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected decode success, got \{e}")
+  }
+  match decoded.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                LocalGet(LocalIdx(cond_idx)),
+                If(
+                  VoidBlockType,
+                  [
+                    I32Const(I32(seed)),
+                    Loop(
+                      TypeIdxBlockType(TypeIdx(loop_type_idx)),
+                      Expr(
+                        [
+                          LocalTee(LocalIdx(tee_idx)),
+                          I32Const(I32(limit)),
+                          I32LtS,
+                          If(
+                            VoidBlockType,
+                            [
+                              LocalGet(LocalIdx(br_arg_idx)),
+                              I32Const(I32(step)),
+                              I32Add,
+                              Br(LabelIdx(br_label)),
+                            ],
+                            Some([])
+                          ),
+                        ]
+                      )
+                    ),
+                  ],
+                  Some([])
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(cond_idx, 0U)
+      assert_eq(seed, 0)
+      assert_eq(loop_type_idx, 0U)
+      assert_eq(tee_idx, 1U)
+      assert_eq(limit, 1)
+      assert_eq(br_arg_idx, 1U)
+      assert_eq(step, 1)
+      assert_eq(br_label, 0U)
+    }
+    _ =>
+      fail(
+        "expected nested typed loop seed to lower before the decoded loop inside the if branch",
+      )
+  }
+}
+
+///|
+test "encode_module hoists single multi-value producer before typed multi-value loops" {
+  let seed_block_type = RecType::new(
+    SubType::comp_type(
+      CompType::func([], [ValType::i32(), ValType::i32(), ValType::i32()]),
+    ),
+  )
+  let loop_type = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], [
+        ValType::i32(),
+        ValType::i32(),
+        ValType::i32(),
+      ]),
+    ),
+  )
+  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([seed_block_type, loop_type, func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(2U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          Locals::from_types([
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+          ]),
+          TExpr::new([
+            TInstr::local_set(
+              LocalIdx::new(3U),
+              TInstr::local_set(
+                LocalIdx::new(4U),
+                TInstr::local_set(
+                  LocalIdx::new(5U),
+                  TInstr::loop_(
+                    BlockType::type_idx(TypeIdx::new(1U)),
+                    TExpr::new([
+                      TInstr::local_tee(
+                        LocalIdx::new(0U),
+                        TInstr::local_set(
+                          LocalIdx::new(1U),
+                          TInstr::local_set(
+                            LocalIdx::new(2U),
+                            TInstr::block(
+                              BlockType::type_idx(TypeIdx::new(0U)),
+                              TExpr::new([
+                                TInstr::i32_const(I32(1)),
+                                TInstr::i32_const(I32(2)),
+                                TInstr::i32_const(I32(3)),
+                              ]),
+                            ),
+                          ),
+                        ),
+                      ),
+                      TInstr::local_get(LocalIdx::new(1U)),
+                      TInstr::local_get(LocalIdx::new(2U)),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let wasm = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected encode success, got \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected decode success, got \{e}")
+  }
+  match decoded.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                Block(
+                  TypeIdxBlockType(TypeIdx(seed_block_type_idx)),
+                  Expr([I32Const(I32(a)), I32Const(I32(b)), I32Const(I32(c))])
+                ),
+                Loop(
+                  TypeIdxBlockType(TypeIdx(loop_type_idx)),
+                  Expr(
+                    [
+                      LocalSet(LocalIdx(seed_local_2)),
+                      LocalSet(LocalIdx(seed_local_1)),
+                      LocalTee(LocalIdx(loop_local)),
+                      LocalGet(LocalIdx(get_local_1)),
+                      LocalGet(LocalIdx(get_local_2)),
+                    ]
+                  )
+                ),
+                LocalSet(LocalIdx(result_local_2)),
+                LocalSet(LocalIdx(result_local_1)),
+                LocalSet(LocalIdx(result_local_0)),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(seed_block_type_idx, 0U)
+      assert_eq(a, 1)
+      assert_eq(b, 2)
+      assert_eq(c, 3)
+      assert_eq(loop_type_idx, 1U)
+      assert_eq(seed_local_2, 2U)
+      assert_eq(seed_local_1, 1U)
+      assert_eq(loop_local, 0U)
+      assert_eq(get_local_1, 1U)
+      assert_eq(get_local_2, 2U)
+      assert_eq(result_local_2, 5U)
+      assert_eq(result_local_1, 4U)
+      assert_eq(result_local_0, 3U)
+    }
+    _ =>
+      fail(
+        "expected multi-value loop seeds from a single producer to lower before the decoded loop",
+      )
+  }
+}
+
+///|
+test "module roundtrip preserves raw high-type-index loop seed ordering" {
+  let types : Array[RecType] = []
+  for i = 0; i < 291; i = i + 1 {
+    let rec_type = if i == 289 {
+      RecType::new(SubType::comp_type(CompType::func([ValType::i32()], [])))
+    } else if i == 290 {
+      RecType::new(SubType::comp_type(CompType::func([], [])))
+    } else {
+      RecType::new(SubType::comp_type(CompType::func([], [])))
+    }
+    types.push(rec_type)
+  }
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new(types))
+    .with_func_sec(FuncSec::new([TypeIdx::new(290U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::from_types([ValType::i32()]),
+          Expr::new([
+            Instruction::i32_const(I32(0)),
+            Instruction::loop_(
+              BlockType::type_idx(TypeIdx::new(289U)),
+              Expr::new([
+                Instruction::local_tee(LocalIdx::new(0U)),
+                Instruction::i32_const(I32(1)),
+                Instruction::i32_lt_s(),
+                Instruction::if_(
+                  BlockType::void_(),
+                  [
+                    Instruction::local_get(LocalIdx::new(0U)),
+                    Instruction::i32_const(I32(1)),
+                    Instruction::i32_add(),
+                    Instruction::br(LabelIdx::new(0U)),
+                  ],
+                  Some([]),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let wasm = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected encode success, got \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected decode success, got \{e}")
+  }
+  match decoded.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                I32Const(I32(seed)),
+                Loop(
+                  TypeIdxBlockType(TypeIdx(loop_type_idx)),
+                  Expr(
+                    [
+                      LocalTee(LocalIdx(tee_idx)),
+                      I32Const(I32(limit)),
+                      I32LtS,
+                      If(
+                        VoidBlockType,
+                        [
+                          LocalGet(LocalIdx(br_arg_idx)),
+                          I32Const(I32(step)),
+                          I32Add,
+                          Br(LabelIdx(br_label)),
+                        ],
+                        Some([])
+                      ),
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(seed, 0)
+      assert_eq(loop_type_idx, 289U)
+      assert_eq(tee_idx, 0U)
+      assert_eq(limit, 1)
+      assert_eq(br_arg_idx, 0U)
+      assert_eq(step, 1)
+      assert_eq(br_label, 0U)
+    }
+    _ =>
+      fail(
+        "expected raw high-type-index loop seed to stay before the decoded loop",
+      )
+  }
+}
+
+///|
+test "module roundtrip preserves raw high-type-index multi-value loop seed ordering" {
+  let types : Array[RecType] = []
+  for i = 0; i < 361; i = i + 1 {
+    let rec_type = if i == 352 {
+      RecType::new(
+        SubType::comp_type(
+          CompType::func([], [ValType::i32(), ValType::i32(), ValType::i32()]),
+        ),
+      )
+    } else if i == 360 {
+      RecType::new(
+        SubType::comp_type(
+          CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], [
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+          ]),
+        ),
+      )
+    } else {
+      RecType::new(SubType::comp_type(CompType::func([], [])))
+    }
+    types.push(rec_type)
+  }
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new(types))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::from_types([ValType::i32(), ValType::i32(), ValType::i32()]),
+          Expr::new([
+            Instruction::block(
+              BlockType::type_idx(TypeIdx::new(352U)),
+              Expr::new([
+                Instruction::i32_const(I32(1)),
+                Instruction::i32_const(I32(2)),
+                Instruction::i32_const(I32(3)),
+              ]),
+            ),
+            Instruction::local_set(LocalIdx::new(2U)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::loop_(
+              BlockType::type_idx(TypeIdx::new(360U)),
+              Expr::new([
+                Instruction::local_tee(LocalIdx::new(0U)),
+                Instruction::local_get(LocalIdx::new(1U)),
+                Instruction::local_get(LocalIdx::new(2U)),
+              ]),
+            ),
+            Instruction::drop(),
+            Instruction::drop(),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let wasm = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected encode success, got \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected decode success, got \{e}")
+  }
+  match decoded.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                Block(
+                  TypeIdxBlockType(TypeIdx(seed_block_type_idx)),
+                  Expr([I32Const(I32(a)), I32Const(I32(b)), I32Const(I32(c))])
+                ),
+                LocalSet(LocalIdx(seed_local_2)),
+                LocalSet(LocalIdx(seed_local_1)),
+                Loop(
+                  TypeIdxBlockType(TypeIdx(loop_type_idx)),
+                  Expr(
+                    [
+                      LocalTee(LocalIdx(loop_local)),
+                      LocalGet(LocalIdx(get_local_1)),
+                      LocalGet(LocalIdx(get_local_2)),
+                    ]
+                  )
+                ),
+                Drop,
+                Drop,
+                Drop,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(seed_block_type_idx, 352U)
+      assert_eq(a, 1)
+      assert_eq(b, 2)
+      assert_eq(c, 3)
+      assert_eq(seed_local_2, 2U)
+      assert_eq(seed_local_1, 1U)
+      assert_eq(loop_type_idx, 360U)
+      assert_eq(loop_local, 0U)
+      assert_eq(get_local_1, 1U)
+      assert_eq(get_local_2, 2U)
+    }
+    _ =>
+      fail(
+        "expected raw high-type-index multi-value loop seeds to stay before the decoded loop",
+      )
+  }
+}
+
+///|
 test "decode_module accepts elem header 6 with explicit reftype and roundtrips module semantics" {
   let wasm = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x09\x0b\x01\x06\x00\x41\x00\x0b\x70\x01\xd2\x00\x0b"
   let mod = match decode_module(wasm) {

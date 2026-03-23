@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Binary: hoist typed multi-value control seeds by stack effect
+
+- **Typed multi-value control lowering repair** by **@jtenner**. Updated [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt) so typed `block` / `loop` / `if` / `try_table` lowering finds the shortest raw prefix that produces each control instruction's required parameter values in full function-local validation context instead of assuming the first `N` instructions are the seed prefix.
+- Added focused binary regressions in [`src/binary/tests.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/tests.mbt) for nested typed loop seeds, high type-index raw round-trips, and the single multi-value-producer loop case that was leaving the fresh release artifact invalid after `DuplicateFunctionElimination`, and refreshed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the active parity blocker is now the remaining DFE size gap versus Binaryen on a regenerated artifact.
+
 ## 2026-03-22 Scripts: validate copied self-opt artifact fixtures at the source
 
 - **Self-opt artifact validation** by **@jtenner**. Updated [`scripts/lib/self-optimized-artifacts.mjs`](/home/jtenner/Projects/starshine-mb/scripts/lib/self-optimized-artifacts.mjs) so copied debug/release wasm dist artifacts and generated self-optimized outputs are validated with `wasm-tools validate` as part of the artifact pipeline instead of being assumed valid by downstream compare and benchmark tools.

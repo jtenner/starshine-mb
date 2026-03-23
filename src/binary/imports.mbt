@@ -85,3 +85,6 @@ using @lib {
   type NumType,
   type ElemKind,
 }
+
+///|
+using @validate {type Env, make_state}

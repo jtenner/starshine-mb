@@ -20,11 +20,10 @@
   - `docs/0054-2026-03-22-starshine-wasm-implemented-pass-comparison.md` records the earlier direct explicit-pass artifact run against Binaryen `wasm-opt version 125`.
   - `docs/0055-2026-03-22-binaryen-full-pipeline-comparison-method.md` corrects the method: canonical parity must use Binaryen's full artifact-local `wasm-opt -O2` pipeline, not just the implemented pass names replayed directly.
   - `docs/0056-2026-03-22-o4z-five-pass-parity-audit.md` records the current shared-prefix `-O4z` five-pass audit on `tests/node/dist/starshine-optimized-wasi.wasm`.
-  - current highest-priority correctness blocker on the release artifact is now earlier than the old DCE-only suspicion: `DuplicateFunctionElimination` already emits an invalid module on the first shared prefix, and every later shared prefix stays invalid.
-  - current five-pass size picture on the release artifact:
-    - after `DuplicateFunctionElimination`, Binaryen is already `148160` bytes smaller.
-    - `MemoryPacking` shrinks both tools by the same `2280` bytes, so it does not explain the surviving gap.
-    - `DeadCodeElimination` still finds an extra `785` bytes in Binaryen while Starshine `prefix4 == prefix5`.
+  - fresh rebuilt release-artifact status:
+    - `DuplicateFunctionElimination` on `_build/wasm/release/build/cmd/cmd.wasm` now emits a validating Starshine module again after the binary encoder fix for typed multi-value block-param lowering.
+    - current next DFE parity gap on that fresh artifact is now size-only: Starshine lands at `2485347` bytes while Binaryen lands at `2376579`, so Binaryen is still `108768` bytes smaller after the same single pass.
+    - rerun the full shared-prefix comparison on a regenerated fresh artifact before treating the older `docs/0054` / `docs/0056` release-artifact size numbers as current.
   - Binaryen `wasm-opt version 125` does not expose a literal `-O4z` CLI preset, so the exact shared comparison method for this question is explicit ordered replay of the first five fully implemented passes, not a direct preset-to-preset run.
   - `tests/node/dist/starshine-debug-wasi.wasm` is still blocked as a canonical parity target, but the blocker has shifted: under the current working-tree investigation the final Starshine `--optimize -O2` run now gets past name-map ordering and instead fails post-encode validation with `stack underflow`.
   - on `tests/node/dist/starshine-optimized-wasi.wasm`, the implemented sequence is `DuplicateFunctionElimination -> RemoveUnusedModuleElements -> MemoryPacking -> OnceReduction -> DeadCodeElimination -> DuplicateFunctionElimination -> RemoveUnusedModuleElements`, with no artifact-local `StringGathering` execution.
