@@ -9,6 +9,10 @@ using @lib {trace_elapsed_ms, trace_now_ms, trace_now_us}
 
 ///|
 using @validate {run_validate_invalid_fuzz, run_validate_valid_fuzz}
+using @validate {ValidateInvalidFuzzFailure}
+
+///|
+using @fs {create_dir, write_file_bytes}
 
 ///|
 using @wast {run_wast_roundtrip_fuzz}

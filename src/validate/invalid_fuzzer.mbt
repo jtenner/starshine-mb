@@ -871,26 +871,75 @@ fn validate_invalid_fuzz_expected_issue(
 }
 
 ///|
+fn validate_invalid_fuzz_expected_issue_family(
+  strategy : InvalidationStrategy,
+) -> String {
+  match strategy {
+    DuplicateExportName => "ExportSection"
+    NumTypeSwap => "FunctionSection|TypeSection|GlobalSection|FunctionBody"
+    NullabilityFlip => "FunctionSection|TypeSection|GlobalSection|FunctionBody"
+    HeapTypeSwap => "FunctionSection|TypeSection|FunctionBody"
+    InstructionTypeMismatch => "FunctionBody"
+    BlockTypeMismatch => "FunctionBody"
+    DropInsertion => "FunctionBody"
+    BlockCorruption => "FunctionBody"
+    SignatureCorruption => "TypeSection|FunctionSection"
+    GlobalInitMismatch => "GlobalSection"
+    TableInitMismatch => "TableSection"
+    FuncIdxOOB(_)
+    | TypeIdxOOB(_)
+    | LocalIdxOOB(_)
+    | GlobalIdxOOB(_)
+    | LabelIdxOOB(_)
+    | TableIdxOOB(_)
+    | MemIdxOOB(_)
+    | DataIdxOOB(_)
+    | ElemIdxOOB(_)
+    | TagIdxOOB(_)
+    | StartIdxOOB(_) => "FunctionSection|FunctionBody|TypeSection|GlobalSection|TableSection|TagSection|MemorySection|DataSection|DataCountSection|StartSection|ExportSection|ImportSection"
+  }
+}
+
+///|
 /// Result of testing a single strategy
 fn fuzz_invalid_module_with_coverage(
   valid_module : Module,
   strategy : InvalidationStrategy,
-) -> (String, Int, Int, Int, Int, ValidationIssue?) {
+) -> (String, String, Int, Int, Int, Int, String?, ValidationIssue?) {
   let strategy_name = strategy.to_string()
+  let expected_issue = validate_invalid_fuzz_expected_issue_family(strategy)
   let (was_modified, invalid_module) = apply_strategy(strategy, valid_module)
 
   // Not tested if no modification was made OR module unchanged
   if not(was_modified) || invalid_module == valid_module {
-    return (strategy_name, 0, 0, 0, 0, None)
+    return (strategy_name, expected_issue, 0, 0, 0, 0, None, None)
   }
   match validate_module(invalid_module) {
-    Ok(_) => (strategy_name, 1, 1, 0, 0, None)
+    Ok(_) => (
+      strategy_name,
+      expected_issue,
+      1,
+      1,
+      0,
+      0,
+      None,
+      None,
+    )
     Err(err) => {
       let issue = validation_error_diagnostic(err).issue
       if validate_invalid_fuzz_expected_issue(strategy, issue) {
-        (strategy_name, 1, 1, 1, 1, None)
+        (strategy_name, expected_issue, 1, 1, 1, 1, None, None)
       } else {
-        (strategy_name, 1, 1, 1, 0, Some(issue))
+        (
+          strategy_name,
+          expected_issue,
+          1,
+          1,
+          1,
+          0,
+          Some("\{invalid_module}"),
+          Some(issue),
+        )
       }
     }
   }
@@ -899,7 +948,7 @@ fn fuzz_invalid_module_with_coverage(
 ///|
 fn fuzz_all_strategies_with_coverage(
   valid_module : Module,
-) -> Array[(String, Int, Int, Int, Int, ValidationIssue?)] {
+) -> Array[(String, String, Int, Int, Int, Int, String?, ValidationIssue?)] {
   let strategies : Array[InvalidationStrategy] = validate_invalid_fuzz_strategies()
   strategies.map(fn(s) { fuzz_invalid_module_with_coverage(valid_module, s) })
 }
@@ -972,9 +1021,21 @@ pub struct ValidateInvalidFuzzStats {
 } derive(Eq, Show, Debug)
 
 ///|
+pub struct ValidateInvalidFuzzFailure {
+  profile : String
+  seed : UInt64
+  module_attempt : Int
+  strategy : String
+  expected_issue : String
+  actual_issue : String
+  module_text : String
+} derive(Eq, Show, Debug)
+
+///|
 pub fn run_validate_invalid_fuzz(
   profile : String,
   seed : UInt64,
+  on_failure? : ((ValidateInvalidFuzzFailure) -> Result[Unit, String])? = None,
 ) -> Result[ValidateInvalidFuzzStats, String] {
   let normalized = validate_invalid_fuzz_ascii_lower(profile.trim().to_string())
   let module_attempts = match normalized {
@@ -1000,7 +1061,9 @@ pub fn run_validate_invalid_fuzz(
     matched_count[s] = 0
   }
   let mut modules_tested = 0
+  let mut module_attempt = 0
   for _ in 0..<module_attempts {
+    module_attempt += 1
     let valid_module = gen_valid_module(rnd)
     if validate_module(valid_module) is Err(_) {
       continue
@@ -1010,12 +1073,50 @@ pub fn run_validate_invalid_fuzz(
     for result in results {
       let (
         strategy_name,
+        expected_issue,
         attempted,
         mutated,
         rejected,
         matched,
+        invalid_module_text,
         mismatch_issue,
       ) = result
+      if matched == 0 {
+        continue
+      }
+      match mismatch_issue {
+        Some(mismatch_issue) => {
+          let invalid_text = match invalid_module_text {
+            Some(value) => value
+            None => "\{valid_module}"
+          }
+          let failure = ValidateInvalidFuzzFailure::{
+            profile: normalized,
+            seed,
+            module_attempt,
+            strategy: strategy_name,
+            expected_issue: expected_issue,
+            actual_issue: validation_issue_message(mismatch_issue),
+            module_text: invalid_text,
+          }
+          match on_failure {
+            Some(handler) =>
+              match handler(failure) {
+                Ok(_) => ()
+                Err(e) => {
+                  return Err(
+                    "validate-invalid fuzz failure callback failed to persist repro: \{e}",
+                  )
+                }
+              }
+            None => ()
+          }
+          problems.push(
+            "\{strategy_name}: unexpected issue family \{validation_issue_message(mismatch_issue)}",
+          )
+        }
+        None => ()
+      }
       if attempted > 0 {
         tested_count[strategy_name] = tested_count
           .get(strategy_name)
@@ -1039,13 +1140,6 @@ pub fn run_validate_invalid_fuzz(
           .get(strategy_name)
           .unwrap_or(0) +
           matched
-      }
-      match mismatch_issue {
-        Some(mismatch_issue) =>
-          problems.push(
-            "\{strategy_name}: unexpected issue family \{validation_issue_message(mismatch_issue)}",
-          )
-        None => ()
       }
     }
   }

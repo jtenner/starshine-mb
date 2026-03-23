@@ -2,6 +2,7 @@ import {
   "jtenner/starshine/binary" @binary,
   "jtenner/starshine/cmd" @cmd,
   "jtenner/starshine/lib" @lib,
+  "jtenner/starshine/fs" @fs,
   "jtenner/starshine/validate" @validate,
   "jtenner/starshine/wast" @wast,
   "jtenner/starshine/wat" @wat,

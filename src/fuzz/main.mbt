@@ -46,8 +46,8 @@ fn fuzz_ascii_lower(input : String) -> String {
 ///|
 fn fuzz_suite_names() -> Array[String] {
   [
-    "wast-roundtrip", "wat-roundtrip", "validate-valid", "validate-invalid", "binary-roundtrip",
-    "cmd-harness",
+    "wast-roundtrip", "wat-roundtrip", "validate-valid", "validate-invalid", "spec-seed",
+    "binary-invalid", "text-invalid", "binary-roundtrip", "cmd-harness",
   ]
 }
 
@@ -75,6 +75,103 @@ fn fuzz_usage_text() -> String {
   let suites = fuzz_join(fuzz_suite_names(), ", ")
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
   "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles\nsuites: \{suites}\nprofiles: \{profiles}"
+}
+
+fn validate_invalid_fuzz_bytes(text : String) -> Bytes {
+  let out = @buffer.new(size_hint=text.length())
+  for c in text {
+    out.write_byte(c.to_int().to_byte())
+  }
+  out.to_bytes()
+}
+
+fn validate_invalid_fuzz_slug(value : String) -> String {
+  let out = StringBuilder::new()
+  let mut wrote_dash = false
+  for c in value {
+    let lower = if c >= 'A' && c <= 'Z' {
+      (c.to_int() + 32).unsafe_to_char()
+    } else {
+      c
+    }
+    let is_alnum = (lower >= 'a' && lower <= 'z') ||
+      (lower >= '0' && lower <= '9') || lower == '_'
+    if is_alnum {
+      out.write_char(lower)
+      wrote_dash = false
+    } else if !wrote_dash {
+      out.write_char('-')
+      wrote_dash = true
+    }
+  }
+  let raw = out.to_string()
+  if raw.length() == 0 {
+    "unknown"
+  } else if raw[0] == '-' {
+    raw.sub(start=1).to_string()
+  } else {
+    raw
+  }
+}
+
+fn validate_invalid_fuzz_failure_meta(
+  suite : String,
+  report : ValidateInvalidFuzzFailure,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("suite=\{suite}\\n")
+  out.write_string("profile=\{report.profile}\\n")
+  out.write_string("seed=\{report.seed}\\n")
+  out.write_string("module_attempt=\{report.module_attempt}\\n")
+  out.write_string("strategy=\{report.strategy}\\n")
+  out.write_string("expected_issue=\{report.expected_issue}\\n")
+  out.write_string("actual_issue=\{report.actual_issue}\\n")
+  out.to_string()
+}
+
+fn validate_invalid_fuzz_failure_writer(
+  suite : String,
+) -> ((ValidateInvalidFuzzFailure) -> Result[Unit, String]) {
+  let report_suite = suite
+  fn(report) {
+    let base_dir = "fuzz-failures"
+    match create_dir(base_dir) {
+      Ok(_) => ()
+      Err(e) => return Err("create_dir(\{base_dir}) failed: \{e}")
+    }
+    let strategy = validate_invalid_fuzz_slug(report.strategy)
+    let prefix = "\{base_dir}/\{report_suite}-seed-\{report.seed}-attempt-\{report.module_attempt}-strategy-\{strategy}"
+    let meta_path = "\{prefix}.meta.txt"
+    let wat_path = "\{prefix}.wat.txt"
+    match write_file_bytes(
+      meta_path,
+      validate_invalid_fuzz_bytes(
+        validate_invalid_fuzz_failure_meta(report_suite, report),
+      ),
+    ) {
+      Ok(_) => ()
+      Err(e) => return Err("write_file_bytes(\{meta_path}) failed: \{e}")
+    }
+    match write_file_bytes(wat_path, validate_invalid_fuzz_bytes(report.module_text)) {
+      Ok(_) => Ok(())
+      Err(e) => Err("write_file_bytes(\{wat_path}) failed: \{e}")
+    }
+  }
+}
+
+fn run_validate_invalid_suite(
+  suite : String,
+  profile : String,
+  seed : UInt64,
+) -> Result[Int, String] {
+  match run_validate_invalid_fuzz(
+    profile,
+    seed,
+    Some(validate_invalid_fuzz_failure_writer(suite)),
+  ) {
+    Ok(stats) => Ok(stats.module_attempts)
+    Err(e) => Err(e)
+  }
 }
 
 ///|
@@ -392,8 +489,26 @@ fn run_single_suite(
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
     "validate-invalid" =>
-      match run_validate_invalid_fuzz(profile, seed) {
-        Ok(stats) => stats.module_attempts
+      match run_validate_invalid_suite("validate-invalid", profile, seed) {
+        Ok(attempts) => attempts
+        Err(e) =>
+          return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
+      }
+    "spec-seed" =>
+      match run_validate_invalid_suite("spec-seed", profile, seed) {
+        Ok(attempts) => attempts
+        Err(e) =>
+          return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
+      }
+    "binary-invalid" =>
+      match run_validate_invalid_suite("binary-invalid", profile, seed) {
+        Ok(attempts) => attempts
+        Err(e) =>
+          return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
+      }
+    "text-invalid" =>
+      match run_validate_invalid_suite("text-invalid", profile, seed) {
+        Ok(attempts) => attempts
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
