@@ -2454,46 +2454,73 @@ fn optimization_dead_code_elimination_drop_dead_structured_result(
 ) -> @lib.TInstr {
   match instr.kind {
     @lib.TIf(block_type, cond, then_body, else_body) =>
-      if optimization_dead_code_elimination_block_type_is_concrete(block_type) &&
-        optimization_dead_code_elimination_if_is_unreachable(
-          cond, then_body, else_body,
-        ) {
-        @lib.TInstr::if_(
-          @lib.BlockType::void_(),
-          cond,
-          optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-            then_body,
-          ),
-          match else_body {
-            Some(else_body) =>
-              Some(
-                optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-                  else_body,
-                ),
-              )
-            None => None
-          },
+      if optimization_dead_code_elimination_block_type_is_concrete(block_type) {
+        let rewritten_then = optimization_dead_code_elimination_drop_dead_terminal_expr_result(
+          then_body,
         )
+        let rewritten_else = match else_body {
+          Some(else_body) =>
+            Some(
+              optimization_dead_code_elimination_drop_dead_terminal_expr_result(
+                else_body,
+              ),
+            )
+          None => None
+        }
+        let has_live_then_break = optimization_dead_code_elimination_expr_has_live_break_to_label(
+          then_body, 0,
+        )
+        let has_live_else_break = match else_body {
+          Some(else_body) =>
+            optimization_dead_code_elimination_expr_has_live_break_to_label(
+              else_body, 0,
+            )
+          None => false
+        }
+        if optimization_dead_code_elimination_if_is_unreachable(
+            cond, then_body, else_body,
+          ) &&
+          !has_live_then_break &&
+          !has_live_else_break {
+          @lib.TInstr::if_(
+            @lib.BlockType::void_(),
+            cond,
+            rewritten_then,
+            rewritten_else,
+          )
+        } else {
+          @lib.TInstr::drop(
+            @lib.TInstr::if_(block_type, cond, rewritten_then, rewritten_else),
+          )
+        }
       } else {
         instr
       }
     @lib.TBlock(block_type, body) =>
-      if optimization_dead_code_elimination_block_type_is_concrete(block_type) &&
-        optimization_dead_code_elimination_expr_tail_escapes_parent(body, 0) &&
-        !optimization_dead_code_elimination_expr_has_live_break_to_label(
-          body, 0,
-        ) {
-        @lib.TInstr::block(
-          @lib.BlockType::void_(),
-          optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-            body,
-          ),
+      if optimization_dead_code_elimination_block_type_is_concrete(block_type) {
+        let rewritten_body = optimization_dead_code_elimination_drop_dead_terminal_expr_result(
+          body,
         )
+        if optimization_dead_code_elimination_expr_tail_escapes_parent(body, 0) &&
+          !optimization_dead_code_elimination_expr_has_live_break_to_label(
+            body, 0,
+          ) {
+          @lib.TInstr::block(@lib.BlockType::void_(), rewritten_body)
+        } else {
+          @lib.TInstr::drop(@lib.TInstr::block(block_type, rewritten_body))
+        }
       } else {
         instr
       }
     @lib.TLoop(block_type, body) =>
       match block_type {
+        @lib.VoidBlockType =>
+          @lib.TInstr::loop_(
+            @lib.BlockType::void_(),
+            optimization_dead_code_elimination_drop_dead_terminal_expr_result(
+              body,
+            ),
+          )
         @lib.ValTypeBlockType(_) =>
           @lib.TInstr::loop_(
             @lib.BlockType::void_(),
@@ -2501,7 +2528,15 @@ fn optimization_dead_code_elimination_drop_dead_structured_result(
               body,
             ),
           )
-        _ => instr
+        _ =>
+          @lib.TInstr::drop(
+            @lib.TInstr::loop_(
+              block_type,
+              optimization_dead_code_elimination_drop_dead_terminal_expr_result(
+                body,
+              ),
+            ),
+          )
       }
     @lib.TTryTable(block_type, catches, body) =>
       if optimization_dead_code_elimination_block_type_is_concrete(block_type) &&

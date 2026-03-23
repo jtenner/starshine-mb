@@ -778,19 +778,42 @@ test "dead code elimination retags concrete if when both arms only break out to 
 }
 
 ///|
-test "dead code elimination keeps type-index loop block types during dead-result cleanup" {
+test "dead code elimination rewrite keeps type-index loop block types" {
+  match
+    optimization_dead_code_elimination_rewrite_loop(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+      @lib.TExpr::new([@lib.TInstr::nop()]),
+    ).kind {
+    @lib.TLoop(block_type, body) => {
+      assert_eq(block_type, @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)))
+      assert_eq(body.inner(), [@lib.TInstr::nop()])
+    }
+    _ => fail("expected loop to remain a loop")
+  }
+}
+
+///|
+test "dead code elimination wraps type-index loop results in drop when dead" {
   let loop_instr = @lib.TInstr::loop_(
     @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
     @lib.TExpr::new([@lib.TInstr::unreachable_()]),
   )
-  match
-    optimization_dead_code_elimination_drop_dead_structured_result(loop_instr).kind {
-    @lib.TLoop(block_type, body) => {
-      assert_eq(block_type, @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)))
-      assert_eq(body.inner(), [@lib.TInstr::unreachable_()])
-    }
-    _ => fail("expected loop to remain a loop")
-  }
+  assert_eq(
+    optimization_dead_code_elimination_drop_dead_structured_result(loop_instr),
+    @lib.TInstr::drop(loop_instr),
+  )
+}
+
+///|
+test "dead code elimination does not wrap void loops in drop during dead-result cleanup" {
+  let loop_instr = @lib.TInstr::loop_(
+    @lib.BlockType::void_(),
+    @lib.TExpr::new([@lib.TInstr::unreachable_()]),
+  )
+  assert_eq(
+    optimization_dead_code_elimination_drop_dead_structured_result(loop_instr),
+    loop_instr,
+  )
 }
 
 ///|
@@ -826,6 +849,27 @@ test "dead code elimination retags dead concrete prefix blocks before terminal r
 
 ///|
 test "dead code elimination keeps concrete block types with live current-label branch values" {
+  let body = @lib.TExpr::new([
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::br(@lib.LabelIdx::new(1U), [
+          @lib.TInstr::i32_const(@lib.I32::new(7)),
+        ]),
+      ]),
+    ),
+  ])
+  assert_eq(
+    optimization_dead_code_elimination_rewrite_block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      body,
+    ),
+    @lib.TInstr::block(@lib.BlockType::val_type(@lib.ValType::i32()), body),
+  )
+}
+
+///|
+test "dead code elimination wraps dead concrete block results with live current-label branch values in drop" {
   let instr = @lib.TInstr::block(
     @lib.BlockType::val_type(@lib.ValType::i32()),
     @lib.TExpr::new([
@@ -837,11 +881,38 @@ test "dead code elimination keeps concrete block types with live current-label b
           ]),
         ]),
       ),
+      @lib.TInstr::unreachable_(),
     ]),
   )
   assert_eq(
     optimization_dead_code_elimination_drop_dead_structured_result(instr),
-    instr,
+    @lib.TInstr::drop(instr),
+  )
+}
+
+///|
+test "dead code elimination wraps ordinary concrete block results in drop when dead" {
+  let instr = @lib.TInstr::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.TExpr::new([@lib.TInstr::i32_const(@lib.I32::new(7))]),
+  )
+  assert_eq(
+    optimization_dead_code_elimination_drop_dead_structured_result(instr),
+    @lib.TInstr::drop(instr),
+  )
+}
+
+///|
+test "dead code elimination wraps ordinary concrete if results in drop when dead" {
+  let instr = @lib.TInstr::if_(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.TInstr::i32_const(@lib.I32::new(1)),
+    @lib.TExpr::new([@lib.TInstr::i32_const(@lib.I32::new(7))]),
+    Some(@lib.TExpr::new([@lib.TInstr::i32_const(@lib.I32::new(8))])),
+  )
+  assert_eq(
+    optimization_dead_code_elimination_drop_dead_structured_result(instr),
+    @lib.TInstr::drop(instr),
   )
 }
 

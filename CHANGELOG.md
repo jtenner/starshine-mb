@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Validation: consume dead structured results in DCE without breaking live control flow
+
+- **DCE dead structured-result cleanup** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so dead-result cleanup now preserves non-retaggable structured control flow by consuming dead results with `drop` instead of leaving concrete `block` / `if` / `TypeIdx` `loop` results bare in `void` contexts. `void` loops now stay `void` during this cleanup instead of being incorrectly wrapped in `drop`.
+- Added focused regressions in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) for ordinary concrete `block` / `if` dead-result cleanup, live current-label branch-value blocks, `TypeIdx` loop dead-result cleanup, and the `void`-loop non-regression.
+- This slice clears the fresh direct-DCE post-encode blockers at `Func 3175` and `Func 21`; the next direct artifact blocker is now later at `Func 225`.
+
 ## 2026-03-23 Validation: extend DCE branch-payload coverage through stacked if/return wrappers
 
 - **DCE nested wrapper coverage** by **@jtenner**. Added a deeper generated-path regression in [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt) that stacks multiple `if (void) ... else { call; return }` wrappers around the same branch-payload bypass core seen in the fresh direct-DCE `Func 716` family.
