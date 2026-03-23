@@ -12,6 +12,10 @@
 
 - **Equals-form `--target=<...>` and `--moon=<...>` support** by **@jtenner**. Updated [`scripts/lib/fuzz-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/fuzz-task.ts) so both options now accept equals syntax for `bun fuzz run`; added task-family command coverage in [`scripts/test/task-family-commands.ts`](/home/jtenner/Projects/starshine-mb/scripts/test/task-family-commands.ts) to lock in `--target=<...>` and `--moon=<...>` handling.
 
+## 2026-03-23 Validation: add remaining wrapper alias forms for suite/profile
+
+- **Equals-form `--suite=<...>` and `--profile=<...>` support** by **@jtenner**. Updated [`scripts/lib/fuzz-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/fuzz-task.ts) so `bun fuzz run` now accepts these aliases and normalizes them to the moon command format. Added task-family coverage in [`scripts/test/task-family-commands.ts`](/home/jtenner/Projects/starshine-mb/scripts/test/task-family-commands.ts).
+
 ## 2026-03-23 Validation: strengthen validate-valid fuzz stability checks
 
 - **Validator fuzz stability hardening** by **@jtenner**. Updated [`src/fuzz/main.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/main.mbt) so the `validate-valid` suite now validates each generated module through binary encode/decode roundtrip before acceptance and exercises optional WAT roundtrip stability in CI/stress profiles. Added profile-tuned text-roundtrip attempts/stability floors and shared whitespace-normalized comparison logic.

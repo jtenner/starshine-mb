@@ -159,6 +159,18 @@ process.exit(0);
   );
 
   fs.writeFileSync(logPath, "");
+  runBun(
+    repoRoot,
+    ["fuzz", "run", "--suite=cmd-harness", "--profile=stress", "--seed=0x5eed", "--target=wasm"],
+    env,
+  );
+  const actualFuzzSuiteProfileAlias = fs.readFileSync(logPath, "utf8").trim();
+  assert(
+    actualFuzzSuiteProfileAlias === "run --target wasm src/fuzz -- cmd-harness stress --seed 0x5eed",
+    `unexpected fuzz suite/profile alias command log:\n${actualFuzzSuiteProfileAlias}`,
+  );
+
+  fs.writeFileSync(logPath, "");
   const coverageOutput = runBun(repoRoot, ["validate", "coverage", "--top", "2", "--baseline", baselinePath], env);
   assert(coverageOutput.includes("Coverage summary: total uncovered lines=16, files=2"), `unexpected coverage summary:\n${coverageOutput}`);
   assert(coverageOutput.includes(`Coverage delta vs baseline (${baselinePath}): lines +6, files +1`), `unexpected coverage delta:\n${coverageOutput}`);

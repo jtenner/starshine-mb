@@ -37,6 +37,11 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
       i += 1;
       continue;
     }
+    if (token.startsWith("--profile=")) {
+      options.profile = token.substring("--profile=".length);
+      i += 1;
+      continue;
+    }
     if (token.startsWith("--output=")) {
       switch (token.substring("--output=".length)) {
         case "text":
@@ -58,6 +63,11 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
     }
     if (token.startsWith("--moon=")) {
       options.moonBin = token.substring("--moon=".length);
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--suite=")) {
+      options.suite = token.substring("--suite=".length);
       i += 1;
       continue;
     }
@@ -195,7 +205,7 @@ export function main(argv: string[]): void {
   const [subcommand, ...rest] = argv;
   if (subcommand !== "run") {
     fail(
-      "usage: bun fuzz run [--profile <name>] [--suite <name>] [--seed <hex>|--seed=<hex>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]",
+      "usage: bun fuzz run [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <hex>|--seed=<hex>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]",
     );
   }
   runFuzz(parseFuzzRunArgs(rest));
