@@ -355,10 +355,6 @@ fn has_side_effects(op : SSAOp) -> Bool {
     | SSAOp::ArrayInitData(_, _, _, _, _, _)
     | SSAOp::ArrayInitElem(_, _, _, _, _, _)
     | SSAOp::V128StoreLane(_, _, _, _, _) => true
-    SSAOp::StringEncodeUtf8Array(_, _, _) => true
-    SSAOp::StringEncodeWtf16Array(_, _, _) => true
-    SSAOp::StringEncodeLossyUtf8Array(_, _, _) => true
-    SSAOp::StringEncodeWtf8Array(_, _, _) => true
 
     // Calls always have potential side effects
     SSAOp::Call(_, _)

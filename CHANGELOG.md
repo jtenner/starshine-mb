@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-22 IR: clean string GVN diagnostics
+
+- **Diagnostics cleanup** by **@jtenner**. Removed the duplicate `string.encode_*_array` `has_side_effects` cases in [`src/ir/gvn.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/gvn.mbt) so the new string-array SSA compatibility slice no longer leaves `moon info` / `moon test` with avoidable unreachable-code warnings.
+
 ## 2026-03-22 IR: make string array ops survive SSA compatibility paths
 
 - **String SSA compatibility** by **@jtenner**. Extended the IR layer so the landed array-backed string ops no longer abort in SSA conversion: [`src/ir/ssa.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa.mbt), [`src/ir/ssa_destruction.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_destruction.mbt), [`src/ir/type_tracking.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/type_tracking.mbt), [`src/ir/usedef.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/usedef.mbt), [`src/ir/liveness.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/liveness.mbt), [`src/ir/gvn.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/gvn.mbt), and [`src/ir/ssa_optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_optimize.mbt) now all understand the current string array instruction family.
