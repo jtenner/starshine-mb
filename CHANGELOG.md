@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Scripts: validate copied self-opt artifact fixtures at the source
+
+- **Self-opt artifact validation** by **@jtenner**. Updated [`scripts/lib/self-optimized-artifacts.mjs`](/home/jtenner/Projects/starshine-mb/scripts/lib/self-optimized-artifacts.mjs) so copied debug/release wasm dist artifacts and generated self-optimized outputs are validated with `wasm-tools validate` as part of the artifact pipeline instead of being assumed valid by downstream compare and benchmark tools.
+- Added focused coverage in [`scripts/test/self-optimized-artifacts-validation.ts`](/home/jtenner/Projects/starshine-mb/scripts/test/self-optimized-artifacts-validation.ts) to assert the copy step validates both copied dist fixtures, while keeping the existing self-opt command wrappers green.
+
 ## 2026-03-22 Scripts: reject invalid self-optimize compare baselines up front
 
 - **Compare baseline validation** by **@jtenner**. Updated [`scripts/lib/self-optimize-compare-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/self-optimize-compare-task.ts) so `self-optimize-compare` validates the input module before running either tool and fails immediately with the baseline validation error instead of reporting misleading pass-parity output for already-invalid fixtures.

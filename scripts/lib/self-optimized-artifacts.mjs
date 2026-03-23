@@ -25,6 +25,13 @@ export function resolveMoonBin() {
   return 'moon';
 }
 
+export function resolveWasmToolsBin() {
+  if (process.env.WASM_TOOLS_BIN) {
+    return process.env.WASM_TOOLS_BIN;
+  }
+  return 'wasm-tools';
+}
+
 export function distArtifactPaths(repoRoot) {
   const distDir = path.join(repoRoot, 'tests', 'node', 'dist');
   return {
@@ -57,6 +64,28 @@ export function run(command, args, repoRoot) {
   });
 }
 
+export function validateWasmArtifact({
+  repoRoot,
+  wasmPath,
+  label,
+  wasmToolsBin = resolveWasmToolsBin(),
+}) {
+  try {
+    execFileSync(wasmToolsBin, ['validate', wasmPath], {
+      cwd: repoRoot,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+    });
+  } catch (error) {
+    const stderr = streamToUtf8(error?.stderr).trim();
+    const message =
+      `${label} validation failed\n` +
+      `artifact=${wasmPath}\n` +
+      (stderr.length > 0 ? `stderr=${stderr}\n` : '');
+    throw new Error(message);
+  }
+}
+
 function resolveStarshineBinary(repoRoot, overridePath) {
   if (overridePath) {
     if (!fs.existsSync(overridePath)) {
@@ -85,6 +114,16 @@ export function copyWasmArtifacts({ repoRoot }) {
   fs.mkdirSync(target.distDir, { recursive: true });
   fs.copyFileSync(source.debug, target.debug);
   fs.copyFileSync(source.release, target.optimized);
+  validateWasmArtifact({
+    repoRoot,
+    wasmPath: target.debug,
+    label: 'debug wasm artifact',
+  });
+  validateWasmArtifact({
+    repoRoot,
+    wasmPath: target.optimized,
+    label: 'optimized wasm artifact',
+  });
   return {
     debug: {
       path: target.debug,
@@ -160,6 +199,12 @@ export function optimizeDebugWasm({
     }
     throw new Error(message);
   }
+
+  validateWasmArtifact({
+    repoRoot,
+    wasmPath: dist.selfOptimized,
+    label: 'self-optimized wasm artifact',
+  });
 
   return {
     outputPath: dist.selfOptimized,
