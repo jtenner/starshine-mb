@@ -146,3 +146,13 @@ pub fn list_files_recursive(root : String) -> Result[Array[String], String] {
     Err(e) => Err(e)
   }
 }
+
+///|
+pub fn read_file_sync(path : String) -> Result[String, String] {
+  let bytes = @xfs.read_file_to_bytes(path) catch {
+    e => return Err("read_file_to_bytes failed for \{path}: \{e}")
+  }
+  bytes.text() catch {
+    e => Err("read_file_to_bytes->text failed for \{path}: \{e}")
+  }
+}

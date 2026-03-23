@@ -146,7 +146,6 @@
   - implementation features:
     - widen `validate-valid` to cover encode/decode stability and optional text roundtrip stability, not just direct AST validation.
     - add validator repro persistence, Bun JSONL passthrough, and separate spec-seed / binary-invalid / text-invalid suites so the `tests/spec` invalid corpus can feed future fuzz lanes without bloating the default smoke path.
-    - wire `spec-seed`, `binary-invalid`, and `text-invalid` suites to their respective invalid corpus sources once the invalid fixtures are confirmed stable for `tests/spec`.
 - String compatibility:
   - the minimal array-backed string instruction set now exists end to end in the lib, validator, binary, WAST, DCE, and SSA layers.
   - `string.const` now also exists end to end, which closed the main prerequisite that had been blocking the researched `StringGathering` pass in `docs/0009-2026-03-16-string-optimization.md`.

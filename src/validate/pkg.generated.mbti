@@ -35,6 +35,12 @@ pub fn run_validate_invalid_fuzz(
   UInt64,
   on_failure? : (ValidateInvalidFuzzFailure) -> Result[Unit, String],
 ) -> Result[ValidateInvalidFuzzStats, String]
+pub fn run_validate_invalid_fuzz_from_modules(
+  String,
+  UInt64,
+  Array[@lib.Module],
+  on_failure? : (ValidateInvalidFuzzFailure) -> Result[Unit, String],
+) -> Result[ValidateInvalidFuzzStats, String]
 
 pub fn run_validate_valid_fuzz(String, UInt64) -> Result[ValidateValidFuzzStats, String]
 

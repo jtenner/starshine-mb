@@ -1032,11 +1032,7 @@ pub struct ValidateInvalidFuzzFailure {
 } derive(Eq, Show, Debug)
 
 ///|
-pub fn run_validate_invalid_fuzz(
-  profile : String,
-  seed : UInt64,
-  on_failure? : ((ValidateInvalidFuzzFailure) -> Result[Unit, String])? = None,
-) -> Result[ValidateInvalidFuzzStats, String] {
+fn validate_invalid_fuzz_profile_attempts(profile : String) -> Result[(String, Int), String] {
   let normalized = validate_invalid_fuzz_ascii_lower(profile.trim().to_string())
   let module_attempts = match normalized {
     "smoke" => 24
@@ -1047,26 +1043,37 @@ pub fn run_validate_invalid_fuzz(
         "unknown validate-invalid fuzz profile '\{profile}'; expected smoke|ci|stress",
       )
   }
+  Ok((normalized, module_attempts))
+}
+
+///|
+fn run_validate_invalid_fuzz_with_modules(
+  normalized : String,
+  seed : UInt64,
+  module_attempts : Int,
+  pick_module : (Int, @splitmix.RandomState) -> @lib.Module?,
+  on_failure? : ((ValidateInvalidFuzzFailure) -> Result[Unit, String])? = None,
+) -> Result[ValidateInvalidFuzzStats, String] {
   let rnd = @splitmix.new(seed~)
   let strategy_names = validate_invalid_fuzz_strategy_names()
   let tested_count : Map[String, Int] = {}
   let mutated_count : Map[String, Int] = {}
   let rejected_count : Map[String, Int] = {}
   let matched_count : Map[String, Int] = {}
-  let problems : Array[String] = []
   for s in strategy_names {
     tested_count[s] = 0
     mutated_count[s] = 0
     rejected_count[s] = 0
     matched_count[s] = 0
   }
+  let mut problems : Array[String] = []
   let mut modules_tested = 0
   let mut module_attempt = 0
   for _ in 0..<module_attempts {
     module_attempt += 1
-    let valid_module = gen_valid_module(rnd)
-    if validate_module(valid_module) is Err(_) {
-      continue
+    let valid_module = match pick_module(module_attempt, rnd) {
+      Some(m) => m
+      None => continue
     }
     modules_tested += 1
     let results = fuzz_all_strategies_with_coverage(valid_module)
@@ -1188,11 +1195,76 @@ pub fn run_validate_invalid_fuzz(
 }
 
 ///|
+pub fn run_validate_invalid_fuzz_from_modules(
+  profile : String,
+  seed : UInt64,
+  modules : Array[@lib.Module],
+  on_failure? : ((ValidateInvalidFuzzFailure) -> Result[Unit, String])? = None,
+) -> Result[ValidateInvalidFuzzStats, String] {
+  let (normalized, module_attempts) = match validate_invalid_fuzz_profile_attempts(profile) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let module_count = modules.length()
+  if module_count == 0 {
+    return Err(
+      "validate-invalid fuzz found zero valid modules: profile=\{normalized} seed=\{seed}",
+    )
+  }
+  run_validate_invalid_fuzz_with_modules(
+    normalized,
+    seed,
+    module_attempts,
+    fn(module_attempt, _) {
+      Some(modules[(module_attempt - 1) % module_count])
+    },
+    on_failure,
+  )
+}
+
+///|
+pub fn run_validate_invalid_fuzz(
+  profile : String,
+  seed : UInt64,
+  on_failure? : ((ValidateInvalidFuzzFailure) -> Result[Unit, String])? = None,
+) -> Result[ValidateInvalidFuzzStats, String] {
+  let (normalized, module_attempts) = match validate_invalid_fuzz_profile_attempts(profile) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  run_validate_invalid_fuzz_with_modules(
+    normalized,
+    seed,
+    module_attempts,
+    fn(_, rnd) {
+      while true {
+        let valid_module = gen_valid_module(rnd)
+        match validate_module(valid_module) {
+          Ok(_) => return Some(valid_module)
+          Err(_) => continue
+        }
+      }
+      None
+    },
+    on_failure,
+  )
+}
+
+///|
 test "run_validate_invalid_fuzz rejects unknown profile" {
   match run_validate_invalid_fuzz("not-a-profile", 0x5eedUL) {
     Ok(_) => fail("expected unknown profile error")
     Err(msg) =>
       assert_true(msg.contains("unknown validate-invalid fuzz profile"))
+  }
+}
+
+///|
+test "run_validate_invalid_fuzz_from_modules rejects zero modules" {
+  match run_validate_invalid_fuzz_from_modules("smoke", 0x5eedUL, []) {
+    Ok(_) => fail("expected empty seed corpus error")
+    Err(msg) =>
+      assert_true(msg.contains("zero valid modules"))
   }
 }
 

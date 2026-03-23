@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-23 Validation: seed invalid-fuzz suites from `tests/spec`
+
+- **Seeded invalid-fuzz suites** by **@jtenner**. Updated [`src/validate/invalid_fuzzer.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/invalid_fuzzer.mbt) so `run_validate_invalid_fuzz` uses a shared core engine and exposes `run_validate_invalid_fuzz_from_modules` for deterministic corpus-backed mutation runs. Updated [`src/fuzz/main.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/main.mbt) and [`src/fuzz/imports.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/imports.mbt) to wire `spec-seed`, `binary-invalid`, and `text-invalid` suites to parsed `tests/spec` module seeds from `wast_to_script`. Updated [`src/validate/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/validate/pkg.generated.mbti) to export the new seeded invalid-fuzz API.
+
 ## 2026-03-23 Validation: tighten invalid-fuzz repro metadata and API surface
 
 - **validator invalid-fuzz mismatch diagnostics** by **@jtenner**. Updated [`src/validate/invalid_fuzzer.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/invalid_fuzzer.mbt) so mismatch reports now carry strategy-specific expected issue families, then persist those fields through the callback-backed `ValidateInvalidFuzzFailure` path. Updated [`src/fuzz/main.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/main.mbt) so invalid-fuzz repro metadata writes include the selected suite and strategy label.

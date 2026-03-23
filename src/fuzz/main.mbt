@@ -159,18 +159,152 @@ fn validate_invalid_fuzz_failure_writer(
   }
 }
 
+///|
+fn validate_invalid_fuzz_quote_lines_to_source(lines : Array[String]) -> String {
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < lines.length() {
+    if i > 0 {
+      out.write_string("\n")
+    }
+    out.write_string(lines[i])
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+fn validate_invalid_fuzz_collect_seed_modules_from_command(
+  suite : String,
+  path : String,
+  command : @wast.WastCommand,
+) -> Array[@lib.Module] {
+  let modules : Array[@lib.Module] = []
+  let add_if_valid = fn(module : @lib.Module) -> Unit {
+    match @validate.validate_module(module) {
+      Ok(_) => modules.push(module)
+      Err(_) => ()
+    }
+  }
+  match suite {
+    "spec-seed" => match command {
+      @wast.WastCommand::Module(mod) => {
+        match @wast.wast_ast_to_binary_module(mod) {
+          Ok(binary_mod) => add_if_valid(binary_mod)
+          Err(_) => ()
+        }
+      }
+      @wast.WastCommand::ModuleBinary(_, bytes) => {
+        match @binary.decode_module(bytes) {
+          Ok(binary_mod) => add_if_valid(binary_mod)
+          Err(_) => ()
+        }
+      }
+      @wast.WastCommand::ModuleQuote(_, lines) => {
+        let source = validate_invalid_fuzz_quote_lines_to_source(lines)
+        match @wast.wast_to_binary_module(source, filename=path) {
+          Ok(binary_mod) => add_if_valid(binary_mod)
+          Err(_) => ()
+        }
+      }
+      _ => ()
+    }
+    "binary-invalid" => match command {
+      @wast.WastCommand::ModuleBinary(_, bytes) => {
+        match @binary.decode_module(bytes) {
+          Ok(binary_mod) => add_if_valid(binary_mod)
+          Err(_) => ()
+        }
+      }
+      _ => ()
+    }
+    "text-invalid" => match command {
+      @wast.WastCommand::Module(mod) => {
+        match @wast.wast_ast_to_binary_module(mod) {
+          Ok(binary_mod) => add_if_valid(binary_mod)
+          Err(_) => ()
+        }
+      }
+      @wast.WastCommand::ModuleQuote(_, lines) => {
+        let source = validate_invalid_fuzz_quote_lines_to_source(lines)
+        match @wast.wast_to_binary_module(source, filename=path) {
+          Ok(binary_mod) => add_if_valid(binary_mod)
+          Err(_) => ()
+        }
+      }
+      _ => ()
+    }
+    _ => ()
+  }
+  modules
+}
+
+///|
+fn validate_invalid_fuzz_collect_seed_modules(
+  suite : String,
+) -> Result[Array[@lib.Module], String] {
+  let paths = match list_files_recursive("tests/spec") {
+    Ok(values) => values
+    Err(e) => return Err("list_files_recursive(\"tests/spec\") failed: \{e}")
+  }
+  let modules : Array[@lib.Module] = []
+  for path in paths {
+    if !path.has_suffix(".wast") {
+      continue
+    }
+    let source = match read_file_sync(path) {
+      Ok(value) => value
+      Err(e) => return Err("read_file_sync(\{path}) failed: \{e}")
+    }
+    let script = match @wast.wast_to_script(source, filename=path) {
+      Ok(value) => value
+      Err(e) => return Err("wast_to_script(\{path}) failed: \{e}")
+    }
+    for cmd in script.commands {
+      let command_modules = validate_invalid_fuzz_collect_seed_modules_from_command(
+        suite,
+        path,
+        cmd,
+      )
+      for module in command_modules {
+        modules.push(module)
+      }
+    }
+  }
+  Ok(modules)
+}
+
 fn run_validate_invalid_suite(
   suite : String,
   profile : String,
   seed : UInt64,
 ) -> Result[Int, String] {
-  match run_validate_invalid_fuzz(
-    profile,
-    seed,
-    Some(validate_invalid_fuzz_failure_writer(suite)),
-  ) {
-    Ok(stats) => Ok(stats.module_attempts)
-    Err(e) => Err(e)
+  match suite {
+    "validate-invalid" =>
+      match run_validate_invalid_fuzz(
+        profile,
+        seed,
+        Some(validate_invalid_fuzz_failure_writer(suite)),
+      ) {
+        Ok(stats) => Ok(stats.module_attempts)
+        Err(e) => Err(e)
+      }
+    "spec-seed" | "binary-invalid" | "text-invalid" => {
+      let modules = match validate_invalid_fuzz_collect_seed_modules(suite) {
+        Ok(modules) => modules
+        Err(e) => return Err(e)
+      }
+      match run_validate_invalid_fuzz_from_modules(
+        profile,
+        seed,
+        modules,
+        Some(validate_invalid_fuzz_failure_writer(suite)),
+      ) {
+        Ok(stats) => Ok(stats.module_attempts)
+        Err(e) => Err(e)
+      }
+    }
+    _ => return Err("unknown validate-invalid seeded suite '\{suite}'")
   }
 }
 
