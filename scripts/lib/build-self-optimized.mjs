@@ -9,6 +9,7 @@ import {
   run,
 } from './self-optimized-artifacts.mjs';
 
+// Only recognized option is optional fallback behavior for optimizer failures.
 function parseCliArgs(argv) {
   let fallbackDebugOnFailure = false;
   let i = 0;
@@ -24,6 +25,9 @@ function parseCliArgs(argv) {
   return { fallbackDebugOnFailure };
 }
 
+// End-to-end self-optimization flow:
+// build wasm debug/release + native optimizer, copy artifacts, then re-run optimizer
+// over debug wasm to produce self-optimized output (or fallback copy when enabled).
 export async function buildSelfOptimized({
   repoRoot,
   moonBin = resolveMoonBin(),

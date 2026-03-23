@@ -29,6 +29,8 @@ pub trait Encode {
 let binary_encode_stringrefs_context : Ref[Array[Bytes]?] = Ref::new(None)
 
 ///|
+/// Temporarily bind a module stringref pool while encoding so `string.const` indices
+/// can be resolved without mutating global encoder state.
 fn[T] with_binary_encode_stringrefs_context(
   stringrefs : Array[Bytes]?,
   f : () -> Result[T, BinaryEncodeError],
@@ -41,6 +43,9 @@ fn[T] with_binary_encode_stringrefs_context(
 }
 
 ///|
+/// Map a string constant literal to its position in the active stringrefs pool.
+/// If encoding runs without context or with a missing literal, this returns a hard
+/// failure instead of inventing a synthetic index.
 fn encode_string_const_index(
   bytes : Bytes,
 ) -> Result[@lib.U32, BinaryEncodeError] {
@@ -1495,7 +1500,10 @@ pub impl Encode for CastOp with encode(val, buf) {
 }
 
 ///|
+/// Collect unique `string.const` payloads across module globals and code so the
+/// encoder can write a deterministic `stringrefs` section.
 fn encode_module_stringrefs(mod_ : Module) -> Array[Bytes] {
+  /// Keep insertion order while de-duplicating byte arrays.
   fn push_unique(out : Array[Bytes], bytes : Bytes) -> Unit {
     for existing in out {
       if existing == bytes {
@@ -1505,6 +1513,8 @@ fn encode_module_stringrefs(mod_ : Module) -> Array[Bytes] {
     out.push(bytes)
   }
 
+  /// Recurse through structured control instructions and collect string constants
+  /// that can be reached in nested blocks for local declarations and exports.
   fn collect_instruction(instr : Instruction, out : Array[Bytes]) -> Unit {
     match instr {
       StringConst(bytes) => push_unique(out, bytes)

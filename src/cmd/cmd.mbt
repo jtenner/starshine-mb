@@ -1279,6 +1279,8 @@ fn merge_parse_results(
 }
 
 ///|
+/// Config path resolution order: explicit CLI > STARSHINE_CONFIG env var > default
+/// package config file. Returns whether a real config was selected versus default.
 fn resolve_config_path(cli : CliParseResult, io : CmdIO) -> (String?, Bool) {
   match cli.config_path {
     Some(path) => return (Some(normalize_cli_path(path)), true)
@@ -1300,6 +1302,8 @@ fn resolve_config_path(cli : CliParseResult, io : CmdIO) -> (String?, Bool) {
 }
 
 ///|
+/// Split globs into literal paths vs wildcard patterns, dedupe early, expand only
+/// patterns with the adapter when enabled, and preserve deterministic ordering.
 fn resolve_input_files_with_glob(
   globs : Array[String],
   io : CmdIO,
@@ -1340,6 +1344,8 @@ fn max_int(a : Int, b : Int) -> Int {
 }
 
 ///|
+/// Compute effective optimize/shrink levels as maxima across explicit `-O` flags and
+/// preset shortcuts, matching precedence rules used later by explicit pipeline flags.
 fn resolve_optimize_levels(flags : Array[CliOptimizationFlag]) -> (Int, Int) {
   let mut optimize_level = 0
   let mut shrink_level = 0
@@ -1359,6 +1365,8 @@ fn resolve_optimize_levels(flags : Array[CliOptimizationFlag]) -> (Int, Int) {
 }
 
 ///|
+/// If explicit CLI pass flags are absent, synthesize exactly one default pass name
+/// (`shrink` preferred over `optimize`) from the highest requested levels.
 fn resolve_effective_pass_flags(
   resolved_passes : Array[String],
   optimize_level : Int,

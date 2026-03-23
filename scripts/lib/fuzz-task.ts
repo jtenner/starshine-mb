@@ -10,6 +10,8 @@ export type FuzzOptions = {
   moonBin: string;
 };
 
+// Parse CLI arguments into validated command settings; defaults are kept conservative
+// and missing-value tokens fail immediately.
 export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
   const options: FuzzOptions = {
     profile: "ci",
@@ -51,6 +53,7 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
   return options;
 }
 
+// Build `moon run src/fuzz` command from parsed options and run in the repo root.
 export function runFuzz(options: FuzzOptions, repoRoot = resolveWorkspaceRoot()): void {
   const args = ["run", "--target", options.target, "src/fuzz", "--", options.suite, options.profile];
   if (options.seed !== null) {
@@ -59,6 +62,7 @@ export function runFuzz(options: FuzzOptions, repoRoot = resolveWorkspaceRoot())
   runOrThrow(options.moonBin, args, { cwd: repoRoot });
 }
 
+// `bun fuzz run` entrypoint with a strict single subcommand and no fallback parser.
 export function main(argv: string[]): void {
   const [subcommand, ...rest] = argv;
   if (subcommand !== "run") {

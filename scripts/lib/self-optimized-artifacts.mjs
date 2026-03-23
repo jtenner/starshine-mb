@@ -18,6 +18,7 @@ export function repoRootFromScript(importMetaUrl) {
   }
 }
 
+// Allow CI/local overrides for executable locations while preserving local defaults.
 export function resolveMoonBin() {
   if (process.env.MOON_BIN) {
     return process.env.MOON_BIN;
@@ -25,6 +26,7 @@ export function resolveMoonBin() {
   return 'moon';
 }
 
+// Allow override for wasm-tools binary to support custom installations.
 export function resolveWasmToolsBin() {
   if (process.env.WASM_TOOLS_BIN) {
     return process.env.WASM_TOOLS_BIN;
@@ -32,6 +34,8 @@ export function resolveWasmToolsBin() {
   return 'wasm-tools';
 }
 
+// Centralize output layout so all self-optimization tooling reads/writes the same
+// dist paths.
 export function distArtifactPaths(repoRoot) {
   const distDir = path.join(repoRoot, 'tests', 'node', 'dist');
   return {
@@ -43,6 +47,7 @@ export function distArtifactPaths(repoRoot) {
   };
 }
 
+// Return expected build artifact locations for wasm outputs by profile.
 export function wasmBuildArtifactPaths(repoRoot) {
   return {
     debug: path.join(repoRoot, '_build', 'wasm', 'debug', 'build', 'cmd', 'cmd.wasm'),
@@ -50,6 +55,8 @@ export function wasmBuildArtifactPaths(repoRoot) {
   };
 }
 
+// Prefer release native binary first (then debug) when selecting the optimizer for
+// local reproducible self-optimization runs.
 export function nativeStarshineBinaryPaths(repoRoot) {
   return [
     path.join(repoRoot, '_build', 'native', 'release', 'build', 'cmd', 'cmd.exe'),
@@ -64,6 +71,7 @@ export function run(command, args, repoRoot) {
   });
 }
 
+// Validate a wasm file with wasm-tools and emit a single enriched failure message.
 export function validateWasmArtifact({
   repoRoot,
   wasmPath,
@@ -86,6 +94,8 @@ export function validateWasmArtifact({
   }
 }
 
+// Select a native Starshine binary, honoring explicit override first, then scanning
+// known release/debug candidates.
 function resolveStarshineBinary(repoRoot, overridePath) {
   if (overridePath) {
     if (!fs.existsSync(overridePath)) {
@@ -102,6 +112,8 @@ function resolveStarshineBinary(repoRoot, overridePath) {
   throw new Error(`Missing starshine native binary: ${candidates[0]}`);
 }
 
+// Copy debug/optimized build artifacts into test/dist and validate both immediately,
+// returning size metadata for caller-visible logging.
 export function copyWasmArtifacts({ repoRoot }) {
   const source = wasmBuildArtifactPaths(repoRoot);
   const target = distArtifactPaths(repoRoot);
@@ -136,6 +148,7 @@ export function copyWasmArtifacts({ repoRoot }) {
   };
 }
 
+// Turn execFileSync errors into stable strings for consistent error reporting.
 function streamToUtf8(value) {
   if (typeof value === 'string') {
     return value;
@@ -146,6 +159,8 @@ function streamToUtf8(value) {
   return '';
 }
 
+// Run self-optimization over debug WASM, with optional fallback that copies debug
+// output when optimization fails and `fallbackToDebugOnFailure` is set.
 export function optimizeDebugWasm({
   repoRoot,
   starshinePath,

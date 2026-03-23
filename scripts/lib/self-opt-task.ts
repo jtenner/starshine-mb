@@ -6,6 +6,7 @@ import { buildSelfOptimized } from "./build-self-optimized.mjs";
 import { runSelfOptimizedSpecSuite } from "./run-self-optimized-spec-suite.mjs";
 import { fail, resolveMoonBin, resolveRepoPath, resolveWorkspaceRoot, runOrThrow, teeCommandToFile } from "./task-runtime";
 
+// Parse build-mode options: optional fallback behavior and custom moon executable.
 export function parseSelfOptBuildArgs(argv: string[]): { fallbackDebugOnFailure: boolean; moonBin: string } {
   let fallbackDebugOnFailure = false;
   let moonBin = resolveMoonBin();
@@ -27,6 +28,7 @@ export function parseSelfOptBuildArgs(argv: string[]): { fallbackDebugOnFailure:
   return { fallbackDebugOnFailure, moonBin };
 }
 
+// Parse options for reuse of an already-configured moon binary during optimize.
 export function parseSelfOptOptimizeArgs(argv: string[]): { moonBin: string } {
   let moonBin = resolveMoonBin();
   for (let i = 0; i < argv.length; ) {
@@ -43,6 +45,8 @@ export function parseSelfOptOptimizeArgs(argv: string[]): { moonBin: string } {
   return { moonBin };
 }
 
+// Parse optional spec-suite filters (`--limit`, `--file`, `--wasm`) into a normalized
+// run descriptor used by the harness.
 export function parseSelfOptSpecArgs(argv: string[]): { limit: number | null; onlyFiles: string[]; wasmPath: string | null } {
   let limit: number | null = null;
   let wasmPath: string | null = null;
@@ -75,6 +79,8 @@ export function parseSelfOptSpecArgs(argv: string[]): { limit: number | null; on
   return { limit, onlyFiles, wasmPath };
 }
 
+// Rebuild self-optimized artifacts (debug + optimized + native) from source using
+// parsed options and selected moon binary.
 export async function runSelfOptBuild(argv: string[]): Promise<void> {
   const repoRoot = resolveWorkspaceRoot();
   const options = parseSelfOptBuildArgs(argv);
@@ -85,6 +91,8 @@ export async function runSelfOptBuild(argv: string[]): Promise<void> {
   });
 }
 
+// Build release artifacts then run the optimizer pipeline against debug wasm; prefer
+// an existing release binary if present, otherwise fallback to `moon run`.
 export async function runSelfOptOptimize(argv: string[]): Promise<void> {
   const repoRoot = resolveWorkspaceRoot();
   const { moonBin } = parseSelfOptOptimizeArgs(argv);
@@ -131,6 +139,8 @@ export async function runSelfOptOptimize(argv: string[]): Promise<void> {
   await teeCommandToFile(command, args, outputPath, { cwd: repoRoot });
 }
 
+// Run the spec-validation harness against the generated self-optimized wasm with optional
+// file filtering and artifact path override.
 export async function runSelfOptSpec(argv: string[]): Promise<void> {
   const repoRoot = resolveWorkspaceRoot();
   const options = parseSelfOptSpecArgs(argv);

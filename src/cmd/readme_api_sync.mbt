@@ -57,6 +57,7 @@ fn ras_extract_marker_path(line : String) -> String? {
 }
 
 ///|
+/// Join collected error lines into one newline-separated diagnostic block.
 fn ras_join_lines_impl(lines : Array[String]) -> String {
   let out = StringBuilder::new()
   let mut i = 0
@@ -71,6 +72,12 @@ fn ras_join_lines_impl(lines : Array[String]) -> String {
 }
 
 ///|
+/// Parse all ````README_API_VERIFY`` blocks in one pass, then validate block shape:
+/// marker -> optional blank lines -> opening fence -> at least one signature -> closing fence.
+/// This keeps failure reasons actionable and local to the declaration layout.
+/// Marker syntax is strict for reproducible checks:
+/// `<!-- README_API_VERIFY <path> -->` only, with optional whitespace and optional
+/// blank lines before the following ````mbti` block.
 fn parse_readme_api_verify_blocks(
   readme_text : String,
 ) -> Result[Array[ReadmeApiVerifyBlock], String] {
@@ -154,6 +161,9 @@ fn ras_has_block_for_path(
 }
 
 ///|
+/// Resolve required blocks and validate that every listed signature appears in the
+/// corresponding interface text, while collecting all diagnostics and reporting one
+/// aggregated error message when inconsistencies exist.
 pub fn verify_readme_api_signatures_with_required_blocks(
   readme_text : String,
   interface_text_by_path : Array[(String, String)],

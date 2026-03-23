@@ -9,6 +9,8 @@ export function fail(message: string): never {
   throw new Error(message);
 }
 
+// Walk up from a start path until we find the repo root (`moon.mod.json`), so
+// scripts can run from nested directories and still operate repo-wide.
 export function resolveWorkspaceRoot(start = process.cwd()): string {
   let current = path.resolve(start);
   while (true) {
@@ -70,6 +72,8 @@ export function runOrThrow(
   };
 }
 
+// Execute a command while mirroring stdout/stderr live and teeing both streams into
+// a persistent log file for later postmortem when failures happen.
 export async function teeCommandToFile(
   command: string,
   args: string[],

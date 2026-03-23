@@ -528,6 +528,8 @@ fn env_collect_module_imported_members(
 }
 
 ///|
+/// Pull explicit module-defined function bodies/types after imports so function/type
+/// indices line up across both imported and locally defined members.
 fn env_collect_module_defined_funcs(
   env : Env,
   m : Module,
@@ -550,6 +552,8 @@ fn env_collect_module_defined_funcs(
 }
 
 ///|
+/// Copy existing arrays and append module-defined entries; this keeps parent
+/// module scopes available while extending the current environment snapshot.
 fn env_collect_module_tables(
   base_tables : Array[TableType],
   m : Module,
@@ -566,6 +570,8 @@ fn env_collect_module_tables(
 }
 
 ///|
+/// Append defined memories in declaration order; this function mirrors the exact
+/// source order expected by typed indices during validation.
 fn env_collect_module_mems(
   base_mems : Array[MemType],
   m : Module,
@@ -582,6 +588,8 @@ fn env_collect_module_mems(
 }
 
 ///|
+/// Copy base globals and append local definitions so type lookups can resolve both
+/// imported and later-defined entries via stable index offsets.
 fn env_collect_module_globals(
   base_globals : Array[GlobalType],
   m : Module,
@@ -598,6 +606,8 @@ fn env_collect_module_globals(
 }
 
 ///|
+/// Capture all declared tags in order, preserving declaration indices for tag type
+/// checks and tag-based control-flow constructs.
 fn env_collect_module_tags(
   base_tags : Array[TagType],
   m : Module,
@@ -614,6 +624,8 @@ fn env_collect_module_tags(
 }
 
 ///|
+/// Preserve existing element segment table entries from a prior environment and
+/// append new module-local sections only when present.
 fn env_collect_module_datas(
   base_datas : Array[Data],
   m : Module,
@@ -630,6 +642,9 @@ fn env_collect_module_datas(
 }
 
 ///|
+/// Build a validation environment by layering imported definitions plus
+/// module-local declarations on top of the existing environment snapshot, then
+/// normalizing elem/data payloads from the current module.
 pub fn Env::with_module(self : Env, m : Module) -> Env {
   let (global_types, rec_stack) = env_collect_module_types(
     self.global_types,
@@ -687,6 +702,8 @@ pub fn to_texpr(expr : Expr, env : Env) -> Result[TExpr, String] {
 }
 
 ///|
+/// Convert a flat instruction slice to stack form but stop as soon as a
+/// stack-polymorphic terminator is reached, since later instructions are unreachable.
 fn convert_expr_instrs(
   instrs : Array[Instruction],
   stack : Array[TInstr],
@@ -706,6 +723,8 @@ fn convert_expr_instrs(
 }
 
 ///|
+/// Treat these instructions as stack-polymorphic sources: they can absorb any amount
+/// of preceding expected stack demand during control-flow conversions.
 fn is_stack_polymorphic_source(instr : TInstr) -> Bool {
   match instr.kind {
     TInstrKind::TUnreachable => true
@@ -732,6 +751,8 @@ fn stack_has_polymorphic_source(stack : Array[TInstr]) -> Bool {
 }
 
 ///|
+/// Pop with stack-polymorphism semantics: an explicit terminator at stack top is
+/// preserved to represent unreachable control-flow continuation points.
 fn pop(stack : Array[TInstr]) -> Result[TInstr, String] {
   if stack.length() > 0 {
     let top = stack[stack.length() - 1]
@@ -746,6 +767,8 @@ fn pop(stack : Array[TInstr]) -> Result[TInstr, String] {
 }
 
 ///|
+/// Compute produced stack values from existing stack shape plus one instruction,
+/// never yielding negative arity to keep invalid intermediate states recoverable.
 fn arity_apply(total : Int, consumed : Int, produced : Int) -> Int {
   let out = total - consumed + produced
   if out < 0 {
@@ -756,6 +779,8 @@ fn arity_apply(total : Int, consumed : Int, produced : Int) -> Int {
 }
 
 ///|
+/// Aggregate production counts across a sequence of typed instructions by
+/// summing their individual arities.
 pub fn tinstrs_result_arity(instrs : Array[TInstr], env : Env) -> Int {
   let mut total = 0
   for instr in instrs {
@@ -765,6 +790,9 @@ pub fn tinstrs_result_arity(instrs : Array[TInstr], env : Env) -> Int {
 }
 
 ///|
+/// Pop exactly N values/trees from the stack, with special handling for
+/// stack-polymorphic state where unreachable/branch terminators can stand in for
+/// missing producers.
 fn pop_n(
   stack : Array[TInstr],
   n : Int,
@@ -809,6 +837,8 @@ fn pop_n(
 }
 
 ///|
+/// Compute the net stack effect for one typed instruction, using env-based arity
+/// from referenced signatures for call and structured control constructs.
 pub fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
   match instr.kind {
     TInstrKind::TI32Const(_)

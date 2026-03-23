@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Docs: annotate confusing code paths and keep CLI/help behavior explicit
+
+- **Second comment/docs pass** by **@jtenner**. Added high-signal inline comments in [`src/cmd/readme_api_sync.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/readme_api_sync.mbt), [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt), [`src/validate/env.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt), and [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt) to document resolution, scheduling, stack-polymorphic behavior, and stringref encoding context assumptions.
+- **Script/tooling annotation pass** by **@jtenner**. Added clarifying comments in [`scripts/lib/build-self-optimized.mjs`](/home/jtenner/Projects/starshine-mb/scripts/lib/build-self-optimized.mjs), [`scripts/lib/fuzz-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/fuzz-task.ts), [`scripts/lib/self-opt-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/self-opt-task.ts), [`scripts/lib/self-optimized-artifacts.mjs`](/home/jtenner/Projects/starshine-mb/scripts/lib/self-optimized-artifacts.mjs), [`scripts/lib/task-runtime.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/task-runtime.ts), and [`scripts/lib/make-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/make-task.ts) to make script flow and artifact-selection behavior easier to audit.
+
 ## 2026-03-23 Docs: refresh CLI docs and clarify command/pipeline behavior
 
 - **README and CLI-doc refresh** by **@jtenner**. Updated [`README.mbt.md`](/home/jtenner/Projects/starshine-mb/README.mbt.md), [`examples/README.md`](/home/jtenner/Projects/starshine-mb/examples/README.md), [`node/README.md`](/home/jtenner/Projects/starshine-mb/node/README.md), [`node/examples/README.md`](/home/jtenner/Projects/starshine-mb/node/examples/README.md), and [`tests/spec/README.md`](/home/jtenner/Projects/starshine-mb/tests/spec/README.md) to replace outdated compatibility notes, clarify config/env/CLI precedence, and keep example indexes aligned with current scripts.

@@ -7,10 +7,13 @@ import { buildNodePackage } from "./build-node-package.mjs";
 import { generateNodePackage } from "./generate-node-package.mjs";
 import { fail, resolveMoonBin, resolveRepoPath, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
 
+// Internal formatter for nanosecond timing values from process.hrtime.bigint().
 function formatSeconds(startNs: bigint, endNs: bigint): string {
   return `${(Number(endNs - startNs) / 1_000_000_000).toFixed(3)}s`;
 }
 
+// Execute a benchmark command with wall-time measurement and return seconds as a
+// formatted string; failures are delegated to shared `runOrThrow` handling.
 function measureCommand(repoRoot: string, command: string, args: string[]): string {
   const start = process.hrtime.bigint();
   runOrThrow(command, args, { cwd: repoRoot, stdio: "pipe" });
@@ -18,6 +21,8 @@ function measureCommand(repoRoot: string, command: string, args: string[]): stri
   return formatSeconds(start, end);
 }
 
+// Parse task flags, run the three fixed benchmark commands, and replace the
+// README benchmark table between start/end markers.
 export function updateReadmeBenchmarks(argv: string[]): void {
   const repoRoot = resolveWorkspaceRoot();
   let readmePath = path.join(repoRoot, "README.mbt.md");
@@ -100,6 +105,8 @@ export function updateReadmeBenchmarks(argv: string[]): void {
   process.stdout.write(`Updated benchmark table in ${readmePath}\n`);
 }
 
+// Main make dispatcher: build/publish node package artifacts or run benchmark
+// table updates through explicit subcommands.
 export async function main(argv: string[]): Promise<void> {
   const repoRoot = resolveWorkspaceRoot();
   const [subcommand, ...rest] = argv;
