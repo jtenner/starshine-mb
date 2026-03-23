@@ -674,6 +674,15 @@ fn optimization_remove_unused_names_func(func : Func) -> (Func, Bool) {
                 walked
               }
             }
+            @lib.TLoop(block_type, loop_body) =>
+              match
+                optimization_remove_unused_names_has_branch_to_current_scope(
+                  loop_body,
+                ) {
+                Ok(true) => walked
+                Ok(false) => @lib.TInstr::block(block_type, loop_body)
+                Err(_) => walked
+              }
             _ => walked
           }
           if rewritten == instr {
@@ -837,6 +846,15 @@ fn optimization_remove_unused_names_label_targets_removed_scope(
 }
 
 ///|
+fn optimization_remove_unused_names_label_matches_depth(
+  label : @lib.LabelIdx,
+  depth : Int,
+) -> Bool {
+  let @lib.LabelIdx(raw_label) = label
+  raw_label.reinterpret_as_int() == depth
+}
+
+///|
 fn optimization_remove_unused_names_has_label_match(
   body : @lib.TExpr,
   predicate : (@lib.LabelIdx, Int) -> Bool,
@@ -869,6 +887,15 @@ fn optimization_remove_unused_names_has_branch_to_removed_scope(
     optimization_remove_unused_names_label_targets_removed_scope(
       label, depth, removed_scopes,
     )
+  })
+}
+
+///|
+fn optimization_remove_unused_names_has_branch_to_current_scope(
+  body : @lib.TExpr,
+) -> Result[Bool, String] {
+  optimization_remove_unused_names_has_label_match(body, fn(label, depth) {
+    optimization_remove_unused_names_label_matches_depth(label, depth)
   })
 }
 

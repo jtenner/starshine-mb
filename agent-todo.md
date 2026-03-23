@@ -122,15 +122,15 @@
   - RemoveUnusedNames completion:
   - canonical plan: [`docs/0061-2026-03-23-remove-unused-names-implementation-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0061-2026-03-23-remove-unused-names-implementation-plan.md).
   - blockers:
-    - port loop-to-block demotion when no continue branch remains, with the matching keep-loop case when `br 0` survives.
     - rerun the fresh-artifact explicit shared prefix through Starshine and Binaryen once the pass is live.
   - risks:
     - slice 1 is now live: dedicated runner wiring, same-typed block peeling, and typed branch-payload rebasing landed in `src/optimization/optimization.mbt` with focused regressions in `src/optimization/remove_unused_names_wbtest.mbt`.
     - slice 2 is now live: nested control that still targets a removed scope now blocks peeling through the depth-aware label scan, with a focused valid nested-`if` regression in `src/optimization/remove_unused_names_wbtest.mbt`.
+    - slice 3 is now live: loops now demote to blocks only when the loop label has no remaining continue edge, with both void and value-loop regressions in `src/optimization/remove_unused_names_wbtest.mbt`.
     - the old standalone pass had candidate and walk budgets; start without that complexity, but be prepared to restore a minimal budget if fresh-artifact runtime regresses.
   - implementation features:
-    - keep the first port typed-only; raw functions are already pre-lifted before the grouped default stage.
-    - treat the first parity checkpoint after implementation as evidence for whether `RemoveUnusedNames` is a real fresh-artifact blocker or another clean no-op.
+    - the current `RemoveUnusedNames` port is typed-only by design; raw functions are already pre-lifted before the grouped default stage.
+    - the next step is the first fresh-artifact parity checkpoint after the full local implementation, to determine whether `RemoveUnusedNames` is a real fresh-artifact blocker or another clean no-op.
 - Validator fuzz hardening:
   - canonical research doc: [`docs/0058-2026-03-23-validate-fuzz-hardening-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0058-2026-03-23-validate-fuzz-hardening-plan.md).
   - blockers:

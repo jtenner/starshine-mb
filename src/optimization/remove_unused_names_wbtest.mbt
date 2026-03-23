@@ -213,6 +213,85 @@ test "remove unused names skips merge when nested control still targets a remove
 }
 
 ///|
+test "remove unused names rewrites loop to block when no continue branch remains" {
+  let body = remove_unused_names_test_body([
+    @lib.TInstr::loop_(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([@lib.TInstr::nop()]),
+    ),
+  ])
+  match body {
+    [instr] =>
+      match instr.kind {
+        @lib.TBlock(@lib.VoidBlockType, child_body) =>
+          match child_body.inner() {
+            [child] =>
+              match child.kind {
+                @lib.TNop => ()
+                _ => fail("expected loop body to stay intact inside block")
+              }
+            _ => fail("expected single child in demoted block")
+          }
+        _ => fail("expected loop with no continue to become block")
+      }
+    _ => fail("expected single demoted block")
+  }
+}
+
+///|
+test "remove unused names keeps loop when body branches to loop label" {
+  let body = remove_unused_names_test_body([
+    @lib.TInstr::loop_(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(0U), [])]),
+    ),
+  ])
+  match body {
+    [instr] =>
+      match instr.kind {
+        @lib.TLoop(@lib.VoidBlockType, _) => ()
+        _ => fail("expected loop with br 0 to remain a loop")
+      }
+    _ => fail("expected single loop")
+  }
+}
+
+///|
+test "remove unused names rewrites value loop to block when no continue branch remains" {
+  let body = remove_unused_names_test_body([
+    @lib.TInstr::drop(
+      @lib.TInstr::loop_(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.TExpr::new([@lib.TInstr::i32_const(@lib.I32::new(9))]),
+      ),
+    ),
+  ])
+  match body {
+    [instr] =>
+      match instr.kind {
+        @lib.TDrop(child) =>
+          match child.kind {
+            @lib.TBlock(
+              @lib.ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
+              child_body
+            ) =>
+              match child_body.inner() {
+                [value] =>
+                  match value.kind {
+                    @lib.TI32Const(@lib.I32(9)) => ()
+                    _ => fail("expected value loop payload inside block")
+                  }
+                _ => fail("expected single value child in demoted block")
+              }
+            _ => fail("expected value loop to demote to value block")
+          }
+        _ => fail("expected drop around demoted value loop")
+      }
+    _ => fail("expected single drop")
+  }
+}
+
+///|
 test "remove unused names keeps scratch unchanged when fixture body is untouched" {
   let mod = remove_unused_names_test_module([@lib.TInstr::nop()])
   let (_, scratch) = run_remove_unused_names(mod, PipelineScratch::new())

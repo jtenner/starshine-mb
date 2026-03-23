@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Optimization: land `RemoveUnusedNames` loop demotion
+
+- **`RemoveUnusedNames` slice 3** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so typed `loop` instructions now demote to `block` when the loop label has no remaining continue edge, while loops with a surviving `br 0` keep their original loop shape.
+- Added focused loop regressions in [`src/optimization/remove_unused_names_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/remove_unused_names_wbtest.mbt) for both void and value-producing loops, covering both sides of the rule.
+- Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so `RemoveUnusedNames` is now implementation-complete on the current typed surface and only the fresh-artifact Binaryen parity replay remains.
+
 ## 2026-03-23 Optimization: land `RemoveUnusedNames` live-target bailout
 
 - **`RemoveUnusedNames` slice 2** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so same-typed block peeling now first scans nested typed control for labels that still target one of the scopes about to be removed and bails out instead of rebasing those branches into a different meaning.
