@@ -135,6 +135,18 @@ process.exit(0);
   assert(actualFuzz === "run --target wasm src/fuzz -- cmd-harness stress --seed 0xbeef", `unexpected fuzz command log:\n${actualFuzz}`);
 
   fs.writeFileSync(logPath, "");
+  runBun(
+    repoRoot,
+    ["fuzz", "run", "--suite=cmd-harness", "--seed=0xfeed", "--output=jsonl", "--target", "wasm"],
+    env,
+  );
+  const actualFuzzAlias = fs.readFileSync(logPath, "utf8").trim();
+  assert(
+    actualFuzzAlias === "run --target wasm src/fuzz -- cmd-harness smoke --seed 0xfeed --output jsonl",
+    `unexpected fuzz alias command log:\n${actualFuzzAlias}`,
+  );
+
+  fs.writeFileSync(logPath, "");
   const coverageOutput = runBun(repoRoot, ["validate", "coverage", "--top", "2", "--baseline", baselinePath], env);
   assert(coverageOutput.includes("Coverage summary: total uncovered lines=16, files=2"), `unexpected coverage summary:\n${coverageOutput}`);
   assert(coverageOutput.includes(`Coverage delta vs baseline (${baselinePath}): lines +6, files +1`), `unexpected coverage delta:\n${coverageOutput}`);
