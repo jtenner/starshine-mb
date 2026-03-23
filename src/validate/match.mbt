@@ -383,6 +383,7 @@ pub impl Match for AbsHeapType with matches(self, other, _) {
     (NoneAbsHeapType, I31AbsHeapType) => true
     (NoneAbsHeapType, StructAbsHeapType) => true
     (NoneAbsHeapType, ArrayAbsHeapType) => true
+    (NoneAbsHeapType, StringAbsHeapType) => true
 
     // nofunc <: func
     (NoFuncAbsHeapType, FuncAbsHeapType) => true

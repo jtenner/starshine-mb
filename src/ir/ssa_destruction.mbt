@@ -496,6 +496,42 @@ fn convert_ssa_op_to_tinstr(op : SSAOp, d : SSADestructor) -> TInstr {
         get(d, e_off),
         get(d, len),
       )
+    SSAOp::StringNewUtf8Array(array, start, end_) =>
+      TInstr::string_new_utf8_array(get(d, array), get(d, start), get(d, end_))
+    SSAOp::StringNewWtf16Array(array, start, end_) =>
+      TInstr::string_new_wtf16_array(get(d, array), get(d, start), get(d, end_))
+    SSAOp::StringEncodeUtf8Array(string, array, start) =>
+      TInstr::string_encode_utf8_array(
+        get(d, string),
+        get(d, array),
+        get(d, start),
+      )
+    SSAOp::StringEncodeWtf16Array(string, array, start) =>
+      TInstr::string_encode_wtf16_array(
+        get(d, string),
+        get(d, array),
+        get(d, start),
+      )
+    SSAOp::StringNewLossyUtf8Array(array, start, end_) =>
+      TInstr::string_new_lossy_utf8_array(
+        get(d, array),
+        get(d, start),
+        get(d, end_),
+      )
+    SSAOp::StringNewWtf8Array(array, start, end_) =>
+      TInstr::string_new_wtf8_array(get(d, array), get(d, start), get(d, end_))
+    SSAOp::StringEncodeLossyUtf8Array(string, array, start) =>
+      TInstr::string_encode_lossy_utf8_array(
+        get(d, string),
+        get(d, array),
+        get(d, start),
+      )
+    SSAOp::StringEncodeWtf8Array(string, array, start) =>
+      TInstr::string_encode_wtf8_array(
+        get(d, string),
+        get(d, array),
+        get(d, start),
+      )
     SSAOp::Throw(tag, args) => TInstr::throw_(tag, get_args(d, args))
     SSAOp::Splat(splat_op, v) =>
       match splat_op {

@@ -699,6 +699,54 @@ fn optimization_dead_code_elimination_rewrite_instr(
       optimization_dead_code_elimination_rewrite_if(
         block_type, cond, then_body, else_body,
       )
+    @lib.TStringNewUtf8Array(array, start, end_) =>
+      optimization_dead_code_elimination_rewrite_unary([array, start, end_], fn(
+        args,
+      ) {
+        @lib.TInstr::string_new_utf8_array(args[0], args[1], args[2])
+      })
+    @lib.TStringNewWtf16Array(array, start, end_) =>
+      optimization_dead_code_elimination_rewrite_unary([array, start, end_], fn(
+        args,
+      ) {
+        @lib.TInstr::string_new_wtf16_array(args[0], args[1], args[2])
+      })
+    @lib.TStringEncodeUtf8Array(string, array, start) =>
+      optimization_dead_code_elimination_rewrite_unary([string, array, start], fn(
+        args,
+      ) {
+        @lib.TInstr::string_encode_utf8_array(args[0], args[1], args[2])
+      })
+    @lib.TStringEncodeWtf16Array(string, array, start) =>
+      optimization_dead_code_elimination_rewrite_unary([string, array, start], fn(
+        args,
+      ) {
+        @lib.TInstr::string_encode_wtf16_array(args[0], args[1], args[2])
+      })
+    @lib.TStringNewLossyUtf8Array(array, start, end_) =>
+      optimization_dead_code_elimination_rewrite_unary([array, start, end_], fn(
+        args,
+      ) {
+        @lib.TInstr::string_new_lossy_utf8_array(args[0], args[1], args[2])
+      })
+    @lib.TStringNewWtf8Array(array, start, end_) =>
+      optimization_dead_code_elimination_rewrite_unary([array, start, end_], fn(
+        args,
+      ) {
+        @lib.TInstr::string_new_wtf8_array(args[0], args[1], args[2])
+      })
+    @lib.TStringEncodeLossyUtf8Array(string, array, start) =>
+      optimization_dead_code_elimination_rewrite_unary([string, array, start], fn(
+        args,
+      ) {
+        @lib.TInstr::string_encode_lossy_utf8_array(args[0], args[1], args[2])
+      })
+    @lib.TStringEncodeWtf8Array(string, array, start) =>
+      optimization_dead_code_elimination_rewrite_unary([string, array, start], fn(
+        args,
+      ) {
+        @lib.TInstr::string_encode_wtf8_array(args[0], args[1], args[2])
+      })
     @lib.TUnary(op, child) =>
       optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
         @lib.TInstr::unary(op, args[0])
@@ -1082,6 +1130,23 @@ fn optimization_dead_code_elimination_instr_has_live_break_to_label(
       ) ||
       optimization_dead_code_elimination_instr_has_live_break_to_label(
         value, target_depth,
+      )
+    @lib.TStringNewUtf8Array(array, start, end_)
+    | @lib.TStringNewWtf16Array(array, start, end_)
+    | @lib.TStringEncodeUtf8Array(array, start, end_)
+    | @lib.TStringEncodeWtf16Array(array, start, end_)
+    | @lib.TStringNewLossyUtf8Array(array, start, end_)
+    | @lib.TStringNewWtf8Array(array, start, end_)
+    | @lib.TStringEncodeLossyUtf8Array(array, start, end_)
+    | @lib.TStringEncodeWtf8Array(array, start, end_) =>
+      optimization_dead_code_elimination_instr_has_live_break_to_label(
+        array, target_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_to_label(
+        start, target_depth,
+      ) ||
+      optimization_dead_code_elimination_instr_has_live_break_to_label(
+        end_, target_depth,
       )
     @lib.TTableGet(_, child) | @lib.TArrayNewDefault(_, child) =>
       optimization_dead_code_elimination_instr_has_live_break_to_label(

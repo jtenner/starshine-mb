@@ -905,12 +905,14 @@ Current status:
 - `docs/0046-2026-03-22-dead-code-elimination-nested-try-table-coverage.md`
   closes the separate nested concrete ref-result `try_table` coverage question
   that stayed open after the EH rewrite slice.
+- `docs/0050-2026-03-22-string-array-surface-for-dce.md` lands the minimal
+  typed string instruction surface needed for the Binaryen-style
+  `string.new_wtf16_array` / `local.tee` regression and covers that DCE case.
 - `docs/0047-2026-03-22-dead-code-elimination-typed-surface-blockers.md`
-  records that the remaining string-sensitive and EH `pop` follow-ups are
-  blocked in this repo today because the typed IR does not yet expose string
-  operators or EH `try` / `pop`.
-- Remaining actionable work in this lane is therefore grouped-pipeline
-  interaction coverage for the already-landed `TTryTable` / GC rewrite set.
+  now narrows the dependency-blocked follow-up to typed EH `try` / `pop` and
+  stack-switching instruction surface, not string operators.
+- Slice 9 is therefore closed for the currently modeled GC/reference/string
+  typed surface.
 
 Checkpoint:
 

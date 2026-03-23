@@ -93,6 +93,7 @@ pub fn trace_now_us() -> UInt64
 // Types and methods
 pub enum AbsHeapType {
   ExnAbsHeapType
+  StringAbsHeapType
   ArrayAbsHeapType
   StructAbsHeapType
   I31AbsHeapType
@@ -116,6 +117,7 @@ pub fn AbsHeapType::no_exn() -> Self
 pub fn AbsHeapType::no_extern() -> Self
 pub fn AbsHeapType::no_func() -> Self
 pub fn AbsHeapType::none() -> Self
+pub fn AbsHeapType::string_() -> Self
 pub fn AbsHeapType::struct_() -> Self
 pub impl PrettyPrint for AbsHeapType
 pub impl Eq for AbsHeapType
@@ -1396,6 +1398,14 @@ pub enum Instruction {
   RefAsNonNull
   BrOnNull(LabelIdx)
   BrOnNonNull(LabelIdx)
+  StringNewUtf8Array
+  StringNewWtf16Array
+  StringEncodeUtf8Array
+  StringEncodeWtf16Array
+  StringNewLossyUtf8Array
+  StringNewWtf8Array
+  StringEncodeLossyUtf8Array
+  StringEncodeWtf8Array
   StructNew(TypeIdx)
   StructNewDefault(TypeIdx)
   StructNewDesc(TypeIdx)
@@ -2176,6 +2186,14 @@ pub fn Instruction::return_call(FuncIdx) -> Self
 pub fn Instruction::return_call_indirect(TypeIdx, TableIdx) -> Self
 pub fn Instruction::return_call_ref(TypeIdx) -> Self
 pub fn Instruction::select(types? : Array[ValType]?) -> Self
+pub fn Instruction::string_encode_lossy_utf8_array() -> Self
+pub fn Instruction::string_encode_utf8_array() -> Self
+pub fn Instruction::string_encode_wtf16_array() -> Self
+pub fn Instruction::string_encode_wtf8_array() -> Self
+pub fn Instruction::string_new_lossy_utf8_array() -> Self
+pub fn Instruction::string_new_utf8_array() -> Self
+pub fn Instruction::string_new_wtf16_array() -> Self
+pub fn Instruction::string_new_wtf8_array() -> Self
 pub fn Instruction::struct_get(TypeIdx, U32) -> Self
 pub fn Instruction::struct_get_s(TypeIdx, U32) -> Self
 pub fn Instruction::struct_get_u(TypeIdx, U32) -> Self
@@ -2853,6 +2871,14 @@ pub fn TInstr::return_call_indirect(TypeIdx, TableIdx, Array[Self], Self) -> Sel
 pub fn TInstr::return_call_ref(TypeIdx, Array[Self], Self) -> Self
 pub fn TInstr::select(Array[ValType]?, Self, Self, Self) -> Self
 pub fn TInstr::store(StoreOp, MemArg, Self, Self) -> Self
+pub fn TInstr::string_encode_lossy_utf8_array(Self, Self, Self) -> Self
+pub fn TInstr::string_encode_utf8_array(Self, Self, Self) -> Self
+pub fn TInstr::string_encode_wtf16_array(Self, Self, Self) -> Self
+pub fn TInstr::string_encode_wtf8_array(Self, Self, Self) -> Self
+pub fn TInstr::string_new_lossy_utf8_array(Self, Self, Self) -> Self
+pub fn TInstr::string_new_utf8_array(Self, Self, Self) -> Self
+pub fn TInstr::string_new_wtf16_array(Self, Self, Self) -> Self
+pub fn TInstr::string_new_wtf8_array(Self, Self, Self) -> Self
 pub fn TInstr::struct_get(TypeIdx, U32, Self) -> Self
 pub fn TInstr::struct_get_s(TypeIdx, U32, Self) -> Self
 pub fn TInstr::struct_get_u(TypeIdx, U32, Self) -> Self
@@ -2954,6 +2980,14 @@ pub enum TInstrKind {
   TBrOnCastFail(LabelIdx, CastOp, HeapType, HeapType, TInstr, Array[TInstr])
   TReturn(Array[TInstr])
   TSelect(Array[ValType]?, TInstr, TInstr, TInstr)
+  TStringNewUtf8Array(TInstr, TInstr, TInstr)
+  TStringNewWtf16Array(TInstr, TInstr, TInstr)
+  TStringEncodeUtf8Array(TInstr, TInstr, TInstr)
+  TStringEncodeWtf16Array(TInstr, TInstr, TInstr)
+  TStringNewLossyUtf8Array(TInstr, TInstr, TInstr)
+  TStringNewWtf8Array(TInstr, TInstr, TInstr)
+  TStringEncodeLossyUtf8Array(TInstr, TInstr, TInstr)
+  TStringEncodeWtf8Array(TInstr, TInstr, TInstr)
   TStructNew(TypeIdx, Array[TInstr])
   TStructNewDefault(TypeIdx)
   TStructNewDesc(TypeIdx, Array[TInstr])
@@ -3507,10 +3541,11 @@ pub fn ValType::num_type(NumType) -> Self
 pub fn ValType::ref_array_nonnull(TypeIdx) -> Self
 pub fn ValType::ref_array_nullable(TypeIdx) -> Self
 pub fn ValType::ref_null(HeapType) -> Self
-pub fn ValType::ref_null_type(RefType) -> Self
 pub fn ValType::ref_null_array_of(TypeIdx) -> Self
 pub fn ValType::ref_null_exn() -> Self
+pub fn ValType::ref_null_type(RefType) -> Self
 pub fn ValType::ref_type(RefType) -> Self
+pub fn ValType::stringref() -> Self
 pub fn ValType::v128() -> Self
 pub impl PrettyPrint for ValType
 pub impl Eq for ValType
@@ -3528,3 +3563,4 @@ pub type ResultType = Array[ValType]
 pub(open) trait PrettyPrint {
   pretty_print(Self, PrettyPrintContext) -> String
 }
+

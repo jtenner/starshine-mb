@@ -163,6 +163,22 @@ fn collect_op_values(op : SSAOp, out : Set[SSAValue]) -> Unit {
       out.add(do_)
       out.add(l)
     }
+    SSAOp::StringNewUtf8Array(array, start, end_)
+    | SSAOp::StringNewWtf16Array(array, start, end_)
+    | SSAOp::StringNewLossyUtf8Array(array, start, end_)
+    | SSAOp::StringNewWtf8Array(array, start, end_) => {
+      out.add(array)
+      out.add(start)
+      out.add(end_)
+    }
+    SSAOp::StringEncodeUtf8Array(string, array, start)
+    | SSAOp::StringEncodeWtf16Array(string, array, start)
+    | SSAOp::StringEncodeLossyUtf8Array(string, array, start)
+    | SSAOp::StringEncodeWtf8Array(string, array, start) => {
+      out.add(string)
+      out.add(array)
+      out.add(start)
+    }
     SSAOp::Splat(_, v) => out.add(v)
     SSAOp::ExtractLane(_, _, v) => out.add(v)
     SSAOp::ReplaceLane(_, _, vec, val) => {

@@ -1369,6 +1369,54 @@ fn SSAOptCtx::rewrite_op(self : SSAOptCtx, op : SSAOp) -> SSAOp {
         self.rewrite_value(c),
         self.rewrite_value(d),
       )
+    StringNewUtf8Array(array, start, end_) =>
+      StringNewUtf8Array(
+        self.rewrite_value(array),
+        self.rewrite_value(start),
+        self.rewrite_value(end_),
+      )
+    StringNewWtf16Array(array, start, end_) =>
+      StringNewWtf16Array(
+        self.rewrite_value(array),
+        self.rewrite_value(start),
+        self.rewrite_value(end_),
+      )
+    StringEncodeUtf8Array(string, array, start) =>
+      StringEncodeUtf8Array(
+        self.rewrite_value(string),
+        self.rewrite_value(array),
+        self.rewrite_value(start),
+      )
+    StringEncodeWtf16Array(string, array, start) =>
+      StringEncodeWtf16Array(
+        self.rewrite_value(string),
+        self.rewrite_value(array),
+        self.rewrite_value(start),
+      )
+    StringNewLossyUtf8Array(array, start, end_) =>
+      StringNewLossyUtf8Array(
+        self.rewrite_value(array),
+        self.rewrite_value(start),
+        self.rewrite_value(end_),
+      )
+    StringNewWtf8Array(array, start, end_) =>
+      StringNewWtf8Array(
+        self.rewrite_value(array),
+        self.rewrite_value(start),
+        self.rewrite_value(end_),
+      )
+    StringEncodeLossyUtf8Array(string, array, start) =>
+      StringEncodeLossyUtf8Array(
+        self.rewrite_value(string),
+        self.rewrite_value(array),
+        self.rewrite_value(start),
+      )
+    StringEncodeWtf8Array(string, array, start) =>
+      StringEncodeWtf8Array(
+        self.rewrite_value(string),
+        self.rewrite_value(array),
+        self.rewrite_value(start),
+      )
     Splat(sop, a) => Splat(sop, self.rewrite_value(a))
     ExtractLane(eop, li, a) => ExtractLane(eop, li, self.rewrite_value(a))
     ReplaceLane(rop, li, a, b) =>
@@ -1567,6 +1615,22 @@ fn SSAOptCtx::mark_op_uses(self : SSAOptCtx, op : SSAOp) -> Unit {
       self.mark_value_used(c)
       self.mark_value_used(d)
       self.mark_value_used(e)
+    }
+    StringNewUtf8Array(array, start, end_)
+    | StringNewWtf16Array(array, start, end_)
+    | StringNewLossyUtf8Array(array, start, end_)
+    | StringNewWtf8Array(array, start, end_) => {
+      self.mark_value_used(array)
+      self.mark_value_used(start)
+      self.mark_value_used(end_)
+    }
+    StringEncodeUtf8Array(string, array, start)
+    | StringEncodeWtf16Array(string, array, start)
+    | StringEncodeLossyUtf8Array(string, array, start)
+    | StringEncodeWtf8Array(string, array, start) => {
+      self.mark_value_used(string)
+      self.mark_value_used(array)
+      self.mark_value_used(start)
     }
     Call(_, vs)
     | StructNew(_, vs)

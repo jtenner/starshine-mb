@@ -13,6 +13,8 @@ pub fn all_binaryen_passes() -> Array[BinaryenPass]
 
 pub fn default_optimize_pipeline(PipelineGlobal, features? : PipelineFeatures) -> Array[PipelineEntry]
 
+pub fn run_dead_code_elimination(@lib.Module, PipelineScratch) -> (@lib.Module, PipelineScratch)
+
 pub fn run_duplicate_function_elimination(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)
 
 pub fn run_memory_packing(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)

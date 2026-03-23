@@ -173,6 +173,39 @@ test "to_cfg inserts phi copies into predecessor blocks" {
 }
 
 ///|
+test "to_instr lowers string array SSA ops back to typed instructions" {
+  let v_string = SSAValue(0)
+  let v_array = SSAValue(1)
+  let v_start = SSAValue(2)
+  let v_end = SSAValue(3)
+  let new_instr = convert_ssa_op_to_tinstr(
+    SSAOp::StringNewWtf16Array(v_array, v_start, v_end),
+    SSADestructor::new(0),
+  )
+  let encode_instr = convert_ssa_op_to_tinstr(
+    SSAOp::StringEncodeUtf8Array(v_string, v_array, v_start),
+    SSADestructor::new(0),
+  )
+
+  match new_instr.kind {
+    TInstrKind::TStringNewWtf16Array(array, start, end_) => {
+      assert_eq(array, TInstr::local_get(LocalIdx::new(0)))
+      assert_eq(start, TInstr::local_get(LocalIdx::new(1)))
+      assert_eq(end_, TInstr::local_get(LocalIdx::new(2)))
+    }
+    _ => fail("expected string.new_wtf16_array")
+  }
+  match encode_instr.kind {
+    TInstrKind::TStringEncodeUtf8Array(string, array, start) => {
+      assert_eq(string, TInstr::local_get(LocalIdx::new(0)))
+      assert_eq(array, TInstr::local_get(LocalIdx::new(1)))
+      assert_eq(start, TInstr::local_get(LocalIdx::new(2)))
+    }
+    _ => fail("expected string.encode_utf8_array")
+  }
+}
+
+///|
 fn ssa_destruction_type_ctx(local_types : Locals) -> TypeContext {
   {
     func_types: [],

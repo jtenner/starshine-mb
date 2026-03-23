@@ -3075,6 +3075,90 @@ fn typecheck_array_new_data(st : TcState, x : TypeIdx, y : DataIdx) -> TcResult 
 }
 
 ///|
+fn typecheck_string_array_ref(
+  st : TcState,
+  op_name : String,
+  expected_storage : StorageType,
+  require_mutable : Bool,
+) -> TcResult {
+  let want_array_ref = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::array())),
+  )
+  let (st1, actual) = match st.pop1() {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  if actual == ValType::bottom() {
+    return Ok(st1)
+  }
+  if !Match::matches(actual, want_array_ref, st.env) {
+    return Err(op_name + " requires a nullable array reference operand")
+  }
+  let rt = match actual {
+    RefTypeValType(rt) => rt
+    _ => return Err(op_name + " requires a nullable array reference operand")
+  }
+  let subtype = match st.env.resolve_heaptype_subtype(rt.get_heap_type()) {
+    Some(subtype) => subtype
+    None => return Err(op_name + " requires a concrete array type operand")
+  }
+  let field_type = match subtype.get_comptype() {
+    ArrayCompType(field_type) => field_type
+    _ => return Err(op_name + " requires an array type operand")
+  }
+  if require_mutable && !field_type.is_mutable() {
+    return Err(op_name + " requires a mutable array element type")
+  }
+  if field_type.get_storage_type() != expected_storage {
+    return Err(op_name + " requires a matching array element storage type")
+  }
+  Ok(st1)
+}
+
+///|
+fn typecheck_string_new_array(
+  st : TcState,
+  expected_storage : StorageType,
+) -> TcResult {
+  let st1 = match st.pop_expect(ValType::i32()) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let st2 = match st1.pop_expect(ValType::i32()) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let st3 = match
+    typecheck_string_array_ref(st2, "string.new_array", expected_storage, false) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  Ok(st3.push1(ValType::stringref()))
+}
+
+///|
+fn typecheck_string_encode_array(
+  st : TcState,
+  op_name : String,
+  expected_storage : StorageType,
+) -> TcResult {
+  let st1 = match st.pop_expect(ValType::i32()) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let st2 = match
+    typecheck_string_array_ref(st1, op_name, expected_storage, true) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let st3 = match st2.pop_expect(ValType::stringref()) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  Ok(st3.push1(ValType::i32()))
+}
+
+///|
 pub impl Typecheck for Instruction with typecheck(self, st) {
   match self {
     Unreachable => Ok(st.set_unreachable())
@@ -3237,6 +3321,38 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     RefFunc(f) => typecheck_ref_func(st, f)
     RefAsNonNull => typecheck_ref_as_non_null(st)
     RefEq => typecheck_ref_eq(st)
+    StringNewUtf8Array =>
+      typecheck_string_new_array(st, StorageType::pack_type(PackType::i8()))
+    StringNewWtf16Array =>
+      typecheck_string_new_array(st, StorageType::pack_type(PackType::i16()))
+    StringEncodeUtf8Array =>
+      typecheck_string_encode_array(
+        st,
+        "string.encode_utf8_array",
+        StorageType::pack_type(PackType::i8()),
+      )
+    StringEncodeWtf16Array =>
+      typecheck_string_encode_array(
+        st,
+        "string.encode_wtf16_array",
+        StorageType::pack_type(PackType::i16()),
+      )
+    StringNewLossyUtf8Array =>
+      typecheck_string_new_array(st, StorageType::pack_type(PackType::i8()))
+    StringNewWtf8Array =>
+      typecheck_string_new_array(st, StorageType::pack_type(PackType::i8()))
+    StringEncodeLossyUtf8Array =>
+      typecheck_string_encode_array(
+        st,
+        "string.encode_lossy_utf8_array",
+        StorageType::pack_type(PackType::i8()),
+      )
+    StringEncodeWtf8Array =>
+      typecheck_string_encode_array(
+        st,
+        "string.encode_wtf8_array",
+        StorageType::pack_type(PackType::i8()),
+      )
     RefGetDesc(type_idx) => typecheck_ref_get_desc(st, type_idx)
     RefTest(nullable, ht) => typecheck_ref_test(st, nullable, ht)
     RefCast(nullable, ht) => typecheck_ref_cast(st, nullable, ht)
@@ -4897,6 +5013,112 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         None => typecheck_select_untyped(st_cond)
         Some(ts) => typecheck_select_typed(st_cond, ts)
       }
+    }
+
+    // === Strings ===
+    TInstrKind::TStringNewUtf8Array(array, start, end_) => {
+      let st1 = match Typecheck::typecheck(array, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match Typecheck::typecheck(start, st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match Typecheck::typecheck(end_, st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_string_new_array(st3, StorageType::pack_type(PackType::i8()))
+    }
+    TInstrKind::TStringNewWtf16Array(array, start, end_) => {
+      let st1 = match Typecheck::typecheck(array, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match Typecheck::typecheck(start, st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match Typecheck::typecheck(end_, st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_string_new_array(st3, StorageType::pack_type(PackType::i16()))
+    }
+    TInstrKind::TStringEncodeUtf8Array(string, array, start) => {
+      let st1 = match Typecheck::typecheck(string, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match Typecheck::typecheck(array, st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match Typecheck::typecheck(start, st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_string_encode_array(
+        st3,
+        "string.encode_utf8_array",
+        StorageType::pack_type(PackType::i8()),
+      )
+    }
+    TInstrKind::TStringEncodeWtf16Array(string, array, start) => {
+      let st1 = match Typecheck::typecheck(string, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match Typecheck::typecheck(array, st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match Typecheck::typecheck(start, st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_string_encode_array(
+        st3,
+        "string.encode_wtf16_array",
+        StorageType::pack_type(PackType::i16()),
+      )
+    }
+    TInstrKind::TStringNewLossyUtf8Array(array, start, end_)
+    | TInstrKind::TStringNewWtf8Array(array, start, end_) => {
+      let st1 = match Typecheck::typecheck(array, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match Typecheck::typecheck(start, st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match Typecheck::typecheck(end_, st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_string_new_array(st3, StorageType::pack_type(PackType::i8()))
+    }
+    TInstrKind::TStringEncodeLossyUtf8Array(string, array, start)
+    | TInstrKind::TStringEncodeWtf8Array(string, array, start) => {
+      let st1 = match Typecheck::typecheck(string, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match Typecheck::typecheck(array, st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match Typecheck::typecheck(start, st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_string_encode_array(
+        st3,
+        "string.encode_array",
+        StorageType::pack_type(PackType::i8()),
+      )
     }
 
     // === Structs ===
@@ -8562,6 +8784,65 @@ test "Typecheck ArrayNewElem" {
   )
   let final_state = assert_ok(result)
   assert_eq(final_state.stack.length(), 1)
+}
+
+///|
+test "Typecheck StringNewWtf16Array" {
+  let array_type = SubType::comp_type(
+    CompType::array(
+      FieldType::new(StorageType::pack_type(PackType::i16()), Const),
+    ),
+  )
+  let env = { ..empty_env(), global_types: [array_type] }
+  let state = make_state(env, [
+    ValType::ref_array_nullable(TypeIdx::new(0)),
+    ValType::i32(),
+    ValType::i32(),
+  ])
+  let result = Typecheck::typecheck(
+    Instruction::string_new_wtf16_array(),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [ValType::stringref()])
+}
+
+///|
+test "Typecheck StringEncodeUtf8Array" {
+  let array_type = SubType::comp_type(
+    CompType::array(FieldType::new(StorageType::pack_type(PackType::i8()), Var)),
+  )
+  let env = { ..empty_env(), global_types: [array_type] }
+  let state = make_state(env, [
+    ValType::stringref(),
+    ValType::ref_array_nullable(TypeIdx::new(0)),
+    ValType::i32(),
+  ])
+  let result = Typecheck::typecheck(
+    Instruction::string_encode_utf8_array(),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [ValType::i32()])
+}
+
+///|
+test "Typecheck StringEncodeWtf16Array rejects immutable arrays" {
+  let array_type = SubType::comp_type(
+    CompType::array(
+      FieldType::new(StorageType::pack_type(PackType::i16()), Const),
+    ),
+  )
+  let env = { ..empty_env(), global_types: [array_type] }
+  let state = make_state(env, [
+    ValType::stringref(),
+    ValType::ref_array_nullable(TypeIdx::new(0)),
+    ValType::i32(),
+  ])
+  match Typecheck::typecheck(Instruction::string_encode_wtf16_array(), state) {
+    Err(err) => assert_true(err.contains("mutable"))
+    Ok(_) => fail("expected immutable string.encode_wtf16_array array to fail")
+  }
 }
 
 ///|

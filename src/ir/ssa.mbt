@@ -89,6 +89,22 @@ fn collect_instr_locals(instr : TInstr, locals : Set[LocalIdx]) -> Unit {
       collect_instr_locals(a, locals)
     TInstrKind::TRefI31(a) => collect_instr_locals(a, locals)
     TInstrKind::TArrayLen(a) => collect_instr_locals(a, locals)
+    TInstrKind::TStringNewUtf8Array(array, start, end_)
+    | TInstrKind::TStringNewWtf16Array(array, start, end_)
+    | TInstrKind::TStringNewLossyUtf8Array(array, start, end_)
+    | TInstrKind::TStringNewWtf8Array(array, start, end_) => {
+      collect_instr_locals(array, locals)
+      collect_instr_locals(start, locals)
+      collect_instr_locals(end_, locals)
+    }
+    TInstrKind::TStringEncodeUtf8Array(string, array, start)
+    | TInstrKind::TStringEncodeWtf16Array(string, array, start)
+    | TInstrKind::TStringEncodeLossyUtf8Array(string, array, start)
+    | TInstrKind::TStringEncodeWtf8Array(string, array, start) => {
+      collect_instr_locals(string, locals)
+      collect_instr_locals(array, locals)
+      collect_instr_locals(start, locals)
+    }
     TInstrKind::TAnyConvertExtern(a) | TInstrKind::TExternConvertAny(a) =>
       collect_instr_locals(a, locals)
     TInstrKind::TThrowRef(a) => collect_instr_locals(a, locals)
@@ -458,6 +474,20 @@ fn instr_defines_local(instr : TInstr, target : LocalIdx) -> Bool {
       instr_defines_local(a, target) ||
       instr_defines_local(b, target) ||
       instr_defines_local(c, target)
+    TInstrKind::TStringNewUtf8Array(array, start, end_)
+    | TInstrKind::TStringNewWtf16Array(array, start, end_)
+    | TInstrKind::TStringNewLossyUtf8Array(array, start, end_)
+    | TInstrKind::TStringNewWtf8Array(array, start, end_) =>
+      instr_defines_local(array, target) ||
+      instr_defines_local(start, target) ||
+      instr_defines_local(end_, target)
+    TInstrKind::TStringEncodeUtf8Array(string, array, start)
+    | TInstrKind::TStringEncodeWtf16Array(string, array, start)
+    | TInstrKind::TStringEncodeLossyUtf8Array(string, array, start)
+    | TInstrKind::TStringEncodeWtf8Array(string, array, start) =>
+      instr_defines_local(string, target) ||
+      instr_defines_local(array, target) ||
+      instr_defines_local(start, target)
     // ... extend for other cases as needed
     _ => false
   }
@@ -573,7 +603,7 @@ fn rename_instr(
     }
     TInstrKind::TRefNull(ht) => {
       let v = builder.fresh()
-      out.push(SSAInstr::Assign(v, SSAOp::RefNull(ht)))
+      out.push(SSAInstr::Assign(v, SSAOp::RefNull(ht.get_heap_type())))
       Some(v)
     }
     TInstrKind::TRefFunc(idx) => {
@@ -1013,6 +1043,141 @@ fn rename_instr(
         }
         None => None
       }
+    TInstrKind::TStringNewUtf8Array(array, start, end_) => {
+      let array_v = rename_instr(array, builder, out)
+      let start_v = rename_instr(start, builder, out)
+      let end_v = rename_instr(end_, builder, out)
+      match (array_v, start_v, end_v) {
+        (Some(array), Some(start), Some(end_)) => {
+          let v = builder.fresh()
+          out.push(
+            SSAInstr::Assign(v, SSAOp::StringNewUtf8Array(array, start, end_)),
+          )
+          Some(v)
+        }
+        _ => None
+      }
+    }
+    TInstrKind::TStringNewWtf16Array(array, start, end_) => {
+      let array_v = rename_instr(array, builder, out)
+      let start_v = rename_instr(start, builder, out)
+      let end_v = rename_instr(end_, builder, out)
+      match (array_v, start_v, end_v) {
+        (Some(array), Some(start), Some(end_)) => {
+          let v = builder.fresh()
+          out.push(
+            SSAInstr::Assign(v, SSAOp::StringNewWtf16Array(array, start, end_)),
+          )
+          Some(v)
+        }
+        _ => None
+      }
+    }
+    TInstrKind::TStringEncodeUtf8Array(string, array, start) => {
+      let string_v = rename_instr(string, builder, out)
+      let array_v = rename_instr(array, builder, out)
+      let start_v = rename_instr(start, builder, out)
+      match (string_v, array_v, start_v) {
+        (Some(string), Some(array), Some(start)) => {
+          let v = builder.fresh()
+          out.push(
+            SSAInstr::Assign(
+              v,
+              SSAOp::StringEncodeUtf8Array(string, array, start),
+            ),
+          )
+          Some(v)
+        }
+        _ => None
+      }
+    }
+    TInstrKind::TStringEncodeWtf16Array(string, array, start) => {
+      let string_v = rename_instr(string, builder, out)
+      let array_v = rename_instr(array, builder, out)
+      let start_v = rename_instr(start, builder, out)
+      match (string_v, array_v, start_v) {
+        (Some(string), Some(array), Some(start)) => {
+          let v = builder.fresh()
+          out.push(
+            SSAInstr::Assign(
+              v,
+              SSAOp::StringEncodeWtf16Array(string, array, start),
+            ),
+          )
+          Some(v)
+        }
+        _ => None
+      }
+    }
+    TInstrKind::TStringNewLossyUtf8Array(array, start, end_) => {
+      let array_v = rename_instr(array, builder, out)
+      let start_v = rename_instr(start, builder, out)
+      let end_v = rename_instr(end_, builder, out)
+      match (array_v, start_v, end_v) {
+        (Some(array), Some(start), Some(end_)) => {
+          let v = builder.fresh()
+          out.push(
+            SSAInstr::Assign(
+              v,
+              SSAOp::StringNewLossyUtf8Array(array, start, end_),
+            ),
+          )
+          Some(v)
+        }
+        _ => None
+      }
+    }
+    TInstrKind::TStringNewWtf8Array(array, start, end_) => {
+      let array_v = rename_instr(array, builder, out)
+      let start_v = rename_instr(start, builder, out)
+      let end_v = rename_instr(end_, builder, out)
+      match (array_v, start_v, end_v) {
+        (Some(array), Some(start), Some(end_)) => {
+          let v = builder.fresh()
+          out.push(
+            SSAInstr::Assign(v, SSAOp::StringNewWtf8Array(array, start, end_)),
+          )
+          Some(v)
+        }
+        _ => None
+      }
+    }
+    TInstrKind::TStringEncodeLossyUtf8Array(string, array, start) => {
+      let string_v = rename_instr(string, builder, out)
+      let array_v = rename_instr(array, builder, out)
+      let start_v = rename_instr(start, builder, out)
+      match (string_v, array_v, start_v) {
+        (Some(string), Some(array), Some(start)) => {
+          let v = builder.fresh()
+          out.push(
+            SSAInstr::Assign(
+              v,
+              SSAOp::StringEncodeLossyUtf8Array(string, array, start),
+            ),
+          )
+          Some(v)
+        }
+        _ => None
+      }
+    }
+    TInstrKind::TStringEncodeWtf8Array(string, array, start) => {
+      let string_v = rename_instr(string, builder, out)
+      let array_v = rename_instr(array, builder, out)
+      let start_v = rename_instr(start, builder, out)
+      match (string_v, array_v, start_v) {
+        (Some(string), Some(array), Some(start)) => {
+          let v = builder.fresh()
+          out.push(
+            SSAInstr::Assign(
+              v,
+              SSAOp::StringEncodeWtf8Array(string, array, start),
+            ),
+          )
+          Some(v)
+        }
+        _ => None
+      }
+    }
 
     // Structs
     TInstrKind::TStructNew(ty, args) => {

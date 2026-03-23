@@ -55,7 +55,7 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Generated optimize runs now derive:
   - `has_gc` and `has_multivalue` from the decoded module,
   - `closed_world`, `low_memory_unused`, and `traps_never_happen` from `OptimizeOptions`,
-  - and currently leave `has_strings` false because Starshine does not yet model string instructions in IR.
+  - and now derive `has_strings` from decoded/string-typed module surface, including `stringref` heap refs and the landed array-backed string instructions.
 - The currently landed behavior is still intentionally conservative, but no longer function-only:
   - roots exported and start functions,
   - keeps active elem/data segments only when their target table or memory is imported or otherwise live,

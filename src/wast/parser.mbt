@@ -343,6 +343,14 @@ pub enum Instruction {
   RefNull(ValueType)
   RefIsNull
   RefFunc(Index)
+  StringNewUtf8Array
+  StringNewWtf16Array
+  StringEncodeUtf8Array
+  StringEncodeWtf16Array
+  StringNewLossyUtf8Array
+  StringNewWtf8Array
+  StringEncodeLossyUtf8Array
+  StringEncodeWtf8Array
   StructNew(Index)
   StructNewDefault(Index)
   StructGet(Index, UInt)
@@ -896,6 +904,7 @@ fn exact_heap_type_ref_from_index(idx : Index) -> HeapTypeRef {
 fn heap_type_ref_from_reserved_keyword(text : String) -> HeapTypeRef? {
   match text {
     "any" => Some(HeapTypeRef::Any)
+    "string" => Some(HeapTypeRef::String)
     "array" => Some(HeapTypeRef::Array)
     "eq" => Some(HeapTypeRef::Eq)
     "i31" => Some(HeapTypeRef::I31)
@@ -912,6 +921,7 @@ fn heap_type_ref_from_reserved_keyword(text : String) -> HeapTypeRef? {
 fn legacy_alias_value_type_from_reserved_keyword(text : String) -> ValueType? {
   match text {
     "anyref" => Some(TypedFuncRef(HeapTypeRef::Any))
+    "stringref" => Some(TypedFuncRef(HeapTypeRef::String))
     "arrayref" => Some(TypedFuncRef(HeapTypeRef::Array))
     "eqref" => Some(TypedFuncRef(HeapTypeRef::Eq))
     "i31ref" => Some(TypedFuncRef(HeapTypeRef::I31))
@@ -2069,6 +2079,14 @@ fn WastParser::parse_opcode_instruction(
     }
     RefIsNull => RefIsNull
     RefFunc => RefFunc(self.parse_index())
+    StringNewUtf8Array => StringNewUtf8Array
+    StringNewWtf16Array => StringNewWtf16Array
+    StringEncodeUtf8Array => StringEncodeUtf8Array
+    StringEncodeWtf16Array => StringEncodeWtf16Array
+    StringNewLossyUtf8Array => StringNewLossyUtf8Array
+    StringNewWtf8Array => StringNewWtf8Array
+    StringEncodeLossyUtf8Array => StringEncodeLossyUtf8Array
+    StringEncodeWtf8Array => StringEncodeWtf8Array
 
     // SIMD - delegate to SIMD parser
     _ => self.parse_simd_instruction(op)

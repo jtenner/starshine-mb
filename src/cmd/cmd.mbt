@@ -1423,7 +1423,7 @@ fn cmd_generated_pipeline_global(options : OptimizeOptions) -> PipelineGlobal {
 priv struct CmdGeneratedPipelineFeatureFacts {
   mut has_gc : Bool
   mut has_multivalue : Bool
-  has_strings : Bool
+  mut has_strings : Bool
 }
 
 ///|
@@ -1440,6 +1440,14 @@ fn cmd_abs_heap_type_has_gc(abs : @lib.AbsHeapType) -> Bool {
     | @lib.EqAbsHeapType
     | @lib.AnyAbsHeapType
     | @lib.NoneAbsHeapType => true
+    _ => false
+  }
+}
+
+///|
+fn cmd_abs_heap_type_has_strings(abs : @lib.AbsHeapType) -> Bool {
+  match abs {
+    @lib.StringAbsHeapType => true
     _ => false
   }
 }
@@ -1465,6 +1473,14 @@ fn cmd_heap_type_has_gc(ht : @lib.HeapType) -> Bool {
 fn cmd_instruction_has_gc(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.RefEq
+    | @lib.StringNewUtf8Array
+    | @lib.StringNewWtf16Array
+    | @lib.StringEncodeUtf8Array
+    | @lib.StringEncodeWtf16Array
+    | @lib.StringNewLossyUtf8Array
+    | @lib.StringNewWtf8Array
+    | @lib.StringEncodeLossyUtf8Array
+    | @lib.StringEncodeWtf8Array
     | @lib.StructNew(_)
     | @lib.StructNewDefault(_)
     | @lib.StructGet(_, _)
@@ -1505,6 +1521,14 @@ fn cmd_instruction_has_gc(instr : @lib.Instruction) -> Bool {
 fn cmd_tinstruction_has_gc(instr : @lib.TInstr) -> Bool {
   match instr.kind {
     @lib.TRefEq(_, _)
+    | @lib.TStringNewUtf8Array(_, _, _)
+    | @lib.TStringNewWtf16Array(_, _, _)
+    | @lib.TStringEncodeUtf8Array(_, _, _)
+    | @lib.TStringEncodeWtf16Array(_, _, _)
+    | @lib.TStringNewLossyUtf8Array(_, _, _)
+    | @lib.TStringNewWtf8Array(_, _, _)
+    | @lib.TStringEncodeLossyUtf8Array(_, _, _)
+    | @lib.TStringEncodeWtf8Array(_, _, _)
     | @lib.TStructNew(_, _)
     | @lib.TStructNewDefault(_)
     | @lib.TStructGet(_, _, _)
@@ -1559,10 +1583,14 @@ fn cmd_generated_pipeline_feature_facts(
     })
     .on_reftype_evt(fn(_, _, ref_type) {
       match ref_type {
-        @lib.AbsHeapTypeRefType(abs) =>
+        @lib.AbsHeapTypeRefType(abs) => {
           if cmd_abs_heap_type_has_gc(abs) {
             facts.has_gc = true
           }
+          if cmd_abs_heap_type_has_strings(abs) {
+            facts.has_strings = true
+          }
+        }
         _ => ()
       }
       unchanged()
@@ -1571,11 +1599,29 @@ fn cmd_generated_pipeline_feature_facts(
       if cmd_heap_type_has_gc(heap_type) {
         facts.has_gc = true
       }
+      match heap_type {
+        @lib.AbsHeapTypeHeapType(abs) =>
+          if cmd_abs_heap_type_has_strings(abs) {
+            facts.has_strings = true
+          }
+        _ => ()
+      }
       unchanged()
     })
     .on_instruction_evt(fn(_, _, instr) {
       if cmd_instruction_has_gc(instr) {
         facts.has_gc = true
+      }
+      match instr {
+        @lib.StringNewUtf8Array
+        | @lib.StringNewWtf16Array
+        | @lib.StringEncodeUtf8Array
+        | @lib.StringEncodeWtf16Array
+        | @lib.StringNewLossyUtf8Array
+        | @lib.StringNewWtf8Array
+        | @lib.StringEncodeLossyUtf8Array
+        | @lib.StringEncodeWtf8Array => facts.has_strings = true
+        _ => ()
       }
       match instr {
         @lib.Select(Some(types)) =>
@@ -1589,6 +1635,17 @@ fn cmd_generated_pipeline_feature_facts(
     .on_tinstruction_evt(fn(_, _, instr) {
       if cmd_tinstruction_has_gc(instr) {
         facts.has_gc = true
+      }
+      match instr.kind {
+        @lib.TStringNewUtf8Array(_, _, _)
+        | @lib.TStringNewWtf16Array(_, _, _)
+        | @lib.TStringEncodeUtf8Array(_, _, _)
+        | @lib.TStringEncodeWtf16Array(_, _, _)
+        | @lib.TStringNewLossyUtf8Array(_, _, _)
+        | @lib.TStringNewWtf8Array(_, _, _)
+        | @lib.TStringEncodeLossyUtf8Array(_, _, _)
+        | @lib.TStringEncodeWtf8Array(_, _, _) => facts.has_strings = true
+        _ => ()
       }
       match instr.kind {
         @lib.TSelect(Some(types), _, _, _) =>

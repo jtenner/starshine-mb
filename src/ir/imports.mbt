@@ -42,6 +42,8 @@ using @lib {
   type TableType,
   type TagType,
   type FieldType,
+  type PackType,
+  type StorageType,
   type BlockType,
   type LabelIdx,
   type Module,

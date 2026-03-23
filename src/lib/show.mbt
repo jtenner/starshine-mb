@@ -68,6 +68,7 @@ pub impl Show for NumType with output(self, logger) {
 pub impl Show for AbsHeapType with output(self, logger) {
   match self {
     ExnAbsHeapType => logger.write_string("(AbsHeapType Exn)")
+    StringAbsHeapType => logger.write_string("(AbsHeapType String)")
     ArrayAbsHeapType => logger.write_string("(AbsHeapType Array)")
     StructAbsHeapType => logger.write_string("(AbsHeapType Struct)")
     I31AbsHeapType => logger.write_string("(AbsHeapType I31)")
@@ -1424,6 +1425,16 @@ pub impl Show for Instruction with output(self, logger) {
       n.output(logger)
       logger.write_char(')')
     }
+    StringNewUtf8Array => logger.write_string("string.new_utf8_array")
+    StringNewWtf16Array => logger.write_string("string.new_wtf16_array")
+    StringEncodeUtf8Array => logger.write_string("string.encode_utf8_array")
+    StringEncodeWtf16Array => logger.write_string("string.encode_wtf16_array")
+    StringNewLossyUtf8Array =>
+      logger.write_string("string.new_lossy_utf8_array")
+    StringNewWtf8Array => logger.write_string("string.new_wtf8_array")
+    StringEncodeLossyUtf8Array =>
+      logger.write_string("string.encode_lossy_utf8_array")
+    StringEncodeWtf8Array => logger.write_string("string.encode_wtf8_array")
     ArrayGet(i) => {
       logger.write_string("(array.get ")
       i.output(logger)

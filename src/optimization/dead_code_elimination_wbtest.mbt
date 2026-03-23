@@ -127,6 +127,28 @@ fn dead_code_elimination_test_descriptor_body(
 }
 
 ///|
+fn dead_code_elimination_test_string_body(
+  locals : @lib.Locals,
+  instrs : Array[@lib.TInstr],
+) -> Array[@lib.TInstr] {
+  let mod = Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([@lib.Func::t_func([], locals, @lib.TExpr::new(instrs))]),
+    )
+  let optimized = dead_code_elimination_test_run(mod)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => body.inner()
+    _ => abort("expected optimized single typed function body")
+  }
+}
+
+///|
 fn dead_code_elimination_test_call_body(
   instr : @lib.TInstr,
 ) -> Array[@lib.TInstr] {
@@ -736,4 +758,40 @@ test "dead code elimination replaces ref_get_desc when its operand is unreachabl
     ),
   ])
   assert_eq(body, [@lib.TInstr::unreachable_()])
+}
+
+///|
+test "dead code elimination removes dead string.new_wtf16_array tee tails" {
+  let body = dead_code_elimination_test_string_body(
+    @lib.Locals::new([@lib.LocalRun::new(1U, @lib.ValType::anyref())]),
+    [
+      @lib.TInstr::drop(
+        @lib.TInstr::string_new_wtf16_array(
+          @lib.TInstr::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+          @lib.TInstr::local_tee(
+            @lib.LocalIdx::new(0U),
+            @lib.TInstr::unreachable_(),
+          ),
+          @lib.TInstr::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.TExpr::new([
+              @lib.TInstr::drop(@lib.TInstr::local_get(@lib.LocalIdx::new(0U))),
+              @lib.TInstr::i32_const(@lib.I32::new(10)),
+            ]),
+          ),
+        ),
+      ),
+    ],
+  )
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::void_(),
+      @lib.TExpr::new([
+        @lib.TInstr::drop(
+          @lib.TInstr::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+        ),
+        @lib.TInstr::unreachable_(),
+      ]),
+    ),
+  ])
 }

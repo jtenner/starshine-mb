@@ -30,6 +30,7 @@ pub enum NumType {
 ///|
 pub enum AbsHeapType {
   ExnAbsHeapType
+  StringAbsHeapType
   ArrayAbsHeapType
   StructAbsHeapType
   I31AbsHeapType
@@ -695,6 +696,14 @@ pub enum Instruction {
   RefAsNonNull
   BrOnNull(LabelIdx)
   BrOnNonNull(LabelIdx)
+  StringNewUtf8Array
+  StringNewWtf16Array
+  StringEncodeUtf8Array
+  StringEncodeWtf16Array
+  StringNewLossyUtf8Array
+  StringNewWtf8Array
+  StringEncodeLossyUtf8Array
+  StringEncodeWtf8Array
   StructNew(TypeIdx)
   StructNewDefault(TypeIdx)
   StructNewDesc(TypeIdx)
@@ -1199,6 +1208,11 @@ pub fn ValType::funcref() -> ValType {
 }
 
 ///|
+pub fn ValType::stringref() -> ValType {
+  RefTypeValType(AbsHeapTypeRefType(StringAbsHeapType))
+}
+
+///|
 pub fn ValType::bottom() -> ValType {
   BotValType
 }
@@ -1492,6 +1506,16 @@ pub enum TInstrKind {
   // === Select ===
   TSelect(Array[ValType]?, TInstr, TInstr, TInstr) // cond, if_true, if_false
 
+  // === Strings ===
+  TStringNewUtf8Array(TInstr, TInstr, TInstr) // array, start, end
+  TStringNewWtf16Array(TInstr, TInstr, TInstr)
+  TStringEncodeUtf8Array(TInstr, TInstr, TInstr) // string, array, start
+  TStringEncodeWtf16Array(TInstr, TInstr, TInstr)
+  TStringNewLossyUtf8Array(TInstr, TInstr, TInstr)
+  TStringNewWtf8Array(TInstr, TInstr, TInstr)
+  TStringEncodeLossyUtf8Array(TInstr, TInstr, TInstr)
+  TStringEncodeWtf8Array(TInstr, TInstr, TInstr)
+
   // === GC: Structs ===
   TStructNew(TypeIdx, Array[TInstr])
   TStructNewDefault(TypeIdx)
@@ -1693,6 +1717,14 @@ fn tinstr_size(kind : TInstrKind) -> Int {
     | TTableCopy(_, _, a, b, c)
     | TTableInit(_, _, a, b, c)
     | TSelect(_, c, a, b)
+    | TStringNewUtf8Array(a, b, c)
+    | TStringNewWtf16Array(a, b, c)
+    | TStringEncodeUtf8Array(a, b, c)
+    | TStringEncodeWtf16Array(a, b, c)
+    | TStringNewLossyUtf8Array(a, b, c)
+    | TStringNewWtf8Array(a, b, c)
+    | TStringEncodeLossyUtf8Array(a, b, c)
+    | TStringEncodeWtf8Array(a, b, c)
     | TV128Ternary(_, a, b, c) => a.size + b.size + c.size
 
     // Variable-length operands.
@@ -2318,6 +2350,11 @@ pub enum V128StoreLaneOp {
 ///|
 pub fn AbsHeapType::exn() -> AbsHeapType {
   ExnAbsHeapType
+}
+
+///|
+pub fn AbsHeapType::string_() -> AbsHeapType {
+  StringAbsHeapType
 }
 
 ///|
@@ -3758,6 +3795,46 @@ pub fn Instruction::ref_eq() -> Instruction {
 ///|
 pub fn Instruction::ref_as_non_null() -> Instruction {
   RefAsNonNull
+}
+
+///|
+pub fn Instruction::string_new_utf8_array() -> Instruction {
+  StringNewUtf8Array
+}
+
+///|
+pub fn Instruction::string_new_wtf16_array() -> Instruction {
+  StringNewWtf16Array
+}
+
+///|
+pub fn Instruction::string_encode_utf8_array() -> Instruction {
+  StringEncodeUtf8Array
+}
+
+///|
+pub fn Instruction::string_encode_wtf16_array() -> Instruction {
+  StringEncodeWtf16Array
+}
+
+///|
+pub fn Instruction::string_new_lossy_utf8_array() -> Instruction {
+  StringNewLossyUtf8Array
+}
+
+///|
+pub fn Instruction::string_new_wtf8_array() -> Instruction {
+  StringNewWtf8Array
+}
+
+///|
+pub fn Instruction::string_encode_lossy_utf8_array() -> Instruction {
+  StringEncodeLossyUtf8Array
+}
+
+///|
+pub fn Instruction::string_encode_wtf8_array() -> Instruction {
+  StringEncodeWtf8Array
 }
 
 ///|
@@ -5861,6 +5938,78 @@ pub fn TInstr::select(
   i2 : TInstr,
 ) -> TInstr {
   tinstr(TSelect(tys, i0, i1, i2))
+}
+
+///|
+pub fn TInstr::string_new_utf8_array(
+  array : TInstr,
+  start : TInstr,
+  end_ : TInstr,
+) -> TInstr {
+  tinstr(TStringNewUtf8Array(array, start, end_))
+}
+
+///|
+pub fn TInstr::string_new_wtf16_array(
+  array : TInstr,
+  start : TInstr,
+  end_ : TInstr,
+) -> TInstr {
+  tinstr(TStringNewWtf16Array(array, start, end_))
+}
+
+///|
+pub fn TInstr::string_encode_utf8_array(
+  string : TInstr,
+  array : TInstr,
+  start : TInstr,
+) -> TInstr {
+  tinstr(TStringEncodeUtf8Array(string, array, start))
+}
+
+///|
+pub fn TInstr::string_encode_wtf16_array(
+  string : TInstr,
+  array : TInstr,
+  start : TInstr,
+) -> TInstr {
+  tinstr(TStringEncodeWtf16Array(string, array, start))
+}
+
+///|
+pub fn TInstr::string_new_lossy_utf8_array(
+  array : TInstr,
+  start : TInstr,
+  end_ : TInstr,
+) -> TInstr {
+  tinstr(TStringNewLossyUtf8Array(array, start, end_))
+}
+
+///|
+pub fn TInstr::string_new_wtf8_array(
+  array : TInstr,
+  start : TInstr,
+  end_ : TInstr,
+) -> TInstr {
+  tinstr(TStringNewWtf8Array(array, start, end_))
+}
+
+///|
+pub fn TInstr::string_encode_lossy_utf8_array(
+  string : TInstr,
+  array : TInstr,
+  start : TInstr,
+) -> TInstr {
+  tinstr(TStringEncodeLossyUtf8Array(string, array, start))
+}
+
+///|
+pub fn TInstr::string_encode_wtf8_array(
+  string : TInstr,
+  array : TInstr,
+  start : TInstr,
+) -> TInstr {
+  tinstr(TStringEncodeWtf8Array(string, array, start))
 }
 
 ///|

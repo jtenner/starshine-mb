@@ -93,6 +93,7 @@ pub impl Decode for HeapType with decode(bytes, i) {
 ///|
 pub impl Decode for AbsHeapType with decode(bytes, i) {
   match bytes.get(i) {
+    Some(0x64) => Ok((AbsHeapType::string_(), i + 1))
     Some(0x69) => Ok((AbsHeapType::exn(), i + 1))
     Some(0x6A) => Ok((AbsHeapType::array(), i + 1))
     Some(0x6B) => Ok((AbsHeapType::struct_(), i + 1))
@@ -2725,6 +2726,20 @@ fn decode_instruction_with_depth(
               }
             Err(t) => Err(t)
           }
+        Ok((@lib.U32(0xB0), i)) => Ok((Instruction::string_new_utf8_array(), i))
+        Ok((@lib.U32(0xB1), i)) =>
+          Ok((Instruction::string_new_wtf16_array(), i))
+        Ok((@lib.U32(0xB2), i)) =>
+          Ok((Instruction::string_encode_utf8_array(), i))
+        Ok((@lib.U32(0xB3), i)) =>
+          Ok((Instruction::string_encode_wtf16_array(), i))
+        Ok((@lib.U32(0xB4), i)) =>
+          Ok((Instruction::string_new_lossy_utf8_array(), i))
+        Ok((@lib.U32(0xB5), i)) => Ok((Instruction::string_new_wtf8_array(), i))
+        Ok((@lib.U32(0xB6), i)) =>
+          Ok((Instruction::string_encode_lossy_utf8_array(), i))
+        Ok((@lib.U32(0xB7), i)) =>
+          Ok((Instruction::string_encode_wtf8_array(), i))
         Ok((@lib.U32(20), i)) =>
           match Decode::decode(bytes, i) {
             Ok((ht, i)) => Ok((Instruction::ref_test(false, ht), i))

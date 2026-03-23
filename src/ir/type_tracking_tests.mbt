@@ -187,3 +187,67 @@ test "infer_ssa_types infers atomic results across branch-on-ref edges" {
     Some(ValType::ref_null(HeapType::abs(AbsHeapType::extern_()))),
   )
 }
+
+///|
+test "infer_ssa_types handles string array operators" {
+  let b0 = BlockId(0)
+  let v_string = SSAValue(0)
+  let v_array_u16 = SSAValue(1)
+  let v_array_u8 = SSAValue(2)
+  let v_start = SSAValue(3)
+  let v_end = SSAValue(4)
+  let v_new = SSAValue(5)
+  let v_encode = SSAValue(6)
+
+  let blocks : Map[BlockId, SSABlock] = {}
+  blocks[b0] = SSABlock::{
+    id: b0,
+    phis: [],
+    instrs: [
+      Assign(v_new, SSAOp::StringNewWtf16Array(v_array_u16, v_start, v_end)),
+      Assign(
+        v_encode,
+        SSAOp::StringEncodeUtf8Array(v_string, v_array_u8, v_start),
+      ),
+    ],
+    terminator: SSATerminator::Return([v_new, v_encode]),
+  }
+  let preds : Map[BlockId, Array[BlockId]] = {}
+  preds[b0] = []
+  let params : Map[LocalIdx, SSAValue] = {}
+  params[LocalIdx::new(0)] = v_string
+  params[LocalIdx::new(1)] = v_array_u16
+  params[LocalIdx::new(2)] = v_array_u8
+  params[LocalIdx::new(3)] = v_start
+  params[LocalIdx::new(4)] = v_end
+  let cfg = SSACFG::{
+    entry: b0,
+    blocks,
+    preds,
+    param_values: params,
+    next_value: 7,
+  }
+
+  let ctx = TypeContext::{
+    func_types: [],
+    global_types: [],
+    table_types: [],
+    struct_types: [],
+    array_types: [
+      FieldType::new(StorageType::pack_type(PackType::i16()), @lib.Const),
+      FieldType::new(StorageType::pack_type(PackType::i8()), @lib.Var),
+    ],
+    tag_types: [],
+    local_types: Locals::from_types([
+      ValType::stringref(),
+      ValType::ref_null_array_of(TypeIdx::new(0U)),
+      ValType::ref_null_array_of(TypeIdx::new(1U)),
+      ValType::i32(),
+      ValType::i32(),
+    ]),
+  }
+  let types = infer_ssa_types(cfg, ctx)
+
+  assert_eq(types.get(v_new), Some(ValType::stringref()))
+  assert_eq(types.get(v_encode), Some(ValType::i32()))
+}

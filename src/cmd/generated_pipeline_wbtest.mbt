@@ -401,3 +401,39 @@ test "cmd_generated_pipeline_from_flags includes explicit no-dwarf prepasses on 
     OptimizePass::OnceReduction,
   ])
 }
+
+///|
+test "run_generated_pipeline_with_options passes string features to module-wide entries" {
+  let mut saw_has_strings = false
+  let pipeline = [
+    PipelineEntry::new(
+      [],
+      PassGroup::new(
+        PassKind::module_wide(fn(mod, global, features) {
+          saw_has_strings = features.has_strings
+          (mod, global)
+        }),
+        ValidationKind::unchecked(),
+      ),
+    ),
+  ]
+  let mod = Module::new().with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::stringref(), false),
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(
+            @lib.HeapType::abs(@lib.AbsHeapType::string_()),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  match
+    run_generated_pipeline_with_options(mod, pipeline, OptimizeOptions::new()) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected generated pipeline string feature fixture success: \{e}")
+  }
+  assert_true(saw_has_strings)
+}

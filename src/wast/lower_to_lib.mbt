@@ -61,6 +61,7 @@ fn wt_resolve_heap_type_ref(
         None => Err("unknown type id: \{id}")
       }
     Any => Ok((@lib.HeapType::abs(@lib.AbsHeapType::any()), false))
+    String => Ok((@lib.HeapType::abs(@lib.AbsHeapType::string_()), false))
     Array => Ok((@lib.HeapType::abs(@lib.AbsHeapType::array()), false))
     Eq => Ok((@lib.HeapType::abs(@lib.AbsHeapType::eq()), false))
     I31 => Ok((@lib.HeapType::abs(@lib.AbsHeapType::i31()), false))
@@ -1295,6 +1296,16 @@ fn wt_numeric_noarg(op : Opcode) -> Result[@lib.Instruction, String] {
     I64TruncSatF64U => Ok(@lib.Instruction::i64_trunc_sat_f64u())
     RefEq => Ok(@lib.Instruction::ref_eq())
     RefAsNonNull => Ok(@lib.Instruction::ref_as_non_null())
+    StringNewUtf8Array => Ok(@lib.Instruction::string_new_utf8_array())
+    StringNewWtf16Array => Ok(@lib.Instruction::string_new_wtf16_array())
+    StringEncodeUtf8Array => Ok(@lib.Instruction::string_encode_utf8_array())
+    StringEncodeWtf16Array => Ok(@lib.Instruction::string_encode_wtf16_array())
+    StringNewLossyUtf8Array =>
+      Ok(@lib.Instruction::string_new_lossy_utf8_array())
+    StringNewWtf8Array => Ok(@lib.Instruction::string_new_wtf8_array())
+    StringEncodeLossyUtf8Array =>
+      Ok(@lib.Instruction::string_encode_lossy_utf8_array())
+    StringEncodeWtf8Array => Ok(@lib.Instruction::string_encode_wtf8_array())
     AnyConvertExtern => Ok(@lib.Instruction::any_convert_extern())
     ExternConvertAny => Ok(@lib.Instruction::extern_convert_any())
     RefI31 => Ok(@lib.Instruction::ref_i31())
@@ -2374,6 +2385,16 @@ fn wt_instr_to_lib(
       }
       Ok(@lib.Instruction::ref_func(@lib.FuncIdx::new(fi)))
     }
+    StringNewUtf8Array => Ok(@lib.Instruction::string_new_utf8_array())
+    StringNewWtf16Array => Ok(@lib.Instruction::string_new_wtf16_array())
+    StringEncodeUtf8Array => Ok(@lib.Instruction::string_encode_utf8_array())
+    StringEncodeWtf16Array => Ok(@lib.Instruction::string_encode_wtf16_array())
+    StringNewLossyUtf8Array =>
+      Ok(@lib.Instruction::string_new_lossy_utf8_array())
+    StringNewWtf8Array => Ok(@lib.Instruction::string_new_wtf8_array())
+    StringEncodeLossyUtf8Array =>
+      Ok(@lib.Instruction::string_encode_lossy_utf8_array())
+    StringEncodeWtf8Array => Ok(@lib.Instruction::string_encode_wtf8_array())
     StructNew(idx)
     | StructNewDefault(idx)
     | StructNewDesc(idx)
@@ -7161,5 +7182,57 @@ test "wast_to_binary_module preserves NaN payload lanes in v128.const" {
       }
     }
     _ => fail("expected lowered module code section for NaN payload v128.const")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers string array instructions and stringref types" {
+  let src =
+    #|(module
+    #|  (type $u16 (array i16))
+    #|  (type $u8 (array (mut i8)))
+    #|  (func $build (param (ref null $u16) i32 i32) (result stringref)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    string.new_wtf16_array)
+    #|  (func $encode (param stringref (ref null $u8) i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    string.encode_utf8_array))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected string array lowering fixture to succeed: \{e}")
+  }
+  match lowered.type_sec {
+    Some(@lib.TypeSec(types)) => {
+      assert_eq(types.length(), 4)
+      match types[2] {
+        @lib.RecType::SingleRecType(
+          @lib.SubType::CompTypeSubType(
+            _,
+            @lib.CompType::FuncCompType(_, [result])
+          )
+        ) => assert_eq(result, @lib.ValType::stringref())
+        _ => fail("expected lowered string builder functype")
+      }
+    }
+    _ => fail("expected lowered type section for string array fixture")
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr(build)), @lib.Func(_, @lib.Expr(encode))]
+      )
+    ) => {
+      assert_eq(build[3], @lib.Instruction::string_new_wtf16_array())
+      assert_eq(encode[3], @lib.Instruction::string_encode_utf8_array())
+    }
+    _ => fail("expected lowered code section for string array fixture")
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) => fail("expected lowered string array fixture to validate: \{e}")
   }
 }

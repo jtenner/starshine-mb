@@ -132,6 +132,31 @@ test "collect_instr_locals covers atomics tables arrays and call_ref" {
 }
 
 ///|
+test "collect_instr_locals covers string array operators" {
+  let locals : Set[LocalIdx] = Set::new()
+  collect_instr_locals(
+    TInstr::string_new_wtf16_array(
+      TInstr::local_get(LocalIdx::new(0)),
+      TInstr::local_get(LocalIdx::new(1)),
+      TInstr::local_get(LocalIdx::new(2)),
+    ),
+    locals,
+  )
+  collect_instr_locals(
+    TInstr::string_encode_utf8_array(
+      TInstr::local_get(LocalIdx::new(3)),
+      TInstr::local_get(LocalIdx::new(4)),
+      TInstr::local_get(LocalIdx::new(5)),
+    ),
+    locals,
+  )
+
+  for i = 0; i <= 5; i = i + 1 {
+    assert_true(locals.contains(LocalIdx::new(i.reinterpret_as_uint())))
+  }
+}
+
+///|
 test "collect_terminator_locals covers return_call_ref operands" {
   let locals : Set[LocalIdx] = Set::new()
   collect_terminator_locals(
@@ -283,4 +308,114 @@ test "to_ssa threads phi values through atomic table array and call_ref families
     ReturnCallRef(_, _, func) => assert_eq(func, func_phi.result)
     _ => fail("expected return_call_ref terminator")
   }
+}
+
+///|
+test "to_ssa threads phi values through string array operators" {
+  let b0 = BlockId(0)
+  let b1 = BlockId(1)
+  let b2 = BlockId(2)
+  let b3 = BlockId(3)
+
+  let blocks : Map[BlockId, BasicBlock] = {}
+  blocks[b0] = BasicBlock::{
+    id: b0,
+    instrs: [],
+    terminator: Terminator::BrIf(TInstr::local_get(LocalIdx::new(0)), b1, b2),
+  }
+  blocks[b1] = BasicBlock::{
+    id: b1,
+    instrs: [
+      TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(4))),
+      TInstr::local_set(
+        LocalIdx::new(3),
+        TInstr::ref_null(HeapType::new(TypeIdx::new(0U))),
+      ),
+    ],
+    terminator: Terminator::Br(b3),
+  }
+  blocks[b2] = BasicBlock::{
+    id: b2,
+    instrs: [
+      TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(9))),
+      TInstr::local_set(
+        LocalIdx::new(3),
+        TInstr::ref_null(HeapType::new(TypeIdx::new(0U))),
+      ),
+    ],
+    terminator: Terminator::Br(b3),
+  }
+  blocks[b3] = BasicBlock::{
+    id: b3,
+    instrs: [
+      TInstr::local_set(
+        LocalIdx::new(4),
+        TInstr::string_new_wtf16_array(
+          TInstr::local_get(LocalIdx::new(3)),
+          TInstr::local_get(LocalIdx::new(1)),
+          TInstr::i32_const(I32(12)),
+        ),
+      ),
+      TInstr::local_set(
+        LocalIdx::new(5),
+        TInstr::string_encode_utf8_array(
+          TInstr::local_get(LocalIdx::new(4)),
+          TInstr::local_get(LocalIdx::new(2)),
+          TInstr::local_get(LocalIdx::new(1)),
+        ),
+      ),
+    ],
+    terminator: Terminator::Return([TInstr::local_get(LocalIdx::new(5))]),
+  }
+
+  let preds : Map[BlockId, Array[BlockId]] = {}
+  preds[b0] = []
+  preds[b1] = [b0]
+  preds[b2] = [b0]
+  preds[b3] = [b1, b2]
+
+  let cfg = CFG::{ entry: b0, blocks, preds }
+  let ssa = cfg.to_ssa(cfg.dominators(), cfg.dominance_frontier(), 4)
+  let merge_block = ssa.blocks[b3]
+
+  let idx_phi = match find_phi_for_local(merge_block, 1U) {
+    Some(phi) => phi
+    None => fail("expected phi for local 1")
+  }
+  let array_phi = match find_phi_for_local(merge_block, 3U) {
+    Some(phi) => phi
+    None => fail("expected phi for local 3")
+  }
+
+  let mut saw_new = false
+  let mut saw_encode = false
+  let mut string_result : SSAValue? = None
+  let mut string_copy : SSAValue? = None
+  for instr in merge_block.instrs {
+    match instr {
+      Assign(result, SSAOp::StringNewWtf16Array(array, start, _)) => {
+        assert_eq(array, array_phi.result)
+        assert_eq(start, idx_phi.result)
+        saw_new = true
+        string_result = Some(result)
+      }
+      Assign(result, SSAOp::Copy(source)) =>
+        match string_result {
+          Some(expected) if source == expected => string_copy = Some(result)
+          _ => ()
+        }
+      Assign(_, SSAOp::StringEncodeUtf8Array(string, array, start)) => {
+        assert_eq(array, ssa.param_values[LocalIdx::new(2)])
+        assert_eq(start, idx_phi.result)
+        assert_true(
+          string == string_result.unwrap() ||
+          string == string_copy.unwrap_or(string_result.unwrap()),
+        )
+        saw_encode = true
+      }
+      _ => ()
+    }
+  }
+  assert_true(saw_new)
+  assert_true(saw_encode)
 }

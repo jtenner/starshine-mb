@@ -161,6 +161,16 @@ pub enum SSAOp {
   ArrayInitData(TypeIdx, DataIdx, SSAValue, SSAValue, SSAValue, SSAValue)
   ArrayInitElem(TypeIdx, ElemIdx, SSAValue, SSAValue, SSAValue, SSAValue)
 
+  // Strings
+  StringNewUtf8Array(SSAValue, SSAValue, SSAValue)
+  StringNewWtf16Array(SSAValue, SSAValue, SSAValue)
+  StringEncodeUtf8Array(SSAValue, SSAValue, SSAValue)
+  StringEncodeWtf16Array(SSAValue, SSAValue, SSAValue)
+  StringNewLossyUtf8Array(SSAValue, SSAValue, SSAValue)
+  StringNewWtf8Array(SSAValue, SSAValue, SSAValue)
+  StringEncodeLossyUtf8Array(SSAValue, SSAValue, SSAValue)
+  StringEncodeWtf8Array(SSAValue, SSAValue, SSAValue)
+
   // SIMD
   Splat(SplatOp, SSAValue)
   ExtractLane(ExtractLaneOp, LaneIdx, SSAValue)

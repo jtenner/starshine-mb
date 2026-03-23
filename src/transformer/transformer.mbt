@@ -2280,6 +2280,154 @@ fn[T, Err] ModuleTransformer::walk_opt_tinstruction_default(
       Ok(Some((t, TInstr::select(vts_option, i0, i1, i2))))
     }
 
+    // === Strings ===
+    TInstrKind::TStringNewUtf8Array(array, start, end_) => {
+      let (t, array) = match self.walk_opt_tinstruction(t, array) {
+        Ok(None) => (t, array)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, start) = match self.walk_opt_tinstruction(t, start) {
+        Ok(None) => (t, start)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, end_) = match self.walk_opt_tinstruction(t, end_) {
+        Ok(None) => (t, end_)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::string_new_utf8_array(array, start, end_))))
+    }
+    TInstrKind::TStringNewWtf16Array(array, start, end_) => {
+      let (t, array) = match self.walk_opt_tinstruction(t, array) {
+        Ok(None) => (t, array)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, start) = match self.walk_opt_tinstruction(t, start) {
+        Ok(None) => (t, start)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, end_) = match self.walk_opt_tinstruction(t, end_) {
+        Ok(None) => (t, end_)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::string_new_wtf16_array(array, start, end_))))
+    }
+    TInstrKind::TStringEncodeUtf8Array(string, array, start) => {
+      let (t, string) = match self.walk_opt_tinstruction(t, string) {
+        Ok(None) => (t, string)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, array) = match self.walk_opt_tinstruction(t, array) {
+        Ok(None) => (t, array)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, start) = match self.walk_opt_tinstruction(t, start) {
+        Ok(None) => (t, start)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::string_encode_utf8_array(string, array, start))))
+    }
+    TInstrKind::TStringEncodeWtf16Array(string, array, start) => {
+      let (t, string) = match self.walk_opt_tinstruction(t, string) {
+        Ok(None) => (t, string)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, array) = match self.walk_opt_tinstruction(t, array) {
+        Ok(None) => (t, array)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, start) = match self.walk_opt_tinstruction(t, start) {
+        Ok(None) => (t, start)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::string_encode_wtf16_array(string, array, start))))
+    }
+    TInstrKind::TStringNewLossyUtf8Array(array, start, end_) => {
+      let (t, array) = match self.walk_opt_tinstruction(t, array) {
+        Ok(None) => (t, array)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, start) = match self.walk_opt_tinstruction(t, start) {
+        Ok(None) => (t, start)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, end_) = match self.walk_opt_tinstruction(t, end_) {
+        Ok(None) => (t, end_)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::string_new_lossy_utf8_array(array, start, end_))))
+    }
+    TInstrKind::TStringNewWtf8Array(array, start, end_) => {
+      let (t, array) = match self.walk_opt_tinstruction(t, array) {
+        Ok(None) => (t, array)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, start) = match self.walk_opt_tinstruction(t, start) {
+        Ok(None) => (t, start)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, end_) = match self.walk_opt_tinstruction(t, end_) {
+        Ok(None) => (t, end_)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::string_new_wtf8_array(array, start, end_))))
+    }
+    TInstrKind::TStringEncodeLossyUtf8Array(string, array, start) => {
+      let (t, string) = match self.walk_opt_tinstruction(t, string) {
+        Ok(None) => (t, string)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, array) = match self.walk_opt_tinstruction(t, array) {
+        Ok(None) => (t, array)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, start) = match self.walk_opt_tinstruction(t, start) {
+        Ok(None) => (t, start)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(
+        Some((t, TInstr::string_encode_lossy_utf8_array(string, array, start))),
+      )
+    }
+    TInstrKind::TStringEncodeWtf8Array(string, array, start) => {
+      let (t, string) = match self.walk_opt_tinstruction(t, string) {
+        Ok(None) => (t, string)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, array) = match self.walk_opt_tinstruction(t, array) {
+        Ok(None) => (t, array)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, start) = match self.walk_opt_tinstruction(t, start) {
+        Ok(None) => (t, start)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::string_encode_wtf8_array(string, array, start))))
+    }
+
     // === GC: Structs ===
     TInstrKind::TStructNew(ti, i) => {
       let (t, ti) = match self.walk_opt_typeidx(t, ti) {

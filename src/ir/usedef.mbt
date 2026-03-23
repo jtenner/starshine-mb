@@ -229,6 +229,22 @@ fn collect_op_uses(
       record(uses, d_off, use_)
       record(uses, l, use_)
     }
+    SSAOp::StringNewUtf8Array(array, start, end_)
+    | SSAOp::StringNewWtf16Array(array, start, end_)
+    | SSAOp::StringNewLossyUtf8Array(array, start, end_)
+    | SSAOp::StringNewWtf8Array(array, start, end_) => {
+      record(uses, array, use_)
+      record(uses, start, use_)
+      record(uses, end_, use_)
+    }
+    SSAOp::StringEncodeUtf8Array(string, array, start)
+    | SSAOp::StringEncodeWtf16Array(string, array, start)
+    | SSAOp::StringEncodeLossyUtf8Array(string, array, start)
+    | SSAOp::StringEncodeWtf8Array(string, array, start) => {
+      record(uses, string, use_)
+      record(uses, array, use_)
+      record(uses, start, use_)
+    }
     SSAOp::Splat(_, v) => record(uses, v, use_)
     SSAOp::ExtractLane(_, _, v) => record(uses, v, use_)
     SSAOp::ReplaceLane(_, _, vec, val) => {

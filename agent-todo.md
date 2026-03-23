@@ -31,13 +31,17 @@
   - `docs/0043-2026-03-22-dead-code-elimination-unary-ref-tests.md` lands the sibling GC unary slice: `ref.test`, `ref.test_desc`, and `ref.cast_desc_eq` now collapse when their operand is unreachable.
   - `docs/0044-2026-03-22-dead-code-elimination-ref-get-desc.md` lands the descriptor unary slice: `ref.get_desc` now collapses when its operand is unreachable in descriptor-bearing fixtures.
   - `docs/0046-2026-03-22-dead-code-elimination-nested-try-table-coverage.md` closes the remaining nested reference-result `try_table` coverage question and proves the current void-retagging rewrite already validates in the focused concrete ref-result shape.
-  - `docs/0047-2026-03-22-dead-code-elimination-typed-surface-blockers.md` records that the remaining string-sensitive and EH `pop` follow-ups are currently blocked on missing typed IR support for string ops and EH `try` / `pop`, not on known gaps in the landed `TTryTable`-based DCE port.
+  - `docs/0047-2026-03-22-dead-code-elimination-typed-surface-blockers.md` now records the narrowed blocker state: the earlier string-sensitive dependency is closed, and the remaining dependency-blocked DCE follow-ups are typed EH `try` / `pop` plus stack-switching instruction support.
+  - `docs/0050-2026-03-22-string-array-surface-for-dce.md` lands the minimal typed string instruction surface needed for DCE parity, including `stringref`, the array-backed `string.new_*_array` / `string.encode_*_array` ops, validator rules, binary/text lift-lower support, generated `has_strings` feature detection, and the focused `string.new_wtf16_array` / `local.tee` regression.
+  - `docs/0051-2026-03-22-string-array-ssa-compat.md` lands the matching IR compatibility slice so those same string array ops now survive SSA lowering, destruction, type tracking, use-def/liveness, and conservative GVN invalidation instead of aborting in `src/ir/ssa.mbt`.
   - `docs/0048-2026-03-22-dead-code-elimination-default-stage-ordering.md` locks the first grouped-pipeline interaction guarantee: the default function stage still runs `DeadCodeElimination` before the first `RemoveUnusedNames`, the first `RemoveUnusedBrs`, and `Vacuum`.
   - `docs/0049-2026-03-22-dead-code-elimination-grouped-stage-output.md` covers the real grouped function-stage execution path and proves the current stage preserves DCE-trimmed dead-tail output on a validating typed fixture.
-  - blocked follow-up: port the DCE string-sensitive regressions, especially `string.new_wtf16_array` / `local.tee`, once typed string ops exist in the local IR surface.
   - blocked follow-up: port the DCE EH `pop` fixup slice once typed EH `try` / `pop` nodes exist in the local IR surface.
   - blocked follow-up: port the DCE stack-switching `resume` / `resume_throw` fixtures once those instructions exist in the local IR surface.
-  - no further unblocked DCE slices remain on the current typed IR surface until one of those instruction-surface dependencies lands elsewhere in the repo.
+  - no further unblocked DCE slices remain on the current typed IR surface until one of those EH or stack-switching instruction-surface dependencies lands elsewhere in the repo.
+- String compatibility follow-up:
+  - `stringref` now covers array-backed construction and encode ops through text, validation, binary, DCE, and SSA compatibility paths.
+  - next unlanded compatibility slice: add `string.const` end to end so the broader string surface and the researched `StringGathering` pass stop depending on a missing literal instruction.
 
 ## v0.1.0 Default Pipeline Blockers
 - DuplicateFunctionElimination
@@ -91,6 +95,9 @@
 - StringGathering
 
 ## v0.1.0 Active Slice Focus
+- String compatibility:
+  - the minimal array-backed string instruction set now exists end to end in the lib, validator, binary, WAST, DCE, and SSA layers.
+  - the next practical compatibility slice is `string.const`, which is also the missing prerequisite for the researched `StringGathering` pass in `docs/0009-2026-03-16-string-optimization.md`.
 - GC text-surface follow-up:
   - the higher-level WAST parser/printer/lowerer now models descriptor-bearing `struct.new*` instructions, `struct` and `array` `type` fields, and grouped `(rec ...)` authoring, including `sub` / `final`, packed/ref-bearing storage syntax, and `descriptor` / `describes` metadata.
   - `wast_to_binary_module` now lowers grouped `rec` fields into grouped type-section entries, and higher-level static descriptor coverage now reaches the full `tests/spec/proposals/custom-descriptors/descriptors.wast` fixture above the earlier direct instruction and binary-only cases.

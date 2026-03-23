@@ -1380,6 +1380,7 @@ test "numtype valtype" {
 ///|
 test "Heap Types" {
   roundtrip(HeapType::abs(AbsHeapType::exn()))
+  roundtrip(HeapType::abs(AbsHeapType::string_()))
   roundtrip(HeapType::abs(AbsHeapType::array()))
   roundtrip(HeapType::abs(AbsHeapType::struct_()))
   roundtrip(HeapType::abs(AbsHeapType::i31()))
@@ -1473,6 +1474,18 @@ test "Descriptor instruction roundtrip" {
   roundtrip(
     Instruction::ref_cast_desc_eq(false, HeapType::new(TypeIdx::new(2))),
   )
+}
+
+///|
+test "String array instruction roundtrip" {
+  roundtrip(Instruction::string_new_utf8_array())
+  roundtrip(Instruction::string_new_lossy_utf8_array())
+  roundtrip(Instruction::string_new_wtf8_array())
+  roundtrip(Instruction::string_new_wtf16_array())
+  roundtrip(Instruction::string_encode_utf8_array())
+  roundtrip(Instruction::string_encode_lossy_utf8_array())
+  roundtrip(Instruction::string_encode_wtf8_array())
+  roundtrip(Instruction::string_encode_wtf16_array())
 }
 
 ///|

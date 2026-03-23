@@ -206,6 +206,7 @@ pub enum HeapTypeRef {
   ExactTypeNum(UInt)
   ExactTypeId(String)
   Any
+  String
   Eq
   I31
   Struct
@@ -316,6 +317,14 @@ pub enum Instruction {
   RefNull(ValueType)
   RefIsNull
   RefFunc(Index)
+  StringNewUtf8Array
+  StringNewWtf16Array
+  StringEncodeUtf8Array
+  StringEncodeWtf16Array
+  StringNewLossyUtf8Array
+  StringNewWtf8Array
+  StringEncodeLossyUtf8Array
+  StringEncodeWtf8Array
   StructNew(Index)
   StructNewDefault(Index)
   StructGet(Index, UInt)
@@ -547,6 +556,14 @@ pub enum Opcode {
   RefFunc
   RefEq
   RefAsNonNull
+  StringNewUtf8Array
+  StringNewWtf16Array
+  StringEncodeUtf8Array
+  StringEncodeWtf16Array
+  StringNewLossyUtf8Array
+  StringNewWtf8Array
+  StringEncodeLossyUtf8Array
+  StringEncodeWtf8Array
   AnyConvertExtern
   ExternConvertAny
   RefI31
@@ -1421,3 +1438,4 @@ pub impl @quickcheck.Arbitrary for WastValue
 // Type aliases
 
 // Traits
+

@@ -205,6 +205,14 @@ fn infer_op_type(
       }
     }
     SSAOp::ArrayLen(_) => Some(ValType::i32())
+    SSAOp::StringNewUtf8Array(_, _, _)
+    | SSAOp::StringNewWtf16Array(_, _, _)
+    | SSAOp::StringNewLossyUtf8Array(_, _, _)
+    | SSAOp::StringNewWtf8Array(_, _, _) => Some(ValType::stringref())
+    SSAOp::StringEncodeUtf8Array(_, _, _)
+    | SSAOp::StringEncodeWtf16Array(_, _, _)
+    | SSAOp::StringEncodeLossyUtf8Array(_, _, _)
+    | SSAOp::StringEncodeWtf8Array(_, _, _) => Some(ValType::i32())
     SSAOp::Splat(_, _) => Some(ValType::v128())
     SSAOp::ExtractLane(op, _, _) => Some(extract_lane_result_type(op))
     SSAOp::ReplaceLane(_, _, _, _) => Some(ValType::v128())

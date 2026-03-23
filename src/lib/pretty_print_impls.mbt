@@ -24,6 +24,7 @@ fn pretty_num_type(num_type : NumType) -> String {
 fn pretty_abs_heap_type(abs_heap_type : AbsHeapType) -> String {
   match abs_heap_type {
     ExnAbsHeapType => "Exn"
+    StringAbsHeapType => "String"
     ArrayAbsHeapType => "Array"
     StructAbsHeapType => "Struct"
     I31AbsHeapType => "I31"

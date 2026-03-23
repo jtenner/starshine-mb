@@ -49,6 +49,7 @@ pub impl Encode for HeapType with encode(val, buf) {
 pub impl Encode for AbsHeapType with encode(val, buf) {
   match val {
     ExnAbsHeapType => buf.write_byte(0x69)
+    StringAbsHeapType => buf.write_byte(0x64)
     ArrayAbsHeapType => buf.write_byte(0x6A)
     StructAbsHeapType => buf.write_byte(0x6B)
     I31AbsHeapType => buf.write_byte(0x6C)
@@ -2368,6 +2369,54 @@ pub impl Encode for Instruction with encode(val, buf) {
         return Err(t)
       }
       if Encode::encode(y, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringNewUtf8Array => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0xB0), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringNewWtf16Array => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0xB1), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringEncodeUtf8Array => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0xB2), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringEncodeWtf16Array => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0xB3), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringNewLossyUtf8Array => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0xB4), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringNewWtf8Array => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0xB5), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringEncodeLossyUtf8Array => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0xB6), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringEncodeWtf8Array => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0xB7), buf) is Err(t) {
         return Err(t)
       }
     }

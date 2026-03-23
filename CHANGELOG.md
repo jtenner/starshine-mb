@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-03-22 IR: make string array ops survive SSA compatibility paths
+
+- **String SSA compatibility** by **@jtenner**. Extended the IR layer so the landed array-backed string ops no longer abort in SSA conversion: [`src/ir/ssa.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa.mbt), [`src/ir/ssa_destruction.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_destruction.mbt), [`src/ir/type_tracking.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/type_tracking.mbt), [`src/ir/usedef.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/usedef.mbt), [`src/ir/liveness.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/liveness.mbt), [`src/ir/gvn.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/gvn.mbt), and [`src/ir/ssa_optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_optimize.mbt) now all understand the current string array instruction family.
+- Recorded the slice in [`docs/0051-2026-03-22-string-array-ssa-compat.md`](/home/jtenner/Projects/starshine-mb/docs/0051-2026-03-22-string-array-ssa-compat.md) and updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) with the landed SSA compatibility checkpoint plus the next `string.const` follow-up.
+
+## 2026-03-22 Validation: land minimal string array surface for DCE
+
+- **String-sensitive DCE unblock** by **@jtenner**. Landed the minimal local `stringref` typed surface needed for the Binaryen-derived DCE regressions: abstract `string` heap refs, the eight array-backed `string.new_*_array` / `string.encode_*_array` instructions, binary encode/decode, raw/typed lift-lower, higher-level WAST lowering, validator coverage, generated `has_strings` feature detection, and the focused `string.new_wtf16_array` / `local.tee` DCE regression.
+- Recorded the slice in [`docs/0050-2026-03-22-string-array-surface-for-dce.md`](/home/jtenner/Projects/starshine-mb/docs/0050-2026-03-22-string-array-surface-for-dce.md), narrowed the remaining typed-surface blockers in [`docs/0047-2026-03-22-dead-code-elimination-typed-surface-blockers.md`](/home/jtenner/Projects/starshine-mb/docs/0047-2026-03-22-dead-code-elimination-typed-surface-blockers.md), refreshed the DCE research status in [`docs/0017-2026-03-22-dead-code-elimination.md`](/home/jtenner/Projects/starshine-mb/docs/0017-2026-03-22-dead-code-elimination.md), and updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) plus [`docs/0013-2026-03-21-remove-unused-module-elements-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0013-2026-03-21-remove-unused-module-elements-plan.md) for the new `has_strings` behavior.
+
 ## 2026-03-22 Docs: add explicit blocked DCE follow-ups to the backlog
 
 - **Backlog hygiene** by **@jtenner**. Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to list the blocked `DeadCodeElimination` string-sensitive, EH `pop`, and stack-switching follow-ups as explicit todo items instead of leaving them implied in the research summary.

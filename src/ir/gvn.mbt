@@ -192,6 +192,22 @@ fn apply_gvn_to_op(op : SSAOp, state : GVNState) -> SSAOp {
       SSAOp::ArrayInitData(ty, data, r(arr), r(ao), r(do_), r(l))
     SSAOp::ArrayInitElem(ty, elem, arr, ao, eo, l) =>
       SSAOp::ArrayInitElem(ty, elem, r(arr), r(ao), r(eo), r(l))
+    SSAOp::StringNewUtf8Array(array, start, end_) =>
+      SSAOp::StringNewUtf8Array(r(array), r(start), r(end_))
+    SSAOp::StringNewWtf16Array(array, start, end_) =>
+      SSAOp::StringNewWtf16Array(r(array), r(start), r(end_))
+    SSAOp::StringEncodeUtf8Array(string, array, start) =>
+      SSAOp::StringEncodeUtf8Array(r(string), r(array), r(start))
+    SSAOp::StringEncodeWtf16Array(string, array, start) =>
+      SSAOp::StringEncodeWtf16Array(r(string), r(array), r(start))
+    SSAOp::StringNewLossyUtf8Array(array, start, end_) =>
+      SSAOp::StringNewLossyUtf8Array(r(array), r(start), r(end_))
+    SSAOp::StringNewWtf8Array(array, start, end_) =>
+      SSAOp::StringNewWtf8Array(r(array), r(start), r(end_))
+    SSAOp::StringEncodeLossyUtf8Array(string, array, start) =>
+      SSAOp::StringEncodeLossyUtf8Array(r(string), r(array), r(start))
+    SSAOp::StringEncodeWtf8Array(string, array, start) =>
+      SSAOp::StringEncodeWtf8Array(r(string), r(array), r(start))
     SSAOp::Splat(sop, v) => SSAOp::Splat(sop, r(v))
     SSAOp::ExtractLane(eop, lane, v) => SSAOp::ExtractLane(eop, lane, r(v))
     SSAOp::ReplaceLane(rop, lane, vec, val) =>
@@ -306,6 +322,10 @@ fn has_side_effects(op : SSAOp) -> Bool {
     | SSAOp::ArrayGetS(_, _, _)
     | SSAOp::ArrayGetU(_, _, _)
     | SSAOp::ArrayLen(_)
+    | SSAOp::StringEncodeUtf8Array(_, _, _)
+    | SSAOp::StringEncodeWtf16Array(_, _, _)
+    | SSAOp::StringEncodeLossyUtf8Array(_, _, _)
+    | SSAOp::StringEncodeWtf8Array(_, _, _)
     | SSAOp::V128LoadLane(_, _, _, _, _) => true
 
     // All writes have side effects
@@ -335,6 +355,10 @@ fn has_side_effects(op : SSAOp) -> Bool {
     | SSAOp::ArrayInitData(_, _, _, _, _, _)
     | SSAOp::ArrayInitElem(_, _, _, _, _, _)
     | SSAOp::V128StoreLane(_, _, _, _, _) => true
+    SSAOp::StringEncodeUtf8Array(_, _, _) => true
+    SSAOp::StringEncodeWtf16Array(_, _, _) => true
+    SSAOp::StringEncodeLossyUtf8Array(_, _, _) => true
+    SSAOp::StringEncodeWtf8Array(_, _, _) => true
 
     // Calls always have potential side effects
     SSAOp::Call(_, _)
@@ -350,7 +374,11 @@ fn has_side_effects(op : SSAOp) -> Bool {
     | SSAOp::ArrayNewDefault(_, _)
     | SSAOp::ArrayNewFixed(_, _)
     | SSAOp::ArrayNewData(_, _, _, _)
-    | SSAOp::ArrayNewElem(_, _, _, _) => true
+    | SSAOp::ArrayNewElem(_, _, _, _)
+    | SSAOp::StringNewUtf8Array(_, _, _)
+    | SSAOp::StringNewWtf16Array(_, _, _)
+    | SSAOp::StringNewLossyUtf8Array(_, _, _)
+    | SSAOp::StringNewWtf8Array(_, _, _) => true
 
     // Exceptions
     SSAOp::Throw(_, _) => true
@@ -409,6 +437,21 @@ fn invalidate_for_side_effects(op : SSAOp, state : GVNState) -> Unit {
       for entry in state.value_map {
         let (key, _) = entry
         if key is GVNKey::ArrayGet(t, _, _) && t == ty {
+          keys_to_remove.push(key)
+        }
+      }
+      for key in keys_to_remove {
+        state.value_map.remove(key)
+      }
+    }
+    SSAOp::StringEncodeUtf8Array(_, _, _)
+    | SSAOp::StringEncodeWtf16Array(_, _, _)
+    | SSAOp::StringEncodeLossyUtf8Array(_, _, _)
+    | SSAOp::StringEncodeWtf8Array(_, _, _) => {
+      let keys_to_remove : Array[GVNKey] = []
+      for entry in state.value_map {
+        let (key, _) = entry
+        if key is GVNKey::ArrayGet(_, _, _) {
           keys_to_remove.push(key)
         }
       }

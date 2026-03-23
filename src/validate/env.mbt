@@ -910,6 +910,14 @@ pub fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
     | TInstrKind::TTableCopy(_, _, a, b, c)
     | TInstrKind::TTableInit(_, _, a, b, c)
     | TInstrKind::TArraySet(_, a, b, c)
+    | TInstrKind::TStringNewUtf8Array(a, b, c)
+    | TInstrKind::TStringNewWtf16Array(a, b, c)
+    | TInstrKind::TStringEncodeUtf8Array(a, b, c)
+    | TInstrKind::TStringEncodeWtf16Array(a, b, c)
+    | TInstrKind::TStringNewLossyUtf8Array(a, b, c)
+    | TInstrKind::TStringNewWtf8Array(a, b, c)
+    | TInstrKind::TStringEncodeLossyUtf8Array(a, b, c)
+    | TInstrKind::TStringEncodeWtf8Array(a, b, c)
     | TInstrKind::TV128Ternary(_, a, b, c) => {
       let total = tinstr_result_arity(a, env) +
         tinstr_result_arity(b, env) +
@@ -918,6 +926,14 @@ pub fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
         TInstrKind::TMemoryAtomicWait32(_, _, _, _)
         | TInstrKind::TMemoryAtomicWait64(_, _, _, _)
         | TInstrKind::TAtomicCmpxchg(_, _, _, _, _)
+        | TInstrKind::TStringNewUtf8Array(_, _, _)
+        | TInstrKind::TStringNewWtf16Array(_, _, _)
+        | TInstrKind::TStringEncodeUtf8Array(_, _, _)
+        | TInstrKind::TStringEncodeWtf16Array(_, _, _)
+        | TInstrKind::TStringNewLossyUtf8Array(_, _, _)
+        | TInstrKind::TStringNewWtf8Array(_, _, _)
+        | TInstrKind::TStringEncodeLossyUtf8Array(_, _, _)
+        | TInstrKind::TStringEncodeWtf8Array(_, _, _)
         | TInstrKind::TV128Ternary(_, _, _, _) => 1
         _ => 0
       }
@@ -3265,6 +3281,126 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       push_terminating_instr(stack, TInstr::return_(values))
+    }
+    StringNewUtf8Array => {
+      let end_ = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let start = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let array = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::string_new_utf8_array(array, start, end_))
+    }
+    StringNewWtf16Array => {
+      let end_ = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let start = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let array = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::string_new_wtf16_array(array, start, end_))
+    }
+    StringEncodeUtf8Array => {
+      let start = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let array = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let string = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::string_encode_utf8_array(string, array, start))
+    }
+    StringEncodeWtf16Array => {
+      let start = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let array = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let string = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::string_encode_wtf16_array(string, array, start))
+    }
+    StringNewLossyUtf8Array => {
+      let end_ = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let start = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let array = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::string_new_lossy_utf8_array(array, start, end_))
+    }
+    StringNewWtf8Array => {
+      let end_ = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let start = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let array = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::string_new_wtf8_array(array, start, end_))
+    }
+    StringEncodeLossyUtf8Array => {
+      let start = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let array = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let string = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::string_encode_lossy_utf8_array(string, array, start))
+    }
+    StringEncodeWtf8Array => {
+      let start = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let array = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let string = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::string_encode_wtf8_array(string, array, start))
     }
 
     // === Calls ===

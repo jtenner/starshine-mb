@@ -376,6 +376,56 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
       instrs.push(Select(types))
     }
 
+    // === Strings ===
+    TInstrKind::TStringNewUtf8Array(array, start, end_) => {
+      tinstr_to_instr(array, instrs)
+      tinstr_to_instr(start, instrs)
+      tinstr_to_instr(end_, instrs)
+      instrs.push(StringNewUtf8Array)
+    }
+    TInstrKind::TStringNewWtf16Array(array, start, end_) => {
+      tinstr_to_instr(array, instrs)
+      tinstr_to_instr(start, instrs)
+      tinstr_to_instr(end_, instrs)
+      instrs.push(StringNewWtf16Array)
+    }
+    TInstrKind::TStringEncodeUtf8Array(string, array, start) => {
+      tinstr_to_instr(string, instrs)
+      tinstr_to_instr(array, instrs)
+      tinstr_to_instr(start, instrs)
+      instrs.push(StringEncodeUtf8Array)
+    }
+    TInstrKind::TStringEncodeWtf16Array(string, array, start) => {
+      tinstr_to_instr(string, instrs)
+      tinstr_to_instr(array, instrs)
+      tinstr_to_instr(start, instrs)
+      instrs.push(StringEncodeWtf16Array)
+    }
+    TInstrKind::TStringNewLossyUtf8Array(array, start, end_) => {
+      tinstr_to_instr(array, instrs)
+      tinstr_to_instr(start, instrs)
+      tinstr_to_instr(end_, instrs)
+      instrs.push(StringNewLossyUtf8Array)
+    }
+    TInstrKind::TStringNewWtf8Array(array, start, end_) => {
+      tinstr_to_instr(array, instrs)
+      tinstr_to_instr(start, instrs)
+      tinstr_to_instr(end_, instrs)
+      instrs.push(StringNewWtf8Array)
+    }
+    TInstrKind::TStringEncodeLossyUtf8Array(string, array, start) => {
+      tinstr_to_instr(string, instrs)
+      tinstr_to_instr(array, instrs)
+      tinstr_to_instr(start, instrs)
+      instrs.push(StringEncodeLossyUtf8Array)
+    }
+    TInstrKind::TStringEncodeWtf8Array(string, array, start) => {
+      tinstr_to_instr(string, instrs)
+      tinstr_to_instr(array, instrs)
+      tinstr_to_instr(start, instrs)
+      instrs.push(StringEncodeWtf8Array)
+    }
+
     // === GC: Structs ===
     TInstrKind::TStructNew(type_idx, fields) => {
       for field in fields {

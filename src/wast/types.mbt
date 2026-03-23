@@ -58,6 +58,7 @@ pub enum HeapTypeRef {
   ExactTypeNum(UInt)
   ExactTypeId(String)
   Any
+  String
   Eq
   I31
   Struct
@@ -113,6 +114,14 @@ pub enum Opcode {
   RefFunc
   RefEq
   RefAsNonNull
+  StringNewUtf8Array
+  StringNewWtf16Array
+  StringEncodeUtf8Array
+  StringEncodeWtf16Array
+  StringNewLossyUtf8Array
+  StringNewWtf8Array
+  StringEncodeLossyUtf8Array
+  StringEncodeWtf8Array
   AnyConvertExtern
   ExternConvertAny
   RefI31

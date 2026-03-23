@@ -953,6 +953,86 @@ fn md_render_tinstr(
         if_false,
       )
     }
+    TStringNewUtf8Array(array, start, end_) => {
+      md_write_line(out, depth, "- string.new_utf8_array")
+      md_render_child(out, depth + 2, "array", ctx, locals, param_count, array)
+      md_render_child(out, depth + 2, "start", ctx, locals, param_count, start)
+      md_render_child(out, depth + 2, "end", ctx, locals, param_count, end_)
+    }
+    TStringNewWtf16Array(array, start, end_) => {
+      md_write_line(out, depth, "- string.new_wtf16_array")
+      md_render_child(out, depth + 2, "array", ctx, locals, param_count, array)
+      md_render_child(out, depth + 2, "start", ctx, locals, param_count, start)
+      md_render_child(out, depth + 2, "end", ctx, locals, param_count, end_)
+    }
+    TStringEncodeUtf8Array(string, array, start) => {
+      md_write_line(out, depth, "- string.encode_utf8_array")
+      md_render_child(
+        out,
+        depth + 2,
+        "string",
+        ctx,
+        locals,
+        param_count,
+        string,
+      )
+      md_render_child(out, depth + 2, "array", ctx, locals, param_count, array)
+      md_render_child(out, depth + 2, "start", ctx, locals, param_count, start)
+    }
+    TStringEncodeWtf16Array(string, array, start) => {
+      md_write_line(out, depth, "- string.encode_wtf16_array")
+      md_render_child(
+        out,
+        depth + 2,
+        "string",
+        ctx,
+        locals,
+        param_count,
+        string,
+      )
+      md_render_child(out, depth + 2, "array", ctx, locals, param_count, array)
+      md_render_child(out, depth + 2, "start", ctx, locals, param_count, start)
+    }
+    TStringNewLossyUtf8Array(array, start, end_) => {
+      md_write_line(out, depth, "- string.new_lossy_utf8_array")
+      md_render_child(out, depth + 2, "array", ctx, locals, param_count, array)
+      md_render_child(out, depth + 2, "start", ctx, locals, param_count, start)
+      md_render_child(out, depth + 2, "end", ctx, locals, param_count, end_)
+    }
+    TStringNewWtf8Array(array, start, end_) => {
+      md_write_line(out, depth, "- string.new_wtf8_array")
+      md_render_child(out, depth + 2, "array", ctx, locals, param_count, array)
+      md_render_child(out, depth + 2, "start", ctx, locals, param_count, start)
+      md_render_child(out, depth + 2, "end", ctx, locals, param_count, end_)
+    }
+    TStringEncodeLossyUtf8Array(string, array, start) => {
+      md_write_line(out, depth, "- string.encode_lossy_utf8_array")
+      md_render_child(
+        out,
+        depth + 2,
+        "string",
+        ctx,
+        locals,
+        param_count,
+        string,
+      )
+      md_render_child(out, depth + 2, "array", ctx, locals, param_count, array)
+      md_render_child(out, depth + 2, "start", ctx, locals, param_count, start)
+    }
+    TStringEncodeWtf8Array(string, array, start) => {
+      md_write_line(out, depth, "- string.encode_wtf8_array")
+      md_render_child(
+        out,
+        depth + 2,
+        "string",
+        ctx,
+        locals,
+        param_count,
+        string,
+      )
+      md_render_child(out, depth + 2, "array", ctx, locals, param_count, array)
+      md_render_child(out, depth + 2, "start", ctx, locals, param_count, start)
+    }
     TStructNew(type_idx, values) => {
       md_write_line(
         out,
