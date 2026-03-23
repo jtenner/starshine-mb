@@ -1417,13 +1417,15 @@ fn optimization_dead_code_elimination_rewrite_block(
   }
   if optimization_dead_code_elimination_block_escapes_parent(block_type, body) &&
     optimization_dead_code_elimination_block_type_is_concrete(block_type) {
-    if optimization_dead_code_elimination_expr_has_live_break_past_current_label(
-        body, 0,
-      ) {
-      return @lib.TInstr::block(block_type, body)
-    }
     match body.inner() {
-      [child] => child
+      [child] =>
+        if optimization_dead_code_elimination_expr_has_live_break_past_current_label(
+            body, 0,
+          ) {
+          @lib.TInstr::block(@lib.BlockType::void_(), body)
+        } else {
+          child
+        }
       _ => @lib.TInstr::block(@lib.BlockType::void_(), body)
     }
   } else {
@@ -1671,14 +1673,16 @@ fn optimization_dead_code_elimination_instr_has_live_break_to_label(
         return true
       }
       if optimization_dead_code_elimination_expr_has_live_break_to_label(
-          then_body, target_depth + 1,
+          then_body,
+          target_depth + 1,
         ) {
         return true
       }
       match else_body {
         Some(else_body) =>
           optimization_dead_code_elimination_expr_has_live_break_to_label(
-            else_body, target_depth + 1,
+            else_body,
+            target_depth + 1,
           )
         None => false
       }

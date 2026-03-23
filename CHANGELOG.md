@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Validation: preserve void wrappers when DCE demotes concrete outer-break blocks
+
+- **DCE concrete-block wrapper preservation** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `DeadCodeElimination` now keeps a `void` block wrapper when an escaping concrete block collapses to a single child that still has live breaks past the current label. This preserves label depth while still demoting away the dead concrete result type.
+- Added focused regressions in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) and [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt) for the reduced outer-break result-block shape. Documented the rewrite rule and reduced raw-valid repro in [`docs/0065-2026-03-23-dce-concrete-block-wrapper-preservation.md`](/home/jtenner/Projects/starshine-mb/docs/0065-2026-03-23-dce-concrete-block-wrapper-preservation.md). The minimized raw repro now validates after `--dead-code-elimination`, and the fresh direct-DCE artifact blocker moved forward from `func 407` to `func 448`.
+
 ## 2026-03-23 Validation: account for `if` label depth in DCE live-break scans
 
 - **DCE `if` label-depth fix** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `DeadCodeElimination`’s live-break-to-label scan now treats `if` bodies like other structured labels and increments target depth when descending into `then` / `else`. This keeps nested `br 1` edges visible as breaks to the enclosing block instead of misclassifying them as outer escapes.

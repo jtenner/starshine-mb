@@ -114,6 +114,21 @@ fn dead_code_elimination_test_result_body(
 }
 
 ///|
+fn dead_code_elimination_test_result_body_unchecked(
+  results : Array[@lib.ValType],
+  instrs : Array[@lib.TInstr],
+) -> Array[@lib.TInstr] {
+  let (optimized, _) = run_dead_code_elimination(
+    dead_code_elimination_test_result_module(results, instrs),
+    PipelineScratch::new(),
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => body.inner()
+    _ => abort("expected optimized single typed function body")
+  }
+}
+
+///|
 fn dead_code_elimination_test_descriptor_body(
   instrs : Array[@lib.TInstr],
 ) -> Array[@lib.TInstr] {
@@ -467,6 +482,104 @@ test "dead code elimination keeps trailing result after inner self-break block" 
       ]),
     ),
   ])
+}
+
+///|
+test "dead code elimination retags concrete block when only outer breaks remain" {
+  let body = dead_code_elimination_test_result_body_unchecked(
+    [@lib.ValType::i32()],
+    [
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.TExpr::new([
+          @lib.TInstr::block(
+            @lib.BlockType::void_(),
+            @lib.TExpr::new([
+              @lib.TInstr::block(
+                @lib.BlockType::val_type(@lib.ValType::i32()),
+                @lib.TExpr::new([
+                  @lib.TInstr::if_(
+                    @lib.BlockType::void_(),
+                    @lib.TInstr::i32_const(@lib.I32::new(1)),
+                    @lib.TExpr::new([
+                      @lib.TInstr::br(@lib.LabelIdx::new(2U), []),
+                    ]),
+                    Some(
+                      @lib.TExpr::new([
+                        @lib.TInstr::return_([
+                          @lib.TInstr::i32_const(@lib.I32::new(0)),
+                        ]),
+                      ]),
+                    ),
+                  ),
+                  @lib.TInstr::br(@lib.LabelIdx::new(0U), [
+                    @lib.TInstr::i32_const(@lib.I32::new(5)),
+                  ]),
+                ]),
+              ),
+            ]),
+          ),
+          @lib.TInstr::i32_const(@lib.I32::new(7)),
+        ]),
+      ),
+    ],
+  )
+  assert_eq(body, [
+    @lib.TInstr::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.TExpr::new([
+        @lib.TInstr::block(
+          @lib.BlockType::void_(),
+          @lib.TExpr::new([
+            @lib.TInstr::block(
+              @lib.BlockType::void_(),
+              @lib.TExpr::new([
+                @lib.TInstr::if_(
+                  @lib.BlockType::void_(),
+                  @lib.TInstr::i32_const(@lib.I32::new(1)),
+                  @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(2U), [])]),
+                  Some(
+                    @lib.TExpr::new([
+                      @lib.TInstr::return_([
+                        @lib.TInstr::i32_const(@lib.I32::new(0)),
+                      ]),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+        @lib.TInstr::i32_const(@lib.I32::new(7)),
+      ]),
+    ),
+  ])
+}
+
+///|
+test "dead code elimination sees no current-label break in outer-break result body" {
+  let body = @lib.TExpr::new([
+    @lib.TInstr::i32_const(@lib.I32::new(1)),
+    @lib.TInstr::if_(
+      @lib.BlockType::void_(),
+      @lib.TInstr::i32_const(@lib.I32::new(1)),
+      @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(2U), [])]),
+      Some(
+        @lib.TExpr::new([
+          @lib.TInstr::return_([@lib.TInstr::i32_const(@lib.I32::new(0))]),
+        ]),
+      ),
+    ),
+  ])
+  assert_false(
+    optimization_dead_code_elimination_expr_has_live_break_to_label(body, 0),
+  )
+  assert_true(
+    optimization_dead_code_elimination_block_escapes_parent(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      body,
+    ),
+  )
 }
 
 ///|

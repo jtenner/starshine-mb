@@ -606,6 +606,55 @@ fn generated_pipeline_raw_mixed_escape_if_module() -> Module {
 }
 
 ///|
+fn generated_pipeline_raw_outer_break_result_block_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::block(
+                @lib.BlockType::void_(),
+                @lib.Expr::new([
+                  @lib.Instruction::block(
+                    @lib.BlockType::val_type(@lib.ValType::i32()),
+                    @lib.Expr::new([
+                      @lib.Instruction::i32_const(@lib.I32::new(1)),
+                      @lib.Instruction::if_(
+                        @lib.BlockType::void_(),
+                        [@lib.Instruction::br(@lib.LabelIdx::new(2U))],
+                        Some([
+                          @lib.Instruction::i32_const(@lib.I32::new(0)),
+                          @lib.Instruction::return_(),
+                        ]),
+                      ),
+                      @lib.Instruction::i32_const(@lib.I32::new(5)),
+                      @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+                    ]),
+                  ),
+                ]),
+              ),
+              @lib.Instruction::i32_const(@lib.I32::new(7)),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn generated_pipeline_dead_branch_drop_lowered(optimized : Module) -> Bool {
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => {
@@ -914,6 +963,45 @@ test "run_generated_pipeline_with_options dead code elimination keeps mixed esca
     Err(e) =>
       fail(
         "expected generated DCE mixed escape if output to stay valid after encode: \{validation_error_message(e)}",
+      )
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options dead code elimination retags outer-break result blocks" {
+  let mod = generated_pipeline_raw_outer_break_result_block_module()
+  let pipeline = cmd_generated_pipeline_from_flags(
+    mod,
+    ["dead-code-elimination"],
+    OptimizeOptions::new(),
+  )
+  let optimized = match
+    run_generated_pipeline_with_options(mod, pipeline, OptimizeOptions::new()) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected generated DCE outer-break result block pipeline success: \{e}",
+      )
+  }
+  let wasm = match encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(e) =>
+      fail(
+        "expected generated DCE outer-break result block encode success: \{e}",
+      )
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected generated DCE outer-break result block decode success: \{e}",
+      )
+  }
+  match validate_module(decoded) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected generated DCE outer-break result block output to stay valid after encode: \{validation_error_message(e)}",
       )
   }
 }
