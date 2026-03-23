@@ -51,6 +51,16 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
       i += 1;
       continue;
     }
+    if (token.startsWith("--target=")) {
+      options.target = token.substring("--target=".length);
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--moon=")) {
+      options.moonBin = token.substring("--moon=".length);
+      i += 1;
+      continue;
+    }
     switch (token) {
       case "--profile":
         options.profile = argv[i + 1] ?? fail("missing value for --profile");
@@ -185,7 +195,7 @@ export function main(argv: string[]): void {
   const [subcommand, ...rest] = argv;
   if (subcommand !== "run") {
     fail(
-      "usage: bun fuzz run [--profile <name>] [--suite <name>] [--seed <hex>|--seed=<hex>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>] [--moon <path>] [--list-suites|--list-profiles|--help]",
+      "usage: bun fuzz run [--profile <name>] [--suite <name>] [--seed <hex>|--seed=<hex>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]",
     );
   }
   runFuzz(parseFuzzRunArgs(rest));

@@ -147,6 +147,18 @@ process.exit(0);
   );
 
   fs.writeFileSync(logPath, "");
+  runBun(
+    repoRoot,
+    ["fuzz", "run", "--suite=cmd-harness", "--seed=0xcafe", "--target=wasm", `--moon=${fakeMoonPath}`],
+    env,
+  );
+  const actualFuzzTargetAlias = fs.readFileSync(logPath, "utf8").trim();
+  assert(
+    actualFuzzTargetAlias === "run --target wasm src/fuzz -- cmd-harness smoke --seed 0xcafe",
+    `unexpected fuzz target/moon alias command log:\n${actualFuzzTargetAlias}`,
+  );
+
+  fs.writeFileSync(logPath, "");
   const coverageOutput = runBun(repoRoot, ["validate", "coverage", "--top", "2", "--baseline", baselinePath], env);
   assert(coverageOutput.includes("Coverage summary: total uncovered lines=16, files=2"), `unexpected coverage summary:\n${coverageOutput}`);
   assert(coverageOutput.includes(`Coverage delta vs baseline (${baselinePath}): lines +6, files +1`), `unexpected coverage delta:\n${coverageOutput}`);
