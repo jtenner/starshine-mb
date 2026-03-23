@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Optimization: keep live func-local runners in grouped stages
+
+- **Grouped func-local runner dispatch** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so adjacent grouped function passes append the actual implemented runner for each pass instead of always appending `noop_func_local_pass`; this keeps `RemoveUnusedNames` and `DeadCodeElimination` live inside the real grouped default stage, not just when scheduled alone.
+- Added focused scheduler coverage in [`src/optimization/optimization_test.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization_test.mbt) proving a grouped `RemoveUnusedNames` slot still runs the live peeling rewrite instead of a no-op runner.
+
 ## 2026-03-23 Optimization: land `RemoveUnusedNames` loop demotion
 
 - **`RemoveUnusedNames` slice 3** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so typed `loop` instructions now demote to `block` when the loop label has no remaining continue edge, while loops with a surviving `br 0` keep their original loop shape.

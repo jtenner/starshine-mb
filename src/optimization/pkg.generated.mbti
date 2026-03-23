@@ -23,6 +23,8 @@ pub fn run_once_reduction(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@li
 
 pub fn run_remove_unused_module_elements(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)
 
+pub fn run_remove_unused_names(@lib.Module, PipelineScratch) -> (@lib.Module, PipelineScratch)
+
 pub fn run_string_gathering(@lib.Module, PipelineGlobal, PipelineFeatures) -> (@lib.Module, PipelineGlobal)
 
 // Errors

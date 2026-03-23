@@ -10981,6 +10981,15 @@ fn optimize_pass_class(pass : OptimizePass) -> OptimizePassClass {
 }
 
 ///|
+fn func_local_runner_for_pass(pass : OptimizePass) -> FuncLocalPassFn {
+  match pass {
+    DeadCodeElimination => run_dead_code_elimination
+    RemoveUnusedNames => run_remove_unused_names
+    _ => noop_func_local_pass
+  }
+}
+
+///|
 fn validation_rank(kind : ValidationKind) -> Int {
   match kind {
     Unchecked => 0
@@ -11011,12 +11020,10 @@ fn make_entry_kind(pass : OptimizePass) -> PassKind {
     MemoryPacking => PassKind::module_wide(run_memory_packing)
     OnceReduction => PassKind::module_wide(run_once_reduction)
     StringGathering => PassKind::module_wide(run_string_gathering)
-    DeadCodeElimination =>
-      PassKind::func_local_group([run_dead_code_elimination])
-    RemoveUnusedNames => PassKind::func_local_group([run_remove_unused_names])
     _ =>
       match optimize_pass_class(pass) {
-        FuncLocal => PassKind::func_local_group([noop_func_local_pass])
+        FuncLocal =>
+          PassKind::func_local_group([func_local_runner_for_pass(pass)])
         ModuleWide => PassKind::module_wide(noop_module_wide_pass)
       }
   }
@@ -11046,7 +11053,7 @@ pub fn add_pass_to_pipeline(
       FuncLocalGroup(funcs) => {
         let passes = last.passes
         passes.push(pass)
-        funcs.push(noop_func_local_pass)
+        funcs.push(func_local_runner_for_pass(pass))
         let merged_validation = merge_validation_kind(
           last.group.validation_kind(),
           validation_kind,

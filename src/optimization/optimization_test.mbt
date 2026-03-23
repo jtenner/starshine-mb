@@ -103,6 +103,83 @@ test "add pass to pipeline groups adjacent function passes" {
 }
 
 ///|
+fn optimize_pipeline_remove_unused_names_candidate_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::t_func(
+        [],
+        @lib.Locals::empty(),
+        @lib.TExpr::new([
+          @lib.TInstr::block(
+            @lib.BlockType::void_(),
+            @lib.TExpr::new([
+              @lib.TInstr::block(
+                @lib.BlockType::void_(),
+                @lib.TExpr::new([@lib.TInstr::nop()]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "add pass to pipeline keeps the live remove unused names runner in grouped function stages" {
+  let pipeline : Array[PipelineEntry] = []
+  add_pass_to_pipeline(pipeline, OptimizePass::DeadCodeElimination)
+  add_pass_to_pipeline(pipeline, OptimizePass::RemoveUnusedNames)
+
+  match pipeline[0].group.kind() {
+    FuncLocalGroup([_, remove_unused_names_runner]) => {
+      let (optimized, scratch) = remove_unused_names_runner(
+        optimize_pipeline_remove_unused_names_candidate_module(),
+        PipelineScratch::new(),
+      )
+      assert_eq(scratch.funcs_visited, 1)
+      match optimized.code_sec {
+        Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) =>
+          match body.inner() {
+            [instr] =>
+              match instr.kind {
+                @lib.TBlock(@lib.VoidBlockType, child_body) =>
+                  match child_body.inner() {
+                    [child] =>
+                      match child.kind {
+                        @lib.TNop => ()
+                        _ =>
+                          fail(
+                            "expected grouped remove unused names runner to keep peeled child body",
+                          )
+                      }
+                    _ => fail("expected single child in peeled block")
+                  }
+                _ =>
+                  fail(
+                    "expected grouped remove unused names runner to rewrite body",
+                  )
+              }
+            _ =>
+              fail(
+                "expected single rewritten outer block in grouped stage test",
+              )
+          }
+        _ => fail("expected optimized single typed function body")
+      }
+    }
+    _ => fail("expected grouped function entry with two runners")
+  }
+}
+
+///|
 fn optimize_pipeline_find_first_pass(
   passes : Array[OptimizePass],
   target : OptimizePass,
