@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 CLI: honor explicit generated replay flags for late shared passes
+
+- **Generated replay flag wiring** by **@jtenner**. Updated [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) so the explicit generated-pipeline path now actually schedules `DeadCodeElimination` and `RemoveUnusedNames` when the user passes `--dead-code-elimination` or `--remove-unused-names`, instead of silently dropping those flags from the generated replay.
+- Added focused generated-path coverage in [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt) proving both flags now appear in the generated pass list and that `--remove-unused-names` rewrites a raw nested-block fixture after pre-lift.
+- Updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the active parity backlog now treats earlier explicit late-pass replay numbers as stale and puts the next `RemoveUnusedNames` work on a Binaryen-aligned single-pass rework before rerunning the fresh-artifact comparison.
+
 ## 2026-03-23 Optimization: keep live func-local runners in grouped stages
 
 - **Grouped func-local runner dispatch** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so adjacent grouped function passes append the actual implemented runner for each pass instead of always appending `noop_func_local_pass`; this keeps `RemoveUnusedNames` and `DeadCodeElimination` live inside the real grouped default stage, not just when scheduled alone.

@@ -218,6 +218,35 @@ fn generated_pipeline_raw_dead_branch_drop_module() -> Module {
 }
 
 ///|
+fn generated_pipeline_raw_remove_unused_names_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::block(
+                @lib.BlockType::void_(),
+                @lib.Expr::new([@lib.Instruction::nop()]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn generated_pipeline_dead_branch_drop_lowered(optimized : Module) -> Bool {
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => {
@@ -432,6 +461,45 @@ test "run_generated_pipeline_with_options dead code elimination drops dead raw b
 }
 
 ///|
+test "run_generated_pipeline_with_options remove unused names rewrites generated-path candidates" {
+  let mod = generated_pipeline_raw_remove_unused_names_module()
+  let pipeline = cmd_generated_pipeline_from_flags(
+    mod,
+    ["remove-unused-names"],
+    OptimizeOptions::new(),
+  )
+  let optimized = match
+    run_generated_pipeline_with_options(mod, pipeline, OptimizeOptions::new()) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected generated remove unused names pipeline success: \{e}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) =>
+      match body.inner() {
+        [instr] =>
+          match instr.kind {
+            @lib.TBlock(@lib.VoidBlockType, child_body) =>
+              match child_body.inner() {
+                [child] =>
+                  match child.kind {
+                    @lib.TNop => ()
+                    _ =>
+                      fail(
+                        "expected generated remove unused names to keep a peeled nop body",
+                      )
+                  }
+                _ => fail("expected single peeled child")
+              }
+            _ => fail("expected generated remove unused names to peel blocks")
+          }
+        _ => fail("expected single rewritten block")
+      }
+    _ => fail("expected generated pipeline to pre-lift and optimize raw funcs")
+  }
+}
+
+///|
 test "run_generated_pipeline_with_options keeps Starshine's smaller trivial once body in the first four passes" {
   let mod = generated_pipeline_raw_trivial_once_module()
   let optimized = match
@@ -480,7 +548,7 @@ test "cmd_generated_pipeline_from_flags includes explicit no-dwarf prepasses on 
     Module::new(),
     [
       "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
-      "once-reduction",
+      "once-reduction", "dead-code-elimination", "remove-unused-names",
     ],
     OptimizeOptions::new(optimize_level=2),
   )
@@ -495,6 +563,8 @@ test "cmd_generated_pipeline_from_flags includes explicit no-dwarf prepasses on 
     OptimizePass::RemoveUnusedModuleElements,
     OptimizePass::MemoryPacking,
     OptimizePass::OnceReduction,
+    OptimizePass::DeadCodeElimination,
+    OptimizePass::RemoveUnusedNames,
   ])
 }
 

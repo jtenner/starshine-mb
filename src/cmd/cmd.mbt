@@ -1741,6 +1741,18 @@ fn cmd_generated_pipeline_from_flags(
           OptimizePass::OnceReduction,
           validation_kind=validation,
         )
+      "dead-code-elimination" =>
+        add_pass_to_pipeline(
+          pipeline,
+          OptimizePass::DeadCodeElimination,
+          validation_kind=validation,
+        )
+      "remove-unused-names" =>
+        add_pass_to_pipeline(
+          pipeline,
+          OptimizePass::RemoveUnusedNames,
+          validation_kind=validation,
+        )
       _ => ()
     }
   }
@@ -1908,7 +1920,9 @@ fn expand_legacy_passes_for_module(
       | "duplicate-function-elimination"
       | "remove-unused-module-elements"
       | "memory-packing"
-      | "once-reduction" => ()
+      | "once-reduction"
+      | "dead-code-elimination"
+      | "remove-unused-names" => ()
       _ => filtered.push(flag)
     }
   }
