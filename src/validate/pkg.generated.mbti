@@ -30,17 +30,9 @@ pub fn gen_valid_valtype(GenValidContext) -> @lib.ValType
 
 pub fn make_state(Env, Array[@lib.ValType]) -> TcState
 
-pub fn run_validate_invalid_fuzz(
-  String,
-  UInt64,
-  on_failure? : (ValidateInvalidFuzzFailure) -> Result[Unit, String],
-) -> Result[ValidateInvalidFuzzStats, String]
-pub fn run_validate_invalid_fuzz_from_modules(
-  String,
-  UInt64,
-  Array[@lib.Module],
-  on_failure? : (ValidateInvalidFuzzFailure) -> Result[Unit, String],
-) -> Result[ValidateInvalidFuzzStats, String]
+pub fn run_validate_invalid_fuzz(String, UInt64, on_failure? : ((ValidateInvalidFuzzFailure) -> Result[Unit, String])?) -> Result[ValidateInvalidFuzzStats, String]
+
+pub fn run_validate_invalid_fuzz_from_modules(String, UInt64, Array[@lib.Module], on_failure? : ((ValidateInvalidFuzzFailure) -> Result[Unit, String])?) -> Result[ValidateInvalidFuzzStats, String]
 
 pub fn run_validate_valid_fuzz(String, UInt64) -> Result[ValidateValidFuzzStats, String]
 
@@ -185,15 +177,18 @@ pub impl Show for TcState
 
 type TypeGenerationStrategy
 
-pub struct ValidateInvalidStrategyCounts {
-  name : String
-  attempted : Int
-  mutated : Int
-  rejected : Int
+pub struct ValidateInvalidFuzzFailure {
+  profile : String
+  seed : UInt64
+  module_attempt : Int
+  strategy : String
+  expected_issue : String
+  actual_issue : String
+  module_text : String
 }
-pub impl Eq for ValidateInvalidStrategyCounts
-pub impl Show for ValidateInvalidStrategyCounts
-pub impl @debug.Debug for ValidateInvalidStrategyCounts
+pub impl Eq for ValidateInvalidFuzzFailure
+pub impl Show for ValidateInvalidFuzzFailure
+pub impl @debug.Debug for ValidateInvalidFuzzFailure
 
 pub struct ValidateInvalidFuzzStats {
   profile : String
@@ -207,18 +202,15 @@ pub impl Eq for ValidateInvalidFuzzStats
 pub impl Show for ValidateInvalidFuzzStats
 pub impl @debug.Debug for ValidateInvalidFuzzStats
 
-pub struct ValidateInvalidFuzzFailure {
-  profile : String
-  seed : UInt64
-  module_attempt : Int
-  strategy : String
-  expected_issue : String
-  actual_issue : String
-  module_text : String
+pub struct ValidateInvalidStrategyCounts {
+  name : String
+  attempted : Int
+  mutated : Int
+  rejected : Int
 }
-pub impl Eq for ValidateInvalidFuzzFailure
-pub impl Show for ValidateInvalidFuzzFailure
-pub impl @debug.Debug for ValidateInvalidFuzzFailure
+pub impl Eq for ValidateInvalidStrategyCounts
+pub impl Show for ValidateInvalidStrategyCounts
+pub impl @debug.Debug for ValidateInvalidStrategyCounts
 
 pub struct ValidateValidFuzzStats {
   profile : String
@@ -338,3 +330,4 @@ pub trait ValidateMax {
   validate_max(Self, Env, UInt64) -> Result[Unit, String]
 }
 pub impl ValidateMax for @lib.Limits
+

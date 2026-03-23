@@ -15,7 +15,9 @@ using @validate {
   validate_module,
   validation_error_message,
 }
-using @validate {ValidateInvalidFuzzFailure}
+
+///|
+using @validate {type ValidateInvalidFuzzFailure}
 
 ///|
 using @fs {create_dir, list_files_recursive, read_file_sync, write_file_bytes}
@@ -24,4 +26,4 @@ using @fs {create_dir, list_files_recursive, read_file_sync, write_file_bytes}
 using @wast {run_wast_roundtrip_fuzz}
 
 ///|
-using @wat {module_to_wat, run_wat_roundtrip_fuzz, wat_to_module}
+using @wat {run_wat_roundtrip_fuzz}

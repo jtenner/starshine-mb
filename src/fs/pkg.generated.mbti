@@ -6,6 +6,8 @@ pub fn create_dir(String) -> Result[Unit, String]
 
 pub fn list_files_recursive(String) -> Result[Array[String], String]
 
+pub fn read_file_sync(String) -> Result[String, String]
+
 pub fn remove_dir(String) -> Result[Unit, String]
 
 pub fn remove_file(String) -> Result[Unit, String]

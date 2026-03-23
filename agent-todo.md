@@ -9,7 +9,6 @@
 ## Publishing and Validation Blockers
 - Keep `merge-similar-functions` correctness and publish-signoff docs aligned.
 - Keep release blockers in `agent-todo.md` and avoid losing unresolved risk notes in `CHANGELOG.md`.
-- Workspace validation is currently blocked by unrelated compile errors in [`src/fs/fs.mbt`](/home/jtenner/Projects/starshine-mb/src/fs/fs.mbt) and [`src/validate/invalid_fuzzer.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/invalid_fuzzer.mbt); pass slices that need fresh native rebuilds currently require direct `moonc build-package` checks or a separate unblock.
 - Generated optimize feature-source plumbing:
   - module-derived `has_gc` / `has_multivalue` and option-driven `closed_world` / `zero_filled_memory` / `low_memory_unused` / `traps_never_happen` now flow through generated optimize expansion and module-wide execution.
   - future policy question: decide whether `closed_world` should become CLI/config-visible beyond the current internal/default-pipeline use.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Validation: restore workspace moon checks after fs/validate/fuzz API drift
+
+- **Workspace rebuild unblock** by **@jtenner**. Updated [`src/fs/fs.mbt`](/home/jtenner/Projects/starshine-mb/src/fs/fs.mbt) and [`src/fs/moon.pkg`](/home/jtenner/Projects/starshine-mb/src/fs/moon.pkg) so `read_file_sync` now decodes UTF-8 through the imported core `encoding/utf8` package instead of calling the removed `Bytes.text()` API.
+- **Validator/fuzz signature drift repair** by **@jtenner**. Updated [`src/validate/invalid_fuzzer.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/invalid_fuzzer.mbt), [`src/validate/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/validate/pkg.generated.mbti), [`src/fuzz/imports.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/imports.mbt), [`src/fuzz/main.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/main.mbt), and [`src/fuzz/moon.pkg`](/home/jtenner/Projects/starshine-mb/src/fuzz/moon.pkg) to match current transformer state conventions, optional-argument call syntax, and core-package imports. `validate-valid` now uses the existing `run_wat_roundtrip_fuzz` companion runner for text fuzz coverage instead of the broken direct `@lib.Module` to WAT path.
+
 ## 2026-03-23 Validation: keep DCE from truncating result blocks after inner self-break void blocks
 
 - **Dead-code-elimination block escape fix** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so `DeadCodeElimination` no longer treats a `void` block as escaping its parent when the only live breaks still target that block itself. That prevents enclosing concrete result blocks from losing their trailing value producer during nested-expression truncation.

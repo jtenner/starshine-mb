@@ -6,7 +6,9 @@ import {
   "jtenner/starshine/validate" @validate,
   "jtenner/starshine/wast" @wast,
   "jtenner/starshine/wat" @wat,
+  "moonbitlang/core/buffer" @buffer,
   "moonbitlang/core/env" @env,
+  "moonbitlang/core/quickcheck/splitmix" @splitmix,
 }
 
 options(

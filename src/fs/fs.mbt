@@ -152,7 +152,8 @@ pub fn read_file_sync(path : String) -> Result[String, String] {
   let bytes = @xfs.read_file_to_bytes(path) catch {
     e => return Err("read_file_to_bytes failed for \{path}: \{e}")
   }
-  bytes.text() catch {
-    e => Err("read_file_to_bytes->text failed for \{path}: \{e}")
+  let text = @utf8.decode(bytes) catch {
+    _ => return Err("read_file_to_bytes->utf8 failed for \{path}")
   }
+  Ok(text)
 }

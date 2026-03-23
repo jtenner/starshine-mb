@@ -77,6 +77,7 @@ fn fuzz_usage_text() -> String {
   "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles\nsuites: \{suites}\nprofiles: \{profiles}"
 }
 
+///|
 fn validate_invalid_fuzz_bytes(text : String) -> Bytes {
   let out = @buffer.new(size_hint=text.length())
   for c in text {
@@ -85,6 +86,7 @@ fn validate_invalid_fuzz_bytes(text : String) -> Bytes {
   out.to_bytes()
 }
 
+///|
 fn validate_invalid_fuzz_slug(value : String) -> String {
   let out = StringBuilder::new()
   let mut wrote_dash = false
@@ -95,7 +97,8 @@ fn validate_invalid_fuzz_slug(value : String) -> String {
       c
     }
     let is_alnum = (lower >= 'a' && lower <= 'z') ||
-      (lower >= '0' && lower <= '9') || lower == '_'
+      (lower >= '0' && lower <= '9') ||
+      lower == '_'
     if is_alnum {
       out.write_char(lower)
       wrote_dash = false
@@ -114,6 +117,7 @@ fn validate_invalid_fuzz_slug(value : String) -> String {
   }
 }
 
+///|
 fn validate_invalid_fuzz_failure_meta(
   suite : String,
   report : ValidateInvalidFuzzFailure,
@@ -129,9 +133,10 @@ fn validate_invalid_fuzz_failure_meta(
   out.to_string()
 }
 
+///|
 fn validate_invalid_fuzz_failure_writer(
   suite : String,
-) -> ((ValidateInvalidFuzzFailure) -> Result[Unit, String]) {
+) -> (ValidateInvalidFuzzFailure) -> Result[Unit, String] {
   let report_suite = suite
   fn(report) {
     let base_dir = "fuzz-failures"
@@ -143,16 +148,21 @@ fn validate_invalid_fuzz_failure_writer(
     let prefix = "\{base_dir}/\{report_suite}-seed-\{report.seed}-attempt-\{report.module_attempt}-strategy-\{strategy}"
     let meta_path = "\{prefix}.meta.txt"
     let wat_path = "\{prefix}.wat.txt"
-    match write_file_bytes(
-      meta_path,
-      validate_invalid_fuzz_bytes(
-        validate_invalid_fuzz_failure_meta(report_suite, report),
-      ),
-    ) {
+    match
+      write_file_bytes(
+        meta_path,
+        validate_invalid_fuzz_bytes(
+          validate_invalid_fuzz_failure_meta(report_suite, report),
+        ),
+      ) {
       Ok(_) => ()
       Err(e) => return Err("write_file_bytes(\{meta_path}) failed: \{e}")
     }
-    match write_file_bytes(wat_path, validate_invalid_fuzz_bytes(report.module_text)) {
+    match
+      write_file_bytes(
+        wat_path,
+        validate_invalid_fuzz_bytes(report.module_text),
+      ) {
       Ok(_) => Ok(())
       Err(e) => Err("write_file_bytes(\{wat_path}) failed: \{e}")
     }
@@ -187,53 +197,52 @@ fn validate_invalid_fuzz_collect_seed_modules_from_command(
     }
   }
   match suite {
-    "spec-seed" => match command {
-      @wast.WastCommand::Module(mod) => {
-        match @wast.wast_ast_to_binary_module(mod) {
-          Ok(binary_mod) => add_if_valid(binary_mod)
-          Err(_) => ()
+    "spec-seed" =>
+      match command {
+        @wast.WastCommand::Module(mod) =>
+          match @wast.wast_ast_to_binary_module(mod) {
+            Ok(binary_mod) => add_if_valid(binary_mod)
+            Err(_) => ()
+          }
+        @wast.WastCommand::ModuleBinary(_, bytes) =>
+          match @binary.decode_module(bytes) {
+            Ok(binary_mod) => add_if_valid(binary_mod)
+            Err(_) => ()
+          }
+        @wast.WastCommand::ModuleQuote(_, lines) => {
+          let source = validate_invalid_fuzz_quote_lines_to_source(lines)
+          match @wast.wast_to_binary_module(source, filename=path) {
+            Ok(binary_mod) => add_if_valid(binary_mod)
+            Err(_) => ()
+          }
         }
+        _ => ()
       }
-      @wast.WastCommand::ModuleBinary(_, bytes) => {
-        match @binary.decode_module(bytes) {
-          Ok(binary_mod) => add_if_valid(binary_mod)
-          Err(_) => ()
+    "binary-invalid" =>
+      match command {
+        @wast.WastCommand::ModuleBinary(_, bytes) =>
+          match @binary.decode_module(bytes) {
+            Ok(binary_mod) => add_if_valid(binary_mod)
+            Err(_) => ()
+          }
+        _ => ()
+      }
+    "text-invalid" =>
+      match command {
+        @wast.WastCommand::Module(mod) =>
+          match @wast.wast_ast_to_binary_module(mod) {
+            Ok(binary_mod) => add_if_valid(binary_mod)
+            Err(_) => ()
+          }
+        @wast.WastCommand::ModuleQuote(_, lines) => {
+          let source = validate_invalid_fuzz_quote_lines_to_source(lines)
+          match @wast.wast_to_binary_module(source, filename=path) {
+            Ok(binary_mod) => add_if_valid(binary_mod)
+            Err(_) => ()
+          }
         }
+        _ => ()
       }
-      @wast.WastCommand::ModuleQuote(_, lines) => {
-        let source = validate_invalid_fuzz_quote_lines_to_source(lines)
-        match @wast.wast_to_binary_module(source, filename=path) {
-          Ok(binary_mod) => add_if_valid(binary_mod)
-          Err(_) => ()
-        }
-      }
-      _ => ()
-    }
-    "binary-invalid" => match command {
-      @wast.WastCommand::ModuleBinary(_, bytes) => {
-        match @binary.decode_module(bytes) {
-          Ok(binary_mod) => add_if_valid(binary_mod)
-          Err(_) => ()
-        }
-      }
-      _ => ()
-    }
-    "text-invalid" => match command {
-      @wast.WastCommand::Module(mod) => {
-        match @wast.wast_ast_to_binary_module(mod) {
-          Ok(binary_mod) => add_if_valid(binary_mod)
-          Err(_) => ()
-        }
-      }
-      @wast.WastCommand::ModuleQuote(_, lines) => {
-        let source = validate_invalid_fuzz_quote_lines_to_source(lines)
-        match @wast.wast_to_binary_module(source, filename=path) {
-          Ok(binary_mod) => add_if_valid(binary_mod)
-          Err(_) => ()
-        }
-      }
-      _ => ()
-    }
     _ => ()
   }
   modules
@@ -262,9 +271,7 @@ fn validate_invalid_fuzz_collect_seed_modules(
     }
     for cmd in script.commands {
       let command_modules = validate_invalid_fuzz_collect_seed_modules_from_command(
-        suite,
-        path,
-        cmd,
+        suite, path, cmd,
       )
       for module in command_modules {
         modules.push(module)
@@ -274,6 +281,7 @@ fn validate_invalid_fuzz_collect_seed_modules(
   Ok(modules)
 }
 
+///|
 fn run_validate_invalid_suite(
   suite : String,
   profile : String,
@@ -281,11 +289,12 @@ fn run_validate_invalid_suite(
 ) -> Result[Int, String] {
   match suite {
     "validate-invalid" =>
-      match run_validate_invalid_fuzz(
-        profile,
-        seed,
-        Some(validate_invalid_fuzz_failure_writer(suite)),
-      ) {
+      match
+        run_validate_invalid_fuzz(
+          profile,
+          seed,
+          on_failure=Some(validate_invalid_fuzz_failure_writer(suite)),
+        ) {
         Ok(stats) => Ok(stats.module_attempts)
         Err(e) => Err(e)
       }
@@ -294,12 +303,13 @@ fn run_validate_invalid_suite(
         Ok(modules) => modules
         Err(e) => return Err(e)
       }
-      match run_validate_invalid_fuzz_from_modules(
-        profile,
-        seed,
-        modules,
-        Some(validate_invalid_fuzz_failure_writer(suite)),
-      ) {
+      match
+        run_validate_invalid_fuzz_from_modules(
+          profile,
+          seed,
+          modules,
+          on_failure=Some(validate_invalid_fuzz_failure_writer(suite)),
+        ) {
         Ok(stats) => Ok(stats.module_attempts)
         Err(e) => Err(e)
       }
@@ -308,30 +318,16 @@ fn run_validate_invalid_suite(
   }
 }
 
-fn normalize_wat_text_for_compare(text : String) -> String {
-  let out = StringBuilder::new()
-  for c in text {
-    if c != ' ' && c != '\n' && c != '\r' && c != '\t' {
-      out.write_char(c)
-    }
-  }
-  out.to_string()
-}
-
+///|
 fn run_validate_valid_suite(
   profile : String,
   seed : UInt64,
 ) -> Result[Int, String] {
   let normalized = fuzz_ascii_lower(profile.trim().to_string())
-  let (
-    attempts,
-    min_text_attempts,
-    min_text_stable,
-    max_text_roundtrip,
-  ) = match normalized {
-    "smoke" => (128, 0, 0, 0)
-    "ci" => (5000, 4, 1, 64)
-    "stress" => (100000, 24, 2, 200)
+  let (attempts, min_text_attempts, min_text_stable) = match normalized {
+    "smoke" => (128, 0, 0)
+    "ci" => (5000, 20, 2)
+    "stress" => (100000, 80, 8)
     _ =>
       return Err(
         "unknown validate-valid fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -376,33 +372,18 @@ fn run_validate_valid_suite(
           "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} binary-roundtrip-validate-error=\{validation_error_message(err)}",
         )
     }
-
-    if iteration <= max_text_roundtrip {
-      match module_to_wat(mod) {
-        Ok(wat_source) => match wat_to_module(wat_source) {
-          Ok(parsed) => match validate_module(parsed) {
-            Ok(_) => {
-              match module_to_wat(parsed) {
-                Ok(roundtrip_text) => {
-                  roundtrip += 1
-                  if normalize_wat_text_for_compare(roundtrip_text) ==
-                    normalize_wat_text_for_compare(wat_source) {
-                    stable += 1
-                  }
-                }
-                Err(_) => ()
-              }
-            }
-            Err(err) => {
-              return Err(
-                "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} text-roundtrip-validate-error=\{validation_error_message(err)}",
-              )
-            }
-          }
-          Err(_) => ()
-        }
-        Err(_) => ()
+  }
+  if min_text_attempts > 0 {
+    let text_seed = seed ^ 0x574154554c
+    match run_wat_roundtrip_fuzz(normalized, text_seed) {
+      Ok(stats) => {
+        roundtrip = stats.successes
+        stable = stats.stable
       }
+      Err(e) =>
+        return Err(
+          "validate-valid fuzz text companion failed: profile=\{normalized} seed=\{text_seed} error=\{e}",
+        )
     }
   }
 

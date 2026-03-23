@@ -706,7 +706,7 @@ fn apply_strategy(
         _ => (false, mod_)
       }
     HeapTypeSwap =>
-      match make_heaptype_swap_transformer().walk_module(false, mod_) {
+      match make_heaptype_swap_transformer().walk_module((), mod_) {
         Ok((new_mod, _)) => (new_mod != mod_, new_mod)
         _ => (false, mod_)
       }
@@ -810,22 +810,26 @@ fn validate_invalid_fuzz_expected_issue(
         FunctionBody(_) => true
         _ => false
       }
-    InstructionTypeMismatch => match issue {
-      FunctionBody(_) => true
-      _ => false
-    }
-    BlockTypeMismatch => match issue {
-      FunctionBody(_) => true
-      _ => false
-    }
-    DropInsertion => match issue {
-      FunctionBody(_) => true
-      _ => false
-    }
-    BlockCorruption => match issue {
-      FunctionBody(_) => true
-      _ => false
-    }
+    InstructionTypeMismatch =>
+      match issue {
+        FunctionBody(_) => true
+        _ => false
+      }
+    BlockTypeMismatch =>
+      match issue {
+        FunctionBody(_) => true
+        _ => false
+      }
+    DropInsertion =>
+      match issue {
+        FunctionBody(_) => true
+        _ => false
+      }
+    BlockCorruption =>
+      match issue {
+        FunctionBody(_) => true
+        _ => false
+      }
     SignatureCorruption =>
       match issue {
         TypeSection(_) => true
@@ -854,19 +858,19 @@ fn validate_invalid_fuzz_expected_issue(
     | TagIdxOOB(_)
     | StartIdxOOB(_) =>
       match issue {
-      FunctionSection(_) => true
-      FunctionBody(_) => true
-      TypeSection(_) => true
-      GlobalSection(_) => true
-      TableSection(_) => true
-      TagSection(_) => true
-      MemorySection(_) => true
-      DataSection(_) => true
-      DataCountSection(_) => true
-      StartSection(_) => true
-      ExportSection(_) => true
-      _ => false
-    }
+        FunctionSection(_) => true
+        FunctionBody(_) => true
+        TypeSection(_) => true
+        GlobalSection(_) => true
+        TableSection(_) => true
+        TagSection(_) => true
+        MemorySection(_) => true
+        DataSection(_) => true
+        DataCountSection(_) => true
+        StartSection(_) => true
+        ExportSection(_) => true
+        _ => false
+      }
   }
 }
 
@@ -896,7 +900,8 @@ fn validate_invalid_fuzz_expected_issue_family(
     | DataIdxOOB(_)
     | ElemIdxOOB(_)
     | TagIdxOOB(_)
-    | StartIdxOOB(_) => "FunctionSection|FunctionBody|TypeSection|GlobalSection|TableSection|TagSection|MemorySection|DataSection|DataCountSection|StartSection|ExportSection|ImportSection"
+    | StartIdxOOB(_) =>
+      "FunctionSection|FunctionBody|TypeSection|GlobalSection|TableSection|TagSection|MemorySection|DataSection|DataCountSection|StartSection|ExportSection|ImportSection"
   }
 }
 
@@ -915,16 +920,7 @@ fn fuzz_invalid_module_with_coverage(
     return (strategy_name, expected_issue, 0, 0, 0, 0, None, None)
   }
   match validate_module(invalid_module) {
-    Ok(_) => (
-      strategy_name,
-      expected_issue,
-      1,
-      1,
-      0,
-      0,
-      None,
-      None,
-    )
+    Ok(_) => (strategy_name, expected_issue, 1, 1, 0, 0, None, None)
     Err(err) => {
       let issue = validation_error_diagnostic(err).issue
       if validate_invalid_fuzz_expected_issue(strategy, issue) {
@@ -1032,7 +1028,9 @@ pub struct ValidateInvalidFuzzFailure {
 } derive(Eq, Show, Debug)
 
 ///|
-fn validate_invalid_fuzz_profile_attempts(profile : String) -> Result[(String, Int), String] {
+fn validate_invalid_fuzz_profile_attempts(
+  profile : String,
+) -> Result[(String, Int), String] {
   let normalized = validate_invalid_fuzz_ascii_lower(profile.trim().to_string())
   let module_attempts = match normalized {
     "smoke" => 24
@@ -1066,7 +1064,7 @@ fn run_validate_invalid_fuzz_with_modules(
     rejected_count[s] = 0
     matched_count[s] = 0
   }
-  let mut problems : Array[String] = []
+  let problems : Array[String] = []
   let mut modules_tested = 0
   let mut module_attempt = 0
   for _ in 0..<module_attempts {
@@ -1102,7 +1100,7 @@ fn run_validate_invalid_fuzz_with_modules(
             seed,
             module_attempt,
             strategy: strategy_name,
-            expected_issue: expected_issue,
+            expected_issue,
             actual_issue: validation_issue_message(mismatch_issue),
             module_text: invalid_text,
           }
@@ -1110,11 +1108,10 @@ fn run_validate_invalid_fuzz_with_modules(
             Some(handler) =>
               match handler(failure) {
                 Ok(_) => ()
-                Err(e) => {
+                Err(e) =>
                   return Err(
                     "validate-invalid fuzz failure callback failed to persist repro: \{e}",
                   )
-                }
               }
             None => ()
           }
@@ -1168,7 +1165,9 @@ fn run_validate_invalid_fuzz_with_modules(
     }
     let reject_rate = matched * 100 / tested
     if tested >= 2 && reject_rate < 80 {
-      problems.push("\{s}: \{reject_rate}% expected rejections (\{matched}/\{tested})")
+      problems.push(
+        "\{s}: \{reject_rate}% expected rejections (\{matched}/\{tested})",
+      )
     }
   }
   let stats = ValidateInvalidFuzzStats::{
@@ -1201,7 +1200,8 @@ pub fn run_validate_invalid_fuzz_from_modules(
   modules : Array[@lib.Module],
   on_failure? : ((ValidateInvalidFuzzFailure) -> Result[Unit, String])? = None,
 ) -> Result[ValidateInvalidFuzzStats, String] {
-  let (normalized, module_attempts) = match validate_invalid_fuzz_profile_attempts(profile) {
+  let (normalized, module_attempts) = match
+    validate_invalid_fuzz_profile_attempts(profile) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1215,10 +1215,8 @@ pub fn run_validate_invalid_fuzz_from_modules(
     normalized,
     seed,
     module_attempts,
-    fn(module_attempt, _) {
-      Some(modules[(module_attempt - 1) % module_count])
-    },
-    on_failure,
+    fn(module_attempt, _) { Some(modules[(module_attempt - 1) % module_count]) },
+    on_failure~,
   )
 }
 
@@ -1228,7 +1226,8 @@ pub fn run_validate_invalid_fuzz(
   seed : UInt64,
   on_failure? : ((ValidateInvalidFuzzFailure) -> Result[Unit, String])? = None,
 ) -> Result[ValidateInvalidFuzzStats, String] {
-  let (normalized, module_attempts) = match validate_invalid_fuzz_profile_attempts(profile) {
+  let (normalized, module_attempts) = match
+    validate_invalid_fuzz_profile_attempts(profile) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1246,7 +1245,7 @@ pub fn run_validate_invalid_fuzz(
       }
       None
     },
-    on_failure,
+    on_failure~,
   )
 }
 
@@ -1263,8 +1262,7 @@ test "run_validate_invalid_fuzz rejects unknown profile" {
 test "run_validate_invalid_fuzz_from_modules rejects zero modules" {
   match run_validate_invalid_fuzz_from_modules("smoke", 0x5eedUL, []) {
     Ok(_) => fail("expected empty seed corpus error")
-    Err(msg) =>
-      assert_true(msg.contains("zero valid modules"))
+    Err(msg) => assert_true(msg.contains("zero valid modules"))
   }
 }
 
@@ -1288,9 +1286,7 @@ test "HeapTypeSwap strategy mutates concrete heap types and rejects mutated modu
       TableSec::new([
         Table::new(
           table_ty,
-          Some(
-            Expr::new([Instruction::ref_func(FuncIdx::new(0U))]),
-          ),
+          Some(Expr::new([Instruction::ref_func(FuncIdx::new(0U))])),
         ),
       ]),
     )
