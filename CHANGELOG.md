@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Validation: make DCE dead-result cleanup respect net typed control results
+
+- **DCE typed block-result accounting** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so dead-result cleanup and the related block/if/try rewrites no longer treat every non-`void` typed control as a droppable runtime result. `DeadCodeElimination` now expands typed block types through the module validator environment and only applies dead-result cleanup when the control has a positive net fallthrough result count (`results.length() > params.length()`), while still preserving the earlier `TypeIdx` loop body fix for cases that really do have a dead result.
+- Added focused regressions in [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) covering positive-net `TypeIdx` loop dead-result cleanup, zero-net `TypeIdx` loop preservation, and the updated helper signatures through the direct truncation coverage.
+- This slice clears the fresh direct-DCE `Func 225` post-encode underflow. The next direct artifact blocker is now later at `Func 3175` with `values remaining on stack at end of block`.
+
 ## 2026-03-23 Validation: consume dead structured results in DCE without breaking live control flow
 
 - **DCE dead structured-result cleanup** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so dead-result cleanup now preserves non-retaggable structured control flow by consuming dead results with `drop` instead of leaving concrete `block` / `if` / `TypeIdx` `loop` results bare in `void` contexts. `void` loops now stay `void` during this cleanup instead of being incorrectly wrapped in `drop`.

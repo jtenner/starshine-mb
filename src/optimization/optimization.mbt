@@ -568,13 +568,14 @@ pub fn run_dead_code_elimination(
   }
 
   let rewritten_funcs : Array[Func] = []
+  let env = @validate.Env::new().with_module(mod)
   let mut changed = false
   let mut funcs_visited = scratch.funcs_visited
   let mut funcs_changed = scratch.funcs_changed
   for func in funcs {
     funcs_visited += 1
     let (rewritten, func_changed) = optimization_dead_code_elimination_func(
-      func,
+      func, env,
     )
     rewritten_funcs.push(rewritten)
     if func_changed {
@@ -1078,7 +1079,10 @@ fn optimization_remove_unused_names_rebase_labels(
 }
 
 ///|
-fn optimization_dead_code_elimination_func(func : Func) -> (Func, Bool) {
+fn optimization_dead_code_elimination_func(
+  func : Func,
+  env : @validate.Env,
+) -> (Func, Bool) {
   match func {
     @lib.TFunc(params, locals, body) => {
       let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
@@ -1089,6 +1093,7 @@ fn optimization_dead_code_elimination_func(func : Func) -> (Func, Bool) {
             @lib.TExpr::new(
               optimization_dead_code_elimination_truncate_after_first_unreachable(
                 rewritten.inner(),
+                env,
               ),
             ),
           )
@@ -1099,7 +1104,7 @@ fn optimization_dead_code_elimination_func(func : Func) -> (Func, Bool) {
             .unwrap()
           change(
             (),
-            optimization_dead_code_elimination_rewrite_instr(rewritten),
+            optimization_dead_code_elimination_rewrite_instr(rewritten, env),
           )
         })
       match transformer.walk_texpr((), body) {
@@ -1119,15 +1124,16 @@ fn optimization_dead_code_elimination_func(func : Func) -> (Func, Bool) {
 ///|
 fn optimization_dead_code_elimination_rewrite_instr(
   instr : @lib.TInstr,
+  env : @validate.Env,
 ) -> @lib.TInstr {
   match instr.kind {
     @lib.TBlock(block_type, body) =>
-      optimization_dead_code_elimination_rewrite_block(block_type, body)
+      optimization_dead_code_elimination_rewrite_block(block_type, body, env)
     @lib.TLoop(block_type, body) =>
       optimization_dead_code_elimination_rewrite_loop(block_type, body)
     @lib.TTryTable(block_type, catches, body) =>
       optimization_dead_code_elimination_rewrite_try_table(
-        block_type, catches, body,
+        block_type, catches, body, env,
       )
     @lib.TBr(label, values) =>
       optimization_dead_code_elimination_rewrite_branch(label, values)
@@ -1173,7 +1179,7 @@ fn optimization_dead_code_elimination_rewrite_instr(
       })
     @lib.TIf(block_type, cond, then_body, else_body) =>
       optimization_dead_code_elimination_rewrite_if(
-        block_type, cond, then_body, else_body,
+        block_type, cond, then_body, else_body, env,
       )
     @lib.TStringConst(_) => instr
     @lib.TStringNewUtf8Array(array, start, end_) =>
@@ -1368,9 +1374,12 @@ fn optimization_dead_code_elimination_rewrite_try_table(
   block_type : @lib.BlockType,
   catches : Array[@lib.Catch],
   body : @lib.TExpr,
+  env : @validate.Env,
 ) -> @lib.TInstr {
   if optimization_dead_code_elimination_expr_is_unreachable(body) &&
-    optimization_dead_code_elimination_block_type_is_concrete(block_type) {
+    optimization_dead_code_elimination_block_type_has_dead_result(
+      block_type, env,
+    ) {
     @lib.TInstr::try_table(@lib.BlockType::void_(), catches, body)
   } else {
     @lib.TInstr::try_table(block_type, catches, body)
@@ -1398,6 +1407,7 @@ fn optimization_dead_code_elimination_rewrite_if(
   cond : @lib.TInstr,
   then_body : @lib.TExpr,
   else_body : @lib.TExpr?,
+  env : @validate.Env,
 ) -> @lib.TInstr {
   if optimization_dead_code_elimination_instr_is_unreachable(cond) {
     return cond
@@ -1407,8 +1417,8 @@ fn optimization_dead_code_elimination_rewrite_if(
       if optimization_dead_code_elimination_expr_is_unreachable(then_body) &&
         optimization_dead_code_elimination_expr_is_unreachable(else_body) {
         return @lib.TInstr::if_(
-          if optimization_dead_code_elimination_block_type_is_concrete(
-              block_type,
+          if optimization_dead_code_elimination_block_type_has_dead_result(
+              block_type, env,
             ) &&
             !optimization_dead_code_elimination_expr_has_live_break_past_current_label(
               then_body, 0,
@@ -1434,6 +1444,7 @@ fn optimization_dead_code_elimination_rewrite_if(
 fn optimization_dead_code_elimination_rewrite_block(
   block_type : @lib.BlockType,
   body : @lib.TExpr,
+  env : @validate.Env,
 ) -> @lib.TInstr {
   match body.inner() {
     [child] =>
@@ -1444,7 +1455,9 @@ fn optimization_dead_code_elimination_rewrite_block(
     _ => ()
   }
   if optimization_dead_code_elimination_block_escapes_parent(block_type, body) &&
-    optimization_dead_code_elimination_block_type_is_concrete(block_type) {
+    optimization_dead_code_elimination_block_type_has_dead_result(
+      block_type, env,
+    ) {
     match body.inner() {
       [child] =>
         if optimization_dead_code_elimination_expr_has_live_break_past_current_label(
@@ -1560,12 +1573,17 @@ fn optimization_dead_code_elimination_expr_is_unreachable(
 }
 
 ///|
-fn optimization_dead_code_elimination_block_type_is_concrete(
+fn optimization_dead_code_elimination_block_type_has_dead_result(
   block_type : @lib.BlockType,
+  env : @validate.Env,
 ) -> Bool {
-  match block_type {
-    @lib.VoidBlockType => false
-    _ => true
+  match env.expand_blocktype(block_type) {
+    Ok((params, results)) => results.length() > params.length()
+    Err(_) =>
+      match block_type {
+        @lib.ValTypeBlockType(_) => true
+        _ => false
+      }
   }
 }
 
@@ -2421,6 +2439,7 @@ fn optimization_dead_code_elimination_instr_pre_effects_may_escape(
 ///|
 fn optimization_dead_code_elimination_truncate_after_first_unreachable(
   instrs : Array[@lib.TInstr],
+  env : @validate.Env,
 ) -> Array[@lib.TInstr] {
   let kept : Array[@lib.TInstr] = []
   for instr in instrs {
@@ -2429,12 +2448,14 @@ fn optimization_dead_code_elimination_truncate_after_first_unreachable(
       for kept_instr in kept {
         cleaned_prefix.push(
           optimization_dead_code_elimination_drop_dead_structured_result(
-            kept_instr,
+            kept_instr, env,
           ),
         )
       }
       cleaned_prefix.push(
-        optimization_dead_code_elimination_drop_dead_structured_result(instr),
+        optimization_dead_code_elimination_drop_dead_structured_result(
+          instr, env,
+        ),
       )
       if optimization_dead_code_elimination_instr_needs_unreachable_barrier(
           instr,
@@ -2451,18 +2472,21 @@ fn optimization_dead_code_elimination_truncate_after_first_unreachable(
 ///|
 fn optimization_dead_code_elimination_drop_dead_structured_result(
   instr : @lib.TInstr,
+  env : @validate.Env,
 ) -> @lib.TInstr {
   match instr.kind {
     @lib.TIf(block_type, cond, then_body, else_body) =>
-      if optimization_dead_code_elimination_block_type_is_concrete(block_type) {
+      if optimization_dead_code_elimination_block_type_has_dead_result(
+          block_type, env,
+        ) {
         let rewritten_then = optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-          then_body,
+          then_body, env,
         )
         let rewritten_else = match else_body {
           Some(else_body) =>
             Some(
               optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-                else_body,
+                else_body, env,
               ),
             )
           None => None
@@ -2497,9 +2521,11 @@ fn optimization_dead_code_elimination_drop_dead_structured_result(
         instr
       }
     @lib.TBlock(block_type, body) =>
-      if optimization_dead_code_elimination_block_type_is_concrete(block_type) {
+      if optimization_dead_code_elimination_block_type_has_dead_result(
+          block_type, env,
+        ) {
         let rewritten_body = optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-          body,
+          body, env,
         )
         if optimization_dead_code_elimination_expr_tail_escapes_parent(body, 0) &&
           !optimization_dead_code_elimination_expr_has_live_break_to_label(
@@ -2518,34 +2544,35 @@ fn optimization_dead_code_elimination_drop_dead_structured_result(
           @lib.TInstr::loop_(
             @lib.BlockType::void_(),
             optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-              body,
+              body, env,
             ),
           )
         @lib.ValTypeBlockType(_) =>
           @lib.TInstr::loop_(
             @lib.BlockType::void_(),
             optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-              body,
+              body, env,
             ),
           )
         _ =>
-          @lib.TInstr::drop(
-            @lib.TInstr::loop_(
-              block_type,
-              optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-                body,
-              ),
-            ),
-          )
+          if optimization_dead_code_elimination_block_type_has_dead_result(
+              block_type, env,
+            ) {
+            @lib.TInstr::drop(@lib.TInstr::loop_(block_type, body))
+          } else {
+            instr
+          }
       }
     @lib.TTryTable(block_type, catches, body) =>
-      if optimization_dead_code_elimination_block_type_is_concrete(block_type) &&
+      if optimization_dead_code_elimination_block_type_has_dead_result(
+          block_type, env,
+        ) &&
         optimization_dead_code_elimination_try_table_is_unreachable(body) {
         @lib.TInstr::try_table(
           @lib.BlockType::void_(),
           catches,
           optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-            body,
+            body, env,
           ),
         )
       } else {
@@ -2558,6 +2585,7 @@ fn optimization_dead_code_elimination_drop_dead_structured_result(
 ///|
 fn optimization_dead_code_elimination_drop_dead_terminal_expr_result(
   expr : @lib.TExpr,
+  env : @validate.Env,
 ) -> @lib.TExpr {
   let instrs = expr.inner()
   if instrs.length() == 0 {
@@ -2569,6 +2597,7 @@ fn optimization_dead_code_elimination_drop_dead_terminal_expr_result(
       if i == instrs.length() - 1 {
         optimization_dead_code_elimination_drop_dead_structured_result(
           instrs[i],
+          env,
         )
       } else {
         instrs[i]

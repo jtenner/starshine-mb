@@ -236,6 +236,18 @@ fn dead_code_elimination_test_call_body(
 }
 
 ///|
+fn dead_code_elimination_test_block_type_env(
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+) -> @validate.Env {
+  @validate.Env::new().with_rectype(
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func(params, results)),
+    ),
+  )
+}
+
+///|
 test "dead code elimination pipeline dispatch uses dedicated runner shell" {
   let pipeline : Array[PipelineEntry] = []
   add_pass_to_pipeline(pipeline, OptimizePass::DeadCodeElimination)
@@ -794,13 +806,38 @@ test "dead code elimination rewrite keeps type-index loop block types" {
 
 ///|
 test "dead code elimination wraps type-index loop results in drop when dead" {
+  let env = dead_code_elimination_test_block_type_env([], [@lib.ValType::i32()])
   let loop_instr = @lib.TInstr::loop_(
-    @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+    @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
     @lib.TExpr::new([@lib.TInstr::unreachable_()]),
   )
   assert_eq(
-    optimization_dead_code_elimination_drop_dead_structured_result(loop_instr),
+    optimization_dead_code_elimination_drop_dead_structured_result(
+      loop_instr, env,
+    ),
     @lib.TInstr::drop(loop_instr),
+  )
+}
+
+///|
+test "dead code elimination preserves type-index loops with no net dead result" {
+  let env = dead_code_elimination_test_block_type_env([@lib.ValType::i32()], [
+    @lib.ValType::i32(),
+  ])
+  let loop_instr = @lib.TInstr::loop_(
+    @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+    @lib.TExpr::new([
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.TExpr::new([@lib.TInstr::i32_const(@lib.I32::new(7))]),
+      ),
+    ]),
+  )
+  assert_eq(
+    optimization_dead_code_elimination_drop_dead_structured_result(
+      loop_instr, env,
+    ),
+    loop_instr,
   )
 }
 
@@ -811,7 +848,10 @@ test "dead code elimination does not wrap void loops in drop during dead-result 
     @lib.TExpr::new([@lib.TInstr::unreachable_()]),
   )
   assert_eq(
-    optimization_dead_code_elimination_drop_dead_structured_result(loop_instr),
+    optimization_dead_code_elimination_drop_dead_structured_result(
+      loop_instr,
+      @validate.Env::new(),
+    ),
     loop_instr,
   )
 }
@@ -863,6 +903,7 @@ test "dead code elimination keeps concrete block types with live current-label b
     optimization_dead_code_elimination_rewrite_block(
       @lib.BlockType::val_type(@lib.ValType::i32()),
       body,
+      @validate.Env::new(),
     ),
     @lib.TInstr::block(@lib.BlockType::val_type(@lib.ValType::i32()), body),
   )
@@ -885,7 +926,10 @@ test "dead code elimination wraps dead concrete block results with live current-
     ]),
   )
   assert_eq(
-    optimization_dead_code_elimination_drop_dead_structured_result(instr),
+    optimization_dead_code_elimination_drop_dead_structured_result(
+      instr,
+      @validate.Env::new(),
+    ),
     @lib.TInstr::drop(instr),
   )
 }
@@ -897,7 +941,10 @@ test "dead code elimination wraps ordinary concrete block results in drop when d
     @lib.TExpr::new([@lib.TInstr::i32_const(@lib.I32::new(7))]),
   )
   assert_eq(
-    optimization_dead_code_elimination_drop_dead_structured_result(instr),
+    optimization_dead_code_elimination_drop_dead_structured_result(
+      instr,
+      @validate.Env::new(),
+    ),
     @lib.TInstr::drop(instr),
   )
 }
@@ -911,7 +958,10 @@ test "dead code elimination wraps ordinary concrete if results in drop when dead
     Some(@lib.TExpr::new([@lib.TInstr::i32_const(@lib.I32::new(8))])),
   )
   assert_eq(
-    optimization_dead_code_elimination_drop_dead_structured_result(instr),
+    optimization_dead_code_elimination_drop_dead_structured_result(
+      instr,
+      @validate.Env::new(),
+    ),
     @lib.TInstr::drop(instr),
   )
 }
@@ -936,10 +986,13 @@ test "dead code elimination treats branch-value escape blocks as terminal" {
     ]),
   ])
   assert_eq(
-    optimization_dead_code_elimination_truncate_after_first_unreachable([
-      @lib.TInstr::block(@lib.BlockType::void_(), body),
-      @lib.TInstr::return_([@lib.TInstr::i64_const(@lib.I64::new(42L))]),
-    ]),
+    optimization_dead_code_elimination_truncate_after_first_unreachable(
+      [
+        @lib.TInstr::block(@lib.BlockType::void_(), body),
+        @lib.TInstr::return_([@lib.TInstr::i64_const(@lib.I64::new(42L))]),
+      ],
+      @validate.Env::new(),
+    ),
     [
       @lib.TInstr::block(@lib.BlockType::void_(), body),
       @lib.TInstr::unreachable_(),
