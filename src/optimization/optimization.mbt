@@ -5964,6 +5964,153 @@ fn optimization_rewrite_name_sec_filtered(
 }
 
 ///|
+fn optimization_supports_simple_type_dedup(rec_types : Array[RecType]) -> Bool {
+  for rec_type in rec_types {
+    match rec_type {
+      SingleRecType(subtype) => {
+        if subtype.super_types().length() > 0 ||
+          subtype.describes_type() is Some(_) ||
+          subtype.descriptor_type() is Some(_) {
+          return false
+        }
+        match subtype.get_comptype() {
+          FuncCompType(_, _) => ()
+          _ => return false
+        }
+      }
+      GroupRecType(_) => return false
+    }
+  }
+  true
+}
+
+///|
+fn optimization_rewrite_type_name_sec(
+  name_sec : NameSec,
+  type_remap : Map[UInt, UInt],
+) -> NameSec {
+  let {
+    module_name,
+    func_names,
+    local_names,
+    label_names,
+    type_names,
+    table_names,
+    memory_names,
+    global_names,
+    elem_names,
+    data_names,
+    field_names,
+    tag_names,
+  } = name_sec
+  NameSec::new(
+    module_name~,
+    func_names~,
+    local_names~,
+    label_names~,
+    type_names=match type_names {
+      Some(names) =>
+        Some(optimization_rewrite_name_map_filtered(names, type_remap, true))
+      None => None
+    },
+    table_names~,
+    memory_names~,
+    global_names~,
+    elem_names~,
+    data_names~,
+    field_names~,
+    tag_names~,
+  )
+}
+
+///|
+fn optimization_canonicalize_duplicate_simple_type_indices(
+  mod : Module,
+) -> Module {
+  match mod.type_sec {
+    Some(TypeSec(rec_types)) => {
+      if !optimization_supports_simple_type_dedup(rec_types) {
+        return mod
+      }
+      let canonical_old_idxs : Array[UInt] = []
+      let kept_types : Array[RecType] = []
+      let old_to_new : Map[UInt, UInt] = {}
+      let mut old_idx = 0
+      while old_idx < rec_types.length() {
+        let mut canonical_old_idx = old_idx.reinterpret_as_uint()
+        let mut prev_idx = 0
+        while prev_idx < old_idx {
+          if rec_types[prev_idx] == rec_types[old_idx] {
+            canonical_old_idx = prev_idx.reinterpret_as_uint()
+            break
+          }
+          prev_idx += 1
+        }
+        canonical_old_idxs.push(canonical_old_idx)
+        if canonical_old_idx == old_idx.reinterpret_as_uint() {
+          old_to_new[canonical_old_idx] = kept_types
+            .length()
+            .reinterpret_as_uint()
+          kept_types.push(rec_types[old_idx])
+        }
+        old_idx += 1
+      }
+      if kept_types.length() == rec_types.length() {
+        return mod
+      }
+      let type_remap : Map[UInt, UInt] = {}
+      old_idx = 0
+      while old_idx < rec_types.length() {
+        let canonical_old_idx = canonical_old_idxs[old_idx]
+        match old_to_new.get(canonical_old_idx) {
+          Some(new_idx) => type_remap[old_idx.reinterpret_as_uint()] = new_idx
+          None => return mod
+        }
+        old_idx += 1
+      }
+      let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
+        .on_typeidx_evt(fn(_, _, idx : TypeIdx) {
+          match idx {
+            TypeIdx(raw) => {
+              let next = type_remap.get(raw).unwrap_or(raw)
+              change((), TypeIdx::new(next))
+            }
+            RecIdx(_) => unchanged()
+          }
+        })
+        .on_externtype_evt(fn(_, _, ext) {
+          match ext {
+            FuncExternType(TypeIdx(raw)) => {
+              let next = type_remap.get(raw).unwrap_or(raw)
+              change((), ExternType::func(TypeIdx::new(next)))
+            }
+            TagExternType(TagType(TypeIdx(raw))) => {
+              let next = type_remap.get(raw).unwrap_or(raw)
+              change((), ExternType::tag(TagType::new(TypeIdx::new(next))))
+            }
+            _ => unchanged()
+          }
+        })
+      match transformer.walk_module((), mod) {
+        Ok((rewritten, _)) => {
+          let rewritten_type_sec = TypeSec::new(kept_types)
+          let with_types = rewritten.with_type_sec(rewritten_type_sec)
+          match with_types.name_sec {
+            Some(name_sec) =>
+              with_types.with_name_sec(
+                optimization_rewrite_type_name_sec(name_sec, type_remap),
+              )
+            None => with_types
+          }
+        }
+        Err(_) => mod
+      }
+    }
+    None => mod
+  }
+}
+
+///|
 fn optimization_note_used_func(
   used : Array[Bool],
   worklist : Array[Int],
@@ -10361,7 +10508,7 @@ pub fn run_duplicate_function_elimination(
       None => break
     }
   }
-  (current, global)
+  (optimization_canonicalize_duplicate_simple_type_indices(current), global)
 }
 
 ///|

@@ -1,14 +1,16 @@
 ///|
 using @lib {
+  type BlockType,
   type ExternIdx,
+  type Expr,
   type Export,
   type ExportSec,
+  type Instruction,
   type Locals,
   type Name,
   type StartSec,
   type TExpr,
   type TInstr,
-  type TypeSec,
   type ValType,
 }
 
@@ -224,6 +226,80 @@ test "duplicate function elimination iterates to fixpoint without opt presets" {
   }
   assert_eq(try! duplicate_func_test_call_target(optimized, 0), 1U)
   assert_eq(try! duplicate_func_test_call_target(optimized, 1), 2U)
+}
+
+///|
+test "duplicate function elimination canonicalizes duplicate simple type indices after merging" {
+  let block_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([block_type, block_type, func_type, func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(3U), TypeIdx::new(2U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::block(
+              BlockType::type_idx(TypeIdx::new(1U)),
+              Expr::new([Instruction::i32_const(I32(7))]),
+            ),
+            Instruction::drop(),
+          ]),
+        ),
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::block(
+              BlockType::type_idx(TypeIdx::new(1U)),
+              Expr::new([Instruction::i32_const(I32(7))]),
+            ),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+
+  let (optimized, _) = run_duplicate_function_elimination(
+    mod,
+    PipelineGlobal::new(),
+    PipelineFeatures::new(),
+  )
+
+  match optimized.type_sec {
+    Some(TypeSec(types)) => assert_eq(types.length(), 2)
+    None => fail("expected type section")
+  }
+  match optimized.func_sec {
+    Some(FuncSec([TypeIdx(type_idx)])) => assert_eq(type_idx, 1U)
+    _ => fail("expected compacted func type index")
+  }
+  match optimized.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                Block(
+                  TypeIdxBlockType(TypeIdx(block_type_idx)),
+                  Expr([I32Const(I32(v))])
+                ),
+                Drop,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(block_type_idx, 0U)
+      assert_eq(v, 7)
+    }
+    _ => fail("expected compacted block type index in surviving body")
+  }
 }
 
 ///|

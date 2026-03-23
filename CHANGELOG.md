@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Optimization: compact duplicate simple type indices after DFE
+
+- **DuplicateFunctionElimination type-index compaction** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so direct DFE now canonically rewrites duplicate simple single-rec function type indices after the merge set is settled, including surviving body `block` type indices, import/tag extern type references, and type-name custom-section entries.
+- Added focused coverage in [`src/optimization/duplicate_function_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/duplicate_function_elimination_wbtest.mbt) for post-merge duplicate type compaction, and refreshed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining fresh-artifact DFE gap is now almost entirely code bytes plus a smaller element-section delta versus Binaryen.
+
 ## 2026-03-22 Optimization: make direct DFE iterate to a fixpoint
 
 - **DuplicateFunctionElimination fixpoint parity** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so explicit `DuplicateFunctionElimination` no longer stops after a single iteration at default settings and instead runs until the pass reaches its own bounded fixpoint, matching the already-correct `-O2` behavior on the fresh rebuilt release artifact.

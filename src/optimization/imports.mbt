@@ -9,6 +9,7 @@ using @lib {
   type Elem,
   type ElemIdx,
   type ElemSec,
+  type ExternType,
   type Func,
   type FuncIdx,
   type FuncSec,
@@ -36,6 +37,7 @@ using @lib {
   type TagSec,
   type TagType,
   type TypeIdx,
+  type TypeSec,
   type U32,
 }
 
