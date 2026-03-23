@@ -279,6 +279,38 @@ fn normalize_typed_if_branch_exit(
 }
 
 ///|
+fn normalize_untyped_block_exit(
+  st : TcState,
+  results : Array[ValType],
+) -> Result[(Bool, TcEscape), String] {
+  if st.reachable {
+    match validate_end_stack(st, results) {
+      Err(e) => return Err(e)
+      Ok(_) => ()
+    }
+    return Ok((true, NoTcEscape))
+  }
+  match st.escape {
+    NoTcEscape => {
+      match validate_end_stack(st, results) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
+      }
+      Ok((false, TerminalTcEscape))
+    }
+    BranchTcEscape(0) => Ok((true, NoTcEscape))
+    BranchTcEscape(depth) => Ok((false, BranchTcEscape(depth - 1)))
+    TerminalTcEscape => {
+      match validate_end_stack(st, results) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
+      }
+      Ok((false, TerminalTcEscape))
+    }
+  }
+}
+
+///|
 fn normalize_typed_block_exit(
   st : TcState,
   results : Array[ValType],
@@ -296,7 +328,7 @@ fn normalize_typed_block_exit(
         Err(e) => return Err(e)
         Ok(_) => ()
       }
-      Ok((true, NoTcEscape))
+      Ok((false, TerminalTcEscape))
     }
     BranchTcEscape(0) => Ok((true, NoTcEscape))
     BranchTcEscape(depth) => Ok((false, BranchTcEscape(depth - 1)))
@@ -305,7 +337,7 @@ fn normalize_typed_block_exit(
         Err(e) => return Err(e)
         Ok(_) => ()
       }
-      Ok((true, NoTcEscape))
+      Ok((false, TerminalTcEscape))
     }
   }
 }
@@ -797,21 +829,21 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     Err(e) => return Err(e)
     Ok(s) => s
   }
-
-  match validate_end_stack(st_body, results) {
+  let (reaches_merge, block_escape) = match
+    normalize_untyped_block_exit(st_body, results) {
     Err(e) => return Err(e)
-    Ok(_) => ()
+    Ok(x) => x
   }
-
-  let out = TcState::{
-    env: st.env,
-    stack: st1.stack,
-    reachable: st.reachable,
-    escape: st.escape,
+  if reaches_merge {
+    let out = TcState::{
+      env: st.env,
+      stack: st1.stack,
+      reachable: st.reachable,
+      escape: st.escape,
+    }
+    return Ok(out.push_types(results))
   }
-  Ok( // reachability after block is same as entry unless you model merges
-    out.push_types(results),
-  )
+  Ok(TcState::{ env: st.env, stack: [], reachable: false, escape: block_escape })
 }
 
 ///|

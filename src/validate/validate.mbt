@@ -4254,6 +4254,162 @@ test "validate_module accepts outer if when nested outer-label branches skip the
   }
 }
 
+///|
+test "validate_module accepts nested result if ladder when deeper branches skip later returns" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([
+                Instruction::block(
+                  BlockType::void_(),
+                  Expr::new([
+                    Instruction::local_get(LocalIdx::new(0U)),
+                    Instruction::if_(
+                      BlockType::val_type(ValType::i64()),
+                      [
+                        Instruction::local_get(LocalIdx::new(0U)),
+                        Instruction::drop(),
+                        Instruction::br(LabelIdx::new(1U)),
+                      ],
+                      Some([
+                        Instruction::local_get(LocalIdx::new(0U)),
+                        Instruction::if_(
+                          BlockType::val_type(ValType::i64()),
+                          [
+                            Instruction::local_get(LocalIdx::new(0U)),
+                            Instruction::drop(),
+                            Instruction::br(LabelIdx::new(2U)),
+                          ],
+                          Some([
+                            Instruction::local_get(LocalIdx::new(0U)),
+                            Instruction::if_(
+                              BlockType::val_type(ValType::i64()),
+                              [
+                                Instruction::local_get(LocalIdx::new(0U)),
+                                Instruction::drop(),
+                                Instruction::br(LabelIdx::new(4U)),
+                              ],
+                              Some([
+                                Instruction::local_get(LocalIdx::new(0U)),
+                                Instruction::if_(
+                                  BlockType::val_type(ValType::i64()),
+                                  [
+                                    Instruction::local_get(LocalIdx::new(0U)),
+                                    Instruction::drop(),
+                                    Instruction::br(LabelIdx::new(5U)),
+                                  ],
+                                  Some([
+                                    Instruction::i64_const(I64(4294967296L)),
+                                  ]),
+                                ),
+                              ]),
+                            ),
+                          ]),
+                        ),
+                      ]),
+                    ),
+                    Instruction::return_(),
+                  ]),
+                ),
+                Instruction::i64_const(I64(0L)),
+                Instruction::return_(),
+              ]),
+            ),
+            Instruction::i64_const(I64(1L)),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested branch ladder to skip later returns cleanly: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module accepts result if that can either return or escape to later continuation" {
+  let ret_sig = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+    ),
+  )
+  let join_sig = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+    ),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ret_sig, join_sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::local_get(LocalIdx::new(1U)),
+            Instruction::i32_add(),
+          ]),
+        ),
+        Func::new(
+          Locals::from_types([ValType::i32()]),
+          Expr::new([
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([
+                Instruction::local_get(LocalIdx::new(0U)),
+                Instruction::if_(
+                  BlockType::val_type(ValType::i32()),
+                  [Instruction::i32_const(I32(0))],
+                  Some([
+                    Instruction::local_get(LocalIdx::new(0U)),
+                    Instruction::if_(
+                      BlockType::val_type(ValType::i32()),
+                      [
+                        Instruction::i32_const(I32(7)),
+                        Instruction::local_set(LocalIdx::new(2U)),
+                        Instruction::br(LabelIdx::new(2U)),
+                      ],
+                      Some([
+                        Instruction::i32_const(I32(8)),
+                        Instruction::local_set(LocalIdx::new(2U)),
+                        Instruction::br(LabelIdx::new(2U)),
+                      ]),
+                    ),
+                  ]),
+                ),
+                Instruction::return_(),
+              ]),
+            ),
+            Instruction::local_get(LocalIdx::new(2U)),
+            Instruction::local_get(LocalIdx::new(1U)),
+            Instruction::call(FuncIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected mixed return-or-escape if fixture to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
 // ============ NumType Tests ============
 
 ///|

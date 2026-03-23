@@ -247,6 +247,365 @@ fn generated_pipeline_raw_remove_unused_names_module() -> Module {
 }
 
 ///|
+fn generated_pipeline_raw_nested_branch_ladder_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i64()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::block(
+                @lib.BlockType::void_(),
+                @lib.Expr::new([
+                  @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                  @lib.Instruction::if_(
+                    @lib.BlockType::val_type(@lib.ValType::i64()),
+                    [
+                      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                      @lib.Instruction::drop(),
+                      @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                    ],
+                    Some([
+                      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                      @lib.Instruction::if_(
+                        @lib.BlockType::val_type(@lib.ValType::i64()),
+                        [
+                          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                          @lib.Instruction::drop(),
+                          @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                        ],
+                        Some([
+                          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                          @lib.Instruction::if_(
+                            @lib.BlockType::val_type(@lib.ValType::i64()),
+                            [
+                              @lib.Instruction::local_get(
+                                @lib.LocalIdx::new(0U),
+                              ),
+                              @lib.Instruction::drop(),
+                              @lib.Instruction::br(@lib.LabelIdx::new(4U)),
+                            ],
+                            Some([
+                              @lib.Instruction::local_get(
+                                @lib.LocalIdx::new(0U),
+                              ),
+                              @lib.Instruction::if_(
+                                @lib.BlockType::val_type(@lib.ValType::i64()),
+                                [
+                                  @lib.Instruction::local_get(
+                                    @lib.LocalIdx::new(0U),
+                                  ),
+                                  @lib.Instruction::drop(),
+                                  @lib.Instruction::br(@lib.LabelIdx::new(5U)),
+                                ],
+                                Some([
+                                  @lib.Instruction::i64_const(
+                                    @lib.I64::new(4294967296L),
+                                  ),
+                                ]),
+                              ),
+                            ]),
+                          ),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                  @lib.Instruction::return_(),
+                ]),
+              ),
+              @lib.Instruction::i64_const(@lib.I64::new(0L)),
+              @lib.Instruction::return_(),
+            ]),
+          ),
+          @lib.Instruction::i64_const(@lib.I64::new(1L)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn generated_pipeline_raw_prelude_branch_ladder_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i64()]),
+        ),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+            @lib.ValType::i32(),
+          ]),
+        ),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+        ),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func(
+            [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+            [@lib.ValType::i32()],
+          ),
+        ),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+            @lib.ValType::i32(),
+            @lib.ValType::i32(),
+            @lib.ValType::i32(),
+          ]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([
+      @lib.TypeIdx::new(5U),
+      @lib.TypeIdx::new(4U),
+      @lib.TypeIdx::new(3U),
+      @lib.TypeIdx::new(1U),
+      @lib.TypeIdx::new(2U),
+      @lib.TypeIdx::new(0U),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::i32_const(@lib.I32::new(7)),
+        ]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::i32_eq(),
+        ]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::from_types([
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+        ]),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::block(
+                @lib.BlockType::void_(),
+                @lib.Expr::new([
+                  @lib.Instruction::i32_const(@lib.I32::new(10000)),
+                  @lib.Instruction::local_set(@lib.LocalIdx::new(6U)),
+                  @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                  @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+                  @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                  @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+                  @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+                  @lib.Instruction::local_tee(@lib.LocalIdx::new(3U)),
+                  @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+                  @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+                  @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+                  @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+                  @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+                  @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+                  @lib.Instruction::i32_const(@lib.I32::new(35224)),
+                  @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+                  @lib.Instruction::if_(
+                    @lib.BlockType::val_type(@lib.ValType::i64()),
+                    [
+                      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                      @lib.Instruction::call(@lib.FuncIdx::new(4U)),
+                      @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                    ],
+                    Some([
+                      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                      @lib.Instruction::i32_const(@lib.I32::new(35176)),
+                      @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+                      @lib.Instruction::if_(
+                        @lib.BlockType::val_type(@lib.ValType::i64()),
+                        [
+                          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                          @lib.Instruction::call(@lib.FuncIdx::new(4U)),
+                          @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                        ],
+                        Some([
+                          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                          @lib.Instruction::i32_const(@lib.I32::new(35152)),
+                          @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+                          @lib.Instruction::if_(
+                            @lib.BlockType::val_type(@lib.ValType::i64()),
+                            [
+                              @lib.Instruction::local_get(
+                                @lib.LocalIdx::new(1U),
+                              ),
+                              @lib.Instruction::call(@lib.FuncIdx::new(4U)),
+                              @lib.Instruction::br(@lib.LabelIdx::new(4U)),
+                            ],
+                            Some([
+                              @lib.Instruction::local_get(
+                                @lib.LocalIdx::new(1U),
+                              ),
+                              @lib.Instruction::i32_const(@lib.I32::new(33264)),
+                              @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+                              @lib.Instruction::if_(
+                                @lib.BlockType::val_type(@lib.ValType::i64()),
+                                [
+                                  @lib.Instruction::local_get(
+                                    @lib.LocalIdx::new(1U),
+                                  ),
+                                  @lib.Instruction::call(@lib.FuncIdx::new(4U)),
+                                  @lib.Instruction::br(@lib.LabelIdx::new(5U)),
+                                ],
+                                Some([
+                                  @lib.Instruction::local_get(
+                                    @lib.LocalIdx::new(1U),
+                                  ),
+                                  @lib.Instruction::call(@lib.FuncIdx::new(4U)),
+                                  @lib.Instruction::i64_const(
+                                    @lib.I64::new(4294967296L),
+                                  ),
+                                ]),
+                              ),
+                            ]),
+                          ),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                  @lib.Instruction::return_(),
+                ]),
+              ),
+              @lib.Instruction::i64_const(@lib.I64::new(0L)),
+              @lib.Instruction::return_(),
+            ]),
+          ),
+          @lib.Instruction::i64_const(@lib.I64::new(1L)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn generated_pipeline_raw_mixed_escape_if_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+            @lib.ValType::i32(),
+          ]),
+        ),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+            @lib.ValType::i32(),
+          ]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::i32_add(),
+        ]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              @lib.Instruction::if_(
+                @lib.BlockType::val_type(@lib.ValType::i32()),
+                [@lib.Instruction::i32_const(@lib.I32::new(0))],
+                Some([
+                  @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                  @lib.Instruction::if_(
+                    @lib.BlockType::val_type(@lib.ValType::i32()),
+                    [
+                      @lib.Instruction::i32_const(@lib.I32::new(7)),
+                      @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                      @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                    ],
+                    Some([
+                      @lib.Instruction::i32_const(@lib.I32::new(8)),
+                      @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                      @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                    ]),
+                  ),
+                ]),
+              ),
+              @lib.Instruction::return_(),
+            ]),
+          ),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn generated_pipeline_dead_branch_drop_lowered(optimized : Module) -> Bool {
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => {
@@ -457,6 +816,105 @@ test "run_generated_pipeline_with_options dead code elimination drops dead raw b
   }
   if !generated_pipeline_dead_branch_drop_lowered(optimized) {
     fail("unexpected lowered body shape after DCE")
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options dead code elimination keeps nested branch ladder encodable" {
+  let mod = generated_pipeline_raw_nested_branch_ladder_module()
+  let pipeline = cmd_generated_pipeline_from_flags(
+    mod,
+    ["dead-code-elimination"],
+    OptimizeOptions::new(),
+  )
+  let optimized = match
+    run_generated_pipeline_with_options(mod, pipeline, OptimizeOptions::new()) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected generated DCE branch ladder pipeline success: \{e}")
+  }
+  let wasm = match encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected generated DCE branch ladder encode success: \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected generated DCE branch ladder decode success: \{e}")
+  }
+  match validate_module(decoded) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected generated DCE branch ladder output to stay valid after encode: \{validation_error_message(e)}",
+      )
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options dead code elimination keeps prelude branch ladder encodable" {
+  let mod = generated_pipeline_raw_prelude_branch_ladder_module()
+  let pipeline = cmd_generated_pipeline_from_flags(
+    mod,
+    ["dead-code-elimination"],
+    OptimizeOptions::new(),
+  )
+  let optimized = match
+    run_generated_pipeline_with_options(mod, pipeline, OptimizeOptions::new()) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected generated DCE prelude branch ladder pipeline success: \{e}",
+      )
+  }
+  let wasm = match encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(e) =>
+      fail("expected generated DCE prelude branch ladder encode success: \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected generated DCE prelude branch ladder decode success: \{e}")
+  }
+  match validate_module(decoded) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected generated DCE prelude branch ladder output to stay valid after encode: \{validation_error_message(e)}",
+      )
+  }
+}
+
+///|
+test "run_generated_pipeline_with_options dead code elimination keeps mixed escape if encodable" {
+  let mod = generated_pipeline_raw_mixed_escape_if_module()
+  let pipeline = cmd_generated_pipeline_from_flags(
+    mod,
+    ["dead-code-elimination"],
+    OptimizeOptions::new(),
+  )
+  let optimized = match
+    run_generated_pipeline_with_options(mod, pipeline, OptimizeOptions::new()) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected generated DCE mixed escape if pipeline success: \{e}")
+  }
+  let wasm = match encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(e) =>
+      fail("expected generated DCE mixed escape if encode success: \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected generated DCE mixed escape if decode success: \{e}")
+  }
+  match validate_module(decoded) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected generated DCE mixed escape if output to stay valid after encode: \{validation_error_message(e)}",
+      )
   }
 }
 

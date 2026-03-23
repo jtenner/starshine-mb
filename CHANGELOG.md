@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-23 Validation: propagate non-fallthrough block exits so dead-code-eliminated control blocks no longer require fake fallthrough results
+
+- **Raw and typed block-exit propagation** by **@jtenner**. Updated [`src/validate/typecheck.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so raw and typed `block` validation now distinguishes real block merges from bodies that end in `return`, `unreachable`, or an outer-label branch. Non-fallthrough blocks now keep the enclosing state unreachable with the appropriate escape instead of being treated as if they always reach the block merge.
+- Added focused regressions in [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt), [`src/binary/tests.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/tests.mbt), and [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt) covering nested branch ladders, pre-lifted branch ladders, and generated DCE replay on reduced branch-escape fixtures.
+- Refreshed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the active parity blocker no longer points at the fixed `Func 313` / `Func 315` block-exit case and instead calls out the next mixed return-or-escape post-encode validation failure now surfacing first in the release artifact replay.
+
 ## 2026-03-23 Validation: fix raw nested-`if` escape merges and DCE pre-effect escape tracking
 
 - **Nested escape correctness repair** by **@jtenner**. Updated [`src/validate/typecheck.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so raw `if` validation no longer treats every escaping branch arm as reaching the `if` merge, which was rejecting valid typed-to-raw encodes where one arm branches past the `if` and the other arm reaches normally.
