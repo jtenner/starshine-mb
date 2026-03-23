@@ -884,6 +884,190 @@ fn encode_name_sec_as_custom_section(
 }
 
 ///|
+fn binary_encode_flatten_subtypes(type_sec : TypeSec?) -> Array[SubType] {
+  let out : Array[SubType] = []
+  match type_sec {
+    Some(TypeSec(rec_types)) =>
+      for rec_type in rec_types {
+        let mut subtype_idx = 0U
+        while true {
+          match rec_type.get_subtype(subtype_idx) {
+            Some(subtype) => {
+              out.push(subtype)
+              subtype_idx += 1U
+            }
+            None => break
+          }
+        }
+      }
+    None => ()
+  }
+  out
+}
+
+///|
+fn binary_encode_block_param_count(
+  bt : BlockType,
+  subtypes : Array[SubType],
+) -> Int {
+  match bt {
+    VoidBlockType | ValTypeBlockType(_) => 0
+    TypeIdxBlockType(TypeIdx(raw)) | TypeIdxBlockType(RecIdx(raw)) =>
+      match subtypes.get(raw.reinterpret_as_int()) {
+        Some(subtype) =>
+          match subtype.get_comptype() {
+            FuncCompType(params, _) => params.length()
+            _ => 0
+          }
+        None => 0
+      }
+  }
+}
+
+///|
+fn binary_encode_take_prefix(
+  instrs : Array[Instruction],
+  count : Int,
+) -> (Array[Instruction], Array[Instruction]) {
+  if count <= 0 || instrs.length() < count {
+    return ([], instrs)
+  }
+  let prefix : Array[Instruction] = []
+  let rest : Array[Instruction] = []
+  let mut i = 0
+  while i < instrs.length() {
+    if i < count {
+      prefix.push(instrs[i])
+    } else {
+      rest.push(instrs[i])
+    }
+    i += 1
+  }
+  (prefix, rest)
+}
+
+///|
+fn binary_encode_rewrite_instr_array(
+  instrs : Array[Instruction],
+  subtypes : Array[SubType],
+) -> Array[Instruction] {
+  let out : Array[Instruction] = []
+  for instr in instrs {
+    binary_encode_rewrite_instruction(instr, out, subtypes)
+  }
+  out
+}
+
+///|
+fn binary_encode_rewrite_instruction(
+  instr : Instruction,
+  out : Array[Instruction],
+  subtypes : Array[SubType],
+) -> Unit {
+  match instr {
+    Block(bt, body) => {
+      let Expr(body_instrs) = binary_encode_rewrite_typed_expr_to_raw(
+        body, subtypes,
+      )
+      let (prefix, next_body) = binary_encode_take_prefix(
+        body_instrs,
+        binary_encode_block_param_count(bt, subtypes),
+      )
+      for seed in prefix {
+        out.push(seed)
+      }
+      out.push(Instruction::block(bt, Expr::new(next_body)))
+    }
+    Loop(bt, body) => {
+      let Expr(body_instrs) = binary_encode_rewrite_typed_expr_to_raw(
+        body, subtypes,
+      )
+      let (prefix, next_body) = binary_encode_take_prefix(
+        body_instrs,
+        binary_encode_block_param_count(bt, subtypes),
+      )
+      for seed in prefix {
+        out.push(seed)
+      }
+      out.push(Instruction::loop_(bt, Expr::new(next_body)))
+    }
+    If(bt, then_instrs, else_instrs_opt) => {
+      let rewritten_then = binary_encode_rewrite_instr_array(
+        then_instrs, subtypes,
+      )
+      let rewritten_else = match else_instrs_opt {
+        Some(instrs) =>
+          Some(binary_encode_rewrite_instr_array(instrs, subtypes))
+        None => None
+      }
+      let param_count = binary_encode_block_param_count(bt, subtypes)
+      let (prefix, next_then, next_else) = match rewritten_else {
+        Some(else_instrs) => {
+          let (then_prefix, then_rest) = binary_encode_take_prefix(
+            rewritten_then, param_count,
+          )
+          let (else_prefix, else_rest) = binary_encode_take_prefix(
+            else_instrs, param_count,
+          )
+          if then_prefix.length() == param_count && then_prefix == else_prefix {
+            (then_prefix, then_rest, Some(else_rest))
+          } else {
+            ([], rewritten_then, Some(else_instrs))
+          }
+        }
+        None => {
+          let (then_prefix, then_rest) = binary_encode_take_prefix(
+            rewritten_then, param_count,
+          )
+          if then_prefix.length() == param_count {
+            (then_prefix, then_rest, None)
+          } else {
+            ([], rewritten_then, None)
+          }
+        }
+      }
+      for seed in prefix {
+        out.push(seed)
+      }
+      out.push(Instruction::if_(bt, next_then, next_else))
+    }
+    TryTable(bt, catches, body) => {
+      let Expr(body_instrs) = binary_encode_rewrite_typed_expr_to_raw(
+        body, subtypes,
+      )
+      let (prefix, next_body) = binary_encode_take_prefix(
+        body_instrs,
+        binary_encode_block_param_count(bt, subtypes),
+      )
+      for seed in prefix {
+        out.push(seed)
+      }
+      out.push(Instruction::try_table(bt, catches, Expr::new(next_body)))
+    }
+    _ => out.push(instr)
+  }
+}
+
+///|
+fn binary_encode_rewrite_typed_expr_to_raw(
+  expr : Expr,
+  subtypes : Array[SubType],
+) -> Expr {
+  let Expr(instrs) = expr
+  Expr::new(binary_encode_rewrite_instr_array(instrs, subtypes))
+}
+
+///|
+fn binary_encode_typed_expr_with_module_context(
+  texpr : TExpr,
+  type_sec : TypeSec?,
+) -> Expr {
+  let raw = texpr.to_expr()
+  let subtypes = binary_encode_flatten_subtypes(type_sec)
+  binary_encode_rewrite_typed_expr_to_raw(raw, subtypes)
+}
+
+///|
 pub impl Encode for CustomSec with encode(val, buf) {
   let CustomSec(name, bytes) = val
   write_section(0, buf, fn(payload) {
@@ -1422,8 +1606,36 @@ pub impl Encode for Module with encode(val, buf) {
         if Encode::encode(val.data_cnt_sec, buf) is Err(t) {
           return Err(t)
         }
-        if Encode::encode(val.code_sec, buf) is Err(t) {
-          return Err(t)
+        match val.code_sec {
+          Some(CodeSec(funcs)) => {
+            let encoded_funcs : Array[Func] = []
+            for func in funcs {
+              match func {
+                Func(_, _) => encoded_funcs.push(func)
+                TFunc(params, tlocals, texpr) => {
+                  let locals = match
+                    FunctionLocals::from_typed_func(params, params, tlocals) {
+                    Ok(ls) => ls.body_locals()
+                    Err(_) =>
+                      return Err(BinaryEncodeError::InvalidTypedFunctionLocals)
+                  }
+                  encoded_funcs.push(
+                    Func::new(
+                      locals,
+                      binary_encode_typed_expr_with_module_context(
+                        texpr,
+                        val.type_sec,
+                      ),
+                    ),
+                  )
+                }
+              }
+            }
+            if Encode::encode(Some(CodeSec::new(encoded_funcs)), buf) is Err(t) {
+              return Err(t)
+            }
+          }
+          None => ()
         }
         if Encode::encode(val.data_sec, buf) is Err(t) {
           return Err(t)

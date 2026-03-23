@@ -57,6 +57,81 @@ test "walk_module applies on_tinstruction rewrite" {
 }
 
 ///|
+test "walk_module preserves raw loop param producer order when rewriting funcidx" {
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_funcidx_evt(fn(
+      _,
+      _,
+      _,
+    ) {
+      change((), FuncIdx::new(1U))
+    },
+  )
+  let loop_type = TypeIdx::new(0U)
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([loop_type, loop_type]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::call(FuncIdx::new(0U)),
+            Instruction::i32_const(I32(0)),
+            Instruction::loop_(
+              BlockType::type_idx(loop_type),
+              Expr::new([
+                Instruction::local_tee(LocalIdx::new(0U)),
+                Instruction::drop(),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let rewritten = match transformer.walk_module((), mod) {
+    Ok((m, _)) => m
+    Err(e) => fail("unexpected walk_module error: \{e}")
+  }
+  match rewritten.code_sec {
+    Some(
+      CodeSec(
+        [
+          _,
+          Func(
+            _,
+            Expr(
+              [
+                LocalGet(LocalIdx(call_arg)),
+                Call(FuncIdx(target)),
+                I32Const(I32(loop_seed)),
+                Loop(TypeIdxBlockType(TypeIdx(loop_ty)), Expr(loop_body)),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(call_arg, 0U)
+      assert_eq(target, 1U)
+      assert_eq(loop_seed, 0)
+      assert_eq(loop_ty, 0U)
+      assert_eq(loop_body, [
+        Instruction::local_tee(LocalIdx::new(0U)),
+        Instruction::drop(),
+      ])
+    }
+    _ =>
+      fail("expected funcidx rewrite to preserve call/i32.const/loop ordering")
+  }
+}
+
+///|
 test "walk_module forwards event errors" {
   let transformer = ModuleTransformer::new().on_tinstruction_evt(fn(
     _,

@@ -509,6 +509,79 @@ test "encode_module keeps typed-function body locals without prefix stripping" {
 }
 
 ///|
+test "encode_module hoists typed loop param seeds before type-index block loops" {
+  let loop_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([loop_type, func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          Locals::from_types([ValType::i32()]),
+          TExpr::new([
+            TInstr::loop_(
+              BlockType::type_idx(TypeIdx::new(0U)),
+              TExpr::new([
+                TInstr::i32_const(I32(0)),
+                TInstr::drop(
+                  TInstr::local_tee(
+                    LocalIdx::new(0U),
+                    TInstr::local_get(LocalIdx::new(0U)),
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let wasm = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected encode success, got \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected decode success, got \{e}")
+  }
+  match decoded.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                I32Const(I32(seed)),
+                Loop(
+                  TypeIdxBlockType(TypeIdx(loop_type_idx)),
+                  Expr(
+                    [
+                      LocalGet(LocalIdx(get_idx)),
+                      LocalTee(LocalIdx(tee_idx)),
+                      Drop,
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(seed, 0)
+      assert_eq(loop_type_idx, 0U)
+      assert_eq(get_idx, 0U)
+      assert_eq(tee_idx, 0U)
+    }
+    _ => fail("expected typed loop seed to lower before the decoded loop")
+  }
+}
+
+///|
 test "decode_module accepts elem header 6 with explicit reftype and roundtrips module semantics" {
   let wasm = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x09\x0b\x01\x06\x00\x41\x00\x0b\x70\x01\xd2\x00\x0b"
   let mod = match decode_module(wasm) {

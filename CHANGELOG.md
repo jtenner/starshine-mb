@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-22 Binary: preserve typed control-flow parameter seeds during encoding
+
+- **Typed control-flow encoding repair** by **@jtenner**. Fixed module-context typed-function lowering in [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt) so `block`/`loop`/`if`/`try_table` instructions with `BlockType::type_idx(...)` hoist explicit parameter seed values back in front of the control instruction instead of leaving them buried inside the lowered body and corrupting raw stack form during encode.
+- Added a focused round-trip regression in [`src/binary/tests.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/tests.mbt) for typed `loop` parameter seeds, plus a guard regression in [`src/transformer/tests.mbt`](/home/jtenner/Projects/starshine-mb/src/transformer/tests.mbt) proving plain `FuncIdx` rewrites do not reorder raw `call` / `i32.const` / `loop` sequences.
+
 ## 2026-03-22 Optimization: audit five-pass `-O4z` parity gaps
 
 - **Five-pass parity audit** by **@jtenner**. Added [`docs/0056-2026-03-22-o4z-five-pass-parity-audit.md`](/home/jtenner/Projects/starshine-mb/docs/0056-2026-03-22-o4z-five-pass-parity-audit.md) to record the current release-artifact comparison for the five fully implemented `-O4z` passes, including the current prefix matrix, the early `DuplicateFunctionElimination` validity failure, the surviving size gaps versus Binaryen, and the remaining methodology/tooling constraints around explicit five-pass replay.
