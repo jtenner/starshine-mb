@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-23 Validation: strengthen validate-valid fuzz stability checks
+
+- **Validator fuzz stability hardening** by **@jtenner**. Updated [`src/fuzz/main.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/main.mbt) so the `validate-valid` suite now validates each generated module through binary encode/decode roundtrip before acceptance and exercises optional WAT roundtrip stability in CI/stress profiles. Added profile-tuned text-roundtrip attempts/stability floors and shared whitespace-normalized comparison logic.
+
 ## 2026-03-23 Validation: seed invalid-fuzz suites from `tests/spec`
 
 - **Seeded invalid-fuzz suites** by **@jtenner**. Updated [`src/validate/invalid_fuzzer.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/invalid_fuzzer.mbt) so `run_validate_invalid_fuzz` uses a shared core engine and exposes `run_validate_invalid_fuzz_from_modules` for deterministic corpus-backed mutation runs. Updated [`src/fuzz/main.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/main.mbt) and [`src/fuzz/imports.mbt`](/home/jtenner/Projects/starshine-mb/src/fuzz/imports.mbt) to wire `spec-seed`, `binary-invalid`, and `text-invalid` suites to parsed `tests/spec` module seeds from `wast_to_script`. Updated [`src/validate/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/validate/pkg.generated.mbti) to export the new seeded invalid-fuzz API.

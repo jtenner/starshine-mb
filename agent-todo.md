@@ -137,15 +137,11 @@
 - Validator fuzz hardening:
   - canonical research doc: [`docs/0058-2026-03-23-validate-fuzz-hardening-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0058-2026-03-23-validate-fuzz-hardening-plan.md).
   - blockers:
-    - fix the `HeapTypeSwap` dispatch bug in [`src/validate/invalid_fuzzer.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/invalid_fuzzer.mbt) so it stops routing through `make_drop_insertion_transformer()`, and add a focused regression proving the real heap-type corruption path runs.
-    - make `DuplicateExportName` exercisable in the main `validate-invalid` loop, either by extending [`src/validate/gen_valid.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/gen_valid.mbt) to generate export-bearing fixtures or by adding an explicit export-capable invalid-fuzz fixture path; fail smoke if the strategy remains untested.
-    - extend `ValidateInvalidFuzzStats` and `run_validate_invalid_fuzz` so the lane fails when `modules_tested == 0`, when required strategies never execute, or when exercised-count floors are missed; record per-strategy `attempted` / `mutated` / `rejected` counters.
+    - none currently; completed hardening blockers are now tracked in `CHANGELOG.md`.
   - risks:
-    - current `validate-invalid` smoke success is not trustworthy because dead strategies and wrong-strategy dispatch can still pass; keep the `docs/0058-2026-03-23-validate-fuzz-hardening-plan.md` findings visible until those fixes land.
-    - `bun fuzz run` still diverges from `src/fuzz` defaults and output features, so automation can drift by entrypoint until the wrapper surface is aligned.
+    - `bun fuzz run` still diverges from `src/fuzz` defaults and output features, so automation can drift by entrypoint until the wrapper surface is fully aligned.
   - implementation features:
-    - widen `validate-valid` to cover encode/decode stability and optional text roundtrip stability, not just direct AST validation.
-    - add validator repro persistence, Bun JSONL passthrough, and separate spec-seed / binary-invalid / text-invalid suites so the `tests/spec` invalid corpus can feed future fuzz lanes without bloating the default smoke path.
+    - none currently; validator fuzz implementation features are currently folded into `CHANGELOG.md` milestones.
 - String compatibility:
   - the minimal array-backed string instruction set now exists end to end in the lib, validator, binary, WAST, DCE, and SSA layers.
   - `string.const` now also exists end to end, which closed the main prerequisite that had been blocking the researched `StringGathering` pass in `docs/0009-2026-03-16-string-optimization.md`.

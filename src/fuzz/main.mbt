@@ -308,6 +308,122 @@ fn run_validate_invalid_suite(
   }
 }
 
+fn normalize_wat_text_for_compare(text : String) -> String {
+  let out = StringBuilder::new()
+  for c in text {
+    if c != ' ' && c != '\n' && c != '\r' && c != '\t' {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+fn run_validate_valid_suite(
+  profile : String,
+  seed : UInt64,
+) -> Result[Int, String] {
+  let normalized = fuzz_ascii_lower(profile.trim().to_string())
+  let (
+    attempts,
+    min_text_attempts,
+    min_text_stable,
+    max_text_roundtrip,
+  ) = match normalized {
+    "smoke" => (128, 0, 0, 0)
+    "ci" => (5000, 4, 1, 64)
+    "stress" => (100000, 24, 2, 200)
+    _ =>
+      return Err(
+        "unknown validate-valid fuzz profile '\{profile}'; expected smoke|ci|stress",
+      )
+  }
+
+  let rnd = @splitmix.new(seed~)
+  let mut validated = 0
+  let mut roundtrip = 0
+  let mut stable = 0
+  let mut iteration = 0
+  for _ in 0..<attempts {
+    iteration += 1
+    let mod = gen_valid_module(rnd)
+
+    match validate_module(mod) {
+      Ok(_) => validated += 1
+      Err(err) =>
+        return Err(
+          "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} direct-validate-error=\{validation_error_message(err)}",
+        )
+    }
+
+    let bytes = match encode_module(mod) {
+      Ok(value) => value
+      Err(err) =>
+        return Err(
+          "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} encode-error=\{err}",
+        )
+    }
+    let decoded = match decode_module(bytes) {
+      Ok(value) => value
+      Err(err) =>
+        return Err(
+          "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} decode-error=\{err}",
+        )
+    }
+    match validate_module(decoded) {
+      Ok(_) => ()
+      Err(err) =>
+        return Err(
+          "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} binary-roundtrip-validate-error=\{validation_error_message(err)}",
+        )
+    }
+
+    if iteration <= max_text_roundtrip {
+      match module_to_wat(mod) {
+        Ok(wat_source) => match wat_to_module(wat_source) {
+          Ok(parsed) => match validate_module(parsed) {
+            Ok(_) => {
+              match module_to_wat(parsed) {
+                Ok(roundtrip_text) => {
+                  roundtrip += 1
+                  if normalize_wat_text_for_compare(roundtrip_text) ==
+                    normalize_wat_text_for_compare(wat_source) {
+                    stable += 1
+                  }
+                }
+                Err(_) => ()
+              }
+            }
+            Err(err) => {
+              return Err(
+                "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} text-roundtrip-validate-error=\{validation_error_message(err)}",
+              )
+            }
+          }
+          Err(_) => ()
+        }
+        Err(_) => ()
+      }
+    }
+  }
+
+  if validated != attempts {
+    return Err(
+      "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} direct validate count mismatch: \{validated}/\{attempts}",
+    )
+  }
+  if roundtrip < min_text_attempts {
+    return Err(
+      "validate-valid fuzz produced too few text roundtrips: profile=\{normalized} seed=\{seed} roundtrip=\{roundtrip} min=\{min_text_attempts}",
+    )
+  }
+  if stable < min_text_stable {
+    return Err(
+      "validate-valid fuzz produced too few stable text roundtrips: profile=\{normalized} seed=\{seed} stable=\{stable} min=\{min_text_stable}",
+    )
+  }
+  Ok(attempts)
+}
+
 ///|
 fn fuzz_seed_digit(c : UInt16, base : Int) -> Int? {
   let digit = if c >= '0' && c <= '9' {
@@ -617,8 +733,8 @@ fn run_single_suite(
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
     "validate-valid" =>
-      match run_validate_valid_fuzz(profile, seed) {
-        Ok(stats) => stats.attempts
+      match run_validate_valid_suite(profile, seed) {
+        Ok(attempts) => attempts
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
