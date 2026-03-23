@@ -5570,7 +5570,7 @@ fn optimization_func_has_annotation(
 
 ///|
 fn optimization_functions_equivalent(
-  subtypes : Array[SubType],
+  type_canon : Map[UInt, UInt],
   left_type : TypeIdx,
   left_func : Func,
   left_annotations : Array[@lib.FuncAnnotation],
@@ -5578,31 +5578,114 @@ fn optimization_functions_equivalent(
   right_func : Func,
   right_annotations : Array[@lib.FuncAnnotation],
 ) -> Bool {
-  if left_func != right_func || left_annotations != right_annotations {
+  if !optimization_funcs_semantically_equal(left_func, right_func) ||
+    left_annotations != right_annotations {
     return false
   }
-  match
-    (
-      optimization_resolve_func_type(subtypes, left_type),
-      optimization_resolve_func_type(subtypes, right_type),
+  let left_canon = match left_type {
+    TypeIdx(raw) => type_canon.get(raw).unwrap_or(raw)
+    RecIdx(raw) => raw
+  }
+  let right_canon = match right_type {
+    TypeIdx(raw) => type_canon.get(raw).unwrap_or(raw)
+    RecIdx(raw) => raw
+  }
+  left_canon == right_canon
+}
+
+///|
+fn optimization_locals_semantically_equal(
+  left : @lib.Locals,
+  right : @lib.Locals,
+) -> Bool {
+  if left.length() != right.length() {
+    return false
+  }
+  let mut i = 0
+  while i < left.length() {
+    if left.get(i) != right.get(i) {
+      return false
+    }
+    i += 1
+  }
+  true
+}
+
+///|
+fn optimization_locals_semantic_hash(locals : @lib.Locals) -> Int {
+  let mut digest = locals.length()
+  let mut i = 0
+  while i < locals.length() {
+    digest = digest * 31 + locals.get(i).hash()
+    i += 1
+  }
+  digest
+}
+
+///|
+fn optimization_funcs_semantically_equal(left : Func, right : Func) -> Bool {
+  match (left, right) {
+    (Func(left_locals, left_body), Func(right_locals, right_body)) =>
+      left_body == right_body &&
+      optimization_locals_semantically_equal(left_locals, right_locals)
+    (TFunc(_, left_locals, left_body), TFunc(_, right_locals, right_body)) =>
+      left_body == right_body &&
+      optimization_locals_semantically_equal(left_locals, right_locals)
+    _ => false
+  }
+}
+
+///|
+fn optimization_canonicalize_func_duplicate_simple_type_indices(
+  func : Func,
+  type_canon : Map[UInt, UInt],
+) -> Func {
+  if type_canon.length() == 0 {
+    return func
+  }
+  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_typeidx_evt(fn(
+      _,
+      _,
+      idx : TypeIdx,
     ) {
-    (Some(left), Some(right)) => left == right
-    _ => left_type == right_type
+      match idx {
+        TypeIdx(raw) => {
+          let next = type_canon.get(raw).unwrap_or(raw)
+          change((), TypeIdx::new(next))
+        }
+        RecIdx(_) => unchanged()
+      }
+    },
+  )
+  match transformer.walk_func((), func) {
+    Ok((rewritten, _)) => rewritten
+    Err(_) => func
+  }
+}
+
+///|
+fn optimization_func_semantic_hash(func : Func) -> Int {
+  match func {
+    Func(locals, body) =>
+      optimization_locals_semantic_hash(locals) * 31 + body.hash()
+    TFunc(_, locals, body) =>
+      optimization_locals_semantic_hash(locals) * 31 + body.hash()
   }
 }
 
 ///|
 fn optimization_function_hash_key(
-  subtypes : Array[SubType],
+  type_canon : Map[UInt, UInt],
   type_idx : TypeIdx,
   func : Func,
   annotations : Array[@lib.FuncAnnotation],
 ) -> Int {
-  let type_hash = match optimization_resolve_func_type(subtypes, type_idx) {
-    Some(func_type) => func_type.hash()
-    None => type_idx.hash()
+  let type_hash = match type_idx {
+    TypeIdx(raw) => type_canon.get(raw).unwrap_or(raw).hash()
+    RecIdx(_) => type_idx.hash()
   }
-  (func.hash() * 31 + type_hash) * 31 + annotations.hash()
+  (optimization_func_semantic_hash(func) * 31 + type_hash) * 31 +
+  annotations.hash()
 }
 
 ///|
@@ -5985,6 +6068,31 @@ fn optimization_supports_simple_type_dedup(rec_types : Array[RecType]) -> Bool {
 }
 
 ///|
+fn optimization_duplicate_simple_type_canonical_map(
+  rec_types : Array[RecType],
+) -> Map[UInt, UInt] {
+  let canonical_map : Map[UInt, UInt] = {}
+  if !optimization_supports_simple_type_dedup(rec_types) {
+    return canonical_map
+  }
+  let mut old_idx = 0
+  while old_idx < rec_types.length() {
+    let mut canonical_old_idx = old_idx.reinterpret_as_uint()
+    let mut prev_idx = 0
+    while prev_idx < old_idx {
+      if rec_types[prev_idx] == rec_types[old_idx] {
+        canonical_old_idx = prev_idx.reinterpret_as_uint()
+        break
+      }
+      prev_idx += 1
+    }
+    canonical_map[old_idx.reinterpret_as_uint()] = canonical_old_idx
+    old_idx += 1
+  }
+  canonical_map
+}
+
+///|
 fn optimization_rewrite_type_name_sec(
   name_sec : NameSec,
   type_remap : Map[UInt, UInt],
@@ -6029,24 +6137,17 @@ fn optimization_canonicalize_duplicate_simple_type_indices(
 ) -> Module {
   match mod.type_sec {
     Some(TypeSec(rec_types)) => {
-      if !optimization_supports_simple_type_dedup(rec_types) {
+      let canonical_old_idxs = optimization_duplicate_simple_type_canonical_map(
+        rec_types,
+      )
+      if canonical_old_idxs.length() == 0 {
         return mod
       }
-      let canonical_old_idxs : Array[UInt] = []
       let kept_types : Array[RecType] = []
       let old_to_new : Map[UInt, UInt] = {}
       let mut old_idx = 0
       while old_idx < rec_types.length() {
-        let mut canonical_old_idx = old_idx.reinterpret_as_uint()
-        let mut prev_idx = 0
-        while prev_idx < old_idx {
-          if rec_types[prev_idx] == rec_types[old_idx] {
-            canonical_old_idx = prev_idx.reinterpret_as_uint()
-            break
-          }
-          prev_idx += 1
-        }
-        canonical_old_idxs.push(canonical_old_idx)
+        let canonical_old_idx = canonical_old_idxs[old_idx.reinterpret_as_uint()]
         if canonical_old_idx == old_idx.reinterpret_as_uint() {
           old_to_new[canonical_old_idx] = kept_types
             .length()
@@ -6061,7 +6162,7 @@ fn optimization_canonicalize_duplicate_simple_type_indices(
       let type_remap : Map[UInt, UInt] = {}
       old_idx = 0
       while old_idx < rec_types.length() {
-        let canonical_old_idx = canonical_old_idxs[old_idx]
+        let canonical_old_idx = canonical_old_idxs[old_idx.reinterpret_as_uint()]
         match old_to_new.get(canonical_old_idx) {
           Some(new_idx) => type_remap[old_idx.reinterpret_as_uint()] = new_idx
           None => return mod
@@ -10380,16 +10481,28 @@ fn optimization_duplicate_function_iteration(mod : Module) -> Module? {
         return None
       }
 
-      let subtypes = optimization_flatten_subtypes(mod)
+      let type_canon = match mod.type_sec {
+        Some(TypeSec(rec_types)) =>
+          optimization_duplicate_simple_type_canonical_map(rec_types)
+        None => {}
+      }
       let imported_count = optimization_imported_func_count(mod)
+      let normalized_funcs : Array[Func] = []
+      for func in funcs {
+        normalized_funcs.push(
+          optimization_canonicalize_func_duplicate_simple_type_indices(
+            func, type_canon,
+          ),
+        )
+      }
       let hash_groups : Map[Int, Array[Int]] = {}
       let mut local_idx = 0
       while local_idx < funcs.length() {
         let abs_idx = imported_count + local_idx
         let key = optimization_function_hash_key(
-          subtypes,
+          type_canon,
           type_idxs[local_idx],
-          funcs[local_idx],
+          normalized_funcs[local_idx],
           optimization_func_annotations(mod, abs_idx),
         )
         hash_groups.get_or_init(key, fn() { [] }).push(local_idx)
@@ -10417,12 +10530,12 @@ fn optimization_duplicate_function_iteration(mod : Module) -> Module? {
               continue
             }
             if optimization_functions_equivalent(
-                subtypes,
+                type_canon,
                 type_idxs[first],
-                funcs[first],
+                normalized_funcs[first],
                 optimization_func_annotations(mod, imported_count + first),
                 type_idxs[second],
-                funcs[second],
+                normalized_funcs[second],
                 optimization_func_annotations(mod, imported_count + second),
               ) {
               replacements[second] = first
@@ -10495,18 +10608,9 @@ pub fn run_duplicate_function_elimination(
   features : PipelineFeatures,
 ) -> (Module, PipelineGlobal) {
   let _ = features
-  let initial_count = match mod.code_sec {
-    Some(CodeSec(funcs)) => funcs.length()
-    None => 0
-  }
-  let mut remaining = initial_count
-  let mut current = mod
-  while remaining > 0 {
-    remaining -= 1
-    match optimization_duplicate_function_iteration(current) {
-      Some(next) => current = next
-      None => break
-    }
+  let current = match optimization_duplicate_function_iteration(mod) {
+    Some(next) => next
+    None => mod
   }
   (optimization_canonicalize_duplicate_simple_type_indices(current), global)
 }

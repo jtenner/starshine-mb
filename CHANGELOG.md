@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23 Optimization: align direct DFE with Binaryen’s single-pass merge set
+
+- **DuplicateFunctionElimination direct-pass parity** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so explicit `DuplicateFunctionElimination` now behaves like Binaryen’s direct pass instead of running to a private fixpoint, while still canonicalizing duplicate simple function type indices inside typed function bodies for equality and hashing. On the fresh rebuilt release artifact this lands the same direct-pass merge count as Binaryen: `2892` defined functions after one DFE run.
+- Refreshed focused coverage in [`src/optimization/duplicate_function_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/duplicate_function_elimination_wbtest.mbt) for single-pass transitive-call behavior, explicit rerun behavior, duplicate local-run declarations, and typed duplicate block-type indices, and updated [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so the remaining DFE parity work is tracked as post-merge serialization/layout drift rather than a mismatched direct-pass merge set.
+
 ## 2026-03-22 Optimization: compact duplicate simple type indices after DFE
 
 - **DuplicateFunctionElimination type-index compaction** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so direct DFE now canonically rewrites duplicate simple single-rec function type indices after the merge set is settled, including surviving body `block` type indices, import/tag extern type references, and type-name custom-section entries.

@@ -6,6 +6,8 @@ using @lib {
   type Export,
   type ExportSec,
   type Instruction,
+  type LocalIdx,
+  type LocalRun,
   type Locals,
   type Name,
   type StartSec,
@@ -131,7 +133,7 @@ test "duplicate function elimination merges structural duplicates and rewrites f
 }
 
 ///|
-test "duplicate function elimination iterates when deduping callees unlocks more duplicates" {
+test "duplicate function elimination is single-pass when deduping callees unlocks more duplicates" {
   let mod = Module::new()
     .with_type_sec(duplicate_func_test_type_sec())
     .with_func_sec(
@@ -172,15 +174,16 @@ test "duplicate function elimination iterates when deduping callees unlocks more
   )
 
   match optimized.code_sec {
-    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 3)
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 4)
     None => fail("expected code section")
   }
   assert_eq(try! duplicate_func_test_call_target(optimized, 0), 1U)
-  assert_eq(try! duplicate_func_test_call_target(optimized, 1), 2U)
+  assert_eq(try! duplicate_func_test_call_target(optimized, 1), 3U)
+  assert_eq(try! duplicate_func_test_call_target(optimized, 2), 3U)
 }
 
 ///|
-test "duplicate function elimination iterates to fixpoint without opt presets" {
+test "duplicate function elimination reaches the transitive merge when rerun" {
   let mod = Module::new()
     .with_type_sec(duplicate_func_test_type_sec())
     .with_func_sec(
@@ -214,8 +217,13 @@ test "duplicate function elimination iterates to fixpoint without opt presets" {
       ]),
     )
 
-  let (optimized, _) = run_duplicate_function_elimination(
+  let (once, _) = run_duplicate_function_elimination(
     mod,
+    PipelineGlobal::new(),
+    PipelineFeatures::new(),
+  )
+  let (optimized, _) = run_duplicate_function_elimination(
+    once,
     PipelineGlobal::new(),
     PipelineFeatures::new(),
   )
@@ -299,6 +307,110 @@ test "duplicate function elimination canonicalizes duplicate simple type indices
       assert_eq(v, 7)
     }
     _ => fail("expected compacted block type index in surviving body")
+  }
+}
+
+///|
+test "duplicate function elimination merges funcs with identical expanded locals but different local runs" {
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let split_locals = Locals::new([
+    LocalRun::new(1U, ValType::i32()),
+    LocalRun::new(1U, ValType::i32()),
+  ])
+  let merged_locals = Locals::single(2U, ValType::i32())
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          split_locals,
+          TExpr::new([
+            TInstr::local_set(LocalIdx::new(0U), TInstr::i32_const(I32(1))),
+            TInstr::local_set(LocalIdx::new(1U), TInstr::i32_const(I32(2))),
+            TInstr::binary(
+              @lib.BinaryOp::i32_add(),
+              TInstr::local_get(LocalIdx::new(0U)),
+              TInstr::local_get(LocalIdx::new(1U)),
+            ),
+          ]),
+        ),
+        Func::t_func(
+          [],
+          merged_locals,
+          TExpr::new([
+            TInstr::local_set(LocalIdx::new(0U), TInstr::i32_const(I32(1))),
+            TInstr::local_set(LocalIdx::new(1U), TInstr::i32_const(I32(2))),
+            TInstr::binary(
+              @lib.BinaryOp::i32_add(),
+              TInstr::local_get(LocalIdx::new(0U)),
+              TInstr::local_get(LocalIdx::new(1U)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+
+  let (optimized, _) = run_duplicate_function_elimination(
+    mod,
+    PipelineGlobal::new(),
+    PipelineFeatures::new(),
+  )
+
+  match optimized.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 1)
+    None => fail("expected code section")
+  }
+}
+
+///|
+test "duplicate function elimination merges typed funcs with duplicate block type indices" {
+  let block_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([block_type, block_type, func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(2U), TypeIdx::new(2U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([
+            TInstr::block(
+              BlockType::type_idx(TypeIdx::new(0U)),
+              TExpr::new([TInstr::i32_const(I32(7))]),
+            ),
+            TInstr::drop(TInstr::i32_const(I32(0))),
+          ]),
+        ),
+        Func::t_func(
+          [],
+          Locals::empty(),
+          TExpr::new([
+            TInstr::block(
+              BlockType::type_idx(TypeIdx::new(1U)),
+              TExpr::new([TInstr::i32_const(I32(7))]),
+            ),
+            TInstr::drop(TInstr::i32_const(I32(0))),
+          ]),
+        ),
+      ]),
+    )
+
+  let (optimized, _) = run_duplicate_function_elimination(
+    mod,
+    PipelineGlobal::new(),
+    PipelineFeatures::new(),
+  )
+
+  match optimized.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 1)
+    None => fail("expected code section")
   }
 }
 
