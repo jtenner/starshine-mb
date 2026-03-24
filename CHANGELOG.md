@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 Docs: remove obsolete optimizer and typed-tree research
+
+- **Docs cleanup after optimizer reset** by **@jtenner**. Deleted the obsolete pass-research and typed-tree migration writeups under [`docs`](/home/jtenner/Projects/starshine-mb/docs), including dead-code-elimination, once-reduction, memory-packing, remove-unused, parity, and old string-optimization notes, and scrubbed the remaining validation/surface docs of deleted `TInstr` / `TExpr` / `ModuleTransformer` terminology so `docs/` now reflects the post-migration architecture.
+
 ## 2026-03-24 Migration: remove TypedInstr surface completely
 
 - **Typed instruction surface deletion** by **@jtenner**. Removed the remaining `TypedInstr` / `TypedInstrKind` ownership from [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt), deleted the obsolete typed helper files under [`src/lib/typed_instr_tree.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/typed_instr_tree.mbt) and [`src/validate/typed_instr_lowering.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/typed_instr_lowering.mbt), rewired [`src/ir/hot.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot.mbt), validation, generators, and tests onto raw [`Expr`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt) / [`Instruction`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt) bodies, regenerated package metadata, and scrubbed the remaining docs/changelog references to the deleted typed instruction model.

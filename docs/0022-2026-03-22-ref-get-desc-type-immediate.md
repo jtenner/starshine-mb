@@ -10,7 +10,7 @@ Document the `ref.get_desc` follow-up surfaced by lifting `tests/spec/proposals/
 
 - Higher-level WAST now parses and prints `ref.get_desc <typeidx>` instead of an immediate-free form.
 - `wast_to_binary_module` resolves named or numeric type indices on `ref.get_desc` and lowers them into `@lib.Instruction::ref_get_desc(TypeIdx)`.
-- The lib instruction and typed-instruction surfaces now model the inspected `TypeIdx` explicitly.
+- The lib instruction surface and validation/lowering path now model the inspected `TypeIdx` explicitly.
 - Binary encode/decode for GC subopcode `34` now writes and reads the type immediate after the opcode.
 - Descriptor typechecking now:
   - resolves the descriptor-bearing struct type referenced by the inspected `TypeIdx`,
@@ -27,14 +27,14 @@ That was enough for lower-level instruction smoke coverage, but it blocked clean
 
 ## Correctness Constraints
 
-- `ref.get_desc` must preserve the inspected type immediate through parse, print, lowering, binary roundtrip, and typed instruction conversion.
+- `ref.get_desc` must preserve the inspected type immediate through parse, print, lowering, validation, and binary roundtrip.
 - Validation must reject unknown or descriptor-less inspected types instead of silently returning a placeholder result type.
 - The result must always be a non-null reference to the descriptor type declared on the inspected struct type.
 - Exact descriptor results are only valid when the operand is bottom or exactly the inspected type; wider operand types must produce an inexact descriptor reference result.
 
 ## Validation
 
-- Updated parser, printer, lowering, binary, transformer, and typecheck tests to use `ref.get_desc` with an explicit type immediate.
+- Updated parser, printer, lowering, binary, and typecheck tests to use `ref.get_desc` with an explicit type immediate.
 - Added descriptor-result environment coverage proving the result type now comes from descriptor metadata rather than a fixed scalar fallback.
 - Added negative typecheck coverage for descriptor-less targets and kept non-reference operand rejection on the new instruction shape.
 

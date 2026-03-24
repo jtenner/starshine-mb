@@ -15,7 +15,7 @@ Status: landed.
 - The lifted validation path now preserves `string.const` payload bytes directly.
 - Higher-level WAST accepts and prints `string.const "..."` using the existing byte-quote helpers.
 - Module binary encode now emits a section `14` string table before the globals section and encodes `string.const` as `0xFB 0x82 <idx>`.
-- Module binary decode resolves those indices back to literal bytes before validation and later passes see the module.
+- Module binary decode resolves those indices back to literal bytes before validation and later module consumers see the module.
 - Validator constant-expression checks now accept `string.const`, so immutable `stringref` globals can be initialized directly from literals.
 - SSA now treats `string.const` as a pure nullary value producer with `stringref` result type.
 
@@ -23,7 +23,7 @@ Status: landed.
 - Binary module encode must preserve explicit string-literal section order and append newly referenced literals deterministically.
 - String-literal decoding must happen before decoding globals and code, since both can contain `string.const`.
 - Constant-expression checks must accept the instruction without widening other non-constant string operations.
-- Typed lowering must preserve literal bytes exactly; string passes need literal identity, not only section indices.
+- Boundary lowering must preserve literal bytes exactly; later string handling needs literal identity, not only section indices.
 
 ## Validation
 - WAST lowering coverage for a global and function body containing `string.const`

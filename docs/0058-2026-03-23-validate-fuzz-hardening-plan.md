@@ -34,7 +34,7 @@ Status: research pass only. No implementation in this change.
 
 | Priority | Area | Finding | Evidence | Impact |
 | --- | --- | --- | --- | --- |
-| P0 | invalid fuzz | `HeapTypeSwap` is wired to `make_drop_insertion_transformer()` instead of a heap-type swap transformer. | `src/validate/invalid_fuzzer.mbt`, `apply_strategy`, `HeapTypeSwap` branch | The reported strategy name is false. Coverage and rejection stats for heap-type corruption are invalid. |
+| P0 | invalid fuzz | `HeapTypeSwap` is wired to `make_drop_insertion_mutator()` instead of a heap-type swap mutator. | `src/validate/invalid_fuzzer.mbt`, `apply_strategy`, `HeapTypeSwap` branch | The reported strategy name is false. Coverage and rejection stats for heap-type corruption are invalid. |
 | P0 | invalid fuzz | `DuplicateExportName` is effectively dead in the main fuzz loop because `gen_valid_module` never produces an export section. | `src/validate/gen_valid.mbt` has no `with_export_sec`; `DuplicateExportName` requires `mod_.export_sec` | The strategy is listed, counted, and reported, but never exercised by the main fuzzer. |
 | P1 | invalid fuzz | Success is possible even when strategy coverage collapses. Only strategies tested at least 10 times are checked, and there is no minimum for `modules_tested` or for per-strategy exercise counts. | `run_validate_invalid_fuzz` only flags `tested >= 10 && reject_rate < 80` | A broken generator or dead strategy can silently pass CI. |
 | P1 | invalid fuzz | Any rejection counts as success. The fuzzer does not verify that the rejection matches the intended failure class. | `fuzz_invalid_module_with_coverage` treats any `Err(_)` as success | A mutation can be rejected for the wrong reason and still inflate coverage. |
@@ -99,7 +99,7 @@ Status: research pass only. No implementation in this change.
 ## Hardening Recommendations
 
 ### Phase 1: Make Current Results Trustworthy
-1. Fix `HeapTypeSwap` dispatch and add a direct test that proves the actual transformer ran.
+1. Fix `HeapTypeSwap` dispatch and add a direct test that proves the actual mutator ran.
 2. Replace the split strategy metadata with a single source of truth:
    - name
    - constructor
