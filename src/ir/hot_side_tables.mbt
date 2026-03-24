@@ -205,8 +205,8 @@ fn hot_exact_instr_payload_id_for_op(node : HotNode) -> SideTableId? {
     | HotOp::Compare
     | HotOp::Convert
     | HotOp::StringOp
-    | HotOp::Atomic
     | HotOp::Simd => Some(node.imm0)
+    HotOp::Atomic => Some(node.imm1)
     _ => None
   }
 }

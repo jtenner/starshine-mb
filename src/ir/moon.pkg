@@ -2,6 +2,7 @@ import {
   "moonbitlang/core/set",
   "moonbitlang/core/hashmap" @hashmap,
   "jtenner/starshine/lib",
+  "jtenner/starshine/validate",
   "moonbitlang/core/double",
   "moonbitlang/core/float",
 }

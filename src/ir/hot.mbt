@@ -429,22 +429,10 @@ pub fn hot_lift_body(
   locals : HotLocals,
   body_result_type? : BlockType = BlockType::void_(),
 ) -> HotFunc {
-  let func = HotFunc::new(locals~)
-  hot_body_result_type_set(
-    func,
-    hot_type_intern_block_result(func, body_result_type),
-  )
-  let roots = hot_region_body(
-    func,
-    body,
-    [],
-    hot_type_result_arity(func, func.body_result_type),
-  )
-  for root in roots {
-    hot_root_append(func, root)
+  match hot_lift_body_result(body, locals, body_result_type~) {
+    Ok(func) => func
+    Err(err) => abort(err.to_string())
   }
-  hot_verify_all_or_abort(func)
-  func
 }
 
 ///|

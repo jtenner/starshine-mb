@@ -9,43 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 120 - Boundary -> Hot Lifting
-- Goal:
-  Lift valid boundary function bodies into full-coverage hot IR.
-- Why this slice exists:
-  The current lift path handles only a minimal opcode subset.
-- Concrete deliverables:
-  - `src/ir/hot_lift.mbt`.
-  - `src/ir/hot_lift_test.mbt`.
-- Detailed implementation tasks:
-  - Define a public lift entry point from boundary body plus module context.
-  - Cover control, branch, call, local/global, memory/table, const/ref, numeric, tuple, SIMD, atomic, and exception families.
-  - Allocate label metadata, side-table payloads, and interned types during lift.
-  - Replace current `abort("unsupported instruction")` behavior with full coverage or structured errors.
-  - Verify lifted functions before they enter the pass pipeline.
-- Required utilities / APIs:
-  - `hot_lift_func(module, func_idx)` or equivalent.
-  - `hot_lift_body(expr, locals, module_context, body_result_type)`.
-  - Lift helpers for labels, control regions, constants, memargs, branch tables, catches, and call signatures.
-- Invariants / correctness rules:
-  - Lift preserves boundary semantics exactly.
-  - Lift produces the only owned optimizer body representation.
-  - Branches target hot labels, not boundary depths.
-- Dependencies:
-  - IR2 - 030 - Hot IR Type Interning.
-  - IR2 - 040 - Hot IR Label/Control Metadata.
-  - IR2 - 050 - Hot IR Side Tables.
-  - IR2 - 117 - Module Context and Resolved Boundary Types.
-  - IR2 - 119 - Boundary Family Coverage Metadata.
-  - IR2 - 060 - Hot IR Builders / Constructors.
-  - IR2 - 110 - Hot IR Verification Utilities.
-- Exit criteria:
-  - Lift covers the full supported boundary opcode surface.
-- Suggested tests:
-  - Roundtrip representative functions with memory, calls, exceptions, and branches.
-  - Nested control lift metadata correctness.
-  - Structured error coverage for malformed internal inputs.
-
 ### IR2 - 130 - Hot -> Boundary Lowering
 - Goal:
   Lower verified hot IR back to boundary bodies deterministically.

@@ -1,6 +1,8 @@
 ///|
 using @lib {
   type Catch,
+  type Data,
+  type Elem,
   type Expr,
   type Instruction,
   type LocalIdx,
@@ -49,3 +51,6 @@ using @lib {
   type SubType,
   type CompType,
 }
+
+///|
+using @validate {type Env, type TcState, trait Typecheck, empty_env, make_state}

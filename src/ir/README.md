@@ -30,9 +30,10 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 - `hot_query.mbt`: canonical read-only node-family, exact-instruction, type, branch, span, local-metadata, and tombstone queries so analyses stop decoding raw storage layout directly.
 - `hot_walk.mbt`: stable root, child, subtree, region, control-region, worklist, and rewrite-by-slot traversal helpers with explicit `Continue` / `Skip` / `Stop` / `Error` control flow.
 - `hot_region_edit.mbt`: one structured region reference plus root/body/then/else/catch splice helpers so passes can rewrite top-level and nested bodies through one mutation contract.
-- `hot_module_context.mbt`: shared boundary-module context resolution for function signatures, type-index block results, memories, tables, globals, tags, and aggregate field metadata so lift/lower and later analyses stop depending on validator-private lookups.
+- `hot_module_context.mbt`: shared boundary-module context resolution for function signatures, type-index block results, memories, tables, globals, tags, element segments, data segments, and aggregate field metadata so lift/lower and later analyses stop depending on validator-private lookups.
 - `hot_verify.mbt`: structured core/control verification plus placeholder CFG/dominance/SSA hooks and debug abort helpers so lift/lower and later passes fail fast on corruption.
-- `hot.mbt`: current hot-IR lift/lower and still-unsplit helper logic that now builds on `hot_core.mbt`.
+- `hot_lift.mbt`: validator-backed boundary-to-hot lifting for function bodies and module functions, including module-context resolution, label metadata allocation, typed side-table payload preservation, and structured lift errors.
+- `hot.mbt`: compatibility lift/lower entry points plus the remaining unsplit helper logic that still backs lowering.
 - `float_compat.mbt`: Wasm-compatible float helper surface used by hot lifting/lowering.
 
 ## Planned Split
@@ -40,5 +41,4 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 Later slices should land in dedicated modules instead of growing `hot.mbt` further:
 - `hot_module_context.mbt`
 - `hot_region_edit.mbt`
-- `hot_lift.mbt`
 - `hot_lower.mbt`

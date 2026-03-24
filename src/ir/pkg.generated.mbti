@@ -220,6 +220,12 @@ pub fn hot_label_result_type(HotFunc, Int) -> Int
 
 pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc
 
+pub fn hot_lift_body_result(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> Result[HotFunc, HotLiftError]
+
+pub fn hot_lift_body_with_context(@lib.Expr, HotLocals, HotModuleContext, body_result_type? : @lib.BlockType) -> HotFunc
+
+pub fn hot_lift_func(@lib.Module, @lib.FuncIdx) -> HotFunc
+
 pub fn hot_local_body_count(HotFunc) -> Int
 
 pub fn hot_local_count(HotFunc) -> Int
@@ -640,6 +646,19 @@ pub impl Eq for HotLabelKind
 pub impl Show for HotLabelKind
 pub impl @debug.Debug for HotLabelKind
 
+pub enum HotLiftError {
+  InvalidLabelDepth(Int)
+  InvalidFunctionIndex(@lib.FuncIdx)
+  MissingFunctionBody(@lib.FuncIdx)
+  MissingFunctionType(@lib.FuncIdx)
+  InvalidBodyState(String)
+  TypecheckFailure(String, String)
+  UnsupportedInstruction(String)
+}
+pub impl Eq for HotLiftError
+pub impl Show for HotLiftError
+pub impl @debug.Debug for HotLiftError
+
 pub struct HotLocals {
   param_count : Int
   params : Array[@lib.ValType]
@@ -664,6 +683,8 @@ pub struct HotModuleContext {
   tables : Array[@lib.TableType]
   mems : Array[@lib.MemType]
   globals : Array[@lib.GlobalType]
+  elems : Array[@lib.Elem]
+  datas : Array[@lib.Data]
   tags : Array[@lib.TagType]
 }
 pub impl Eq for HotModuleContext

@@ -15,6 +15,7 @@ test "lifted control nodes expose label ownership and branch arity" {
             @lib.BlockType::val_type(@lib.ValType::i32()),
             @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(2))]),
           ),
+          @lib.Instruction::drop(),
         ]),
       ),
     ]),
@@ -23,7 +24,8 @@ test "lifted control nodes expose label ownership and branch arity" {
 
   let block = hot_root_get(func, 0)
   let if_ = hot_child_get(func, block, 0)
-  let loop_ = hot_child_get(func, block, 1)
+  let loop_drop = hot_child_get(func, block, 1)
+  let loop_ = hot_child_get(func, loop_drop, 0)
 
   let block_label = hot_control_node_label(func, block)
   let if_label = hot_control_node_label(func, if_)
@@ -48,7 +50,7 @@ test "lifted control nodes expose label ownership and branch arity" {
 
   assert_eq(hot_label_branch_arity(func, block_label), 0)
   assert_eq(hot_label_branch_arity(func, if_label), 0)
-  assert_eq(hot_label_branch_arity(func, loop_label), 1)
+  assert_eq(hot_label_branch_arity(func, loop_label), 0)
 
   assert_eq(
     hot_label_result_type(func, block_label),

@@ -5,6 +5,8 @@ pub struct HotModuleContext {
   tables : Array[TableType]
   mems : Array[@lib.MemType]
   globals : Array[GlobalType]
+  elems : Array[Elem]
+  datas : Array[Data]
   tags : Array[TagType]
 } derive(Eq, Debug)
 
@@ -35,6 +37,8 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
   let tables : Array[TableType] = []
   let mems : Array[@lib.MemType] = []
   let globals : Array[GlobalType] = []
+  let elems : Array[Elem] = []
+  let datas : Array[Data] = []
   let tags : Array[TagType] = []
 
   match mod_.import_sec {
@@ -91,6 +95,20 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
       }
     None => ()
   }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(defs)) =>
+      for elem in defs {
+        elems.push(elem)
+      }
+    None => ()
+  }
+  match mod_.data_sec {
+    Some(@lib.DataSec(defs)) =>
+      for data in defs {
+        datas.push(data)
+      }
+    None => ()
+  }
 
   {
     subtypes: hot_module_context_flatten_subtypes(mod_.type_sec),
@@ -98,6 +116,8 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
     tables,
     mems,
     globals,
+    elems,
+    datas,
     tags,
   }
 }
