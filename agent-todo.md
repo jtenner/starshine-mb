@@ -9,43 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 150 - CFG Construction
-- Goal:
-  Build the CFG overlay, including block arrays, edge arrays, and node/block mappings.
-- Why this slice exists:
-  Dominators, liveness, loop info, SSA, and CFG-aware passes all depend on a shared CFG.
-- Concrete deliverables:
-  - `src/ir/cfg.mbt`.
-  - `src/ir/cfg_test.mbt`.
-- Detailed implementation tasks:
-  - Define `HotCfg`, `HotBlockInfo`, preds/succs, entry/exit blocks, optional exceptional exit, and mapping tables.
-  - Build blocks from hot regions using the contract slice.
-  - Record successor and predecessor edges with explicit edge kinds.
-  - Compute `node_to_block` and `region_root_to_block`.
-  - Run CFG verification after build.
-- Required utilities / APIs:
-  - `cfg_build(func)`.
-  - `cfg_entry_block(cfg)`.
-  - `cfg_exit_block(cfg)`.
-  - `cfg_block_get(cfg, block_id)`.
-  - `cfg_block_for_node(cfg, node_id)`.
-  - `cfg_block_for_region_root(cfg, region_ref, slot)`.
-  - `cfg_successors(cfg, block_id)`.
-  - `cfg_predecessors(cfg, block_id)`.
-- Invariants / correctness rules:
-  - Successor and predecessor lists are symmetric.
-  - Node/block mappings only cover documented execution nodes.
-  - Synthetic blocks are clearly marked.
-- Dependencies:
-  - IR2 - 110 - Hot IR Verification Utilities.
-  - IR2 - 140 - CFG Contract and Block Boundary Rules.
-- Exit criteria:
-  - CFG build yields stable block ids and mappings on representative structured bodies.
-- Suggested tests:
-  - Nested `if`/`loop` CFG layout.
-  - `try_table` exceptional/control edges.
-  - Unreachable-block policy coverage.
-
 ### IR2 - 160 - CFG Traversal Order Utilities
 - Goal:
   Provide stable CFG preorder, postorder, reverse postorder, reverse-exit order, and worklist seeds.

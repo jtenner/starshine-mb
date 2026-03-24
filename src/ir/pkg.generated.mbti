@@ -32,9 +32,29 @@ pub const HOT_FLAG_VALUE : UInt = 8
 
 pub fn cfg_block_boundary_reasons(HotFunc, Int) -> Array[CfgBlockBoundaryReason]
 
+pub fn cfg_block_count(HotCfg) -> Int
+
+pub fn cfg_block_for_node(HotCfg, Int) -> Int?
+
+pub fn cfg_block_for_region_root(HotCfg, HotRegionRef, Int) -> Int?
+
+pub fn cfg_block_get(HotCfg, Int) -> HotBlockInfo
+
+pub fn cfg_build(HotFunc) -> HotCfg
+
 pub fn cfg_control_successor_policy(HotOp) -> CfgControlSuccessorPolicy?
 
+pub fn cfg_entry_block(HotCfg) -> Int
+
 pub fn cfg_exception_target_policy(HotOp) -> CfgExceptionTargetPolicy
+
+pub fn cfg_exceptional_exit_block(HotCfg) -> Int?
+
+pub fn cfg_exit_block(HotCfg) -> Int
+
+pub fn cfg_predecessors(HotCfg, Int) -> Array[CfgEdge]
+
+pub fn cfg_successors(HotCfg, Int) -> Array[CfgEdge]
 
 pub fn cfg_terminator_edge_kinds(HotOp) -> Array[CfgEdgeKind]
 
@@ -478,6 +498,14 @@ pub impl Eq for CfgControlSuccessorPolicy
 pub impl Show for CfgControlSuccessorPolicy
 pub impl @debug.Debug for CfgControlSuccessorPolicy
 
+pub struct CfgEdge {
+  kind : CfgEdgeKind
+  block : Int
+}
+pub impl Eq for CfgEdge
+pub impl Show for CfgEdge
+pub impl @debug.Debug for CfgEdge
+
 pub enum CfgEdgeKind {
   FallthroughEdge
   BranchEdge
@@ -500,6 +528,15 @@ pub impl Eq for CfgExceptionTargetPolicy
 pub impl Show for CfgExceptionTargetPolicy
 pub impl @debug.Debug for CfgExceptionTargetPolicy
 
+pub struct CfgRegionRootBlock {
+  region_holder : Int
+  slot : Int
+  block : Int
+}
+pub impl Eq for CfgRegionRootBlock
+pub impl Show for CfgRegionRootBlock
+pub impl @debug.Debug for CfgRegionRootBlock
+
 pub enum HotAnalysis {
   Cfg
   Dominance
@@ -519,6 +556,20 @@ pub fn HotAnalysis::use_def() -> Self
 pub impl Eq for HotAnalysis
 pub impl Show for HotAnalysis
 pub impl @debug.Debug for HotAnalysis
+
+pub struct HotBlockInfo {
+  id : Int
+  nodes : Array[Int]
+  preds : Array[CfgEdge]
+  succs : Array[CfgEdge]
+  is_synthetic : Bool
+  region_holder : Int
+  start_slot : Int
+  end_slot : Int
+}
+pub impl Eq for HotBlockInfo
+pub impl Show for HotBlockInfo
+pub impl @debug.Debug for HotBlockInfo
 
 pub struct HotBranchTable {
   targets : Array[Int]
@@ -559,6 +610,18 @@ pub fn HotCatchInfo::new(Array[HotCatchArm]) -> Self
 pub impl Eq for HotCatchInfo
 pub impl Show for HotCatchInfo
 pub impl @debug.Debug for HotCatchInfo
+
+pub struct HotCfg {
+  blocks : Array[HotBlockInfo]
+  node_to_block : Array[Int]
+  region_roots : Array[CfgRegionRootBlock]
+  mut entry_block : Int
+  mut exit_block : Int
+  mut exceptional_exit_block : Int?
+}
+pub impl Eq for HotCfg
+pub impl Show for HotCfg
+pub impl @debug.Debug for HotCfg
 
 pub enum HotConstPayload {
   I32Const(@lib.I32)

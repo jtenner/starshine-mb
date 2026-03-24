@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 IR: add hot CFG construction overlay
+
+- **Hot CFG construction** by **@jtenner**. Added [`src/ir/cfg.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/cfg.mbt) and [`src/ir/cfg_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/cfg_test.mbt) to build a deterministic CFG overlay with synthetic entry/exit blocks, explicit successor and predecessor edges, label-target resolution for structured control, region-root and node-to-block mappings, synthetic continuation blocks for forward control labels, and explicit exceptional-exit handling. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the API, docs, and backlog match the completed IR2-150 slice.
+
 ## 2026-03-24 IR: add hot to boundary lowering module
 
 - **Hot-to-boundary lowering** by **@jtenner**. Added [`src/ir/hot_lower.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_lower.mbt) and [`src/ir/hot_lower_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_lower_test.mbt) to lower verified `HotFunc` bodies and function definitions back to boundary form with label-depth remapping, exact-payload recovery, declared-local reconstruction, and stack-aware emission for shared branch payload values. Updated [`src/ir/hot.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot.mbt), [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the API, docs, and backlog match the completed IR2-130 slice.

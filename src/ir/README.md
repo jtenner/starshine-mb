@@ -19,6 +19,7 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 ## Module Map
 
 - `architecture.mbt`: shared IR2 architecture types that later pass-manager slices build on now, including revision reads and pass-descriptor metadata.
+- `cfg.mbt`: deterministic CFG overlay builder with synthetic entry/exit blocks, explicit edge lists, node and region-root block mappings, structured label-target resolution, and exceptional-exit tracking for later dominator and dataflow slices.
 - `cfg_contract.mbt`: normative block-boundary, structured-control successor, terminator edge-kind, and exceptional-edge policy helpers so CFG construction and later analyses stop guessing hot-IR control-flow rules.
 - `hot_core.mbt`: owned dense storage model, storage counters, body-result accessors, and the minimal core debug dump surface. Deleted nodes are tracked as tombstones, and free-list reuse remains disabled for now.
 - `hot_flags.mbt`: canonical per-op raw flag table plus fast node classification helpers for control, branch, effect, trap, and exceptional-edge queries, including the conservative `Heap` family contract for GC/reference boundary ops that still preserve exact opcode identity through payload side tables.
