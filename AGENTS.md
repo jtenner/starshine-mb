@@ -5,7 +5,8 @@
 - Imports for each package live in `package*/imports.mbt`.
 - Main layout:
   - `docs/`: canonical research/plan/audit/bench baseline (`docs/[serial]-[YYYY-MM-DD]-[kebab-title].md`).
-  - `src/`: `binary`, `cli`, `cmd`, `diff`, `ir`, `lib`, `node_api`, `passes`, `spec_runner`, `transformer`, `validate`, `wast`, `wat`.
+  - `src/`: active package dirs include `binary`, `cli`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `spec_runner`, `validate`, `validate_trace`, `wast`, `wat`.
+  - `src/`: `node_api/`, `optimization/`, and `transformer/` currently exist as empty compatibility/staging dirs; do not document them as active packages unless they are rebuilt.
   - `examples/`, `tests/spec/`, `tests/node/`.
   - `scripts/`: Bun entrypoints only (`validate.ts`, `fuzz.ts`, `self-opt.ts`, `make.ts`, `examples.ts`) with shared code in `scripts/lib/*` and tests in `scripts/test/*`.
 
@@ -20,7 +21,7 @@
 - Avoid trace/progress/telemetry-only tests unless explicitly requested.
 - Do not remove features or disable passing tests to mask failures.
 - Keep `agent-todo.md` strictly as unreleased backlog.
-- Update inline/dispatch tests for pass behavior changes in the pass file and `src/passes/optimize.mbt`.
+- Update inline/dispatch tests for pass behavior changes in the implementing file and the active dispatcher. Today that is usually `src/cmd/cmd.mbt`; once the rebuilt pass manager lands, update `src/passes/optimize.mbt` too.
 - Run `moon test` and `moon info && moon fmt` before pass-change signoff.
 - Review `.mbti` diffs when public API changes.
 - Do not add shell scripts under `scripts/`.
@@ -67,7 +68,7 @@
 - After significant research updates, refresh the matching `agent-todo.md` blockers.
 
 # Agent Workflow Files
-- `agent-todo.md`: keep as active-only backlog grouped by version, then blockers, then risks, then implementation features.
+- `agent-todo.md`: keep as active-only backlog grouped by release target and IR2 slice id. Active slices should carry goal, why, deliverables, implementation tasks, required APIs, invariants, dependencies, exit criteria, and suggested tests.
 - `agent-lost-and-found.md`: local canary for process friction and concrete recommendations; never commit.
 - Keep release blockers and known test failures visible in `agent-todo.md` until resolved.
 - Before commit, remove no-longer-relevant tasks and add new blockers/risks.

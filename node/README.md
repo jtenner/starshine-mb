@@ -34,7 +34,6 @@ if (!encoded.ok) throw new Error(encoded.display ?? 'failed to encode');
 ```
 
 ## Build Note
-- Legacy explicit CLI pass flags are still accepted for compatibility, including unknown values, but currently resolve as compatibility no-ops.
-- `--optimize` / `--shrink` are the active compatibility path through the remaining command adapter.
-- `npm run build` is currently limited by the ongoing package-surface reset.
-- JS/TS adapter source regeneration is still manual.
+- `npm run build` regenerates the JS/TS package surface and refreshes the checked-in WASI CLI artifact under `node/internal/`.
+- The deleted `src/node_api` wasm-gc adapter is not rebuilt as part of the current node package flow.
+- CLI optimization flags mirror the current command compatibility surface: `--optimize` / `--shrink` select the compatibility preset path, while explicit legacy pass names are still accepted for compatibility and reporting but do not yet map to rebuilt hot-IR pass implementations.

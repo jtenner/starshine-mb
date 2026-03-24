@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 Docs: refresh README and agent guidance after IR2 reset
+
+- **IR2 doc surface cleanup** by **@jtenner**. Expanded [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) into the full slice-by-slice IR2 execution backlog, updated [`AGENTS.md`](/home/jtenner/Projects/starshine-mb/AGENTS.md) to reflect the current repo layout and active hot-IR rebuild workflow, and scrubbed stale optimizer/package wording from [`README.md`](/home/jtenner/Projects/starshine-mb/README.md), [`README.mbt.md`](/home/jtenner/Projects/starshine-mb/README.mbt.md), [`node/README.md`](/home/jtenner/Projects/starshine-mb/node/README.md), [`node/examples/README.md`](/home/jtenner/Projects/starshine-mb/node/examples/README.md), [`examples/README.md`](/home/jtenner/Projects/starshine-mb/examples/README.md), and [`tests/spec/README.md`](/home/jtenner/Projects/starshine-mb/tests/spec/README.md) so the checked-in docs match the current compatibility command surface and hot-IR rebuild state.
+
 ## 2026-03-24 Cmd: remove stale SSA fixture from README sync tests
 
 - **README sync fixture cleanup** by **@jtenner**. Updated [`src/cmd/readme_api_sync_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/readme_api_sync_wbtest.mbt) to stop asserting the deleted `infer_ssa_types` API and instead use the live hot-IR signature from [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti), so the test fixture matches the current `ir` package surface.

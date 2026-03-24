@@ -18,10 +18,10 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 
 - Parse and print WAT/WAST.
 - Preserve Binaryen-style function annotations in WAT/WAST text and lowered modules.
-- Validate modules and use typed-IR lifts.
+- Validate modules and enforce wasm typing and section rules.
 - Decode and encode WebAssembly binaries.
-- Build modules with `lib` constructors and IR utilities.
-- Rewrite modules via the transformer framework.
+- Build modules with `lib` constructors and hot-IR helpers.
+- Lift function bodies into the current hot function IR and lower them back to boundary form.
 - Use CLI and Node wrappers.
 
 ## Package Map
@@ -30,13 +30,17 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 | --- | --- |
 | `jtenner/starshine/wast` | Parse and print WAT/WAST text. |
 | `jtenner/starshine/wat` | Text-format wasm helpers. |
-| `jtenner/starshine/validate` | Validation + typed IR conversion. |
+| `jtenner/starshine/validate` | Validation, type matching, and valid-module generation helpers. |
 | `jtenner/starshine/binary` | Binary encoding/decoding + LEB128 helpers. |
 | `jtenner/starshine/lib` | Core Wasm types and constructors. |
-| `jtenner/starshine/ir` | CFG/SSA/use-def/liveness utilities. |
-| `jtenner/starshine/transformer` | Event-driven traversal and rewrite hooks. |
+| `jtenner/starshine/ir` | Hot function IR lift/lower and direct mutation helpers. |
 | `jtenner/starshine/cli` | CLI parsing, config, globbing, and flags. |
 | `jtenner/starshine/cmd` | Command execution and host adapters. |
+| `jtenner/starshine/diff` | Myers diff helpers used by diagnostics and tooling. |
+| `jtenner/starshine/fs` | Small filesystem helpers for host-facing code. |
+| `jtenner/starshine/fuzz` | Fuzz harness entrypoints and support code. |
+| `jtenner/starshine/spec_runner` | WAST spec-harness execution helpers. |
+| `jtenner/starshine/validate_trace` | Validation trace entrypoints and fixtures. |
 
 ## Quick Example
 
@@ -65,9 +69,9 @@ fn parse_validate_encode(source : String) -> Bool {
 
 ## Compatibility Note
 
-- `--optimize` / `--shrink` resolve into the generated optimization pipeline.
-- Legacy explicit pass flags (`--flatten`, `--global-effects`, unknown pass names, etc.) are still accepted for compatibility, then run as no-op markers in the legacy pass layer.
-- `--vacuum`, `--optimize`, and `--shrink` still affect pass scheduling/capping exactly as documented in tests, even when explicit compatibility passes are no-op today.
+- `--optimize` and `--shrink` still resolve through the current command-layer compatibility pipeline while the IR2 pass registry is being rebuilt.
+- Legacy explicit pass flags, including unknown names, are still accepted by the command surface for compatibility and reporting, but module execution remains identity/no-op today.
+- Pass scheduling and capping behavior for names like `--vacuum`, `--optimize`, and `--shrink` is still covered by command tests even before real hot-pass replacements land.
 
 ## Prerequisites
 
