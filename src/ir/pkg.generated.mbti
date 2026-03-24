@@ -238,6 +238,8 @@ pub fn hot_local_type(HotFunc, Int) -> @lib.ValType?
 
 pub fn hot_lower_body(HotFunc) -> @lib.Expr
 
+pub fn hot_lower_func(HotFunc) -> @lib.Func
+
 pub fn hot_make_simple_node(HotOp, Int, UInt, Int, Int, Array[Int]) -> HotNode
 
 pub fn hot_may_trap(HotFunc, Int) -> Bool

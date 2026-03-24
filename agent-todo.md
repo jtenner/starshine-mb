@@ -9,41 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 130 - Hot -> Boundary Lowering
-- Goal:
-  Lower verified hot IR back to boundary bodies deterministically.
-- Why this slice exists:
-  The optimizer must always return boundary-form functions for encode/validate/debug flows.
-- Concrete deliverables:
-  - `src/ir/hot_lower.mbt`.
-  - `src/ir/hot_lower_test.mbt`.
-- Detailed implementation tasks:
-  - Define a full lowering entry point from `HotFunc` to boundary body.
-  - Cover the same opcode families as lifting.
-  - Lower structured control using control/label metadata rather than raw child-slot guesses.
-  - Lower side-table payloads through typed accessors.
-  - Verify before lowering in debug/test paths.
-  - Ensure tombstones and internal sentinels never leak to boundary output.
-- Required utilities / APIs:
-  - `hot_lower_func(func, module_context?)`.
-  - `hot_lower_body(func)`.
-  - Lower helpers for constants, branches, calls, memargs, catches, and control regions.
-- Invariants / correctness rules:
-  - Lowering preserves semantics and declared block result types.
-  - Only verified live nodes reachable from roots are lowered.
-- Dependencies:
-  - IR2 - 040 - Hot IR Label/Control Metadata.
-  - IR2 - 050 - Hot IR Side Tables.
-  - IR2 - 080 - Hot IR Structural Query Utilities.
-  - IR2 - 110 - Hot IR Verification Utilities.
-  - IR2 - 120 - Boundary -> Hot Lifting.
-- Exit criteria:
-  - Lift/lower roundtrips succeed for untouched and edited hot functions.
-- Suggested tests:
-  - Hand-built hot control lowering.
-  - Lowering after region edits.
-  - Tombstone/unreachable hidden storage never leaks to output.
-
 ### IR2 - 150 - CFG Construction
 - Goal:
   Build the CFG overlay, including block arrays, edge arrays, and node/block mappings.

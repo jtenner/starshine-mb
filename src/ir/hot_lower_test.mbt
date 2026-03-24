@@ -1,0 +1,131 @@
+///|
+fn hot_lower_test_memarg() -> @lib.MemArg {
+  @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0))
+}
+
+///|
+fn hot_lower_test_context_module() -> @lib.Module {
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([array_type]))
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1, None))]),
+  )
+}
+
+///|
+test "hot lower roundtrips representative exact-payload families" {
+  let memarg = hot_lower_test_memarg()
+  let body = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_load(memarg),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::ref_null(@lib.HeapType::new(@lib.TypeIdx::new(0U))),
+    @lib.Instruction::array_len(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::v128_const(
+      b'\x00', b'\x01', b'\x02', b'\x03', b'\x04', b'\x05', b'\x06', b'\x07', b'\x08',
+      b'\x09', b'\x0a', b'\x0b', b'\x0c', b'\x0d', b'\x0e', b'\x0f',
+    ),
+    @lib.Instruction::i8x16_extract_lane_s(@lib.LaneIdx::new(b'\x00')),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::atomic_rmw(@lib.AtomicRmwOp::i32_add(), memarg),
+    @lib.Instruction::drop(),
+  ])
+  let func = hot_lift_body_with_context(
+    body,
+    HotLocals::new(),
+    hot_module_context_from_module(hot_lower_test_context_module()),
+  )
+
+  assert_eq(hot_lower_body(func), body)
+}
+
+///|
+test "hot lower roundtrips branches through label metadata" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+      ]),
+    ),
+    @lib.Instruction::return_(),
+  ])
+  let func = hot_lift_body(
+    body,
+    HotLocals::new(params=[@lib.ValType::i32()]),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+
+  assert_eq(hot_lower_body(func), body)
+}
+
+///|
+fn hot_lower_test_func_module() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+      ),
+    ),
+  ])
+  let import_sec = @lib.ImportSec::new([
+    @lib.Import::new(
+      @lib.Name::from_string("env"),
+      @lib.Name::from_string("callee"),
+      @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+    ),
+  ])
+  @lib.Module::new()
+  .with_type_sec(type_sec)
+  .with_import_sec(import_sec)
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "hot lower func restores declared locals and body" {
+  let module_ = hot_lower_test_func_module()
+  let hot = hot_lift_func(module_, @lib.FuncIdx::new(1U))
+  let lowered = hot_lower_func(hot)
+  let @lib.Func(locals, body) = lowered
+
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  assert_eq(
+    body,
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    ]),
+  )
+}

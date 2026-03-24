@@ -33,7 +33,8 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 - `hot_module_context.mbt`: shared boundary-module context resolution for function signatures, type-index block results, memories, tables, globals, tags, element segments, data segments, and aggregate field metadata so lift/lower and later analyses stop depending on validator-private lookups.
 - `hot_verify.mbt`: structured core/control verification plus placeholder CFG/dominance/SSA hooks and debug abort helpers so lift/lower and later passes fail fast on corruption.
 - `hot_lift.mbt`: validator-backed boundary-to-hot lifting for function bodies and module functions, including module-context resolution, label metadata allocation, typed side-table payload preservation, and structured lift errors.
-- `hot.mbt`: compatibility lift/lower entry points plus the remaining unsplit helper logic that still backs lowering.
+- `hot_lower.mbt`: verified hot-to-boundary lowering for function bodies and `@lib.Func` definitions, including label-depth remapping, exact-instruction recovery, and stack-aware emission for shared branch payload values.
+- `hot.mbt`: compatibility lift entry points plus the remaining unsplit legacy helper logic.
 - `float_compat.mbt`: Wasm-compatible float helper surface used by hot lifting/lowering.
 
 ## Planned Split
@@ -41,4 +42,3 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 Later slices should land in dedicated modules instead of growing `hot.mbt` further:
 - `hot_module_context.mbt`
 - `hot_region_edit.mbt`
-- `hot_lower.mbt`
