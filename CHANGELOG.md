@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 IR: add natural loop info overlay
+
+- **Hot CFG loop info** by **@jtenner**. Added [`src/ir/loop_info.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/loop_info.mbt) and [`src/ir/loop_info_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/loop_info_test.mbt) to compute natural loop headers, bodies, latches, exits, parent nesting, block depths, and block-to-innermost-loop mappings from CFG and dominance data, with explicit exclusion of exceptional backedges from loop formation. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-190 slice.
+
 ## 2026-03-24 IR: add post-dominator analysis overlay
 
 - **Hot CFG post-dominators** by **@jtenner**. Added [`src/ir/postdominators.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/postdominators.mbt) and [`src/ir/postdominators_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/postdominators_test.mbt) to compute post-dominator sets, immediate post-dominators, post-dominator-tree children, post-dominance queries, post-dominance frontiers, and debug dumps over the reverse reachable CFG with explicit normal and exceptional exit-root handling. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-180 slice.

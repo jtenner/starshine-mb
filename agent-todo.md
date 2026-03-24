@@ -9,43 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 190 - Loop Info
-- Goal:
-  Compute loop headers, bodies, latches, exits, and nesting depth from CFG + dominance.
-- Why this slice exists:
-  Loop-aware passes and some SSA reasoning need explicit loop metadata.
-- Concrete deliverables:
-  - `src/ir/loop_info.mbt`.
-  - `src/ir/loop_info_test.mbt`.
-- Detailed implementation tasks:
-  - Detect backedges.
-  - Build natural loop bodies and exit sets.
-  - Compute loop nesting and block->innermost-loop mapping.
-  - Add debug dump helpers.
-  - Document relationship between structured `Loop` nodes and CFG loop headers.
-- Required utilities / APIs:
-  - `loop_info_build(cfg, dom)`.
-  - `loop_header(loop_info, loop_id)`.
-  - `loop_blocks(loop_info, loop_id)`.
-  - `loop_latches(loop_info, loop_id)`.
-  - `loop_exits(loop_info, loop_id)`.
-  - `loop_depth(loop_info, block_id)`.
-  - `loop_for_block(loop_info, block_id)`.
-- Invariants / correctness rules:
-  - Loop header dominates all blocks in its natural loop.
-  - Loop nesting forms a tree.
-  - Exit sets come from CFG successors leaving the loop body.
-- Dependencies:
-  - IR2 - 150 - CFG Construction.
-  - IR2 - 170 - Dominators.
-  - IR2 - 165 - Dataflow Bitset Utilities.
-- Exit criteria:
-  - Loop metadata is usable by later optimizations.
-- Suggested tests:
-  - Single natural loop.
-  - Nested loops.
-  - Loop with early-exit branch.
-
 ### IR2 - 200 - Use-Def
 - Goal:
   Build node use lists and block-local local def/use summaries.

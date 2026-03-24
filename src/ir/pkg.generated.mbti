@@ -518,6 +518,22 @@ pub fn[S, E] hot_walk_subtree_preorder(HotFunc, Int, S, (S, Int) -> HotVisitCtl[
 
 pub fn[S, E] hot_worklist_walk(HotFunc, Array[Int], S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
 
+pub fn loop_blocks(HotLoopInfo, Int) -> Array[Int]
+
+pub fn loop_depth(HotLoopInfo, Int) -> Int
+
+pub fn loop_exits(HotLoopInfo, Int) -> Array[HotLoopExit]
+
+pub fn loop_for_block(HotLoopInfo, Int) -> Int?
+
+pub fn loop_header(HotLoopInfo, Int) -> Int
+
+pub fn loop_info_build(HotCfg, HotDominators) -> HotLoopInfo
+
+pub fn loop_info_debug_dump(HotLoopInfo) -> String
+
+pub fn loop_latches(HotLoopInfo, Int) -> Array[Int]
+
 pub fn postdom_build(HotCfg) -> HotPostDominators
 
 pub fn postdom_children(HotPostDominators, Int) -> Array[Int]
@@ -814,6 +830,35 @@ pub fn HotLocals::new(param_count? : Int, params? : Array[@lib.ValType], locals?
 pub impl Eq for HotLocals
 pub impl Show for HotLocals
 pub impl @debug.Debug for HotLocals
+
+pub struct HotLoopExit {
+  from : Int
+  edge : CfgEdge
+}
+pub impl Eq for HotLoopExit
+pub impl Show for HotLoopExit
+pub impl @debug.Debug for HotLoopExit
+
+pub struct HotLoopInfo {
+  loops : Array[HotLoopSummary]
+  block_to_loop : Array[Int]
+  block_depth : Array[Int]
+}
+pub impl Eq for HotLoopInfo
+pub impl Show for HotLoopInfo
+pub impl @debug.Debug for HotLoopInfo
+
+pub struct HotLoopSummary {
+  header : Int
+  blocks : Array[Int]
+  latches : Array[Int]
+  exits : Array[HotLoopExit]
+  parent : Int
+  depth : Int
+}
+pub impl Eq for HotLoopSummary
+pub impl Show for HotLoopSummary
+pub impl @debug.Debug for HotLoopSummary
 
 pub struct HotMemArg {
   memarg : @lib.MemArg
