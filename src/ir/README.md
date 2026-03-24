@@ -22,6 +22,7 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 - `hot_core.mbt`: owned dense storage model, storage counters, body-result accessors, and the minimal core debug dump surface. Free-list reuse remains disabled for now, so node ids are dense append-only allocations.
 - `hot_flags.mbt`: canonical per-op raw flag table plus fast node classification helpers for control, branch, effect, trap, and exceptional-edge queries.
 - `hot_types.mbt`: canonical keyed type interning plus result-arity, result-type, and local-metadata queries for later label, CFG, and SSA slices.
+- `hot_labels.mbt`: stable label ownership, branch-arity, and control-region slot metadata so later analyses stop decoding control immediates directly.
 - `hot.mbt`: current hot-IR lift/lower and still-unsplit helper logic that now builds on `hot_core.mbt`.
 - `float_compat.mbt`: Wasm-compatible float helper surface used by hot lifting/lowering.
 
@@ -29,7 +30,6 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 
 Later slices should land in dedicated modules instead of growing `hot.mbt` further:
 
-- `hot_labels.mbt`
 - `hot_side_tables.mbt`
 - `hot_builders.mbt`
 - `hot_mutate.mbt`

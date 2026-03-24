@@ -58,6 +58,10 @@ pub fn hot_child_set(HotFunc, Int, Int, Int) -> Unit
 
 pub fn hot_child_storage_count(HotFunc) -> Int
 
+pub fn hot_control_node_label(HotFunc, Int) -> Int
+
+pub fn hot_control_region_slot_info(HotOp) -> Array[HotControlRegionSlotInfo]
+
 pub fn hot_debug_dump_core(HotFunc) -> String
 
 pub fn hot_default_flags_for_op(HotOp) -> UInt
@@ -71,6 +75,18 @@ pub fn hot_is_branch(HotFunc, Int) -> Bool
 pub fn hot_is_control_node(HotFunc, Int) -> Bool
 
 pub fn hot_is_terminator_node(HotFunc, Int) -> Bool
+
+pub fn hot_label_alloc(HotFunc, HotLabelKind, Int, Int, Int) -> Int
+
+pub fn hot_label_branch_arity(HotFunc, Int) -> Int
+
+pub fn hot_label_get(HotFunc, Int) -> HotLabelInfo
+
+pub fn hot_label_kind(HotFunc, Int) -> HotLabelKind
+
+pub fn hot_label_owner(HotFunc, Int) -> Int
+
+pub fn hot_label_result_type(HotFunc, Int) -> Int
 
 pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc
 
@@ -199,6 +215,26 @@ pub enum HotConstPayload {
 pub impl Eq for HotConstPayload
 pub impl Show for HotConstPayload
 pub impl @debug.Debug for HotConstPayload
+
+pub enum HotControlRegionRole {
+  BodyRegion
+  ThenRegion
+  ElseRegion
+  CatchRegion
+  CatchListRegion
+}
+pub impl Eq for HotControlRegionRole
+pub impl Show for HotControlRegionRole
+pub impl @debug.Debug for HotControlRegionRole
+
+pub struct HotControlRegionSlotInfo {
+  slot : Int
+  role : HotControlRegionRole
+  required : Bool
+}
+pub impl Eq for HotControlRegionSlotInfo
+pub impl Show for HotControlRegionSlotInfo
+pub impl @debug.Debug for HotControlRegionSlotInfo
 
 pub enum HotExtra {
   UnaryOp(@lib.UnaryOp)

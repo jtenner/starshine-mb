@@ -9,42 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 040 - Hot IR Label/Control Metadata
-- Goal:
-  Make control labels and control-child layout explicit and queryable.
-- Why this slice exists:
-  Branch target queries, CFG construction, and lowering need stable label ownership and region-slot contracts.
-- Concrete deliverables:
-  - `src/ir/hot_labels.mbt`.
-  - `src/ir/hot_labels_test.mbt`.
-- Detailed implementation tasks:
-  - Keep `HotLabelKind` and `HotLabelInfo` as the stable control metadata surface.
-  - Add `hot_label_alloc`, `hot_label_get`, `hot_label_owner`, `hot_label_result_type`, `hot_label_branch_arity`, `hot_label_kind`.
-  - Add control-slot helpers for `Block`, `Loop`, `If`, `Try`, and `TryTable`.
-  - Add `hot_control_node_label(func, node_id)` and control-region-slot metadata APIs.
-  - Hide raw `imm0` interpretation behind this module.
-- Required utilities / APIs:
-  - `hot_label_get(func, label_id)`.
-  - `hot_label_owner(func, label_id)`.
-  - `hot_label_kind(func, label_id)`.
-  - `hot_label_result_type(func, label_id)`.
-  - `hot_label_branch_arity(func, label_id)`.
-  - `hot_control_node_label(func, node_id)`.
-  - `hot_control_region_slot_info(op)`.
-- Invariants / correctness rules:
-  - Every non-region label owner is a live control node.
-  - Control nodes own exactly the labels documented for that opcode family.
-  - Branch arity and result type stay consistent.
-- Dependencies:
-  - IR2 - 010 - Hot IR Core.
-  - IR2 - 030 - Hot IR Type Interning.
-- Exit criteria:
-  - Later code can query label ownership and region slots without decoding raw immediates.
-- Suggested tests:
-  - Nested `block`/`loop`/`if` label ownership.
-  - `loop` branch arity semantics vs `block`.
-  - `try`/`try_table` region-slot metadata stability.
-
 ### IR2 - 050 - Hot IR Side Tables
 - Goal:
   Replace generic/implied payload handling with dedicated typed side tables.

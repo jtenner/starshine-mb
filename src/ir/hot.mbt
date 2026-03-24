@@ -6,19 +6,6 @@ fn hot_alloc_const(func : HotFunc, payload : HotConstPayload) -> Int {
 }
 
 ///|
-fn hot_alloc_label(
-  func : HotFunc,
-  kind : HotLabelKind,
-  result_type : TypeId,
-  owner : NodeId,
-  branch_arity : Int,
-) -> LabelId {
-  let id = func.labels.length()
-  func.labels.push({ kind, result_type, owner, branch_arity })
-  id
-}
-
-///|
 fn hot_make_node_with_children(
   func : HotFunc,
   op : HotOp,
@@ -127,7 +114,7 @@ fn hot_wrap_region(
     [],
   )
   let id = hot_alloc_node(func, node)
-  let label_id = hot_alloc_label(
+  let label_id = hot_label_alloc(
     func,
     HotLabelKind::RegionLabel,
     hot_type_void(func),
@@ -346,7 +333,7 @@ fn hot_lift_instruction(
       )
       let id = hot_alloc_node(func, node)
       let result_arity = hot_type_result_arity(func, ty)
-      let label_id = hot_alloc_label(
+      let label_id = hot_label_alloc(
         func,
         HotLabelKind::BlockLabel,
         ty,
@@ -380,7 +367,7 @@ fn hot_lift_instruction(
       )
       let id = hot_alloc_node(func, node)
       let result_arity = hot_type_result_arity(func, ty)
-      let label_id = hot_alloc_label(
+      let label_id = hot_label_alloc(
         func,
         HotLabelKind::LoopLabel,
         ty,
@@ -414,7 +401,7 @@ fn hot_lift_instruction(
       )
       let id = hot_alloc_node(func, node)
       let result_arity = hot_type_result_arity(func, ty)
-      let label_id = hot_alloc_label(
+      let label_id = hot_label_alloc(
         func,
         HotLabelKind::IfLabel,
         ty,
@@ -489,11 +476,6 @@ pub fn hot_lift_body(
 }
 
 ///|
-fn hot_label_kind(func : HotFunc, label_id : LabelId) -> HotLabelKind {
-  func.labels[label_id].kind
-}
-
-///|
 fn hot_lower_region_body(
   func : HotFunc,
   id : NodeId,
@@ -502,10 +484,11 @@ fn hot_lower_region_body(
   if id == HOT_NONE_NODE {
     return []
   }
+  let label_id = hot_control_node_label(func, id)
   let node = hot_node_get(func, id)
   if node.op == HotOp::Block &&
-    node.imm0 >= 0 &&
-    hot_label_kind(func, node.imm0) == HotLabelKind::RegionLabel {
+    label_id >= 0 &&
+    hot_label_kind(func, label_id) == HotLabelKind::RegionLabel {
     return hot_lower_body_items(func, id, label_stack)
   }
   let out : Array[Instruction] = []
@@ -520,11 +503,12 @@ fn hot_lower_body_items(
   label_stack : Array[LabelId],
 ) -> Array[Instruction] {
   let out : Array[Instruction] = []
-  let node = hot_node_get(func, id)
   let next_stack = label_stack.copy()
-  if node.imm0 >= 0 {
-    next_stack.push(node.imm0)
+  let label_id = hot_control_node_label(func, id)
+  if label_id >= 0 {
+    next_stack.push(label_id)
   }
+  let node = hot_node_get(func, id)
   for i = 0; i < node.child_count; i = i + 1 {
     let child = hot_child_get(func, id, i)
     if child != HOT_NONE_NODE {
@@ -630,8 +614,9 @@ fn hot_lower_node(
       }
       hot_lower_node(func, hot_child_get(func, id, 0), label_stack, out)
       let next_stack = label_stack.copy()
-      if node.imm0 >= 0 {
-        next_stack.push(node.imm0)
+      let label_id = hot_control_node_label(func, id)
+      if label_id >= 0 {
+        next_stack.push(label_id)
       }
       let else_id = hot_child_get(func, id, 2)
       out.push(

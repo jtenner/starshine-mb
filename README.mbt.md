@@ -78,6 +78,14 @@ pub fn hot_type_results(HotFunc, Int) -> Array[@lib.ValType]
 pub fn hot_param_count(HotFunc) -> Int
 pub fn hot_local_count(HotFunc) -> Int
 pub fn hot_local_type(HotFunc, Int) -> @lib.ValType?
+pub fn hot_label_alloc(HotFunc, HotLabelKind, Int, Int, Int) -> Int
+pub fn hot_label_get(HotFunc, Int) -> HotLabelInfo
+pub fn hot_label_owner(HotFunc, Int) -> Int
+pub fn hot_label_kind(HotFunc, Int) -> HotLabelKind
+pub fn hot_label_result_type(HotFunc, Int) -> Int
+pub fn hot_label_branch_arity(HotFunc, Int) -> Int
+pub fn hot_control_node_label(HotFunc, Int) -> Int
+pub fn hot_control_region_slot_info(HotOp) -> Array[HotControlRegionSlotInfo]
 pub fn hot_revision_current(HotFunc) -> Int
 pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
 pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]
