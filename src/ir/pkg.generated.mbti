@@ -8,6 +8,26 @@ import {
 }
 
 // Values
+pub const EFFECT_MASK_CALL : UInt = 2
+
+pub const EFFECT_MASK_CONTROL : UInt = 1
+
+pub const EFFECT_MASK_GLOBAL_STATE : UInt = 32
+
+pub const EFFECT_MASK_LOCAL_STATE : UInt = 16
+
+pub const EFFECT_MASK_MEMORY_READ : UInt = 64
+
+pub const EFFECT_MASK_MEMORY_WRITE : UInt = 128
+
+pub const EFFECT_MASK_TABLE_READ : UInt = 256
+
+pub const EFFECT_MASK_TABLE_WRITE : UInt = 512
+
+pub const EFFECT_MASK_THROW : UInt = 4
+
+pub const EFFECT_MASK_TRAP : UInt = 8
+
 pub const HOT_FLAG_BRANCH : UInt = 32
 
 pub const HOT_FLAG_CALL : UInt = 64
@@ -119,6 +139,20 @@ pub fn dom_frontier(HotDominators, Int) -> Array[Int]
 pub fn dom_idom(HotDominators, Int) -> Int?
 
 pub fn dom_strictly_dominates(HotDominators, Int, Int) -> Bool
+
+pub fn effects_for_block(HotFunc, HotCfg, Int) -> UInt
+
+pub fn effects_for_node(HotFunc, Int) -> UInt
+
+pub fn effects_for_region(HotFunc, HotRegionRef) -> UInt
+
+pub fn effects_is_pure(UInt) -> Bool
+
+pub fn effects_may_throw(UInt) -> Bool
+
+pub fn effects_reads_memory(UInt) -> Bool
+
+pub fn effects_writes_memory(UInt) -> Bool
 
 pub fn hot_alloc_branch_table(HotFunc, HotBranchTable) -> Int
 
@@ -1128,6 +1162,8 @@ pub enum HotVisitCtl[S, E] {
 
 // Type aliases
 pub type BlockId = Int
+
+pub type EffectMask = UInt
 
 pub type LabelId = Int
 

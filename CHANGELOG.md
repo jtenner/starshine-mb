@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 IR: add derived effect summaries
+
+- **Hot effect summaries** by **@jtenner**. Added [`src/ir/effects.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/effects.mbt) and [`src/ir/effects_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/effects_test.mbt) to derive conservative node, block, and region effect masks for control, calls, throws, traps, local/global state, memory, and table behavior, with exact-instruction refinement for coarse generic families like `Heap` and `Atomic`. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-220 slice.
+
 ## 2026-03-24 IR: add local liveness overlay
 
 - **Hot local liveness** by **@jtenner**. Added [`src/ir/liveness.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/liveness.mbt) and [`src/ir/liveness_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/liveness_test.mbt) to compute block `live_in` and `live_out` local bitsets with locals-only backward dataflow over the non-exceptional CFG edge policy, plus direct local liveness queries for later SSA placement and dead-local cleanup. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-210 slice.

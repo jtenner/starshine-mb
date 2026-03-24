@@ -9,43 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 220 - Effect Summaries
-- Goal:
-  Compute derived effect summaries for nodes, blocks, and regions.
-- Why this slice exists:
-  Passes need more than raw node flags to decide purity, motion safety, and exceptional behavior.
-- Concrete deliverables:
-  - `src/ir/effects.mbt`.
-  - `src/ir/effects_test.mbt`.
-- Detailed implementation tasks:
-  - Define `EffectMask` categories for memory, table, global/local state, calls, throws, traps, and control effects.
-  - Build per-node summaries from raw flags and typed payload knowledge.
-  - Build per-block and per-region summaries.
-  - Add convenience purity and may-throw predicates.
-  - Keep raw flags and derived summaries as separate layers.
-- Required utilities / APIs:
-  - `effects_for_node(func, node_id)`.
-  - `effects_for_block(func, cfg, block_id)`.
-  - `effects_for_region(func, region_ref)`.
-  - `effects_is_pure(mask)`.
-  - `effects_may_throw(mask)`.
-  - `effects_reads_memory(mask)`.
-  - `effects_writes_memory(mask)`.
-- Invariants / correctness rules:
-  - Summaries conservatively over-approximate behavior.
-  - Overlay is invalid on revision change.
-  - Exceptional-edge semantics stay consistent with CFG policy.
-- Dependencies:
-  - IR2 - 020 - Hot IR Flags Model.
-  - IR2 - 090 - Hot IR Traversal Utilities.
-  - IR2 - 150 - CFG Construction.
-- Exit criteria:
-  - Passes can ask node/block/region purity and memory/throw properties through shared APIs.
-- Suggested tests:
-  - Pure arithmetic vs stateful memory ops.
-  - Call/throw/trap effect categories.
-  - Region/block summary aggregation.
-
 ### IR2 - 230 - SSA Design Policy
 - Goal:
   Lock the local-SSA-only overlay policy so construction and destruction are unambiguous.
