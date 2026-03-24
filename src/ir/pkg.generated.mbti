@@ -39,7 +39,13 @@ pub fn hot_node_get(HotFunc, Int) -> HotNode
 
 pub fn hot_node_set(HotFunc, Int, HotNode) -> Unit
 
+pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]
+
+pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
+
 pub fn hot_replace_node(HotFunc, Int, HotNode) -> Unit
+
+pub fn hot_revision_current(HotFunc) -> Int
 
 pub fn hot_root_count(HotFunc) -> Int
 
@@ -52,6 +58,26 @@ pub fn hot_type_void(HotFunc) -> Int
 // Errors
 
 // Types and methods
+pub enum HotAnalysis {
+  Cfg
+  Dominance
+  Liveness
+  UseDef
+  Effects
+  LoopInfo
+  Ssa
+}
+pub fn HotAnalysis::cfg() -> Self
+pub fn HotAnalysis::dominance() -> Self
+pub fn HotAnalysis::effects() -> Self
+pub fn HotAnalysis::liveness() -> Self
+pub fn HotAnalysis::loop_info() -> Self
+pub fn HotAnalysis::ssa() -> Self
+pub fn HotAnalysis::use_def() -> Self
+pub impl Eq for HotAnalysis
+pub impl Show for HotAnalysis
+pub impl @debug.Debug for HotAnalysis
+
 pub struct HotBranchTable {
   targets : Array[Int]
   default_target : Int
@@ -246,6 +272,16 @@ pub enum HotOp {
 pub impl Eq for HotOp
 pub impl Show for HotOp
 pub impl @debug.Debug for HotOp
+
+pub struct HotPassDescriptor {
+  name : String
+  requires : Array[HotAnalysis]
+  invalidates : Array[HotAnalysis]
+}
+pub fn HotPassDescriptor::new(String, requires? : Array[HotAnalysis], invalidates? : Array[HotAnalysis]) -> Self
+pub impl Eq for HotPassDescriptor
+pub impl Show for HotPassDescriptor
+pub impl @debug.Debug for HotPassDescriptor
 
 pub enum HotRewriteCtl[S, E] {
   Same(S)

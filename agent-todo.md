@@ -9,39 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 000 - Architecture Rules
-- Goal:
-  Lock the optimizer architecture around exactly two owned representations: boundary module form and hot function IR.
-- Why this slice exists:
-  Future slices need stable ownership, mutation, verification, and pass contracts before adding analyses or passes.
-- Concrete deliverables:
-  - Canonical architecture ADR under `docs/`.
-  - `src/ir/README.md` with module map and ownership rules.
-  - Public docs and package-map text updated to stop implying deleted optimizer ownership layers.
-- Detailed implementation tasks:
-  - State that `HotFunc` is the only owned optimizer body representation.
-  - State that CFG, dominance, liveness, use-def, effects, loop info, and SSA are derived overlays keyed by `revision`.
-  - Define pass contract: `lift -> verify -> analyze -> mutate -> verify -> lower`.
-  - Define mutation contract: semantic mutation must go through public mutation APIs and bump `revision`.
-  - Define package split for `src/ir` so later work lands in dedicated modules instead of one growing file.
-  - Define TDD rule for every later slice.
-- Required utilities / APIs:
-  - `hot_revision_current(func)`.
-  - Pass descriptor helpers declaring required analyses and invalidations.
-- Invariants / correctness rules:
-  - No new owned optimizer IR beside hot IR.
-  - Boundary decode/encode/validation/debug remain boundary-form only.
-  - No compatibility API for deleted recursive optimizer bodies.
-- Dependencies:
-  - None.
-- Exit criteria:
-  - Architecture ADR exists and matches the intended code layout.
-  - Public docs no longer claim deleted ownership layers.
-- Suggested tests:
-  - README/API sync coverage catches deleted typed-tree wording.
-  - Repository grep/assert test catches forbidden deleted optimizer names.
-  - Contract test verifies pass descriptors expose requirement/invalidation metadata.
-
 ### IR2 - 010 - Hot IR Core
 - Goal:
   Define the stable dense-array `HotFunc` and `HotNode` storage model.

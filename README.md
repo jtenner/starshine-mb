@@ -20,8 +20,8 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 - Preserve Binaryen-style function annotations in WAT/WAST text and lowered modules.
 - Validate modules and enforce wasm typing and section rules.
 - Decode and encode WebAssembly binaries.
-- Build modules with `lib` constructors and hot-IR helpers.
-- Lift function bodies into the current hot function IR and lower them back to boundary form.
+- Build modules with `lib` constructors and boundary-form helpers.
+- Lift function bodies into `HotFunc`, the only owned optimizer body representation, and lower them back to boundary form.
 - Use CLI and Node wrappers.
 
 ## Package Map
@@ -33,7 +33,7 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 | `jtenner/starshine/validate` | Validation, type matching, and valid-module generation helpers. |
 | `jtenner/starshine/binary` | Binary encoding/decoding + LEB128 helpers. |
 | `jtenner/starshine/lib` | Core Wasm types and constructors. |
-| `jtenner/starshine/ir` | Hot function IR lift/lower and direct mutation helpers. |
+| `jtenner/starshine/ir` | `HotFunc` hot function IR, architecture contracts, and lift/lower helpers. |
 | `jtenner/starshine/cli` | CLI parsing, config, globbing, and flags. |
 | `jtenner/starshine/cmd` | Command execution and host adapters. |
 | `jtenner/starshine/diff` | Myers diff helpers used by diagnostics and tooling. |
@@ -41,6 +41,21 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 | `jtenner/starshine/fuzz` | Fuzz harness entrypoints and support code. |
 | `jtenner/starshine/spec_runner` | WAST spec-harness execution helpers. |
 | `jtenner/starshine/validate_trace` | Validation trace entrypoints and fixtures. |
+
+## IR2 Architecture
+
+- `HotFunc` is the only owned optimizer body representation. Boundary decode/encode/validation/debug remain on raw module and expression forms.
+- CFG, dominance, liveness, use-def, effects, loop info, and SSA are derived overlays keyed by hot-IR `revision`.
+- The canonical architecture rule set lives in [`docs/0059-2026-03-24-ir2-architecture-rules.md`](./docs/0059-2026-03-24-ir2-architecture-rules.md); package-local module ownership rules live in [`src/ir/README.md`](./src/ir/README.md).
+
+<!-- README_API_VERIFY src/ir/pkg.generated.mbti -->
+```mbti
+pub fn hot_revision_current(HotFunc) -> Int
+pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
+pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]
+pub fn HotAnalysis::cfg() -> Self
+pub fn HotPassDescriptor::new(String, requires? : Array[HotAnalysis], invalidates? : Array[HotAnalysis]) -> Self
+```
 
 ## Quick Example
 
