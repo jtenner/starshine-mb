@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 IR: add dataflow bitset utilities
+
+- **IR dataflow bitsets** by **@jtenner**. Added [`src/ir/bitset.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/bitset.mbt) and [`src/ir/bitset_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/bitset_test.mbt) to provide reusable dense `UInt64`-backed bitsets with strict size/index validation, set/clear/test operations, in-place union/intersection/difference, equality checks, masked tail-word handling, and deterministic ascending iteration over set bits for later dominance, liveness, and use-def slices. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-165 slice.
+
 ## 2026-03-24 IR: add hot CFG traversal order helpers
 
 - **Hot CFG traversal orders** by **@jtenner**. Added [`src/ir/cfg_order.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/cfg_order.mbt) and [`src/ir/cfg_order_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/cfg_order_test.mbt) to provide deterministic CFG preorder, postorder, reverse postorder, reverse-exit order, exceptional-edge-inclusive reverse postorder helpers, direct-region block ordering, and a shared worklist seed policy that keeps unreachable blocks out of global traversals while still exposing direct-region tails explicitly. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-160 slice.

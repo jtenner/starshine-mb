@@ -9,39 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 165 - Dataflow Bitset Utilities
-- Goal:
-  Provide compact reusable bitsets for liveness, dominance frontiers, and block-local def/use.
-- Why this slice exists:
-  Dataflow analyses should not hand-roll mutable boolean arrays.
-- Concrete deliverables:
-  - `src/ir/bitset.mbt`.
-  - `src/ir/bitset_test.mbt`.
-- Detailed implementation tasks:
-  - Implement dense bitset storage backed by word arrays.
-  - Add set/clear/test/union/intersection/difference/equality/empty iteration helpers.
-  - Keep API generic for locals, blocks, and SSA ids.
-  - Add deterministic debug formatting.
-- Required utilities / APIs:
-  - `bitset_new(size)`.
-  - `bitset_set/clear/contains`.
-  - `bitset_union_into`.
-  - `bitset_intersect_into`.
-  - `bitset_difference_into`.
-  - `bitset_equals`.
-  - `bitset_for_each_set_bit`.
-- Invariants / correctness rules:
-  - Out-of-range access is rejected.
-  - Non-word-aligned sizes behave correctly.
-- Dependencies:
-  - IR2 - 000 - Architecture Rules.
-- Exit criteria:
-  - Later dataflow slices can depend on one shared bitset module.
-- Suggested tests:
-  - Union/intersection/difference on overlapping sets.
-  - Stable set-bit iteration order.
-  - Edge cases at sizes `0`, `1`, `63`, `64`, and `65`.
-
 ### IR2 - 170 - Dominators
 - Goal:
   Compute immediate dominators, dominator tree, dominance queries, and dominance frontiers.

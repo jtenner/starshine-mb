@@ -30,6 +30,24 @@ pub const HOT_FLAG_THROWS : UInt = 512
 
 pub const HOT_FLAG_VALUE : UInt = 8
 
+pub fn bitset_clear(Bitset, Int) -> Bool
+
+pub fn bitset_contains(Bitset, Int) -> Bool
+
+pub fn bitset_difference_into(Bitset, Bitset) -> Bool
+
+pub fn bitset_equals(Bitset, Bitset) -> Bool
+
+pub fn bitset_for_each_set_bit(Bitset, (Int) -> Unit) -> Unit
+
+pub fn bitset_intersect_into(Bitset, Bitset) -> Bool
+
+pub fn bitset_new(Int) -> Bitset
+
+pub fn bitset_set(Bitset, Int) -> Bool
+
+pub fn bitset_union_into(Bitset, Bitset) -> Bool
+
 pub fn cfg_block_boundary_reasons(HotFunc, Int) -> Array[CfgBlockBoundaryReason]
 
 pub fn cfg_block_count(HotCfg) -> Int
@@ -489,6 +507,14 @@ pub fn[S, E] hot_worklist_walk(HotFunc, Array[Int], S, (S, Int) -> HotVisitCtl[S
 // Errors
 
 // Types and methods
+pub struct Bitset {
+  size : Int
+  words : Array[UInt64]
+}
+pub impl Eq for Bitset
+pub impl Show for Bitset
+pub impl @debug.Debug for Bitset
+
 pub enum CfgBlockBoundaryReason {
   RootEntry
   ControlHeader
