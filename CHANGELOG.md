@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 IR: lock local SSA policy
+
+- **Hot local SSA policy** by **@jtenner**. Added [`src/ir/ssa_policy.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_policy.mbt), [`src/ir/ssa_policy_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_policy_test.mbt), and [`docs/0061-2026-03-24-local-ssa-policy.md`](/home/jtenner/Projects/starshine-mb/docs/0061-2026-03-24-local-ssa-policy.md) to lock the locals-only SSA overlay contract around entry definitions, overlay-only phi ownership, pruned dominance-frontier phi placement, dominator-tree renaming, predecessor-copy destruction, and explicit SSA v1 exclusions. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-230 slice.
+
 ## 2026-03-24 IR: add derived effect summaries
 
 - **Hot effect summaries** by **@jtenner**. Added [`src/ir/effects.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/effects.mbt) and [`src/ir/effects_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/effects_test.mbt) to derive conservative node, block, and region effect masks for control, calls, throws, traps, local/global state, memory, and table behavior, with exact-instruction refinement for coarse generic families like `Heap` and `Atomic`. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-220 slice.

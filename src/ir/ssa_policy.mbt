@@ -1,0 +1,271 @@
+///|
+pub type SsaValueId = Int
+
+///|
+pub type PhiId = Int
+
+///|
+pub enum HotSsaValueOrigin {
+  EntryParamDef(LocalId)
+  EntryDefaultInitDef(LocalId)
+  LocalSetDef(NodeId)
+  LocalTeeDef(NodeId)
+  PhiDef(PhiId)
+} derive(Eq, Show, Debug)
+
+///|
+pub enum HotSsaUseOrigin {
+  LocalGetUse(NodeId)
+  PhiInputUse(PhiId, BlockId)
+} derive(Eq, Show, Debug)
+
+///|
+pub struct HotSsaPhi {
+  block : BlockId
+  local_id : LocalId
+} derive(Eq, Show, Debug)
+
+///|
+pub fn HotSsaPhi::new(block : BlockId, local_id : LocalId) -> HotSsaPhi {
+  if block < 0 {
+    abort("ssa phi block ids must be non-negative")
+  }
+  if local_id < 0 {
+    abort("ssa phi local ids must be non-negative")
+  }
+  { block, local_id }
+}
+
+///|
+pub struct HotLocalSsa {
+  revision : Int
+  value_types : Array[ValType]
+  value_origins : Array[HotSsaValueOrigin]
+  phis : Array[HotSsaPhi]
+} derive(Eq, Show, Debug)
+
+///|
+pub fn HotLocalSsa::new(
+  revision? : Int = 0,
+  value_types? : Array[ValType] = [],
+  value_origins? : Array[HotSsaValueOrigin] = [],
+  phis? : Array[HotSsaPhi] = [],
+) -> HotLocalSsa {
+  if revision < 0 {
+    abort("ssa overlays require a non-negative hot revision")
+  }
+  if value_types.length() != value_origins.length() {
+    abort("ssa overlays require one origin for every value type")
+  }
+  { revision, value_types, value_origins, phis }
+}
+
+///|
+pub enum HotSsaRenamePolicy {
+  DominatorTreeRename
+} derive(Eq, Show, Debug)
+
+///|
+pub enum HotSsaDestructionPolicy {
+  ParallelCopiesInPredecessors
+} derive(Eq, Show, Debug)
+
+///|
+pub enum HotSsaExcludedFeature {
+  ExceptionalEdges
+  PersistentHotPhiNodes
+  IrOwnedSsaBodies
+  NonLocalValues
+} derive(Eq, Show, Debug)
+
+///|
+fn ssa_require_value_range(ssa : HotLocalSsa, value_id : SsaValueId) -> Unit {
+  if value_id < 0 || value_id >= ssa.value_types.length() {
+    abort("ssa value queries require a valid value id")
+  }
+}
+
+///|
+fn ssa_require_phi_range(ssa : HotLocalSsa, phi_id : PhiId) -> Unit {
+  if phi_id < 0 || phi_id >= ssa.phis.length() {
+    abort("ssa phi queries require a valid phi id")
+  }
+}
+
+///|
+fn ssa_require_local_range(func : HotFunc, local_id : LocalId) -> Unit {
+  if local_id < 0 || local_id >= hot_local_count(func) {
+    abort("ssa policy queries require a valid local id")
+  }
+}
+
+///|
+fn ssa_require_cfg_shapes(
+  func : HotFunc,
+  cfg : HotCfg,
+  liveness : HotLiveness,
+  use_def : HotUseDef,
+) -> Unit {
+  let block_count = cfg_block_count(cfg)
+  if liveness.live_in_sets.length() != block_count ||
+    liveness.live_out_sets.length() != block_count {
+    abort("ssa policy requires liveness for the same cfg block count")
+  }
+  if use_def.block_defs.length() != block_count ||
+    use_def.block_uses.length() != block_count {
+    abort("ssa policy requires use-def block sets for the same cfg block count")
+  }
+  if use_def.local_reads.length() != hot_local_count(func) ||
+    use_def.local_writes.length() != hot_local_count(func) {
+    abort("ssa policy requires use-def local sets for all locals")
+  }
+}
+
+///|
+fn ssa_queue_push_once(
+  queue : Array[BlockId],
+  queued : Bitset,
+  block_id : BlockId,
+) -> Unit {
+  if bitset_set(queued, block_id) {
+    queue.push(block_id)
+  }
+}
+
+///|
+pub fn ssa_param_entry_def(local_id : LocalId) -> HotSsaValueOrigin {
+  if local_id < 0 {
+    abort("ssa param entry defs require a non-negative local id")
+  }
+  HotSsaValueOrigin::EntryParamDef(local_id)
+}
+
+///|
+pub fn ssa_default_init_def(local_id : LocalId) -> HotSsaValueOrigin {
+  if local_id < 0 {
+    abort("ssa default-init defs require a non-negative local id")
+  }
+  HotSsaValueOrigin::EntryDefaultInitDef(local_id)
+}
+
+///|
+pub fn ssa_local_set_def(node_id : NodeId) -> HotSsaValueOrigin {
+  if node_id < 0 {
+    abort("ssa local-set defs require a non-negative node id")
+  }
+  HotSsaValueOrigin::LocalSetDef(node_id)
+}
+
+///|
+pub fn ssa_local_tee_def(node_id : NodeId) -> HotSsaValueOrigin {
+  if node_id < 0 {
+    abort("ssa local-tee defs require a non-negative node id")
+  }
+  HotSsaValueOrigin::LocalTeeDef(node_id)
+}
+
+///|
+pub fn ssa_phi_def(phi_id : PhiId) -> HotSsaValueOrigin {
+  if phi_id < 0 {
+    abort("ssa phi defs require a non-negative phi id")
+  }
+  HotSsaValueOrigin::PhiDef(phi_id)
+}
+
+///|
+pub fn ssa_value_type(ssa : HotLocalSsa, value_id : SsaValueId) -> ValType {
+  ssa_require_value_range(ssa, value_id)
+  ssa.value_types[value_id]
+}
+
+///|
+pub fn ssa_value_origin(
+  ssa : HotLocalSsa,
+  value_id : SsaValueId,
+) -> HotSsaValueOrigin {
+  ssa_require_value_range(ssa, value_id)
+  ssa.value_origins[value_id]
+}
+
+///|
+pub fn ssa_phi_block(ssa : HotLocalSsa, phi_id : PhiId) -> BlockId {
+  ssa_require_phi_range(ssa, phi_id)
+  ssa.phis[phi_id].block
+}
+
+///|
+pub fn ssa_phi_local(ssa : HotLocalSsa, phi_id : PhiId) -> LocalId {
+  ssa_require_phi_range(ssa, phi_id)
+  ssa.phis[phi_id].local_id
+}
+
+///|
+pub fn ssa_phi_placement_blocks(
+  func : HotFunc,
+  cfg : HotCfg,
+  dom : HotDominators,
+  liveness : HotLiveness,
+  use_def : HotUseDef,
+  local_id : LocalId,
+) -> Array[BlockId] {
+  ssa_require_local_range(func, local_id)
+  ssa_require_cfg_shapes(func, cfg, liveness, use_def)
+
+  let block_count = cfg_block_count(cfg)
+  let placed = bitset_new(block_count)
+  let queued = bitset_new(block_count)
+  let queue : Array[BlockId] = []
+
+  // Parameters and body locals both begin with a synthetic entry definition.
+  ssa_queue_push_once(queue, queued, cfg_entry_block(cfg))
+  for block_id = 0; block_id < block_count; block_id = block_id + 1 {
+    if bitset_contains(use_def.block_defs[block_id], local_id) {
+      ssa_queue_push_once(queue, queued, block_id)
+    }
+  }
+
+  while queue.length() > 0 {
+    let block_id = queue.pop().unwrap()
+    for frontier in dom_frontier(dom, block_id) {
+      if !local_live_in(liveness, frontier, local_id) {
+        continue
+      }
+      if bitset_set(placed, frontier) {
+        ssa_queue_push_once(queue, queued, frontier)
+      }
+    }
+  }
+
+  let placements : Array[BlockId] = []
+  for block_id in cfg_reverse_postorder(cfg) {
+    if bitset_contains(placed, block_id) {
+      placements.push(block_id)
+    }
+  }
+  placements
+}
+
+///|
+pub fn ssa_phi_nodes_are_overlay_only() -> Bool {
+  true
+}
+
+///|
+pub fn ssa_rename_policy() -> HotSsaRenamePolicy {
+  HotSsaRenamePolicy::DominatorTreeRename
+}
+
+///|
+pub fn ssa_destruction_policy() -> HotSsaDestructionPolicy {
+  HotSsaDestructionPolicy::ParallelCopiesInPredecessors
+}
+
+///|
+pub fn ssa_v1_exclusions() -> Array[HotSsaExcludedFeature] {
+  [
+    HotSsaExcludedFeature::ExceptionalEdges,
+    HotSsaExcludedFeature::PersistentHotPhiNodes,
+    HotSsaExcludedFeature::IrOwnedSsaBodies,
+    HotSsaExcludedFeature::NonLocalValues,
+  ]
+}

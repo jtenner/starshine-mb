@@ -602,6 +602,34 @@ pub fn postdom_ipdom(HotPostDominators, Int) -> Int?
 
 pub fn postdom_postdominates(HotPostDominators, Int, Int) -> Bool
 
+pub fn ssa_default_init_def(Int) -> HotSsaValueOrigin
+
+pub fn ssa_destruction_policy() -> HotSsaDestructionPolicy
+
+pub fn ssa_local_set_def(Int) -> HotSsaValueOrigin
+
+pub fn ssa_local_tee_def(Int) -> HotSsaValueOrigin
+
+pub fn ssa_param_entry_def(Int) -> HotSsaValueOrigin
+
+pub fn ssa_phi_block(HotLocalSsa, Int) -> Int
+
+pub fn ssa_phi_def(Int) -> HotSsaValueOrigin
+
+pub fn ssa_phi_local(HotLocalSsa, Int) -> Int
+
+pub fn ssa_phi_nodes_are_overlay_only() -> Bool
+
+pub fn ssa_phi_placement_blocks(HotFunc, HotCfg, HotDominators, HotLiveness, HotUseDef, Int) -> Array[Int]
+
+pub fn ssa_rename_policy() -> HotSsaRenamePolicy
+
+pub fn ssa_v1_exclusions() -> Array[HotSsaExcludedFeature]
+
+pub fn ssa_value_origin(HotLocalSsa, Int) -> HotSsaValueOrigin
+
+pub fn ssa_value_type(HotLocalSsa, Int) -> @lib.ValType
+
 pub fn use_def_build(HotFunc, cfg? : HotCfg?) -> HotUseDef
 
 // Errors
@@ -888,6 +916,17 @@ pub impl Eq for HotLiveness
 pub impl Show for HotLiveness
 pub impl @debug.Debug for HotLiveness
 
+pub struct HotLocalSsa {
+  revision : Int
+  value_types : Array[@lib.ValType]
+  value_origins : Array[HotSsaValueOrigin]
+  phis : Array[HotSsaPhi]
+}
+pub fn HotLocalSsa::new(revision? : Int, value_types? : Array[@lib.ValType], value_origins? : Array[HotSsaValueOrigin], phis? : Array[HotSsaPhi]) -> Self
+pub impl Eq for HotLocalSsa
+pub impl Show for HotLocalSsa
+pub impl @debug.Debug for HotLocalSsa
+
 pub struct HotLocals {
   param_count : Int
   params : Array[@lib.ValType]
@@ -1085,6 +1124,58 @@ pub impl Eq for HotSideTableKind
 pub impl Show for HotSideTableKind
 pub impl @debug.Debug for HotSideTableKind
 
+pub enum HotSsaDestructionPolicy {
+  ParallelCopiesInPredecessors
+}
+pub impl Eq for HotSsaDestructionPolicy
+pub impl Show for HotSsaDestructionPolicy
+pub impl @debug.Debug for HotSsaDestructionPolicy
+
+pub enum HotSsaExcludedFeature {
+  ExceptionalEdges
+  PersistentHotPhiNodes
+  IrOwnedSsaBodies
+  NonLocalValues
+}
+pub impl Eq for HotSsaExcludedFeature
+pub impl Show for HotSsaExcludedFeature
+pub impl @debug.Debug for HotSsaExcludedFeature
+
+pub struct HotSsaPhi {
+  block : Int
+  local_id : Int
+}
+pub fn HotSsaPhi::new(Int, Int) -> Self
+pub impl Eq for HotSsaPhi
+pub impl Show for HotSsaPhi
+pub impl @debug.Debug for HotSsaPhi
+
+pub enum HotSsaRenamePolicy {
+  DominatorTreeRename
+}
+pub impl Eq for HotSsaRenamePolicy
+pub impl Show for HotSsaRenamePolicy
+pub impl @debug.Debug for HotSsaRenamePolicy
+
+pub enum HotSsaUseOrigin {
+  LocalGetUse(Int)
+  PhiInputUse(Int, Int)
+}
+pub impl Eq for HotSsaUseOrigin
+pub impl Show for HotSsaUseOrigin
+pub impl @debug.Debug for HotSsaUseOrigin
+
+pub enum HotSsaValueOrigin {
+  EntryParamDef(Int)
+  EntryDefaultInitDef(Int)
+  LocalSetDef(Int)
+  LocalTeeDef(Int)
+  PhiDef(Int)
+}
+pub impl Eq for HotSsaValueOrigin
+pub impl Show for HotSsaValueOrigin
+pub impl @debug.Debug for HotSsaValueOrigin
+
 pub enum HotStringBuiltin {
   NewWtf16Array
 }
@@ -1171,9 +1262,13 @@ pub type LocalId = Int
 
 pub type NodeId = Int
 
+pub type PhiId = Int
+
 pub type RootId = Int
 
 pub type SideTableId = Int
+
+pub type SsaValueId = Int
 
 pub type TypeId = Int
 

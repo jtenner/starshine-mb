@@ -9,44 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 230 - SSA Design Policy
-- Goal:
-  Lock the local-SSA-only overlay policy so construction and destruction are unambiguous.
-- Why this slice exists:
-  Without a policy slice, future agents could accidentally introduce a second owned IR.
-- Concrete deliverables:
-  - SSA policy ADR under `docs/`.
-  - `src/ir/ssa_policy.mbt`.
-  - `src/ir/ssa_policy_test.mbt`.
-- Detailed implementation tasks:
-  - Define scope: locals-only SSA overlay, not a new owned body representation.
-  - Define `SsaValueId`, `PhiId`, `HotLocalSsa`, and def/use categories.
-  - Define phi placement at block entries using dominance frontiers pruned by liveness.
-  - Define parameter and default-local-init entry definitions.
-  - Define rename and destruction policies.
-  - State what SSA v1 excludes.
-- Required utilities / APIs:
-  - `SsaValueId`, `PhiId`, `HotLocalSsa`.
-  - `ssa_value_type(ssa, value_id)`.
-  - `ssa_value_origin(ssa, value_id)`.
-  - `ssa_phi_block(ssa, phi_id)`.
-  - `ssa_phi_local(ssa, phi_id)`.
-  - `ssa_default_init_def(local_id)`.
-- Invariants / correctness rules:
-  - Hot IR remains ordinary local ops plus other hot nodes.
-  - Phi nodes exist only in the overlay, not as persistent hot nodes.
-  - Every SSA value has one defining origin.
-- Dependencies:
-  - IR2 - 170 - Dominators.
-  - IR2 - 200 - Use-Def.
-  - IR2 - 210 - Liveness.
-- Exit criteria:
-  - SSA construction/destruction slices can execute without re-deciding scope or policy.
-- Suggested tests:
-  - Parameter/default-init entry-def classification.
-  - Phi-placement policy on a diamond.
-  - Policy rejection of permanent phi nodes in `HotFunc`.
-
 ### IR2 - 240 - Local SSA Construction
 - Goal:
   Build the local SSA overlay from hot IR + CFG + dominance + liveness.
