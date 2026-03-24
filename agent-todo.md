@@ -9,39 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 210 - Liveness
-- Goal:
-  Compute block `live_in` and `live_out` sets for locals.
-- Why this slice exists:
-  SSA placement and dead local cleanup depend on local liveness.
-- Concrete deliverables:
-  - `src/ir/liveness.mbt`.
-  - `src/ir/liveness_test.mbt`.
-- Detailed implementation tasks:
-  - Implement backward local-liveness dataflow using block defs/uses and CFG successors.
-  - Keep the policy explicit that liveness is locals-only.
-  - Add `local_live_in` and `local_live_out` queries.
-  - Document whether exceptional edges are included and keep it consistent with SSA.
-- Required utilities / APIs:
-  - `liveness_build(cfg, use_def)`.
-  - `live_in(liveness, block_id)`.
-  - `live_out(liveness, block_id)`.
-  - `local_live_in(liveness, block_id, local_id)`.
-  - `local_live_out(liveness, block_id, local_id)`.
-- Invariants / correctness rules:
-  - `live_in = uses ∪ (live_out - defs)`.
-  - Overlay invalidates on CFG/local mutation.
-- Dependencies:
-  - IR2 - 150 - CFG Construction.
-  - IR2 - 165 - Dataflow Bitset Utilities.
-  - IR2 - 200 - Use-Def.
-- Exit criteria:
-  - Liveness works on joins and loops.
-- Suggested tests:
-  - Diamond join liveness.
-  - Loop-carried local liveness.
-  - Exceptional-edge inclusion policy coverage.
-
 ### IR2 - 220 - Effect Summaries
 - Goal:
   Compute derived effect summaries for nodes, blocks, and regions.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 IR: add local liveness overlay
+
+- **Hot local liveness** by **@jtenner**. Added [`src/ir/liveness.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/liveness.mbt) and [`src/ir/liveness_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/liveness_test.mbt) to compute block `live_in` and `live_out` local bitsets with locals-only backward dataflow over the non-exceptional CFG edge policy, plus direct local liveness queries for later SSA placement and dead-local cleanup. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-210 slice.
+
 ## 2026-03-24 IR: add hot use-def overlay
 
 - **Hot use-def overlay** by **@jtenner**. Added [`src/ir/use_def.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/use_def.mbt) and [`src/ir/use_def_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/use_def_test.mbt) to track node use sites by child-slot vs root-slot location, count node uses, summarize per-block local defs and uses from CFG execution order, and expose local read/write node queries for later liveness, DCE, and SSA slices. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-200 slice.

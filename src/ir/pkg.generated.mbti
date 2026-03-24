@@ -522,6 +522,16 @@ pub fn[S, E] hot_walk_subtree_preorder(HotFunc, Int, S, (S, Int) -> HotVisitCtl[
 
 pub fn[S, E] hot_worklist_walk(HotFunc, Array[Int], S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
 
+pub fn live_in(HotLiveness, Int) -> Bitset
+
+pub fn live_out(HotLiveness, Int) -> Bitset
+
+pub fn liveness_build(HotCfg, HotUseDef) -> HotLiveness
+
+pub fn local_live_in(HotLiveness, Int, Int) -> Bool
+
+pub fn local_live_out(HotLiveness, Int, Int) -> Bool
+
 pub fn local_read_nodes(HotUseDef, Int) -> Array[Int]
 
 pub fn local_write_nodes(HotUseDef, Int) -> Array[Int]
@@ -834,6 +844,15 @@ pub enum HotLiftError {
 pub impl Eq for HotLiftError
 pub impl Show for HotLiftError
 pub impl @debug.Debug for HotLiftError
+
+pub struct HotLiveness {
+  include_exceptional_edges : Bool
+  live_in_sets : Array[Bitset]
+  live_out_sets : Array[Bitset]
+}
+pub impl Eq for HotLiveness
+pub impl Show for HotLiveness
+pub impl @debug.Debug for HotLiveness
 
 pub struct HotLocals {
   param_count : Int
