@@ -59,19 +59,19 @@ pub fn hot_build_node(
   imm1? : Int = 0,
   children? : Array[NodeId] = [],
 ) -> NodeId {
-  let base = hot_alloc_children(func, children.length())
-  for i = 0; i < children.length(); i = i + 1 {
-    func.children[base + i] = children[i]
-  }
-  hot_alloc_node(func, {
+  let id = hot_alloc_node(func, {
     op,
     ty,
     flags: hot_default_flags_for_op(op),
     imm0,
     imm1,
-    child_base: base,
-    child_count: children.length(),
+    child_base: 0,
+    child_count: 0,
   })
+  if children.length() > 0 {
+    ignore(hot_replace_child_span(func, id, children))
+  }
+  id
 }
 
 ///|

@@ -22,6 +22,7 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 - Decode and encode WebAssembly binaries.
 - Build modules with `lib` constructors and boundary-form helpers.
 - Lift function bodies into `HotFunc`, the only owned optimizer body representation, and lower them back to boundary form.
+- Mutate `HotFunc` storage through canonical root, node, and child-span helpers.
 - Use CLI and Node wrappers.
 
 ## Package Map
@@ -110,6 +111,14 @@ pub fn hot_build_try_table(HotFunc, @lib.BlockType, Array[HotCatchArm], Array[In
 pub fn hot_build_drop(HotFunc, Int) -> Int
 pub fn hot_build_unreachable(HotFunc) -> Int
 pub fn hot_build_return(HotFunc, Array[Int]) -> Int
+pub fn hot_alloc_child_span(HotFunc, Int) -> Int
+pub fn hot_replace_child_span(HotFunc, Int, Array[Int]) -> Array[Int]
+pub fn hot_delete_node(HotFunc, Int) -> Unit
+pub fn hot_root_append(HotFunc, Int) -> Unit
+pub fn hot_root_insert(HotFunc, Int, Int) -> Unit
+pub fn hot_root_remove(HotFunc, Int) -> Int
+pub fn hot_root_splice(HotFunc, Int, Int, Array[Int]) -> Array[Int]
+pub fn hot_revision_bump(HotFunc) -> Unit
 pub fn hot_revision_current(HotFunc) -> Int
 pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
 pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]

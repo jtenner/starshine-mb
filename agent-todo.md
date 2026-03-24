@@ -9,46 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 070 - Hot IR Direct Mutation Primitives
-- Goal:
-  Implement the authoritative low-level mutation layer for roots, nodes, child spans, side tables, deletion, and revision bumps.
-- Why this slice exists:
-  Every later rewrite, cache invalidation, and verification rule depends on one mutation surface.
-- Concrete deliverables:
-  - `src/ir/hot_mutate.mbt`.
-  - `src/ir/hot_mutate_test.mbt`.
-- Detailed implementation tasks:
-  - Add root APIs: count/get/set/append/insert/remove/splice.
-  - Add child APIs: count/get/set/span/alloc/replacement.
-  - Add node APIs: get/set/replace/alloc/delete and free-list reuse if enabled.
-  - Centralize `hot_revision_bump(func)`.
-  - Define tombstone and free-list behavior explicitly.
-  - Add debug assertions for bounds and deleted-node misuse.
-- Required utilities / APIs:
-  - `hot_root_count/get/set/append/remove/insert/splice`.
-  - `hot_child_count/get/set`.
-  - `hot_alloc_child_span(func, count)`.
-  - `hot_replace_child_span(func, node_id, new_children)`.
-  - `hot_node_get/set/replace`.
-  - `hot_alloc_node(func, node)`.
-  - `hot_delete_node(func, node_id)`.
-  - `hot_revision_current(func)`.
-  - `hot_revision_bump(func)`.
-- Invariants / correctness rules:
-  - Every semantic mutation bumps `revision`.
-  - Pure reads never bump `revision`.
-  - Deleted nodes are never referenced from roots or child spans.
-- Dependencies:
-  - IR2 - 010 - Hot IR Core.
-  - IR2 - 020 - Hot IR Flags Model.
-  - IR2 - 050 - Hot IR Side Tables.
-- Exit criteria:
-  - All direct writes to `HotFunc` storage are encapsulated.
-- Suggested tests:
-  - Root and child replacement revision rules.
-  - Child-span replacement with different lengths.
-  - Node deletion rejects stale references.
-
 ### IR2 - 080 - Hot IR Structural Query Utilities
 - Goal:
   Export fast structural queries over hot IR shape, metadata, side tables, locals, and branches.

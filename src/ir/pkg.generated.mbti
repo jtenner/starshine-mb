@@ -46,6 +46,8 @@ pub fn hot_alloc_call_sig(HotFunc, HotCallSig) -> Int
 
 pub fn hot_alloc_catch_info(HotFunc, HotCatchInfo) -> Int
 
+pub fn hot_alloc_child_span(HotFunc, Int) -> Int
+
 pub fn hot_alloc_children(HotFunc, Int) -> Int
 
 pub fn hot_alloc_const(HotFunc, HotConstPayload) -> Int
@@ -168,6 +170,8 @@ pub fn hot_debug_dump_core(HotFunc) -> String
 
 pub fn hot_default_flags_for_op(HotOp) -> UInt
 
+pub fn hot_delete_node(HotFunc, Int) -> Unit
+
 pub fn hot_has_exceptional_succ(HotFunc, Int) -> Bool
 
 pub fn hot_has_side_effect(HotFunc, Int) -> Bool
@@ -224,15 +228,27 @@ pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]
 
 pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
 
+pub fn hot_replace_child_span(HotFunc, Int, Array[Int]) -> Array[Int]
+
 pub fn hot_replace_node(HotFunc, Int, HotNode) -> Unit
 
+pub fn hot_revision_bump(HotFunc) -> Unit
+
 pub fn hot_revision_current(HotFunc) -> Int
+
+pub fn hot_root_append(HotFunc, Int) -> Unit
 
 pub fn hot_root_count(HotFunc) -> Int
 
 pub fn hot_root_get(HotFunc, Int) -> Int
 
+pub fn hot_root_insert(HotFunc, Int, Int) -> Unit
+
+pub fn hot_root_remove(HotFunc, Int) -> Int
+
 pub fn hot_root_set(HotFunc, Int, Int) -> Unit
+
+pub fn hot_root_splice(HotFunc, Int, Int, Array[Int]) -> Array[Int]
 
 pub fn hot_root_storage_count(HotFunc) -> Int
 

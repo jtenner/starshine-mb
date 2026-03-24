@@ -7,21 +7,21 @@ fn hot_make_node_with_children(
   imm0 : Int,
   imm1 : Int,
   children : Array[NodeId],
-) -> HotNode {
+) -> NodeId {
   let _ = flags
-  let base = hot_alloc_children(func, children.length())
-  for i = 0; i < children.length(); i = i + 1 {
-    func.children[base + i] = children[i]
-  }
-  {
+  let id = hot_alloc_node(func, {
     op,
     ty,
     flags: hot_default_flags_for_op(op),
     imm0,
     imm1,
-    child_base: base,
-    child_count: children.length(),
+    child_base: 0,
+    child_count: 0,
+  })
+  if children.length() > 0 {
+    ignore(hot_replace_child_span(func, id, children))
   }
+  id
 }
 
 ///|
@@ -30,13 +30,7 @@ fn hot_replace_children(
   id : NodeId,
   children : Array[NodeId],
 ) -> Unit {
-  let node = func.nodes[id]
-  let base = hot_alloc_children(func, children.length())
-  for i = 0; i < children.length(); i = i + 1 {
-    func.children[base + i] = children[i]
-  }
-  func.nodes[id] = { ..node, child_base: base, child_count: children.length() }
-  func.revision += 1
+  ignore(hot_replace_child_span(func, id, children))
 }
 
 ///|
@@ -97,7 +91,7 @@ fn hot_wrap_region(
   label_stack : Array[LabelId],
   result_arity : Int,
 ) -> NodeId {
-  let node = hot_make_node_with_children(
+  let id = hot_make_node_with_children(
     func,
     HotOp::Block,
     hot_type_void(func),
@@ -106,7 +100,6 @@ fn hot_wrap_region(
     0,
     [],
   )
-  let id = hot_alloc_node(func, node)
   let label_id = hot_label_alloc(
     func,
     HotLabelKind::RegionLabel,
@@ -119,7 +112,7 @@ fn hot_wrap_region(
     id,
     hot_region_body(func, expr, label_stack, result_arity),
   )
-  hot_node_set(func, id, { ..func.nodes[id], imm0: label_id })
+  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
   id
 }
 
@@ -254,68 +247,56 @@ fn hot_lift_instruction(
       )
     Drop =>
       roots.push(
-        hot_alloc_node(
+        hot_make_node_with_children(
           func,
-          hot_make_node_with_children(
-            func,
-            HotOp::Drop,
-            hot_type_void(func),
-            hot_default_flags_for_op(HotOp::Drop),
-            0,
-            0,
-            [hot_pop_value(values)],
-          ),
+          HotOp::Drop,
+          hot_type_void(func),
+          hot_default_flags_for_op(HotOp::Drop),
+          0,
+          0,
+          [hot_pop_value(values)],
         ),
       )
     LocalSet(LocalIdx(raw)) =>
       roots.push(
-        hot_alloc_node(
-          func,
-          hot_make_node_with_children(
-            func,
-            HotOp::LocalSet,
-            hot_type_void(func),
-            hot_default_flags_for_op(HotOp::LocalSet),
-            raw.reinterpret_as_int(),
-            0,
-            [hot_pop_value(values)],
-          ),
-        ),
-      )
-    LocalTee(LocalIdx(raw)) => {
-      let id = hot_alloc_node(
-        func,
         hot_make_node_with_children(
           func,
-          HotOp::LocalTee,
+          HotOp::LocalSet,
           hot_type_void(func),
-          hot_default_flags_for_op(HotOp::LocalTee),
+          hot_default_flags_for_op(HotOp::LocalSet),
           raw.reinterpret_as_int(),
           0,
           [hot_pop_value(values)],
         ),
+      )
+    LocalTee(LocalIdx(raw)) => {
+      let id = hot_make_node_with_children(
+        func,
+        HotOp::LocalTee,
+        hot_type_void(func),
+        hot_default_flags_for_op(HotOp::LocalTee),
+        raw.reinterpret_as_int(),
+        0,
+        [hot_pop_value(values)],
       )
       roots.push(id)
       values.push(id)
     }
     GlobalSet(GlobalIdx(raw)) =>
       roots.push(
-        hot_alloc_node(
+        hot_make_node_with_children(
           func,
-          hot_make_node_with_children(
-            func,
-            HotOp::GlobalSet,
-            hot_type_void(func),
-            hot_default_flags_for_op(HotOp::GlobalSet),
-            raw.reinterpret_as_int(),
-            0,
-            [hot_pop_value(values)],
-          ),
+          HotOp::GlobalSet,
+          hot_type_void(func),
+          hot_default_flags_for_op(HotOp::GlobalSet),
+          raw.reinterpret_as_int(),
+          0,
+          [hot_pop_value(values)],
         ),
       )
     Block(block_type, expr) => {
       let ty = hot_type_intern_block_result(func, block_type)
-      let node = hot_make_node_with_children(
+      let id = hot_make_node_with_children(
         func,
         HotOp::Block,
         ty,
@@ -324,7 +305,6 @@ fn hot_lift_instruction(
         0,
         [],
       )
-      let id = hot_alloc_node(func, node)
       let result_arity = hot_type_result_arity(func, ty)
       let label_id = hot_label_alloc(
         func,
@@ -340,7 +320,7 @@ fn hot_lift_instruction(
         id,
         hot_region_body(func, expr, next_stack, result_arity),
       )
-      hot_node_set(func, id, { ..func.nodes[id], imm0: label_id })
+      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
       if result_arity > 0 {
         values.push(id)
       } else {
@@ -349,7 +329,7 @@ fn hot_lift_instruction(
     }
     Loop(block_type, expr) => {
       let ty = hot_type_intern_block_result(func, block_type)
-      let node = hot_make_node_with_children(
+      let id = hot_make_node_with_children(
         func,
         HotOp::Loop,
         ty,
@@ -358,7 +338,6 @@ fn hot_lift_instruction(
         0,
         [],
       )
-      let id = hot_alloc_node(func, node)
       let result_arity = hot_type_result_arity(func, ty)
       let label_id = hot_label_alloc(
         func,
@@ -374,7 +353,7 @@ fn hot_lift_instruction(
         id,
         hot_region_body(func, expr, next_stack, result_arity),
       )
-      hot_node_set(func, id, { ..func.nodes[id], imm0: label_id })
+      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
       if result_arity > 0 {
         values.push(id)
       } else {
@@ -383,7 +362,7 @@ fn hot_lift_instruction(
     }
     If(block_type, then_instrs, else_instrs) => {
       let ty = hot_type_intern_block_result(func, block_type)
-      let node = hot_make_node_with_children(
+      let id = hot_make_node_with_children(
         func,
         HotOp::If,
         ty,
@@ -392,7 +371,6 @@ fn hot_lift_instruction(
         0,
         [],
       )
-      let id = hot_alloc_node(func, node)
       let result_arity = hot_type_result_arity(func, ty)
       let label_id = hot_label_alloc(
         func,
@@ -419,7 +397,7 @@ fn hot_lift_instruction(
         then_region,
         else_region,
       ])
-      hot_node_set(func, id, { ..func.nodes[id], imm0: label_id })
+      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
       if result_arity > 0 {
         values.push(id)
       } else {
@@ -428,19 +406,16 @@ fn hot_lift_instruction(
     }
     Return =>
       roots.push(
-        hot_alloc_node(
+        hot_make_node_with_children(
           func,
-          hot_make_node_with_children(
-            func,
-            HotOp::Return,
-            hot_type_void(func),
-            hot_default_flags_for_op(HotOp::Return),
-            0,
-            0,
-            hot_pop_values(
-              values,
-              hot_type_result_arity(func, func.body_result_type),
-            ),
+          HotOp::Return,
+          hot_type_void(func),
+          hot_default_flags_for_op(HotOp::Return),
+          0,
+          0,
+          hot_pop_values(
+            values,
+            hot_type_result_arity(func, func.body_result_type),
           ),
         ),
       )
@@ -455,7 +430,10 @@ pub fn hot_lift_body(
   body_result_type? : BlockType = BlockType::void_(),
 ) -> HotFunc {
   let func = HotFunc::new(locals~)
-  func.body_result_type = hot_type_intern_block_result(func, body_result_type)
+  hot_body_result_type_set(
+    func,
+    hot_type_intern_block_result(func, body_result_type),
+  )
   let roots = hot_region_body(
     func,
     body,
@@ -463,7 +441,7 @@ pub fn hot_lift_body(
     hot_type_result_arity(func, func.body_result_type),
   )
   for root in roots {
-    hot_append_root(func, root)
+    hot_root_append(func, root)
   }
   func
 }
@@ -631,8 +609,8 @@ fn hot_lower_node(
 ///|
 pub fn hot_lower_body(func : HotFunc) -> Expr {
   let out : Array[Instruction] = []
-  for root in func.roots {
-    hot_lower_node(func, root, [], out)
+  for i = 0; i < hot_root_count(func); i = i + 1 {
+    hot_lower_node(func, hot_root_get(func, i), [], out)
   }
   Expr::new(out)
 }
