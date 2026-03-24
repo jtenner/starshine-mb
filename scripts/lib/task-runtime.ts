@@ -46,10 +46,12 @@ export function runOrThrow(
     cwd = process.cwd(),
     env = process.env,
     stdio = "inherit",
+    maxBuffer = 128 * 1024 * 1024,
   }: {
     cwd?: string;
     env?: NodeJS.ProcessEnv;
     stdio?: "inherit" | "pipe";
+    maxBuffer?: number;
   } = {},
 ): { stdout: string; stderr: string } {
   const result = spawnSync(command, args, {
@@ -57,6 +59,7 @@ export function runOrThrow(
     env,
     stdio,
     encoding: "utf8",
+    maxBuffer,
   });
   if (result.error) {
     throw result.error;

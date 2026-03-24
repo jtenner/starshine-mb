@@ -841,6 +841,51 @@ test "run_cmd_with_adapter keeps real debug artifact name maps ordered after fir
 }
 
 ///|
+#cfg(target="native")
+test "run_cmd_with_adapter keeps debug artifact encodable through direct dead code elimination" {
+  let wasm = match
+    native_read_bytes("tests/node/dist/starshine-debug-wasi.wasm") {
+    Some(bytes) => bytes
+    None => fail("failed to read debug artifact fixture")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["debug.wasm"] },
+    file_exists=fn(path) { path == "debug.wasm" },
+    read_file=fn(path) {
+      if path == "debug.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--dead-code-elimination", "--out", "out.wasm", "debug.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("unexpected direct DCE debug artifact optimize failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["dead-code-elimination"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected direct DCE debug artifact output to validate after encode: \{@validate.validation_error_message(e)}",
+      )
+  }
+}
+
+///|
 test "run_cmd_with_adapter applies once-reduction to wasm inputs" {
   let wasm = encode_module_bytes(fixture_raw_once_reduction_module())
   let writes : Array[(String, Bytes)] = []

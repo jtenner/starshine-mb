@@ -1234,10 +1234,13 @@ fn optimization_dead_code_elimination_rewrite_instr(
       optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
         @lib.TInstr::unary(op, args[0])
       })
-    @lib.TDrop(child) =>
-      optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
-        @lib.TInstr::drop(args[0])
-      })
+    @lib.TDrop(child) => {
+      if optimization_dead_code_elimination_instr_is_strict_terminal(child) {
+        child
+      } else {
+        @lib.TInstr::drop(child)
+      }
+    }
     @lib.TLocalSet(idx, child) =>
       optimization_dead_code_elimination_rewrite_unary([child], fn(args) {
         @lib.TInstr::local_set(idx, args[0])
@@ -1376,14 +1379,8 @@ fn optimization_dead_code_elimination_rewrite_try_table(
   body : @lib.TExpr,
   env : @validate.Env,
 ) -> @lib.TInstr {
-  if optimization_dead_code_elimination_expr_is_unreachable(body) &&
-    optimization_dead_code_elimination_block_type_has_dead_result(
-      block_type, env,
-    ) {
-    @lib.TInstr::try_table(@lib.BlockType::void_(), catches, body)
-  } else {
-    @lib.TInstr::try_table(block_type, catches, body)
-  }
+  let _ = env
+  @lib.TInstr::try_table(block_type, catches, body)
 }
 
 ///|
@@ -1409,33 +1406,9 @@ fn optimization_dead_code_elimination_rewrite_if(
   else_body : @lib.TExpr?,
   env : @validate.Env,
 ) -> @lib.TInstr {
+  let _ = env
   if optimization_dead_code_elimination_instr_is_unreachable(cond) {
     return cond
-  }
-  match else_body {
-    Some(else_body) =>
-      if optimization_dead_code_elimination_expr_is_unreachable(then_body) &&
-        optimization_dead_code_elimination_expr_is_unreachable(else_body) {
-        return @lib.TInstr::if_(
-          if optimization_dead_code_elimination_block_type_has_dead_result(
-              block_type, env,
-            ) &&
-            !optimization_dead_code_elimination_expr_has_live_break_past_current_label(
-              then_body, 0,
-            ) &&
-            !optimization_dead_code_elimination_expr_has_live_break_past_current_label(
-              else_body, 0,
-            ) {
-            @lib.BlockType::void_()
-          } else {
-            block_type
-          },
-          cond,
-          then_body,
-          Some(else_body),
-        )
-      }
-    None => ()
   }
   @lib.TInstr::if_(block_type, cond, then_body, else_body)
 }
@@ -1446,6 +1419,7 @@ fn optimization_dead_code_elimination_rewrite_block(
   body : @lib.TExpr,
   env : @validate.Env,
 ) -> @lib.TInstr {
+  let _ = env
   match body.inner() {
     [child] =>
       match child.kind {
@@ -1454,24 +1428,7 @@ fn optimization_dead_code_elimination_rewrite_block(
       }
     _ => ()
   }
-  if optimization_dead_code_elimination_block_escapes_parent(block_type, body) &&
-    optimization_dead_code_elimination_block_type_has_dead_result(
-      block_type, env,
-    ) {
-    match body.inner() {
-      [child] =>
-        if optimization_dead_code_elimination_expr_has_live_break_past_current_label(
-            body, 0,
-          ) {
-          @lib.TInstr::block(@lib.BlockType::void_(), body)
-        } else {
-          child
-        }
-      _ => @lib.TInstr::block(@lib.BlockType::void_(), body)
-    }
-  } else {
-    @lib.TInstr::block(block_type, body)
-  }
+  @lib.TInstr::block(block_type, body)
 }
 
 ///|
@@ -1598,8 +1555,8 @@ fn optimization_dead_code_elimination_if_is_unreachable(
   }
   match else_body {
     Some(else_body) =>
-      optimization_dead_code_elimination_expr_tail_escapes_parent(then_body, 0) &&
-      optimization_dead_code_elimination_expr_tail_escapes_parent(else_body, 0)
+      optimization_dead_code_elimination_expr_is_unreachable(then_body) &&
+      optimization_dead_code_elimination_expr_is_unreachable(else_body)
     None => false
   }
 }
@@ -1691,28 +1648,14 @@ fn optimization_dead_code_elimination_block_escapes_parent(
   if body_instrs.length() == 0 {
     return false
   }
-  if !optimization_dead_code_elimination_instr_tail_escapes_parent(
+  if !optimization_dead_code_elimination_instr_is_unreachable(
       body_instrs[body_instrs.length() - 1],
-      0,
-    ) {
-    return false
-  }
-  if body_instrs.length() <= 1 {
-    return true
-  }
-  let prefix : Array[@lib.TInstr] = []
-  for i in 0..<(body_instrs.length() - 1) {
-    prefix.push(body_instrs[i])
-  }
-  if optimization_dead_code_elimination_expr_has_live_break_to_label(
-      @lib.TExpr::new(prefix),
-      0,
     ) {
     return false
   }
   !optimization_dead_code_elimination_expr_has_live_break_to_label(
-    @lib.TExpr::new(prefix),
-    1,
+    body,
+    0,
   )
 }
 
@@ -2441,32 +2384,8 @@ fn optimization_dead_code_elimination_truncate_after_first_unreachable(
   instrs : Array[@lib.TInstr],
   env : @validate.Env,
 ) -> Array[@lib.TInstr] {
-  let kept : Array[@lib.TInstr] = []
-  for instr in instrs {
-    if optimization_dead_code_elimination_instr_terminates_current_expr(instr) {
-      let cleaned_prefix : Array[@lib.TInstr] = []
-      for kept_instr in kept {
-        cleaned_prefix.push(
-          optimization_dead_code_elimination_drop_dead_structured_result(
-            kept_instr, env,
-          ),
-        )
-      }
-      cleaned_prefix.push(
-        optimization_dead_code_elimination_drop_dead_structured_result(
-          instr, env,
-        ),
-      )
-      if optimization_dead_code_elimination_instr_needs_unreachable_barrier(
-          instr,
-        ) {
-        cleaned_prefix.push(@lib.TInstr::unreachable_())
-      }
-      return cleaned_prefix
-    }
-    kept.push(instr)
-  }
-  kept
+  let _ = env
+  instrs
 }
 
 ///|
@@ -2474,112 +2393,8 @@ fn optimization_dead_code_elimination_drop_dead_structured_result(
   instr : @lib.TInstr,
   env : @validate.Env,
 ) -> @lib.TInstr {
-  match instr.kind {
-    @lib.TIf(block_type, cond, then_body, else_body) =>
-      if optimization_dead_code_elimination_block_type_has_dead_result(
-          block_type, env,
-        ) {
-        let rewritten_then = optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-          then_body, env,
-        )
-        let rewritten_else = match else_body {
-          Some(else_body) =>
-            Some(
-              optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-                else_body, env,
-              ),
-            )
-          None => None
-        }
-        let has_live_then_break = optimization_dead_code_elimination_expr_has_live_break_to_label(
-          then_body, 0,
-        )
-        let has_live_else_break = match else_body {
-          Some(else_body) =>
-            optimization_dead_code_elimination_expr_has_live_break_to_label(
-              else_body, 0,
-            )
-          None => false
-        }
-        if optimization_dead_code_elimination_if_is_unreachable(
-            cond, then_body, else_body,
-          ) &&
-          !has_live_then_break &&
-          !has_live_else_break {
-          @lib.TInstr::if_(
-            @lib.BlockType::void_(),
-            cond,
-            rewritten_then,
-            rewritten_else,
-          )
-        } else {
-          @lib.TInstr::drop(
-            @lib.TInstr::if_(block_type, cond, rewritten_then, rewritten_else),
-          )
-        }
-      } else {
-        instr
-      }
-    @lib.TBlock(block_type, body) =>
-      if optimization_dead_code_elimination_block_type_has_dead_result(
-          block_type, env,
-        ) {
-        let rewritten_body = optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-          body, env,
-        )
-        if optimization_dead_code_elimination_expr_tail_escapes_parent(body, 0) &&
-          !optimization_dead_code_elimination_expr_has_live_break_to_label(
-            body, 0,
-          ) {
-          @lib.TInstr::block(@lib.BlockType::void_(), rewritten_body)
-        } else {
-          @lib.TInstr::drop(@lib.TInstr::block(block_type, rewritten_body))
-        }
-      } else {
-        instr
-      }
-    @lib.TLoop(block_type, body) =>
-      match block_type {
-        @lib.VoidBlockType =>
-          @lib.TInstr::loop_(
-            @lib.BlockType::void_(),
-            optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-              body, env,
-            ),
-          )
-        @lib.ValTypeBlockType(_) =>
-          @lib.TInstr::loop_(
-            @lib.BlockType::void_(),
-            optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-              body, env,
-            ),
-          )
-        _ =>
-          if optimization_dead_code_elimination_block_type_has_dead_result(
-              block_type, env,
-            ) {
-            @lib.TInstr::drop(@lib.TInstr::loop_(block_type, body))
-          } else {
-            instr
-          }
-      }
-    @lib.TTryTable(block_type, catches, body) =>
-      if optimization_dead_code_elimination_block_type_has_dead_result(
-          block_type, env,
-        ) &&
-        optimization_dead_code_elimination_try_table_is_unreachable(body) {
-        @lib.TInstr::try_table(
-          @lib.BlockType::void_(),
-          catches,
-          optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-            body, env,
-          ),
-        )
-      } else {
-        instr
-      }
-    _ => instr
-  }
+  let _ = env
+  instr
 }
 
 ///|
@@ -2625,6 +2440,37 @@ fn optimization_dead_code_elimination_instr_needs_unreachable_barrier(
 }
 
 ///|
+fn optimization_dead_code_elimination_instr_self_consumes_dead_result(
+  instr : @lib.TInstr,
+  env : @validate.Env,
+) -> Bool {
+  match instr.kind {
+    @lib.TUnreachable
+    | @lib.TReturn(_)
+    | @lib.TReturnCall(_, _)
+    | @lib.TReturnCallIndirect(_, _, _, _)
+    | @lib.TReturnCallRef(_, _, _)
+    | @lib.TThrow(_, _)
+    | @lib.TThrowRef(_)
+    | @lib.TBr(_, _)
+    | @lib.TBrTable(_, _, _, _) => true
+    @lib.TDrop(_)
+    | @lib.TLocalSet(_, _)
+    | @lib.TGlobalSet(_, _)
+    | @lib.TStore(_, _, _, _) => true
+    @lib.TBlock(block_type, _)
+    | @lib.TLoop(block_type, _)
+    | @lib.TTryTable(block_type, _, _)
+    | @lib.TIf(block_type, _, _, _) =>
+      !optimization_dead_code_elimination_block_type_has_dead_result(
+        block_type,
+        env,
+      )
+    _ => false
+  }
+}
+
+///|
 fn optimization_dead_code_elimination_instr_terminates_current_expr(
   instr : @lib.TInstr,
 ) -> Bool {
@@ -2639,14 +2485,6 @@ fn optimization_dead_code_elimination_instr_terminates_current_expr(
     | @lib.TBr(_, _)
     | @lib.TBrTable(_, _, _, _) =>
       !optimization_dead_code_elimination_instr_pre_effects_may_escape(instr)
-    @lib.TTryTable(_, _, body) =>
-      optimization_dead_code_elimination_try_table_is_unreachable(body)
-    @lib.TIf(_, cond, then_body, else_body) =>
-      optimization_dead_code_elimination_if_is_unreachable(
-        cond, then_body, else_body,
-      )
-    @lib.TBlock(block_type, body) =>
-      optimization_dead_code_elimination_block_escapes_parent(block_type, body)
     _ => false
   }
 }

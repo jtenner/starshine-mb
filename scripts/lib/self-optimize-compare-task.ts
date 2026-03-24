@@ -93,14 +93,20 @@ function resolveStarshineInvocation(
 }
 
 function normalizePrintWat(wasmOptBin: string, wasmPath: string, repoRoot: string): string {
-  // Run wasm-opt in print mode and capture canonicalized text; we discard the
-  // emitted binary and use stdout for byte-stable normalization.
-  const nullPath = process.platform === "win32" ? "NUL" : "/dev/null";
-  return runOrThrow(
-    wasmOptBin,
-    [wasmPath, "--all-features", "--print", "-o", nullPath],
-    { cwd: repoRoot, stdio: "pipe" },
-  ).stdout;
+  // Run wasm-opt in text mode and read the canonicalized WAT from disk so
+  // very large modules do not overflow spawnSync stdout buffers.
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-compare-wat-"));
+  const watPath = path.join(tempDir, "normalized.wat");
+  try {
+    runOrThrow(
+      wasmOptBin,
+      [wasmPath, "--all-features", "-S", "-o", watPath],
+      { cwd: repoRoot, stdio: "pipe" },
+    );
+    return fs.readFileSync(watPath, "utf8");
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 }
 
 function validateInputBaseline(wasmToolsBin: string, inputPath: string, repoRoot: string): void {
