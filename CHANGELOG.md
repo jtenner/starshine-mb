@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 Migration: checkpoint hot IR replacement cut before optimizer reset
+
+- **Hot IR migration checkpoint** by **@jtenner**. Added the new hot function IR in [`src/ir/hot.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot.mbt) with dense node/child storage and direct rewrite helpers, removed the old transformer package and legacy `src/ir` tree-owned optimizer layers, rewired boundary/validation code away from `TFunc` / `TExpr` ownership, and moved duplicate-function elimination plus the smaller name/string optimizer paths onto direct boundary or hot-IR rewrites in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) and [`src/optimization/hot_rewrite.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/hot_rewrite.mbt). This commit is an explicit checkpoint slice before rebuilding or deleting the remaining legacy optimization package.
+
 ## 2026-03-24 Validation: reset DCE to a validating replacement and unblock five-pass parity runs
 
 - **DCE validity reset and compare harness unblock** by **@jtenner**. Updated [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) to remove the unsafe recursive structured dead-result cleanup path and narrow `drop(...)` simplification to strict terminals, which restores validating direct `--dead-code-elimination` output on `tests/node/dist/starshine-debug-wasi.wasm` and the reduced repro pipeline. Added the focused native regression in [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd_test.mbt), documented the reset and remaining parity blocker in [`docs/0070-2026-03-24-dce-valid-replacement-and-prefix5-parity-reset.md`](/home/jtenner/Projects/starshine-mb/docs/0070-2026-03-24-dce-valid-replacement-and-prefix5-parity-reset.md), and refreshed [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md).

@@ -133,12 +133,14 @@ fn validate_trace_trim_program_name(argv : Array[String]) -> Array[String] {
 ///|
 fn validate_trace_deep_control_module() -> @lib.Module {
   let depth = 24
-  let mut body = @lib.TInstr::local_get(@lib.LocalIdx::new(0))
+  let mut body = [@lib.TInstr::local_get(@lib.LocalIdx::new(0))]
   for _ in 0..<depth {
-    body = @lib.TInstr::block(
-      @lib.BlockType::val_type(@lib.ValType::i32()),
-      @lib.TExpr::new([body]),
-    )
+    body = [
+      @lib.TInstr::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        body,
+      ),
+    ]
   }
   let sig = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -150,10 +152,9 @@ fn validate_trace_deep_control_module() -> @lib.Module {
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
   .with_code_sec(
     @lib.CodeSec::new([
-      @lib.Func::t_func(
-        [@lib.ValType::i32()],
+      @lib.Func::new(
         @lib.Locals::from_types([]),
-        @lib.TExpr::new([body]),
+        @lib.tinstrs_to_expr(body),
       ),
     ]),
   )
@@ -190,7 +191,7 @@ fn validate_trace_wide_locals_module() -> @lib.Module {
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
   .with_code_sec(
     @lib.CodeSec::new([
-      @lib.Func::t_func([], locals, @lib.TExpr::new(body_instrs)),
+      @lib.Func::new(locals, @lib.tinstrs_to_expr(body_instrs)),
     ]),
   )
 }
@@ -206,10 +207,9 @@ fn validate_trace_large_codesec_module() -> @lib.Module {
   for i = 0; i < func_count; i = i + 1 {
     type_idxs.push(@lib.TypeIdx::new(0))
     funcs.push(
-      @lib.Func::t_func(
-        [],
+      @lib.Func::new(
         @lib.Locals::empty(),
-        @lib.TExpr::new([
+        @lib.tinstrs_to_expr([
           @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32(i))),
           @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32(i + 1))),
         ]),
@@ -263,10 +263,9 @@ fn validate_trace_ref_func_heavy_module() -> @lib.Module {
       body_instrs.push(@lib.TInstr::drop(@lib.TInstr::ref_func(target)))
     }
     funcs.push(
-      @lib.Func::t_func(
-        [],
+      @lib.Func::new(
         @lib.Locals::from_types([]),
-        @lib.TExpr::new(body_instrs),
+        @lib.tinstrs_to_expr(body_instrs),
       ),
     )
   }

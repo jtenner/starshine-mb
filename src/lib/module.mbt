@@ -376,19 +376,19 @@ fn md_render_children(
 }
 
 ///|
-fn md_render_texpr(
+fn md_render_tinstrs(
   out : StringBuilder,
   depth : Int,
   ctx : ModuleDebugContext,
   locals : Locals,
   param_count : Int,
-  body : TExpr,
+  body : Array[TInstr],
 ) -> Unit {
-  if body.instrs.is_empty() {
+  if body.is_empty() {
     md_write_line(out, depth, "<empty>")
     return
   }
-  for instr in body.instrs {
+  for instr in body {
     md_render_tinstr(out, depth, ctx, locals, param_count, instr)
   }
 }
@@ -766,7 +766,7 @@ fn md_render_tinstr(
         depth,
         "- block bt=" + md_format_block_type(ctx, block_type),
       )
-      md_render_texpr(out, depth + 2, ctx, locals, param_count, body)
+      md_render_tinstrs(out, depth + 2, ctx, locals, param_count, body)
     }
     TLoop(block_type, body) => {
       md_write_line(
@@ -774,7 +774,7 @@ fn md_render_tinstr(
         depth,
         "- loop bt=" + md_format_block_type(ctx, block_type),
       )
-      md_render_texpr(out, depth + 2, ctx, locals, param_count, body)
+      md_render_tinstrs(out, depth + 2, ctx, locals, param_count, body)
     }
     TIf(block_type, cond, then_, else_) => {
       md_write_line(
@@ -784,11 +784,11 @@ fn md_render_tinstr(
       )
       md_render_child(out, depth + 2, "cond", ctx, locals, param_count, cond)
       md_write_line(out, depth + 2, "then:")
-      md_render_texpr(out, depth + 4, ctx, locals, param_count, then_)
+      md_render_tinstrs(out, depth + 4, ctx, locals, param_count, then_)
       match else_ {
         Some(other) => {
           md_write_line(out, depth + 2, "else:")
-          md_render_texpr(out, depth + 4, ctx, locals, param_count, other)
+          md_render_tinstrs(out, depth + 4, ctx, locals, param_count, other)
         }
         None => ()
       }
@@ -802,7 +802,7 @@ fn md_render_tinstr(
         " catches=" +
         catches.to_string(),
       )
-      md_render_texpr(out, depth + 2, ctx, locals, param_count, body)
+      md_render_tinstrs(out, depth + 2, ctx, locals, param_count, body)
     }
     TThrow(tag_idx, values) => {
       md_write_line(out, depth, "- throw " + md_format_tag_idx(ctx, tag_idx))
@@ -1554,49 +1554,6 @@ pub fn Module::pretty_print_defined_func(
           }
           md_write_line(out, 2, "body_raw:")
           md_write_line(out, 4, body.to_string())
-        }
-        TFunc(func_params, local_vals, body) => {
-          let resolved = FunctionLocals::from_typed_func(
-            params, func_params, local_vals,
-          )
-          let local_info = match resolved {
-            Ok(ls) => ls
-            Err(err) => {
-              md_write_line(out, 2, "locals_error: " + err)
-              FunctionLocals::new(func_params, local_vals)
-            }
-          }
-          let full_locals = local_info.all_locals()
-          md_write_line(out, 2, "locals:")
-          if full_locals.is_empty() {
-            md_write_line(out, 4, "<none>")
-          } else {
-            for i in 0..<full_locals.length() {
-              let role = if i < local_info.param_count() {
-                "param"
-              } else {
-                "local"
-              }
-              md_write_line(
-                out,
-                4,
-                "[\{i}] " +
-                pretty_val_type(full_locals.unsafe_get(i)) +
-                " (" +
-                role +
-                ")",
-              )
-            }
-          }
-          md_write_line(out, 2, "body:")
-          md_render_texpr(
-            out,
-            4,
-            ctx,
-            full_locals,
-            local_info.param_count(),
-            body,
-          )
         }
       }
     }

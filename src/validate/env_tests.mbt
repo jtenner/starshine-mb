@@ -335,10 +335,10 @@ test "to_texpr uses type-index block inputs including recursive index forms" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected conversion error: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TBlock(TypeIdxBlockType(_), { instrs: body, .. }) =>
+        TInstrKind::TBlock(TypeIdxBlockType(_), body) =>
           assert_eq(body.length(), 1)
         _ => fail("expected type-indexed block in converted expression")
       }
@@ -392,7 +392,7 @@ test "to_texpr call conversion uses imported and defined function arities from w
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected call conversion error: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 2)
       match instrs[0].kind {
         TInstrKind::TCall(FuncIdx(i), args) => {
@@ -460,11 +460,11 @@ test "to_texpr return recovers multi-value typed block producer" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
         TInstrKind::TReturn(
-          [{ kind: TInstrKind::TBlock(bt, { instrs: values, .. }), .. }]
+          [{ kind: TInstrKind::TBlock(bt, values), .. }]
         ) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(values.length(), 2)
@@ -495,7 +495,7 @@ test "to_texpr return recovers multi-value typed if producer" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
         TInstrKind::TReturn(
@@ -504,8 +504,8 @@ test "to_texpr return recovers multi-value typed if producer" {
               kind: TInstrKind::TIf(
                 bt,
                 _,
-                { instrs: if_true, .. },
-                Some({ instrs: if_false, .. })
+                if_true,
+                Some(if_false)
               ),
               ..,
             },
@@ -542,11 +542,11 @@ test "to_texpr return recovers multi-value typed loop producer" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
         TInstrKind::TReturn(
-          [{ kind: TInstrKind::TLoop(bt, { instrs: values, .. }), .. }]
+          [{ kind: TInstrKind::TLoop(bt, values), .. }]
         ) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(values.length(), 2)
@@ -579,13 +579,13 @@ test "to_texpr return recovers multi-value typed try_table producer" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
         TInstrKind::TReturn(
           [
             {
-              kind: TInstrKind::TTryTable(bt, catches, { instrs: values, .. }),
+              kind: TInstrKind::TTryTable(bt, catches, values),
               ..,
             },
           ]
@@ -635,10 +635,10 @@ test "to_texpr br recovers multi-value typed if producer when stack includes zer
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TBlock(_, { instrs: body, .. }) => {
+        TInstrKind::TBlock(_, body) => {
           assert_eq(body.length(), 2)
           match body[1].kind {
             TInstrKind::TBr(LabelIdx(lbl), values) => {
@@ -857,7 +857,7 @@ test "to_texpr call with unknown function index" {
   let expr = Expr::new([Instruction::call(FuncIdx::new(99))])
   // call with unknown func index: pop_n(stack, 0) succeeds but result is 0-arg call
   match to_texpr(expr, env) {
-    Ok({ instrs, .. }) => assert_eq(instrs.length(), 1)
+    Ok(instrs) => assert_eq(instrs.length(), 1)
     Err(_) => ()
   }
 }
@@ -872,7 +872,7 @@ test "to_texpr call_indirect with unknown type falls back to 0 inputs" {
   ])
   // TypeIdx(99) unresolvable -> 0 params, needs only table_index on stack
   match to_texpr(expr, env) {
-    Ok({ instrs, .. }) => assert_eq(instrs.length(), 1)
+    Ok(instrs) => assert_eq(instrs.length(), 1)
     Err(_) => ()
   }
 }
@@ -901,7 +901,7 @@ test "to_texpr block with non-function TypeIdx falls back to zero inputs" {
   match to_texpr(expr, env) {
     Err(e) =>
       fail("unexpected conversion failure for non-function blocktype: \{e}")
-    Ok({ instrs, .. }) => assert_eq(instrs.length(), 1)
+    Ok(instrs) => assert_eq(instrs.length(), 1)
   }
 }
 
@@ -916,7 +916,7 @@ test "to_texpr call_indirect with non-function TypeIdx falls back to zero params
   match to_texpr(expr, env) {
     Err(e) =>
       fail("unexpected conversion failure for non-function call_indirect: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
         TInstrKind::TCallIndirect(_, _, args, table_index) => {
@@ -975,10 +975,10 @@ test "to_texpr nested block br 0 uses innermost label result arity" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TBlock(_, { instrs: body, .. }) => {
+        TInstrKind::TBlock(_, body) => {
           assert_eq(body.length(), 1)
           match body[0].kind {
             TInstrKind::TBr(LabelIdx(depth), args) => {
@@ -1013,13 +1013,13 @@ test "to_texpr nested block br 1 resolves to outer label arity" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TBlock(_, { instrs: outer_body, .. }) => {
+        TInstrKind::TBlock(_, outer_body) => {
           assert_eq(outer_body.length(), 1)
           match outer_body[0].kind {
-            TInstrKind::TBlock(_, { instrs: inner_body, .. }) => {
+            TInstrKind::TBlock(_, inner_body) => {
               assert_true(inner_body.length() > 0)
               let last = inner_body[inner_body.length() - 1]
               match last.kind {
@@ -1057,10 +1057,10 @@ test "to_texpr nested loop br 0 uses loop parameter arity" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TLoop(_, { instrs: body, .. }) => {
+        TInstrKind::TLoop(_, body) => {
           assert_true(body.length() > 0)
           let last = body[body.length() - 1]
           match last.kind {
@@ -1098,16 +1098,16 @@ test "to_texpr nested if branches resolve outer labels for br 1" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TBlock(_, { instrs: body, .. }) =>
+        TInstrKind::TBlock(_, body) =>
           match body[0].kind {
             TInstrKind::TIf(
               _,
               _,
-              { instrs: if_true, .. },
-              Some({ instrs: if_false, .. })
+              if_true,
+              Some(if_false)
             ) => {
               assert_eq(if_true.length(), 1)
               assert_eq(if_false.length(), 1)
@@ -1154,12 +1154,12 @@ test "to_texpr nested br_table resolves label arity against active label stack" 
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TBlock(_, { instrs: outer_body, .. }) =>
+        TInstrKind::TBlock(_, outer_body) =>
           match outer_body[0].kind {
-            TInstrKind::TBlock(_, { instrs: inner_body, .. }) => {
+            TInstrKind::TBlock(_, inner_body) => {
               assert_true(inner_body.length() > 0)
               let last = inner_body[inner_body.length() - 1]
               match last.kind {
@@ -1193,10 +1193,10 @@ test "to_texpr try_table body resolves label 0 arity for br 0" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) => {
+    Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TTryTable(_, _, { instrs: body, .. }) => {
+        TInstrKind::TTryTable(_, _, body) => {
           assert_eq(body.length(), 1)
           match body[0].kind {
             TInstrKind::TBr(LabelIdx(depth), args) => {
@@ -1232,9 +1232,9 @@ test "to_texpr br_on_non_null pops only label prefix arguments" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) =>
+    Ok(instrs) =>
       match instrs[0].kind {
-        TInstrKind::TBlock(_, { instrs: body, .. }) => {
+        TInstrKind::TBlock(_, body) => {
           assert_eq(body.length(), 1)
           match body[0].kind {
             TInstrKind::TBrOnNonNull(LabelIdx(depth), _, args) => {
@@ -1275,9 +1275,9 @@ test "to_texpr br_on_cast pops only label prefix arguments" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) =>
+    Ok(instrs) =>
       match instrs[0].kind {
-        TInstrKind::TBlock(_, { instrs: body, .. }) => {
+        TInstrKind::TBlock(_, body) => {
           assert_eq(body.length(), 1)
           match body[0].kind {
             TInstrKind::TBrOnCast(LabelIdx(depth), _, _, _, _, args) => {
@@ -1318,9 +1318,9 @@ test "to_texpr br_on_cast_fail pops only label prefix arguments" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok({ instrs, .. }) =>
+    Ok(instrs) =>
       match instrs[0].kind {
-        TInstrKind::TBlock(_, { instrs: body, .. }) => {
+        TInstrKind::TBlock(_, body) => {
           assert_eq(body.length(), 1)
           match body[0].kind {
             TInstrKind::TBrOnCastFail(LabelIdx(depth), _, _, _, _, args) => {
@@ -1398,7 +1398,7 @@ test "to_texpr allows stack-polymorphic local_tee after unreachable" {
     Instruction::drop(),
   ])
   match to_texpr(expr, env) {
-    Ok({ instrs, .. }) => assert_true(instrs.length() >= 2)
+    Ok(instrs) => assert_true(instrs.length() >= 2)
     Err(e) =>
       fail(
         "expected stack-polymorphic conversion success after unreachable, got: \{e}",
@@ -1411,7 +1411,7 @@ test "to_texpr allows stack-polymorphic binary op after unreachable" {
   let env = Env::new()
   let expr = Expr::new([Instruction::unreachable_(), Instruction::i32_add()])
   match to_texpr(expr, env) {
-    Ok({ instrs, .. }) => assert_eq(instrs.length(), 2)
+    Ok(instrs) => assert_eq(instrs.length(), 2)
     Err(e) =>
       fail(
         "expected stack-polymorphic binary conversion success after unreachable, got: \{e}",

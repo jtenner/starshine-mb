@@ -113,18 +113,17 @@ fn optimize_pipeline_remove_unused_names_candidate_module() -> Module {
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
   .with_code_sec(
     @lib.CodeSec::new([
-      @lib.Func::t_func(
-        [],
+      @lib.Func::new(
         @lib.Locals::empty(),
-        @lib.TExpr::new([
+        @lib.tinstrs_to_expr([
           @lib.TInstr::block(
             @lib.BlockType::void_(),
-            @lib.TExpr::new([
+            [
               @lib.TInstr::block(
                 @lib.BlockType::void_(),
-                @lib.TExpr::new([@lib.TInstr::nop()]),
+                [@lib.TInstr::nop()],
               ),
-            ]),
+            ],
           ),
         ]),
       ),
@@ -145,13 +144,21 @@ test "add pass to pipeline keeps the live remove unused names runner in grouped 
         PipelineScratch::new(),
       )
       assert_eq(scratch.funcs_visited, 1)
+      let env = @validate.Env::new().with_module(optimized)
       match optimized.code_sec {
-        Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) =>
-          match body.inner() {
+        Some(@lib.CodeSec([@lib.Func(_, body)])) =>
+          match @validate.to_texpr(
+            body,
+            env.with_locals(@lib.Locals::empty()).with_labels([[]]).with_return_type(
+              Some([]),
+            ),
+          ) {
+            Ok(typed_body) =>
+          match typed_body {
             [instr] =>
               match instr.kind {
                 @lib.TBlock(@lib.VoidBlockType, child_body) =>
-                  match child_body.inner() {
+                  match child_body {
                     [child] =>
                       match child.kind {
                         @lib.TNop => ()
@@ -172,7 +179,9 @@ test "add pass to pipeline keeps the live remove unused names runner in grouped 
                 "expected single rewritten outer block in grouped stage test",
               )
           }
-        _ => fail("expected optimized single typed function body")
+            Err(err) => fail("expected optimized body to lift, got \{err}")
+          }
+        _ => fail("expected optimized single function body")
       }
     }
     _ => fail("expected grouped function entry with two runners")
@@ -203,10 +212,9 @@ fn optimize_pipeline_grouped_dead_tail_module() -> Module {
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
   .with_code_sec(
     @lib.CodeSec::new([
-      @lib.Func::t_func(
-        [],
+      @lib.Func::new(
         @lib.Locals::empty(),
-        @lib.TExpr::new([@lib.TInstr::return_([]), @lib.TInstr::nop()]),
+        @lib.tinstrs_to_expr([@lib.TInstr::return_([]), @lib.TInstr::nop()]),
       ),
     ]),
   )
@@ -372,10 +380,19 @@ test "default grouped function stage preserves dead-code-elimination tail trimmi
         "expected grouped function stage output to validate: \{@validate.validation_error_message(err)}",
       )
   }
+  let env = @validate.Env::new().with_module(optimized)
   match optimized.code_sec {
-    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) =>
-      assert_eq(body.inner(), [@lib.TInstr::return_([])])
-    _ => fail("expected optimized single typed function body")
+    Some(@lib.CodeSec([@lib.Func(_, body)])) =>
+      match @validate.to_texpr(
+        body,
+        env.with_locals(@lib.Locals::empty()).with_labels([[]]).with_return_type(
+          Some([]),
+        ),
+      ) {
+        Ok(typed_body) => assert_eq(typed_body, [@lib.TInstr::return_([])])
+        Err(err) => fail("expected optimized body to lift, got \{err}")
+      }
+    _ => fail("expected optimized single function body")
   }
 }
 

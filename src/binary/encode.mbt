@@ -1083,18 +1083,6 @@ fn binary_encode_rewrite_typed_expr_to_raw(
   Expr::new(binary_encode_rewrite_instr_array(instrs, subtypes, env))
 }
 
-///|
-fn binary_encode_typed_expr_with_module_context(
-  texpr : TExpr,
-  type_sec : TypeSec?,
-  env : Env,
-) -> Expr {
-  let raw = texpr.to_expr()
-  let subtypes = binary_encode_flatten_subtypes(type_sec)
-  binary_encode_rewrite_typed_expr_to_raw(raw, subtypes, env)
-}
-
-///|
 pub impl Encode for CustomSec with encode(val, buf) {
   let CustomSec(name, bytes) = val
   write_section(0, buf, fn(payload) {
@@ -1394,18 +1382,7 @@ pub impl Encode for CodeSec with encode(val, buf) {
 ///|
 pub impl Encode for Func with encode(val, buf) {
   let fn_body = @buffer.new()
-  let (locals, expr) = match val {
-    Func(locals, expr) => (locals, expr)
-    TFunc(params, tlocals, texpr) => {
-      let locals = match
-        FunctionLocals::from_typed_func(params, params, tlocals) {
-        Ok(ls) => ls.body_locals()
-        Err(_) => return Err(BinaryEncodeError::InvalidTypedFunctionLocals)
-      }
-      let expr = texpr.to_expr()
-      (locals, expr)
-    }
-  }
+  let Func(locals, expr) = val
   if Encode::encode(locals, fn_body) is Err(t) {
     return Err(t)
   }
@@ -1561,10 +1538,7 @@ fn encode_module_stringrefs(mod_ : Module) -> Array[Bytes] {
   match mod_.code_sec {
     Some(CodeSec(funcs)) =>
       for func in funcs {
-        let expr = match func {
-          Func(_, expr) => expr
-          TFunc(_, _, texpr) => texpr.to_expr()
-        }
+        let Func(_, expr) = func
         let Expr(instrs) = expr
         for instr in instrs {
           collect_instruction(instr, out)
@@ -1648,38 +1622,7 @@ pub impl Encode for Module with encode(val, buf) {
             }
             let mut func_idx = 0
             for func in funcs {
-              match func {
-                Func(_, _) => encoded_funcs.push(func)
-                TFunc(params, tlocals, texpr) => {
-                  let locals = match
-                    FunctionLocals::from_typed_func(params, params, tlocals) {
-                    Ok(ls) => ls.body_locals()
-                    Err(_) =>
-                      return Err(BinaryEncodeError::InvalidTypedFunctionLocals)
-                  }
-                  let all_locals = Locals::from_types(params)
-                  all_locals.append(tlocals)
-                  let func_env = if func_idx < func_type_idxs.length() {
-                    match
-                      module_env.resolve_functype(func_type_idxs[func_idx]) {
-                      Some(FuncType(_, results)) =>
-                        module_env
-                        .with_locals(all_locals)
-                        .with_labels([results])
-                        .with_return_type(Some(results))
-                      None => module_env.with_locals(all_locals)
-                    }
-                  } else {
-                    module_env.with_locals(all_locals)
-                  }
-                  let rewritten_expr = binary_encode_typed_expr_with_module_context(
-                    texpr,
-                    val.type_sec,
-                    func_env,
-                  )
-                  encoded_funcs.push(Func::new(locals, rewritten_expr))
-                }
-              }
+              encoded_funcs.push(func)
               func_idx += 1
             }
             if Encode::encode(Some(CodeSec::new(encoded_funcs)), buf) is Err(t) {

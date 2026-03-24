@@ -424,7 +424,6 @@ fn validate_hotspot_summary_line() -> String? {
 fn validate_func_trace_locals_count(func : Func) -> Int {
   match func {
     Func(decls, _) => decls.length()
-    TFunc(_, locals, _) => locals.length()
   }
 }
 
@@ -432,7 +431,6 @@ fn validate_func_trace_locals_count(func : Func) -> Int {
 fn validate_func_trace_top_instrs(func : Func) -> Int {
   match func {
     Func(_, Expr(instrs)) => instrs.length()
-    TFunc(_, _, body) => body.instrs.length()
   }
 }
 
@@ -1171,17 +1169,6 @@ fn validate_append_all_locals_from_decls(
   all
 }
 
-///|
-fn validate_append_all_locals_from_typed(
-  params : Array[ValType],
-  local_vals : Locals,
-) -> Locals {
-  let all = Locals::from_types(params)
-  all.append(local_vals)
-  all
-}
-
-///|
 fn validate_end_stack_shape_suffix(
   st : TcState,
   results : Array[ValType],
@@ -1256,41 +1243,6 @@ fn validate_func_body_against_functype(
       }
       match
         validate_end_stack_for_function_body(st1, results, "function body") {
-        Err(e) => return Err(e)
-        Ok(_) => ()
-      }
-      Ok(())
-    }
-    TFunc(tfunc_params, local_vals, texpr) => {
-      if tfunc_params != params {
-        return Err(
-          "typed function params must match declared signature exactly",
-        )
-      }
-      let env1 = env
-        .with_locals(validate_append_all_locals_from_typed(params, local_vals))
-        .with_labels(
-          {
-            let ls = env.labels.copy()
-            ls.push(results)
-            ls
-          },
-        )
-        .with_return_type(Some(results))
-      let st0 = TcState::{
-        env: env1,
-        stack: [],
-        reachable: true,
-        escape: NoTcEscape,
-      }
-      let st1 = match Typecheck::typecheck(texpr, st0) {
-        Ok(s) => s
-        Err(e) => return Err("typed function " + e)
-      }
-      match
-        validate_end_stack_for_function_body(
-          st1, results, "typed function body",
-        ) {
         Err(e) => return Err(e)
         Ok(_) => ()
       }
@@ -1890,8 +1842,6 @@ fn instr_uses_bulk_memory_data_count(ins : Instruction) -> Bool {
 fn func_uses_bulk_memory_data_count(func : Func) -> Bool {
   match func {
     Func(_, expr) => expr_uses_bulk_memory_data_count(expr)
-    TFunc(_, _, texpr) =>
-      expr_uses_bulk_memory_data_count(TExpr::to_expr(texpr))
   }
 }
 
@@ -1975,7 +1925,6 @@ fn validate_name_sec_total_locals(
     Some(CodeSec(funcs)) =>
       match funcs.get(defined_idx) {
         Some(Func(locals, _)) => Some(params_len + locals.length())
-        Some(TFunc(_, locals, _)) => Some(params_len + locals.length())
         None => None
       }
   }
@@ -2025,21 +1974,16 @@ fn validate_name_sec_tinstrs_label_count(instrs : Array[TInstr]) -> Int {
 fn validate_name_sec_tinstr_label_count(instr : TInstr) -> Int {
   match instr.kind {
     TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      1 + validate_name_sec_texpr_label_count(body)
+      1 + validate_name_sec_tinstrs_label_count(body)
     TIf(_, _, then_instrs, else_instrs) => {
       let else_count = match else_instrs {
-        Some(instrs) => validate_name_sec_texpr_label_count(instrs)
+        Some(instrs) => validate_name_sec_tinstrs_label_count(instrs)
         None => 0
       }
-      1 + validate_name_sec_texpr_label_count(then_instrs) + else_count
+      1 + validate_name_sec_tinstrs_label_count(then_instrs) + else_count
     }
     _ => 0
   }
-}
-
-///|
-fn validate_name_sec_texpr_label_count(expr : TExpr) -> Int {
-  validate_name_sec_tinstrs_label_count(expr.instrs)
 }
 
 ///|
@@ -2062,8 +2006,6 @@ fn validate_name_sec_total_labels(
     Some(CodeSec(funcs)) =>
       match funcs.get(defined_idx) {
         Some(Func(_, expr)) => Some(validate_name_sec_expr_label_count(expr))
-        Some(TFunc(_, _, expr)) =>
-          Some(validate_name_sec_texpr_label_count(expr))
         None => None
       }
   }
@@ -2574,7 +2516,6 @@ fn validate_ref_func_declarations_in_module(
         )
         let body_expr = match bodies[i] {
           Func(_, expr) => expr
-          TFunc(_, _, texpr) => TExpr::to_expr(texpr)
         }
         match validate_ref_func_declarations_in_expr(body_expr, env, declared) {
           Ok(_) => ()
@@ -3203,242 +3144,6 @@ test "validate_module requires data count section for memory.init and data.drop"
       )
     }
   }
-}
-
-///|
-test "validate_module rejects typed function with missing explicit params" {
-  let sig = RecType::new(
-    SubType::comp_type(CompType::func([ValType::i32()], [])),
-  )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([sig]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func([], Locals::from_types([ValType::i32()]), TExpr::new([])),
-      ]),
-    )
-  match validate_module(mod) {
-    Ok(_) => fail("expected typed function params mismatch to fail validation")
-    Err(err) =>
-      assert_true(
-        validation_error_message(err).contains(
-          "typed function params must match declared signature exactly",
-        ),
-      )
-  }
-}
-
-///|
-test "validate_module rejects legacy typed locals that duplicate param prefix" {
-  let sig = RecType::new(
-    SubType::comp_type(CompType::func([ValType::i32()], [])),
-  )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([sig]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [ValType::i32()],
-          Locals::from_types([ValType::i32(), ValType::i64()]),
-          TExpr::new([
-            TInstr::local_set(LocalIdx::new(1), TInstr::i64_const(I64(7))),
-          ]),
-        ),
-      ]),
-    )
-  match validate_module(mod) {
-    Ok(_) => fail("expected duplicated param-prefix locals to fail validation")
-    Err(_) => ()
-  }
-}
-
-///|
-test "validate_module accepts typed try_table with param input" {
-  let sig = RecType::new(
-    SubType::comp_type(CompType::func([ValType::i32()], [])),
-  )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([sig]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [ValType::i32()],
-          Locals::empty(),
-          TExpr::new([
-            TInstr::local_get(LocalIdx::new(0)),
-            TInstr::try_table(
-              BlockType::type_idx(TypeIdx::new(0U)),
-              [],
-              TExpr::new([TInstr::return_call(FuncIdx::new(1U), [])]),
-            ),
-          ]),
-        ),
-        Func::t_func(
-          [ValType::i32()],
-          Locals::empty(),
-          TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(0)))]),
-        ),
-      ]),
-    )
-  assert_eq(validate_module(mod), Ok(()))
-}
-
-///|
-test "validate_module accepts typed block with control-flow input params" {
-  let sig = RecType::new(
-    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
-  )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([sig]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [ValType::i32()],
-          Locals::empty(),
-          TExpr::new([
-            TInstr::local_get(LocalIdx::new(0U)),
-            TInstr::block(BlockType::type_idx(TypeIdx::new(0U)), TExpr::new([])),
-          ]),
-        ),
-      ]),
-    )
-  assert_eq(validate_module(mod), Ok(()))
-}
-
-///|
-test "validate_module accepts typed if with control-flow input params" {
-  let sig = RecType::new(
-    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
-  )
-  let func_sig = RecType::new(
-    SubType::comp_type(
-      CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
-    ),
-  )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([sig, func_sig]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [ValType::i32(), ValType::i32()],
-          Locals::empty(),
-          TExpr::new([
-            TInstr::local_get(LocalIdx::new(1U)),
-            TInstr::if_(
-              BlockType::type_idx(TypeIdx::new(0U)),
-              TInstr::local_get(LocalIdx::new(0U)),
-              TExpr::new([]),
-              Some(TExpr::new([])),
-            ),
-          ]),
-        ),
-      ]),
-    )
-  assert_eq(validate_module(mod), Ok(()))
-}
-
-///|
-test "validate_module accepts typed loop with control-flow input params" {
-  let sig = RecType::new(
-    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
-  )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([sig]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [ValType::i32()],
-          Locals::empty(),
-          TExpr::new([
-            TInstr::local_get(LocalIdx::new(0U)),
-            TInstr::loop_(BlockType::type_idx(TypeIdx::new(0U)), TExpr::new([])),
-          ]),
-        ),
-      ]),
-    )
-  assert_eq(validate_module(mod), Ok(()))
-}
-
-///|
-test "validate_module accepts typed nested outer-label branch if" {
-  let sig = RecType::new(
-    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
-  )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([sig]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [ValType::i32()],
-          Locals::empty(),
-          TExpr::new([
-            TInstr::block(
-              BlockType::void_(),
-              TExpr::new([
-                TInstr::drop(
-                  TInstr::if_(
-                    BlockType::val_type(ValType::i32()),
-                    TInstr::local_get(LocalIdx::new(0U)),
-                    TExpr::new([TInstr::i32_const(I32(1000))]),
-                    Some(
-                      TExpr::new([
-                        TInstr::if_(
-                          BlockType::void_(),
-                          TInstr::local_get(LocalIdx::new(0U)),
-                          TExpr::new([TInstr::br(LabelIdx::new(2), [])]),
-                          Some(TExpr::new([TInstr::br(LabelIdx::new(2), [])])),
-                        ),
-                      ]),
-                    ),
-                  ),
-                ),
-              ]),
-            ),
-            TInstr::i32_const(I32(0)),
-          ]),
-        ),
-      ]),
-    )
-  assert_eq(validate_module(mod), Ok(()))
-}
-
-///|
-test "validate_module accepts typed block result supplied by nested outer-label branch" {
-  let sig = RecType::new(
-    SubType::comp_type(CompType::func([], [ValType::i32()])),
-  )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([sig]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [],
-          Locals::empty(),
-          TExpr::new([
-            TInstr::block(
-              BlockType::val_type(ValType::i32()),
-              TExpr::new([
-                TInstr::block(
-                  BlockType::void_(),
-                  TExpr::new([
-                    TInstr::br(LabelIdx::new(1), [TInstr::i32_const(I32(7))]),
-                  ]),
-                ),
-              ]),
-            ),
-          ]),
-        ),
-      ]),
-    )
-  assert_eq(validate_module(mod), Ok(()))
 }
 
 ///|

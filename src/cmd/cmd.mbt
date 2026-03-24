@@ -3193,7 +3193,16 @@ fn validate_encoded_module_for_pipeline(
   }
   match validate_module(encoded_mod) {
     Ok(_) => Ok(())
-    Err(err) =>
+    Err(err) => {
+      cmd_debug_dump_invalid_encoded_module(bytes)
+      match validation_error_func_idx(err) {
+        Some(func_idx) =>
+          cmd_debug_dump_invalid_encoded_func_text(
+            pre_encode_mod.pretty_print_func(func_idx),
+            encoded_mod.pretty_print_func(func_idx),
+          )
+        None => ()
+      }
       Err(
         CmdError::EncodeFailed(
           path,
@@ -3205,6 +3214,7 @@ fn validate_encoded_module_for_pipeline(
           ),
         ),
       )
+    }
   }
 }
 
@@ -3812,6 +3822,77 @@ fn cmd_native_read_file(path : String) -> Result[Bytes, String] {
 #cfg(target="native")
 fn cmd_native_write_file(path : String, bytes : Bytes) -> Result[Unit, String] {
   @sfs.write_file_bytes(path, bytes)
+}
+
+///|
+#cfg(target="native")
+fn cmd_debug_dump_invalid_encoded_module(bytes : Bytes) -> Unit {
+  ignore(cmd_native_write_file("/tmp/starshine-invalid-encoded.wasm", bytes))
+}
+
+///|
+#cfg(target="native")
+fn cmd_debug_dump_invalid_encoded_func_text(
+  before_text : String,
+  after_text : String,
+) -> Unit {
+  ignore(
+    @sfs.write_file_bytes(
+      "/tmp/starshine-invalid-before.txt",
+      before_text.to_bytes(),
+    ),
+  )
+  ignore(
+    @sfs.write_file_bytes(
+      "/tmp/starshine-invalid-after.txt",
+      after_text.to_bytes(),
+    ),
+  )
+}
+
+///|
+#cfg(target="js")
+fn cmd_debug_dump_invalid_encoded_module(_bytes : Bytes) -> Unit {
+
+}
+
+///|
+#cfg(target="js")
+fn cmd_debug_dump_invalid_encoded_func_text(
+  _before_text : String,
+  _after_text : String,
+) -> Unit {
+
+}
+
+///|
+#cfg(target="llvm")
+fn cmd_debug_dump_invalid_encoded_module(_bytes : Bytes) -> Unit {
+
+}
+
+///|
+#cfg(target="llvm")
+fn cmd_debug_dump_invalid_encoded_func_text(
+  _before_text : String,
+  _after_text : String,
+) -> Unit {
+
+}
+
+///|
+#cfg(target="wasm-gc")
+fn cmd_debug_dump_invalid_encoded_module(_bytes : Bytes) -> Unit {
+
+}
+
+///|
+#cfg(target="wasm-gc")
+fn cmd_debug_dump_invalid_encoded_func_text(
+  _before_text : String,
+  _after_text : String,
+) -> Unit {
+
 }
 
 ///|

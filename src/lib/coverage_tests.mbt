@@ -44,11 +44,11 @@ test "locals insert remove and without_prefix keep indices aligned" {
 }
 
 ///|
-test "TExpr.to_expr preserves stack order for local.set" {
-  let texpr = TExpr::new([
+test "tinstrs_to_expr preserves stack order for local.set" {
+  let body = [
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7))),
-  ])
-  let Expr(instrs) = texpr.to_expr()
+  ]
+  let Expr(instrs) = tinstrs_to_expr(body)
   assert_eq(instrs.length(), 2)
   match instrs[0] {
     I32Const(I32(v)) => assert_eq(v, 7)

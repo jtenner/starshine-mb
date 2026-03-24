@@ -1,8 +1,8 @@
 ///|
 using @lib {
+  type Catch,
   type TInstr,
   type TInstrKind,
-  type TExpr,
   type LocalIdx,
   type I32,
   type I64,
@@ -50,6 +50,3 @@ using @lib {
   type SubType,
   type CompType,
 }
-
-///|
-using @transformer {type ModuleTransformer, from_walk}

@@ -1,15 +1,15 @@
 ///|
-/// Convert tree-based TExpr back to flat Expr
-pub fn TExpr::to_expr(texpr : TExpr) -> Expr {
+/// Convert tree-based TInstr bodies back to flat Expr.
+pub fn tinstrs_to_expr(body : Array[TInstr]) -> Expr {
   let instrs : Array[Instruction] = []
-  for value in texpr.instrs {
+  for value in body {
     tinstr_to_instr(value, instrs)
   }
   Expr(instrs)
 }
 
 // ============================================================================
-// TExpr -> Expr helpers
+// TInstr tree -> Expr helpers
 // ============================================================================
 
 ///|
@@ -270,14 +270,14 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     // === Control flow ===
     TInstrKind::TBlock(bt, body) => {
       let body_instrs : Array[Instruction] = []
-      for value in body.instrs {
+      for value in body {
         tinstr_to_instr(value, body_instrs)
       }
       instrs.push(Block(bt, Expr(body_instrs)))
     }
     TInstrKind::TLoop(bt, body) => {
       let body_instrs : Array[Instruction] = []
-      for value in body.instrs {
+      for value in body {
         tinstr_to_instr(value, body_instrs)
       }
       instrs.push(Loop(bt, Expr(body_instrs)))
@@ -285,13 +285,13 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     TInstrKind::TIf(bt, cond, then_branch, else_branch) => {
       tinstr_to_instr(cond, instrs)
       let then_instrs : Array[Instruction] = []
-      for value in then_branch.instrs {
+      for value in then_branch {
         tinstr_to_instr(value, then_instrs)
       }
       let else_instrs : Array[Instruction]? = match else_branch {
         Some(else_body) => {
           let els : Array[Instruction] = []
-          for value in else_body.instrs {
+          for value in else_body {
             tinstr_to_instr(value, els)
           }
           Some(els)
@@ -302,7 +302,7 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
     TInstrKind::TTryTable(bt, catches, body) => {
       let body_instrs : Array[Instruction] = []
-      for value in body.instrs {
+      for value in body {
         tinstr_to_instr(value, body_instrs)
       }
       instrs.push(TryTable(bt, catches, Expr(body_instrs)))

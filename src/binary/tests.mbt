@@ -426,515 +426,6 @@ test "decode_module wraps decode failure variant" {
 }
 
 ///|
-test "encode_module keeps separated TFunc locals even when they share a param-prefix type pattern" {
-  let ty = RecType::new(
-    SubType::comp_type(
-      CompType::func([ValType::i32(), ValType::i64()], [ValType::f32()]),
-    ),
-  )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([ty]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [ValType::i32(), ValType::i64()],
-          Locals::from_types([ValType::i32(), ValType::i64(), ValType::f32()]),
-          TExpr::new([TInstr::local_get(LocalIdx::new(4))]),
-        ),
-      ]),
-    )
-  let wasm = match encode_module(mod) {
-    Ok(bytes) => bytes
-    Err(e) => fail("expected encode success, got \{e}")
-  }
-  let decoded = match decode_module(wasm) {
-    Ok(v) => v
-    Err(e) => fail("expected decode success, got \{e}")
-  }
-  match decoded.code_sec {
-    Some(CodeSec([Func(locals, _)])) =>
-      assert_eq(
-        locals,
-        Locals::from_types([ValType::i32(), ValType::i64(), ValType::f32()]),
-      )
-    Some(CodeSec([TFunc(_, locals, _)])) => {
-      assert_eq(locals.length(), 3)
-      assert_eq(locals.at(0), Some(ValType::i32()))
-      assert_eq(locals.at(1), Some(ValType::i64()))
-      assert_eq(locals.at(2), Some(ValType::f32()))
-    }
-    _ =>
-      fail(
-        "expected decoded module to preserve all three non-param locals with prefix-like types",
-      )
-  }
-}
-
-///|
-test "encode_module keeps typed-function body locals without prefix stripping" {
-  let ty = RecType::new(
-    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i64()])),
-  )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([ty]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [ValType::i32()],
-          Locals::from_types([ValType::i32(), ValType::i64()]),
-          TExpr::new([TInstr::local_get(LocalIdx::new(2))]),
-        ),
-      ]),
-    )
-  let wasm = match encode_module(mod) {
-    Ok(bytes) => bytes
-    Err(e) => fail("expected encode success, got \{e}")
-  }
-  let decoded = match decode_module(wasm) {
-    Ok(v) => v
-    Err(e) => fail("expected decode success, got \{e}")
-  }
-  match decoded.code_sec {
-    Some(CodeSec([Func(locals, _)])) => {
-      let expected = Locals::from_types([ValType::i32(), ValType::i64()])
-      if locals != expected {
-        fail("expected two declared body locals [i32, i64], got \{locals}")
-      }
-      assert_eq(locals, expected)
-    }
-    _ => fail("expected single decoded function body")
-  }
-}
-
-///|
-test "encode_module hoists typed loop param seeds before type-index block loops" {
-  let loop_type = RecType::new(
-    SubType::comp_type(CompType::func([ValType::i32()], [])),
-  )
-  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([loop_type, func_type]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [],
-          Locals::from_types([ValType::i32()]),
-          TExpr::new([
-            TInstr::loop_(
-              BlockType::type_idx(TypeIdx::new(0U)),
-              TExpr::new([
-                TInstr::i32_const(I32(0)),
-                TInstr::drop(
-                  TInstr::local_tee(
-                    LocalIdx::new(0U),
-                    TInstr::local_get(LocalIdx::new(0U)),
-                  ),
-                ),
-              ]),
-            ),
-          ]),
-        ),
-      ]),
-    )
-  let wasm = match encode_module(mod) {
-    Ok(bytes) => bytes
-    Err(e) => fail("expected encode success, got \{e}")
-  }
-  let decoded = match decode_module(wasm) {
-    Ok(v) => v
-    Err(e) => fail("expected decode success, got \{e}")
-  }
-  match decoded.code_sec {
-    Some(
-      CodeSec(
-        [
-          Func(
-            _,
-            Expr(
-              [
-                I32Const(I32(seed)),
-                Loop(
-                  TypeIdxBlockType(TypeIdx(loop_type_idx)),
-                  Expr(
-                    [
-                      LocalGet(LocalIdx(get_idx)),
-                      LocalTee(LocalIdx(tee_idx)),
-                      Drop,
-                    ]
-                  )
-                ),
-              ]
-            )
-          ),
-        ]
-      )
-    ) => {
-      assert_eq(seed, 0)
-      assert_eq(loop_type_idx, 0U)
-      assert_eq(get_idx, 0U)
-      assert_eq(tee_idx, 0U)
-    }
-    _ => fail("expected typed loop seed to lower before the decoded loop")
-  }
-}
-
-///|
-test "encode_module hoists nested typed loop param seeds before type-index block loops" {
-  let loop_type = RecType::new(
-    SubType::comp_type(CompType::func([ValType::i32()], [])),
-  )
-  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([loop_type, func_type]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [],
-          Locals::from_types([ValType::i32()]),
-          TExpr::new([
-            TInstr::loop_(
-              BlockType::type_idx(TypeIdx::new(0U)),
-              TExpr::new([
-                TInstr::if_(
-                  BlockType::void_(),
-                  TInstr::binary(
-                    @lib.BinaryOp::i32_lt_s(),
-                    TInstr::local_tee(
-                      LocalIdx::new(0U),
-                      TInstr::i32_const(I32(0)),
-                    ),
-                    TInstr::i32_const(I32(1)),
-                  ),
-                  TExpr::new([
-                    TInstr::br(LabelIdx::new(0U), [
-                      TInstr::binary(
-                        @lib.BinaryOp::i32_add(),
-                        TInstr::local_get(LocalIdx::new(0U)),
-                        TInstr::i32_const(I32(1)),
-                      ),
-                    ]),
-                  ]),
-                  Some(TExpr::new([])),
-                ),
-              ]),
-            ),
-          ]),
-        ),
-      ]),
-    )
-  let wasm = match encode_module(mod) {
-    Ok(bytes) => bytes
-    Err(e) => fail("expected encode success, got \{e}")
-  }
-  let decoded = match decode_module(wasm) {
-    Ok(v) => v
-    Err(e) => fail("expected decode success, got \{e}")
-  }
-  match decoded.code_sec {
-    Some(
-      CodeSec(
-        [
-          Func(
-            _,
-            Expr(
-              [
-                I32Const(I32(seed)),
-                Loop(
-                  TypeIdxBlockType(TypeIdx(loop_type_idx)),
-                  Expr(
-                    [
-                      LocalTee(LocalIdx(tee_idx)),
-                      I32Const(I32(limit)),
-                      I32LtS,
-                      If(
-                        VoidBlockType,
-                        [
-                          LocalGet(LocalIdx(br_arg_idx)),
-                          I32Const(I32(step)),
-                          I32Add,
-                          Br(LabelIdx(br_label)),
-                        ],
-                        Some([])
-                      ),
-                    ]
-                  )
-                ),
-              ]
-            )
-          ),
-        ]
-      )
-    ) => {
-      assert_eq(seed, 0)
-      assert_eq(loop_type_idx, 0U)
-      assert_eq(tee_idx, 0U)
-      assert_eq(limit, 1)
-      assert_eq(br_arg_idx, 0U)
-      assert_eq(step, 1)
-      assert_eq(br_label, 0U)
-    }
-    _ =>
-      fail("expected nested typed loop seed to lower before the decoded loop")
-  }
-}
-
-///|
-test "encode_module hoists nested typed loop param seeds inside typed if branches" {
-  let loop_type = RecType::new(
-    SubType::comp_type(CompType::func([ValType::i32()], [])),
-  )
-  let func_type = RecType::new(
-    SubType::comp_type(CompType::func([ValType::i32()], [])),
-  )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([loop_type, func_type]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [ValType::i32()],
-          Locals::from_types([ValType::i32()]),
-          TExpr::new([
-            TInstr::if_(
-              BlockType::void_(),
-              TInstr::local_get(LocalIdx::new(0U)),
-              TExpr::new([
-                TInstr::loop_(
-                  BlockType::type_idx(TypeIdx::new(0U)),
-                  TExpr::new([
-                    TInstr::if_(
-                      BlockType::void_(),
-                      TInstr::binary(
-                        @lib.BinaryOp::i32_lt_s(),
-                        TInstr::local_tee(
-                          LocalIdx::new(1U),
-                          TInstr::i32_const(I32(0)),
-                        ),
-                        TInstr::i32_const(I32(1)),
-                      ),
-                      TExpr::new([
-                        TInstr::br(LabelIdx::new(0U), [
-                          TInstr::binary(
-                            @lib.BinaryOp::i32_add(),
-                            TInstr::local_get(LocalIdx::new(1U)),
-                            TInstr::i32_const(I32(1)),
-                          ),
-                        ]),
-                      ]),
-                      Some(TExpr::new([])),
-                    ),
-                  ]),
-                ),
-              ]),
-              Some(TExpr::new([])),
-            ),
-          ]),
-        ),
-      ]),
-    )
-  let wasm = match encode_module(mod) {
-    Ok(bytes) => bytes
-    Err(e) => fail("expected encode success, got \{e}")
-  }
-  let decoded = match decode_module(wasm) {
-    Ok(v) => v
-    Err(e) => fail("expected decode success, got \{e}")
-  }
-  match decoded.code_sec {
-    Some(
-      CodeSec(
-        [
-          Func(
-            _,
-            Expr(
-              [
-                LocalGet(LocalIdx(cond_idx)),
-                If(
-                  VoidBlockType,
-                  [
-                    I32Const(I32(seed)),
-                    Loop(
-                      TypeIdxBlockType(TypeIdx(loop_type_idx)),
-                      Expr(
-                        [
-                          LocalTee(LocalIdx(tee_idx)),
-                          I32Const(I32(limit)),
-                          I32LtS,
-                          If(
-                            VoidBlockType,
-                            [
-                              LocalGet(LocalIdx(br_arg_idx)),
-                              I32Const(I32(step)),
-                              I32Add,
-                              Br(LabelIdx(br_label)),
-                            ],
-                            Some([])
-                          ),
-                        ]
-                      )
-                    ),
-                  ],
-                  Some([])
-                ),
-              ]
-            )
-          ),
-        ]
-      )
-    ) => {
-      assert_eq(cond_idx, 0U)
-      assert_eq(seed, 0)
-      assert_eq(loop_type_idx, 0U)
-      assert_eq(tee_idx, 1U)
-      assert_eq(limit, 1)
-      assert_eq(br_arg_idx, 1U)
-      assert_eq(step, 1)
-      assert_eq(br_label, 0U)
-    }
-    _ =>
-      fail(
-        "expected nested typed loop seed to lower before the decoded loop inside the if branch",
-      )
-  }
-}
-
-///|
-test "encode_module hoists single multi-value producer before typed multi-value loops" {
-  let seed_block_type = RecType::new(
-    SubType::comp_type(
-      CompType::func([], [ValType::i32(), ValType::i32(), ValType::i32()]),
-    ),
-  )
-  let loop_type = RecType::new(
-    SubType::comp_type(
-      CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], [
-        ValType::i32(),
-        ValType::i32(),
-        ValType::i32(),
-      ]),
-    ),
-  )
-  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([seed_block_type, loop_type, func_type]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(2U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [],
-          Locals::from_types([
-            ValType::i32(),
-            ValType::i32(),
-            ValType::i32(),
-            ValType::i32(),
-            ValType::i32(),
-            ValType::i32(),
-          ]),
-          TExpr::new([
-            TInstr::local_set(
-              LocalIdx::new(3U),
-              TInstr::local_set(
-                LocalIdx::new(4U),
-                TInstr::local_set(
-                  LocalIdx::new(5U),
-                  TInstr::loop_(
-                    BlockType::type_idx(TypeIdx::new(1U)),
-                    TExpr::new([
-                      TInstr::local_tee(
-                        LocalIdx::new(0U),
-                        TInstr::local_set(
-                          LocalIdx::new(1U),
-                          TInstr::local_set(
-                            LocalIdx::new(2U),
-                            TInstr::block(
-                              BlockType::type_idx(TypeIdx::new(0U)),
-                              TExpr::new([
-                                TInstr::i32_const(I32(1)),
-                                TInstr::i32_const(I32(2)),
-                                TInstr::i32_const(I32(3)),
-                              ]),
-                            ),
-                          ),
-                        ),
-                      ),
-                      TInstr::local_get(LocalIdx::new(1U)),
-                      TInstr::local_get(LocalIdx::new(2U)),
-                    ]),
-                  ),
-                ),
-              ),
-            ),
-          ]),
-        ),
-      ]),
-    )
-  let wasm = match encode_module(mod) {
-    Ok(bytes) => bytes
-    Err(e) => fail("expected encode success, got \{e}")
-  }
-  let decoded = match decode_module(wasm) {
-    Ok(v) => v
-    Err(e) => fail("expected decode success, got \{e}")
-  }
-  match decoded.code_sec {
-    Some(
-      CodeSec(
-        [
-          Func(
-            _,
-            Expr(
-              [
-                Block(
-                  TypeIdxBlockType(TypeIdx(seed_block_type_idx)),
-                  Expr([I32Const(I32(a)), I32Const(I32(b)), I32Const(I32(c))])
-                ),
-                Loop(
-                  TypeIdxBlockType(TypeIdx(loop_type_idx)),
-                  Expr(
-                    [
-                      LocalSet(LocalIdx(seed_local_2)),
-                      LocalSet(LocalIdx(seed_local_1)),
-                      LocalTee(LocalIdx(loop_local)),
-                      LocalGet(LocalIdx(get_local_1)),
-                      LocalGet(LocalIdx(get_local_2)),
-                    ]
-                  )
-                ),
-                LocalSet(LocalIdx(result_local_2)),
-                LocalSet(LocalIdx(result_local_1)),
-                LocalSet(LocalIdx(result_local_0)),
-              ]
-            )
-          ),
-        ]
-      )
-    ) => {
-      assert_eq(seed_block_type_idx, 0U)
-      assert_eq(a, 1)
-      assert_eq(b, 2)
-      assert_eq(c, 3)
-      assert_eq(loop_type_idx, 1U)
-      assert_eq(seed_local_2, 2U)
-      assert_eq(seed_local_1, 1U)
-      assert_eq(loop_local, 0U)
-      assert_eq(get_local_1, 1U)
-      assert_eq(get_local_2, 2U)
-      assert_eq(result_local_2, 5U)
-      assert_eq(result_local_1, 4U)
-      assert_eq(result_local_0, 3U)
-    }
-    _ =>
-      fail(
-        "expected multi-value loop seeds from a single producer to lower before the decoded loop",
-      )
-  }
-}
-
-///|
 test "module roundtrip preserves raw high-type-index loop seed ordering" {
   let types : Array[RecType] = []
   for i = 0; i < 291; i = i + 1 {
@@ -1154,166 +645,6 @@ test "module roundtrip preserves raw high-type-index multi-value loop seed order
 }
 
 ///|
-test "encode_module preserves validating typed result if with non-fallthrough loop branch" {
-  let mod = Module::new()
-    .with_type_sec(
-      TypeSec::new([
-        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
-      ]),
-    )
-    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [],
-          Locals::empty(),
-          TExpr::new([
-            TInstr::if_(
-              BlockType::val_type(ValType::i32()),
-              TInstr::i32_const(I32(1)),
-              TExpr::new([
-                TInstr::loop_(
-                  BlockType::val_type(ValType::i32()),
-                  TExpr::new([
-                    TInstr::if_(
-                      BlockType::void_(),
-                      TInstr::i32_const(I32(1)),
-                      TExpr::new([
-                        TInstr::if_(
-                          BlockType::void_(),
-                          TInstr::i32_const(I32(1)),
-                          TExpr::new([TInstr::br(LabelIdx::new(2U), [])]),
-                          Some(
-                            TExpr::new([
-                              TInstr::return_([TInstr::i32_const(I32(0))]),
-                            ]),
-                          ),
-                        ),
-                      ]),
-                      Some(
-                        TExpr::new([
-                          TInstr::return_([TInstr::i32_const(I32(1))]),
-                        ]),
-                      ),
-                    ),
-                  ]),
-                ),
-              ]),
-              Some(TExpr::new([TInstr::return_([TInstr::i32_const(I32(0))])])),
-            ),
-          ]),
-        ),
-      ]),
-    )
-  match @validate.validate_module(mod) {
-    Ok(_) => ()
-    Err(e) =>
-      fail(
-        "expected minimized typed control fixture to validate before encode, got \{@validate.validation_error_message(e)}",
-      )
-  }
-  let wasm = match encode_module(mod) {
-    Ok(bytes) => bytes
-    Err(e) => fail("expected encode success, got \{e}")
-  }
-  let decoded = match decode_module(wasm) {
-    Ok(v) => v
-    Err(e) => fail("expected decode success, got \{e}")
-  }
-  match @validate.validate_module(decoded) {
-    Ok(_) => ()
-    Err(e) =>
-      fail(
-        "expected minimized typed control fixture to stay valid after encode, got \{@validate.validation_error_message(e)}",
-      )
-  }
-}
-
-///|
-test "encode_module preserves typed branch payload if with escaping arms inside dead result block" {
-  let mod = Module::new()
-    .with_type_sec(
-      TypeSec::new([
-        RecType::new(
-          SubType::comp_type(CompType::func([ValType::i32()], [ValType::i64()])),
-        ),
-      ]),
-    )
-    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [ValType::i32()],
-          Locals::empty(),
-          TExpr::new([
-            TInstr::block(
-              BlockType::void_(),
-              TExpr::new([
-                TInstr::block(
-                  BlockType::val_type(ValType::i32()),
-                  TExpr::new([
-                    TInstr::block(
-                      BlockType::void_(),
-                      TExpr::new([
-                        TInstr::br(LabelIdx::new(1U), [
-                          TInstr::if_(
-                            BlockType::val_type(ValType::i32()),
-                            TInstr::i32_const(I32(1)),
-                            TExpr::new([
-                              TInstr::if_(
-                                BlockType::val_type(ValType::i32()),
-                                TInstr::i32_const(I32(1)),
-                                TExpr::new([
-                                  TInstr::local_get(LocalIdx::new(0U)),
-                                ]),
-                                Some(
-                                  TExpr::new([TInstr::br(LabelIdx::new(2U), [])]),
-                                ),
-                              ),
-                            ]),
-                            Some(
-                              TExpr::new([TInstr::br(LabelIdx::new(1U), [])]),
-                            ),
-                          ),
-                        ]),
-                      ]),
-                    ),
-                    TInstr::return_([TInstr::i64_const(I64(42L))]),
-                  ]),
-                ),
-                TInstr::return_([TInstr::i64_const(I64(0L))]),
-              ]),
-            ),
-            TInstr::i64_const(I64(1L)),
-          ]),
-        ),
-      ]),
-    )
-  match @validate.validate_module(mod) {
-    Ok(_) => ()
-    Err(e) =>
-      fail(
-        "expected typed branch-payload-if fixture to validate before encode, got \{@validate.validation_error_message(e)}",
-      )
-  }
-  let wasm = match encode_module(mod) {
-    Ok(bytes) => bytes
-    Err(e) => fail("expected branch-payload-if encode success, got \{e}")
-  }
-  let decoded = match decode_module(wasm) {
-    Ok(v) => v
-    Err(e) => fail("expected branch-payload-if decode success, got \{e}")
-  }
-  match @validate.validate_module(decoded) {
-    Ok(_) => ()
-    Err(e) =>
-      fail(
-        "expected typed branch-payload-if fixture to stay valid after encode, got \{@validate.validation_error_message(e)}",
-      )
-  }
-}
-
-///|
 test "encode_module roundtrips raw nested branch ladder that skips later returns" {
   let mod = Module::new()
     .with_type_sec(
@@ -1417,7 +748,7 @@ test "encode_module roundtrips raw nested branch ladder that skips later returns
 }
 
 ///|
-test "encode_module roundtrips pre-lifted nested branch ladder that skips later returns" {
+test "encode_module roundtrips lifted nested branch ladder that skips later returns" {
   let raw_mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -1496,7 +827,7 @@ test "encode_module roundtrips pre-lifted nested branch ladder that skips later 
       ]),
     )
   let env = @validate.Env::new().with_module(raw_mod)
-  let typed_body = match
+  let lifted_body = match
     @validate.to_texpr(
       match raw_mod.code_sec {
         Some(CodeSec([Func(_, expr)])) => expr
@@ -1507,40 +838,42 @@ test "encode_module roundtrips pre-lifted nested branch ladder that skips later 
       .with_labels([[ValType::i64()]])
       .with_return_type(Some([ValType::i64()])),
     ) {
-    Ok(texpr) => texpr
-    Err(e) => fail("expected pre-lift nested branch ladder success, got \{e}")
+    Ok(body) => body
+    Err(e) => fail("expected lift nested branch ladder success, got \{e}")
   }
   let mod = raw_mod.with_code_sec(
-    CodeSec::new([Func::t_func([ValType::i32()], Locals::empty(), typed_body)]),
+    CodeSec::new([
+      Func::new(Locals::empty(), @lib.tinstrs_to_expr(lifted_body)),
+    ]),
   )
   match @validate.validate_module(mod) {
     Ok(_) => ()
     Err(e) =>
       fail(
-        "expected typed nested branch ladder fixture to validate before encode, got \{@validate.validation_error_message(e)}",
+        "expected lifted nested branch ladder fixture to validate before encode, got \{@validate.validation_error_message(e)}",
       )
   }
   let wasm = match encode_module(mod) {
     Ok(bytes) => bytes
     Err(e) =>
-      fail("expected typed nested branch ladder encode success, got \{e}")
+      fail("expected lifted nested branch ladder encode success, got \{e}")
   }
   let decoded = match decode_module(wasm) {
     Ok(v) => v
     Err(e) =>
-      fail("expected typed nested branch ladder decode success, got \{e}")
+      fail("expected lifted nested branch ladder decode success, got \{e}")
   }
   match @validate.validate_module(decoded) {
     Ok(_) => ()
     Err(e) =>
       fail(
-        "expected typed nested branch ladder fixture to stay valid after encode, got \{@validate.validation_error_message(e)}",
+        "expected lifted nested branch ladder fixture to stay valid after encode, got \{@validate.validation_error_message(e)}",
       )
   }
 }
 
 ///|
-test "encode_module roundtrips pre-lifted return branch-payload bypass fixture" {
+test "encode_module roundtrips lifted return branch-payload bypass fixture" {
   let raw_mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -1611,7 +944,7 @@ test "encode_module roundtrips pre-lifted return branch-payload bypass fixture" 
       ]),
     )
   let env = @validate.Env::new().with_module(raw_mod)
-  let typed_main = match
+  let lifted_main = match
     @validate.to_texpr(
       match raw_mod.code_sec {
         Some(CodeSec([_, Func(_, expr)])) => expr
@@ -1622,9 +955,9 @@ test "encode_module roundtrips pre-lifted return branch-payload bypass fixture" 
       .with_labels([[ValType::i64()]])
       .with_return_type(Some([ValType::i64()])),
     ) {
-    Ok(texpr) => texpr
+    Ok(body) => body
     Err(e) =>
-      fail("expected pre-lift return branch-payload bypass success, got \{e}")
+      fail("expected lift return branch-payload bypass success, got \{e}")
   }
   let mod = raw_mod.with_code_sec(
     CodeSec::new([
@@ -1635,41 +968,41 @@ test "encode_module roundtrips pre-lifted return branch-payload bypass fixture" 
           Instruction::drop(),
         ]),
       ),
-      Func::t_func([ValType::i32()], Locals::empty(), typed_main),
+      Func::new(Locals::empty(), @lib.tinstrs_to_expr(lifted_main)),
     ]),
   )
   match @validate.validate_module(mod) {
     Ok(_) => ()
     Err(e) =>
       fail(
-        "expected typed return branch-payload bypass fixture to validate before encode, got \{@validate.validation_error_message(e)}",
+        "expected lifted return branch-payload bypass fixture to validate before encode, got \{@validate.validation_error_message(e)}",
       )
   }
   let wasm = match encode_module(mod) {
     Ok(bytes) => bytes
     Err(e) =>
       fail(
-        "expected typed return branch-payload bypass encode success, got \{e}",
+        "expected lifted return branch-payload bypass encode success, got \{e}",
       )
   }
   let decoded = match decode_module(wasm) {
     Ok(v) => v
     Err(e) =>
       fail(
-        "expected typed return branch-payload bypass decode success, got \{e}",
+        "expected lifted return branch-payload bypass decode success, got \{e}",
       )
   }
   match @validate.validate_module(decoded) {
     Ok(_) => ()
     Err(e) =>
       fail(
-        "expected typed return branch-payload bypass fixture to stay valid after encode, got \{@validate.validation_error_message(e)}",
+        "expected lifted return branch-payload bypass fixture to stay valid after encode, got \{@validate.validation_error_message(e)}",
       )
   }
 }
 
 ///|
-test "encode_module roundtrips pre-lifted type-index loop return branch-payload bypass fixture" {
+test "encode_module roundtrips lifted type-index loop return branch-payload bypass fixture" {
   let raw_mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -1752,7 +1085,7 @@ test "encode_module roundtrips pre-lifted type-index loop return branch-payload 
       )
   }
   let env = @validate.Env::new().with_module(raw_mod)
-  let typed_main = match
+  let lifted_main = match
     @validate.to_texpr(
       match raw_mod.code_sec {
         Some(CodeSec([_, Func(_, expr)])) => expr
@@ -1763,10 +1096,10 @@ test "encode_module roundtrips pre-lifted type-index loop return branch-payload 
       .with_labels([[ValType::i64()]])
       .with_return_type(Some([ValType::i64()])),
     ) {
-    Ok(texpr) => texpr
+    Ok(body) => body
     Err(e) =>
       fail(
-        "expected pre-lift type-index loop return branch-payload bypass success, got \{e}",
+        "expected lift type-index loop return branch-payload bypass success, got \{e}",
       )
   }
   let mod = raw_mod.with_code_sec(
@@ -1778,35 +1111,35 @@ test "encode_module roundtrips pre-lifted type-index loop return branch-payload 
           Instruction::drop(),
         ]),
       ),
-      Func::t_func([ValType::i32()], Locals::empty(), typed_main),
+      Func::new(Locals::empty(), @lib.tinstrs_to_expr(lifted_main)),
     ]),
   )
   match @validate.validate_module(mod) {
     Ok(_) => ()
     Err(e) =>
       fail(
-        "expected typed type-index loop return branch-payload bypass fixture to validate before encode, got \{@validate.validation_error_message(e)}",
+        "expected lifted type-index loop return branch-payload bypass fixture to validate before encode, got \{@validate.validation_error_message(e)}",
       )
   }
   let wasm = match encode_module(mod) {
     Ok(bytes) => bytes
     Err(e) =>
       fail(
-        "expected typed type-index loop return branch-payload bypass encode success, got \{e}",
+        "expected lifted type-index loop return branch-payload bypass encode success, got \{e}",
       )
   }
   let decoded = match decode_module(wasm) {
     Ok(v) => v
     Err(e) =>
       fail(
-        "expected typed type-index loop return branch-payload bypass decode success, got \{e}",
+        "expected lifted type-index loop return branch-payload bypass decode success, got \{e}",
       )
   }
   match @validate.validate_module(decoded) {
     Ok(_) => ()
     Err(e) =>
       fail(
-        "expected typed type-index loop return branch-payload bypass fixture to stay valid after encode, got \{@validate.validation_error_message(e)}",
+        "expected lifted type-index loop return branch-payload bypass fixture to stay valid after encode, got \{@validate.validation_error_message(e)}",
       )
   }
 }

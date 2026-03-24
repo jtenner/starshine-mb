@@ -616,14 +616,6 @@ pub impl Show for Func with output(self, logger) {
       expr.output(logger)
       logger.write_char(')')
     }
-    TFunc(params, ls, texpr) => {
-      let merged_locals = FunctionLocals::new(params, ls).all_locals()
-      logger.write_string("(Func ")
-      merged_locals.output(logger)
-      logger.write_char(' ')
-      texpr.output(logger)
-      logger.write_char(')')
-    }
   }
 }
 

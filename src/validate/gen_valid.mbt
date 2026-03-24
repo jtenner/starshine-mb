@@ -1444,7 +1444,7 @@ fn gen_try_table_tinstr(ctx : GenValidContext) -> TInstr? {
           LabelIdx::new(1U),
         ),
       ],
-      TExpr::new(body_instrs),
+      body_instrs,
     ),
   )
 }
@@ -1675,7 +1675,7 @@ pub fn gen_side_effect_tinstr(
       instrs.push(gen_side_effect_tinstr(ctx, depth + 1))
     }
     ctx.pop_label()
-    Some(TInstr::block(BlockType::void_(), TExpr::new(instrs)))
+    Some(TInstr::block(BlockType::void_(), instrs))
   })
 
   // ------------------------------------------------------------
@@ -1691,7 +1691,7 @@ pub fn gen_side_effect_tinstr(
       )
     }
     ctx.pop_label()
-    Some(TInstr::loop_(BlockType::void_(), TExpr::new(instrs)))
+    Some(TInstr::loop_(BlockType::void_(), instrs))
   })
 
   // ------------------------------------------------------------
@@ -1709,7 +1709,7 @@ pub fn gen_side_effect_tinstr(
       for _ in 0..<(ctx.random_int(2) + 1) {
         else_instrs.push(gen_side_effect_tinstr(ctx, depth + 1))
       }
-      Some(TExpr::new(else_instrs))
+      Some(else_instrs)
     } else {
       None
     }
@@ -1718,7 +1718,7 @@ pub fn gen_side_effect_tinstr(
       TInstr::if_(
         BlockType::void_(),
         cond,
-        TExpr::new(then_instrs),
+        then_instrs,
         else_branch,
       ),
     )
@@ -1879,7 +1879,7 @@ pub fn gen_side_effect_tinstr(
                   LabelIdx::new(1U),
                 ),
               ],
-              TExpr::new([throw_instr]),
+              [throw_instr],
             ),
           )
         None => None
@@ -1968,11 +1968,8 @@ pub fn gen_valid_tfunc(
   }
   ctx.locals = old_locals
   ctx.label_stack = old_labels
-  Func::t_func(
-    accepts,
-    Locals::from_types(all_local_types),
-    TExpr::new(body_instrs),
-  )
+  ignore(accepts)
+  Func::new(Locals::from_types(all_local_types), tinstrs_to_expr(body_instrs))
 }
 
 ///|

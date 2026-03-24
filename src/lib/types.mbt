@@ -415,7 +415,6 @@ pub struct FuncType(Array[ValType], Array[ValType]) derive(Hash, Eq, Debug)
 ///|
 pub enum Func {
   Func(Locals, Expr)
-  TFunc(Array[ValType], Locals, TExpr)
 } derive(Eq, Hash, Debug)
 
 ///|
@@ -1400,14 +1399,6 @@ pub fn ValType::ref_null_array_of(x : TypeIdx) -> ValType {
 }
 
 ///|
-/// A tree-based expression where operands are explicit children rather than implicit stack values.
-/// Each TInstr node contains its consumed operands as children.
-pub struct TExpr {
-  instrs : Array[TInstr]
-  mut hash : Int?
-} derive(Show, Debug)
-
-///|
 /// A tree-based instruction with explicit operands
 pub enum TInstrKind {
   // === Constants (0 children, 1 result) ===
@@ -1500,10 +1491,10 @@ pub enum TInstrKind {
   TReturnCallRef(TypeIdx, Array[TInstr], TInstr)
 
   // === Control flow ===
-  TBlock(BlockType, TExpr)
-  TLoop(BlockType, TExpr)
-  TIf(BlockType, TInstr, TExpr, TExpr?) // condition, then, else
-  TTryTable(BlockType, Array[Catch], TExpr)
+  TBlock(BlockType, Array[TInstr])
+  TLoop(BlockType, Array[TInstr])
+  TIf(BlockType, TInstr, Array[TInstr], Array[TInstr]?) // condition, then, else
+  TTryTable(BlockType, Array[Catch], Array[TInstr])
   TThrow(TagIdx, Array[TInstr])
 
   // === Branches ===
@@ -1631,11 +1622,6 @@ fn tinstr_array_size(instrs : Array[TInstr]) -> Int {
     total += instr.size
   }
   total
-}
-
-///|
-fn texpr_tree_size(expr : TExpr) -> Int {
-  tinstr_array_size(expr.instrs)
 }
 
 ///|
@@ -1772,12 +1758,12 @@ fn tinstr_size(kind : TInstrKind) -> Int {
 
     // Control-flow structures.
     TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      texpr_tree_size(body)
+      tinstr_array_size(body)
     TIf(_, cond, then_body, else_body) =>
       cond.size +
-      texpr_tree_size(then_body) +
+      tinstr_array_size(then_body) +
       (match else_body {
-        Some(other) => texpr_tree_size(other)
+        Some(other) => tinstr_array_size(other)
         None => 0
       })
   })
@@ -5847,12 +5833,12 @@ pub fn TInstr::return_call_ref(
 }
 
 ///|
-pub fn TInstr::block(bt : BlockType, e : TExpr) -> TInstr {
+pub fn TInstr::block(bt : BlockType, e : Array[TInstr]) -> TInstr {
   tinstr(TBlock(bt, e))
 }
 
 ///|
-pub fn TInstr::loop_(bt : BlockType, e : TExpr) -> TInstr {
+pub fn TInstr::loop_(bt : BlockType, e : Array[TInstr]) -> TInstr {
   tinstr(TLoop(bt, e))
 }
 
@@ -5860,14 +5846,18 @@ pub fn TInstr::loop_(bt : BlockType, e : TExpr) -> TInstr {
 pub fn TInstr::if_(
   bt : BlockType,
   i : TInstr,
-  e0 : TExpr,
-  e1_opt : TExpr?,
+  e0 : Array[TInstr],
+  e1_opt : Array[TInstr]?,
 ) -> TInstr {
   tinstr(TIf(bt, i, e0, e1_opt))
 }
 
 ///|
-pub fn TInstr::try_table(bt : BlockType, c : Array[Catch], e : TExpr) -> TInstr {
+pub fn TInstr::try_table(
+  bt : BlockType,
+  c : Array[Catch],
+  e : Array[TInstr],
+) -> TInstr {
   tinstr(TTryTable(bt, c, e))
 }
 
@@ -8830,16 +8820,6 @@ pub fn StartSec::new(fi : FuncIdx) -> StartSec {
 }
 
 ///|
-pub fn TExpr::new(instrs : Array[TInstr]) -> TExpr {
-  { instrs, hash: None }
-}
-
-///|
-pub fn TExpr::inner(self : TExpr) -> Array[TInstr] {
-  self.instrs
-}
-
-///|
 pub impl Eq for TInstr with equal(l, r) {
   if physical_equal(l, r) {
     return true
@@ -8870,33 +8850,6 @@ pub impl Hash for TInstr with hash_combine(self, hasher) {
 }
 
 ///|
-pub impl Eq for TExpr with equal(l, r) {
-  let left_hash = l.hash()
-  let right_hash = r.hash()
-  if left_hash != right_hash {
-    return false
-  }
-  l.instrs == r.instrs
-}
-
-///|
-pub impl Hash for TExpr with hash(self) {
-  match self.hash {
-    Some(cached) => cached
-    None => {
-      let computed = self.instrs.hash()
-      self.hash = Some(computed)
-      computed
-    }
-  }
-}
-
-///|
-pub impl Hash for TExpr with hash_combine(self, hasher) {
-  hasher.combine_int(self.hash())
-}
-
-///|
 pub impl Eq for Locals with equal(l, r) {
   l.runs == r.runs
 }
@@ -8914,15 +8867,6 @@ pub impl Hash for Locals with hash_combine(self, hasher) {
 ///|
 pub fn Func::new(locals : Locals, expr : Expr) -> Func {
   Func(locals, expr)
-}
-
-///|
-pub fn Func::t_func(
-  params : Array[ValType],
-  locals : Locals,
-  expr : TExpr,
-) -> Func {
-  TFunc(params, locals, expr)
 }
 
 ///|

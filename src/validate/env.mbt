@@ -689,8 +689,8 @@ pub fn Env::with_module(self : Env, m : Module) -> Env {
 }
 
 ///|
-/// Convert flat Expr to tree-based TExpr
-pub fn to_texpr(expr : Expr, env : Env) -> Result[TExpr, String] {
+/// Convert flat Expr to tree-based TInstr body form.
+pub fn to_texpr(expr : Expr, env : Env) -> Result[Array[TInstr], String] {
   let stack : Array[TInstr] = []
   for instr in expr.0 {
     match instr_to_tinstr(instr, stack, env) {
@@ -698,7 +698,7 @@ pub fn to_texpr(expr : Expr, env : Env) -> Result[TExpr, String] {
       Err(t) => return Err(t)
     }
   }
-  Ok(TExpr::new(stack))
+  Ok(stack)
 }
 
 ///|
@@ -3133,7 +3133,7 @@ fn instr_to_tinstr(
         Ok(_) => ()
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::block(bt, TExpr::new(body_stack)))
+      stack.push(TInstr::block(bt, body_stack))
     }
     Loop(bt, body) => {
       let n_inputs = block_type_inputs(bt, env)
@@ -3150,7 +3150,7 @@ fn instr_to_tinstr(
         Ok(_) => ()
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::loop_(bt, TExpr::new(body_stack)))
+      stack.push(TInstr::loop_(bt, body_stack))
     }
     If(bt, then_branch, else_branch) => {
       let cond = match pop(stack) {
@@ -3171,7 +3171,7 @@ fn instr_to_tinstr(
         Ok(_) => ()
         Err(t) => return Err(t)
       }
-      let else_texpr : TExpr? = match else_branch {
+      let else_texpr : Array[TInstr]? = match else_branch {
         Some(else_instrs) => {
           let else_stack : Array[TInstr] = []
           for input in inputs {
@@ -3181,11 +3181,11 @@ fn instr_to_tinstr(
             Ok(_) => ()
             Err(t) => return Err(t)
           }
-          Some(TExpr::new(else_stack))
+          Some(else_stack)
         }
         None => None
       }
-      stack.push(TInstr::if_(bt, cond, TExpr::new(then_stack), else_texpr))
+      stack.push(TInstr::if_(bt, cond, then_stack, else_texpr))
     }
     TryTable(bt, catches, body) => {
       let n_inputs = block_type_inputs(bt, env)
@@ -3202,7 +3202,7 @@ fn instr_to_tinstr(
         Ok(_) => ()
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::try_table(bt, catches, TExpr::new(body_stack)))
+      stack.push(TInstr::try_table(bt, catches, body_stack))
     }
     Throw(tag_idx) => {
       let n_args = match env.resolve_tag_functype(tag_idx) {

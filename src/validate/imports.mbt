@@ -10,6 +10,7 @@ using @lib {
   trace_elapsed_us_since,
   trace_now_ms,
   trace_now_us,
+  tinstrs_to_expr,
   type AbsHeapType,
   type AtomicCmpxchgOp,
   type AtomicRmwOp,
@@ -81,7 +82,6 @@ using @lib {
   type TagIdx,
   type TagSec,
   type TagType,
-  type TExpr,
   type TInstr,
   type TInstrKind,
   type TypeMetadata,
@@ -97,9 +97,6 @@ using @lib {
   type V128ShiftOp,
   type V128TernaryOp,
 }
-
-///|
-using @transformer {type ModuleTransformer, type VisitAction, change, unchanged}
 
 ///|
 using @splitmix {type RandomState}

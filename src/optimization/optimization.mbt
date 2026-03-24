@@ -627,12 +627,20 @@ pub fn run_remove_unused_names(
   }
 
   let rewritten_funcs : Array[Func] = []
+  let env = @validate.Env::new().with_module(mod)
+  let imported_func_count = optimization_imported_func_count(mod)
+  let mut func_idx = imported_func_count
   let mut changed = false
   let mut funcs_visited = scratch.funcs_visited
   let mut funcs_changed = scratch.funcs_changed
   for func in funcs {
     funcs_visited += 1
-    let (rewritten, func_changed) = optimization_remove_unused_names_func(func)
+    let (rewritten, func_changed) = optimization_hot_remove_unused_names_func(
+      func,
+      @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+      env,
+    )
+    func_idx += 1
     rewritten_funcs.push(rewritten)
     if func_changed {
       changed = true
@@ -657,429 +665,23 @@ pub fn run_remove_unused_names(
 }
 
 ///|
-const OPTIMIZATION_REMOVE_UNUSED_NAMES_CANDIDATE_FOUND : String = "__remove_unused_names_candidate_found__"
-
-///|
-fn optimization_remove_unused_names_has_candidate_texpr(
-  body : @lib.TExpr,
-) -> Bool {
-  let transformer : ModuleTransformer[Unit, String] = ModuleTransformer::new().on_tinstruction_evt(fn(
-      self,
-      _,
-      instr,
-    ) {
-      match instr.kind {
-        @lib.TLoop(_, _) =>
-          error(OPTIMIZATION_REMOVE_UNUSED_NAMES_CANDIDATE_FOUND)
-        @lib.TBlock(block_type, block_body) =>
-          match block_body.inner() {
-            [child] =>
-              match child.kind {
-                @lib.TBlock(child_type, _) =>
-                  if child_type == block_type {
-                    error(OPTIMIZATION_REMOVE_UNUSED_NAMES_CANDIDATE_FOUND)
-                  } else {
-                    from_walk(self.walk_tinstruction_default((), instr))
-                  }
-                _ => from_walk(self.walk_tinstruction_default((), instr))
-              }
-            _ => from_walk(self.walk_tinstruction_default((), instr))
-          }
-        _ => from_walk(self.walk_tinstruction_default((), instr))
-      }
-    },
-  )
-  match transformer.walk_texpr((), body) {
-    Ok(_) => false
-    Err(err) => err == OPTIMIZATION_REMOVE_UNUSED_NAMES_CANDIDATE_FOUND
-  }
-}
-
-///|
-fn optimization_remove_unused_names_func(func : Func) -> (Func, Bool) {
-  match func {
-    @lib.TFunc(params, locals, body) => {
-      if !optimization_remove_unused_names_has_candidate_texpr(body) {
-        return (func, false)
-      }
-      let min_target_depth_cache : Map[@lib.TExpr, Int] = Map::new()
-      let transformer : ModuleTransformer[Unit, String] = ModuleTransformer::new().on_tinstruction_evt(fn(
-          self,
-          _,
-          instr,
-        ) {
-          let (walked, _) = self.walk_tinstruction_default((), instr).unwrap()
-          let rewritten = match walked.kind {
-            @lib.TBlock(block_type, block_body) => {
-              let (removed_scopes, peeled_body) = optimization_remove_unused_names_peel_same_typed_blocks(
-                block_type, block_body,
-              )
-              if removed_scopes > 0 {
-                match
-                  optimization_remove_unused_names_has_branch_to_removed_scope(
-                    peeled_body, removed_scopes, min_target_depth_cache,
-                  ) {
-                  Ok(true) => walked
-                  Ok(false) =>
-                    match
-                      optimization_remove_unused_names_rebase_labels(
-                        peeled_body, removed_scopes,
-                      ) {
-                      Ok(rebased) => @lib.TInstr::block(block_type, rebased)
-                      Err(_) => walked
-                    }
-                  Err(_) => walked
-                }
-              } else {
-                walked
-              }
-            }
-            @lib.TLoop(block_type, loop_body) =>
-              match
-                optimization_remove_unused_names_has_branch_to_current_scope(
-                  loop_body, min_target_depth_cache,
-                ) {
-                Ok(true) => walked
-                Ok(false) => @lib.TInstr::block(block_type, loop_body)
-                Err(_) => walked
-              }
-            _ => walked
-          }
-          if rewritten == instr {
-            unchanged()
-          } else {
-            change((), rewritten)
-          }
-        },
-      )
-      match transformer.walk_texpr((), body) {
-        Ok((rewritten_body, _)) =>
-          if rewritten_body == body {
-            (func, false)
-          } else {
-            (@lib.Func::t_func(params, locals, rewritten_body), true)
-          }
-        Err(_) => (func, false)
-      }
-    }
-    _ => (func, false)
-  }
-}
-
-///|
-fn optimization_remove_unused_names_peel_same_typed_blocks(
-  block_type : @lib.BlockType,
-  body : @lib.TExpr,
-) -> (Int, @lib.TExpr) {
-  let mut removed_scopes = 0
-  let mut current = body
-  while true {
-    match current.inner() {
-      [child] =>
-        match child.kind {
-          @lib.TBlock(child_type, child_body) if child_type == block_type => {
-            removed_scopes += 1
-            current = child_body
-          }
-          _ => break
-        }
-      _ => break
-    }
-  }
-  (removed_scopes, current)
-}
-
-///|
-fn optimization_remove_unused_names_walk_tinstruction_with_depth(
-  transformer : ModuleTransformer[Int, String],
-  depth : Int,
-  instr : @lib.TInstr,
-) -> VisitAction[Int, @lib.TInstr, String] {
-  match instr.kind {
-    @lib.TBlock(block_type, body) => {
-      let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok((rewritten, _)) => rewritten
-        Err(err) => return error(err)
-      }
-      if next_body == body {
-        unchanged()
-      } else {
-        change(depth, @lib.TInstr::block(block_type, next_body))
-      }
-    }
-    @lib.TLoop(block_type, body) => {
-      let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok((rewritten, _)) => rewritten
-        Err(err) => return error(err)
-      }
-      if next_body == body {
-        unchanged()
-      } else {
-        change(depth, @lib.TInstr::loop_(block_type, next_body))
-      }
-    }
-    @lib.TIf(block_type, cond, then_body, else_body) => {
-      let next_cond = match transformer.walk_tinstruction(depth, cond) {
-        Ok((rewritten, _)) => rewritten
-        Err(err) => return error(err)
-      }
-      let next_then = match transformer.walk_texpr(depth + 1, then_body) {
-        Ok((rewritten, _)) => rewritten
-        Err(err) => return error(err)
-      }
-      let next_else = match else_body {
-        Some(other) =>
-          match transformer.walk_texpr(depth + 1, other) {
-            Ok((rewritten, _)) => Some(rewritten)
-            Err(err) => return error(err)
-          }
-        None => None
-      }
-      let next_instr = @lib.TInstr::if_(
-        block_type, next_cond, next_then, next_else,
-      )
-      if next_instr == instr {
-        unchanged()
-      } else {
-        change(depth, next_instr)
-      }
-    }
-    @lib.TTryTable(block_type, catches, body) => {
-      let next_catches = match
-        transformer.walk_array(
-          depth + 1,
-          ModuleTransformer::walk_catch,
-          catches,
-        ) {
-        Ok((rewritten, _)) => rewritten
-        Err(err) => return error(err)
-      }
-      let next_body = match transformer.walk_texpr(depth + 1, body) {
-        Ok((rewritten, _)) => rewritten
-        Err(err) => return error(err)
-      }
-      let next_instr = @lib.TInstr::try_table(
-        block_type, next_catches, next_body,
-      )
-      if next_instr == instr {
-        unchanged()
-      } else {
-        change(depth, next_instr)
-      }
-    }
-    _ => from_walk(transformer.walk_tinstruction_default(depth, instr))
-  }
-}
-
-///|
-fn optimization_remove_unused_names_rebase_label(
-  label : @lib.LabelIdx,
-  depth : Int,
-  removed_scopes : Int,
-) -> @lib.LabelIdx {
-  if removed_scopes <= 0 {
-    return label
-  }
-  let @lib.LabelIdx(raw_label) = label
-  let label_depth = raw_label.reinterpret_as_int()
-  if label_depth < depth {
-    label
-  } else if label_depth <= depth + removed_scopes {
-    @lib.LabelIdx::new(depth.reinterpret_as_uint())
-  } else {
-    @lib.LabelIdx::new((label_depth - removed_scopes).reinterpret_as_uint())
-  }
-}
-
-///|
-fn optimization_remove_unused_names_label_depth(label : @lib.LabelIdx) -> Int {
-  let @lib.LabelIdx(raw_label) = label
-  raw_label.reinterpret_as_int()
-}
-
-///|
-fn optimization_remove_unused_names_min_target_depth_min(
-  lhs : Int,
-  rhs : Int,
-) -> Int {
-  if lhs < 0 {
-    rhs
-  } else if rhs < 0 {
-    lhs
-  } else if lhs < rhs {
-    lhs
-  } else {
-    rhs
-  }
-}
-
-///|
-fn optimization_remove_unused_names_min_target_depth_parent(depth : Int) -> Int {
-  if depth <= 0 {
-    -1
-  } else {
-    depth - 1
-  }
-}
-
-///|
-fn optimization_remove_unused_names_min_target_depth_tinstr(
-  instr : @lib.TInstr,
-  cache : Map[@lib.TExpr, Int],
-) -> Int {
-  let min_depth = Ref::new(-1)
-  let note_depth = fn(depth : Int) {
-    min_depth.val = optimization_remove_unused_names_min_target_depth_min(
-      min_depth.val,
-      depth,
-    )
-  }
-  let transformer : ModuleTransformer[Int, String] = ModuleTransformer::new()
-    .on_labelidx_evt(fn(_, _, label) {
-      note_depth(optimization_remove_unused_names_label_depth(label))
-      unchanged()
-    })
-    .on_tinstruction_evt(fn(self, depth, curr) {
-      match curr.kind {
-        @lib.TBlock(_, body) | @lib.TLoop(_, body) => {
-          note_depth(
-            optimization_remove_unused_names_min_target_depth_parent(
-              optimization_remove_unused_names_min_target_depth_texpr(
-                body, cache,
-              ),
-            ),
-          )
-          unchanged()
-        }
-        @lib.TIf(_, cond, then_body, else_body) => {
-          note_depth(
-            optimization_remove_unused_names_min_target_depth_tinstr(
-              cond, cache,
-            ),
-          )
-          note_depth(
-            optimization_remove_unused_names_min_target_depth_parent(
-              optimization_remove_unused_names_min_target_depth_texpr(
-                then_body, cache,
-              ),
-            ),
-          )
-          match else_body {
-            Some(other) =>
-              note_depth(
-                optimization_remove_unused_names_min_target_depth_parent(
-                  optimization_remove_unused_names_min_target_depth_texpr(
-                    other, cache,
-                  ),
-                ),
-              )
-            None => ()
-          }
-          unchanged()
-        }
-        @lib.TTryTable(_, catches, body) => {
-          note_depth(
-            optimization_remove_unused_names_min_target_depth_parent(
-              optimization_remove_unused_names_min_target_depth_texpr(
-                body, cache,
-              ),
-            ),
-          )
-          for catch_ in catches {
-            let label = match catch_ {
-              @lib.Catch(_, label)
-              | @lib.CatchRef(_, label)
-              | @lib.CatchAll(label)
-              | @lib.CatchAllRef(label) => label
-            }
-            note_depth(
-              optimization_remove_unused_names_min_target_depth_parent(
-                optimization_remove_unused_names_label_depth(label),
-              ),
-            )
-          }
-          unchanged()
-        }
-        _ => from_walk(self.walk_tinstruction_default(depth, curr))
-      }
-    })
-  ignore(transformer.walk_tinstruction(0, instr))
-  min_depth.val
-}
-
-///|
-fn optimization_remove_unused_names_min_target_depth_texpr(
-  body : @lib.TExpr,
-  cache : Map[@lib.TExpr, Int],
-) -> Int {
-  match cache.get(body) {
-    Some(depth) => depth
-    None => {
-      let mut min_depth = -1
-      for instr in body.inner() {
-        min_depth = optimization_remove_unused_names_min_target_depth_min(
-          min_depth,
-          optimization_remove_unused_names_min_target_depth_tinstr(instr, cache),
-        )
-      }
-      cache.set(body, min_depth)
-      min_depth
-    }
-  }
-}
-
-///|
-fn optimization_remove_unused_names_has_branch_to_removed_scope(
-  body : @lib.TExpr,
-  removed_scopes : Int,
-  cache : Map[@lib.TExpr, Int],
-) -> Result[Bool, String] {
-  let min_depth = optimization_remove_unused_names_min_target_depth_texpr(
-    body, cache,
-  )
-  Ok(min_depth >= 0 && min_depth < removed_scopes)
-}
-
-///|
-fn optimization_remove_unused_names_has_branch_to_current_scope(
-  body : @lib.TExpr,
-  cache : Map[@lib.TExpr, Int],
-) -> Result[Bool, String] {
-  Ok(optimization_remove_unused_names_min_target_depth_texpr(body, cache) == 0)
-}
-
-///|
-fn optimization_remove_unused_names_rebase_labels(
-  body : @lib.TExpr,
-  removed_scopes : Int,
-) -> Result[@lib.TExpr, String] {
-  if removed_scopes <= 0 {
-    return Ok(body)
-  }
-  let transformer : ModuleTransformer[Int, String] = ModuleTransformer::new()
-    .on_labelidx_evt(fn(_, depth, label) {
-      let next = optimization_remove_unused_names_rebase_label(
-        label, depth, removed_scopes,
-      )
-      if next == label {
-        unchanged()
-      } else {
-        change(depth, next)
-      }
-    })
-    .on_tinstruction_evt(fn(self, depth, instr) {
-      optimization_remove_unused_names_walk_tinstruction_with_depth(
-        self, depth, instr,
-      )
-    })
-  match transformer.walk_texpr(0, body) {
-    Ok((rewritten, _)) => Ok(rewritten)
-    Err(err) => Err(err)
-  }
-}
-
-///|
 fn optimization_dead_code_elimination_func(
+  func : Func,
+  env : @validate.Env,
+) -> (Func, Bool) {
+  let (base_rewritten, base_changed) = optimization_dead_code_elimination_func_base(
+    func,
+    env,
+  )
+  let (context_rewritten, context_changed) = optimization_dead_code_elimination_func_context(
+    base_rewritten,
+    env,
+  )
+  (context_rewritten, base_changed || context_changed)
+}
+
+///|
+fn optimization_dead_code_elimination_func_base(
   func : Func,
   env : @validate.Env,
 ) -> (Func, Bool) {
@@ -1087,25 +689,34 @@ fn optimization_dead_code_elimination_func(
     @lib.TFunc(params, locals, body) => {
       let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
         .on_texpr_evt(fn(self, _, expr) {
-          let (rewritten, _) = self.walk_texpr_default((), expr).unwrap()
-          change(
-            (),
-            @lib.TExpr::new(
-              optimization_dead_code_elimination_truncate_after_first_unreachable(
-                rewritten.inner(),
-                env,
-              ),
-            ),
+          let rewritten = match self.walk_texpr_default((), expr) {
+            Ok((rewritten, _)) => rewritten
+            Err(_) => expr
+          }
+          let truncated = optimization_dead_code_elimination_truncate_after_first_unreachable(
+            rewritten.inner(),
+            env,
           )
+          if truncated == expr.inner() {
+            unchanged()
+          } else {
+            change((), @lib.TExpr::new(truncated))
+          }
         })
         .on_tinstruction_evt(fn(self, _, instr) {
-          let (rewritten, _) = self
-            .walk_tinstruction_default((), instr)
-            .unwrap()
-          change(
-            (),
-            optimization_dead_code_elimination_rewrite_instr(rewritten, env),
+          let walked = match self.walk_tinstruction_default((), instr) {
+            Ok((walked, _)) => walked
+            Err(_) => instr
+          }
+          let rewritten = optimization_dead_code_elimination_rewrite_instr(
+            walked,
+            env,
           )
+          if rewritten == instr {
+            unchanged()
+          } else {
+            change((), rewritten)
+          }
         })
       match transformer.walk_texpr((), body) {
         Ok((rewritten_body, _)) =>
@@ -1118,6 +729,267 @@ fn optimization_dead_code_elimination_func(
       }
     }
     _ => (func, false)
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_func_context(
+  func : Func,
+  env : @validate.Env,
+) -> (Func, Bool) {
+  match func {
+    @lib.TFunc(params, locals, body) => {
+      let live_break_to_current_label_cache : Map[@lib.TExpr, Bool] = Map::new()
+      let transformer : ModuleTransformer[Bool, Unit] = ModuleTransformer::new()
+        .on_texpr_evt(fn(self, dead_result, expr) {
+          optimization_dead_code_elimination_walk_dead_expr(
+            self,
+            dead_result,
+            expr,
+          )
+        })
+        .on_tinstruction_evt(fn(self, dead_result, instr) {
+          match instr.kind {
+            @lib.TDrop(child) => {
+              let rewritten_child = match self.walk_tinstruction(true, child) {
+                Ok((rewritten_child, _)) => rewritten_child
+                Err(_) => child
+              }
+              let rewritten = if
+                optimization_dead_code_elimination_instr_is_strict_terminal(
+                  rewritten_child,
+                ) {
+                rewritten_child
+              } else {
+                @lib.TInstr::drop(rewritten_child)
+              }
+              optimization_dead_code_elimination_finish_walk_instr(
+                dead_result,
+                instr,
+                rewritten,
+              )
+            }
+            @lib.TBlock(block_type, body) => {
+              let retag_to_void = dead_result &&
+                optimization_dead_code_elimination_can_retag_blocktype_to_void(
+                  block_type,
+                  env,
+                ) &&
+                !optimization_dead_code_elimination_expr_has_live_break_to_current_label_cached(
+                  body,
+                  live_break_to_current_label_cache,
+                )
+              let rewritten_body = match self.walk_texpr(retag_to_void, body) {
+                Ok((rewritten_body, _)) => rewritten_body
+                Err(_) => body
+              }
+              let rewritten = optimization_dead_code_elimination_rewrite_block(
+                if retag_to_void {
+                  @lib.BlockType::void_()
+                } else {
+                  block_type
+                },
+                rewritten_body,
+                env,
+              )
+              optimization_dead_code_elimination_finish_walk_instr(
+                dead_result,
+                instr,
+                rewritten,
+              )
+            }
+            @lib.TIf(block_type, cond, then_body, else_body) => {
+              let rewritten_cond = match self.walk_tinstruction(false, cond) {
+                Ok((rewritten_cond, _)) => rewritten_cond
+                Err(_) => cond
+              }
+              let has_voidable_else = match else_body {
+                Some(else_body) =>
+                  !optimization_dead_code_elimination_expr_has_live_break_to_current_label_cached(
+                    then_body,
+                    live_break_to_current_label_cache,
+                  ) &&
+                  !optimization_dead_code_elimination_expr_has_live_break_to_current_label_cached(
+                    else_body,
+                    live_break_to_current_label_cache,
+                  )
+                None => false
+              }
+              let retag_to_void = dead_result &&
+                optimization_dead_code_elimination_can_retag_blocktype_to_void(
+                  block_type,
+                  env,
+                ) &&
+                has_voidable_else
+              let rewritten_then = match self.walk_texpr(retag_to_void, then_body) {
+                Ok((rewritten_then, _)) => rewritten_then
+                Err(_) => then_body
+              }
+              let rewritten_else = match else_body {
+                Some(else_body) =>
+                  match self.walk_texpr(retag_to_void, else_body) {
+                    Ok((rewritten_else, _)) => Some(rewritten_else)
+                    Err(_) => Some(else_body)
+                  }
+                None => None
+              }
+              let rewritten = optimization_dead_code_elimination_rewrite_if(
+                if retag_to_void {
+                  @lib.BlockType::void_()
+                } else {
+                  block_type
+                },
+                rewritten_cond,
+                rewritten_then,
+                rewritten_else,
+                env,
+              )
+              optimization_dead_code_elimination_finish_walk_instr(
+                dead_result,
+                instr,
+                rewritten,
+              )
+            }
+            @lib.TLoop(block_type, body) => {
+              let retag_to_void = dead_result &&
+                optimization_dead_code_elimination_can_retag_blocktype_to_void(
+                  block_type,
+                  env,
+                )
+              let rewritten_body = match self.walk_texpr(false, body) {
+                Ok((rewritten_body, _)) => rewritten_body
+                Err(_) => body
+              }
+              let rewritten = optimization_dead_code_elimination_rewrite_loop(
+                if retag_to_void {
+                  @lib.BlockType::void_()
+                } else {
+                  block_type
+                },
+                rewritten_body,
+              )
+              optimization_dead_code_elimination_finish_walk_instr(
+                dead_result,
+                instr,
+                rewritten,
+              )
+            }
+            @lib.TTryTable(block_type, catches, body) => {
+              let retag_to_void = dead_result &&
+                optimization_dead_code_elimination_can_retag_blocktype_to_void(
+                  block_type,
+                  env,
+                ) &&
+                !optimization_dead_code_elimination_expr_has_live_break_to_current_label_cached(
+                  body,
+                  live_break_to_current_label_cache,
+                )
+              let rewritten_body = match self.walk_texpr(false, body) {
+                Ok((rewritten_body, _)) => rewritten_body
+                Err(_) => body
+              }
+              let rewritten = optimization_dead_code_elimination_rewrite_try_table(
+                if retag_to_void {
+                  @lib.BlockType::void_()
+                } else {
+                  block_type
+                },
+                catches,
+                rewritten_body,
+                env,
+              )
+              optimization_dead_code_elimination_finish_walk_instr(
+                dead_result,
+                instr,
+                rewritten,
+              )
+            }
+            _ => mutate(false)
+          }
+        })
+      match transformer.walk_texpr(false, body) {
+        Ok((rewritten_body, _)) =>
+          if rewritten_body == body {
+            (func, false)
+          } else {
+            (@lib.Func::t_func(params, locals, rewritten_body), true)
+          }
+        Err(_) => (func, false)
+      }
+    }
+    _ => (func, false)
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_finish_walk_instr(
+  dead_result : Bool,
+  instr : @lib.TInstr,
+  rewritten : @lib.TInstr,
+) -> VisitAction[Bool, @lib.TInstr, Unit] {
+  if rewritten == instr {
+    unchanged()
+  } else {
+    change(dead_result, rewritten)
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_walk_dead_expr(
+  transformer : ModuleTransformer[Bool, Unit],
+  dead_result : Bool,
+  expr : @lib.TExpr,
+) -> VisitAction[Bool, @lib.TExpr, Unit] {
+  let instrs = expr.inner()
+  if instrs.length() == 0 {
+    return unchanged()
+  }
+  let last_idx = instrs.length() - 1
+  let mut changed = false
+  let mut rewritten : Array[@lib.TInstr]? = None
+  for i in 0..<instrs.length() {
+    let child_dead_result = dead_result && i == last_idx
+    let rewritten_instr = match
+      transformer.walk_tinstruction(child_dead_result, instrs[i]) {
+      Ok((rewritten_instr, _)) => rewritten_instr
+      Err(_) => instrs[i]
+    }
+    let truncates_tail = i < last_idx &&
+      optimization_dead_code_elimination_instr_is_strict_terminal(
+        rewritten_instr,
+      )
+    if rewritten is None && (rewritten_instr != instrs[i] || truncates_tail) {
+      let out : Array[@lib.TInstr] = []
+      for j in 0..<i {
+        out.push(instrs[j])
+      }
+      rewritten = Some(out)
+      changed = true
+    }
+    match rewritten {
+      Some(out) => {
+        out.push(rewritten_instr)
+        if truncates_tail {
+          return change(dead_result, @lib.TExpr::new(out))
+        }
+      }
+      None =>
+        if truncates_tail {
+          let out : Array[@lib.TInstr] = []
+          for j in 0..=i {
+            out.push(instrs[j])
+          }
+          return change(dead_result, @lib.TExpr::new(out))
+        }
+    }
+  }
+  if changed {
+    match rewritten {
+      Some(rewritten) => change(dead_result, @lib.TExpr::new(rewritten))
+      None => unchanged()
+    }
+  } else {
+    unchanged()
   }
 }
 
@@ -1545,6 +1417,30 @@ fn optimization_dead_code_elimination_block_type_has_dead_result(
 }
 
 ///|
+fn optimization_dead_code_elimination_drop_dead_structured_result(
+  instr : @lib.TInstr,
+  env : @validate.Env,
+) -> @lib.TInstr {
+  let _ = env
+  instr
+}
+
+///|
+fn optimization_dead_code_elimination_can_retag_blocktype_to_void(
+  block_type : @lib.BlockType,
+  env : @validate.Env,
+) -> Bool {
+  match env.expand_blocktype(block_type) {
+    Ok((params, results)) => params.length() == 0 && results.length() > 0
+    Err(_) =>
+      match block_type {
+        @lib.ValTypeBlockType(_) => true
+        _ => false
+      }
+  }
+}
+
+///|
 fn optimization_dead_code_elimination_if_is_unreachable(
   cond : @lib.TInstr,
   then_body : @lib.TExpr,
@@ -1558,6 +1454,24 @@ fn optimization_dead_code_elimination_if_is_unreachable(
       optimization_dead_code_elimination_expr_is_unreachable(then_body) &&
       optimization_dead_code_elimination_expr_is_unreachable(else_body)
     None => false
+  }
+}
+
+///|
+fn optimization_dead_code_elimination_expr_has_live_break_to_current_label_cached(
+  expr : @lib.TExpr,
+  cache : Map[@lib.TExpr, Bool],
+) -> Bool {
+  match cache.get(expr) {
+    Some(has_live_break) => has_live_break
+    None => {
+      let has_live_break = optimization_dead_code_elimination_expr_has_live_break_to_label(
+        expr,
+        0,
+      )
+      cache.set(expr, has_live_break)
+      has_live_break
+    }
   }
 }
 
@@ -2385,111 +2299,16 @@ fn optimization_dead_code_elimination_truncate_after_first_unreachable(
   env : @validate.Env,
 ) -> Array[@lib.TInstr] {
   let _ = env
-  instrs
-}
-
-///|
-fn optimization_dead_code_elimination_drop_dead_structured_result(
-  instr : @lib.TInstr,
-  env : @validate.Env,
-) -> @lib.TInstr {
-  let _ = env
-  instr
-}
-
-///|
-fn optimization_dead_code_elimination_drop_dead_terminal_expr_result(
-  expr : @lib.TExpr,
-  env : @validate.Env,
-) -> @lib.TExpr {
-  let instrs = expr.inner()
-  if instrs.length() == 0 {
-    return expr
+  let kept : Array[@lib.TInstr] = []
+  for instr in instrs {
+    kept.push(instr)
+    if optimization_dead_code_elimination_instr_is_strict_terminal(instr) {
+      return kept
+    }
   }
-  let rewritten : Array[@lib.TInstr] = []
-  for i in 0..<instrs.length() {
-    rewritten.push(
-      if i == instrs.length() - 1 {
-        optimization_dead_code_elimination_drop_dead_structured_result(
-          instrs[i],
-          env,
-        )
-      } else {
-        instrs[i]
-      },
-    )
-  }
-  @lib.TExpr::new(rewritten)
+  kept
 }
 
-///|
-fn optimization_dead_code_elimination_instr_needs_unreachable_barrier(
-  instr : @lib.TInstr,
-) -> Bool {
-  match instr.kind {
-    @lib.TTryTable(_, _, body) =>
-      optimization_dead_code_elimination_try_table_is_unreachable(body)
-    @lib.TIf(_, cond, then_body, else_body) =>
-      optimization_dead_code_elimination_if_is_unreachable(
-        cond, then_body, else_body,
-      )
-    @lib.TBlock(block_type, body) =>
-      optimization_dead_code_elimination_block_escapes_parent(block_type, body)
-    _ => false
-  }
-}
-
-///|
-fn optimization_dead_code_elimination_instr_self_consumes_dead_result(
-  instr : @lib.TInstr,
-  env : @validate.Env,
-) -> Bool {
-  match instr.kind {
-    @lib.TUnreachable
-    | @lib.TReturn(_)
-    | @lib.TReturnCall(_, _)
-    | @lib.TReturnCallIndirect(_, _, _, _)
-    | @lib.TReturnCallRef(_, _, _)
-    | @lib.TThrow(_, _)
-    | @lib.TThrowRef(_)
-    | @lib.TBr(_, _)
-    | @lib.TBrTable(_, _, _, _) => true
-    @lib.TDrop(_)
-    | @lib.TLocalSet(_, _)
-    | @lib.TGlobalSet(_, _)
-    | @lib.TStore(_, _, _, _) => true
-    @lib.TBlock(block_type, _)
-    | @lib.TLoop(block_type, _)
-    | @lib.TTryTable(block_type, _, _)
-    | @lib.TIf(block_type, _, _, _) =>
-      !optimization_dead_code_elimination_block_type_has_dead_result(
-        block_type,
-        env,
-      )
-    _ => false
-  }
-}
-
-///|
-fn optimization_dead_code_elimination_instr_terminates_current_expr(
-  instr : @lib.TInstr,
-) -> Bool {
-  match instr.kind {
-    @lib.TUnreachable
-    | @lib.TReturn(_)
-    | @lib.TReturnCall(_, _)
-    | @lib.TReturnCallIndirect(_, _, _, _)
-    | @lib.TReturnCallRef(_, _, _)
-    | @lib.TThrow(_, _)
-    | @lib.TThrowRef(_)
-    | @lib.TBr(_, _)
-    | @lib.TBrTable(_, _, _, _) =>
-      !optimization_dead_code_elimination_instr_pre_effects_may_escape(instr)
-    _ => false
-  }
-}
-
-///|
 fn optimization_dead_code_elimination_instr_is_unreachable(
   instr : @lib.TInstr,
 ) -> Bool {
@@ -3439,52 +3258,11 @@ fn optimization_string_gathering_collect_existing_globals(
 ///|
 fn optimization_string_gathering_rewrite_func(
   func : @lib.Func,
+  func_idx : @lib.FuncIdx,
+  env : @validate.Env,
   canonicals : Array[(Bytes, @lib.GlobalIdx)],
 ) -> (@lib.Func, Bool) {
-  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
-    .on_instruction_evt(fn(self, _, instr) {
-      match instr {
-        @lib.StringConst(bytes) =>
-          match optimization_string_gathering_lookup_global(canonicals, bytes) {
-            Some(global_idx) =>
-              change((), @lib.Instruction::global_get(global_idx))
-            None => from_walk(self.walk_instruction_default((), instr))
-          }
-        _ => from_walk(self.walk_instruction_default((), instr))
-      }
-    })
-    .on_tinstruction_evt(fn(self, _, instr) {
-      match instr.kind {
-        @lib.TStringConst(bytes) =>
-          match optimization_string_gathering_lookup_global(canonicals, bytes) {
-            Some(global_idx) => change((), @lib.TInstr::global_get(global_idx))
-            None => from_walk(self.walk_tinstruction_default((), instr))
-          }
-        _ => from_walk(self.walk_tinstruction_default((), instr))
-      }
-    })
-  match func {
-    @lib.Func(locals, body) =>
-      match transformer.walk_expr((), body) {
-        Ok((rewritten_body, _)) =>
-          if rewritten_body == body {
-            (func, false)
-          } else {
-            (@lib.Func::new(locals, rewritten_body), true)
-          }
-        Err(_) => (func, false)
-      }
-    @lib.TFunc(params, locals, body) =>
-      match transformer.walk_texpr((), body) {
-        Ok((rewritten_body, _)) =>
-          if rewritten_body == body {
-            (func, false)
-          } else {
-            (@lib.Func::t_func(params, locals, rewritten_body), true)
-          }
-        Err(_) => (func, false)
-      }
-  }
+  optimization_hot_string_gathering_rewrite_func(func, func_idx, env, canonicals)
 }
 
 ///|
@@ -3502,12 +3280,19 @@ pub fn run_string_gathering(
   }
   match mod.code_sec {
     Some(@lib.CodeSec(funcs)) => {
+      let env = @validate.Env::new().with_module(mod)
+      let imported_func_count = optimization_imported_func_count(mod)
+      let mut func_idx = imported_func_count
       let rewritten_funcs : Array[@lib.Func] = []
       let mut changed = false
       for func in funcs {
         let (rewritten, func_changed) = optimization_string_gathering_rewrite_func(
-          func, canonicals,
+          func,
+          @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+          env,
+          canonicals,
         )
+        func_idx += 1
         rewritten_funcs.push(rewritten)
         if func_changed {
           changed = true
@@ -6703,6 +6488,1059 @@ fn optimization_func_has_annotation(
 }
 
 ///|
+struct OptimizationBoundaryRemap {
+  type_remap : Map[UInt, UInt]?
+  func_remap : Map[UInt, UInt]?
+  table_remap : Map[UInt, UInt]?
+  memory_remap : Map[UInt, UInt]?
+  global_remap : Map[UInt, UInt]?
+  tag_remap : Map[UInt, UInt]?
+  elem_remap : Map[UInt, UInt]?
+  data_remap : Map[UInt, UInt]?
+}
+
+///|
+fn optimization_rewrite_type_idx_with_remap(
+  remap : OptimizationBoundaryRemap,
+  idx : TypeIdx,
+) -> TypeIdx {
+  match (remap.type_remap, idx) {
+    (Some(type_remap), TypeIdx(raw)) =>
+      TypeIdx::new(type_remap.get(raw).unwrap_or(raw))
+    (_, RecIdx(raw)) => TypeIdx::rec(raw)
+    _ => idx
+  }
+}
+
+///|
+fn optimization_rewrite_func_idx_with_remap(
+  remap : OptimizationBoundaryRemap,
+  idx : FuncIdx,
+) -> FuncIdx {
+  let FuncIdx(raw) = idx
+  match remap.func_remap {
+    Some(func_remap) => FuncIdx::new(func_remap.get(raw).unwrap_or(raw))
+    None => idx
+  }
+}
+
+///|
+fn optimization_rewrite_table_idx_with_remap(
+  remap : OptimizationBoundaryRemap,
+  idx : TableIdx,
+) -> TableIdx {
+  let TableIdx(raw) = idx
+  match remap.table_remap {
+    Some(table_remap) => TableIdx::new(table_remap.get(raw).unwrap_or(raw))
+    None => idx
+  }
+}
+
+///|
+fn optimization_rewrite_mem_idx_with_remap(
+  remap : OptimizationBoundaryRemap,
+  idx : MemIdx,
+) -> MemIdx {
+  let MemIdx(raw) = idx
+  match remap.memory_remap {
+    Some(memory_remap) => MemIdx::new(memory_remap.get(raw).unwrap_or(raw))
+    None => idx
+  }
+}
+
+///|
+fn optimization_rewrite_global_idx_with_remap(
+  remap : OptimizationBoundaryRemap,
+  idx : GlobalIdx,
+) -> GlobalIdx {
+  let GlobalIdx(raw) = idx
+  match remap.global_remap {
+    Some(global_remap) => GlobalIdx::new(global_remap.get(raw).unwrap_or(raw))
+    None => idx
+  }
+}
+
+///|
+fn optimization_rewrite_tag_idx_with_remap(
+  remap : OptimizationBoundaryRemap,
+  idx : TagIdx,
+) -> TagIdx {
+  let TagIdx(raw) = idx
+  match remap.tag_remap {
+    Some(tag_remap) => TagIdx::new(tag_remap.get(raw).unwrap_or(raw))
+    None => idx
+  }
+}
+
+///|
+fn optimization_rewrite_elem_idx_with_remap(
+  remap : OptimizationBoundaryRemap,
+  idx : ElemIdx,
+) -> ElemIdx {
+  let ElemIdx(raw) = idx
+  match remap.elem_remap {
+    Some(elem_remap) => ElemIdx::new(elem_remap.get(raw).unwrap_or(raw))
+    None => idx
+  }
+}
+
+///|
+fn optimization_rewrite_data_idx_with_remap(
+  remap : OptimizationBoundaryRemap,
+  idx : DataIdx,
+) -> DataIdx {
+  let DataIdx(raw) = idx
+  match remap.data_remap {
+    Some(data_remap) => DataIdx::new(data_remap.get(raw).unwrap_or(raw))
+    None => idx
+  }
+}
+
+///|
+fn optimization_rewrite_type_metadata_with_remap(
+  remap : OptimizationBoundaryRemap,
+  meta : TypeMetadata,
+) -> TypeMetadata {
+  let { describes, descriptor } = meta
+  TypeMetadata::new(
+    describes=match describes {
+      Some(idx) => Some(optimization_rewrite_type_idx_with_remap(remap, idx))
+      None => None
+    },
+    descriptor=match descriptor {
+      Some(idx) => Some(optimization_rewrite_type_idx_with_remap(remap, idx))
+      None => None
+    },
+  )
+}
+
+///|
+fn optimization_rewrite_heap_type_with_remap(
+  remap : OptimizationBoundaryRemap,
+  ht : HeapType,
+) -> HeapType {
+  match ht {
+    AbsHeapTypeHeapType(_) => ht
+    HeapType(idx) =>
+      HeapType::new(optimization_rewrite_type_idx_with_remap(remap, idx))
+    DefTypeHeapType(DefType(rec_type, nth)) =>
+      HeapType::def_type(
+        DefType::new(
+          optimization_rewrite_rec_type_with_remap(remap, rec_type),
+          nth,
+        ),
+      )
+  }
+}
+
+///|
+fn optimization_rewrite_ref_type_with_remap(
+  remap : OptimizationBoundaryRemap,
+  rt : RefType,
+) -> RefType {
+  match rt {
+    HeapTypeRefType(nullable, exact, ht) =>
+      RefType::new(
+        nullable,
+        optimization_rewrite_heap_type_with_remap(remap, ht),
+        exact=exact,
+      )
+    AbsHeapTypeRefType(_) => rt
+  }
+}
+
+///|
+fn optimization_rewrite_val_type_with_remap(
+  remap : OptimizationBoundaryRemap,
+  vt : ValType,
+) -> ValType {
+  match vt {
+    RefTypeValType(rt) =>
+      ValType::ref_type(optimization_rewrite_ref_type_with_remap(remap, rt))
+    _ => vt
+  }
+}
+
+///|
+fn optimization_rewrite_storage_type_with_remap(
+  remap : OptimizationBoundaryRemap,
+  st : StorageType,
+) -> StorageType {
+  match st {
+    ValTypeStorageType(vt) =>
+      StorageType::val_type(optimization_rewrite_val_type_with_remap(remap, vt))
+    _ => st
+  }
+}
+
+///|
+fn optimization_rewrite_field_type_with_remap(
+  remap : OptimizationBoundaryRemap,
+  ft : FieldType,
+) -> FieldType {
+  let FieldType(storage, mutability) = ft
+  FieldType::new(
+    optimization_rewrite_storage_type_with_remap(remap, storage),
+    mutability,
+  )
+}
+
+///|
+fn optimization_rewrite_comp_type_with_remap(
+  remap : OptimizationBoundaryRemap,
+  comp_type : CompType,
+) -> CompType {
+  match comp_type {
+    ArrayCompType(field) =>
+      CompType::array(optimization_rewrite_field_type_with_remap(remap, field))
+    StructCompType(fields) => {
+      let rewritten : Array[FieldType] = []
+      for field in fields {
+        rewritten.push(optimization_rewrite_field_type_with_remap(remap, field))
+      }
+      CompType::struct_(rewritten)
+    }
+    FuncCompType(params, results) => {
+      let rewritten_params : Array[ValType] = []
+      for param in params {
+        rewritten_params.push(
+          optimization_rewrite_val_type_with_remap(remap, param),
+        )
+      }
+      let rewritten_results : Array[ValType] = []
+      for result in results {
+        rewritten_results.push(
+          optimization_rewrite_val_type_with_remap(remap, result),
+        )
+      }
+      CompType::func(rewritten_params, rewritten_results)
+    }
+  }
+}
+
+///|
+fn optimization_rewrite_subtype_with_remap(
+  remap : OptimizationBoundaryRemap,
+  subtype : SubType,
+) -> SubType {
+  match subtype {
+    SubType(is_final, supers, meta, comp_type) => {
+      let rewritten_supers : Array[TypeIdx] = []
+      for super_idx in supers {
+        rewritten_supers.push(
+          optimization_rewrite_type_idx_with_remap(remap, super_idx),
+        )
+      }
+      SubType::new(
+        is_final,
+        rewritten_supers,
+        optimization_rewrite_comp_type_with_remap(remap, comp_type),
+        metadata=optimization_rewrite_type_metadata_with_remap(remap, meta),
+      )
+    }
+    CompTypeSubType(meta, comp_type) =>
+      SubType::comp_type(
+        optimization_rewrite_comp_type_with_remap(remap, comp_type),
+        metadata=optimization_rewrite_type_metadata_with_remap(remap, meta),
+      )
+  }
+}
+
+///|
+fn optimization_rewrite_rec_type_with_remap(
+  remap : OptimizationBoundaryRemap,
+  rec_type : RecType,
+) -> RecType {
+  match rec_type {
+    SingleRecType(subtype) =>
+      RecType::new(optimization_rewrite_subtype_with_remap(remap, subtype))
+    GroupRecType(subtypes) => {
+      let rewritten : Array[SubType] = []
+      for subtype in subtypes {
+        rewritten.push(optimization_rewrite_subtype_with_remap(remap, subtype))
+      }
+      RecType::group(rewritten)
+    }
+  }
+}
+
+///|
+fn optimization_rewrite_tag_type_with_remap(
+  remap : OptimizationBoundaryRemap,
+  tag_type : TagType,
+) -> TagType {
+  let TagType(type_idx) = tag_type
+  TagType::new(optimization_rewrite_type_idx_with_remap(remap, type_idx))
+}
+
+///|
+fn optimization_rewrite_global_type_with_remap(
+  remap : OptimizationBoundaryRemap,
+  global_type : GlobalType,
+) -> GlobalType {
+  let GlobalType(vt, mutable) = global_type
+  GlobalType::new(optimization_rewrite_val_type_with_remap(remap, vt), mutable)
+}
+
+///|
+fn optimization_rewrite_table_type_with_remap(
+  remap : OptimizationBoundaryRemap,
+  table_type : TableType,
+) -> TableType {
+  let TableType(rt, limits) = table_type
+  TableType::new(optimization_rewrite_ref_type_with_remap(remap, rt), limits)
+}
+
+///|
+fn optimization_rewrite_extern_type_with_remap(
+  remap : OptimizationBoundaryRemap,
+  extern_type : ExternType,
+) -> ExternType {
+  match extern_type {
+    FuncExternType(type_idx) =>
+      ExternType::func(optimization_rewrite_type_idx_with_remap(remap, type_idx))
+    TableExternType(table_type) =>
+      ExternType::table(
+        optimization_rewrite_table_type_with_remap(remap, table_type),
+      )
+    MemExternType(_) => extern_type
+    GlobalExternType(global_type) =>
+      ExternType::global(
+        optimization_rewrite_global_type_with_remap(remap, global_type),
+      )
+    TagExternType(tag_type) =>
+      ExternType::tag(optimization_rewrite_tag_type_with_remap(remap, tag_type))
+  }
+}
+
+///|
+fn optimization_rewrite_extern_idx_with_remap(
+  remap : OptimizationBoundaryRemap,
+  extern_idx : ExternIdx,
+) -> ExternIdx {
+  match extern_idx {
+    FuncExternIdx(func_idx) =>
+      ExternIdx::func(optimization_rewrite_func_idx_with_remap(remap, func_idx))
+    TableExternIdx(table_idx) =>
+      ExternIdx::table(
+        optimization_rewrite_table_idx_with_remap(remap, table_idx),
+      )
+    MemExternIdx(mem_idx) =>
+      ExternIdx::mem(optimization_rewrite_mem_idx_with_remap(remap, mem_idx))
+    GlobalExternIdx(global_idx) =>
+      ExternIdx::global(
+        optimization_rewrite_global_idx_with_remap(remap, global_idx),
+      )
+    TagExternIdx(tag_idx) =>
+      ExternIdx::tag(optimization_rewrite_tag_idx_with_remap(remap, tag_idx))
+  }
+}
+
+///|
+fn optimization_rewrite_block_type_with_remap(
+  remap : OptimizationBoundaryRemap,
+  block_type : BlockType,
+) -> BlockType {
+  match block_type {
+    TypeIdxBlockType(type_idx) =>
+      BlockType::type_idx(
+        optimization_rewrite_type_idx_with_remap(remap, type_idx),
+      )
+    _ => block_type
+  }
+}
+
+///|
+fn optimization_rewrite_catch_with_remap(
+  remap : OptimizationBoundaryRemap,
+  catch_ : Catch,
+) -> Catch {
+  match catch_ {
+    Catch(tag_idx, label_idx) =>
+      Catch::new(optimization_rewrite_tag_idx_with_remap(remap, tag_idx), label_idx)
+    CatchRef(tag_idx, label_idx) =>
+      Catch::ref_(
+        optimization_rewrite_tag_idx_with_remap(remap, tag_idx),
+        label_idx,
+      )
+    _ => catch_
+  }
+}
+
+///|
+fn optimization_rewrite_memarg_with_remap(
+  remap : OptimizationBoundaryRemap,
+  memarg : MemArg,
+) -> MemArg {
+  let MemArg(align, mem_idx, offset) = memarg
+  MemArg::new(
+    align,
+    match mem_idx {
+      Some(idx) => Some(optimization_rewrite_mem_idx_with_remap(remap, idx))
+      None => None
+    },
+    offset,
+  )
+}
+
+///|
+fn optimization_rewrite_expr_with_remap(
+  remap : OptimizationBoundaryRemap,
+  expr : Expr,
+) -> Expr {
+  let Expr(instrs) = expr
+  Expr::new(optimization_rewrite_instrs_with_remap(remap, instrs))
+}
+
+///|
+fn optimization_rewrite_instrs_with_remap(
+  remap : OptimizationBoundaryRemap,
+  instrs : Array[Instruction],
+) -> Array[Instruction] {
+  let rewritten : Array[Instruction] = []
+  for instr in instrs {
+    rewritten.push(optimization_rewrite_instr_with_remap(remap, instr))
+  }
+  rewritten
+}
+
+///|
+fn optimization_rewrite_instr_with_remap(
+  remap : OptimizationBoundaryRemap,
+  instr : Instruction,
+) -> Instruction {
+  match instr {
+    Block(block_type, body) =>
+      Instruction::block(
+        optimization_rewrite_block_type_with_remap(remap, block_type),
+        optimization_rewrite_expr_with_remap(remap, body),
+      )
+    Loop(block_type, body) =>
+      Instruction::loop_(
+        optimization_rewrite_block_type_with_remap(remap, block_type),
+        optimization_rewrite_expr_with_remap(remap, body),
+      )
+    If(block_type, then_body, else_body) =>
+      Instruction::if_(
+        optimization_rewrite_block_type_with_remap(remap, block_type),
+        optimization_rewrite_instrs_with_remap(remap, then_body),
+        match else_body {
+          Some(instrs) => Some(optimization_rewrite_instrs_with_remap(remap, instrs))
+          None => None
+        },
+      )
+    Throw(tag_idx) =>
+      Instruction::throw_(optimization_rewrite_tag_idx_with_remap(remap, tag_idx))
+    Call(func_idx) =>
+      Instruction::call(optimization_rewrite_func_idx_with_remap(remap, func_idx))
+    CallIndirect(type_idx, table_idx) =>
+      Instruction::call_indirect(
+        optimization_rewrite_type_idx_with_remap(remap, type_idx),
+        optimization_rewrite_table_idx_with_remap(remap, table_idx),
+      )
+    ReturnCall(func_idx) =>
+      Instruction::return_call(
+        optimization_rewrite_func_idx_with_remap(remap, func_idx),
+      )
+    ReturnCallIndirect(type_idx, table_idx) =>
+      Instruction::return_call_indirect(
+        optimization_rewrite_type_idx_with_remap(remap, type_idx),
+        optimization_rewrite_table_idx_with_remap(remap, table_idx),
+      )
+    CallRef(type_idx) =>
+      Instruction::call_ref(
+        optimization_rewrite_type_idx_with_remap(remap, type_idx),
+      )
+    ReturnCallRef(type_idx) =>
+      Instruction::return_call_ref(
+        optimization_rewrite_type_idx_with_remap(remap, type_idx),
+      )
+    TryTable(block_type, catches, body) => {
+      let rewritten_catches : Array[Catch] = []
+      for catch_ in catches {
+        rewritten_catches.push(optimization_rewrite_catch_with_remap(remap, catch_))
+      }
+      Instruction::try_table(
+        optimization_rewrite_block_type_with_remap(remap, block_type),
+        rewritten_catches,
+        optimization_rewrite_expr_with_remap(remap, body),
+      )
+    }
+    GlobalGet(global_idx) =>
+      Instruction::global_get(
+        optimization_rewrite_global_idx_with_remap(remap, global_idx),
+      )
+    GlobalSet(global_idx) =>
+      Instruction::global_set(
+        optimization_rewrite_global_idx_with_remap(remap, global_idx),
+      )
+    TableGet(table_idx) =>
+      Instruction::table_get(
+        optimization_rewrite_table_idx_with_remap(remap, table_idx),
+      )
+    TableSet(table_idx) =>
+      Instruction::table_set(
+        optimization_rewrite_table_idx_with_remap(remap, table_idx),
+      )
+    I32Load(memarg) => Instruction::i32_load(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64Load(memarg) => Instruction::i64_load(optimization_rewrite_memarg_with_remap(remap, memarg))
+    F32Load(memarg) => Instruction::f32_load(optimization_rewrite_memarg_with_remap(remap, memarg))
+    F64Load(memarg) => Instruction::f64_load(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I32Load8S(memarg) =>
+      Instruction::i32_load8s(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I32Load8U(memarg) =>
+      Instruction::i32_load8u(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I32Load16S(memarg) =>
+      Instruction::i32_load16s(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I32Load16U(memarg) =>
+      Instruction::i32_load16u(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64Load8S(memarg) =>
+      Instruction::i64_load8s(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64Load8U(memarg) =>
+      Instruction::i64_load8u(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64Load16S(memarg) =>
+      Instruction::i64_load16s(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64Load16U(memarg) =>
+      Instruction::i64_load16u(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64Load32S(memarg) =>
+      Instruction::i64_load32s(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64Load32U(memarg) =>
+      Instruction::i64_load32u(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I32Store(memarg) =>
+      Instruction::i32_store(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64Store(memarg) =>
+      Instruction::i64_store(optimization_rewrite_memarg_with_remap(remap, memarg))
+    F32Store(memarg) =>
+      Instruction::f32_store(optimization_rewrite_memarg_with_remap(remap, memarg))
+    F64Store(memarg) =>
+      Instruction::f64_store(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I32Store8(memarg) =>
+      Instruction::i32_store8(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I32Store16(memarg) =>
+      Instruction::i32_store16(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64Store8(memarg) =>
+      Instruction::i64_store8(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64Store16(memarg) =>
+      Instruction::i64_store16(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64Store32(memarg) =>
+      Instruction::i64_store32(optimization_rewrite_memarg_with_remap(remap, memarg))
+    MemorySize(mem_idx) =>
+      Instruction::memory_size(
+        optimization_rewrite_mem_idx_with_remap(remap, mem_idx),
+      )
+    MemoryGrow(mem_idx) =>
+      Instruction::memory_grow(
+        optimization_rewrite_mem_idx_with_remap(remap, mem_idx),
+      )
+    MemoryAtomicNotify(memarg) =>
+      Instruction::memory_atomic_notify(optimization_rewrite_memarg_with_remap(remap, memarg))
+    MemoryAtomicWait32(memarg) =>
+      Instruction::memory_atomic_wait32(optimization_rewrite_memarg_with_remap(remap, memarg))
+    MemoryAtomicWait64(memarg) =>
+      Instruction::memory_atomic_wait64(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I32AtomicLoad(memarg) =>
+      Instruction::i32_atomic_load(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64AtomicLoad(memarg) =>
+      Instruction::i64_atomic_load(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I32AtomicLoad8U(memarg) =>
+      Instruction::i32_atomic_load8_u(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I32AtomicLoad16U(memarg) =>
+      Instruction::i32_atomic_load16_u(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64AtomicLoad8U(memarg) =>
+      Instruction::i64_atomic_load8_u(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64AtomicLoad16U(memarg) =>
+      Instruction::i64_atomic_load16_u(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64AtomicLoad32U(memarg) =>
+      Instruction::i64_atomic_load32_u(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I32AtomicStore(memarg) =>
+      Instruction::i32_atomic_store(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64AtomicStore(memarg) =>
+      Instruction::i64_atomic_store(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I32AtomicStore8(memarg) =>
+      Instruction::i32_atomic_store8(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I32AtomicStore16(memarg) =>
+      Instruction::i32_atomic_store16(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64AtomicStore8(memarg) =>
+      Instruction::i64_atomic_store8(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64AtomicStore16(memarg) =>
+      Instruction::i64_atomic_store16(optimization_rewrite_memarg_with_remap(remap, memarg))
+    I64AtomicStore32(memarg) =>
+      Instruction::i64_atomic_store32(optimization_rewrite_memarg_with_remap(remap, memarg))
+    AtomicRmw(op, memarg) =>
+      Instruction::atomic_rmw(op, optimization_rewrite_memarg_with_remap(remap, memarg))
+    AtomicCmpxchg(op, memarg) =>
+      Instruction::atomic_cmpxchg(op, optimization_rewrite_memarg_with_remap(remap, memarg))
+    RefNull(ref_type) =>
+      Instruction::ref_null_type(optimization_rewrite_ref_type_with_remap(remap, ref_type))
+    RefFunc(func_idx) =>
+      Instruction::ref_func(
+        optimization_rewrite_func_idx_with_remap(remap, func_idx),
+      )
+    BrOnNull(label_idx) => Instruction::br_on_null(label_idx)
+    BrOnNonNull(label_idx) => Instruction::br_on_non_null(label_idx)
+    StructNew(type_idx) =>
+      Instruction::struct_new(optimization_rewrite_type_idx_with_remap(remap, type_idx))
+    StructNewDefault(type_idx) =>
+      Instruction::struct_new_default(optimization_rewrite_type_idx_with_remap(remap, type_idx))
+    StructNewDesc(type_idx) =>
+      Instruction::struct_new_desc(optimization_rewrite_type_idx_with_remap(remap, type_idx))
+    StructNewDefaultDesc(type_idx) =>
+      Instruction::struct_new_default_desc(
+        optimization_rewrite_type_idx_with_remap(remap, type_idx),
+      )
+    StructGet(type_idx, field_idx) =>
+      Instruction::struct_get(optimization_rewrite_type_idx_with_remap(remap, type_idx), field_idx)
+    StructGetS(type_idx, field_idx) =>
+      Instruction::struct_get_s(
+        optimization_rewrite_type_idx_with_remap(remap, type_idx),
+        field_idx,
+      )
+    StructGetU(type_idx, field_idx) =>
+      Instruction::struct_get_u(
+        optimization_rewrite_type_idx_with_remap(remap, type_idx),
+        field_idx,
+      )
+    StructSet(type_idx, field_idx) =>
+      Instruction::struct_set(optimization_rewrite_type_idx_with_remap(remap, type_idx), field_idx)
+    ArrayNew(type_idx) =>
+      Instruction::array_new(optimization_rewrite_type_idx_with_remap(remap, type_idx))
+    ArrayNewDefault(type_idx) =>
+      Instruction::array_new_default(optimization_rewrite_type_idx_with_remap(remap, type_idx))
+    ArrayNewFixed(type_idx, len) =>
+      Instruction::array_new_fixed(optimization_rewrite_type_idx_with_remap(remap, type_idx), len)
+    ArrayNewData(type_idx, data_idx) =>
+      Instruction::array_new_data(
+        optimization_rewrite_type_idx_with_remap(remap, type_idx),
+        optimization_rewrite_data_idx_with_remap(remap, data_idx),
+      )
+    ArrayNewElem(type_idx, elem_idx) =>
+      Instruction::array_new_elem(
+        optimization_rewrite_type_idx_with_remap(remap, type_idx),
+        optimization_rewrite_elem_idx_with_remap(remap, elem_idx),
+      )
+    ArrayGet(type_idx) =>
+      Instruction::array_get(optimization_rewrite_type_idx_with_remap(remap, type_idx))
+    ArrayGetS(type_idx) =>
+      Instruction::array_get_s(optimization_rewrite_type_idx_with_remap(remap, type_idx))
+    ArrayGetU(type_idx) =>
+      Instruction::array_get_u(optimization_rewrite_type_idx_with_remap(remap, type_idx))
+    ArraySet(type_idx) =>
+      Instruction::array_set(optimization_rewrite_type_idx_with_remap(remap, type_idx))
+    ArrayFill(type_idx) =>
+      Instruction::array_fill(optimization_rewrite_type_idx_with_remap(remap, type_idx))
+    ArrayCopy(dst_type_idx, src_type_idx) =>
+      Instruction::array_copy(
+        optimization_rewrite_type_idx_with_remap(remap, dst_type_idx),
+        optimization_rewrite_type_idx_with_remap(remap, src_type_idx),
+      )
+    ArrayInitData(type_idx, data_idx) =>
+      Instruction::array_init_data(
+        optimization_rewrite_type_idx_with_remap(remap, type_idx),
+        optimization_rewrite_data_idx_with_remap(remap, data_idx),
+      )
+    ArrayInitElem(type_idx, elem_idx) =>
+      Instruction::array_init_elem(
+        optimization_rewrite_type_idx_with_remap(remap, type_idx),
+        optimization_rewrite_elem_idx_with_remap(remap, elem_idx),
+      )
+    RefGetDesc(type_idx) =>
+      Instruction::ref_get_desc(optimization_rewrite_type_idx_with_remap(remap, type_idx))
+    RefTest(nullable, heap_type) =>
+      Instruction::ref_test(nullable, optimization_rewrite_heap_type_with_remap(remap, heap_type))
+    RefCast(nullable, heap_type) =>
+      Instruction::ref_cast(nullable, optimization_rewrite_heap_type_with_remap(remap, heap_type))
+    RefTestDesc(nullable, heap_type) =>
+      Instruction::ref_test_desc(
+        nullable,
+        optimization_rewrite_heap_type_with_remap(remap, heap_type),
+      )
+    RefCastDescEq(nullable, heap_type) =>
+      Instruction::ref_cast_desc_eq(
+        nullable,
+        optimization_rewrite_heap_type_with_remap(remap, heap_type),
+      )
+    BrOnCast(label_idx, cast_op, src_ht, dst_ht) =>
+      match cast_op {
+        CastOp(source_nullable, target_nullable) =>
+          Instruction::br_on_cast(
+        label_idx,
+        source_nullable,
+        optimization_rewrite_heap_type_with_remap(remap, src_ht),
+        target_nullable,
+        optimization_rewrite_heap_type_with_remap(remap, dst_ht),
+      )
+      }
+    BrOnCastFail(label_idx, cast_op, src_ht, dst_ht) =>
+      match cast_op {
+        CastOp(source_nullable, target_nullable) =>
+          Instruction::br_on_cast_fail(
+        label_idx,
+        source_nullable,
+        optimization_rewrite_heap_type_with_remap(remap, src_ht),
+        target_nullable,
+        optimization_rewrite_heap_type_with_remap(remap, dst_ht),
+      )
+      }
+    MemoryInit(data_idx, mem_idx) =>
+      Instruction::memory_init(
+        optimization_rewrite_data_idx_with_remap(remap, data_idx),
+        optimization_rewrite_mem_idx_with_remap(remap, mem_idx),
+      )
+    DataDrop(data_idx) =>
+      Instruction::data_drop(
+        optimization_rewrite_data_idx_with_remap(remap, data_idx),
+      )
+    MemoryCopy(dst_mem_idx, src_mem_idx) =>
+      Instruction::memory_copy(
+        optimization_rewrite_mem_idx_with_remap(remap, dst_mem_idx),
+        optimization_rewrite_mem_idx_with_remap(remap, src_mem_idx),
+      )
+    MemoryFill(mem_idx) =>
+      Instruction::memory_fill(
+        optimization_rewrite_mem_idx_with_remap(remap, mem_idx),
+      )
+    TableInit(elem_idx, table_idx) =>
+      Instruction::table_init(
+        optimization_rewrite_elem_idx_with_remap(remap, elem_idx),
+        optimization_rewrite_table_idx_with_remap(remap, table_idx),
+      )
+    ElemDrop(elem_idx) =>
+      Instruction::elem_drop(
+        optimization_rewrite_elem_idx_with_remap(remap, elem_idx),
+      )
+    TableCopy(dst_table_idx, src_table_idx) =>
+      Instruction::table_copy(
+        optimization_rewrite_table_idx_with_remap(remap, dst_table_idx),
+        optimization_rewrite_table_idx_with_remap(remap, src_table_idx),
+      )
+    TableGrow(table_idx) =>
+      Instruction::table_grow(
+        optimization_rewrite_table_idx_with_remap(remap, table_idx),
+      )
+    TableSize(table_idx) =>
+      Instruction::table_size(
+        optimization_rewrite_table_idx_with_remap(remap, table_idx),
+      )
+    TableFill(table_idx) =>
+      Instruction::table_fill(
+        optimization_rewrite_table_idx_with_remap(remap, table_idx),
+      )
+    V128Load(memarg) =>
+      Instruction::v128_load(optimization_rewrite_memarg_with_remap(remap, memarg))
+    V128Load8x8S(memarg) =>
+      Instruction::v128_load8x8s(optimization_rewrite_memarg_with_remap(remap, memarg))
+    V128Load8x8U(memarg) =>
+      Instruction::v128_load8x8u(optimization_rewrite_memarg_with_remap(remap, memarg))
+    V128Load16x4S(memarg) =>
+      Instruction::v128_load16x4s(optimization_rewrite_memarg_with_remap(remap, memarg))
+    V128Load16x4U(memarg) =>
+      Instruction::v128_load16x4u(optimization_rewrite_memarg_with_remap(remap, memarg))
+    V128Load32x2S(memarg) =>
+      Instruction::v128_load32x2s(optimization_rewrite_memarg_with_remap(remap, memarg))
+    V128Load32x2U(memarg) =>
+      Instruction::v128_load32x2u(optimization_rewrite_memarg_with_remap(remap, memarg))
+    V128Load8Splat(memarg) =>
+      Instruction::v128_load8_splat(optimization_rewrite_memarg_with_remap(remap, memarg))
+    V128Load16Splat(memarg) =>
+      Instruction::v128_load16_splat(optimization_rewrite_memarg_with_remap(remap, memarg))
+    V128Load32Splat(memarg) =>
+      Instruction::v128_load32_splat(optimization_rewrite_memarg_with_remap(remap, memarg))
+    V128Load64Splat(memarg) =>
+      Instruction::v128_load64_splat(optimization_rewrite_memarg_with_remap(remap, memarg))
+    V128Store(memarg) =>
+      Instruction::v128_store(optimization_rewrite_memarg_with_remap(remap, memarg))
+    V128Load8Lane(memarg, lane_idx) =>
+      Instruction::v128_load8_lane(
+        optimization_rewrite_memarg_with_remap(remap, memarg),
+        lane_idx,
+      )
+    V128Load16Lane(memarg, lane_idx) =>
+      Instruction::v128_load16_lane(
+        optimization_rewrite_memarg_with_remap(remap, memarg),
+        lane_idx,
+      )
+    V128Load32Lane(memarg, lane_idx) =>
+      Instruction::v128_load32_lane(
+        optimization_rewrite_memarg_with_remap(remap, memarg),
+        lane_idx,
+      )
+    V128Load64Lane(memarg, lane_idx) =>
+      Instruction::v128_load64_lane(
+        optimization_rewrite_memarg_with_remap(remap, memarg),
+        lane_idx,
+      )
+    V128Store8Lane(memarg, lane_idx) =>
+      Instruction::v128_store8_lane(
+        optimization_rewrite_memarg_with_remap(remap, memarg),
+        lane_idx,
+      )
+    V128Store16Lane(memarg, lane_idx) =>
+      Instruction::v128_store16_lane(
+        optimization_rewrite_memarg_with_remap(remap, memarg),
+        lane_idx,
+      )
+    V128Store32Lane(memarg, lane_idx) =>
+      Instruction::v128_store32_lane(
+        optimization_rewrite_memarg_with_remap(remap, memarg),
+        lane_idx,
+      )
+    V128Store64Lane(memarg, lane_idx) =>
+      Instruction::v128_store64_lane(
+        optimization_rewrite_memarg_with_remap(remap, memarg),
+        lane_idx,
+      )
+    V128Load32Zero(memarg) =>
+      Instruction::v128_load32_zero(optimization_rewrite_memarg_with_remap(remap, memarg))
+    V128Load64Zero(memarg) =>
+      Instruction::v128_load64_zero(optimization_rewrite_memarg_with_remap(remap, memarg))
+    Select(Some(types)) => {
+      let rewritten : Array[ValType] = []
+      for type_ in types {
+        rewritten.push(optimization_rewrite_val_type_with_remap(remap, type_))
+      }
+      Instruction::select(types=Some(rewritten))
+    }
+    _ => instr
+  }
+}
+
+///|
+fn optimization_rewrite_func_with_remap(
+  remap : OptimizationBoundaryRemap,
+  func : Func,
+) -> Func {
+  match func {
+    Func(locals, body) => {
+      let local_types : Array[ValType] = []
+      let mut i = 0
+      while i < locals.length() {
+        local_types.push(
+          optimization_rewrite_val_type_with_remap(remap, locals.get(i)),
+        )
+        i += 1
+      }
+      Func::new(
+        Locals::from_types(local_types),
+        optimization_rewrite_expr_with_remap(remap, body),
+      )
+    }
+  }
+}
+
+///|
+fn optimization_rewrite_module_with_remap(
+  mod : Module,
+  remap : OptimizationBoundaryRemap,
+) -> Module {
+  let {
+    custom_secs,
+    name_sec,
+    type_sec,
+    import_sec,
+    func_annotation_sec,
+    func_sec,
+    table_sec,
+    mem_sec,
+    tag_sec,
+    stringrefs_sec,
+    global_sec,
+    export_sec,
+    start_sec,
+    elem_sec,
+    data_cnt_sec,
+    code_sec,
+    data_sec,
+  } = mod
+  Module::new(
+    custom_secs,
+    type_sec=match type_sec {
+      Some(TypeSec(rec_types)) => {
+        let rewritten : Array[RecType] = []
+        for rec_type in rec_types {
+          rewritten.push(optimization_rewrite_rec_type_with_remap(remap, rec_type))
+        }
+        Some(TypeSec::new(rewritten))
+      }
+      None => None
+    },
+    import_sec=match import_sec {
+      Some(ImportSec(imports)) => {
+        let rewritten : Array[Import] = []
+        for import_ in imports {
+          let Import(module_name, name, extern_type) = import_
+          rewritten.push(
+            Import::new(
+              module_name,
+              name,
+              optimization_rewrite_extern_type_with_remap(remap, extern_type),
+            ),
+          )
+        }
+        Some(ImportSec::new(rewritten))
+      }
+      None => None
+    },
+    func_annotation_sec=func_annotation_sec,
+    func_sec=match func_sec {
+      Some(FuncSec(type_idxs)) => {
+        let rewritten : Array[TypeIdx] = []
+        for type_idx in type_idxs {
+          rewritten.push(
+            optimization_rewrite_type_idx_with_remap(remap, type_idx),
+          )
+        }
+        Some(FuncSec::new(rewritten))
+      }
+      None => None
+    },
+    table_sec=match table_sec {
+      Some(TableSec(tables)) => {
+        let rewritten : Array[Table] = []
+        for table in tables {
+          let Table(table_type, init) = table
+          rewritten.push(
+            Table::new(
+              optimization_rewrite_table_type_with_remap(remap, table_type),
+              match init {
+                Some(expr) => Some(optimization_rewrite_expr_with_remap(remap, expr))
+                None => None
+              },
+            ),
+          )
+        }
+        Some(TableSec::new(rewritten))
+      }
+      None => None
+    },
+    mem_sec=mem_sec,
+    tag_sec=match tag_sec {
+      Some(TagSec(tags)) => {
+        let rewritten : Array[TagType] = []
+        for tag_type in tags {
+          rewritten.push(optimization_rewrite_tag_type_with_remap(remap, tag_type))
+        }
+        Some(TagSec::new(rewritten))
+      }
+      None => None
+    },
+    stringrefs_sec=stringrefs_sec,
+    global_sec=match global_sec {
+      Some(GlobalSec(globals)) => {
+        let rewritten : Array[Global] = []
+        for global in globals {
+          let Global(global_type, init) = global
+          rewritten.push(
+            Global::new(
+              optimization_rewrite_global_type_with_remap(remap, global_type),
+              optimization_rewrite_expr_with_remap(remap, init),
+            ),
+          )
+        }
+        Some(GlobalSec::new(rewritten))
+      }
+      None => None
+    },
+    export_sec=match export_sec {
+      Some(ExportSec(exports)) => {
+        let rewritten : Array[Export] = []
+        for export_ in exports {
+          let Export(name, extern_idx) = export_
+          rewritten.push(
+            Export::new(name, optimization_rewrite_extern_idx_with_remap(remap, extern_idx)),
+          )
+        }
+        Some(ExportSec::new(rewritten))
+      }
+      None => None
+    },
+    start_sec=match start_sec {
+      Some(StartSec(func_idx)) =>
+        Some(StartSec::new(optimization_rewrite_func_idx_with_remap(remap, func_idx)))
+      None => None
+    },
+    elem_sec=match elem_sec {
+      Some(ElemSec(elems)) => {
+        let rewritten : Array[Elem] = []
+        for elem in elems {
+          let Elem(mode, kind) = elem
+          let rewritten_mode = match mode {
+            Passive => Passive
+            Active(table_idx, offset) =>
+              Active(
+                optimization_rewrite_table_idx_with_remap(remap, table_idx),
+                optimization_rewrite_expr_with_remap(remap, offset),
+              )
+            Declarative => Declarative
+          }
+          let rewritten_kind = match kind {
+            FuncsElemKind(func_idxs) => {
+              let rewritten_funcs : Array[FuncIdx] = []
+              for func_idx in func_idxs {
+                rewritten_funcs.push(
+                  optimization_rewrite_func_idx_with_remap(remap, func_idx),
+                )
+              }
+              FuncsElemKind(rewritten_funcs)
+            }
+            FuncExprsElemKind(exprs) => {
+              let rewritten_exprs : Array[Expr] = []
+              for expr in exprs {
+                rewritten_exprs.push(optimization_rewrite_expr_with_remap(remap, expr))
+              }
+              FuncExprsElemKind(rewritten_exprs)
+            }
+            TypedExprsElemKind(ref_type, exprs) => {
+              let rewritten_exprs : Array[Expr] = []
+              for expr in exprs {
+                rewritten_exprs.push(optimization_rewrite_expr_with_remap(remap, expr))
+              }
+              TypedExprsElemKind(
+                optimization_rewrite_ref_type_with_remap(remap, ref_type),
+                rewritten_exprs,
+              )
+            }
+          }
+          rewritten.push(Elem::new(rewritten_mode, rewritten_kind))
+        }
+        Some(ElemSec::new(rewritten))
+      }
+      None => None
+    },
+    data_cnt_sec=data_cnt_sec,
+    code_sec=match code_sec {
+      Some(CodeSec(funcs)) => {
+        let rewritten : Array[Func] = []
+        for func in funcs {
+          rewritten.push(optimization_rewrite_func_with_remap(remap, func))
+        }
+        Some(CodeSec::new(rewritten))
+      }
+      None => None
+    },
+    data_sec=match data_sec {
+      Some(DataSec(datas)) => {
+        let rewritten : Array[Data] = []
+        for data in datas {
+          let Data(mode, bytes) = data
+          let rewritten_mode = match mode {
+            Active(mem_idx, offset) =>
+              Active(
+                optimization_rewrite_mem_idx_with_remap(remap, mem_idx),
+                optimization_rewrite_expr_with_remap(remap, offset),
+              )
+            Passive => Passive
+          }
+          rewritten.push(Data::new(rewritten_mode, bytes))
+        }
+        Some(DataSec::new(rewritten))
+      }
+      None => None
+    },
+    name_sec=name_sec,
+  )
+}
+
+///|
 fn optimization_functions_equivalent(
   type_canon : Map[UInt, UInt],
   left_type : TypeIdx,
@@ -6762,10 +7600,6 @@ fn optimization_funcs_semantically_equal(left : Func, right : Func) -> Bool {
     (Func(left_locals, left_body), Func(right_locals, right_body)) =>
       left_body == right_body &&
       optimization_locals_semantically_equal(left_locals, right_locals)
-    (TFunc(_, left_locals, left_body), TFunc(_, right_locals, right_body)) =>
-      left_body == right_body &&
-      optimization_locals_semantically_equal(left_locals, right_locals)
-    _ => false
   }
 }
 
@@ -6777,32 +7611,25 @@ fn optimization_canonicalize_func_duplicate_simple_type_indices(
   if type_canon.length() == 0 {
     return func
   }
-  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_typeidx_evt(fn(
-      _,
-      _,
-      idx : TypeIdx,
-    ) {
-      match idx {
-        TypeIdx(raw) => {
-          let next = type_canon.get(raw).unwrap_or(raw)
-          change((), TypeIdx::new(next))
-        }
-        RecIdx(_) => unchanged()
-      }
+  optimization_rewrite_func_with_remap(
+    {
+      type_remap: Some(type_canon),
+      func_remap: None,
+      table_remap: None,
+      memory_remap: None,
+      global_remap: None,
+      tag_remap: None,
+      elem_remap: None,
+      data_remap: None,
     },
+    func,
   )
-  match transformer.walk_func((), func) {
-    Ok((rewritten, _)) => rewritten
-    Err(_) => func
-  }
 }
 
 ///|
 fn optimization_func_semantic_hash(func : Func) -> Int {
   match func {
     Func(locals, body) =>
-      optimization_locals_semantic_hash(locals) * 31 + body.hash()
-    TFunc(_, locals, body) =>
       optimization_locals_semantic_hash(locals) * 31 + body.hash()
   }
 }
@@ -6842,23 +7669,23 @@ fn optimization_rewrite_func_indices(
   mod : Module,
   remap : Map[UInt, UInt],
 ) -> Module {
-  let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_funcidx_evt(fn(
-      _,
-      _,
-      idx : FuncIdx,
-    ) {
-      let FuncIdx(raw) = idx
-      let next = remap.get(raw).unwrap_or(raw)
-      change((), FuncIdx::new(next))
-    },
+  optimization_rewrite_func_annotation_sec_in_module(
+    optimization_rewrite_module_with_remap(
+      mod,
+      {
+        type_remap: None,
+        func_remap: Some(remap),
+        table_remap: None,
+        memory_remap: None,
+        global_remap: None,
+        tag_remap: None,
+        elem_remap: None,
+        data_remap: None,
+      },
+    ),
+    remap,
+    false,
   )
-  match transformer.walk_module((), mod) {
-    Ok((rewritten, _)) =>
-      optimization_rewrite_func_annotation_sec_in_module(
-        rewritten, remap, false,
-      )
-    Err(_) => mod
-  }
 }
 
 ///|
@@ -7303,42 +8130,27 @@ fn optimization_canonicalize_duplicate_simple_type_indices(
         }
         old_idx += 1
       }
-      let transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new()
-        .on_typeidx_evt(fn(_, _, idx : TypeIdx) {
-          match idx {
-            TypeIdx(raw) => {
-              let next = type_remap.get(raw).unwrap_or(raw)
-              change((), TypeIdx::new(next))
-            }
-            RecIdx(_) => unchanged()
-          }
-        })
-        .on_externtype_evt(fn(_, _, ext) {
-          match ext {
-            FuncExternType(TypeIdx(raw)) => {
-              let next = type_remap.get(raw).unwrap_or(raw)
-              change((), ExternType::func(TypeIdx::new(next)))
-            }
-            TagExternType(TagType(TypeIdx(raw))) => {
-              let next = type_remap.get(raw).unwrap_or(raw)
-              change((), ExternType::tag(TagType::new(TypeIdx::new(next))))
-            }
-            _ => unchanged()
-          }
-        })
-      match transformer.walk_module((), mod) {
-        Ok((rewritten, _)) => {
-          let rewritten_type_sec = TypeSec::new(kept_types)
-          let with_types = rewritten.with_type_sec(rewritten_type_sec)
-          match with_types.name_sec {
-            Some(name_sec) =>
-              with_types.with_name_sec(
-                optimization_rewrite_type_name_sec(name_sec, type_remap),
-              )
-            None => with_types
-          }
-        }
-        Err(_) => mod
+      let rewritten = optimization_rewrite_module_with_remap(
+        mod,
+        {
+          type_remap: Some(type_remap),
+          func_remap: None,
+          table_remap: None,
+          memory_remap: None,
+          global_remap: None,
+          tag_remap: None,
+          elem_remap: None,
+          data_remap: None,
+        },
+      )
+      let rewritten_type_sec = TypeSec::new(kept_types)
+      let with_types = rewritten.with_type_sec(rewritten_type_sec)
+      match with_types.name_sec {
+        Some(name_sec) =>
+          with_types.with_name_sec(
+            optimization_rewrite_type_name_sec(name_sec, type_remap),
+          )
+        None => with_types
       }
     }
     None => mod
@@ -10807,77 +11619,23 @@ fn optimization_rewrite_module_element_indices(
   elem_remap : Map[UInt, UInt]?,
   data_remap : Map[UInt, UInt]?,
 ) -> Module {
-  let mut transformer : ModuleTransformer[Unit, Unit] = ModuleTransformer::new().on_funcidx_evt(fn(
-      _,
-      _,
-      idx : FuncIdx,
-    ) {
-      let FuncIdx(raw) = idx
-      let next = func_remap.get(raw).unwrap_or(raw)
-      change((), FuncIdx::new(next))
-    },
+  optimization_rewrite_func_annotation_sec_in_module(
+    optimization_rewrite_module_with_remap(
+      mod,
+      {
+        type_remap: None,
+        func_remap: Some(func_remap),
+        table_remap,
+        memory_remap,
+        global_remap,
+        tag_remap,
+        elem_remap,
+        data_remap,
+      },
+    ),
+    func_remap,
+    true,
   )
-  match table_remap {
-    Some(remap) =>
-      transformer = transformer.on_tableidx_evt(fn(_, _, idx : TableIdx) {
-        let TableIdx(raw) = idx
-        let next = remap.get(raw).unwrap_or(raw)
-        change((), TableIdx::new(next))
-      })
-    None => ()
-  }
-  match memory_remap {
-    Some(remap) =>
-      transformer = transformer.on_memidx_evt(fn(_, _, idx : MemIdx) {
-        let MemIdx(raw) = idx
-        let next = remap.get(raw).unwrap_or(raw)
-        change((), MemIdx::new(next))
-      })
-    None => ()
-  }
-  match global_remap {
-    Some(remap) =>
-      transformer = transformer.on_globalidx_evt(fn(_, _, idx : GlobalIdx) {
-        let GlobalIdx(raw) = idx
-        let next = remap.get(raw).unwrap_or(raw)
-        change((), GlobalIdx::new(next))
-      })
-    None => ()
-  }
-  match tag_remap {
-    Some(remap) =>
-      transformer = transformer.on_tagidx_evt(fn(_, _, idx : TagIdx) {
-        let TagIdx(raw) = idx
-        let next = remap.get(raw).unwrap_or(raw)
-        change((), TagIdx::new(next))
-      })
-    None => ()
-  }
-  match elem_remap {
-    Some(remap) =>
-      transformer = transformer.on_elemidx_evt(fn(_, _, idx : ElemIdx) {
-        let ElemIdx(raw) = idx
-        let next = remap.get(raw).unwrap_or(raw)
-        change((), ElemIdx::new(next))
-      })
-    None => ()
-  }
-  match data_remap {
-    Some(remap) =>
-      transformer = transformer.on_dataidx_evt(fn(_, _, idx : DataIdx) {
-        let DataIdx(raw) = idx
-        let next = remap.get(raw).unwrap_or(raw)
-        change((), DataIdx::new(next))
-      })
-    None => ()
-  }
-  match transformer.walk_module((), mod) {
-    Ok((rewritten, _)) =>
-      optimization_rewrite_func_annotation_sec_in_module(
-        rewritten, func_remap, true,
-      )
-    Err(_) => mod
-  }
 }
 
 ///|

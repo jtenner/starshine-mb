@@ -95,16 +95,16 @@ test "FunctionLocals pass helper adopts declared params when typed params are mi
 }
 
 ///|
-test "TExpr.to_expr lowers nested if with explicit operand order" {
-  let texpr = TExpr::new([
+test "tinstrs_to_expr lowers nested if with explicit operand order" {
+  let body = [
     TInstr::if_(
       BlockType::void_(),
       TInstr::local_get(LocalIdx::new(0)),
-      TExpr::new([TInstr::i32_const(I32(1))]),
-      Some(TExpr::new([TInstr::i32_const(I32(0))])),
+      [TInstr::i32_const(I32(1))],
+      Some([TInstr::i32_const(I32(0))]),
     ),
-  ])
-  let Expr(instrs) = texpr.to_expr()
+  ]
+  let Expr(instrs) = tinstrs_to_expr(body)
   assert_eq(instrs.length(), 2)
 
   match instrs[0] {
@@ -177,7 +177,7 @@ test "tinstr size caches subtree instruction counts" {
 
   let blk = TInstr::block(
     BlockType::void_(),
-    TExpr::new([TInstr::nop(), TInstr::drop(add)]),
+    [TInstr::nop(), TInstr::drop(add)],
   )
   assert_eq(blk.size, 6)
 }
@@ -185,8 +185,8 @@ test "tinstr size caches subtree instruction counts" {
 ///|
 test "tinstr size accounts for if condition and both branches" {
   let cond = TInstr::local_get(LocalIdx::new(0))
-  let then_body = TExpr::new([TInstr::i32_const(I32(1))])
-  let else_body = TExpr::new([TInstr::i32_const(I32(0))])
+  let then_body = [TInstr::i32_const(I32(1))]
+  let else_body = [TInstr::i32_const(I32(0))]
   let if_instr = TInstr::if_(
     BlockType::val_type(ValType::i32()),
     cond,

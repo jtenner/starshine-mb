@@ -26,10 +26,9 @@ test "string gathering reuses existing immutable globals in typed function bodie
     .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
     .with_code_sec(
       @lib.CodeSec::new([
-        @lib.Func::t_func(
-          [],
+        @lib.Func::new(
           @lib.Locals::empty(),
-          @lib.TExpr::new([
+          @lib.tinstrs_to_expr([
             @lib.TInstr::drop(@lib.TInstr::string_const(b"hello")),
             @lib.TInstr::drop(@lib.TInstr::string_const(b"bye")),
           ]),
@@ -42,10 +41,17 @@ test "string gathering reuses existing immutable globals in typed function bodie
     PipelineGlobal::new(opt_level=2),
     PipelineFeatures::new(has_strings=true),
   )
-
+  let env = @validate.Env::new().with_module(optimized)
   match optimized.code_sec {
-    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => {
-      match body.inner()[0].kind {
+    Some(@lib.CodeSec([@lib.Func(_, body)])) =>
+      match @validate.to_texpr(
+        body,
+        env.with_locals(@lib.Locals::empty()).with_labels([[]]).with_return_type(
+          Some([]),
+        ),
+      ) {
+        Ok(typed_body) => {
+      match typed_body[0].kind {
         @lib.TDrop(child) =>
           match child.kind {
             @lib.TGlobalGet(@lib.GlobalIdx(global_idx)) =>
@@ -54,7 +60,7 @@ test "string gathering reuses existing immutable globals in typed function bodie
           }
         _ => fail("expected first typed instruction to stay a drop")
       }
-      match body.inner()[1].kind {
+      match typed_body[1].kind {
         @lib.TDrop(child) =>
           match child.kind {
             @lib.TStringConst(bytes) => assert_eq(bytes, b"bye")
@@ -62,8 +68,10 @@ test "string gathering reuses existing immutable globals in typed function bodie
           }
         _ => fail("expected second typed instruction to stay a drop")
       }
-    }
-    _ => fail("expected one typed function body")
+        }
+        Err(err) => fail("expected optimized body to lift, got \{err}")
+      }
+    _ => fail("expected one function body")
   }
 }
 

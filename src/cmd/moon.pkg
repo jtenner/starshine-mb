@@ -5,7 +5,6 @@ import {
   "jtenner/starshine/fs" @sfs,
   "jtenner/starshine/lib",
   "jtenner/starshine/optimization",
-  "jtenner/starshine/transformer",
   "jtenner/starshine/validate",
   "jtenner/starshine/wast",
   "moonbitlang/core/buffer",

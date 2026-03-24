@@ -386,16 +386,15 @@ fn pop_types_rev(st : TcState, ts : Array[ValType]) -> TcResult {
 }
 
 ///|
-fn typecheck_typed_texpr_body(
-  body : TExpr,
+fn typecheck_typed_tinstr_body(
+  body : Array[TInstr],
   env : Env,
   stack : Array[ValType],
   reachable : Bool,
   escape : TcEscape,
 ) -> TcResult {
   let mut st_body = TcState::{ env, stack: stack.copy(), reachable, escape }
-  let { instrs: body_instrs, .. } = body
-  for instr in body_instrs {
+  for instr in body {
     st_body = match Typecheck::typecheck(instr, st_body) {
       Err(e) => return Err(e)
       Ok(s) => s
@@ -408,7 +407,7 @@ fn typecheck_typed_texpr_body(
 fn typecheck_typed_block_form(
   st : TcState,
   bt : BlockType,
-  body : TExpr,
+  body : Array[TInstr],
   use_outer_params : Bool,
 ) -> TcResult {
   let (params, results) = match st.env.expand_blocktype(bt) {
@@ -430,7 +429,7 @@ fn typecheck_typed_block_form(
     []
   }
   let st_body = match
-    typecheck_typed_texpr_body(
+    typecheck_typed_tinstr_body(
       body,
       env2,
       init_stack,
@@ -461,7 +460,7 @@ fn typecheck_typed_block_form(
 fn typecheck_typed_loop_form(
   st : TcState,
   bt : BlockType,
-  body : TExpr,
+  body : Array[TInstr],
   use_outer_params : Bool,
 ) -> TcResult {
   let (params, results) = match st.env.expand_blocktype(bt) {
@@ -483,7 +482,7 @@ fn typecheck_typed_loop_form(
     []
   }
   let st_body = match
-    typecheck_typed_texpr_body(
+    typecheck_typed_tinstr_body(
       body,
       env2,
       init_stack,
@@ -511,8 +510,8 @@ fn typecheck_typed_if_form(
   st : TcState,
   bt : BlockType,
   cond : TInstr,
-  then_instrs : TExpr,
-  else_instrs_opt : TExpr?,
+  then_instrs : Array[TInstr],
+  else_instrs_opt : Array[TInstr]?,
   use_outer_params : Bool,
 ) -> TcResult {
   let (params, results) = match st.env.expand_blocktype(bt) {
@@ -537,7 +536,7 @@ fn typecheck_typed_if_form(
   }
   let else_instrs = match else_instrs_opt {
     None => []
-    Some({ instrs: xs, .. }) => xs
+    Some(xs) => xs
   }
   let env_branch = st_outer.env.with_label(results)
   let init_stack = if use_outer_params {
@@ -546,7 +545,7 @@ fn typecheck_typed_if_form(
     []
   }
   let st_then = match
-    typecheck_typed_texpr_body(
+    typecheck_typed_tinstr_body(
       then_instrs,
       env_branch,
       init_stack,
@@ -557,8 +556,8 @@ fn typecheck_typed_if_form(
     Ok(s) => s
   }
   let st_else = match
-    typecheck_typed_texpr_body(
-      TExpr::new(else_instrs),
+    typecheck_typed_tinstr_body(
+      else_instrs,
       env_branch,
       init_stack,
       st_outer.reachable,
@@ -4889,7 +4888,6 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         escape: st1.escape,
       }
       let mut st_body = st_body0
-      let { instrs: body, .. } = body
       for instr in body {
         st_body = match Typecheck::typecheck(instr, st_body) {
           Err(e) => return Err(e)
@@ -5645,10 +5643,9 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
 }
 
 ///|
-pub impl Typecheck for TExpr with typecheck(self, st0) {
-  let { instrs, .. } = self
+pub impl Typecheck for Array[TInstr] with typecheck(self, st0) {
   let mut st = st0
-  for instr in instrs {
+  for instr in self {
     match Typecheck::typecheck(instr, st) {
       Ok(s) => st = s
       Err(e) => return Err(e)
@@ -5771,7 +5768,7 @@ test "Typecheck TBlock rejects extra fallthrough stack values" {
   let state = make_state(env, [])
   let block = TInstr::block(
     BlockType::void_(),
-    TExpr::new([TInstr::i32_const(I32(7))]),
+    [TInstr::i32_const(I32(7))],
   )
   match Typecheck::typecheck(block, state) {
     Ok(_) => fail("expected typed block extra-value fallthrough rejection")

@@ -72,7 +72,6 @@ using @lib {
   type CastOp,
   type Module,
   type Expr,
-  type TExpr,
   type Instruction,
   type TInstr,
   type ElemMode,

@@ -1,6 +1,7 @@
 ///|
 using @lib {
   type BlockType,
+  type Func,
   type ExternIdx,
   type Expr,
   type Export,
@@ -11,8 +12,6 @@ using @lib {
   type Locals,
   type Name,
   type StartSec,
-  type TExpr,
-  type TInstr,
   type ValType,
 }
 
@@ -34,12 +33,8 @@ fn duplicate_func_test_call_target(
   match mod.code_sec {
     Some(CodeSec(funcs)) =>
       match funcs[defined_idx] {
-        TFunc(_, _, body) =>
-          match body.inner()[0].kind {
-            TCall(FuncIdx(target), _) => target
-            _ => fail("expected first instruction to be a direct call")
-          }
-        _ => fail("expected typed function body")
+        Func(_, Expr([Call(FuncIdx(target)), ..])) => target
+        _ => fail("expected first instruction to be a direct call")
       }
     None => fail("expected code section")
   }
@@ -53,19 +48,16 @@ fn duplicate_func_test_ref_func_target(
   match mod.code_sec {
     Some(CodeSec(funcs)) =>
       match funcs[defined_idx] {
-        TFunc(_, _, body) =>
-          match body.inner()[1].kind {
-            TDrop(dropped) =>
-              match dropped.kind {
-                TRefFunc(FuncIdx(target)) => target
-                _ => fail("expected dropped ref.func")
-              }
-            _ => fail("expected second instruction to drop ref.func")
-          }
-        _ => fail("expected typed function body")
+        Func(_, Expr([_, RefFunc(FuncIdx(target)), Drop, ..])) => target
+        _ => fail("expected ref.func followed by drop")
       }
     None => fail("expected code section")
   }
+}
+
+///|
+fn duplicate_func(instrs : Array[Instruction], locals? : Locals = Locals::empty()) -> Func {
+  Func::new(locals, Expr::new(instrs))
 }
 
 ///|
@@ -86,16 +78,13 @@ test "duplicate function elimination merges structural duplicates and rewrites f
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func(
-          [],
-          Locals::empty(),
-          TExpr::new([
-            TInstr::call(FuncIdx::new(3U), []),
-            TInstr::drop(TInstr::ref_func(FuncIdx::new(3U))),
-          ]),
+        duplicate_func([
+          Instruction::call(FuncIdx::new(3U)),
+          Instruction::ref_func(FuncIdx::new(3U)),
+          Instruction::drop(),
         ),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+        duplicate_func([Instruction::nop()]),
+        duplicate_func([Instruction::nop()]),
       ]),
     )
     .with_export_sec(
@@ -147,23 +136,11 @@ test "duplicate function elimination is single-pass when deduping callees unlock
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func(
-          [],
-          Locals::empty(),
-          TExpr::new([TInstr::call(FuncIdx::new(1U), [])]),
-        ),
-        Func::t_func(
-          [],
-          Locals::empty(),
-          TExpr::new([TInstr::call(FuncIdx::new(3U), [])]),
-        ),
-        Func::t_func(
-          [],
-          Locals::empty(),
-          TExpr::new([TInstr::call(FuncIdx::new(4U), [])]),
-        ),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+        duplicate_func([Instruction::call(FuncIdx::new(1U))]),
+        duplicate_func([Instruction::call(FuncIdx::new(3U))]),
+        duplicate_func([Instruction::call(FuncIdx::new(4U))]),
+        duplicate_func([Instruction::nop()]),
+        duplicate_func([Instruction::nop()]),
       ]),
     )
 
@@ -197,23 +174,11 @@ test "duplicate function elimination reaches the transitive merge when rerun" {
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func(
-          [],
-          Locals::empty(),
-          TExpr::new([TInstr::call(FuncIdx::new(1U), [])]),
-        ),
-        Func::t_func(
-          [],
-          Locals::empty(),
-          TExpr::new([TInstr::call(FuncIdx::new(3U), [])]),
-        ),
-        Func::t_func(
-          [],
-          Locals::empty(),
-          TExpr::new([TInstr::call(FuncIdx::new(4U), [])]),
-        ),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+        duplicate_func([Instruction::call(FuncIdx::new(1U))]),
+        duplicate_func([Instruction::call(FuncIdx::new(3U))]),
+        duplicate_func([Instruction::call(FuncIdx::new(4U))]),
+        duplicate_func([Instruction::nop()]),
+        duplicate_func([Instruction::nop()]),
       ]),
     )
 
@@ -325,32 +290,24 @@ test "duplicate function elimination merges funcs with identical expanded locals
     .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func(
-          [],
-          split_locals,
-          TExpr::new([
-            TInstr::local_set(LocalIdx::new(0U), TInstr::i32_const(I32(1))),
-            TInstr::local_set(LocalIdx::new(1U), TInstr::i32_const(I32(2))),
-            TInstr::binary(
-              @lib.BinaryOp::i32_add(),
-              TInstr::local_get(LocalIdx::new(0U)),
-              TInstr::local_get(LocalIdx::new(1U)),
-            ),
-          ]),
-        ),
-        Func::t_func(
-          [],
-          merged_locals,
-          TExpr::new([
-            TInstr::local_set(LocalIdx::new(0U), TInstr::i32_const(I32(1))),
-            TInstr::local_set(LocalIdx::new(1U), TInstr::i32_const(I32(2))),
-            TInstr::binary(
-              @lib.BinaryOp::i32_add(),
-              TInstr::local_get(LocalIdx::new(0U)),
-              TInstr::local_get(LocalIdx::new(1U)),
-            ),
-          ]),
-        ),
+        duplicate_func([
+          Instruction::i32_const(I32(1)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::i32_const(I32(2)),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::i32_add(),
+        ], locals=split_locals),
+        duplicate_func([
+          Instruction::i32_const(I32(1)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::i32_const(I32(2)),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::i32_add(),
+        ], locals=merged_locals),
       ]),
     )
 
@@ -377,28 +334,22 @@ test "duplicate function elimination merges typed funcs with duplicate block typ
     .with_func_sec(FuncSec::new([TypeIdx::new(2U), TypeIdx::new(2U)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func(
-          [],
-          Locals::empty(),
-          TExpr::new([
-            TInstr::block(
-              BlockType::type_idx(TypeIdx::new(0U)),
-              TExpr::new([TInstr::i32_const(I32(7))]),
-            ),
-            TInstr::drop(TInstr::i32_const(I32(0))),
-          ]),
-        ),
-        Func::t_func(
-          [],
-          Locals::empty(),
-          TExpr::new([
-            TInstr::block(
-              BlockType::type_idx(TypeIdx::new(1U)),
-              TExpr::new([TInstr::i32_const(I32(7))]),
-            ),
-            TInstr::drop(TInstr::i32_const(I32(0))),
-          ]),
-        ),
+        duplicate_func([
+          Instruction::block(
+            BlockType::type_idx(TypeIdx::new(0U)),
+            Expr::new([Instruction::i32_const(I32(7))]),
+          ),
+          Instruction::i32_const(I32(0)),
+          Instruction::drop(),
+        ]),
+        duplicate_func([
+          Instruction::block(
+            BlockType::type_idx(TypeIdx::new(1U)),
+            Expr::new([Instruction::i32_const(I32(7))]),
+          ),
+          Instruction::i32_const(I32(0)),
+          Instruction::drop(),
+        ]),
       ]),
     )
 
@@ -421,8 +372,8 @@ test "duplicate function elimination keeps same-body functions with different st
     .with_func_sec(FuncSec::new([TypeIdx::new(1U), TypeIdx::new(3U)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::unreachable_()])),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::unreachable_()])),
+        duplicate_func([Instruction::unreachable_()]),
+        duplicate_func([Instruction::unreachable_()]),
       ]),
     )
 
@@ -445,8 +396,8 @@ test "duplicate function elimination keeps duplicates with different function an
     .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+        duplicate_func([Instruction::nop()]),
+        duplicate_func([Instruction::nop()]),
       ]),
     )
     .with_func_annotation_sec(
@@ -481,8 +432,8 @@ test "duplicate function elimination merges duplicates with identical function a
     .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
+        duplicate_func([Instruction::nop()]),
+        duplicate_func([Instruction::nop()]),
       ]),
     )
     .with_func_annotation_sec(
@@ -532,18 +483,16 @@ test "duplicate function elimination rewrites name section function and local na
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::nop()])),
-        Func::t_func(
-          [ValType::i32()],
-          Locals::from_types([ValType::i64()]),
-          TExpr::new([TInstr::nop()]),
+        duplicate_func([Instruction::nop()]),
+        duplicate_func(
+          [Instruction::nop()],
+          locals=Locals::from_types([ValType::i64()]),
         ),
-        Func::t_func(
-          [ValType::i32()],
-          Locals::from_types([ValType::i64()]),
-          TExpr::new([TInstr::nop()]),
+        duplicate_func(
+          [Instruction::nop()],
+          locals=Locals::from_types([ValType::i64()]),
         ),
-        Func::t_func([], Locals::empty(), TExpr::new([TInstr::unreachable_()])),
+        duplicate_func([Instruction::unreachable_()]),
       ]),
     )
     .with_name_sec(
@@ -628,20 +577,17 @@ test "duplicate function elimination keeps non-adjacent rewritten name maps sort
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func(
-          [],
-          Locals::from_types([ValType::i32()]),
-          TExpr::new([TInstr::nop()]),
+        duplicate_func(
+          [Instruction::nop()],
+          locals=Locals::from_types([ValType::i32()]),
         ),
-        Func::t_func(
-          [],
-          Locals::from_types([ValType::i32()]),
-          TExpr::new([TInstr::unreachable_()]),
+        duplicate_func(
+          [Instruction::unreachable_()],
+          locals=Locals::from_types([ValType::i32()]),
         ),
-        Func::t_func(
-          [],
-          Locals::from_types([ValType::i32()]),
-          TExpr::new([TInstr::nop()]),
+        duplicate_func(
+          [Instruction::nop()],
+          locals=Locals::from_types([ValType::i32()]),
         ),
       ]),
     )

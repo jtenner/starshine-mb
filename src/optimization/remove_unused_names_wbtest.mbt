@@ -1,4 +1,11 @@
 ///|
+fn remove_unused_names_region(
+  instrs : Array[@lib.TInstr],
+) -> Array[@lib.TInstr] {
+  instrs
+}
+
+///|
 fn remove_unused_names_test_module(instrs : Array[@lib.TInstr]) -> Module {
   Module::new()
   .with_type_sec(
@@ -9,7 +16,7 @@ fn remove_unused_names_test_module(instrs : Array[@lib.TInstr]) -> Module {
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
   .with_code_sec(
     @lib.CodeSec::new([
-      @lib.Func::t_func([], @lib.Locals::empty(), @lib.TExpr::new(instrs)),
+      @lib.Func::new(@lib.Locals::empty(), @lib.tinstrs_to_expr(instrs)),
     ]),
   )
 }
@@ -33,9 +40,19 @@ fn remove_unused_names_test_body(
   let optimized = remove_unused_names_test_run(
     remove_unused_names_test_module(instrs),
   )
+  let env = @validate.Env::new().with_module(optimized)
   match optimized.code_sec {
-    Some(@lib.CodeSec([@lib.TFunc(_, _, body)])) => body.inner()
-    _ => abort("expected optimized single typed function body")
+    Some(@lib.CodeSec([@lib.Func(_, body)])) =>
+      match @validate.to_texpr(
+        body,
+        env.with_locals(@lib.Locals::empty()).with_labels([[]]).with_return_type(
+          Some([]),
+        ),
+      ) {
+        Ok(typed_body) => typed_body
+        Err(err) => abort("expected optimized body to lift: \{err}")
+      }
+    _ => abort("expected optimized single function body")
   }
 }
 
@@ -64,10 +81,13 @@ test "remove unused names skips walk when no candidates exist" {
 ///|
 test "remove unused names candidate scan returns false when no peel or loop candidate exists" {
   assert_false(
-    optimization_remove_unused_names_has_candidate_texpr(
-      @lib.TExpr::new([
+    optimization_hot_remove_unused_names_has_candidate_hot(
+      hot_lift_body(
+        [
         @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32::new(1))),
-      ]),
+        ],
+        HotLocals::new(),
+      ),
     ),
   )
 }
@@ -75,20 +95,23 @@ test "remove unused names candidate scan returns false when no peel or loop cand
 ///|
 test "remove unused names candidate scan finds nested same-typed block candidates" {
   assert_true(
-    optimization_remove_unused_names_has_candidate_texpr(
-      @lib.TExpr::new([
+    optimization_hot_remove_unused_names_has_candidate_hot(
+      hot_lift_body(
+        [
         @lib.TInstr::drop(
           @lib.TInstr::block(
             @lib.BlockType::void_(),
-            @lib.TExpr::new([
+            remove_unused_names_region([
               @lib.TInstr::block(
                 @lib.BlockType::void_(),
-                @lib.TExpr::new([@lib.TInstr::nop()]),
+                remove_unused_names_region([@lib.TInstr::nop()]),
               ),
             ]),
           ),
         ),
-      ]),
+        ],
+        HotLocals::new(),
+      ),
     ),
   )
 }
@@ -98,10 +121,10 @@ test "remove unused names merges single-child same-typed nested blocks" {
   let body = remove_unused_names_test_body([
     @lib.TInstr::block(
       @lib.BlockType::void_(),
-      @lib.TExpr::new([
+      remove_unused_names_region([
         @lib.TInstr::block(
           @lib.BlockType::void_(),
-          @lib.TExpr::new([@lib.TInstr::nop()]),
+          remove_unused_names_region([@lib.TInstr::nop()]),
         ),
       ]),
     ),
@@ -110,7 +133,7 @@ test "remove unused names merges single-child same-typed nested blocks" {
     [instr] =>
       match instr.kind {
         @lib.TBlock(@lib.VoidBlockType, child_body) =>
-          match child_body.inner() {
+          match child_body {
             [child] =>
               match child.kind {
                 @lib.TNop => ()
@@ -129,13 +152,13 @@ test "remove unused names retargets branch depth when merging nested blocks" {
   let body = remove_unused_names_test_body([
     @lib.TInstr::block(
       @lib.BlockType::void_(),
-      @lib.TExpr::new([
+      remove_unused_names_region([
         @lib.TInstr::block(
           @lib.BlockType::void_(),
-          @lib.TExpr::new([
+          remove_unused_names_region([
             @lib.TInstr::block(
               @lib.BlockType::void_(),
-              @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(2U), [])]),
+              remove_unused_names_region([@lib.TInstr::br(@lib.LabelIdx::new(2U), [])]),
             ),
           ]),
         ),
@@ -146,7 +169,7 @@ test "remove unused names retargets branch depth when merging nested blocks" {
     [instr] =>
       match instr.kind {
         @lib.TBlock(@lib.VoidBlockType, child_body) =>
-          match child_body.inner() {
+          match child_body {
             [child] =>
               match child.kind {
                 @lib.TBr(@lib.LabelIdx(next), []) => assert_eq(next, 0U)
@@ -169,13 +192,13 @@ test "remove unused names preserves typed branch payloads when rebasing" {
     @lib.TInstr::drop(
       @lib.TInstr::block(
         @lib.BlockType::val_type(@lib.ValType::i32()),
-        @lib.TExpr::new([
+        remove_unused_names_region([
           @lib.TInstr::block(
             @lib.BlockType::val_type(@lib.ValType::i32()),
-            @lib.TExpr::new([
+            remove_unused_names_region([
               @lib.TInstr::block(
                 @lib.BlockType::val_type(@lib.ValType::i32()),
-                @lib.TExpr::new([
+                remove_unused_names_region([
                   @lib.TInstr::br(@lib.LabelIdx::new(2U), [
                     @lib.TInstr::i32_const(@lib.I32::new(5)),
                   ]),
@@ -196,7 +219,7 @@ test "remove unused names preserves typed branch payloads when rebasing" {
               @lib.ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
               branch_body
             ) =>
-              match branch_body.inner() {
+              match branch_body {
                 [branch] =>
                   match branch.kind {
                     @lib.TBr(@lib.LabelIdx(next), [payload]) => {
@@ -223,16 +246,16 @@ test "remove unused names skips merge when nested control still targets a remove
   let mod = remove_unused_names_test_module([
     @lib.TInstr::block(
       @lib.BlockType::void_(),
-      @lib.TExpr::new([
+      remove_unused_names_region([
         @lib.TInstr::block(
           @lib.BlockType::void_(),
-          @lib.TExpr::new([
+          remove_unused_names_region([
             @lib.TInstr::if_(
               @lib.BlockType::void_(),
               @lib.TInstr::i32_const(@lib.I32::new(0)),
-              @lib.TExpr::new([@lib.TInstr::nop()]),
+              remove_unused_names_region([@lib.TInstr::nop()]),
               Some(
-                @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])]),
+                remove_unused_names_region([@lib.TInstr::br(@lib.LabelIdx::new(1U), [])]),
               ),
             ),
           ]),
@@ -249,14 +272,14 @@ test "remove unused names skips merge when try_table catch still targets a remov
   let mod = remove_unused_names_test_module([
     @lib.TInstr::block(
       @lib.BlockType::void_(),
-      @lib.TExpr::new([
+      remove_unused_names_region([
         @lib.TInstr::block(
           @lib.BlockType::void_(),
-          @lib.TExpr::new([
+          remove_unused_names_region([
             @lib.TInstr::try_table(
               @lib.BlockType::void_(),
               [@lib.Catch::all(@lib.LabelIdx::new(1U))],
-              @lib.TExpr::new([@lib.TInstr::nop()]),
+              remove_unused_names_region([@lib.TInstr::nop()]),
             ),
           ]),
         ),
@@ -272,14 +295,14 @@ test "remove unused names rewrites loop to block when no continue branch remains
   let body = remove_unused_names_test_body([
     @lib.TInstr::loop_(
       @lib.BlockType::void_(),
-      @lib.TExpr::new([@lib.TInstr::nop()]),
+      remove_unused_names_region([@lib.TInstr::nop()]),
     ),
   ])
   match body {
     [instr] =>
       match instr.kind {
         @lib.TBlock(@lib.VoidBlockType, child_body) =>
-          match child_body.inner() {
+          match child_body {
             [child] =>
               match child.kind {
                 @lib.TNop => ()
@@ -298,7 +321,7 @@ test "remove unused names keeps loop when body branches to loop label" {
   let body = remove_unused_names_test_body([
     @lib.TInstr::loop_(
       @lib.BlockType::void_(),
-      @lib.TExpr::new([@lib.TInstr::br(@lib.LabelIdx::new(0U), [])]),
+      remove_unused_names_region([@lib.TInstr::br(@lib.LabelIdx::new(0U), [])]),
     ),
   ])
   match body {
@@ -317,7 +340,7 @@ test "remove unused names rewrites value loop to block when no continue branch r
     @lib.TInstr::drop(
       @lib.TInstr::loop_(
         @lib.BlockType::val_type(@lib.ValType::i32()),
-        @lib.TExpr::new([@lib.TInstr::i32_const(@lib.I32::new(9))]),
+        remove_unused_names_region([@lib.TInstr::i32_const(@lib.I32::new(9))]),
       ),
     ),
   ])
@@ -330,7 +353,7 @@ test "remove unused names rewrites value loop to block when no continue branch r
               @lib.ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
               child_body
             ) =>
-              match child_body.inner() {
+              match child_body {
                 [value] =>
                   match value.kind {
                     @lib.TI32Const(@lib.I32(9)) => ()

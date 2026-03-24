@@ -1,5 +1,5 @@
 import {
+  "jtenner/starshine/ir",
   "jtenner/starshine/lib",
-  "jtenner/starshine/transformer",
   "jtenner/starshine/validate",
 }

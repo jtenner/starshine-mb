@@ -1,5 +1,4 @@
 import {
   "jtenner/starshine/lib",
-  "jtenner/starshine/transformer",
   "moonbitlang/core/quickcheck/splitmix",
 }
