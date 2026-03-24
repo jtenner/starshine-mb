@@ -9,35 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 117 - Module Context and Resolved Boundary Types
-- Goal:
-  Resolve boundary function, block, memory, table, global, and tag typing through one shared hot-IR module context.
-- Why this slice exists:
-  Full-coverage lift/lower cannot resolve `TypeIdx` block results or typed boundary indices correctly from `HotFunc` storage alone.
-- Concrete deliverables:
-  - `src/ir/hot_module_context.mbt`.
-  - `src/ir/hot_module_context_test.mbt`.
-- Detailed implementation tasks:
-  - Build a compact `HotModuleContext` from `@lib.Module`.
-  - Resolve type-index block signatures, function signatures, globals, memories, tables, tags, and aggregate type metadata through public helpers.
-  - Add resolved result-type helpers for later lift/lower code so type queries stop aborting on `TypeIdx` block types.
-- Required utilities / APIs:
-  - `hot_module_context_from_module(module)`.
-  - `hot_module_resolve_func_type(ctx, func_idx)`.
-  - `hot_module_resolve_block_results(ctx, block_type)`.
-  - Equivalent helpers for globals, memories, tables, tags, and aggregate field metadata.
-- Invariants / correctness rules:
-  - Context resolution is deterministic and side-effect free.
-  - `TypeIdx` block-result expansion matches validator expectations.
-- Dependencies:
-  - IR2 - 050 - Hot IR Side Tables.
-- Exit criteria:
-  - Later lift/lower slices can resolve every boundary type lookup they need without using validator-private state.
-- Suggested tests:
-  - Imported plus defined function signature lookup.
-  - `TypeIdx` block-result expansion.
-  - Table/global/tag resolution coverage.
-
 ### IR2 - 119 - Boundary Family Coverage Metadata
 - Goal:
   Close the remaining representation gaps between boundary instructions and current hot-op families before the full lift/lower push.

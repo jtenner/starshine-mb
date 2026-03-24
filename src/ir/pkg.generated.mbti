@@ -228,6 +228,34 @@ pub fn hot_may_trap(HotFunc, Int) -> Bool
 
 pub fn hot_memarg_get(HotFunc, Int) -> HotMemArg
 
+pub fn hot_module_context_from_module(@lib.Module) -> HotModuleContext
+
+pub fn hot_module_resolve_array_field(HotModuleContext, @lib.TypeIdx) -> @lib.FieldType?
+
+pub fn hot_module_resolve_block_results(HotModuleContext, @lib.BlockType) -> Array[@lib.ValType]?
+
+pub fn hot_module_resolve_func_type(HotModuleContext, @lib.FuncIdx) -> @lib.FuncType?
+
+pub fn hot_module_resolve_func_type_idx(HotModuleContext, @lib.FuncIdx) -> @lib.TypeIdx?
+
+pub fn hot_module_resolve_global_type(HotModuleContext, @lib.GlobalIdx) -> @lib.GlobalType?
+
+pub fn hot_module_resolve_mem_index_type(HotModuleContext, @lib.MemIdx) -> @lib.ValType?
+
+pub fn hot_module_resolve_mem_type(HotModuleContext, @lib.MemIdx) -> @lib.MemType?
+
+pub fn hot_module_resolve_struct_fields(HotModuleContext, @lib.TypeIdx) -> Array[@lib.FieldType]?
+
+pub fn hot_module_resolve_subtype(HotModuleContext, @lib.TypeIdx) -> @lib.SubType?
+
+pub fn hot_module_resolve_table_index_type(HotModuleContext, @lib.TableIdx) -> @lib.ValType?
+
+pub fn hot_module_resolve_table_type(HotModuleContext, @lib.TableIdx) -> @lib.TableType?
+
+pub fn hot_module_resolve_tag_type(HotModuleContext, @lib.TagIdx) -> @lib.TagType?
+
+pub fn hot_module_resolve_type_func_type(HotModuleContext, @lib.TypeIdx) -> @lib.FuncType?
+
 pub fn hot_node_count(HotFunc) -> Int
 
 pub fn hot_node_flags(HotFunc, Int) -> UInt
@@ -351,6 +379,8 @@ pub fn hot_type_intern_value(HotFunc, @lib.ValType) -> Int
 pub fn hot_type_intern_void(HotFunc) -> Int
 
 pub fn hot_type_is_void(HotFunc, Int) -> Bool
+
+pub fn hot_type_resolve_results(HotFunc, HotModuleContext, Int) -> Array[@lib.ValType]?
 
 pub fn hot_type_result_arity(HotFunc, Int) -> Int
 
@@ -558,6 +588,17 @@ pub fn HotMemArg::new(@lib.MemArg) -> Self
 pub impl Eq for HotMemArg
 pub impl Show for HotMemArg
 pub impl @debug.Debug for HotMemArg
+
+pub struct HotModuleContext {
+  subtypes : Array[@lib.SubType]
+  func_type_idxs : Array[@lib.TypeIdx]
+  tables : Array[@lib.TableType]
+  mems : Array[@lib.MemType]
+  globals : Array[@lib.GlobalType]
+  tags : Array[@lib.TagType]
+}
+pub impl Eq for HotModuleContext
+pub impl @debug.Debug for HotModuleContext
 
 pub struct HotNode {
   op : HotOp

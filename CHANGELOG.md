@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 IR: add hot module context and resolved boundary type queries
+
+- **Hot module-context type resolution** by **@jtenner**. Added [`src/ir/hot_module_context.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_module_context.mbt) and [`src/ir/hot_module_context_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_module_context_test.mbt) to resolve imported and defined function signatures, type-index block results, memories, tables, globals, tags, and aggregate field metadata through one shared `HotModuleContext`, plus resolved hot-type result queries for later lift/lower work. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-117 slice.
+
 ## 2026-03-24 IR: add exact hot boundary instruction payload storage
 
 - **Exact boundary payload side tables** by **@jtenner**. Updated [`src/ir/hot_core.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_core.mbt), [`src/ir/hot_side_tables.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_side_tables.mbt), [`src/ir/hot_side_tables_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_side_tables_test.mbt), [`src/ir/hot_verify.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_verify.mbt), [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to add a typed exact-instruction side table for future lift/lower coverage work, wire verifier storage validation for the new payload bucket, and resequence the IR2 backlog around the newly-discovered boundary payload prerequisite before the broader lift/lower slices.
