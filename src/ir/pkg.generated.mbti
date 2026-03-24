@@ -23,11 +23,19 @@ pub fn hot_alloc_node(HotFunc, HotNode) -> Int
 
 pub fn hot_append_root(HotFunc, Int) -> Unit
 
+pub fn hot_body_result_type(HotFunc) -> Int
+
+pub fn hot_body_result_type_set(HotFunc, Int) -> Unit
+
 pub fn hot_child_count(HotFunc, Int) -> Int
 
 pub fn hot_child_get(HotFunc, Int, Int) -> Int
 
 pub fn hot_child_set(HotFunc, Int, Int, Int) -> Unit
+
+pub fn hot_child_storage_count(HotFunc) -> Int
+
+pub fn hot_debug_dump_core(HotFunc) -> String
 
 pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc
 
@@ -35,7 +43,11 @@ pub fn hot_lower_body(HotFunc) -> @lib.Expr
 
 pub fn hot_make_simple_node(HotOp, Int, UInt, Int, Int, Array[Int]) -> HotNode
 
+pub fn hot_node_count(HotFunc) -> Int
+
 pub fn hot_node_get(HotFunc, Int) -> HotNode
+
+pub fn hot_node_is_live(HotFunc, Int) -> Bool
 
 pub fn hot_node_set(HotFunc, Int, HotNode) -> Unit
 
@@ -52,6 +64,8 @@ pub fn hot_root_count(HotFunc) -> Int
 pub fn hot_root_get(HotFunc, Int) -> Int
 
 pub fn hot_root_set(HotFunc, Int, Int) -> Unit
+
+pub fn hot_root_storage_count(HotFunc) -> Int
 
 pub fn hot_type_void(HotFunc) -> Int
 

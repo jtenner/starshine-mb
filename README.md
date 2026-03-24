@@ -50,6 +50,13 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 
 <!-- README_API_VERIFY src/ir/pkg.generated.mbti -->
 ```mbti
+pub fn hot_node_count(HotFunc) -> Int
+pub fn hot_child_storage_count(HotFunc) -> Int
+pub fn hot_root_storage_count(HotFunc) -> Int
+pub fn hot_body_result_type(HotFunc) -> Int
+pub fn hot_body_result_type_set(HotFunc, Int) -> Unit
+pub fn hot_node_is_live(HotFunc, Int) -> Bool
+pub fn hot_debug_dump_core(HotFunc) -> String
 pub fn hot_revision_current(HotFunc) -> Int
 pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
 pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]

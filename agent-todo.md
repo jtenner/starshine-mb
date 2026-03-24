@@ -9,43 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 010 - Hot IR Core
-- Goal:
-  Define the stable dense-array `HotFunc` and `HotNode` storage model.
-- Why this slice exists:
-  Every later builder, walker, verifier, and pass relies on one canonical core storage contract.
-- Concrete deliverables:
-  - `src/ir/hot_core.mbt`.
-  - `src/ir/hot_core_test.mbt`.
-  - Minimal hot debug dump helper for core state.
-- Detailed implementation tasks:
-  - Split core types out of `src/ir/hot.mbt`.
-  - Keep dense arrays for `nodes`, `children`, `roots`, `locals`, `types`, `labels`, side tables, `revision`, and optional `free_nodes`.
-  - Add `HOT_NONE_NODE` and any other documented sentinels.
-  - Add `hot_node_count`, `hot_child_storage_count`, `hot_root_storage_count`, `hot_body_result_type_get/set`.
-  - Define whether free-list reuse is enabled initially; if yes, define id reuse semantics explicitly.
-  - Add `hot_node_is_live` and `hot_node_is_tombstone` if deletion support exists.
-- Required utilities / APIs:
-  - `hot_node_count(func)`.
-  - `hot_child_storage_count(func)`.
-  - `hot_root_storage_count(func)`.
-  - `hot_body_result_type(func)`.
-  - `hot_body_result_type_set(func, ty)`.
-  - `hot_node_is_live(func, node_id)`.
-- Invariants / correctness rules:
-  - `HotNode.child_base` and `child_count` always describe a contiguous span in `children`.
-  - `body_result_type` always refers to a valid interned `TypeId`.
-  - Live nodes are never confused with tombstones.
-- Dependencies:
-  - IR2 - 000 - Architecture Rules.
-- Exit criteria:
-  - Core storage lives in its own module and exposes stable count/access policies.
-  - Tests cover id allocation and liveness behavior.
-- Suggested tests:
-  - Dense node allocation yields predictable ids.
-  - Root and child storage counters update correctly.
-  - Body result type roundtrips through accessor APIs.
-
 ### IR2 - 020 - Hot IR Flags Model
 - Goal:
   Centralize structural and raw-effect flag derivation for all opcodes.
