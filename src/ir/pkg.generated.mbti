@@ -112,6 +112,8 @@ pub fn hot_build_global_get(HotFunc, Int, @lib.ValType) -> Int
 
 pub fn hot_build_global_set(HotFunc, Int, Int) -> Int
 
+pub fn hot_build_heap(HotFunc, Array[@lib.ValType], @lib.Instruction, Array[Int]) -> Int
+
 pub fn hot_build_if(HotFunc, @lib.BlockType, Int, Array[Int], else_body? : Array[Int]?) -> Int
 
 pub fn hot_build_load(HotFunc, @lib.ValType, @lib.MemArg, Int) -> Int
@@ -266,6 +268,10 @@ pub fn hot_module_resolve_type_func_type(HotModuleContext, @lib.TypeIdx) -> @lib
 
 pub fn hot_node_count(HotFunc) -> Int
 
+pub fn hot_node_exact_instr(HotFunc, Int) -> @lib.Instruction?
+
+pub fn hot_node_exact_instr_payload_id(HotFunc, Int) -> Int?
+
 pub fn hot_node_flags(HotFunc, Int) -> UInt
 
 pub fn hot_node_get(HotFunc, Int) -> HotNode
@@ -287,6 +293,8 @@ pub fn hot_node_kind_is_control(HotFunc, Int) -> Bool
 pub fn hot_node_kind_is_exception(HotFunc, Int) -> Bool
 
 pub fn hot_node_kind_is_global(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_heap(HotFunc, Int) -> Bool
 
 pub fn hot_node_kind_is_local(HotFunc, Int) -> Bool
 
@@ -411,6 +419,8 @@ pub fn hot_verify_core(HotFunc) -> Result[Unit, HotVerifyError]
 pub fn hot_verify_core_or_abort(HotFunc) -> Unit
 
 pub fn[C, D] hot_verify_dominators(C, D) -> Result[Unit, HotVerifyError]
+
+pub fn hot_verify_node_exact_instr_payload(HotFunc, Int) -> Bool
 
 pub fn[C, S] hot_verify_ssa(HotFunc, C, S) -> Result[Unit, HotVerifyError]
 
@@ -545,9 +555,13 @@ pub impl @debug.Debug for HotCatchInfo
 pub enum HotConstPayload {
   I32Const(@lib.I32)
   I64Const(@lib.I64)
+  F32Const(@lib.F32)
+  F64Const(@lib.F64)
   RefNullConst(@lib.RefType)
   StringConst(Bytes)
 }
+pub fn HotConstPayload::f32_const(@lib.F32) -> Self
+pub fn HotConstPayload::f64_const(@lib.F64) -> Self
 pub fn HotConstPayload::i32_const(@lib.I32) -> Self
 pub fn HotConstPayload::i64_const(@lib.I64) -> Self
 pub fn HotConstPayload::ref_null_const(@lib.RefType) -> Self
@@ -722,6 +736,7 @@ pub enum HotOp {
   RefCast
   RefTestDesc
   RefCastDescEq
+  Heap
   Unary
   Binary
   Compare

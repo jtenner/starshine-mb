@@ -79,6 +79,7 @@ pub fn hot_default_flags_for_op(op : HotOp) -> UInt {
     | HotOp::TupleExtract
     | HotOp::StringOp => HOT_FLAG_VALUE
     HotOp::RefCast | HotOp::RefCastDescEq => HOT_FLAG_VALUE | HOT_FLAG_MAY_TRAP
+    HotOp::Heap => HOT_FLAG_VALUE | HOT_FLAG_SIDE_EFFECT | HOT_FLAG_MAY_TRAP
     HotOp::LocalSet | HotOp::GlobalSet | HotOp::Drop => HOT_FLAG_SIDE_EFFECT
     HotOp::LocalTee => HOT_FLAG_SIDE_EFFECT | HOT_FLAG_VALUE
     HotOp::Load => HOT_FLAG_VALUE | HOT_FLAG_MAY_TRAP | HOT_FLAG_LOAD

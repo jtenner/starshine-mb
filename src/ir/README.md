@@ -21,13 +21,13 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 - `architecture.mbt`: shared IR2 architecture types that later pass-manager slices build on now, including revision reads and pass-descriptor metadata.
 - `cfg_contract.mbt`: normative block-boundary, structured-control successor, terminator edge-kind, and exceptional-edge policy helpers so CFG construction and later analyses stop guessing hot-IR control-flow rules.
 - `hot_core.mbt`: owned dense storage model, storage counters, body-result accessors, and the minimal core debug dump surface. Deleted nodes are tracked as tombstones, and free-list reuse remains disabled for now.
-- `hot_flags.mbt`: canonical per-op raw flag table plus fast node classification helpers for control, branch, effect, trap, and exceptional-edge queries.
+- `hot_flags.mbt`: canonical per-op raw flag table plus fast node classification helpers for control, branch, effect, trap, and exceptional-edge queries, including the conservative `Heap` family contract for GC/reference boundary ops that still preserve exact opcode identity through payload side tables.
 - `hot_types.mbt`: canonical keyed type interning plus result-arity, result-type, and local-metadata queries for later label, CFG, and SSA slices.
 - `hot_labels.mbt`: stable label ownership, branch-arity, and control-region slot metadata so later analyses stop decoding control immediates directly.
-- `hot_side_tables.mbt`: typed side-table alloc/get helpers for const payloads, memargs, branch tables, catches, call signatures, and exact boundary instruction payloads so hot IR no longer depends on an untyped payload bucket and later lift/lower work can preserve concrete opcode identity.
-- `hot_builders.mbt`: canonical safe node constructors that allocate labels, region wrappers, and side-table payload ids without raw field assembly.
+- `hot_side_tables.mbt`: typed side-table alloc/get helpers for const payloads, memargs, branch tables, catches, call signatures, and exact boundary instruction payloads so hot IR no longer depends on an untyped payload bucket and later lift/lower work can preserve concrete opcode identity across generic families.
+- `hot_builders.mbt`: canonical safe node constructors that allocate labels, region wrappers, and side-table payload ids without raw field assembly, including the `Heap` family helper used for boundary GC/reference instructions.
 - `hot_mutate.mbt`: canonical root, node, child-span, deletion, and revision-bump mutation helpers so later rewrites stop writing `HotFunc` storage directly.
-- `hot_query.mbt`: canonical read-only node-family, type, branch, span, local-metadata, and tombstone queries so analyses stop decoding raw storage layout directly.
+- `hot_query.mbt`: canonical read-only node-family, exact-instruction, type, branch, span, local-metadata, and tombstone queries so analyses stop decoding raw storage layout directly.
 - `hot_walk.mbt`: stable root, child, subtree, region, control-region, worklist, and rewrite-by-slot traversal helpers with explicit `Continue` / `Skip` / `Stop` / `Error` control flow.
 - `hot_region_edit.mbt`: one structured region reference plus root/body/then/else/catch splice helpers so passes can rewrite top-level and nested bodies through one mutation contract.
 - `hot_module_context.mbt`: shared boundary-module context resolution for function signatures, type-index block results, memories, tables, globals, tags, and aggregate field metadata so lift/lower and later analyses stop depending on validator-private lookups.

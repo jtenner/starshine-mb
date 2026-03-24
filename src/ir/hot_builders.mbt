@@ -430,6 +430,23 @@ pub fn hot_build_table_set(
 }
 
 ///|
+pub fn hot_build_heap(
+  func : HotFunc,
+  result_types : Array[ValType],
+  instr : Instruction,
+  children : Array[NodeId],
+) -> NodeId {
+  let payload_id = hot_alloc_instr_payload(func, HotInstrPayload::new(instr))
+  hot_build_node(
+    func,
+    HotOp::Heap,
+    hot_builder_results_type(func, result_types),
+    imm0=payload_id,
+    children~,
+  )
+}
+
+///|
 pub fn hot_build_unary(
   func : HotFunc,
   result_type : ValType,

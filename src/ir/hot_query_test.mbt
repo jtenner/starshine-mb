@@ -21,6 +21,12 @@ test "query helpers classify representative node families and expose node result
     func,
     @lib.RefType::abs(@lib.AbsHeapType::extern_()),
   )
+  let heap = hot_build_heap(
+    func,
+    [@lib.ValType::i32()],
+    @lib.Instruction::array_len(),
+    [ref_null],
+  )
   let throw_ref = hot_build_throw_ref(func, ref_null)
   let call = hot_build_call(func, 5, [@lib.ValType::i32()], [local_get])
   let block = hot_build_block(func, @lib.BlockType::void_(), [
@@ -33,6 +39,7 @@ test "query helpers classify representative node families and expose node result
   assert_true(hot_node_kind_is_table(func, table))
   assert_true(hot_node_kind_is_numeric(func, numeric))
   assert_true(hot_node_kind_is_tuple(func, tuple))
+  assert_true(hot_node_kind_is_heap(func, heap))
   assert_true(hot_node_kind_is_exception(func, throw_ref))
   assert_true(hot_node_kind_is_call(func, call))
   assert_true(hot_node_kind_is_control(func, block))
@@ -43,6 +50,10 @@ test "query helpers classify representative node families and expose node result
   )
   assert_eq(hot_node_result_arity(func, local_get), 1)
   assert_eq(hot_node_result_arity(func, tuple), 2)
+  assert_eq(
+    hot_node_exact_instr(func, heap),
+    Some(@lib.Instruction::array_len()),
+  )
 }
 
 ///|

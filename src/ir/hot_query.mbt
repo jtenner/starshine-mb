@@ -90,6 +90,11 @@ pub fn hot_node_kind_is_numeric(func : HotFunc, node_id : NodeId) -> Bool {
 }
 
 ///|
+pub fn hot_node_kind_is_heap(func : HotFunc, node_id : NodeId) -> Bool {
+  hot_query_op(func, node_id) == HotOp::Heap
+}
+
+///|
 pub fn hot_node_kind_is_tuple(func : HotFunc, node_id : NodeId) -> Bool {
   match hot_query_op(func, node_id) {
     HotOp::TupleMake | HotOp::TupleExtract => true

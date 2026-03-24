@@ -19,6 +19,16 @@ pub fn HotConstPayload::i64_const(value : I64) -> HotConstPayload {
 }
 
 ///|
+pub fn HotConstPayload::f32_const(value : F32) -> HotConstPayload {
+  F32Const(value)
+}
+
+///|
+pub fn HotConstPayload::f64_const(value : F64) -> HotConstPayload {
+  F64Const(value)
+}
+
+///|
 pub fn HotConstPayload::ref_null_const(value : RefType) -> HotConstPayload {
   RefNullConst(value)
 }
@@ -175,6 +185,59 @@ pub fn hot_instr_payload_get(
   id : SideTableId,
 ) -> HotInstrPayload {
   func.instr_payloads[id]
+}
+
+///|
+fn hot_exact_instr_payload_id_for_op(node : HotNode) -> SideTableId? {
+  match node.op {
+    HotOp::Load
+    | HotOp::Store
+    | HotOp::RefTest
+    | HotOp::RefCast
+    | HotOp::RefTestDesc
+    | HotOp::RefCastDescEq
+    | HotOp::BrOnCast
+    | HotOp::BrOnCastFail => Some(node.imm1)
+    HotOp::Select
+    | HotOp::Heap
+    | HotOp::Unary
+    | HotOp::Binary
+    | HotOp::Compare
+    | HotOp::Convert
+    | HotOp::StringOp
+    | HotOp::Atomic
+    | HotOp::Simd => Some(node.imm0)
+    _ => None
+  }
+}
+
+///|
+pub fn hot_node_exact_instr_payload_id(
+  func : HotFunc,
+  node_id : NodeId,
+) -> SideTableId? {
+  let _ = func
+  hot_exact_instr_payload_id_for_op(hot_node_get(func, node_id))
+}
+
+///|
+pub fn hot_node_exact_instr(func : HotFunc, node_id : NodeId) -> Instruction? {
+  match hot_node_exact_instr_payload_id(func, node_id) {
+    Some(payload_id) => Some(hot_instr_payload_get(func, payload_id).instr)
+    None => None
+  }
+}
+
+///|
+pub fn hot_verify_node_exact_instr_payload(
+  func : HotFunc,
+  node_id : NodeId,
+) -> Bool {
+  match hot_node_exact_instr_payload_id(func, node_id) {
+    Some(payload_id) =>
+      payload_id >= 0 && payload_id < func.instr_payloads.length()
+    None => true
+  }
 }
 
 ///|

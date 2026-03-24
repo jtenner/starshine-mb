@@ -40,3 +40,25 @@ test "lifted nodes expose canonical flag helpers" {
   assert_false(hot_has_side_effect(func, ret_value))
   assert_false(hot_is_terminator_node(func, ret_value))
 }
+
+///|
+test "heap family flags conservatively cover value trap and side-effect behavior" {
+  let func = HotFunc::new()
+  let ref_null = hot_build_ref_null(
+    func,
+    @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+  )
+  let node = hot_build_heap(
+    func,
+    [@lib.ValType::i32()],
+    @lib.Instruction::array_len(),
+    [ref_null],
+  )
+
+  assert_eq(
+    hot_node_flags(func, node),
+    hot_default_flags_for_op(hot_node_get(func, node).op),
+  )
+  assert_true(hot_has_side_effect(func, node))
+  assert_true(hot_may_trap(func, node))
+}

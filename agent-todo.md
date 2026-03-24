@@ -9,30 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 119 - Boundary Family Coverage Metadata
-- Goal:
-  Close the remaining representation gaps between boundary instructions and current hot-op families before the full lift/lower push.
-- Why this slice exists:
-  Exact boundary payload storage exists now, but several boundary instruction families still lack a clean hot-family contract for lift/lower and analysis.
-- Concrete deliverables:
-  - Update `src/ir/hot_core.mbt`, `src/ir/hot_flags.mbt`, and related tests/docs as needed.
-- Detailed implementation tasks:
-  - Define the missing hot-op family surface needed for boundary instructions that are still not representable enough for lift/lower.
-  - Keep family flags and verifier rules coherent with the new representation.
-  - Add builder/query hooks as needed for the new family surface.
-- Required utilities / APIs:
-  - Exact API surface depends on the chosen family split, but must be sufficient for IR2-120 and IR2-130.
-- Invariants / correctness rules:
-  - Family flags remain canonical per op.
-  - Exact boundary opcode identity stays recoverable through typed payload accessors.
-- Dependencies:
-  - IR2 - 050 - Hot IR Side Tables.
-- Exit criteria:
-  - IR2-120 no longer needs to invent ad-hoc opcode-family storage during implementation.
-- Suggested tests:
-  - Representative value/effect classification for newly-covered families.
-  - Verifier coverage for the added family metadata.
-
 ### IR2 - 120 - Boundary -> Hot Lifting
 - Goal:
   Lift valid boundary function bodies into full-coverage hot IR.

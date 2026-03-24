@@ -71,6 +71,7 @@ pub enum HotOp {
   RefCast
   RefTestDesc
   RefCastDescEq
+  Heap
   Unary
   Binary
   Compare
@@ -158,6 +159,8 @@ pub struct HotLabelInfo {
 pub enum HotConstPayload {
   I32Const(I32)
   I64Const(I64)
+  F32Const(F32)
+  F64Const(F64)
   RefNullConst(RefType)
   StringConst(Bytes)
 } derive(Eq, Show, Debug)

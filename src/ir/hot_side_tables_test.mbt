@@ -3,6 +3,14 @@ test "typed side tables roundtrip payloads and classify opcode families" {
   let func = HotFunc::new()
 
   let const_id = hot_alloc_const(func, HotConstPayload::i32_const(@lib.I32(7)))
+  let f32_const_id = hot_alloc_const(
+    func,
+    HotConstPayload::f32_const(@lib.F32(3.5)),
+  )
+  let f64_const_id = hot_alloc_const(
+    func,
+    HotConstPayload::f64_const(@lib.F64(7.25)),
+  )
   let memarg_id = hot_alloc_memarg(
     func,
     HotMemArg::new(@lib.MemArg::new(@lib.U32(2), None, @lib.U64(8))),
@@ -24,6 +32,14 @@ test "typed side tables roundtrip payloads and classify opcode families" {
     HotConstPayload::i32_const(@lib.I32(7)),
   )
   assert_eq(
+    hot_const_get(func, f32_const_id),
+    HotConstPayload::f32_const(@lib.F32(3.5)),
+  )
+  assert_eq(
+    hot_const_get(func, f64_const_id),
+    HotConstPayload::f64_const(@lib.F64(7.25)),
+  )
+  assert_eq(
     hot_memarg_get(func, memarg_id),
     HotMemArg::new(@lib.MemArg::new(@lib.U32(2), None, @lib.U64(8))),
   )
@@ -37,6 +53,25 @@ test "typed side tables roundtrip payloads and classify opcode families" {
   assert_eq(
     hot_instr_payload_get(func, instr_payload_id),
     HotInstrPayload::new(@lib.Instruction::i32_add()),
+  )
+}
+
+///|
+test "exact instruction payload helpers expose opcode identity for generic families" {
+  let func = HotFunc::new()
+  let ref_null = hot_build_ref_null(
+    func,
+    @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+  )
+  let heap = hot_build_heap(
+    func,
+    [@lib.ValType::i32()],
+    @lib.Instruction::array_len(),
+    [ref_null],
+  )
+  assert_eq(
+    hot_node_exact_instr(func, heap),
+    Some(@lib.Instruction::array_len()),
   )
 }
 

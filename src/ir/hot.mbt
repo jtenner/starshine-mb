@@ -500,6 +500,8 @@ fn hot_lower_const(
   match hot_const_get(func, node.imm0) {
     HotConstPayload::I32Const(v) => out.push(Instruction::i32_const(v))
     HotConstPayload::I64Const(v) => out.push(Instruction::i64_const(v))
+    HotConstPayload::F32Const(v) => out.push(Instruction::f32_const(v))
+    HotConstPayload::F64Const(v) => out.push(Instruction::f64_const(v))
     HotConstPayload::RefNullConst(rt) =>
       out.push(Instruction::ref_null(rt.get_heap_type()))
     HotConstPayload::StringConst(bytes) =>

@@ -263,6 +263,19 @@ pub fn hot_verify_core(func : HotFunc) -> Result[Unit, HotVerifyError] {
       }
       None => ()
     }
+    if !hot_verify_node_exact_instr_payload(func, node_id) {
+      let payload_id = match hot_node_exact_instr_payload_id(func, node_id) {
+        Some(id) => id
+        None => -1
+      }
+      return Err(
+        HotVerifyError::InvalidSideTableRef(
+          node_id,
+          HotSideTableKind::InstrPayloadTable,
+          payload_id,
+        ),
+      )
+    }
   }
 
   Ok(())
