@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 Node: remove deleted package rebuild assumptions
+
+- **Node rebuild path reset** by **@jtenner**. Updated [`scripts/lib/build-node-package.mjs`](/home/jtenner/Projects/starshine-mb/scripts/lib/build-node-package.mjs) so `npm run build` no longer tries to rebuild the deleted [`src/node_api`](/home/jtenner/Projects/starshine-mb/src/node_api) wasm-gc adapter and instead treats [`node/internal/starshine.wasm-gc.wasm`](/home/jtenner/Projects/starshine-mb/node/internal/starshine.wasm-gc.wasm) as a checked-in boundary artifact while still rebuilding the WASI CLI artifact. Also removed dead `src/node_api` CI path filters in [node-wasm-tests.yml](/home/jtenner/Projects/starshine-mb/.github/workflows/node-wasm-tests.yml), narrowed [`node/package.json`](/home/jtenner/Projects/starshine-mb/node/package.json) cleanup to the rebuilt WASI artifact, and added missing `target="wasm"` debug-dump stubs in [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) so the node build path compiles again.
+
 ## 2026-03-24 Migration: remove legacy optimization and generated node surfaces
 
 - **Optimizer and generated API reset** by **@jtenner**. Removed the entire legacy optimization package under [`src/optimization`](/home/jtenner/Projects/starshine-mb/src/optimization), deleted the generated [`src/node_api`](/home/jtenner/Projects/starshine-mb/src/node_api) package and stale node `ir` / `transformer` exports, rewired command, validation, binary, and trace fixtures around the remaining raw-boundary plus hot-IR path, and scrubbed tracked source/docs/node files of the deleted `TFunc` / `TInstr` / `TExpr` / `ModuleTransformer` naming surface. Added [`src/validate/typed_instr_lowering.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/typed_instr_lowering.mbt) to preserve valid typed-body roundtrips at the cold boundary while the optimizer is rebuilt.

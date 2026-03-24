@@ -3198,6 +3198,21 @@ fn cmd_debug_dump_invalid_encoded_func_text(
 }
 
 ///|
+#cfg(target="wasm")
+fn cmd_debug_dump_invalid_encoded_module(_bytes : Bytes) -> Unit {
+
+}
+
+///|
+#cfg(target="wasm")
+fn cmd_debug_dump_invalid_encoded_func_text(
+  _before_text : String,
+  _after_text : String,
+) -> Unit {
+
+}
+
+///|
 #cfg(target="native")
 fn cmd_native_remove_file(path : String) -> Unit {
   ignore(@sfs.remove_file(path))

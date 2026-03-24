@@ -21,30 +21,30 @@ function copyArtifact(root, fromRelativePath, toRelativePath) {
   return fs.statSync(targetPath).size;
 }
 
-// Build Node and CLI release artifacts then sync outputs into node/internal with
-// deterministic target filenames used by package consumers.
+// Build the CLI release artifact and sync it into node/internal. The wasm-gc
+// adapter artifact is currently a checked-in boundary artifact while the old
+// generated node_api package is deleted and the Node surface is rebuilt.
 export function buildNodePackage({
   repoRoot: root = repoRoot,
   moonBin = resolveMoonBin(),
 } = {}) {
-  console.log('Building wasm-gc package adapter...');
-  run(moonBin, ['build', '--target', 'wasm-gc', '--release', 'src/node_api'], root);
-
   console.log('Building optimized WASI CLI...');
   run(moonBin, ['build', '--target', 'wasm', '--release', 'src/cmd'], root);
 
-  const wasmGcSize = copyArtifact(
-    root,
-    path.join('_build', 'wasm-gc', 'release', 'build', 'node_api', 'node_api.wasm'),
-    path.join('node', 'internal', 'starshine.wasm-gc.wasm'),
-  );
+  const frozenWasmGcPath = path.join(root, 'node', 'internal', 'starshine.wasm-gc.wasm');
+  if (!fs.existsSync(frozenWasmGcPath)) {
+    throw new Error(
+      `Missing checked-in node/internal/starshine.wasm-gc.wasm; rebuilding the wasm-gc adapter is disabled after deleting src/node_api.`,
+    );
+  }
+  const wasmGcSize = fs.statSync(frozenWasmGcPath).size;
   const wasmWasiSize = copyArtifact(
     root,
     path.join('_build', 'wasm', 'release', 'build', 'cmd', 'cmd.wasm'),
     path.join('node', 'internal', 'starshine.wasm-wasi.wasm'),
   );
 
-  console.log(`Wrote node/internal/starshine.wasm-gc.wasm (${wasmGcSize} bytes)`);
+  console.log(`Kept node/internal/starshine.wasm-gc.wasm (${wasmGcSize} bytes)`);
   console.log(`Wrote node/internal/starshine.wasm-wasi.wasm (${wasmWasiSize} bytes)`);
 }
 

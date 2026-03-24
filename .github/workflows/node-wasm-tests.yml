@@ -6,7 +6,6 @@ on:
     paths:
       - "node/**"
       - "tests/node/**"
-      - "src/node_api/**"
       - "src/cmd/**"
       - "src/cli/**"
       - "src/ir/**"
@@ -27,7 +26,6 @@ on:
     paths:
       - "node/**"
       - "tests/node/**"
-      - "src/node_api/**"
       - "src/cmd/**"
       - "src/cli/**"
       - "src/ir/**"

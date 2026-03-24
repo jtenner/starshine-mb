@@ -58,7 +58,7 @@
     "generate": "bun ../scripts/make.ts generate-node-package",
     "build": "bun ../scripts/make.ts node-package",
     "test": "npm run build && node --test test/*.test.mjs",
-    "clean": "rm -f internal/starshine.wasm-gc.wasm internal/starshine.wasm-wasi.wasm",
+    "clean": "rm -f internal/starshine.wasm-wasi.wasm",
     "prepack": "npm run build"
   }
 }
