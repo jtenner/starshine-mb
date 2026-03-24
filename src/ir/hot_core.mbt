@@ -364,7 +364,10 @@ pub fn hot_replace_node(
   id : NodeId,
   new_node : HotNode,
 ) -> Unit {
-  hot_node_set(func, id, new_node)
+  hot_node_set(func, id, {
+    ..new_node,
+    flags: hot_default_flags_for_op(new_node.op),
+  })
 }
 
 ///|
@@ -393,5 +396,14 @@ pub fn hot_make_simple_node(
   imm1 : Int,
   children : Array[NodeId],
 ) -> HotNode {
-  { op, ty, flags, imm0, imm1, child_base: 0, child_count: children.length() }
+  let _ = flags
+  {
+    op,
+    ty,
+    flags: hot_default_flags_for_op(op),
+    imm0,
+    imm1,
+    child_base: 0,
+    child_count: children.length(),
+  }
 }

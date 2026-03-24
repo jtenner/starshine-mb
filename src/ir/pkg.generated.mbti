@@ -7,6 +7,28 @@ import {
 }
 
 // Values
+pub const HOT_FLAG_BRANCH : UInt = 32
+
+pub const HOT_FLAG_CALL : UInt = 64
+
+pub const HOT_FLAG_CONTROL : UInt = 2
+
+pub const HOT_FLAG_HAS_EXCEPTIONAL_SUCC : UInt = 1024
+
+pub const HOT_FLAG_LOAD : UInt = 128
+
+pub const HOT_FLAG_MAY_TRAP : UInt = 16
+
+pub const HOT_FLAG_SIDE_EFFECT : UInt = 4
+
+pub const HOT_FLAG_STORE : UInt = 256
+
+pub const HOT_FLAG_TERMINATOR : UInt = 1
+
+pub const HOT_FLAG_THROWS : UInt = 512
+
+pub const HOT_FLAG_VALUE : UInt = 8
+
 pub fn compat_is_f32_nan(Float) -> Bool
 
 pub fn compat_is_f64_nan(Double) -> Bool
@@ -37,17 +59,37 @@ pub fn hot_child_storage_count(HotFunc) -> Int
 
 pub fn hot_debug_dump_core(HotFunc) -> String
 
+pub fn hot_default_flags_for_op(HotOp) -> UInt
+
+pub fn hot_has_exceptional_succ(HotFunc, Int) -> Bool
+
+pub fn hot_has_side_effect(HotFunc, Int) -> Bool
+
+pub fn hot_is_branch(HotFunc, Int) -> Bool
+
+pub fn hot_is_control_node(HotFunc, Int) -> Bool
+
+pub fn hot_is_terminator_node(HotFunc, Int) -> Bool
+
 pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc
 
 pub fn hot_lower_body(HotFunc) -> @lib.Expr
 
 pub fn hot_make_simple_node(HotOp, Int, UInt, Int, Int, Array[Int]) -> HotNode
 
+pub fn hot_may_trap(HotFunc, Int) -> Bool
+
 pub fn hot_node_count(HotFunc) -> Int
+
+pub fn hot_node_flags(HotFunc, Int) -> UInt
 
 pub fn hot_node_get(HotFunc, Int) -> HotNode
 
+pub fn hot_node_has_flag(HotFunc, Int, UInt) -> Bool
+
 pub fn hot_node_is_live(HotFunc, Int) -> Bool
+
+pub fn hot_node_may_throw_exception(HotFunc, Int) -> Bool
 
 pub fn hot_node_set(HotFunc, Int, HotNode) -> Unit
 

@@ -57,6 +57,16 @@ pub fn hot_body_result_type(HotFunc) -> Int
 pub fn hot_body_result_type_set(HotFunc, Int) -> Unit
 pub fn hot_node_is_live(HotFunc, Int) -> Bool
 pub fn hot_debug_dump_core(HotFunc) -> String
+pub fn hot_default_flags_for_op(HotOp) -> UInt
+pub fn hot_node_flags(HotFunc, Int) -> UInt
+pub fn hot_node_has_flag(HotFunc, Int, UInt) -> Bool
+pub fn hot_is_control_node(HotFunc, Int) -> Bool
+pub fn hot_is_terminator_node(HotFunc, Int) -> Bool
+pub fn hot_has_side_effect(HotFunc, Int) -> Bool
+pub fn hot_may_trap(HotFunc, Int) -> Bool
+pub fn hot_is_branch(HotFunc, Int) -> Bool
+pub fn hot_has_exceptional_succ(HotFunc, Int) -> Bool
+pub fn hot_node_may_throw_exception(HotFunc, Int) -> Bool
 pub fn hot_revision_current(HotFunc) -> Int
 pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
 pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]

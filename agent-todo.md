@@ -9,40 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 020 - Hot IR Flags Model
-- Goal:
-  Centralize structural and raw-effect flag derivation for all opcodes.
-- Why this slice exists:
-  Builders, CFG, effect summaries, and passes need constant-time canonical node classification.
-- Concrete deliverables:
-  - `src/ir/hot_flags.mbt`.
-  - `src/ir/hot_flags_test.mbt`.
-- Detailed implementation tasks:
-  - Define flag bits for `CONTROL`, `TERMINATOR`, `VALUE`, `SIDE_EFFECT`, `MAY_TRAP`, `BRANCH`, `CALL`, `LOAD`, `STORE`, `THROWS`, `HAS_EXCEPTIONAL_SUCC`, and optional `TOMBSTONE`.
-  - Add a central opcode metadata table or `hot_default_flags_for_op(op)`.
-  - Replace handwritten flag literals in builders/lift with the central source.
-  - Add fast helpers for `hot_is_control_node`, `hot_is_terminator_node`, `hot_has_side_effect`, `hot_may_trap`, `hot_is_branch`, `hot_has_exceptional_succ`.
-- Required utilities / APIs:
-  - `hot_default_flags_for_op(op)`.
-  - `hot_node_flags(func, node_id)`.
-  - `hot_node_has_flag(func, node_id, flag)`.
-  - `hot_is_control_node(func, node_id)`.
-  - `hot_is_terminator_node(func, node_id)`.
-  - `hot_node_may_throw_exception(func, node_id)`.
-- Invariants / correctness rules:
-  - Raw flags are local opcode facts, not subtree summaries.
-  - Impossible flag combinations are rejected.
-  - Terminator flags must agree with CFG semantics.
-- Dependencies:
-  - IR2 - 010 - Hot IR Core.
-- Exit criteria:
-  - All node construction uses one canonical flag source.
-  - Control, call, memory, branch, and throw families are covered by tests.
-- Suggested tests:
-  - Representative opcodes classify into the expected flag sets.
-  - Replaced nodes retain canonical flags.
-  - Invalid flag combinations are rejected.
-
 ### IR2 - 030 - Hot IR Type Interning
 - Goal:
   Implement fast deterministic type interning and result-type queries.

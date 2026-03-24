@@ -1,16 +1,4 @@
 ///|
-const HOT_FLAG_TERMINATOR : UInt = 1U
-
-///|
-const HOT_FLAG_CONTROL : UInt = 2U
-
-///|
-const HOT_FLAG_SIDE_EFFECT : UInt = 4U
-
-///|
-const HOT_FLAG_VALUE : UInt = 8U
-
-///|
 fn hot_alloc_const(func : HotFunc, payload : HotConstPayload) -> Int {
   let id = func.consts.length()
   func.consts.push(payload)
@@ -62,6 +50,7 @@ fn hot_make_node_with_children(
   imm1 : Int,
   children : Array[NodeId],
 ) -> HotNode {
+  let _ = flags
   let base = hot_alloc_children(func, children.length())
   for i = 0; i < children.length(); i = i + 1 {
     func.children[base + i] = children[i]
@@ -69,7 +58,7 @@ fn hot_make_node_with_children(
   {
     op,
     ty,
-    flags,
+    flags: hot_default_flags_for_op(op),
     imm0,
     imm1,
     child_base: base,
@@ -174,7 +163,7 @@ fn hot_wrap_region(
     func,
     HotOp::Block,
     hot_type_void(func),
-    HOT_FLAG_CONTROL,
+    hot_default_flags_for_op(HotOp::Block),
     -1,
     0,
     [],
@@ -213,7 +202,7 @@ fn hot_lift_instruction(
           hot_make_simple_node(
             HotOp::Const,
             hot_type_void(func),
-            HOT_FLAG_VALUE,
+            hot_default_flags_for_op(HotOp::Const),
             const_id,
             0,
             [],
@@ -229,7 +218,7 @@ fn hot_lift_instruction(
           hot_make_simple_node(
             HotOp::Const,
             hot_type_void(func),
-            HOT_FLAG_VALUE,
+            hot_default_flags_for_op(HotOp::Const),
             const_id,
             0,
             [],
@@ -245,7 +234,7 @@ fn hot_lift_instruction(
           hot_make_simple_node(
             HotOp::RefNull,
             hot_type_void(func),
-            HOT_FLAG_VALUE,
+            hot_default_flags_for_op(HotOp::RefNull),
             const_id,
             0,
             [],
@@ -261,7 +250,7 @@ fn hot_lift_instruction(
           hot_make_simple_node(
             HotOp::Const,
             hot_type_void(func),
-            HOT_FLAG_VALUE,
+            hot_default_flags_for_op(HotOp::Const),
             const_id,
             0,
             [],
@@ -276,7 +265,7 @@ fn hot_lift_instruction(
           hot_make_simple_node(
             HotOp::LocalGet,
             hot_type_void(func),
-            HOT_FLAG_VALUE,
+            hot_default_flags_for_op(HotOp::LocalGet),
             raw.reinterpret_as_int(),
             0,
             [],
@@ -290,7 +279,7 @@ fn hot_lift_instruction(
           hot_make_simple_node(
             HotOp::GlobalGet,
             hot_type_void(func),
-            HOT_FLAG_VALUE,
+            hot_default_flags_for_op(HotOp::GlobalGet),
             raw.reinterpret_as_int(),
             0,
             [],
@@ -301,7 +290,14 @@ fn hot_lift_instruction(
       roots.push(
         hot_alloc_node(
           func,
-          hot_make_simple_node(HotOp::Nop, hot_type_void(func), 0U, 0, 0, []),
+          hot_make_simple_node(
+            HotOp::Nop,
+            hot_type_void(func),
+            hot_default_flags_for_op(HotOp::Nop),
+            0,
+            0,
+            [],
+          ),
         ),
       )
     Unreachable =>
@@ -311,7 +307,7 @@ fn hot_lift_instruction(
           hot_make_simple_node(
             HotOp::Unreachable,
             hot_type_void(func),
-            HOT_FLAG_TERMINATOR,
+            hot_default_flags_for_op(HotOp::Unreachable),
             0,
             0,
             [],
@@ -326,7 +322,7 @@ fn hot_lift_instruction(
             func,
             HotOp::Drop,
             hot_type_void(func),
-            HOT_FLAG_SIDE_EFFECT,
+            hot_default_flags_for_op(HotOp::Drop),
             0,
             0,
             [hot_pop_value(values)],
@@ -341,7 +337,7 @@ fn hot_lift_instruction(
             func,
             HotOp::LocalSet,
             hot_type_void(func),
-            HOT_FLAG_SIDE_EFFECT,
+            hot_default_flags_for_op(HotOp::LocalSet),
             raw.reinterpret_as_int(),
             0,
             [hot_pop_value(values)],
@@ -355,7 +351,7 @@ fn hot_lift_instruction(
           func,
           HotOp::LocalTee,
           hot_type_void(func),
-          HOT_FLAG_SIDE_EFFECT | HOT_FLAG_VALUE,
+          hot_default_flags_for_op(HotOp::LocalTee),
           raw.reinterpret_as_int(),
           0,
           [hot_pop_value(values)],
@@ -372,7 +368,7 @@ fn hot_lift_instruction(
             func,
             HotOp::GlobalSet,
             hot_type_void(func),
-            HOT_FLAG_SIDE_EFFECT,
+            hot_default_flags_for_op(HotOp::GlobalSet),
             raw.reinterpret_as_int(),
             0,
             [hot_pop_value(values)],
@@ -385,7 +381,7 @@ fn hot_lift_instruction(
         func,
         HotOp::Block,
         ty,
-        HOT_FLAG_CONTROL,
+        hot_default_flags_for_op(HotOp::Block),
         -1,
         0,
         [],
@@ -419,7 +415,7 @@ fn hot_lift_instruction(
         func,
         HotOp::Loop,
         ty,
-        HOT_FLAG_CONTROL,
+        hot_default_flags_for_op(HotOp::Loop),
         -1,
         0,
         [],
@@ -453,7 +449,7 @@ fn hot_lift_instruction(
         func,
         HotOp::If,
         ty,
-        HOT_FLAG_CONTROL,
+        hot_default_flags_for_op(HotOp::If),
         -1,
         0,
         [],
@@ -500,7 +496,7 @@ fn hot_lift_instruction(
             func,
             HotOp::Return,
             hot_type_void(func),
-            HOT_FLAG_TERMINATOR | HOT_FLAG_SIDE_EFFECT,
+            hot_default_flags_for_op(HotOp::Return),
             0,
             0,
             hot_pop_values(
