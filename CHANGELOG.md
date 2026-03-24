@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 IR: add dominator analysis overlay
+
+- **Hot CFG dominators** by **@jtenner**. Added [`src/ir/dominators.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/dominators.mbt) and [`src/ir/dominators_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/dominators_test.mbt) to compute immediate dominators, dominator-tree children, dominance queries, dominance frontiers, and debug dumps over the reachable non-exceptional CFG using the shared traversal-order and bitset utilities, with internal verifier checks that reject inconsistent idom trees and frontier outputs. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-170 slice.
+
 ## 2026-03-24 IR: add dataflow bitset utilities
 
 - **IR dataflow bitsets** by **@jtenner**. Added [`src/ir/bitset.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/bitset.mbt) and [`src/ir/bitset_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/bitset_test.mbt) to provide reusable dense `UInt64`-backed bitsets with strict size/index validation, set/clear/test operations, in-place union/intersection/difference, equality checks, masked tail-word handling, and deterministic ascending iteration over set bits for later dominance, liveness, and use-def slices. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-165 slice.

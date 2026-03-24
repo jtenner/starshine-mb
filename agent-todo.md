@@ -9,42 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 170 - Dominators
-- Goal:
-  Compute immediate dominators, dominator tree, dominance queries, and dominance frontiers.
-- Why this slice exists:
-  SSA, loop info, and CFG-aware rewrites need dominance information.
-- Concrete deliverables:
-  - `src/ir/dominators.mbt`.
-  - `src/ir/dominators_test.mbt`.
-- Detailed implementation tasks:
-  - Build dominators over reachable CFG blocks using shared RPO.
-  - Compute idoms and dominator-tree children.
-  - Add `dominates` and `strictly_dominates` queries.
-  - Compute dominance frontiers for SSA placement.
-  - Add debug dump helpers and verifier integration.
-- Required utilities / APIs:
-  - `dom_build(cfg)`.
-  - `dom_idom(dom, block_id)`.
-  - `dom_children(dom, block_id)`.
-  - `dom_dominates(dom, a, b)`.
-  - `dom_strictly_dominates(dom, a, b)`.
-  - `dom_frontier(dom, block_id)`.
-- Invariants / correctness rules:
-  - Entry dominates all reachable blocks.
-  - Idom relations form a tree.
-  - Dominance frontiers are computed from the same edge set SSA will use.
-- Dependencies:
-  - IR2 - 150 - CFG Construction.
-  - IR2 - 160 - CFG Traversal Order Utilities.
-  - IR2 - 165 - Dataflow Bitset Utilities.
-- Exit criteria:
-  - Dominance queries and frontiers are available and verified.
-- Suggested tests:
-  - Diamond idoms/frontiers.
-  - Loop header/latch dominance.
-  - Unreachable-block policy coverage.
-
 ### IR2 - 180 - Post-Dominators
 - Goal:
   Compute post-dominators and post-dominance queries, including exceptional exits.

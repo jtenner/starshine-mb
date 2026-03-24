@@ -102,6 +102,20 @@ pub fn compat_trunc_f64_to_i64_s(Double) -> Int64?
 
 pub fn compat_trunc_f64_to_i64_u(Double) -> Int64?
 
+pub fn dom_build(HotCfg) -> HotDominators
+
+pub fn dom_children(HotDominators, Int) -> Array[Int]
+
+pub fn dom_debug_dump(HotDominators) -> String
+
+pub fn dom_dominates(HotDominators, Int, Int) -> Bool
+
+pub fn dom_frontier(HotDominators, Int) -> Array[Int]
+
+pub fn dom_idom(HotDominators, Int) -> Int?
+
+pub fn dom_strictly_dominates(HotDominators, Int, Int) -> Bool
+
 pub fn hot_alloc_branch_table(HotFunc, HotBranchTable) -> Int
 
 pub fn hot_alloc_call_sig(HotFunc, HotCallSig) -> Int
@@ -702,6 +716,19 @@ pub struct HotControlRegionSlotInfo {
 pub impl Eq for HotControlRegionSlotInfo
 pub impl Show for HotControlRegionSlotInfo
 pub impl @debug.Debug for HotControlRegionSlotInfo
+
+pub struct HotDominators {
+  entry_block : Int
+  reachable : Bitset
+  idoms : Array[Int]
+  children : Array[Array[Int]]
+  frontiers : Array[Array[Int]]
+  dom_preorder : Array[Int]
+  dom_postorder : Array[Int]
+}
+pub impl Eq for HotDominators
+pub impl Show for HotDominators
+pub impl @debug.Debug for HotDominators
 
 pub struct HotFunc {
   nodes : Array[HotNode]
