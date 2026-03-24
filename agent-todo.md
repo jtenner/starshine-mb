@@ -9,39 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 180 - Post-Dominators
-- Goal:
-  Compute post-dominators and post-dominance queries, including exceptional exits.
-- Why this slice exists:
-  Some control rewrites and effect reasoning need reverse-flow dominance.
-- Concrete deliverables:
-  - `src/ir/postdominators.mbt`.
-  - `src/ir/postdominators_test.mbt`.
-- Detailed implementation tasks:
-  - Build post-dominators from reverse CFG.
-  - Define normal/exceptional exit policy and implement it consistently.
-  - Compute immediate post-dominators and post-dom tree.
-  - Add query helpers and debug dump support.
-- Required utilities / APIs:
-  - `postdom_build(cfg)`.
-  - `postdom_ipdom(postdom, block_id)`.
-  - `postdom_children(postdom, block_id)`.
-  - `postdom_postdominates(postdom, a, b)`.
-  - `postdom_frontier(postdom, block_id)` if needed.
-- Invariants / correctness rules:
-  - Exit handling matches the documented CFG contract.
-  - Overlay is keyed to the same reachable block set as consumers.
-- Dependencies:
-  - IR2 - 150 - CFG Construction.
-  - IR2 - 160 - CFG Traversal Order Utilities.
-  - IR2 - 165 - Dataflow Bitset Utilities.
-- Exit criteria:
-  - Multi-exit and exceptional-control cases are supported.
-- Suggested tests:
-  - Shared-return diamond.
-  - Separate return/throw exit behavior.
-  - Loop with side exit post-dominance.
-
 ### IR2 - 190 - Loop Info
 - Goal:
   Compute loop headers, bodies, latches, exits, and nesting depth from CFG + dominance.

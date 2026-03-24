@@ -518,6 +518,18 @@ pub fn[S, E] hot_walk_subtree_preorder(HotFunc, Int, S, (S, Int) -> HotVisitCtl[
 
 pub fn[S, E] hot_worklist_walk(HotFunc, Array[Int], S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
 
+pub fn postdom_build(HotCfg) -> HotPostDominators
+
+pub fn postdom_children(HotPostDominators, Int) -> Array[Int]
+
+pub fn postdom_debug_dump(HotPostDominators) -> String
+
+pub fn postdom_frontier(HotPostDominators, Int) -> Array[Int]
+
+pub fn postdom_ipdom(HotPostDominators, Int) -> Int?
+
+pub fn postdom_postdominates(HotPostDominators, Int, Int) -> Bool
+
 // Errors
 
 // Types and methods
@@ -921,6 +933,18 @@ pub fn HotPassDescriptor::new(String, requires? : Array[HotAnalysis], invalidate
 pub impl Eq for HotPassDescriptor
 pub impl Show for HotPassDescriptor
 pub impl @debug.Debug for HotPassDescriptor
+
+pub struct HotPostDominators {
+  roots : Array[Int]
+  reachable : Bitset
+  postdom_sets : Array[Bitset]
+  ipdoms : Array[Int]
+  children : Array[Array[Int]]
+  frontiers : Array[Array[Int]]
+}
+pub impl Eq for HotPostDominators
+pub impl Show for HotPostDominators
+pub impl @debug.Debug for HotPostDominators
 
 pub struct HotRegionRef {
   holder : Int
