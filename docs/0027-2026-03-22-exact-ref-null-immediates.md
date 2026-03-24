@@ -15,7 +15,7 @@ Before this slice:
 
 After this slice:
 
-- `@lib.Instruction::RefNull` and `@lib.TypedInstrKind::TRefNull` carry a full `@lib.RefType`.
+- `@lib.Instruction::RefNull` and the lifted validation/lowering path both carry a full `@lib.RefType`.
 - WAST lowering preserves exact nullable ref-null immediates.
 - Validation now validates the `RefType` immediate itself.
 - Binary encode/decode for opcode `0xD0` preserves exact nullable ref-null immediates through roundtrip.

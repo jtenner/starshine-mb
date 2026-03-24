@@ -19,7 +19,7 @@ Status: fresh rebuilt release-artifact parity recheck after repairing raw-to-typ
 Focused generated-path witness:
 
 - nested raw control bodies inside `block` / `loop` / `if` / `try_table` are now truncated after the first stack-polymorphic terminator during raw-to-typed conversion
-- top-level `to_typed_instrs` still preserves stack-polymorphic tails after `unreachable`, so the existing validator coverage for that behavior stays intact
+- the top-level generated validation path still preserves stack-polymorphic tails after `unreachable`, so the existing validator coverage for that behavior stays intact
 - the minimized `block { i32.const 1; br 1; drop }` fixture now lowers without the dead `drop` even when `run_generated_pipeline_with_options` runs with an empty pipeline
 
 Fresh artifact commands:

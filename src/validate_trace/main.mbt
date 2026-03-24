@@ -133,14 +133,16 @@ fn validate_trace_trim_program_name(argv : Array[String]) -> Array[String] {
 ///|
 fn validate_trace_deep_control_module() -> @lib.Module {
   let depth = 24
-  let mut body = [@lib.TypedInstr::local_get(@lib.LocalIdx::new(0))]
+  let mut body = @lib.Expr::new([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0)),
+  ])
   for _ in 0..<depth {
-    body = [
-      @lib.TypedInstr::block(
+    body = @lib.Expr::new([
+      @lib.Instruction::block(
         @lib.BlockType::val_type(@lib.ValType::i32()),
         body,
       ),
-    ]
+    ])
   }
   let sig = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -151,12 +153,7 @@ fn validate_trace_deep_control_module() -> @lib.Module {
   .with_type_sec(@lib.TypeSec::new([sig]))
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
   .with_code_sec(
-    @lib.CodeSec::new([
-      @lib.Func::new(
-        @lib.Locals::from_types([]),
-        @lib.typed_instrs_to_expr(body),
-      ),
-    ]),
+    @lib.CodeSec::new([@lib.Func::new(@lib.Locals::from_types([]), body)]),
   )
 }
 
@@ -167,21 +164,18 @@ fn validate_trace_wide_locals_module() -> @lib.Module {
   for _ in 0..<local_count {
     locals.push(@lib.ValType::i32())
   }
-  let body_instrs : Array[@lib.TypedInstr] = []
+  let body_instrs : Array[@lib.Instruction] = []
   for i = 0; i < local_count; i = i + 1 {
+    body_instrs.push(@lib.Instruction::i32_const(@lib.I32(i)))
     body_instrs.push(
-      @lib.TypedInstr::local_set(
-        @lib.LocalIdx::new(i.reinterpret_as_uint()),
-        @lib.TypedInstr::i32_const(@lib.I32(i)),
-      ),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(i.reinterpret_as_uint())),
     )
   }
   for i = 0; i < local_count; i = i + 1 {
     body_instrs.push(
-      @lib.TypedInstr::drop(
-        @lib.TypedInstr::local_get(@lib.LocalIdx::new(i.reinterpret_as_uint())),
-      ),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(i.reinterpret_as_uint())),
     )
+    body_instrs.push(@lib.Instruction::drop())
   }
   let sig = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
@@ -190,9 +184,7 @@ fn validate_trace_wide_locals_module() -> @lib.Module {
   .with_type_sec(@lib.TypeSec::new([sig]))
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
   .with_code_sec(
-    @lib.CodeSec::new([
-      @lib.Func::new(locals, @lib.typed_instrs_to_expr(body_instrs)),
-    ]),
+    @lib.CodeSec::new([@lib.Func::new(locals, @lib.Expr::new(body_instrs))]),
   )
 }
 
@@ -209,9 +201,11 @@ fn validate_trace_large_codesec_module() -> @lib.Module {
     funcs.push(
       @lib.Func::new(
         @lib.Locals::empty(),
-        @lib.typed_instrs_to_expr([
-          @lib.TypedInstr::drop(@lib.TypedInstr::i32_const(@lib.I32(i))),
-          @lib.TypedInstr::drop(@lib.TypedInstr::i32_const(@lib.I32(i + 1))),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(i)),
+          @lib.Instruction::drop(),
+          @lib.Instruction::i32_const(@lib.I32(i + 1)),
+          @lib.Instruction::drop(),
         ]),
       ),
     )
@@ -255,18 +249,16 @@ fn validate_trace_ref_func_heavy_module() -> @lib.Module {
         ),
       )
     }
-    let body_instrs : Array[@lib.TypedInstr] = []
+    let body_instrs : Array[@lib.Instruction] = []
     for j = 0; j < 12; j = j + 1 {
       let target = @lib.FuncIdx::new(
         ((i + j) % func_count).reinterpret_as_uint(),
       )
-      body_instrs.push(@lib.TypedInstr::drop(@lib.TypedInstr::ref_func(target)))
+      body_instrs.push(@lib.Instruction::ref_func(target))
+      body_instrs.push(@lib.Instruction::drop())
     }
     funcs.push(
-      @lib.Func::new(
-        @lib.Locals::from_types([]),
-        @lib.typed_instrs_to_expr(body_instrs),
-      ),
+      @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new(body_instrs)),
     )
   }
   let elem_decls = @lib.Elem::new(

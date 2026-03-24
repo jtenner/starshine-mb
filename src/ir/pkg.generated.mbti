@@ -23,41 +23,21 @@ pub fn hot_alloc_node(HotFunc, HotNode) -> Int
 
 pub fn hot_append_root(HotFunc, Int) -> Unit
 
-pub fn hot_body_splice(HotFunc, Int, Int, Int, Array[Int]) -> Unit
-
 pub fn hot_child_count(HotFunc, Int) -> Int
 
 pub fn hot_child_get(HotFunc, Int, Int) -> Int
 
 pub fn hot_child_set(HotFunc, Int, Int, Int) -> Unit
 
-pub fn hot_lift_body(Array[@lib.TypedInstr], HotLocals) -> HotFunc
+pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc
 
-pub fn hot_lower_body(HotFunc) -> Array[@lib.TypedInstr]
+pub fn hot_lower_body(HotFunc) -> @lib.Expr
 
 pub fn hot_make_simple_node(HotOp, Int, UInt, Int, Int, Array[Int]) -> HotNode
 
-pub fn hot_node_as_block(HotNode) -> HotNode
-
-pub fn hot_node_as_global_get(HotNode, Int) -> HotNode
-
 pub fn hot_node_get(HotFunc, Int) -> HotNode
 
-pub fn hot_node_is_block(HotNode) -> Bool
-
-pub fn hot_node_is_branch_targeting(HotNode) -> Bool
-
-pub fn hot_node_is_const(HotNode) -> Bool
-
-pub fn hot_node_is_loop(HotNode) -> Bool
-
-pub fn hot_node_is_try_table(HotNode) -> Bool
-
 pub fn hot_node_set(HotFunc, Int, HotNode) -> Unit
-
-pub fn hot_node_with_op(HotNode, HotOp) -> HotNode
-
-pub fn hot_replace_children(HotFunc, Int, Array[Int]) -> Unit
 
 pub fn hot_replace_node(HotFunc, Int, HotNode) -> Unit
 
@@ -66,12 +46,6 @@ pub fn hot_root_count(HotFunc) -> Int
 pub fn hot_root_get(HotFunc, Int) -> Int
 
 pub fn hot_root_set(HotFunc, Int, Int) -> Unit
-
-pub fn hot_set_label_block(HotFunc, Int) -> Unit
-
-pub fn hot_set_label_kind(HotFunc, Int, HotLabelKind) -> Unit
-
-pub fn hot_type_intern(HotFunc, HotTypeInfo) -> Int
 
 pub fn hot_type_void(HotFunc) -> Int
 
@@ -124,17 +98,6 @@ pub impl @debug.Debug for HotConstPayload
 pub enum HotExtra {
   UnaryOp(@lib.UnaryOp)
   BinaryOp(@lib.BinaryOp)
-  LoadOp(@lib.LoadOp)
-  StoreOp(@lib.StoreOp)
-  SelectTypes(Array[@lib.ValType]?)
-  RefGetDescType(@lib.TypeIdx)
-  RefTestPayload(Bool, @lib.HeapType)
-  RefCastPayload(Bool, @lib.HeapType)
-  RefTestDescPayload(Bool, @lib.HeapType)
-  RefCastDescEqPayload(Bool, @lib.HeapType)
-  BrOnCastPayload(@lib.CastOp, @lib.HeapType, @lib.HeapType)
-  BrOnCastFailPayload(@lib.CastOp, @lib.HeapType, @lib.HeapType)
-  StringBuiltin(HotStringBuiltin)
 }
 pub impl Eq for HotExtra
 pub impl Show for HotExtra
@@ -153,7 +116,7 @@ pub struct HotFunc {
   catches : Array[HotCatchInfo]
   call_sigs : Array[HotCallSig]
   extras : Array[HotExtra]
-  body_result_type : Int
+  mut body_result_type : Int
   free_nodes : Array[Int]
   mut revision : Int
 }

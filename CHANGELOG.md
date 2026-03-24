@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 Migration: remove TypedInstr surface completely
+
+- **Typed instruction surface deletion** by **@jtenner**. Removed the remaining `TypedInstr` / `TypedInstrKind` ownership from [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt), deleted the obsolete typed helper files under [`src/lib/typed_instr_tree.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/typed_instr_tree.mbt) and [`src/validate/typed_instr_lowering.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/typed_instr_lowering.mbt), rewired [`src/ir/hot.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot.mbt), validation, generators, and tests onto raw [`Expr`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt) / [`Instruction`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt) bodies, regenerated package metadata, and scrubbed the remaining docs/changelog references to the deleted typed instruction model.
+
 ## 2026-03-24 Node: remove deleted package rebuild assumptions
 
 - **Node rebuild path reset** by **@jtenner**. Updated [`scripts/lib/build-node-package.mjs`](/home/jtenner/Projects/starshine-mb/scripts/lib/build-node-package.mjs) so `npm run build` no longer tries to rebuild the deleted [`src/node_api`](/home/jtenner/Projects/starshine-mb/src/node_api) wasm-gc adapter and instead treats [`node/internal/starshine.wasm-gc.wasm`](/home/jtenner/Projects/starshine-mb/node/internal/starshine.wasm-gc.wasm) as a checked-in boundary artifact while still rebuilding the WASI CLI artifact. Also removed dead `src/node_api` CI path filters in [node-wasm-tests.yml](/home/jtenner/Projects/starshine-mb/.github/workflows/node-wasm-tests.yml), narrowed [`node/package.json`](/home/jtenner/Projects/starshine-mb/node/package.json) cleanup to the rebuilt WASI artifact, and added missing `target="wasm"` debug-dump stubs in [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) so the node build path compiles again.
@@ -221,7 +225,7 @@
 
 ## 2026-03-23 Validate: truncate unreachable raw branch tails during generated pre-lift
 
-- **Generated raw-to-typed dead-tail cleanup** by **@jtenner**. Updated [`src/validate/env.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt) so nested raw `block` / `loop` / `if` / `try_table` body conversion stops consuming sibling instructions after the first stack-polymorphic terminator instead of preserving dead raw branch tails inside typed IR, while keeping top-level `to_typed_instrs` stack-polymorphic tails intact.
+- **Generated pre-lift dead-tail cleanup** by **@jtenner**. Updated [`src/validate/env.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt) so nested raw `block` / `loop` / `if` / `try_table` body conversion stops consuming sibling instructions after the first stack-polymorphic terminator instead of preserving dead raw branch tails inside the lifted validation path, while keeping top-level stack-polymorphic tails intact.
 - Added focused generated-pipeline regressions in [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt) proving the dead `drop` after an unconditional raw `br` is already gone after generated pre-lift with no passes and remains gone when the explicit `DeadCodeElimination` pass is added.
 - Recorded the parity recheck in [`docs/0060-2026-03-23-generated-prelift-dead-branch-tail-cleanup.md`](/home/jtenner/Projects/starshine-mb/docs/0060-2026-03-23-generated-prelift-dead-branch-tail-cleanup.md), which supersedes the earlier fresh-artifact `DeadCodeElimination` parity claim: on the rebuilt release artifact, Starshine `DFE -> RUME -> MemoryPacking -> OnceReduction` now shrinks from `2353318` to `2352785` before DCE, so the old `-4` Binaryen `DCE` delta was evidence of a generated lifting bug, not a remaining Starshine DCE omission.
 
@@ -969,7 +973,7 @@
 
 ## 2026-03-18 Validate Follow-up: accept typed control-flow input params in both IR shapes
 
-- Updated [/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so typed `block`, `if`, and `loop` validation now accepts both body-embedded control-flow inputs from `to_typed_instrs(...)` and explicit outer-stack control-flow input forms emitted directly by pass code, fixing the typed-control `stack underflow` gap.
+- Updated [/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so lifted `block`, `if`, and `loop` validation now accepts both body-embedded control-flow inputs from the older pre-lift path and explicit outer-stack control-flow input forms emitted directly by pass code, fixing the control-flow `stack underflow` gap.
 - Added regressions in [/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) covering typed `block` / `if` / `loop` validation with `type_idx` control-flow input params.
 - Validation: `moon test src/validate`; `moon info`; `moon fmt`; `moon test`.
 

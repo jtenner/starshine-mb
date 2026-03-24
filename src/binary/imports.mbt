@@ -73,7 +73,6 @@ using @lib {
   type Module,
   type Expr,
   type Instruction,
-  type TypedInstr,
   type ElemMode,
   type DataMode,
   type BlockType,

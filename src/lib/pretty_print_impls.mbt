@@ -598,11 +598,6 @@ pub impl PrettyPrint for SubType with pretty_print(self, ctx) {
 }
 
 ///|
-pub impl PrettyPrint for TypedInstr with pretty_print(self, ctx) {
-  pretty_from_show(self, ctx)
-}
-
-///|
 pub impl PrettyPrint for Table with pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }

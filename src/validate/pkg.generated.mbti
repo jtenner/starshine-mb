@@ -14,15 +14,9 @@ pub fn diff(@lib.RefType, @lib.RefType) -> Result[@lib.RefType, String]
 
 pub fn empty_env() -> Env
 
-pub fn gen_side_effect_typed_instr(GenValidContext, Int, label_depth? : Int) -> @lib.TypedInstr
-
-pub fn gen_typed_instr_of_type(GenValidContext, @lib.ValType) -> @lib.TypedInstr
-
 pub fn gen_valid_module(@splitmix.RandomState) -> @lib.Module
 
 pub fn gen_valid_numtype(GenValidContext) -> @lib.NumType
-
-pub fn gen_valid_result_type(GenValidContext, Array[@lib.ValType], TypeGenerationStrategy) -> Array[@lib.ValType]
 
 pub fn gen_valid_tfunc(GenValidContext, Array[@lib.ValType], Array[@lib.ValType]) -> @lib.Func
 
@@ -31,14 +25,6 @@ pub fn gen_valid_valtype(GenValidContext) -> @lib.ValType
 pub fn make_state(Env, Array[@lib.ValType]) -> TcState
 
 pub fn run_validate_valid_fuzz(String, UInt64) -> Result[ValidateValidFuzzStats, String]
-
-pub fn to_typed_instrs(@lib.Expr, Env) -> Result[Array[@lib.TypedInstr], String]
-
-pub fn typed_instr_result_arity(@lib.TypedInstr, Env) -> Int
-
-pub fn typed_instrs_result_arity(Array[@lib.TypedInstr], Env) -> Int
-
-pub fn typed_instrs_to_expr_with_env(Array[@lib.TypedInstr], Env) -> @lib.Expr
 
 pub fn validate_codesec(@lib.CodeSec?, @lib.FuncSec?, Env) -> Result[Unit, String]
 
@@ -173,8 +159,6 @@ pub struct TcState {
 }
 pub impl Show for TcState
 
-type TypeGenerationStrategy
-
 pub struct ValidateValidFuzzStats {
   profile : String
   seed : UInt64
@@ -247,8 +231,6 @@ pub trait Typecheck {
 }
 pub impl Typecheck for @lib.Expr
 pub impl Typecheck for @lib.Instruction
-pub impl Typecheck for @lib.TypedInstr
-pub impl Typecheck for Array[@lib.TypedInstr]
 
 pub trait Validate {
   validate(Self, Env) -> Result[Unit, String]

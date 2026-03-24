@@ -1963,33 +1963,6 @@ fn validate_name_sec_expr_label_count(expr : Expr) -> Int {
 }
 
 ///|
-fn validate_name_sec_typed_instrs_label_count(
-  instrs : Array[TypedInstr],
-) -> Int {
-  let mut total = 0
-  for instr in instrs {
-    total += validate_name_sec_typed_instr_label_count(instr)
-  }
-  total
-}
-
-///|
-fn validate_name_sec_typed_instr_label_count(instr : TypedInstr) -> Int {
-  match instr.kind {
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      1 + validate_name_sec_typed_instrs_label_count(body)
-    TIf(_, _, then_instrs, else_instrs) => {
-      let else_count = match else_instrs {
-        Some(instrs) => validate_name_sec_typed_instrs_label_count(instrs)
-        None => 0
-      }
-      1 + validate_name_sec_typed_instrs_label_count(then_instrs) + else_count
-    }
-    _ => 0
-  }
-}
-
-///|
 fn validate_name_sec_total_labels(
   m : Module,
   env : Env,

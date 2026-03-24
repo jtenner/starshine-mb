@@ -1,8 +1,8 @@
 ///|
 using @lib {
   type Catch,
-  type TypedInstr,
-  type TypedInstrKind,
+  type Expr,
+  type Instruction,
   type LocalIdx,
   type I32,
   type I64,
@@ -32,7 +32,6 @@ using @lib {
   type AtomicRmwOp,
   type AtomicCmpxchgOp,
   type ValType,
-  type Locals,
   type TagIdx,
   type CastOp,
   type RefType,

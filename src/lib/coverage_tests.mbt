@@ -42,20 +42,3 @@ test "locals insert remove and without_prefix keep indices aligned" {
   assert_eq(suffix.at(0), Some(ValType::f32()))
   assert_eq(suffix.at(2), Some(ValType::i64()))
 }
-
-///|
-test "typed_instrs_to_expr preserves stack order for local.set" {
-  let body = [
-    TypedInstr::local_set(LocalIdx::new(0), TypedInstr::i32_const(I32(7))),
-  ]
-  let Expr(instrs) = typed_instrs_to_expr(body)
-  assert_eq(instrs.length(), 2)
-  match instrs[0] {
-    I32Const(I32(v)) => assert_eq(v, 7)
-    _ => fail("expected i32.const before local.set")
-  }
-  match instrs[1] {
-    LocalSet(LocalIdx(i)) => assert_eq(i, 0U)
-    _ => fail("expected local.set after pushed value")
-  }
-}
