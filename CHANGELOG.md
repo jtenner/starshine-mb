@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 Backlog: reset stale agent task inventory
+
+- **Backlog cleanup after architecture churn** by **@jtenner**. Replaced the oversized historical [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) dump with a short active backlog that only tracks current hot-IR rebuild, CLI/docs alignment, and validator fuzz hardening work, removing stale references to deleted optimizer packages, deleted research docs, and completed typed-tree migration slices.
+
 ## 2026-03-24 Docs: remove obsolete optimizer and typed-tree research
 
 - **Docs cleanup after optimizer reset** by **@jtenner**. Deleted the obsolete pass-research and typed-tree migration writeups under [`docs`](/home/jtenner/Projects/starshine-mb/docs), including dead-code-elimination, once-reduction, memory-packing, remove-unused, parity, and old string-optimization notes, and scrubbed the remaining validation/surface docs of deleted `TInstr` / `TExpr` / `ModuleTransformer` terminology so `docs/` now reflects the post-migration architecture.

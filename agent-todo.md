@@ -2,268 +2,42 @@
 
 ## Scope
 - Keep only active work.
-- Keep tasks as short priority buckets, grouped by release target.
-- For each started task, capture blockers, risks, and next-step evidence.
-- Do not mark completed tasks here; move finished items to `CHANGELOG.md`.
+- Group active work by release target.
+- For each active task, keep only blockers, risks, and current implementation facts.
+- Move completed work to `CHANGELOG.md`.
 
-## Publishing and Validation Blockers
-- Keep `merge-similar-functions` correctness and publish-signoff docs aligned.
-- Keep release blockers in `agent-todo.md` and avoid losing unresolved risk notes in `CHANGELOG.md`.
-- Generated optimize feature-source plumbing:
-  - module-derived `has_gc` / `has_multivalue` and option-driven `closed_world` / `zero_filled_memory` / `low_memory_unused` / `traps_never_happen` now flow through generated optimize expansion and module-wide execution.
-  - future policy question: decide whether `closed_world` should become CLI/config-visible beyond the current internal/default-pipeline use.
-- No-DWARF first-four-pass CLI parity:
-  - `docs/0016-2026-03-22-no-dwarf-four-pass-comparison.md` is now post-fix: generated optimize pre-lifts raw decoded functions before the pipeline, and explicit CLI flags for the four passes route through the generated surface.
-  - current comparison state: `examples/modules/*.wat` and the focused `memory-only` fixture match Binaryen at normalized WAT level; the only remaining focused textual diff is the intentional `OnceReduction` policy to collapse trivial once bodies to `nop` instead of preserving Binaryen's redundant retained `global.set`.
-  - `docs/0045-2026-03-22-once-reduction-trivial-once-body-policy.md` records the decision to keep the smaller Starshine output; the remaining no-DWARF comparison question is broader `MemoryPacking` profitability, not trivial once-body parity.
-- Starshine wasm artifact implemented-pass comparison:
-  - `docs/0054-2026-03-22-starshine-wasm-implemented-pass-comparison.md` records the earlier direct explicit-pass artifact run against Binaryen `wasm-opt version 125`.
-  - `docs/0055-2026-03-22-binaryen-full-pipeline-comparison-method.md` corrects the method: canonical parity must use Binaryen's full artifact-local `wasm-opt -O2` pipeline, not just the implemented pass names replayed directly.
-  - `docs/0056-2026-03-22-o4z-five-pass-parity-audit.md` records the current shared-prefix `-O4z` five-pass audit on `tests/node/dist/starshine-optimized-wasi.wasm`.
-  - fresh rebuilt release-artifact status:
-    - `DuplicateFunctionElimination` on `_build/wasm/release/build/cmd/cmd.wasm` now emits a validating Starshine module again after the binary encoder fix for typed multi-value block-param lowering.
-    - direct explicit-pass DFE is now aligned to Binaryen’s direct-pass semantics instead of a Starshine-only fixpoint: one Starshine DFE run on the fresh artifact lands the same `2892` defined functions as `wasm-opt --duplicate-function-elimination --all-features`.
-    - the matching direct-pass merge set requires canonicalizing duplicate simple function type indices inside typed function bodies for DFE equality/hashing, while keeping the pass itself single-shot; rerunning the pass explicitly still reaches the old transitive merge.
-    - adding `RemoveUnusedModuleElements` immediately after that aligned DFE run is byte-identical on both tools for the fresh artifact (`cmp` returns equal against the direct-DFE outputs on both sides), so the next fresh-artifact parity blocker is not RUME.
-    - adding `MemoryPacking` after that shared `DFE -> RUME` prefix also looks clean on the fresh artifact: both tools validate, both shrink by `1792` bytes, the `code` section stays unchanged, and the visible change is the same `data` / `data count` rewrite (`174773` data bytes over `936` segments).
-    - adding `OnceReduction` after `DFE -> RUME -> MemoryPacking` is byte-identical on both tools for the fresh artifact, so it is not the first later-pass blocker here.
-    - `docs/0060-2026-03-23-generated-prelift-dead-branch-tail-cleanup.md` supersedes the earlier fresh-artifact `DeadCodeElimination` gap claim from `docs/0059-2026-03-23-dfe-rume-memory-packing-once-dce-fresh-artifact-parity.md`: the observed dead `drop` after unconditional `br` tails was a generated raw-to-typed conversion bug, and the fresh Starshine `DFE -> RUME -> MemoryPacking -> OnceReduction` checkpoint now already drops those tails before DCE runs (`2352785` bytes, `2165100` code bytes).
-    - adding `DeadCodeElimination` after that repaired four-pass prefix is now byte-identical on the fresh Starshine artifact, while Binaryen still spends `4` code bytes in `--dce`; treat that as a pass-boundary timing difference, not as the next proven Starshine DCE omission.
-    - `docs/0067-2026-03-23-dce-structured-terminal-unreachable-barrier.md` closes the next DCE correctness blocker: structured non-fallthrough rewrites now keep an explicit trailing `unreachable`, so direct fresh-artifact `--dead-code-elimination` and the five-pass shared prefix both validate again (`2517968` and `2352767` bytes).
-    - `docs/0068-2026-03-23-dce-post-rewrite-type-canonicalization.md` lands the next safe DCE parity slice: when DCE changes a module, Starshine now canonicalizes duplicate simple type indices left behind by the rewrite, moving the fresh direct-DCE checkpoint from `381` printed types down to `109` while keeping `3294` printed functions. Binaryen remains at `110` printed types, so the next gap is smaller and more focused.
-    - `docs/0069-2026-03-23-dce-recursive-dead-terminal-result-cleanup.md` lands the next truncation-boundary correctness slice: dead-result cleanup now follows the terminal structured chain recursively, which clears the earlier direct fresh-artifact blocker at `Func 27`. The next direct artifact blocker is now later at `Func 716`.
-    - `docs/0070-2026-03-24-dce-valid-replacement-and-prefix5-parity-reset.md` resets the current debug-artifact DCE state: Starshine direct DCE validates again, the compare harness no longer dies on `wasm-opt` stdout buffering, but the current replacement is intentionally narrow and the shared five-pass prefix shows Starshine pass 5 is byte-identical to pass 4 while Binaryen DCE still changes the module.
-    - current DCE blocker after that reset: the correctness crisis is closed, but parity is not. The next implementation target is a context-carrying structured DCE walker that can safely reproduce Binaryen’s `if/block/loop` result-type cleanup without deleting live branch-payload fallbacks.
-    - `RemoveUnusedNames` is the next concrete shared-pass implementation target: [`docs/0061-2026-03-23-remove-unused-names-implementation-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0061-2026-03-23-remove-unused-names-implementation-plan.md) records the current no-op dispatch gap and the four implementation slices needed to close it.
-    - the remaining fresh-artifact gap after that merge-set fix is now post-merge layout/serialization drift, not missing direct DFE merges: Binaryen lands at `2376579` bytes with `110` printed types, while Starshine lands at `2355110` bytes with `109` printed types, including the longstanding `elements` section representation gap (`1192` vs `562`) that is already present in no-op roundtrips.
-    - rerun the full shared-prefix comparison on a regenerated fresh artifact before treating the older `docs/0054` / `docs/0056` release-artifact size numbers as current.
-  - Binaryen `wasm-opt version 125` does not expose a literal `-O4z` CLI preset, so the exact shared comparison method for this question is explicit ordered replay of the first five fully implemented passes, not a direct preset-to-preset run.
-  - `tests/node/dist/starshine-debug-wasi.wasm` is still blocked as a canonical parity target, but the blocker has shifted: under the current working-tree investigation the final Starshine `--optimize -O2` run now gets past name-map ordering and instead fails post-encode validation with `stack underflow`.
-  - on `tests/node/dist/starshine-optimized-wasi.wasm`, the implemented sequence is `DuplicateFunctionElimination -> RemoveUnusedModuleElements -> MemoryPacking -> OnceReduction -> DeadCodeElimination -> DuplicateFunctionElimination -> RemoveUnusedModuleElements`, with no artifact-local `StringGathering` execution.
-  - the release-artifact gap claims from `docs/0054-2026-03-22-starshine-wasm-implemented-pass-comparison.md` are now provisional until they are rerun against Binaryen's exact traced `-O2` prefix method from `docs/0055-2026-03-22-binaryen-full-pipeline-comparison-method.md`.
-- DeadCodeElimination research baseline:
-  - `docs/0017-2026-03-22-dead-code-elimination.md` now documents Binaryen's full DCE surface, including synchronous type updates, EH `pop` fixups, GC/string regressions, and stack-switching constraints.
-  - `docs/0033-2026-03-22-dead-code-elimination-runner-shell.md` lands Slice 1: `DeadCodeElimination` now dispatches through a dedicated typed func-local runner shell with whitebox coverage instead of the generic no-op entry.
-  - `docs/0034-2026-03-22-dead-code-elimination-generic-unreachable-rewrites.md` lands Slice 2: the pass now preserves reachable prefix effects before the first unreachable child for non-control-flow typed instructions.
-  - `docs/0035-2026-03-22-dead-code-elimination-block-tail-truncation.md` lands Slice 3: enclosing typed expression lists now truncate after the first terminating item, nested `block` tails only escape outer parents when they truly do, and trivial `[unreachable]` blocks collapse to the child.
-  - `docs/0036-2026-03-22-dead-code-elimination-live-break-block-types.md` lands Slice 4: concrete typed blocks now only degrade to unreachable-equivalent structure when their tail escapes and no live incoming break still supplies the block result.
-  - `docs/0037-2026-03-22-dead-code-elimination-if-rules.md` lands Slice 5: unreachable `if` conditions now replace the whole node, and concrete `if`s with two unreachable arms now degrade to unreachable-equivalent void form instead of keeping a stale value type.
-  - `docs/0038-2026-03-22-dead-code-elimination-loop-rule.md` lands Slice 6: loops now only collapse when the rewritten body is the literal `unreachable` node, while branch-back loops still stay intact.
-  - `docs/0039-2026-03-22-dead-code-elimination-try-table-rule.md` lands the typed-IR EH half of Slice 7: concrete `try_table` nodes now degrade to unreachable-equivalent void form when their body is unreachable.
-  - `docs/0040-2026-03-22-dead-code-elimination-branch-value-stress.md` lands Slice 8: branch values, `br_if` conditions, and `br_table` indices now collapse the branch when they become unreachable, and the focused ancestor case drops the outer block's stale value requirement.
-  - `docs/0041-2026-03-22-dead-code-elimination-gc-branch-ops.md` lands the GC branch-op part of Slice 9: `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` now collapse when their inspected ref or earlier prefix values become unreachable.
-  - `docs/0042-2026-03-22-dead-code-elimination-ref-cast.md` lands the first no-over-refinalize GC unary slice: `ref.cast` now collapses directly when its operand is unreachable, even in concrete reference-result fixtures.
-  - `docs/0043-2026-03-22-dead-code-elimination-unary-ref-tests.md` lands the sibling GC unary slice: `ref.test`, `ref.test_desc`, and `ref.cast_desc_eq` now collapse when their operand is unreachable.
-  - `docs/0044-2026-03-22-dead-code-elimination-ref-get-desc.md` lands the descriptor unary slice: `ref.get_desc` now collapses when its operand is unreachable in descriptor-bearing fixtures.
-  - `docs/0046-2026-03-22-dead-code-elimination-nested-try-table-coverage.md` closes the remaining nested reference-result `try_table` coverage question and proves the current void-retagging rewrite already validates in the focused concrete ref-result shape.
-  - `docs/0047-2026-03-22-dead-code-elimination-typed-surface-blockers.md` now records the narrowed blocker state: the earlier string-sensitive dependency is closed, and the remaining dependency-blocked DCE follow-ups are typed EH `try` / `pop` plus stack-switching instruction support.
-  - `docs/0050-2026-03-22-string-array-surface-for-dce.md` lands the minimal typed string instruction surface needed for DCE parity, including `stringref`, the array-backed `string.new_*_array` / `string.encode_*_array` ops, validator rules, binary/text lift-lower support, generated `has_strings` feature detection, and the focused `string.new_wtf16_array` / `local.tee` regression.
-  - `docs/0051-2026-03-22-string-array-ssa-compat.md` lands the matching IR compatibility slice so those same string array ops now survive SSA lowering, destruction, type tracking, use-def/liveness, and conservative GVN invalidation instead of aborting in `src/ir/ssa.mbt`.
-  - `docs/0048-2026-03-22-dead-code-elimination-default-stage-ordering.md` locks the first grouped-pipeline interaction guarantee: the default function stage still runs `DeadCodeElimination` before the first `RemoveUnusedNames`, the first `RemoveUnusedBrs`, and `Vacuum`.
-  - `docs/0049-2026-03-22-dead-code-elimination-grouped-stage-output.md` covers the real grouped function-stage execution path and proves the current stage preserves DCE-trimmed dead-tail output on a validating typed fixture.
-  - the latest DCE slice now guards branch-family operand rewrites with a strict-terminal check: nested result-typed `if` payloads with escaping arms no longer replace the enclosing `br` / `br_if` / `br_table` / branch-on-ref in the reduced generated-path fixture.
-  - [`docs/0067-2026-03-23-dce-structured-terminal-unreachable-barrier.md`](/home/jtenner/Projects/starshine-mb/docs/0067-2026-03-23-dce-structured-terminal-unreachable-barrier.md) closes the remaining fresh-artifact DCE validity blocker by appending an explicit raw `unreachable` after structured instructions that DCE proves semantically non-fallthrough.
-  - [`docs/0068-2026-03-23-dce-post-rewrite-type-canonicalization.md`](/home/jtenner/Projects/starshine-mb/docs/0068-2026-03-23-dce-post-rewrite-type-canonicalization.md) covers the next parity cleanup: direct DCE now reuses the existing duplicate-simple-type canonicalizer after a changed rewrite, which collapses the fresh direct-DCE type section from `381` printed types to `109` without changing the `3294` printed function count.
-  - [`docs/0069-2026-03-23-dce-recursive-dead-terminal-result-cleanup.md`](/home/jtenner/Projects/starshine-mb/docs/0069-2026-03-23-dce-recursive-dead-terminal-result-cleanup.md) covers the next correctness movement: dead-result cleanup now follows the terminal structured chain instead of stopping at the outermost instruction, which moves the first direct fresh-artifact DCE failure from `Func 27` to `Func 716`.
-  - the next DCE correctness slice is in flight locally: dead-result cleanup now keeps concrete blocks concrete when live branches still target the current label, which removes the later invalid `Func 3175` direct-DCE family but does not yet clear the earlier `Func 716` blocker.
-  - the latest DCE dead-result cleanup slice now consumes non-retaggable concrete `block` / `if` / `TypeIdx` `loop` results with `drop` while keeping `void` loops `void`. That clears the fresh direct-DCE blockers at `Func 3175` and `Func 21`.
-  - the latest DCE typed-control slice now expands typed block types through the module validator environment and only applies dead-result cleanup when a control has a positive net fallthrough result count. That clears the fresh direct-DCE `Func 225` post-encode underflow caused by treating ambient-stack `TypeIdx` controls like raw value-producing results.
-  - stacked `if (void) ... else { call; return }` wrappers and the generic loop-wrapped branch-payload bypass family still validate and roundtrip locally after DCE, so the remaining blocker is now a later nested result-block family rather than the old `Func 225` loop/drop shape.
-  - next step: reduce the new `Func 3175` direct-DCE `values remaining on stack at end of block` failure to a focused regression, then rerun normalized Starshine-vs-Binaryen comparison at the direct and five-pass checkpoints once the direct artifact validates end to end again.
-  - blocked follow-up: port the DCE EH `pop` fixup slice once typed EH `try` / `pop` nodes exist in the local IR surface.
-  - blocked follow-up: port the DCE stack-switching `resume` / `resume_throw` fixtures once those instructions exist in the local IR surface.
-  - no further unblocked DCE slices remain on the current typed IR surface until one of those EH or stack-switching instruction-surface dependencies lands elsewhere in the repo.
-- String compatibility follow-up:
-  - `stringref` now covers array-backed construction and encode ops through text, validation, binary, DCE, and SSA compatibility paths.
-  - `docs/0052-2026-03-22-string-const-surface.md` lands `string.const` end to end, including WAST text support, constant-expression validation, module string-literal section encode/decode, generated `has_strings` facts, and SSA compatibility.
-  - `docs/0053-2026-03-22-string-gathering-existing-global-reuse.md` lands the first `StringGathering` slice: existing defined immutable `stringref` globals initialized by direct `string.const` are now reused in raw and typed function bodies, and the default optimizer routes the pass through a live module-wide runner when `has_strings` is enabled.
-  - next practical `StringGathering` follow-up: synthesize missing defining globals with deterministic naming instead of only reusing preexisting ones.
-  - after that, rewrite module-level patchpoints and repair global order without introducing self-referential initializers.
-  - open binary-interoperability question: local module roundtrip currently routes abstract `stringref` through the existing nullable ref encoding to avoid the current `0x64` collision with the repo's non-null typed-ref prefix. Reconcile that with canonical proposal bytes before claiming broader external stringref binary parity.
-
-## v0.1.0 Default Pipeline Blockers
-- DuplicateFunctionElimination
-- OnceReduction
-- TypeRefining
-- SignaturePruning
-- SignatureRefining
-- GlobalRefining
-- GlobalTypeOptimization
-- RemoveUnusedTypes
-- ConstantFieldPropagationRefTest
-- ConstantFieldPropagation
-- GlobalStructInference
-- AbstractTypeRefining
-- Unsubtyping
-- SSANoMerge
-- Flatten
-- DeadCodeElimination
-- RemoveUnusedNames
-- RemoveUnusedBrs
-- OptimizeInstructions
-- HeapStoreOptimization
-- PickLoadSigns
-- Precompute
-- PrecomputePropagate
-- OptimizeAddedConstants
-- OptimizeAddedConstantsPropagate
-- CodePushing
-- TupleOptimization
-- SimplifyLocalsNoTeeNoStructure
-- SimplifyLocalsNoStructure
-- SimplifyLocals
-- Vacuum
-- ReorderLocals
-- Heap2Local
-- MergeLocals
-- OptimizeCasts
-- LocalSubtyping
-- CoalesceLocals
-- LocalCSE
-- CodeFolding
-- MergeBlocks
-- RedundantSetElimination
-- DeadArgumentEliminationOptimizing
-- InliningOptimizing
-- DuplicateImportElimination
-- MergeSimilarFunctions
-- SimplifyGlobalsOptimizing
-- SimplifyGlobals
-- Directize
-- StringGathering
-
-## v0.1.0 Active Slice Focus
-  - RemoveUnusedNames completion:
-  - canonical plan: [`docs/0061-2026-03-23-remove-unused-names-implementation-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0061-2026-03-23-remove-unused-names-implementation-plan.md).
+## v0.1.0 Active Slice
+- Hot-IR optimization rebuild
   - blockers:
-    - rerun the fresh-artifact explicit shared prefix through Starshine and Binaryen now that the DCE structured-terminal validity blocker is closed; earlier explicit `--dead-code-elimination` / `--remove-unused-names` replay numbers are stale because those generated-path flags were being dropped in `src/cmd/cmd.mbt`.
+    - `src/cmd/cmd.mbt` still routes many legacy pass names through compatibility expansion and no-op execution shims.
+    - CLI/config still expose pass names and presets that imply optimizer behavior beyond the currently rebuilt hot-IR surface.
   - risks:
-    - slice 1 is now live: dedicated runner wiring, same-typed block peeling, and typed branch-payload rebasing landed in `src/optimization/optimization.mbt` with focused regressions in `src/optimization/remove_unused_names_wbtest.mbt`.
-    - slice 2 is now live: nested control that still targets a removed scope now blocks peeling through the depth-aware label scan, with a focused valid nested-`if` regression in `src/optimization/remove_unused_names_wbtest.mbt`.
-    - slice 3 is now live: loops now demote to blocks only when the loop label has no remaining continue edge, with both void and value-loop regressions in `src/optimization/remove_unused_names_wbtest.mbt`.
-    - slice 4 is now live: [`docs/0062-2026-03-23-remove-unused-names-branch-summary-rework.md`](/home/jtenner/Projects/starshine-mb/docs/0062-2026-03-23-remove-unused-names-branch-summary-rework.md) replaces repeated subtree rescans with one memoized external-target-depth summary per typed body and adds `try_table` catch-target bailout coverage.
-    - slice 5 is now live: [`docs/0063-2026-03-23-remove-unused-names-candidate-prescan.md`](/home/jtenner/Projects/starshine-mb/docs/0063-2026-03-23-remove-unused-names-candidate-prescan.md) adds a cheap early candidate scan so candidate-free functions skip the full rewrite walk entirely.
-    - even after the branch-summary rework and candidate pre-scan, the current release binary still spends about a minute of CPU on the fresh-artifact shared prefix ending in `RemoveUnusedNames`; the remaining hotspot is now inside candidate-bearing functions.
+    - users can believe explicit pass flags performed real optimization when the current path only preserves scheduling/tracing compatibility.
+    - pass/docs/test drift will keep growing until the rebuilt pass surface is either implemented or narrowed.
   - implementation features:
-    - the current `RemoveUnusedNames` port is typed-only by design; raw functions are already pre-lifted before the grouped default stage.
-    - [`docs/0064-2026-03-23-dce-void-block-self-break-fix.md`](/home/jtenner/Projects/starshine-mb/docs/0064-2026-03-23-dce-void-block-self-break-fix.md) now covers both halves of the self-break fix: removing the overbroad void-block escape fast path and accounting for `if` label depth in the live-break-to-label scan.
-    - [`docs/0065-2026-03-23-dce-concrete-block-wrapper-preservation.md`](/home/jtenner/Projects/starshine-mb/docs/0065-2026-03-23-dce-concrete-block-wrapper-preservation.md) now covers the next DCE parity slice: escaping concrete blocks now keep a `void` wrapper when their surviving child still branches past the current label, which preserves label depth while demoting the dead result type.
-    - [`docs/0066-2026-03-23-dce-parent-continuation-escape-analysis.md`](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-23-dce-parent-continuation-escape-analysis.md) now covers the next local DCE correction: a nested child break to label `1` only blocks `block_escapes_parent` when it happens before the escaping tail, because only prefix parent-continuation breaks keep later siblings reachable.
-    - direct native replay now validates again for both fresh-artifact `--dead-code-elimination` and `DFE -> RUME -> MemoryPacking -> OnceReduction -> DCE`; the remaining work is parity comparison and cleanup alignment, not another DCE validity blocker.
-- Validator fuzz hardening:
-  - canonical research doc: [`docs/0058-2026-03-23-validate-fuzz-hardening-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0058-2026-03-23-validate-fuzz-hardening-plan.md).
+    - `src/ir/hot.mbt` is the owned hot function IR.
+    - boundary decode/encode/validation/debug paths are raw-module based.
+    - typed-tree optimizer ownership and the old pass-research docs are gone.
+
+- CLI and docs alignment after optimizer reset
   - blockers:
-    - none currently; completed hardening blockers are now tracked in `CHANGELOG.md`.
+    - README and CLI help still need an explicit policy for compatibility-only pass names versus rebuilt hot-IR passes.
   - risks:
-    - none currently.
+    - public behavior is easy to misread while `--optimize`, `--shrink`, and explicit pass flags still preserve legacy naming.
   - implementation features:
-    - none currently; validator fuzz implementation features are currently folded into `CHANGELOG.md` milestones.
-- String compatibility:
-  - the minimal array-backed string instruction set now exists end to end in the lib, validator, binary, WAST, DCE, and SSA layers.
-  - `string.const` now also exists end to end, which closed the main prerequisite that had been blocking the researched `StringGathering` pass in `docs/0009-2026-03-16-string-optimization.md`.
-  - the first live `StringGathering` slice now reuses preexisting immutable defining globals in function bodies.
-  - the next practical string slices are missing-global synthesis and then module-level initializer/order repair, with the remaining binary-interoperability caveat tracked above.
-- GC text-surface follow-up:
-  - the higher-level WAST parser/printer/lowerer now models descriptor-bearing `struct.new*` instructions, `struct` and `array` `type` fields, and grouped `(rec ...)` authoring, including `sub` / `final`, packed/ref-bearing storage syntax, and `descriptor` / `describes` metadata.
-  - `wast_to_binary_module` now lowers grouped `rec` fields into grouped type-section entries, and higher-level static descriptor coverage now reaches the full `tests/spec/proposals/custom-descriptors/descriptors.wast` fixture above the earlier direct instruction and binary-only cases.
-  - `ref.get_desc` now carries its inspected type immediate through WAST lowering, lib instructions, binary encode/decode, and descriptor typechecking.
-  - legacy GC aliases like `anyref`, `eqref`, `structref`, `arrayref`, and `nullref` now parse and lower through the higher-level WAST surface, including abstract `(ref struct)` and `(ref array)` spellings.
-  - higher-level WAST now also accepts, prints, and lowers folded `struct.get`, `struct.get_s`, and `struct.get_u`.
-  - imported globals now also accept parenthesized exact typed refs instead of requiring a spurious `(mut ...)` wrapper.
-  - implicit inline functypes now append after grouped `rec` fields at flattened type indices instead of raw rec-entry indices.
-  - exact `ref.null` immediates now survive WAST lowering, lib instructions, validation, and binary roundtrip as full nullable `RefType` immediates instead of degrading to inexact heap-only nulls.
-  - bottom refs like `ref.null none` now also match compatible defined nullable refs during validation, which clears `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` on the native static path.
-  - passive typed empty `elem` declarations like `(elem (ref null $func))` now parse, print, and lower, which moves `tests/spec/proposals/custom-descriptors/exact.wast` beyond its first higher-level text-surface stop.
-  - exact refs to distinct but structurally equivalent defined struct types now validate instead of requiring literal type-index identity.
-  - exact refs to distinct but structurally equivalent defined function types now also validate, which clears the later static validator mismatch in `tests/spec/proposals/custom-descriptors/exact.wast`.
-  - the full `tests/spec/proposals/custom-descriptors/exact.wast` fixture now also stays on the native static harness path, closing the remaining exact-reference custom-descriptor follow-up.
+    - command tracing, pass scheduling, and fuzz minimization still operate on pass-name lists.
+    - docs cleanup removed obsolete optimizer research; remaining user docs should stay aligned with the rebuilt surface.
 
-## Backlog Hygiene
-- Keep duplicate entries removed when pass scopes converge.
-- Keep scope groupings and blocker ordering synchronized with `docs/0011-2026-03-18-pass-audit.md`.
-- Move resolved items to `CHANGELOG.md` and clear stale evidence notes.
+- Validator fuzz hardening
+  - blockers:
+    - the follow-up hardening work in `docs/0058-2026-03-23-validate-fuzz-hardening-plan.md` is still not fully implemented.
+  - risks:
+    - invalid-fuzz coverage quality can drift without stronger per-strategy accounting, expected-diagnostic checks, and repro artifacts.
+  - implementation features:
+    - the core fuzz migration is complete.
+    - the command harness already supports pass minimization and structured failure reporting.
 
-## v0.2.0 Non-default Pass Blockers
-- AlignmentLowering
-- Asyncify
-- AvoidReinterprets
-- ConstHoisting
-- DataFlowOpts
-- DeAlign
-- DeNaN
-- DeadArgumentElimination2
-- DebugLocationPropagation
-- EncloseWorld
-- ExtractFunction
-- FuncCastEmulation
-- GUFA
-- GenerateDynCalls
-- GlobalEffects
-- I64ToI32Lowering
-- InstrumentBranchHints
-- InstrumentLocals
-- InstrumentMemory
-- Intrinsics
-- J2CLItableMerging
-- J2CLOpts
-- LLVMMemoryCopyFillLowering
-- LLVMNontrappingFPToIntLowering
-- LegalizeJSInterface
-- LimitSegments
-- LogExecution
-- LoopInvariantCodeMotion
-- Memory64Lowering
-- Metrics
-- MinifyImportsAndExports
-- MinimizeRecGroups
-- Monomorphize
-- MultiMemoryLowering
-- NameList
-- NameTypes
-- NoInline
-- OptimizeForJS
-- Outlining
-- Poppify
-- PostEmscripten
-- Print
-- PrintCallGraph
-- PrintFeatures
-- PrintFunctionMap
-- RandomizeBranchHints
-- ReReloop
-- RemoveImports
-- RemoveMemoryInit
-- RemoveNonJSOps
-- RemoveRelaxedSIMD
-- ReorderFunctions
-- ReorderTypes
-- RoundTrip
-- SSAify
-- SafeHeap
-- SeparateDataSegments
-- SetGlobals
-- SignExtLowering
-- Souperify
-- SpillPointers
-- StackCheck
-- StringLifting
-- StringLowering
-- Strip
-- StripEH
-- StripTargetFeatures
-- StripToolchainAnnotations
-- TraceCalls
-- TranslateEH
-- TrapMode
-- TypeFinalizing
-- TypeGeneralizing
-- TypeMerging
-- TypeSSA
-- Untee
-
-## Longer-horizon Backlog
-- String optimization completion in `tests/spec`.
-- Rewrite `src/transformer` for clearer separation of traversal and validation.
-- Refactor deep recursive decode paths and benchmark decode hot spots.
-- Improve fuzzing ergonomics for corpus replay and first-class differential checks.
-- Maintainability refactors in `typecheck`, `env`, `transformer`, `optimization`, `parser`.
+## v0.2.0 Backlog
+- Improve fuzz ergonomics for corpus replay, shrinking, and first-class differential workflows.
+- Benchmark and simplify deep decode/validation hot paths.
+- Remove compatibility shims once rebuilt hot-IR optimization passes replace them.
