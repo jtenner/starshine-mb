@@ -35,7 +35,7 @@ Status: completed implementation slice; fresh-artifact parity still blocked.
 - For the typed port, we only need two boolean queries:
   - does this peeled body still target one of the scopes being removed?
   - does this loop body still target the current loop scope?
-- Those queries can be answered from one memoized summary per `TExpr`:
+- Those queries can be answered from one memoized summary per `typed instruction body`:
   - `min_external_target_depth`
   - `-1` means no branch or catch in the subtree escapes to an outer scope
   - `0` means some branch/catch targets the current enclosing scope

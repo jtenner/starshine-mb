@@ -20,13 +20,11 @@ pub type RootId = Int
 pub enum HotOp {
   Nop
   Unreachable
-
   Block
   Loop
   If
   Try
   TryTable
-
   Br
   BrIf
   BrTable
@@ -35,20 +33,17 @@ pub enum HotOp {
   BrOnCast
   BrOnCastFail
   Return
-
   Call
   CallIndirect
   CallRef
   ReturnCall
   ReturnCallIndirect
   ReturnCallRef
-
   LocalGet
   LocalSet
   LocalTee
   GlobalGet
   GlobalSet
-
   Load
   Store
   MemorySize
@@ -57,7 +52,6 @@ pub enum HotOp {
   MemoryFill
   MemoryInit
   DataDrop
-
   TableGet
   TableSet
   TableSize
@@ -66,7 +60,6 @@ pub enum HotOp {
   TableCopy
   TableInit
   ElemDrop
-
   Const
   Drop
   Select
@@ -78,23 +71,19 @@ pub enum HotOp {
   RefCast
   RefTestDesc
   RefCastDescEq
-
   Unary
   Binary
   Compare
   Convert
-
   TupleMake
   TupleExtract
   StringOp
-
   Throw
   Rethrow
   ThrowRef
   Delegate
   Catch
   CatchAll
-
   Atomic
   Simd
 } derive(Eq, Show, Debug)
@@ -215,9 +204,7 @@ pub struct HotFunc {
   nodes : Array[HotNode]
   children : Array[NodeId]
   roots : Array[NodeId]
-
   locals : HotLocals
-
   types : Array[HotTypeInfo]
   labels : Array[HotLabelInfo]
   consts : Array[HotConstPayload]
@@ -226,9 +213,7 @@ pub struct HotFunc {
   catches : Array[HotCatchInfo]
   call_sigs : Array[HotCallSig]
   extras : Array[HotExtra]
-
   body_result_type : TypeId
-
   free_nodes : Array[NodeId]
   mut revision : Int
 }
@@ -407,7 +392,11 @@ pub fn hot_node_set(func : HotFunc, id : NodeId, node : HotNode) -> Unit {
 }
 
 ///|
-pub fn hot_replace_node(func : HotFunc, id : NodeId, new_node : HotNode) -> Unit {
+pub fn hot_replace_node(
+  func : HotFunc,
+  id : NodeId,
+  new_node : HotNode,
+) -> Unit {
   hot_node_set(func, id, new_node)
 }
 
@@ -561,7 +550,15 @@ fn hot_make_node_with_children(
   for i = 0; i < child_ids.length(); i = i + 1 {
     func.children[base + i] = child_ids[i]
   }
-  { op, ty, flags, imm0, imm1, child_base: base, child_count: child_ids.length() }
+  {
+    op,
+    ty,
+    flags,
+    imm0,
+    imm1,
+    child_base: base,
+    child_count: child_ids.length(),
+  }
 }
 
 ///|
@@ -616,7 +613,10 @@ fn hot_branch_target_from_stack(
 }
 
 ///|
-fn hot_branch_depth(label_stack : Array[LabelId], label_id : LabelId) -> LabelIdx {
+fn hot_branch_depth(
+  label_stack : Array[LabelId],
+  label_id : LabelId,
+) -> LabelIdx {
   let mut i = label_stack.length() - 1
   let mut depth = 0
   while i >= 0 {
@@ -632,7 +632,7 @@ fn hot_branch_depth(label_stack : Array[LabelId], label_id : LabelId) -> LabelId
 ///|
 fn hot_wrap_region(
   func : HotFunc,
-  body : Array[TInstr],
+  body : Array[TypedInstr],
   label_stack : Array[LabelId],
 ) -> NodeId {
   let region_ty = hot_type_void(func)
@@ -654,12 +654,12 @@ fn hot_wrap_region(
 ///|
 fn hot_lift_instrs(
   func : HotFunc,
-  instrs : Array[TInstr],
+  instrs : Array[TypedInstr],
   label_stack : Array[LabelId],
 ) -> Array[NodeId] {
   let out : Array[NodeId] = []
   for instr in instrs {
-    out.push(hot_lift_tinstr(func, instr, label_stack))
+    out.push(hot_lift_typed_instr(func, instr, label_stack))
   }
   out
 }
@@ -673,7 +673,9 @@ fn hot_lift_catches(
   for catch_ in catches {
     match catch_ {
       @lib.Catch(tag, label) =>
-        out.push(CatchArm(tag, hot_branch_target_from_stack(label_stack, label)))
+        out.push(
+          CatchArm(tag, hot_branch_target_from_stack(label_stack, label)),
+        )
       @lib.CatchRef(tag, label) =>
         out.push(
           CatchRefArm(tag, hot_branch_target_from_stack(label_stack, label)),
@@ -690,113 +692,148 @@ fn hot_lift_catches(
 }
 
 ///|
-fn hot_lift_tinstr(
+fn hot_lift_typed_instr(
   func : HotFunc,
-  instr : TInstr,
+  instr : TypedInstr,
   label_stack : Array[LabelId],
 ) -> NodeId {
   match instr.kind {
-    @lib.TNop => hot_alloc_node(
-      func,
-      hot_make_simple_node(HotOp::Nop, hot_type_void(func), 0U, 0, 0, []),
-    )
-    @lib.TUnreachable => hot_alloc_node(
-      func,
-      hot_make_simple_node(
-        HotOp::Unreachable,
-        hot_type_void(func),
-        HOT_FLAG_TERMINATOR,
-        0,
-        0,
-        [],
-      ),
-    )
+    @lib.TNop =>
+      hot_alloc_node(
+        func,
+        hot_make_simple_node(HotOp::Nop, hot_type_void(func), 0U, 0, 0, []),
+      )
+    @lib.TUnreachable =>
+      hot_alloc_node(
+        func,
+        hot_make_simple_node(
+          HotOp::Unreachable,
+          hot_type_void(func),
+          HOT_FLAG_TERMINATOR,
+          0,
+          0,
+          [],
+        ),
+      )
     @lib.TI32Const(v) => {
       let const_id = hot_alloc_const(func, HotConstPayload::I32Const(v))
       hot_alloc_node(
         func,
-        hot_make_simple_node(HotOp::Const, hot_type_void(func), HOT_FLAG_VALUE, const_id, 0, []),
+        hot_make_simple_node(
+          HotOp::Const,
+          hot_type_void(func),
+          HOT_FLAG_VALUE,
+          const_id,
+          0,
+          [],
+        ),
       )
     }
     @lib.TI64Const(v) => {
       let const_id = hot_alloc_const(func, HotConstPayload::I64Const(v))
       hot_alloc_node(
         func,
-        hot_make_simple_node(HotOp::Const, hot_type_void(func), HOT_FLAG_VALUE, const_id, 0, []),
+        hot_make_simple_node(
+          HotOp::Const,
+          hot_type_void(func),
+          HOT_FLAG_VALUE,
+          const_id,
+          0,
+          [],
+        ),
       )
     }
     @lib.TRefNull(ht) => {
       let const_id = hot_alloc_const(func, HotConstPayload::RefNullConst(ht))
       hot_alloc_node(
         func,
-        hot_make_simple_node(HotOp::RefNull, hot_type_void(func), HOT_FLAG_VALUE, const_id, 0, []),
+        hot_make_simple_node(
+          HotOp::RefNull,
+          hot_type_void(func),
+          HOT_FLAG_VALUE,
+          const_id,
+          0,
+          [],
+        ),
       )
     }
     @lib.TStringConst(bytes) => {
       let const_id = hot_alloc_const(func, HotConstPayload::StringConst(bytes))
       hot_alloc_node(
         func,
-        hot_make_simple_node(HotOp::Const, hot_type_void(func), HOT_FLAG_VALUE, const_id, 0, []),
+        hot_make_simple_node(
+          HotOp::Const,
+          hot_type_void(func),
+          HOT_FLAG_VALUE,
+          const_id,
+          0,
+          [],
+        ),
       )
     }
-    @lib.TLocalGet(LocalIdx(raw)) => hot_alloc_node(
-      func,
-      hot_make_simple_node(
-        HotOp::LocalGet,
-        hot_type_void(func),
-        HOT_FLAG_VALUE,
-        raw.reinterpret_as_int(),
-        0,
-        [],
-      ),
-    )
-    @lib.TGlobalGet(GlobalIdx(raw)) => hot_alloc_node(
-      func,
-      hot_make_simple_node(
-        HotOp::GlobalGet,
-        hot_type_void(func),
-        HOT_FLAG_VALUE,
-        raw.reinterpret_as_int(),
-        0,
-        [],
-      ),
-    )
-    @lib.TLocalSet(LocalIdx(raw), value) => hot_alloc_node(
-      func,
-      hot_make_node_with_children(
+    @lib.TLocalGet(LocalIdx(raw)) =>
+      hot_alloc_node(
         func,
-        HotOp::LocalSet,
-        hot_type_void(func),
-        HOT_FLAG_SIDE_EFFECT,
-        raw.reinterpret_as_int(),
-        0,
-        [hot_lift_tinstr(func, value, label_stack)],
-      ),
-    )
-    @lib.TLocalTee(LocalIdx(raw), value) => hot_alloc_node(
-      func,
-      hot_make_node_with_children(
+        hot_make_simple_node(
+          HotOp::LocalGet,
+          hot_type_void(func),
+          HOT_FLAG_VALUE,
+          raw.reinterpret_as_int(),
+          0,
+          [],
+        ),
+      )
+    @lib.TGlobalGet(GlobalIdx(raw)) =>
+      hot_alloc_node(
         func,
-        HotOp::LocalTee,
-        hot_type_void(func),
-        HOT_FLAG_SIDE_EFFECT | HOT_FLAG_VALUE,
-        raw.reinterpret_as_int(),
-        0,
-        [hot_lift_tinstr(func, value, label_stack)],
-      ),
-    )
-    @lib.TGlobalSet(GlobalIdx(raw), value) => hot_alloc_node(
-      func,
-      hot_make_node_with_children(
+        hot_make_simple_node(
+          HotOp::GlobalGet,
+          hot_type_void(func),
+          HOT_FLAG_VALUE,
+          raw.reinterpret_as_int(),
+          0,
+          [],
+        ),
+      )
+    @lib.TLocalSet(LocalIdx(raw), value) =>
+      hot_alloc_node(
         func,
-        HotOp::GlobalSet,
-        hot_type_void(func),
-        HOT_FLAG_SIDE_EFFECT,
-        raw.reinterpret_as_int(),
-        0,
-        [hot_lift_tinstr(func, value, label_stack)],
-      ),
-    )
+        hot_make_node_with_children(
+          func,
+          HotOp::LocalSet,
+          hot_type_void(func),
+          HOT_FLAG_SIDE_EFFECT,
+          raw.reinterpret_as_int(),
+          0,
+          [hot_lift_typed_instr(func, value, label_stack)],
+        ),
+      )
+    @lib.TLocalTee(LocalIdx(raw), value) =>
+      hot_alloc_node(
+        func,
+        hot_make_node_with_children(
+          func,
+          HotOp::LocalTee,
+          hot_type_void(func),
+          HOT_FLAG_SIDE_EFFECT | HOT_FLAG_VALUE,
+          raw.reinterpret_as_int(),
+          0,
+          [hot_lift_typed_instr(func, value, label_stack)],
+        ),
+      )
+    @lib.TGlobalSet(GlobalIdx(raw), value) =>
+      hot_alloc_node(
+        func,
+        hot_make_node_with_children(
+          func,
+          HotOp::GlobalSet,
+          hot_type_void(func),
+          HOT_FLAG_SIDE_EFFECT,
+          raw.reinterpret_as_int(),
+          0,
+          [hot_lift_typed_instr(func, value, label_stack)],
+        ),
+      )
     @lib.TUnary(op, child) => {
       let extra = hot_alloc_extra(func, HotExtra::UnaryOp(op))
       hot_alloc_node(
@@ -808,7 +845,7 @@ fn hot_lift_tinstr(
           HOT_FLAG_VALUE,
           0,
           extra,
-          [hot_lift_tinstr(func, child, label_stack)],
+          [hot_lift_typed_instr(func, child, label_stack)],
         ),
       )
     }
@@ -824,24 +861,25 @@ fn hot_lift_tinstr(
           0,
           extra,
           [
-            hot_lift_tinstr(func, left, label_stack),
-            hot_lift_tinstr(func, right, label_stack),
+            hot_lift_typed_instr(func, left, label_stack),
+            hot_lift_typed_instr(func, right, label_stack),
           ],
         ),
       )
     }
-    @lib.TDrop(child) => hot_alloc_node(
-      func,
-      hot_make_node_with_children(
+    @lib.TDrop(child) =>
+      hot_alloc_node(
         func,
-        HotOp::Drop,
-        hot_type_void(func),
-        HOT_FLAG_SIDE_EFFECT,
-        0,
-        0,
-        [hot_lift_tinstr(func, child, label_stack)],
-      ),
-    )
+        hot_make_node_with_children(
+          func,
+          HotOp::Drop,
+          hot_type_void(func),
+          HOT_FLAG_SIDE_EFFECT,
+          0,
+          0,
+          [hot_lift_typed_instr(func, child, label_stack)],
+        ),
+      )
     @lib.TCall(FuncIdx(raw), args) => {
       let lifted = hot_lift_instrs(func, args, label_stack)
       hot_alloc_node(
@@ -888,9 +926,9 @@ fn hot_lift_tinstr(
       )
     }
     @lib.TBrIf(label, cond, values) => {
-      let lifted = [hot_lift_tinstr(func, cond, label_stack)]
+      let lifted = [hot_lift_typed_instr(func, cond, label_stack)]
       for value in values {
-        lifted.push(hot_lift_tinstr(func, value, label_stack))
+        lifted.push(hot_lift_typed_instr(func, value, label_stack))
       }
       hot_alloc_node(
         func,
@@ -910,16 +948,13 @@ fn hot_lift_tinstr(
       for label in labels {
         targets.push(hot_branch_target_from_stack(label_stack, label))
       }
-      let table_id = hot_alloc_branch_table(
-        func,
-        {
-          targets,
-          default_target: hot_branch_target_from_stack(label_stack, default_label),
-        },
-      )
-      let lifted = [hot_lift_tinstr(func, selector, label_stack)]
+      let table_id = hot_alloc_branch_table(func, {
+        targets,
+        default_target: hot_branch_target_from_stack(label_stack, default_label),
+      })
+      let lifted = [hot_lift_typed_instr(func, selector, label_stack)]
       for value in values {
-        lifted.push(hot_lift_tinstr(func, value, label_stack))
+        lifted.push(hot_lift_typed_instr(func, value, label_stack))
       }
       hot_alloc_node(
         func,
@@ -935,9 +970,9 @@ fn hot_lift_tinstr(
       )
     }
     @lib.TBrOnNull(label, ref_, values) => {
-      let lifted = [hot_lift_tinstr(func, ref_, label_stack)]
+      let lifted = [hot_lift_typed_instr(func, ref_, label_stack)]
       for value in values {
-        lifted.push(hot_lift_tinstr(func, value, label_stack))
+        lifted.push(hot_lift_typed_instr(func, value, label_stack))
       }
       hot_alloc_node(
         func,
@@ -953,9 +988,9 @@ fn hot_lift_tinstr(
       )
     }
     @lib.TBrOnNonNull(label, ref_, values) => {
-      let lifted = [hot_lift_tinstr(func, ref_, label_stack)]
+      let lifted = [hot_lift_typed_instr(func, ref_, label_stack)]
       for value in values {
-        lifted.push(hot_lift_tinstr(func, value, label_stack))
+        lifted.push(hot_lift_typed_instr(func, value, label_stack))
       }
       hot_alloc_node(
         func,
@@ -975,9 +1010,9 @@ fn hot_lift_tinstr(
         func,
         HotExtra::BrOnCastPayload(cast_op, source_ht, target_ht),
       )
-      let lifted = [hot_lift_tinstr(func, ref_, label_stack)]
+      let lifted = [hot_lift_typed_instr(func, ref_, label_stack)]
       for value in values {
-        lifted.push(hot_lift_tinstr(func, value, label_stack))
+        lifted.push(hot_lift_typed_instr(func, value, label_stack))
       }
       hot_alloc_node(
         func,
@@ -997,9 +1032,9 @@ fn hot_lift_tinstr(
         func,
         HotExtra::BrOnCastFailPayload(cast_op, source_ht, target_ht),
       )
-      let lifted = [hot_lift_tinstr(func, ref_, label_stack)]
+      let lifted = [hot_lift_typed_instr(func, ref_, label_stack)]
       for value in values {
-        lifted.push(hot_lift_tinstr(func, value, label_stack))
+        lifted.push(hot_lift_typed_instr(func, value, label_stack))
       }
       hot_alloc_node(
         func,
@@ -1025,7 +1060,12 @@ fn hot_lift_tinstr(
         [],
       )
       let id = hot_alloc_node(func, node)
-      let label_id = hot_alloc_label(func, HotLabelKind::BlockLabel, node.ty, id)
+      let label_id = hot_alloc_label(
+        func,
+        HotLabelKind::BlockLabel,
+        node.ty,
+        id,
+      )
       let next_stack = label_stack.copy()
       next_stack.push(label_id)
       hot_replace_children(func, id, hot_lift_instrs(func, body, next_stack))
@@ -1070,11 +1110,11 @@ fn hot_lift_tinstr(
         Some(other) => hot_wrap_region(func, other, next_stack)
         None => HOT_NONE_NODE
       }
-      hot_replace_children(
-        func,
-        id,
-        [hot_lift_tinstr(func, cond, label_stack), then_region, else_region],
-      )
+      hot_replace_children(func, id, [
+        hot_lift_typed_instr(func, cond, label_stack),
+        then_region,
+        else_region,
+      ])
       hot_node_set(func, id, { ..func.nodes[id], imm0: label_id })
       id
     }
@@ -1093,9 +1133,16 @@ fn hot_lift_tinstr(
       let label_id = hot_alloc_label(func, HotLabelKind::TryTableLabel, ty, id)
       let next_stack = label_stack.copy()
       next_stack.push(label_id)
-      let catch_id = hot_alloc_catch_info(func, hot_lift_catches(catches, next_stack))
+      let catch_id = hot_alloc_catch_info(
+        func,
+        hot_lift_catches(catches, next_stack),
+      )
       hot_replace_children(func, id, hot_lift_instrs(func, body, next_stack))
-      hot_node_set(func, id, { ..func.nodes[id], imm0: label_id, imm1: catch_id })
+      hot_node_set(func, id, {
+        ..func.nodes[id],
+        imm0: label_id,
+        imm1: catch_id,
+      })
       id
     }
     @lib.TLoad(op, memarg, addr) => {
@@ -1110,7 +1157,7 @@ fn hot_lift_tinstr(
           HOT_FLAG_VALUE,
           memarg_id,
           extra,
-          [hot_lift_tinstr(func, addr, label_stack)],
+          [hot_lift_typed_instr(func, addr, label_stack)],
         ),
       )
     }
@@ -1127,8 +1174,8 @@ fn hot_lift_tinstr(
           memarg_id,
           extra,
           [
-            hot_lift_tinstr(func, addr, label_stack),
-            hot_lift_tinstr(func, value, label_stack),
+            hot_lift_typed_instr(func, addr, label_stack),
+            hot_lift_typed_instr(func, value, label_stack),
           ],
         ),
       )
@@ -1145,9 +1192,9 @@ fn hot_lift_tinstr(
           0,
           extra,
           [
-            hot_lift_tinstr(func, cond, label_stack),
-            hot_lift_tinstr(func, if_true, label_stack),
-            hot_lift_tinstr(func, if_false, label_stack),
+            hot_lift_typed_instr(func, cond, label_stack),
+            hot_lift_typed_instr(func, if_true, label_stack),
+            hot_lift_typed_instr(func, if_false, label_stack),
           ],
         ),
       )
@@ -1163,12 +1210,15 @@ fn hot_lift_tinstr(
           HOT_FLAG_VALUE,
           0,
           extra,
-          [hot_lift_tinstr(func, child, label_stack)],
+          [hot_lift_typed_instr(func, child, label_stack)],
         ),
       )
     }
     @lib.TRefTest(nullable, heap_type, child) => {
-      let extra = hot_alloc_extra(func, HotExtra::RefTestPayload(nullable, heap_type))
+      let extra = hot_alloc_extra(
+        func,
+        HotExtra::RefTestPayload(nullable, heap_type),
+      )
       hot_alloc_node(
         func,
         hot_make_node_with_children(
@@ -1178,12 +1228,15 @@ fn hot_lift_tinstr(
           HOT_FLAG_VALUE,
           0,
           extra,
-          [hot_lift_tinstr(func, child, label_stack)],
+          [hot_lift_typed_instr(func, child, label_stack)],
         ),
       )
     }
     @lib.TRefCast(nullable, heap_type, child) => {
-      let extra = hot_alloc_extra(func, HotExtra::RefCastPayload(nullable, heap_type))
+      let extra = hot_alloc_extra(
+        func,
+        HotExtra::RefCastPayload(nullable, heap_type),
+      )
       hot_alloc_node(
         func,
         hot_make_node_with_children(
@@ -1193,7 +1246,7 @@ fn hot_lift_tinstr(
           HOT_FLAG_VALUE,
           0,
           extra,
-          [hot_lift_tinstr(func, child, label_stack)],
+          [hot_lift_typed_instr(func, child, label_stack)],
         ),
       )
     }
@@ -1211,7 +1264,7 @@ fn hot_lift_tinstr(
           HOT_FLAG_VALUE,
           0,
           extra,
-          [hot_lift_tinstr(func, child, label_stack)],
+          [hot_lift_typed_instr(func, child, label_stack)],
         ),
       )
     }
@@ -1229,7 +1282,7 @@ fn hot_lift_tinstr(
           HOT_FLAG_VALUE,
           0,
           extra,
-          [hot_lift_tinstr(func, child, label_stack)],
+          [hot_lift_typed_instr(func, child, label_stack)],
         ),
       )
     }
@@ -1245,9 +1298,9 @@ fn hot_lift_tinstr(
           0,
           extra,
           [
-            hot_lift_tinstr(func, array, label_stack),
-            hot_lift_tinstr(func, start, label_stack),
-            hot_lift_tinstr(func, end_, label_stack),
+            hot_lift_typed_instr(func, array, label_stack),
+            hot_lift_typed_instr(func, start, label_stack),
+            hot_lift_typed_instr(func, end_, label_stack),
           ],
         ),
       )
@@ -1257,8 +1310,8 @@ fn hot_lift_tinstr(
 }
 
 ///|
-pub fn hot_lift_body(body : Array[TInstr], locals : HotLocals) -> HotFunc {
-  let func = HotFunc::new(locals=locals)
+pub fn hot_lift_body(body : Array[TypedInstr], locals : HotLocals) -> HotFunc {
+  let func = HotFunc::new(locals~)
   let roots = hot_lift_instrs(func, body, [])
   for root in roots {
     hot_append_root(func, root)
@@ -1271,14 +1324,14 @@ fn hot_lower_region_body(
   func : HotFunc,
   id : NodeId,
   label_stack : Array[LabelId],
-) -> Array[TInstr] {
+) -> Array[TypedInstr] {
   if id == HOT_NONE_NODE {
     return []
   }
   let node = hot_node_get(func, id)
   match node.op {
     HotOp::Block => hot_lower_body_items(func, id, label_stack)
-    _ => [hot_lower_tinstr(func, id, label_stack)]
+    _ => [hot_lower_typed_instr(func, id, label_stack)]
   }
 }
 
@@ -1308,8 +1361,8 @@ fn hot_lower_body_items(
   func : HotFunc,
   id : NodeId,
   label_stack : Array[LabelId],
-) -> Array[TInstr] {
-  let out : Array[TInstr] = []
+) -> Array[TypedInstr] {
+  let out : Array[TypedInstr] = []
   let node = hot_node_get(func, id)
   let next_stack = label_stack.copy()
   match node.op {
@@ -1322,100 +1375,113 @@ fn hot_lower_body_items(
   for i = 0; i < node.child_count; i = i + 1 {
     let child = hot_child_get(func, id, i)
     if child != HOT_NONE_NODE {
-      out.push(hot_lower_tinstr(func, child, next_stack))
+      out.push(hot_lower_typed_instr(func, child, next_stack))
     }
   }
   out
 }
 
 ///|
-fn hot_lower_tinstr(
+fn hot_lower_typed_instr(
   func : HotFunc,
   id : NodeId,
   label_stack : Array[LabelId],
-) -> TInstr {
+) -> TypedInstr {
   let node = hot_node_get(func, id)
   match node.op {
-    HotOp::Nop => TInstr::nop()
-    HotOp::Unreachable => TInstr::unreachable_()
+    HotOp::Nop => TypedInstr::nop()
+    HotOp::Unreachable => TypedInstr::unreachable_()
     HotOp::Const =>
       match func.consts[node.imm0] {
-        HotConstPayload::I32Const(v) => TInstr::i32_const(v)
-        HotConstPayload::I64Const(v) => TInstr::i64_const(v)
-        HotConstPayload::StringConst(bytes) => TInstr::string_const(bytes)
-        HotConstPayload::RefNullConst(rt) => TInstr::ref_null_type(rt)
+        HotConstPayload::I32Const(v) => TypedInstr::i32_const(v)
+        HotConstPayload::I64Const(v) => TypedInstr::i64_const(v)
+        HotConstPayload::StringConst(bytes) => TypedInstr::string_const(bytes)
+        HotConstPayload::RefNullConst(rt) => TypedInstr::ref_null_type(rt)
       }
     HotOp::RefNull =>
       match func.consts[node.imm0] {
-        HotConstPayload::RefNullConst(rt) => TInstr::ref_null_type(rt)
+        HotConstPayload::RefNullConst(rt) => TypedInstr::ref_null_type(rt)
         _ => abort("invalid hot ref.null payload")
       }
     HotOp::LocalGet =>
-      TInstr::local_get(LocalIdx::new(node.imm0.reinterpret_as_uint()))
+      TypedInstr::local_get(LocalIdx::new(node.imm0.reinterpret_as_uint()))
     HotOp::GlobalGet =>
-      TInstr::global_get(GlobalIdx::new(node.imm0.reinterpret_as_uint()))
+      TypedInstr::global_get(GlobalIdx::new(node.imm0.reinterpret_as_uint()))
     HotOp::LocalSet =>
-      TInstr::local_set(
+      TypedInstr::local_set(
         LocalIdx::new(node.imm0.reinterpret_as_uint()),
-        hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+        hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
       )
     HotOp::LocalTee =>
-      TInstr::local_tee(
+      TypedInstr::local_tee(
         LocalIdx::new(node.imm0.reinterpret_as_uint()),
-        hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+        hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
       )
     HotOp::GlobalSet =>
-      TInstr::global_set(
+      TypedInstr::global_set(
         GlobalIdx::new(node.imm0.reinterpret_as_uint()),
-        hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+        hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
       )
     HotOp::Unary =>
       match func.extras[node.imm1] {
         HotExtra::UnaryOp(op) =>
-          TInstr::unary(op, hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack))
+          TypedInstr::unary(
+            op,
+            hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
+          )
         _ => abort("invalid hot unary extra")
       }
     HotOp::Binary =>
       match func.extras[node.imm1] {
         HotExtra::BinaryOp(op) =>
-          TInstr::binary(
+          TypedInstr::binary(
             op,
-            hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
-            hot_lower_tinstr(func, hot_child_get(func, id, 1), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 1), label_stack),
           )
         _ => abort("invalid hot binary extra")
       }
     HotOp::Drop =>
-      TInstr::drop(hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack))
+      TypedInstr::drop(
+        hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
+      )
     HotOp::Call => {
-      let args : Array[TInstr] = []
+      let args : Array[TypedInstr] = []
       for i = 0; i < node.child_count; i = i + 1 {
-        args.push(hot_lower_tinstr(func, hot_child_get(func, id, i), label_stack))
+        args.push(
+          hot_lower_typed_instr(func, hot_child_get(func, id, i), label_stack),
+        )
       }
-      TInstr::call(FuncIdx::new(node.imm0.reinterpret_as_uint()), args)
+      TypedInstr::call(FuncIdx::new(node.imm0.reinterpret_as_uint()), args)
     }
     HotOp::Return => {
-      let args : Array[TInstr] = []
+      let args : Array[TypedInstr] = []
       for i = 0; i < node.child_count; i = i + 1 {
-        args.push(hot_lower_tinstr(func, hot_child_get(func, id, i), label_stack))
+        args.push(
+          hot_lower_typed_instr(func, hot_child_get(func, id, i), label_stack),
+        )
       }
-      TInstr::return_(args)
+      TypedInstr::return_(args)
     }
     HotOp::Br => {
-      let args : Array[TInstr] = []
+      let args : Array[TypedInstr] = []
       for i = 0; i < node.child_count; i = i + 1 {
-        args.push(hot_lower_tinstr(func, hot_child_get(func, id, i), label_stack))
+        args.push(
+          hot_lower_typed_instr(func, hot_child_get(func, id, i), label_stack),
+        )
       }
-      TInstr::br(hot_branch_depth(label_stack, node.imm0), args)
+      TypedInstr::br(hot_branch_depth(label_stack, node.imm0), args)
     }
     HotOp::BrIf => {
-      let values : Array[TInstr] = []
+      let values : Array[TypedInstr] = []
       for i = 1; i < node.child_count; i = i + 1 {
-        values.push(hot_lower_tinstr(func, hot_child_get(func, id, i), label_stack))
+        values.push(
+          hot_lower_typed_instr(func, hot_child_get(func, id, i), label_stack),
+        )
       }
-      TInstr::br_if(
+      TypedInstr::br_if(
         hot_branch_depth(label_stack, node.imm0),
-        hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+        hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
         values,
       )
     }
@@ -1425,36 +1491,42 @@ fn hot_lower_tinstr(
       for target in table.targets {
         labels.push(hot_branch_depth(label_stack, target))
       }
-      let values : Array[TInstr] = []
+      let values : Array[TypedInstr] = []
       for i = 1; i < node.child_count; i = i + 1 {
-        values.push(hot_lower_tinstr(func, hot_child_get(func, id, i), label_stack))
+        values.push(
+          hot_lower_typed_instr(func, hot_child_get(func, id, i), label_stack),
+        )
       }
-      TInstr::br_table(
+      TypedInstr::br_table(
         labels,
         hot_branch_depth(label_stack, table.default_target),
-        hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+        hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
         values,
       )
     }
     HotOp::BrOnNull => {
-      let values : Array[TInstr] = []
+      let values : Array[TypedInstr] = []
       for i = 1; i < node.child_count; i = i + 1 {
-        values.push(hot_lower_tinstr(func, hot_child_get(func, id, i), label_stack))
+        values.push(
+          hot_lower_typed_instr(func, hot_child_get(func, id, i), label_stack),
+        )
       }
-      TInstr::br_on_null(
+      TypedInstr::br_on_null(
         hot_branch_depth(label_stack, node.imm0),
-        hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+        hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
         values,
       )
     }
     HotOp::BrOnNonNull => {
-      let values : Array[TInstr] = []
+      let values : Array[TypedInstr] = []
       for i = 1; i < node.child_count; i = i + 1 {
-        values.push(hot_lower_tinstr(func, hot_child_get(func, id, i), label_stack))
+        values.push(
+          hot_lower_typed_instr(func, hot_child_get(func, id, i), label_stack),
+        )
       }
-      TInstr::br_on_non_null(
+      TypedInstr::br_on_non_null(
         hot_branch_depth(label_stack, node.imm0),
-        hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+        hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
         values,
       )
     }
@@ -1462,17 +1534,23 @@ fn hot_lower_tinstr(
       match func.extras[node.imm1] {
         HotExtra::BrOnCastPayload(cast_op, source_ht, target_ht) => {
           let CastOp(source_nullable, target_nullable) = cast_op
-          let values : Array[TInstr] = []
+          let values : Array[TypedInstr] = []
           for i = 1; i < node.child_count; i = i + 1 {
-            values.push(hot_lower_tinstr(func, hot_child_get(func, id, i), label_stack))
+            values.push(
+              hot_lower_typed_instr(
+                func,
+                hot_child_get(func, id, i),
+                label_stack,
+              ),
+            )
           }
-          TInstr::br_on_cast(
+          TypedInstr::br_on_cast(
             hot_branch_depth(label_stack, node.imm0),
             source_nullable,
             source_ht,
             target_nullable,
             target_ht,
-            hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
             values,
           )
         }
@@ -1482,17 +1560,23 @@ fn hot_lower_tinstr(
       match func.extras[node.imm1] {
         HotExtra::BrOnCastFailPayload(cast_op, source_ht, target_ht) => {
           let CastOp(source_nullable, target_nullable) = cast_op
-          let values : Array[TInstr] = []
+          let values : Array[TypedInstr] = []
           for i = 1; i < node.child_count; i = i + 1 {
-            values.push(hot_lower_tinstr(func, hot_child_get(func, id, i), label_stack))
+            values.push(
+              hot_lower_typed_instr(
+                func,
+                hot_child_get(func, id, i),
+                label_stack,
+              ),
+            )
           }
-          TInstr::br_on_cast_fail(
+          TypedInstr::br_on_cast_fail(
             hot_branch_depth(label_stack, node.imm0),
             source_nullable,
             source_ht,
             target_nullable,
             target_ht,
-            hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
             values,
           )
         }
@@ -1506,7 +1590,7 @@ fn hot_lower_tinstr(
         HotTypeInfo::VoidType => BlockType::void_()
         _ => BlockType::void_()
       }
-      TInstr::block(block_type, hot_lower_body_items(func, id, label_stack))
+      TypedInstr::block(block_type, hot_lower_body_items(func, id, label_stack))
     }
     HotOp::Loop => {
       let block_type = match func.types[node.ty] {
@@ -1516,7 +1600,7 @@ fn hot_lower_tinstr(
       }
       let next_stack = label_stack.copy()
       next_stack.push(node.imm0)
-      TInstr::loop_(block_type, hot_lower_body_items(func, id, label_stack))
+      TypedInstr::loop_(block_type, hot_lower_body_items(func, id, label_stack))
     }
     HotOp::If => {
       let block_type = match func.types[node.ty] {
@@ -1526,9 +1610,9 @@ fn hot_lower_tinstr(
       }
       let next_stack = label_stack.copy()
       next_stack.push(node.imm0)
-      TInstr::if_(
+      TypedInstr::if_(
         block_type,
-        hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+        hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
         hot_lower_region_body(func, hot_child_get(func, id, 1), next_stack),
         match hot_child_get(func, id, 2) {
           HOT_NONE_NODE => None
@@ -1544,7 +1628,7 @@ fn hot_lower_tinstr(
       }
       let next_stack = label_stack.copy()
       next_stack.push(node.imm0)
-      TInstr::try_table(
+      TypedInstr::try_table(
         block_type,
         hot_lower_catches(func.catches[node.imm1].catches, next_stack),
         hot_lower_body_items(func, id, label_stack),
@@ -1553,91 +1637,91 @@ fn hot_lower_tinstr(
     HotOp::Load =>
       match func.extras[node.imm1] {
         HotExtra::LoadOp(op) =>
-          TInstr::load(
+          TypedInstr::load(
             op,
             func.memargs[node.imm0].memarg,
-            hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
           )
         _ => abort("invalid hot load extra")
       }
     HotOp::Store =>
       match func.extras[node.imm1] {
         HotExtra::StoreOp(op) =>
-          TInstr::store(
+          TypedInstr::store(
             op,
             func.memargs[node.imm0].memarg,
-            hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
-            hot_lower_tinstr(func, hot_child_get(func, id, 1), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 1), label_stack),
           )
         _ => abort("invalid hot store extra")
       }
     HotOp::Select =>
       match func.extras[node.imm1] {
         HotExtra::SelectTypes(type_hint) =>
-          TInstr::select(
+          TypedInstr::select(
             type_hint,
-            hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
-            hot_lower_tinstr(func, hot_child_get(func, id, 1), label_stack),
-            hot_lower_tinstr(func, hot_child_get(func, id, 2), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 1), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 2), label_stack),
           )
         _ => abort("invalid hot select extra")
       }
     HotOp::RefGetDesc =>
       match func.extras[node.imm1] {
         HotExtra::RefGetDescType(type_idx) =>
-          TInstr::ref_get_desc(
+          TypedInstr::ref_get_desc(
             type_idx,
-            hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
           )
         _ => abort("invalid hot ref.get_desc extra")
       }
     HotOp::RefTest =>
       match func.extras[node.imm1] {
         HotExtra::RefTestPayload(nullable, heap_type) =>
-          TInstr::ref_test(
+          TypedInstr::ref_test(
             nullable,
             heap_type,
-            hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
           )
         _ => abort("invalid hot ref.test extra")
       }
     HotOp::RefCast =>
       match func.extras[node.imm1] {
         HotExtra::RefCastPayload(nullable, heap_type) =>
-          TInstr::ref_cast(
+          TypedInstr::ref_cast(
             nullable,
             heap_type,
-            hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
           )
         _ => abort("invalid hot ref.cast extra")
       }
     HotOp::RefTestDesc =>
       match func.extras[node.imm1] {
         HotExtra::RefTestDescPayload(nullable, heap_type) =>
-          TInstr::ref_test_desc(
+          TypedInstr::ref_test_desc(
             nullable,
             heap_type,
-            hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
           )
         _ => abort("invalid hot ref.test_desc extra")
       }
     HotOp::RefCastDescEq =>
       match func.extras[node.imm1] {
         HotExtra::RefCastDescEqPayload(nullable, heap_type) =>
-          TInstr::ref_cast_desc_eq(
+          TypedInstr::ref_cast_desc_eq(
             nullable,
             heap_type,
-            hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
           )
         _ => abort("invalid hot ref.cast_desc_eq extra")
       }
     HotOp::StringOp =>
       match func.extras[node.imm1] {
         HotExtra::StringBuiltin(NewWtf16Array) =>
-          TInstr::string_new_wtf16_array(
-            hot_lower_tinstr(func, hot_child_get(func, id, 0), label_stack),
-            hot_lower_tinstr(func, hot_child_get(func, id, 1), label_stack),
-            hot_lower_tinstr(func, hot_child_get(func, id, 2), label_stack),
+          TypedInstr::string_new_wtf16_array(
+            hot_lower_typed_instr(func, hot_child_get(func, id, 0), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 1), label_stack),
+            hot_lower_typed_instr(func, hot_child_get(func, id, 2), label_stack),
           )
         _ => abort("invalid hot string extra")
       }
@@ -1646,10 +1730,10 @@ fn hot_lower_tinstr(
 }
 
 ///|
-pub fn hot_lower_body(func : HotFunc) -> Array[TInstr] {
-  let instrs : Array[TInstr] = []
+pub fn hot_lower_body(func : HotFunc) -> Array[TypedInstr] {
+  let instrs : Array[TypedInstr] = []
   for root in func.roots {
-    instrs.push(hot_lower_tinstr(func, root, []))
+    instrs.push(hot_lower_typed_instr(func, root, []))
   }
   instrs
 }

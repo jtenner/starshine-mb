@@ -95,16 +95,16 @@ test "FunctionLocals pass helper adopts declared params when typed params are mi
 }
 
 ///|
-test "tinstrs_to_expr lowers nested if with explicit operand order" {
+test "typed_instrs_to_expr lowers nested if with explicit operand order" {
   let body = [
-    TInstr::if_(
+    TypedInstr::if_(
       BlockType::void_(),
-      TInstr::local_get(LocalIdx::new(0)),
-      [TInstr::i32_const(I32(1))],
-      Some([TInstr::i32_const(I32(0))]),
+      TypedInstr::local_get(LocalIdx::new(0)),
+      [TypedInstr::i32_const(I32(1))],
+      Some([TypedInstr::i32_const(I32(0))]),
     ),
   ]
-  let Expr(instrs) = tinstrs_to_expr(body)
+  let Expr(instrs) = typed_instrs_to_expr(body)
   assert_eq(instrs.length(), 2)
 
   match instrs[0] {
@@ -167,27 +167,27 @@ test "constructor shorthands map to expected variants" {
 }
 
 ///|
-test "tinstr size caches subtree instruction counts" {
-  let add = TInstr::binary(
+test "typed_instr size caches subtree instruction counts" {
+  let add = TypedInstr::binary(
     BinaryOp::i32_add(),
-    TInstr::i32_const(I32(1)),
-    TInstr::i32_const(I32(2)),
+    TypedInstr::i32_const(I32(1)),
+    TypedInstr::i32_const(I32(2)),
   )
   assert_eq(add.size, 3)
 
-  let blk = TInstr::block(
-    BlockType::void_(),
-    [TInstr::nop(), TInstr::drop(add)],
-  )
+  let blk = TypedInstr::block(BlockType::void_(), [
+    TypedInstr::nop(),
+    TypedInstr::drop(add),
+  ])
   assert_eq(blk.size, 6)
 }
 
 ///|
-test "tinstr size accounts for if condition and both branches" {
-  let cond = TInstr::local_get(LocalIdx::new(0))
-  let then_body = [TInstr::i32_const(I32(1))]
-  let else_body = [TInstr::i32_const(I32(0))]
-  let if_instr = TInstr::if_(
+test "typed_instr size accounts for if condition and both branches" {
+  let cond = TypedInstr::local_get(LocalIdx::new(0))
+  let then_body = [TypedInstr::i32_const(I32(1))]
+  let else_body = [TypedInstr::i32_const(I32(0))]
+  let if_instr = TypedInstr::if_(
     BlockType::val_type(ValType::i32()),
     cond,
     then_body,

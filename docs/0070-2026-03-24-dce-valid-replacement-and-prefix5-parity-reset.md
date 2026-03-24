@@ -73,7 +73,7 @@ Observed result:
   - dead drop context
   - enclosing block result requirements
   - whether an inner `br` targets the current structure or escapes beyond it
-- The current `ModuleTransformer` callback shape still does not supply parent/operand-role context directly, so a parity-grade structured DCE likely needs a dedicated context-carrying recursive walker.
+- The current `module rewrite engine` callback shape still does not supply parent/operand-role context directly, so a parity-grade structured DCE likely needs a dedicated context-carrying recursive walker.
 
 ## Validation plan
 

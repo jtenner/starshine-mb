@@ -64,7 +64,7 @@ The slice now preserves these instructions across all currently modeled layers:
 - `src/binary/encode.mbt` and `src/binary/decode.mbt`
   - heap type byte `0x64` for `string`
   - opcodes `0xFB 0xB0` through `0xFB 0xB7`
-- `src/validate/env.mbt` and `src/lib/texpr.mbt`
+- `src/validate/env.mbt` and `src/lib/typed_body.mbt`
   - raw instruction to typed instruction lifting
   - typed instruction back to raw instruction lowering
 - `src/wast/parser.mbt`, `src/wast/module_wast.mbt`, and

@@ -1,8 +1,12 @@
 # Changelog
 
+## 2026-03-24 Migration: remove legacy optimization and generated node surfaces
+
+- **Optimizer and generated API reset** by **@jtenner**. Removed the entire legacy optimization package under [`src/optimization`](/home/jtenner/Projects/starshine-mb/src/optimization), deleted the generated [`src/node_api`](/home/jtenner/Projects/starshine-mb/src/node_api) package and stale node `ir` / `transformer` exports, rewired command, validation, binary, and trace fixtures around the remaining raw-boundary plus hot-IR path, and scrubbed tracked source/docs/node files of the deleted `TFunc` / `TInstr` / `TExpr` / `ModuleTransformer` naming surface. Added [`src/validate/typed_instr_lowering.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/typed_instr_lowering.mbt) to preserve valid typed-body roundtrips at the cold boundary while the optimizer is rebuilt.
+
 ## 2026-03-24 Migration: checkpoint hot IR replacement cut before optimizer reset
 
-- **Hot IR migration checkpoint** by **@jtenner**. Added the new hot function IR in [`src/ir/hot.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot.mbt) with dense node/child storage and direct rewrite helpers, removed the old transformer package and legacy `src/ir` tree-owned optimizer layers, rewired boundary/validation code away from `TFunc` / `TExpr` ownership, and moved duplicate-function elimination plus the smaller name/string optimizer paths onto direct boundary or hot-IR rewrites in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) and [`src/optimization/hot_rewrite.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/hot_rewrite.mbt). This commit is an explicit checkpoint slice before rebuilding or deleting the remaining legacy optimization package.
+- **Hot IR migration checkpoint** by **@jtenner**. Added the new hot function IR in [`src/ir/hot.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot.mbt) with dense node/child storage and direct rewrite helpers, removed the old transformer package and legacy `src/ir` tree-owned optimizer layers, rewired boundary/validation code away from `typed function` / `typed instruction body` ownership, and moved duplicate-function elimination plus the smaller name/string optimizer paths onto direct boundary or hot-IR rewrites in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) and [`src/optimization/hot_rewrite.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/hot_rewrite.mbt). This commit is an explicit checkpoint slice before rebuilding or deleting the remaining legacy optimization package.
 
 ## 2026-03-24 Validation: reset DCE to a validating replacement and unblock five-pass parity runs
 
@@ -213,7 +217,7 @@
 
 ## 2026-03-23 Validate: truncate unreachable raw branch tails during generated pre-lift
 
-- **Generated raw-to-typed dead-tail cleanup** by **@jtenner**. Updated [`src/validate/env.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt) so nested raw `block` / `loop` / `if` / `try_table` body conversion stops consuming sibling instructions after the first stack-polymorphic terminator instead of preserving dead raw branch tails inside typed IR, while keeping top-level `to_texpr` stack-polymorphic tails intact.
+- **Generated raw-to-typed dead-tail cleanup** by **@jtenner**. Updated [`src/validate/env.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt) so nested raw `block` / `loop` / `if` / `try_table` body conversion stops consuming sibling instructions after the first stack-polymorphic terminator instead of preserving dead raw branch tails inside typed IR, while keeping top-level `to_typed_instrs` stack-polymorphic tails intact.
 - Added focused generated-pipeline regressions in [`src/cmd/generated_pipeline_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/generated_pipeline_wbtest.mbt) proving the dead `drop` after an unconditional raw `br` is already gone after generated pre-lift with no passes and remains gone when the explicit `DeadCodeElimination` pass is added.
 - Recorded the parity recheck in [`docs/0060-2026-03-23-generated-prelift-dead-branch-tail-cleanup.md`](/home/jtenner/Projects/starshine-mb/docs/0060-2026-03-23-generated-prelift-dead-branch-tail-cleanup.md), which supersedes the earlier fresh-artifact `DeadCodeElimination` parity claim: on the rebuilt release artifact, Starshine `DFE -> RUME -> MemoryPacking -> OnceReduction` now shrinks from `2353318` to `2352785` before DCE, so the old `-4` Binaryen `DCE` delta was evidence of a generated lifting bug, not a remaining Starshine DCE omission.
 
@@ -404,7 +408,7 @@
 
 ## 2026-03-22 Optimization: truncate DeadCodeElimination block tails
 
-- **DeadCodeElimination block-tail slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the typed DCE runner now trims `TExpr` instruction lists after the first terminating item, which removes dead code after `return`, after direct `br` within nested blocks, and after newly rewritten unreachable blocks.
+- **DeadCodeElimination block-tail slice** by **@jtenner**. Extended [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) so the typed DCE runner now trims `typed instruction body` instruction lists after the first terminating item, which removes dead code after `return`, after direct `br` within nested blocks, and after newly rewritten unreachable blocks.
 - Tightened the local DCE reachability model so nested `block` instructions only poison enclosing parents when they end in an actually escaping `unreachable` / `return` / `throw` tail, instead of treating every trailing branch as outer unreachability.
 - Expanded [`src/optimization/dead_code_elimination_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/dead_code_elimination_wbtest.mbt) with regressions for function-body truncation, nested-block tail truncation, rewritten-unreachable tail cleanup, and trivial `[unreachable]` block collapse.
 - Recorded the checkpoint in [`docs/0035-2026-03-22-dead-code-elimination-block-tail-truncation.md`](/home/jtenner/Projects/starshine-mb/docs/0035-2026-03-22-dead-code-elimination-block-tail-truncation.md), which narrows the remaining DCE work to live-break tracking and synchronous block type updates.
@@ -881,7 +885,7 @@
 ## 2026-03-18 Lib/IR/Passes Refactor: remove flat locals and canonicalize run-based locals everywhere
 
 - Completed the locals canonicalization refactor across the core wasm model, IR, validator, transformer, passes, generated interfaces, and tests so the codebase now has a single canonical locals representation: [`LocalRun`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt) plus [`Locals`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt). The old flat typed-locals representation was removed rather than preserved behind compatibility branches.
-- Updated [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt) and [`src/lib/util.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/util.mbt) so `Locals` owns the ordered run array and a mutable cached `indices : Option[Array[Int]]`, while `TFunc` now stores `Locals` for body locals instead of `Array[ValType]`. `Locals::ensure_index()` now lazily rebuilds run-start offsets, `Locals::at()` uses binary search over those starts, and all mutating operations invalidate or rebuild cache state through the canonical run list instead of flattening.
+- Updated [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt) and [`src/lib/util.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/util.mbt) so `Locals` owns the ordered run array and a mutable cached `indices : Option[Array[Int]]`, while `typed function` now stores `Locals` for body locals instead of `Array[ValType]`. `Locals::ensure_index()` now lazily rebuilds run-start offsets, `Locals::at()` uses binary search over those starts, and all mutating operations invalidate or rebuild cache state through the canonical run list instead of flattening.
 - Removed the flat helper/conversion path from shared utilities and bindings, including the obsolete flattening helpers that expanded grouped locals into `Array[ValType]`. Updated [`FunctionLocals`](/home/jtenner/Projects/starshine-mb/src/lib/util.mbt), [`Env::with_locals(...)`](/home/jtenner/Projects/starshine-mb/src/validate/env.mbt), and the generated node API wrappers in [`src/node_api/generated.mbt`](/home/jtenner/Projects/starshine-mb/src/node_api/generated.mbt) to consume `Locals` directly.
 - Migrated decoding, encoding, validation, IR lowering, SSA destruction, type tracking, and transformer traversal to use the run-based representation end-to-end. This includes [`src/binary/decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt), [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt), [`src/validate/typecheck.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt), [`src/validate/validate.mbt`](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt), [`src/ir/ir_context.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ir_context.mbt), [`src/ir/ssa_destruction.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_destruction.mbt), and [`src/transformer/transformer.mbt`](/home/jtenner/Projects/starshine-mb/src/transformer/transformer.mbt).
 - Migrated the pass stack and pass fixtures away from flat locals, including heavy rewrites in [`src/passes/simplify_locals.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/simplify_locals.mbt), [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt), [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt), [`src/passes/local_cse.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/local_cse.mbt), [`src/passes/local_subtyping.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/local_subtyping.mbt), [`src/passes/loop_invariant_code_motion.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/loop_invariant_code_motion.mbt), and the broader optimization/test harness files that previously passed raw `Array[ValType]` locals into typed-function helpers.
@@ -961,7 +965,7 @@
 
 ## 2026-03-18 Validate Follow-up: accept typed control-flow input params in both IR shapes
 
-- Updated [/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so typed `block`, `if`, and `loop` validation now accepts both body-embedded control-flow inputs from `to_texpr(...)` and explicit outer-stack control-flow input forms emitted directly by pass code, fixing the typed-control `stack underflow` gap.
+- Updated [/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt](/home/jtenner/Projects/starshine-mb/src/validate/typecheck.mbt) so typed `block`, `if`, and `loop` validation now accepts both body-embedded control-flow inputs from `to_typed_instrs(...)` and explicit outer-stack control-flow input forms emitted directly by pass code, fixing the typed-control `stack underflow` gap.
 - Added regressions in [/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt](/home/jtenner/Projects/starshine-mb/src/validate/validate.mbt) covering typed `block` / `if` / `loop` validation with `type_idx` control-flow input params.
 - Validation: `moon test src/validate`; `moon info`; `moon fmt`; `moon test`.
 
@@ -1505,7 +1509,7 @@ Strict TDD was used:
 
 Implementation details:
 - Replaced structural cache keys:
-  - before: `BranchCacheKey { instr: TInstr, depth }` keyed by structural `Eq`/`Hash`.
+  - before: `BranchCacheKey { instr: typed instruction node, depth }` keyed by structural `Eq`/`Hash`.
   - after: `BranchCacheQueryKey { instr_id, depth, generation }` keyed by instruction identity id and invalidation generation.
 - Added identity-id side table:
   - `instr_id_entries : Array[BranchCacheInstrIdEntry]`
@@ -1545,7 +1549,7 @@ Strict TDD was used:
 
 Implementation details:
 - Added stable instruction cache key:
-  - `MBStableInstrKey` (derived `Eq`/`Hash`) keyed by `TInstr` identity/equality semantics.
+  - `MBStableInstrKey` (derived `Eq`/`Hash`) keyed by `typed instruction node` identity/equality semantics.
 - Added per-function effect cache storage and controls in `MBContext`:
   - `effects_cache : Map[MBStableInstrKey, MBEffects]`
   - `effect_cache_enabled : Bool`
@@ -1580,7 +1584,7 @@ This follow-up closes the `MergeBlocks` runtime-gap backlog item in [`src/passes
 
 Decision:
 - The local pass runner does not currently expose a safe function-parallel dispatch path for this pass.
-- `ModuleTransformer::walk_opt_codesec_default` traverses function bodies through `ModuleTransformer::walk_opt_array`, and `walk_opt_array` threads mutable traversal state item-by-item; this execution model is serial by construction today.
+- `legacy module rewrite engine::walk_opt_codesec_default` traverses function bodies through `legacy module rewrite engine::walk_opt_array`, and `walk_opt_array` threads mutable traversal state item-by-item; this execution model is serial by construction today.
 - Per backlog requirement, this is now documented as an intentional divergence until runner-level function-parallel support exists.
 
 Strict TDD was used:
@@ -1795,7 +1799,7 @@ Backlog tracking was updated in [`agent-todo.md`](/home/jtenner/Projects/starshi
 
 This follow-up closes the `MergeBlocks` correctness gap C-001 in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt). The dropped-block path in `optimize_dropped_block(...)` previously called `problem_finder(...)` once per top-level instruction in the block body, which prevented whole-body balancing behavior for dropped vs non-dropped `br_if` cases and diverged from Binaryen's one-walk dropped-block analysis.
 
-The dropped-block analysis now runs once across the entire body expression (`TExpr`) before rewriting break values. As part of the same fix, `ProblemFinderState` now tracks `non_dropped_br_if_values` and `dropped_br_if_values`, and the block condition now matches Binaryen-style balancing semantics: block only when `non_dropped_br_if_values > dropped_br_if_values`. In addition, `drop(br_if ...)` is accounted for directly in the `TDrop` arm without recursively counting that branch as non-dropped.
+The dropped-block analysis now runs once across the entire body expression (`typed instruction body`) before rewriting break values. As part of the same fix, `ProblemFinderState` now tracks `non_dropped_br_if_values` and `dropped_br_if_values`, and the block condition now matches Binaryen-style balancing semantics: block only when `non_dropped_br_if_values > dropped_br_if_values`. In addition, `drop(br_if ...)` is accounted for directly in the `TDrop` arm without recursively counting that branch as non-dropped.
 
 Regression coverage in [`src/passes/merge_blocks.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/merge_blocks.mbt) was extended with:
 - `merge blocks: problem finder allows globally balanced dropped br_if values`
@@ -1972,7 +1976,7 @@ Verification: `moon test src/passes`, `moon info && moon fmt`, and full `moon te
 
 ## 2026-03-12 Vacuum Follow-up: skipped unnecessary wrapper-collapse label rebasing for unindexed rewritten bodies by adding a local rebase-score fast path
 
-This follow-up continues the same pathological-`Vacuum` blocker track in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). The previous change replaced the generic `ModuleTransformer` rebase with a custom recursive walker, but `vq_simplify_block_to_contents(...)` still had one expensive fallback path: when collapsing a single-item wrapper whose body no longer had an indexed `instr_id`, `vq_rebase_labels_for_collapsed_wrapper_if_needed(...)` always ran the full rebase walk even when the rewritten subtree had no labels (or only depth-local labels that do not change under one-level wrapper collapse).
+This follow-up continues the same pathological-`Vacuum` blocker track in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). The previous change replaced the generic `legacy module rewrite engine` rebase with a custom recursive walker, but `vq_simplify_block_to_contents(...)` still had one expensive fallback path: when collapsing a single-item wrapper whose body no longer had an indexed `instr_id`, `vq_rebase_labels_for_collapsed_wrapper_if_needed(...)` always ran the full rebase walk even when the rewritten subtree had no labels (or only depth-local labels that do not change under one-level wrapper collapse).
 
 The fallback gate now uses a new local recursive score helper (`vq_instr_rebase_label_score(...)` plus `vq_texpr_rebase_label_score(...)`) that mirrors the indexed `max_rebase_label_score` semantics. For indexed nodes, behavior is unchanged and still uses precomputed metadata. For unindexed rewritten nodes, rebasing now runs only when the local score is `>= 0`; otherwise the instruction is returned directly. This avoids unnecessary subtree rewrites in hot collapse paths without changing correctness for branch/catch label adjustment cases that actually need rebasing.
 
@@ -1982,9 +1986,9 @@ Regression coverage was expanded in [`src/passes/vacuum.mbt`](/home/jtenner/Proj
 
 Verification: `moon test src/passes` (red first on both new tests, then green), `moon info && moon fmt`, and full `moon test` (3036 passing, 0 failing).
 
-## 2026-03-12 Vacuum Follow-up: removed remaining value-keyed `TInstr` fallback caches from `Vacuum` metadata paths so both instruction and expression fallback queries now avoid structural-key map churn
+## 2026-03-12 Vacuum Follow-up: removed remaining value-keyed `typed instruction node` fallback caches from `Vacuum` metadata paths so both instruction and expression fallback queries now avoid structural-key map churn
 
-This follow-up continues the same pathological-`Vacuum` hardening track by removing the rest of the value-keyed fallback cache surface in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). After the previous expression-cache cleanup, fallback instruction metadata still used `Map[TInstr, ...]` for type/effect/shallow-effect/call/control-transfer/stack-signature/may-not-return queries. Those maps have now been removed from `VQAnalysisCache`.
+This follow-up continues the same pathological-`Vacuum` hardening track by removing the rest of the value-keyed fallback cache surface in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt). After the previous expression-cache cleanup, fallback instruction metadata still used `Map[typed instruction node, ...]` for type/effect/shallow-effect/call/control-transfer/stack-signature/may-not-return queries. Those maps have now been removed from `VQAnalysisCache`.
 
 All affected helper paths keep the existing indexed-node fast path for seeded/original instructions and now do direct fallback computation when no `instr_id` is available. This keeps correctness behavior while eliminating value-keyed cache insert/lookups for rewritten instruction trees. `vq_analysis_cache_instr_entry_count(...)` now reports indexed instruction-node entries only.
 
@@ -1992,11 +1996,11 @@ Regression coverage was expanded in [`src/passes/vacuum.mbt`](/home/jtenner/Proj
 
 Verification: `moon test src/passes`, `moon info && moon fmt`, and full `moon test` (3034 passing, 0 failing).
 
-## 2026-03-12 Publishing Blocker Closed: hardened pathological `Vacuum` metadata paths by removing value-keyed `TExpr` fallback caches, keeping seeded-node lookups indexed, and proving fallback queries no longer allocate expression-cache entries
+## 2026-03-12 Publishing Blocker Closed: hardened pathological `Vacuum` metadata paths by removing value-keyed `typed instruction body` fallback caches, keeping seeded-node lookups indexed, and proving fallback queries no longer allocate expression-cache entries
 
-This change closes the remaining `Vacuum` pathological-cleanup blocker in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) by tightening the metadata paths that still relied on value-keyed expression maps after the earlier shape-classifier and degraded-tier work. The pass had already moved its hot original-node lookups onto integer-indexed analysis tables, but fallback metadata queries for rewritten/non-indexed expressions still maintained `Map[TExpr, ...]` caches (`control_transfer`, `throws`, `explicit_unreachable`, and depth-0 value-break LUB). Those value-keyed maps are now removed from [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt), so fallback expression metadata is computed directly when no indexed `expr_id` is available instead of re-hashing/re-comparing recursive expression values in map operations.
+This change closes the remaining `Vacuum` pathological-cleanup blocker in [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) by tightening the metadata paths that still relied on value-keyed expression maps after the earlier shape-classifier and degraded-tier work. The pass had already moved its hot original-node lookups onto integer-indexed analysis tables, but fallback metadata queries for rewritten/non-indexed expressions still maintained `Map[typed instruction body, ...]` caches (`control_transfer`, `throws`, `explicit_unreachable`, and depth-0 value-break LUB). Those value-keyed maps are now removed from [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt), so fallback expression metadata is computed directly when no indexed `expr_id` is available instead of re-hashing/re-comparing recursive expression values in map operations.
 
-The cache surface was simplified in three concrete ways. First, `VQAnalysisCache` no longer stores expression-keyed fallback maps for control-transfer, throw, explicit-unreachable, or value-break-LUB facts. Second, `vq_texpr_has_control_transfer_cached`, `vq_texpr_throws_cached`, and `vq_texpr_has_explicit_unreachable_cached` now use indexed-node fast paths when available and otherwise perform direct computation without inserting expression-keyed cache entries. Third, `vq_value_break_to_depth_has_lub` keeps indexed depth-0 reuse but drops the legacy `Map[TExpr, Bool]` fallback write path. As a result, expression cache-cardinality accounting in `vq_analysis_cache_expr_entry_count(...)` now reports only indexed analysis-table entries.
+The cache surface was simplified in three concrete ways. First, `VQAnalysisCache` no longer stores expression-keyed fallback maps for control-transfer, throw, explicit-unreachable, or value-break-LUB facts. Second, `vq_texpr_has_control_transfer_cached`, `vq_texpr_throws_cached`, and `vq_texpr_has_explicit_unreachable_cached` now use indexed-node fast paths when available and otherwise perform direct computation without inserting expression-keyed cache entries. Third, `vq_value_break_to_depth_has_lub` keeps indexed depth-0 reuse but drops the legacy `Map[typed instruction body, Bool]` fallback write path. As a result, expression cache-cardinality accounting in `vq_analysis_cache_expr_entry_count(...)` now reports only indexed analysis-table entries.
 
 Regression coverage was expanded in [`src/passes/vacuum.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/vacuum.mbt) with two new tests: one that exercises fallback control/throw/unreachable metadata queries and asserts zero expression-cache entry growth, and one that exercises fallback value-break LUB querying with the same zero-growth assertion. Existing indexed value-break tests were also tightened to assert expression entry counts remain stable before/after indexed LUB checks, ensuring no hidden fallback cache writes regress back in.
 

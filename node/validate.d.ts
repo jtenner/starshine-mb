@@ -1,5 +1,5 @@
 import type { OpaqueHandle, StarshineResult } from "./internal/shared.js";
-import type { BlockType, CodeSec, CompType, Data, DataCntSec, DataIdx, DataSec, Elem, ElemIdx, ElemSec, ExportSec, Expr, FieldType, Func, FuncIdx, FuncSec, FuncType, GlobalIdx, GlobalSec, GlobalType, HeapType, ImportSec, LabelIdx, LocalIdx, Locals, MemIdx, MemSec, MemType, Module, NumType, RecType, RefType, StartSec, SubType, TExpr, TInstr, TableIdx, TableSec, TableType, TagIdx, TagSec, TagType, TypeIdx, TypeSec, ValType } from "./lib.js";
+import type { BlockType, CodeSec, CompType, Data, DataCntSec, DataIdx, DataSec, Elem, ElemIdx, ElemSec, ExportSec, Expr, FieldType, Func, FuncIdx, FuncSec, FuncType, GlobalIdx, GlobalSec, GlobalType, HeapType, ImportSec, LabelIdx, LocalIdx, Locals, MemIdx, MemSec, MemType, Module, NumType, RecType, RefType, StartSec, SubType, TableIdx, TableSec, TableType, TagIdx, TagSec, TagType, TypeIdx, TypeSec, ValType } from "./lib.js";
 
 export type Env = OpaqueHandle<"validate.Env">;
 export type GenValidContext = OpaqueHandle<"validate.GenValidContext">;
@@ -16,8 +16,6 @@ export type ValidationIssue = OpaqueHandle<"validate.ValidationIssue">;
 export function descriptorCompatible(arg0: RefType, arg1: RefType, arg2: Env): boolean;
 export function diff(arg0: RefType, arg1: RefType): StarshineResult<RefType, string>;
 export function emptyEnv(): Env;
-export function genSideEffectTinstr(arg0: GenValidContext, arg1: number, labelDepth?: number): TInstr;
-export function genTinstrOfType(arg0: GenValidContext, arg1: ValType): TInstr;
 export function genValidModule(arg0: OpaqueHandle<"@splitmix.RandomState">): Module;
 export function genValidNumtype(arg0: GenValidContext): NumType;
 export function genValidResultType(arg0: GenValidContext, arg1: Array<ValType>, arg2: TypeGenerationStrategy): Array<ValType>;
@@ -26,9 +24,6 @@ export function genValidValtype(arg0: GenValidContext): ValType;
 export function makeState(arg0: Env, arg1: Array<ValType>): TcState;
 export function runValidateInvalidFuzz(arg0: string, arg1: bigint): StarshineResult<ValidateInvalidFuzzStats, string>;
 export function runValidateValidFuzz(arg0: string, arg1: bigint): StarshineResult<ValidateValidFuzzStats, string>;
-export function tinstrResultArity(arg0: TInstr, arg1: Env): number;
-export function tinstrsResultArity(arg0: Array<TInstr>, arg1: Env): number;
-export function toTexpr(arg0: Expr, arg1: Env): StarshineResult<TExpr, string>;
 export function validateCodesec(arg0: CodeSec | null, arg1: FuncSec | null, arg2: Env): StarshineResult<void, string>;
 export function validateDatacnt(arg0: DataCntSec | null, arg1: DataSec | null): StarshineResult<void, string>;
 export function validateDatasec(arg0: DataSec | null, arg1: Env): StarshineResult<Env, string>;

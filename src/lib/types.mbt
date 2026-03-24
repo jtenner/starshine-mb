@@ -1400,7 +1400,7 @@ pub fn ValType::ref_null_array_of(x : TypeIdx) -> ValType {
 
 ///|
 /// A tree-based instruction with explicit operands
-pub enum TInstrKind {
+pub enum TypedInstrKind {
   // === Constants (0 children, 1 result) ===
   TI32Const(I32)
   TI64Const(I64)
@@ -1437,134 +1437,163 @@ pub enum TInstrKind {
   TTableSize(TableIdx)
 
   // === Unary (1 child) ===
-  TUnary(UnaryOp, TInstr)
-  TDrop(TInstr)
-  TLocalSet(LocalIdx, TInstr)
-  TLocalTee(LocalIdx, TInstr)
-  TGlobalSet(GlobalIdx, TInstr)
-  TRefIsNull(TInstr)
-  TRefAsNonNull(TInstr)
-  TI31GetS(TInstr)
-  TI31GetU(TInstr)
-  TRefI31(TInstr)
-  TArrayLen(TInstr)
-  TAnyConvertExtern(TInstr)
-  TExternConvertAny(TInstr)
-  TThrowRef(TInstr)
+  TUnary(UnaryOp, TypedInstr)
+  TDrop(TypedInstr)
+  TLocalSet(LocalIdx, TypedInstr)
+  TLocalTee(LocalIdx, TypedInstr)
+  TGlobalSet(GlobalIdx, TypedInstr)
+  TRefIsNull(TypedInstr)
+  TRefAsNonNull(TypedInstr)
+  TI31GetS(TypedInstr)
+  TI31GetU(TypedInstr)
+  TRefI31(TypedInstr)
+  TArrayLen(TypedInstr)
+  TAnyConvertExtern(TypedInstr)
+  TExternConvertAny(TypedInstr)
+  TThrowRef(TypedInstr)
 
   // === Binary (2 children) ===
-  TBinary(BinaryOp, TInstr, TInstr)
-  TRefEq(TInstr, TInstr)
-  TStore(StoreOp, MemArg, TInstr, TInstr) // addr, value
+  TBinary(BinaryOp, TypedInstr, TypedInstr)
+  TRefEq(TypedInstr, TypedInstr)
+  TStore(StoreOp, MemArg, TypedInstr, TypedInstr) // addr, value
 
   // === Load (1 child - address) ===
-  TLoad(LoadOp, MemArg, TInstr)
+  TLoad(LoadOp, MemArg, TypedInstr)
 
   // === Memory operations ===
-  TMemoryGrow(MemIdx, TInstr)
-  TMemoryFill(MemIdx, TInstr, TInstr, TInstr) // dest, val, len
-  TMemoryCopy(MemIdx, MemIdx, TInstr, TInstr, TInstr) // dest, src, len
-  TMemoryInit(DataIdx, MemIdx, TInstr, TInstr, TInstr)
+  TMemoryGrow(MemIdx, TypedInstr)
+  TMemoryFill(MemIdx, TypedInstr, TypedInstr, TypedInstr) // dest, val, len
+  TMemoryCopy(MemIdx, MemIdx, TypedInstr, TypedInstr, TypedInstr) // dest, src, len
+  TMemoryInit(DataIdx, MemIdx, TypedInstr, TypedInstr, TypedInstr)
   TDataDrop(DataIdx)
-  TMemoryAtomicNotify(MemArg, TInstr, TInstr) // addr, count
-  TMemoryAtomicWait32(MemArg, TInstr, TInstr, TInstr) // addr, expected, timeout
-  TMemoryAtomicWait64(MemArg, TInstr, TInstr, TInstr) // addr, expected, timeout
+  TMemoryAtomicNotify(MemArg, TypedInstr, TypedInstr) // addr, count
+  TMemoryAtomicWait32(MemArg, TypedInstr, TypedInstr, TypedInstr) // addr, expected, timeout
+  TMemoryAtomicWait64(MemArg, TypedInstr, TypedInstr, TypedInstr) // addr, expected, timeout
   TAtomicFence
-  TAtomicRmw(AtomicRmwOp, MemArg, TInstr, TInstr) // addr, value
-  TAtomicCmpxchg(AtomicCmpxchgOp, MemArg, TInstr, TInstr, TInstr) // addr, expected, replacement
+  TAtomicRmw(AtomicRmwOp, MemArg, TypedInstr, TypedInstr) // addr, value
+  TAtomicCmpxchg(AtomicCmpxchgOp, MemArg, TypedInstr, TypedInstr, TypedInstr) // addr, expected, replacement
 
   // === Table operations ===
-  TTableGet(TableIdx, TInstr)
-  TTableSet(TableIdx, TInstr, TInstr)
-  TTableGrow(TableIdx, TInstr, TInstr)
-  TTableFill(TableIdx, TInstr, TInstr, TInstr)
-  TTableCopy(TableIdx, TableIdx, TInstr, TInstr, TInstr)
-  TTableInit(ElemIdx, TableIdx, TInstr, TInstr, TInstr)
+  TTableGet(TableIdx, TypedInstr)
+  TTableSet(TableIdx, TypedInstr, TypedInstr)
+  TTableGrow(TableIdx, TypedInstr, TypedInstr)
+  TTableFill(TableIdx, TypedInstr, TypedInstr, TypedInstr)
+  TTableCopy(TableIdx, TableIdx, TypedInstr, TypedInstr, TypedInstr)
+  TTableInit(ElemIdx, TableIdx, TypedInstr, TypedInstr, TypedInstr)
   TElemDrop(ElemIdx)
 
   // === Calls (N children based on function type) ===
-  TCall(FuncIdx, Array[TInstr])
-  TCallIndirect(TypeIdx, TableIdx, Array[TInstr], TInstr) // args, table index
-  TCallRef(TypeIdx, Array[TInstr], TInstr) // args, funcref
-  TReturnCall(FuncIdx, Array[TInstr])
-  TReturnCallIndirect(TypeIdx, TableIdx, Array[TInstr], TInstr)
-  TReturnCallRef(TypeIdx, Array[TInstr], TInstr)
+  TCall(FuncIdx, Array[TypedInstr])
+  TCallIndirect(TypeIdx, TableIdx, Array[TypedInstr], TypedInstr) // args, table index
+  TCallRef(TypeIdx, Array[TypedInstr], TypedInstr) // args, funcref
+  TReturnCall(FuncIdx, Array[TypedInstr])
+  TReturnCallIndirect(TypeIdx, TableIdx, Array[TypedInstr], TypedInstr)
+  TReturnCallRef(TypeIdx, Array[TypedInstr], TypedInstr)
 
   // === Control flow ===
-  TBlock(BlockType, Array[TInstr])
-  TLoop(BlockType, Array[TInstr])
-  TIf(BlockType, TInstr, Array[TInstr], Array[TInstr]?) // condition, then, else
-  TTryTable(BlockType, Array[Catch], Array[TInstr])
-  TThrow(TagIdx, Array[TInstr])
+  TBlock(BlockType, Array[TypedInstr])
+  TLoop(BlockType, Array[TypedInstr])
+  TIf(BlockType, TypedInstr, Array[TypedInstr], Array[TypedInstr]?) // condition, then, else
+  TTryTable(BlockType, Array[Catch], Array[TypedInstr])
+  TThrow(TagIdx, Array[TypedInstr])
 
   // === Branches ===
-  TBr(LabelIdx, Array[TInstr]) // values to pass
-  TBrIf(LabelIdx, TInstr, Array[TInstr]) // condition, values
-  TBrTable(Array[LabelIdx], LabelIdx, TInstr, Array[TInstr]) // index, values
-  TBrOnNull(LabelIdx, TInstr, Array[TInstr])
-  TBrOnNonNull(LabelIdx, TInstr, Array[TInstr])
-  TBrOnCast(LabelIdx, CastOp, HeapType, HeapType, TInstr, Array[TInstr])
-  TBrOnCastFail(LabelIdx, CastOp, HeapType, HeapType, TInstr, Array[TInstr])
-  TReturn(Array[TInstr])
+  TBr(LabelIdx, Array[TypedInstr]) // values to pass
+  TBrIf(LabelIdx, TypedInstr, Array[TypedInstr]) // condition, values
+  TBrTable(Array[LabelIdx], LabelIdx, TypedInstr, Array[TypedInstr]) // index, values
+  TBrOnNull(LabelIdx, TypedInstr, Array[TypedInstr])
+  TBrOnNonNull(LabelIdx, TypedInstr, Array[TypedInstr])
+  TBrOnCast(LabelIdx, CastOp, HeapType, HeapType, TypedInstr, Array[TypedInstr])
+  TBrOnCastFail(
+    LabelIdx,
+    CastOp,
+    HeapType,
+    HeapType,
+    TypedInstr,
+    Array[TypedInstr]
+  )
+  TReturn(Array[TypedInstr])
 
   // === Select ===
-  TSelect(Array[ValType]?, TInstr, TInstr, TInstr) // cond, if_true, if_false
+  TSelect(Array[ValType]?, TypedInstr, TypedInstr, TypedInstr) // cond, if_true, if_false
 
   // === Strings ===
-  TStringNewUtf8Array(TInstr, TInstr, TInstr) // array, start, end
-  TStringNewWtf16Array(TInstr, TInstr, TInstr)
-  TStringEncodeUtf8Array(TInstr, TInstr, TInstr) // string, array, start
-  TStringEncodeWtf16Array(TInstr, TInstr, TInstr)
-  TStringNewLossyUtf8Array(TInstr, TInstr, TInstr)
-  TStringNewWtf8Array(TInstr, TInstr, TInstr)
-  TStringEncodeLossyUtf8Array(TInstr, TInstr, TInstr)
-  TStringEncodeWtf8Array(TInstr, TInstr, TInstr)
+  TStringNewUtf8Array(TypedInstr, TypedInstr, TypedInstr) // array, start, end
+  TStringNewWtf16Array(TypedInstr, TypedInstr, TypedInstr)
+  TStringEncodeUtf8Array(TypedInstr, TypedInstr, TypedInstr) // string, array, start
+  TStringEncodeWtf16Array(TypedInstr, TypedInstr, TypedInstr)
+  TStringNewLossyUtf8Array(TypedInstr, TypedInstr, TypedInstr)
+  TStringNewWtf8Array(TypedInstr, TypedInstr, TypedInstr)
+  TStringEncodeLossyUtf8Array(TypedInstr, TypedInstr, TypedInstr)
+  TStringEncodeWtf8Array(TypedInstr, TypedInstr, TypedInstr)
 
   // === GC: Structs ===
-  TStructNew(TypeIdx, Array[TInstr])
+  TStructNew(TypeIdx, Array[TypedInstr])
   TStructNewDefault(TypeIdx)
-  TStructNewDesc(TypeIdx, Array[TInstr])
-  TStructNewDefaultDesc(TypeIdx, TInstr)
-  TStructGet(TypeIdx, U32, TInstr)
-  TStructGetS(TypeIdx, U32, TInstr)
-  TStructGetU(TypeIdx, U32, TInstr)
-  TStructSet(TypeIdx, U32, TInstr, TInstr) // struct, value
+  TStructNewDesc(TypeIdx, Array[TypedInstr])
+  TStructNewDefaultDesc(TypeIdx, TypedInstr)
+  TStructGet(TypeIdx, U32, TypedInstr)
+  TStructGetS(TypeIdx, U32, TypedInstr)
+  TStructGetU(TypeIdx, U32, TypedInstr)
+  TStructSet(TypeIdx, U32, TypedInstr, TypedInstr) // struct, value
 
   // === GC: Arrays ===
-  TArrayNew(TypeIdx, TInstr, TInstr) // init, len
-  TArrayNewDefault(TypeIdx, TInstr) // len
-  TArrayNewFixed(TypeIdx, Array[TInstr])
-  TArrayNewData(TypeIdx, DataIdx, TInstr, TInstr) // offset, len
-  TArrayNewElem(TypeIdx, ElemIdx, TInstr, TInstr)
-  TArrayGet(TypeIdx, TInstr, TInstr) // arr, idx
-  TArrayGetS(TypeIdx, TInstr, TInstr)
-  TArrayGetU(TypeIdx, TInstr, TInstr)
-  TArraySet(TypeIdx, TInstr, TInstr, TInstr) // arr, idx, val
-  TArrayFill(TypeIdx, TInstr, TInstr, TInstr, TInstr) // arr, offset, val, len
-  TArrayCopy(TypeIdx, TypeIdx, TInstr, TInstr, TInstr, TInstr, TInstr)
-  TArrayInitData(TypeIdx, DataIdx, TInstr, TInstr, TInstr, TInstr)
-  TArrayInitElem(TypeIdx, ElemIdx, TInstr, TInstr, TInstr, TInstr)
+  TArrayNew(TypeIdx, TypedInstr, TypedInstr) // init, len
+  TArrayNewDefault(TypeIdx, TypedInstr) // len
+  TArrayNewFixed(TypeIdx, Array[TypedInstr])
+  TArrayNewData(TypeIdx, DataIdx, TypedInstr, TypedInstr) // offset, len
+  TArrayNewElem(TypeIdx, ElemIdx, TypedInstr, TypedInstr)
+  TArrayGet(TypeIdx, TypedInstr, TypedInstr) // arr, idx
+  TArrayGetS(TypeIdx, TypedInstr, TypedInstr)
+  TArrayGetU(TypeIdx, TypedInstr, TypedInstr)
+  TArraySet(TypeIdx, TypedInstr, TypedInstr, TypedInstr) // arr, idx, val
+  TArrayFill(TypeIdx, TypedInstr, TypedInstr, TypedInstr, TypedInstr) // arr, offset, val, len
+  TArrayCopy(
+    TypeIdx,
+    TypeIdx,
+    TypedInstr,
+    TypedInstr,
+    TypedInstr,
+    TypedInstr,
+    TypedInstr
+  )
+  TArrayInitData(
+    TypeIdx,
+    DataIdx,
+    TypedInstr,
+    TypedInstr,
+    TypedInstr,
+    TypedInstr
+  )
+  TArrayInitElem(
+    TypeIdx,
+    ElemIdx,
+    TypedInstr,
+    TypedInstr,
+    TypedInstr,
+    TypedInstr
+  )
 
   // === GC: Casts ===
-  TRefGetDesc(TypeIdx, TInstr)
-  TRefTest(Bool, HeapType, TInstr)
-  TRefCast(Bool, HeapType, TInstr)
-  TRefTestDesc(Bool, HeapType, TInstr)
-  TRefCastDescEq(Bool, HeapType, TInstr)
+  TRefGetDesc(TypeIdx, TypedInstr)
+  TRefTest(Bool, HeapType, TypedInstr)
+  TRefCast(Bool, HeapType, TypedInstr)
+  TRefTestDesc(Bool, HeapType, TypedInstr)
+  TRefCastDescEq(Bool, HeapType, TypedInstr)
 
   // === SIMD: Splat (scalar -> v128) ===
-  TI8x16Splat(TInstr)
-  TI16x8Splat(TInstr)
-  TI32x4Splat(TInstr)
-  TI64x2Splat(TInstr)
-  TF32x4Splat(TInstr)
-  TF64x2Splat(TInstr)
+  TI8x16Splat(TypedInstr)
+  TI16x8Splat(TypedInstr)
+  TI32x4Splat(TypedInstr)
+  TI64x2Splat(TypedInstr)
+  TF32x4Splat(TypedInstr)
+  TF64x2Splat(TypedInstr)
 
   // === SIMD: Extract lane (v128 -> scalar) ===
-  TExtractLane(ExtractLaneOp, LaneIdx, TInstr)
+  TExtractLane(ExtractLaneOp, LaneIdx, TypedInstr)
 
   // === SIMD: Replace lane (v128, scalar -> v128) ===
-  TReplaceLane(ReplaceLaneOp, LaneIdx, TInstr, TInstr)
+  TReplaceLane(ReplaceLaneOp, LaneIdx, TypedInstr, TypedInstr)
 
   // === SIMD: Shuffle (v128, v128 -> v128 with 16 lane indices) ===
   TI8x16Shuffle(
@@ -1584,39 +1613,39 @@ pub enum TInstrKind {
     LaneIdx,
     LaneIdx,
     LaneIdx,
-    TInstr,
-    TInstr
+    TypedInstr,
+    TypedInstr
   )
 
   // === SIMD: Swizzle (v128, v128 -> v128) ===
-  TI8x16Swizzle(TInstr, TInstr)
-  TI8x16RelaxedSwizzle(TInstr, TInstr)
+  TI8x16Swizzle(TypedInstr, TypedInstr)
+  TI8x16RelaxedSwizzle(TypedInstr, TypedInstr)
 
   // === SIMD: Shift (v128, i32 -> v128) ===
-  TV128Shift(V128ShiftOp, TInstr, TInstr)
+  TV128Shift(V128ShiftOp, TypedInstr, TypedInstr)
 
   // === SIMD: Ternary (v128, v128, v128 -> v128) ===
-  TV128Ternary(V128TernaryOp, TInstr, TInstr, TInstr)
+  TV128Ternary(V128TernaryOp, TypedInstr, TypedInstr, TypedInstr)
 
   // === SIMD: Lane load (v128, addr -> v128) ===
-  TV128LoadLane(V128LoadLaneOp, MemArg, LaneIdx, TInstr, TInstr)
+  TV128LoadLane(V128LoadLaneOp, MemArg, LaneIdx, TypedInstr, TypedInstr)
 
   // === SIMD: Lane store (v128, addr -> void) ===
-  TV128StoreLane(V128StoreLaneOp, MemArg, LaneIdx, TInstr, TInstr)
+  TV128StoreLane(V128StoreLaneOp, MemArg, LaneIdx, TypedInstr, TypedInstr)
 } derive(Eq, Show, Hash, Debug)
 
 ///|
 pub type HashResult = Int
 
 ///|
-pub struct TInstr {
-  kind : TInstrKind
+pub struct TypedInstr {
+  kind : TypedInstrKind
   size : Int
   mut hash : HashResult?
 } derive(Show, Debug)
 
 ///|
-fn tinstr_array_size(instrs : Array[TInstr]) -> Int {
+fn typed_instr_array_size(instrs : Array[TypedInstr]) -> Int {
   let mut total = 0
   for instr in instrs {
     total += instr.size
@@ -1625,7 +1654,7 @@ fn tinstr_array_size(instrs : Array[TInstr]) -> Int {
 }
 
 ///|
-fn tinstr_size(kind : TInstrKind) -> Int {
+fn typed_instr_size(kind : TypedInstrKind) -> Int {
   1 +
   (match kind {
     // Zero-operand instructions.
@@ -1735,18 +1764,18 @@ fn tinstr_size(kind : TInstrKind) -> Int {
     | TReturn(args)
     | TStructNew(_, args)
     | TStructNewDesc(_, args)
-    | TArrayNewFixed(_, args) => tinstr_array_size(args)
+    | TArrayNewFixed(_, args) => typed_instr_array_size(args)
     TCallIndirect(_, _, args, index) | TReturnCallIndirect(_, _, args, index) =>
-      tinstr_array_size(args) + index.size
+      typed_instr_array_size(args) + index.size
     TCallRef(_, args, ref_) | TReturnCallRef(_, args, ref_) =>
-      tinstr_array_size(args) + ref_.size
-    TBrIf(_, cond, values) => tinstr_array_size(values) + cond.size
-    TBrTable(_, _, index, values) => tinstr_array_size(values) + index.size
+      typed_instr_array_size(args) + ref_.size
+    TBrIf(_, cond, values) => typed_instr_array_size(values) + cond.size
+    TBrTable(_, _, index, values) => typed_instr_array_size(values) + index.size
     TBrOnNull(_, ref_, values)
     | TBrOnNonNull(_, ref_, values)
     | TBrOnCast(_, _, _, _, ref_, values)
     | TBrOnCastFail(_, _, _, _, ref_, values) =>
-      tinstr_array_size(values) + ref_.size
+      typed_instr_array_size(values) + ref_.size
     TArraySet(_, a, b, c) => a.size + b.size + c.size
     TArrayFill(_, a, b, c, d)
     | TArrayInitData(_, _, a, b, c, d)
@@ -1758,20 +1787,20 @@ fn tinstr_size(kind : TInstrKind) -> Int {
 
     // Control-flow structures.
     TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      tinstr_array_size(body)
+      typed_instr_array_size(body)
     TIf(_, cond, then_body, else_body) =>
       cond.size +
-      tinstr_array_size(then_body) +
+      typed_instr_array_size(then_body) +
       (match else_body {
-        Some(other) => tinstr_array_size(other)
+        Some(other) => typed_instr_array_size(other)
         None => 0
       })
   })
 }
 
 ///|
-fn tinstr(kind : TInstrKind) -> TInstr {
-  { kind, size: tinstr_size(kind), hash: None }
+fn typed_instr(kind : TypedInstrKind) -> TypedInstr {
+  { kind, size: typed_instr_size(kind), hash: None }
 }
 
 ///|
@@ -5450,42 +5479,42 @@ pub fn Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s() -> Instruction {
 }
 
 ///|
-pub fn TInstr::i32_const(val : I32) -> TInstr {
-  tinstr(TI32Const(val))
+pub fn TypedInstr::i32_const(val : I32) -> TypedInstr {
+  typed_instr(TI32Const(val))
 }
 
 ///|
-pub fn TInstr::i64_const(val : I64) -> TInstr {
-  tinstr(TI64Const(val))
+pub fn TypedInstr::i64_const(val : I64) -> TypedInstr {
+  typed_instr(TI64Const(val))
 }
 
 ///|
-pub fn TInstr::f32_const(val : F32) -> TInstr {
-  tinstr(TF32Const(val))
+pub fn TypedInstr::f32_const(val : F32) -> TypedInstr {
+  typed_instr(TF32Const(val))
 }
 
 ///|
-pub fn TInstr::f64_const(val : F64) -> TInstr {
-  tinstr(TF64Const(val))
+pub fn TypedInstr::f64_const(val : F64) -> TypedInstr {
+  typed_instr(TF64Const(val))
 }
 
 ///|
-pub fn TInstr::ref_null(val : HeapType) -> TInstr {
-  TInstr::ref_null_type(RefType::new(true, val))
+pub fn TypedInstr::ref_null(val : HeapType) -> TypedInstr {
+  TypedInstr::ref_null_type(RefType::new(true, val))
 }
 
 ///|
-pub fn TInstr::ref_null_type(val : RefType) -> TInstr {
-  tinstr(TRefNull(val.make_nullable()))
+pub fn TypedInstr::ref_null_type(val : RefType) -> TypedInstr {
+  typed_instr(TRefNull(val.make_nullable()))
 }
 
 ///|
-pub fn TInstr::ref_func(val : FuncIdx) -> TInstr {
-  tinstr(TRefFunc(val))
+pub fn TypedInstr::ref_func(val : FuncIdx) -> TypedInstr {
+  typed_instr(TRefFunc(val))
 }
 
 ///|
-pub fn TInstr::v128_const(
+pub fn TypedInstr::v128_const(
   b0 : Byte,
   b1 : Byte,
   b2 : Byte,
@@ -5502,8 +5531,8 @@ pub fn TInstr::v128_const(
   b13 : Byte,
   b14 : Byte,
   b15 : Byte,
-) -> TInstr {
-  tinstr(
+) -> TypedInstr {
+  typed_instr(
     TV128Const(
       b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
     ),
@@ -5511,760 +5540,830 @@ pub fn TInstr::v128_const(
 }
 
 ///|
-pub fn TInstr::unreachable_() -> TInstr {
-  tinstr(TUnreachable)
+pub fn TypedInstr::unreachable_() -> TypedInstr {
+  typed_instr(TUnreachable)
 }
 
 ///|
-pub fn TInstr::nop() -> TInstr {
-  tinstr(TNop)
+pub fn TypedInstr::nop() -> TypedInstr {
+  typed_instr(TNop)
 }
 
 ///|
-pub fn TInstr::local_get(idx : LocalIdx) -> TInstr {
-  tinstr(TLocalGet(idx))
+pub fn TypedInstr::local_get(idx : LocalIdx) -> TypedInstr {
+  typed_instr(TLocalGet(idx))
 }
 
 ///|
-pub fn TInstr::global_get(idx : GlobalIdx) -> TInstr {
-  tinstr(TGlobalGet(idx))
+pub fn TypedInstr::global_get(idx : GlobalIdx) -> TypedInstr {
+  typed_instr(TGlobalGet(idx))
 }
 
 ///|
-pub fn TInstr::memory_size(idx : MemIdx) -> TInstr {
-  tinstr(TMemorySize(idx))
+pub fn TypedInstr::memory_size(idx : MemIdx) -> TypedInstr {
+  typed_instr(TMemorySize(idx))
 }
 
 ///|
-pub fn TInstr::table_size(idx : TableIdx) -> TInstr {
-  tinstr(TTableSize(idx))
+pub fn TypedInstr::table_size(idx : TableIdx) -> TypedInstr {
+  typed_instr(TTableSize(idx))
 }
 
 ///|
-pub fn TInstr::unary(op : UnaryOp, i : TInstr) -> TInstr {
-  tinstr(TUnary(op, i))
+pub fn TypedInstr::unary(op : UnaryOp, i : TypedInstr) -> TypedInstr {
+  typed_instr(TUnary(op, i))
 }
 
 ///|
-pub fn TInstr::drop(i : TInstr) -> TInstr {
-  tinstr(TDrop(i))
+pub fn TypedInstr::drop(i : TypedInstr) -> TypedInstr {
+  typed_instr(TDrop(i))
 }
 
 ///|
-pub fn TInstr::local_set(idx : LocalIdx, i : TInstr) -> TInstr {
-  tinstr(TLocalSet(idx, i))
+pub fn TypedInstr::local_set(idx : LocalIdx, i : TypedInstr) -> TypedInstr {
+  typed_instr(TLocalSet(idx, i))
 }
 
 ///|
-pub fn TInstr::local_tee(idx : LocalIdx, i : TInstr) -> TInstr {
-  tinstr(TLocalTee(idx, i))
+pub fn TypedInstr::local_tee(idx : LocalIdx, i : TypedInstr) -> TypedInstr {
+  typed_instr(TLocalTee(idx, i))
 }
 
 ///|
-pub fn TInstr::global_set(idx : GlobalIdx, i : TInstr) -> TInstr {
-  tinstr(TGlobalSet(idx, i))
+pub fn TypedInstr::global_set(idx : GlobalIdx, i : TypedInstr) -> TypedInstr {
+  typed_instr(TGlobalSet(idx, i))
 }
 
 ///|
-pub fn TInstr::ref_is_null(i : TInstr) -> TInstr {
-  tinstr(TRefIsNull(i))
+pub fn TypedInstr::ref_is_null(i : TypedInstr) -> TypedInstr {
+  typed_instr(TRefIsNull(i))
 }
 
 ///|
-pub fn TInstr::ref_as_non_null(i : TInstr) -> TInstr {
-  tinstr(TRefAsNonNull(i))
+pub fn TypedInstr::ref_as_non_null(i : TypedInstr) -> TypedInstr {
+  typed_instr(TRefAsNonNull(i))
 }
 
 ///|
-pub fn TInstr::i31_get_s(i : TInstr) -> TInstr {
-  tinstr(TI31GetS(i))
+pub fn TypedInstr::i31_get_s(i : TypedInstr) -> TypedInstr {
+  typed_instr(TI31GetS(i))
 }
 
 ///|
-pub fn TInstr::i31_get_u(i : TInstr) -> TInstr {
-  tinstr(TI31GetU(i))
+pub fn TypedInstr::i31_get_u(i : TypedInstr) -> TypedInstr {
+  typed_instr(TI31GetU(i))
 }
 
 ///|
-pub fn TInstr::ref_i31(i : TInstr) -> TInstr {
-  tinstr(TRefI31(i))
+pub fn TypedInstr::ref_i31(i : TypedInstr) -> TypedInstr {
+  typed_instr(TRefI31(i))
 }
 
 ///|
-pub fn TInstr::array_len(i : TInstr) -> TInstr {
-  tinstr(TArrayLen(i))
+pub fn TypedInstr::array_len(i : TypedInstr) -> TypedInstr {
+  typed_instr(TArrayLen(i))
 }
 
 ///|
-pub fn TInstr::any_convert_extern(i : TInstr) -> TInstr {
-  tinstr(TAnyConvertExtern(i))
+pub fn TypedInstr::any_convert_extern(i : TypedInstr) -> TypedInstr {
+  typed_instr(TAnyConvertExtern(i))
 }
 
 ///|
-pub fn TInstr::extern_convert_any(i : TInstr) -> TInstr {
-  tinstr(TExternConvertAny(i))
+pub fn TypedInstr::extern_convert_any(i : TypedInstr) -> TypedInstr {
+  typed_instr(TExternConvertAny(i))
 }
 
 ///|
-pub fn TInstr::throw_ref(i : TInstr) -> TInstr {
-  tinstr(TThrowRef(i))
+pub fn TypedInstr::throw_ref(i : TypedInstr) -> TypedInstr {
+  typed_instr(TThrowRef(i))
 }
 
 ///|
-pub fn TInstr::binary(op : BinaryOp, i0 : TInstr, i1 : TInstr) -> TInstr {
-  tinstr(TBinary(op, i0, i1))
+pub fn TypedInstr::binary(
+  op : BinaryOp,
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TBinary(op, i0, i1))
 }
 
 ///|
-pub fn TInstr::ref_eq(i0 : TInstr, i1 : TInstr) -> TInstr {
-  tinstr(TRefEq(i0, i1))
+pub fn TypedInstr::ref_eq(i0 : TypedInstr, i1 : TypedInstr) -> TypedInstr {
+  typed_instr(TRefEq(i0, i1))
 }
 
 ///|
-pub fn TInstr::store(
+pub fn TypedInstr::store(
   op : StoreOp,
   ma : MemArg,
-  i0 : TInstr,
-  i1 : TInstr,
-) -> TInstr {
-  tinstr(TStore(op, ma, i0, i1))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStore(op, ma, i0, i1))
 }
 
 ///|
-pub fn TInstr::load(op : LoadOp, ma : MemArg, i : TInstr) -> TInstr {
-  tinstr(TLoad(op, ma, i))
+pub fn TypedInstr::load(op : LoadOp, ma : MemArg, i : TypedInstr) -> TypedInstr {
+  typed_instr(TLoad(op, ma, i))
 }
 
 ///|
-pub fn TInstr::memory_grow(mi : MemIdx, i : TInstr) -> TInstr {
-  tinstr(TMemoryGrow(mi, i))
+pub fn TypedInstr::memory_grow(mi : MemIdx, i : TypedInstr) -> TypedInstr {
+  typed_instr(TMemoryGrow(mi, i))
 }
 
 ///|
-pub fn TInstr::memory_fill(
+pub fn TypedInstr::memory_fill(
   mi : MemIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-) -> TInstr {
-  tinstr(TMemoryFill(mi, i0, i1, i2))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TMemoryFill(mi, i0, i1, i2))
 }
 
 ///|
-pub fn TInstr::memory_copy(
+pub fn TypedInstr::memory_copy(
   mi0 : MemIdx,
   mi1 : MemIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-) -> TInstr {
-  tinstr(TMemoryCopy(mi0, mi1, i0, i1, i2))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TMemoryCopy(mi0, mi1, i0, i1, i2))
 }
 
 ///|
-pub fn TInstr::memory_init(
+pub fn TypedInstr::memory_init(
   di : DataIdx,
   mi : MemIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-) -> TInstr {
-  tinstr(TMemoryInit(di, mi, i0, i1, i2))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TMemoryInit(di, mi, i0, i1, i2))
 }
 
 ///|
-pub fn TInstr::data_drop(di : DataIdx) -> TInstr {
-  tinstr(TDataDrop(di))
+pub fn TypedInstr::data_drop(di : DataIdx) -> TypedInstr {
+  typed_instr(TDataDrop(di))
 }
 
 ///|
-pub fn TInstr::memory_atomic_notify(
+pub fn TypedInstr::memory_atomic_notify(
   ma : MemArg,
-  i0 : TInstr,
-  i1 : TInstr,
-) -> TInstr {
-  tinstr(TMemoryAtomicNotify(ma, i0, i1))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TMemoryAtomicNotify(ma, i0, i1))
 }
 
 ///|
-pub fn TInstr::memory_atomic_wait32(
+pub fn TypedInstr::memory_atomic_wait32(
   ma : MemArg,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-) -> TInstr {
-  tinstr(TMemoryAtomicWait32(ma, i0, i1, i2))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TMemoryAtomicWait32(ma, i0, i1, i2))
 }
 
 ///|
-pub fn TInstr::memory_atomic_wait64(
+pub fn TypedInstr::memory_atomic_wait64(
   ma : MemArg,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-) -> TInstr {
-  tinstr(TMemoryAtomicWait64(ma, i0, i1, i2))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TMemoryAtomicWait64(ma, i0, i1, i2))
 }
 
 ///|
-pub fn TInstr::atomic_fence() -> TInstr {
-  tinstr(TAtomicFence)
+pub fn TypedInstr::atomic_fence() -> TypedInstr {
+  typed_instr(TAtomicFence)
 }
 
 ///|
-pub fn TInstr::atomic_rmw(
+pub fn TypedInstr::atomic_rmw(
   op : AtomicRmwOp,
   ma : MemArg,
-  i0 : TInstr,
-  i1 : TInstr,
-) -> TInstr {
-  tinstr(TAtomicRmw(op, ma, i0, i1))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TAtomicRmw(op, ma, i0, i1))
 }
 
 ///|
-pub fn TInstr::atomic_cmpxchg(
+pub fn TypedInstr::atomic_cmpxchg(
   op : AtomicCmpxchgOp,
   ma : MemArg,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-) -> TInstr {
-  tinstr(TAtomicCmpxchg(op, ma, i0, i1, i2))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TAtomicCmpxchg(op, ma, i0, i1, i2))
 }
 
 ///|
-pub fn TInstr::table_get(ti : TableIdx, i : TInstr) -> TInstr {
-  tinstr(TTableGet(ti, i))
+pub fn TypedInstr::table_get(ti : TableIdx, i : TypedInstr) -> TypedInstr {
+  typed_instr(TTableGet(ti, i))
 }
 
 ///|
-pub fn TInstr::table_set(ti : TableIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
-  tinstr(TTableSet(ti, i0, i1))
-}
-
-///|
-pub fn TInstr::table_grow(ti : TableIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
-  tinstr(TTableGrow(ti, i0, i1))
-}
-
-///|
-pub fn TInstr::table_fill(
+pub fn TypedInstr::table_set(
   ti : TableIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-) -> TInstr {
-  tinstr(TTableFill(ti, i0, i1, i2))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TTableSet(ti, i0, i1))
 }
 
 ///|
-pub fn TInstr::table_copy(
+pub fn TypedInstr::table_grow(
+  ti : TableIdx,
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TTableGrow(ti, i0, i1))
+}
+
+///|
+pub fn TypedInstr::table_fill(
+  ti : TableIdx,
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TTableFill(ti, i0, i1, i2))
+}
+
+///|
+pub fn TypedInstr::table_copy(
   ti0 : TableIdx,
   ti1 : TableIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-) -> TInstr {
-  tinstr(TTableCopy(ti0, ti1, i0, i1, i2))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TTableCopy(ti0, ti1, i0, i1, i2))
 }
 
 ///|
-pub fn TInstr::table_init(
+pub fn TypedInstr::table_init(
   ei : ElemIdx,
   ti : TableIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-) -> TInstr {
-  tinstr(TTableInit(ei, ti, i0, i1, i2))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TTableInit(ei, ti, i0, i1, i2))
 }
 
 ///|
-pub fn TInstr::elem_drop(ei : ElemIdx) -> TInstr {
-  tinstr(TElemDrop(ei))
+pub fn TypedInstr::elem_drop(ei : ElemIdx) -> TypedInstr {
+  typed_instr(TElemDrop(ei))
 }
 
 ///|
-pub fn TInstr::call(di : FuncIdx, props : Array[TInstr]) -> TInstr {
-  tinstr(TCall(di, props))
+pub fn TypedInstr::call(di : FuncIdx, props : Array[TypedInstr]) -> TypedInstr {
+  typed_instr(TCall(di, props))
 }
 
 ///|
-pub fn TInstr::call_indirect(
+pub fn TypedInstr::call_indirect(
   ty_i : TypeIdx,
   tbl_i : TableIdx,
-  props : Array[TInstr],
-  i : TInstr,
-) -> TInstr {
-  tinstr(TCallIndirect(ty_i, tbl_i, props, i))
+  props : Array[TypedInstr],
+  i : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TCallIndirect(ty_i, tbl_i, props, i))
 }
 
 ///|
-pub fn TInstr::call_ref(
+pub fn TypedInstr::call_ref(
   ti : TypeIdx,
-  props : Array[TInstr],
-  r : TInstr,
-) -> TInstr {
-  tinstr(TCallRef(ti, props, r))
+  props : Array[TypedInstr],
+  r : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TCallRef(ti, props, r))
 }
 
 ///|
-pub fn TInstr::return_call(fi : FuncIdx, props : Array[TInstr]) -> TInstr {
-  tinstr(TReturnCall(fi, props))
+pub fn TypedInstr::return_call(
+  fi : FuncIdx,
+  props : Array[TypedInstr],
+) -> TypedInstr {
+  typed_instr(TReturnCall(fi, props))
 }
 
 ///|
-pub fn TInstr::return_call_indirect(
+pub fn TypedInstr::return_call_indirect(
   ty_i : TypeIdx,
   tbl_i : TableIdx,
-  props : Array[TInstr],
-  i : TInstr,
-) -> TInstr {
-  tinstr(TReturnCallIndirect(ty_i, tbl_i, props, i))
+  props : Array[TypedInstr],
+  i : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TReturnCallIndirect(ty_i, tbl_i, props, i))
 }
 
 ///|
-pub fn TInstr::return_call_ref(
+pub fn TypedInstr::return_call_ref(
   ti : TypeIdx,
-  props : Array[TInstr],
-  i : TInstr,
-) -> TInstr {
-  tinstr(TReturnCallRef(ti, props, i))
+  props : Array[TypedInstr],
+  i : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TReturnCallRef(ti, props, i))
 }
 
 ///|
-pub fn TInstr::block(bt : BlockType, e : Array[TInstr]) -> TInstr {
-  tinstr(TBlock(bt, e))
+pub fn TypedInstr::block(bt : BlockType, e : Array[TypedInstr]) -> TypedInstr {
+  typed_instr(TBlock(bt, e))
 }
 
 ///|
-pub fn TInstr::loop_(bt : BlockType, e : Array[TInstr]) -> TInstr {
-  tinstr(TLoop(bt, e))
+pub fn TypedInstr::loop_(bt : BlockType, e : Array[TypedInstr]) -> TypedInstr {
+  typed_instr(TLoop(bt, e))
 }
 
 ///|
-pub fn TInstr::if_(
+pub fn TypedInstr::if_(
   bt : BlockType,
-  i : TInstr,
-  e0 : Array[TInstr],
-  e1_opt : Array[TInstr]?,
-) -> TInstr {
-  tinstr(TIf(bt, i, e0, e1_opt))
+  i : TypedInstr,
+  e0 : Array[TypedInstr],
+  e1_opt : Array[TypedInstr]?,
+) -> TypedInstr {
+  typed_instr(TIf(bt, i, e0, e1_opt))
 }
 
 ///|
-pub fn TInstr::try_table(
+pub fn TypedInstr::try_table(
   bt : BlockType,
   c : Array[Catch],
-  e : Array[TInstr],
-) -> TInstr {
-  tinstr(TTryTable(bt, c, e))
+  e : Array[TypedInstr],
+) -> TypedInstr {
+  typed_instr(TTryTable(bt, c, e))
 }
 
 ///|
-pub fn TInstr::throw_(ti : TagIdx, i : Array[TInstr]) -> TInstr {
-  tinstr(TThrow(ti, i))
+pub fn TypedInstr::throw_(ti : TagIdx, i : Array[TypedInstr]) -> TypedInstr {
+  typed_instr(TThrow(ti, i))
 }
 
 ///|
-pub fn TInstr::br(li : LabelIdx, i : Array[TInstr]) -> TInstr {
-  tinstr(TBr(li, i))
+pub fn TypedInstr::br(li : LabelIdx, i : Array[TypedInstr]) -> TypedInstr {
+  typed_instr(TBr(li, i))
 }
 
 ///|
-pub fn TInstr::br_if(li : LabelIdx, i0 : TInstr, i : Array[TInstr]) -> TInstr {
-  tinstr(TBrIf(li, i0, i))
+pub fn TypedInstr::br_if(
+  li : LabelIdx,
+  i0 : TypedInstr,
+  i : Array[TypedInstr],
+) -> TypedInstr {
+  typed_instr(TBrIf(li, i0, i))
 }
 
 ///|
-pub fn TInstr::br_table(
+pub fn TypedInstr::br_table(
   l : Array[LabelIdx],
   l0 : LabelIdx,
-  i0 : TInstr,
-  i : Array[TInstr],
-) -> TInstr {
-  tinstr(TBrTable(l, l0, i0, i))
+  i0 : TypedInstr,
+  i : Array[TypedInstr],
+) -> TypedInstr {
+  typed_instr(TBrTable(l, l0, i0, i))
 }
 
 ///|
-pub fn TInstr::br_on_null(
+pub fn TypedInstr::br_on_null(
   li : LabelIdx,
-  i0 : TInstr,
-  i : Array[TInstr],
-) -> TInstr {
-  tinstr(TBrOnNull(li, i0, i))
+  i0 : TypedInstr,
+  i : Array[TypedInstr],
+) -> TypedInstr {
+  typed_instr(TBrOnNull(li, i0, i))
 }
 
 ///|
-pub fn TInstr::br_on_non_null(
+pub fn TypedInstr::br_on_non_null(
   li : LabelIdx,
-  i0 : TInstr,
-  i : Array[TInstr],
-) -> TInstr {
-  tinstr(TBrOnNonNull(li, i0, i))
+  i0 : TypedInstr,
+  i : Array[TypedInstr],
+) -> TypedInstr {
+  typed_instr(TBrOnNonNull(li, i0, i))
 }
 
 ///|
-pub fn TInstr::br_on_cast(
+pub fn TypedInstr::br_on_cast(
   li : LabelIdx,
   source_nullable : Bool,
   ht0 : HeapType,
   target_nullable : Bool,
   ht1 : HeapType,
-  i0 : TInstr,
-  i : Array[TInstr],
-) -> TInstr {
-  tinstr(
+  i0 : TypedInstr,
+  i : Array[TypedInstr],
+) -> TypedInstr {
+  typed_instr(
     TBrOnCast(li, CastOp(source_nullable, target_nullable), ht0, ht1, i0, i),
   )
 }
 
 ///|
-pub fn TInstr::br_on_cast_fail(
+pub fn TypedInstr::br_on_cast_fail(
   li : LabelIdx,
   source_nullable : Bool,
   ht0 : HeapType,
   target_nullable : Bool,
   ht1 : HeapType,
-  i0 : TInstr,
-  i : Array[TInstr],
-) -> TInstr {
-  tinstr(
+  i0 : TypedInstr,
+  i : Array[TypedInstr],
+) -> TypedInstr {
+  typed_instr(
     TBrOnCastFail(li, CastOp(source_nullable, target_nullable), ht0, ht1, i0, i),
   )
 }
 
 ///|
-pub fn TInstr::return_(i : Array[TInstr]) -> TInstr {
-  tinstr(TReturn(i))
+pub fn TypedInstr::return_(i : Array[TypedInstr]) -> TypedInstr {
+  typed_instr(TReturn(i))
 }
 
 ///|
-pub fn TInstr::select(
+pub fn TypedInstr::select(
   tys : Array[ValType]?,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-) -> TInstr {
-  tinstr(TSelect(tys, i0, i1, i2))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TSelect(tys, i0, i1, i2))
 }
 
 ///|
-pub fn TInstr::string_const(bytes : Bytes) -> TInstr {
-  tinstr(TStringConst(bytes))
+pub fn TypedInstr::string_const(bytes : Bytes) -> TypedInstr {
+  typed_instr(TStringConst(bytes))
 }
 
 ///|
-pub fn TInstr::string_new_utf8_array(
-  array : TInstr,
-  start : TInstr,
-  end_ : TInstr,
-) -> TInstr {
-  tinstr(TStringNewUtf8Array(array, start, end_))
+pub fn TypedInstr::string_new_utf8_array(
+  array : TypedInstr,
+  start : TypedInstr,
+  end_ : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStringNewUtf8Array(array, start, end_))
 }
 
 ///|
-pub fn TInstr::string_new_wtf16_array(
-  array : TInstr,
-  start : TInstr,
-  end_ : TInstr,
-) -> TInstr {
-  tinstr(TStringNewWtf16Array(array, start, end_))
+pub fn TypedInstr::string_new_wtf16_array(
+  array : TypedInstr,
+  start : TypedInstr,
+  end_ : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStringNewWtf16Array(array, start, end_))
 }
 
 ///|
-pub fn TInstr::string_encode_utf8_array(
-  string : TInstr,
-  array : TInstr,
-  start : TInstr,
-) -> TInstr {
-  tinstr(TStringEncodeUtf8Array(string, array, start))
+pub fn TypedInstr::string_encode_utf8_array(
+  string : TypedInstr,
+  array : TypedInstr,
+  start : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStringEncodeUtf8Array(string, array, start))
 }
 
 ///|
-pub fn TInstr::string_encode_wtf16_array(
-  string : TInstr,
-  array : TInstr,
-  start : TInstr,
-) -> TInstr {
-  tinstr(TStringEncodeWtf16Array(string, array, start))
+pub fn TypedInstr::string_encode_wtf16_array(
+  string : TypedInstr,
+  array : TypedInstr,
+  start : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStringEncodeWtf16Array(string, array, start))
 }
 
 ///|
-pub fn TInstr::string_new_lossy_utf8_array(
-  array : TInstr,
-  start : TInstr,
-  end_ : TInstr,
-) -> TInstr {
-  tinstr(TStringNewLossyUtf8Array(array, start, end_))
+pub fn TypedInstr::string_new_lossy_utf8_array(
+  array : TypedInstr,
+  start : TypedInstr,
+  end_ : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStringNewLossyUtf8Array(array, start, end_))
 }
 
 ///|
-pub fn TInstr::string_new_wtf8_array(
-  array : TInstr,
-  start : TInstr,
-  end_ : TInstr,
-) -> TInstr {
-  tinstr(TStringNewWtf8Array(array, start, end_))
+pub fn TypedInstr::string_new_wtf8_array(
+  array : TypedInstr,
+  start : TypedInstr,
+  end_ : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStringNewWtf8Array(array, start, end_))
 }
 
 ///|
-pub fn TInstr::string_encode_lossy_utf8_array(
-  string : TInstr,
-  array : TInstr,
-  start : TInstr,
-) -> TInstr {
-  tinstr(TStringEncodeLossyUtf8Array(string, array, start))
+pub fn TypedInstr::string_encode_lossy_utf8_array(
+  string : TypedInstr,
+  array : TypedInstr,
+  start : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStringEncodeLossyUtf8Array(string, array, start))
 }
 
 ///|
-pub fn TInstr::string_encode_wtf8_array(
-  string : TInstr,
-  array : TInstr,
-  start : TInstr,
-) -> TInstr {
-  tinstr(TStringEncodeWtf8Array(string, array, start))
+pub fn TypedInstr::string_encode_wtf8_array(
+  string : TypedInstr,
+  array : TypedInstr,
+  start : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStringEncodeWtf8Array(string, array, start))
 }
 
 ///|
-pub fn TInstr::struct_new(ti : TypeIdx, i : Array[TInstr]) -> TInstr {
-  tinstr(TStructNew(ti, i))
+pub fn TypedInstr::struct_new(
+  ti : TypeIdx,
+  i : Array[TypedInstr],
+) -> TypedInstr {
+  typed_instr(TStructNew(ti, i))
 }
 
 ///|
-pub fn TInstr::struct_new_default(ti : TypeIdx) -> TInstr {
-  tinstr(TStructNewDefault(ti))
+pub fn TypedInstr::struct_new_default(ti : TypeIdx) -> TypedInstr {
+  typed_instr(TStructNewDefault(ti))
 }
 
 ///|
-pub fn TInstr::struct_new_desc(ti : TypeIdx, i : Array[TInstr]) -> TInstr {
-  tinstr(TStructNewDesc(ti, i))
+pub fn TypedInstr::struct_new_desc(
+  ti : TypeIdx,
+  i : Array[TypedInstr],
+) -> TypedInstr {
+  typed_instr(TStructNewDesc(ti, i))
 }
 
 ///|
-pub fn TInstr::struct_new_default_desc(ti : TypeIdx, i : TInstr) -> TInstr {
-  tinstr(TStructNewDefaultDesc(ti, i))
+pub fn TypedInstr::struct_new_default_desc(
+  ti : TypeIdx,
+  i : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStructNewDefaultDesc(ti, i))
 }
 
 ///|
-pub fn TInstr::struct_get(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
-  tinstr(TStructGet(ti, idx, i))
-}
-
-///|
-pub fn TInstr::struct_get_s(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
-  tinstr(TStructGetS(ti, idx, i))
-}
-
-///|
-pub fn TInstr::struct_get_u(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
-  tinstr(TStructGetU(ti, idx, i))
-}
-
-///|
-pub fn TInstr::struct_set(
+pub fn TypedInstr::struct_get(
   ti : TypeIdx,
   idx : U32,
-  i0 : TInstr,
-  i1 : TInstr,
-) -> TInstr {
-  tinstr(TStructSet(ti, idx, i0, i1))
+  i : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStructGet(ti, idx, i))
 }
 
 ///|
-pub fn TInstr::array_new(ti : TypeIdx, t0 : TInstr, t1 : TInstr) -> TInstr {
-  tinstr(TArrayNew(ti, t0, t1))
+pub fn TypedInstr::struct_get_s(
+  ti : TypeIdx,
+  idx : U32,
+  i : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStructGetS(ti, idx, i))
 }
 
 ///|
-pub fn TInstr::array_new_default(ti : TypeIdx, i : TInstr) -> TInstr {
-  tinstr(TArrayNewDefault(ti, i))
+pub fn TypedInstr::struct_get_u(
+  ti : TypeIdx,
+  idx : U32,
+  i : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStructGetU(ti, idx, i))
 }
 
 ///|
-pub fn TInstr::array_new_fixed(ti : TypeIdx, i : Array[TInstr]) -> TInstr {
-  tinstr(TArrayNewFixed(ti, i))
+pub fn TypedInstr::struct_set(
+  ti : TypeIdx,
+  idx : U32,
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TStructSet(ti, idx, i0, i1))
 }
 
 ///|
-pub fn TInstr::array_new_data(
+pub fn TypedInstr::array_new(
+  ti : TypeIdx,
+  t0 : TypedInstr,
+  t1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TArrayNew(ti, t0, t1))
+}
+
+///|
+pub fn TypedInstr::array_new_default(
+  ti : TypeIdx,
+  i : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TArrayNewDefault(ti, i))
+}
+
+///|
+pub fn TypedInstr::array_new_fixed(
+  ti : TypeIdx,
+  i : Array[TypedInstr],
+) -> TypedInstr {
+  typed_instr(TArrayNewFixed(ti, i))
+}
+
+///|
+pub fn TypedInstr::array_new_data(
   ti : TypeIdx,
   di : DataIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-) -> TInstr {
-  tinstr(TArrayNewData(ti, di, i0, i1))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TArrayNewData(ti, di, i0, i1))
 }
 
 ///|
-pub fn TInstr::array_new_elem(
+pub fn TypedInstr::array_new_elem(
   ti : TypeIdx,
   ei : ElemIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-) -> TInstr {
-  tinstr(TArrayNewElem(ti, ei, i0, i1))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TArrayNewElem(ti, ei, i0, i1))
 }
 
 ///|
-pub fn TInstr::array_get(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
-  tinstr(TArrayGet(ti, i0, i1))
-}
-
-///|
-pub fn TInstr::array_get_s(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
-  tinstr(TArrayGetS(ti, i0, i1))
-}
-
-///|
-pub fn TInstr::array_get_u(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
-  tinstr(TArrayGetU(ti, i0, i1))
-}
-
-///|
-pub fn TInstr::array_set(
+pub fn TypedInstr::array_get(
   ti : TypeIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-) -> TInstr {
-  tinstr(TArraySet(ti, i0, i1, i2))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TArrayGet(ti, i0, i1))
 }
 
 ///|
-pub fn TInstr::array_fill(
+pub fn TypedInstr::array_get_s(
   ti : TypeIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-  i3 : TInstr,
-) -> TInstr {
-  tinstr(TArrayFill(ti, i0, i1, i2, i3))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TArrayGetS(ti, i0, i1))
 }
 
 ///|
-pub fn TInstr::array_copy(
+pub fn TypedInstr::array_get_u(
+  ti : TypeIdx,
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TArrayGetU(ti, i0, i1))
+}
+
+///|
+pub fn TypedInstr::array_set(
+  ti : TypeIdx,
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TArraySet(ti, i0, i1, i2))
+}
+
+///|
+pub fn TypedInstr::array_fill(
+  ti : TypeIdx,
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+  i3 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TArrayFill(ti, i0, i1, i2, i3))
+}
+
+///|
+pub fn TypedInstr::array_copy(
   ti0 : TypeIdx,
   ti1 : TypeIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-  i3 : TInstr,
-  i4 : TInstr,
-) -> TInstr {
-  tinstr(TArrayCopy(ti0, ti1, i0, i1, i2, i3, i4))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+  i3 : TypedInstr,
+  i4 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TArrayCopy(ti0, ti1, i0, i1, i2, i3, i4))
 }
 
 ///|
-pub fn TInstr::array_init_data(
+pub fn TypedInstr::array_init_data(
   ti : TypeIdx,
   di : DataIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-  i3 : TInstr,
-) -> TInstr {
-  tinstr(TArrayInitData(ti, di, i0, i1, i2, i3))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+  i3 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TArrayInitData(ti, di, i0, i1, i2, i3))
 }
 
 ///|
-pub fn TInstr::array_init_elem(
+pub fn TypedInstr::array_init_elem(
   ti : TypeIdx,
   ei : ElemIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-  i3 : TInstr,
-) -> TInstr {
-  tinstr(TArrayInitElem(ti, ei, i0, i1, i2, i3))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+  i3 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TArrayInitElem(ti, ei, i0, i1, i2, i3))
 }
 
 ///|
-pub fn TInstr::ref_get_desc(ti : TypeIdx, i : TInstr) -> TInstr {
-  tinstr(TRefGetDesc(ti, i))
+pub fn TypedInstr::ref_get_desc(ti : TypeIdx, i : TypedInstr) -> TypedInstr {
+  typed_instr(TRefGetDesc(ti, i))
 }
 
 ///|
-pub fn TInstr::ref_test(nullable : Bool, ht : HeapType, i : TInstr) -> TInstr {
-  tinstr(TRefTest(nullable, ht, i))
-}
-
-///|
-pub fn TInstr::ref_cast(nullable : Bool, ht : HeapType, i : TInstr) -> TInstr {
-  tinstr(TRefCast(nullable, ht, i))
-}
-
-///|
-pub fn TInstr::ref_test_desc(
+pub fn TypedInstr::ref_test(
   nullable : Bool,
   ht : HeapType,
-  i : TInstr,
-) -> TInstr {
-  tinstr(TRefTestDesc(nullable, ht, i))
+  i : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TRefTest(nullable, ht, i))
 }
 
 ///|
-pub fn TInstr::ref_cast_desc_eq(
+pub fn TypedInstr::ref_cast(
   nullable : Bool,
   ht : HeapType,
-  i : TInstr,
-) -> TInstr {
-  tinstr(TRefCastDescEq(nullable, ht, i))
+  i : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TRefCast(nullable, ht, i))
+}
+
+///|
+pub fn TypedInstr::ref_test_desc(
+  nullable : Bool,
+  ht : HeapType,
+  i : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TRefTestDesc(nullable, ht, i))
+}
+
+///|
+pub fn TypedInstr::ref_cast_desc_eq(
+  nullable : Bool,
+  ht : HeapType,
+  i : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TRefCastDescEq(nullable, ht, i))
 }
 
 // === SIMD: Splat (scalar -> v128) ===
 
 ///|
-pub fn TInstr::i8x16_splat(i : TInstr) -> TInstr {
-  tinstr(TI8x16Splat(i))
+pub fn TypedInstr::i8x16_splat(i : TypedInstr) -> TypedInstr {
+  typed_instr(TI8x16Splat(i))
 }
 
 ///|
-pub fn TInstr::i16x8_splat(i : TInstr) -> TInstr {
-  tinstr(TI16x8Splat(i))
+pub fn TypedInstr::i16x8_splat(i : TypedInstr) -> TypedInstr {
+  typed_instr(TI16x8Splat(i))
 }
 
 ///|
-pub fn TInstr::i32x4_splat(i : TInstr) -> TInstr {
-  tinstr(TI32x4Splat(i))
+pub fn TypedInstr::i32x4_splat(i : TypedInstr) -> TypedInstr {
+  typed_instr(TI32x4Splat(i))
 }
 
 ///|
-pub fn TInstr::i64x2_splat(i : TInstr) -> TInstr {
-  tinstr(TI64x2Splat(i))
+pub fn TypedInstr::i64x2_splat(i : TypedInstr) -> TypedInstr {
+  typed_instr(TI64x2Splat(i))
 }
 
 ///|
-pub fn TInstr::f32x4_splat(i : TInstr) -> TInstr {
-  tinstr(TF32x4Splat(i))
+pub fn TypedInstr::f32x4_splat(i : TypedInstr) -> TypedInstr {
+  typed_instr(TF32x4Splat(i))
 }
 
 ///|
-pub fn TInstr::f64x2_splat(i : TInstr) -> TInstr {
-  tinstr(TF64x2Splat(i))
+pub fn TypedInstr::f64x2_splat(i : TypedInstr) -> TypedInstr {
+  typed_instr(TF64x2Splat(i))
 }
 
 ///|
-pub fn TInstr::extract_lane(
+pub fn TypedInstr::extract_lane(
   op : ExtractLaneOp,
   li : LaneIdx,
-  i : TInstr,
-) -> TInstr {
-  tinstr(TExtractLane(op, li, i))
+  i : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TExtractLane(op, li, i))
 }
 
 ///|
-pub fn TInstr::replace_lane(
+pub fn TypedInstr::replace_lane(
   op : ReplaceLaneOp,
   li : LaneIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-) -> TInstr {
-  tinstr(TReplaceLane(op, li, i0, i1))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TReplaceLane(op, li, i0, i1))
 }
 
 ///|
-pub fn TInstr::i8x16_shuffle(
+pub fn TypedInstr::i8x16_shuffle(
   li0 : LaneIdx,
   li1 : LaneIdx,
   li2 : LaneIdx,
@@ -6281,10 +6380,10 @@ pub fn TInstr::i8x16_shuffle(
   li13 : LaneIdx,
   li14 : LaneIdx,
   li15 : LaneIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-) -> TInstr {
-  tinstr(
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(
     TI8x16Shuffle(
       li0, li1, li2, li3, li4, li5, li6, li7, li8, li9, li10, li11, li12, li13, li14,
       li15, i0, i1,
@@ -6293,50 +6392,60 @@ pub fn TInstr::i8x16_shuffle(
 }
 
 ///|
-pub fn TInstr::i8x16_swizzle(i0 : TInstr, i1 : TInstr) -> TInstr {
-  tinstr(TI8x16Swizzle(i0, i1))
+pub fn TypedInstr::i8x16_swizzle(
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TI8x16Swizzle(i0, i1))
 }
 
 ///|
-pub fn TInstr::i8x16_relaxed_swizzle(i0 : TInstr, i1 : TInstr) -> TInstr {
-  tinstr(TI8x16RelaxedSwizzle(i0, i1))
+pub fn TypedInstr::i8x16_relaxed_swizzle(
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TI8x16RelaxedSwizzle(i0, i1))
 }
 
 ///|
-pub fn TInstr::v128_shift(op : V128ShiftOp, i0 : TInstr, i1 : TInstr) -> TInstr {
-  tinstr(TV128Shift(op, i0, i1))
+pub fn TypedInstr::v128_shift(
+  op : V128ShiftOp,
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TV128Shift(op, i0, i1))
 }
 
 ///|
-pub fn TInstr::v128_ternary(
+pub fn TypedInstr::v128_ternary(
   op : V128TernaryOp,
-  i0 : TInstr,
-  i1 : TInstr,
-  i2 : TInstr,
-) -> TInstr {
-  tinstr(TV128Ternary(op, i0, i1, i2))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+  i2 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TV128Ternary(op, i0, i1, i2))
 }
 
 ///|
-pub fn TInstr::v128_load_lane(
+pub fn TypedInstr::v128_load_lane(
   op : V128LoadLaneOp,
   ma : MemArg,
   li : LaneIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-) -> TInstr {
-  tinstr(TV128LoadLane(op, ma, li, i0, i1))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TV128LoadLane(op, ma, li, i0, i1))
 }
 
 ///|
-pub fn TInstr::v128_store_lane(
+pub fn TypedInstr::v128_store_lane(
   op : V128StoreLaneOp,
   ma : MemArg,
   li : LaneIdx,
-  i0 : TInstr,
-  i1 : TInstr,
-) -> TInstr {
-  tinstr(TV128StoreLane(op, ma, li, i0, i1))
+  i0 : TypedInstr,
+  i1 : TypedInstr,
+) -> TypedInstr {
+  typed_instr(TV128StoreLane(op, ma, li, i0, i1))
 }
 
 ///|
@@ -8820,7 +8929,7 @@ pub fn StartSec::new(fi : FuncIdx) -> StartSec {
 }
 
 ///|
-pub impl Eq for TInstr with equal(l, r) {
+pub impl Eq for TypedInstr with equal(l, r) {
   if physical_equal(l, r) {
     return true
   }
@@ -8833,7 +8942,7 @@ pub impl Eq for TInstr with equal(l, r) {
 }
 
 ///|
-pub impl Hash for TInstr with hash(self) {
+pub impl Hash for TypedInstr with hash(self) {
   match self.hash {
     Some(cached) => cached
     None => {
@@ -8845,7 +8954,7 @@ pub impl Hash for TInstr with hash(self) {
 }
 
 ///|
-pub impl Hash for TInstr with hash_combine(self, hasher) {
+pub impl Hash for TypedInstr with hash_combine(self, hasher) {
   hasher.combine_int(self.hash())
 }
 

@@ -16,9 +16,7 @@ npm install @jtenner/starshine
 - `cli`: parse flags and config formats.
 - `cmd`: run packaged CLI.
 - `validate`: module validation helpers.
-- `ir`: IR data helpers.
 - `lib`: module constructors.
-- `transformer`: traversal + rewrite hooks.
 - `index`: public re-export surface.
 - `wast` / `wat`: text parsing and printing.
 
@@ -37,6 +35,6 @@ if (!encoded.ok) throw new Error(encoded.display ?? 'failed to encode');
 
 ## Build Note
 - Legacy explicit CLI pass flags are still accepted for compatibility, including unknown values, but currently resolve as compatibility no-ops.
-- `--optimize` / `--shrink` are the active compatibility path that drives the generated optimization pipeline.
-- `npm run build` rebuilds the checked-in wasm artifacts from `src/node_api` and `src/cmd`.
+- `--optimize` / `--shrink` are the active compatibility path through the remaining command adapter.
+- `npm run build` is currently limited by the ongoing package-surface reset.
 - JS/TS adapter source regeneration is still manual.

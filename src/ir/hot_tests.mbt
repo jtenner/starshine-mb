@@ -1,18 +1,15 @@
 ///|
-fn hot_test_roundtrip_body() -> Array[TInstr] {
+fn hot_test_roundtrip_body() -> Array[TypedInstr] {
   [
-    TInstr::block(
-      BlockType::void_(),
-      [
-        TInstr::if_(
-          BlockType::void_(),
-          TInstr::local_get(LocalIdx::new(0)),
-          [TInstr::return_([])],
-          Some([TInstr::nop()]),
-        ),
-      ],
-    ),
-    TInstr::return_([TInstr::i32_const(I32(7))]),
+    TypedInstr::block(BlockType::void_(), [
+      TypedInstr::if_(
+        BlockType::void_(),
+        TypedInstr::local_get(LocalIdx::new(0)),
+        [TypedInstr::return_([])],
+        Some([TypedInstr::nop()]),
+      ),
+    ]),
+    TypedInstr::return_([TypedInstr::i32_const(I32(7))]),
   ]
 }
 
@@ -29,7 +26,7 @@ test "hot lift and lower roundtrip typed bodies" {
 ///|
 test "hot root slots can be replaced directly" {
   let func = hot_lift_body(
-    [TInstr::nop()],
+    [TypedInstr::nop()],
     HotLocals::new(param_count=0, locals=[]),
   )
   let root = hot_alloc_node(
@@ -45,13 +42,13 @@ test "hot root slots can be replaced directly" {
   )
   hot_root_set(func, 0, root)
   let lowered = hot_lower_body(func)
-  assert_eq(lowered, [TInstr::return_([])])
+  assert_eq(lowered, [TypedInstr::return_([])])
 }
 
 ///|
 test "hot block children mutate by slot" {
   let func = hot_lift_body(
-    [TInstr::block(BlockType::void_(), [TInstr::nop()])],
+    [TypedInstr::block(BlockType::void_(), [TypedInstr::nop()])],
     HotLocals::new(param_count=0, locals=[]),
   )
   let block = hot_root_get(func, 0)
@@ -68,8 +65,7 @@ test "hot block children mutate by slot" {
   )
   hot_child_set(func, block, 0, child)
   let lowered = hot_lower_body(func)
-  assert_eq(
-    lowered,
-    [TInstr::block(BlockType::void_(), [TInstr::return_([])])],
-  )
+  assert_eq(lowered, [
+    TypedInstr::block(BlockType::void_(), [TypedInstr::return_([])]),
+  ])
 }

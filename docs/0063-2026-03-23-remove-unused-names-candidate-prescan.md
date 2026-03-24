@@ -15,7 +15,7 @@ Status: completed implementation slice; large-artifact runtime blocker still ope
   - no same-typed single-child `block` peel opportunity
 
 ## Change
-- Added `optimization_remove_unused_names_has_candidate_texpr(...)` in `src/optimization/optimization.mbt`.
+- Added `optimization_remove_unused_names_has_candidate_typed_body(...)` in `src/optimization/optimization.mbt`.
 - The scan uses a cheap early-exit transformer:
   - return `true` immediately on any `loop`
   - return `true` on any `block bt` whose body is exactly one child `block bt`

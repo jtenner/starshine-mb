@@ -295,17 +295,17 @@ test "Env.with_module skips imports and funcs whose type indices are not functio
 }
 
 ///|
-test "to_texpr reports stack underflow for unary operator with empty stack" {
+test "to_typed_instrs reports stack underflow for unary operator with empty stack" {
   let env = Env::new()
   let expr = Expr::new([Instruction::i32_eqz()])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected unary conversion underflow")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr reports pop_n underflow for call with insufficient arguments" {
+test "to_typed_instrs reports pop_n underflow for call with insufficient arguments" {
   let env = Env::new().with_funcs([
     FuncType::new([ValType::i32(), ValType::i32()], []),
   ])
@@ -313,7 +313,7 @@ test "to_texpr reports pop_n underflow for call with insufficient arguments" {
     Instruction::i32_const(I32(1)),
     Instruction::call(FuncIdx::new(0)),
   ])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected call argument underflow")
     Err(e) =>
       assert_eq(e, "Stack underflow: need 2 values but only 1 available")
@@ -321,7 +321,7 @@ test "to_texpr reports pop_n underflow for call with insufficient arguments" {
 }
 
 ///|
-test "to_texpr uses type-index block inputs including recursive index forms" {
+test "to_typed_instrs uses type-index block inputs including recursive index forms" {
   let func_type = RecType::new(
     env_test_func_subtype([ValType::i32()], [ValType::i32()]),
   )
@@ -333,12 +333,12 @@ test "to_texpr uses type-index block inputs including recursive index forms" {
       Expr::new([Instruction::i32_eqz()]),
     ),
   ])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Err(e) => fail("unexpected conversion error: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TBlock(TypeIdxBlockType(_), body) =>
+        TypedInstrKind::TBlock(TypeIdxBlockType(_), body) =>
           assert_eq(body.length(), 1)
         _ => fail("expected type-indexed block in converted expression")
       }
@@ -347,7 +347,7 @@ test "to_texpr uses type-index block inputs including recursive index forms" {
 }
 
 ///|
-test "to_texpr throw conversion uses tag payload arity" {
+test "to_typed_instrs throw conversion uses tag payload arity" {
   let tag_sig = env_test_func_subtype([ValType::i32(), ValType::i64()], [])
   let env = Env::new()
     .with_rectype(RecType::new(tag_sig))
@@ -356,7 +356,7 @@ test "to_texpr throw conversion uses tag payload arity" {
     Instruction::i32_const(I32(7)),
     Instruction::throw_(TagIdx::new(0)),
   ])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected throw payload underflow")
     Err(e) =>
       assert_eq(e, "Stack underflow: need 2 values but only 1 available")
@@ -364,7 +364,7 @@ test "to_texpr throw conversion uses tag payload arity" {
 }
 
 ///|
-test "to_texpr call conversion uses imported and defined function arities from with_module" {
+test "to_typed_instrs call conversion uses imported and defined function arities from with_module" {
   let import_type = RecType::new(env_test_func_subtype([ValType::i32()], []))
   let defined_type = RecType::new(
     env_test_func_subtype([ValType::i32(), ValType::i64()], []),
@@ -390,19 +390,19 @@ test "to_texpr call conversion uses imported and defined function arities from w
     Instruction::i64_const(I64(22)),
     Instruction::call(FuncIdx::new(1)),
   ])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Err(e) => fail("unexpected call conversion error: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 2)
       match instrs[0].kind {
-        TInstrKind::TCall(FuncIdx(i), args) => {
+        TypedInstrKind::TCall(FuncIdx(i), args) => {
           assert_eq(i, 0U)
           assert_eq(args.length(), 1)
         }
         _ => fail("expected imported call conversion")
       }
       match instrs[1].kind {
-        TInstrKind::TCall(FuncIdx(i), args) => {
+        TypedInstrKind::TCall(FuncIdx(i), args) => {
           assert_eq(i, 1U)
           assert_eq(args.length(), 2)
         }
@@ -413,7 +413,7 @@ test "to_texpr call conversion uses imported and defined function arities from w
 }
 
 ///|
-test "to_texpr call_indirect underflow uses type-index parameter arity" {
+test "to_typed_instrs call_indirect underflow uses type-index parameter arity" {
   let env = Env::new().with_rectype(
     RecType::new(env_test_func_subtype([ValType::i32(), ValType::i64()], [])),
   )
@@ -421,7 +421,7 @@ test "to_texpr call_indirect underflow uses type-index parameter arity" {
     Instruction::i32_const(I32(0)),
     Instruction::call_indirect(TypeIdx::new(0), TableIdx::new(0)),
   ])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected call_indirect argument underflow")
     Err(e) =>
       assert_eq(e, "Stack underflow: need 2 values but only 0 available")
@@ -429,10 +429,10 @@ test "to_texpr call_indirect underflow uses type-index parameter arity" {
 }
 
 ///|
-test "to_texpr return underflow uses configured return_type arity" {
+test "to_typed_instrs return underflow uses configured return_type arity" {
   let env = Env::new().with_return_type(Some([ValType::i64()]))
   let expr = Expr::new([Instruction::return_()])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected return underflow")
     Err(e) =>
       assert_eq(e, "Stack underflow: need 1 values but only 0 available")
@@ -440,7 +440,7 @@ test "to_texpr return underflow uses configured return_type arity" {
 }
 
 ///|
-test "to_texpr return recovers multi-value typed block producer" {
+test "to_typed_instrs return recovers multi-value typed block producer" {
   let env = Env::new()
     .with_rectype(
       RecType::new(
@@ -458,13 +458,13 @@ test "to_texpr return recovers multi-value typed block producer" {
     ),
     Instruction::return_(),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TReturn(
-          [{ kind: TInstrKind::TBlock(bt, values), .. }]
+        TypedInstrKind::TReturn(
+          [{ kind: TypedInstrKind::TBlock(bt, values), .. }]
         ) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(values.length(), 2)
@@ -476,7 +476,7 @@ test "to_texpr return recovers multi-value typed block producer" {
 }
 
 ///|
-test "to_texpr return recovers multi-value typed if producer" {
+test "to_typed_instrs return recovers multi-value typed if producer" {
   let env = Env::new()
     .with_rectype(
       RecType::new(
@@ -493,23 +493,13 @@ test "to_texpr return recovers multi-value typed if producer" {
     ),
     Instruction::return_(),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TReturn(
-          [
-            {
-              kind: TInstrKind::TIf(
-                bt,
-                _,
-                if_true,
-                Some(if_false)
-              ),
-              ..,
-            },
-          ]
+        TypedInstrKind::TReturn(
+          [{ kind: TypedInstrKind::TIf(bt, _, if_true, Some(if_false)), .. }]
         ) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(if_true.length(), 2)
@@ -522,7 +512,7 @@ test "to_texpr return recovers multi-value typed if producer" {
 }
 
 ///|
-test "to_texpr return recovers multi-value typed loop producer" {
+test "to_typed_instrs return recovers multi-value typed loop producer" {
   let env = Env::new()
     .with_rectype(
       RecType::new(
@@ -540,13 +530,13 @@ test "to_texpr return recovers multi-value typed loop producer" {
     ),
     Instruction::return_(),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TReturn(
-          [{ kind: TInstrKind::TLoop(bt, values), .. }]
+        TypedInstrKind::TReturn(
+          [{ kind: TypedInstrKind::TLoop(bt, values), .. }]
         ) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(values.length(), 2)
@@ -558,7 +548,7 @@ test "to_texpr return recovers multi-value typed loop producer" {
 }
 
 ///|
-test "to_texpr return recovers multi-value typed try_table producer" {
+test "to_typed_instrs return recovers multi-value typed try_table producer" {
   let env = Env::new()
     .with_rectype(
       RecType::new(
@@ -577,18 +567,13 @@ test "to_texpr return recovers multi-value typed try_table producer" {
     ),
     Instruction::return_(),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TReturn(
-          [
-            {
-              kind: TInstrKind::TTryTable(bt, catches, values),
-              ..,
-            },
-          ]
+        TypedInstrKind::TReturn(
+          [{ kind: TypedInstrKind::TTryTable(bt, catches, values), .. }]
         ) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(catches.length(), 0)
@@ -601,7 +586,7 @@ test "to_texpr return recovers multi-value typed try_table producer" {
 }
 
 ///|
-test "to_texpr br recovers multi-value typed if producer when stack includes zero-result instr" {
+test "to_typed_instrs br recovers multi-value typed if producer when stack includes zero-result instr" {
   let env = Env::new().with_rectype(
     RecType::new(
       SubType::comp_type(
@@ -633,15 +618,15 @@ test "to_texpr br recovers multi-value typed if producer when stack includes zer
       ]),
     ),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TBlock(_, body) => {
+        TypedInstrKind::TBlock(_, body) => {
           assert_eq(body.length(), 2)
           match body[1].kind {
-            TInstrKind::TBr(LabelIdx(lbl), values) => {
+            TypedInstrKind::TBr(LabelIdx(lbl), values) => {
               assert_eq(lbl, 0U)
               assert_eq(values.length(), 1)
             }
@@ -717,31 +702,31 @@ test "block_type_inputs handles void, value, and unresolved typeidx forms" {
 }
 
 // =============================================================================
-// TABLE-DRIVEN instr_to_tinstr ERROR-PATH COVERAGE
+// TABLE-DRIVEN instr_to_typed_instr ERROR-PATH COVERAGE
 // =============================================================================
 
 ///|
-test "to_texpr binary op underflow with empty stack" {
+test "to_typed_instrs binary op underflow with empty stack" {
   let env = Env::new()
   let expr = Expr::new([Instruction::i32_add()])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected binary op underflow on empty stack")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr binary op underflow with one element" {
+test "to_typed_instrs binary op underflow with one element" {
   let env = Env::new()
   let expr = Expr::new([Instruction::i32_const(I32(1)), Instruction::i32_add()])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected binary op underflow with one element")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr table-driven binary ops underflow on empty stack" {
+test "to_typed_instrs table-driven binary ops underflow on empty stack" {
   let env = Env::new()
   let binary_instrs = [
     Instruction::i32_sub(),
@@ -756,7 +741,7 @@ test "to_texpr table-driven binary ops underflow on empty stack" {
   ]
   for instr in binary_instrs {
     let expr = Expr::new([instr])
-    match to_texpr(expr, env) {
+    match to_typed_instrs(expr, env) {
       Ok(_) => fail("expected binary underflow")
       Err(e) => assert_eq(e, "Stack underflow during tree conversion")
     }
@@ -764,77 +749,77 @@ test "to_texpr table-driven binary ops underflow on empty stack" {
 }
 
 ///|
-test "to_texpr store underflow with empty stack" {
+test "to_typed_instrs store underflow with empty stack" {
   let env = Env::new()
   let ma = MemArg::new(U32(0), None, U64(0))
   let expr = Expr::new([Instruction::i32_store(ma)])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected store underflow on empty stack")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr store underflow with one element" {
+test "to_typed_instrs store underflow with one element" {
   let env = Env::new()
   let ma = MemArg::new(U32(0), None, U64(0))
   let expr = Expr::new([
     Instruction::i32_const(I32(0)),
     Instruction::i32_store(ma),
   ])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected store underflow with one element")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr load underflow with empty stack" {
+test "to_typed_instrs load underflow with empty stack" {
   let env = Env::new()
   let ma = MemArg::new(U32(0), None, U64(0))
   let expr = Expr::new([Instruction::i32_load(ma)])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected load underflow on empty stack")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr select underflow with empty stack" {
+test "to_typed_instrs select underflow with empty stack" {
   let env = Env::new()
   let expr = Expr::new([Instruction::select(types=None)])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected select underflow")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr select underflow with two elements" {
+test "to_typed_instrs select underflow with two elements" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::i32_const(I32(1)),
     Instruction::i32_const(I32(2)),
     Instruction::select(types=None),
   ])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected select underflow with two elements")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr drop underflow with empty stack" {
+test "to_typed_instrs drop underflow with empty stack" {
   let env = Env::new()
   let expr = Expr::new([Instruction::drop()])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected drop underflow")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr RecIdx resolution without rec_stack returns fallback" {
+test "to_typed_instrs RecIdx resolution without rec_stack returns fallback" {
   // When RecIdx is used in block_type_inputs but no rec_stack, it returns 0 inputs
   let env = Env::new()
   assert_eq(env.resolve_subtype(TypeIdx::rec(0)), None)
@@ -842,7 +827,7 @@ test "to_texpr RecIdx resolution without rec_stack returns fallback" {
 }
 
 ///|
-test "to_texpr RecIdx out of bounds in rec_stack" {
+test "to_typed_instrs RecIdx out of bounds in rec_stack" {
   let st = env_test_func_subtype([ValType::i32()], [ValType::i64()])
   let env = Env::new().with_rectype(RecType::new(st))
   // RecIdx(0) is valid, RecIdx(1) is out-of-bounds
@@ -852,18 +837,18 @@ test "to_texpr RecIdx out of bounds in rec_stack" {
 }
 
 ///|
-test "to_texpr call with unknown function index" {
+test "to_typed_instrs call with unknown function index" {
   let env = Env::new()
   let expr = Expr::new([Instruction::call(FuncIdx::new(99))])
   // call with unknown func index: pop_n(stack, 0) succeeds but result is 0-arg call
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(instrs) => assert_eq(instrs.length(), 1)
     Err(_) => ()
   }
 }
 
 ///|
-test "to_texpr call_indirect with unknown type falls back to 0 inputs" {
+test "to_typed_instrs call_indirect with unknown type falls back to 0 inputs" {
   let env = Env::new()
   // call_indirect with an unresolvable TypeIdx
   let expr = Expr::new([
@@ -871,20 +856,20 @@ test "to_texpr call_indirect with unknown type falls back to 0 inputs" {
     Instruction::call_indirect(TypeIdx::new(99), TableIdx::new(0)),
   ])
   // TypeIdx(99) unresolvable -> 0 params, needs only table_index on stack
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(instrs) => assert_eq(instrs.length(), 1)
     Err(_) => ()
   }
 }
 
 ///|
-test "to_texpr block with RecIdx input arity reports pop_n underflow" {
+test "to_typed_instrs block with RecIdx input arity reports pop_n underflow" {
   let st = env_test_func_subtype([ValType::i32(), ValType::i64()], [])
   let env = Env::new().with_rectype(RecType::new(st))
   let expr = Expr::new([
     Instruction::block(BlockType::type_idx(TypeIdx::rec(0)), Expr::new([])),
   ])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected RecIdx block input underflow")
     Err(e) =>
       assert_eq(e, "Stack underflow: need 2 values but only 0 available")
@@ -892,13 +877,13 @@ test "to_texpr block with RecIdx input arity reports pop_n underflow" {
 }
 
 ///|
-test "to_texpr block with non-function TypeIdx falls back to zero inputs" {
+test "to_typed_instrs block with non-function TypeIdx falls back to zero inputs" {
   let struct_type = SubType::comp_type(CompType::struct_([]))
   let env = Env::new().with_types([struct_type])
   let expr = Expr::new([
     Instruction::block(BlockType::type_idx(TypeIdx::new(0)), Expr::new([])),
   ])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Err(e) =>
       fail("unexpected conversion failure for non-function blocktype: \{e}")
     Ok(instrs) => assert_eq(instrs.length(), 1)
@@ -906,23 +891,23 @@ test "to_texpr block with non-function TypeIdx falls back to zero inputs" {
 }
 
 ///|
-test "to_texpr call_indirect with non-function TypeIdx falls back to zero params" {
+test "to_typed_instrs call_indirect with non-function TypeIdx falls back to zero params" {
   let struct_type = SubType::comp_type(CompType::struct_([]))
   let env = Env::new().with_types([struct_type])
   let expr = Expr::new([
     Instruction::i32_const(I32(0)),
     Instruction::call_indirect(TypeIdx::new(0), TableIdx::new(0)),
   ])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Err(e) =>
       fail("unexpected conversion failure for non-function call_indirect: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TCallIndirect(_, _, args, table_index) => {
+        TypedInstrKind::TCallIndirect(_, _, args, table_index) => {
           assert_eq(args.length(), 0)
           match table_index.kind {
-            TInstrKind::TI32Const(I32(v)) => assert_eq(v, 0)
+            TypedInstrKind::TI32Const(I32(v)) => assert_eq(v, 0)
             _ => fail("expected i32.const table index expression")
           }
         }
@@ -933,7 +918,7 @@ test "to_texpr call_indirect with non-function TypeIdx falls back to zero params
 }
 
 ///|
-test "to_texpr branch-on-ref family underflows on empty stack" {
+test "to_typed_instrs branch-on-ref family underflows on empty stack" {
   let env = Env::new().with_label([])
   let instrs = [
     Instruction::br_on_null(LabelIdx::new(0)),
@@ -954,7 +939,7 @@ test "to_texpr branch-on-ref family underflows on empty stack" {
     ),
   ]
   for instr in instrs {
-    match to_texpr(Expr::new([instr]), env) {
+    match to_typed_instrs(Expr::new([instr]), env) {
       Ok(_) => fail("expected branch-on-ref underflow")
       Err(e) => assert_eq(e, "Stack underflow during tree conversion")
     }
@@ -962,7 +947,7 @@ test "to_texpr branch-on-ref family underflows on empty stack" {
 }
 
 ///|
-test "to_texpr nested block br 0 uses innermost label result arity" {
+test "to_typed_instrs nested block br 0 uses innermost label result arity" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::block(
@@ -973,15 +958,15 @@ test "to_texpr nested block br 0 uses innermost label result arity" {
       ]),
     ),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TBlock(_, body) => {
+        TypedInstrKind::TBlock(_, body) => {
           assert_eq(body.length(), 1)
           match body[0].kind {
-            TInstrKind::TBr(LabelIdx(depth), args) => {
+            TypedInstrKind::TBr(LabelIdx(depth), args) => {
               assert_eq(depth, 0U)
               assert_eq(args.length(), 1)
             }
@@ -995,7 +980,7 @@ test "to_texpr nested block br 0 uses innermost label result arity" {
 }
 
 ///|
-test "to_texpr nested block br 1 resolves to outer label arity" {
+test "to_typed_instrs nested block br 1 resolves to outer label arity" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::block(
@@ -1011,19 +996,19 @@ test "to_texpr nested block br 1 resolves to outer label arity" {
       ]),
     ),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TBlock(_, outer_body) => {
+        TypedInstrKind::TBlock(_, outer_body) => {
           assert_eq(outer_body.length(), 1)
           match outer_body[0].kind {
-            TInstrKind::TBlock(_, inner_body) => {
+            TypedInstrKind::TBlock(_, inner_body) => {
               assert_true(inner_body.length() > 0)
               let last = inner_body[inner_body.length() - 1]
               match last.kind {
-                TInstrKind::TBr(LabelIdx(depth), args) => {
+                TypedInstrKind::TBr(LabelIdx(depth), args) => {
                   assert_eq(depth, 1U)
                   assert_eq(args.length(), 1)
                 }
@@ -1040,7 +1025,7 @@ test "to_texpr nested block br 1 resolves to outer label arity" {
 }
 
 ///|
-test "to_texpr nested loop br 0 uses loop parameter arity" {
+test "to_typed_instrs nested loop br 0 uses loop parameter arity" {
   let ft = RecType::new(
     SubType::comp_type(CompType::func([ValType::i32()], [ValType::i64()])),
   )
@@ -1055,16 +1040,16 @@ test "to_texpr nested loop br 0 uses loop parameter arity" {
       ]),
     ),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TLoop(_, body) => {
+        TypedInstrKind::TLoop(_, body) => {
           assert_true(body.length() > 0)
           let last = body[body.length() - 1]
           match last.kind {
-            TInstrKind::TBr(LabelIdx(depth), args) => {
+            TypedInstrKind::TBr(LabelIdx(depth), args) => {
               assert_eq(depth, 0U)
               assert_eq(args.length(), 1)
             }
@@ -1078,7 +1063,7 @@ test "to_texpr nested loop br 0 uses loop parameter arity" {
 }
 
 ///|
-test "to_texpr nested if branches resolve outer labels for br 1" {
+test "to_typed_instrs nested if branches resolve outer labels for br 1" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::block(
@@ -1096,30 +1081,25 @@ test "to_texpr nested if branches resolve outer labels for br 1" {
       ]),
     ),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TBlock(_, body) =>
+        TypedInstrKind::TBlock(_, body) =>
           match body[0].kind {
-            TInstrKind::TIf(
-              _,
-              _,
-              if_true,
-              Some(if_false)
-            ) => {
+            TypedInstrKind::TIf(_, _, if_true, Some(if_false)) => {
               assert_eq(if_true.length(), 1)
               assert_eq(if_false.length(), 1)
               match if_true[0].kind {
-                TInstrKind::TBr(LabelIdx(depth), args) => {
+                TypedInstrKind::TBr(LabelIdx(depth), args) => {
                   assert_eq(depth, 1U)
                   assert_eq(args.length(), 1)
                 }
                 _ => fail("expected then branch br 1")
               }
               match if_false[0].kind {
-                TInstrKind::TBr(LabelIdx(depth), args) => {
+                TypedInstrKind::TBr(LabelIdx(depth), args) => {
                   assert_eq(depth, 1U)
                   assert_eq(args.length(), 1)
                 }
@@ -1135,7 +1115,7 @@ test "to_texpr nested if branches resolve outer labels for br 1" {
 }
 
 ///|
-test "to_texpr nested br_table resolves label arity against active label stack" {
+test "to_typed_instrs nested br_table resolves label arity against active label stack" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::block(
@@ -1152,18 +1132,18 @@ test "to_texpr nested br_table resolves label arity against active label stack" 
       ]),
     ),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TBlock(_, outer_body) =>
+        TypedInstrKind::TBlock(_, outer_body) =>
           match outer_body[0].kind {
-            TInstrKind::TBlock(_, inner_body) => {
+            TypedInstrKind::TBlock(_, inner_body) => {
               assert_true(inner_body.length() > 0)
               let last = inner_body[inner_body.length() - 1]
               match last.kind {
-                TInstrKind::TBrTable(_, LabelIdx(ldef), _, args) => {
+                TypedInstrKind::TBrTable(_, LabelIdx(ldef), _, args) => {
                   assert_eq(ldef, 1U)
                   assert_eq(args.length(), 1)
                 }
@@ -1179,7 +1159,7 @@ test "to_texpr nested br_table resolves label arity against active label stack" 
 }
 
 ///|
-test "to_texpr try_table body resolves label 0 arity for br 0" {
+test "to_typed_instrs try_table body resolves label 0 arity for br 0" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::try_table(
@@ -1191,15 +1171,15 @@ test "to_texpr try_table body resolves label 0 arity for br 0" {
       ]),
     ),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) => {
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
-        TInstrKind::TTryTable(_, _, body) => {
+        TypedInstrKind::TTryTable(_, _, body) => {
           assert_eq(body.length(), 1)
           match body[0].kind {
-            TInstrKind::TBr(LabelIdx(depth), args) => {
+            TypedInstrKind::TBr(LabelIdx(depth), args) => {
               assert_eq(depth, 0U)
               assert_eq(args.length(), 1)
             }
@@ -1213,7 +1193,7 @@ test "to_texpr try_table body resolves label 0 arity for br 0" {
 }
 
 ///|
-test "to_texpr br_on_non_null pops only label prefix arguments" {
+test "to_typed_instrs br_on_non_null pops only label prefix arguments" {
   let result_types = [
     ValType::i32(),
     ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
@@ -1230,14 +1210,14 @@ test "to_texpr br_on_non_null pops only label prefix arguments" {
       ]),
     ),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) =>
       match instrs[0].kind {
-        TInstrKind::TBlock(_, body) => {
+        TypedInstrKind::TBlock(_, body) => {
           assert_eq(body.length(), 1)
           match body[0].kind {
-            TInstrKind::TBrOnNonNull(LabelIdx(depth), _, args) => {
+            TypedInstrKind::TBrOnNonNull(LabelIdx(depth), _, args) => {
               assert_eq(depth, 0U)
               assert_eq(args.length(), 1)
             }
@@ -1250,7 +1230,7 @@ test "to_texpr br_on_non_null pops only label prefix arguments" {
 }
 
 ///|
-test "to_texpr br_on_cast pops only label prefix arguments" {
+test "to_typed_instrs br_on_cast pops only label prefix arguments" {
   let result_types = [
     ValType::i32(),
     ValType::ref_null(HeapType::abs(AbsHeapType::func())),
@@ -1273,14 +1253,14 @@ test "to_texpr br_on_cast pops only label prefix arguments" {
       ]),
     ),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) =>
       match instrs[0].kind {
-        TInstrKind::TBlock(_, body) => {
+        TypedInstrKind::TBlock(_, body) => {
           assert_eq(body.length(), 1)
           match body[0].kind {
-            TInstrKind::TBrOnCast(LabelIdx(depth), _, _, _, _, args) => {
+            TypedInstrKind::TBrOnCast(LabelIdx(depth), _, _, _, _, args) => {
               assert_eq(depth, 0U)
               assert_eq(args.length(), 1)
             }
@@ -1293,7 +1273,7 @@ test "to_texpr br_on_cast pops only label prefix arguments" {
 }
 
 ///|
-test "to_texpr br_on_cast_fail pops only label prefix arguments" {
+test "to_typed_instrs br_on_cast_fail pops only label prefix arguments" {
   let result_types = [
     ValType::i32(),
     ValType::ref_null(HeapType::abs(AbsHeapType::func())),
@@ -1316,14 +1296,14 @@ test "to_texpr br_on_cast_fail pops only label prefix arguments" {
       ]),
     ),
   ])
-  match to_texpr(expr, env) {
-    Err(e) => fail("unexpected to_texpr failure: \{e}")
+  match to_typed_instrs(expr, env) {
+    Err(e) => fail("unexpected to_typed_instrs failure: \{e}")
     Ok(instrs) =>
       match instrs[0].kind {
-        TInstrKind::TBlock(_, body) => {
+        TypedInstrKind::TBlock(_, body) => {
           assert_eq(body.length(), 1)
           match body[0].kind {
-            TInstrKind::TBrOnCastFail(LabelIdx(depth), _, _, _, _, args) => {
+            TypedInstrKind::TBrOnCastFail(LabelIdx(depth), _, _, _, _, args) => {
               assert_eq(depth, 0U)
               assert_eq(args.length(), 1)
             }
@@ -1336,68 +1316,68 @@ test "to_texpr br_on_cast_fail pops only label prefix arguments" {
 }
 
 ///|
-test "to_texpr ternary v128 underflow with empty stack" {
+test "to_typed_instrs ternary v128 underflow with empty stack" {
   let env = Env::new()
   let expr = Expr::new([Instruction::v128_bitselect()])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected ternary v128 underflow")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr ternary v128 underflow with two elements" {
+test "to_typed_instrs ternary v128 underflow with two elements" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
     Instruction::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
     Instruction::v128_bitselect(),
   ])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected ternary underflow with two elements")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr global_set underflow with empty stack" {
+test "to_typed_instrs global_set underflow with empty stack" {
   let env = Env::new()
   let expr = Expr::new([Instruction::global_set(GlobalIdx::new(0))])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected global_set underflow")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr local_set underflow with empty stack" {
+test "to_typed_instrs local_set underflow with empty stack" {
   let env = Env::new()
   let expr = Expr::new([Instruction::local_set(LocalIdx::new(0))])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected local_set underflow")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr local_tee underflow with empty stack" {
+test "to_typed_instrs local_tee underflow with empty stack" {
   let env = Env::new()
   let expr = Expr::new([Instruction::local_tee(LocalIdx::new(0))])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(_) => fail("expected local_tee underflow")
     Err(e) => assert_eq(e, "Stack underflow during tree conversion")
   }
 }
 
 ///|
-test "to_texpr allows stack-polymorphic local_tee after unreachable" {
+test "to_typed_instrs allows stack-polymorphic local_tee after unreachable" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::unreachable_(),
     Instruction::local_tee(LocalIdx::new(0)),
     Instruction::drop(),
   ])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(instrs) => assert_true(instrs.length() >= 2)
     Err(e) =>
       fail(
@@ -1407,10 +1387,10 @@ test "to_texpr allows stack-polymorphic local_tee after unreachable" {
 }
 
 ///|
-test "to_texpr allows stack-polymorphic binary op after unreachable" {
+test "to_typed_instrs allows stack-polymorphic binary op after unreachable" {
   let env = Env::new()
   let expr = Expr::new([Instruction::unreachable_(), Instruction::i32_add()])
-  match to_texpr(expr, env) {
+  match to_typed_instrs(expr, env) {
     Ok(instrs) => assert_eq(instrs.length(), 2)
     Err(e) =>
       fail(
@@ -1420,14 +1400,18 @@ test "to_texpr allows stack-polymorphic binary op after unreachable" {
 }
 
 ///|
-test "instr_to_tinstr covers additional const nullary and unary branches" {
+test "instr_to_typed_instr covers additional const nullary and unary branches" {
   let env = Env::new()
 
-  let const_stack : Array[TInstr] = []
-  ignore(instr_to_tinstr(Instruction::f32_const(F32(1.5)), const_stack, env))
-  ignore(instr_to_tinstr(Instruction::f64_const(F64(2.5)), const_stack, env))
+  let const_stack : Array[TypedInstr] = []
   ignore(
-    instr_to_tinstr(
+    instr_to_typed_instr(Instruction::f32_const(F32(1.5)), const_stack, env),
+  )
+  ignore(
+    instr_to_typed_instr(Instruction::f64_const(F64(2.5)), const_stack, env),
+  )
+  ignore(
+    instr_to_typed_instr(
       Instruction::v128_const(
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
       ),
@@ -1435,19 +1419,27 @@ test "instr_to_tinstr covers additional const nullary and unary branches" {
       env,
     ),
   )
-  ignore(instr_to_tinstr(Instruction::unreachable_(), const_stack, env))
+  ignore(instr_to_typed_instr(Instruction::unreachable_(), const_stack, env))
   ignore(
-    instr_to_tinstr(
+    instr_to_typed_instr(
       Instruction::global_get(GlobalIdx::new(0)),
       const_stack,
       env,
     ),
   )
   ignore(
-    instr_to_tinstr(Instruction::memory_size(MemIdx::new(0)), const_stack, env),
+    instr_to_typed_instr(
+      Instruction::memory_size(MemIdx::new(0)),
+      const_stack,
+      env,
+    ),
   )
   ignore(
-    instr_to_tinstr(Instruction::table_size(TableIdx::new(0)), const_stack, env),
+    instr_to_typed_instr(
+      Instruction::table_size(TableIdx::new(0)),
+      const_stack,
+      env,
+    ),
   )
   assert_eq(const_stack.length(), 7)
 
@@ -1472,8 +1464,8 @@ test "instr_to_tinstr covers additional const nullary and unary branches" {
     Instruction::f64_floor(),
   ]
   for instr in unary_instrs {
-    let stack = [TInstr::i32_const(I32(7))]
-    match instr_to_tinstr(instr, stack, env) {
+    let stack = [TypedInstr::i32_const(I32(7))]
+    match instr_to_typed_instr(instr, stack, env) {
       Ok(_) => assert_eq(stack.length(), 1)
       Err(e) => fail("unexpected unary conversion failure: \{e}")
     }
@@ -1485,94 +1477,94 @@ test "instr_to_tinstr covers additional const nullary and unary branches" {
 // =============================================================================
 
 ///|
-test "consistency: to_texpr then typecheck on i32 arithmetic" {
+test "consistency: to_typed_instrs then typecheck on i32 arithmetic" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::i32_const(I32(10)),
     Instruction::i32_const(I32(20)),
     Instruction::i32_add(),
   ])
-  let texpr = match to_texpr(expr, env) {
+  let typed_body = match to_typed_instrs(expr, env) {
     Ok(te) => te
     Err(e) => {
-      fail("to_texpr failed: \{e}")
+      fail("to_typed_instrs failed: \{e}")
       return
     }
   }
   let state = make_state(env, [])
-  match Typecheck::typecheck(texpr, state) {
+  match Typecheck::typecheck(typed_body, state) {
     Ok(st) => assert_stack(st, [ValType::i32()])
-    Err(e) => fail("typecheck on texpr failed: \{e}")
+    Err(e) => fail("typecheck on typed_body failed: \{e}")
   }
 }
 
 ///|
-test "consistency: to_texpr then typecheck on i64 constants" {
+test "consistency: to_typed_instrs then typecheck on i64 constants" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::i64_const(I64(100L)),
     Instruction::i64_const(I64(200L)),
     Instruction::i64_sub(),
   ])
-  let texpr = match to_texpr(expr, env) {
+  let typed_body = match to_typed_instrs(expr, env) {
     Ok(te) => te
     Err(e) => {
-      fail("to_texpr failed: \{e}")
+      fail("to_typed_instrs failed: \{e}")
       return
     }
   }
   let state = make_state(env, [])
-  match Typecheck::typecheck(texpr, state) {
+  match Typecheck::typecheck(typed_body, state) {
     Ok(st) => assert_stack(st, [ValType::i64()])
-    Err(e) => fail("typecheck on texpr failed: \{e}")
+    Err(e) => fail("typecheck on typed_body failed: \{e}")
   }
 }
 
 ///|
-test "consistency: to_texpr then typecheck on f32 arithmetic" {
+test "consistency: to_typed_instrs then typecheck on f32 arithmetic" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::f32_const(F32(1.5)),
     Instruction::f32_const(F32(2.5)),
     Instruction::f32_add(),
   ])
-  let texpr = match to_texpr(expr, env) {
+  let typed_body = match to_typed_instrs(expr, env) {
     Ok(te) => te
     Err(e) => {
-      fail("to_texpr failed: \{e}")
+      fail("to_typed_instrs failed: \{e}")
       return
     }
   }
   let state = make_state(env, [])
-  match Typecheck::typecheck(texpr, state) {
+  match Typecheck::typecheck(typed_body, state) {
     Ok(st) => assert_stack(st, [ValType::f32()])
-    Err(e) => fail("typecheck on texpr failed: \{e}")
+    Err(e) => fail("typecheck on typed_body failed: \{e}")
   }
 }
 
 ///|
-test "consistency: to_texpr then typecheck on unary conversion" {
+test "consistency: to_typed_instrs then typecheck on unary conversion" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::i32_const(I32(42)),
     Instruction::i64_extend_i32s(),
   ])
-  let texpr = match to_texpr(expr, env) {
+  let typed_body = match to_typed_instrs(expr, env) {
     Ok(te) => te
     Err(e) => {
-      fail("to_texpr failed: \{e}")
+      fail("to_typed_instrs failed: \{e}")
       return
     }
   }
   let state = make_state(env, [])
-  match Typecheck::typecheck(texpr, state) {
+  match Typecheck::typecheck(typed_body, state) {
     Ok(st) => assert_stack(st, [ValType::i64()])
-    Err(e) => fail("typecheck on texpr failed: \{e}")
+    Err(e) => fail("typecheck on typed_body failed: \{e}")
   }
 }
 
 ///|
-test "consistency: to_texpr then typecheck on select" {
+test "consistency: to_typed_instrs then typecheck on select" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::i32_const(I32(1)),
@@ -1580,110 +1572,116 @@ test "consistency: to_texpr then typecheck on select" {
     Instruction::i32_const(I32(0)),
     Instruction::select(types=Some([ValType::i32()])),
   ])
-  let texpr = match to_texpr(expr, env) {
+  let typed_body = match to_typed_instrs(expr, env) {
     Ok(te) => te
     Err(e) => {
-      fail("to_texpr failed: \{e}")
+      fail("to_typed_instrs failed: \{e}")
       return
     }
   }
   let state = make_state(env, [])
-  match Typecheck::typecheck(texpr, state) {
+  match Typecheck::typecheck(typed_body, state) {
     Ok(st) => assert_stack(st, [ValType::i32()])
-    Err(e) => fail("typecheck on texpr failed: \{e}")
+    Err(e) => fail("typecheck on typed_body failed: \{e}")
   }
 }
 
 ///|
-test "consistency: to_texpr then typecheck on drop" {
+test "consistency: to_typed_instrs then typecheck on drop" {
   let env = Env::new()
   let expr = Expr::new([Instruction::i32_const(I32(1)), Instruction::drop()])
-  let texpr = match to_texpr(expr, env) {
+  let typed_body = match to_typed_instrs(expr, env) {
     Ok(te) => te
     Err(e) => {
-      fail("to_texpr failed: \{e}")
+      fail("to_typed_instrs failed: \{e}")
       return
     }
   }
   let state = make_state(env, [])
-  match Typecheck::typecheck(texpr, state) {
+  match Typecheck::typecheck(typed_body, state) {
     Ok(st) => assert_stack(st, [])
-    Err(e) => fail("typecheck on texpr failed: \{e}")
+    Err(e) => fail("typecheck on typed_body failed: \{e}")
   }
 }
 
 ///|
-test "consistency: to_texpr then typecheck on nop" {
+test "consistency: to_typed_instrs then typecheck on nop" {
   let env = Env::new()
   let expr = Expr::new([Instruction::nop()])
-  let texpr = match to_texpr(expr, env) {
+  let typed_body = match to_typed_instrs(expr, env) {
     Ok(te) => te
     Err(e) => {
-      fail("to_texpr failed: \{e}")
+      fail("to_typed_instrs failed: \{e}")
       return
     }
   }
   let state = make_state(env, [])
-  match Typecheck::typecheck(texpr, state) {
+  match Typecheck::typecheck(typed_body, state) {
     Ok(st) => assert_stack(st, [])
-    Err(e) => fail("typecheck on texpr failed: \{e}")
+    Err(e) => fail("typecheck on typed_body failed: \{e}")
   }
 }
 
 ///|
-test "consistency: to_texpr then typecheck on multiple values" {
+test "consistency: to_typed_instrs then typecheck on multiple values" {
   let env = Env::new()
   let expr = Expr::new([
     Instruction::i32_const(I32(1)),
     Instruction::i64_const(I64(2L)),
     Instruction::f32_const(F32(3.0)),
   ])
-  let texpr = match to_texpr(expr, env) {
+  let typed_body = match to_typed_instrs(expr, env) {
     Ok(te) => te
     Err(e) => {
-      fail("to_texpr failed: \{e}")
+      fail("to_typed_instrs failed: \{e}")
       return
     }
   }
   let state = make_state(env, [])
-  match Typecheck::typecheck(texpr, state) {
+  match Typecheck::typecheck(typed_body, state) {
     Ok(st) => assert_stack(st, [ValType::i32(), ValType::i64(), ValType::f32()])
-    Err(e) => fail("typecheck on texpr failed: \{e}")
+    Err(e) => fail("typecheck on typed_body failed: \{e}")
   }
 }
 
 ///|
-fn env_assert_expr_texpr_consistent(
+fn env_assert_expr_typed_body_consistent(
   env : Env,
   init_stack : Array[ValType],
   expr : Expr,
 ) -> Unit {
-  let texpr = match to_texpr(expr, env) {
+  let typed_body = match to_typed_instrs(expr, env) {
     Ok(te) => te
-    Err(e) => abort("to_texpr failed on shared fixture: \{e}")
+    Err(e) => abort("to_typed_instrs failed on shared fixture: \{e}")
   }
   let init_state = make_state(env, init_stack)
   let expr_result = Typecheck::typecheck(expr, init_state)
-  let texpr_result = Typecheck::typecheck(texpr, init_state)
-  match (expr_result, texpr_result) {
-    (Ok(st_expr), Ok(st_texpr)) => {
-      if st_expr.reachable != st_texpr.reachable {
+  let typed_body_result = Typecheck::typecheck(typed_body, init_state)
+  match (expr_result, typed_body_result) {
+    (Ok(st_expr), Ok(st_typed_body)) => {
+      if st_expr.reachable != st_typed_body.reachable {
         abort(
-          "reachable mismatch: expr=\{st_expr.reachable}, texpr=\{st_texpr.reachable}",
+          "reachable mismatch: expr=\{st_expr.reachable}, typed_body=\{st_typed_body.reachable}",
         )
       }
-      if st_expr.stack != st_texpr.stack {
-        abort("stack mismatch: expr=\{st_expr.stack}, texpr=\{st_texpr.stack}")
+      if st_expr.stack != st_typed_body.stack {
+        abort(
+          "stack mismatch: expr=\{st_expr.stack}, typed_body=\{st_typed_body.stack}",
+        )
       }
     }
     (Err(e1), Err(e2)) =>
       if e1 != e2 {
-        abort("error mismatch: expr=\{e1}, texpr=\{e2}")
+        abort("error mismatch: expr=\{e1}, typed_body=\{e2}")
       }
     (Ok(st), Err(e)) =>
-      abort("expr typecheck passed but texpr failed (\{e}); expr state: \{st}")
+      abort(
+        "expr typecheck passed but typed_body failed (\{e}); expr state: \{st}",
+      )
     (Err(e), Ok(st)) =>
-      abort("expr typecheck failed (\{e}) but texpr passed; texpr state: \{st}")
+      abort(
+        "expr typecheck failed (\{e}) but typed_body passed; typed_body state: \{st}",
+      )
   }
 }
 
@@ -1695,7 +1693,7 @@ test "consistency fixture: typed block with signature TypeIdx" {
     ),
   )
   let env = Env::new().with_rectype(ft)
-  env_assert_expr_texpr_consistent(
+  env_assert_expr_typed_body_consistent(
     env,
     [],
     Expr::new([
@@ -1712,7 +1710,7 @@ test "consistency fixture: typed block with signature TypeIdx" {
 ///|
 test "consistency fixture: if with one unreachable branch normalization" {
   let env = Env::new()
-  env_assert_expr_texpr_consistent(
+  env_assert_expr_typed_body_consistent(
     env,
     [],
     Expr::new([
@@ -1739,7 +1737,7 @@ test "consistency fixture: call_indirect shared fixture" {
         Limits::i32(1, None),
       ),
     ])
-  env_assert_expr_texpr_consistent(
+  env_assert_expr_typed_body_consistent(
     env,
     [],
     Expr::new([

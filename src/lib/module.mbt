@@ -349,10 +349,10 @@ fn md_render_child(
   ctx : ModuleDebugContext,
   locals : Locals,
   param_count : Int,
-  child : TInstr,
+  child : TypedInstr,
 ) -> Unit {
   md_write_line(out, depth, label + ":")
-  md_render_tinstr(out, depth + 2, ctx, locals, param_count, child)
+  md_render_typed_instr(out, depth + 2, ctx, locals, param_count, child)
 }
 
 ///|
@@ -363,7 +363,7 @@ fn md_render_children(
   ctx : ModuleDebugContext,
   locals : Locals,
   param_count : Int,
-  children : Array[TInstr],
+  children : Array[TypedInstr],
 ) -> Unit {
   if children.is_empty() {
     return
@@ -371,36 +371,36 @@ fn md_render_children(
   md_write_line(out, depth, label + ":")
   for i in 0..<children.length() {
     md_write_line(out, depth + 2, "[" + i.to_string() + "]")
-    md_render_tinstr(out, depth + 4, ctx, locals, param_count, children[i])
+    md_render_typed_instr(out, depth + 4, ctx, locals, param_count, children[i])
   }
 }
 
 ///|
-fn md_render_tinstrs(
+fn md_render_typed_instrs(
   out : StringBuilder,
   depth : Int,
   ctx : ModuleDebugContext,
   locals : Locals,
   param_count : Int,
-  body : Array[TInstr],
+  body : Array[TypedInstr],
 ) -> Unit {
   if body.is_empty() {
     md_write_line(out, depth, "<empty>")
     return
   }
   for instr in body {
-    md_render_tinstr(out, depth, ctx, locals, param_count, instr)
+    md_render_typed_instr(out, depth, ctx, locals, param_count, instr)
   }
 }
 
 ///|
-fn md_render_tinstr(
+fn md_render_typed_instr(
   out : StringBuilder,
   depth : Int,
   ctx : ModuleDebugContext,
   locals : Locals,
   param_count : Int,
-  instr : TInstr,
+  instr : TypedInstr,
 ) -> Unit {
   match instr.kind {
     TI32Const(v) => md_write_line(out, depth, "- i32.const " + v.to_string())
@@ -766,7 +766,7 @@ fn md_render_tinstr(
         depth,
         "- block bt=" + md_format_block_type(ctx, block_type),
       )
-      md_render_tinstrs(out, depth + 2, ctx, locals, param_count, body)
+      md_render_typed_instrs(out, depth + 2, ctx, locals, param_count, body)
     }
     TLoop(block_type, body) => {
       md_write_line(
@@ -774,7 +774,7 @@ fn md_render_tinstr(
         depth,
         "- loop bt=" + md_format_block_type(ctx, block_type),
       )
-      md_render_tinstrs(out, depth + 2, ctx, locals, param_count, body)
+      md_render_typed_instrs(out, depth + 2, ctx, locals, param_count, body)
     }
     TIf(block_type, cond, then_, else_) => {
       md_write_line(
@@ -784,11 +784,18 @@ fn md_render_tinstr(
       )
       md_render_child(out, depth + 2, "cond", ctx, locals, param_count, cond)
       md_write_line(out, depth + 2, "then:")
-      md_render_tinstrs(out, depth + 4, ctx, locals, param_count, then_)
+      md_render_typed_instrs(out, depth + 4, ctx, locals, param_count, then_)
       match else_ {
         Some(other) => {
           md_write_line(out, depth + 2, "else:")
-          md_render_tinstrs(out, depth + 4, ctx, locals, param_count, other)
+          md_render_typed_instrs(
+            out,
+            depth + 4,
+            ctx,
+            locals,
+            param_count,
+            other,
+          )
         }
         None => ()
       }
@@ -802,7 +809,7 @@ fn md_render_tinstr(
         " catches=" +
         catches.to_string(),
       )
-      md_render_tinstrs(out, depth + 2, ctx, locals, param_count, body)
+      md_render_typed_instrs(out, depth + 2, ctx, locals, param_count, body)
     }
     TThrow(tag_idx, values) => {
       md_write_line(out, depth, "- throw " + md_format_tag_idx(ctx, tag_idx))

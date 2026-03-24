@@ -386,8 +386,8 @@ fn pop_types_rev(st : TcState, ts : Array[ValType]) -> TcResult {
 }
 
 ///|
-fn typecheck_typed_tinstr_body(
-  body : Array[TInstr],
+fn typecheck_typed_typed_instr_body(
+  body : Array[TypedInstr],
   env : Env,
   stack : Array[ValType],
   reachable : Bool,
@@ -407,7 +407,7 @@ fn typecheck_typed_tinstr_body(
 fn typecheck_typed_block_form(
   st : TcState,
   bt : BlockType,
-  body : Array[TInstr],
+  body : Array[TypedInstr],
   use_outer_params : Bool,
 ) -> TcResult {
   let (params, results) = match st.env.expand_blocktype(bt) {
@@ -429,7 +429,7 @@ fn typecheck_typed_block_form(
     []
   }
   let st_body = match
-    typecheck_typed_tinstr_body(
+    typecheck_typed_typed_instr_body(
       body,
       env2,
       init_stack,
@@ -460,7 +460,7 @@ fn typecheck_typed_block_form(
 fn typecheck_typed_loop_form(
   st : TcState,
   bt : BlockType,
-  body : Array[TInstr],
+  body : Array[TypedInstr],
   use_outer_params : Bool,
 ) -> TcResult {
   let (params, results) = match st.env.expand_blocktype(bt) {
@@ -482,7 +482,7 @@ fn typecheck_typed_loop_form(
     []
   }
   let st_body = match
-    typecheck_typed_tinstr_body(
+    typecheck_typed_typed_instr_body(
       body,
       env2,
       init_stack,
@@ -509,9 +509,9 @@ fn typecheck_typed_loop_form(
 fn typecheck_typed_if_form(
   st : TcState,
   bt : BlockType,
-  cond : TInstr,
-  then_instrs : Array[TInstr],
-  else_instrs_opt : Array[TInstr]?,
+  cond : TypedInstr,
+  then_instrs : Array[TypedInstr],
+  else_instrs_opt : Array[TypedInstr]?,
   use_outer_params : Bool,
 ) -> TcResult {
   let (params, results) = match st.env.expand_blocktype(bt) {
@@ -545,7 +545,7 @@ fn typecheck_typed_if_form(
     []
   }
   let st_then = match
-    typecheck_typed_tinstr_body(
+    typecheck_typed_typed_instr_body(
       then_instrs,
       env_branch,
       init_stack,
@@ -556,7 +556,7 @@ fn typecheck_typed_if_form(
     Ok(s) => s
   }
   let st_else = match
-    typecheck_typed_tinstr_body(
+    typecheck_typed_typed_instr_body(
       else_instrs,
       env_branch,
       init_stack,
@@ -3888,28 +3888,28 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
 }
 
 ///|
-pub impl Typecheck for TInstr with typecheck(self, st) {
+pub impl Typecheck for TypedInstr with typecheck(self, st) {
   match self.kind {
     // === Constants ===
-    TInstrKind::TI32Const(_) => Ok(st.push1(ValType::i32()))
-    TInstrKind::TI64Const(_) => Ok(st.push1(ValType::i64()))
-    TInstrKind::TF32Const(_) => Ok(st.push1(ValType::f32()))
-    TInstrKind::TF64Const(_) => Ok(st.push1(ValType::f64()))
-    TInstrKind::TRefNull(ht) => typecheck_ref_null(st, ht)
-    TInstrKind::TRefFunc(f) => typecheck_ref_func(st, f)
-    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+    TypedInstrKind::TI32Const(_) => Ok(st.push1(ValType::i32()))
+    TypedInstrKind::TI64Const(_) => Ok(st.push1(ValType::i64()))
+    TypedInstrKind::TF32Const(_) => Ok(st.push1(ValType::f32()))
+    TypedInstrKind::TF64Const(_) => Ok(st.push1(ValType::f64()))
+    TypedInstrKind::TRefNull(ht) => typecheck_ref_null(st, ht)
+    TypedInstrKind::TRefFunc(f) => typecheck_ref_func(st, f)
+    TypedInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       typecheck_v128_const(st)
 
     // === Nullary ===
-    TInstrKind::TUnreachable => Ok(st.set_unreachable())
-    TInstrKind::TNop => Ok(st)
-    TInstrKind::TLocalGet(i) => typecheck_local_get(st, i)
-    TInstrKind::TGlobalGet(i) => typecheck_global_get(st, i)
-    TInstrKind::TMemorySize(m) => typecheck_memory_size(st, m)
-    TInstrKind::TTableSize(t) => typecheck_table_size(st, t)
+    TypedInstrKind::TUnreachable => Ok(st.set_unreachable())
+    TypedInstrKind::TNop => Ok(st)
+    TypedInstrKind::TLocalGet(i) => typecheck_local_get(st, i)
+    TypedInstrKind::TGlobalGet(i) => typecheck_global_get(st, i)
+    TypedInstrKind::TMemorySize(m) => typecheck_memory_size(st, m)
+    TypedInstrKind::TTableSize(t) => typecheck_table_size(st, t)
 
     // === Unary ===
-    TInstrKind::TUnary(op, child) => {
+    TypedInstrKind::TUnary(op, child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
@@ -4063,91 +4063,91 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         I32x4RelaxedTruncZeroF64x2UOp => typecheck_v128_unary(st1)
       }
     }
-    TInstrKind::TDrop(child) => {
+    TypedInstrKind::TDrop(child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
       }
       typecheck_drop(st1)
     }
-    TInstrKind::TLocalSet(i, child) => {
+    TypedInstrKind::TLocalSet(i, child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
       }
       typecheck_local_set(st1, i)
     }
-    TInstrKind::TLocalTee(i, child) => {
+    TypedInstrKind::TLocalTee(i, child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
       }
       typecheck_local_tee(st1, i)
     }
-    TInstrKind::TGlobalSet(i, child) => {
+    TypedInstrKind::TGlobalSet(i, child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
       }
       typecheck_global_set(st1, i)
     }
-    TInstrKind::TRefIsNull(child) => {
+    TypedInstrKind::TRefIsNull(child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
       }
       typecheck_ref_is_null(st1)
     }
-    TInstrKind::TRefAsNonNull(child) => {
+    TypedInstrKind::TRefAsNonNull(child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
       }
       typecheck_ref_as_non_null(st1)
     }
-    TInstrKind::TI31GetS(child) => {
+    TypedInstrKind::TI31GetS(child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
       }
       typecheck_i31_get(st1)
     }
-    TInstrKind::TI31GetU(child) => {
+    TypedInstrKind::TI31GetU(child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
       }
       typecheck_i31_get(st1)
     }
-    TInstrKind::TRefI31(child) => {
+    TypedInstrKind::TRefI31(child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
       }
       typecheck_ref_i31(st1)
     }
-    TInstrKind::TArrayLen(child) => {
+    TypedInstrKind::TArrayLen(child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
       }
       typecheck_array_len(st1)
     }
-    TInstrKind::TAnyConvertExtern(child) => {
+    TypedInstrKind::TAnyConvertExtern(child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
       }
       typecheck_any_convert_extern(st1)
     }
-    TInstrKind::TExternConvertAny(child) => {
+    TypedInstrKind::TExternConvertAny(child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
       }
       typecheck_extern_convert_any(st1)
     }
-    TInstrKind::TThrowRef(child) => {
+    TypedInstrKind::TThrowRef(child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
@@ -4156,7 +4156,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === Binary ===
-    TInstrKind::TBinary(op, left, right) => {
+    TypedInstrKind::TBinary(op, left, right) => {
       let st1 = match Typecheck::typecheck(left, st) {
         Ok(st1) => st1
         Err(t) => return Err(t)
@@ -4374,7 +4374,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         I16x8RelaxedDotI8x16I7x16SOp => typecheck_v128_binary(st2)
       }
     }
-    TInstrKind::TRefEq(left, right) => {
+    TypedInstrKind::TRefEq(left, right) => {
       let st1 = match Typecheck::typecheck(left, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4385,7 +4385,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_ref_eq(st2)
     }
-    TInstrKind::TStore(op, ma, addr, val) => {
+    TypedInstrKind::TStore(op, ma, addr, val) => {
       let st1 = match Typecheck::typecheck(addr, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4416,7 +4416,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === Load ===
-    TInstrKind::TLoad(op, ma, addr) => {
+    TypedInstrKind::TLoad(op, ma, addr) => {
       let st1 = match Typecheck::typecheck(addr, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4460,14 +4460,14 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === Memory ops ===
-    TInstrKind::TMemoryGrow(m, delta) => {
+    TypedInstrKind::TMemoryGrow(m, delta) => {
       let st1 = match Typecheck::typecheck(delta, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_memory_grow(st1, m)
     }
-    TInstrKind::TMemoryFill(m, dst, val, len) => {
+    TypedInstrKind::TMemoryFill(m, dst, val, len) => {
       let st1 = match Typecheck::typecheck(dst, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4482,7 +4482,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_memory_fill(st3, m)
     }
-    TInstrKind::TMemoryCopy(mi0, mi1, dst, src, len) => {
+    TypedInstrKind::TMemoryCopy(mi0, mi1, dst, src, len) => {
       let st1 = match Typecheck::typecheck(dst, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4497,7 +4497,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_memory_copy(st3, mi0, mi1)
     }
-    TInstrKind::TMemoryInit(d, m, dst, src, len) => {
+    TypedInstrKind::TMemoryInit(d, m, dst, src, len) => {
       let st1 = match Typecheck::typecheck(dst, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4512,8 +4512,8 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_memory_init(st3, d, m)
     }
-    TInstrKind::TDataDrop(d) => typecheck_data_drop(st, d)
-    TInstrKind::TMemoryAtomicNotify(ma, addr, count) => {
+    TypedInstrKind::TDataDrop(d) => typecheck_data_drop(st, d)
+    TypedInstrKind::TMemoryAtomicNotify(ma, addr, count) => {
       let st1 = match Typecheck::typecheck(addr, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4524,7 +4524,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_atomic_notify(st2, ma)
     }
-    TInstrKind::TMemoryAtomicWait32(ma, addr, expected, timeout) => {
+    TypedInstrKind::TMemoryAtomicWait32(ma, addr, expected, timeout) => {
       let st1 = match Typecheck::typecheck(addr, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4539,7 +4539,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_atomic_wait(st3, ma, 32, ValType::i32())
     }
-    TInstrKind::TMemoryAtomicWait64(ma, addr, expected, timeout) => {
+    TypedInstrKind::TMemoryAtomicWait64(ma, addr, expected, timeout) => {
       let st1 = match Typecheck::typecheck(addr, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4554,8 +4554,8 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_atomic_wait(st3, ma, 64, ValType::i64())
     }
-    TInstrKind::TAtomicFence => Ok(st)
-    TInstrKind::TAtomicRmw(op, ma, addr, value) => {
+    TypedInstrKind::TAtomicFence => Ok(st)
+    TypedInstrKind::TAtomicRmw(op, ma, addr, value) => {
       let st1 = match Typecheck::typecheck(addr, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4624,7 +4624,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
           typecheck_atomic_rmw(st2, ma, 32, ValType::i64())
       }
     }
-    TInstrKind::TAtomicCmpxchg(op, ma, addr, expected, replacement) => {
+    TypedInstrKind::TAtomicCmpxchg(op, ma, addr, expected, replacement) => {
       let st1 = match Typecheck::typecheck(addr, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4656,14 +4656,14 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === Table ops ===
-    TInstrKind::TTableGet(t, idx) => {
+    TypedInstrKind::TTableGet(t, idx) => {
       let st1 = match Typecheck::typecheck(idx, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_table_get(st1, t)
     }
-    TInstrKind::TTableSet(t, idx, val) => {
+    TypedInstrKind::TTableSet(t, idx, val) => {
       let st1 = match Typecheck::typecheck(idx, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4674,7 +4674,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_table_set(st2, t)
     }
-    TInstrKind::TTableGrow(t, init, delta) => {
+    TypedInstrKind::TTableGrow(t, init, delta) => {
       let st1 = match Typecheck::typecheck(init, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4685,7 +4685,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_table_grow(st2, t)
     }
-    TInstrKind::TTableFill(t, idx, val, len) => {
+    TypedInstrKind::TTableFill(t, idx, val, len) => {
       let st1 = match Typecheck::typecheck(idx, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4700,7 +4700,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_table_fill(st3, t)
     }
-    TInstrKind::TTableCopy(t0, t1, dst, src, len) => {
+    TypedInstrKind::TTableCopy(t0, t1, dst, src, len) => {
       let st1 = match Typecheck::typecheck(dst, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4715,7 +4715,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_table_copy(st3, t0, t1)
     }
-    TInstrKind::TTableInit(e, t, dst, src, len) => {
+    TypedInstrKind::TTableInit(e, t, dst, src, len) => {
       let st1 = match Typecheck::typecheck(dst, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -4730,10 +4730,10 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_table_init(st3, e, t)
     }
-    TInstrKind::TElemDrop(e) => typecheck_elem_drop(st, e)
+    TypedInstrKind::TElemDrop(e) => typecheck_elem_drop(st, e)
 
     // === Calls ===
-    TInstrKind::TCall(f, args) => {
+    TypedInstrKind::TCall(f, args) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -4743,7 +4743,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_call(st_acc, f)
     }
-    TInstrKind::TCallIndirect(tidx, t, args, tab_expr) => {
+    TypedInstrKind::TCallIndirect(tidx, t, args, tab_expr) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -4757,7 +4757,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_call_indirect(st_final, tidx, t)
     }
-    TInstrKind::TCallRef(tidx, args, funcref) => {
+    TypedInstrKind::TCallRef(tidx, args, funcref) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -4771,7 +4771,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_call_ref(st_final, tidx)
     }
-    TInstrKind::TReturnCall(f, args) => {
+    TypedInstrKind::TReturnCall(f, args) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -4781,7 +4781,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_return_call(st_acc, f)
     }
-    TInstrKind::TReturnCallIndirect(tidx, t, args, tab_expr) => {
+    TypedInstrKind::TReturnCallIndirect(tidx, t, args, tab_expr) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -4795,7 +4795,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_return_call_indirect(st_final, tidx, t)
     }
-    TInstrKind::TReturnCallRef(tidx, args, funcref) => {
+    TypedInstrKind::TReturnCallRef(tidx, args, funcref) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -4811,7 +4811,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === Control Flow ===
-    TInstrKind::TBlock(bt, body) => {
+    TypedInstrKind::TBlock(bt, body) => {
       let (params, _) = match st.env.expand_blocktype(bt) {
         Err(e) => return Err(e)
         Ok(x) => x
@@ -4829,7 +4829,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
           }
       }
     }
-    TInstrKind::TLoop(bt, body) => {
+    TypedInstrKind::TLoop(bt, body) => {
       let (params, _) = match st.env.expand_blocktype(bt) {
         Err(e) => return Err(e)
         Ok(x) => x
@@ -4847,7 +4847,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
           }
       }
     }
-    TInstrKind::TIf(bt, cond, then_instrs, else_instrs_opt) => {
+    TypedInstrKind::TIf(bt, cond, then_instrs, else_instrs_opt) => {
       let (params, _) = match st.env.expand_blocktype(bt) {
         Err(e) => return Err(e)
         Ok(x) => x
@@ -4871,7 +4871,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
           }
       }
     }
-    TInstrKind::TTryTable(bt, catches, body) => {
+    TypedInstrKind::TTryTable(bt, catches, body) => {
       let (params, results) = match st.env.expand_blocktype(bt) {
         Err(e) => return Err(e)
         Ok(x) => x
@@ -4913,7 +4913,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       Ok(out.push_types(results))
     }
-    TInstrKind::TThrow(tag, args) => {
+    TypedInstrKind::TThrow(tag, args) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -4925,7 +4925,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === Branches ===
-    TInstrKind::TBr(l, args) => {
+    TypedInstrKind::TBr(l, args) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -4935,7 +4935,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_br(st_acc, l)
     }
-    TInstrKind::TBrIf(l, cond, args) => {
+    TypedInstrKind::TBrIf(l, cond, args) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -4949,7 +4949,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_br_if(st_cond, l)
     }
-    TInstrKind::TBrTable(ls, ldef, index, args) => {
+    TypedInstrKind::TBrTable(ls, ldef, index, args) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -4963,7 +4963,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_br_table(st_idx, ls, ldef)
     }
-    TInstrKind::TBrOnNull(l, r, args) => {
+    TypedInstrKind::TBrOnNull(l, r, args) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -4977,7 +4977,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_br_on_null(st_ref, l)
     }
-    TInstrKind::TBrOnNonNull(l, r, args) => {
+    TypedInstrKind::TBrOnNonNull(l, r, args) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -4991,7 +4991,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_br_on_non_null(st_ref, l)
     }
-    TInstrKind::TBrOnCast(l, op, ht1, ht2, r, args) => {
+    TypedInstrKind::TBrOnCast(l, op, ht1, ht2, r, args) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -5005,7 +5005,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_br_on_cast(st_ref, l, op, ht1, ht2)
     }
-    TInstrKind::TBrOnCastFail(l, op, ht1, ht2, r, args) => {
+    TypedInstrKind::TBrOnCastFail(l, op, ht1, ht2, r, args) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -5019,7 +5019,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_br_on_cast_fail(st_ref, l, op, ht1, ht2)
     }
-    TInstrKind::TReturn(args) => {
+    TypedInstrKind::TReturn(args) => {
       let mut st_acc = st
       for arg in args {
         st_acc = match Typecheck::typecheck(arg, st_acc) {
@@ -5031,7 +5031,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === Select ===
-    TInstrKind::TSelect(ty_opt, cond, t, f) => {
+    TypedInstrKind::TSelect(ty_opt, cond, t, f) => {
       let st_f = match Typecheck::typecheck(f, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5051,8 +5051,8 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === Strings ===
-    TInstrKind::TStringConst(_) => typecheck_string_const(st)
-    TInstrKind::TStringNewUtf8Array(array, start, end_) => {
+    TypedInstrKind::TStringConst(_) => typecheck_string_const(st)
+    TypedInstrKind::TStringNewUtf8Array(array, start, end_) => {
       let st1 = match Typecheck::typecheck(array, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5067,7 +5067,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_string_new_array(st3, StorageType::pack_type(PackType::i8()))
     }
-    TInstrKind::TStringNewWtf16Array(array, start, end_) => {
+    TypedInstrKind::TStringNewWtf16Array(array, start, end_) => {
       let st1 = match Typecheck::typecheck(array, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5082,7 +5082,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_string_new_array(st3, StorageType::pack_type(PackType::i16()))
     }
-    TInstrKind::TStringEncodeUtf8Array(string, array, start) => {
+    TypedInstrKind::TStringEncodeUtf8Array(string, array, start) => {
       let st1 = match Typecheck::typecheck(string, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5101,7 +5101,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         StorageType::pack_type(PackType::i8()),
       )
     }
-    TInstrKind::TStringEncodeWtf16Array(string, array, start) => {
+    TypedInstrKind::TStringEncodeWtf16Array(string, array, start) => {
       let st1 = match Typecheck::typecheck(string, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5120,8 +5120,8 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         StorageType::pack_type(PackType::i16()),
       )
     }
-    TInstrKind::TStringNewLossyUtf8Array(array, start, end_)
-    | TInstrKind::TStringNewWtf8Array(array, start, end_) => {
+    TypedInstrKind::TStringNewLossyUtf8Array(array, start, end_)
+    | TypedInstrKind::TStringNewWtf8Array(array, start, end_) => {
       let st1 = match Typecheck::typecheck(array, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5136,8 +5136,8 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_string_new_array(st3, StorageType::pack_type(PackType::i8()))
     }
-    TInstrKind::TStringEncodeLossyUtf8Array(string, array, start)
-    | TInstrKind::TStringEncodeWtf8Array(string, array, start) => {
+    TypedInstrKind::TStringEncodeLossyUtf8Array(string, array, start)
+    | TypedInstrKind::TStringEncodeWtf8Array(string, array, start) => {
       let st1 = match Typecheck::typecheck(string, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5158,7 +5158,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === Structs ===
-    TInstrKind::TStructNew(x, fields) => {
+    TypedInstrKind::TStructNew(x, fields) => {
       let mut st_acc = st
       for f in fields {
         st_acc = match Typecheck::typecheck(f, st_acc) {
@@ -5168,7 +5168,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_struct_new(st_acc, x)
     }
-    TInstrKind::TStructNewDesc(x, fields) => {
+    TypedInstrKind::TStructNewDesc(x, fields) => {
       let mut st_acc = st
       for f in fields {
         st_acc = match Typecheck::typecheck(f, st_acc) {
@@ -5178,36 +5178,36 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_struct_new_desc(st_acc, x)
     }
-    TInstrKind::TStructNewDefault(x) => typecheck_struct_new_default(st, x)
-    TInstrKind::TStructNewDefaultDesc(x, descriptor) => {
+    TypedInstrKind::TStructNewDefault(x) => typecheck_struct_new_default(st, x)
+    TypedInstrKind::TStructNewDefaultDesc(x, descriptor) => {
       let st1 = match Typecheck::typecheck(descriptor, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_struct_new_default_desc(st1, x)
     }
-    TInstrKind::TStructGet(x, i, s) => {
+    TypedInstrKind::TStructGet(x, i, s) => {
       let st1 = match Typecheck::typecheck(s, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_struct_get(st1, x, i)
     }
-    TInstrKind::TStructGetS(x, i, s) => {
+    TypedInstrKind::TStructGetS(x, i, s) => {
       let st1 = match Typecheck::typecheck(s, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_struct_get_s(st1, x, i)
     }
-    TInstrKind::TStructGetU(x, i, s) => {
+    TypedInstrKind::TStructGetU(x, i, s) => {
       let st1 = match Typecheck::typecheck(s, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_struct_get_u(st1, x, i)
     }
-    TInstrKind::TStructSet(x, i, s, val) => {
+    TypedInstrKind::TStructSet(x, i, s, val) => {
       let st1 = match Typecheck::typecheck(s, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5220,7 +5220,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === Arrays ===
-    TInstrKind::TArrayNew(x, init, len) => {
+    TypedInstrKind::TArrayNew(x, init, len) => {
       let st1 = match Typecheck::typecheck(init, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5231,14 +5231,14 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_array_new(st2, x)
     }
-    TInstrKind::TArrayNewDefault(x, len) => {
+    TypedInstrKind::TArrayNewDefault(x, len) => {
       let st1 = match Typecheck::typecheck(len, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_array_new_default(st1, x)
     }
-    TInstrKind::TArrayNewFixed(x, fields) => {
+    TypedInstrKind::TArrayNewFixed(x, fields) => {
       let mut st_acc = st
       for f in fields {
         st_acc = match Typecheck::typecheck(f, st_acc) {
@@ -5252,7 +5252,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         fields.length().reinterpret_as_uint(),
       )
     }
-    TInstrKind::TArrayNewData(x, y, offset, len) => {
+    TypedInstrKind::TArrayNewData(x, y, offset, len) => {
       let st1 = match Typecheck::typecheck(offset, st) {
         Ok(t) => t
         Err(t) => return Err(t)
@@ -5263,7 +5263,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_array_new_data(st2, x, y)
     }
-    TInstrKind::TArrayNewElem(x, y, offset, len) => {
+    TypedInstrKind::TArrayNewElem(x, y, offset, len) => {
       let st1 = match Typecheck::typecheck(offset, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5274,7 +5274,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_array_new_elem(st2, x, y)
     }
-    TInstrKind::TArrayGet(x, arr, idx) => {
+    TypedInstrKind::TArrayGet(x, arr, idx) => {
       let st1 = match Typecheck::typecheck(arr, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5285,7 +5285,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_array_get(st2, x)
     }
-    TInstrKind::TArrayGetS(x, arr, idx) => {
+    TypedInstrKind::TArrayGetS(x, arr, idx) => {
       let st1 = match Typecheck::typecheck(arr, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5296,7 +5296,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_array_get_s(st2, x)
     }
-    TInstrKind::TArrayGetU(x, arr, idx) => {
+    TypedInstrKind::TArrayGetU(x, arr, idx) => {
       let st1 = match Typecheck::typecheck(arr, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5307,7 +5307,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_array_get_u(st2, x)
     }
-    TInstrKind::TArraySet(x, arr, idx, val) => {
+    TypedInstrKind::TArraySet(x, arr, idx, val) => {
       let st1 = match Typecheck::typecheck(arr, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5322,7 +5322,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_array_set(st3, x)
     }
-    TInstrKind::TArrayFill(x, arr, offset, val, len) => {
+    TypedInstrKind::TArrayFill(x, arr, offset, val, len) => {
       let st1 = match Typecheck::typecheck(arr, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5341,7 +5341,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_array_fill(st4, x)
     }
-    TInstrKind::TArrayCopy(x, y, arr2, idx2, arr1, idx1, len) => {
+    TypedInstrKind::TArrayCopy(x, y, arr2, idx2, arr1, idx1, len) => {
       let st1 = match Typecheck::typecheck(arr2, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5364,7 +5364,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_array_copy(st5, x, y)
     }
-    TInstrKind::TArrayInitData(x, y, i0, i1, i2, i3) => {
+    TypedInstrKind::TArrayInitData(x, y, i0, i1, i2, i3) => {
       let st1 = match Typecheck::typecheck(i0, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5383,7 +5383,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_array_init_data(st4, x, y)
     }
-    TInstrKind::TArrayInitElem(x, y, i0, i1, i2, i3) => {
+    TypedInstrKind::TArrayInitElem(x, y, i0, i1, i2, i3) => {
       let st1 = match Typecheck::typecheck(i0, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5404,35 +5404,35 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === GC: Casts ===
-    TInstrKind::TRefGetDesc(type_idx, child) => {
+    TypedInstrKind::TRefGetDesc(type_idx, child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_ref_get_desc(st1, type_idx)
     }
-    TInstrKind::TRefTest(nullable, ht, child) => {
+    TypedInstrKind::TRefTest(nullable, ht, child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_ref_test(st1, nullable, ht)
     }
-    TInstrKind::TRefCast(nullable, ht, child) => {
+    TypedInstrKind::TRefCast(nullable, ht, child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_ref_cast(st1, nullable, ht)
     }
-    TInstrKind::TRefTestDesc(nullable, ht, child) => {
+    TypedInstrKind::TRefTestDesc(nullable, ht, child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_ref_test_desc(st1, nullable, ht)
     }
-    TInstrKind::TRefCastDescEq(nullable, ht, child) => {
+    TypedInstrKind::TRefCastDescEq(nullable, ht, child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5441,42 +5441,42 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === SIMD: Splat ===
-    TInstrKind::TI8x16Splat(x) => {
+    TypedInstrKind::TI8x16Splat(x) => {
       let st1 = match Typecheck::typecheck(x, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_splat(st1, ValType::i32())
     }
-    TInstrKind::TI16x8Splat(x) => {
+    TypedInstrKind::TI16x8Splat(x) => {
       let st1 = match Typecheck::typecheck(x, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_splat(st1, ValType::i32())
     }
-    TInstrKind::TI32x4Splat(x) => {
+    TypedInstrKind::TI32x4Splat(x) => {
       let st1 = match Typecheck::typecheck(x, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_splat(st1, ValType::i32())
     }
-    TInstrKind::TI64x2Splat(x) => {
+    TypedInstrKind::TI64x2Splat(x) => {
       let st1 = match Typecheck::typecheck(x, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_splat(st1, ValType::i64())
     }
-    TInstrKind::TF32x4Splat(x) => {
+    TypedInstrKind::TF32x4Splat(x) => {
       let st1 = match Typecheck::typecheck(x, st) {
         Ok(st) => st
         Err(t) => return Err(t)
       }
       typecheck_splat(st1, ValType::f32())
     }
-    TInstrKind::TF64x2Splat(x) => {
+    TypedInstrKind::TF64x2Splat(x) => {
       let st1 = match Typecheck::typecheck(x, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5485,7 +5485,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === SIMD: Extract lane ===
-    TInstrKind::TExtractLane(op, _, vec) => {
+    TypedInstrKind::TExtractLane(op, _, vec) => {
       let st1 = match Typecheck::typecheck(vec, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5503,7 +5503,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === SIMD: Replace lane ===
-    TInstrKind::TReplaceLane(op, _, vec, val) => {
+    TypedInstrKind::TReplaceLane(op, _, vec, val) => {
       let st1 = match Typecheck::typecheck(vec, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5523,7 +5523,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === SIMD: Shuffle ===
-    TInstrKind::TI8x16Shuffle(
+    TypedInstrKind::TI8x16Shuffle(
       _,
       _,
       _,
@@ -5553,7 +5553,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_v128_binary(st2)
     }
-    TInstrKind::TI8x16Swizzle(v1, v2) => {
+    TypedInstrKind::TI8x16Swizzle(v1, v2) => {
       let st1 = match Typecheck::typecheck(v1, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5564,7 +5564,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       typecheck_v128_binary(st2)
     }
-    TInstrKind::TI8x16RelaxedSwizzle(v1, v2) => {
+    TypedInstrKind::TI8x16RelaxedSwizzle(v1, v2) => {
       let st1 = match Typecheck::typecheck(v1, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5577,7 +5577,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === SIMD: Shift ===
-    TInstrKind::TV128Shift(_, vec, shift) => {
+    TypedInstrKind::TV128Shift(_, vec, shift) => {
       let st1 = match Typecheck::typecheck(vec, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5590,7 +5590,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === SIMD: Ternary ===
-    TInstrKind::TV128Ternary(_, c, v1, v2) => {
+    TypedInstrKind::TV128Ternary(_, c, v1, v2) => {
       let st1 = match Typecheck::typecheck(c, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5607,7 +5607,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === SIMD: Lane load/store ===
-    TInstrKind::TV128LoadLane(op, ma, _, vec, addr) => {
+    TypedInstrKind::TV128LoadLane(op, ma, _, vec, addr) => {
       let st1 = match Typecheck::typecheck(vec, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5623,7 +5623,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         V128Load64LaneOp => typecheck_v128_load_lane(st2, ma, 64)
       }
     }
-    TInstrKind::TV128StoreLane(op, ma, _, vec, addr) => {
+    TypedInstrKind::TV128StoreLane(op, ma, _, vec, addr) => {
       let st1 = match Typecheck::typecheck(vec, st) {
         Ok(st) => st
         Err(t) => return Err(t)
@@ -5643,7 +5643,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
 }
 
 ///|
-pub impl Typecheck for Array[TInstr] with typecheck(self, st0) {
+pub impl Typecheck for Array[TypedInstr] with typecheck(self, st0) {
   let mut st = st0
   for instr in self {
     match Typecheck::typecheck(instr, st) {
@@ -5766,10 +5766,9 @@ test "Typecheck Block with result" {
 test "Typecheck TBlock rejects extra fallthrough stack values" {
   let env = empty_env()
   let state = make_state(env, [])
-  let block = TInstr::block(
-    BlockType::void_(),
-    [TInstr::i32_const(I32(7))],
-  )
+  let block = TypedInstr::block(BlockType::void_(), [
+    TypedInstr::i32_const(I32(7)),
+  ])
   match Typecheck::typecheck(block, state) {
     Ok(_) => fail("expected typed block extra-value fallthrough rejection")
     Err(e) => assert_eq(e, "type mismatch")
@@ -6160,9 +6159,9 @@ test "Typecheck TLocalSet consumes child value without re-pushing it" {
     locals: Locals::from_types([ValType::i32(), ValType::i32()]),
   }
   let state = make_state(env, [])
-  let t = TInstr::local_set(
+  let t = TypedInstr::local_set(
     LocalIdx::new(0),
-    TInstr::local_tee(LocalIdx::new(1), TInstr::i32_const(I32(7))),
+    TypedInstr::local_tee(LocalIdx::new(1), TypedInstr::i32_const(I32(7))),
   )
   let new_state = assert_ok(Typecheck::typecheck(t, state))
   assert_stack(new_state, [])
@@ -6175,9 +6174,9 @@ test "Typecheck TLocalTee preserves the child value on the stack" {
     locals: Locals::from_types([ValType::i32(), ValType::i32()]),
   }
   let state = make_state(env, [])
-  let t = TInstr::local_tee(
+  let t = TypedInstr::local_tee(
     LocalIdx::new(0),
-    TInstr::local_tee(LocalIdx::new(1), TInstr::i32_const(I32(7))),
+    TypedInstr::local_tee(LocalIdx::new(1), TypedInstr::i32_const(I32(7))),
   )
   let new_state = assert_ok(Typecheck::typecheck(t, state))
   assert_stack(new_state, [ValType::i32()])

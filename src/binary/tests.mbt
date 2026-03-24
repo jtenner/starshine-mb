@@ -828,7 +828,7 @@ test "encode_module roundtrips lifted nested branch ladder that skips later retu
     )
   let env = @validate.Env::new().with_module(raw_mod)
   let lifted_body = match
-    @validate.to_texpr(
+    @validate.to_typed_instrs(
       match raw_mod.code_sec {
         Some(CodeSec([Func(_, expr)])) => expr
         _ => abort("expected raw fixture body")
@@ -843,7 +843,10 @@ test "encode_module roundtrips lifted nested branch ladder that skips later retu
   }
   let mod = raw_mod.with_code_sec(
     CodeSec::new([
-      Func::new(Locals::empty(), @lib.tinstrs_to_expr(lifted_body)),
+      Func::new(
+        Locals::empty(),
+        @validate.typed_instrs_to_expr_with_env(lifted_body, env),
+      ),
     ]),
   )
   match @validate.validate_module(mod) {
@@ -945,7 +948,7 @@ test "encode_module roundtrips lifted return branch-payload bypass fixture" {
     )
   let env = @validate.Env::new().with_module(raw_mod)
   let lifted_main = match
-    @validate.to_texpr(
+    @validate.to_typed_instrs(
       match raw_mod.code_sec {
         Some(CodeSec([_, Func(_, expr)])) => expr
         _ => abort("expected raw return branch-payload bypass body")
@@ -968,7 +971,10 @@ test "encode_module roundtrips lifted return branch-payload bypass fixture" {
           Instruction::drop(),
         ]),
       ),
-      Func::new(Locals::empty(), @lib.tinstrs_to_expr(lifted_main)),
+      Func::new(
+        Locals::empty(),
+        @validate.typed_instrs_to_expr_with_env(lifted_main, env),
+      ),
     ]),
   )
   match @validate.validate_module(mod) {
@@ -1086,7 +1092,7 @@ test "encode_module roundtrips lifted type-index loop return branch-payload bypa
   }
   let env = @validate.Env::new().with_module(raw_mod)
   let lifted_main = match
-    @validate.to_texpr(
+    @validate.to_typed_instrs(
       match raw_mod.code_sec {
         Some(CodeSec([_, Func(_, expr)])) => expr
         _ => abort("expected raw type-index loop branch-payload bypass body")
@@ -1111,7 +1117,10 @@ test "encode_module roundtrips lifted type-index loop return branch-payload bypa
           Instruction::drop(),
         ]),
       ),
-      Func::new(Locals::empty(), @lib.tinstrs_to_expr(lifted_main)),
+      Func::new(
+        Locals::empty(),
+        @validate.typed_instrs_to_expr_with_env(lifted_main, env),
+      ),
     ]),
   )
   match @validate.validate_module(mod) {

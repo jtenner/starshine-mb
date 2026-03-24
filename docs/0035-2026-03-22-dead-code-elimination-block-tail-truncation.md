@@ -1,6 +1,6 @@
 # DeadCodeElimination Block Tail Truncation
 
-Status: completed Slice 3 from [`docs/0017-2026-03-22-dead-code-elimination.md`](/home/jtenner/Projects/starshine-mb/docs/0017-2026-03-22-dead-code-elimination.md). The typed `DeadCodeElimination` runner now trims dead tails from enclosing `TExpr` lists and collapses trivial `[unreachable]` blocks, but it still does not track live breaks or update enclosing block result types.
+Status: completed Slice 3 from [`docs/0017-2026-03-22-dead-code-elimination.md`](/home/jtenner/Projects/starshine-mb/docs/0017-2026-03-22-dead-code-elimination.md). The typed `DeadCodeElimination` runner now trims dead tails from enclosing `typed instruction body` lists and collapses trivial `[unreachable]` blocks, but it still does not track live breaks or update enclosing block result types.
 
 ## Scope
 
@@ -8,7 +8,7 @@ Checkpoint the first enclosing-control-flow behavior for `DeadCodeElimination`: 
 
 ## Landed Behavior
 
-- `run_dead_code_elimination` now installs a `ModuleTransformer.on_texpr_evt` hook in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) that walks child instructions first, then truncates the rebuilt `TExpr` after the first terminating instruction.
+- `run_dead_code_elimination` now installs a legacy recursive optimizer-body hook in [`src/optimization/optimization.mbt`](/home/jtenner/Projects/starshine-mb/src/optimization/optimization.mbt) that walks child instructions first, then truncates the rebuilt `typed instruction body` after the first terminating instruction.
 - Terminating instructions at the current list level currently include direct `unreachable`, `return*`, `throw*`, `br`, and `br_table`.
 - Nested `block` instructions only terminate an enclosing parent list when their final surviving child still escapes the parent expression, currently limited to `unreachable`, `return*`, and `throw*`.
 - Trivial `block` instructions whose rewritten body is exactly `[unreachable]` now collapse to the child instead of preserving a redundant wrapper.

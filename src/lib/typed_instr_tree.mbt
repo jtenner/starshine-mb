@@ -1,29 +1,32 @@
 ///|
-/// Convert tree-based TInstr bodies back to flat Expr.
-pub fn tinstrs_to_expr(body : Array[TInstr]) -> Expr {
+/// Convert tree-based TypedInstr bodies back to flat Expr.
+pub fn typed_instrs_to_expr(body : Array[TypedInstr]) -> Expr {
   let instrs : Array[Instruction] = []
   for value in body {
-    tinstr_to_instr(value, instrs)
+    typed_instr_to_instr(value, instrs)
   }
   Expr(instrs)
 }
 
 // ============================================================================
-// TInstr tree -> Expr helpers
+// TypedInstr tree -> Expr helpers
 // ============================================================================
 
 ///|
-fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
-  match tinstr.kind {
+fn typed_instr_to_instr(
+  typed_instr : TypedInstr,
+  instrs : Array[Instruction],
+) -> Unit {
+  match typed_instr.kind {
     // === Constants ===
-    TInstrKind::TI32Const(v) => instrs.push(I32Const(v))
-    TInstrKind::TI64Const(v) => instrs.push(I64Const(v))
-    TInstrKind::TF32Const(v) => instrs.push(F32Const(v))
-    TInstrKind::TF64Const(v) => instrs.push(F64Const(v))
-    TInstrKind::TRefNull(rt) => instrs.push(RefNull(rt))
-    TInstrKind::TRefFunc(idx) => instrs.push(RefFunc(idx))
-    TInstrKind::TStringConst(bytes) => instrs.push(StringConst(bytes))
-    TInstrKind::TV128Const(
+    TypedInstrKind::TI32Const(v) => instrs.push(I32Const(v))
+    TypedInstrKind::TI64Const(v) => instrs.push(I64Const(v))
+    TypedInstrKind::TF32Const(v) => instrs.push(F32Const(v))
+    TypedInstrKind::TF64Const(v) => instrs.push(F64Const(v))
+    TypedInstrKind::TRefNull(rt) => instrs.push(RefNull(rt))
+    TypedInstrKind::TRefFunc(idx) => instrs.push(RefFunc(idx))
+    TypedInstrKind::TStringConst(bytes) => instrs.push(StringConst(bytes))
+    TypedInstrKind::TV128Const(
       b0,
       b1,
       b2,
@@ -48,251 +51,251 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
       )
 
     // === Nullary ===
-    TInstrKind::TUnreachable => instrs.push(Unreachable)
-    TInstrKind::TNop => instrs.push(Nop)
-    TInstrKind::TLocalGet(idx) => instrs.push(LocalGet(idx))
-    TInstrKind::TGlobalGet(idx) => instrs.push(GlobalGet(idx))
-    TInstrKind::TMemorySize(idx) => instrs.push(MemorySize(idx))
-    TInstrKind::TTableSize(idx) => instrs.push(TableSize(idx))
+    TypedInstrKind::TUnreachable => instrs.push(Unreachable)
+    TypedInstrKind::TNop => instrs.push(Nop)
+    TypedInstrKind::TLocalGet(idx) => instrs.push(LocalGet(idx))
+    TypedInstrKind::TGlobalGet(idx) => instrs.push(GlobalGet(idx))
+    TypedInstrKind::TMemorySize(idx) => instrs.push(MemorySize(idx))
+    TypedInstrKind::TTableSize(idx) => instrs.push(TableSize(idx))
 
     // === Unary ===
-    TInstrKind::TUnary(op, child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TUnary(op, child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(unary_op_to_instr(op))
     }
-    TInstrKind::TDrop(child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TDrop(child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(Drop)
     }
-    TInstrKind::TLocalSet(idx, child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TLocalSet(idx, child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(LocalSet(idx))
     }
-    TInstrKind::TLocalTee(idx, child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TLocalTee(idx, child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(LocalTee(idx))
     }
-    TInstrKind::TGlobalSet(idx, child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TGlobalSet(idx, child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(GlobalSet(idx))
     }
-    TInstrKind::TRefIsNull(child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TRefIsNull(child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(RefIsNull)
     }
-    TInstrKind::TRefAsNonNull(child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TRefAsNonNull(child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(RefAsNonNull)
     }
-    TInstrKind::TI31GetS(child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TI31GetS(child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(I31GetS)
     }
-    TInstrKind::TI31GetU(child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TI31GetU(child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(I31GetU)
     }
-    TInstrKind::TRefI31(child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TRefI31(child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(RefI31)
     }
-    TInstrKind::TArrayLen(child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TArrayLen(child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(ArrayLen)
     }
-    TInstrKind::TAnyConvertExtern(child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TAnyConvertExtern(child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(AnyConvertExtern)
     }
-    TInstrKind::TExternConvertAny(child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TExternConvertAny(child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(ExternConvertAny)
     }
-    TInstrKind::TThrowRef(child) => {
-      tinstr_to_instr(child, instrs)
+    TypedInstrKind::TThrowRef(child) => {
+      typed_instr_to_instr(child, instrs)
       instrs.push(ThrowRef)
     }
 
     // === Binary ===
-    TInstrKind::TBinary(op, lhs, rhs) => {
-      tinstr_to_instr(lhs, instrs)
-      tinstr_to_instr(rhs, instrs)
+    TypedInstrKind::TBinary(op, lhs, rhs) => {
+      typed_instr_to_instr(lhs, instrs)
+      typed_instr_to_instr(rhs, instrs)
       instrs.push(binary_op_to_instr(op))
     }
-    TInstrKind::TRefEq(lhs, rhs) => {
-      tinstr_to_instr(lhs, instrs)
-      tinstr_to_instr(rhs, instrs)
+    TypedInstrKind::TRefEq(lhs, rhs) => {
+      typed_instr_to_instr(lhs, instrs)
+      typed_instr_to_instr(rhs, instrs)
       instrs.push(RefEq)
     }
-    TInstrKind::TStore(op, memarg, addr, value) => {
-      tinstr_to_instr(addr, instrs)
-      tinstr_to_instr(value, instrs)
+    TypedInstrKind::TStore(op, memarg, addr, value) => {
+      typed_instr_to_instr(addr, instrs)
+      typed_instr_to_instr(value, instrs)
       instrs.push(store_op_to_instr(op, memarg))
     }
 
     // === Load ===
-    TInstrKind::TLoad(op, memarg, addr) => {
-      tinstr_to_instr(addr, instrs)
+    TypedInstrKind::TLoad(op, memarg, addr) => {
+      typed_instr_to_instr(addr, instrs)
       instrs.push(load_op_to_instr(op, memarg))
     }
 
     // === Memory operations ===
-    TInstrKind::TMemoryGrow(idx, pages) => {
-      tinstr_to_instr(pages, instrs)
+    TypedInstrKind::TMemoryGrow(idx, pages) => {
+      typed_instr_to_instr(pages, instrs)
       instrs.push(MemoryGrow(idx))
     }
-    TInstrKind::TMemoryFill(idx, dest, val, len) => {
-      tinstr_to_instr(dest, instrs)
-      tinstr_to_instr(val, instrs)
-      tinstr_to_instr(len, instrs)
+    TypedInstrKind::TMemoryFill(idx, dest, val, len) => {
+      typed_instr_to_instr(dest, instrs)
+      typed_instr_to_instr(val, instrs)
+      typed_instr_to_instr(len, instrs)
       instrs.push(MemoryFill(idx))
     }
-    TInstrKind::TMemoryCopy(dst, src, dst_addr, src_addr, len) => {
-      tinstr_to_instr(dst_addr, instrs)
-      tinstr_to_instr(src_addr, instrs)
-      tinstr_to_instr(len, instrs)
+    TypedInstrKind::TMemoryCopy(dst, src, dst_addr, src_addr, len) => {
+      typed_instr_to_instr(dst_addr, instrs)
+      typed_instr_to_instr(src_addr, instrs)
+      typed_instr_to_instr(len, instrs)
       instrs.push(MemoryCopy(dst, src))
     }
-    TInstrKind::TMemoryInit(data_idx, mem_idx, dst, src, len) => {
-      tinstr_to_instr(dst, instrs)
-      tinstr_to_instr(src, instrs)
-      tinstr_to_instr(len, instrs)
+    TypedInstrKind::TMemoryInit(data_idx, mem_idx, dst, src, len) => {
+      typed_instr_to_instr(dst, instrs)
+      typed_instr_to_instr(src, instrs)
+      typed_instr_to_instr(len, instrs)
       instrs.push(MemoryInit(data_idx, mem_idx))
     }
-    TInstrKind::TDataDrop(idx) => instrs.push(DataDrop(idx))
-    TInstrKind::TMemoryAtomicNotify(memarg, addr, count) => {
-      tinstr_to_instr(addr, instrs)
-      tinstr_to_instr(count, instrs)
+    TypedInstrKind::TDataDrop(idx) => instrs.push(DataDrop(idx))
+    TypedInstrKind::TMemoryAtomicNotify(memarg, addr, count) => {
+      typed_instr_to_instr(addr, instrs)
+      typed_instr_to_instr(count, instrs)
       instrs.push(MemoryAtomicNotify(memarg))
     }
-    TInstrKind::TMemoryAtomicWait32(memarg, addr, expected, timeout) => {
-      tinstr_to_instr(addr, instrs)
-      tinstr_to_instr(expected, instrs)
-      tinstr_to_instr(timeout, instrs)
+    TypedInstrKind::TMemoryAtomicWait32(memarg, addr, expected, timeout) => {
+      typed_instr_to_instr(addr, instrs)
+      typed_instr_to_instr(expected, instrs)
+      typed_instr_to_instr(timeout, instrs)
       instrs.push(MemoryAtomicWait32(memarg))
     }
-    TInstrKind::TMemoryAtomicWait64(memarg, addr, expected, timeout) => {
-      tinstr_to_instr(addr, instrs)
-      tinstr_to_instr(expected, instrs)
-      tinstr_to_instr(timeout, instrs)
+    TypedInstrKind::TMemoryAtomicWait64(memarg, addr, expected, timeout) => {
+      typed_instr_to_instr(addr, instrs)
+      typed_instr_to_instr(expected, instrs)
+      typed_instr_to_instr(timeout, instrs)
       instrs.push(MemoryAtomicWait64(memarg))
     }
-    TInstrKind::TAtomicFence => instrs.push(AtomicFence)
-    TInstrKind::TAtomicRmw(op, memarg, addr, value) => {
-      tinstr_to_instr(addr, instrs)
-      tinstr_to_instr(value, instrs)
+    TypedInstrKind::TAtomicFence => instrs.push(AtomicFence)
+    TypedInstrKind::TAtomicRmw(op, memarg, addr, value) => {
+      typed_instr_to_instr(addr, instrs)
+      typed_instr_to_instr(value, instrs)
       instrs.push(AtomicRmw(op, memarg))
     }
-    TInstrKind::TAtomicCmpxchg(op, memarg, addr, expected, replacement) => {
-      tinstr_to_instr(addr, instrs)
-      tinstr_to_instr(expected, instrs)
-      tinstr_to_instr(replacement, instrs)
+    TypedInstrKind::TAtomicCmpxchg(op, memarg, addr, expected, replacement) => {
+      typed_instr_to_instr(addr, instrs)
+      typed_instr_to_instr(expected, instrs)
+      typed_instr_to_instr(replacement, instrs)
       instrs.push(AtomicCmpxchg(op, memarg))
     }
 
     // === Table operations ===
-    TInstrKind::TTableGet(idx, i) => {
-      tinstr_to_instr(i, instrs)
+    TypedInstrKind::TTableGet(idx, i) => {
+      typed_instr_to_instr(i, instrs)
       instrs.push(TableGet(idx))
     }
-    TInstrKind::TTableSet(idx, i, val) => {
-      tinstr_to_instr(i, instrs)
-      tinstr_to_instr(val, instrs)
+    TypedInstrKind::TTableSet(idx, i, val) => {
+      typed_instr_to_instr(i, instrs)
+      typed_instr_to_instr(val, instrs)
       instrs.push(TableSet(idx))
     }
-    TInstrKind::TTableGrow(idx, val, n) => {
-      tinstr_to_instr(val, instrs)
-      tinstr_to_instr(n, instrs)
+    TypedInstrKind::TTableGrow(idx, val, n) => {
+      typed_instr_to_instr(val, instrs)
+      typed_instr_to_instr(n, instrs)
       instrs.push(TableGrow(idx))
     }
-    TInstrKind::TTableFill(idx, i, val, n) => {
-      tinstr_to_instr(i, instrs)
-      tinstr_to_instr(val, instrs)
-      tinstr_to_instr(n, instrs)
+    TypedInstrKind::TTableFill(idx, i, val, n) => {
+      typed_instr_to_instr(i, instrs)
+      typed_instr_to_instr(val, instrs)
+      typed_instr_to_instr(n, instrs)
       instrs.push(TableFill(idx))
     }
-    TInstrKind::TTableCopy(dst, src, d, s, n) => {
-      tinstr_to_instr(d, instrs)
-      tinstr_to_instr(s, instrs)
-      tinstr_to_instr(n, instrs)
+    TypedInstrKind::TTableCopy(dst, src, d, s, n) => {
+      typed_instr_to_instr(d, instrs)
+      typed_instr_to_instr(s, instrs)
+      typed_instr_to_instr(n, instrs)
       instrs.push(TableCopy(dst, src))
     }
-    TInstrKind::TTableInit(elem_idx, table_idx, d, s, n) => {
-      tinstr_to_instr(d, instrs)
-      tinstr_to_instr(s, instrs)
-      tinstr_to_instr(n, instrs)
+    TypedInstrKind::TTableInit(elem_idx, table_idx, d, s, n) => {
+      typed_instr_to_instr(d, instrs)
+      typed_instr_to_instr(s, instrs)
+      typed_instr_to_instr(n, instrs)
       instrs.push(TableInit(elem_idx, table_idx))
     }
-    TInstrKind::TElemDrop(idx) => instrs.push(ElemDrop(idx))
+    TypedInstrKind::TElemDrop(idx) => instrs.push(ElemDrop(idx))
 
     // === Calls ===
-    TInstrKind::TCall(func_idx, args) => {
+    TypedInstrKind::TCall(func_idx, args) => {
       for arg in args {
-        tinstr_to_instr(arg, instrs)
+        typed_instr_to_instr(arg, instrs)
       }
       instrs.push(Call(func_idx))
     }
-    TInstrKind::TCallIndirect(type_idx, table_idx, args, idx) => {
+    TypedInstrKind::TCallIndirect(type_idx, table_idx, args, idx) => {
       for arg in args {
-        tinstr_to_instr(arg, instrs)
+        typed_instr_to_instr(arg, instrs)
       }
-      tinstr_to_instr(idx, instrs)
+      typed_instr_to_instr(idx, instrs)
       instrs.push(CallIndirect(type_idx, table_idx))
     }
-    TInstrKind::TCallRef(type_idx, args, ref_) => {
+    TypedInstrKind::TCallRef(type_idx, args, ref_) => {
       for arg in args {
-        tinstr_to_instr(arg, instrs)
+        typed_instr_to_instr(arg, instrs)
       }
-      tinstr_to_instr(ref_, instrs)
+      typed_instr_to_instr(ref_, instrs)
       instrs.push(CallRef(type_idx))
     }
-    TInstrKind::TReturnCall(func_idx, args) => {
+    TypedInstrKind::TReturnCall(func_idx, args) => {
       for arg in args {
-        tinstr_to_instr(arg, instrs)
+        typed_instr_to_instr(arg, instrs)
       }
       instrs.push(ReturnCall(func_idx))
     }
-    TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, idx) => {
+    TypedInstrKind::TReturnCallIndirect(type_idx, table_idx, args, idx) => {
       for arg in args {
-        tinstr_to_instr(arg, instrs)
+        typed_instr_to_instr(arg, instrs)
       }
-      tinstr_to_instr(idx, instrs)
+      typed_instr_to_instr(idx, instrs)
       instrs.push(ReturnCallIndirect(type_idx, table_idx))
     }
-    TInstrKind::TReturnCallRef(type_idx, args, ref_) => {
+    TypedInstrKind::TReturnCallRef(type_idx, args, ref_) => {
       for arg in args {
-        tinstr_to_instr(arg, instrs)
+        typed_instr_to_instr(arg, instrs)
       }
-      tinstr_to_instr(ref_, instrs)
+      typed_instr_to_instr(ref_, instrs)
       instrs.push(ReturnCallRef(type_idx))
     }
 
     // === Control flow ===
-    TInstrKind::TBlock(bt, body) => {
+    TypedInstrKind::TBlock(bt, body) => {
       let body_instrs : Array[Instruction] = []
       for value in body {
-        tinstr_to_instr(value, body_instrs)
+        typed_instr_to_instr(value, body_instrs)
       }
       instrs.push(Block(bt, Expr(body_instrs)))
     }
-    TInstrKind::TLoop(bt, body) => {
+    TypedInstrKind::TLoop(bt, body) => {
       let body_instrs : Array[Instruction] = []
       for value in body {
-        tinstr_to_instr(value, body_instrs)
+        typed_instr_to_instr(value, body_instrs)
       }
       instrs.push(Loop(bt, Expr(body_instrs)))
     }
-    TInstrKind::TIf(bt, cond, then_branch, else_branch) => {
-      tinstr_to_instr(cond, instrs)
+    TypedInstrKind::TIf(bt, cond, then_branch, else_branch) => {
+      typed_instr_to_instr(cond, instrs)
       let then_instrs : Array[Instruction] = []
       for value in then_branch {
-        tinstr_to_instr(value, then_instrs)
+        typed_instr_to_instr(value, then_instrs)
       }
       let else_instrs : Array[Instruction]? = match else_branch {
         Some(else_body) => {
           let els : Array[Instruction] = []
           for value in else_body {
-            tinstr_to_instr(value, els)
+            typed_instr_to_instr(value, els)
           }
           Some(els)
         }
@@ -300,227 +303,227 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
       }
       instrs.push(If(bt, then_instrs, else_instrs))
     }
-    TInstrKind::TTryTable(bt, catches, body) => {
+    TypedInstrKind::TTryTable(bt, catches, body) => {
       let body_instrs : Array[Instruction] = []
       for value in body {
-        tinstr_to_instr(value, body_instrs)
+        typed_instr_to_instr(value, body_instrs)
       }
       instrs.push(TryTable(bt, catches, Expr(body_instrs)))
     }
-    TInstrKind::TThrow(tag_idx, args) => {
+    TypedInstrKind::TThrow(tag_idx, args) => {
       for arg in args {
-        tinstr_to_instr(arg, instrs)
+        typed_instr_to_instr(arg, instrs)
       }
       instrs.push(Throw(tag_idx))
     }
 
     // === Branches ===
-    TInstrKind::TBr(label, values) => {
+    TypedInstrKind::TBr(label, values) => {
       for value in values {
-        tinstr_to_instr(value, instrs)
+        typed_instr_to_instr(value, instrs)
       }
       instrs.push(Br(label))
     }
-    TInstrKind::TBrIf(label, cond, values) => {
+    TypedInstrKind::TBrIf(label, cond, values) => {
       for value in values {
-        tinstr_to_instr(value, instrs)
+        typed_instr_to_instr(value, instrs)
       }
-      tinstr_to_instr(cond, instrs)
+      typed_instr_to_instr(cond, instrs)
       instrs.push(BrIf(label))
     }
-    TInstrKind::TBrTable(labels, default, idx, values) => {
+    TypedInstrKind::TBrTable(labels, default, idx, values) => {
       for value in values {
-        tinstr_to_instr(value, instrs)
+        typed_instr_to_instr(value, instrs)
       }
-      tinstr_to_instr(idx, instrs)
+      typed_instr_to_instr(idx, instrs)
       instrs.push(BrTable(labels, default))
     }
-    TInstrKind::TBrOnNull(label, ref_, values) => {
+    TypedInstrKind::TBrOnNull(label, ref_, values) => {
       for value in values {
-        tinstr_to_instr(value, instrs)
+        typed_instr_to_instr(value, instrs)
       }
-      tinstr_to_instr(ref_, instrs)
+      typed_instr_to_instr(ref_, instrs)
       instrs.push(BrOnNull(label))
     }
-    TInstrKind::TBrOnNonNull(label, ref_, values) => {
+    TypedInstrKind::TBrOnNonNull(label, ref_, values) => {
       for value in values {
-        tinstr_to_instr(value, instrs)
+        typed_instr_to_instr(value, instrs)
       }
-      tinstr_to_instr(ref_, instrs)
+      typed_instr_to_instr(ref_, instrs)
       instrs.push(BrOnNonNull(label))
     }
-    TInstrKind::TBrOnCast(label, castop, ht1, ht2, ref_, values) => {
+    TypedInstrKind::TBrOnCast(label, castop, ht1, ht2, ref_, values) => {
       for value in values {
-        tinstr_to_instr(value, instrs)
+        typed_instr_to_instr(value, instrs)
       }
-      tinstr_to_instr(ref_, instrs)
+      typed_instr_to_instr(ref_, instrs)
       instrs.push(BrOnCast(label, castop, ht1, ht2))
     }
-    TInstrKind::TBrOnCastFail(label, castop, ht1, ht2, ref_, values) => {
+    TypedInstrKind::TBrOnCastFail(label, castop, ht1, ht2, ref_, values) => {
       for value in values {
-        tinstr_to_instr(value, instrs)
+        typed_instr_to_instr(value, instrs)
       }
-      tinstr_to_instr(ref_, instrs)
+      typed_instr_to_instr(ref_, instrs)
       instrs.push(BrOnCastFail(label, castop, ht1, ht2))
     }
-    TInstrKind::TReturn(values) => {
+    TypedInstrKind::TReturn(values) => {
       for value in values {
-        tinstr_to_instr(value, instrs)
+        typed_instr_to_instr(value, instrs)
       }
       instrs.push(Return)
     }
     // === Select ===
-    TInstrKind::TSelect(types, cond, val1, val2) => {
-      tinstr_to_instr(val1, instrs)
-      tinstr_to_instr(val2, instrs)
-      tinstr_to_instr(cond, instrs)
+    TypedInstrKind::TSelect(types, cond, val1, val2) => {
+      typed_instr_to_instr(val1, instrs)
+      typed_instr_to_instr(val2, instrs)
+      typed_instr_to_instr(cond, instrs)
       instrs.push(Select(types))
     }
 
     // === Strings ===
-    TInstrKind::TStringNewUtf8Array(array, start, end_) => {
-      tinstr_to_instr(array, instrs)
-      tinstr_to_instr(start, instrs)
-      tinstr_to_instr(end_, instrs)
+    TypedInstrKind::TStringNewUtf8Array(array, start, end_) => {
+      typed_instr_to_instr(array, instrs)
+      typed_instr_to_instr(start, instrs)
+      typed_instr_to_instr(end_, instrs)
       instrs.push(StringNewUtf8Array)
     }
-    TInstrKind::TStringNewWtf16Array(array, start, end_) => {
-      tinstr_to_instr(array, instrs)
-      tinstr_to_instr(start, instrs)
-      tinstr_to_instr(end_, instrs)
+    TypedInstrKind::TStringNewWtf16Array(array, start, end_) => {
+      typed_instr_to_instr(array, instrs)
+      typed_instr_to_instr(start, instrs)
+      typed_instr_to_instr(end_, instrs)
       instrs.push(StringNewWtf16Array)
     }
-    TInstrKind::TStringEncodeUtf8Array(string, array, start) => {
-      tinstr_to_instr(string, instrs)
-      tinstr_to_instr(array, instrs)
-      tinstr_to_instr(start, instrs)
+    TypedInstrKind::TStringEncodeUtf8Array(string, array, start) => {
+      typed_instr_to_instr(string, instrs)
+      typed_instr_to_instr(array, instrs)
+      typed_instr_to_instr(start, instrs)
       instrs.push(StringEncodeUtf8Array)
     }
-    TInstrKind::TStringEncodeWtf16Array(string, array, start) => {
-      tinstr_to_instr(string, instrs)
-      tinstr_to_instr(array, instrs)
-      tinstr_to_instr(start, instrs)
+    TypedInstrKind::TStringEncodeWtf16Array(string, array, start) => {
+      typed_instr_to_instr(string, instrs)
+      typed_instr_to_instr(array, instrs)
+      typed_instr_to_instr(start, instrs)
       instrs.push(StringEncodeWtf16Array)
     }
-    TInstrKind::TStringNewLossyUtf8Array(array, start, end_) => {
-      tinstr_to_instr(array, instrs)
-      tinstr_to_instr(start, instrs)
-      tinstr_to_instr(end_, instrs)
+    TypedInstrKind::TStringNewLossyUtf8Array(array, start, end_) => {
+      typed_instr_to_instr(array, instrs)
+      typed_instr_to_instr(start, instrs)
+      typed_instr_to_instr(end_, instrs)
       instrs.push(StringNewLossyUtf8Array)
     }
-    TInstrKind::TStringNewWtf8Array(array, start, end_) => {
-      tinstr_to_instr(array, instrs)
-      tinstr_to_instr(start, instrs)
-      tinstr_to_instr(end_, instrs)
+    TypedInstrKind::TStringNewWtf8Array(array, start, end_) => {
+      typed_instr_to_instr(array, instrs)
+      typed_instr_to_instr(start, instrs)
+      typed_instr_to_instr(end_, instrs)
       instrs.push(StringNewWtf8Array)
     }
-    TInstrKind::TStringEncodeLossyUtf8Array(string, array, start) => {
-      tinstr_to_instr(string, instrs)
-      tinstr_to_instr(array, instrs)
-      tinstr_to_instr(start, instrs)
+    TypedInstrKind::TStringEncodeLossyUtf8Array(string, array, start) => {
+      typed_instr_to_instr(string, instrs)
+      typed_instr_to_instr(array, instrs)
+      typed_instr_to_instr(start, instrs)
       instrs.push(StringEncodeLossyUtf8Array)
     }
-    TInstrKind::TStringEncodeWtf8Array(string, array, start) => {
-      tinstr_to_instr(string, instrs)
-      tinstr_to_instr(array, instrs)
-      tinstr_to_instr(start, instrs)
+    TypedInstrKind::TStringEncodeWtf8Array(string, array, start) => {
+      typed_instr_to_instr(string, instrs)
+      typed_instr_to_instr(array, instrs)
+      typed_instr_to_instr(start, instrs)
       instrs.push(StringEncodeWtf8Array)
     }
 
     // === GC: Structs ===
-    TInstrKind::TStructNew(type_idx, fields) => {
+    TypedInstrKind::TStructNew(type_idx, fields) => {
       for field in fields {
-        tinstr_to_instr(field, instrs)
+        typed_instr_to_instr(field, instrs)
       }
       instrs.push(StructNew(type_idx))
     }
-    TInstrKind::TStructNewDefault(type_idx) =>
+    TypedInstrKind::TStructNewDefault(type_idx) =>
       instrs.push(StructNewDefault(type_idx))
-    TInstrKind::TStructNewDesc(type_idx, fields) => {
+    TypedInstrKind::TStructNewDesc(type_idx, fields) => {
       for field in fields {
-        tinstr_to_instr(field, instrs)
+        typed_instr_to_instr(field, instrs)
       }
       instrs.push(StructNewDesc(type_idx))
     }
-    TInstrKind::TStructNewDefaultDesc(type_idx, descriptor) => {
-      tinstr_to_instr(descriptor, instrs)
+    TypedInstrKind::TStructNewDefaultDesc(type_idx, descriptor) => {
+      typed_instr_to_instr(descriptor, instrs)
       instrs.push(StructNewDefaultDesc(type_idx))
     }
-    TInstrKind::TStructGet(type_idx, field_idx, struct_ref) => {
-      tinstr_to_instr(struct_ref, instrs)
+    TypedInstrKind::TStructGet(type_idx, field_idx, struct_ref) => {
+      typed_instr_to_instr(struct_ref, instrs)
       instrs.push(StructGet(type_idx, field_idx))
     }
-    TInstrKind::TStructGetS(type_idx, field_idx, struct_ref) => {
-      tinstr_to_instr(struct_ref, instrs)
+    TypedInstrKind::TStructGetS(type_idx, field_idx, struct_ref) => {
+      typed_instr_to_instr(struct_ref, instrs)
       instrs.push(StructGetS(type_idx, field_idx))
     }
-    TInstrKind::TStructGetU(type_idx, field_idx, struct_ref) => {
-      tinstr_to_instr(struct_ref, instrs)
+    TypedInstrKind::TStructGetU(type_idx, field_idx, struct_ref) => {
+      typed_instr_to_instr(struct_ref, instrs)
       instrs.push(StructGetU(type_idx, field_idx))
     }
-    TInstrKind::TStructSet(type_idx, field_idx, struct_ref, val) => {
-      tinstr_to_instr(struct_ref, instrs)
-      tinstr_to_instr(val, instrs)
+    TypedInstrKind::TStructSet(type_idx, field_idx, struct_ref, val) => {
+      typed_instr_to_instr(struct_ref, instrs)
+      typed_instr_to_instr(val, instrs)
       instrs.push(StructSet(type_idx, field_idx))
     }
 
     // === GC: Arrays ===
-    TInstrKind::TArrayNew(type_idx, init, len) => {
-      tinstr_to_instr(init, instrs)
-      tinstr_to_instr(len, instrs)
+    TypedInstrKind::TArrayNew(type_idx, init, len) => {
+      typed_instr_to_instr(init, instrs)
+      typed_instr_to_instr(len, instrs)
       instrs.push(ArrayNew(type_idx))
     }
-    TInstrKind::TArrayNewDefault(type_idx, len) => {
-      tinstr_to_instr(len, instrs)
+    TypedInstrKind::TArrayNewDefault(type_idx, len) => {
+      typed_instr_to_instr(len, instrs)
       instrs.push(ArrayNewDefault(type_idx))
     }
-    TInstrKind::TArrayNewFixed(type_idx, elems) => {
+    TypedInstrKind::TArrayNewFixed(type_idx, elems) => {
       for elem in elems {
-        tinstr_to_instr(elem, instrs)
+        typed_instr_to_instr(elem, instrs)
       }
       instrs.push(
         ArrayNewFixed(type_idx, U32(elems.length().reinterpret_as_uint())),
       )
     }
-    TInstrKind::TArrayNewData(type_idx, data_idx, offset, len) => {
-      tinstr_to_instr(offset, instrs)
-      tinstr_to_instr(len, instrs)
+    TypedInstrKind::TArrayNewData(type_idx, data_idx, offset, len) => {
+      typed_instr_to_instr(offset, instrs)
+      typed_instr_to_instr(len, instrs)
       instrs.push(ArrayNewData(type_idx, data_idx))
     }
-    TInstrKind::TArrayNewElem(type_idx, elem_idx, offset, len) => {
-      tinstr_to_instr(offset, instrs)
-      tinstr_to_instr(len, instrs)
+    TypedInstrKind::TArrayNewElem(type_idx, elem_idx, offset, len) => {
+      typed_instr_to_instr(offset, instrs)
+      typed_instr_to_instr(len, instrs)
       instrs.push(ArrayNewElem(type_idx, elem_idx))
     }
-    TInstrKind::TArrayGet(type_idx, arr, idx) => {
-      tinstr_to_instr(arr, instrs)
-      tinstr_to_instr(idx, instrs)
+    TypedInstrKind::TArrayGet(type_idx, arr, idx) => {
+      typed_instr_to_instr(arr, instrs)
+      typed_instr_to_instr(idx, instrs)
       instrs.push(ArrayGet(type_idx))
     }
-    TInstrKind::TArrayGetS(type_idx, arr, idx) => {
-      tinstr_to_instr(arr, instrs)
-      tinstr_to_instr(idx, instrs)
+    TypedInstrKind::TArrayGetS(type_idx, arr, idx) => {
+      typed_instr_to_instr(arr, instrs)
+      typed_instr_to_instr(idx, instrs)
       instrs.push(ArrayGetS(type_idx))
     }
-    TInstrKind::TArrayGetU(type_idx, arr, idx) => {
-      tinstr_to_instr(arr, instrs)
-      tinstr_to_instr(idx, instrs)
+    TypedInstrKind::TArrayGetU(type_idx, arr, idx) => {
+      typed_instr_to_instr(arr, instrs)
+      typed_instr_to_instr(idx, instrs)
       instrs.push(ArrayGetU(type_idx))
     }
-    TInstrKind::TArraySet(type_idx, arr, idx, val) => {
-      tinstr_to_instr(arr, instrs)
-      tinstr_to_instr(idx, instrs)
-      tinstr_to_instr(val, instrs)
+    TypedInstrKind::TArraySet(type_idx, arr, idx, val) => {
+      typed_instr_to_instr(arr, instrs)
+      typed_instr_to_instr(idx, instrs)
+      typed_instr_to_instr(val, instrs)
       instrs.push(ArraySet(type_idx))
     }
-    TInstrKind::TArrayFill(type_idx, arr, offset, val, len) => {
-      tinstr_to_instr(arr, instrs)
-      tinstr_to_instr(offset, instrs)
-      tinstr_to_instr(val, instrs)
-      tinstr_to_instr(len, instrs)
+    TypedInstrKind::TArrayFill(type_idx, arr, offset, val, len) => {
+      typed_instr_to_instr(arr, instrs)
+      typed_instr_to_instr(offset, instrs)
+      typed_instr_to_instr(val, instrs)
+      typed_instr_to_instr(len, instrs)
       instrs.push(ArrayFill(type_idx))
     }
-    TInstrKind::TArrayCopy(
+    TypedInstrKind::TArrayCopy(
       dst_type,
       src_type,
       dst,
@@ -529,91 +532,91 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
       src_offset,
       len
     ) => {
-      tinstr_to_instr(dst, instrs)
-      tinstr_to_instr(dst_offset, instrs)
-      tinstr_to_instr(src, instrs)
-      tinstr_to_instr(src_offset, instrs)
-      tinstr_to_instr(len, instrs)
+      typed_instr_to_instr(dst, instrs)
+      typed_instr_to_instr(dst_offset, instrs)
+      typed_instr_to_instr(src, instrs)
+      typed_instr_to_instr(src_offset, instrs)
+      typed_instr_to_instr(len, instrs)
       instrs.push(ArrayCopy(dst_type, src_type))
     }
-    TInstrKind::TArrayInitData(type_idx, data_idx, arr, dst, src, len) => {
-      tinstr_to_instr(arr, instrs)
-      tinstr_to_instr(dst, instrs)
-      tinstr_to_instr(src, instrs)
-      tinstr_to_instr(len, instrs)
+    TypedInstrKind::TArrayInitData(type_idx, data_idx, arr, dst, src, len) => {
+      typed_instr_to_instr(arr, instrs)
+      typed_instr_to_instr(dst, instrs)
+      typed_instr_to_instr(src, instrs)
+      typed_instr_to_instr(len, instrs)
       instrs.push(ArrayInitData(type_idx, data_idx))
     }
-    TInstrKind::TArrayInitElem(type_idx, elem_idx, arr, dst, src, len) => {
-      tinstr_to_instr(arr, instrs)
-      tinstr_to_instr(dst, instrs)
-      tinstr_to_instr(src, instrs)
-      tinstr_to_instr(len, instrs)
+    TypedInstrKind::TArrayInitElem(type_idx, elem_idx, arr, dst, src, len) => {
+      typed_instr_to_instr(arr, instrs)
+      typed_instr_to_instr(dst, instrs)
+      typed_instr_to_instr(src, instrs)
+      typed_instr_to_instr(len, instrs)
       instrs.push(ArrayInitElem(type_idx, elem_idx))
     }
 
     // === GC: Casts ===
-    TInstrKind::TRefGetDesc(type_idx, ref_) => {
-      tinstr_to_instr(ref_, instrs)
+    TypedInstrKind::TRefGetDesc(type_idx, ref_) => {
+      typed_instr_to_instr(ref_, instrs)
       instrs.push(RefGetDesc(type_idx))
     }
-    TInstrKind::TRefTest(nullable, ht, ref_) => {
-      tinstr_to_instr(ref_, instrs)
+    TypedInstrKind::TRefTest(nullable, ht, ref_) => {
+      typed_instr_to_instr(ref_, instrs)
       instrs.push(RefTest(nullable, ht))
     }
-    TInstrKind::TRefCast(nullable, ht, ref_) => {
-      tinstr_to_instr(ref_, instrs)
+    TypedInstrKind::TRefCast(nullable, ht, ref_) => {
+      typed_instr_to_instr(ref_, instrs)
       instrs.push(RefCast(nullable, ht))
     }
-    TInstrKind::TRefTestDesc(nullable, ht, ref_) => {
-      tinstr_to_instr(ref_, instrs)
+    TypedInstrKind::TRefTestDesc(nullable, ht, ref_) => {
+      typed_instr_to_instr(ref_, instrs)
       instrs.push(RefTestDesc(nullable, ht))
     }
-    TInstrKind::TRefCastDescEq(nullable, ht, ref_) => {
-      tinstr_to_instr(ref_, instrs)
+    TypedInstrKind::TRefCastDescEq(nullable, ht, ref_) => {
+      typed_instr_to_instr(ref_, instrs)
       instrs.push(RefCastDescEq(nullable, ht))
     }
 
     // === SIMD: Splat ===
-    TInstrKind::TI8x16Splat(val) => {
-      tinstr_to_instr(val, instrs)
+    TypedInstrKind::TI8x16Splat(val) => {
+      typed_instr_to_instr(val, instrs)
       instrs.push(I8x16Splat)
     }
-    TInstrKind::TI16x8Splat(val) => {
-      tinstr_to_instr(val, instrs)
+    TypedInstrKind::TI16x8Splat(val) => {
+      typed_instr_to_instr(val, instrs)
       instrs.push(I16x8Splat)
     }
-    TInstrKind::TI32x4Splat(val) => {
-      tinstr_to_instr(val, instrs)
+    TypedInstrKind::TI32x4Splat(val) => {
+      typed_instr_to_instr(val, instrs)
       instrs.push(I32x4Splat)
     }
-    TInstrKind::TI64x2Splat(val) => {
-      tinstr_to_instr(val, instrs)
+    TypedInstrKind::TI64x2Splat(val) => {
+      typed_instr_to_instr(val, instrs)
       instrs.push(I64x2Splat)
     }
-    TInstrKind::TF32x4Splat(val) => {
-      tinstr_to_instr(val, instrs)
+    TypedInstrKind::TF32x4Splat(val) => {
+      typed_instr_to_instr(val, instrs)
       instrs.push(F32x4Splat)
     }
-    TInstrKind::TF64x2Splat(val) => {
-      tinstr_to_instr(val, instrs)
+    TypedInstrKind::TF64x2Splat(val) => {
+      typed_instr_to_instr(val, instrs)
       instrs.push(F64x2Splat)
     }
 
     // === SIMD: Extract lane ===
-    TInstrKind::TExtractLane(op, lane, vec) => {
-      tinstr_to_instr(vec, instrs)
+    TypedInstrKind::TExtractLane(op, lane, vec) => {
+      typed_instr_to_instr(vec, instrs)
       instrs.push(extract_lane_op_to_instr(op, lane))
     }
 
     // === SIMD: Replace lane ===
-    TInstrKind::TReplaceLane(op, lane, vec, val) => {
-      tinstr_to_instr(vec, instrs)
-      tinstr_to_instr(val, instrs)
+    TypedInstrKind::TReplaceLane(op, lane, vec, val) => {
+      typed_instr_to_instr(vec, instrs)
+      typed_instr_to_instr(val, instrs)
       instrs.push(replace_lane_op_to_instr(op, lane))
     }
 
     // === SIMD: Shuffle ===
-    TInstrKind::TI8x16Shuffle(
+    TypedInstrKind::TI8x16Shuffle(
       l0,
       l1,
       l2,
@@ -633,8 +636,8 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
       v1,
       v2
     ) => {
-      tinstr_to_instr(v1, instrs)
-      tinstr_to_instr(v2, instrs)
+      typed_instr_to_instr(v1, instrs)
+      typed_instr_to_instr(v2, instrs)
       instrs.push(
         I8x16Shuffle(
           l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15,
@@ -643,43 +646,43 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
 
     // === SIMD: Swizzle ===
-    TInstrKind::TI8x16Swizzle(vec, indices) => {
-      tinstr_to_instr(vec, instrs)
-      tinstr_to_instr(indices, instrs)
+    TypedInstrKind::TI8x16Swizzle(vec, indices) => {
+      typed_instr_to_instr(vec, instrs)
+      typed_instr_to_instr(indices, instrs)
       instrs.push(I8x16Swizzle)
     }
-    TInstrKind::TI8x16RelaxedSwizzle(vec, indices) => {
-      tinstr_to_instr(vec, instrs)
-      tinstr_to_instr(indices, instrs)
+    TypedInstrKind::TI8x16RelaxedSwizzle(vec, indices) => {
+      typed_instr_to_instr(vec, instrs)
+      typed_instr_to_instr(indices, instrs)
       instrs.push(I8x16RelaxedSwizzle)
     }
 
     // === SIMD: Shift ===
-    TInstrKind::TV128Shift(op, vec, shift) => {
-      tinstr_to_instr(vec, instrs)
-      tinstr_to_instr(shift, instrs)
+    TypedInstrKind::TV128Shift(op, vec, shift) => {
+      typed_instr_to_instr(vec, instrs)
+      typed_instr_to_instr(shift, instrs)
       instrs.push(v128_shift_op_to_instr(op))
     }
 
     // === SIMD: Ternary ===
-    TInstrKind::TV128Ternary(op, v1, v2, v3) => {
-      tinstr_to_instr(v1, instrs)
-      tinstr_to_instr(v2, instrs)
-      tinstr_to_instr(v3, instrs)
+    TypedInstrKind::TV128Ternary(op, v1, v2, v3) => {
+      typed_instr_to_instr(v1, instrs)
+      typed_instr_to_instr(v2, instrs)
+      typed_instr_to_instr(v3, instrs)
       instrs.push(v128_ternary_op_to_instr(op))
     }
 
     // === SIMD: Lane load ===
-    TInstrKind::TV128LoadLane(op, memarg, lane, addr, vec) => {
-      tinstr_to_instr(addr, instrs)
-      tinstr_to_instr(vec, instrs)
+    TypedInstrKind::TV128LoadLane(op, memarg, lane, addr, vec) => {
+      typed_instr_to_instr(addr, instrs)
+      typed_instr_to_instr(vec, instrs)
       instrs.push(v128_load_lane_op_to_instr(op, memarg, lane))
     }
 
     // === SIMD: Lane store ===
-    TInstrKind::TV128StoreLane(op, memarg, lane, addr, vec) => {
-      tinstr_to_instr(addr, instrs)
-      tinstr_to_instr(vec, instrs)
+    TypedInstrKind::TV128StoreLane(op, memarg, lane, addr, vec) => {
+      typed_instr_to_instr(addr, instrs)
+      typed_instr_to_instr(vec, instrs)
       instrs.push(v128_store_lane_op_to_instr(op, memarg, lane))
     }
   }

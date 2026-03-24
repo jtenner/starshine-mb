@@ -12,7 +12,7 @@ Status: landed.
 
 ## Current Behavior
 - Raw IR now models `string.const` as `Instruction::StringConst(Bytes)`.
-- Typed IR now models `string.const` as `TInstrKind::TStringConst(Bytes)`.
+- Typed IR now models `string.const` as `TypedInstrKind::TStringConst(Bytes)`.
 - Higher-level WAST accepts and prints `string.const "..."` using the existing byte-quote helpers.
 - Module binary encode now emits a section `14` string table before the globals section and encodes `string.const` as `0xFB 0x82 <idx>`.
 - Module binary decode resolves those indices back to literal bytes before validation and later passes see the module.

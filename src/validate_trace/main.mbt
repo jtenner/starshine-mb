@@ -133,10 +133,10 @@ fn validate_trace_trim_program_name(argv : Array[String]) -> Array[String] {
 ///|
 fn validate_trace_deep_control_module() -> @lib.Module {
   let depth = 24
-  let mut body = [@lib.TInstr::local_get(@lib.LocalIdx::new(0))]
+  let mut body = [@lib.TypedInstr::local_get(@lib.LocalIdx::new(0))]
   for _ in 0..<depth {
     body = [
-      @lib.TInstr::block(
+      @lib.TypedInstr::block(
         @lib.BlockType::val_type(@lib.ValType::i32()),
         body,
       ),
@@ -154,7 +154,7 @@ fn validate_trace_deep_control_module() -> @lib.Module {
     @lib.CodeSec::new([
       @lib.Func::new(
         @lib.Locals::from_types([]),
-        @lib.tinstrs_to_expr(body),
+        @lib.typed_instrs_to_expr(body),
       ),
     ]),
   )
@@ -167,19 +167,19 @@ fn validate_trace_wide_locals_module() -> @lib.Module {
   for _ in 0..<local_count {
     locals.push(@lib.ValType::i32())
   }
-  let body_instrs : Array[@lib.TInstr] = []
+  let body_instrs : Array[@lib.TypedInstr] = []
   for i = 0; i < local_count; i = i + 1 {
     body_instrs.push(
-      @lib.TInstr::local_set(
+      @lib.TypedInstr::local_set(
         @lib.LocalIdx::new(i.reinterpret_as_uint()),
-        @lib.TInstr::i32_const(@lib.I32(i)),
+        @lib.TypedInstr::i32_const(@lib.I32(i)),
       ),
     )
   }
   for i = 0; i < local_count; i = i + 1 {
     body_instrs.push(
-      @lib.TInstr::drop(
-        @lib.TInstr::local_get(@lib.LocalIdx::new(i.reinterpret_as_uint())),
+      @lib.TypedInstr::drop(
+        @lib.TypedInstr::local_get(@lib.LocalIdx::new(i.reinterpret_as_uint())),
       ),
     )
   }
@@ -191,7 +191,7 @@ fn validate_trace_wide_locals_module() -> @lib.Module {
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
   .with_code_sec(
     @lib.CodeSec::new([
-      @lib.Func::new(locals, @lib.tinstrs_to_expr(body_instrs)),
+      @lib.Func::new(locals, @lib.typed_instrs_to_expr(body_instrs)),
     ]),
   )
 }
@@ -209,9 +209,9 @@ fn validate_trace_large_codesec_module() -> @lib.Module {
     funcs.push(
       @lib.Func::new(
         @lib.Locals::empty(),
-        @lib.tinstrs_to_expr([
-          @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32(i))),
-          @lib.TInstr::drop(@lib.TInstr::i32_const(@lib.I32(i + 1))),
+        @lib.typed_instrs_to_expr([
+          @lib.TypedInstr::drop(@lib.TypedInstr::i32_const(@lib.I32(i))),
+          @lib.TypedInstr::drop(@lib.TypedInstr::i32_const(@lib.I32(i + 1))),
         ]),
       ),
     )
@@ -255,17 +255,17 @@ fn validate_trace_ref_func_heavy_module() -> @lib.Module {
         ),
       )
     }
-    let body_instrs : Array[@lib.TInstr] = []
+    let body_instrs : Array[@lib.TypedInstr] = []
     for j = 0; j < 12; j = j + 1 {
       let target = @lib.FuncIdx::new(
         ((i + j) % func_count).reinterpret_as_uint(),
       )
-      body_instrs.push(@lib.TInstr::drop(@lib.TInstr::ref_func(target)))
+      body_instrs.push(@lib.TypedInstr::drop(@lib.TypedInstr::ref_func(target)))
     }
     funcs.push(
       @lib.Func::new(
         @lib.Locals::from_types([]),
-        @lib.tinstrs_to_expr(body_instrs),
+        @lib.typed_instrs_to_expr(body_instrs),
       ),
     )
   }

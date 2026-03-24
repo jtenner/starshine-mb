@@ -17,10 +17,7 @@ test "pretty_print_defined_func resolves signatures and locals for raw funcs" {
       ),
     ]),
   )
-  let callee = Func::new(
-    Locals::empty(),
-    Expr([I32Const(I32(7))]),
-  )
+  let callee = Func::new(Locals::empty(), Expr([I32Const(I32(7))]))
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
@@ -32,8 +29,8 @@ test "pretty_print_defined_func resolves signatures and locals for raw funcs" {
   assert_true(printed.contains("[0] I32 (param)"))
   assert_true(printed.contains("[1] I32 (local)"))
   assert_true(printed.contains("body_raw:"))
-  assert_true(printed.contains("LocalGet"))
-  assert_true(printed.contains("Call"))
+  assert_true(printed.contains("local.get"))
+  assert_true(printed.contains("call"))
 }
 
 ///|

@@ -88,6 +88,8 @@ pub fn trace_now_ms() -> UInt64
 
 pub fn trace_now_us() -> UInt64
 
+pub fn typed_instrs_to_expr(Array[TypedInstr]) -> Expr
+
 // Errors
 
 // Types and methods
@@ -982,10 +984,8 @@ pub impl @quickcheck.Arbitrary for FieldType
 
 pub enum Func {
   Func(Locals, Expr)
-  TFunc(Array[ValType], Locals, TExpr)
 }
 pub fn Func::new(Locals, Expr) -> Self
-pub fn Func::t_func(Array[ValType], Locals, TExpr) -> Self
 pub impl PrettyPrint for Func
 pub impl Eq for Func
 pub impl Hash for Func
@@ -2780,276 +2780,6 @@ pub impl Show for SubType
 pub impl @debug.Debug for SubType
 pub impl @quickcheck.Arbitrary for SubType
 
-pub struct TExpr {
-  instrs : Array[TInstr]
-  mut hash : Int?
-}
-pub fn TExpr::inner(Self) -> Array[TInstr]
-pub fn TExpr::new(Array[TInstr]) -> Self
-pub fn TExpr::to_expr(Self) -> Expr
-pub impl PrettyPrint for TExpr
-pub impl Eq for TExpr
-pub impl Hash for TExpr
-pub impl Show for TExpr
-pub impl @debug.Debug for TExpr
-
-pub struct TInstr {
-  kind : TInstrKind
-  size : Int
-  mut hash : Int?
-}
-pub fn TInstr::any_convert_extern(Self) -> Self
-pub fn TInstr::array_copy(TypeIdx, TypeIdx, Self, Self, Self, Self, Self) -> Self
-pub fn TInstr::array_fill(TypeIdx, Self, Self, Self, Self) -> Self
-pub fn TInstr::array_get(TypeIdx, Self, Self) -> Self
-pub fn TInstr::array_get_s(TypeIdx, Self, Self) -> Self
-pub fn TInstr::array_get_u(TypeIdx, Self, Self) -> Self
-pub fn TInstr::array_init_data(TypeIdx, DataIdx, Self, Self, Self, Self) -> Self
-pub fn TInstr::array_init_elem(TypeIdx, ElemIdx, Self, Self, Self, Self) -> Self
-pub fn TInstr::array_len(Self) -> Self
-pub fn TInstr::array_new(TypeIdx, Self, Self) -> Self
-pub fn TInstr::array_new_data(TypeIdx, DataIdx, Self, Self) -> Self
-pub fn TInstr::array_new_default(TypeIdx, Self) -> Self
-pub fn TInstr::array_new_elem(TypeIdx, ElemIdx, Self, Self) -> Self
-pub fn TInstr::array_new_fixed(TypeIdx, Array[Self]) -> Self
-pub fn TInstr::array_set(TypeIdx, Self, Self, Self) -> Self
-pub fn TInstr::atomic_cmpxchg(AtomicCmpxchgOp, MemArg, Self, Self, Self) -> Self
-pub fn TInstr::atomic_fence() -> Self
-pub fn TInstr::atomic_rmw(AtomicRmwOp, MemArg, Self, Self) -> Self
-pub fn TInstr::binary(BinaryOp, Self, Self) -> Self
-pub fn TInstr::block(BlockType, TExpr) -> Self
-pub fn TInstr::br(LabelIdx, Array[Self]) -> Self
-pub fn TInstr::br_if(LabelIdx, Self, Array[Self]) -> Self
-pub fn TInstr::br_on_cast(LabelIdx, Bool, HeapType, Bool, HeapType, Self, Array[Self]) -> Self
-pub fn TInstr::br_on_cast_fail(LabelIdx, Bool, HeapType, Bool, HeapType, Self, Array[Self]) -> Self
-pub fn TInstr::br_on_non_null(LabelIdx, Self, Array[Self]) -> Self
-pub fn TInstr::br_on_null(LabelIdx, Self, Array[Self]) -> Self
-pub fn TInstr::br_table(Array[LabelIdx], LabelIdx, Self, Array[Self]) -> Self
-pub fn TInstr::call(FuncIdx, Array[Self]) -> Self
-pub fn TInstr::call_indirect(TypeIdx, TableIdx, Array[Self], Self) -> Self
-pub fn TInstr::call_ref(TypeIdx, Array[Self], Self) -> Self
-pub fn TInstr::data_drop(DataIdx) -> Self
-pub fn TInstr::drop(Self) -> Self
-pub fn TInstr::elem_drop(ElemIdx) -> Self
-pub fn TInstr::extern_convert_any(Self) -> Self
-pub fn TInstr::extract_lane(ExtractLaneOp, LaneIdx, Self) -> Self
-pub fn TInstr::f32_const(F32) -> Self
-pub fn TInstr::f32x4_splat(Self) -> Self
-pub fn TInstr::f64_const(F64) -> Self
-pub fn TInstr::f64x2_splat(Self) -> Self
-pub fn TInstr::global_get(GlobalIdx) -> Self
-pub fn TInstr::global_set(GlobalIdx, Self) -> Self
-pub fn TInstr::i16x8_splat(Self) -> Self
-pub fn TInstr::i31_get_s(Self) -> Self
-pub fn TInstr::i31_get_u(Self) -> Self
-pub fn TInstr::i32_const(I32) -> Self
-pub fn TInstr::i32x4_splat(Self) -> Self
-pub fn TInstr::i64_const(I64) -> Self
-pub fn TInstr::i64x2_splat(Self) -> Self
-pub fn TInstr::i8x16_relaxed_swizzle(Self, Self) -> Self
-pub fn TInstr::i8x16_shuffle(LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, Self, Self) -> Self
-pub fn TInstr::i8x16_splat(Self) -> Self
-pub fn TInstr::i8x16_swizzle(Self, Self) -> Self
-pub fn TInstr::if_(BlockType, Self, TExpr, TExpr?) -> Self
-pub fn TInstr::load(LoadOp, MemArg, Self) -> Self
-pub fn TInstr::local_get(LocalIdx) -> Self
-pub fn TInstr::local_set(LocalIdx, Self) -> Self
-pub fn TInstr::local_tee(LocalIdx, Self) -> Self
-pub fn TInstr::loop_(BlockType, TExpr) -> Self
-pub fn TInstr::memory_atomic_notify(MemArg, Self, Self) -> Self
-pub fn TInstr::memory_atomic_wait32(MemArg, Self, Self, Self) -> Self
-pub fn TInstr::memory_atomic_wait64(MemArg, Self, Self, Self) -> Self
-pub fn TInstr::memory_copy(MemIdx, MemIdx, Self, Self, Self) -> Self
-pub fn TInstr::memory_fill(MemIdx, Self, Self, Self) -> Self
-pub fn TInstr::memory_grow(MemIdx, Self) -> Self
-pub fn TInstr::memory_init(DataIdx, MemIdx, Self, Self, Self) -> Self
-pub fn TInstr::memory_size(MemIdx) -> Self
-pub fn TInstr::nop() -> Self
-pub fn TInstr::ref_as_non_null(Self) -> Self
-pub fn TInstr::ref_cast(Bool, HeapType, Self) -> Self
-pub fn TInstr::ref_cast_desc_eq(Bool, HeapType, Self) -> Self
-pub fn TInstr::ref_eq(Self, Self) -> Self
-pub fn TInstr::ref_func(FuncIdx) -> Self
-pub fn TInstr::ref_get_desc(TypeIdx, Self) -> Self
-pub fn TInstr::ref_i31(Self) -> Self
-pub fn TInstr::ref_is_null(Self) -> Self
-pub fn TInstr::ref_null(HeapType) -> Self
-pub fn TInstr::ref_null_type(RefType) -> Self
-pub fn TInstr::ref_test(Bool, HeapType, Self) -> Self
-pub fn TInstr::ref_test_desc(Bool, HeapType, Self) -> Self
-pub fn TInstr::replace_lane(ReplaceLaneOp, LaneIdx, Self, Self) -> Self
-pub fn TInstr::return_(Array[Self]) -> Self
-pub fn TInstr::return_call(FuncIdx, Array[Self]) -> Self
-pub fn TInstr::return_call_indirect(TypeIdx, TableIdx, Array[Self], Self) -> Self
-pub fn TInstr::return_call_ref(TypeIdx, Array[Self], Self) -> Self
-pub fn TInstr::select(Array[ValType]?, Self, Self, Self) -> Self
-pub fn TInstr::store(StoreOp, MemArg, Self, Self) -> Self
-pub fn TInstr::string_const(Bytes) -> Self
-pub fn TInstr::string_encode_lossy_utf8_array(Self, Self, Self) -> Self
-pub fn TInstr::string_encode_utf8_array(Self, Self, Self) -> Self
-pub fn TInstr::string_encode_wtf16_array(Self, Self, Self) -> Self
-pub fn TInstr::string_encode_wtf8_array(Self, Self, Self) -> Self
-pub fn TInstr::string_new_lossy_utf8_array(Self, Self, Self) -> Self
-pub fn TInstr::string_new_utf8_array(Self, Self, Self) -> Self
-pub fn TInstr::string_new_wtf16_array(Self, Self, Self) -> Self
-pub fn TInstr::string_new_wtf8_array(Self, Self, Self) -> Self
-pub fn TInstr::struct_get(TypeIdx, U32, Self) -> Self
-pub fn TInstr::struct_get_s(TypeIdx, U32, Self) -> Self
-pub fn TInstr::struct_get_u(TypeIdx, U32, Self) -> Self
-pub fn TInstr::struct_new(TypeIdx, Array[Self]) -> Self
-pub fn TInstr::struct_new_default(TypeIdx) -> Self
-pub fn TInstr::struct_new_default_desc(TypeIdx, Self) -> Self
-pub fn TInstr::struct_new_desc(TypeIdx, Array[Self]) -> Self
-pub fn TInstr::struct_set(TypeIdx, U32, Self, Self) -> Self
-pub fn TInstr::table_copy(TableIdx, TableIdx, Self, Self, Self) -> Self
-pub fn TInstr::table_fill(TableIdx, Self, Self, Self) -> Self
-pub fn TInstr::table_get(TableIdx, Self) -> Self
-pub fn TInstr::table_grow(TableIdx, Self, Self) -> Self
-pub fn TInstr::table_init(ElemIdx, TableIdx, Self, Self, Self) -> Self
-pub fn TInstr::table_set(TableIdx, Self, Self) -> Self
-pub fn TInstr::table_size(TableIdx) -> Self
-pub fn TInstr::throw_(TagIdx, Array[Self]) -> Self
-pub fn TInstr::throw_ref(Self) -> Self
-pub fn TInstr::try_table(BlockType, Array[Catch], TExpr) -> Self
-pub fn TInstr::unary(UnaryOp, Self) -> Self
-pub fn TInstr::unreachable_() -> Self
-pub fn TInstr::v128_const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte) -> Self
-pub fn TInstr::v128_load_lane(V128LoadLaneOp, MemArg, LaneIdx, Self, Self) -> Self
-pub fn TInstr::v128_shift(V128ShiftOp, Self, Self) -> Self
-pub fn TInstr::v128_store_lane(V128StoreLaneOp, MemArg, LaneIdx, Self, Self) -> Self
-pub fn TInstr::v128_ternary(V128TernaryOp, Self, Self, Self) -> Self
-pub impl PrettyPrint for TInstr
-pub impl Eq for TInstr
-pub impl Hash for TInstr
-pub impl Show for TInstr
-pub impl @debug.Debug for TInstr
-
-pub enum TInstrKind {
-  TI32Const(I32)
-  TI64Const(I64)
-  TF32Const(F32)
-  TF64Const(F64)
-  TRefNull(RefType)
-  TRefFunc(FuncIdx)
-  TStringConst(Bytes)
-  TV128Const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte)
-  TUnreachable
-  TNop
-  TLocalGet(LocalIdx)
-  TGlobalGet(GlobalIdx)
-  TMemorySize(MemIdx)
-  TTableSize(TableIdx)
-  TUnary(UnaryOp, TInstr)
-  TDrop(TInstr)
-  TLocalSet(LocalIdx, TInstr)
-  TLocalTee(LocalIdx, TInstr)
-  TGlobalSet(GlobalIdx, TInstr)
-  TRefIsNull(TInstr)
-  TRefAsNonNull(TInstr)
-  TI31GetS(TInstr)
-  TI31GetU(TInstr)
-  TRefI31(TInstr)
-  TArrayLen(TInstr)
-  TAnyConvertExtern(TInstr)
-  TExternConvertAny(TInstr)
-  TThrowRef(TInstr)
-  TBinary(BinaryOp, TInstr, TInstr)
-  TRefEq(TInstr, TInstr)
-  TStore(StoreOp, MemArg, TInstr, TInstr)
-  TLoad(LoadOp, MemArg, TInstr)
-  TMemoryGrow(MemIdx, TInstr)
-  TMemoryFill(MemIdx, TInstr, TInstr, TInstr)
-  TMemoryCopy(MemIdx, MemIdx, TInstr, TInstr, TInstr)
-  TMemoryInit(DataIdx, MemIdx, TInstr, TInstr, TInstr)
-  TDataDrop(DataIdx)
-  TMemoryAtomicNotify(MemArg, TInstr, TInstr)
-  TMemoryAtomicWait32(MemArg, TInstr, TInstr, TInstr)
-  TMemoryAtomicWait64(MemArg, TInstr, TInstr, TInstr)
-  TAtomicFence
-  TAtomicRmw(AtomicRmwOp, MemArg, TInstr, TInstr)
-  TAtomicCmpxchg(AtomicCmpxchgOp, MemArg, TInstr, TInstr, TInstr)
-  TTableGet(TableIdx, TInstr)
-  TTableSet(TableIdx, TInstr, TInstr)
-  TTableGrow(TableIdx, TInstr, TInstr)
-  TTableFill(TableIdx, TInstr, TInstr, TInstr)
-  TTableCopy(TableIdx, TableIdx, TInstr, TInstr, TInstr)
-  TTableInit(ElemIdx, TableIdx, TInstr, TInstr, TInstr)
-  TElemDrop(ElemIdx)
-  TCall(FuncIdx, Array[TInstr])
-  TCallIndirect(TypeIdx, TableIdx, Array[TInstr], TInstr)
-  TCallRef(TypeIdx, Array[TInstr], TInstr)
-  TReturnCall(FuncIdx, Array[TInstr])
-  TReturnCallIndirect(TypeIdx, TableIdx, Array[TInstr], TInstr)
-  TReturnCallRef(TypeIdx, Array[TInstr], TInstr)
-  TBlock(BlockType, TExpr)
-  TLoop(BlockType, TExpr)
-  TIf(BlockType, TInstr, TExpr, TExpr?)
-  TTryTable(BlockType, Array[Catch], TExpr)
-  TThrow(TagIdx, Array[TInstr])
-  TBr(LabelIdx, Array[TInstr])
-  TBrIf(LabelIdx, TInstr, Array[TInstr])
-  TBrTable(Array[LabelIdx], LabelIdx, TInstr, Array[TInstr])
-  TBrOnNull(LabelIdx, TInstr, Array[TInstr])
-  TBrOnNonNull(LabelIdx, TInstr, Array[TInstr])
-  TBrOnCast(LabelIdx, CastOp, HeapType, HeapType, TInstr, Array[TInstr])
-  TBrOnCastFail(LabelIdx, CastOp, HeapType, HeapType, TInstr, Array[TInstr])
-  TReturn(Array[TInstr])
-  TSelect(Array[ValType]?, TInstr, TInstr, TInstr)
-  TStringNewUtf8Array(TInstr, TInstr, TInstr)
-  TStringNewWtf16Array(TInstr, TInstr, TInstr)
-  TStringEncodeUtf8Array(TInstr, TInstr, TInstr)
-  TStringEncodeWtf16Array(TInstr, TInstr, TInstr)
-  TStringNewLossyUtf8Array(TInstr, TInstr, TInstr)
-  TStringNewWtf8Array(TInstr, TInstr, TInstr)
-  TStringEncodeLossyUtf8Array(TInstr, TInstr, TInstr)
-  TStringEncodeWtf8Array(TInstr, TInstr, TInstr)
-  TStructNew(TypeIdx, Array[TInstr])
-  TStructNewDefault(TypeIdx)
-  TStructNewDesc(TypeIdx, Array[TInstr])
-  TStructNewDefaultDesc(TypeIdx, TInstr)
-  TStructGet(TypeIdx, U32, TInstr)
-  TStructGetS(TypeIdx, U32, TInstr)
-  TStructGetU(TypeIdx, U32, TInstr)
-  TStructSet(TypeIdx, U32, TInstr, TInstr)
-  TArrayNew(TypeIdx, TInstr, TInstr)
-  TArrayNewDefault(TypeIdx, TInstr)
-  TArrayNewFixed(TypeIdx, Array[TInstr])
-  TArrayNewData(TypeIdx, DataIdx, TInstr, TInstr)
-  TArrayNewElem(TypeIdx, ElemIdx, TInstr, TInstr)
-  TArrayGet(TypeIdx, TInstr, TInstr)
-  TArrayGetS(TypeIdx, TInstr, TInstr)
-  TArrayGetU(TypeIdx, TInstr, TInstr)
-  TArraySet(TypeIdx, TInstr, TInstr, TInstr)
-  TArrayFill(TypeIdx, TInstr, TInstr, TInstr, TInstr)
-  TArrayCopy(TypeIdx, TypeIdx, TInstr, TInstr, TInstr, TInstr, TInstr)
-  TArrayInitData(TypeIdx, DataIdx, TInstr, TInstr, TInstr, TInstr)
-  TArrayInitElem(TypeIdx, ElemIdx, TInstr, TInstr, TInstr, TInstr)
-  TRefGetDesc(TypeIdx, TInstr)
-  TRefTest(Bool, HeapType, TInstr)
-  TRefCast(Bool, HeapType, TInstr)
-  TRefTestDesc(Bool, HeapType, TInstr)
-  TRefCastDescEq(Bool, HeapType, TInstr)
-  TI8x16Splat(TInstr)
-  TI16x8Splat(TInstr)
-  TI32x4Splat(TInstr)
-  TI64x2Splat(TInstr)
-  TF32x4Splat(TInstr)
-  TF64x2Splat(TInstr)
-  TExtractLane(ExtractLaneOp, LaneIdx, TInstr)
-  TReplaceLane(ReplaceLaneOp, LaneIdx, TInstr, TInstr)
-  TI8x16Shuffle(LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, TInstr, TInstr)
-  TI8x16Swizzle(TInstr, TInstr)
-  TI8x16RelaxedSwizzle(TInstr, TInstr)
-  TV128Shift(V128ShiftOp, TInstr, TInstr)
-  TV128Ternary(V128TernaryOp, TInstr, TInstr, TInstr)
-  TV128LoadLane(V128LoadLaneOp, MemArg, LaneIdx, TInstr, TInstr)
-  TV128StoreLane(V128StoreLaneOp, MemArg, LaneIdx, TInstr, TInstr)
-}
-pub impl Eq for TInstrKind
-pub impl Hash for TInstrKind
-pub impl Show for TInstrKind
-pub impl @debug.Debug for TInstrKind
-
 pub struct Table(TableType, Expr?)
 pub fn Table::new(TableType, Expr?) -> Self
 pub impl PrettyPrint for Table
@@ -3165,6 +2895,263 @@ pub impl Hash for TypeSec
 pub impl Show for TypeSec
 pub impl @debug.Debug for TypeSec
 pub impl @quickcheck.Arbitrary for TypeSec
+
+pub struct TypedInstr {
+  kind : TypedInstrKind
+  size : Int
+  mut hash : Int?
+}
+pub fn TypedInstr::any_convert_extern(Self) -> Self
+pub fn TypedInstr::array_copy(TypeIdx, TypeIdx, Self, Self, Self, Self, Self) -> Self
+pub fn TypedInstr::array_fill(TypeIdx, Self, Self, Self, Self) -> Self
+pub fn TypedInstr::array_get(TypeIdx, Self, Self) -> Self
+pub fn TypedInstr::array_get_s(TypeIdx, Self, Self) -> Self
+pub fn TypedInstr::array_get_u(TypeIdx, Self, Self) -> Self
+pub fn TypedInstr::array_init_data(TypeIdx, DataIdx, Self, Self, Self, Self) -> Self
+pub fn TypedInstr::array_init_elem(TypeIdx, ElemIdx, Self, Self, Self, Self) -> Self
+pub fn TypedInstr::array_len(Self) -> Self
+pub fn TypedInstr::array_new(TypeIdx, Self, Self) -> Self
+pub fn TypedInstr::array_new_data(TypeIdx, DataIdx, Self, Self) -> Self
+pub fn TypedInstr::array_new_default(TypeIdx, Self) -> Self
+pub fn TypedInstr::array_new_elem(TypeIdx, ElemIdx, Self, Self) -> Self
+pub fn TypedInstr::array_new_fixed(TypeIdx, Array[Self]) -> Self
+pub fn TypedInstr::array_set(TypeIdx, Self, Self, Self) -> Self
+pub fn TypedInstr::atomic_cmpxchg(AtomicCmpxchgOp, MemArg, Self, Self, Self) -> Self
+pub fn TypedInstr::atomic_fence() -> Self
+pub fn TypedInstr::atomic_rmw(AtomicRmwOp, MemArg, Self, Self) -> Self
+pub fn TypedInstr::binary(BinaryOp, Self, Self) -> Self
+pub fn TypedInstr::block(BlockType, Array[Self]) -> Self
+pub fn TypedInstr::br(LabelIdx, Array[Self]) -> Self
+pub fn TypedInstr::br_if(LabelIdx, Self, Array[Self]) -> Self
+pub fn TypedInstr::br_on_cast(LabelIdx, Bool, HeapType, Bool, HeapType, Self, Array[Self]) -> Self
+pub fn TypedInstr::br_on_cast_fail(LabelIdx, Bool, HeapType, Bool, HeapType, Self, Array[Self]) -> Self
+pub fn TypedInstr::br_on_non_null(LabelIdx, Self, Array[Self]) -> Self
+pub fn TypedInstr::br_on_null(LabelIdx, Self, Array[Self]) -> Self
+pub fn TypedInstr::br_table(Array[LabelIdx], LabelIdx, Self, Array[Self]) -> Self
+pub fn TypedInstr::call(FuncIdx, Array[Self]) -> Self
+pub fn TypedInstr::call_indirect(TypeIdx, TableIdx, Array[Self], Self) -> Self
+pub fn TypedInstr::call_ref(TypeIdx, Array[Self], Self) -> Self
+pub fn TypedInstr::data_drop(DataIdx) -> Self
+pub fn TypedInstr::drop(Self) -> Self
+pub fn TypedInstr::elem_drop(ElemIdx) -> Self
+pub fn TypedInstr::extern_convert_any(Self) -> Self
+pub fn TypedInstr::extract_lane(ExtractLaneOp, LaneIdx, Self) -> Self
+pub fn TypedInstr::f32_const(F32) -> Self
+pub fn TypedInstr::f32x4_splat(Self) -> Self
+pub fn TypedInstr::f64_const(F64) -> Self
+pub fn TypedInstr::f64x2_splat(Self) -> Self
+pub fn TypedInstr::global_get(GlobalIdx) -> Self
+pub fn TypedInstr::global_set(GlobalIdx, Self) -> Self
+pub fn TypedInstr::i16x8_splat(Self) -> Self
+pub fn TypedInstr::i31_get_s(Self) -> Self
+pub fn TypedInstr::i31_get_u(Self) -> Self
+pub fn TypedInstr::i32_const(I32) -> Self
+pub fn TypedInstr::i32x4_splat(Self) -> Self
+pub fn TypedInstr::i64_const(I64) -> Self
+pub fn TypedInstr::i64x2_splat(Self) -> Self
+pub fn TypedInstr::i8x16_relaxed_swizzle(Self, Self) -> Self
+pub fn TypedInstr::i8x16_shuffle(LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, Self, Self) -> Self
+pub fn TypedInstr::i8x16_splat(Self) -> Self
+pub fn TypedInstr::i8x16_swizzle(Self, Self) -> Self
+pub fn TypedInstr::if_(BlockType, Self, Array[Self], Array[Self]?) -> Self
+pub fn TypedInstr::load(LoadOp, MemArg, Self) -> Self
+pub fn TypedInstr::local_get(LocalIdx) -> Self
+pub fn TypedInstr::local_set(LocalIdx, Self) -> Self
+pub fn TypedInstr::local_tee(LocalIdx, Self) -> Self
+pub fn TypedInstr::loop_(BlockType, Array[Self]) -> Self
+pub fn TypedInstr::memory_atomic_notify(MemArg, Self, Self) -> Self
+pub fn TypedInstr::memory_atomic_wait32(MemArg, Self, Self, Self) -> Self
+pub fn TypedInstr::memory_atomic_wait64(MemArg, Self, Self, Self) -> Self
+pub fn TypedInstr::memory_copy(MemIdx, MemIdx, Self, Self, Self) -> Self
+pub fn TypedInstr::memory_fill(MemIdx, Self, Self, Self) -> Self
+pub fn TypedInstr::memory_grow(MemIdx, Self) -> Self
+pub fn TypedInstr::memory_init(DataIdx, MemIdx, Self, Self, Self) -> Self
+pub fn TypedInstr::memory_size(MemIdx) -> Self
+pub fn TypedInstr::nop() -> Self
+pub fn TypedInstr::ref_as_non_null(Self) -> Self
+pub fn TypedInstr::ref_cast(Bool, HeapType, Self) -> Self
+pub fn TypedInstr::ref_cast_desc_eq(Bool, HeapType, Self) -> Self
+pub fn TypedInstr::ref_eq(Self, Self) -> Self
+pub fn TypedInstr::ref_func(FuncIdx) -> Self
+pub fn TypedInstr::ref_get_desc(TypeIdx, Self) -> Self
+pub fn TypedInstr::ref_i31(Self) -> Self
+pub fn TypedInstr::ref_is_null(Self) -> Self
+pub fn TypedInstr::ref_null(HeapType) -> Self
+pub fn TypedInstr::ref_null_type(RefType) -> Self
+pub fn TypedInstr::ref_test(Bool, HeapType, Self) -> Self
+pub fn TypedInstr::ref_test_desc(Bool, HeapType, Self) -> Self
+pub fn TypedInstr::replace_lane(ReplaceLaneOp, LaneIdx, Self, Self) -> Self
+pub fn TypedInstr::return_(Array[Self]) -> Self
+pub fn TypedInstr::return_call(FuncIdx, Array[Self]) -> Self
+pub fn TypedInstr::return_call_indirect(TypeIdx, TableIdx, Array[Self], Self) -> Self
+pub fn TypedInstr::return_call_ref(TypeIdx, Array[Self], Self) -> Self
+pub fn TypedInstr::select(Array[ValType]?, Self, Self, Self) -> Self
+pub fn TypedInstr::store(StoreOp, MemArg, Self, Self) -> Self
+pub fn TypedInstr::string_const(Bytes) -> Self
+pub fn TypedInstr::string_encode_lossy_utf8_array(Self, Self, Self) -> Self
+pub fn TypedInstr::string_encode_utf8_array(Self, Self, Self) -> Self
+pub fn TypedInstr::string_encode_wtf16_array(Self, Self, Self) -> Self
+pub fn TypedInstr::string_encode_wtf8_array(Self, Self, Self) -> Self
+pub fn TypedInstr::string_new_lossy_utf8_array(Self, Self, Self) -> Self
+pub fn TypedInstr::string_new_utf8_array(Self, Self, Self) -> Self
+pub fn TypedInstr::string_new_wtf16_array(Self, Self, Self) -> Self
+pub fn TypedInstr::string_new_wtf8_array(Self, Self, Self) -> Self
+pub fn TypedInstr::struct_get(TypeIdx, U32, Self) -> Self
+pub fn TypedInstr::struct_get_s(TypeIdx, U32, Self) -> Self
+pub fn TypedInstr::struct_get_u(TypeIdx, U32, Self) -> Self
+pub fn TypedInstr::struct_new(TypeIdx, Array[Self]) -> Self
+pub fn TypedInstr::struct_new_default(TypeIdx) -> Self
+pub fn TypedInstr::struct_new_default_desc(TypeIdx, Self) -> Self
+pub fn TypedInstr::struct_new_desc(TypeIdx, Array[Self]) -> Self
+pub fn TypedInstr::struct_set(TypeIdx, U32, Self, Self) -> Self
+pub fn TypedInstr::table_copy(TableIdx, TableIdx, Self, Self, Self) -> Self
+pub fn TypedInstr::table_fill(TableIdx, Self, Self, Self) -> Self
+pub fn TypedInstr::table_get(TableIdx, Self) -> Self
+pub fn TypedInstr::table_grow(TableIdx, Self, Self) -> Self
+pub fn TypedInstr::table_init(ElemIdx, TableIdx, Self, Self, Self) -> Self
+pub fn TypedInstr::table_set(TableIdx, Self, Self) -> Self
+pub fn TypedInstr::table_size(TableIdx) -> Self
+pub fn TypedInstr::throw_(TagIdx, Array[Self]) -> Self
+pub fn TypedInstr::throw_ref(Self) -> Self
+pub fn TypedInstr::try_table(BlockType, Array[Catch], Array[Self]) -> Self
+pub fn TypedInstr::unary(UnaryOp, Self) -> Self
+pub fn TypedInstr::unreachable_() -> Self
+pub fn TypedInstr::v128_const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte) -> Self
+pub fn TypedInstr::v128_load_lane(V128LoadLaneOp, MemArg, LaneIdx, Self, Self) -> Self
+pub fn TypedInstr::v128_shift(V128ShiftOp, Self, Self) -> Self
+pub fn TypedInstr::v128_store_lane(V128StoreLaneOp, MemArg, LaneIdx, Self, Self) -> Self
+pub fn TypedInstr::v128_ternary(V128TernaryOp, Self, Self, Self) -> Self
+pub impl PrettyPrint for TypedInstr
+pub impl Eq for TypedInstr
+pub impl Hash for TypedInstr
+pub impl Show for TypedInstr
+pub impl @debug.Debug for TypedInstr
+
+pub enum TypedInstrKind {
+  TI32Const(I32)
+  TI64Const(I64)
+  TF32Const(F32)
+  TF64Const(F64)
+  TRefNull(RefType)
+  TRefFunc(FuncIdx)
+  TStringConst(Bytes)
+  TV128Const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte)
+  TUnreachable
+  TNop
+  TLocalGet(LocalIdx)
+  TGlobalGet(GlobalIdx)
+  TMemorySize(MemIdx)
+  TTableSize(TableIdx)
+  TUnary(UnaryOp, TypedInstr)
+  TDrop(TypedInstr)
+  TLocalSet(LocalIdx, TypedInstr)
+  TLocalTee(LocalIdx, TypedInstr)
+  TGlobalSet(GlobalIdx, TypedInstr)
+  TRefIsNull(TypedInstr)
+  TRefAsNonNull(TypedInstr)
+  TI31GetS(TypedInstr)
+  TI31GetU(TypedInstr)
+  TRefI31(TypedInstr)
+  TArrayLen(TypedInstr)
+  TAnyConvertExtern(TypedInstr)
+  TExternConvertAny(TypedInstr)
+  TThrowRef(TypedInstr)
+  TBinary(BinaryOp, TypedInstr, TypedInstr)
+  TRefEq(TypedInstr, TypedInstr)
+  TStore(StoreOp, MemArg, TypedInstr, TypedInstr)
+  TLoad(LoadOp, MemArg, TypedInstr)
+  TMemoryGrow(MemIdx, TypedInstr)
+  TMemoryFill(MemIdx, TypedInstr, TypedInstr, TypedInstr)
+  TMemoryCopy(MemIdx, MemIdx, TypedInstr, TypedInstr, TypedInstr)
+  TMemoryInit(DataIdx, MemIdx, TypedInstr, TypedInstr, TypedInstr)
+  TDataDrop(DataIdx)
+  TMemoryAtomicNotify(MemArg, TypedInstr, TypedInstr)
+  TMemoryAtomicWait32(MemArg, TypedInstr, TypedInstr, TypedInstr)
+  TMemoryAtomicWait64(MemArg, TypedInstr, TypedInstr, TypedInstr)
+  TAtomicFence
+  TAtomicRmw(AtomicRmwOp, MemArg, TypedInstr, TypedInstr)
+  TAtomicCmpxchg(AtomicCmpxchgOp, MemArg, TypedInstr, TypedInstr, TypedInstr)
+  TTableGet(TableIdx, TypedInstr)
+  TTableSet(TableIdx, TypedInstr, TypedInstr)
+  TTableGrow(TableIdx, TypedInstr, TypedInstr)
+  TTableFill(TableIdx, TypedInstr, TypedInstr, TypedInstr)
+  TTableCopy(TableIdx, TableIdx, TypedInstr, TypedInstr, TypedInstr)
+  TTableInit(ElemIdx, TableIdx, TypedInstr, TypedInstr, TypedInstr)
+  TElemDrop(ElemIdx)
+  TCall(FuncIdx, Array[TypedInstr])
+  TCallIndirect(TypeIdx, TableIdx, Array[TypedInstr], TypedInstr)
+  TCallRef(TypeIdx, Array[TypedInstr], TypedInstr)
+  TReturnCall(FuncIdx, Array[TypedInstr])
+  TReturnCallIndirect(TypeIdx, TableIdx, Array[TypedInstr], TypedInstr)
+  TReturnCallRef(TypeIdx, Array[TypedInstr], TypedInstr)
+  TBlock(BlockType, Array[TypedInstr])
+  TLoop(BlockType, Array[TypedInstr])
+  TIf(BlockType, TypedInstr, Array[TypedInstr], Array[TypedInstr]?)
+  TTryTable(BlockType, Array[Catch], Array[TypedInstr])
+  TThrow(TagIdx, Array[TypedInstr])
+  TBr(LabelIdx, Array[TypedInstr])
+  TBrIf(LabelIdx, TypedInstr, Array[TypedInstr])
+  TBrTable(Array[LabelIdx], LabelIdx, TypedInstr, Array[TypedInstr])
+  TBrOnNull(LabelIdx, TypedInstr, Array[TypedInstr])
+  TBrOnNonNull(LabelIdx, TypedInstr, Array[TypedInstr])
+  TBrOnCast(LabelIdx, CastOp, HeapType, HeapType, TypedInstr, Array[TypedInstr])
+  TBrOnCastFail(LabelIdx, CastOp, HeapType, HeapType, TypedInstr, Array[TypedInstr])
+  TReturn(Array[TypedInstr])
+  TSelect(Array[ValType]?, TypedInstr, TypedInstr, TypedInstr)
+  TStringNewUtf8Array(TypedInstr, TypedInstr, TypedInstr)
+  TStringNewWtf16Array(TypedInstr, TypedInstr, TypedInstr)
+  TStringEncodeUtf8Array(TypedInstr, TypedInstr, TypedInstr)
+  TStringEncodeWtf16Array(TypedInstr, TypedInstr, TypedInstr)
+  TStringNewLossyUtf8Array(TypedInstr, TypedInstr, TypedInstr)
+  TStringNewWtf8Array(TypedInstr, TypedInstr, TypedInstr)
+  TStringEncodeLossyUtf8Array(TypedInstr, TypedInstr, TypedInstr)
+  TStringEncodeWtf8Array(TypedInstr, TypedInstr, TypedInstr)
+  TStructNew(TypeIdx, Array[TypedInstr])
+  TStructNewDefault(TypeIdx)
+  TStructNewDesc(TypeIdx, Array[TypedInstr])
+  TStructNewDefaultDesc(TypeIdx, TypedInstr)
+  TStructGet(TypeIdx, U32, TypedInstr)
+  TStructGetS(TypeIdx, U32, TypedInstr)
+  TStructGetU(TypeIdx, U32, TypedInstr)
+  TStructSet(TypeIdx, U32, TypedInstr, TypedInstr)
+  TArrayNew(TypeIdx, TypedInstr, TypedInstr)
+  TArrayNewDefault(TypeIdx, TypedInstr)
+  TArrayNewFixed(TypeIdx, Array[TypedInstr])
+  TArrayNewData(TypeIdx, DataIdx, TypedInstr, TypedInstr)
+  TArrayNewElem(TypeIdx, ElemIdx, TypedInstr, TypedInstr)
+  TArrayGet(TypeIdx, TypedInstr, TypedInstr)
+  TArrayGetS(TypeIdx, TypedInstr, TypedInstr)
+  TArrayGetU(TypeIdx, TypedInstr, TypedInstr)
+  TArraySet(TypeIdx, TypedInstr, TypedInstr, TypedInstr)
+  TArrayFill(TypeIdx, TypedInstr, TypedInstr, TypedInstr, TypedInstr)
+  TArrayCopy(TypeIdx, TypeIdx, TypedInstr, TypedInstr, TypedInstr, TypedInstr, TypedInstr)
+  TArrayInitData(TypeIdx, DataIdx, TypedInstr, TypedInstr, TypedInstr, TypedInstr)
+  TArrayInitElem(TypeIdx, ElemIdx, TypedInstr, TypedInstr, TypedInstr, TypedInstr)
+  TRefGetDesc(TypeIdx, TypedInstr)
+  TRefTest(Bool, HeapType, TypedInstr)
+  TRefCast(Bool, HeapType, TypedInstr)
+  TRefTestDesc(Bool, HeapType, TypedInstr)
+  TRefCastDescEq(Bool, HeapType, TypedInstr)
+  TI8x16Splat(TypedInstr)
+  TI16x8Splat(TypedInstr)
+  TI32x4Splat(TypedInstr)
+  TI64x2Splat(TypedInstr)
+  TF32x4Splat(TypedInstr)
+  TF64x2Splat(TypedInstr)
+  TExtractLane(ExtractLaneOp, LaneIdx, TypedInstr)
+  TReplaceLane(ReplaceLaneOp, LaneIdx, TypedInstr, TypedInstr)
+  TI8x16Shuffle(LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, TypedInstr, TypedInstr)
+  TI8x16Swizzle(TypedInstr, TypedInstr)
+  TI8x16RelaxedSwizzle(TypedInstr, TypedInstr)
+  TV128Shift(V128ShiftOp, TypedInstr, TypedInstr)
+  TV128Ternary(V128TernaryOp, TypedInstr, TypedInstr, TypedInstr)
+  TV128LoadLane(V128LoadLaneOp, MemArg, LaneIdx, TypedInstr, TypedInstr)
+  TV128StoreLane(V128StoreLaneOp, MemArg, LaneIdx, TypedInstr, TypedInstr)
+}
+pub impl Eq for TypedInstrKind
+pub impl Hash for TypedInstrKind
+pub impl Show for TypedInstrKind
+pub impl @debug.Debug for TypedInstrKind
 
 pub(all) struct U32(UInt)
 #deprecated

@@ -5,7 +5,7 @@ Status: researched rollout plan for Starshine's index-based IR.
 ## Scope
 - Implement `OptimizePass::RemoveUnusedModuleElements` in `src/optimization/optimization.mbt`.
 - Match default open-world behavior first, then add closed-world and GC precision where local infrastructure supports it.
-- Keep the plan aligned with current `Module`, `ModuleTransformer`, `NameSec`, and generated pipeline behavior.
+- Keep the plan aligned with current `Module`, `module rewrite engine`, `NameSec`, and generated pipeline behavior.
 
 ## Document Cross-Reference Map
 - `ALG-00 Three-state model`: `0012` lines 1-16, 381-386, 469-495, 1460-1474.
@@ -84,7 +84,7 @@ Status: researched rollout plan for Starshine's index-based IR.
 - Starshine IR is index-based, not name-based:
   - funcs, tables, memories, globals, and tags live in mixed import+defined index spaces,
   - elem and data segments live in section-local index spaces.
-- `ModuleTransformer` already exposes rewrite hooks for:
+- `module rewrite engine` already exposes rewrite hooks for:
   - `FuncIdx`,
   - `GlobalIdx`,
   - `TableIdx`,
@@ -132,7 +132,7 @@ Status: researched rollout plan for Starshine's index-based IR.
   - absolute function/table/memory/global/tag indices,
   - elem/data section indices.
 - Add helpers to count imported vs defined items per extern kind.
-- Add generic retain/remap helpers using `ModuleTransformer` index events.
+- Add generic retain/remap helpers using `module rewrite engine` index events.
 - Rewrite `NameSec` maps and normalize `DataCntSec` after compaction.
 - Add focused tests for remapping:
   - exports,

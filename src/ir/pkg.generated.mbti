@@ -1,0 +1,332 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/ir"
+
+import {
+  "jtenner/starshine/lib",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn compat_is_f32_nan(Float) -> Bool
+
+pub fn compat_is_f64_nan(Double) -> Bool
+
+pub fn compat_is_f64_non_finite(Double) -> Bool
+
+pub fn compat_trunc_f64_to_i64_s(Double) -> Int64?
+
+pub fn compat_trunc_f64_to_i64_u(Double) -> Int64?
+
+pub fn hot_alloc_children(HotFunc, Int) -> Int
+
+pub fn hot_alloc_node(HotFunc, HotNode) -> Int
+
+pub fn hot_append_root(HotFunc, Int) -> Unit
+
+pub fn hot_body_splice(HotFunc, Int, Int, Int, Array[Int]) -> Unit
+
+pub fn hot_child_count(HotFunc, Int) -> Int
+
+pub fn hot_child_get(HotFunc, Int, Int) -> Int
+
+pub fn hot_child_set(HotFunc, Int, Int, Int) -> Unit
+
+pub fn hot_lift_body(Array[@lib.TypedInstr], HotLocals) -> HotFunc
+
+pub fn hot_lower_body(HotFunc) -> Array[@lib.TypedInstr]
+
+pub fn hot_make_simple_node(HotOp, Int, UInt, Int, Int, Array[Int]) -> HotNode
+
+pub fn hot_node_as_block(HotNode) -> HotNode
+
+pub fn hot_node_as_global_get(HotNode, Int) -> HotNode
+
+pub fn hot_node_get(HotFunc, Int) -> HotNode
+
+pub fn hot_node_is_block(HotNode) -> Bool
+
+pub fn hot_node_is_branch_targeting(HotNode) -> Bool
+
+pub fn hot_node_is_const(HotNode) -> Bool
+
+pub fn hot_node_is_loop(HotNode) -> Bool
+
+pub fn hot_node_is_try_table(HotNode) -> Bool
+
+pub fn hot_node_set(HotFunc, Int, HotNode) -> Unit
+
+pub fn hot_node_with_op(HotNode, HotOp) -> HotNode
+
+pub fn hot_replace_children(HotFunc, Int, Array[Int]) -> Unit
+
+pub fn hot_replace_node(HotFunc, Int, HotNode) -> Unit
+
+pub fn hot_root_count(HotFunc) -> Int
+
+pub fn hot_root_get(HotFunc, Int) -> Int
+
+pub fn hot_root_set(HotFunc, Int, Int) -> Unit
+
+pub fn hot_set_label_block(HotFunc, Int) -> Unit
+
+pub fn hot_set_label_kind(HotFunc, Int, HotLabelKind) -> Unit
+
+pub fn hot_type_intern(HotFunc, HotTypeInfo) -> Int
+
+pub fn hot_type_void(HotFunc) -> Int
+
+// Errors
+
+// Types and methods
+pub struct HotBranchTable {
+  targets : Array[Int]
+  default_target : Int
+}
+pub impl Eq for HotBranchTable
+pub impl Show for HotBranchTable
+pub impl @debug.Debug for HotBranchTable
+
+pub struct HotCallSig {
+  type_idx : @lib.TypeIdx
+  table_idx : @lib.TableIdx?
+}
+pub impl Eq for HotCallSig
+pub impl Show for HotCallSig
+pub impl @debug.Debug for HotCallSig
+
+pub enum HotCatchArm {
+  CatchArm(@lib.TagIdx, Int)
+  CatchRefArm(@lib.TagIdx, Int)
+  CatchAllArm(Int)
+  CatchAllRefArm(Int)
+}
+pub impl Eq for HotCatchArm
+pub impl Show for HotCatchArm
+pub impl @debug.Debug for HotCatchArm
+
+pub struct HotCatchInfo {
+  catches : Array[HotCatchArm]
+}
+pub impl Eq for HotCatchInfo
+pub impl Show for HotCatchInfo
+pub impl @debug.Debug for HotCatchInfo
+
+pub enum HotConstPayload {
+  I32Const(@lib.I32)
+  I64Const(@lib.I64)
+  RefNullConst(@lib.RefType)
+  StringConst(Bytes)
+}
+pub impl Eq for HotConstPayload
+pub impl Show for HotConstPayload
+pub impl @debug.Debug for HotConstPayload
+
+pub enum HotExtra {
+  UnaryOp(@lib.UnaryOp)
+  BinaryOp(@lib.BinaryOp)
+  LoadOp(@lib.LoadOp)
+  StoreOp(@lib.StoreOp)
+  SelectTypes(Array[@lib.ValType]?)
+  RefGetDescType(@lib.TypeIdx)
+  RefTestPayload(Bool, @lib.HeapType)
+  RefCastPayload(Bool, @lib.HeapType)
+  RefTestDescPayload(Bool, @lib.HeapType)
+  RefCastDescEqPayload(Bool, @lib.HeapType)
+  BrOnCastPayload(@lib.CastOp, @lib.HeapType, @lib.HeapType)
+  BrOnCastFailPayload(@lib.CastOp, @lib.HeapType, @lib.HeapType)
+  StringBuiltin(HotStringBuiltin)
+}
+pub impl Eq for HotExtra
+pub impl Show for HotExtra
+pub impl @debug.Debug for HotExtra
+
+pub struct HotFunc {
+  nodes : Array[HotNode]
+  children : Array[Int]
+  roots : Array[Int]
+  locals : HotLocals
+  types : Array[HotTypeInfo]
+  labels : Array[HotLabelInfo]
+  consts : Array[HotConstPayload]
+  memargs : Array[HotMemArg]
+  branch_tables : Array[HotBranchTable]
+  catches : Array[HotCatchInfo]
+  call_sigs : Array[HotCallSig]
+  extras : Array[HotExtra]
+  body_result_type : Int
+  free_nodes : Array[Int]
+  mut revision : Int
+}
+pub fn HotFunc::new(locals? : HotLocals, body_result_type? : Int) -> Self
+
+pub struct HotLabelInfo {
+  kind : HotLabelKind
+  result_type : Int
+  owner : Int
+  branch_arity : Int
+}
+pub impl Eq for HotLabelInfo
+pub impl Show for HotLabelInfo
+pub impl @debug.Debug for HotLabelInfo
+
+pub enum HotLabelKind {
+  BlockLabel
+  LoopLabel
+  IfLabel
+  RegionLabel
+  TryLabel
+  TryTableLabel
+}
+pub impl Eq for HotLabelKind
+pub impl Show for HotLabelKind
+pub impl @debug.Debug for HotLabelKind
+
+pub struct HotLocals {
+  param_count : Int
+  locals : Array[@lib.ValType]
+}
+pub fn HotLocals::new(param_count? : Int, locals? : Array[@lib.ValType]) -> Self
+pub impl Eq for HotLocals
+pub impl Show for HotLocals
+pub impl @debug.Debug for HotLocals
+
+pub struct HotMemArg {
+  memarg : @lib.MemArg
+}
+pub impl Eq for HotMemArg
+pub impl Show for HotMemArg
+pub impl @debug.Debug for HotMemArg
+
+pub struct HotNode {
+  op : HotOp
+  ty : Int
+  flags : UInt
+  imm0 : Int
+  imm1 : Int
+  child_base : Int
+  child_count : Int
+}
+pub impl Eq for HotNode
+pub impl Show for HotNode
+pub impl @debug.Debug for HotNode
+
+pub enum HotOp {
+  Nop
+  Unreachable
+  Block
+  Loop
+  If
+  Try
+  TryTable
+  Br
+  BrIf
+  BrTable
+  BrOnNull
+  BrOnNonNull
+  BrOnCast
+  BrOnCastFail
+  Return
+  Call
+  CallIndirect
+  CallRef
+  ReturnCall
+  ReturnCallIndirect
+  ReturnCallRef
+  LocalGet
+  LocalSet
+  LocalTee
+  GlobalGet
+  GlobalSet
+  Load
+  Store
+  MemorySize
+  MemoryGrow
+  MemoryCopy
+  MemoryFill
+  MemoryInit
+  DataDrop
+  TableGet
+  TableSet
+  TableSize
+  TableGrow
+  TableFill
+  TableCopy
+  TableInit
+  ElemDrop
+  Const
+  Drop
+  Select
+  RefNull
+  RefIsNull
+  RefFunc
+  RefGetDesc
+  RefTest
+  RefCast
+  RefTestDesc
+  RefCastDescEq
+  Unary
+  Binary
+  Compare
+  Convert
+  TupleMake
+  TupleExtract
+  StringOp
+  Throw
+  Rethrow
+  ThrowRef
+  Delegate
+  Catch
+  CatchAll
+  Atomic
+  Simd
+}
+pub impl Eq for HotOp
+pub impl Show for HotOp
+pub impl @debug.Debug for HotOp
+
+pub enum HotRewriteCtl[S, E] {
+  Same(S)
+  Replace(S, Int)
+  Remove(S)
+  Error(E)
+}
+
+pub enum HotStringBuiltin {
+  NewWtf16Array
+}
+pub impl Eq for HotStringBuiltin
+pub impl Show for HotStringBuiltin
+pub impl @debug.Debug for HotStringBuiltin
+
+pub enum HotTypeInfo {
+  VoidType
+  BlockResult(@lib.BlockType)
+  Value(@lib.ValType)
+  Results(Array[@lib.ValType])
+}
+pub impl Eq for HotTypeInfo
+pub impl Show for HotTypeInfo
+pub impl @debug.Debug for HotTypeInfo
+
+pub enum HotVisitCtl[S, E] {
+  Continue(S)
+  Skip(S)
+  Stop(S)
+  Error(E)
+}
+
+// Type aliases
+pub type LabelId = Int
+
+pub type LocalId = Int
+
+pub type NodeId = Int
+
+pub type RootId = Int
+
+pub type SideTableId = Int
+
+pub type TypeId = Int
+
+// Traits
+

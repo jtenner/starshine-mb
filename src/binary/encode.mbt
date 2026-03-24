@@ -1083,6 +1083,7 @@ fn binary_encode_rewrite_typed_expr_to_raw(
   Expr::new(binary_encode_rewrite_instr_array(instrs, subtypes, env))
 }
 
+///|
 pub impl Encode for CustomSec with encode(val, buf) {
   let CustomSec(name, bytes) = val
   write_section(0, buf, fn(payload) {

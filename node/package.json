@@ -22,17 +22,9 @@
       "types": "./cmd.d.ts",
       "import": "./cmd.js"
     },
-    "./ir": {
-      "types": "./ir.d.ts",
-      "import": "./ir.js"
-    },
     "./lib": {
       "types": "./lib.d.ts",
       "import": "./lib.js"
-    },
-    "./transformer": {
-      "types": "./transformer.d.ts",
-      "import": "./transformer.js"
     },
     "./validate": {
       "types": "./validate.d.ts",

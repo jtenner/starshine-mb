@@ -610,7 +610,7 @@ The clean local model is:
 ```text
 run_dead_code_elimination_on_func(func):
   ctx = DeadCodeCtx::seed(func.body)
-  body = walk_texpr_post(func.body, ctx)
+  body = walk_typed_body_post(func.body, ctx)
 
   if ctx.has_pop && ctx.added_block:
     body = fix_block_nested_pops(body)
@@ -679,7 +679,7 @@ The port will be much cleaner if it introduces a tiny DCE-specific support layer
 
 Minimum required helpers:
 
-1. `dce_note_recursive_removal(texpr_or_tinstr)`
+1. `dce_note_recursive_removal(typed_body_or_typed_instr)`
 2. `dce_note_replacement(old_id, new_id)`
 3. `dce_block_has_live_breaks(label_id)`
 4. `dce_change_instr_type(instr, new_type)`

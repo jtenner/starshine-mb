@@ -14,22 +14,6 @@ export function emptyEnv() {
   return liftValue({ kind: "named", brand: "validate.Env", showExport: "__js_show_validate_Env" }, wasm["validate__empty_env"](), wasm);
 }
 
-export function genSideEffectTinstr(arg0, arg1, labelDepth) {
-  const provided = countProvidedArgs(arguments);
-  switch (provided) {
-    case 2:
-      return liftValue({ kind: "named", brand: "lib.TInstr", showExport: "__js_show_lib_TInstr" }, wasm["validate__gen_side_effect_tinstr__arity_2"](lowerValue({ kind: "named", brand: "validate.GenValidContext", showExport: null }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm)), wasm);
-    case 3:
-      return liftValue({ kind: "named", brand: "lib.TInstr", showExport: "__js_show_lib_TInstr" }, wasm["validate__gen_side_effect_tinstr"](lowerValue({ kind: "named", brand: "validate.GenValidContext", showExport: null }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm), lowerValue({ kind: "number" }, labelDepth, wasm)), wasm);
-    default:
-      throw new TypeError("Invalid argument count for validate.genSideEffectTinstr.");
-  }
-}
-
-export function genTinstrOfType(arg0, arg1) {
-  return liftValue({ kind: "named", brand: "lib.TInstr", showExport: "__js_show_lib_TInstr" }, wasm["validate__gen_tinstr_of_type"](lowerValue({ kind: "named", brand: "validate.GenValidContext", showExport: null }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg1, wasm)), wasm);
-}
-
 export function genValidModule(arg0) {
   return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["validate__gen_valid_module"](lowerValue({ kind: "opaque", brand: "@splitmix.RandomState" }, arg0, wasm)), wasm);
 }
@@ -60,18 +44,6 @@ export function runValidateInvalidFuzz(arg0, arg1) {
 
 export function runValidateValidFuzz(arg0, arg1) {
   return liftValue({ kind: "result", helper: {"isOk":"__js_result_19_is_ok","unwrapOk":"__js_result_19_unwrap_ok","unwrapErr":"__js_result_19_unwrap_err"}, ok: { kind: "named", brand: "validate.ValidateValidFuzzStats", showExport: "__js_show_validate_ValidateValidFuzzStats" }, err: { kind: "string" } }, wasm["validate__run_validate_valid_fuzz"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "bigint" }, arg1, wasm)), wasm);
-}
-
-export function tinstrResultArity(arg0, arg1) {
-  return liftValue({ kind: "number" }, wasm["validate__tinstr_result_arity"](lowerValue({ kind: "named", brand: "lib.TInstr", showExport: "__js_show_lib_TInstr" }, arg0, wasm), lowerValue({ kind: "named", brand: "validate.Env", showExport: "__js_show_validate_Env" }, arg1, wasm)), wasm);
-}
-
-export function tinstrsResultArity(arg0, arg1) {
-  return liftValue({ kind: "number" }, wasm["validate__tinstrs_result_arity"](lowerValue({ kind: "array", helper: {"new":"__js_array_6_new","push":"__js_array_6_push","length":"__js_array_6_length","get":"__js_array_6_get"}, item: { kind: "named", brand: "lib.TInstr", showExport: "__js_show_lib_TInstr" } }, arg0, wasm), lowerValue({ kind: "named", brand: "validate.Env", showExport: "__js_show_validate_Env" }, arg1, wasm)), wasm);
-}
-
-export function toTexpr(arg0, arg1) {
-  return liftValue({ kind: "result", helper: {"isOk":"__js_result_20_is_ok","unwrapOk":"__js_result_20_unwrap_ok","unwrapErr":"__js_result_20_unwrap_err"}, ok: { kind: "named", brand: "lib.TExpr", showExport: "__js_show_lib_TExpr" }, err: { kind: "string" } }, wasm["validate__to_texpr"](lowerValue({ kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" }, arg0, wasm), lowerValue({ kind: "named", brand: "validate.Env", showExport: "__js_show_validate_Env" }, arg1, wasm)), wasm);
 }
 
 export function validateCodesec(arg0, arg1, arg2) {

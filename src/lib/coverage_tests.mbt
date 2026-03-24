@@ -44,11 +44,11 @@ test "locals insert remove and without_prefix keep indices aligned" {
 }
 
 ///|
-test "tinstrs_to_expr preserves stack order for local.set" {
+test "typed_instrs_to_expr preserves stack order for local.set" {
   let body = [
-    TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7))),
+    TypedInstr::local_set(LocalIdx::new(0), TypedInstr::i32_const(I32(7))),
   ]
-  let Expr(instrs) = tinstrs_to_expr(body)
+  let Expr(instrs) = typed_instrs_to_expr(body)
   assert_eq(instrs.length(), 2)
   match instrs[0] {
     I32Const(I32(v)) => assert_eq(v, 7)

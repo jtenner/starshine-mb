@@ -5,7 +5,7 @@ using @binary {trait Decode, trait Encode}
 using @cli {type CliInputFormat}
 
 ///|
-using @lib {type Module, type Func, type CodeSec, type TExpr, type TInstr}
+using @lib {type Module, type Func, type CodeSec}
 
 ///|
 fn bytes_from_string(text : String) -> Bytes {
@@ -176,10 +176,9 @@ fn fixture_i32_const_module(value : Int) -> Module {
   Module::new()
   .with_code_sec(
     CodeSec::new([
-      Func::t_func(
-        [],
+      Func::new(
         @lib.Locals::empty(),
-        TExpr::new([TInstr::i32_const(@lib.I32(value))]),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(value))]),
       ),
     ]),
   )
@@ -197,10 +196,9 @@ fn fixture_f32_nan_module() -> Module {
   Module::new()
   .with_code_sec(
     CodeSec::new([
-      Func::t_func(
-        [],
+      Func::new(
         @lib.Locals::empty(),
-        TExpr::new([TInstr::f32_const(nan)]),
+        @lib.Expr::new([@lib.Instruction::f32_const(nan)]),
       ),
     ]),
   )
@@ -216,15 +214,15 @@ fn fixture_mergeable_block_module() -> Module {
   Module::new()
   .with_code_sec(
     CodeSec::new([
-      Func::t_func(
-        [],
+      Func::new(
         @lib.Locals::empty(),
-        TExpr::new([
-          TInstr::block(
+        @lib.Expr::new([
+          @lib.Instruction::block(
             @lib.BlockType::void_(),
-            TExpr::new([
-              TInstr::drop(TInstr::i32_const(@lib.I32(9))),
-              TInstr::nop(),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32::new(9)),
+              @lib.Instruction::drop(),
+              @lib.Instruction::nop(),
             ]),
           ),
         ]),
@@ -233,243 +231,6 @@ fn fixture_mergeable_block_module() -> Module {
   )
   .with_type_sec(@lib.TypeSec::new([t_void]))
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
-}
-
-///|
-fn fixture_duplicate_function_module() -> Module {
-  let type_sec = @lib.TypeSec::new([
-    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
-    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
-    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
-  ])
-  Module::new()
-  .with_type_sec(type_sec)
-  .with_func_sec(
-    @lib.FuncSec::new([
-      @lib.TypeIdx::new(0U),
-      @lib.TypeIdx::new(1U),
-      @lib.TypeIdx::new(2U),
-    ]),
-  )
-  .with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [],
-        @lib.Locals::empty(),
-        TExpr::new([
-          TInstr::call(@lib.FuncIdx::new(2U), []),
-          TInstr::drop(TInstr::ref_func(@lib.FuncIdx::new(2U))),
-        ]),
-      ),
-      Func::t_func([], @lib.Locals::empty(), TExpr::new([TInstr::nop()])),
-      Func::t_func([], @lib.Locals::empty(), TExpr::new([TInstr::nop()])),
-    ]),
-  )
-  .with_export_sec(
-    @lib.ExportSec::new([
-      @lib.Export::new(
-        @lib.Name::from_string("dup"),
-        @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
-      ),
-    ]),
-  )
-  .with_start_sec(@lib.StartSec::new(@lib.FuncIdx::new(2U)))
-}
-
-///|
-fn fixture_duplicate_function_name_order_module() -> Module {
-  let type_sec = @lib.TypeSec::new([
-    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
-  ])
-  Module::new()
-  .with_type_sec(type_sec)
-  .with_func_sec(
-    @lib.FuncSec::new([
-      @lib.TypeIdx::new(0U),
-      @lib.TypeIdx::new(0U),
-      @lib.TypeIdx::new(0U),
-    ]),
-  )
-  .with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [],
-        @lib.Locals::from_types([@lib.ValType::i32()]),
-        TExpr::new([TInstr::nop()]),
-      ),
-      Func::t_func(
-        [],
-        @lib.Locals::from_types([@lib.ValType::i32()]),
-        TExpr::new([TInstr::unreachable_()]),
-      ),
-      Func::t_func(
-        [],
-        @lib.Locals::from_types([@lib.ValType::i32()]),
-        TExpr::new([TInstr::nop()]),
-      ),
-    ]),
-  )
-  .with_export_sec(
-    @lib.ExportSec::new([
-      @lib.Export::new(
-        @lib.Name::from_string("middle"),
-        @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
-      ),
-      @lib.Export::new(
-        @lib.Name::from_string("dup"),
-        @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
-      ),
-    ]),
-  )
-  .with_name_sec(
-    @lib.NameSec::new(
-      func_names=Some(
-        @lib.NameMap::new([
-          @lib.NameAssoc::new(0U, @lib.Name::from_string("left")),
-          @lib.NameAssoc::new(1U, @lib.Name::from_string("middle")),
-          @lib.NameAssoc::new(2U, @lib.Name::from_string("right")),
-        ]),
-      ),
-      local_names=Some(
-        @lib.IndirectNameMap::new([
-          @lib.IndirectNameAssoc::new(
-            1U,
-            @lib.NameMap::new([
-              @lib.NameAssoc::new(0U, @lib.Name::from_string("mid_local")),
-            ]),
-          ),
-          @lib.IndirectNameAssoc::new(
-            2U,
-            @lib.NameMap::new([
-              @lib.NameAssoc::new(0U, @lib.Name::from_string("dup_local")),
-            ]),
-          ),
-        ]),
-      ),
-    ),
-  )
-}
-
-///|
-fn fixture_raw_once_reduction_module() -> Module {
-  Module::new()
-  .with_type_sec(
-    @lib.TypeSec::new([
-      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
-      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
-    ]),
-  )
-  .with_global_sec(
-    @lib.GlobalSec::new([
-      @lib.Global::new(
-        @lib.GlobalType::new(@lib.ValType::i32(), true),
-        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(0))]),
-      ),
-    ]),
-  )
-  .with_func_sec(
-    @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
-  )
-  .with_code_sec(
-    CodeSec::new([
-      Func::new(
-        @lib.Locals::empty(),
-        @lib.Expr::new([
-          @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
-          @lib.Instruction::if_(
-            @lib.BlockType::void_(),
-            [@lib.Instruction::return_()],
-            None,
-          ),
-          @lib.Instruction::i32_const(@lib.I32::new(1)),
-          @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
-          @lib.Instruction::nop(),
-        ]),
-      ),
-      Func::new(
-        @lib.Locals::empty(),
-        @lib.Expr::new([
-          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
-          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
-        ]),
-      ),
-    ]),
-  )
-}
-
-///|
-fn fixture_raw_memory_packing_module() -> Module {
-  Module::new()
-  .with_mem_sec(
-    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
-  )
-  .with_type_sec(
-    @lib.TypeSec::new([
-      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
-    ]),
-  )
-  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
-  .with_code_sec(
-    CodeSec::new([
-      Func::new(
-        @lib.Locals::empty(),
-        @lib.Expr::new([
-          @lib.Instruction::i32_const(@lib.I32::new(100)),
-          @lib.Instruction::i32_const(@lib.I32::new(0)),
-          @lib.Instruction::i32_const(@lib.I32::new(25)),
-          @lib.Instruction::memory_init(
-            @lib.DataIdx::new(0U),
-            @lib.MemIdx::new(0U),
-          ),
-          @lib.Instruction::data_drop(@lib.DataIdx::new(0U)),
-        ]),
-      ),
-    ]),
-  )
-  .with_data_sec(
-    @lib.DataSec::new([
-      @lib.Data::new(
-        @lib.DataMode::passive(),
-        b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00HELLO\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-      ),
-    ]),
-  )
-  .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32::new(1U)))
-}
-
-///|
-fn assert_duplicate_fixture_deduped(bytes : Bytes) -> Unit raise Error {
-  let mod = decode_module_bytes(bytes)
-  match mod.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
-    None => fail("expected func section after optimization")
-  }
-  match mod.code_sec {
-    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
-    None => fail("expected code section after optimization")
-  }
-}
-
-///|
-fn assert_raw_once_fixture_reduced(bytes : Bytes) -> Unit raise Error {
-  let mod = decode_module_bytes(bytes)
-  match mod.code_sec {
-    Some(CodeSec([_, Func(_, @lib.Expr(instrs))])) => {
-      assert_eq(instrs[0], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
-      assert_eq(instrs[1], @lib.Instruction::nop())
-    }
-    _ => fail("expected reduced raw once fixture")
-  }
-}
-
-///|
-fn assert_raw_memory_fixture_packed(bytes : Bytes) -> Unit raise Error {
-  let mod = decode_module_bytes(bytes)
-  match mod.data_sec {
-    Some(@lib.DataSec([@lib.Data(@lib.Passive, data)])) =>
-      assert_eq(data, b"HELLO")
-    _ => fail("expected packed passive data payload")
-  }
 }
 
 ///|
@@ -698,260 +459,8 @@ test "run_cmd_with_adapter accepts unknown pass flags as no-op pipeline entries"
 }
 
 ///|
-test "run_cmd_with_adapter applies duplicate-function-elimination to wasm inputs" {
-  let wasm = encode_module_bytes(fixture_duplicate_function_module())
-  let writes : Array[(String, Bytes)] = []
-  let io = CmdIO::new(
-    list_candidates=fn() { ["dup.wasm"] },
-    file_exists=fn(path) { path == "dup.wasm" },
-    read_file=fn(path) {
-      if path == "dup.wasm" {
-        Ok(wasm)
-      } else {
-        Err("missing fixture")
-      }
-    },
-    write_file=fn(path, bytes) {
-      writes.push((path, bytes))
-      Ok(())
-    },
-  )
-  let summary = match
-    run_cmd_with_adapter(
-      ["--duplicate-function-elimination", "--out", "out.wasm", "dup.wasm"],
-      io,
-    ) {
-    Ok(v) => v
-    Err(e) => fail("unexpected run failure: \{e}")
-  }
-  assert_eq(summary.resolved_passes, ["duplicate-function-elimination"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, "out.wasm")
-  try! assert_duplicate_fixture_deduped(writes[0].1)
-}
-
-///|
-test "run_cmd_with_adapter --optimize preserves sorted rewritten name maps after duplicate function elimination" {
-  let wasm = encode_module_bytes(fixture_duplicate_function_name_order_module())
-  let writes : Array[(String, Bytes)] = []
-  let io = CmdIO::new(
-    list_candidates=fn() { ["dup-names.wasm"] },
-    file_exists=fn(path) { path == "dup-names.wasm" },
-    read_file=fn(path) {
-      if path == "dup-names.wasm" {
-        Ok(wasm)
-      } else {
-        Err("missing fixture")
-      }
-    },
-    write_file=fn(path, bytes) {
-      writes.push((path, bytes))
-      Ok(())
-    },
-  )
-  let summary = match
-    run_cmd_with_adapter(
-      ["--optimize", "--out", "out.wasm", "dup-names.wasm"],
-      io,
-    ) {
-    Ok(v) => v
-    Err(e) => fail("unexpected optimize failure: \{e}")
-  }
-  assert_eq(summary.resolved_passes, ["optimize"])
-  assert_eq(writes.length(), 1)
-  let optimized = decode_module_bytes(writes[0].1)
-  match optimized.name_sec {
-    Some(name_sec) => {
-      let { func_names, local_names, .. } = name_sec
-      assert_eq(
-        func_names,
-        Some(
-          @lib.NameMap::new([
-            @lib.NameAssoc::new(0U, @lib.Name::from_string("left")),
-            @lib.NameAssoc::new(1U, @lib.Name::from_string("middle")),
-          ]),
-        ),
-      )
-      assert_eq(
-        local_names,
-        Some(
-          @lib.IndirectNameMap::new([
-            @lib.IndirectNameAssoc::new(
-              1U,
-              @lib.NameMap::new([
-                @lib.NameAssoc::new(0U, @lib.Name::from_string("mid_local")),
-              ]),
-            ),
-          ]),
-        ),
-      )
-    }
-    None => fail("expected rewritten name section")
-  }
-}
-
-///|
-#cfg(target="native")
-test "run_cmd_with_adapter keeps real debug artifact name maps ordered after first optimize pass" {
-  let wasm = match
-    native_read_bytes("tests/node/dist/starshine-debug-wasi.wasm") {
-    Some(bytes) => bytes
-    None => fail("failed to read debug artifact fixture")
-  }
-  let writes : Array[(String, Bytes)] = []
-  let io = CmdIO::new(
-    get_env=fn(name) {
-      if name == "STARSHINE_OPTIMIZE_MAX_PASSES" {
-        Some("1")
-      } else {
-        None
-      }
-    },
-    list_candidates=fn() { ["debug.wasm"] },
-    file_exists=fn(path) { path == "debug.wasm" },
-    read_file=fn(path) {
-      if path == "debug.wasm" {
-        Ok(wasm)
-      } else {
-        Err("missing fixture")
-      }
-    },
-    encode_module=fn(mod) {
-      match module_name_section_order_error(mod) {
-        Some(err) => Err(CmdEncodeError::adapter(err))
-        None =>
-          match @binary.encode_module(mod) {
-            Ok(bytes) => Ok(bytes)
-            Err(err) => Err(CmdEncodeError::encode(err))
-          }
-      }
-    },
-    write_file=fn(path, bytes) {
-      writes.push((path, bytes))
-      Ok(())
-    },
-  )
-  let summary = match
-    run_cmd_with_adapter(["--optimize", "--out", "out.wasm", "debug.wasm"], io) {
-    Ok(v) => v
-    Err(e) => fail("unexpected debug artifact optimize failure: \{e}")
-  }
-  assert_eq(summary.resolved_passes, ["optimize"])
-  assert_eq(writes.length(), 1)
-}
-
-///|
-#cfg(target="native")
-test "run_cmd_with_adapter keeps debug artifact encodable through direct dead code elimination" {
-  let wasm = match
-    native_read_bytes("tests/node/dist/starshine-debug-wasi.wasm") {
-    Some(bytes) => bytes
-    None => fail("failed to read debug artifact fixture")
-  }
-  let writes : Array[(String, Bytes)] = []
-  let io = CmdIO::new(
-    list_candidates=fn() { ["debug.wasm"] },
-    file_exists=fn(path) { path == "debug.wasm" },
-    read_file=fn(path) {
-      if path == "debug.wasm" {
-        Ok(wasm)
-      } else {
-        Err("missing fixture")
-      }
-    },
-    write_file=fn(path, bytes) {
-      writes.push((path, bytes))
-      Ok(())
-    },
-  )
-  let summary = match
-    run_cmd_with_adapter(
-      ["--dead-code-elimination", "--out", "out.wasm", "debug.wasm"],
-      io,
-    ) {
-    Ok(v) => v
-    Err(e) =>
-      fail("unexpected direct DCE debug artifact optimize failure: \{e}")
-  }
-  assert_eq(summary.resolved_passes, ["dead-code-elimination"])
-  assert_eq(writes.length(), 1)
-  let optimized = decode_module_bytes(writes[0].1)
-  match @validate.validate_module(optimized) {
-    Ok(_) => ()
-    Err(e) =>
-      fail(
-        "expected direct DCE debug artifact output to validate after encode: \{@validate.validation_error_message(e)}",
-      )
-  }
-}
-
-///|
-test "run_cmd_with_adapter applies once-reduction to wasm inputs" {
-  let wasm = encode_module_bytes(fixture_raw_once_reduction_module())
-  let writes : Array[(String, Bytes)] = []
-  let io = CmdIO::new(
-    list_candidates=fn() { ["once.wasm"] },
-    file_exists=fn(path) { path == "once.wasm" },
-    read_file=fn(path) {
-      if path == "once.wasm" {
-        Ok(wasm)
-      } else {
-        Err("missing fixture")
-      }
-    },
-    write_file=fn(path, bytes) {
-      writes.push((path, bytes))
-      Ok(())
-    },
-  )
-  let summary = match
-    run_cmd_with_adapter(
-      ["--once-reduction", "--out", "out.wasm", "once.wasm"],
-      io,
-    ) {
-    Ok(v) => v
-    Err(e) => fail("unexpected run failure: \{e}")
-  }
-  assert_eq(summary.resolved_passes, ["once-reduction"])
-  assert_eq(writes.length(), 1)
-  try! assert_raw_once_fixture_reduced(writes[0].1)
-}
-
-///|
-test "run_cmd_with_adapter applies memory-packing to wasm inputs" {
-  let wasm = encode_module_bytes(fixture_raw_memory_packing_module())
-  let writes : Array[(String, Bytes)] = []
-  let io = CmdIO::new(
-    list_candidates=fn() { ["memory.wasm"] },
-    file_exists=fn(path) { path == "memory.wasm" },
-    read_file=fn(path) {
-      if path == "memory.wasm" {
-        Ok(wasm)
-      } else {
-        Err("missing fixture")
-      }
-    },
-    write_file=fn(path, bytes) {
-      writes.push((path, bytes))
-      Ok(())
-    },
-  )
-  let summary = match
-    run_cmd_with_adapter(
-      ["--memory-packing", "--out", "out.wasm", "memory.wasm"],
-      io,
-    ) {
-    Ok(v) => v
-    Err(e) => fail("unexpected run failure: \{e}")
-  }
-  assert_eq(summary.resolved_passes, ["memory-packing"])
-  assert_eq(writes.length(), 1)
-  try! assert_raw_memory_fixture_packed(writes[0].1)
-}
-
-///|
 test "run_cmd_with_adapter processes every input through generated optimize pipeline" {
-  let wasm = encode_module_bytes(fixture_duplicate_function_module())
+  let wasm = encode_module_bytes(fixture_i32_const_module(10))
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
     list_candidates=fn() { ["a.wasm", "b.wasm"] },

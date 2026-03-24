@@ -689,11 +689,14 @@ pub fn Env::with_module(self : Env, m : Module) -> Env {
 }
 
 ///|
-/// Convert flat Expr to tree-based TInstr body form.
-pub fn to_texpr(expr : Expr, env : Env) -> Result[Array[TInstr], String] {
-  let stack : Array[TInstr] = []
+/// Convert flat Expr to tree-based TypedInstr body form.
+pub fn to_typed_instrs(
+  expr : Expr,
+  env : Env,
+) -> Result[Array[TypedInstr], String] {
+  let stack : Array[TypedInstr] = []
   for instr in expr.0 {
-    match instr_to_tinstr(instr, stack, env) {
+    match instr_to_typed_instr(instr, stack, env) {
       Ok(_) => ()
       Err(t) => return Err(t)
     }
@@ -706,11 +709,11 @@ pub fn to_texpr(expr : Expr, env : Env) -> Result[Array[TInstr], String] {
 /// stack-polymorphic terminator is reached, since later instructions are unreachable.
 fn convert_expr_instrs(
   instrs : Array[Instruction],
-  stack : Array[TInstr],
+  stack : Array[TypedInstr],
   env : Env,
 ) -> Result[Unit, String] {
   for instr in instrs {
-    match instr_to_tinstr(instr, stack, env) {
+    match instr_to_typed_instr(instr, stack, env) {
       Ok(_) => ()
       Err(t) => return Err(t)
     }
@@ -725,23 +728,23 @@ fn convert_expr_instrs(
 ///|
 /// Treat these instructions as stack-polymorphic sources: they can absorb any amount
 /// of preceding expected stack demand during control-flow conversions.
-fn is_stack_polymorphic_source(instr : TInstr) -> Bool {
+fn is_stack_polymorphic_source(instr : TypedInstr) -> Bool {
   match instr.kind {
-    TInstrKind::TUnreachable => true
-    TInstrKind::TBr(_, _) => true
-    TInstrKind::TBrTable(_, _, _, _) => true
-    TInstrKind::TReturn(_) => true
-    TInstrKind::TThrow(_, _) => true
-    TInstrKind::TThrowRef(_) => true
-    TInstrKind::TReturnCall(_, _) => true
-    TInstrKind::TReturnCallIndirect(_, _, _, _) => true
-    TInstrKind::TReturnCallRef(_, _, _) => true
+    TypedInstrKind::TUnreachable => true
+    TypedInstrKind::TBr(_, _) => true
+    TypedInstrKind::TBrTable(_, _, _, _) => true
+    TypedInstrKind::TReturn(_) => true
+    TypedInstrKind::TThrow(_, _) => true
+    TypedInstrKind::TThrowRef(_) => true
+    TypedInstrKind::TReturnCall(_, _) => true
+    TypedInstrKind::TReturnCallIndirect(_, _, _, _) => true
+    TypedInstrKind::TReturnCallRef(_, _, _) => true
     _ => false
   }
 }
 
 ///|
-fn stack_has_polymorphic_source(stack : Array[TInstr]) -> Bool {
+fn stack_has_polymorphic_source(stack : Array[TypedInstr]) -> Bool {
   for instr in stack {
     if is_stack_polymorphic_source(instr) {
       return true
@@ -753,7 +756,7 @@ fn stack_has_polymorphic_source(stack : Array[TInstr]) -> Bool {
 ///|
 /// Pop with stack-polymorphism semantics: an explicit terminator at stack top is
 /// preserved to represent unreachable control-flow continuation points.
-fn pop(stack : Array[TInstr]) -> Result[TInstr, String] {
+fn pop(stack : Array[TypedInstr]) -> Result[TypedInstr, String] {
   if stack.length() > 0 {
     let top = stack[stack.length() - 1]
     if is_stack_polymorphic_source(top) {
@@ -781,10 +784,10 @@ fn arity_apply(total : Int, consumed : Int, produced : Int) -> Int {
 ///|
 /// Aggregate production counts across a sequence of typed instructions by
 /// summing their individual arities.
-pub fn tinstrs_result_arity(instrs : Array[TInstr], env : Env) -> Int {
+pub fn typed_instrs_result_arity(instrs : Array[TypedInstr], env : Env) -> Int {
   let mut total = 0
   for instr in instrs {
-    total += tinstr_result_arity(instr, env)
+    total += typed_instr_result_arity(instr, env)
   }
   total
 }
@@ -794,28 +797,28 @@ pub fn tinstrs_result_arity(instrs : Array[TInstr], env : Env) -> Int {
 /// stack-polymorphic state where unreachable/branch terminators can stand in for
 /// missing producers.
 fn pop_n(
-  stack : Array[TInstr],
+  stack : Array[TypedInstr],
   n : Int,
   env : Env,
-) -> Result[Array[TInstr], String] {
+) -> Result[Array[TypedInstr], String] {
   if n <= 0 {
     return Ok([])
   }
   let can_reuse_poly_bottom = stack_has_polymorphic_source(stack)
-  let available_values = tinstrs_result_arity(stack, env)
+  let available_values = typed_instrs_result_arity(stack, env)
   if available_values < n && !can_reuse_poly_bottom {
     return Err(
       "Stack underflow: need \{n} values but only \{available_values} available",
     )
   }
   let mut remaining = n
-  let rev : Array[TInstr] = []
+  let rev : Array[TypedInstr] = []
   while remaining > 0 {
     if stack.length() == 0 {
       // In polymorphic contexts, one terminating source can satisfy any demand.
       // The concrete producer was already popped; reusing an unreachable marker
       // preserves stack-polymorphic behavior.
-      rev.push(TInstr::unreachable_())
+      rev.push(TypedInstr::unreachable_())
       remaining -= 1
       continue
     }
@@ -827,9 +830,9 @@ fn pop_n(
     }
     let popped = stack.pop().unwrap()
     rev.push(popped)
-    remaining -= tinstr_result_arity(popped, env)
+    remaining -= typed_instr_result_arity(popped, env)
   }
-  let out : Array[TInstr] = []
+  let out : Array[TypedInstr] = []
   for instr in rev.rev_iter() {
     out.push(instr)
   }
@@ -839,79 +842,80 @@ fn pop_n(
 ///|
 /// Compute the net stack effect for one typed instruction, using env-based arity
 /// from referenced signatures for call and structured control constructs.
-pub fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
+pub fn typed_instr_result_arity(instr : TypedInstr, env : Env) -> Int {
   match instr.kind {
-    TInstrKind::TI32Const(_)
-    | TInstrKind::TI64Const(_)
-    | TInstrKind::TF32Const(_)
-    | TInstrKind::TF64Const(_)
-    | TInstrKind::TRefNull(_)
-    | TInstrKind::TRefFunc(_)
-    | TInstrKind::TStringConst(_)
-    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
-    | TInstrKind::TLocalGet(_)
-    | TInstrKind::TGlobalGet(_)
-    | TInstrKind::TMemorySize(_)
-    | TInstrKind::TTableSize(_)
-    | TInstrKind::TStructNewDefault(_)
-    | TInstrKind::TStructNewDefaultDesc(_, _) => 1
-    TInstrKind::TUnreachable
-    | TInstrKind::TNop
-    | TInstrKind::TDataDrop(_)
-    | TInstrKind::TAtomicFence
-    | TInstrKind::TElemDrop(_)
-    | TInstrKind::TThrowRef(_)
-    | TInstrKind::TThrow(_, _)
-    | TInstrKind::TBr(_, _)
-    | TInstrKind::TBrTable(_, _, _, _)
-    | TInstrKind::TReturnCall(_, _)
-    | TInstrKind::TReturnCallIndirect(_, _, _, _)
-    | TInstrKind::TReturnCallRef(_, _, _)
-    | TInstrKind::TReturn(_) => 0
-    TInstrKind::TUnary(_, child)
-    | TInstrKind::TLocalTee(_, child)
-    | TInstrKind::TRefIsNull(child)
-    | TInstrKind::TRefAsNonNull(child)
-    | TInstrKind::TI31GetS(child)
-    | TInstrKind::TI31GetU(child)
-    | TInstrKind::TRefI31(child)
-    | TInstrKind::TArrayLen(child)
-    | TInstrKind::TAnyConvertExtern(child)
-    | TInstrKind::TExternConvertAny(child)
-    | TInstrKind::TLoad(_, _, child)
-    | TInstrKind::TMemoryGrow(_, child)
-    | TInstrKind::TTableGet(_, child)
-    | TInstrKind::TStructGet(_, _, child)
-    | TInstrKind::TStructGetS(_, _, child)
-    | TInstrKind::TStructGetU(_, _, child)
-    | TInstrKind::TRefGetDesc(_, child)
-    | TInstrKind::TRefTest(_, _, child)
-    | TInstrKind::TRefCast(_, _, child)
-    | TInstrKind::TRefTestDesc(_, _, child)
-    | TInstrKind::TRefCastDescEq(_, _, child)
-    | TInstrKind::TI8x16Splat(child)
-    | TInstrKind::TI16x8Splat(child)
-    | TInstrKind::TI32x4Splat(child)
-    | TInstrKind::TI64x2Splat(child)
-    | TInstrKind::TF32x4Splat(child)
-    | TInstrKind::TF64x2Splat(child)
-    | TInstrKind::TExtractLane(_, _, child) => tinstr_result_arity(child, env)
-    TInstrKind::TDrop(child)
-    | TInstrKind::TLocalSet(_, child)
-    | TInstrKind::TGlobalSet(_, child) =>
-      arity_apply(tinstr_result_arity(child, env), 1, 0)
-    TInstrKind::TBinary(_, lhs, rhs)
-    | TInstrKind::TRefEq(lhs, rhs)
-    | TInstrKind::TAtomicRmw(_, _, lhs, rhs)
-    | TInstrKind::TTableGrow(_, lhs, rhs)
-    | TInstrKind::TArrayNew(_, lhs, rhs)
-    | TInstrKind::TArrayNewData(_, _, lhs, rhs)
-    | TInstrKind::TArrayNewElem(_, _, lhs, rhs)
-    | TInstrKind::TArrayGet(_, lhs, rhs)
-    | TInstrKind::TArrayGetS(_, lhs, rhs)
-    | TInstrKind::TArrayGetU(_, lhs, rhs)
-    | TInstrKind::TReplaceLane(_, _, lhs, rhs)
-    | TInstrKind::TI8x16Shuffle(
+    TypedInstrKind::TI32Const(_)
+    | TypedInstrKind::TI64Const(_)
+    | TypedInstrKind::TF32Const(_)
+    | TypedInstrKind::TF64Const(_)
+    | TypedInstrKind::TRefNull(_)
+    | TypedInstrKind::TRefFunc(_)
+    | TypedInstrKind::TStringConst(_)
+    | TypedInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TypedInstrKind::TLocalGet(_)
+    | TypedInstrKind::TGlobalGet(_)
+    | TypedInstrKind::TMemorySize(_)
+    | TypedInstrKind::TTableSize(_)
+    | TypedInstrKind::TStructNewDefault(_)
+    | TypedInstrKind::TStructNewDefaultDesc(_, _) => 1
+    TypedInstrKind::TUnreachable
+    | TypedInstrKind::TNop
+    | TypedInstrKind::TDataDrop(_)
+    | TypedInstrKind::TAtomicFence
+    | TypedInstrKind::TElemDrop(_)
+    | TypedInstrKind::TThrowRef(_)
+    | TypedInstrKind::TThrow(_, _)
+    | TypedInstrKind::TBr(_, _)
+    | TypedInstrKind::TBrTable(_, _, _, _)
+    | TypedInstrKind::TReturnCall(_, _)
+    | TypedInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TypedInstrKind::TReturnCallRef(_, _, _)
+    | TypedInstrKind::TReturn(_) => 0
+    TypedInstrKind::TUnary(_, child)
+    | TypedInstrKind::TLocalTee(_, child)
+    | TypedInstrKind::TRefIsNull(child)
+    | TypedInstrKind::TRefAsNonNull(child)
+    | TypedInstrKind::TI31GetS(child)
+    | TypedInstrKind::TI31GetU(child)
+    | TypedInstrKind::TRefI31(child)
+    | TypedInstrKind::TArrayLen(child)
+    | TypedInstrKind::TAnyConvertExtern(child)
+    | TypedInstrKind::TExternConvertAny(child)
+    | TypedInstrKind::TLoad(_, _, child)
+    | TypedInstrKind::TMemoryGrow(_, child)
+    | TypedInstrKind::TTableGet(_, child)
+    | TypedInstrKind::TStructGet(_, _, child)
+    | TypedInstrKind::TStructGetS(_, _, child)
+    | TypedInstrKind::TStructGetU(_, _, child)
+    | TypedInstrKind::TRefGetDesc(_, child)
+    | TypedInstrKind::TRefTest(_, _, child)
+    | TypedInstrKind::TRefCast(_, _, child)
+    | TypedInstrKind::TRefTestDesc(_, _, child)
+    | TypedInstrKind::TRefCastDescEq(_, _, child)
+    | TypedInstrKind::TI8x16Splat(child)
+    | TypedInstrKind::TI16x8Splat(child)
+    | TypedInstrKind::TI32x4Splat(child)
+    | TypedInstrKind::TI64x2Splat(child)
+    | TypedInstrKind::TF32x4Splat(child)
+    | TypedInstrKind::TF64x2Splat(child)
+    | TypedInstrKind::TExtractLane(_, _, child) =>
+      typed_instr_result_arity(child, env)
+    TypedInstrKind::TDrop(child)
+    | TypedInstrKind::TLocalSet(_, child)
+    | TypedInstrKind::TGlobalSet(_, child) =>
+      arity_apply(typed_instr_result_arity(child, env), 1, 0)
+    TypedInstrKind::TBinary(_, lhs, rhs)
+    | TypedInstrKind::TRefEq(lhs, rhs)
+    | TypedInstrKind::TAtomicRmw(_, _, lhs, rhs)
+    | TypedInstrKind::TTableGrow(_, lhs, rhs)
+    | TypedInstrKind::TArrayNew(_, lhs, rhs)
+    | TypedInstrKind::TArrayNewData(_, _, lhs, rhs)
+    | TypedInstrKind::TArrayNewElem(_, _, lhs, rhs)
+    | TypedInstrKind::TArrayGet(_, lhs, rhs)
+    | TypedInstrKind::TArrayGetS(_, lhs, rhs)
+    | TypedInstrKind::TArrayGetU(_, lhs, rhs)
+    | TypedInstrKind::TReplaceLane(_, _, lhs, rhs)
+    | TypedInstrKind::TI8x16Shuffle(
       _,
       _,
       _,
@@ -931,174 +935,186 @@ pub fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
       lhs,
       rhs
     )
-    | TInstrKind::TI8x16Swizzle(lhs, rhs)
-    | TInstrKind::TI8x16RelaxedSwizzle(lhs, rhs)
-    | TInstrKind::TV128Shift(_, lhs, rhs)
-    | TInstrKind::TV128LoadLane(_, _, _, lhs, rhs)
-    | TInstrKind::TMemoryAtomicNotify(_, lhs, rhs) =>
+    | TypedInstrKind::TI8x16Swizzle(lhs, rhs)
+    | TypedInstrKind::TI8x16RelaxedSwizzle(lhs, rhs)
+    | TypedInstrKind::TV128Shift(_, lhs, rhs)
+    | TypedInstrKind::TV128LoadLane(_, _, _, lhs, rhs)
+    | TypedInstrKind::TMemoryAtomicNotify(_, lhs, rhs) =>
       arity_apply(
-        tinstr_result_arity(lhs, env) + tinstr_result_arity(rhs, env),
+        typed_instr_result_arity(lhs, env) + typed_instr_result_arity(rhs, env),
         2,
         1,
       )
-    TInstrKind::TStore(_, _, lhs, rhs)
-    | TInstrKind::TTableSet(_, lhs, rhs)
-    | TInstrKind::TStructSet(_, _, lhs, rhs)
-    | TInstrKind::TV128StoreLane(_, _, _, lhs, rhs) =>
+    TypedInstrKind::TStore(_, _, lhs, rhs)
+    | TypedInstrKind::TTableSet(_, lhs, rhs)
+    | TypedInstrKind::TStructSet(_, _, lhs, rhs)
+    | TypedInstrKind::TV128StoreLane(_, _, _, lhs, rhs) =>
       arity_apply(
-        tinstr_result_arity(lhs, env) + tinstr_result_arity(rhs, env),
+        typed_instr_result_arity(lhs, env) + typed_instr_result_arity(rhs, env),
         2,
         0,
       )
-    TInstrKind::TMemoryFill(_, a, b, c)
-    | TInstrKind::TMemoryCopy(_, _, a, b, c)
-    | TInstrKind::TMemoryInit(_, _, a, b, c)
-    | TInstrKind::TMemoryAtomicWait32(_, a, b, c)
-    | TInstrKind::TMemoryAtomicWait64(_, a, b, c)
-    | TInstrKind::TAtomicCmpxchg(_, _, a, b, c)
-    | TInstrKind::TTableFill(_, a, b, c)
-    | TInstrKind::TTableCopy(_, _, a, b, c)
-    | TInstrKind::TTableInit(_, _, a, b, c)
-    | TInstrKind::TArraySet(_, a, b, c)
-    | TInstrKind::TStringNewUtf8Array(a, b, c)
-    | TInstrKind::TStringNewWtf16Array(a, b, c)
-    | TInstrKind::TStringEncodeUtf8Array(a, b, c)
-    | TInstrKind::TStringEncodeWtf16Array(a, b, c)
-    | TInstrKind::TStringNewLossyUtf8Array(a, b, c)
-    | TInstrKind::TStringNewWtf8Array(a, b, c)
-    | TInstrKind::TStringEncodeLossyUtf8Array(a, b, c)
-    | TInstrKind::TStringEncodeWtf8Array(a, b, c)
-    | TInstrKind::TV128Ternary(_, a, b, c) => {
-      let total = tinstr_result_arity(a, env) +
-        tinstr_result_arity(b, env) +
-        tinstr_result_arity(c, env)
+    TypedInstrKind::TMemoryFill(_, a, b, c)
+    | TypedInstrKind::TMemoryCopy(_, _, a, b, c)
+    | TypedInstrKind::TMemoryInit(_, _, a, b, c)
+    | TypedInstrKind::TMemoryAtomicWait32(_, a, b, c)
+    | TypedInstrKind::TMemoryAtomicWait64(_, a, b, c)
+    | TypedInstrKind::TAtomicCmpxchg(_, _, a, b, c)
+    | TypedInstrKind::TTableFill(_, a, b, c)
+    | TypedInstrKind::TTableCopy(_, _, a, b, c)
+    | TypedInstrKind::TTableInit(_, _, a, b, c)
+    | TypedInstrKind::TArraySet(_, a, b, c)
+    | TypedInstrKind::TStringNewUtf8Array(a, b, c)
+    | TypedInstrKind::TStringNewWtf16Array(a, b, c)
+    | TypedInstrKind::TStringEncodeUtf8Array(a, b, c)
+    | TypedInstrKind::TStringEncodeWtf16Array(a, b, c)
+    | TypedInstrKind::TStringNewLossyUtf8Array(a, b, c)
+    | TypedInstrKind::TStringNewWtf8Array(a, b, c)
+    | TypedInstrKind::TStringEncodeLossyUtf8Array(a, b, c)
+    | TypedInstrKind::TStringEncodeWtf8Array(a, b, c)
+    | TypedInstrKind::TV128Ternary(_, a, b, c) => {
+      let total = typed_instr_result_arity(a, env) +
+        typed_instr_result_arity(b, env) +
+        typed_instr_result_arity(c, env)
       let produced = match instr.kind {
-        TInstrKind::TMemoryAtomicWait32(_, _, _, _)
-        | TInstrKind::TMemoryAtomicWait64(_, _, _, _)
-        | TInstrKind::TAtomicCmpxchg(_, _, _, _, _)
-        | TInstrKind::TStringNewUtf8Array(_, _, _)
-        | TInstrKind::TStringNewWtf16Array(_, _, _)
-        | TInstrKind::TStringEncodeUtf8Array(_, _, _)
-        | TInstrKind::TStringEncodeWtf16Array(_, _, _)
-        | TInstrKind::TStringNewLossyUtf8Array(_, _, _)
-        | TInstrKind::TStringNewWtf8Array(_, _, _)
-        | TInstrKind::TStringEncodeLossyUtf8Array(_, _, _)
-        | TInstrKind::TStringEncodeWtf8Array(_, _, _)
-        | TInstrKind::TV128Ternary(_, _, _, _) => 1
+        TypedInstrKind::TMemoryAtomicWait32(_, _, _, _)
+        | TypedInstrKind::TMemoryAtomicWait64(_, _, _, _)
+        | TypedInstrKind::TAtomicCmpxchg(_, _, _, _, _)
+        | TypedInstrKind::TStringNewUtf8Array(_, _, _)
+        | TypedInstrKind::TStringNewWtf16Array(_, _, _)
+        | TypedInstrKind::TStringEncodeUtf8Array(_, _, _)
+        | TypedInstrKind::TStringEncodeWtf16Array(_, _, _)
+        | TypedInstrKind::TStringNewLossyUtf8Array(_, _, _)
+        | TypedInstrKind::TStringNewWtf8Array(_, _, _)
+        | TypedInstrKind::TStringEncodeLossyUtf8Array(_, _, _)
+        | TypedInstrKind::TStringEncodeWtf8Array(_, _, _)
+        | TypedInstrKind::TV128Ternary(_, _, _, _) => 1
         _ => 0
       }
       arity_apply(total, 3, produced)
     }
-    TInstrKind::TArrayFill(_, a, b, c, d)
-    | TInstrKind::TArrayInitData(_, _, a, b, c, d)
-    | TInstrKind::TArrayInitElem(_, _, a, b, c, d) => {
-      let total = tinstr_result_arity(a, env) +
-        tinstr_result_arity(b, env) +
-        tinstr_result_arity(c, env) +
-        tinstr_result_arity(d, env)
+    TypedInstrKind::TArrayFill(_, a, b, c, d)
+    | TypedInstrKind::TArrayInitData(_, _, a, b, c, d)
+    | TypedInstrKind::TArrayInitElem(_, _, a, b, c, d) => {
+      let total = typed_instr_result_arity(a, env) +
+        typed_instr_result_arity(b, env) +
+        typed_instr_result_arity(c, env) +
+        typed_instr_result_arity(d, env)
       arity_apply(total, 4, 0)
     }
-    TInstrKind::TArrayCopy(_, _, a, b, c, d, e) => {
-      let total = tinstr_result_arity(a, env) +
-        tinstr_result_arity(b, env) +
-        tinstr_result_arity(c, env) +
-        tinstr_result_arity(d, env) +
-        tinstr_result_arity(e, env)
+    TypedInstrKind::TArrayCopy(_, _, a, b, c, d, e) => {
+      let total = typed_instr_result_arity(a, env) +
+        typed_instr_result_arity(b, env) +
+        typed_instr_result_arity(c, env) +
+        typed_instr_result_arity(d, env) +
+        typed_instr_result_arity(e, env)
       arity_apply(total, 5, 0)
     }
-    TInstrKind::TCall(func_idx, _) =>
+    TypedInstrKind::TCall(func_idx, _) =>
       match (env.get_functype_by_funcidx(func_idx), instr.kind) {
-        (Some(FuncType(params, results)), TInstrKind::TCall(_, args)) =>
+        (Some(FuncType(params, results)), TypedInstrKind::TCall(_, args)) =>
           arity_apply(
-            tinstrs_result_arity(args, env),
+            typed_instrs_result_arity(args, env),
             params.length(),
             results.length(),
           )
         (None, _) => 0
         _ => 0
       }
-    TInstrKind::TCallIndirect(type_idx, _, _, _) =>
+    TypedInstrKind::TCallIndirect(type_idx, _, _, _) =>
       match (env.resolve_functype(type_idx), instr.kind) {
         (
           Some(FuncType(params, results)),
-          TInstrKind::TCallIndirect(_, _, args, idx),
+          TypedInstrKind::TCallIndirect(_, _, args, idx),
         ) =>
           arity_apply(
-            tinstrs_result_arity(args, env) + tinstr_result_arity(idx, env),
+            typed_instrs_result_arity(args, env) +
+            typed_instr_result_arity(idx, env),
             params.length() + 1,
             results.length(),
           )
         (None, _) => 0
         _ => 0
       }
-    TInstrKind::TCallRef(type_idx, _, _) =>
+    TypedInstrKind::TCallRef(type_idx, _, _) =>
       match (env.resolve_functype(type_idx), instr.kind) {
-        (Some(FuncType(params, results)), TInstrKind::TCallRef(_, args, ref_)) =>
+        (
+          Some(FuncType(params, results)),
+          TypedInstrKind::TCallRef(_, args, ref_),
+        ) =>
           arity_apply(
-            tinstrs_result_arity(args, env) + tinstr_result_arity(ref_, env),
+            typed_instrs_result_arity(args, env) +
+            typed_instr_result_arity(ref_, env),
             params.length() + 1,
             results.length(),
           )
         (None, _) => 0
         _ => 0
       }
-    TInstrKind::TBlock(bt, _)
-    | TInstrKind::TLoop(bt, _)
-    | TInstrKind::TIf(bt, _, _, _)
-    | TInstrKind::TTryTable(bt, _, _) =>
+    TypedInstrKind::TBlock(bt, _)
+    | TypedInstrKind::TLoop(bt, _)
+    | TypedInstrKind::TIf(bt, _, _, _)
+    | TypedInstrKind::TTryTable(bt, _, _) =>
       match env.expand_blocktype(bt) {
         Ok((_, results)) => results.length()
         Err(_) => 0
       }
-    TInstrKind::TBrIf(_, cond, values) =>
+    TypedInstrKind::TBrIf(_, cond, values) =>
       arity_apply(
-        tinstr_result_arity(cond, env) + tinstrs_result_arity(values, env),
+        typed_instr_result_arity(cond, env) +
+        typed_instrs_result_arity(values, env),
         1,
         0,
       )
-    TInstrKind::TBrOnNull(_, ref_, values)
-    | TInstrKind::TBrOnCast(_, _, _, _, ref_, values)
-    | TInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) =>
+    TypedInstrKind::TBrOnNull(_, ref_, values)
+    | TypedInstrKind::TBrOnCast(_, _, _, _, ref_, values)
+    | TypedInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) =>
       arity_apply(
-        tinstr_result_arity(ref_, env) + tinstrs_result_arity(values, env),
+        typed_instr_result_arity(ref_, env) +
+        typed_instrs_result_arity(values, env),
         1,
         1,
       )
-    TInstrKind::TBrOnNonNull(_, ref_, values) =>
+    TypedInstrKind::TBrOnNonNull(_, ref_, values) =>
       arity_apply(
-        tinstr_result_arity(ref_, env) + tinstrs_result_arity(values, env),
+        typed_instr_result_arity(ref_, env) +
+        typed_instrs_result_arity(values, env),
         1,
         0,
       )
-    TInstrKind::TSelect(types, cond, v1, v2) => {
+    TypedInstrKind::TSelect(types, cond, v1, v2) => {
       let n_vals = match types {
         Some(ts) => ts.length()
         None => 1
       }
-      let total = tinstr_result_arity(cond, env) +
-        tinstr_result_arity(v1, env) +
-        tinstr_result_arity(v2, env)
+      let total = typed_instr_result_arity(cond, env) +
+        typed_instr_result_arity(v1, env) +
+        typed_instr_result_arity(v2, env)
       arity_apply(total, 1 + n_vals * 2, n_vals)
     }
-    TInstrKind::TStructNew(_, fields) | TInstrKind::TStructNewDesc(_, fields) =>
-      arity_apply(tinstrs_result_arity(fields, env), fields.length(), 1)
-    TInstrKind::TArrayNewFixed(_, elems) =>
-      arity_apply(tinstrs_result_arity(elems, env), elems.length(), 1)
+    TypedInstrKind::TStructNew(_, fields)
+    | TypedInstrKind::TStructNewDesc(_, fields) =>
+      arity_apply(typed_instrs_result_arity(fields, env), fields.length(), 1)
+    TypedInstrKind::TArrayNewFixed(_, elems) =>
+      arity_apply(typed_instrs_result_arity(elems, env), elems.length(), 1)
     _ => 0
   }
 }
 
 ///|
 fn pop_return_values(
-  stack : Array[TInstr],
+  stack : Array[TypedInstr],
   arity : Int,
   env : Env,
-) -> Result[Array[TInstr], String] {
+) -> Result[Array[TypedInstr], String] {
   pop_n(stack, arity, env)
 }
 
 ///|
-fn push_terminating_instr(stack : Array[TInstr], instr : TInstr) -> Unit {
+fn push_terminating_instr(
+  stack : Array[TypedInstr],
+  instr : TypedInstr,
+) -> Unit {
   stack.push(instr)
 }
 
@@ -1144,20 +1160,20 @@ fn label_prefix_arity(env : Env, label : LabelIdx) -> Int {
 }
 
 ///|
-fn instr_to_tinstr(
+fn instr_to_typed_instr(
   instr : Instruction,
-  stack : Array[TInstr],
+  stack : Array[TypedInstr],
   env : Env,
 ) -> Result[Unit, String] {
   match instr {
     // === Constants ===
-    I32Const(v) => stack.push(TInstr::i32_const(v))
-    I64Const(v) => stack.push(TInstr::i64_const(v))
-    F32Const(v) => stack.push(TInstr::f32_const(v))
-    F64Const(v) => stack.push(TInstr::f64_const(v))
-    RefNull(rt) => stack.push(TInstr::ref_null_type(rt))
-    RefFunc(idx) => stack.push(TInstr::ref_func(idx))
-    StringConst(bytes) => stack.push(TInstr::string_const(bytes))
+    I32Const(v) => stack.push(TypedInstr::i32_const(v))
+    I64Const(v) => stack.push(TypedInstr::i64_const(v))
+    F32Const(v) => stack.push(TypedInstr::f32_const(v))
+    F64Const(v) => stack.push(TypedInstr::f64_const(v))
+    RefNull(rt) => stack.push(TypedInstr::ref_null_type(rt))
+    RefFunc(idx) => stack.push(TypedInstr::ref_func(idx))
+    StringConst(bytes) => stack.push(TypedInstr::string_const(bytes))
     V128Const(
       b0,
       b1,
@@ -1177,18 +1193,18 @@ fn instr_to_tinstr(
       b15
     ) =>
       stack.push(
-        TInstr::v128_const(
+        TypedInstr::v128_const(
           b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
         ),
       )
 
     // === Nullary ===
-    Unreachable => push_terminating_instr(stack, TInstr::unreachable_())
-    Nop => stack.push(TInstr::nop())
-    LocalGet(idx) => stack.push(TInstr::local_get(idx))
-    GlobalGet(idx) => stack.push(TInstr::global_get(idx))
-    MemorySize(idx) => stack.push(TInstr::memory_size(idx))
-    TableSize(idx) => stack.push(TInstr::table_size(idx))
+    Unreachable => push_terminating_instr(stack, TypedInstr::unreachable_())
+    Nop => stack.push(TypedInstr::nop())
+    LocalGet(idx) => stack.push(TypedInstr::local_get(idx))
+    GlobalGet(idx) => stack.push(TypedInstr::global_get(idx))
+    MemorySize(idx) => stack.push(TypedInstr::memory_size(idx))
+    TableSize(idx) => stack.push(TypedInstr::table_size(idx))
 
     // === Unary numeric ===
     I32Eqz => {
@@ -1196,154 +1212,154 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_eqz(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_eqz(), op))
     }
     I64Eqz => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_eqz(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_eqz(), op))
     }
     I32Clz => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_clz(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_clz(), op))
     }
     I32Ctz => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_ctz(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_ctz(), op))
     }
     I32Popcnt => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_popcnt(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_popcnt(), op))
     }
     I64Clz => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_clz(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_clz(), op))
     }
     I64Ctz => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_ctz(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_ctz(), op))
     }
     I64Popcnt => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_popcnt(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_popcnt(), op))
     }
     F32Abs => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32_abs(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32_abs(), op))
     }
     F32Neg => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32_neg(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32_neg(), op))
     }
     F32Ceil => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32_ceil(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32_ceil(), op))
     }
     F32Floor => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32_floor(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32_floor(), op))
     }
     F32Trunc => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32_trunc(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32_trunc(), op))
     }
     F32Nearest => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32_nearest(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32_nearest(), op))
     }
     F32Sqrt => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32_sqrt(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32_sqrt(), op))
     }
     F64Abs => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64_abs(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64_abs(), op))
     }
     F64Neg => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64_neg(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64_neg(), op))
     }
     F64Ceil => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64_ceil(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64_ceil(), op))
     }
     F64Floor => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64_floor(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64_floor(), op))
     }
     F64Trunc => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64_trunc(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64_trunc(), op))
     }
     F64Nearest => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64_nearest(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64_nearest(), op))
     }
     F64Sqrt => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64_sqrt(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64_sqrt(), op))
     }
 
     // === Conversions ===
@@ -1352,266 +1368,266 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_wrap_i64(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_wrap_i64(), op))
     }
     I32TruncF32S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_trunc_f32s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_trunc_f32s(), op))
     }
     I32TruncF32U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_trunc_f32u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_trunc_f32u(), op))
     }
     I32TruncF64S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_trunc_f64s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_trunc_f64s(), op))
     }
     I32TruncF64U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_trunc_f64u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_trunc_f64u(), op))
     }
     I64ExtendI32S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_extend_i32s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_extend_i32s(), op))
     }
     I64ExtendI32U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_extend_i32u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_extend_i32u(), op))
     }
     I64TruncF32S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_trunc_f32s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_trunc_f32s(), op))
     }
     I64TruncF32U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_trunc_f32u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_trunc_f32u(), op))
     }
     I64TruncF64S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_trunc_f64s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_trunc_f64s(), op))
     }
     I64TruncF64U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_trunc_f64u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_trunc_f64u(), op))
     }
     F32ConvertI32S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32_convert_i32s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32_convert_i32s(), op))
     }
     F32ConvertI32U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32_convert_i32u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32_convert_i32u(), op))
     }
     F32ConvertI64S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32_convert_i64s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32_convert_i64s(), op))
     }
     F32ConvertI64U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32_convert_i64u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32_convert_i64u(), op))
     }
     F32DemoteF64 => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32_demote_f64(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32_demote_f64(), op))
     }
     F64ConvertI32S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64_convert_i32s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64_convert_i32s(), op))
     }
     F64ConvertI32U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64_convert_i32u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64_convert_i32u(), op))
     }
     F64ConvertI64S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64_convert_i64s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64_convert_i64s(), op))
     }
     F64ConvertI64U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64_convert_i64u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64_convert_i64u(), op))
     }
     F64PromoteF32 => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64_promote_f32(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64_promote_f32(), op))
     }
     I32ReinterpretF32 => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_reinterpret_f32(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_reinterpret_f32(), op))
     }
     I64ReinterpretF64 => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_reinterpret_f64(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_reinterpret_f64(), op))
     }
     F32ReinterpretI32 => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32_reinterpret_i32(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32_reinterpret_i32(), op))
     }
     F64ReinterpretI64 => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64_reinterpret_i64(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64_reinterpret_i64(), op))
     }
     I32Extend8S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_extend8s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_extend8s(), op))
     }
     I32Extend16S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_extend16s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_extend16s(), op))
     }
     I64Extend8S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_extend8s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_extend8s(), op))
     }
     I64Extend16S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_extend16s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_extend16s(), op))
     }
     I64Extend32S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_extend32s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_extend32s(), op))
     }
     I32TruncSatF32S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_trunc_sat_f32s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_trunc_sat_f32s(), op))
     }
     I32TruncSatF32U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_trunc_sat_f32u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_trunc_sat_f32u(), op))
     }
     I32TruncSatF64S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_trunc_sat_f64s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_trunc_sat_f64s(), op))
     }
     I32TruncSatF64U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32_trunc_sat_f64u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32_trunc_sat_f64u(), op))
     }
     I64TruncSatF32S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_trunc_sat_f32s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_trunc_sat_f32s(), op))
     }
     I64TruncSatF32U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_trunc_sat_f32u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_trunc_sat_f32u(), op))
     }
     I64TruncSatF64S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_trunc_sat_f64s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_trunc_sat_f64s(), op))
     }
     I64TruncSatF64U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64_trunc_sat_f64u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64_trunc_sat_f64u(), op))
     }
 
     // === Binary numeric ===
@@ -1624,7 +1640,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_eq(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_eq(), lhs, rhs))
     }
     I32Ne => {
       let rhs = match pop(stack) {
@@ -1635,7 +1651,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_ne(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_ne(), lhs, rhs))
     }
     I32LtS => {
       let rhs = match pop(stack) {
@@ -1646,7 +1662,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_lt_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_lt_s(), lhs, rhs))
     }
     I32LtU => {
       let rhs = match pop(stack) {
@@ -1657,7 +1673,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_lt_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_lt_u(), lhs, rhs))
     }
     I32GtS => {
       let rhs = match pop(stack) {
@@ -1668,7 +1684,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_gt_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_gt_s(), lhs, rhs))
     }
     I32GtU => {
       let rhs = match pop(stack) {
@@ -1679,7 +1695,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_gt_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_gt_u(), lhs, rhs))
     }
     I32LeS => {
       let rhs = match pop(stack) {
@@ -1690,7 +1706,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_le_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_le_s(), lhs, rhs))
     }
     I32LeU => {
       let rhs = match pop(stack) {
@@ -1701,7 +1717,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_le_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_le_u(), lhs, rhs))
     }
     I32GeS => {
       let rhs = match pop(stack) {
@@ -1712,7 +1728,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_ge_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_ge_s(), lhs, rhs))
     }
     I32GeU => {
       let rhs = match pop(stack) {
@@ -1723,7 +1739,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_ge_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_ge_u(), lhs, rhs))
     }
     I64Eq => {
       let rhs = match pop(stack) {
@@ -1734,7 +1750,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_eq(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_eq(), lhs, rhs))
     }
     I64Ne => {
       let rhs = match pop(stack) {
@@ -1745,7 +1761,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_ne(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_ne(), lhs, rhs))
     }
     I64LtS => {
       let rhs = match pop(stack) {
@@ -1756,7 +1772,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_lt_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_lt_s(), lhs, rhs))
     }
     I64LtU => {
       let rhs = match pop(stack) {
@@ -1767,7 +1783,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_lt_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_lt_u(), lhs, rhs))
     }
     I64GtS => {
       let rhs = match pop(stack) {
@@ -1778,7 +1794,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_gt_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_gt_s(), lhs, rhs))
     }
     I64GtU => {
       let rhs = match pop(stack) {
@@ -1789,7 +1805,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_gt_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_gt_u(), lhs, rhs))
     }
     I64LeS => {
       let rhs = match pop(stack) {
@@ -1800,7 +1816,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_le_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_le_s(), lhs, rhs))
     }
     I64LeU => {
       let rhs = match pop(stack) {
@@ -1811,7 +1827,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_le_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_le_u(), lhs, rhs))
     }
     I64GeS => {
       let rhs = match pop(stack) {
@@ -1822,7 +1838,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_ge_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_ge_s(), lhs, rhs))
     }
     I64GeU => {
       let rhs = match pop(stack) {
@@ -1833,7 +1849,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_ge_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_ge_u(), lhs, rhs))
     }
     F32Eq => {
       let rhs = match pop(stack) {
@@ -1844,7 +1860,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32_eq(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32_eq(), lhs, rhs))
     }
     F32Ne => {
       let rhs = match pop(stack) {
@@ -1855,7 +1871,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32_ne(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32_ne(), lhs, rhs))
     }
     F32Lt => {
       let rhs = match pop(stack) {
@@ -1866,7 +1882,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32_lt(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32_lt(), lhs, rhs))
     }
     F32Gt => {
       let rhs = match pop(stack) {
@@ -1877,7 +1893,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32_gt(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32_gt(), lhs, rhs))
     }
     F32Le => {
       let rhs = match pop(stack) {
@@ -1888,7 +1904,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32_le(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32_le(), lhs, rhs))
     }
     F32Ge => {
       let rhs = match pop(stack) {
@@ -1899,7 +1915,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32_ge(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32_ge(), lhs, rhs))
     }
     F64Eq => {
       let rhs = match pop(stack) {
@@ -1910,7 +1926,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64_eq(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64_eq(), lhs, rhs))
     }
     F64Ne => {
       let rhs = match pop(stack) {
@@ -1921,7 +1937,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64_ne(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64_ne(), lhs, rhs))
     }
     F64Lt => {
       let rhs = match pop(stack) {
@@ -1932,7 +1948,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64_lt(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64_lt(), lhs, rhs))
     }
     F64Gt => {
       let rhs = match pop(stack) {
@@ -1943,7 +1959,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64_gt(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64_gt(), lhs, rhs))
     }
     F64Le => {
       let rhs = match pop(stack) {
@@ -1954,7 +1970,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64_le(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64_le(), lhs, rhs))
     }
     F64Ge => {
       let rhs = match pop(stack) {
@@ -1965,7 +1981,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64_ge(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64_ge(), lhs, rhs))
     }
     I32Add => {
       let rhs = match pop(stack) {
@@ -1976,7 +1992,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_add(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_add(), lhs, rhs))
     }
     I32Sub => {
       let rhs = match pop(stack) {
@@ -1987,7 +2003,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_sub(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_sub(), lhs, rhs))
     }
     I32Mul => {
       let rhs = match pop(stack) {
@@ -1998,7 +2014,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_mul(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_mul(), lhs, rhs))
     }
     I32DivS => {
       let rhs = match pop(stack) {
@@ -2009,7 +2025,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_div_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_div_s(), lhs, rhs))
     }
     I32DivU => {
       let rhs = match pop(stack) {
@@ -2020,7 +2036,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_div_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_div_u(), lhs, rhs))
     }
     I32RemS => {
       let rhs = match pop(stack) {
@@ -2031,7 +2047,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_rem_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_rem_s(), lhs, rhs))
     }
     I32RemU => {
       let rhs = match pop(stack) {
@@ -2042,7 +2058,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_rem_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_rem_u(), lhs, rhs))
     }
     I32And => {
       let rhs = match pop(stack) {
@@ -2053,7 +2069,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_and(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_and(), lhs, rhs))
     }
     I32Or => {
       let rhs = match pop(stack) {
@@ -2064,7 +2080,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_or(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_or(), lhs, rhs))
     }
     I32Xor => {
       let rhs = match pop(stack) {
@@ -2075,7 +2091,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_xor(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_xor(), lhs, rhs))
     }
     I32Shl => {
       let rhs = match pop(stack) {
@@ -2086,7 +2102,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_shl(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_shl(), lhs, rhs))
     }
     I32ShrS => {
       let rhs = match pop(stack) {
@@ -2097,7 +2113,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_shr_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_shr_s(), lhs, rhs))
     }
     I32ShrU => {
       let rhs = match pop(stack) {
@@ -2108,7 +2124,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_shr_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_shr_u(), lhs, rhs))
     }
     I32Rotl => {
       let rhs = match pop(stack) {
@@ -2119,7 +2135,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_rotl(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_rotl(), lhs, rhs))
     }
     I32Rotr => {
       let rhs = match pop(stack) {
@@ -2130,7 +2146,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32_rotr(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32_rotr(), lhs, rhs))
     }
     I64Add => {
       let rhs = match pop(stack) {
@@ -2141,7 +2157,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_add(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_add(), lhs, rhs))
     }
     I64Sub => {
       let rhs = match pop(stack) {
@@ -2152,7 +2168,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_sub(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_sub(), lhs, rhs))
     }
     I64Mul => {
       let rhs = match pop(stack) {
@@ -2163,7 +2179,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_mul(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_mul(), lhs, rhs))
     }
     I64DivS => {
       let rhs = match pop(stack) {
@@ -2174,7 +2190,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_div_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_div_s(), lhs, rhs))
     }
     I64DivU => {
       let rhs = match pop(stack) {
@@ -2185,7 +2201,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_div_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_div_u(), lhs, rhs))
     }
     I64RemS => {
       let rhs = match pop(stack) {
@@ -2196,7 +2212,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_rem_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_rem_s(), lhs, rhs))
     }
     I64RemU => {
       let rhs = match pop(stack) {
@@ -2207,7 +2223,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_rem_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_rem_u(), lhs, rhs))
     }
     I64And => {
       let rhs = match pop(stack) {
@@ -2218,7 +2234,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_and(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_and(), lhs, rhs))
     }
     I64Or => {
       let rhs = match pop(stack) {
@@ -2229,7 +2245,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_or(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_or(), lhs, rhs))
     }
     I64Xor => {
       let rhs = match pop(stack) {
@@ -2240,7 +2256,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_xor(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_xor(), lhs, rhs))
     }
     I64Shl => {
       let rhs = match pop(stack) {
@@ -2251,7 +2267,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_shl(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_shl(), lhs, rhs))
     }
     I64ShrS => {
       let rhs = match pop(stack) {
@@ -2262,7 +2278,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_shr_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_shr_s(), lhs, rhs))
     }
     I64ShrU => {
       let rhs = match pop(stack) {
@@ -2273,7 +2289,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_shr_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_shr_u(), lhs, rhs))
     }
     I64Rotl => {
       let rhs = match pop(stack) {
@@ -2284,7 +2300,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_rotl(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_rotl(), lhs, rhs))
     }
     I64Rotr => {
       let rhs = match pop(stack) {
@@ -2295,7 +2311,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64_rotr(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64_rotr(), lhs, rhs))
     }
     F32Add => {
       let rhs = match pop(stack) {
@@ -2306,7 +2322,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32_add(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32_add(), lhs, rhs))
     }
     F32Sub => {
       let rhs = match pop(stack) {
@@ -2317,7 +2333,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32_sub(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32_sub(), lhs, rhs))
     }
     F32Mul => {
       let rhs = match pop(stack) {
@@ -2328,7 +2344,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32_mul(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32_mul(), lhs, rhs))
     }
     F32Div => {
       let rhs = match pop(stack) {
@@ -2339,7 +2355,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32_div(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32_div(), lhs, rhs))
     }
     F32Min => {
       let rhs = match pop(stack) {
@@ -2350,7 +2366,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32_min(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32_min(), lhs, rhs))
     }
     F32Max => {
       let rhs = match pop(stack) {
@@ -2361,7 +2377,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32_max(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32_max(), lhs, rhs))
     }
     F32Copysign => {
       let rhs = match pop(stack) {
@@ -2372,7 +2388,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32_copysign(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32_copysign(), lhs, rhs))
     }
     F64Add => {
       let rhs = match pop(stack) {
@@ -2383,7 +2399,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64_add(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64_add(), lhs, rhs))
     }
     F64Sub => {
       let rhs = match pop(stack) {
@@ -2394,7 +2410,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64_sub(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64_sub(), lhs, rhs))
     }
     F64Mul => {
       let rhs = match pop(stack) {
@@ -2405,7 +2421,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64_mul(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64_mul(), lhs, rhs))
     }
     F64Div => {
       let rhs = match pop(stack) {
@@ -2416,7 +2432,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64_div(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64_div(), lhs, rhs))
     }
     F64Min => {
       let rhs = match pop(stack) {
@@ -2427,7 +2443,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64_min(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64_min(), lhs, rhs))
     }
     F64Max => {
       let rhs = match pop(stack) {
@@ -2438,7 +2454,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64_max(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64_max(), lhs, rhs))
     }
     F64Copysign => {
       let rhs = match pop(stack) {
@@ -2449,7 +2465,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64_copysign(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64_copysign(), lhs, rhs))
     }
 
     // === Other unary ===
@@ -2458,42 +2474,42 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::drop(op))
+      stack.push(TypedInstr::drop(op))
     }
     LocalSet(idx) => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::local_set(idx, op))
+      stack.push(TypedInstr::local_set(idx, op))
     }
     LocalTee(idx) => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::local_tee(idx, op))
+      stack.push(TypedInstr::local_tee(idx, op))
     }
     GlobalSet(idx) => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::global_set(idx, op))
+      stack.push(TypedInstr::global_set(idx, op))
     }
     RefIsNull => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::ref_is_null(op))
+      stack.push(TypedInstr::ref_is_null(op))
     }
     RefAsNonNull => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::ref_as_non_null(op))
+      stack.push(TypedInstr::ref_as_non_null(op))
     }
     RefEq => {
       let rhs = match pop(stack) {
@@ -2504,56 +2520,56 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::ref_eq(lhs, rhs))
+      stack.push(TypedInstr::ref_eq(lhs, rhs))
     }
     RefI31 => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::ref_i31(op))
+      stack.push(TypedInstr::ref_i31(op))
     }
     I31GetS => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::i31_get_s(op))
+      stack.push(TypedInstr::i31_get_s(op))
     }
     I31GetU => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::i31_get_u(op))
+      stack.push(TypedInstr::i31_get_u(op))
     }
     ArrayLen => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::array_len(op))
+      stack.push(TypedInstr::array_len(op))
     }
     AnyConvertExtern => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::any_convert_extern(op))
+      stack.push(TypedInstr::any_convert_extern(op))
     }
     ExternConvertAny => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::extern_convert_any(op))
+      stack.push(TypedInstr::extern_convert_any(op))
     }
     ThrowRef => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      push_terminating_instr(stack, TInstr::throw_ref(op))
+      push_terminating_instr(stack, TypedInstr::throw_ref(op))
     }
 
     // === Loads ===
@@ -2562,147 +2578,147 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i32_load(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i32_load(), memarg, addr))
     }
     I64Load(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i64_load(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i64_load(), memarg, addr))
     }
     F32Load(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::f32_load(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::f32_load(), memarg, addr))
     }
     F64Load(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::f64_load(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::f64_load(), memarg, addr))
     }
     I32Load8S(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i32_load8s(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i32_load8s(), memarg, addr))
     }
     I32Load8U(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i32_load8u(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i32_load8u(), memarg, addr))
     }
     I32Load16S(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i32_load16s(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i32_load16s(), memarg, addr))
     }
     I32Load16U(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i32_load16u(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i32_load16u(), memarg, addr))
     }
     I64Load8S(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i64_load8s(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i64_load8s(), memarg, addr))
     }
     I64Load8U(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i64_load8u(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i64_load8u(), memarg, addr))
     }
     I64Load16S(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i64_load16s(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i64_load16s(), memarg, addr))
     }
     I64Load16U(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i64_load16u(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i64_load16u(), memarg, addr))
     }
     I64Load32S(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i64_load32s(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i64_load32s(), memarg, addr))
     }
     I64Load32U(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i64_load32u(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i64_load32u(), memarg, addr))
     }
     I32AtomicLoad(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i32_atomic_load(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i32_atomic_load(), memarg, addr))
     }
     I64AtomicLoad(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i64_atomic_load(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i64_atomic_load(), memarg, addr))
     }
     I32AtomicLoad8U(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i32_atomic_load8_u(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i32_atomic_load8_u(), memarg, addr))
     }
     I32AtomicLoad16U(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i32_atomic_load16_u(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i32_atomic_load16_u(), memarg, addr))
     }
     I64AtomicLoad8U(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i64_atomic_load8_u(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i64_atomic_load8_u(), memarg, addr))
     }
     I64AtomicLoad16U(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i64_atomic_load16_u(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i64_atomic_load16_u(), memarg, addr))
     }
     I64AtomicLoad32U(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::i64_atomic_load32_u(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::i64_atomic_load32_u(), memarg, addr))
     }
 
     // === Stores ===
@@ -2715,7 +2731,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::store(StoreOp::i32_store(), memarg, addr, value))
+      stack.push(TypedInstr::store(StoreOp::i32_store(), memarg, addr, value))
     }
     I64Store(memarg) => {
       let value = match pop(stack) {
@@ -2726,7 +2742,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::store(StoreOp::i64_store(), memarg, addr, value))
+      stack.push(TypedInstr::store(StoreOp::i64_store(), memarg, addr, value))
     }
     F32Store(memarg) => {
       let value = match pop(stack) {
@@ -2737,7 +2753,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::store(StoreOp::f32_store(), memarg, addr, value))
+      stack.push(TypedInstr::store(StoreOp::f32_store(), memarg, addr, value))
     }
     F64Store(memarg) => {
       let value = match pop(stack) {
@@ -2748,7 +2764,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::store(StoreOp::f64_store(), memarg, addr, value))
+      stack.push(TypedInstr::store(StoreOp::f64_store(), memarg, addr, value))
     }
     I32Store8(memarg) => {
       let value = match pop(stack) {
@@ -2759,7 +2775,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::store(StoreOp::i32_store8(), memarg, addr, value))
+      stack.push(TypedInstr::store(StoreOp::i32_store8(), memarg, addr, value))
     }
     I32Store16(memarg) => {
       let value = match pop(stack) {
@@ -2770,7 +2786,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::store(StoreOp::i32_store16(), memarg, addr, value))
+      stack.push(TypedInstr::store(StoreOp::i32_store16(), memarg, addr, value))
     }
     I64Store8(memarg) => {
       let value = match pop(stack) {
@@ -2781,7 +2797,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::store(StoreOp::i64_store8(), memarg, addr, value))
+      stack.push(TypedInstr::store(StoreOp::i64_store8(), memarg, addr, value))
     }
     I64Store16(memarg) => {
       let value = match pop(stack) {
@@ -2792,7 +2808,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::store(StoreOp::i64_store16(), memarg, addr, value))
+      stack.push(TypedInstr::store(StoreOp::i64_store16(), memarg, addr, value))
     }
     I64Store32(memarg) => {
       let value = match pop(stack) {
@@ -2803,7 +2819,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::store(StoreOp::i64_store32(), memarg, addr, value))
+      stack.push(TypedInstr::store(StoreOp::i64_store32(), memarg, addr, value))
     }
     I32AtomicStore(memarg) => {
       let value = match pop(stack) {
@@ -2815,7 +2831,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::store(StoreOp::i32_atomic_store(), memarg, addr, value),
+        TypedInstr::store(StoreOp::i32_atomic_store(), memarg, addr, value),
       )
     }
     I64AtomicStore(memarg) => {
@@ -2828,7 +2844,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::store(StoreOp::i64_atomic_store(), memarg, addr, value),
+        TypedInstr::store(StoreOp::i64_atomic_store(), memarg, addr, value),
       )
     }
     I32AtomicStore8(memarg) => {
@@ -2841,7 +2857,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::store(StoreOp::i32_atomic_store8(), memarg, addr, value),
+        TypedInstr::store(StoreOp::i32_atomic_store8(), memarg, addr, value),
       )
     }
     I32AtomicStore16(memarg) => {
@@ -2854,7 +2870,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::store(StoreOp::i32_atomic_store16(), memarg, addr, value),
+        TypedInstr::store(StoreOp::i32_atomic_store16(), memarg, addr, value),
       )
     }
     I64AtomicStore8(memarg) => {
@@ -2867,7 +2883,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::store(StoreOp::i64_atomic_store8(), memarg, addr, value),
+        TypedInstr::store(StoreOp::i64_atomic_store8(), memarg, addr, value),
       )
     }
     I64AtomicStore16(memarg) => {
@@ -2880,7 +2896,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::store(StoreOp::i64_atomic_store16(), memarg, addr, value),
+        TypedInstr::store(StoreOp::i64_atomic_store16(), memarg, addr, value),
       )
     }
     I64AtomicStore32(memarg) => {
@@ -2893,7 +2909,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::store(StoreOp::i64_atomic_store32(), memarg, addr, value),
+        TypedInstr::store(StoreOp::i64_atomic_store32(), memarg, addr, value),
       )
     }
 
@@ -2903,7 +2919,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::memory_grow(idx, pages))
+      stack.push(TypedInstr::memory_grow(idx, pages))
     }
     MemoryFill(idx) => {
       let len = match pop(stack) {
@@ -2918,7 +2934,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::memory_fill(idx, dest, val, len))
+      stack.push(TypedInstr::memory_fill(idx, dest, val, len))
     }
     MemoryCopy(dst, src) => {
       let len = match pop(stack) {
@@ -2933,7 +2949,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::memory_copy(dst, src, dst_addr, src_addr, len))
+      stack.push(TypedInstr::memory_copy(dst, src, dst_addr, src_addr, len))
     }
     MemoryInit(data_idx, mem_idx) => {
       let len = match pop(stack) {
@@ -2948,9 +2964,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::memory_init(data_idx, mem_idx, dst, src, len))
+      stack.push(TypedInstr::memory_init(data_idx, mem_idx, dst, src, len))
     }
-    DataDrop(idx) => stack.push(TInstr::data_drop(idx))
+    DataDrop(idx) => stack.push(TypedInstr::data_drop(idx))
     MemoryAtomicNotify(memarg) => {
       let count = match pop(stack) {
         Ok(t) => t
@@ -2960,7 +2976,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::memory_atomic_notify(memarg, addr, count))
+      stack.push(TypedInstr::memory_atomic_notify(memarg, addr, count))
     }
     MemoryAtomicWait32(memarg) => {
       let timeout = match pop(stack) {
@@ -2975,7 +2991,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::memory_atomic_wait32(memarg, addr, expected, timeout))
+      stack.push(
+        TypedInstr::memory_atomic_wait32(memarg, addr, expected, timeout),
+      )
     }
     MemoryAtomicWait64(memarg) => {
       let timeout = match pop(stack) {
@@ -2990,9 +3008,11 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::memory_atomic_wait64(memarg, addr, expected, timeout))
+      stack.push(
+        TypedInstr::memory_atomic_wait64(memarg, addr, expected, timeout),
+      )
     }
-    AtomicFence => stack.push(TInstr::atomic_fence())
+    AtomicFence => stack.push(TypedInstr::atomic_fence())
     AtomicRmw(op, memarg) => {
       let value = match pop(stack) {
         Ok(t) => t
@@ -3002,7 +3022,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::atomic_rmw(op, memarg, addr, value))
+      stack.push(TypedInstr::atomic_rmw(op, memarg, addr, value))
     }
     AtomicCmpxchg(op, memarg) => {
       let replacement = match pop(stack) {
@@ -3018,7 +3038,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::atomic_cmpxchg(op, memarg, addr, expected, replacement),
+        TypedInstr::atomic_cmpxchg(op, memarg, addr, expected, replacement),
       )
     }
 
@@ -3028,7 +3048,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::table_get(idx, i))
+      stack.push(TypedInstr::table_get(idx, i))
     }
     TableSet(idx) => {
       let val = match pop(stack) {
@@ -3039,7 +3059,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::table_set(idx, i, val))
+      stack.push(TypedInstr::table_set(idx, i, val))
     }
     TableGrow(idx) => {
       let n = match pop(stack) {
@@ -3050,7 +3070,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::table_grow(idx, val, n))
+      stack.push(TypedInstr::table_grow(idx, val, n))
     }
     TableFill(idx) => {
       let n = match pop(stack) {
@@ -3065,7 +3085,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::table_fill(idx, i, val, n))
+      stack.push(TypedInstr::table_fill(idx, i, val, n))
     }
     TableCopy(dst, src) => {
       let n = match pop(stack) {
@@ -3080,7 +3100,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::table_copy(dst, src, d, s, n))
+      stack.push(TypedInstr::table_copy(dst, src, d, s, n))
     }
     TableInit(elem_idx, table_idx) => {
       let n = match pop(stack) {
@@ -3095,9 +3115,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::table_init(elem_idx, table_idx, d, s, n))
+      stack.push(TypedInstr::table_init(elem_idx, table_idx, d, s, n))
     }
-    ElemDrop(idx) => stack.push(TInstr::elem_drop(idx))
+    ElemDrop(idx) => stack.push(TypedInstr::elem_drop(idx))
 
     // === Select ===
     Select(types) => {
@@ -3113,7 +3133,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::select(types, cond, val1, val2))
+      stack.push(TypedInstr::select(types, cond, val1, val2))
     }
 
     // === Control flow ===
@@ -3124,7 +3144,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       // Create a new stack with inputs for the block body
-      let body_stack : Array[TInstr] = []
+      let body_stack : Array[TypedInstr] = []
       for input in inputs {
         body_stack.push(input)
       }
@@ -3133,7 +3153,7 @@ fn instr_to_tinstr(
         Ok(_) => ()
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::block(bt, body_stack))
+      stack.push(TypedInstr::block(bt, body_stack))
     }
     Loop(bt, body) => {
       let n_inputs = block_type_inputs(bt, env)
@@ -3150,7 +3170,7 @@ fn instr_to_tinstr(
         Ok(_) => ()
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::loop_(bt, body_stack))
+      stack.push(TypedInstr::loop_(bt, body_stack))
     }
     If(bt, then_branch, else_branch) => {
       let cond = match pop(stack) {
@@ -3162,7 +3182,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      let then_stack : Array[TInstr] = []
+      let then_stack : Array[TypedInstr] = []
       for input in inputs {
         then_stack.push(input)
       }
@@ -3171,9 +3191,9 @@ fn instr_to_tinstr(
         Ok(_) => ()
         Err(t) => return Err(t)
       }
-      let else_texpr : Array[TInstr]? = match else_branch {
+      let else_typed_body : Array[TypedInstr]? = match else_branch {
         Some(else_instrs) => {
-          let else_stack : Array[TInstr] = []
+          let else_stack : Array[TypedInstr] = []
           for input in inputs {
             else_stack.push(input)
           }
@@ -3185,7 +3205,7 @@ fn instr_to_tinstr(
         }
         None => None
       }
-      stack.push(TInstr::if_(bt, cond, then_stack, else_texpr))
+      stack.push(TypedInstr::if_(bt, cond, then_stack, else_typed_body))
     }
     TryTable(bt, catches, body) => {
       let n_inputs = block_type_inputs(bt, env)
@@ -3202,7 +3222,7 @@ fn instr_to_tinstr(
         Ok(_) => ()
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::try_table(bt, catches, body_stack))
+      stack.push(TypedInstr::try_table(bt, catches, body_stack))
     }
     Throw(tag_idx) => {
       let n_args = match env.resolve_tag_functype(tag_idx) {
@@ -3213,7 +3233,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      push_terminating_instr(stack, TInstr::throw_(tag_idx, args))
+      push_terminating_instr(stack, TypedInstr::throw_(tag_idx, args))
     }
 
     // === Branches ===
@@ -3223,7 +3243,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      push_terminating_instr(stack, TInstr::br(label, values))
+      push_terminating_instr(stack, TypedInstr::br(label, values))
     }
     BrIf(label) => {
       let cond = match pop(stack) {
@@ -3235,7 +3255,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::br_if(label, cond, values))
+      stack.push(TypedInstr::br_if(label, cond, values))
     }
     BrTable(labels, default) => {
       let idx = match pop(stack) {
@@ -3249,7 +3269,7 @@ fn instr_to_tinstr(
       }
       push_terminating_instr(
         stack,
-        TInstr::br_table(labels, default, idx, values),
+        TypedInstr::br_table(labels, default, idx, values),
       )
     }
     BrOnNull(label) => {
@@ -3262,7 +3282,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::br_on_null(label, ref_, values))
+      stack.push(TypedInstr::br_on_null(label, ref_, values))
     }
     BrOnNonNull(label) => {
       let ref_ = match pop(stack) {
@@ -3274,7 +3294,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::br_on_non_null(label, ref_, values))
+      stack.push(TypedInstr::br_on_non_null(label, ref_, values))
     }
     BrOnCast(label, castop, ht1, ht2) => {
       let ref_ = match pop(stack) {
@@ -3287,7 +3307,15 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::br_on_cast(label, castop.0, ht1, castop.1, ht2, ref_, values),
+        TypedInstr::br_on_cast(
+          label,
+          castop.0,
+          ht1,
+          castop.1,
+          ht2,
+          ref_,
+          values,
+        ),
       )
     }
     BrOnCastFail(label, castop, ht1, ht2) => {
@@ -3301,7 +3329,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::br_on_cast_fail(
+        TypedInstr::br_on_cast_fail(
           label,
           castop.0,
           ht1,
@@ -3321,7 +3349,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      push_terminating_instr(stack, TInstr::return_(values))
+      push_terminating_instr(stack, TypedInstr::return_(values))
     }
     StringNewUtf8Array => {
       let end_ = match pop(stack) {
@@ -3336,7 +3364,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::string_new_utf8_array(array, start, end_))
+      stack.push(TypedInstr::string_new_utf8_array(array, start, end_))
     }
     StringNewWtf16Array => {
       let end_ = match pop(stack) {
@@ -3351,7 +3379,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::string_new_wtf16_array(array, start, end_))
+      stack.push(TypedInstr::string_new_wtf16_array(array, start, end_))
     }
     StringEncodeUtf8Array => {
       let start = match pop(stack) {
@@ -3366,7 +3394,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::string_encode_utf8_array(string, array, start))
+      stack.push(TypedInstr::string_encode_utf8_array(string, array, start))
     }
     StringEncodeWtf16Array => {
       let start = match pop(stack) {
@@ -3381,7 +3409,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::string_encode_wtf16_array(string, array, start))
+      stack.push(TypedInstr::string_encode_wtf16_array(string, array, start))
     }
     StringNewLossyUtf8Array => {
       let end_ = match pop(stack) {
@@ -3396,7 +3424,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::string_new_lossy_utf8_array(array, start, end_))
+      stack.push(TypedInstr::string_new_lossy_utf8_array(array, start, end_))
     }
     StringNewWtf8Array => {
       let end_ = match pop(stack) {
@@ -3411,7 +3439,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::string_new_wtf8_array(array, start, end_))
+      stack.push(TypedInstr::string_new_wtf8_array(array, start, end_))
     }
     StringEncodeLossyUtf8Array => {
       let start = match pop(stack) {
@@ -3426,7 +3454,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::string_encode_lossy_utf8_array(string, array, start))
+      stack.push(
+        TypedInstr::string_encode_lossy_utf8_array(string, array, start),
+      )
     }
     StringEncodeWtf8Array => {
       let start = match pop(stack) {
@@ -3441,7 +3471,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::string_encode_wtf8_array(string, array, start))
+      stack.push(TypedInstr::string_encode_wtf8_array(string, array, start))
     }
 
     // === Calls ===
@@ -3454,7 +3484,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::call(func_idx, args))
+      stack.push(TypedInstr::call(func_idx, args))
     }
     CallIndirect(type_idx, table_idx) => {
       let idx = match pop(stack) {
@@ -3469,7 +3499,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::call_indirect(type_idx, table_idx, args, idx))
+      stack.push(TypedInstr::call_indirect(type_idx, table_idx, args, idx))
     }
     CallRef(type_idx) => {
       let ref_ = match pop(stack) {
@@ -3484,7 +3514,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::call_ref(type_idx, args, ref_))
+      stack.push(TypedInstr::call_ref(type_idx, args, ref_))
     }
     ReturnCall(func_idx) => {
       let n_args = match env.funcs.get(func_idx.0.reinterpret_as_int()) {
@@ -3495,7 +3525,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      push_terminating_instr(stack, TInstr::return_call(func_idx, args))
+      push_terminating_instr(stack, TypedInstr::return_call(func_idx, args))
     }
     ReturnCallIndirect(type_idx, table_idx) => {
       let idx = match pop(stack) {
@@ -3512,7 +3542,7 @@ fn instr_to_tinstr(
       }
       push_terminating_instr(
         stack,
-        TInstr::return_call_indirect(type_idx, table_idx, args, idx),
+        TypedInstr::return_call_indirect(type_idx, table_idx, args, idx),
       )
     }
     ReturnCallRef(type_idx) => {
@@ -3530,7 +3560,7 @@ fn instr_to_tinstr(
       }
       push_terminating_instr(
         stack,
-        TInstr::return_call_ref(type_idx, args, ref_),
+        TypedInstr::return_call_ref(type_idx, args, ref_),
       )
     }
 
@@ -3544,7 +3574,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::struct_new(type_idx, fields))
+      stack.push(TypedInstr::struct_new(type_idx, fields))
     }
     StructNewDesc(type_idx) => {
       let n_fields = match env.resolve_comptype(type_idx) {
@@ -3555,37 +3585,37 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::struct_new_desc(type_idx, fields))
+      stack.push(TypedInstr::struct_new_desc(type_idx, fields))
     }
     StructNewDefault(type_idx) =>
-      stack.push(TInstr::struct_new_default(type_idx))
+      stack.push(TypedInstr::struct_new_default(type_idx))
     StructNewDefaultDesc(type_idx) => {
       let descriptor = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::struct_new_default_desc(type_idx, descriptor))
+      stack.push(TypedInstr::struct_new_default_desc(type_idx, descriptor))
     }
     StructGet(type_idx, field_idx) => {
       let struct_ref = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::struct_get(type_idx, field_idx, struct_ref))
+      stack.push(TypedInstr::struct_get(type_idx, field_idx, struct_ref))
     }
     StructGetS(type_idx, field_idx) => {
       let struct_ref = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::struct_get_s(type_idx, field_idx, struct_ref))
+      stack.push(TypedInstr::struct_get_s(type_idx, field_idx, struct_ref))
     }
     StructGetU(type_idx, field_idx) => {
       let struct_ref = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::struct_get_u(type_idx, field_idx, struct_ref))
+      stack.push(TypedInstr::struct_get_u(type_idx, field_idx, struct_ref))
     }
     StructSet(type_idx, field_idx) => {
       let val = match pop(stack) {
@@ -3596,7 +3626,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::struct_set(type_idx, field_idx, struct_ref, val))
+      stack.push(TypedInstr::struct_set(type_idx, field_idx, struct_ref, val))
     }
 
     // === GC: Arrays ===
@@ -3609,21 +3639,21 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::array_new(type_idx, init, len))
+      stack.push(TypedInstr::array_new(type_idx, init, len))
     }
     ArrayNewDefault(type_idx) => {
       let len = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::array_new_default(type_idx, len))
+      stack.push(TypedInstr::array_new_default(type_idx, len))
     }
     ArrayNewFixed(type_idx, n) => {
       let elems = match pop_n(stack, n.0.reinterpret_as_int(), env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::array_new_fixed(type_idx, elems))
+      stack.push(TypedInstr::array_new_fixed(type_idx, elems))
     }
     ArrayNewData(type_idx, data_idx) => {
       let len = match pop(stack) {
@@ -3634,7 +3664,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::array_new_data(type_idx, data_idx, offset, len))
+      stack.push(TypedInstr::array_new_data(type_idx, data_idx, offset, len))
     }
     ArrayNewElem(type_idx, elem_idx) => {
       let len = match pop(stack) {
@@ -3645,7 +3675,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::array_new_elem(type_idx, elem_idx, offset, len))
+      stack.push(TypedInstr::array_new_elem(type_idx, elem_idx, offset, len))
     }
     ArrayGet(type_idx) => {
       let idx = match pop(stack) {
@@ -3656,7 +3686,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::array_get(type_idx, arr, idx))
+      stack.push(TypedInstr::array_get(type_idx, arr, idx))
     }
     ArrayGetS(type_idx) => {
       let idx = match pop(stack) {
@@ -3667,7 +3697,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::array_get_s(type_idx, arr, idx))
+      stack.push(TypedInstr::array_get_s(type_idx, arr, idx))
     }
     ArrayGetU(type_idx) => {
       let idx = match pop(stack) {
@@ -3678,7 +3708,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::array_get_u(type_idx, arr, idx))
+      stack.push(TypedInstr::array_get_u(type_idx, arr, idx))
     }
     ArraySet(type_idx) => {
       let val = match pop(stack) {
@@ -3693,7 +3723,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::array_set(type_idx, arr, idx, val))
+      stack.push(TypedInstr::array_set(type_idx, arr, idx, val))
     }
     ArrayFill(type_idx) => {
       let len = match pop(stack) {
@@ -3712,7 +3742,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::array_fill(type_idx, arr, offset, val, len))
+      stack.push(TypedInstr::array_fill(type_idx, arr, offset, val, len))
     }
     ArrayCopy(dst_type, src_type) => {
       let len = match pop(stack) {
@@ -3736,7 +3766,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::array_copy(
+        TypedInstr::array_copy(
           dst_type, src_type, dst, dst_offset, src, src_offset, len,
         ),
       )
@@ -3759,7 +3789,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::array_init_data(type_idx, data_idx, arr, dst, src, len),
+        TypedInstr::array_init_data(type_idx, data_idx, arr, dst, src, len),
       )
     }
     ArrayInitElem(type_idx, elem_idx) => {
@@ -3780,7 +3810,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::array_init_elem(type_idx, elem_idx, arr, dst, src, len),
+        TypedInstr::array_init_elem(type_idx, elem_idx, arr, dst, src, len),
       )
     }
 
@@ -3790,35 +3820,35 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::ref_get_desc(type_idx, ref_))
+      stack.push(TypedInstr::ref_get_desc(type_idx, ref_))
     }
     RefTest(nullable, ht) => {
       let ref_ = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::ref_test(nullable, ht, ref_))
+      stack.push(TypedInstr::ref_test(nullable, ht, ref_))
     }
     RefCast(nullable, ht) => {
       let ref_ = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::ref_cast(nullable, ht, ref_))
+      stack.push(TypedInstr::ref_cast(nullable, ht, ref_))
     }
     RefTestDesc(nullable, ht) => {
       let ref_ = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::ref_test_desc(nullable, ht, ref_))
+      stack.push(TypedInstr::ref_test_desc(nullable, ht, ref_))
     }
     RefCastDescEq(nullable, ht) => {
       let ref_ = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::ref_cast_desc_eq(nullable, ht, ref_))
+      stack.push(TypedInstr::ref_cast_desc_eq(nullable, ht, ref_))
     }
 
     // === SIMD ===
@@ -3827,91 +3857,91 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::v128_load(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::v128_load(), memarg, addr))
     }
     V128Load8x8S(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::v128_load8x8s(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::v128_load8x8s(), memarg, addr))
     }
     V128Load8x8U(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::v128_load8x8u(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::v128_load8x8u(), memarg, addr))
     }
     V128Load16x4S(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::v128_load16x4s(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::v128_load16x4s(), memarg, addr))
     }
     V128Load16x4U(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::v128_load16x4u(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::v128_load16x4u(), memarg, addr))
     }
     V128Load32x2S(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::v128_load32x2s(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::v128_load32x2s(), memarg, addr))
     }
     V128Load32x2U(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::v128_load32x2u(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::v128_load32x2u(), memarg, addr))
     }
     V128Load8Splat(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::v128_load8_splat(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::v128_load8_splat(), memarg, addr))
     }
     V128Load16Splat(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::v128_load16_splat(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::v128_load16_splat(), memarg, addr))
     }
     V128Load32Splat(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::v128_load32_splat(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::v128_load32_splat(), memarg, addr))
     }
     V128Load64Splat(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::v128_load64_splat(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::v128_load64_splat(), memarg, addr))
     }
     V128Load32Zero(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::v128_load32_zero(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::v128_load32_zero(), memarg, addr))
     }
     V128Load64Zero(memarg) => {
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::load(LoadOp::v128_load64_zero(), memarg, addr))
+      stack.push(TypedInstr::load(LoadOp::v128_load64_zero(), memarg, addr))
     }
     V128Store(memarg) => {
       let val = match pop(stack) {
@@ -3922,7 +3952,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::store(StoreOp::v128_store(), memarg, addr, val))
+      stack.push(TypedInstr::store(StoreOp::v128_store(), memarg, addr, val))
     }
     V128Load8Lane(memarg, lane) => {
       let vec = match pop(stack) {
@@ -3934,7 +3964,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_load_lane(
+        TypedInstr::v128_load_lane(
           V128LoadLaneOp::v128_load8_lane(),
           memarg,
           lane,
@@ -3953,7 +3983,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_load_lane(
+        TypedInstr::v128_load_lane(
           V128LoadLaneOp::v128_load16_lane(),
           memarg,
           lane,
@@ -3972,7 +4002,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_load_lane(
+        TypedInstr::v128_load_lane(
           V128LoadLaneOp::v128_load32_lane(),
           memarg,
           lane,
@@ -3991,7 +4021,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_load_lane(
+        TypedInstr::v128_load_lane(
           V128LoadLaneOp::v128_load64_lane(),
           memarg,
           lane,
@@ -4010,7 +4040,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_store_lane(
+        TypedInstr::v128_store_lane(
           V128StoreLaneOp::v128_store8_lane(),
           memarg,
           lane,
@@ -4029,7 +4059,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_store_lane(
+        TypedInstr::v128_store_lane(
           V128StoreLaneOp::v128_store16_lane(),
           memarg,
           lane,
@@ -4048,7 +4078,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_store_lane(
+        TypedInstr::v128_store_lane(
           V128StoreLaneOp::v128_store32_lane(),
           memarg,
           lane,
@@ -4067,7 +4097,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_store_lane(
+        TypedInstr::v128_store_lane(
           V128StoreLaneOp::v128_store64_lane(),
           memarg,
           lane,
@@ -4083,42 +4113,42 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::i8x16_splat(val))
+      stack.push(TypedInstr::i8x16_splat(val))
     }
     I16x8Splat => {
       let val = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::i16x8_splat(val))
+      stack.push(TypedInstr::i16x8_splat(val))
     }
     I32x4Splat => {
       let val = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::i32x4_splat(val))
+      stack.push(TypedInstr::i32x4_splat(val))
     }
     I64x2Splat => {
       let val = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::i64x2_splat(val))
+      stack.push(TypedInstr::i64x2_splat(val))
     }
     F32x4Splat => {
       let val = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::f32x4_splat(val))
+      stack.push(TypedInstr::f32x4_splat(val))
     }
     F64x2Splat => {
       let val = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::f64x2_splat(val))
+      stack.push(TypedInstr::f64x2_splat(val))
     }
 
     // === SIMD: Extract lane ===
@@ -4128,7 +4158,11 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::extract_lane(ExtractLaneOp::i8x16_extract_lane_s(), lane, vec),
+        TypedInstr::extract_lane(
+          ExtractLaneOp::i8x16_extract_lane_s(),
+          lane,
+          vec,
+        ),
       )
     }
     I8x16ExtractLaneU(lane) => {
@@ -4137,7 +4171,11 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::extract_lane(ExtractLaneOp::i8x16_extract_lane_u(), lane, vec),
+        TypedInstr::extract_lane(
+          ExtractLaneOp::i8x16_extract_lane_u(),
+          lane,
+          vec,
+        ),
       )
     }
     I16x8ExtractLaneS(lane) => {
@@ -4146,7 +4184,11 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::extract_lane(ExtractLaneOp::i16x8_extract_lane_s(), lane, vec),
+        TypedInstr::extract_lane(
+          ExtractLaneOp::i16x8_extract_lane_s(),
+          lane,
+          vec,
+        ),
       )
     }
     I16x8ExtractLaneU(lane) => {
@@ -4155,7 +4197,11 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::extract_lane(ExtractLaneOp::i16x8_extract_lane_u(), lane, vec),
+        TypedInstr::extract_lane(
+          ExtractLaneOp::i16x8_extract_lane_u(),
+          lane,
+          vec,
+        ),
       )
     }
     I32x4ExtractLane(lane) => {
@@ -4164,7 +4210,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::extract_lane(ExtractLaneOp::i32x4_extract_lane(), lane, vec),
+        TypedInstr::extract_lane(ExtractLaneOp::i32x4_extract_lane(), lane, vec),
       )
     }
     I64x2ExtractLane(lane) => {
@@ -4173,7 +4219,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::extract_lane(ExtractLaneOp::i64x2_extract_lane(), lane, vec),
+        TypedInstr::extract_lane(ExtractLaneOp::i64x2_extract_lane(), lane, vec),
       )
     }
     F32x4ExtractLane(lane) => {
@@ -4182,7 +4228,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::extract_lane(ExtractLaneOp::f32x4_extract_lane(), lane, vec),
+        TypedInstr::extract_lane(ExtractLaneOp::f32x4_extract_lane(), lane, vec),
       )
     }
     F64x2ExtractLane(lane) => {
@@ -4191,7 +4237,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::extract_lane(ExtractLaneOp::f64x2_extract_lane(), lane, vec),
+        TypedInstr::extract_lane(ExtractLaneOp::f64x2_extract_lane(), lane, vec),
       )
     }
 
@@ -4206,7 +4252,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::replace_lane(
+        TypedInstr::replace_lane(
           ReplaceLaneOp::i8x16_replace_lane(),
           lane,
           vec,
@@ -4224,7 +4270,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::replace_lane(
+        TypedInstr::replace_lane(
           ReplaceLaneOp::i16x8_replace_lane(),
           lane,
           vec,
@@ -4242,7 +4288,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::replace_lane(
+        TypedInstr::replace_lane(
           ReplaceLaneOp::i32x4_replace_lane(),
           lane,
           vec,
@@ -4260,7 +4306,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::replace_lane(
+        TypedInstr::replace_lane(
           ReplaceLaneOp::i64x2_replace_lane(),
           lane,
           vec,
@@ -4278,7 +4324,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::replace_lane(
+        TypedInstr::replace_lane(
           ReplaceLaneOp::f32x4_replace_lane(),
           lane,
           vec,
@@ -4296,7 +4342,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::replace_lane(
+        TypedInstr::replace_lane(
           ReplaceLaneOp::f64x2_replace_lane(),
           lane,
           vec,
@@ -4333,7 +4379,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::i8x16_shuffle(
+        TypedInstr::i8x16_shuffle(
           l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15, v1,
           v2,
         ),
@@ -4348,7 +4394,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::i8x16_swizzle(vec, indices))
+      stack.push(TypedInstr::i8x16_swizzle(vec, indices))
     }
     I8x16RelaxedSwizzle => {
       let indices = match pop(stack) {
@@ -4359,7 +4405,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::i8x16_relaxed_swizzle(vec, indices))
+      stack.push(TypedInstr::i8x16_relaxed_swizzle(vec, indices))
     }
 
     // === SIMD: Unary v128 -> v128 ===
@@ -4368,35 +4414,35 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::v128_not(), op))
+      stack.push(TypedInstr::unary(UnaryOp::v128_not(), op))
     }
     I8x16Abs => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i8x16_abs(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i8x16_abs(), op))
     }
     I8x16Neg => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i8x16_neg(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i8x16_neg(), op))
     }
     I8x16Popcnt => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i8x16_popcnt(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i8x16_popcnt(), op))
     }
     I16x8Abs => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i16x8_abs(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i16x8_abs(), op))
     }
     // === SIMD: Unary v128 -> v128 (continued) ===
     I16x8Neg => {
@@ -4404,133 +4450,133 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i16x8_neg(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i16x8_neg(), op))
     }
     I32x4Abs => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_abs(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_abs(), op))
     }
     I32x4Neg => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_neg(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_neg(), op))
     }
     I64x2Abs => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64x2_abs(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64x2_abs(), op))
     }
     I64x2Neg => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64x2_neg(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64x2_neg(), op))
     }
     F32x4Abs => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32x4_abs(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32x4_abs(), op))
     }
     F32x4Neg => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32x4_neg(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32x4_neg(), op))
     }
     F32x4Sqrt => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32x4_sqrt(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32x4_sqrt(), op))
     }
     F32x4Ceil => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32x4_ceil(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32x4_ceil(), op))
     }
     F32x4Floor => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32x4_floor(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32x4_floor(), op))
     }
     F32x4Trunc => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32x4_trunc(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32x4_trunc(), op))
     }
     F32x4Nearest => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32x4_nearest(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32x4_nearest(), op))
     }
     F64x2Abs => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64x2_abs(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64x2_abs(), op))
     }
     F64x2Neg => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64x2_neg(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64x2_neg(), op))
     }
     F64x2Sqrt => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64x2_sqrt(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64x2_sqrt(), op))
     }
     F64x2Ceil => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64x2_ceil(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64x2_ceil(), op))
     }
     F64x2Floor => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64x2_floor(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64x2_floor(), op))
     }
     F64x2Trunc => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64x2_trunc(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64x2_trunc(), op))
     }
     F64x2Nearest => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64x2_nearest(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64x2_nearest(), op))
     }
 
     // === SIMD: v128 -> i32 (bitmask/alltrue) ===
@@ -4539,63 +4585,63 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::v128_any_true(), op))
+      stack.push(TypedInstr::unary(UnaryOp::v128_any_true(), op))
     }
     I8x16AllTrue => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i8x16_all_true(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i8x16_all_true(), op))
     }
     I8x16Bitmask => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i8x16_bitmask(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i8x16_bitmask(), op))
     }
     I16x8AllTrue => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i16x8_all_true(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i16x8_all_true(), op))
     }
     I16x8Bitmask => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i16x8_bitmask(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i16x8_bitmask(), op))
     }
     I32x4AllTrue => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_all_true(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_all_true(), op))
     }
     I32x4Bitmask => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_bitmask(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_bitmask(), op))
     }
     I64x2AllTrue => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64x2_all_true(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64x2_all_true(), op))
     }
     I64x2Bitmask => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64x2_bitmask(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64x2_bitmask(), op))
     }
 
     // === SIMD: Extend (v128 -> v128) ===
@@ -4604,84 +4650,84 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i16x8_extend_low_i8x16s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i16x8_extend_low_i8x16s(), op))
     }
     I16x8ExtendHighI8x16S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i16x8_extend_high_i8x16s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i16x8_extend_high_i8x16s(), op))
     }
     I16x8ExtendLowI8x16U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i16x8_extend_low_i8x16u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i16x8_extend_low_i8x16u(), op))
     }
     I16x8ExtendHighI8x16U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i16x8_extend_high_i8x16u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i16x8_extend_high_i8x16u(), op))
     }
     I32x4ExtendLowI16x8S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_extend_low_i16x8s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_extend_low_i16x8s(), op))
     }
     I32x4ExtendHighI16x8S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_extend_high_i16x8s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_extend_high_i16x8s(), op))
     }
     I32x4ExtendLowI16x8U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_extend_low_i16x8u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_extend_low_i16x8u(), op))
     }
     I32x4ExtendHighI16x8U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_extend_high_i16x8u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_extend_high_i16x8u(), op))
     }
     I64x2ExtendLowI32x4S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64x2_extend_low_i32x4s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64x2_extend_low_i32x4s(), op))
     }
     I64x2ExtendHighI32x4S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64x2_extend_high_i32x4s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64x2_extend_high_i32x4s(), op))
     }
     I64x2ExtendLowI32x4U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64x2_extend_low_i32x4u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64x2_extend_low_i32x4u(), op))
     }
     I64x2ExtendHighI32x4U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i64x2_extend_high_i32x4u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i64x2_extend_high_i32x4u(), op))
     }
 
     // === SIMD: Pairwise add (v128 -> v128) ===
@@ -4690,28 +4736,28 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i16x8_extadd_pairwise_i8x16s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i16x8_extadd_pairwise_i8x16s(), op))
     }
     I16x8ExtaddPairwiseI8x16U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i16x8_extadd_pairwise_i8x16u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i16x8_extadd_pairwise_i8x16u(), op))
     }
     I32x4ExtaddPairwiseI16x8S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_extadd_pairwise_i16x8s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_extadd_pairwise_i16x8s(), op))
     }
     I32x4ExtaddPairwiseI16x8U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_extadd_pairwise_i16x8u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_extadd_pairwise_i16x8u(), op))
     }
 
     // === SIMD: Conversion (v128 -> v128) ===
@@ -4720,70 +4766,70 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32x4_demote_f64x2_zero(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32x4_demote_f64x2_zero(), op))
     }
     F64x2PromoteLowF32x4 => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64x2_promote_low_f32x4(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64x2_promote_low_f32x4(), op))
     }
     I32x4TruncSatF32x4S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_trunc_sat_f32x4s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_trunc_sat_f32x4s(), op))
     }
     I32x4TruncSatF32x4U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_trunc_sat_f32x4u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_trunc_sat_f32x4u(), op))
     }
     F32x4ConvertI32x4S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32x4_convert_i32x4s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32x4_convert_i32x4s(), op))
     }
     F32x4ConvertI32x4U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f32x4_convert_i32x4u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f32x4_convert_i32x4u(), op))
     }
     I32x4TruncSatF64x2SZero => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_trunc_sat_f64x2s_zero(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_trunc_sat_f64x2s_zero(), op))
     }
     I32x4TruncSatF64x2UZero => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_trunc_sat_f64x2u_zero(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_trunc_sat_f64x2u_zero(), op))
     }
     F64x2ConvertLowI32x4S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64x2_convert_low_i32x4s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64x2_convert_low_i32x4s(), op))
     }
     F64x2ConvertLowI32x4U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::f64x2_convert_low_i32x4u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::f64x2_convert_low_i32x4u(), op))
     }
 
     // === SIMD: Relaxed truncation (v128 -> v128) ===
@@ -4792,28 +4838,32 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_relaxed_trunc_f32x4s(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_relaxed_trunc_f32x4s(), op))
     }
     I32x4RelaxedTruncF32x4U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_relaxed_trunc_f32x4u(), op))
+      stack.push(TypedInstr::unary(UnaryOp::i32x4_relaxed_trunc_f32x4u(), op))
     }
     I32x4RelaxedTruncZeroF64x2S => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_relaxed_trunc_zero_f64x2s(), op))
+      stack.push(
+        TypedInstr::unary(UnaryOp::i32x4_relaxed_trunc_zero_f64x2s(), op),
+      )
     }
     I32x4RelaxedTruncZeroF64x2U => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::unary(UnaryOp::i32x4_relaxed_trunc_zero_f64x2u(), op))
+      stack.push(
+        TypedInstr::unary(UnaryOp::i32x4_relaxed_trunc_zero_f64x2u(), op),
+      )
     }
 
     // === SIMD: Binary bitwise (v128, v128 -> v128) ===
@@ -4826,7 +4876,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::v128_and(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::v128_and(), lhs, rhs))
     }
     V128Andnot => {
       let rhs = match pop(stack) {
@@ -4837,7 +4887,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::v128_andnot(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::v128_andnot(), lhs, rhs))
     }
     V128Or => {
       let rhs = match pop(stack) {
@@ -4848,7 +4898,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::v128_or(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::v128_or(), lhs, rhs))
     }
     V128Xor => {
       let rhs = match pop(stack) {
@@ -4859,7 +4909,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::v128_xor(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::v128_xor(), lhs, rhs))
     }
 
     // === SIMD: i8x16 comparisons ===
@@ -4872,7 +4922,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_eq(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_eq(), lhs, rhs))
     }
     I8x16Ne => {
       let rhs = match pop(stack) {
@@ -4883,7 +4933,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_ne(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_ne(), lhs, rhs))
     }
     I8x16LtS => {
       let rhs = match pop(stack) {
@@ -4894,7 +4944,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_lt_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_lt_s(), lhs, rhs))
     }
     I8x16LtU => {
       let rhs = match pop(stack) {
@@ -4905,7 +4955,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_lt_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_lt_u(), lhs, rhs))
     }
     I8x16GtS => {
       let rhs = match pop(stack) {
@@ -4916,7 +4966,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_gt_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_gt_s(), lhs, rhs))
     }
     I8x16GtU => {
       let rhs = match pop(stack) {
@@ -4927,7 +4977,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_gt_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_gt_u(), lhs, rhs))
     }
     I8x16LeS => {
       let rhs = match pop(stack) {
@@ -4938,7 +4988,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_le_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_le_s(), lhs, rhs))
     }
     I8x16LeU => {
       let rhs = match pop(stack) {
@@ -4949,7 +4999,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_le_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_le_u(), lhs, rhs))
     }
     I8x16GeS => {
       let rhs = match pop(stack) {
@@ -4960,7 +5010,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_ge_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_ge_s(), lhs, rhs))
     }
     I8x16GeU => {
       let rhs = match pop(stack) {
@@ -4971,7 +5021,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_ge_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_ge_u(), lhs, rhs))
     }
 
     // === SIMD: i16x8 comparisons ===
@@ -4984,7 +5034,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_eq(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_eq(), lhs, rhs))
     }
     I16x8Ne => {
       let rhs = match pop(stack) {
@@ -4995,7 +5045,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_ne(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_ne(), lhs, rhs))
     }
     I16x8LtS => {
       let rhs = match pop(stack) {
@@ -5006,7 +5056,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_lt_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_lt_s(), lhs, rhs))
     }
     I16x8LtU => {
       let rhs = match pop(stack) {
@@ -5017,7 +5067,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_lt_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_lt_u(), lhs, rhs))
     }
     I16x8GtS => {
       let rhs = match pop(stack) {
@@ -5028,7 +5078,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_gt_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_gt_s(), lhs, rhs))
     }
     I16x8GtU => {
       let rhs = match pop(stack) {
@@ -5039,7 +5089,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_gt_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_gt_u(), lhs, rhs))
     }
     I16x8LeS => {
       let rhs = match pop(stack) {
@@ -5050,7 +5100,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_le_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_le_s(), lhs, rhs))
     }
     I16x8LeU => {
       let rhs = match pop(stack) {
@@ -5061,7 +5111,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_le_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_le_u(), lhs, rhs))
     }
     I16x8GeS => {
       let rhs = match pop(stack) {
@@ -5072,7 +5122,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_ge_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_ge_s(), lhs, rhs))
     }
     I16x8GeU => {
       let rhs = match pop(stack) {
@@ -5083,7 +5133,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_ge_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_ge_u(), lhs, rhs))
     }
 
     // === SIMD: i32x4 comparisons ===
@@ -5096,7 +5146,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_eq(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_eq(), lhs, rhs))
     }
     I32x4Ne => {
       let rhs = match pop(stack) {
@@ -5107,7 +5157,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_ne(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_ne(), lhs, rhs))
     }
     I32x4LtS => {
       let rhs = match pop(stack) {
@@ -5118,7 +5168,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_lt_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_lt_s(), lhs, rhs))
     }
     I32x4LtU => {
       let rhs = match pop(stack) {
@@ -5129,7 +5179,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_lt_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_lt_u(), lhs, rhs))
     }
     I32x4GtS => {
       let rhs = match pop(stack) {
@@ -5140,7 +5190,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_gt_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_gt_s(), lhs, rhs))
     }
     I32x4GtU => {
       let rhs = match pop(stack) {
@@ -5151,7 +5201,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_gt_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_gt_u(), lhs, rhs))
     }
     I32x4LeS => {
       let rhs = match pop(stack) {
@@ -5162,7 +5212,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_le_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_le_s(), lhs, rhs))
     }
     I32x4LeU => {
       let rhs = match pop(stack) {
@@ -5173,7 +5223,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_le_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_le_u(), lhs, rhs))
     }
     I32x4GeS => {
       let rhs = match pop(stack) {
@@ -5184,7 +5234,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_ge_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_ge_s(), lhs, rhs))
     }
     I32x4GeU => {
       let rhs = match pop(stack) {
@@ -5195,7 +5245,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_ge_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_ge_u(), lhs, rhs))
     }
 
     // === SIMD: i64x2 comparisons ===
@@ -5208,7 +5258,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64x2_eq(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64x2_eq(), lhs, rhs))
     }
     I64x2Ne => {
       let rhs = match pop(stack) {
@@ -5219,7 +5269,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64x2_ne(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64x2_ne(), lhs, rhs))
     }
     I64x2LtS => {
       let rhs = match pop(stack) {
@@ -5230,7 +5280,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64x2_lt_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64x2_lt_s(), lhs, rhs))
     }
     I64x2GtS => {
       let rhs = match pop(stack) {
@@ -5241,7 +5291,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64x2_gt_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64x2_gt_s(), lhs, rhs))
     }
     I64x2LeS => {
       let rhs = match pop(stack) {
@@ -5252,7 +5302,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64x2_le_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64x2_le_s(), lhs, rhs))
     }
     I64x2GeS => {
       let rhs = match pop(stack) {
@@ -5263,7 +5313,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64x2_ge_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64x2_ge_s(), lhs, rhs))
     }
 
     // === SIMD: f32x4 comparisons ===
@@ -5276,7 +5326,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_eq(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_eq(), lhs, rhs))
     }
     F32x4Ne => {
       let rhs = match pop(stack) {
@@ -5287,7 +5337,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_ne(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_ne(), lhs, rhs))
     }
     F32x4Lt => {
       let rhs = match pop(stack) {
@@ -5298,7 +5348,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_lt(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_lt(), lhs, rhs))
     }
     F32x4Gt => {
       let rhs = match pop(stack) {
@@ -5309,7 +5359,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_gt(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_gt(), lhs, rhs))
     }
     F32x4Le => {
       let rhs = match pop(stack) {
@@ -5320,7 +5370,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_le(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_le(), lhs, rhs))
     }
     F32x4Ge => {
       let rhs = match pop(stack) {
@@ -5331,7 +5381,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_ge(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_ge(), lhs, rhs))
     }
 
     // === SIMD: f64x2 comparisons ===
@@ -5344,7 +5394,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_eq(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_eq(), lhs, rhs))
     }
     F64x2Ne => {
       let rhs = match pop(stack) {
@@ -5355,7 +5405,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_ne(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_ne(), lhs, rhs))
     }
     F64x2Lt => {
       let rhs = match pop(stack) {
@@ -5366,7 +5416,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_lt(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_lt(), lhs, rhs))
     }
     F64x2Gt => {
       let rhs = match pop(stack) {
@@ -5377,7 +5427,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_gt(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_gt(), lhs, rhs))
     }
     F64x2Le => {
       let rhs = match pop(stack) {
@@ -5388,7 +5438,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_le(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_le(), lhs, rhs))
     }
     F64x2Ge => {
       let rhs = match pop(stack) {
@@ -5399,7 +5449,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_ge(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_ge(), lhs, rhs))
     }
 
     // === SIMD: i8x16 arithmetic ===
@@ -5412,7 +5462,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_add(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_add(), lhs, rhs))
     }
     I8x16AddSatS => {
       let rhs = match pop(stack) {
@@ -5423,7 +5473,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_add_sat_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_add_sat_s(), lhs, rhs))
     }
     I8x16AddSatU => {
       let rhs = match pop(stack) {
@@ -5434,7 +5484,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_add_sat_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_add_sat_u(), lhs, rhs))
     }
     I8x16Sub => {
       let rhs = match pop(stack) {
@@ -5445,7 +5495,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_sub(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_sub(), lhs, rhs))
     }
     I8x16SubSatS => {
       let rhs = match pop(stack) {
@@ -5456,7 +5506,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_sub_sat_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_sub_sat_s(), lhs, rhs))
     }
     I8x16SubSatU => {
       let rhs = match pop(stack) {
@@ -5467,7 +5517,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_sub_sat_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_sub_sat_u(), lhs, rhs))
     }
     I8x16MinS => {
       let rhs = match pop(stack) {
@@ -5478,7 +5528,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_min_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_min_s(), lhs, rhs))
     }
     I8x16MinU => {
       let rhs = match pop(stack) {
@@ -5489,7 +5539,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_min_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_min_u(), lhs, rhs))
     }
     I8x16MaxS => {
       let rhs = match pop(stack) {
@@ -5500,7 +5550,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_max_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_max_s(), lhs, rhs))
     }
     I8x16MaxU => {
       let rhs = match pop(stack) {
@@ -5511,7 +5561,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_max_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_max_u(), lhs, rhs))
     }
     I8x16AvgrU => {
       let rhs = match pop(stack) {
@@ -5522,7 +5572,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_avgr_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_avgr_u(), lhs, rhs))
     }
     I8x16NarrowI16x8S => {
       let rhs = match pop(stack) {
@@ -5533,7 +5583,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_narrow_i16x8s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_narrow_i16x8s(), lhs, rhs))
     }
     I8x16NarrowI16x8U => {
       let rhs = match pop(stack) {
@@ -5544,7 +5594,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i8x16_narrow_i16x8u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i8x16_narrow_i16x8u(), lhs, rhs))
     }
 
     // === SIMD: i16x8 arithmetic ===
@@ -5557,7 +5607,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_add(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_add(), lhs, rhs))
     }
     I16x8AddSatS => {
       let rhs = match pop(stack) {
@@ -5568,7 +5618,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_add_sat_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_add_sat_s(), lhs, rhs))
     }
     I16x8AddSatU => {
       let rhs = match pop(stack) {
@@ -5579,7 +5629,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_add_sat_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_add_sat_u(), lhs, rhs))
     }
     I16x8Sub => {
       let rhs = match pop(stack) {
@@ -5590,7 +5640,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_sub(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_sub(), lhs, rhs))
     }
     I16x8SubSatS => {
       let rhs = match pop(stack) {
@@ -5601,7 +5651,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_sub_sat_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_sub_sat_s(), lhs, rhs))
     }
     I16x8SubSatU => {
       let rhs = match pop(stack) {
@@ -5612,7 +5662,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_sub_sat_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_sub_sat_u(), lhs, rhs))
     }
     I16x8Mul => {
       let rhs = match pop(stack) {
@@ -5623,7 +5673,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_mul(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_mul(), lhs, rhs))
     }
     I16x8MinS => {
       let rhs = match pop(stack) {
@@ -5634,7 +5684,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_min_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_min_s(), lhs, rhs))
     }
     I16x8MinU => {
       let rhs = match pop(stack) {
@@ -5645,7 +5695,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_min_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_min_u(), lhs, rhs))
     }
     I16x8MaxS => {
       let rhs = match pop(stack) {
@@ -5656,7 +5706,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_max_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_max_s(), lhs, rhs))
     }
     I16x8MaxU => {
       let rhs = match pop(stack) {
@@ -5667,7 +5717,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_max_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_max_u(), lhs, rhs))
     }
     I16x8AvgrU => {
       let rhs = match pop(stack) {
@@ -5678,7 +5728,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_avgr_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_avgr_u(), lhs, rhs))
     }
     I16x8Q15mulrSatS => {
       let rhs = match pop(stack) {
@@ -5689,7 +5739,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8q15mulr_sat_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8q15mulr_sat_s(), lhs, rhs))
     }
     I16x8NarrowI32x4S => {
       let rhs = match pop(stack) {
@@ -5700,7 +5750,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_narrow_i32x4s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_narrow_i32x4s(), lhs, rhs))
     }
     I16x8NarrowI32x4U => {
       let rhs = match pop(stack) {
@@ -5711,7 +5761,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_narrow_i32x4u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i16x8_narrow_i32x4u(), lhs, rhs))
     }
     I16x8ExtmulLowI8x16S => {
       let rhs = match pop(stack) {
@@ -5722,7 +5772,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_extmul_low_i8x16s(), lhs, rhs))
+      stack.push(
+        TypedInstr::binary(BinaryOp::i16x8_extmul_low_i8x16s(), lhs, rhs),
+      )
     }
     I16x8ExtmulHighI8x16S => {
       let rhs = match pop(stack) {
@@ -5733,7 +5785,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_extmul_high_i8x16s(), lhs, rhs))
+      stack.push(
+        TypedInstr::binary(BinaryOp::i16x8_extmul_high_i8x16s(), lhs, rhs),
+      )
     }
     I16x8ExtmulLowI8x16U => {
       let rhs = match pop(stack) {
@@ -5744,7 +5798,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_extmul_low_i8x16u(), lhs, rhs))
+      stack.push(
+        TypedInstr::binary(BinaryOp::i16x8_extmul_low_i8x16u(), lhs, rhs),
+      )
     }
     I16x8ExtmulHighI8x16U => {
       let rhs = match pop(stack) {
@@ -5755,7 +5811,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_extmul_high_i8x16u(), lhs, rhs))
+      stack.push(
+        TypedInstr::binary(BinaryOp::i16x8_extmul_high_i8x16u(), lhs, rhs),
+      )
     }
 
     // === SIMD: i32x4 arithmetic ===
@@ -5768,7 +5826,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_add(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_add(), lhs, rhs))
     }
     I32x4Sub => {
       let rhs = match pop(stack) {
@@ -5779,7 +5837,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_sub(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_sub(), lhs, rhs))
     }
     I32x4Mul => {
       let rhs = match pop(stack) {
@@ -5790,7 +5848,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_mul(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_mul(), lhs, rhs))
     }
     I32x4MinS => {
       let rhs = match pop(stack) {
@@ -5801,7 +5859,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_min_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_min_s(), lhs, rhs))
     }
     I32x4MinU => {
       let rhs = match pop(stack) {
@@ -5812,7 +5870,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_min_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_min_u(), lhs, rhs))
     }
     I32x4MaxS => {
       let rhs = match pop(stack) {
@@ -5823,7 +5881,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_max_s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_max_s(), lhs, rhs))
     }
     I32x4MaxU => {
       let rhs = match pop(stack) {
@@ -5834,7 +5892,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_max_u(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_max_u(), lhs, rhs))
     }
     I32x4DotI16x8S => {
       let rhs = match pop(stack) {
@@ -5845,7 +5903,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_dot_i16x8s(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i32x4_dot_i16x8s(), lhs, rhs))
     }
     I32x4ExtmulLowI16x8S => {
       let rhs = match pop(stack) {
@@ -5856,7 +5914,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_extmul_low_i16x8s(), lhs, rhs))
+      stack.push(
+        TypedInstr::binary(BinaryOp::i32x4_extmul_low_i16x8s(), lhs, rhs),
+      )
     }
     I32x4ExtmulHighI16x8S => {
       let rhs = match pop(stack) {
@@ -5867,7 +5927,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_extmul_high_i16x8s(), lhs, rhs))
+      stack.push(
+        TypedInstr::binary(BinaryOp::i32x4_extmul_high_i16x8s(), lhs, rhs),
+      )
     }
     I32x4ExtmulLowI16x8U => {
       let rhs = match pop(stack) {
@@ -5878,7 +5940,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_extmul_low_i16x8u(), lhs, rhs))
+      stack.push(
+        TypedInstr::binary(BinaryOp::i32x4_extmul_low_i16x8u(), lhs, rhs),
+      )
     }
     I32x4ExtmulHighI16x8U => {
       let rhs = match pop(stack) {
@@ -5889,7 +5953,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i32x4_extmul_high_i16x8u(), lhs, rhs))
+      stack.push(
+        TypedInstr::binary(BinaryOp::i32x4_extmul_high_i16x8u(), lhs, rhs),
+      )
     }
 
     // === SIMD: i64x2 arithmetic ===
@@ -5902,7 +5968,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64x2_add(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64x2_add(), lhs, rhs))
     }
     I64x2Sub => {
       let rhs = match pop(stack) {
@@ -5913,7 +5979,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64x2_sub(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64x2_sub(), lhs, rhs))
     }
     I64x2Mul => {
       let rhs = match pop(stack) {
@@ -5924,7 +5990,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64x2_mul(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::i64x2_mul(), lhs, rhs))
     }
     I64x2ExtmulLowI32x4S => {
       let rhs = match pop(stack) {
@@ -5935,7 +6001,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64x2_extmul_low_i32x4s(), lhs, rhs))
+      stack.push(
+        TypedInstr::binary(BinaryOp::i64x2_extmul_low_i32x4s(), lhs, rhs),
+      )
     }
     I64x2ExtmulHighI32x4S => {
       let rhs = match pop(stack) {
@@ -5946,7 +6014,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64x2_extmul_high_i32x4s(), lhs, rhs))
+      stack.push(
+        TypedInstr::binary(BinaryOp::i64x2_extmul_high_i32x4s(), lhs, rhs),
+      )
     }
     I64x2ExtmulLowI32x4U => {
       let rhs = match pop(stack) {
@@ -5957,7 +6027,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64x2_extmul_low_i32x4u(), lhs, rhs))
+      stack.push(
+        TypedInstr::binary(BinaryOp::i64x2_extmul_low_i32x4u(), lhs, rhs),
+      )
     }
     I64x2ExtmulHighI32x4U => {
       let rhs = match pop(stack) {
@@ -5968,7 +6040,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i64x2_extmul_high_i32x4u(), lhs, rhs))
+      stack.push(
+        TypedInstr::binary(BinaryOp::i64x2_extmul_high_i32x4u(), lhs, rhs),
+      )
     }
 
     // === SIMD: f32x4 arithmetic ===
@@ -5981,7 +6055,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_add(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_add(), lhs, rhs))
     }
     F32x4Sub => {
       let rhs = match pop(stack) {
@@ -5992,7 +6066,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_sub(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_sub(), lhs, rhs))
     }
     F32x4Mul => {
       let rhs = match pop(stack) {
@@ -6003,7 +6077,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_mul(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_mul(), lhs, rhs))
     }
     F32x4Div => {
       let rhs = match pop(stack) {
@@ -6014,7 +6088,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_div(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_div(), lhs, rhs))
     }
     F32x4Min => {
       let rhs = match pop(stack) {
@@ -6025,7 +6099,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_min(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_min(), lhs, rhs))
     }
     F32x4Max => {
       let rhs = match pop(stack) {
@@ -6036,7 +6110,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_max(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_max(), lhs, rhs))
     }
     F32x4Pmin => {
       let rhs = match pop(stack) {
@@ -6047,7 +6121,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_pmin(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_pmin(), lhs, rhs))
     }
     F32x4Pmax => {
       let rhs = match pop(stack) {
@@ -6058,7 +6132,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_pmax(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_pmax(), lhs, rhs))
     }
 
     // === SIMD: f64x2 arithmetic ===
@@ -6071,7 +6145,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_add(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_add(), lhs, rhs))
     }
     F64x2Sub => {
       let rhs = match pop(stack) {
@@ -6082,7 +6156,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_sub(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_sub(), lhs, rhs))
     }
     F64x2Mul => {
       let rhs = match pop(stack) {
@@ -6093,7 +6167,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_mul(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_mul(), lhs, rhs))
     }
     F64x2Div => {
       let rhs = match pop(stack) {
@@ -6104,7 +6178,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_div(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_div(), lhs, rhs))
     }
     F64x2Min => {
       let rhs = match pop(stack) {
@@ -6115,7 +6189,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_min(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_min(), lhs, rhs))
     }
     F64x2Max => {
       let rhs = match pop(stack) {
@@ -6126,7 +6200,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_max(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_max(), lhs, rhs))
     }
     F64x2Pmin => {
       let rhs = match pop(stack) {
@@ -6137,7 +6211,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_pmin(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_pmin(), lhs, rhs))
     }
     F64x2Pmax => {
       let rhs = match pop(stack) {
@@ -6148,7 +6222,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_pmax(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_pmax(), lhs, rhs))
     }
 
     // === SIMD: Relaxed binary ===
@@ -6161,7 +6235,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_relaxed_min(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_relaxed_min(), lhs, rhs))
     }
     F32x4RelaxedMax => {
       let rhs = match pop(stack) {
@@ -6172,7 +6246,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f32x4_relaxed_max(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f32x4_relaxed_max(), lhs, rhs))
     }
     F64x2RelaxedMin => {
       let rhs = match pop(stack) {
@@ -6183,7 +6257,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_relaxed_min(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_relaxed_min(), lhs, rhs))
     }
     F64x2RelaxedMax => {
       let rhs = match pop(stack) {
@@ -6194,7 +6268,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::f64x2_relaxed_max(), lhs, rhs))
+      stack.push(TypedInstr::binary(BinaryOp::f64x2_relaxed_max(), lhs, rhs))
     }
     I16x8RelaxedQ15mulrS => {
       let rhs = match pop(stack) {
@@ -6205,7 +6279,9 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::binary(BinaryOp::i16x8_relaxed_q15mulr_s(), lhs, rhs))
+      stack.push(
+        TypedInstr::binary(BinaryOp::i16x8_relaxed_q15mulr_s(), lhs, rhs),
+      )
     }
     I16x8RelaxedDotI8x16I7x16S => {
       let rhs = match pop(stack) {
@@ -6217,7 +6293,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::binary(BinaryOp::i16x8_relaxed_dot_i8x16i7x16s(), lhs, rhs),
+        TypedInstr::binary(BinaryOp::i16x8_relaxed_dot_i8x16i7x16s(), lhs, rhs),
       )
     }
 
@@ -6231,7 +6307,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::v128_shift(V128ShiftOp::i8x16_shl(), vec, shift))
+      stack.push(TypedInstr::v128_shift(V128ShiftOp::i8x16_shl(), vec, shift))
     }
     I8x16ShrS => {
       let shift = match pop(stack) {
@@ -6242,7 +6318,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::v128_shift(V128ShiftOp::i8x16_shr_s(), vec, shift))
+      stack.push(TypedInstr::v128_shift(V128ShiftOp::i8x16_shr_s(), vec, shift))
     }
     I8x16ShrU => {
       let shift = match pop(stack) {
@@ -6253,7 +6329,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::v128_shift(V128ShiftOp::i8x16_shr_u(), vec, shift))
+      stack.push(TypedInstr::v128_shift(V128ShiftOp::i8x16_shr_u(), vec, shift))
     }
     I16x8Shl => {
       let shift = match pop(stack) {
@@ -6264,7 +6340,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::v128_shift(V128ShiftOp::i16x8_shl(), vec, shift))
+      stack.push(TypedInstr::v128_shift(V128ShiftOp::i16x8_shl(), vec, shift))
     }
     I16x8ShrS => {
       let shift = match pop(stack) {
@@ -6275,7 +6351,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::v128_shift(V128ShiftOp::i16x8_shr_s(), vec, shift))
+      stack.push(TypedInstr::v128_shift(V128ShiftOp::i16x8_shr_s(), vec, shift))
     }
     I16x8ShrU => {
       let shift = match pop(stack) {
@@ -6286,7 +6362,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::v128_shift(V128ShiftOp::i16x8_shr_u(), vec, shift))
+      stack.push(TypedInstr::v128_shift(V128ShiftOp::i16x8_shr_u(), vec, shift))
     }
     I32x4Shl => {
       let shift = match pop(stack) {
@@ -6297,7 +6373,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::v128_shift(V128ShiftOp::i32x4_shl(), vec, shift))
+      stack.push(TypedInstr::v128_shift(V128ShiftOp::i32x4_shl(), vec, shift))
     }
     I32x4ShrS => {
       let shift = match pop(stack) {
@@ -6308,7 +6384,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::v128_shift(V128ShiftOp::i32x4_shr_s(), vec, shift))
+      stack.push(TypedInstr::v128_shift(V128ShiftOp::i32x4_shr_s(), vec, shift))
     }
     I32x4ShrU => {
       let shift = match pop(stack) {
@@ -6319,7 +6395,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::v128_shift(V128ShiftOp::i32x4_shr_u(), vec, shift))
+      stack.push(TypedInstr::v128_shift(V128ShiftOp::i32x4_shr_u(), vec, shift))
     }
     I64x2Shl => {
       let shift = match pop(stack) {
@@ -6330,7 +6406,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::v128_shift(V128ShiftOp::i64x2_shl(), vec, shift))
+      stack.push(TypedInstr::v128_shift(V128ShiftOp::i64x2_shl(), vec, shift))
     }
     I64x2ShrS => {
       let shift = match pop(stack) {
@@ -6341,7 +6417,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::v128_shift(V128ShiftOp::i64x2_shr_s(), vec, shift))
+      stack.push(TypedInstr::v128_shift(V128ShiftOp::i64x2_shr_s(), vec, shift))
     }
     I64x2ShrU => {
       let shift = match pop(stack) {
@@ -6352,7 +6428,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::v128_shift(V128ShiftOp::i64x2_shr_u(), vec, shift))
+      stack.push(TypedInstr::v128_shift(V128ShiftOp::i64x2_shr_u(), vec, shift))
     }
 
     // === SIMD: Ternary (v128, v128, v128 -> v128) ===
@@ -6370,7 +6446,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_ternary(V128TernaryOp::v128_bitselect(), v1, v2, c),
+        TypedInstr::v128_ternary(V128TernaryOp::v128_bitselect(), v1, v2, c),
       )
     }
     I8x16RelaxedLaneselect => {
@@ -6387,7 +6463,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_ternary(
+        TypedInstr::v128_ternary(
           V128TernaryOp::i8x16_relaxed_laneselect(),
           v1,
           v2,
@@ -6409,7 +6485,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_ternary(
+        TypedInstr::v128_ternary(
           V128TernaryOp::i16x8_relaxed_laneselect(),
           v1,
           v2,
@@ -6431,7 +6507,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_ternary(
+        TypedInstr::v128_ternary(
           V128TernaryOp::i32x4_relaxed_laneselect(),
           v1,
           v2,
@@ -6453,7 +6529,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_ternary(
+        TypedInstr::v128_ternary(
           V128TernaryOp::i64x2_relaxed_laneselect(),
           v1,
           v2,
@@ -6475,7 +6551,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_ternary(V128TernaryOp::f32x4_relaxed_madd(), a, b, c),
+        TypedInstr::v128_ternary(V128TernaryOp::f32x4_relaxed_madd(), a, b, c),
       )
     }
     F32x4RelaxedNmadd => {
@@ -6492,7 +6568,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_ternary(V128TernaryOp::f32x4_relaxed_nmadd(), a, b, c),
+        TypedInstr::v128_ternary(V128TernaryOp::f32x4_relaxed_nmadd(), a, b, c),
       )
     }
     F64x2RelaxedMadd => {
@@ -6509,7 +6585,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_ternary(V128TernaryOp::f64x2_relaxed_madd(), a, b, c),
+        TypedInstr::v128_ternary(V128TernaryOp::f64x2_relaxed_madd(), a, b, c),
       )
     }
     F64x2RelaxedNmadd => {
@@ -6526,7 +6602,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_ternary(V128TernaryOp::f64x2_relaxed_nmadd(), a, b, c),
+        TypedInstr::v128_ternary(V128TernaryOp::f64x2_relaxed_nmadd(), a, b, c),
       )
     }
     I32x4RelaxedDotI8x16I7x16AddS => {
@@ -6543,7 +6619,7 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(
-        TInstr::v128_ternary(
+        TypedInstr::v128_ternary(
           V128TernaryOp::i32x4_relaxed_dot_i8x16i7x16_add_s(),
           a,
           b,

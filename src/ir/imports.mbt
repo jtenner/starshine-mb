@@ -1,8 +1,8 @@
 ///|
 using @lib {
   type Catch,
-  type TInstr,
-  type TInstrKind,
+  type TypedInstr,
+  type TypedInstrKind,
   type LocalIdx,
   type I32,
   type I64,

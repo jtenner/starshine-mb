@@ -8,16 +8,7 @@ using @cmd {run_wasm_smith_fuzz_harness_profile}
 using @lib {trace_elapsed_ms, trace_now_ms, trace_now_us}
 
 ///|
-using @validate {
-  gen_valid_module,
-  run_validate_invalid_fuzz,
-  run_validate_invalid_fuzz_from_modules,
-  validate_module,
-  validation_error_message,
-}
-
-///|
-using @validate {type ValidateInvalidFuzzFailure}
+using @validate {gen_valid_module, validate_module, validation_error_message}
 
 ///|
 using @fs {create_dir, list_files_recursive, read_file_sync, write_file_bytes}

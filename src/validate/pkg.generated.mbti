@@ -14,9 +14,9 @@ pub fn diff(@lib.RefType, @lib.RefType) -> Result[@lib.RefType, String]
 
 pub fn empty_env() -> Env
 
-pub fn gen_side_effect_tinstr(GenValidContext, Int, label_depth? : Int) -> @lib.TInstr
+pub fn gen_side_effect_typed_instr(GenValidContext, Int, label_depth? : Int) -> @lib.TypedInstr
 
-pub fn gen_tinstr_of_type(GenValidContext, @lib.ValType) -> @lib.TInstr
+pub fn gen_typed_instr_of_type(GenValidContext, @lib.ValType) -> @lib.TypedInstr
 
 pub fn gen_valid_module(@splitmix.RandomState) -> @lib.Module
 
@@ -30,17 +30,15 @@ pub fn gen_valid_valtype(GenValidContext) -> @lib.ValType
 
 pub fn make_state(Env, Array[@lib.ValType]) -> TcState
 
-pub fn run_validate_invalid_fuzz(String, UInt64, on_failure? : ((ValidateInvalidFuzzFailure) -> Result[Unit, String])?) -> Result[ValidateInvalidFuzzStats, String]
-
-pub fn run_validate_invalid_fuzz_from_modules(String, UInt64, Array[@lib.Module], on_failure? : ((ValidateInvalidFuzzFailure) -> Result[Unit, String])?) -> Result[ValidateInvalidFuzzStats, String]
-
 pub fn run_validate_valid_fuzz(String, UInt64) -> Result[ValidateValidFuzzStats, String]
 
-pub fn tinstr_result_arity(@lib.TInstr, Env) -> Int
+pub fn to_typed_instrs(@lib.Expr, Env) -> Result[Array[@lib.TypedInstr], String]
 
-pub fn tinstrs_result_arity(Array[@lib.TInstr], Env) -> Int
+pub fn typed_instr_result_arity(@lib.TypedInstr, Env) -> Int
 
-pub fn to_texpr(@lib.Expr, Env) -> Result[@lib.TExpr, String]
+pub fn typed_instrs_result_arity(Array[@lib.TypedInstr], Env) -> Int
+
+pub fn typed_instrs_to_expr_with_env(Array[@lib.TypedInstr], Env) -> @lib.Expr
 
 pub fn validate_codesec(@lib.CodeSec?, @lib.FuncSec?, Env) -> Result[Unit, String]
 
@@ -177,41 +175,6 @@ pub impl Show for TcState
 
 type TypeGenerationStrategy
 
-pub struct ValidateInvalidFuzzFailure {
-  profile : String
-  seed : UInt64
-  module_attempt : Int
-  strategy : String
-  expected_issue : String
-  actual_issue : String
-  module_text : String
-}
-pub impl Eq for ValidateInvalidFuzzFailure
-pub impl Show for ValidateInvalidFuzzFailure
-pub impl @debug.Debug for ValidateInvalidFuzzFailure
-
-pub struct ValidateInvalidFuzzStats {
-  profile : String
-  seed : UInt64
-  module_attempts : Int
-  modules_tested : Int
-  strategy_counts : Array[ValidateInvalidStrategyCounts]
-  strategies_with_low_rejection : Array[String]
-}
-pub impl Eq for ValidateInvalidFuzzStats
-pub impl Show for ValidateInvalidFuzzStats
-pub impl @debug.Debug for ValidateInvalidFuzzStats
-
-pub struct ValidateInvalidStrategyCounts {
-  name : String
-  attempted : Int
-  mutated : Int
-  rejected : Int
-}
-pub impl Eq for ValidateInvalidStrategyCounts
-pub impl Show for ValidateInvalidStrategyCounts
-pub impl @debug.Debug for ValidateInvalidStrategyCounts
-
 pub struct ValidateValidFuzzStats {
   profile : String
   seed : UInt64
@@ -284,8 +247,8 @@ pub trait Typecheck {
 }
 pub impl Typecheck for @lib.Expr
 pub impl Typecheck for @lib.Instruction
-pub impl Typecheck for @lib.TExpr
-pub impl Typecheck for @lib.TInstr
+pub impl Typecheck for @lib.TypedInstr
+pub impl Typecheck for Array[@lib.TypedInstr]
 
 pub trait Validate {
   validate(Self, Env) -> Result[Unit, String]

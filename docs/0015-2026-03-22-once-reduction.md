@@ -716,7 +716,7 @@ Expected impact of a faithful first port:
 - Code-size impact: positive in codebases with repeated init wrappers, JS glue helpers, or explicit once-guard functions.
 - Runtime impact: positive when repeated direct calls to init wrappers can be deleted.
 
-The main local compile-time risk is rebuilding or rewalking `TExpr` bodies too often if the implementation rewrites the entire module on every fixed-point round. That argues for keeping the analysis facts and mutation path narrowly scoped.
+The main local compile-time risk is rebuilding or rewalking `typed instruction body` bodies too often if the implementation rewrites the entire module on every fixed-point round. That argues for keeping the analysis facts and mutation path narrowly scoped.
 
 ## Starshine Implementation Slices
 
@@ -876,7 +876,7 @@ Test buckets that matter most for parity:
 ## Open Questions
 
 1. Does Starshine already retain Binaryen-compatible idempotent function annotations anywhere in the pipeline, or is that metadata currently absent?
-2. Should the first port operate only on `TFunc` bodies and bail on raw `Func`, or should it normalize raw `Expr` to `TExpr` up front?
+2. Should the first port operate only on `typed function` bodies and bail on raw `Func`, or should it normalize raw `Expr` to `typed instruction body` up front?
 3. Is there enough reusable AST-to-CFG machinery locally to share code with [`src/ir/cfg.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/cfg.mbt), or is a pass-local CFG builder cleaner for the first faithful slice?
 4. Do we want the first Starshine version to preserve Binaryen's exact conservative entry-block summary behavior, or intentionally diverge with a stronger exit-intersection summary? For parity, the answer should be "preserve it first".
 

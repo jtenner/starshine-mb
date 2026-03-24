@@ -295,39 +295,39 @@ fn gen_storage_type(ctx : GenValidContext) -> StorageType {
 
 ///|
 /// Generate table.set instruction (side effect)
-fn gen_table_set_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_table_set_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   if ctx.table_count == 0 {
     return None
   }
-  let idx = gen_i32_tinstr_simple(ctx)
+  let idx = gen_i32_typed_instr_simple(ctx)
   let func_ref = if ctx.func_idx > 0 && ctx.random_bool() {
-    TInstr::ref_func(
+    TypedInstr::ref_func(
       FuncIdx::new(ctx.random_int(ctx.func_idx).reinterpret_as_uint()),
     )
   } else {
-    TInstr::ref_null(HeapType::abs(AbsHeapType::func()))
+    TypedInstr::ref_null(HeapType::abs(AbsHeapType::func()))
   }
-  Some(TInstr::table_set(TableIdx::new(0), idx, func_ref))
+  Some(TypedInstr::table_set(TableIdx::new(0), idx, func_ref))
 }
 
 ///|
 /// Generate table.size instruction
-fn gen_table_size_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_table_size_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   if ctx.table_count == 0 {
     return None
   }
-  Some(TInstr::table_size(TableIdx::new(0)))
+  Some(TypedInstr::table_size(TableIdx::new(0)))
 }
 
 ///|
 /// Generate table.grow instruction
-fn gen_table_grow_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_table_grow_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   if ctx.table_count == 0 {
     return None
   }
-  let init_val = TInstr::ref_null(HeapType::abs(AbsHeapType::func()))
-  let delta = TInstr::i32_const(I32(ctx.random_int(5) + 1))
-  Some(TInstr::table_grow(TableIdx::new(0), init_val, delta))
+  let init_val = TypedInstr::ref_null(HeapType::abs(AbsHeapType::func()))
+  let delta = TypedInstr::i32_const(I32(ctx.random_int(5) + 1))
+  Some(TypedInstr::table_grow(TableIdx::new(0), init_val, delta))
 }
 
 ///|
@@ -389,11 +389,11 @@ pub fn gen_valid_result_type(
 
 ///|
 /// Generate a call instruction with subtype-aware matching
-fn gen_call_tinstr_v2(
+fn gen_call_typed_instr_v2(
   ctx : GenValidContext,
   target_types : ResultType,
   strategy : TypeGenerationStrategy,
-) -> TInstr? {
+) -> TypedInstr? {
   // Only support Exact strategy to avoid multi-value complexity
   guard strategy is Exact else { return None }
   let callables = ctx.find_callable_returning(target_types, Exact)
@@ -401,19 +401,19 @@ fn gen_call_tinstr_v2(
     return None
   }
   let (func_idx, accepts, _) = callables[ctx.random_int(callables.length())]
-  let args : Array[TInstr] = []
+  let args : Array[TypedInstr] = []
   for param_type in accepts {
-    args.push(gen_tinstr_of_type(ctx, param_type))
+    args.push(gen_typed_instr_of_type(ctx, param_type))
   }
-  Some(TInstr::call(FuncIdx::new(func_idx.reinterpret_as_uint()), args))
+  Some(TypedInstr::call(FuncIdx::new(func_idx.reinterpret_as_uint()), args))
 }
 
 ///|
 /// Generate a call_indirect instruction
-fn gen_call_indirect_tinstr(
+fn gen_call_indirect_typed_instr(
   ctx : GenValidContext,
   target_return : ValType,
-) -> TInstr? {
+) -> TypedInstr? {
   if ctx.table_count == 0 {
     return None
   }
@@ -433,15 +433,15 @@ fn gen_call_indirect_tinstr(
   let (sig_idx, accepts, _) = matching_sigs[ctx.random_int(
       matching_sigs.length(),
     )]
-  let args : Array[TInstr] = []
+  let args : Array[TypedInstr] = []
   for param_type in accepts {
-    args.push(gen_tinstr_of_type(ctx, param_type))
+    args.push(gen_typed_instr_of_type(ctx, param_type))
   }
 
   // Table index (i32 on stack)
-  let table_idx_val = gen_i32_tinstr_simple(ctx)
+  let table_idx_val = gen_i32_typed_instr_simple(ctx)
   Some(
-    TInstr::call_indirect(
+    TypedInstr::call_indirect(
       TypeIdx::new(sig_idx.reinterpret_as_uint()),
       TableIdx::new(0),
       args,
@@ -452,20 +452,20 @@ fn gen_call_indirect_tinstr(
 
 ///|
 /// Generate a struct.new instruction
-fn gen_struct_new_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_struct_new_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   if ctx.struct_types.length() == 0 {
     return None
   }
   let (type_idx, fields) = ctx.struct_types[ctx.random_int(
       ctx.struct_types.length(),
     )]
-  let field_values : Array[TInstr] = []
+  let field_values : Array[TypedInstr] = []
   for field in fields {
     let vt = storage_type_to_valtype(field.get_storage_type()) // Fixed
-    field_values.push(gen_tinstr_of_type(ctx, vt))
+    field_values.push(gen_typed_instr_of_type(ctx, vt))
   }
   Some(
-    TInstr::struct_new(
+    TypedInstr::struct_new(
       TypeIdx::new(type_idx.reinterpret_as_uint()),
       field_values,
     ),
@@ -474,10 +474,10 @@ fn gen_struct_new_tinstr(ctx : GenValidContext) -> TInstr? {
 
 ///|
 /// Generate a struct.get instruction (requires struct on stack)
-fn gen_struct_get_tinstr(
+fn gen_struct_get_typed_instr(
   ctx : GenValidContext,
   target_type : ValType,
-) -> TInstr? {
+) -> TypedInstr? {
   // Find a struct type with a field matching target_type
   for t in ctx.struct_types {
     let (type_idx, fields) = t
@@ -485,12 +485,12 @@ fn gen_struct_get_tinstr(
       let field_vt = storage_type_to_valtype(field.get_storage_type())
       if field_vt == target_type {
         // Generate the struct value first
-        let field_values : Array[TInstr] = []
+        let field_values : Array[TypedInstr] = []
         for f in fields {
           let vt = storage_type_to_valtype(f.get_storage_type())
-          field_values.push(gen_tinstr_of_type(ctx, vt))
+          field_values.push(gen_typed_instr_of_type(ctx, vt))
         }
-        let struct_val = TInstr::struct_new(
+        let struct_val = TypedInstr::struct_new(
           TypeIdx::new(type_idx.reinterpret_as_uint()),
           field_values,
         )
@@ -499,7 +499,7 @@ fn gen_struct_get_tinstr(
         match field.get_storage_type() {
           PackTypeStorageType(_) =>
             return Some(
-              TInstr::struct_get_s(
+              TypedInstr::struct_get_s(
                 TypeIdx::new(type_idx.reinterpret_as_uint()),
                 U32(field_idx.reinterpret_as_uint()),
                 struct_val,
@@ -507,7 +507,7 @@ fn gen_struct_get_tinstr(
             )
           _ =>
             return Some(
-              TInstr::struct_get(
+              TypedInstr::struct_get(
                 TypeIdx::new(type_idx.reinterpret_as_uint()),
                 U32(field_idx.reinterpret_as_uint()),
                 struct_val,
@@ -522,7 +522,7 @@ fn gen_struct_get_tinstr(
 
 ///|
 /// Generate an array.new instruction
-fn gen_array_new_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_array_new_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   if ctx.array_types.length() == 0 {
     return None
   }
@@ -533,10 +533,10 @@ fn gen_array_new_tinstr(ctx : GenValidContext) -> TInstr? {
   match ctx.random_int(3) {
     0 => {
       // array.new with default value and length
-      let init_val = gen_tinstr_of_type(ctx, elem_vt)
-      let length = TInstr::i32_const(I32(ctx.random_int(10) + 1))
+      let init_val = gen_typed_instr_of_type(ctx, elem_vt)
+      let length = TypedInstr::i32_const(I32(ctx.random_int(10) + 1))
       Some(
-        TInstr::array_new(
+        TypedInstr::array_new(
           TypeIdx::new(type_idx.reinterpret_as_uint()),
           init_val,
           length,
@@ -545,9 +545,9 @@ fn gen_array_new_tinstr(ctx : GenValidContext) -> TInstr? {
     }
     1 => {
       // array.new_default with just length
-      let length = TInstr::i32_const(I32(ctx.random_int(10) + 1))
+      let length = TypedInstr::i32_const(I32(ctx.random_int(10) + 1))
       Some(
-        TInstr::array_new_default(
+        TypedInstr::array_new_default(
           TypeIdx::new(type_idx.reinterpret_as_uint()),
           length,
         ),
@@ -556,12 +556,12 @@ fn gen_array_new_tinstr(ctx : GenValidContext) -> TInstr? {
     _ => {
       // array.new_fixed with explicit elements
       let num_elems = ctx.random_int(5) + 1
-      let elems : Array[TInstr] = []
+      let elems : Array[TypedInstr] = []
       for _ in 0..<num_elems {
-        elems.push(gen_tinstr_of_type(ctx, elem_vt))
+        elems.push(gen_typed_instr_of_type(ctx, elem_vt))
       }
       Some(
-        TInstr::array_new_fixed(
+        TypedInstr::array_new_fixed(
           TypeIdx::new(type_idx.reinterpret_as_uint()),
           elems,
         ),
@@ -572,26 +572,26 @@ fn gen_array_new_tinstr(ctx : GenValidContext) -> TInstr? {
 
 ///|
 /// Generate an array.get instruction
-fn gen_array_get_tinstr(
+fn gen_array_get_typed_instr(
   ctx : GenValidContext,
   target_type : ValType,
-) -> TInstr? {
+) -> TypedInstr? {
   for elem_type in ctx.array_types {
     let (type_idx, elem_type) = elem_type
     let elem_vt = storage_type_to_valtype(elem_type.get_storage_type())
     if elem_vt == target_type {
       // Create an array and get from it
-      let init_val = gen_tinstr_of_type(ctx, elem_vt)
-      let array = TInstr::array_new(
+      let init_val = gen_typed_instr_of_type(ctx, elem_vt)
+      let array = TypedInstr::array_new(
         TypeIdx::new(type_idx.reinterpret_as_uint()),
         init_val,
-        TInstr::i32_const(I32(5)),
+        TypedInstr::i32_const(I32(5)),
       )
-      let index = TInstr::i32_const(I32(ctx.random_int(5)))
+      let index = TypedInstr::i32_const(I32(ctx.random_int(5)))
       match elem_type.get_storage_type() {
         PackTypeStorageType(_) =>
           return Some(
-            TInstr::array_get_s(
+            TypedInstr::array_get_s(
               TypeIdx::new(type_idx.reinterpret_as_uint()),
               array,
               index,
@@ -599,7 +599,7 @@ fn gen_array_get_tinstr(
           )
         _ =>
           return Some(
-            TInstr::array_get(
+            TypedInstr::array_get(
               TypeIdx::new(type_idx.reinterpret_as_uint()),
               array,
               index,
@@ -622,7 +622,7 @@ fn storage_type_to_valtype(st : StorageType) -> ValType {
 
 ///|
 /// Generate a call as a side effect (drop all return values)
-fn gen_call_side_effect(ctx : GenValidContext) -> TInstr? {
+fn gen_call_side_effect(ctx : GenValidContext) -> TypedInstr? {
   let callables = ctx.get_callable_funcs()
   if callables.length() == 0 {
     return None
@@ -635,12 +635,12 @@ fn gen_call_side_effect(ctx : GenValidContext) -> TInstr? {
   let void_funcs = usable_funcs.filter(fn(c) { c.2.length() == 0 })
   if void_funcs.length() > 0 {
     let (func_idx, accepts, _) = void_funcs[ctx.random_int(void_funcs.length())]
-    let args : Array[TInstr] = []
+    let args : Array[TypedInstr] = []
     for param_type in accepts {
-      args.push(gen_tinstr_of_type(ctx, param_type))
+      args.push(gen_typed_instr_of_type(ctx, param_type))
     }
     return Some(
-      TInstr::call(FuncIdx::new(func_idx.reinterpret_as_uint()), args),
+      TypedInstr::call(FuncIdx::new(func_idx.reinterpret_as_uint()), args),
     )
   }
   if usable_funcs.length() == 0 {
@@ -651,164 +651,167 @@ fn gen_call_side_effect(ctx : GenValidContext) -> TInstr? {
   let (func_idx, accepts, _) = usable_funcs[ctx.random_int(
       usable_funcs.length(),
     )]
-  let args : Array[TInstr] = []
+  let args : Array[TypedInstr] = []
   for param_type in accepts {
-    args.push(gen_tinstr_of_type(ctx, param_type))
+    args.push(gen_typed_instr_of_type(ctx, param_type))
   }
-  let call = TInstr::call(FuncIdx::new(func_idx.reinterpret_as_uint()), args)
-  Some(TInstr::drop(call))
+  let call = TypedInstr::call(
+    FuncIdx::new(func_idx.reinterpret_as_uint()),
+    args,
+  )
+  Some(TypedInstr::drop(call))
 }
 
 ///|
-fn gen_i32_tinstr(ctx : GenValidContext) -> TInstr {
+fn gen_i32_typed_instr(ctx : GenValidContext) -> TypedInstr {
   match ctx.random_int(6) {
-    0 => TInstr::i32_const(I32(ctx.rnd.next_int()))
+    0 => TypedInstr::i32_const(I32(ctx.rnd.next_int()))
     1 => {
-      let a = gen_i32_tinstr_simple(ctx)
-      let b = gen_i32_tinstr_simple(ctx)
-      TInstr::binary(BinaryOp::i32_add(), a, b)
+      let a = gen_i32_typed_instr_simple(ctx)
+      let b = gen_i32_typed_instr_simple(ctx)
+      TypedInstr::binary(BinaryOp::i32_add(), a, b)
     }
     2 => {
-      let a = gen_i32_tinstr_simple(ctx)
-      let b = gen_i32_tinstr_simple(ctx)
-      TInstr::binary(BinaryOp::i32_mul(), a, b)
+      let a = gen_i32_typed_instr_simple(ctx)
+      let b = gen_i32_typed_instr_simple(ctx)
+      TypedInstr::binary(BinaryOp::i32_mul(), a, b)
     }
     3 => {
-      let a = gen_i32_tinstr_simple(ctx)
-      let b = gen_i32_tinstr_simple(ctx)
-      TInstr::binary(BinaryOp::i32_sub(), a, b)
+      let a = gen_i32_typed_instr_simple(ctx)
+      let b = gen_i32_typed_instr_simple(ctx)
+      TypedInstr::binary(BinaryOp::i32_sub(), a, b)
     }
     4 => {
-      let a = gen_i32_tinstr_simple(ctx)
-      TInstr::unary(UnaryOp::i32_clz(), a)
+      let a = gen_i32_typed_instr_simple(ctx)
+      TypedInstr::unary(UnaryOp::i32_clz(), a)
     }
-    _ => TInstr::i32_const(I32(ctx.random_int(1000)))
+    _ => TypedInstr::i32_const(I32(ctx.random_int(1000)))
   }
 }
 
 ///|
-fn gen_i32_tinstr_simple(ctx : GenValidContext) -> TInstr {
+fn gen_i32_typed_instr_simple(ctx : GenValidContext) -> TypedInstr {
   for i, local_type in ctx.locals {
     match local_type {
       NumTypeValType(I32NumType) =>
         if ctx.random_bool() {
-          return TInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
+          return TypedInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
         }
       _ => continue
     }
   }
-  TInstr::i32_const(I32(ctx.random_int(100)))
+  TypedInstr::i32_const(I32(ctx.random_int(100)))
 }
 
 ///|
-fn gen_i64_tinstr(ctx : GenValidContext) -> TInstr {
+fn gen_i64_typed_instr(ctx : GenValidContext) -> TypedInstr {
   match ctx.random_int(4) {
-    0 => TInstr::i64_const(I64(ctx.rnd.next_int64()))
+    0 => TypedInstr::i64_const(I64(ctx.rnd.next_int64()))
     1 => {
-      let a = gen_i64_tinstr_simple(ctx)
-      let b = gen_i64_tinstr_simple(ctx)
-      TInstr::binary(BinaryOp::i64_add(), a, b)
+      let a = gen_i64_typed_instr_simple(ctx)
+      let b = gen_i64_typed_instr_simple(ctx)
+      TypedInstr::binary(BinaryOp::i64_add(), a, b)
     }
     2 => {
-      let a = gen_i32_tinstr_simple(ctx)
-      TInstr::unary(UnaryOp::i64_extend_i32s(), a)
+      let a = gen_i32_typed_instr_simple(ctx)
+      TypedInstr::unary(UnaryOp::i64_extend_i32s(), a)
     }
-    _ => TInstr::i64_const(I64(ctx.random_int(1000).to_int64()))
+    _ => TypedInstr::i64_const(I64(ctx.random_int(1000).to_int64()))
   }
 }
 
 ///|
-fn gen_i64_tinstr_simple(ctx : GenValidContext) -> TInstr {
+fn gen_i64_typed_instr_simple(ctx : GenValidContext) -> TypedInstr {
   for i, local_type in ctx.locals {
     match local_type {
       NumTypeValType(I64NumType) =>
         if ctx.random_bool() {
-          return TInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
+          return TypedInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
         }
       _ => continue
     }
   }
-  TInstr::i64_const(I64(ctx.random_int(100).to_int64()))
+  TypedInstr::i64_const(I64(ctx.random_int(100).to_int64()))
 }
 
 ///|
-fn gen_f32_tinstr(ctx : GenValidContext) -> TInstr {
+fn gen_f32_typed_instr(ctx : GenValidContext) -> TypedInstr {
   match ctx.random_int(4) {
-    0 => TInstr::f32_const(F32(Float::from_double(ctx.rnd.next_double())))
+    0 => TypedInstr::f32_const(F32(Float::from_double(ctx.rnd.next_double())))
     1 => {
-      let a = gen_f32_tinstr_simple(ctx)
-      let b = gen_f32_tinstr_simple(ctx)
-      TInstr::binary(BinaryOp::f32_add(), a, b)
+      let a = gen_f32_typed_instr_simple(ctx)
+      let b = gen_f32_typed_instr_simple(ctx)
+      TypedInstr::binary(BinaryOp::f32_add(), a, b)
     }
     2 => {
-      let a = gen_i32_tinstr_simple(ctx)
-      TInstr::unary(UnaryOp::f32_convert_i32s(), a)
+      let a = gen_i32_typed_instr_simple(ctx)
+      TypedInstr::unary(UnaryOp::f32_convert_i32s(), a)
     }
     _ =>
-      TInstr::f32_const(
+      TypedInstr::f32_const(
         F32(Float::from_double(ctx.random_int(100).to_double())),
       )
   }
 }
 
 ///|
-fn gen_f32_tinstr_simple(ctx : GenValidContext) -> TInstr {
+fn gen_f32_typed_instr_simple(ctx : GenValidContext) -> TypedInstr {
   for i, local_type in ctx.locals {
     match local_type {
       NumTypeValType(F32NumType) =>
         if ctx.random_bool() {
-          return TInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
+          return TypedInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
         }
       _ => continue
     }
   }
-  TInstr::f32_const(F32(1.0))
+  TypedInstr::f32_const(F32(1.0))
 }
 
 ///|
-fn gen_f64_tinstr(ctx : GenValidContext) -> TInstr {
+fn gen_f64_typed_instr(ctx : GenValidContext) -> TypedInstr {
   match ctx.random_int(4) {
-    0 => TInstr::f64_const(F64(ctx.rnd.next_double()))
+    0 => TypedInstr::f64_const(F64(ctx.rnd.next_double()))
     1 => {
-      let a = gen_f64_tinstr_simple(ctx)
-      let b = gen_f64_tinstr_simple(ctx)
-      TInstr::binary(BinaryOp::f64_add(), a, b)
+      let a = gen_f64_typed_instr_simple(ctx)
+      let b = gen_f64_typed_instr_simple(ctx)
+      TypedInstr::binary(BinaryOp::f64_add(), a, b)
     }
     2 => {
-      let a = gen_i64_tinstr_simple(ctx)
-      TInstr::unary(UnaryOp::f64_convert_i64s(), a)
+      let a = gen_i64_typed_instr_simple(ctx)
+      TypedInstr::unary(UnaryOp::f64_convert_i64s(), a)
     }
-    _ => TInstr::f64_const(F64(ctx.random_int(100).to_double()))
+    _ => TypedInstr::f64_const(F64(ctx.random_int(100).to_double()))
   }
 }
 
 ///|
-fn gen_f64_tinstr_simple(ctx : GenValidContext) -> TInstr {
+fn gen_f64_typed_instr_simple(ctx : GenValidContext) -> TypedInstr {
   for i, local_type in ctx.locals {
     match local_type {
       NumTypeValType(F64NumType) =>
         if ctx.random_bool() {
-          return TInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
+          return TypedInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
         }
       _ => continue
     }
   }
-  TInstr::f64_const(F64(1.0))
+  TypedInstr::f64_const(F64(1.0))
 }
 
 ///|
 /// Generate table.get instruction
-fn gen_table_get_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_table_get_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   if ctx.table_count == 0 {
     return None
   }
-  let idx = gen_i32_tinstr_simple(ctx)
-  Some(TInstr::table_get(TableIdx::new(0), idx))
+  let idx = gen_i32_typed_instr_simple(ctx)
+  Some(TypedInstr::table_get(TableIdx::new(0), idx))
 }
 
 ///|
 /// Generate memory.init instruction
-fn gen_memory_init_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_memory_init_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   if ctx.mem_count == 0 || ctx.data_idx == 0 {
     return None
   }
@@ -817,11 +820,11 @@ fn gen_memory_init_tinstr(ctx : GenValidContext) -> TInstr? {
   for i, mode in ctx.data_modes {
     match mode {
       Passive => {
-        let dest = gen_i32_tinstr_simple(ctx)
-        let src_offset = TInstr::i32_const(I32(0))
-        let size = TInstr::i32_const(I32(ctx.random_int(16) + 1))
+        let dest = gen_i32_typed_instr_simple(ctx)
+        let src_offset = TypedInstr::i32_const(I32(0))
+        let size = TypedInstr::i32_const(I32(ctx.random_int(16) + 1))
         return Some(
-          TInstr::memory_init(
+          TypedInstr::memory_init(
             DataIdx::new(i.reinterpret_as_uint()),
             MemIdx::new(0),
             dest,
@@ -838,46 +841,46 @@ fn gen_memory_init_tinstr(ctx : GenValidContext) -> TInstr? {
 
 ///|
 /// Generate memory.copy instruction
-fn gen_memory_copy_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_memory_copy_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   if ctx.mem_count == 0 {
     return None
   }
-  let dest = gen_i32_tinstr_simple(ctx)
-  let src = gen_i32_tinstr_simple(ctx)
-  let size = TInstr::i32_const(I32(ctx.random_int(64) + 1))
-  Some(TInstr::memory_copy(MemIdx::new(0), MemIdx::new(0), dest, src, size))
+  let dest = gen_i32_typed_instr_simple(ctx)
+  let src = gen_i32_typed_instr_simple(ctx)
+  let size = TypedInstr::i32_const(I32(ctx.random_int(64) + 1))
+  Some(TypedInstr::memory_copy(MemIdx::new(0), MemIdx::new(0), dest, src, size))
 }
 
 ///|
 /// Generate memory.fill instruction
-fn gen_memory_fill_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_memory_fill_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   if ctx.mem_count == 0 {
     return None
   }
-  let dest = gen_i32_tinstr_simple(ctx)
-  let value = gen_i32_tinstr_simple(ctx)
-  let size = TInstr::i32_const(I32(ctx.random_int(64) + 1))
-  Some(TInstr::memory_fill(MemIdx::new(0), dest, value, size))
+  let dest = gen_i32_typed_instr_simple(ctx)
+  let value = gen_i32_typed_instr_simple(ctx)
+  let size = TypedInstr::i32_const(I32(ctx.random_int(64) + 1))
+  Some(TypedInstr::memory_fill(MemIdx::new(0), dest, value, size))
 }
 
 ///|
 /// Generate array.fill instruction (side effect)
-fn gen_array_fill_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_array_fill_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   for t in ctx.array_types {
     let (type_idx, elem_type) = t
     if elem_type.is_mutable() {
       let elem_vt = storage_type_to_valtype(elem_type.get_storage_type())
-      let init_val = gen_tinstr_of_type(ctx, elem_vt)
-      let array = TInstr::array_new(
+      let init_val = gen_typed_instr_of_type(ctx, elem_vt)
+      let array = TypedInstr::array_new(
         TypeIdx::new(type_idx.reinterpret_as_uint()),
         init_val,
-        TInstr::i32_const(I32(10)),
+        TypedInstr::i32_const(I32(10)),
       )
-      let offset = TInstr::i32_const(I32(ctx.random_int(5)))
-      let fill_val = gen_tinstr_of_type(ctx, elem_vt)
-      let length = TInstr::i32_const(I32(ctx.random_int(5) + 1))
+      let offset = TypedInstr::i32_const(I32(ctx.random_int(5)))
+      let fill_val = gen_typed_instr_of_type(ctx, elem_vt)
+      let length = TypedInstr::i32_const(I32(ctx.random_int(5) + 1))
       return Some(
-        TInstr::array_fill(
+        TypedInstr::array_fill(
           TypeIdx::new(type_idx.reinterpret_as_uint()),
           array,
           offset,
@@ -892,7 +895,7 @@ fn gen_array_fill_tinstr(ctx : GenValidContext) -> TInstr? {
 
 ///|
 /// Generate array.copy instruction (side effect)
-fn gen_array_copy_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_array_copy_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   if ctx.array_types.length() == 0 {
     return None
   }
@@ -909,25 +912,25 @@ fn gen_array_copy_tinstr(ctx : GenValidContext) -> TInstr? {
         let elem_vt = storage_type_to_valtype(elem_type_dst.get_storage_type())
 
         // Create destination array
-        let dst_init = gen_tinstr_of_type(ctx, elem_vt)
-        let dst = TInstr::array_new(
+        let dst_init = gen_typed_instr_of_type(ctx, elem_vt)
+        let dst = TypedInstr::array_new(
           TypeIdx::new(type_idx_dst.reinterpret_as_uint()),
           dst_init,
-          TInstr::i32_const(I32(10)),
+          TypedInstr::i32_const(I32(10)),
         )
 
         // Create source array
-        let src_init = gen_tinstr_of_type(ctx, elem_vt)
-        let src = TInstr::array_new(
+        let src_init = gen_typed_instr_of_type(ctx, elem_vt)
+        let src = TypedInstr::array_new(
           TypeIdx::new(type_idx_src.reinterpret_as_uint()),
           src_init,
-          TInstr::i32_const(I32(10)),
+          TypedInstr::i32_const(I32(10)),
         )
-        let dst_offset = TInstr::i32_const(I32(ctx.random_int(5)))
-        let src_offset = TInstr::i32_const(I32(ctx.random_int(5)))
-        let length = TInstr::i32_const(I32(ctx.random_int(3) + 1))
+        let dst_offset = TypedInstr::i32_const(I32(ctx.random_int(5)))
+        let src_offset = TypedInstr::i32_const(I32(ctx.random_int(5)))
+        let length = TypedInstr::i32_const(I32(ctx.random_int(3) + 1))
         return Some(
-          TInstr::array_copy(
+          TypedInstr::array_copy(
             TypeIdx::new(type_idx_dst.reinterpret_as_uint()),
             TypeIdx::new(type_idx_src.reinterpret_as_uint()),
             dst,
@@ -945,15 +948,15 @@ fn gen_array_copy_tinstr(ctx : GenValidContext) -> TInstr? {
 
 ///|
 /// Generate array.len instruction
-fn gen_array_len_tinstr(ctx : GenValidContext) -> TInstr? {
-  match gen_array_new_tinstr(ctx) {
-    Some(array_instr) => Some(TInstr::array_len(array_instr))
+fn gen_array_len_typed_instr(ctx : GenValidContext) -> TypedInstr? {
+  match gen_array_new_typed_instr(ctx) {
+    Some(array_instr) => Some(TypedInstr::array_len(array_instr))
     None => None
   }
 }
 
 ///|
-fn gen_ref_test_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_ref_test_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   let ref_val = match gen_known_ref_value(ctx) {
     Some(v) => v
     None => return None
@@ -963,43 +966,43 @@ fn gen_ref_test_tinstr(ctx : GenValidContext) -> TInstr? {
   } else {
     HeapType::abs(AbsHeapType::array())
   }
-  Some(TInstr::ref_test(false, test_heap_type, ref_val))
+  Some(TypedInstr::ref_test(false, test_heap_type, ref_val))
 }
 
 ///|
-fn gen_v128_tinstr(ctx : GenValidContext) -> TInstr {
+fn gen_v128_typed_instr(ctx : GenValidContext) -> TypedInstr {
   if ctx.random_bool() {
-    TInstr::v128_const(
+    TypedInstr::v128_const(
       b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
       b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
     )
   } else {
-    TInstr::i32x4_splat(gen_i32_tinstr_simple(ctx))
+    TypedInstr::i32x4_splat(gen_i32_typed_instr_simple(ctx))
   }
 }
 
 ///|
-fn gen_ref_tinstr(ctx : GenValidContext, rt : RefType) -> TInstr {
+fn gen_ref_typed_instr(ctx : GenValidContext, rt : RefType) -> TypedInstr {
   match rt.get_heap_type() {
     AbsHeapTypeHeapType(StructAbsHeapType) =>
-      match gen_struct_new_tinstr(ctx) {
+      match gen_struct_new_typed_instr(ctx) {
         Some(instr) => instr
-        None => TInstr::ref_null(rt.get_heap_type())
+        None => TypedInstr::ref_null(rt.get_heap_type())
       }
     AbsHeapTypeHeapType(ArrayAbsHeapType) =>
-      match gen_array_new_tinstr(ctx) {
+      match gen_array_new_typed_instr(ctx) {
         Some(instr) => instr
-        None => TInstr::ref_null(rt.get_heap_type())
+        None => TypedInstr::ref_null(rt.get_heap_type())
       }
     AbsHeapTypeHeapType(FuncAbsHeapType) =>
       if ctx.func_idx > 0 && ctx.random_bool() {
-        TInstr::ref_func(
+        TypedInstr::ref_func(
           FuncIdx::new(ctx.random_int(ctx.func_idx).reinterpret_as_uint()),
         )
       } else {
-        TInstr::ref_null(rt.get_heap_type())
+        TypedInstr::ref_null(rt.get_heap_type())
       }
-    _ => TInstr::ref_null(rt.get_heap_type())
+    _ => TypedInstr::ref_null(rt.get_heap_type())
   }
 }
 
@@ -1139,7 +1142,7 @@ fn is_valtype_subtype(sub : ValType, sup : ValType) -> Bool {
 
 ///|
 /// Generate struct.set side effect
-fn gen_struct_set_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_struct_set_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   // Find a mutable struct field
   for fields in ctx.struct_types {
     let (type_idx, fields) = fields
@@ -1147,18 +1150,18 @@ fn gen_struct_set_tinstr(ctx : GenValidContext) -> TInstr? {
       if field.is_mutable() {
         let field_vt = storage_type_to_valtype(field.get_storage_type())
         // Create struct, then set a field
-        let field_values : Array[TInstr] = []
+        let field_values : Array[TypedInstr] = []
         for f in fields {
           let vt = storage_type_to_valtype(f.get_storage_type())
-          field_values.push(gen_tinstr_of_type(ctx, vt))
+          field_values.push(gen_typed_instr_of_type(ctx, vt))
         }
-        let struct_val = TInstr::struct_new(
+        let struct_val = TypedInstr::struct_new(
           TypeIdx::new(type_idx.reinterpret_as_uint()),
           field_values,
         )
-        let new_value = gen_tinstr_of_type(ctx, field_vt)
+        let new_value = gen_typed_instr_of_type(ctx, field_vt)
         return Some(
-          TInstr::struct_set(
+          TypedInstr::struct_set(
             TypeIdx::new(type_idx.reinterpret_as_uint()),
             U32(field_idx.reinterpret_as_uint()),
             struct_val,
@@ -1173,24 +1176,24 @@ fn gen_struct_set_tinstr(ctx : GenValidContext) -> TInstr? {
 
 ///|
 /// Generate array.set side effect
-fn gen_array_set_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_array_set_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   for t in ctx.array_types {
     let (type_idx, elem_type) = t
     if elem_type.is_mutable() {
       let elem_vt = storage_type_to_valtype(elem_type.get_storage_type())
       let init_val = match elem_vt {
-        RefTypeValType(rt) => gen_ref_tinstr(ctx, rt)
-        _ => gen_tinstr_of_type(ctx, elem_vt)
+        RefTypeValType(rt) => gen_ref_typed_instr(ctx, rt)
+        _ => gen_typed_instr_of_type(ctx, elem_vt)
       }
-      let array = TInstr::array_new(
+      let array = TypedInstr::array_new(
         TypeIdx::new(type_idx.reinterpret_as_uint()),
         init_val,
-        TInstr::i32_const(I32(5)),
+        TypedInstr::i32_const(I32(5)),
       )
-      let index = TInstr::i32_const(I32(ctx.random_int(5)))
-      let new_value = gen_tinstr_of_type(ctx, elem_vt)
+      let index = TypedInstr::i32_const(I32(ctx.random_int(5)))
+      let new_value = gen_typed_instr_of_type(ctx, elem_vt)
       return Some(
-        TInstr::array_set(
+        TypedInstr::array_set(
           TypeIdx::new(type_idx.reinterpret_as_uint()),
           array,
           index,
@@ -1203,74 +1206,78 @@ fn gen_array_set_tinstr(ctx : GenValidContext) -> TInstr? {
 }
 
 ///|
-fn gen_simple_side_effect(ctx : GenValidContext) -> TInstr {
+fn gen_simple_side_effect(ctx : GenValidContext) -> TypedInstr {
   if ctx.locals.length() > 0 && ctx.random_bool() {
     let idx = ctx.random_int(ctx.locals.length())
     let local_type = ctx.locals[idx]
-    let value = gen_tinstr_of_type(ctx, local_type)
-    TInstr::local_set(LocalIdx::new(idx.reinterpret_as_uint()), value)
+    let value = gen_typed_instr_of_type(ctx, local_type)
+    TypedInstr::local_set(LocalIdx::new(idx.reinterpret_as_uint()), value)
   } else {
-    TInstr::drop(gen_tinstr_of_type(ctx, gen_valid_valtype(ctx)))
+    TypedInstr::drop(gen_typed_instr_of_type(ctx, gen_valid_valtype(ctx)))
   }
 }
 
 ///|
-fn gen_store_tinstr(ctx : GenValidContext) -> TInstr {
-  let addr = gen_i32_tinstr_simple(ctx)
+fn gen_store_typed_instr(ctx : GenValidContext) -> TypedInstr {
+  let addr = gen_i32_typed_instr_simple(ctx)
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   match ctx.random_int(4) {
     0 => {
-      let value = gen_i32_tinstr_simple(ctx)
-      TInstr::store(StoreOp::i32_store(), mem_arg, addr, value)
+      let value = gen_i32_typed_instr_simple(ctx)
+      TypedInstr::store(StoreOp::i32_store(), mem_arg, addr, value)
     }
     1 => {
-      let value = gen_i64_tinstr_simple(ctx)
-      TInstr::store(StoreOp::i64_store(), mem_arg, addr, value)
+      let value = gen_i64_typed_instr_simple(ctx)
+      TypedInstr::store(StoreOp::i64_store(), mem_arg, addr, value)
     }
     2 => {
-      let value = gen_f32_tinstr_simple(ctx)
-      TInstr::store(StoreOp::f32_store(), mem_arg, addr, value)
+      let value = gen_f32_typed_instr_simple(ctx)
+      TypedInstr::store(StoreOp::f32_store(), mem_arg, addr, value)
     }
     _ => {
-      let value = gen_f64_tinstr_simple(ctx)
-      TInstr::store(StoreOp::f64_store(), mem_arg, addr, value)
+      let value = gen_f64_typed_instr_simple(ctx)
+      TypedInstr::store(StoreOp::f64_store(), mem_arg, addr, value)
     }
   }
 }
 
 ///|
 /// Generate local initialization instructions (now integrated into gen_valid_tfunc)
-fn gen_local_inits(ctx : GenValidContext, param_count : Int) -> Array[TInstr] {
-  let inits : Array[TInstr] = []
+fn gen_local_inits(
+  ctx : GenValidContext,
+  param_count : Int,
+) -> Array[TypedInstr] {
+  let inits : Array[TypedInstr] = []
   for i in param_count..<ctx.locals.length() {
     let local_type = ctx.locals[i]
     let init_value = gen_default_value(ctx, local_type)
     inits.push(
-      TInstr::local_set(LocalIdx::new(i.reinterpret_as_uint()), init_value),
+      TypedInstr::local_set(LocalIdx::new(i.reinterpret_as_uint()), init_value),
     )
   }
   inits
 }
 
 ///|
-fn gen_default_value(ctx : GenValidContext, vt : ValType) -> TInstr {
+fn gen_default_value(ctx : GenValidContext, vt : ValType) -> TypedInstr {
   match vt {
-    NumTypeValType(I32NumType) => TInstr::i32_const(I32(ctx.random_int(100)))
+    NumTypeValType(I32NumType) =>
+      TypedInstr::i32_const(I32(ctx.random_int(100)))
     NumTypeValType(I64NumType) =>
-      TInstr::i64_const(I64(ctx.random_int(100).to_int64()))
+      TypedInstr::i64_const(I64(ctx.random_int(100).to_int64()))
     NumTypeValType(F32NumType) =>
-      TInstr::f32_const(
+      TypedInstr::f32_const(
         F32(Float::from_double(ctx.random_int(100).to_double())),
       )
     NumTypeValType(F64NumType) =>
-      TInstr::f64_const(F64(ctx.random_int(100).to_double()))
+      TypedInstr::f64_const(F64(ctx.random_int(100).to_double()))
     VecTypeValType =>
-      TInstr::v128_const(
+      TypedInstr::v128_const(
         b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
         b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
       )
-    RefTypeValType(rt) => TInstr::ref_null(rt.get_heap_type())
-    BotValType => TInstr::unreachable_()
+    RefTypeValType(rt) => TypedInstr::ref_null(rt.get_heap_type())
+    BotValType => TypedInstr::unreachable_()
   }
 }
 
@@ -1350,19 +1357,19 @@ fn gen_elem_segments(ctx : GenValidContext) -> Array[Elem] {
 
 ///|
 /// Generate a br_if instruction (side effect - conditionally branches)
-fn gen_br_if_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_br_if_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   let empty_labels = ctx.empty_labels()
   if empty_labels.length() == 0 {
     return None
   }
   let label = empty_labels[ctx.random_int(empty_labels.length())]
-  let cond = gen_i32_tinstr_simple(ctx)
-  Some(TInstr::br_if(LabelIdx::new(label.reinterpret_as_uint()), cond, []))
+  let cond = gen_i32_typed_instr_simple(ctx)
+  Some(TypedInstr::br_if(LabelIdx::new(label.reinterpret_as_uint()), cond, []))
 }
 
 ///|
 /// Generate a br_table instruction (side effect)
-fn gen_br_table_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_br_table_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   let empty_labels = ctx.empty_labels()
   if empty_labels.length() == 0 {
     return None
@@ -1376,27 +1383,27 @@ fn gen_br_table_tinstr(ctx : GenValidContext) -> TInstr? {
   let default_label = LabelIdx::new(
     empty_labels[ctx.random_int(empty_labels.length())].reinterpret_as_uint(),
   )
-  let index = gen_i32_tinstr_simple(ctx)
-  Some(TInstr::br_table(labels, default_label, index, []))
+  let index = gen_i32_typed_instr_simple(ctx)
+  Some(TypedInstr::br_table(labels, default_label, index, []))
 }
 
 ///|
 /// Generate a throw instruction
-fn gen_throw_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_throw_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   if ctx.tag_idx == 0 {
     return None
   }
   let tag_idx_val = ctx.random_int(ctx.tag_idx)
   let (_, params) = ctx.tag_sigs[tag_idx_val]
-  let args : Array[TInstr] = []
+  let args : Array[TypedInstr] = []
   for param_type in params {
-    args.push(gen_tinstr_of_type(ctx, param_type))
+    args.push(gen_typed_instr_of_type(ctx, param_type))
   }
-  Some(TInstr::throw_(TagIdx::new(tag_idx_val.reinterpret_as_uint()), args))
+  Some(TypedInstr::throw_(TagIdx::new(tag_idx_val.reinterpret_as_uint()), args))
 }
 
 ///|
-fn gen_try_table_tinstr(ctx : GenValidContext) -> TInstr? {
+fn gen_try_table_typed_instr(ctx : GenValidContext) -> TypedInstr? {
   // Must have tags
   if ctx.tag_idx == 0 {
     return None
@@ -1428,15 +1435,15 @@ fn gen_try_table_tinstr(ctx : GenValidContext) -> TInstr? {
 
   // try body
   ctx.push_label([], false)
-  let body_instrs : Array[TInstr] = [
-    TInstr::throw_(TagIdx::new(tag_idx_val.reinterpret_as_uint()), []),
+  let body_instrs : Array[TypedInstr] = [
+    TypedInstr::throw_(TagIdx::new(tag_idx_val.reinterpret_as_uint()), []),
   ]
   if ctx.random_bool() {
     body_instrs.push(gen_simple_side_effect(ctx))
   }
   ctx.pop_label()
   Some(
-    TInstr::try_table(
+    TypedInstr::try_table(
       BlockType::void_(),
       [
         Catch::new(
@@ -1451,14 +1458,16 @@ fn gen_try_table_tinstr(ctx : GenValidContext) -> TInstr? {
 
 ///|
 /// Generate global.get instruction
-fn gen_global_get_tinstr(
+fn gen_global_get_typed_instr(
   ctx : GenValidContext,
   target_type : ValType,
-) -> TInstr? {
+) -> TypedInstr? {
   for i, gt in ctx.globals {
     let GlobalType(vt, _) = gt
     if vt == target_type {
-      return Some(TInstr::global_get(GlobalIdx::new(i.reinterpret_as_uint())))
+      return Some(
+        TypedInstr::global_get(GlobalIdx::new(i.reinterpret_as_uint())),
+      )
     }
   }
   None
@@ -1466,40 +1475,46 @@ fn gen_global_get_tinstr(
 
 ///|
 /// Generate a load instruction
-fn gen_load_tinstr(ctx : GenValidContext, target_type : ValType) -> TInstr? {
+fn gen_load_typed_instr(
+  ctx : GenValidContext,
+  target_type : ValType,
+) -> TypedInstr? {
   if ctx.mem_count == 0 {
     return None
   }
-  let addr = gen_i32_tinstr_simple(ctx)
+  let addr = gen_i32_typed_instr_simple(ctx)
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   match target_type {
     NumTypeValType(I32NumType) =>
-      Some(TInstr::load(LoadOp::i32_load(), mem_arg, addr))
+      Some(TypedInstr::load(LoadOp::i32_load(), mem_arg, addr))
     NumTypeValType(I64NumType) =>
-      Some(TInstr::load(LoadOp::i64_load(), mem_arg, addr))
+      Some(TypedInstr::load(LoadOp::i64_load(), mem_arg, addr))
     NumTypeValType(F32NumType) =>
-      Some(TInstr::load(LoadOp::f32_load(), mem_arg, addr))
+      Some(TypedInstr::load(LoadOp::f32_load(), mem_arg, addr))
     NumTypeValType(F64NumType) =>
-      Some(TInstr::load(LoadOp::f64_load(), mem_arg, addr))
+      Some(TypedInstr::load(LoadOp::f64_load(), mem_arg, addr))
     _ => None
   }
 }
 
 ///|
-/// Enhanced gen_tinstr_of_type with more variety including globals and loads
-pub fn gen_tinstr_of_type(ctx : GenValidContext, vt : ValType) -> TInstr {
+/// Enhanced gen_typed_instr_of_type with more variety including globals and loads
+pub fn gen_typed_instr_of_type(
+  ctx : GenValidContext,
+  vt : ValType,
+) -> TypedInstr {
   // Sometimes use a local if available
   if ctx.random_int(6) == 0 {
     for i, local_type in ctx.locals {
       if local_type == vt {
-        return TInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
+        return TypedInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
       }
     }
   }
 
   // Sometimes use a global
   if ctx.random_int(6) == 0 {
-    match gen_global_get_tinstr(ctx, vt) {
+    match gen_global_get_typed_instr(ctx, vt) {
       Some(instr) => return instr
       None => ()
     }
@@ -1507,7 +1522,7 @@ pub fn gen_tinstr_of_type(ctx : GenValidContext, vt : ValType) -> TInstr {
 
   // Sometimes use a memory load
   if ctx.random_int(8) == 0 {
-    match gen_load_tinstr(ctx, vt) {
+    match gen_load_typed_instr(ctx, vt) {
       Some(instr) => return instr
       None => ()
     }
@@ -1520,7 +1535,7 @@ pub fn gen_tinstr_of_type(ctx : GenValidContext, vt : ValType) -> TInstr {
       1 => AtLeast
       _ => AtMost
     }
-    match gen_call_tinstr_v2(ctx, [vt], strategy) {
+    match gen_call_typed_instr_v2(ctx, [vt], strategy) {
       Some(call) => return call
       None => ()
     }
@@ -1528,7 +1543,7 @@ pub fn gen_tinstr_of_type(ctx : GenValidContext, vt : ValType) -> TInstr {
 
   // Sometimes try call_indirect
   if ctx.random_int(12) == 0 {
-    match gen_call_indirect_tinstr(ctx, vt) {
+    match gen_call_indirect_typed_instr(ctx, vt) {
       Some(call) => return call
       None => ()
     }
@@ -1536,7 +1551,7 @@ pub fn gen_tinstr_of_type(ctx : GenValidContext, vt : ValType) -> TInstr {
 
   // Sometimes try struct.get
   if ctx.random_int(10) == 0 {
-    match gen_struct_get_tinstr(ctx, vt) {
+    match gen_struct_get_typed_instr(ctx, vt) {
       Some(instr) => return instr
       None => ()
     }
@@ -1544,7 +1559,7 @@ pub fn gen_tinstr_of_type(ctx : GenValidContext, vt : ValType) -> TInstr {
 
   // Sometimes try array.get
   if ctx.random_int(10) == 0 {
-    match gen_array_get_tinstr(ctx, vt) {
+    match gen_array_get_typed_instr(ctx, vt) {
       Some(instr) => return instr
       None => ()
     }
@@ -1554,42 +1569,44 @@ pub fn gen_tinstr_of_type(ctx : GenValidContext, vt : ValType) -> TInstr {
   match vt {
     NumTypeValType(I32NumType) => {
       if ctx.random_int(15) == 0 {
-        match gen_ref_test_tinstr(ctx) {
+        match gen_ref_test_typed_instr(ctx) {
           Some(instr) => return instr
           None => ()
         }
       }
       if ctx.random_int(15) == 0 {
-        match gen_array_len_tinstr(ctx) {
+        match gen_array_len_typed_instr(ctx) {
           Some(instr) => return instr
           None => ()
         }
       }
       if ctx.random_int(15) == 0 {
-        match gen_table_size_tinstr(ctx) {
+        match gen_table_size_typed_instr(ctx) {
           Some(instr) => return instr
           None => ()
         }
       }
-      gen_i32_tinstr(ctx)
+      gen_i32_typed_instr(ctx)
     }
-    NumTypeValType(I64NumType) => gen_i64_tinstr(ctx)
-    NumTypeValType(F32NumType) => gen_f32_tinstr(ctx)
-    NumTypeValType(F64NumType) => gen_f64_tinstr(ctx)
-    VecTypeValType => gen_v128_tinstr(ctx)
-    RefTypeValType(rt) => gen_ref_tinstr(ctx, rt)
-    BotValType => TInstr::unreachable_()
+    NumTypeValType(I64NumType) => gen_i64_typed_instr(ctx)
+    NumTypeValType(F32NumType) => gen_f32_typed_instr(ctx)
+    NumTypeValType(F64NumType) => gen_f64_typed_instr(ctx)
+    VecTypeValType => gen_v128_typed_instr(ctx)
+    RefTypeValType(rt) => gen_ref_typed_instr(ctx, rt)
+    BotValType => TypedInstr::unreachable_()
   }
 }
 
 ///|
-fn gen_known_ref_value(ctx : GenValidContext) -> TInstr? {
+fn gen_known_ref_value(ctx : GenValidContext) -> TypedInstr? {
   // locals
   for i, vt in ctx.locals {
     match vt {
       RefTypeValType(_) =>
         if ctx.random_bool() {
-          return Some(TInstr::local_get(LocalIdx::new(i.reinterpret_as_uint())))
+          return Some(
+            TypedInstr::local_get(LocalIdx::new(i.reinterpret_as_uint())),
+          )
         }
       _ => ()
     }
@@ -1602,7 +1619,7 @@ fn gen_known_ref_value(ctx : GenValidContext) -> TInstr? {
       RefTypeValType(_) =>
         if ctx.random_bool() {
           return Some(
-            TInstr::global_get(GlobalIdx::new(i.reinterpret_as_uint())),
+            TypedInstr::global_get(GlobalIdx::new(i.reinterpret_as_uint())),
           )
         }
       _ => ()
@@ -1614,12 +1631,12 @@ fn gen_known_ref_value(ctx : GenValidContext) -> TInstr? {
 }
 
 ///|
-/// Enhanced gen_side_effect_tinstr with label depth for branches
-pub fn gen_side_effect_tinstr(
+/// Enhanced gen_side_effect_typed_instr with label depth for branches
+pub fn gen_side_effect_typed_instr(
   ctx : GenValidContext,
   depth : Int,
   label_depth? : Int = 0,
-) -> TInstr {
+) -> TypedInstr {
   if depth > 3 {
     return gen_simple_side_effect(ctx)
   }
@@ -1641,7 +1658,7 @@ pub fn gen_side_effect_tinstr(
         _ => false
       }
     })
-  let ops : Array[() -> TInstr?] = []
+  let ops : Array[() -> TypedInstr?] = []
 
   // ------------------------------------------------------------
   // Basic side effects
@@ -1651,17 +1668,19 @@ pub fn gen_side_effect_tinstr(
       let idx = ctx.random_int(ctx.locals.length())
       let vt = ctx.locals[idx]
       Some(
-        TInstr::local_set(
+        TypedInstr::local_set(
           LocalIdx::new(idx.reinterpret_as_uint()),
-          gen_tinstr_of_type(ctx, vt),
+          gen_typed_instr_of_type(ctx, vt),
         ),
       )
     } else {
-      Some(TInstr::drop(gen_tinstr_of_type(ctx, gen_valid_valtype(ctx))))
+      Some(
+        TypedInstr::drop(gen_typed_instr_of_type(ctx, gen_valid_valtype(ctx))),
+      )
     }
   })
   ops.push(fn() {
-    Some(TInstr::drop(gen_tinstr_of_type(ctx, gen_valid_valtype(ctx))))
+    Some(TypedInstr::drop(gen_typed_instr_of_type(ctx, gen_valid_valtype(ctx))))
   })
 
   // ------------------------------------------------------------
@@ -1670,12 +1689,12 @@ pub fn gen_side_effect_tinstr(
   ops.push(fn() {
     ctx.push_label([], true)
     let n = ctx.random_int(3) + 1
-    let instrs : Array[TInstr] = []
+    let instrs : Array[TypedInstr] = []
     for _ in 0..<n {
-      instrs.push(gen_side_effect_tinstr(ctx, depth + 1))
+      instrs.push(gen_side_effect_typed_instr(ctx, depth + 1))
     }
     ctx.pop_label()
-    Some(TInstr::block(BlockType::void_(), instrs))
+    Some(TypedInstr::block(BlockType::void_(), instrs))
   })
 
   // ------------------------------------------------------------
@@ -1684,52 +1703,45 @@ pub fn gen_side_effect_tinstr(
   ops.push(fn() {
     ctx.push_label([], true)
     let n = ctx.random_int(2) + 1
-    let instrs : Array[TInstr] = []
+    let instrs : Array[TypedInstr] = []
     for _ in 0..<n {
       instrs.push(
-        gen_side_effect_tinstr(ctx, depth + 1, label_depth=label_depth + 1),
+        gen_side_effect_typed_instr(ctx, depth + 1, label_depth=label_depth + 1),
       )
     }
     ctx.pop_label()
-    Some(TInstr::loop_(BlockType::void_(), instrs))
+    Some(TypedInstr::loop_(BlockType::void_(), instrs))
   })
 
   // ------------------------------------------------------------
   // If
   // ------------------------------------------------------------
   ops.push(fn() {
-    let cond = gen_i32_tinstr_simple(ctx)
+    let cond = gen_i32_typed_instr_simple(ctx)
     ctx.push_label([], true)
-    let then_instrs : Array[TInstr] = []
+    let then_instrs : Array[TypedInstr] = []
     for _ in 0..<(ctx.random_int(2) + 1) {
-      then_instrs.push(gen_side_effect_tinstr(ctx, depth + 1))
+      then_instrs.push(gen_side_effect_typed_instr(ctx, depth + 1))
     }
     let else_branch = if ctx.random_bool() {
-      let else_instrs : Array[TInstr] = []
+      let else_instrs : Array[TypedInstr] = []
       for _ in 0..<(ctx.random_int(2) + 1) {
-        else_instrs.push(gen_side_effect_tinstr(ctx, depth + 1))
+        else_instrs.push(gen_side_effect_typed_instr(ctx, depth + 1))
       }
       Some(else_instrs)
     } else {
       None
     }
     ctx.pop_label()
-    Some(
-      TInstr::if_(
-        BlockType::void_(),
-        cond,
-        then_instrs,
-        else_branch,
-      ),
-    )
+    Some(TypedInstr::if_(BlockType::void_(), cond, then_instrs, else_branch))
   })
 
   // ------------------------------------------------------------
   // Branches
   // ------------------------------------------------------------
   if has_labels {
-    ops.push(fn() { gen_br_if_tinstr(ctx) })
-    ops.push(fn() { gen_br_table_tinstr(ctx) })
+    ops.push(fn() { gen_br_if_typed_instr(ctx) })
+    ops.push(fn() { gen_br_table_typed_instr(ctx) })
   }
 
   // ------------------------------------------------------------
@@ -1749,17 +1761,17 @@ pub fn gen_side_effect_tinstr(
       }
       let (i, vt) = muts[ctx.random_int(muts.length())]
       Some(
-        TInstr::global_set(
+        TypedInstr::global_set(
           GlobalIdx::new(i.reinterpret_as_uint()),
-          gen_tinstr_of_type(ctx, vt),
+          gen_typed_instr_of_type(ctx, vt),
         ),
       )
     })
     ops.push(fn() {
       let i = ctx.random_int(ctx.globals.length())
       Some(
-        TInstr::drop(
-          TInstr::global_get(GlobalIdx::new(i.reinterpret_as_uint())),
+        TypedInstr::drop(
+          TypedInstr::global_get(GlobalIdx::new(i.reinterpret_as_uint())),
         ),
       )
     })
@@ -1769,43 +1781,50 @@ pub fn gen_side_effect_tinstr(
   // Memory
   // ------------------------------------------------------------
   if has_mem {
-    ops.push(fn() { Some(gen_store_tinstr(ctx)) })
-    ops.push(fn() { gen_memory_fill_tinstr(ctx) })
-    ops.push(fn() { gen_memory_copy_tinstr(ctx) })
-    ops.push(fn() { Some(TInstr::drop(TInstr::memory_size(MemIdx::new(0)))) })
+    ops.push(fn() { Some(gen_store_typed_instr(ctx)) })
+    ops.push(fn() { gen_memory_fill_typed_instr(ctx) })
+    ops.push(fn() { gen_memory_copy_typed_instr(ctx) })
+    ops.push(fn() {
+      Some(TypedInstr::drop(TypedInstr::memory_size(MemIdx::new(0))))
+    })
     ops.push(fn() {
       Some(
-        TInstr::drop(
-          TInstr::memory_grow(MemIdx::new(0), gen_i32_tinstr_simple(ctx)),
+        TypedInstr::drop(
+          TypedInstr::memory_grow(
+            MemIdx::new(0),
+            gen_i32_typed_instr_simple(ctx),
+          ),
         ),
       )
     })
   }
   if has_mem && has_passive_data {
-    ops.push(fn() { gen_memory_init_tinstr(ctx) })
+    ops.push(fn() { gen_memory_init_typed_instr(ctx) })
   }
 
   // ------------------------------------------------------------
   // Table
   // ------------------------------------------------------------
   if has_table {
-    ops.push(fn() { gen_table_set_tinstr(ctx) })
+    ops.push(fn() { gen_table_set_typed_instr(ctx) })
     ops.push(fn() {
       Some(
-        TInstr::drop(
-          gen_table_grow_tinstr(ctx).unwrap_or(TInstr::i32_const(I32(0))),
+        TypedInstr::drop(
+          gen_table_grow_typed_instr(ctx).unwrap_or(
+            TypedInstr::i32_const(I32(0)),
+          ),
         ),
       )
     })
     ops.push(fn() {
-      match gen_table_get_tinstr(ctx) {
-        Some(x) => Some(TInstr::drop(x))
+      match gen_table_get_typed_instr(ctx) {
+        Some(x) => Some(TypedInstr::drop(x))
         None => None
       }
     })
     ops.push(fn() {
-      match gen_table_size_tinstr(ctx) {
-        Some(x) => Some(TInstr::drop(x))
+      match gen_table_size_typed_instr(ctx) {
+        Some(x) => Some(TypedInstr::drop(x))
         None => None
       }
     })
@@ -1818,17 +1837,17 @@ pub fn gen_side_effect_tinstr(
     ops.push(fn() { gen_call_side_effect(ctx) })
   }
   if has_structs {
-    ops.push(fn() { gen_struct_set_tinstr(ctx) })
+    ops.push(fn() { gen_struct_set_typed_instr(ctx) })
   }
   if has_arrays {
-    ops.push(fn() { gen_array_set_tinstr(ctx) })
-    ops.push(fn() { gen_array_fill_tinstr(ctx) })
-    ops.push(fn() { gen_array_copy_tinstr(ctx) })
+    ops.push(fn() { gen_array_set_typed_instr(ctx) })
+    ops.push(fn() { gen_array_fill_typed_instr(ctx) })
+    ops.push(fn() { gen_array_copy_typed_instr(ctx) })
   }
   if has_data {
     ops.push(fn() {
       Some(
-        TInstr::data_drop(
+        TypedInstr::data_drop(
           DataIdx::new(ctx.random_int(ctx.data_idx).reinterpret_as_uint()),
         ),
       )
@@ -1837,7 +1856,7 @@ pub fn gen_side_effect_tinstr(
   if has_elem {
     ops.push(fn() {
       Some(
-        TInstr::elem_drop(
+        TypedInstr::elem_drop(
           ElemIdx::new(ctx.random_int(ctx.elem_idx).reinterpret_as_uint()),
         ),
       )
@@ -1868,10 +1887,10 @@ pub fn gen_side_effect_tinstr(
         return None
       }
       let tag_idx_val = empty_tags[ctx.random_int(empty_tags.length())]
-      match gen_throw_tinstr(ctx) {
+      match gen_throw_typed_instr(ctx) {
         Some(throw_instr) =>
           Some(
-            TInstr::try_table(
+            TypedInstr::try_table(
               BlockType::void_(),
               [
                 Catch::new(
@@ -1887,7 +1906,7 @@ pub fn gen_side_effect_tinstr(
     })
 
     // Structured try_table
-    ops.push(fn() { gen_try_table_tinstr(ctx) })
+    ops.push(fn() { gen_try_table_typed_instr(ctx) })
   }
 
   // ------------------------------------------------------------
@@ -1900,22 +1919,22 @@ pub fn gen_side_effect_tinstr(
       None => ()
     }
   }
-  TInstr::drop(gen_tinstr_of_type(ctx, gen_valid_valtype(ctx)))
+  TypedInstr::drop(gen_typed_instr_of_type(ctx, gen_valid_valtype(ctx)))
 }
 
 ///|
 fn gen_return_instrs(
   ctx : GenValidContext,
   returns : ResultType,
-) -> Array[TInstr] {
+) -> Array[TypedInstr] {
   if returns.length() == 0 {
-    return [TInstr::return_([])]
+    return [TypedInstr::return_([])]
   }
-  let return_values : Array[TInstr] = []
+  let return_values : Array[TypedInstr] = []
   for vt in returns {
-    return_values.push(gen_tinstr_of_type(ctx, vt))
+    return_values.push(gen_typed_instr_of_type(ctx, vt))
   }
-  [TInstr::return_(return_values)]
+  [TypedInstr::return_(return_values)]
 }
 
 ///|
@@ -1947,7 +1966,7 @@ pub fn gen_valid_tfunc(
   }
 
   // Generate body
-  let body_instrs : Array[TInstr] = []
+  let body_instrs : Array[TypedInstr] = []
 
   // Initialize non-parameter locals using gen_local_inits
   let local_inits = gen_local_inits(ctx, accepts.length())
@@ -1958,7 +1977,7 @@ pub fn gen_valid_tfunc(
   // Generate side-effecting body statements with label_depth=0 initially
   let num_statements = ctx.random_int(8) + 2
   for _ in 0..<num_statements {
-    body_instrs.push(gen_side_effect_tinstr(ctx, 0, label_depth=0))
+    body_instrs.push(gen_side_effect_typed_instr(ctx, 0, label_depth=0))
   }
 
   // Generate return
@@ -1969,7 +1988,10 @@ pub fn gen_valid_tfunc(
   ctx.locals = old_locals
   ctx.label_stack = old_labels
   ignore(accepts)
-  Func::new(Locals::from_types(all_local_types), tinstrs_to_expr(body_instrs))
+  Func::new(
+    Locals::from_types(all_local_types),
+    typed_instrs_to_expr(body_instrs),
+  )
 }
 
 ///|

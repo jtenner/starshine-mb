@@ -140,7 +140,7 @@ Again, this lines up with the example-corpus parity result.
 The code-level reason is concrete:
 
 - `src/binary/decode.mbt` decodes code bodies as raw `Func::new(...)`.
-- `run_once_reduction` only analyzes and rewrites `@lib.TFunc`.
+- `run_once_reduction` only analyzes and rewrites `@lib.typed function`.
 - So the CLI path (`wat` -> bytes -> `decode_module`) never reaches the typed once-reduction logic on ordinary user inputs.
 
 This blocker is now fixed by pre-lifting raw decoded functions before the generated pipeline runs.
@@ -159,7 +159,7 @@ The code path explains why:
 
 - `optimization_memory_packing_apply_replacements` has a non-typed rewrite path that only remaps `DataIdx`.
 - The real split rewrite lives in `optimization_memory_packing_rewrite_typed_segment_ops_func`.
-- That typed rewrite only runs for `TFunc`.
+- That typed rewrite only runs for `typed function`.
 - CLI-decoded modules use raw `Func`, so the full rewrite never runs there.
 
 This blocker is also fixed by the same pre-lift path.
