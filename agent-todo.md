@@ -9,38 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 160 - CFG Traversal Order Utilities
-- Goal:
-  Provide stable CFG preorder, postorder, reverse postorder, reverse-exit order, and worklist seeds.
-- Why this slice exists:
-  Dominators, post-dominators, liveness, and other dataflow passes need shared block order helpers.
-- Concrete deliverables:
-  - `src/ir/cfg_order.mbt`.
-  - `src/ir/cfg_order_test.mbt`.
-- Detailed implementation tasks:
-  - Add normal-flow and exceptional-flow-inclusive DFS order helpers.
-  - Add preorder, postorder, reverse postorder, and reverse-exit postorder APIs.
-  - Add region-local block order helper if a pass only wants one structured region.
-  - Document unreachable-block handling.
-- Required utilities / APIs:
-  - `cfg_preorder(cfg)`.
-  - `cfg_postorder(cfg)`.
-  - `cfg_reverse_postorder(cfg)`.
-  - `cfg_reverse_postorder_from_exit(cfg)`.
-  - `cfg_region_blocks_in_rpo(cfg, region_ref)`.
-  - `cfg_block_worklist_seed(cfg)`.
-- Invariants / correctness rules:
-  - Order is deterministic.
-  - Exceptional-edge inclusion policy is explicit per API.
-- Dependencies:
-  - IR2 - 150 - CFG Construction.
-- Exit criteria:
-  - Later analyses can share one order implementation.
-- Suggested tests:
-  - Diamond RPO order.
-  - Reverse-exit order on multi-exit function.
-  - Exceptional-edge-inclusive order differs as expected.
-
 ### IR2 - 165 - Dataflow Bitset Utilities
 - Goal:
   Provide compact reusable bitsets for liveness, dominance frontiers, and block-local def/use.

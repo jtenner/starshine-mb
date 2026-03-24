@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 IR: add hot CFG traversal order helpers
+
+- **Hot CFG traversal orders** by **@jtenner**. Added [`src/ir/cfg_order.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/cfg_order.mbt) and [`src/ir/cfg_order_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/cfg_order_test.mbt) to provide deterministic CFG preorder, postorder, reverse postorder, reverse-exit order, exceptional-edge-inclusive reverse postorder helpers, direct-region block ordering, and a shared worklist seed policy that keeps unreachable blocks out of global traversals while still exposing direct-region tails explicitly. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-160 slice.
+
 ## 2026-03-24 IR: add hot CFG construction overlay
 
 - **Hot CFG construction** by **@jtenner**. Added [`src/ir/cfg.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/cfg.mbt) and [`src/ir/cfg_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/cfg_test.mbt) to build a deterministic CFG overlay with synthetic entry/exit blocks, explicit successor and predecessor edges, label-target resolution for structured control, region-root and node-to-block mappings, synthetic continuation blocks for forward control labels, and explicit exceptional-exit handling. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the API, docs, and backlog match the completed IR2-150 slice.

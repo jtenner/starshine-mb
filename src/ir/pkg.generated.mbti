@@ -40,6 +40,8 @@ pub fn cfg_block_for_region_root(HotCfg, HotRegionRef, Int) -> Int?
 
 pub fn cfg_block_get(HotCfg, Int) -> HotBlockInfo
 
+pub fn cfg_block_worklist_seed(HotCfg) -> Array[Int]
+
 pub fn cfg_build(HotFunc) -> HotCfg
 
 pub fn cfg_control_successor_policy(HotOp) -> CfgControlSuccessorPolicy?
@@ -52,7 +54,21 @@ pub fn cfg_exceptional_exit_block(HotCfg) -> Int?
 
 pub fn cfg_exit_block(HotCfg) -> Int
 
+pub fn cfg_postorder(HotCfg) -> Array[Int]
+
 pub fn cfg_predecessors(HotCfg, Int) -> Array[CfgEdge]
+
+pub fn cfg_preorder(HotCfg) -> Array[Int]
+
+pub fn cfg_region_blocks_in_rpo(HotCfg, HotRegionRef) -> Array[Int]
+
+pub fn cfg_reverse_postorder(HotCfg) -> Array[Int]
+
+pub fn cfg_reverse_postorder_from_exit(HotCfg) -> Array[Int]
+
+pub fn cfg_reverse_postorder_from_exit_with_exceptions(HotCfg) -> Array[Int]
+
+pub fn cfg_reverse_postorder_with_exceptions(HotCfg) -> Array[Int]
 
 pub fn cfg_successors(HotCfg, Int) -> Array[CfgEdge]
 
