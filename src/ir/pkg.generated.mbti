@@ -64,6 +64,88 @@ pub fn hot_branch_table_default_target(HotFunc, Int) -> Int
 
 pub fn hot_branch_table_targets(HotFunc, Int) -> Array[Int]
 
+pub fn hot_build_binary(HotFunc, @lib.ValType, Int, Int) -> Int
+
+pub fn hot_build_block(HotFunc, @lib.BlockType, Array[Int]) -> Int
+
+pub fn hot_build_br(HotFunc, Int, values? : Array[Int]) -> Int
+
+pub fn hot_build_br_if(HotFunc, Int, Int, values? : Array[Int]) -> Int
+
+pub fn hot_build_br_table(HotFunc, Array[Int], Int, Int, values? : Array[Int]) -> Int
+
+pub fn hot_build_call(HotFunc, Int, Array[@lib.ValType], Array[Int]) -> Int
+
+pub fn hot_build_call_indirect(HotFunc, @lib.TypeIdx, @lib.TableIdx, Array[@lib.ValType], Array[Int], Int) -> Int
+
+pub fn hot_build_call_ref(HotFunc, @lib.TypeIdx, Array[@lib.ValType], Array[Int], Int) -> Int
+
+pub fn hot_build_compare(HotFunc, Int, Int) -> Int
+
+pub fn hot_build_const_i32(HotFunc, @lib.I32) -> Int
+
+pub fn hot_build_const_i64(HotFunc, @lib.I64) -> Int
+
+pub fn hot_build_convert(HotFunc, @lib.ValType, Int) -> Int
+
+pub fn hot_build_delegate(HotFunc, Int) -> Int
+
+pub fn hot_build_drop(HotFunc, Int) -> Int
+
+pub fn hot_build_global_get(HotFunc, Int, @lib.ValType) -> Int
+
+pub fn hot_build_global_set(HotFunc, Int, Int) -> Int
+
+pub fn hot_build_if(HotFunc, @lib.BlockType, Int, Array[Int], else_body? : Array[Int]?) -> Int
+
+pub fn hot_build_load(HotFunc, @lib.ValType, @lib.MemArg, Int) -> Int
+
+pub fn hot_build_local_get(HotFunc, Int) -> Int
+
+pub fn hot_build_local_set(HotFunc, Int, Int) -> Int
+
+pub fn hot_build_local_tee(HotFunc, Int, Int) -> Int
+
+pub fn hot_build_loop(HotFunc, @lib.BlockType, Array[Int]) -> Int
+
+pub fn hot_build_node(HotFunc, HotOp, Int, imm0? : Int, imm1? : Int, children? : Array[Int]) -> Int
+
+pub fn hot_build_nop(HotFunc) -> Int
+
+pub fn hot_build_ref_null(HotFunc, @lib.RefType) -> Int
+
+pub fn hot_build_return(HotFunc, Array[Int]) -> Int
+
+pub fn hot_build_return_call(HotFunc, Int, Array[Int]) -> Int
+
+pub fn hot_build_return_call_indirect(HotFunc, @lib.TypeIdx, @lib.TableIdx, Array[Int], Int) -> Int
+
+pub fn hot_build_return_call_ref(HotFunc, @lib.TypeIdx, Array[Int], Int) -> Int
+
+pub fn hot_build_store(HotFunc, @lib.MemArg, Int, Int) -> Int
+
+pub fn hot_build_string_const(HotFunc, Bytes) -> Int
+
+pub fn hot_build_table_get(HotFunc, Int, @lib.ValType, Int) -> Int
+
+pub fn hot_build_table_set(HotFunc, Int, Int, Int) -> Int
+
+pub fn hot_build_throw(HotFunc, @lib.TagIdx, Array[Int]) -> Int
+
+pub fn hot_build_throw_ref(HotFunc, Int) -> Int
+
+pub fn hot_build_try(HotFunc, @lib.BlockType, Array[Int], catch_body? : Array[Int]?) -> Int
+
+pub fn hot_build_try_table(HotFunc, @lib.BlockType, Array[HotCatchArm], Array[Int], catch_list_body? : Array[Int]) -> Int
+
+pub fn hot_build_tuple_extract(HotFunc, @lib.ValType, Int, Int) -> Int
+
+pub fn hot_build_tuple_make(HotFunc, Array[@lib.ValType], Array[Int]) -> Int
+
+pub fn hot_build_unary(HotFunc, @lib.ValType, Int) -> Int
+
+pub fn hot_build_unreachable(HotFunc) -> Int
+
 pub fn hot_call_sig_get(HotFunc, Int) -> HotCallSig
 
 pub fn hot_catch_info_get(HotFunc, Int) -> HotCatchInfo

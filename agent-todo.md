@@ -9,41 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 060 - Hot IR Builders / Constructors
-- Goal:
-  Provide family-specific safe builders for valid hot IR node creation.
-- Why this slice exists:
-  Future passes need canonical node construction without manually reconstructing flags, labels, or side-table wiring.
-- Concrete deliverables:
-  - `src/ir/hot_builders.mbt`.
-  - `src/ir/hot_builders_test.mbt`.
-- Detailed implementation tasks:
-  - Keep one low-level builder plus family-specific builders for constants, locals/globals, branches, calls, memory/table ops, numeric ops, tuple ops, and exception ops.
-  - Add structured control builders for `Block`, `Loop`, `If`, `Try`, and `TryTable`.
-  - Ensure builders allocate labels, child spans, and side-table payloads correctly.
-  - Ensure builders source flags from `hot_flags` and types from `hot_types`.
-- Required utilities / APIs:
-  - `hot_build_const_*`.
-  - `hot_build_local_get/set/tee`.
-  - `hot_build_branch_*`.
-  - `hot_build_call_*`.
-  - `hot_build_block/loop/if/try/try_table`.
-  - `hot_build_drop`, `hot_build_unreachable`, `hot_build_return`.
-- Invariants / correctness rules:
-  - Builders never emit mismatched child counts or missing label metadata.
-  - Structured control builders fully own region/label setup.
-- Dependencies:
-  - IR2 - 020 - Hot IR Flags Model.
-  - IR2 - 030 - Hot IR Type Interning.
-  - IR2 - 040 - Hot IR Label/Control Metadata.
-  - IR2 - 050 - Hot IR Side Tables.
-- Exit criteria:
-  - New nodes can be created through public family builders instead of raw field assembly.
-- Suggested tests:
-  - Typed `if` builder correctness.
-  - Memory/call builder side-table wiring.
-  - Peephole replacement using builder-created nodes.
-
 ### IR2 - 070 - Hot IR Direct Mutation Primitives
 - Goal:
   Implement the authoritative low-level mutation layer for roots, nodes, child spans, side tables, deletion, and revision bumps.

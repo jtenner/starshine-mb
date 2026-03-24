@@ -98,6 +98,18 @@ pub fn hot_catch_info_get(HotFunc, Int) -> HotCatchInfo
 pub fn hot_alloc_call_sig(HotFunc, HotCallSig) -> Int
 pub fn hot_call_sig_get(HotFunc, Int) -> HotCallSig
 pub fn hot_side_table_kind_for_op(HotOp) -> HotSideTableKind?
+pub fn hot_build_node(HotFunc, HotOp, Int, imm0? : Int, imm1? : Int, children? : Array[Int]) -> Int
+pub fn hot_build_const_i32(HotFunc, @lib.I32) -> Int
+pub fn hot_build_local_get(HotFunc, Int) -> Int
+pub fn hot_build_br_if(HotFunc, Int, Int, values? : Array[Int]) -> Int
+pub fn hot_build_call_indirect(HotFunc, @lib.TypeIdx, @lib.TableIdx, Array[@lib.ValType], Array[Int], Int) -> Int
+pub fn hot_build_load(HotFunc, @lib.ValType, @lib.MemArg, Int) -> Int
+pub fn hot_build_block(HotFunc, @lib.BlockType, Array[Int]) -> Int
+pub fn hot_build_if(HotFunc, @lib.BlockType, Int, Array[Int], else_body? : Array[Int]?) -> Int
+pub fn hot_build_try_table(HotFunc, @lib.BlockType, Array[HotCatchArm], Array[Int], catch_list_body? : Array[Int]) -> Int
+pub fn hot_build_drop(HotFunc, Int) -> Int
+pub fn hot_build_unreachable(HotFunc) -> Int
+pub fn hot_build_return(HotFunc, Array[Int]) -> Int
 pub fn hot_revision_current(HotFunc) -> Int
 pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
 pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]
