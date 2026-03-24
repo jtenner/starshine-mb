@@ -9,42 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 090 - Hot IR Traversal Utilities
-- Goal:
-  Provide shared walkers for roots, direct children, subtrees, region-local scans, worklists, and rewrite-by-slot traversal.
-- Why this slice exists:
-  Analyses and passes need reusable traversal control flow with skip/stop semantics.
-- Concrete deliverables:
-  - `src/ir/hot_walk.mbt`.
-  - `src/ir/hot_walk_test.mbt`.
-- Detailed implementation tasks:
-  - Move `HotVisitCtl` and `HotRewriteCtl` into the traversal module.
-  - Add root iteration, direct child iteration, subtree preorder and postorder, region-local traversal, worklist traversal, and control-region traversal helpers.
-  - Add rewrite-by-slot traversal exposing parent node id and child slot.
-  - Keep traversal stack-based and non-recursive where practical.
-- Required utilities / APIs:
-  - `hot_for_each_root`.
-  - `hot_for_each_child`.
-  - `hot_walk_subtree_preorder`.
-  - `hot_walk_subtree_postorder`.
-  - `hot_walk_region`.
-  - `hot_rewrite_children_by_slot`.
-  - `hot_worklist_walk`.
-  - `hot_walk_control_regions`.
-- Invariants / correctness rules:
-  - Traversal order is documented and stable.
-  - Rewrite traversal mutates only through public mutation APIs.
-  - Tombstones are skipped unless explicitly requested by a debug walk.
-- Dependencies:
-  - IR2 - 070 - Hot IR Direct Mutation Primitives.
-  - IR2 - 080 - Hot IR Structural Query Utilities.
-- Exit criteria:
-  - Later analyses and passes build on shared walkers rather than ad hoc recursion.
-- Suggested tests:
-  - Preorder/postorder stability.
-  - `Skip` and `Stop` semantics.
-  - Rewrite-by-slot replacing/removing optional children safely.
-
 ### IR2 - 100 - Hot IR Region Editing Utilities
 - Goal:
   Build high-level structured region insertion/removal/splice APIs.

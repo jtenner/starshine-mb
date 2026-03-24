@@ -27,11 +27,14 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 - `hot_builders.mbt`: canonical safe node constructors that allocate labels, region wrappers, and side-table payload ids without raw field assembly.
 - `hot_mutate.mbt`: canonical root, node, child-span, deletion, and revision-bump mutation helpers so later rewrites stop writing `HotFunc` storage directly.
 - `hot_query.mbt`: canonical read-only node-family, type, branch, span, local-metadata, and tombstone queries so analyses stop decoding raw storage layout directly.
+- `hot_walk.mbt`: stable root, child, subtree, region, control-region, worklist, and rewrite-by-slot traversal helpers with explicit `Continue` / `Skip` / `Stop` / `Error` control flow.
 - `hot.mbt`: current hot-IR lift/lower and still-unsplit helper logic that now builds on `hot_core.mbt`.
 - `float_compat.mbt`: Wasm-compatible float helper surface used by hot lifting/lowering.
 
 ## Planned Split
 
 Later slices should land in dedicated modules instead of growing `hot.mbt` further:
-
-- `hot_walk.mbt`
+- `hot_region_edit.mbt`
+- `hot_verify.mbt`
+- `hot_lift.mbt`
+- `hot_lower.mbt`

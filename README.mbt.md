@@ -24,6 +24,7 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 - Lift function bodies into `HotFunc`, the only owned optimizer body representation, and lower them back to boundary form.
 - Mutate `HotFunc` storage through canonical root, node, and child-span helpers.
 - Query `HotFunc` structure through canonical node-family, branch, span, and local-metadata helpers.
+- Traverse and rewrite `HotFunc` bodies through stable shared walkers with explicit skip/stop control flow.
 - Use CLI and Node wrappers.
 
 ## Package Map

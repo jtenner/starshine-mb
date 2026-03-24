@@ -217,22 +217,6 @@ pub struct HotFunc {
 }
 
 ///|
-pub enum HotVisitCtl[S, E] {
-  Continue(S)
-  Skip(S)
-  Stop(S)
-  Error(E)
-}
-
-///|
-pub enum HotRewriteCtl[S, E] {
-  Same(S)
-  Replace(S, NodeId)
-  Remove(S)
-  Error(E)
-}
-
-///|
 const HOT_NONE_NODE : NodeId = -1
 
 ///|

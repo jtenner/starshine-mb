@@ -178,6 +178,10 @@ pub fn hot_default_flags_for_op(HotOp) -> UInt
 
 pub fn hot_delete_node(HotFunc, Int) -> Unit
 
+pub fn[S, E] hot_for_each_child(HotFunc, Int, S, (S, Int, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+
+pub fn[S, E] hot_for_each_root(HotFunc, S, (S, Int, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+
 pub fn hot_has_exceptional_succ(HotFunc, Int) -> Bool
 
 pub fn hot_has_side_effect(HotFunc, Int) -> Bool
@@ -278,6 +282,16 @@ pub fn hot_revision_bump(HotFunc) -> Unit
 
 pub fn hot_revision_current(HotFunc) -> Int
 
+pub fn[S, E] hot_rewrite_children_by_slot(HotFunc, Int, S, (S, Int, Int, Int) -> HotRewriteCtl[S, E]) -> Result[S, E]
+
+pub fn[S, E] hot_rewrite_error(E) -> HotRewriteCtl[S, E]
+
+pub fn[S, E] hot_rewrite_remove(S) -> HotRewriteCtl[S, E]
+
+pub fn[S, E] hot_rewrite_replace(S, Int) -> HotRewriteCtl[S, E]
+
+pub fn[S, E] hot_rewrite_same(S) -> HotRewriteCtl[S, E]
+
 pub fn hot_root_append(HotFunc, Int) -> Unit
 
 pub fn hot_root_count(HotFunc) -> Int
@@ -315,6 +329,24 @@ pub fn hot_type_result_arity(HotFunc, Int) -> Int
 pub fn hot_type_results(HotFunc, Int) -> Array[@lib.ValType]
 
 pub fn hot_type_void(HotFunc) -> Int
+
+pub fn[S, E] hot_visit_continue(S) -> HotVisitCtl[S, E]
+
+pub fn[S, E] hot_visit_error(E) -> HotVisitCtl[S, E]
+
+pub fn[S, E] hot_visit_skip(S) -> HotVisitCtl[S, E]
+
+pub fn[S, E] hot_visit_stop(S) -> HotVisitCtl[S, E]
+
+pub fn[S, E] hot_walk_control_regions(HotFunc, Int, S, (S, Int, HotControlRegionSlotInfo, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+
+pub fn[S, E] hot_walk_region(HotFunc, Int, S, (S, Int, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+
+pub fn[S, E] hot_walk_subtree_postorder(HotFunc, Int, S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+
+pub fn[S, E] hot_walk_subtree_preorder(HotFunc, Int, S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+
+pub fn[S, E] hot_worklist_walk(HotFunc, Array[Int], S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
 
 // Errors
 
