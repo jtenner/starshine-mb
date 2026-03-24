@@ -9,45 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 110 - Hot IR Verification Utilities
-- Goal:
-  Implement internal verification for hot IR core, control, CFG, dominance, and SSA overlays.
-- Why this slice exists:
-  Every later mutation and analysis needs fast corruption detection and explicit failure modes.
-- Concrete deliverables:
-  - `src/ir/hot_verify.mbt`.
-  - `src/ir/hot_verify_test.mbt`.
-- Detailed implementation tasks:
-  - Add core verification for node table consistency, child-span bounds, root validity, side-table index validity, type interning validity, and label owner consistency.
-  - Add control verification for branch targets and control-child layout.
-  - Add extension points for CFG, dominance, and SSA verification.
-  - Return structured verification errors rather than freeform strings.
-  - Add debug `verify_or_abort` helpers for test/debug flows.
-- Required utilities / APIs:
-  - `hot_verify_core(func)`.
-  - `hot_verify_control(func)`.
-  - `hot_verify_cfg(func, cfg)`.
-  - `hot_verify_dominators(cfg, dom)`.
-  - `hot_verify_ssa(func, cfg, ssa)`.
-  - `hot_verify_all(func, cache?)`.
-- Invariants / correctness rules:
-  - Verification is read-only.
-  - A verified function has no stale tombstone references, out-of-bounds ids, or payload-family mismatches.
-  - Branch targets always reference valid labels with matching arity.
-- Dependencies:
-  - IR2 - 030 - Hot IR Type Interning.
-  - IR2 - 040 - Hot IR Label/Control Metadata.
-  - IR2 - 050 - Hot IR Side Tables.
-  - IR2 - 070 - Hot IR Direct Mutation Primitives.
-  - IR2 - 080 - Hot IR Structural Query Utilities.
-  - IR2 - 100 - Hot IR Region Editing Utilities.
-- Exit criteria:
-  - Hot IR verification exists and is wired into lift, passes, and tests.
-- Suggested tests:
-  - Corrupt child span/root/side-table indices and verify precise failure categories.
-  - Corrupt label ownership or branch targets.
-  - Verify a valid function passes all enabled verification layers.
-
 ### IR2 - 120 - Boundary -> Hot Lifting
 - Goal:
   Lift valid boundary function bodies into full-coverage hot IR.

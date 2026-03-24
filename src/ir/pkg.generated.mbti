@@ -354,6 +354,24 @@ pub fn hot_type_results(HotFunc, Int) -> Array[@lib.ValType]
 
 pub fn hot_type_void(HotFunc) -> Int
 
+pub fn[C] hot_verify_all(HotFunc, cache? : C?) -> Result[Unit, HotVerifyError]
+
+pub fn hot_verify_all_or_abort(HotFunc) -> Unit
+
+pub fn[C] hot_verify_cfg(HotFunc, C) -> Result[Unit, HotVerifyError]
+
+pub fn hot_verify_control(HotFunc) -> Result[Unit, HotVerifyError]
+
+pub fn hot_verify_control_or_abort(HotFunc) -> Unit
+
+pub fn hot_verify_core(HotFunc) -> Result[Unit, HotVerifyError]
+
+pub fn hot_verify_core_or_abort(HotFunc) -> Unit
+
+pub fn[C, D] hot_verify_dominators(C, D) -> Result[Unit, HotVerifyError]
+
+pub fn[C, S] hot_verify_ssa(HotFunc, C, S) -> Result[Unit, HotVerifyError]
+
 pub fn[S, E] hot_visit_continue(S) -> HotVisitCtl[S, E]
 
 pub fn[S, E] hot_visit_error(E) -> HotVisitCtl[S, E]
@@ -667,6 +685,29 @@ pub enum HotTypeInfo {
 pub impl Eq for HotTypeInfo
 pub impl Show for HotTypeInfo
 pub impl @debug.Debug for HotTypeInfo
+
+pub enum HotVerifyError {
+  InvalidBodyResultType(Int)
+  MissingTypeKey(Int, String)
+  MismatchedTypeKey(Int, String, Int)
+  InvalidRoot(Int, Int)
+  InvalidNodeType(Int, Int)
+  InvalidNodeFlags(Int, UInt, UInt)
+  InvalidChildSpan(Int, Int, Int)
+  InvalidChildRef(Int, Int, Int)
+  InvalidLabelResultType(Int, Int)
+  InvalidLabelOwner(Int, Int)
+  InvalidLabelOwnerKind(Int, HotLabelKind, HotOp)
+  InvalidControlLabel(Int, Int)
+  InvalidSideTableRef(Int, HotSideTableKind, Int)
+  InvalidControlChildCount(Int, Int, Int)
+  InvalidControlChild(Int, Int, Int)
+  InvalidBranchTarget(Int, Int)
+  InvalidBranchArity(Int, Int, Int, Int)
+}
+pub impl Eq for HotVerifyError
+pub impl Show for HotVerifyError
+pub impl @debug.Debug for HotVerifyError
 
 pub enum HotVisitCtl[S, E] {
   Continue(S)

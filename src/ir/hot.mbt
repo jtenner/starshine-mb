@@ -443,6 +443,7 @@ pub fn hot_lift_body(
   for root in roots {
     hot_root_append(func, root)
   }
+  hot_verify_all_or_abort(func)
   func
 }
 
@@ -608,6 +609,7 @@ fn hot_lower_node(
 
 ///|
 pub fn hot_lower_body(func : HotFunc) -> Expr {
+  hot_verify_all_or_abort(func)
   let out : Array[Instruction] = []
   for i = 0; i < hot_root_count(func); i = i + 1 {
     hot_lower_node(func, hot_root_get(func, i), [], out)
