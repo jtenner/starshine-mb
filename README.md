@@ -67,6 +67,17 @@ pub fn hot_may_trap(HotFunc, Int) -> Bool
 pub fn hot_is_branch(HotFunc, Int) -> Bool
 pub fn hot_has_exceptional_succ(HotFunc, Int) -> Bool
 pub fn hot_node_may_throw_exception(HotFunc, Int) -> Bool
+pub fn hot_type_intern_void(HotFunc) -> Int
+pub fn hot_type_intern_value(HotFunc, @lib.ValType) -> Int
+pub fn hot_type_intern_block_result(HotFunc, @lib.BlockType) -> Int
+pub fn hot_type_intern_results(HotFunc, Array[@lib.ValType]) -> Int
+pub fn hot_type_get(HotFunc, Int) -> HotTypeInfo
+pub fn hot_type_result_arity(HotFunc, Int) -> Int
+pub fn hot_type_is_void(HotFunc, Int) -> Bool
+pub fn hot_type_results(HotFunc, Int) -> Array[@lib.ValType]
+pub fn hot_param_count(HotFunc) -> Int
+pub fn hot_local_count(HotFunc) -> Int
+pub fn hot_local_type(HotFunc, Int) -> @lib.ValType?
 pub fn hot_revision_current(HotFunc) -> Int
 pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
 pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]

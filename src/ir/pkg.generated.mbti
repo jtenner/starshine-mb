@@ -4,6 +4,7 @@ package "jtenner/starshine/ir"
 import {
   "jtenner/starshine/lib",
   "moonbitlang/core/debug",
+  "moonbitlang/core/hashmap",
 }
 
 // Values
@@ -73,6 +74,10 @@ pub fn hot_is_terminator_node(HotFunc, Int) -> Bool
 
 pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc
 
+pub fn hot_local_count(HotFunc) -> Int
+
+pub fn hot_local_type(HotFunc, Int) -> @lib.ValType?
+
 pub fn hot_lower_body(HotFunc) -> @lib.Expr
 
 pub fn hot_make_simple_node(HotOp, Int, UInt, Int, Int, Array[Int]) -> HotNode
@@ -93,6 +98,8 @@ pub fn hot_node_may_throw_exception(HotFunc, Int) -> Bool
 
 pub fn hot_node_set(HotFunc, Int, HotNode) -> Unit
 
+pub fn hot_param_count(HotFunc) -> Int
+
 pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]
 
 pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
@@ -108,6 +115,22 @@ pub fn hot_root_get(HotFunc, Int) -> Int
 pub fn hot_root_set(HotFunc, Int, Int) -> Unit
 
 pub fn hot_root_storage_count(HotFunc) -> Int
+
+pub fn hot_type_get(HotFunc, Int) -> HotTypeInfo
+
+pub fn hot_type_intern_block_result(HotFunc, @lib.BlockType) -> Int
+
+pub fn hot_type_intern_results(HotFunc, Array[@lib.ValType]) -> Int
+
+pub fn hot_type_intern_value(HotFunc, @lib.ValType) -> Int
+
+pub fn hot_type_intern_void(HotFunc) -> Int
+
+pub fn hot_type_is_void(HotFunc, Int) -> Bool
+
+pub fn hot_type_result_arity(HotFunc, Int) -> Int
+
+pub fn hot_type_results(HotFunc, Int) -> Array[@lib.ValType]
 
 pub fn hot_type_void(HotFunc) -> Int
 
@@ -191,6 +214,7 @@ pub struct HotFunc {
   roots : Array[Int]
   locals : HotLocals
   types : Array[HotTypeInfo]
+  type_ids : @hashmap.HashMap[String, Int]
   labels : Array[HotLabelInfo]
   consts : Array[HotConstPayload]
   memargs : Array[HotMemArg]
@@ -228,9 +252,10 @@ pub impl @debug.Debug for HotLabelKind
 
 pub struct HotLocals {
   param_count : Int
+  params : Array[@lib.ValType]
   locals : Array[@lib.ValType]
 }
-pub fn HotLocals::new(param_count? : Int, locals? : Array[@lib.ValType]) -> Self
+pub fn HotLocals::new(param_count? : Int, params? : Array[@lib.ValType], locals? : Array[@lib.ValType]) -> Self
 pub impl Eq for HotLocals
 pub impl Show for HotLocals
 pub impl @debug.Debug for HotLocals

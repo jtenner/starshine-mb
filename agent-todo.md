@@ -9,42 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 030 - Hot IR Type Interning
-- Goal:
-  Implement fast deterministic type interning and result-type queries.
-- Why this slice exists:
-  Node types, block result types, label arity, and SSA all depend on stable `TypeId` behavior.
-- Concrete deliverables:
-  - `src/ir/hot_types.mbt`.
-  - `src/ir/hot_types_test.mbt`.
-- Detailed implementation tasks:
-  - Keep `HotTypeInfo` variants for `VoidType`, `BlockResult`, `Value`, and `Results`.
-  - Replace the current linear scan interning path with deterministic canonical interning.
-  - Add `hot_type_intern_void`, `hot_type_intern_value`, `hot_type_intern_block_result`, `hot_type_intern_results`.
-  - Add `hot_type_get`, `hot_type_result_arity`, `hot_type_is_void`, `hot_type_results`.
-  - Add local metadata helpers `hot_param_count`, `hot_local_count`, `hot_local_type`.
-- Required utilities / APIs:
-  - `hot_type_intern_void(func)`.
-  - `hot_type_intern_value(func, val_type)`.
-  - `hot_type_intern_block_result(func, block_type)`.
-  - `hot_type_intern_results(func, result_types)`.
-  - `hot_type_get(func, type_id)`.
-  - `hot_type_result_arity(func, type_id)`.
-  - `hot_local_type(func, local_id)`.
-- Invariants / correctness rules:
-  - Equivalent payloads intern to the same `TypeId`.
-  - `HotNode.ty` always points to a valid interned type.
-  - Label branch arity agrees with the interned result type.
-- Dependencies:
-  - IR2 - 010 - Hot IR Core.
-- Exit criteria:
-  - Type creation is fully centralized and deterministic.
-  - Arity and local type queries exist for later slices.
-- Suggested tests:
-  - Duplicate type payloads reuse one `TypeId`.
-  - Arity queries cover void, single-result, and multi-result cases.
-  - Local metadata queries return correct parameter/local types.
-
 ### IR2 - 040 - Hot IR Label/Control Metadata
 - Goal:
   Make control labels and control-child layout explicit and queryable.

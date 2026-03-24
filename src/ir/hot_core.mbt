@@ -102,15 +102,30 @@ pub struct HotNode {
 ///|
 pub struct HotLocals {
   param_count : Int
+  params : Array[ValType]
   locals : Array[ValType]
 } derive(Eq, Show, Debug)
 
 ///|
 pub fn HotLocals::new(
   param_count? : Int = 0,
+  params? : Array[ValType] = [],
   locals? : Array[ValType] = [],
 ) -> HotLocals {
-  { param_count, locals }
+  if param_count != 0 && params.length() > 0 && param_count != params.length() {
+    abort(
+      "hot locals param_count must match params length when both are provided",
+    )
+  }
+  {
+    param_count: if params.length() > 0 {
+      params.length()
+    } else {
+      param_count
+    },
+    params,
+    locals,
+  }
 }
 
 ///|
@@ -195,6 +210,7 @@ pub struct HotFunc {
   roots : Array[NodeId]
   locals : HotLocals
   types : Array[HotTypeInfo]
+  type_ids : @hashmap.HashMap[String, TypeId]
   labels : Array[HotLabelInfo]
   consts : Array[HotConstPayload]
   memargs : Array[HotMemArg]
@@ -231,12 +247,15 @@ pub fn HotFunc::new(
   locals? : HotLocals = HotLocals::new(),
   body_result_type? : TypeId = 0,
 ) -> HotFunc {
+  let type_ids = @hashmap.new(capacity=16)
+  type_ids.set(HotTypeInfo::VoidType.to_string(), 0)
   {
     nodes: [],
     children: [],
     roots: [],
     locals,
     types: [HotTypeInfo::VoidType],
+    type_ids,
     labels: [],
     consts: [],
     memargs: [],

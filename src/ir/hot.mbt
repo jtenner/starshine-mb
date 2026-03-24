@@ -19,28 +19,6 @@ fn hot_alloc_label(
 }
 
 ///|
-fn hot_intern_type(func : HotFunc, info : HotTypeInfo) -> TypeId {
-  for i = 0; i < func.types.length(); i = i + 1 {
-    if func.types[i] == info {
-      return i
-    }
-  }
-  let id = func.types.length()
-  func.types.push(info)
-  id
-}
-
-///|
-pub fn hot_type_void(func : HotFunc) -> TypeId {
-  hot_intern_type(func, HotTypeInfo::VoidType)
-}
-
-///|
-fn hot_type_from_block_type(func : HotFunc, block_type : BlockType) -> TypeId {
-  hot_intern_type(func, HotTypeInfo::BlockResult(block_type))
-}
-
-///|
 fn hot_make_node_with_children(
   func : HotFunc,
   op : HotOp,
@@ -79,26 +57,6 @@ fn hot_replace_children(
   }
   func.nodes[id] = { ..node, child_base: base, child_count: children.length() }
   func.revision += 1
-}
-
-///|
-fn hot_result_arity_from_block_type(block_type : BlockType) -> Int {
-  match block_type {
-    VoidBlockType => 0
-    ValTypeBlockType(_) => 1
-    TypeIdxBlockType(_) =>
-      abort("type-index block types are not supported by the current hot lift")
-  }
-}
-
-///|
-fn hot_result_arity_from_type(func : HotFunc, ty : TypeId) -> Int {
-  match func.types[ty] {
-    VoidType => 0
-    BlockResult(block_type) => hot_result_arity_from_block_type(block_type)
-    Value(_) => 1
-    Results(values) => values.length()
-  }
 }
 
 ///|
@@ -376,7 +334,7 @@ fn hot_lift_instruction(
         ),
       )
     Block(block_type, expr) => {
-      let ty = hot_type_from_block_type(func, block_type)
+      let ty = hot_type_intern_block_result(func, block_type)
       let node = hot_make_node_with_children(
         func,
         HotOp::Block,
@@ -387,7 +345,7 @@ fn hot_lift_instruction(
         [],
       )
       let id = hot_alloc_node(func, node)
-      let result_arity = hot_result_arity_from_block_type(block_type)
+      let result_arity = hot_type_result_arity(func, ty)
       let label_id = hot_alloc_label(
         func,
         HotLabelKind::BlockLabel,
@@ -410,7 +368,7 @@ fn hot_lift_instruction(
       }
     }
     Loop(block_type, expr) => {
-      let ty = hot_type_from_block_type(func, block_type)
+      let ty = hot_type_intern_block_result(func, block_type)
       let node = hot_make_node_with_children(
         func,
         HotOp::Loop,
@@ -421,7 +379,7 @@ fn hot_lift_instruction(
         [],
       )
       let id = hot_alloc_node(func, node)
-      let result_arity = hot_result_arity_from_block_type(block_type)
+      let result_arity = hot_type_result_arity(func, ty)
       let label_id = hot_alloc_label(
         func,
         HotLabelKind::LoopLabel,
@@ -444,7 +402,7 @@ fn hot_lift_instruction(
       }
     }
     If(block_type, then_instrs, else_instrs) => {
-      let ty = hot_type_from_block_type(func, block_type)
+      let ty = hot_type_intern_block_result(func, block_type)
       let node = hot_make_node_with_children(
         func,
         HotOp::If,
@@ -455,7 +413,7 @@ fn hot_lift_instruction(
         [],
       )
       let id = hot_alloc_node(func, node)
-      let result_arity = hot_result_arity_from_block_type(block_type)
+      let result_arity = hot_type_result_arity(func, ty)
       let label_id = hot_alloc_label(
         func,
         HotLabelKind::IfLabel,
@@ -501,7 +459,7 @@ fn hot_lift_instruction(
             0,
             hot_pop_values(
               values,
-              hot_result_arity_from_type(func, func.body_result_type),
+              hot_type_result_arity(func, func.body_result_type),
             ),
           ),
         ),
@@ -517,12 +475,12 @@ pub fn hot_lift_body(
   body_result_type? : BlockType = BlockType::void_(),
 ) -> HotFunc {
   let func = HotFunc::new(locals~)
-  func.body_result_type = hot_type_from_block_type(func, body_result_type)
+  func.body_result_type = hot_type_intern_block_result(func, body_result_type)
   let roots = hot_region_body(
     func,
     body,
     [],
-    hot_result_arity_from_block_type(body_result_type),
+    hot_type_result_arity(func, func.body_result_type),
   )
   for root in roots {
     hot_append_root(func, root)
@@ -642,7 +600,7 @@ fn hot_lower_node(
       out.push(Instruction::return_())
     }
     HotOp::Block => {
-      let block_type = match func.types[node.ty] {
+      let block_type = match hot_type_get(func, node.ty) {
         BlockResult(bt) => bt
         _ => BlockType::void_()
       }
@@ -654,7 +612,7 @@ fn hot_lower_node(
       )
     }
     HotOp::Loop => {
-      let block_type = match func.types[node.ty] {
+      let block_type = match hot_type_get(func, node.ty) {
         BlockResult(bt) => bt
         _ => BlockType::void_()
       }
@@ -666,7 +624,7 @@ fn hot_lower_node(
       )
     }
     HotOp::If => {
-      let block_type = match func.types[node.ty] {
+      let block_type = match hot_type_get(func, node.ty) {
         BlockResult(bt) => bt
         _ => BlockType::void_()
       }
