@@ -9,46 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 080 - Hot IR Structural Query Utilities
-- Goal:
-  Export fast structural queries over hot IR shape, metadata, side tables, locals, and branches.
-- Why this slice exists:
-  Passes and analyses should not decode raw fields or side-table layout themselves.
-- Concrete deliverables:
-  - `src/ir/hot_query.mbt`.
-  - `src/ir/hot_query_test.mbt`.
-- Detailed implementation tasks:
-  - Add fast node-kind classification for control, branch, call, local/global, memory/table, numeric, tuple, exception, SIMD, and atomic families.
-  - Add result-type queries and root/child span helpers.
-  - Add label owner and branch target queries.
-  - Add multi-target branch-table queries.
-  - Add local metadata queries for count, param/local split, and local types.
-  - Add tombstone/free-list status queries if applicable.
-- Required utilities / APIs:
-  - `hot_node_kind_*` helpers.
-  - `hot_node_type(func, node_id)`.
-  - `hot_node_result_arity(func, node_id)`.
-  - `hot_label_owner(func, label_id)`.
-  - `hot_branch_target(func, node_id)`.
-  - `hot_branch_table_targets_for_node(func, node_id)`.
-  - `hot_local_count(func)`, `hot_local_type(func, local_id)`.
-  - `hot_root_span(func)`, `hot_child_span(func, node_id)`.
-- Invariants / correctness rules:
-  - Queries are read-only and never bump `revision`.
-  - Branch/label queries only expose typed valid ids or documented sentinels.
-- Dependencies:
-  - IR2 - 020 - Hot IR Flags Model.
-  - IR2 - 030 - Hot IR Type Interning.
-  - IR2 - 040 - Hot IR Label/Control Metadata.
-  - IR2 - 050 - Hot IR Side Tables.
-  - IR2 - 070 - Hot IR Direct Mutation Primitives.
-- Exit criteria:
-  - All required query categories are available through stable APIs.
-- Suggested tests:
-  - Mixed-body node kind and type queries.
-  - `Br`/`BrIf`/`BrTable` target queries.
-  - Param/local metadata queries.
-
 ### IR2 - 090 - Hot IR Traversal Utilities
 - Goal:
   Provide shared walkers for roots, direct children, subtrees, region-local scans, worklists, and rewrite-by-slot traversal.

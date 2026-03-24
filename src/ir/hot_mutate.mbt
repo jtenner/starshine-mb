@@ -197,7 +197,11 @@ pub fn hot_root_splice(
   for insert_idx = 0
       insert_idx < new_roots.length()
       insert_idx = insert_idx + 1 {
-    hot_mutate_root_insert_no_bump(func, idx + insert_idx, new_roots[insert_idx])
+    hot_mutate_root_insert_no_bump(
+      func,
+      idx + insert_idx,
+      new_roots[insert_idx],
+    )
   }
   hot_revision_bump(func)
   removed

@@ -66,6 +66,10 @@ pub fn hot_branch_table_default_target(HotFunc, Int) -> Int
 
 pub fn hot_branch_table_targets(HotFunc, Int) -> Array[Int]
 
+pub fn hot_branch_table_targets_for_node(HotFunc, Int) -> Array[Int]
+
+pub fn hot_branch_target(HotFunc, Int) -> Int?
+
 pub fn hot_build_binary(HotFunc, @lib.ValType, Int, Int) -> Int
 
 pub fn hot_build_block(HotFunc, @lib.BlockType, Array[Int]) -> Int
@@ -158,6 +162,8 @@ pub fn hot_child_get(HotFunc, Int, Int) -> Int
 
 pub fn hot_child_set(HotFunc, Int, Int, Int) -> Unit
 
+pub fn hot_child_span(HotFunc, Int) -> Array[Int]
+
 pub fn hot_child_storage_count(HotFunc) -> Int
 
 pub fn hot_const_get(HotFunc, Int) -> HotConstPayload
@@ -196,7 +202,13 @@ pub fn hot_label_result_type(HotFunc, Int) -> Int
 
 pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc
 
+pub fn hot_local_body_count(HotFunc) -> Int
+
 pub fn hot_local_count(HotFunc) -> Int
+
+pub fn hot_local_is_param(HotFunc, Int) -> Bool
+
+pub fn hot_local_param_count(HotFunc) -> Int
 
 pub fn hot_local_type(HotFunc, Int) -> @lib.ValType?
 
@@ -216,11 +228,41 @@ pub fn hot_node_get(HotFunc, Int) -> HotNode
 
 pub fn hot_node_has_flag(HotFunc, Int, UInt) -> Bool
 
+pub fn hot_node_is_deleted(HotFunc, Int) -> Bool
+
 pub fn hot_node_is_live(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_atomic(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_branch(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_call(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_control(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_exception(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_global(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_local(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_memory(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_numeric(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_simd(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_table(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_tuple(HotFunc, Int) -> Bool
 
 pub fn hot_node_may_throw_exception(HotFunc, Int) -> Bool
 
+pub fn hot_node_result_arity(HotFunc, Int) -> Int
+
 pub fn hot_node_set(HotFunc, Int, HotNode) -> Unit
+
+pub fn hot_node_type(HotFunc, Int) -> Int
 
 pub fn hot_param_count(HotFunc) -> Int
 
@@ -247,6 +289,8 @@ pub fn hot_root_insert(HotFunc, Int, Int) -> Unit
 pub fn hot_root_remove(HotFunc, Int) -> Int
 
 pub fn hot_root_set(HotFunc, Int, Int) -> Unit
+
+pub fn hot_root_span(HotFunc) -> Array[Int]
 
 pub fn hot_root_splice(HotFunc, Int, Int, Array[Int]) -> Array[Int]
 
