@@ -274,6 +274,30 @@ pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]
 
 pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
 
+pub fn hot_region_body_ref(HotFunc, Int) -> HotRegionRef
+
+pub fn hot_region_catch_list_ref(HotFunc, Int) -> HotRegionRef
+
+pub fn hot_region_catch_ref(HotFunc, Int) -> HotRegionRef?
+
+pub fn hot_region_else_ref(HotFunc, Int) -> HotRegionRef?
+
+pub fn hot_region_get(HotFunc, HotRegionRef, Int) -> Int
+
+pub fn hot_region_insert(HotFunc, HotRegionRef, Int, Array[Int]) -> Unit
+
+pub fn hot_region_remove(HotFunc, HotRegionRef, Int, Int) -> Array[Int]
+
+pub fn hot_region_replace_body(HotFunc, HotRegionRef, Array[Int]) -> Unit
+
+pub fn hot_region_root_count(HotFunc, HotRegionRef) -> Int
+
+pub fn hot_region_set(HotFunc, HotRegionRef, Int, Int) -> Int
+
+pub fn hot_region_splice(HotFunc, HotRegionRef, Int, Int, Array[Int]) -> Array[Int]
+
+pub fn hot_region_then_ref(HotFunc, Int) -> HotRegionRef
+
 pub fn hot_replace_child_span(HotFunc, Int, Array[Int]) -> Array[Int]
 
 pub fn hot_replace_node(HotFunc, Int, HotNode) -> Unit
@@ -600,6 +624,14 @@ pub fn HotPassDescriptor::new(String, requires? : Array[HotAnalysis], invalidate
 pub impl Eq for HotPassDescriptor
 pub impl Show for HotPassDescriptor
 pub impl @debug.Debug for HotPassDescriptor
+
+pub struct HotRegionRef {
+  holder : Int
+}
+pub fn HotRegionRef::root() -> Self
+pub impl Eq for HotRegionRef
+pub impl Show for HotRegionRef
+pub impl @debug.Debug for HotRegionRef
 
 pub enum HotRewriteCtl[S, E] {
   Same(S)

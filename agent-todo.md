@@ -9,44 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 100 - Hot IR Region Editing Utilities
-- Goal:
-  Build high-level structured region insertion/removal/splice APIs.
-- Why this slice exists:
-  Passes need to rewrite region bodies without hand-editing root arrays or raw control child slots.
-- Concrete deliverables:
-  - `src/ir/hot_region_edit.mbt`.
-  - `src/ir/hot_region_edit_test.mbt`.
-- Detailed implementation tasks:
-  - Define `HotRegionRef` or equivalent region-address abstraction.
-  - Add region root count/get/set/insert/remove/splice helpers.
-  - Add top-level insertion/removal helpers and nested region body replacement helpers.
-  - Add helpers for replacing `then`, `else`, `catch`, and loop/block bodies through structured APIs.
-  - Route all edits through low-level mutation primitives.
-- Required utilities / APIs:
-  - `HotRegionRef`.
-  - `hot_region_root_count(func, region_ref)`.
-  - `hot_region_get(func, region_ref, idx)`.
-  - `hot_region_set(func, region_ref, idx, node_id)`.
-  - `hot_region_insert(func, region_ref, idx, node_ids)`.
-  - `hot_region_remove(func, region_ref, idx, count)`.
-  - `hot_region_splice(func, region_ref, idx, remove_count, node_ids)`.
-  - `hot_region_replace_body(func, region_ref, node_ids)`.
-- Invariants / correctness rules:
-  - Region edits preserve structured control ownership.
-  - Root-level and nested region behavior follow one API contract.
-  - Region edits never expose partially rewritten bodies.
-- Dependencies:
-  - IR2 - 070 - Hot IR Direct Mutation Primitives.
-  - IR2 - 080 - Hot IR Structural Query Utilities.
-  - IR2 - 090 - Hot IR Traversal Utilities.
-- Exit criteria:
-  - Structured body splicing is possible without raw storage editing.
-- Suggested tests:
-  - Top-level root insertion/removal.
-  - `if` then/else body replacement.
-  - Loop or try body splicing preserving verification.
-
 ### IR2 - 110 - Hot IR Verification Utilities
 - Goal:
   Implement internal verification for hot IR core, control, CFG, dominance, and SSA overlays.

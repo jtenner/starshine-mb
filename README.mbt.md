@@ -25,6 +25,7 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 - Mutate `HotFunc` storage through canonical root, node, and child-span helpers.
 - Query `HotFunc` structure through canonical node-family, branch, span, and local-metadata helpers.
 - Traverse and rewrite `HotFunc` bodies through stable shared walkers with explicit skip/stop control flow.
+- Edit top-level and nested structured regions through one `HotRegionRef` splice contract.
 - Use CLI and Node wrappers.
 
 ## Package Map
