@@ -40,7 +40,17 @@ pub fn compat_trunc_f64_to_i64_s(Double) -> Int64?
 
 pub fn compat_trunc_f64_to_i64_u(Double) -> Int64?
 
+pub fn hot_alloc_branch_table(HotFunc, HotBranchTable) -> Int
+
+pub fn hot_alloc_call_sig(HotFunc, HotCallSig) -> Int
+
+pub fn hot_alloc_catch_info(HotFunc, HotCatchInfo) -> Int
+
 pub fn hot_alloc_children(HotFunc, Int) -> Int
+
+pub fn hot_alloc_const(HotFunc, HotConstPayload) -> Int
+
+pub fn hot_alloc_memarg(HotFunc, HotMemArg) -> Int
 
 pub fn hot_alloc_node(HotFunc, HotNode) -> Int
 
@@ -50,6 +60,14 @@ pub fn hot_body_result_type(HotFunc) -> Int
 
 pub fn hot_body_result_type_set(HotFunc, Int) -> Unit
 
+pub fn hot_branch_table_default_target(HotFunc, Int) -> Int
+
+pub fn hot_branch_table_targets(HotFunc, Int) -> Array[Int]
+
+pub fn hot_call_sig_get(HotFunc, Int) -> HotCallSig
+
+pub fn hot_catch_info_get(HotFunc, Int) -> HotCatchInfo
+
 pub fn hot_child_count(HotFunc, Int) -> Int
 
 pub fn hot_child_get(HotFunc, Int, Int) -> Int
@@ -57,6 +75,8 @@ pub fn hot_child_get(HotFunc, Int, Int) -> Int
 pub fn hot_child_set(HotFunc, Int, Int, Int) -> Unit
 
 pub fn hot_child_storage_count(HotFunc) -> Int
+
+pub fn hot_const_get(HotFunc, Int) -> HotConstPayload
 
 pub fn hot_control_node_label(HotFunc, Int) -> Int
 
@@ -100,6 +120,8 @@ pub fn hot_make_simple_node(HotOp, Int, UInt, Int, Int, Array[Int]) -> HotNode
 
 pub fn hot_may_trap(HotFunc, Int) -> Bool
 
+pub fn hot_memarg_get(HotFunc, Int) -> HotMemArg
+
 pub fn hot_node_count(HotFunc) -> Int
 
 pub fn hot_node_flags(HotFunc, Int) -> UInt
@@ -131,6 +153,8 @@ pub fn hot_root_get(HotFunc, Int) -> Int
 pub fn hot_root_set(HotFunc, Int, Int) -> Unit
 
 pub fn hot_root_storage_count(HotFunc) -> Int
+
+pub fn hot_side_table_kind_for_op(HotOp) -> HotSideTableKind?
 
 pub fn hot_type_get(HotFunc, Int) -> HotTypeInfo
 
@@ -177,6 +201,7 @@ pub struct HotBranchTable {
   targets : Array[Int]
   default_target : Int
 }
+pub fn HotBranchTable::new(Array[Int], Int) -> Self
 pub impl Eq for HotBranchTable
 pub impl Show for HotBranchTable
 pub impl @debug.Debug for HotBranchTable
@@ -185,6 +210,7 @@ pub struct HotCallSig {
   type_idx : @lib.TypeIdx
   table_idx : @lib.TableIdx?
 }
+pub fn HotCallSig::new(@lib.TypeIdx, table_idx? : @lib.TableIdx?) -> Self
 pub impl Eq for HotCallSig
 pub impl Show for HotCallSig
 pub impl @debug.Debug for HotCallSig
@@ -195,6 +221,10 @@ pub enum HotCatchArm {
   CatchAllArm(Int)
   CatchAllRefArm(Int)
 }
+pub fn HotCatchArm::all(Int) -> Self
+pub fn HotCatchArm::all_ref(Int) -> Self
+pub fn HotCatchArm::catch_(@lib.TagIdx, Int) -> Self
+pub fn HotCatchArm::catch_ref(@lib.TagIdx, Int) -> Self
 pub impl Eq for HotCatchArm
 pub impl Show for HotCatchArm
 pub impl @debug.Debug for HotCatchArm
@@ -202,6 +232,7 @@ pub impl @debug.Debug for HotCatchArm
 pub struct HotCatchInfo {
   catches : Array[HotCatchArm]
 }
+pub fn HotCatchInfo::new(Array[HotCatchArm]) -> Self
 pub impl Eq for HotCatchInfo
 pub impl Show for HotCatchInfo
 pub impl @debug.Debug for HotCatchInfo
@@ -212,6 +243,10 @@ pub enum HotConstPayload {
   RefNullConst(@lib.RefType)
   StringConst(Bytes)
 }
+pub fn HotConstPayload::i32_const(@lib.I32) -> Self
+pub fn HotConstPayload::i64_const(@lib.I64) -> Self
+pub fn HotConstPayload::ref_null_const(@lib.RefType) -> Self
+pub fn HotConstPayload::string_const(Bytes) -> Self
 pub impl Eq for HotConstPayload
 pub impl Show for HotConstPayload
 pub impl @debug.Debug for HotConstPayload
@@ -236,14 +271,6 @@ pub impl Eq for HotControlRegionSlotInfo
 pub impl Show for HotControlRegionSlotInfo
 pub impl @debug.Debug for HotControlRegionSlotInfo
 
-pub enum HotExtra {
-  UnaryOp(@lib.UnaryOp)
-  BinaryOp(@lib.BinaryOp)
-}
-pub impl Eq for HotExtra
-pub impl Show for HotExtra
-pub impl @debug.Debug for HotExtra
-
 pub struct HotFunc {
   nodes : Array[HotNode]
   children : Array[Int]
@@ -257,7 +284,6 @@ pub struct HotFunc {
   branch_tables : Array[HotBranchTable]
   catches : Array[HotCatchInfo]
   call_sigs : Array[HotCallSig]
-  extras : Array[HotExtra]
   mut body_result_type : Int
   free_nodes : Array[Int]
   mut revision : Int
@@ -299,6 +325,7 @@ pub impl @debug.Debug for HotLocals
 pub struct HotMemArg {
   memarg : @lib.MemArg
 }
+pub fn HotMemArg::new(@lib.MemArg) -> Self
 pub impl Eq for HotMemArg
 pub impl Show for HotMemArg
 pub impl @debug.Debug for HotMemArg
@@ -406,6 +433,17 @@ pub enum HotRewriteCtl[S, E] {
   Remove(S)
   Error(E)
 }
+
+pub enum HotSideTableKind {
+  ConstPayloadTable
+  MemArgTable
+  BranchTableTable
+  CatchInfoTable
+  CallSigTable
+}
+pub impl Eq for HotSideTableKind
+pub impl Show for HotSideTableKind
+pub impl @debug.Debug for HotSideTableKind
 
 pub enum HotStringBuiltin {
   NewWtf16Array

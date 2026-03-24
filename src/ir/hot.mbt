@@ -1,11 +1,4 @@
 ///|
-fn hot_alloc_const(func : HotFunc, payload : HotConstPayload) -> Int {
-  let id = func.consts.length()
-  func.consts.push(payload)
-  id
-}
-
-///|
 fn hot_make_node_with_children(
   func : HotFunc,
   op : HotOp,
@@ -525,7 +518,7 @@ fn hot_lower_const(
   out : Array[Instruction],
 ) -> Unit {
   let node = hot_node_get(func, id)
-  match func.consts[node.imm0] {
+  match hot_const_get(func, node.imm0) {
     HotConstPayload::I32Const(v) => out.push(Instruction::i32_const(v))
     HotConstPayload::I64Const(v) => out.push(Instruction::i64_const(v))
     HotConstPayload::RefNullConst(rt) =>

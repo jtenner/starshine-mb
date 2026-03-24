@@ -1,0 +1,36 @@
+///|
+test "hot side table kind mapping covers typed payload families" {
+  assert_eq(
+    hot_side_table_kind_for_op(HotOp::Const),
+    Some(HotSideTableKind::ConstPayloadTable),
+  )
+  assert_eq(
+    hot_side_table_kind_for_op(HotOp::RefNull),
+    Some(HotSideTableKind::ConstPayloadTable),
+  )
+  assert_eq(
+    hot_side_table_kind_for_op(HotOp::Load),
+    Some(HotSideTableKind::MemArgTable),
+  )
+  assert_eq(
+    hot_side_table_kind_for_op(HotOp::Store),
+    Some(HotSideTableKind::MemArgTable),
+  )
+  assert_eq(
+    hot_side_table_kind_for_op(HotOp::BrTable),
+    Some(HotSideTableKind::BranchTableTable),
+  )
+  assert_eq(
+    hot_side_table_kind_for_op(HotOp::CallIndirect),
+    Some(HotSideTableKind::CallSigTable),
+  )
+  assert_eq(
+    hot_side_table_kind_for_op(HotOp::ReturnCallRef),
+    Some(HotSideTableKind::CallSigTable),
+  )
+  assert_eq(
+    hot_side_table_kind_for_op(HotOp::TryTable),
+    Some(HotSideTableKind::CatchInfoTable),
+  )
+  assert_eq(hot_side_table_kind_for_op(HotOp::LocalGet), None)
+}

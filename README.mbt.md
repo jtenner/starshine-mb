@@ -86,6 +86,18 @@ pub fn hot_label_result_type(HotFunc, Int) -> Int
 pub fn hot_label_branch_arity(HotFunc, Int) -> Int
 pub fn hot_control_node_label(HotFunc, Int) -> Int
 pub fn hot_control_region_slot_info(HotOp) -> Array[HotControlRegionSlotInfo]
+pub fn hot_alloc_const(HotFunc, HotConstPayload) -> Int
+pub fn hot_const_get(HotFunc, Int) -> HotConstPayload
+pub fn hot_alloc_memarg(HotFunc, HotMemArg) -> Int
+pub fn hot_memarg_get(HotFunc, Int) -> HotMemArg
+pub fn hot_alloc_branch_table(HotFunc, HotBranchTable) -> Int
+pub fn hot_branch_table_targets(HotFunc, Int) -> Array[Int]
+pub fn hot_branch_table_default_target(HotFunc, Int) -> Int
+pub fn hot_alloc_catch_info(HotFunc, HotCatchInfo) -> Int
+pub fn hot_catch_info_get(HotFunc, Int) -> HotCatchInfo
+pub fn hot_alloc_call_sig(HotFunc, HotCallSig) -> Int
+pub fn hot_call_sig_get(HotFunc, Int) -> HotCallSig
+pub fn hot_side_table_kind_for_op(HotOp) -> HotSideTableKind?
 pub fn hot_revision_current(HotFunc) -> Int
 pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
 pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]

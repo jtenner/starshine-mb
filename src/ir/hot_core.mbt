@@ -198,12 +198,6 @@ pub enum HotStringBuiltin {
 } derive(Eq, Show, Debug)
 
 ///|
-pub enum HotExtra {
-  UnaryOp(UnaryOp)
-  BinaryOp(BinaryOp)
-} derive(Eq, Show, Debug)
-
-///|
 pub struct HotFunc {
   nodes : Array[HotNode]
   children : Array[NodeId]
@@ -217,7 +211,6 @@ pub struct HotFunc {
   branch_tables : Array[HotBranchTable]
   catches : Array[HotCatchInfo]
   call_sigs : Array[HotCallSig]
-  extras : Array[HotExtra]
   mut body_result_type : TypeId
   free_nodes : Array[NodeId]
   mut revision : Int
@@ -262,7 +255,6 @@ pub fn HotFunc::new(
     branch_tables: [],
     catches: [],
     call_sigs: [],
-    extras: [],
     body_result_type,
     free_nodes: [],
     revision: 0,

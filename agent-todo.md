@@ -9,41 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 050 - Hot IR Side Tables
-- Goal:
-  Replace generic/implied payload handling with dedicated typed side tables.
-- Why this slice exists:
-  Memory args, branch tables, call signatures, catches, constants, and family immediates need explicit typed ownership.
-- Concrete deliverables:
-  - `src/ir/hot_side_tables.mbt`.
-  - `src/ir/hot_side_tables_test.mbt`.
-- Detailed implementation tasks:
-  - Keep typed side tables for const payloads, memargs, branch tables, catches, and call signatures.
-  - Replace generic `HotExtra` with dedicated typed storage or documented inline-immediate rules.
-  - Add alloc/get APIs for every side table family.
-  - Add multi-target branch-table query helpers.
-  - Define which op families use side-table ids versus inline enum/immediate payloads.
-- Required utilities / APIs:
-  - `hot_alloc_const`, `hot_const_get`.
-  - `hot_alloc_memarg`, `hot_memarg_get`.
-  - `hot_alloc_branch_table`, `hot_branch_table_targets`, `hot_branch_table_default_target`.
-  - `hot_alloc_catch_info`, `hot_catch_info_get`.
-  - `hot_alloc_call_sig`, `hot_call_sig_get`.
-  - `hot_side_table_kind_for_op(op)`.
-- Invariants / correctness rules:
-  - Side-table ids are only interpreted through the matching opcode family.
-  - Branch table targets/default target are always valid labels.
-  - Catch payloads only reference valid catch-region labels.
-- Dependencies:
-  - IR2 - 010 - Hot IR Core.
-  - IR2 - 040 - Hot IR Label/Control Metadata.
-- Exit criteria:
-  - No final hot IR family depends on an untyped “extra payload” bucket.
-- Suggested tests:
-  - Typed alloc/get for every side-table family.
-  - `BrTable` target/default queries.
-  - Call/memory/catch payload roundtrip correctness.
-
 ### IR2 - 060 - Hot IR Builders / Constructors
 - Goal:
   Provide family-specific safe builders for valid hot IR node creation.
