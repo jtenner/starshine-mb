@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 Cmd: remove stale SSA fixture from README sync tests
+
+- **README sync fixture cleanup** by **@jtenner**. Updated [`src/cmd/readme_api_sync_wbtest.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/readme_api_sync_wbtest.mbt) to stop asserting the deleted `infer_ssa_types` API and instead use the live hot-IR signature from [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti), so the test fixture matches the current `ir` package surface.
+
 ## 2026-03-24 Backlog: reset stale agent task inventory
 
 - **Backlog cleanup after architecture churn** by **@jtenner**. Replaced the oversized historical [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) dump with a short active backlog that only tracks current hot-IR rebuild, CLI/docs alignment, and validator fuzz hardening work, removing stale references to deleted optimizer packages, deleted research docs, and completed typed-tree migration slices.
