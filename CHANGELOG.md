@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 IR: add hot use-def overlay
+
+- **Hot use-def overlay** by **@jtenner**. Added [`src/ir/use_def.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/use_def.mbt) and [`src/ir/use_def_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/use_def_test.mbt) to track node use sites by child-slot vs root-slot location, count node uses, summarize per-block local defs and uses from CFG execution order, and expose local read/write node queries for later liveness, DCE, and SSA slices. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-200 slice.
+
 ## 2026-03-24 IR: add natural loop info overlay
 
 - **Hot CFG loop info** by **@jtenner**. Added [`src/ir/loop_info.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/loop_info.mbt) and [`src/ir/loop_info_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/loop_info_test.mbt) to compute natural loop headers, bodies, latches, exits, parent nesting, block depths, and block-to-innermost-loop mappings from CFG and dominance data, with explicit exclusion of exceptional backedges from loop formation. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-190 slice.

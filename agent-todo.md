@@ -9,44 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 200 - Use-Def
-- Goal:
-  Build node use lists and block-local local def/use summaries.
-- Why this slice exists:
-  DCE, liveness, and SSA need stable use-site indexing and block-local def/use extraction.
-- Concrete deliverables:
-  - `src/ir/use_def.mbt`.
-  - `src/ir/use_def_test.mbt`.
-- Detailed implementation tasks:
-  - Represent use sites as user location plus child slot or root slot.
-  - Build node use lists from child edges and root slots.
-  - Build per-block local def/use bitsets from `LocalGet`, `LocalSet`, and `LocalTee`.
-  - Keep policy explicit: full node def-use for hot nodes, locals-only block def/use for dataflow.
-  - Add use-count and local read/write query helpers.
-- Required utilities / APIs:
-  - `use_def_build(func, cfg?)`.
-  - `node_use_sites(use_def, node_id)`.
-  - `node_use_count(use_def, node_id)`.
-  - `block_local_defs(use_def, block_id)`.
-  - `block_local_uses(use_def, block_id)`.
-  - `local_read_nodes(use_def, local_id)`.
-  - `local_write_nodes(use_def, local_id)`.
-- Invariants / correctness rules:
-  - Every live child edge is represented once.
-  - Root-slot uses are tracked distinctly from child-slot uses.
-  - Block def/use respects CFG block boundaries.
-- Dependencies:
-  - IR2 - 150 - CFG Construction.
-  - IR2 - 165 - Dataflow Bitset Utilities.
-  - IR2 - 080 - Hot IR Structural Query Utilities.
-  - IR2 - 090 - Hot IR Traversal Utilities.
-- Exit criteria:
-  - Use-count and block-local def/use APIs are ready for DCE, liveness, and SSA.
-- Suggested tests:
-  - Expression tree use-site tracking.
-  - Distinct root-slot vs child-slot uses.
-  - Block-local def/use on CFG join.
-
 ### IR2 - 210 - Liveness
 - Goal:
   Compute block `live_in` and `live_out` sets for locals.

@@ -48,6 +48,10 @@ pub fn bitset_set(Bitset, Int) -> Bool
 
 pub fn bitset_union_into(Bitset, Bitset) -> Bool
 
+pub fn block_local_defs(HotUseDef, Int) -> Bitset
+
+pub fn block_local_uses(HotUseDef, Int) -> Bitset
+
 pub fn cfg_block_boundary_reasons(HotFunc, Int) -> Array[CfgBlockBoundaryReason]
 
 pub fn cfg_block_count(HotCfg) -> Int
@@ -518,6 +522,10 @@ pub fn[S, E] hot_walk_subtree_preorder(HotFunc, Int, S, (S, Int) -> HotVisitCtl[
 
 pub fn[S, E] hot_worklist_walk(HotFunc, Array[Int], S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
 
+pub fn local_read_nodes(HotUseDef, Int) -> Array[Int]
+
+pub fn local_write_nodes(HotUseDef, Int) -> Array[Int]
+
 pub fn loop_blocks(HotLoopInfo, Int) -> Array[Int]
 
 pub fn loop_depth(HotLoopInfo, Int) -> Int
@@ -534,6 +542,10 @@ pub fn loop_info_debug_dump(HotLoopInfo) -> String
 
 pub fn loop_latches(HotLoopInfo, Int) -> Array[Int]
 
+pub fn node_use_count(HotUseDef, Int) -> Int
+
+pub fn node_use_sites(HotUseDef, Int) -> Array[HotUseSite]
+
 pub fn postdom_build(HotCfg) -> HotPostDominators
 
 pub fn postdom_children(HotPostDominators, Int) -> Array[Int]
@@ -545,6 +557,8 @@ pub fn postdom_frontier(HotPostDominators, Int) -> Array[Int]
 pub fn postdom_ipdom(HotPostDominators, Int) -> Int?
 
 pub fn postdom_postdominates(HotPostDominators, Int, Int) -> Bool
+
+pub fn use_def_build(HotFunc, cfg? : HotCfg?) -> HotUseDef
 
 // Errors
 
@@ -1034,6 +1048,34 @@ pub enum HotTypeInfo {
 pub impl Eq for HotTypeInfo
 pub impl Show for HotTypeInfo
 pub impl @debug.Debug for HotTypeInfo
+
+pub struct HotUseDef {
+  node_uses : Array[Array[HotUseSite]]
+  block_defs : Array[Bitset]
+  block_uses : Array[Bitset]
+  local_reads : Array[Array[Int]]
+  local_writes : Array[Array[Int]]
+}
+pub impl Eq for HotUseDef
+pub impl Show for HotUseDef
+pub impl @debug.Debug for HotUseDef
+
+pub struct HotUseSite {
+  user : Int
+  slot : Int
+  kind : HotUseSlotKind
+}
+pub impl Eq for HotUseSite
+pub impl Show for HotUseSite
+pub impl @debug.Debug for HotUseSite
+
+pub enum HotUseSlotKind {
+  ChildUseSlot
+  RootUseSlot
+}
+pub impl Eq for HotUseSlotKind
+pub impl Show for HotUseSlotKind
+pub impl @debug.Debug for HotUseSlotKind
 
 pub enum HotVerifyError {
   InvalidBodyResultType(Int)
