@@ -30,6 +30,14 @@ pub const HOT_FLAG_THROWS : UInt = 512
 
 pub const HOT_FLAG_VALUE : UInt = 8
 
+pub fn cfg_block_boundary_reasons(HotFunc, Int) -> Array[CfgBlockBoundaryReason]
+
+pub fn cfg_control_successor_policy(HotOp) -> CfgControlSuccessorPolicy?
+
+pub fn cfg_exception_target_policy(HotOp) -> CfgExceptionTargetPolicy
+
+pub fn cfg_terminator_edge_kinds(HotOp) -> Array[CfgEdgeKind]
+
 pub fn compat_is_f32_nan(Float) -> Bool
 
 pub fn compat_is_f64_nan(Double) -> Bool
@@ -427,6 +435,53 @@ pub fn[S, E] hot_worklist_walk(HotFunc, Array[Int], S, (S, Int) -> HotVisitCtl[S
 // Errors
 
 // Types and methods
+pub enum CfgBlockBoundaryReason {
+  RootEntry
+  ControlHeader
+  LoopHeader
+  BodyRegionEntry
+  ThenRegionEntry
+  ElseRegionEntry
+  CatchRegionEntry
+  CatchListRegionEntry
+  Terminator
+}
+pub impl Eq for CfgBlockBoundaryReason
+pub impl Show for CfgBlockBoundaryReason
+pub impl @debug.Debug for CfgBlockBoundaryReason
+
+pub enum CfgControlSuccessorPolicy {
+  InlineBodyRegion
+  SplitThenElse
+  SplitBodyCatch
+  SplitBodyCatchList
+}
+pub impl Eq for CfgControlSuccessorPolicy
+pub impl Show for CfgControlSuccessorPolicy
+pub impl @debug.Debug for CfgControlSuccessorPolicy
+
+pub enum CfgEdgeKind {
+  FallthroughEdge
+  BranchEdge
+  ReturnEdge
+  ExceptionalEdge
+  UnreachableExitEdge
+}
+pub impl Eq for CfgEdgeKind
+pub impl Show for CfgEdgeKind
+pub impl @debug.Debug for CfgEdgeKind
+
+pub enum CfgExceptionTargetPolicy {
+  NoExceptionEdge
+  PropagateToCaller
+  ToCatchRegion
+  ToCatchListRegion
+  DelegateToTarget
+}
+pub impl Eq for CfgExceptionTargetPolicy
+pub impl Show for CfgExceptionTargetPolicy
+pub impl @debug.Debug for CfgExceptionTargetPolicy
+
 pub enum HotAnalysis {
   Cfg
   Dominance
@@ -772,6 +827,8 @@ pub enum HotVisitCtl[S, E] {
 }
 
 // Type aliases
+pub type BlockId = Int
+
 pub type LabelId = Int
 
 pub type LocalId = Int

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 IR: add hot CFG contract rules
+
+- **CFG boundary and edge policy contract** by **@jtenner**. Added [`docs/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](/home/jtenner/Projects/starshine-mb/docs/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md), [`src/ir/cfg_contract.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/cfg_contract.mbt), and [`src/ir/cfg_contract_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/cfg_contract_test.mbt) to make block-boundary reasons, structured-control successor policy, explicit terminator edge kinds, and exceptional-edge handling normative before CFG construction lands. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-140 slice.
+
 ## 2026-03-24 IR: add hot module context and resolved boundary type queries
 
 - **Hot module-context type resolution** by **@jtenner**. Added [`src/ir/hot_module_context.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_module_context.mbt) and [`src/ir/hot_module_context_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_module_context_test.mbt) to resolve imported and defined function signatures, type-index block results, memories, tables, globals, tags, and aggregate field metadata through one shared `HotModuleContext`, plus resolved hot-type result queries for later lift/lower work. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-117 slice.
