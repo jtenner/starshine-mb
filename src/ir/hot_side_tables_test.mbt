@@ -14,6 +14,10 @@ test "typed side tables roundtrip payloads and classify opcode families" {
       table_idx=Some(@lib.TableIdx::new(1U)),
     ),
   )
+  let instr_payload_id = hot_alloc_instr_payload(
+    func,
+    HotInstrPayload::new(@lib.Instruction::i32_add()),
+  )
 
   assert_eq(
     hot_const_get(func, const_id),
@@ -29,6 +33,10 @@ test "typed side tables roundtrip payloads and classify opcode families" {
       @lib.TypeIdx::new(3U),
       table_idx=Some(@lib.TableIdx::new(1U)),
     ),
+  )
+  assert_eq(
+    hot_instr_payload_get(func, instr_payload_id),
+    HotInstrPayload::new(@lib.Instruction::i32_add()),
   )
 }
 

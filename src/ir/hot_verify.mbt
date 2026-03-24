@@ -45,6 +45,8 @@ fn hot_verify_side_table_id_is_valid(
       side_table_id < func.branch_tables.length()
     HotSideTableKind::CatchInfoTable => side_table_id < func.catches.length()
     HotSideTableKind::CallSigTable => side_table_id < func.call_sigs.length()
+    HotSideTableKind::InstrPayloadTable =>
+      side_table_id < func.instr_payloads.length()
   }
 }
 

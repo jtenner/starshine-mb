@@ -193,6 +193,11 @@ pub struct HotCallSig {
 } derive(Eq, Show, Debug)
 
 ///|
+pub struct HotInstrPayload {
+  instr : Instruction
+} derive(Eq, Show, Debug)
+
+///|
 pub enum HotStringBuiltin {
   NewWtf16Array
 } derive(Eq, Show, Debug)
@@ -211,6 +216,7 @@ pub struct HotFunc {
   branch_tables : Array[HotBranchTable]
   catches : Array[HotCatchInfo]
   call_sigs : Array[HotCallSig]
+  instr_payloads : Array[HotInstrPayload]
   mut body_result_type : TypeId
   free_nodes : Array[NodeId]
   mut revision : Int
@@ -239,6 +245,7 @@ pub fn HotFunc::new(
     branch_tables: [],
     catches: [],
     call_sigs: [],
+    instr_payloads: [],
     body_result_type,
     free_nodes: [],
     revision: 0,

@@ -5,6 +5,7 @@ pub enum HotSideTableKind {
   BranchTableTable
   CatchInfoTable
   CallSigTable
+  InstrPayloadTable
 } derive(Eq, Show, Debug)
 
 ///|
@@ -74,6 +75,11 @@ pub fn HotCallSig::new(
   table_idx? : TableIdx? = None,
 ) -> HotCallSig {
   { type_idx, table_idx }
+}
+
+///|
+pub fn HotInstrPayload::new(instr : Instruction) -> HotInstrPayload {
+  { instr, }
 }
 
 ///|
@@ -151,6 +157,24 @@ pub fn hot_alloc_call_sig(func : HotFunc, sig : HotCallSig) -> SideTableId {
 ///|
 pub fn hot_call_sig_get(func : HotFunc, id : SideTableId) -> HotCallSig {
   func.call_sigs[id]
+}
+
+///|
+pub fn hot_alloc_instr_payload(
+  func : HotFunc,
+  payload : HotInstrPayload,
+) -> SideTableId {
+  let id = func.instr_payloads.length()
+  func.instr_payloads.push(payload)
+  id
+}
+
+///|
+pub fn hot_instr_payload_get(
+  func : HotFunc,
+  id : SideTableId,
+) -> HotInstrPayload {
+  func.instr_payloads[id]
 }
 
 ///|

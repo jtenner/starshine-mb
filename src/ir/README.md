@@ -23,7 +23,7 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 - `hot_flags.mbt`: canonical per-op raw flag table plus fast node classification helpers for control, branch, effect, trap, and exceptional-edge queries.
 - `hot_types.mbt`: canonical keyed type interning plus result-arity, result-type, and local-metadata queries for later label, CFG, and SSA slices.
 - `hot_labels.mbt`: stable label ownership, branch-arity, and control-region slot metadata so later analyses stop decoding control immediates directly.
-- `hot_side_tables.mbt`: typed side-table alloc/get helpers for const payloads, memargs, branch tables, catches, and call signatures so hot IR no longer depends on an untyped payload bucket.
+- `hot_side_tables.mbt`: typed side-table alloc/get helpers for const payloads, memargs, branch tables, catches, call signatures, and exact boundary instruction payloads so hot IR no longer depends on an untyped payload bucket and later lift/lower work can preserve concrete opcode identity.
 - `hot_builders.mbt`: canonical safe node constructors that allocate labels, region wrappers, and side-table payload ids without raw field assembly.
 - `hot_mutate.mbt`: canonical root, node, child-span, deletion, and revision-bump mutation helpers so later rewrites stop writing `HotFunc` storage directly.
 - `hot_query.mbt`: canonical read-only node-family, type, branch, span, local-metadata, and tombstone queries so analyses stop decoding raw storage layout directly.
@@ -36,6 +36,7 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 ## Planned Split
 
 Later slices should land in dedicated modules instead of growing `hot.mbt` further:
+- `hot_module_context.mbt`
 - `hot_region_edit.mbt`
 - `hot_lift.mbt`
 - `hot_lower.mbt`

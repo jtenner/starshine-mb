@@ -52,6 +52,8 @@ pub fn hot_alloc_children(HotFunc, Int) -> Int
 
 pub fn hot_alloc_const(HotFunc, HotConstPayload) -> Int
 
+pub fn hot_alloc_instr_payload(HotFunc, HotInstrPayload) -> Int
+
 pub fn hot_alloc_memarg(HotFunc, HotMemArg) -> Int
 
 pub fn hot_alloc_node(HotFunc, HotNode) -> Int
@@ -185,6 +187,8 @@ pub fn[S, E] hot_for_each_root(HotFunc, S, (S, Int, Int) -> HotVisitCtl[S, E]) -
 pub fn hot_has_exceptional_succ(HotFunc, Int) -> Bool
 
 pub fn hot_has_side_effect(HotFunc, Int) -> Bool
+
+pub fn hot_instr_payload_get(HotFunc, Int) -> HotInstrPayload
 
 pub fn hot_is_branch(HotFunc, Int) -> Bool
 
@@ -500,11 +504,20 @@ pub struct HotFunc {
   branch_tables : Array[HotBranchTable]
   catches : Array[HotCatchInfo]
   call_sigs : Array[HotCallSig]
+  instr_payloads : Array[HotInstrPayload]
   mut body_result_type : Int
   free_nodes : Array[Int]
   mut revision : Int
 }
 pub fn HotFunc::new(locals? : HotLocals, body_result_type? : Int) -> Self
+
+pub struct HotInstrPayload {
+  instr : @lib.Instruction
+}
+pub fn HotInstrPayload::new(@lib.Instruction) -> Self
+pub impl Eq for HotInstrPayload
+pub impl Show for HotInstrPayload
+pub impl @debug.Debug for HotInstrPayload
 
 pub struct HotLabelInfo {
   kind : HotLabelKind
@@ -664,6 +677,7 @@ pub enum HotSideTableKind {
   BranchTableTable
   CatchInfoTable
   CallSigTable
+  InstrPayloadTable
 }
 pub impl Eq for HotSideTableKind
 pub impl Show for HotSideTableKind
