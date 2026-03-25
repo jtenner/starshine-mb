@@ -602,6 +602,10 @@ pub fn postdom_ipdom(HotPostDominators, Int) -> Int?
 
 pub fn postdom_postdominates(HotPostDominators, Int, Int) -> Bool
 
+pub fn ssa_build_local(HotFunc, HotCfg, HotDominators, HotLiveness, HotUseDef) -> HotLocalSsa
+
+pub fn ssa_def_for_local_set(HotLocalSsa, Int) -> Int
+
 pub fn ssa_default_init_def(Int) -> HotSsaValueOrigin
 
 pub fn ssa_destruction_policy() -> HotSsaDestructionPolicy
@@ -616,15 +620,23 @@ pub fn ssa_phi_block(HotLocalSsa, Int) -> Int
 
 pub fn ssa_phi_def(Int) -> HotSsaValueOrigin
 
+pub fn ssa_phi_inputs(HotLocalSsa, Int) -> Array[HotSsaPhiInput]
+
 pub fn ssa_phi_local(HotLocalSsa, Int) -> Int
 
 pub fn ssa_phi_nodes_are_overlay_only() -> Bool
 
 pub fn ssa_phi_placement_blocks(HotFunc, HotCfg, HotDominators, HotLiveness, HotUseDef, Int) -> Array[Int]
 
+pub fn ssa_phis_for_block(HotLocalSsa, Int) -> Array[Int]
+
 pub fn ssa_rename_policy() -> HotSsaRenamePolicy
 
+pub fn ssa_uses_of_value(HotLocalSsa, Int) -> Array[HotSsaUseOrigin]
+
 pub fn ssa_v1_exclusions() -> Array[HotSsaExcludedFeature]
+
+pub fn ssa_value_for_local_get(HotLocalSsa, Int) -> Int
 
 pub fn ssa_value_origin(HotLocalSsa, Int) -> HotSsaValueOrigin
 
@@ -921,8 +933,15 @@ pub struct HotLocalSsa {
   value_types : Array[@lib.ValType]
   value_origins : Array[HotSsaValueOrigin]
   phis : Array[HotSsaPhi]
+  entry_defs : Array[Int]
+  phi_value_ids : Array[Int]
+  block_phis : Array[Array[Int]]
+  phi_inputs : Array[Array[HotSsaPhiInput]]
+  local_get_values : Array[Int]
+  local_write_defs : Array[Int]
+  value_uses : Array[Array[HotSsaUseOrigin]]
 }
-pub fn HotLocalSsa::new(revision? : Int, value_types? : Array[@lib.ValType], value_origins? : Array[HotSsaValueOrigin], phis? : Array[HotSsaPhi]) -> Self
+pub fn HotLocalSsa::new(revision? : Int, value_types? : Array[@lib.ValType], value_origins? : Array[HotSsaValueOrigin], phis? : Array[HotSsaPhi], entry_defs? : Array[Int], phi_value_ids? : Array[Int], block_phis? : Array[Array[Int]], phi_inputs? : Array[Array[HotSsaPhiInput]], local_get_values? : Array[Int], local_write_defs? : Array[Int], value_uses? : Array[Array[HotSsaUseOrigin]]) -> Self
 pub impl Eq for HotLocalSsa
 pub impl Show for HotLocalSsa
 pub impl @debug.Debug for HotLocalSsa
@@ -1149,6 +1168,15 @@ pub fn HotSsaPhi::new(Int, Int) -> Self
 pub impl Eq for HotSsaPhi
 pub impl Show for HotSsaPhi
 pub impl @debug.Debug for HotSsaPhi
+
+pub struct HotSsaPhiInput {
+  predecessor : Int
+  value_id : Int
+}
+pub fn HotSsaPhiInput::new(Int, Int) -> Self
+pub impl Eq for HotSsaPhiInput
+pub impl Show for HotSsaPhiInput
+pub impl @debug.Debug for HotSsaPhiInput
 
 pub enum HotSsaRenamePolicy {
   DominatorTreeRename

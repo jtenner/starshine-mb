@@ -37,11 +37,38 @@ pub fn HotSsaPhi::new(block : BlockId, local_id : LocalId) -> HotSsaPhi {
 }
 
 ///|
+pub struct HotSsaPhiInput {
+  predecessor : BlockId
+  value_id : SsaValueId
+} derive(Eq, Show, Debug)
+
+///|
+pub fn HotSsaPhiInput::new(
+  predecessor : BlockId,
+  value_id : SsaValueId,
+) -> HotSsaPhiInput {
+  if predecessor < 0 {
+    abort("ssa phi input predecessors must be non-negative")
+  }
+  if value_id < 0 {
+    abort("ssa phi input values must be non-negative")
+  }
+  { predecessor, value_id }
+}
+
+///|
 pub struct HotLocalSsa {
   revision : Int
   value_types : Array[ValType]
   value_origins : Array[HotSsaValueOrigin]
   phis : Array[HotSsaPhi]
+  entry_defs : Array[SsaValueId]
+  phi_value_ids : Array[SsaValueId]
+  block_phis : Array[Array[PhiId]]
+  phi_inputs : Array[Array[HotSsaPhiInput]]
+  local_get_values : Array[SsaValueId]
+  local_write_defs : Array[SsaValueId]
+  value_uses : Array[Array[HotSsaUseOrigin]]
 } derive(Eq, Show, Debug)
 
 ///|
@@ -50,6 +77,13 @@ pub fn HotLocalSsa::new(
   value_types? : Array[ValType] = [],
   value_origins? : Array[HotSsaValueOrigin] = [],
   phis? : Array[HotSsaPhi] = [],
+  entry_defs? : Array[SsaValueId] = [],
+  phi_value_ids? : Array[SsaValueId] = [],
+  block_phis? : Array[Array[PhiId]] = [],
+  phi_inputs? : Array[Array[HotSsaPhiInput]] = [],
+  local_get_values? : Array[SsaValueId] = [],
+  local_write_defs? : Array[SsaValueId] = [],
+  value_uses? : Array[Array[HotSsaUseOrigin]] = [],
 ) -> HotLocalSsa {
   if revision < 0 {
     abort("ssa overlays require a non-negative hot revision")
@@ -57,7 +91,28 @@ pub fn HotLocalSsa::new(
   if value_types.length() != value_origins.length() {
     abort("ssa overlays require one origin for every value type")
   }
-  { revision, value_types, value_origins, phis }
+  if phi_value_ids.length() != 0 && phi_value_ids.length() != phis.length() {
+    abort("ssa overlays require one phi value id per phi")
+  }
+  if phi_inputs.length() != 0 && phi_inputs.length() != phis.length() {
+    abort("ssa overlays require one phi input list per phi")
+  }
+  if value_uses.length() != 0 && value_uses.length() != value_types.length() {
+    abort("ssa overlays require one use list per value")
+  }
+  {
+    revision,
+    value_types,
+    value_origins,
+    phis,
+    entry_defs,
+    phi_value_ids,
+    block_phis,
+    phi_inputs,
+    local_get_values,
+    local_write_defs,
+    value_uses,
+  }
 }
 
 ///|

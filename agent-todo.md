@@ -9,44 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 240 - Local SSA Construction
-- Goal:
-  Build the local SSA overlay from hot IR + CFG + dominance + liveness.
-- Why this slice exists:
-  SSA-assisted passes need precise reaching definitions for locals.
-- Concrete deliverables:
-  - `src/ir/ssa_local.mbt`.
-  - `src/ir/ssa_local_test.mbt`.
-- Detailed implementation tasks:
-  - Place local phis using dominance frontiers pruned by liveness.
-  - Create synthetic entry defs for parameters and default local initialization.
-  - Run dominator-tree rename for `LocalGet`, `LocalSet`, and `LocalTee`.
-  - Record phi incoming values per predecessor.
-  - Record mappings from hot local nodes to SSA defs/uses.
-  - Add query helpers for reaching def, phi lists, phi inputs, and uses of SSA values.
-- Required utilities / APIs:
-  - `ssa_build_local(func, cfg, dom, liveness, use_def)`.
-  - `ssa_value_for_local_get(ssa, node_id)`.
-  - `ssa_def_for_local_set(ssa, node_id)`.
-  - `ssa_phis_for_block(ssa, block_id)`.
-  - `ssa_phi_inputs(ssa, phi_id)`.
-  - `ssa_uses_of_value(ssa, value_id)`.
-- Invariants / correctness rules:
-  - Every `LocalGet` maps to exactly one SSA value.
-  - Every SSA value has one defining origin.
-  - Phi input counts match predecessor counts under the chosen edge policy.
-- Dependencies:
-  - IR2 - 170 - Dominators.
-  - IR2 - 200 - Use-Def.
-  - IR2 - 210 - Liveness.
-  - IR2 - 230 - SSA Design Policy.
-- Exit criteria:
-  - Local SSA overlay works for joins, loops, parameters, default-init locals, and `LocalTee`.
-- Suggested tests:
-  - Diamond local merge phi.
-  - Loop-carried local phi.
-  - Uninitialized-local use resolves to default-init entry def.
-
 ### IR2 - 250 - SSA Destruction
 - Goal:
   Lower SSA-driven rewrites back into ordinary local ops inside hot IR.
