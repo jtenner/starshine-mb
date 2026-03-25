@@ -114,6 +114,47 @@ fn hot_lower_test_func_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lower_test_multi_result_module() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([], [@lib.ValType::i32(), @lib.ValType::i32()]),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+    ),
+  ])
+  let import_sec = @lib.ImportSec::new([
+    @lib.Import::new(
+      @lib.Name::from_string("env"),
+      @lib.Name::from_string("pair"),
+      @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+    ),
+  ])
+  @lib.Module::new()
+  .with_type_sec(type_sec)
+  .with_import_sec(import_sec)
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        @lib.Expr::new([
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::if_(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))],
+            Some([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 test "hot lower func restores declared locals and body" {
   let module_ = hot_lower_test_func_module()
   let hot = hot_lift_func(module_, @lib.FuncIdx::new(1U))
@@ -126,6 +167,66 @@ test "hot lower func restores declared locals and body" {
     @lib.Expr::new([
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    ]),
+  )
+}
+
+///|
+test "hot lower roundtrips multi-result producers consumed across instructions" {
+  let module_ = hot_lower_test_multi_result_module()
+  let hot = hot_lift_func(module_, @lib.FuncIdx::new(1U))
+  let lowered = hot_lower_func(hot)
+  let @lib.Func(locals, body) = lowered
+
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  assert_eq(
+    body,
+    @lib.Expr::new([
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::if_(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))],
+        Some([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "hot lower preserves result blocks consumed by local.set" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+      ]),
+    ),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  ])
+  let hot = hot_lift_body(
+    body,
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+  let lowered = hot_lower_func(hot)
+  let @lib.Func(locals, body) = lowered
+
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  assert_eq(
+    body,
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+        ]),
+      ),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     ]),
   )
 }

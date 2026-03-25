@@ -154,7 +154,8 @@ fn hot_lower_impl_push_results(
   id : NodeId,
   stack : Array[NodeId],
 ) -> Unit {
-  if hot_node_result_arity(func, id) > 0 {
+  let result_arity = hot_node_result_arity(func, id)
+  for _ in 0..<result_arity {
     stack.push(id)
   }
 }

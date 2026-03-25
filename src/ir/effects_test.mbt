@@ -78,3 +78,40 @@ test "effect summaries aggregate across blocks and regions conservatively" {
   assert_true((region_mask & EFFECT_MASK_LOCAL_STATE) != 0U)
   assert_true(effects_reads_memory(region_mask))
 }
+
+///|
+fn effects_shared_dag_fixture(depth : Int) -> (HotFunc, NodeId) {
+  let func = HotFunc::new()
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0))
+  let addr = hot_build_const_i32(func, @lib.I32(0))
+  let mut value = hot_build_load(func, @lib.ValType::i32(), memarg, addr)
+  for i = 0; i < depth; i = i + 1 {
+    let _ = i
+    let lhs = hot_build_binary(
+      func,
+      @lib.ValType::i32(),
+      value,
+      hot_build_const_i32(func, @lib.I32(1)),
+    )
+    let rhs = hot_build_binary(
+      func,
+      @lib.ValType::i32(),
+      value,
+      hot_build_const_i32(func, @lib.I32(2)),
+    )
+    value = hot_build_binary(func, @lib.ValType::i32(), lhs, rhs)
+  }
+  hot_root_append(func, hot_build_drop(func, value))
+  (func, value)
+}
+
+///|
+test "effect cache handles shared dags without changing masks" {
+  let (func, value) = effects_shared_dag_fixture(24)
+  let node_mask = effects_for_node(func, value)
+  let region_mask = effects_for_region(func, HotRegionRef::root())
+
+  assert_true(effects_reads_memory(node_mask))
+  assert_true(effects_reads_memory(region_mask))
+  assert_eq(node_mask, region_mask)
+}

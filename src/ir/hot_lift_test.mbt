@@ -139,6 +139,25 @@ fn hot_lift_test_block_param_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lift_test_multi_result_module() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([], [@lib.ValType::i32(), @lib.ValType::i32()]),
+      ),
+    ),
+  ])
+  let import_sec = @lib.ImportSec::new([
+    @lib.Import::new(
+      @lib.Name::from_string("env"),
+      @lib.Name::from_string("pair"),
+      @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+    ),
+  ])
+  @lib.Module::new().with_type_sec(type_sec).with_import_sec(import_sec)
+}
+
+///|
 test "hot lift func derives locals and direct call metadata from the module" {
   let func = hot_lift_func(hot_lift_test_func_module(), @lib.FuncIdx::new(1U))
 
@@ -283,4 +302,65 @@ test "hot lift tolerates polymorphic unreachable operands with no concrete value
 
   let trap = hot_root_get(func, 0)
   assert_eq(hot_node_get(func, trap).op.to_string(), "Unreachable")
+}
+
+///|
+test "hot lift preserves surviving results from multi-result producers" {
+  let ctx = hot_module_context_from_module(hot_lift_test_multi_result_module())
+  let func = hot_lift_body_with_context(
+    @lib.Expr::new([
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::if_(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))],
+        Some([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+      ),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+    ctx,
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+
+  assert_eq(hot_root_count(func), 2)
+
+  let local_set = hot_root_get(func, 0)
+  let if_id = hot_root_get(func, 1)
+  let call_id = hot_child_get(func, local_set, 0)
+
+  assert_true(hot_node_kind_is_local(func, local_set))
+  assert_eq(hot_node_get(func, if_id).op.to_string(), "If")
+  assert_true(hot_node_kind_is_call(func, call_id))
+  assert_eq(hot_node_result_arity(func, call_id), 2)
+  assert_eq(hot_child_get(func, if_id, 0), call_id)
+}
+
+///|
+test "hot lift tolerates unreachable br payloads with no concrete values" {
+  let func = match
+    hot_lift_body_result(
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::return_(),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+          ]),
+        ),
+      ]),
+      HotLocals::new(),
+      body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+    ) {
+    Ok(func) => func
+    Err(err) => fail(err.to_string())
+  }
+
+  assert_eq(hot_root_count(func), 1)
+  let block_id = hot_root_get(func, 0)
+  assert_eq(hot_node_get(func, block_id).op.to_string(), "Block")
+  assert_eq(hot_node_result_arity(func, block_id), 1)
+  assert_eq(hot_region_root_count(func, hot_region_body_ref(func, block_id)), 2)
 }

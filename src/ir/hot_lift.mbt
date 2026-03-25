@@ -977,7 +977,9 @@ fn hot_lift_impl_push_node(
   if result_types.length() == 0 {
     roots.push(node_id)
   } else {
-    values.push(node_id)
+    for _ in 0..<result_types.length() {
+      values.push(node_id)
+    }
   }
 }
 
@@ -1331,12 +1333,15 @@ fn hot_lift_impl_lift_instruction(
         Ok(label_id) => label_id
         Err(err) => return Err(err)
       }
+      let payload_count = hot_label_branch_arity(func, target)
+      if !hot_lift_impl_can_materialize_unreachable_instr(
+          func, instr, tc_state, values, payload_count,
+        ) {
+        return Ok(after_state)
+      }
       let payload = match
         hot_lift_impl_pop_values_for_instr(
-          instr,
-          values,
-          hot_label_branch_arity(func, target),
-          "br payload",
+          instr, values, payload_count, "br payload",
         ) {
         Ok(payload) => payload
         Err(err) => return Err(err)
@@ -1361,15 +1366,22 @@ fn hot_lift_impl_lift_instruction(
         Ok(label_id) => label_id
         Err(err) => return Err(err)
       }
+      let payload_count = hot_label_branch_arity(func, target)
+      if !hot_lift_impl_can_materialize_unreachable_instr(
+          func,
+          instr,
+          tc_state,
+          values,
+          payload_count + 1,
+        ) {
+        return Ok(after_state)
+      }
       let condition = match
         hot_lift_impl_pop_value_for_instr(instr, values, "br_if condition") {
         Ok(condition) => condition
         Err(err) => return Err(err)
       }
-      let payload = hot_lift_impl_peek_values(
-        values,
-        hot_label_branch_arity(func, target),
-      )
+      let payload = hot_lift_impl_peek_values(values, payload_count)
       let children = payload.copy()
       children.push(condition)
       roots.push(
@@ -1400,15 +1412,22 @@ fn hot_lift_impl_lift_instruction(
           Err(err) => return Err(err)
         }
       }
+      let payload_count = hot_label_branch_arity(func, default_label)
+      if !hot_lift_impl_can_materialize_unreachable_instr(
+          func,
+          instr,
+          tc_state,
+          values,
+          payload_count + 1,
+        ) {
+        return Ok(after_state)
+      }
       let selector = match
         hot_lift_impl_pop_value_for_instr(instr, values, "br_table selector") {
         Ok(selector) => selector
         Err(err) => return Err(err)
       }
-      let payload = hot_lift_impl_peek_values(
-        values,
-        hot_label_branch_arity(func, default_label),
-      )
+      let payload = hot_lift_impl_peek_values(values, payload_count)
       let table_id = hot_alloc_branch_table(
         func,
         HotBranchTable::new(table_targets, default_label),
@@ -1439,6 +1458,15 @@ fn hot_lift_impl_lift_instruction(
               "return requires a function return type in the lift context",
             ),
           )
+      }
+      if !hot_lift_impl_can_materialize_unreachable_instr(
+          func,
+          instr,
+          tc_state,
+          values,
+          return_types.length(),
+        ) {
+        return Ok(after_state)
       }
       let payload = match
         hot_lift_impl_pop_values_for_instr(
@@ -1475,6 +1503,15 @@ fn hot_lift_impl_lift_instruction(
             ),
           )
       }
+      if !hot_lift_impl_can_materialize_unreachable_instr(
+          func,
+          instr,
+          tc_state,
+          values,
+          payload_types.length(),
+        ) {
+        return Ok(after_state)
+      }
       let payload = match
         hot_lift_impl_pop_values_for_instr(
           instr,
@@ -1503,6 +1540,11 @@ fn hot_lift_impl_lift_instruction(
         Ok(next) => next
         Err(err) => return Err(err)
       }
+      if !hot_lift_impl_can_materialize_unreachable_instr(
+          func, instr, tc_state, values, 1,
+        ) {
+        return Ok(after_state)
+      }
       let exnref = match
         hot_lift_impl_pop_value_for_instr(instr, values, "throw_ref payload") {
         Ok(exnref) => exnref
@@ -1526,21 +1568,28 @@ fn hot_lift_impl_lift_instruction(
         Ok(label_id) => label_id
         Err(err) => return Err(err)
       }
+      let payload_count = hot_label_branch_arity(func, target)
+      if !hot_lift_impl_can_materialize_unreachable_instr(
+          func,
+          instr,
+          tc_state,
+          values,
+          payload_count + 1,
+        ) {
+        return Ok(after_state)
+      }
       let guard_id = match
         hot_lift_impl_pop_value_for_instr(instr, values, "br_on_null guard") {
         Ok(guard_id) => guard_id
         Err(err) => return Err(err)
       }
-      let payload = hot_lift_impl_peek_values(
-        values,
-        hot_label_branch_arity(func, target),
-      )
+      let payload = hot_lift_impl_peek_values(values, payload_count)
       let children = payload.copy()
       children.push(guard_id)
       let pushed_types = hot_lift_impl_pushed_types(
         before_types,
         after_state.stack,
-        hot_label_branch_arity(func, target) + 1,
+        payload_count + 1,
       )
       let node_id = hot_build_node(
         func,
