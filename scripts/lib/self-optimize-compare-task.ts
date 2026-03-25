@@ -29,6 +29,7 @@ type ComparisonSummary = {
   binaryenCommand: string[];
   starshineSize: number;
   binaryenSize: number;
+  wasmEqual: boolean;
   starshineElapsedMs: number;
   binaryenElapsedMs: number;
   starshineAtLeastAsFast: boolean;
@@ -113,6 +114,22 @@ function normalizePrintWat(wasmOptBin: string, wasmPath: string, repoRoot: strin
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+}
+
+function canonicalizeWasm(
+  wasmOptBin: string,
+  inputPath: string,
+  outputPath: string,
+  repoRoot: string,
+): void {
+  // Canonicalize both outputs through the same strip-debug writer so raw
+  // compare noise from names or non-canonical section ordering does not mask
+  // actual pass correctness parity.
+  runOrThrow(
+    wasmOptBin,
+    [inputPath, "--all-features", "--strip-debug", "-o", outputPath],
+    { cwd: repoRoot, stdio: "pipe" },
+  );
 }
 
 function runTimedOrThrow(
@@ -233,6 +250,8 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   const options = parseSelfOptimizeCompareArgs(argv);
   const inputPath = resolveRepoPath(repoRoot, options.inputPath);
   const outDir = resolveRepoPath(repoRoot, options.outDir);
+  const starshineRawOutputPath = path.join(outDir, "starshine.raw.wasm");
+  const binaryenRawOutputPath = path.join(outDir, "binaryen.raw.wasm");
   const starshineOutputPath = path.join(outDir, "starshine.wasm");
   const binaryenOutputPath = path.join(outDir, "binaryen.wasm");
   const starshineWatPath = path.join(outDir, "starshine.print.wat");
@@ -257,7 +276,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     ...starshineInvocation.argsPrefix,
     ...options.passFlags,
     "--out",
-    starshineOutputPath,
+    starshineRawOutputPath,
     inputPath,
   ];
   const binaryenArgs = [
@@ -266,7 +285,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     ...binaryenPassFlags,
     "--debug",
     "-o",
-    binaryenOutputPath,
+    binaryenRawOutputPath,
   ];
 
   const starshineRun = runTimedOrThrow(starshineInvocation.command, starshineArgs, {
@@ -287,10 +306,18 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     binaryenRun.stderr,
   );
 
+  canonicalizeWasm(options.wasmOptBin, starshineRawOutputPath, starshineOutputPath, repoRoot);
+  // Binaryen's direct output is the reference artifact we want to match; keep
+  // it verbatim so the published compare pair answers "did Starshine reach the
+  // Binaryen bytes?" instead of "did both survive another rewrite step?".
+  fs.copyFileSync(binaryenRawOutputPath, binaryenOutputPath);
+
   const starshineWat = normalizePrintWat(options.wasmOptBin, starshineOutputPath, repoRoot);
   const binaryenWat = normalizePrintWat(options.wasmOptBin, binaryenOutputPath, repoRoot);
   fs.writeFileSync(starshineWatPath, starshineWat);
   fs.writeFileSync(binaryenWatPath, binaryenWat);
+  const wasmEqual =
+    fs.readFileSync(starshineOutputPath).equals(fs.readFileSync(binaryenOutputPath));
 
   const summary: ComparisonSummary = {
     inputPath,
@@ -301,6 +328,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     binaryenCommand: [options.wasmOptBin, ...binaryenArgs],
     starshineSize: fs.statSync(starshineOutputPath).size,
     binaryenSize: fs.statSync(binaryenOutputPath).size,
+    wasmEqual,
     starshineElapsedMs: starshineRun.elapsedMs,
     binaryenElapsedMs: binaryenRun.elapsedMs,
     starshineAtLeastAsFast: starshineRun.elapsedMs <= binaryenRun.elapsedMs,
@@ -320,10 +348,13 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2) + "\n");
 
   process.stdout.write(`Wrote comparison artifacts to ${outDir}\n`);
+  process.stdout.write(`Starshine raw wasm: ${starshineRawOutputPath}\n`);
+  process.stdout.write(`Binaryen raw wasm: ${binaryenRawOutputPath}\n`);
   process.stdout.write(`Starshine wasm: ${starshineOutputPath}\n`);
   process.stdout.write(`Binaryen wasm: ${binaryenOutputPath}\n`);
   process.stdout.write(`Starshine normalized WAT: ${starshineWatPath}\n`);
   process.stdout.write(`Binaryen normalized WAT: ${binaryenWatPath}\n`);
+  process.stdout.write(`Canonical wasm equal: ${summary.wasmEqual ? "yes" : "no"}\n`);
   process.stdout.write(`Starshine runtime (ms): ${summary.starshineElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Binaryen runtime (ms): ${summary.binaryenElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Starshine at least as fast: ${summary.starshineAtLeastAsFast ? "yes" : "no"}\n`);
