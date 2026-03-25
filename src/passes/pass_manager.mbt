@@ -390,7 +390,8 @@ fn run_hot_pipeline_apply_module_pass(
     "pass:\{entry.name}",
   )
   let next = match entry.name {
-    "duplicate-function-elimination" => dfe_run_module_pass(mod_)
+    "duplicate-function-elimination" =>
+      dfe_run_module_pass_with_perf(mod_, options.perf)
     _ => return Err("unsupported module pass \{entry.name}")
   }
   perf_stop_timer_opt(options.perf, "pass:\{entry.name}", pass_timer_start)

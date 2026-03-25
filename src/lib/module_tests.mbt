@@ -60,3 +60,14 @@ test "pretty_print_func reports imported function signatures" {
     msg=printed,
   )
 }
+
+///|
+test "without_name_sec clears the structured name section" {
+  let mod = Module::new().with_name_sec(
+    NameSec::new(
+      func_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("f"))])),
+    ),
+  )
+  assert_true(mod.name_sec is Some(_))
+  assert_eq(mod.without_name_sec().name_sec, None)
+}
