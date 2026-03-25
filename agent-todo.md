@@ -64,23 +64,6 @@ Observed unique-pass order
    - Keep `moon test src/passes` and `moon test src/cmd` green while replaying the compare harness.
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-module-elements` and any required ordered-prefix replay.
 
-#### GR - Global Refining
-1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L163](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L163)
-2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [GR]001 - Global Type Fact Propagation - Build the module analysis that infers tighter global types without changing import/export boundary contracts.
-     - Deliverables: collect global definitions and users; model nullable and subtype constraints; expose facts needed by later GC passes.
-     - Doc: [0066#L163](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L163)
-   - [GR]002 - Global Rewrite and Follow-on Validation - Rewrite eligible global types and ensure later `gsi` and cleanup passes still match Binaryen on the artifact.
-     - Deliverables: patch global declarations and all dependent uses; add regressions for imported/exported globals; run ordered compare coverage with the early GC prefix.
-     - Doc: [0066#L163](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L163)
-3. Do work.
-   - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
-   - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
-4. Test against binaryen.
-   - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
-   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
-
 #### GSI - Global Struct Inference
 1. Research exact functionality in document.
    - Research exactly how it works with a document: [0066#L168](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L168)

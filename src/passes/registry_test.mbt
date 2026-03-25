@@ -37,6 +37,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::module_pass()),
   )
   assert_eq(
+    pass_registry_category("global-refining"),
+    Some(HotPassRegistryCategory::module_pass()),
+  )
+  assert_eq(
     pass_registry_category("de-nan"),
     Some(HotPassRegistryCategory::removed()),
   )
@@ -61,12 +65,12 @@ test "preset expansion stays on implemented active pass names" {
   let shrink = shrink_preset_passes(HotPipelineOptions::new())
 
   assert_eq(optimize, [
-    "memory-packing", "once-reduction", "vacuum", "optimize-instructions", "simplify-locals",
-    "dead-code-elimination",
+    "memory-packing", "once-reduction", "global-refining", "vacuum", "optimize-instructions",
+    "simplify-locals", "dead-code-elimination",
   ])
   assert_eq(shrink, [
-    "memory-packing", "once-reduction", "vacuum", "optimize-instructions", "simplify-locals",
-    "dead-code-elimination",
+    "memory-packing", "once-reduction", "global-refining", "vacuum", "optimize-instructions",
+    "simplify-locals", "dead-code-elimination",
   ])
   for name in optimize {
     match pass_registry_category(name) {

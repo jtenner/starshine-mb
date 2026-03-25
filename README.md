@@ -170,7 +170,7 @@ fn parse_validate_encode(source : String) -> Bool {
 ## Pipeline Note
 
 - `--optimize`, `--shrink`, `--vacuum`, `--dead-code-elimination`, `--optimize-instructions`, and `--simplify-locals` now route through the real IR2 pass pipeline in `jtenner/starshine/passes`.
-- The current public registry is still intentionally small while pass migration is in progress: the active module passes are `memory-packing` and `once-reduction`, the active hot passes are `vacuum`, `dead-code-elimination`, `optimize-instructions`, and `simplify-locals`, and both presets now expand to that implemented mixed module/hot sequence.
+- The current public registry is still intentionally small while pass migration is in progress: the active module passes are `memory-packing`, `once-reduction`, and `global-refining`, the active hot passes are `vacuum`, `dead-code-elimination`, `optimize-instructions`, and `simplify-locals`, and both presets now expand to that implemented mixed module/hot sequence.
 - The registry now keeps explicit `boundary-only` and `removed` mappings for legacy names so planning and diagnostics stay explicit while help output remains limited to the active pass surface.
 - The pass-manager contract is `lift -> verify -> run passes -> verify -> lower -> validate`, with per-function hot-IR verification and final module validation.
 - Pass authors now have shared migration helpers for analysis requests, mutation/invalidation, and pipeline-backed WAT fixtures in `jtenner/starshine/passes`.

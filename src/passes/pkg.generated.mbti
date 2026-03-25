@@ -16,6 +16,10 @@ pub fn dfe_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn dfe_summary() -> String
 
+pub fn global_refining_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn global_refining_summary() -> String
+
 pub fn hot_pass_run(HotPassContext, @ir.HotFunc) -> Result[HotPassResult, String]
 
 pub fn memory_packing_run_module_pass(@lib.Module) -> @lib.Module

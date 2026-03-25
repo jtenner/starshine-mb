@@ -119,16 +119,15 @@ fn pass_registry_boundary_only_names() -> Array[String] {
     "abstract-type-refining", "alignment-lowering", "constant-field-propagation",
     "constant-field-null-test-folding", "dead-argument-elimination", "dead-argument-elimination-optimizing",
     "signature-pruning", "signature-refining", "duplicate-import-elimination", "directize",
-    "global-refining", "global-struct-inference", "global-struct-inference-desc-cast",
-    "global-type-optimization", "simplify-globals", "simplify-globals-optimizing",
-    "global-effects", "propagate-globals-globally", "type-refining", "type-generalizing",
-    "type-finalizing", "type-un-finalizing", "unsubtyping", "heap2local", "heap-store-optimization",
-    "inlining", "inlining-optimizing", "inline-main", "merge-similar-functions",
-    "minimize-rec-groups", "type-merging", "monomorphize", "monomorphize-always",
-    "gufa", "gufa-optimizing", "gufa-cast-all", "i64-to-i32-lowering", "remove-unused-names",
-    "reorder-locals", "reorder-types", "reorder-globals", "reorder-globals-always",
-    "reorder-functions", "reorder-functions-by-name", "remove-unused-types", "remove-unused",
-    "remove-unused-non-function-elements",
+    "global-struct-inference", "global-struct-inference-desc-cast", "global-type-optimization",
+    "simplify-globals", "simplify-globals-optimizing", "global-effects", "propagate-globals-globally",
+    "type-refining", "type-generalizing", "type-finalizing", "type-un-finalizing",
+    "unsubtyping", "heap2local", "heap-store-optimization", "inlining", "inlining-optimizing",
+    "inline-main", "merge-similar-functions", "minimize-rec-groups", "type-merging",
+    "monomorphize", "monomorphize-always", "gufa", "gufa-optimizing", "gufa-cast-all",
+    "i64-to-i32-lowering", "remove-unused-names", "reorder-locals", "reorder-types",
+    "reorder-globals", "reorder-globals-always", "reorder-functions", "reorder-functions-by-name",
+    "remove-unused-types", "remove-unused", "remove-unused-non-function-elements",
   ]
 }
 
@@ -180,20 +179,21 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     pass_registry_entry_module("remove-unused-module-elements", rume_summary()),
     pass_registry_entry_module("memory-packing", memory_packing_summary()),
     pass_registry_entry_module("once-reduction", once_reduction_summary()),
+    pass_registry_entry_module("global-refining", global_refining_summary()),
     pass_registry_entry_preset(
       "optimize",
       "Run the default hot optimization preset.",
       [
-        "memory-packing", "once-reduction", "vacuum", "optimize-instructions", "simplify-locals",
-        "dead-code-elimination",
+        "memory-packing", "once-reduction", "global-refining", "vacuum", "optimize-instructions",
+        "simplify-locals", "dead-code-elimination",
       ],
     ),
     pass_registry_entry_preset(
       "shrink",
       "Run the default size-biased hot optimization preset.",
       [
-        "memory-packing", "once-reduction", "vacuum", "optimize-instructions", "simplify-locals",
-        "dead-code-elimination",
+        "memory-packing", "once-reduction", "global-refining", "vacuum", "optimize-instructions",
+        "simplify-locals", "dead-code-elimination",
       ],
     ),
   ]
@@ -232,16 +232,16 @@ pub fn pass_registry_category(name : String) -> HotPassRegistryCategory? {
 ///|
 pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
-    "memory-packing", "once-reduction", "vacuum", "optimize-instructions", "simplify-locals",
-    "dead-code-elimination",
+    "memory-packing", "once-reduction", "global-refining", "vacuum", "optimize-instructions",
+    "simplify-locals", "dead-code-elimination",
   ]
 }
 
 ///|
 pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
-    "memory-packing", "once-reduction", "vacuum", "optimize-instructions", "simplify-locals",
-    "dead-code-elimination",
+    "memory-packing", "once-reduction", "global-refining", "vacuum", "optimize-instructions",
+    "simplify-locals", "dead-code-elimination",
   ]
 }
 
