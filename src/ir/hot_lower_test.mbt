@@ -171,10 +171,11 @@ fn hot_lower_test_triple_result_module() -> @lib.Module {
   let type_sec = @lib.TypeSec::new([
     @lib.RecType::new(
       @lib.SubType::comp_type(
-        @lib.CompType::func(
-          [@lib.ValType::i32(), @lib.ValType::i32()],
-          [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
-        ),
+        @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+        ]),
       ),
     ),
   ])
@@ -193,10 +194,11 @@ fn hot_lower_test_triple_chain_module() -> @lib.Module {
   let type_sec = @lib.TypeSec::new([
     @lib.RecType::new(
       @lib.SubType::comp_type(
-        @lib.CompType::func(
-          [@lib.ValType::i32(), @lib.ValType::i32()],
-          [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
-        ),
+        @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+        ]),
       ),
     ),
     @lib.RecType::new(

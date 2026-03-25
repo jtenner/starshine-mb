@@ -116,11 +116,8 @@ fn dead_code_elimination_can_voidify_control(
     return false
   }
   match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Block
-    | @ir.HotOp::Loop
-    | @ir.HotOp::If
-    | @ir.HotOp::Try
-    | @ir.HotOp::TryTable => true
+    @ir.HotOp::Loop | @ir.HotOp::If | @ir.HotOp::Try | @ir.HotOp::TryTable =>
+      true
     _ => false
   }
 }

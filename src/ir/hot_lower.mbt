@@ -88,7 +88,10 @@ fn hot_lower_impl_input_nodes(func : HotFunc, id : NodeId) -> Array[NodeId] {
     | HotOp::RefFunc => []
     HotOp::Loop => {
       let out : Array[NodeId] = []
-      let input_count = hot_label_branch_arity(func, hot_control_node_label(func, id))
+      let input_count = hot_label_branch_arity(
+        func,
+        hot_control_node_label(func, id),
+      )
       for i = 0; i < input_count; i = i + 1 {
         out.push(hot_child_get(func, id, i))
       }

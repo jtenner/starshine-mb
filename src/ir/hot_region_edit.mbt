@@ -189,11 +189,7 @@ fn hot_region_write_roots(
   for root in roots {
     next.push(root)
   }
-  hot_replace_child_span(
-    func,
-    holder,
-    next,
-  )
+  hot_replace_child_span(func, holder, next)
 }
 
 ///|

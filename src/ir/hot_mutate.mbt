@@ -306,11 +306,7 @@ pub fn hot_control_result_type_set(
     HotOp::Loop => label.branch_arity
     _ => result_arity
   }
-  func.labels[label_id] = {
-    ..label,
-    result_type: ty,
-    branch_arity,
-  }
+  func.labels[label_id] = { ..label, result_type: ty, branch_arity }
   for slot_info in hot_control_region_slot_info(node.op) {
     let holder = match slot_info.role {
       HotControlRegionRole::BodyRegion =>

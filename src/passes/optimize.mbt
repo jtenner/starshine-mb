@@ -331,9 +331,7 @@ fn run_hot_pipeline_format_final_validate_error(
 ///|
 fn run_hot_pipeline_dump_invalid_module(mod_ : @lib.Module) -> Unit {
   match @binary.encode_module(mod_) {
-    Ok(bytes) => {
-      ignore(@sfs.write_file_bytes(".tmp/final-invalid.wasm", bytes))
-    }
+    Ok(bytes) => ignore(@sfs.write_file_bytes(".tmp/final-invalid.wasm", bytes))
     Err(_) => ()
   }
 }

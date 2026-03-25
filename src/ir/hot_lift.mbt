@@ -371,8 +371,9 @@ fn hot_lift_impl_generic_pop_count(
   after_state : TcState,
   min_count : Int,
 ) -> Result[(Int, Array[ValType]), HotLiftError] {
-  for count = min_count; count <= candidate_before_types.length(); count = count +
-      1 {
+  for count = min_count
+      count <= candidate_before_types.length()
+      count = count + 1 {
     let candidate_state = tc_state_with_stack(
       before_state,
       hot_lift_impl_stack_suffix(candidate_before_types, count),
@@ -380,10 +381,7 @@ fn hot_lift_impl_generic_pop_count(
     match Typecheck::typecheck(instr, candidate_state) {
       Ok(candidate_after) =>
         if hot_lift_impl_matches_candidate_after(
-            candidate_before_types,
-            after_state,
-            count,
-            candidate_after,
+            candidate_before_types, after_state, count, candidate_after,
           ) {
           return Ok((count, candidate_after.stack))
         }
@@ -440,22 +438,14 @@ fn hot_lift_impl_resolve_generic_pop_count(
     Ok(_) =>
       match
         hot_lift_impl_generic_pop_count(
-          instr,
-          concrete_before_types,
-          before_state,
-          after_state,
-          1,
+          instr, concrete_before_types, before_state, after_state, 1,
         ) {
         Ok(promoted) => Ok(promoted)
         Err(_) => primary
       }
     Err(_) =>
       hot_lift_impl_generic_pop_count(
-        instr,
-        concrete_before_types,
-        before_state,
-        after_state,
-        1,
+        instr, concrete_before_types, before_state, after_state, 1,
       )
   }
 }
@@ -1689,10 +1679,7 @@ fn hot_lift_impl_lift_instruction(
   let concrete_before_types = hot_lift_impl_values_types(func, values)
   let (child_count, pushed_types) = match
     hot_lift_impl_resolve_generic_pop_count(
-      instr,
-      before_state,
-      after_state,
-      concrete_before_types,
+      instr, before_state, after_state, concrete_before_types,
     ) {
     Ok(resolved) => resolved
     Err(err) => return Err(err)

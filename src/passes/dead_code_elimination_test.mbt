@@ -68,7 +68,7 @@ test "dead-code-elimination preserves imported calls with dead results" {
 }
 
 ///|
-test "dead-code-elimination handles dead type-index block results" {
+test "dead-code-elimination preserves dead type-index block wrappers" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (type (func (result i32))) (func (result i32) block (type 0) i32.const 1 end drop i32.const 7))",
@@ -82,8 +82,9 @@ test "dead-code-elimination handles dead type-index block results" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("drop"), msg=pretty)
-  assert_false(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("(block (Type 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
 }
 
@@ -125,6 +126,26 @@ test "dead-code-elimination keeps typed branch wrappers with label-targeted payl
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("(block I32"), msg=pretty)
   assert_true(pretty.contains("I32(0)"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves branch-skipping result block wrappers under drop" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) block block (result i32) local.get 0 if br 2 else br 2 end i32.const 1000 end drop end i32.const 0))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination to preserve branch-skipping result block wrappers, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(block I32"), msg=pretty)
+  assert_true(pretty.contains("I32(1000)"), msg=pretty)
   assert_true(pretty.contains("br"), msg=pretty)
 }
 

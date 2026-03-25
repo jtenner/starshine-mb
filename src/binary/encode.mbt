@@ -132,6 +132,24 @@ pub impl Encode for RefType with encode(val, buf) {
 }
 
 ///|
+fn encode_ref_null_immediate(
+  rt : RefType,
+  buf : @buffer.Buffer,
+) -> Result[Unit, BinaryEncodeError] {
+  match rt {
+    HeapTypeRefType(_, exact, ht) => {
+      if exact {
+        buf.write_byte(0x62)
+      }
+      Encode::encode(ht, buf)
+    }
+    AbsHeapTypeRefType(StringAbsHeapType) =>
+      Encode::encode(AbsHeapType::string_(), buf)
+    AbsHeapTypeRefType(abs) => Encode::encode(abs, buf)
+  }
+}
+
+///|
 pub impl Encode for ValType with encode(val, buf) {
   match val {
     VecTypeValType => {
@@ -2494,7 +2512,7 @@ pub impl Encode for Instruction with encode(val, buf) {
     I64Extend32S => buf.write_byte(0xC4)
     RefNull(rt) => {
       buf.write_byte(0xD0)
-      if Encode::encode(rt, buf) is Err(t) {
+      if encode_ref_null_immediate(rt, buf) is Err(t) {
         return Err(t)
       }
     }
