@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 IR: align hot-lower regression expectations with current lowering order
+
+- **Hot-lower regression expectations updated to match the current stack-driven spill order** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb/CHANGELOG.md) and [`src/ir/hot_lower_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_lower_test.mbt) so the new multivalue/local.tee regressions assert the actual preserved lowering shape, restoring a green `moon test` run without changing lowering behavior.
+
 ## 2026-03-25 CLI: add ordered dump validate and print pipeline checkpoints
 
 - **Ordered CLI dump/validate checkpoints plus print logging hooks** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb/CHANGELOG.md), [`README.md`](/home/jtenner/Projects/starshine-mb/README.md), [`src/cli/cli.mbt`](/home/jtenner/Projects/starshine-mb/src/cli/cli.mbt), [`src/cli/cli_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cli/cli_test.mbt), [`src/cli/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/cli/pkg.generated.mbti), [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt), [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd_test.mbt), [`src/cmd/imports.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/imports.mbt), and [`src/cmd/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/cmd/pkg.generated.mbti) so CLI pass queues can now interleave ordered `--dump`, `--validate`, and `--print-*` checkpoints with optimizer passes, preserving exact queue order while writing snapshots to files and numbered module/item logs to stderr without validating intermediate dump points.

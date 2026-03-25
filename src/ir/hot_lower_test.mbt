@@ -580,13 +580,11 @@ test "hot lower preserves repeated local.get consumers after block-fed local.tee
   ])
   let hot = hot_lift_body_with_context(
     body,
-    HotLocals::new(
-      locals=[
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-      ],
-    ),
+    HotLocals::new(locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
     hot_module_context_from_module(hot_lower_test_context_module()),
   )
   let lowered = hot_lower_func(hot)
@@ -1223,10 +1221,7 @@ test "hot lower preserves multi-result block values carried into typed loops" {
     @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
     @lib.Instruction::loop_(
       @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
-      @lib.Expr::new([
-        @lib.Instruction::drop(),
-        @lib.Instruction::drop(),
-      ]),
+      @lib.Expr::new([@lib.Instruction::drop(), @lib.Instruction::drop()]),
     ),
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
   ])
@@ -1256,10 +1251,7 @@ test "hot lower preserves multi-result block values carried into typed loops" {
       @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
       @lib.Instruction::loop_(
         @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
-        @lib.Expr::new([
-          @lib.Instruction::drop(),
-          @lib.Instruction::drop(),
-        ]),
+        @lib.Expr::new([@lib.Instruction::drop(), @lib.Instruction::drop()]),
       ),
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     ]),
@@ -1295,16 +1287,14 @@ test "hot lower preserves multi-result local.tee bridges feeding later local.set
   ])
   let hot = hot_lift_body_with_context(
     body,
-    HotLocals::new(
-      locals=[
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-      ],
-    ),
+    HotLocals::new(locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
     hot_module_context_from_module(hot_lower_test_plain_triple_result_module()),
     body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
   )
@@ -1335,11 +1325,11 @@ test "hot lower preserves multi-result local.tee bridges feeding later local.set
       ),
       @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
       @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-      @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
-      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
       @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
       @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
       @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
       @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
       @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
       @lib.Instruction::drop(),
@@ -1385,17 +1375,15 @@ test "hot lower preserves early local.tee bridges before later sibling local.set
   ])
   let hot = hot_lift_body_with_context(
     body,
-    HotLocals::new(
-      locals=[
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-      ],
-    ),
+    HotLocals::new(locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
     hot_module_context_from_module(hot_lower_test_plain_triple_result_module()),
     body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
   )
@@ -1429,9 +1417,9 @@ test "hot lower preserves early local.tee bridges before later sibling local.set
       @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
       @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
       @lib.Instruction::local_set(@lib.LocalIdx::new(6U)),
-      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
       @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
       @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
       @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
