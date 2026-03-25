@@ -173,6 +173,46 @@ fn rume_test_import_root_fixture() -> @lib.Module {
 }
 
 ///|
+fn rume_test_memarg_rewrite_fixture() -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(rume_test_type_sec())
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+  )
+  .with_mem_sec(@lib.MemSec::new([rume_test_mem_type(), rume_test_mem_type()]))
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("run"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::i32_load(
+            @lib.MemArg::new(
+              @lib.U32(0U),
+              Some(@lib.MemIdx::new(1U)),
+              @lib.U64(0UL),
+            ),
+          ),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn rume_test_live_access_targets(
   mod_ : @lib.Module,
 ) -> (UInt, UInt, UInt) raise {
@@ -195,6 +235,29 @@ fn rume_test_live_access_targets(
           ),
         ] => (global_idx, mem_idx, table_idx)
         _ => fail("expected rewritten live access function")
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
+fn rume_test_memarg_target(mod_ : @lib.Module) -> UInt raise {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs {
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.I32Const(_),
+                @lib.I32Load(@lib.MemArg(_, Some(@lib.MemIdx(mem_idx)), _)),
+                @lib.Drop,
+              ]
+            )
+          ),
+        ] => mem_idx
+        _ => fail("expected rewritten memarg load function")
       }
     None => fail("expected code section")
   }
@@ -299,6 +362,34 @@ test "run_hot_pipeline applies remove-unused-module-elements and rewrites module
     Err(err) =>
       fail(
         "expected rewritten remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements rewrites explicit memarg memory indices" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_memarg_rewrite_fixture(),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected memarg remove-unused-module-elements success, got \{err}")
+  }
+
+  match optimized.mem_sec {
+    Some(@lib.MemSec(mems)) => assert_eq(mems.length(), 1)
+    None => fail("expected memory section")
+  }
+  let mem_idx = try! rume_test_memarg_target(optimized)
+  assert_eq(mem_idx, 0U)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected memarg remove-unused-module-elements module to validate, got \{err}",
       )
   }
 }

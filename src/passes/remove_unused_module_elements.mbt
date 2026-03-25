@@ -1053,10 +1053,123 @@ fn rume_rewrite_instruction(
       @lib.Instruction::table_set(
         rume_rewrite_table_idx(table_idx, table_remap),
       )
+    @lib.I32Load(memarg) =>
+      @lib.Instruction::i32_load(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I64Load(memarg) =>
+      @lib.Instruction::i64_load(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.F32Load(memarg) =>
+      @lib.Instruction::f32_load(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.F64Load(memarg) =>
+      @lib.Instruction::f64_load(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I32Load8S(memarg) =>
+      @lib.Instruction::i32_load8s(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I32Load8U(memarg) =>
+      @lib.Instruction::i32_load8u(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I32Load16S(memarg) =>
+      @lib.Instruction::i32_load16s(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I32Load16U(memarg) =>
+      @lib.Instruction::i32_load16u(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I64Load8S(memarg) =>
+      @lib.Instruction::i64_load8s(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I64Load8U(memarg) =>
+      @lib.Instruction::i64_load8u(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I64Load16S(memarg) =>
+      @lib.Instruction::i64_load16s(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I64Load16U(memarg) =>
+      @lib.Instruction::i64_load16u(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I64Load32S(memarg) =>
+      @lib.Instruction::i64_load32s(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I64Load32U(memarg) =>
+      @lib.Instruction::i64_load32u(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I32Store(memarg) =>
+      @lib.Instruction::i32_store(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I64Store(memarg) =>
+      @lib.Instruction::i64_store(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.F32Store(memarg) =>
+      @lib.Instruction::f32_store(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.F64Store(memarg) =>
+      @lib.Instruction::f64_store(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I32Store8(memarg) =>
+      @lib.Instruction::i32_store8(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I32Store16(memarg) =>
+      @lib.Instruction::i32_store16(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I64Store8(memarg) =>
+      @lib.Instruction::i64_store8(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I64Store16(memarg) =>
+      @lib.Instruction::i64_store16(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I64Store32(memarg) =>
+      @lib.Instruction::i64_store32(rume_rewrite_memarg(memarg, mem_remap))
     @lib.MemorySize(mem_idx) =>
       @lib.Instruction::memory_size(rume_rewrite_mem_idx(mem_idx, mem_remap))
     @lib.MemoryGrow(mem_idx) =>
       @lib.Instruction::memory_grow(rume_rewrite_mem_idx(mem_idx, mem_remap))
+    @lib.MemoryAtomicNotify(memarg) =>
+      @lib.Instruction::memory_atomic_notify(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.MemoryAtomicWait32(memarg) =>
+      @lib.Instruction::memory_atomic_wait32(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.MemoryAtomicWait64(memarg) =>
+      @lib.Instruction::memory_atomic_wait64(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.I32AtomicLoad(memarg) =>
+      @lib.Instruction::i32_atomic_load(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I64AtomicLoad(memarg) =>
+      @lib.Instruction::i64_atomic_load(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I32AtomicLoad8U(memarg) =>
+      @lib.Instruction::i32_atomic_load8_u(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.I32AtomicLoad16U(memarg) =>
+      @lib.Instruction::i32_atomic_load16_u(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.I64AtomicLoad8U(memarg) =>
+      @lib.Instruction::i64_atomic_load8_u(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.I64AtomicLoad16U(memarg) =>
+      @lib.Instruction::i64_atomic_load16_u(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.I64AtomicLoad32U(memarg) =>
+      @lib.Instruction::i64_atomic_load32_u(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.I32AtomicStore(memarg) =>
+      @lib.Instruction::i32_atomic_store(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I64AtomicStore(memarg) =>
+      @lib.Instruction::i64_atomic_store(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.I32AtomicStore8(memarg) =>
+      @lib.Instruction::i32_atomic_store8(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.I32AtomicStore16(memarg) =>
+      @lib.Instruction::i32_atomic_store16(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.I64AtomicStore8(memarg) =>
+      @lib.Instruction::i64_atomic_store8(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.I64AtomicStore16(memarg) =>
+      @lib.Instruction::i64_atomic_store16(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.I64AtomicStore32(memarg) =>
+      @lib.Instruction::i64_atomic_store32(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.AtomicRmw(op, memarg) =>
+      @lib.Instruction::atomic_rmw(op, rume_rewrite_memarg(memarg, mem_remap))
+    @lib.AtomicCmpxchg(op, memarg) =>
+      @lib.Instruction::atomic_cmpxchg(
+        op,
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
     @lib.RefFunc(func_idx) =>
       @lib.Instruction::ref_func(rume_rewrite_func_idx(func_idx, func_remap))
     @lib.ArrayNewData(type_idx, data_idx) =>
@@ -1117,6 +1230,80 @@ fn rume_rewrite_instruction(
       @lib.Instruction::table_fill(
         rume_rewrite_table_idx(table_idx, table_remap),
       )
+    @lib.V128Load(memarg) =>
+      @lib.Instruction::v128_load(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.V128Load8x8S(memarg) =>
+      @lib.Instruction::v128_load8x8s(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.V128Load8x8U(memarg) =>
+      @lib.Instruction::v128_load8x8u(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.V128Load16x4S(memarg) =>
+      @lib.Instruction::v128_load16x4s(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.V128Load16x4U(memarg) =>
+      @lib.Instruction::v128_load16x4u(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.V128Load32x2S(memarg) =>
+      @lib.Instruction::v128_load32x2s(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.V128Load32x2U(memarg) =>
+      @lib.Instruction::v128_load32x2u(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.V128Load8Splat(memarg) =>
+      @lib.Instruction::v128_load8_splat(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.V128Load16Splat(memarg) =>
+      @lib.Instruction::v128_load16_splat(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.V128Load32Splat(memarg) =>
+      @lib.Instruction::v128_load32_splat(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.V128Load64Splat(memarg) =>
+      @lib.Instruction::v128_load64_splat(
+        rume_rewrite_memarg(memarg, mem_remap),
+      )
+    @lib.V128Store(memarg) =>
+      @lib.Instruction::v128_store(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.V128Load8Lane(memarg, lane_idx) =>
+      @lib.Instruction::v128_load8_lane(
+        rume_rewrite_memarg(memarg, mem_remap),
+        lane_idx,
+      )
+    @lib.V128Load16Lane(memarg, lane_idx) =>
+      @lib.Instruction::v128_load16_lane(
+        rume_rewrite_memarg(memarg, mem_remap),
+        lane_idx,
+      )
+    @lib.V128Load32Lane(memarg, lane_idx) =>
+      @lib.Instruction::v128_load32_lane(
+        rume_rewrite_memarg(memarg, mem_remap),
+        lane_idx,
+      )
+    @lib.V128Load64Lane(memarg, lane_idx) =>
+      @lib.Instruction::v128_load64_lane(
+        rume_rewrite_memarg(memarg, mem_remap),
+        lane_idx,
+      )
+    @lib.V128Store8Lane(memarg, lane_idx) =>
+      @lib.Instruction::v128_store8_lane(
+        rume_rewrite_memarg(memarg, mem_remap),
+        lane_idx,
+      )
+    @lib.V128Store16Lane(memarg, lane_idx) =>
+      @lib.Instruction::v128_store16_lane(
+        rume_rewrite_memarg(memarg, mem_remap),
+        lane_idx,
+      )
+    @lib.V128Store32Lane(memarg, lane_idx) =>
+      @lib.Instruction::v128_store32_lane(
+        rume_rewrite_memarg(memarg, mem_remap),
+        lane_idx,
+      )
+    @lib.V128Store64Lane(memarg, lane_idx) =>
+      @lib.Instruction::v128_store64_lane(
+        rume_rewrite_memarg(memarg, mem_remap),
+        lane_idx,
+      )
+    @lib.V128Load32Zero(memarg) =>
+      @lib.Instruction::v128_load32_zero(rume_rewrite_memarg(memarg, mem_remap))
+    @lib.V128Load64Zero(memarg) =>
+      @lib.Instruction::v128_load64_zero(rume_rewrite_memarg(memarg, mem_remap))
     _ => instr
   }
 }
