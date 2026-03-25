@@ -92,3 +92,42 @@ test "once-reduction collapses trivial once bodies after call optimization" {
     @lib.Instruction::nop(),
   ])
 }
+
+///|
+test "once-reduction tracks multiple independent once globals" {
+  let input =
+    #| (module
+    #|   (global $g0 (mut i32) (i32.const 0))
+    #|   (global $g1 (mut i32) (i32.const 0))
+    #|   (func $once0
+    #|     global.get $g0
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g0)
+    #|   (func $once1
+    #|     global.get $g1
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g1)
+    #|   (func (export "run")
+    #|     call $once0
+    #|     call $once1
+    #|     call $once0
+    #|     call $once1))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["once-reduction"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected multi-once reduction success, got \{err}")
+  }
+
+  assert_eq(try! or_test_defined_func_instrs(optimized, 2), [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::nop(),
+  ])
+}

@@ -64,17 +64,6 @@ Observed unique-pass order
    - Keep `moon test src/passes` and `moon test src/cmd` green while replaying the compare harness.
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-module-elements` and any required ordered-prefix replay.
 
-#### OR - Once Reduction
-1. Remaining follow-up.
-   - [OR]003 - Optimize-Pipeline Parity and Runtime Signoff - The direct module pass, registry wiring, preset scheduling, and focused once regressions are landed; the remaining work is replaying the debug-artifact compare flow and proving the optimize pipeline stays inside the runtime budget.
-     - Deliverables: replay `once-reduction` and `optimize` on `tests/node/dist/starshine-debug-wasi.wasm`; keep canonical compare parity green; confirm the optimize pipeline reaches at least 50% of Binaryen wall time or leave the gap as an explicit blocker.
-     - Doc: [0066#L158](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L158)
-2. Do work.
-   - Keep the landed once rewrite stable while expanding parity evidence; do not broaden supported once shapes without documenting the new eligibility contract first.
-3. Test against binaryen.
-   - Keep `moon test src/passes` and `moon test src/cmd` green while replaying compare coverage.
-   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --once-reduction` and `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --optimize`.
-
 #### GR - Global Refining
 1. Research exact functionality in document.
    - Research exactly how it works with a document: [0066#L163](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L163)

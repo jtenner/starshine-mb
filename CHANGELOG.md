@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 Optimize: tighten once-reduction state tracking
+
+- **Once-reduction sparse-state follow-up** by **@jtenner**. Updated [`src/passes/once_reduction.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/once_reduction.mbt), [`src/passes/once_reduction_test.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/once_reduction_test.mbt), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so `once-reduction` now tracks only active once-global candidates, skips fixed-point and rewrite work for irrelevant functions, adds a regression for multiple independent once globals, and clears the pass from the active backlog after canonical compare parity and pass-time validation on the MoonBit debug artifact.
+
 ## 2026-03-25 Docs: require permission before full self-optimize runs
 
 - **Agent guidance for self-optimize execution** by **@jtenner**. Updated [`AGENTS.md`](/home/jtenner/Projects/starshine-mb/AGENTS.md) so running the full self-optimize pipeline, including optimize-pipeline parity/signoff compares, now requires asking the user for permission first.

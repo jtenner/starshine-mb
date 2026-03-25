@@ -90,12 +90,25 @@ fn or_bool_array_intersection(
 }
 
 ///|
-fn or_initial_func_set(total_globals : Int, once_global : Int) -> Array[Bool] {
-  let globals = Array::make(total_globals, false)
-  if once_global >= 0 && once_global < total_globals {
-    globals[once_global] = true
+fn or_initial_func_set(
+  total_once_globals : Int,
+  once_global_slot : Int,
+) -> Array[Bool] {
+  let globals = Array::make(total_once_globals, false)
+  if once_global_slot >= 0 && once_global_slot < total_once_globals {
+    globals[once_global_slot] = true
   }
   globals
+}
+
+///|
+fn or_slot_for_abs_idx(slots : Array[Int], abs_idx : UInt) -> Int {
+  let slot = abs_idx.reinterpret_as_int()
+  if slot < 0 || slot >= slots.length() {
+    -1
+  } else {
+    slots[slot]
+  }
 }
 
 ///|
@@ -171,49 +184,64 @@ fn or_find_once_global(
 fn or_scan_instrs(
   instrs : Array[@lib.Instruction],
   read_counts : Array[Int],
-  once_globals : Array[Bool],
-) -> Unit {
+  once_global_slots : Array[Int],
+) -> Bool {
+  let mut needs_dataflow = false
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
       @lib.GlobalGet(@lib.GlobalIdx(global_idx)) => {
-        let slot = global_idx.reinterpret_as_int()
-        if slot < read_counts.length() {
+        let slot = or_slot_for_abs_idx(once_global_slots, global_idx)
+        if slot >= 0 && slot < read_counts.length() {
           read_counts[slot] += 1
         }
       }
       @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
-        let slot = global_idx.reinterpret_as_int()
-        if slot < once_globals.length() &&
-          once_globals[slot] &&
+        let slot = or_slot_for_abs_idx(once_global_slots, global_idx)
+        if slot >= 0 &&
+          slot < once_global_slots.length() &&
           !or_prev_nonzero_integer_const(instrs, idx) {
-          once_globals[slot] = false
+          once_global_slots[global_idx.reinterpret_as_int()] = -1
+        }
+        if slot >= 0 {
+          needs_dataflow = true
         }
       }
       @lib.Block(_, @lib.Expr(body)) =>
-        or_scan_instrs(body, read_counts, once_globals)
+        needs_dataflow = or_scan_instrs(body, read_counts, once_global_slots) ||
+          needs_dataflow
       @lib.Loop(_, @lib.Expr(body)) =>
-        or_scan_instrs(body, read_counts, once_globals)
+        needs_dataflow = or_scan_instrs(body, read_counts, once_global_slots) ||
+          needs_dataflow
       @lib.If(_, then_body, else_body) => {
-        or_scan_instrs(then_body, read_counts, once_globals)
+        needs_dataflow = or_scan_instrs(
+            then_body, read_counts, once_global_slots,
+          ) ||
+          needs_dataflow
         match else_body {
           Some(else_body) =>
-            or_scan_instrs(else_body, read_counts, once_globals)
+            needs_dataflow = or_scan_instrs(
+                else_body, read_counts, once_global_slots,
+              ) ||
+              needs_dataflow
           None => ()
         }
       }
       @lib.TryTable(_, _, @lib.Expr(body)) =>
-        or_scan_instrs(body, read_counts, once_globals)
+        needs_dataflow = or_scan_instrs(body, read_counts, once_global_slots) ||
+          needs_dataflow
+      @lib.Call(_) | @lib.ReturnCall(_) => needs_dataflow = true
       _ => ()
     }
   }
+  needs_dataflow
 }
 
 ///|
 fn or_analyze_instrs(
   instrs : Array[@lib.Instruction],
   incoming : Array[Bool],
-  once_globals : Array[Bool],
-  once_func_globals : Array[Int],
+  once_global_slots : Array[Int],
+  once_func_slots : Array[Int],
   func_once_sets : Array[Array[Bool]],
 ) -> Array[Bool] {
   let current = or_bool_array_copy(incoming)
@@ -221,18 +249,18 @@ fn or_analyze_instrs(
     match instrs[idx] {
       @lib.Block(_, @lib.Expr(body)) => {
         let next = or_analyze_instrs(
-          body, current, once_globals, once_func_globals, func_once_sets,
+          body, current, once_global_slots, once_func_slots, func_once_sets,
         )
         or_bool_array_union_into(current, next)
       }
       @lib.If(_, then_body, else_body) => {
         let then_set = or_analyze_instrs(
-          then_body, current, once_globals, once_func_globals, func_once_sets,
+          then_body, current, once_global_slots, once_func_slots, func_once_sets,
         )
         let else_set = match else_body {
           Some(else_body) =>
             or_analyze_instrs(
-              else_body, current, once_globals, once_func_globals, func_once_sets,
+              else_body, current, once_global_slots, once_func_slots, func_once_sets,
             )
           None => current
         }
@@ -244,18 +272,16 @@ fn or_analyze_instrs(
       @lib.Loop(_, _) => ()
       @lib.TryTable(_, _, _) => ()
       @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
-        let slot = global_idx.reinterpret_as_int()
-        if slot < once_globals.length() &&
-          once_globals[slot] &&
-          or_prev_nonzero_integer_const(instrs, idx) {
+        let slot = or_slot_for_abs_idx(once_global_slots, global_idx)
+        if slot >= 0 && or_prev_nonzero_integer_const(instrs, idx) {
           current[slot] = true
         }
       }
       @lib.Call(@lib.FuncIdx(func_idx))
       | @lib.ReturnCall(@lib.FuncIdx(func_idx)) => {
         let func_slot = func_idx.reinterpret_as_int()
-        if func_slot < once_func_globals.length() {
-          let once_global = once_func_globals[func_slot]
+        if func_slot < once_func_slots.length() {
+          let once_global = once_func_slots[func_slot]
           if once_global >= 0 {
             current[once_global] = true
           }
@@ -274,8 +300,8 @@ fn or_analyze_instrs(
 fn or_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   incoming : Array[Bool],
-  once_globals : Array[Bool],
-  once_func_globals : Array[Int],
+  once_global_slots : Array[Int],
+  once_func_slots : Array[Int],
   func_once_sets : Array[Array[Bool]],
 ) -> Array[Bool] {
   let current = or_bool_array_copy(incoming)
@@ -283,19 +309,19 @@ fn or_rewrite_instrs(
     match instrs[idx] {
       @lib.Block(block_type, @lib.Expr(body)) => {
         let next = or_rewrite_instrs(
-          body, current, once_globals, once_func_globals, func_once_sets,
+          body, current, once_global_slots, once_func_slots, func_once_sets,
         )
         instrs[idx] = @lib.Instruction::block(block_type, @lib.Expr::new(body))
         or_bool_array_union_into(current, next)
       }
       @lib.If(block_type, then_body, else_body) => {
         let then_set = or_rewrite_instrs(
-          then_body, current, once_globals, once_func_globals, func_once_sets,
+          then_body, current, once_global_slots, once_func_slots, func_once_sets,
         )
         let else_set = match else_body {
           Some(else_body) =>
             or_rewrite_instrs(
-              else_body, current, once_globals, once_func_globals, func_once_sets,
+              else_body, current, once_global_slots, once_func_slots, func_once_sets,
             )
           None => current
         }
@@ -308,7 +334,7 @@ fn or_rewrite_instrs(
       @lib.Loop(block_type, @lib.Expr(body)) => {
         ignore(
           or_rewrite_instrs(
-            body, current, once_globals, once_func_globals, func_once_sets,
+            body, current, once_global_slots, once_func_slots, func_once_sets,
           ),
         )
         instrs[idx] = @lib.Instruction::loop_(block_type, @lib.Expr::new(body))
@@ -316,7 +342,7 @@ fn or_rewrite_instrs(
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         ignore(
           or_rewrite_instrs(
-            body, current, once_globals, once_func_globals, func_once_sets,
+            body, current, once_global_slots, once_func_slots, func_once_sets,
           ),
         )
         instrs[idx] = @lib.Instruction::try_table(
@@ -326,10 +352,8 @@ fn or_rewrite_instrs(
         )
       }
       @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
-        let slot = global_idx.reinterpret_as_int()
-        if slot < once_globals.length() &&
-          once_globals[slot] &&
-          or_prev_nonzero_integer_const(instrs, idx) {
+        let slot = or_slot_for_abs_idx(once_global_slots, global_idx)
+        if slot >= 0 && or_prev_nonzero_integer_const(instrs, idx) {
           if current[slot] {
             instrs[idx - 1] = @lib.Instruction::nop()
             instrs[idx] = @lib.Instruction::nop()
@@ -339,8 +363,8 @@ fn or_rewrite_instrs(
       }
       @lib.Call(@lib.FuncIdx(func_idx)) => {
         let func_slot = func_idx.reinterpret_as_int()
-        if func_slot < once_func_globals.length() {
-          let once_global = once_func_globals[func_slot]
+        if func_slot < once_func_slots.length() {
+          let once_global = once_func_slots[func_slot]
           if once_global >= 0 {
             if current[once_global] {
               instrs[idx] = @lib.Instruction::nop()
@@ -355,8 +379,8 @@ fn or_rewrite_instrs(
       }
       @lib.ReturnCall(@lib.FuncIdx(func_idx)) => {
         let func_slot = func_idx.reinterpret_as_int()
-        if func_slot < once_func_globals.length() {
-          let once_global = once_func_globals[func_slot]
+        if func_slot < once_func_slots.length() {
+          let once_global = once_func_slots[func_slot]
           if once_global >= 0 {
             current[once_global] = true
           }
@@ -432,23 +456,20 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let total_funcs = env.funcs.length()
   let imported_global_count = or_imported_global_count(mod_)
   let imported_func_count = or_imported_func_count(mod_)
-
-  let once_globals = Array::make(total_globals, false)
-  for global_idx = imported_global_count
-      global_idx < total_globals
-      global_idx = global_idx + 1 {
-    once_globals[global_idx] = or_global_type_is_integer(
-      env.globals[global_idx],
-    )
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
   }
+
+  let exported_globals = Array::make(total_globals, false)
   match mod_.export_sec {
     Some(@lib.ExportSec(exports)) =>
       for export_ in exports {
         match export_ {
           @lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(global_idx))) => {
             let slot = global_idx.reinterpret_as_int()
-            if slot < once_globals.length() {
-              once_globals[slot] = false
+            if slot < exported_globals.length() {
+              exported_globals[slot] = true
             }
           }
           _ => ()
@@ -456,44 +477,73 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       }
     None => ()
   }
+  let candidate_global_slots = Array::make(total_globals, -1)
+  let mut candidate_global_count = 0
+  for global_idx = imported_global_count
+      global_idx < total_globals
+      global_idx = global_idx + 1 {
+    if !exported_globals[global_idx] &&
+      or_global_type_is_integer(env.globals[global_idx]) {
+      candidate_global_slots[global_idx] = candidate_global_count
+      candidate_global_count += 1
+    }
+  }
+  if candidate_global_count == 0 {
+    return mod_
+  }
 
   let once_func_globals = Array::make(total_funcs, -1)
-  let read_counts = Array::make(total_globals, 0)
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return mod_
-  }
+  let func_needs_dataflow = Array::make(funcs.length(), false)
+  let read_counts = Array::make(candidate_global_count, 0)
   for defined_idx = 0
       defined_idx < funcs.length()
       defined_idx = defined_idx + 1 {
     let abs_idx = imported_func_count + defined_idx
     let once_global = or_find_once_global(env, abs_idx, funcs[defined_idx])
-    if once_global >= 0 {
+    if once_global >= 0 &&
+      once_global < candidate_global_slots.length() &&
+      candidate_global_slots[once_global] >= 0 {
       once_func_globals[abs_idx] = once_global
     }
     let @lib.Func(_, @lib.Expr(instrs)) = funcs[defined_idx]
-    or_scan_instrs(instrs, read_counts, once_globals)
-    if once_global >= 0 && once_global < read_counts.length() {
-      read_counts[once_global] -= 1
+    func_needs_dataflow[defined_idx] = or_scan_instrs(
+      instrs, read_counts, candidate_global_slots,
+    )
+    if once_global >= 0 && once_global < candidate_global_slots.length() {
+      let once_slot = candidate_global_slots[once_global]
+      if once_slot >= 0 && once_slot < read_counts.length() {
+        read_counts[once_slot] -= 1
+      }
     }
   }
-  for global_idx = 0
-      global_idx < read_counts.length()
-      global_idx = global_idx + 1 {
-    if read_counts[global_idx] > 0 {
-      once_globals[global_idx] = false
+
+  let active_global_slots = Array::make(total_globals, -1)
+  let mut active_global_count = 0
+  for global_idx = 0; global_idx < total_globals; global_idx = global_idx + 1 {
+    let candidate_slot = candidate_global_slots[global_idx]
+    if candidate_slot >= 0 &&
+      read_counts[candidate_slot] <= 0 &&
+      candidate_global_slots[global_idx] >= 0 {
+      active_global_slots[global_idx] = active_global_count
+      active_global_count += 1
     }
   }
+  if active_global_count == 0 {
+    return mod_
+  }
+
+  let once_func_slots = Array::make(total_funcs, -1)
   let mut found_once = false
   for func_idx = 0
       func_idx < once_func_globals.length()
       func_idx = func_idx + 1 {
     let once_global = once_func_globals[func_idx]
-    if once_global >= 0 && !once_globals[once_global] {
-      once_func_globals[func_idx] = -1
-    }
-    if once_func_globals[func_idx] >= 0 {
-      found_once = true
+    if once_global >= 0 && once_global < active_global_slots.length() {
+      let once_slot = active_global_slots[once_global]
+      if once_slot >= 0 {
+        once_func_slots[func_idx] = once_slot
+        found_once = true
+      }
     }
   }
   if !found_once {
@@ -503,7 +553,7 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let func_once_sets : Array[Array[Bool]] = []
   for func_idx = 0; func_idx < total_funcs; func_idx = func_idx + 1 {
     func_once_sets.push(
-      or_initial_func_set(total_globals, once_func_globals[func_idx]),
+      or_initial_func_set(active_global_count, once_func_slots[func_idx]),
     )
   }
   let mut changed_sets = true
@@ -512,13 +562,16 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     for defined_idx = 0
         defined_idx < funcs.length()
         defined_idx = defined_idx + 1 {
+      if !func_needs_dataflow[defined_idx] {
+        continue
+      }
       let abs_idx = imported_func_count + defined_idx
       let @lib.Func(_, @lib.Expr(instrs)) = funcs[defined_idx]
       let next = or_analyze_instrs(
         instrs,
-        or_initial_func_set(total_globals, once_func_globals[abs_idx]),
-        once_globals,
-        once_func_globals,
+        or_initial_func_set(active_global_count, once_func_slots[abs_idx]),
+        active_global_slots,
+        once_func_slots,
         func_once_sets,
       )
       if !or_bool_array_equal(next, func_once_sets[abs_idx]) {
@@ -534,6 +587,10 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       defined_idx < funcs.length()
       defined_idx = defined_idx + 1 {
     let abs_idx = imported_func_count + defined_idx
+    if !func_needs_dataflow[defined_idx] {
+      rewritten_funcs.push(funcs[defined_idx])
+      continue
+    }
     let @lib.Func(locals, @lib.Expr(instrs)) = funcs[defined_idx]
     let next_instrs : Array[@lib.Instruction] = []
     for instr in instrs {
@@ -542,9 +599,9 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     ignore(
       or_rewrite_instrs(
         next_instrs,
-        or_initial_func_set(total_globals, once_func_globals[abs_idx]),
-        once_globals,
-        once_func_globals,
+        or_initial_func_set(active_global_count, once_func_slots[abs_idx]),
+        active_global_slots,
+        once_func_slots,
         func_once_sets,
       ),
     )
