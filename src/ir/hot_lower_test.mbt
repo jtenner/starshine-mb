@@ -206,6 +206,69 @@ fn hot_lower_test_plain_triple_result_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lower_test_triple_to_pair_module() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([], [
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+        ]),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([], [@lib.ValType::i32(), @lib.ValType::i32()]),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func(
+          [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+          [@lib.ValType::i32(), @lib.ValType::i32()],
+        ),
+      ),
+    ),
+  ])
+  let import_sec = @lib.ImportSec::new([
+    @lib.Import::new(
+      @lib.Name::from_string("env"),
+      @lib.Name::from_string("finish"),
+      @lib.ExternType::func(@lib.TypeIdx::new(2U)),
+    ),
+  ])
+  @lib.Module::new().with_type_sec(type_sec).with_import_sec(import_sec)
+}
+
+///|
+fn hot_lower_test_loop_bridge_module() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func(
+          [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+          [@lib.ValType::i32(), @lib.ValType::i32()],
+        ),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([], [@lib.ValType::i32(), @lib.ValType::i32()]),
+      ),
+    ),
+  ])
+  let import_sec = @lib.ImportSec::new([
+    @lib.Import::new(
+      @lib.Name::from_string("env"),
+      @lib.Name::from_string("finish"),
+      @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+    ),
+  ])
+  @lib.Module::new().with_type_sec(type_sec).with_import_sec(import_sec)
+}
+
+///|
 fn hot_lower_test_triple_chain_module() -> @lib.Module {
   let type_sec = @lib.TypeSec::new([
     @lib.RecType::new(
@@ -732,10 +795,200 @@ test "hot lower preserves triple-result local.set chains after removing leading 
 }
 
 ///|
-test "hot lower drops dead non-final multi-result roots after mutation" {
-  let hot = HotFunc::new(
-    locals=HotLocals::new(locals=[@lib.ValType::i32()]),
+test "hot lower preserves branchy triple-result bridges after removing leading nop from then region" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::if_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+      [
+        @lib.Instruction::nop(),
+        @lib.Instruction::block(
+          @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [
+                    @lib.Instruction::i32_const(@lib.I32(10)),
+                    @lib.Instruction::i32_const(@lib.I32(20)),
+                    @lib.Instruction::i32_const(@lib.I32(30)),
+                    @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                  ],
+                  None,
+                ),
+                @lib.Instruction::i32_const(@lib.I32(40)),
+                @lib.Instruction::i32_const(@lib.I32(50)),
+                @lib.Instruction::i32_const(@lib.I32(60)),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ]),
+            ),
+          ]),
+        ),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      ],
+      Some([
+        @lib.Instruction::i32_const(@lib.I32(99)),
+        @lib.Instruction::i32_const(@lib.I32(100)),
+      ]),
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+    hot_module_context_from_module(hot_lower_test_triple_to_pair_module()),
+    body_result_type=@lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
   )
+  let if_id = hot_root_get(hot, 0)
+  let then_region = hot_region_then_ref(hot, if_id)
+  let removed = hot_region_remove(hot, then_region, 0, 1)
+  for node_id in removed {
+    hot_delete_node(hot, node_id)
+  }
+  let lowered = hot_lower_func(hot)
+  let @lib.Func(locals, body) = lowered
+
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  assert_eq(
+    body,
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+        [
+          @lib.Instruction::block(
+            @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+            @lib.Expr::new([
+              @lib.Instruction::block(
+                @lib.BlockType::void_(),
+                @lib.Expr::new([
+                  @lib.Instruction::i32_const(@lib.I32(1)),
+                  @lib.Instruction::if_(
+                    @lib.BlockType::void_(),
+                    [
+                      @lib.Instruction::i32_const(@lib.I32(10)),
+                      @lib.Instruction::i32_const(@lib.I32(20)),
+                      @lib.Instruction::i32_const(@lib.I32(30)),
+                      @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                    ],
+                    None,
+                  ),
+                  @lib.Instruction::i32_const(@lib.I32(40)),
+                  @lib.Instruction::i32_const(@lib.I32(50)),
+                  @lib.Instruction::i32_const(@lib.I32(60)),
+                  @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                ]),
+              ),
+            ]),
+          ),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        ],
+        Some([
+          @lib.Instruction::i32_const(@lib.I32(99)),
+          @lib.Instruction::i32_const(@lib.I32(100)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "hot lower preserves typed loop bridge roots after removing leading nop from loop body" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(10)),
+    @lib.Instruction::i32_const(@lib.I32(20)),
+    @lib.Instruction::i32_const(@lib.I32(30)),
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new([
+        @lib.Instruction::nop(),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      ]),
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+    hot_module_context_from_module(hot_lower_test_loop_bridge_module()),
+    body_result_type=@lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+  )
+  let loop_id = hot_root_get(hot, hot_root_count(hot) - 1)
+  let loop_body = hot_region_body_ref(hot, loop_id)
+  let removed = hot_region_remove(hot, loop_body, 0, 1)
+  for node_id in removed {
+    hot_delete_node(hot, node_id)
+  }
+  let lowered = hot_lower_func(hot)
+  let @lib.Func(locals, body) = lowered
+
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  assert_eq(
+    body,
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(10)),
+      @lib.Instruction::i32_const(@lib.I32(20)),
+      @lib.Instruction::i32_const(@lib.I32(30)),
+      @lib.Instruction::loop_(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        @lib.Expr::new([
+          @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "hot lower drops dead non-final multi-result roots after mutation" {
+  let hot = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   hot_body_result_type_set(hot, hot_type_intern_value(hot, @lib.ValType::i32()))
   let call = hot_build_call(
     hot,
@@ -752,10 +1005,7 @@ test "hot lower drops dead non-final multi-result roots after mutation" {
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, body) = lowered
 
-  assert_eq(
-    locals,
-    @lib.Locals::from_types([@lib.ValType::i32()]),
-  )
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
   assert_eq(
     body,
     @lib.Expr::new([
