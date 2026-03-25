@@ -351,6 +351,7 @@ pub struct FuncAnnotationSec(Array[FuncAnnotationAssoc]) derive(Eq, Hash, Debug)
 pub struct Module {
   custom_secs : Array[CustomSec]
   name_sec : NameSec?
+  raw_name_sec_payload : Bytes?
   type_sec : TypeSec?
   import_sec : ImportSec?
   func_annotation_sec : FuncAnnotationSec?
@@ -387,10 +388,12 @@ pub fn Module::new(
   code_sec? : CodeSec? = None,
   data_sec? : DataSec? = None,
   name_sec? : NameSec? = None,
+  raw_name_sec_payload? : Bytes? = None,
 ) -> Module {
   Module::{
     custom_secs,
     name_sec,
+    raw_name_sec_payload,
     type_sec,
     import_sec,
     func_annotation_sec,

@@ -889,6 +889,20 @@ fn encode_name_sec_as_custom_section(
 }
 
 ///|
+fn encode_raw_name_sec_payload_as_custom_section(
+  payload_bytes : Bytes,
+  buf : @buffer.Buffer,
+) -> Result[Unit, BinaryEncodeError] {
+  write_section(0, buf, fn(payload) {
+    if Encode::encode(Name::new("name"), payload) is Err(err) {
+      return Err(err)
+    }
+    payload.write_bytes(payload_bytes)
+    Ok(())
+  })
+}
+
+///|
 fn binary_encode_flatten_subtypes(type_sec : TypeSec?) -> Array[SubType] {
   let out : Array[SubType] = []
   match type_sec {
@@ -1643,8 +1657,16 @@ pub impl Encode for Module with encode(val, buf) {
   }
   match val.name_sec {
     Some(name_sec) =>
-      if encode_name_sec_as_custom_section(name_sec, buf) is Err(t) {
-        return Err(t)
+      match val.raw_name_sec_payload {
+        Some(payload) =>
+          if encode_raw_name_sec_payload_as_custom_section(payload, buf)
+            is Err(t) {
+            return Err(t)
+          }
+        None =>
+          if encode_name_sec_as_custom_section(name_sec, buf) is Err(t) {
+            return Err(t)
+          }
       }
     None => ()
   }

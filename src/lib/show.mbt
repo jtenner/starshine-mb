@@ -2361,6 +2361,7 @@ pub impl Show for Module with output(self, logger) {
   let {
     custom_secs: customs,
     name_sec,
+    raw_name_sec_payload,
     type_sec,
     import_sec,
     func_annotation_sec,
@@ -2383,6 +2384,9 @@ pub impl Show for Module with output(self, logger) {
   logger.write_char('\n')
   logger.write_string("name_sec: ")
   name_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("raw_name_sec_payload: ")
+  raw_name_sec_payload.output(logger)
   logger.write_char('\n')
   logger.write_string("type_sec: ")
   type_sec.output(logger)

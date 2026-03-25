@@ -1069,6 +1069,7 @@ fn decode_custom_sections_with_detail(
   i : Int,
   out : Array[CustomSec],
   name_out : Array[NameSec],
+  name_payload_out : Array[Bytes],
 ) -> Result[Int, ModuleDecodeErrorDetail] {
   let mut i = i
   while bytes.get(i) == Some(0) {
@@ -1100,6 +1101,7 @@ fn decode_custom_sections_with_detail(
                 )
               }
               name_out.push(name_sec)
+              name_payload_out.push(payload)
             }
             Err(err) =>
               return Err(module_section_decode_error(bytes, section_start, err))
@@ -1140,6 +1142,7 @@ pub fn decode_module_with_detail(
   let mut i = i
   let custom = Array::new()
   let name_secs = Array::new()
+  let name_payloads = Array::new()
   let mut mod = Module::new()
   for b in [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00] {
     if bytes.get(i) != Some(b.to_byte()) {
@@ -1147,7 +1150,10 @@ pub fn decode_module_with_detail(
     }
     i = i + 1
   }
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+  i = match
+    decode_custom_sections_with_detail(
+      bytes, i, custom, name_secs, name_payloads,
+    ) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -1161,7 +1167,10 @@ pub fn decode_module_with_detail(
     mod = mod.with_type_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+  i = match
+    decode_custom_sections_with_detail(
+      bytes, i, custom, name_secs, name_payloads,
+    ) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -1175,7 +1184,10 @@ pub fn decode_module_with_detail(
     mod = mod.with_import_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+  i = match
+    decode_custom_sections_with_detail(
+      bytes, i, custom, name_secs, name_payloads,
+    ) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -1189,7 +1201,10 @@ pub fn decode_module_with_detail(
     mod = mod.with_func_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+  i = match
+    decode_custom_sections_with_detail(
+      bytes, i, custom, name_secs, name_payloads,
+    ) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -1203,7 +1218,10 @@ pub fn decode_module_with_detail(
     mod = mod.with_table_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+  i = match
+    decode_custom_sections_with_detail(
+      bytes, i, custom, name_secs, name_payloads,
+    ) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -1216,7 +1234,10 @@ pub fn decode_module_with_detail(
     mod = mod.with_mem_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+  i = match
+    decode_custom_sections_with_detail(
+      bytes, i, custom, name_secs, name_payloads,
+    ) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -1230,7 +1251,10 @@ pub fn decode_module_with_detail(
     mod = mod.with_tag_sec(sec)
   }
 
-  i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+  i = match
+    decode_custom_sections_with_detail(
+      bytes, i, custom, name_secs, name_payloads,
+    ) {
     Ok(next) => next
     Err(detail) => return Err(detail)
   }
@@ -1253,7 +1277,10 @@ pub fn decode_module_with_detail(
   let tail = with_binary_decode_stringrefs_context(stringrefs_ctx, fn() {
     let mut i = i
     let mut mod = mod
-    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+    i = match
+      decode_custom_sections_with_detail(
+        bytes, i, custom, name_secs, name_payloads,
+      ) {
       Ok(next) => next
       Err(detail) => return Err(detail)
     }
@@ -1267,7 +1294,10 @@ pub fn decode_module_with_detail(
       mod = mod.with_global_sec(sec)
     }
 
-    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+    i = match
+      decode_custom_sections_with_detail(
+        bytes, i, custom, name_secs, name_payloads,
+      ) {
       Ok(next) => next
       Err(detail) => return Err(detail)
     }
@@ -1281,7 +1311,10 @@ pub fn decode_module_with_detail(
       mod = mod.with_export_sec(sec)
     }
 
-    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+    i = match
+      decode_custom_sections_with_detail(
+        bytes, i, custom, name_secs, name_payloads,
+      ) {
       Ok(next) => next
       Err(detail) => return Err(detail)
     }
@@ -1295,7 +1328,10 @@ pub fn decode_module_with_detail(
       mod = mod.with_start_sec(sec)
     }
 
-    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+    i = match
+      decode_custom_sections_with_detail(
+        bytes, i, custom, name_secs, name_payloads,
+      ) {
       Ok(next) => next
       Err(detail) => return Err(detail)
     }
@@ -1309,7 +1345,10 @@ pub fn decode_module_with_detail(
       mod = mod.with_elem_sec(sec)
     }
 
-    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+    i = match
+      decode_custom_sections_with_detail(
+        bytes, i, custom, name_secs, name_payloads,
+      ) {
       Ok(next) => next
       Err(detail) => return Err(detail)
     }
@@ -1323,7 +1362,10 @@ pub fn decode_module_with_detail(
       mod = mod.with_data_cnt_sec(sec)
     }
 
-    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+    i = match
+      decode_custom_sections_with_detail(
+        bytes, i, custom, name_secs, name_payloads,
+      ) {
       Ok(next) => next
       Err(detail) => return Err(detail)
     }
@@ -1337,7 +1379,10 @@ pub fn decode_module_with_detail(
       mod = mod.with_code_sec(sec)
     }
 
-    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+    i = match
+      decode_custom_sections_with_detail(
+        bytes, i, custom, name_secs, name_payloads,
+      ) {
       Ok(next) => next
       Err(detail) => return Err(detail)
     }
@@ -1351,7 +1396,10 @@ pub fn decode_module_with_detail(
       mod = mod.with_data_sec(sec)
     }
 
-    i = match decode_custom_sections_with_detail(bytes, i, custom, name_secs) {
+    i = match
+      decode_custom_sections_with_detail(
+        bytes, i, custom, name_secs, name_payloads,
+      ) {
       Ok(next) => next
       Err(detail) => return Err(detail)
     }
@@ -1368,7 +1416,13 @@ pub fn decode_module_with_detail(
 
   mod = mod.with_custom_secs(custom)
   match name_secs.get(0) {
-    Some(name_sec) => mod = mod.with_name_sec(name_sec)
+    Some(name_sec) => {
+      mod = mod.with_name_sec(name_sec)
+      match name_payloads.get(0) {
+        Some(payload) => mod = mod.with_raw_name_sec_payload(payload)
+        None => ()
+      }
+    }
     None => ()
   }
   if i == bytes.length() {

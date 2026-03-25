@@ -8,12 +8,20 @@ pub fn Module::with_custom_secs(
 
 ///|
 pub fn Module::with_name_sec(self : Module, name_sec : NameSec) -> Module {
-  Module::{ ..self, name_sec: Some(name_sec) }
+  Module::{ ..self, name_sec: Some(name_sec), raw_name_sec_payload: None }
 }
 
 ///|
 pub fn Module::without_name_sec(self : Module) -> Module {
-  Module::{ ..self, name_sec: None }
+  Module::{ ..self, name_sec: None, raw_name_sec_payload: None }
+}
+
+///|
+pub fn Module::with_raw_name_sec_payload(
+  self : Module,
+  payload : Bytes,
+) -> Module {
+  Module::{ ..self, raw_name_sec_payload: Some(payload) }
 }
 
 ///|

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 Binary: reuse decoded raw name payloads
+
+- **Raw name-section encode reuse** by **@jtenner**. Updated [`src/binary/decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt), [`src/binary/encode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/encode.mbt), [`src/binary/tests.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/tests.mbt), [`src/lib/types.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/types.mbt), [`src/lib/module.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/module.mbt), [`src/lib/module_tests.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/module_tests.mbt), [`src/lib/arbitrary.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/arbitrary.mbt), and [`src/lib/show.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/show.mbt) so decoded modules can carry the raw `name` custom-section payload through no-op paths and reuse those bytes on encode when the structured name data was not mutated, preserving byte-for-byte roundtrips through new coverage and cutting the native `--remove-unused-module-elements` CLI path on the large debug artifact from about `4.65 s` to about `3.60 s`.
+
 ## 2026-03-25 CLI: make post-encode validation debug-only
 
 - **CLI post-encode validation gating** by **@jtenner**. Updated [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd_test.mbt) so the CLI now only performs the expensive `encode -> decode -> validate` round-trip in `--debug-serial-passes` mode instead of on every normal output write, keeps explicit coverage for both normal and debug behavior, and cuts real native `--remove-unused-module-elements` command time on the MoonBit debug artifact from the old ~7 second range down to about `4.67 s` while debug mode remains around `7.59 s` for diagnosis.

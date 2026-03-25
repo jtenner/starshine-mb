@@ -1899,6 +1899,66 @@ test "encode_module emits structured name section after standard sections and de
   assert_eq(decoded, mod)
   assert_eq(decoded.custom_secs.length(), 0)
   assert_eq(decoded.name_sec, mod.name_sec)
+  assert_true(decoded.raw_name_sec_payload is Some(_))
+}
+
+///|
+test "encode_module reuses raw decoded name-section payload bytes" {
+  let module_name = Name::new("fixture")
+  let func_names = NameMap::new([NameAssoc::new(0U, Name::new("id"))])
+  let module_name_payload = @buffer.new()
+  match Encode::encode(module_name, module_name_payload) {
+    Ok(_) => ()
+    Err(e) => fail("expected module name payload encode success, got \{e}")
+  }
+  let func_name_payload = @buffer.new()
+  match Encode::encode(func_names, func_name_payload) {
+    Ok(_) => ()
+    Err(e) => fail("expected func name payload encode success, got \{e}")
+  }
+  let name_payload = @buffer.new()
+  name_payload.write_byte(0)
+  match
+    Encode::encode(
+      @lib.U32(module_name_payload.to_bytes().length().reinterpret_as_uint()),
+      name_payload,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected module name subsection size encode success, got \{e}")
+  }
+  name_payload.write_bytes(module_name_payload.to_bytes())
+  name_payload.write_byte(1)
+  match
+    Encode::encode(
+      @lib.U32(func_name_payload.to_bytes().length().reinterpret_as_uint()),
+      name_payload,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected func name subsection size encode success, got \{e}")
+  }
+  name_payload.write_bytes(func_name_payload.to_bytes())
+  let custom_buf = @buffer.new()
+  match
+    Encode::encode(
+      CustomSec::new(Name::new("name"), name_payload.to_bytes()),
+      custom_buf,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail("expected custom section encode success, got \{e}")
+  }
+  let wasm = b"\x00\x61\x73\x6D\x01\x00\x00\x00" + custom_buf.to_bytes()
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected decode success, got \{e}")
+  }
+  assert_eq(decoded.raw_name_sec_payload, Some(name_payload.to_bytes()))
+  let reencoded = match encode_module(decoded) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected re-encode success, got \{e}")
+  }
+  assert_eq(reencoded, wasm)
 }
 
 ///|
