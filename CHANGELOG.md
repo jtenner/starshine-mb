@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 Tooling: compile before self-optimize compare runs
+
+- **Self-optimize compare fresh-build enforcement** by **@jtenner**. Updated [`scripts/lib/self-optimize-compare-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/self-optimize-compare-task.ts), [`scripts/test/self-optimize-compare-command.ts`](/home/jtenner/Projects/starshine-mb/scripts/test/self-optimize-compare-command.ts), and [`scripts/test/self-optimize-compare-invalid-input.ts`](/home/jtenner/Projects/starshine-mb/scripts/test/self-optimize-compare-invalid-input.ts) so the compare harness now rebuilds the native release CLI before every run, proving the compile happens before validation and command dispatch in both the happy-path and invalid-input command tests.
+
 ## 2026-03-25 Binary: stop copying custom and name decode payload slices
 
 - **Binary decode payload-slice churn cleanup** by **@jtenner**. Updated [`src/binary/decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt) so custom-section decoding now parses section headers directly from the source bytes and name-section decoding validates subsection payloads against source byte ranges instead of materializing intermediate payload copies, preserving existing decode behavior while cutting native `--remove-unused-module-elements` CLI time on the large debug artifact from about `2.39 s` to about `2.17 s`.

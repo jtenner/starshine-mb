@@ -32,9 +32,19 @@ export function runSelfOptimizeCompareInvalidInputTest(): void {
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-self-opt-compare-invalid-"));
   const inputPath = path.join(tmpdir, "input.wasm");
   const outDir = path.join(tmpdir, "out");
+  const moonLog = path.join(tmpdir, "moon.log");
   const starshineLog = path.join(tmpdir, "starshine.log");
   const binaryenLog = path.join(tmpdir, "binaryen.log");
   fs.writeFileSync(inputPath, "not-wasm");
+
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `
+const fs = require("node:fs");
+fs.writeFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(process.argv.slice(2), null, 2));
+process.exit(0);
+`,
+  );
 
   const fakeStarshine = makeExecutable(
     path.join(tmpdir, "fake-starshine"),
@@ -69,6 +79,8 @@ process.exit(1);
       inputPath,
       "--out-dir",
       outDir,
+      "--moon",
+      fakeMoon,
       "--starshine-bin",
       fakeStarshine,
       "--wasm-opt-bin",
@@ -81,6 +93,7 @@ process.exit(1);
       cwd: repoRoot,
       env: {
         ...process.env,
+        FAKE_MOON_LOG: moonLog,
         FAKE_STARSHINE_LOG: starshineLog,
         FAKE_BINARYEN_LOG: binaryenLog,
       },
@@ -100,6 +113,7 @@ process.exit(1);
     result.stderr.includes("validation failed: bad baseline"),
     `expected wasm-tools validation details, got:\n${result.stderr}`,
   );
+  assert(fs.existsSync(moonLog), "expected compare harness to compile before validation");
   assert(!fs.existsSync(starshineLog), "expected Starshine not to run on invalid input");
   assert(!fs.existsSync(binaryenLog), "expected Binaryen not to run on invalid input");
 }

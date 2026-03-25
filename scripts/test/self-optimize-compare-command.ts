@@ -32,10 +32,22 @@ export function runSelfOptimizeCompareCommandTest(): void {
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-self-opt-compare-"));
   const inputPath = path.join(tmpdir, "input.wasm");
   const outDir = path.join(tmpdir, "out");
+  const moonLog = path.join(tmpdir, "moon.log");
   const starshineLog = path.join(tmpdir, "starshine.log");
   const binaryenLog = path.join(tmpdir, "binaryen.log");
   const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
+  const orderLog = path.join(tmpdir, "order.log");
   fs.writeFileSync(inputPath, "input");
+
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `
+const fs = require("node:fs");
+fs.writeFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(process.argv.slice(2), null, 2));
+fs.appendFileSync(process.env.FAKE_ORDER_LOG, "moon\\n");
+process.exit(0);
+`,
+  );
 
   const fakeStarshine = makeExecutable(
     path.join(tmpdir, "fake-starshine"),
@@ -47,6 +59,7 @@ const start = Date.now();
 while (Date.now() - start < 40) {}
 process.stderr.write("[trace] input fixture:opt perf:timer name=pass:duplicate-function-elimination elapsed_us=40000 total_us=40000\\n");
 fs.writeFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args, null, 2));
+fs.appendFileSync(process.env.FAKE_ORDER_LOG, "starshine\\n");
 const outIndex = args.indexOf("--out");
 if (outIndex === -1 || outIndex + 1 >= args.length) {
   process.stderr.write("missing --out\\n");
@@ -109,6 +122,8 @@ process.exit(0);
       inputPath,
       "--out-dir",
       outDir,
+      "--moon",
+      fakeMoon,
       "--starshine-bin",
       fakeStarshine,
       "--wasm-opt-bin",
@@ -122,9 +137,11 @@ process.exit(0);
       cwd: repoRoot,
       env: {
         ...process.env,
+        FAKE_MOON_LOG: moonLog,
         FAKE_STARSHINE_LOG: starshineLog,
         FAKE_BINARYEN_LOG: binaryenLog,
         FAKE_WASM_TOOLS_LOG: wasmToolsLog,
+        FAKE_ORDER_LOG: orderLog,
       },
       encoding: "utf8",
     },
@@ -136,8 +153,23 @@ process.exit(0);
     fail(`self-optimize-compare failed:\n${result.stderr}`);
   }
 
+  const moonArgs = JSON.parse(fs.readFileSync(moonLog, "utf8")) as string[];
   const starshineArgs = JSON.parse(fs.readFileSync(starshineLog, "utf8")) as string[];
   const wasmToolsArgs = JSON.parse(fs.readFileSync(wasmToolsLog, "utf8")) as string[];
+  const order = fs.readFileSync(orderLog, "utf8").trim().split("\n").filter(Boolean);
+  assert(
+    JSON.stringify(moonArgs) === JSON.stringify([
+      "build",
+      "--target",
+      "native",
+      "--release",
+      "--package",
+      "jtenner/starshine/cmd",
+    ]),
+    `unexpected moon compile args:\n${JSON.stringify(moonArgs, null, 2)}`,
+  );
+  assert(order[0] === "moon", `expected compile to run first, got order ${JSON.stringify(order)}`);
+  assert(order.includes("starshine"), `expected Starshine invocation in order log ${JSON.stringify(order)}`);
   assert(
     JSON.stringify(wasmToolsArgs) === JSON.stringify(["validate", inputPath]),
     `unexpected wasm-tools args:\n${JSON.stringify(wasmToolsArgs, null, 2)}`,

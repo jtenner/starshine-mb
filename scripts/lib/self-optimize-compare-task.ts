@@ -99,6 +99,14 @@ function resolveStarshineInvocation(
   };
 }
 
+function compileStarshineBeforeCompare(repoRoot: string, moonBin: string): void {
+  runOrThrow(
+    moonBin,
+    ["build", "--target", "native", "--release", "--package", "jtenner/starshine/cmd"],
+    { cwd: repoRoot, stdio: "pipe" },
+  );
+}
+
 function normalizePrintWat(wasmOptBin: string, wasmPath: string, repoRoot: string): string {
   // Run wasm-opt in text mode and read the canonicalized WAT from disk so
   // very large modules do not overflow spawnSync stdout buffers.
@@ -258,6 +266,8 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   const binaryenWatPath = path.join(outDir, "binaryen.print.wat");
   const summaryPath = path.join(outDir, "result.json");
   const commandsPath = path.join(outDir, "commands.txt");
+
+  compileStarshineBeforeCompare(repoRoot, options.moonBin);
 
   if (!fs.existsSync(inputPath)) {
     fail(`input file not found: ${inputPath}`);
