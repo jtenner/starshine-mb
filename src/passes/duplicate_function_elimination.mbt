@@ -272,6 +272,36 @@ fn dfe_field_type_uses_remap(
 }
 
 ///|
+fn dfe_field_types_use_remap(
+  field_types : Array[@lib.FieldType],
+  remap : Map[UInt, UInt],
+) -> Bool {
+  let mut idx = 0
+  while idx < field_types.length() {
+    if dfe_field_type_uses_remap(field_types[idx], remap) {
+      return true
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
+fn dfe_val_types_use_remap(
+  val_types : Array[@lib.ValType],
+  remap : Map[UInt, UInt],
+) -> Bool {
+  let mut idx = 0
+  while idx < val_types.length() {
+    if dfe_val_type_uses_remap(val_types[idx], remap) {
+      return true
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
 fn dfe_comp_type_uses_remap(
   comp_type : @lib.CompType,
   remap : Map[UInt, UInt],
@@ -279,14 +309,26 @@ fn dfe_comp_type_uses_remap(
   match comp_type {
     @lib.ArrayCompType(field_type) =>
       dfe_field_type_uses_remap(field_type, remap)
-    @lib.StructCompType(field_types) =>
-      field_types.any(fn(field_type) {
-        dfe_field_type_uses_remap(field_type, remap)
-      })
+    @lib.StructCompType(field_types) => dfe_field_types_use_remap(field_types, remap)
     @lib.FuncCompType(params, results) =>
-      params.any(fn(val_type) { dfe_val_type_uses_remap(val_type, remap) }) ||
-      results.any(fn(val_type) { dfe_val_type_uses_remap(val_type, remap) })
+      dfe_val_types_use_remap(params, remap) ||
+      dfe_val_types_use_remap(results, remap)
   }
+}
+
+///|
+fn dfe_type_idxs_use_remap(
+  type_idxs : Array[@lib.TypeIdx],
+  remap : Map[UInt, UInt],
+) -> Bool {
+  let mut idx = 0
+  while idx < type_idxs.length() {
+    if dfe_type_idx_is_remapped(type_idxs[idx], remap) {
+      return true
+    }
+    idx += 1
+  }
+  false
 }
 
 ///|
@@ -296,7 +338,7 @@ fn dfe_sub_type_uses_remap(
 ) -> Bool {
   match subtype {
     @lib.SubType(_, supers, metadata, comp_type) =>
-      supers.any(fn(idx) { dfe_type_idx_is_remapped(idx, remap) }) ||
+      dfe_type_idxs_use_remap(supers, remap) ||
       dfe_type_metadata_uses_remap(metadata, remap) ||
       dfe_comp_type_uses_remap(comp_type, remap)
     @lib.CompTypeSubType(metadata, comp_type) =>
@@ -306,14 +348,28 @@ fn dfe_sub_type_uses_remap(
 }
 
 ///|
+fn dfe_sub_types_use_remap(
+  subtypes : Array[@lib.SubType],
+  remap : Map[UInt, UInt],
+) -> Bool {
+  let mut idx = 0
+  while idx < subtypes.length() {
+    if dfe_sub_type_uses_remap(subtypes[idx], remap) {
+      return true
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
 fn dfe_rec_type_uses_remap(
   rec_type : @lib.RecType,
   remap : Map[UInt, UInt],
 ) -> Bool {
   match rec_type {
     @lib.SingleRecType(subtype) => dfe_sub_type_uses_remap(subtype, remap)
-    @lib.GroupRecType(subtypes) =>
-      subtypes.any(fn(subtype) { dfe_sub_type_uses_remap(subtype, remap) })
+    @lib.GroupRecType(subtypes) => dfe_sub_types_use_remap(subtypes, remap)
   }
 }
 
@@ -518,14 +574,11 @@ fn dfe_instruction_uses_type_idxs(
       if dfe_block_type_uses_remap(block_type, remap) {
         return true
       }
-      if then_body.any(fn(nested) {
-          dfe_instruction_uses_type_idxs(nested, remap)
-        }) {
+      if dfe_instruction_array_uses_type_idxs(then_body, remap) {
         return true
       }
       match else_body {
-        Some(body) =>
-          body.any(fn(nested) { dfe_instruction_uses_type_idxs(nested, remap) })
+        Some(body) => dfe_instruction_array_uses_type_idxs(body, remap)
         None => false
       }
     }
@@ -579,15 +632,37 @@ fn dfe_instruction_uses_type_idxs(
 }
 
 ///|
+fn dfe_instruction_array_uses_type_idxs(
+  instrs : Array[@lib.Instruction],
+  remap : Map[UInt, UInt],
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if dfe_instruction_uses_type_idxs(instrs[idx], remap) {
+      return true
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
 fn dfe_expr_uses_type_idxs(expr : @lib.Expr, remap : Map[UInt, UInt]) -> Bool {
   let @lib.Expr(instrs) = expr
-  instrs.any(fn(instr) { dfe_instruction_uses_type_idxs(instr, remap) })
+  dfe_instruction_array_uses_type_idxs(instrs, remap)
 }
 
 ///|
 fn dfe_func_uses_type_idxs(func : @lib.Func, remap : Map[UInt, UInt]) -> Bool {
   let @lib.Func(locals, body) = func
-  locals.runs().any(fn(run) { dfe_val_type_uses_remap(run.val_type(), remap) }) ||
+  let runs = locals.runs()
+  let mut idx = 0
+  while idx < runs.length() {
+    if dfe_val_type_uses_remap(runs[idx].val_type(), remap) {
+      return true
+    }
+    idx += 1
+  }
   dfe_expr_uses_type_idxs(body, remap)
 }
 

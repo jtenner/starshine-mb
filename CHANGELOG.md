@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 Optimize: cut DFE remap-scan closure churn
+
+- **DFE remap-scan loop cleanup** by **@jtenner**. Updated [`src/passes/duplicate_function_elimination.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/duplicate_function_elimination.mbt) so the hot duplicate-type remap detection path now uses explicit loops instead of nested `.any(...)` closures while walking locals, type metadata, and function bodies. This keeps the sampled structured-instruction hash reduction from the prior DFE follow-up and cuts more GC churn in the no-merge MoonBit debug-artifact case, bringing direct traced `duplicate-function-elimination` runs on [`tests/node/dist/starshine-debug-wasi.wasm`](/home/jtenner/Projects/starshine-mb/tests/node/dist/starshine-debug-wasi.wasm) down into roughly the `615-638 ms` range while Binaryen remains roughly `158 ms`.
+
 ## 2026-03-25 Optimize: trim DFE sampled-hash overhead
 
 - **DFE sampled-hash follow-up** by **@jtenner**. Updated [`src/passes/duplicate_function_elimination.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/duplicate_function_elimination.mbt) so duplicate-function-elimination now uses a shallow sampled hash for structured first/last instructions when building candidate keys, avoiding repeated recursive hashing of large nested instruction trees in the no-merge MoonBit debug-artifact case. The same update also moves the hot candidate-key maps onto mutable hash maps; the direct traced DFE pass on [`tests/node/dist/starshine-debug-wasi.wasm`](/home/jtenner/Projects/starshine-mb/tests/node/dist/starshine-debug-wasi.wasm) dropped again to roughly `660 ms`, while Binaryen remains roughly `158 ms`.
