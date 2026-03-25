@@ -81,6 +81,19 @@ fn hot_region_ref_from_holder(func : HotFunc, holder : NodeId) -> HotRegionRef {
 }
 
 ///|
+fn hot_region_body_base(func : HotFunc, holder : NodeId) -> Int {
+  let node = hot_node_get(func, holder)
+  if node.op != HotOp::Loop {
+    return 0
+  }
+  let label_id = hot_control_node_label(func, holder)
+  if label_id < 0 {
+    return 0
+  }
+  hot_label_branch_arity(func, label_id)
+}
+
+///|
 fn hot_region_optional_slot_ref(
   func : HotFunc,
   control_id : NodeId,
@@ -148,7 +161,14 @@ fn hot_region_roots(func : HotFunc, region_ref : HotRegionRef) -> Array[NodeId] 
   if hot_region_is_root(region_ref) {
     return hot_root_span(func)
   }
-  hot_child_span(func, hot_region_require_holder(func, region_ref))
+  let holder = hot_region_require_holder(func, region_ref)
+  let roots : Array[NodeId] = []
+  let base = hot_region_body_base(func, holder)
+  let total = hot_child_count(func, holder)
+  for idx = base; idx < total; idx = idx + 1 {
+    roots.push(hot_child_get(func, holder, idx))
+  }
+  roots
 }
 
 ///|
@@ -160,10 +180,19 @@ fn hot_region_write_roots(
   if hot_region_is_root(region_ref) {
     return hot_root_splice(func, 0, hot_root_count(func), roots)
   }
+  let holder = hot_region_require_holder(func, region_ref)
+  let next : Array[NodeId] = []
+  let base = hot_region_body_base(func, holder)
+  for idx = 0; idx < base; idx = idx + 1 {
+    next.push(hot_child_get(func, holder, idx))
+  }
+  for root in roots {
+    next.push(root)
+  }
   hot_replace_child_span(
     func,
-    hot_region_require_holder(func, region_ref),
-    roots,
+    holder,
+    next,
   )
 }
 
@@ -172,7 +201,8 @@ pub fn hot_region_root_count(func : HotFunc, region_ref : HotRegionRef) -> Int {
   if hot_region_is_root(region_ref) {
     return hot_root_count(func)
   }
-  hot_child_count(func, hot_region_require_holder(func, region_ref))
+  let holder = hot_region_require_holder(func, region_ref)
+  hot_child_count(func, holder) - hot_region_body_base(func, holder)
 }
 
 ///|
@@ -198,7 +228,8 @@ pub fn hot_region_get(
   if hot_region_is_root(region_ref) {
     return hot_root_get(func, idx)
   }
-  hot_child_get(func, hot_region_require_holder(func, region_ref), idx)
+  let holder = hot_region_require_holder(func, region_ref)
+  hot_child_get(func, holder, hot_region_body_base(func, holder) + idx)
 }
 
 ///|
@@ -212,10 +243,11 @@ pub fn hot_region_set(
   if hot_region_is_root(region_ref) {
     hot_root_set(func, idx, node_id)
   } else {
+    let holder = hot_region_require_holder(func, region_ref)
     hot_child_set(
       func,
-      hot_region_require_holder(func, region_ref),
-      idx,
+      holder,
+      hot_region_body_base(func, holder) + idx,
       node_id,
     )
   }

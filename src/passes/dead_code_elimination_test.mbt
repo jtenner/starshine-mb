@@ -88,6 +88,27 @@ test "dead-code-elimination handles dead type-index block results" {
 }
 
 ///|
+test "dead-code-elimination keeps value roots that feed later roots in void regions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) local.get 0 if block (result i32) i32.const 1 end local.set 1 end i32.const 7))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination to preserve live void-region values, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(block I32"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination removes nested unreachable roots after return" {
   let optimized = match
     pass_test_run_pipeline(

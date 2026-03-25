@@ -73,7 +73,6 @@ fn hot_lower_impl_input_nodes(func : HotFunc, id : NodeId) -> Array[NodeId] {
   let node = hot_node_get(func, id)
   match node.op {
     HotOp::Block
-    | HotOp::Loop
     | HotOp::Try
     | HotOp::TryTable
     | HotOp::Nop
@@ -87,6 +86,14 @@ fn hot_lower_impl_input_nodes(func : HotFunc, id : NodeId) -> Array[NodeId] {
     | HotOp::DataDrop
     | HotOp::ElemDrop
     | HotOp::RefFunc => []
+    HotOp::Loop => {
+      let out : Array[NodeId] = []
+      let input_count = hot_label_branch_arity(func, hot_control_node_label(func, id))
+      for i = 0; i < input_count; i = i + 1 {
+        out.push(hot_child_get(func, id, i))
+      }
+      out
+    }
     HotOp::If => [hot_child_get(func, id, 0)]
     _ => {
       let out : Array[NodeId] = []
@@ -282,9 +289,17 @@ fn hot_lower_impl_body_items(
     hot_label_kind(func, label_id) != HotLabelKind::RegionLabel {
     next_stack.push(label_id)
   }
-  let value_stack : Array[NodeId] = []
   let node = hot_node_get(func, id)
-  for i = 0; i < node.child_count; i = i + 1 {
+  let body_base = if node.op == HotOp::Loop {
+    hot_label_branch_arity(func, label_id)
+  } else {
+    0
+  }
+  let value_stack : Array[NodeId] = []
+  for i = 0; i < body_base; i = i + 1 {
+    value_stack.push(hot_child_get(func, id, i))
+  }
+  for i = body_base; i < node.child_count; i = i + 1 {
     let child = hot_child_get(func, id, i)
     if child != HOT_NONE_NODE {
       hot_lower_impl_emit_root(func, child, next_stack, value_stack, out)

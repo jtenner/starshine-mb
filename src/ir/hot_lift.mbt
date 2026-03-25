@@ -1212,7 +1212,14 @@ fn hot_lift_impl_lift_control(
         Ok(state) => state
         Err(err) => return Err(err)
       }
-      ignore(hot_replace_child_span(func, id, body_roots))
+      let loop_children : Array[NodeId] = []
+      for entry_value in entry_values {
+        loop_children.push(entry_value)
+      }
+      for body_root in body_roots {
+        loop_children.push(body_root)
+      }
+      ignore(hot_replace_child_span(func, id, loop_children))
       hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
       hot_lift_impl_push_node(roots, values, id, results)
       Ok(after_state)

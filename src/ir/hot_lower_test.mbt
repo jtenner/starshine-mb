@@ -114,6 +114,18 @@ fn hot_lower_test_func_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lower_test_block_param_module() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+      ),
+    ),
+  ])
+  @lib.Module::new().with_type_sec(type_sec)
+}
+
+///|
 fn hot_lower_test_multi_result_module() -> @lib.Module {
   let type_sec = @lib.TypeSec::new([
     @lib.RecType::new(
@@ -226,6 +238,25 @@ test "hot lower func restores declared locals and body" {
       @lib.Instruction::call(@lib.FuncIdx::new(0U)),
     ]),
   )
+}
+
+///|
+test "hot lower keeps typed loop entry values outside the loop" {
+  let module_ = hot_lower_test_block_param_module()
+  let body = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new([@lib.Instruction::local_tee(@lib.LocalIdx::new(0U))]),
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+    hot_module_context_from_module(module_),
+  )
+
+  assert_eq(hot_lower_body(hot), body)
 }
 
 ///|

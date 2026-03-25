@@ -253,6 +253,11 @@ test "hot lift seeds loop param values into nested regions" {
   assert_eq(hot_root_count(func), 1)
 
   let loop_id = hot_root_get(func, 0)
+  assert_eq(
+    hot_label_branch_arity(func, hot_control_node_label(func, loop_id)),
+    1,
+  )
+  assert_eq(hot_child_count(func, loop_id), 2)
   let body_region = hot_region_body_ref(func, loop_id)
   let tee_id = hot_region_get(func, body_region, 0)
 

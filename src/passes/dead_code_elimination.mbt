@@ -67,6 +67,28 @@ fn dead_code_elimination_collect_detached_nodes(
 }
 
 ///|
+fn dead_code_elimination_delete_unused_nodes(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_ids : Array[Int],
+) -> Unit {
+  let mut changed = false
+  for node_id in node_ids {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    if !pass_node_is_unused(ctx, func, node_id) {
+      continue
+    }
+    @ir.hot_delete_node(func, node_id)
+    changed = true
+  }
+  if changed {
+    pass_mark_mutated(ctx, func)
+  }
+}
+
+///|
 fn dead_code_elimination_drop_is_dead(
   func : @ir.HotFunc,
   node_id : Int,
@@ -236,7 +258,7 @@ fn dead_code_elimination_voidify_control(
   }
   @ir.hot_control_result_type_set(func, node_id, @ir.hot_type_void(func))
   pass_mark_mutated(ctx, func)
-  pass_delete_detached_nodes(ctx, func, detached)
+  dead_code_elimination_delete_unused_nodes(ctx, func, detached)
   true
 }
 
@@ -263,7 +285,7 @@ fn dead_code_elimination_remove_roots(
   for node_id in removed_roots {
     dead_code_elimination_collect_detached_nodes(func, node_id, detached)
   }
-  pass_delete_detached_nodes(ctx, func, detached)
+  dead_code_elimination_delete_unused_nodes(ctx, func, detached)
   true
 }
 
@@ -276,7 +298,7 @@ fn dead_code_elimination_replace_root_with_child(
   child_id : Int,
 ) -> Bool {
   let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [child_id])
-  pass_delete_detached_nodes(ctx, func, removed)
+  dead_code_elimination_delete_unused_nodes(ctx, func, removed)
   true
 }
 
@@ -316,6 +338,7 @@ fn dead_code_elimination_visit_region(
           let child_id = @ir.hot_child_get(func, node_id, 0)
           if child_id >= 0 &&
             @ir.hot_node_is_live(func, child_id) &&
+            pass_node_use_count(ctx, func, child_id) == 1 &&
             dead_code_elimination_voidify_control(ctx, func, child_id) {
             ignore(
               dead_code_elimination_replace_root_with_child(
@@ -330,14 +353,19 @@ fn dead_code_elimination_visit_region(
     }
 
     if result_arity == 0 && @ir.hot_node_result_arity(func, node_id) > 0 {
-      if @ir.effects_is_pure(@ir.effects_for_node(func, node_id)) {
+      let is_final_root = idx + 1 == @ir.hot_region_root_count(func, region_ref)
+      if is_final_root &&
+        pass_node_use_count(ctx, func, node_id) == 1 &&
+        @ir.effects_is_pure(@ir.effects_for_node(func, node_id)) {
         ignore(
           dead_code_elimination_remove_roots(ctx, func, region_ref, idx, 1),
         )
         changed = true
         continue
       }
-      if dead_code_elimination_voidify_control(ctx, func, node_id) {
+      if is_final_root &&
+        pass_node_use_count(ctx, func, node_id) == 1 &&
+        dead_code_elimination_voidify_control(ctx, func, node_id) {
         changed = true
         continue
       }
