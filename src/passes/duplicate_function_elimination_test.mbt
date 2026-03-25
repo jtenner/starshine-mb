@@ -282,6 +282,130 @@ test "duplicate-function-elimination canonicalizes duplicate simple type indices
 }
 
 ///|
+test "duplicate-function-elimination does not compact duplicate simple type indices when no functions merge" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(2))]),
+        ),
+      ]),
+    )
+
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "duplicate-function-elimination",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected duplicate-function-elimination pipeline success, got \{err}",
+      )
+  }
+
+  assert_eq(optimized.type_sec, input.type_sec)
+  assert_eq(optimized.func_sec, input.func_sec)
+}
+
+///|
+test "duplicate-function-elimination canonicalizes non-adjacent duplicate simple type indices after merging" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::f32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(3U)),
+              @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+              @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "duplicate-function-elimination",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected duplicate-function-elimination pipeline success, got \{err}",
+      )
+  }
+
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 3)
+    None => fail("expected type section")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => {
+      assert_eq(type_idxs.length(), 1)
+      assert_eq(type_idxs[0], @lib.TypeIdx::new(0U))
+    }
+    None => fail("expected func section")
+  }
+  assert_eq(try! dfe_test_block_type(optimized, 0), 1U)
+}
+
+///|
 test "duplicate-function-elimination keeps annotated duplicates distinct" {
   let input = @lib.Module::new()
     .with_type_sec(dfe_test_type_sec())

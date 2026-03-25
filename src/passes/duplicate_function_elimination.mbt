@@ -141,18 +141,36 @@ fn dfe_duplicate_simple_type_canonical_map(
   if !dfe_supports_simple_type_dedup(rec_types) {
     return canonical_map
   }
+  let buckets : @hashmap.HashMap[Int, Array[Int]] = @hashmap.new(
+    capacity=rec_types.length(),
+  )
   let mut old_idx = 0
   while old_idx < rec_types.length() {
-    let mut canonical_old_idx = old_idx.reinterpret_as_uint()
-    let mut prev_idx = 0
-    while prev_idx < old_idx {
-      if rec_types[prev_idx] == rec_types[old_idx] {
-        canonical_old_idx = prev_idx.reinterpret_as_uint()
-        break
+    let rec_type = rec_types[old_idx]
+    let mut canonical_old_idx : UInt? = None
+    let hash_key = rec_type.hash()
+    match buckets.get(hash_key) {
+      Some(bucket) => {
+        let mut bucket_idx = 0
+        while bucket_idx < bucket.length() {
+          let prev_idx = bucket[bucket_idx]
+          if rec_types[prev_idx] == rec_type {
+            canonical_old_idx = Some(prev_idx.reinterpret_as_uint())
+            break
+          }
+          bucket_idx += 1
+        }
+        if canonical_old_idx is None {
+          bucket.push(old_idx)
+        }
       }
-      prev_idx += 1
+      None => buckets.set(hash_key, [old_idx])
     }
-    canonical_map[old_idx.reinterpret_as_uint()] = canonical_old_idx
+    match canonical_old_idx {
+      Some(canonical_old_idx) =>
+        canonical_map[old_idx.reinterpret_as_uint()] = canonical_old_idx
+      None => ()
+    }
     old_idx += 1
   }
   canonical_map
@@ -166,6 +184,136 @@ fn dfe_rewrite_type_idx(
   match idx {
     @lib.TypeIdx(raw) => @lib.TypeIdx::new(remap.get(raw).unwrap_or(raw))
     @lib.RecIdx(_) => idx
+  }
+}
+
+///|
+fn dfe_type_idx_is_remapped(
+  idx : @lib.TypeIdx,
+  remap : Map[UInt, UInt],
+) -> Bool {
+  match idx {
+    @lib.TypeIdx(raw) => remap.get(raw) != None
+    @lib.RecIdx(_) => false
+  }
+}
+
+///|
+fn dfe_type_metadata_uses_remap(
+  metadata : @lib.TypeMetadata,
+  remap : Map[UInt, UInt],
+) -> Bool {
+  let { describes, descriptor } = metadata
+  match describes {
+    Some(idx) => if dfe_type_idx_is_remapped(idx, remap) { return true }
+    None => ()
+  }
+  match descriptor {
+    Some(idx) => dfe_type_idx_is_remapped(idx, remap)
+    None => false
+  }
+}
+
+///|
+fn dfe_heap_type_uses_remap(
+  heap_type : @lib.HeapType,
+  remap : Map[UInt, UInt],
+) -> Bool {
+  match heap_type {
+    @lib.AbsHeapTypeHeapType(_) => false
+    @lib.HeapType(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.DefTypeHeapType(@lib.DefType(rec_type, _)) =>
+      dfe_rec_type_uses_remap(rec_type, remap)
+  }
+}
+
+///|
+fn dfe_ref_type_uses_remap(
+  ref_type : @lib.RefType,
+  remap : Map[UInt, UInt],
+) -> Bool {
+  match ref_type {
+    @lib.HeapTypeRefType(_, _, heap_type) =>
+      dfe_heap_type_uses_remap(heap_type, remap)
+    @lib.AbsHeapTypeRefType(_) => false
+  }
+}
+
+///|
+fn dfe_val_type_uses_remap(
+  val_type : @lib.ValType,
+  remap : Map[UInt, UInt],
+) -> Bool {
+  match val_type {
+    @lib.RefTypeValType(ref_type) => dfe_ref_type_uses_remap(ref_type, remap)
+    _ => false
+  }
+}
+
+///|
+fn dfe_storage_type_uses_remap(
+  storage_type : @lib.StorageType,
+  remap : Map[UInt, UInt],
+) -> Bool {
+  match storage_type {
+    @lib.ValTypeStorageType(val_type) =>
+      dfe_val_type_uses_remap(val_type, remap)
+    @lib.PackTypeStorageType(_) => false
+  }
+}
+
+///|
+fn dfe_field_type_uses_remap(
+  field_type : @lib.FieldType,
+  remap : Map[UInt, UInt],
+) -> Bool {
+  let @lib.FieldType(storage_type, _) = field_type
+  dfe_storage_type_uses_remap(storage_type, remap)
+}
+
+///|
+fn dfe_comp_type_uses_remap(
+  comp_type : @lib.CompType,
+  remap : Map[UInt, UInt],
+) -> Bool {
+  match comp_type {
+    @lib.ArrayCompType(field_type) =>
+      dfe_field_type_uses_remap(field_type, remap)
+    @lib.StructCompType(field_types) =>
+      field_types.any(fn(field_type) {
+        dfe_field_type_uses_remap(field_type, remap)
+      })
+    @lib.FuncCompType(params, results) =>
+      params.any(fn(val_type) { dfe_val_type_uses_remap(val_type, remap) }) ||
+      results.any(fn(val_type) { dfe_val_type_uses_remap(val_type, remap) })
+  }
+}
+
+///|
+fn dfe_sub_type_uses_remap(
+  subtype : @lib.SubType,
+  remap : Map[UInt, UInt],
+) -> Bool {
+  match subtype {
+    @lib.SubType(_, supers, metadata, comp_type) =>
+      supers.any(fn(idx) { dfe_type_idx_is_remapped(idx, remap) }) ||
+      dfe_type_metadata_uses_remap(metadata, remap) ||
+      dfe_comp_type_uses_remap(comp_type, remap)
+    @lib.CompTypeSubType(metadata, comp_type) =>
+      dfe_type_metadata_uses_remap(metadata, remap) ||
+      dfe_comp_type_uses_remap(comp_type, remap)
+  }
+}
+
+///|
+fn dfe_rec_type_uses_remap(
+  rec_type : @lib.RecType,
+  remap : Map[UInt, UInt],
+) -> Bool {
+  match rec_type {
+    @lib.SingleRecType(subtype) => dfe_sub_type_uses_remap(subtype, remap)
+    @lib.GroupRecType(subtypes) =>
+      subtypes.any(fn(subtype) { dfe_sub_type_uses_remap(subtype, remap) })
   }
 }
 
@@ -341,6 +489,106 @@ fn dfe_rewrite_block_type(
       @lib.BlockType::type_idx(dfe_rewrite_type_idx(type_idx, remap))
     _ => block_type
   }
+}
+
+///|
+fn dfe_block_type_uses_remap(
+  block_type : @lib.BlockType,
+  remap : Map[UInt, UInt],
+) -> Bool {
+  match block_type {
+    @lib.TypeIdxBlockType(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    _ => false
+  }
+}
+
+///|
+fn dfe_instruction_uses_type_idxs(
+  instr : @lib.Instruction,
+  remap : Map[UInt, UInt],
+) -> Bool {
+  match instr {
+    @lib.Block(block_type, expr) =>
+      dfe_block_type_uses_remap(block_type, remap) ||
+      dfe_expr_uses_type_idxs(expr, remap)
+    @lib.Loop(block_type, expr) =>
+      dfe_block_type_uses_remap(block_type, remap) ||
+      dfe_expr_uses_type_idxs(expr, remap)
+    @lib.If(block_type, then_body, else_body) => {
+      if dfe_block_type_uses_remap(block_type, remap) {
+        return true
+      }
+      if then_body.any(fn(nested) {
+          dfe_instruction_uses_type_idxs(nested, remap)
+        }) {
+        return true
+      }
+      match else_body {
+        Some(body) =>
+          body.any(fn(nested) { dfe_instruction_uses_type_idxs(nested, remap) })
+        None => false
+      }
+    }
+    @lib.CallIndirect(type_idx, _) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ReturnCallIndirect(type_idx, _) =>
+      dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.CallRef(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ReturnCallRef(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.TryTable(block_type, _, body) =>
+      dfe_block_type_uses_remap(block_type, remap) ||
+      dfe_expr_uses_type_idxs(body, remap)
+    @lib.RefNull(ref_type) => dfe_ref_type_uses_remap(ref_type, remap)
+    @lib.StructNew(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.StructNewDefault(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.StructNewDesc(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.StructNewDefaultDesc(type_idx) =>
+      dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.StructGet(type_idx, _) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.StructGetS(type_idx, _) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.StructGetU(type_idx, _) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.StructSet(type_idx, _) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ArrayNew(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ArrayNewDefault(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ArrayNewFixed(type_idx, _) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ArrayNewData(type_idx, _) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ArrayNewElem(type_idx, _) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ArrayGet(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ArrayGetS(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ArrayGetU(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ArraySet(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ArrayFill(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ArrayInitData(type_idx, _) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ArrayInitElem(type_idx, _) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.RefGetDesc(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
+    @lib.ArrayCopy(src_type, dst_type) =>
+      dfe_type_idx_is_remapped(src_type, remap) ||
+      dfe_type_idx_is_remapped(dst_type, remap)
+    @lib.RefTest(_, heap_type) => dfe_heap_type_uses_remap(heap_type, remap)
+    @lib.RefCast(_, heap_type) => dfe_heap_type_uses_remap(heap_type, remap)
+    @lib.RefTestDesc(_, heap_type) => dfe_heap_type_uses_remap(heap_type, remap)
+    @lib.RefCastDescEq(_, heap_type) =>
+      dfe_heap_type_uses_remap(heap_type, remap)
+    @lib.BrOnCast(_, _, source, target) =>
+      dfe_heap_type_uses_remap(source, remap) ||
+      dfe_heap_type_uses_remap(target, remap)
+    @lib.BrOnCastFail(_, _, source, target) =>
+      dfe_heap_type_uses_remap(source, remap) ||
+      dfe_heap_type_uses_remap(target, remap)
+    _ => false
+  }
+}
+
+///|
+fn dfe_expr_uses_type_idxs(expr : @lib.Expr, remap : Map[UInt, UInt]) -> Bool {
+  let @lib.Expr(instrs) = expr
+  instrs.any(fn(instr) { dfe_instruction_uses_type_idxs(instr, remap) })
+}
+
+///|
+fn dfe_func_uses_type_idxs(func : @lib.Func, remap : Map[UInt, UInt]) -> Bool {
+  let @lib.Func(locals, body) = func
+  locals.runs().any(fn(run) { dfe_val_type_uses_remap(run.val_type(), remap) }) ||
+  dfe_expr_uses_type_idxs(body, remap)
 }
 
 ///|
@@ -1401,7 +1649,10 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
       let old_to_new : Map[UInt, UInt] = {}
       let mut old_idx = 0
       while old_idx < rec_types.length() {
-        let canonical_old_idx = canonical_old_idxs[old_idx.reinterpret_as_uint()]
+        let raw_old_idx = old_idx.reinterpret_as_uint()
+        let canonical_old_idx = canonical_old_idxs
+          .get(raw_old_idx)
+          .unwrap_or(raw_old_idx)
         if canonical_old_idx == old_idx.reinterpret_as_uint() {
           old_to_new[canonical_old_idx] = kept_types
             .length()
@@ -1416,9 +1667,12 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
       let type_remap : Map[UInt, UInt] = {}
       old_idx = 0
       while old_idx < rec_types.length() {
-        let canonical_old_idx = canonical_old_idxs[old_idx.reinterpret_as_uint()]
+        let raw_old_idx = old_idx.reinterpret_as_uint()
+        let canonical_old_idx = canonical_old_idxs
+          .get(raw_old_idx)
+          .unwrap_or(raw_old_idx)
         match old_to_new.get(canonical_old_idx) {
-          Some(new_idx) => type_remap[old_idx.reinterpret_as_uint()] = new_idx
+          Some(new_idx) => type_remap[raw_old_idx] = new_idx
           None => return mod_
         }
         old_idx += 1
@@ -1456,11 +1710,15 @@ fn dfe_iteration(mod_ : @lib.Module) -> @lib.Module? {
       } else {
         let rewritten : Array[@lib.Func] = []
         for func in funcs {
-          rewritten.push(
-            dfe_canonicalize_func_duplicate_simple_type_indices(
-              func, type_canon,
-            ),
-          )
+          if dfe_func_uses_type_idxs(func, type_canon) {
+            rewritten.push(
+              dfe_canonicalize_func_duplicate_simple_type_indices(
+                func, type_canon,
+              ),
+            )
+          } else {
+            rewritten.push(func)
+          }
         }
         rewritten
       }
@@ -1592,7 +1850,7 @@ fn dfe_iteration(mod_ : @lib.Module) -> @lib.Module? {
 pub fn dfe_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let current = match dfe_iteration(mod_) {
     Some(next) => next
-    None => mod_
+    None => return dfe_canonicalize_elem_segments(mod_)
   }
   dfe_canonicalize_duplicate_simple_type_indices(
     dfe_canonicalize_elem_segments(current),

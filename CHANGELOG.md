@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 Optimize: reduce DFE type-normalization churn
+
+- **DFE type-dedup and normalization hot-path cuts** by **@jtenner**. Updated [`src/passes/duplicate_function_elimination.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/duplicate_function_elimination.mbt), [`src/passes/duplicate_function_elimination_test.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/duplicate_function_elimination_test.mbt), and [`src/passes/moon.pkg`](/home/jtenner/Projects/starshine-mb/src/passes/moon.pkg) so duplicate simple-type canonicalization now uses hashed first-seen buckets instead of a raw quadratic scan, DFE only rewrites function bodies for duplicate-type normalization when a function actually mentions remapped type indices, and no-merge runs no longer compact duplicate simple types. Added regressions for no-merge type preservation and non-adjacent duplicate-type compaction so the optimized path stays parity-safe while cutting the raw MoonBit debug-artifact DFE pass time materially.
+
 ## 2026-03-24 Optimize: harden DFE parity tooling and close the element-shape gap
 
 - **DFE parity harness and artifact-shape follow-up** by **@jtenner**. Updated [`scripts/lib/self-optimize-compare-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/self-optimize-compare-task.ts) and [`scripts/test/self-optimize-compare-command.ts`](/home/jtenner/Projects/starshine-mb/scripts/test/self-optimize-compare-command.ts) so the self-optimize compare flow now records whole-command wall time, parses Starshine pass timings from traced `perf:timer` lines, parses Binaryen pass timings from `wasm-opt --debug`, and prints both runtime views in the compare summary.

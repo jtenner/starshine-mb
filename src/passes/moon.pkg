@@ -3,4 +3,5 @@ import {
   "jtenner/starshine/lib",
   "jtenner/starshine/validate",
   "jtenner/starshine/wast",
+  "moonbitlang/core/hashmap" @hashmap,
 }
