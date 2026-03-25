@@ -442,6 +442,7 @@ pub fn hot_pass_run(
     "pass:\{descriptor.name}",
   )
   let result = match descriptor.name {
+    "ssa-nomerge" => ssa_nomerge_run(ctx, func)
     "vacuum" =>
       if hot_pass_remove_region_nops(ctx, func, @ir.HotRegionRef::root()) {
         HotPassResult::changed()

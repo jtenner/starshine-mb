@@ -148,6 +148,11 @@ fn pass_registry_removed_names() -> Array[String] {
 fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
   let entries = [
     pass_registry_entry_hot(
+      "ssa-nomerge",
+      ssa_nomerge_summary(),
+      ssa_nomerge_descriptor(),
+    ),
+    pass_registry_entry_hot(
       "vacuum",
       "Remove `nop` roots and region entries through hot IR cleanup.",
       @ir.HotPassDescriptor::new("vacuum", invalidates=[
@@ -189,7 +194,8 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "Run the default hot optimization preset.",
       [
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-        "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+        "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions",
+        "simplify-locals",
       ],
     ),
     pass_registry_entry_preset(
@@ -197,7 +203,8 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "Run the default size-biased hot optimization preset.",
       [
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-        "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+        "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions",
+        "simplify-locals",
       ],
     ),
   ]
@@ -237,7 +244,7 @@ pub fn pass_registry_category(name : String) -> HotPassRegistryCategory? {
 pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+    "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals",
   ]
 }
 
@@ -245,7 +252,7 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
 pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+    "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals",
   ]
 }
 

@@ -734,6 +734,53 @@ test "run_cmd_with_adapter runs supported hot passes over multiple inputs" {
 }
 
 ///|
+test "run_cmd_with_adapter applies ssa-nomerge to wasm inputs" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (result i32) (local i32) i32.const 5 local.set 0 local.get 0))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["ssa.wasm"] },
+    file_exists=fn(path) { path == "ssa.wasm" },
+    read_file=fn(path) {
+      if path == "ssa.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(["--ssa-nomerge", "--out", "out.wasm", "ssa.wasm"], io) {
+    Ok(v) => v
+    Err(e) => fail("unexpected ssa-nomerge run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["ssa-nomerge"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.code_sec {
+    Some(CodeSec([Func(locals, Expr(instrs))])) => {
+      assert_eq(
+        locals,
+        @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+      )
+      assert_eq(instrs, [
+        @lib.Instruction::i32_const(@lib.I32(5)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      ])
+    }
+    _ => fail("expected transformed code section")
+  }
+}
+
+///|
 test "run_cmd_with_adapter rejects removed compatibility-only pass names" {
   let input_mod = fixture_mergeable_block_module()
   let input_wasm = encode_module_bytes(input_mod)
@@ -1418,6 +1465,7 @@ test "run_cmd_with_adapter prints help text and exits successfully for --help" {
   assert_true(help.contains("--help"))
   assert_true(help.contains("--version"))
   assert_true(help.contains("--glob"))
+  assert_true(help.contains("--ssa-nomerge"))
   assert_true(help.contains("--vacuum"))
   assert_true(help.contains("--optimize"))
   assert_true(help.contains("--closed-world"))

@@ -136,6 +136,10 @@ pub fn simplify_locals_descriptor() -> @ir.HotPassDescriptor
 
 pub fn simplify_locals_summary() -> String
 
+pub fn ssa_nomerge_descriptor() -> @ir.HotPassDescriptor
+
+pub fn ssa_nomerge_summary() -> String
+
 // Errors
 
 // Types and methods

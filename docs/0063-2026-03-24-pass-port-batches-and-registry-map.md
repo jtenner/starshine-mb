@@ -8,7 +8,7 @@
 ## Current Registry Contract
 
 - Active hot passes:
-  `vacuum`, `dead-code-elimination`, `optimize-instructions`, `simplify-locals`.
+  `ssa-nomerge`, `dead-code-elimination`, `vacuum`, `optimize-instructions`, `simplify-locals`.
 - Active presets:
   `optimize`, `shrink`.
 - Boundary-only names stay known to the registry for mapping and diagnostics, but remain rejected by the hot pipeline and hidden from help output.
@@ -17,8 +17,9 @@
 ## Batch 1
 
 - Current hot passes:
-  `vacuum`, `dead-code-elimination`, `optimize-instructions`, `simplify-locals`.
+  `ssa-nomerge`, `dead-code-elimination`, `vacuum`, `optimize-instructions`, `simplify-locals`.
 - Initial placeholder modules:
+  [`src/passes/ssa_nomerge.mbt`](../src/passes/ssa_nomerge.mbt),
   [`src/passes/dead_code_elimination.mbt`](../src/passes/dead_code_elimination.mbt),
   [`src/passes/optimize_instructions.mbt`](../src/passes/optimize_instructions.mbt),
   [`src/passes/simplify_locals.mbt`](../src/passes/simplify_locals.mbt).
@@ -46,8 +47,8 @@
 
 ## Preset Composition
 
-- `optimize` expands to `["vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination"]`.
-- `shrink` expands to `["vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination"]`.
+- `optimize` expands to `["ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals"]`.
+- `shrink` expands to `["ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals"]`.
 - Future preset growth must only add implemented hot passes or explicitly documented boundary-only phases.
 
 ## Correctness Rules

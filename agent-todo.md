@@ -65,24 +65,11 @@ Observed unique-pass order
    - Keep `moon test src/passes` and `moon test src/cmd` green while replaying the compare harness.
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-module-elements` and any required ordered-prefix replay.
 
-#### SSA - SSA No-Merge
-1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L173](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L173)
-2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [SSA]001 - Semi-SSA Conversion Core - Port the no-merge SSA untangling flow onto hot IR without introducing synthetic merge copies.
-     - Deliverables: build local-def/use rewriting on current CFG and dominance helpers; preserve tuple and multivalue locals; invalidate the right analyses after mutation.
-     - Doc: [0066#L173](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L173)
-   - [SSA]002 - Scheduler Slot and Artifact Parity - Wire the pass into the first function slot and confirm later local passes see the same shape Binaryen emits.
-     - Deliverables: update preset expansion and repeated-slot tests; add regressions for loop-carried locals and branch joins; compare the function-prefix output against Binaryen.
-     - Doc: [0066#L173](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L173)
-3. Do work.
-   - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
-   - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
-4. Test against binaryen.
-   - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
-   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
-
 #### DCE - Dead Code Elimination
+0. Shared blocker on canonical artifact parity.
+   - [HOT]001 - Debug Artifact Hot-Lift Coverage - `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --ssa-nomerge` currently aborts in `src/ir/hot_lift.mbt` with `hot lift stack underflow` before the first function-local pass runs, so canonical artifact parity for `ssa-nomerge` and the later hot-pass backlog remains blocked until the debug CLI wasm lifts cleanly.
+     - Deliverables: isolate the offending lifted instruction/stack shape in the CLI debug artifact; add a hot-lift regression; rerun single-pass compare coverage for `ssa-nomerge`, `dead-code-elimination`, and later function-local ports once the artifact is liftable again.
+     - Doc: [0066#L124](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L124)
 1. Research exact functionality in document.
    - Research exactly how it works with a document: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.

@@ -5,6 +5,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
+    pass_registry_category("ssa-nomerge"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
     pass_registry_category("dead-code-elimination"),
     Some(HotPassRegistryCategory::hot_pass()),
   )
@@ -51,11 +55,14 @@ test "pass registry classifies active, boundary-only, and removed names" {
 }
 
 ///|
-test "batch 1 placeholder descriptors expose the planned first hot ports" {
+test "batch 1 descriptors expose the active first hot ports" {
+  let ssa = ssa_nomerge_descriptor()
   let dce = dead_code_elimination_descriptor()
   let opt = optimize_instructions_descriptor()
   let locals = simplify_locals_descriptor()
 
+  assert_eq(ssa.name, "ssa-nomerge")
+  assert_true(@ir.hot_pass_requires(ssa).contains(@ir.HotAnalysis::ssa()))
   assert_eq(dce.name, "dead-code-elimination")
   assert_true(@ir.hot_pass_requires(dce).contains(@ir.HotAnalysis::use_def()))
   assert_eq(opt.name, "optimize-instructions")
@@ -70,11 +77,11 @@ test "preset expansion stays on implemented active pass names" {
 
   assert_eq(optimize, [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+    "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals",
   ])
   assert_eq(shrink, [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+    "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals",
   ])
   for name in optimize {
     match pass_registry_category(name) {
