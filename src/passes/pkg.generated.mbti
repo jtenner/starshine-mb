@@ -12,11 +12,51 @@ pub fn hot_pass_run(HotPassContext, @ir.HotFunc) -> Result[HotPassResult, String
 
 pub fn optimize_preset_passes(HotPipelineOptions) -> Array[String]
 
+pub fn pass_delete_detached_nodes(HotPassContext, @ir.HotFunc, Array[Int]) -> Unit
+
+pub fn pass_mark_mutated(HotPassContext, @ir.HotFunc) -> Unit
+
+pub fn pass_node_is_unused(HotPassContext, @ir.HotFunc, Int) -> Bool
+
+pub fn pass_node_use_count(HotPassContext, @ir.HotFunc, Int) -> Int
+
+pub fn pass_prepare_requirements(HotPassContext, @ir.HotFunc) -> Unit
+
 pub fn pass_registry_all() -> Array[HotPassRegistryEntry]
 
 pub fn pass_registry_category(String) -> HotPassRegistryCategory?
 
 pub fn pass_registry_lookup(String) -> HotPassRegistryEntry?
+
+pub fn pass_replace_node(HotPassContext, @ir.HotFunc, Int, @ir.HotNode) -> Unit
+
+pub fn pass_require_cfg(HotPassContext, @ir.HotFunc) -> @ir.HotCfg
+
+pub fn pass_require_dom(HotPassContext, @ir.HotFunc) -> @ir.HotDominators
+
+pub fn pass_require_effects(HotPassContext, @ir.HotFunc) -> @ir.HotEffectsSummary
+
+pub fn pass_require_liveness(HotPassContext, @ir.HotFunc) -> @ir.HotLiveness
+
+pub fn pass_require_loop_info(HotPassContext, @ir.HotFunc) -> @ir.HotLoopInfo
+
+pub fn pass_require_orders(HotPassContext, @ir.HotFunc) -> @ir.HotCfgOrders
+
+pub fn pass_require_postdom(HotPassContext, @ir.HotFunc) -> @ir.HotPostDominators
+
+pub fn pass_require_ssa(HotPassContext, @ir.HotFunc) -> @ir.HotLocalSsa
+
+pub fn pass_require_use_def(HotPassContext, @ir.HotFunc) -> @ir.HotUseDef
+
+pub fn pass_splice_region(HotPassContext, @ir.HotFunc, @ir.HotRegionRef, Int, Int, Array[Int]) -> Array[Int]
+
+pub fn pass_test_lift_first_func(String) -> @ir.HotFunc
+
+pub fn pass_test_module_from_wat(String) -> @lib.Module
+
+pub fn pass_test_run_pipeline(String, Array[String], options? : HotPipelineOptions) -> Result[@lib.Module, String]
+
+pub fn pass_verify_before_after(HotPassContext, @ir.HotFunc) -> Result[Unit, String]
 
 pub fn pipeline_trace_hook((String) -> Unit, String, String, payload? : String) -> Unit
 

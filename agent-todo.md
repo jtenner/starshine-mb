@@ -9,49 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 280 - Pass Migration Support
-- Goal:
-  Provide shared scaffolding and migration rules for porting optimizer passes onto IR2.
-- Why this slice exists:
-  Future agents need reusable pass helpers and a strict checklist instead of per-pass reinvention.
-- Concrete deliverables:
-  - `src/passes/pass_common.mbt`.
-  - `src/passes/pass_test_helpers.mbt`.
-  - Pass-porting checklist doc under `docs/`.
-  - `src/passes/pass_common_test.mbt`.
-- Detailed implementation tasks:
-  - Add helpers for subtree peephole replacement, worklist rewrites, CFG-local rewrites, and SSA-assisted rewrites.
-  - Add pass-author helpers for requesting analyses, marking mutation, and verify-before/after flow.
-  - Add common dead-node cleanup and use-count predicates.
-  - Centralize pass registry/dispatch instead of scattering it across CLI code.
-  - Add shared fixture helpers for pass tests.
-- Required utilities / APIs:
-  - `pass_require_cfg(ctx)`.
-  - `pass_require_dom(ctx)`.
-  - `pass_require_liveness(ctx)`.
-  - `pass_require_ssa(ctx)`.
-  - `pass_mark_mutated(ctx, func)`.
-  - `pass_replace_node(ctx, func, node_id, new_node)`.
-  - `pass_splice_region(ctx, func, region_ref, idx, remove_count, nodes)`.
-  - `pass_verify_before_after(ctx, func)`.
-- Invariants / correctness rules:
-  - Shared helpers only use public mutation/query APIs.
-  - Pass descriptors truthfully declare requirements and invalidations.
-  - CLI-visible pass ids come from one registry.
-- Dependencies:
-  - IR2 - 090 - Hot IR Traversal Utilities.
-  - IR2 - 100 - Hot IR Region Editing Utilities.
-  - IR2 - 200 - Use-Def.
-  - IR2 - 220 - Effect Summaries.
-  - IR2 - 260 - Analysis Invalidation / Caching.
-  - IR2 - 270 - Pipeline Orchestration.
-- Exit criteria:
-  - Future pass ports can start from shared helpers instead of rebuilding boilerplate.
-- Suggested tests:
-  - Peephole helper mutation/invalidation behavior.
-  - Missing-analysis failure behavior.
-  - Shared pass harness running through public pipeline code.
-
 ### IR2 - 285 - Initial Pass Port Batches
 - Goal:
   Define the concrete pass-port batches that will replace the current compatibility/no-op surface.

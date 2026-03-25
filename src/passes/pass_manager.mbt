@@ -130,31 +130,8 @@ pub fn pipeline_verify_checkpoint(
 }
 
 ///|
-fn hot_pass_prepare_analyses(
-  cache : @ir.HotAnalysisCache,
-  func : @ir.HotFunc,
-  descriptor : @ir.HotPassDescriptor,
-) -> Unit {
-  for analysis in @ir.hot_pass_requires(descriptor) {
-    match analysis {
-      @ir.HotAnalysis::Cfg => ignore(@ir.cache_get_or_build_cfg(cache, func))
-      @ir.HotAnalysis::Dominance =>
-        ignore(@ir.cache_get_or_build_dom(cache, func))
-      @ir.HotAnalysis::Liveness =>
-        ignore(@ir.cache_get_or_build_liveness(cache, func))
-      @ir.HotAnalysis::UseDef =>
-        ignore(@ir.cache_get_or_build_use_def(cache, func))
-      @ir.HotAnalysis::Effects =>
-        ignore(@ir.cache_get_or_build_effects(cache, func))
-      @ir.HotAnalysis::LoopInfo =>
-        ignore(@ir.cache_get_or_build_loop_info(cache, func))
-      @ir.HotAnalysis::Ssa => ignore(@ir.cache_get_or_build_ssa(cache, func))
-    }
-  }
-}
-
-///|
 fn hot_pass_remove_region_nops(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
@@ -165,50 +142,55 @@ fn hot_pass_remove_region_nops(
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
       @ir.HotOp::Nop => {
-        let removed = @ir.hot_region_remove(func, region_ref, idx, 1)
-        for removed_id in removed {
-          @ir.hot_delete_node(func, removed_id)
-        }
+        let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [])
+        pass_delete_detached_nodes(ctx, func, removed)
         changed = true
         continue
       }
       @ir.HotOp::Block | @ir.HotOp::Loop =>
         changed = hot_pass_remove_region_nops(
+            ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
           ) ||
           changed
       @ir.HotOp::If => {
         changed = hot_pass_remove_region_nops(
+            ctx,
             func,
             @ir.hot_region_then_ref(func, node_id),
           ) ||
           changed
         match @ir.hot_region_else_ref(func, node_id) {
           Some(else_region) =>
-            changed = hot_pass_remove_region_nops(func, else_region) || changed
+            changed = hot_pass_remove_region_nops(ctx, func, else_region) ||
+              changed
           None => ()
         }
       }
       @ir.HotOp::Try => {
         changed = hot_pass_remove_region_nops(
+            ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
           ) ||
           changed
         match @ir.hot_region_catch_ref(func, node_id) {
           Some(catch_region) =>
-            changed = hot_pass_remove_region_nops(func, catch_region) || changed
+            changed = hot_pass_remove_region_nops(ctx, func, catch_region) ||
+              changed
           None => ()
         }
       }
       @ir.HotOp::TryTable => {
         changed = hot_pass_remove_region_nops(
+            ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
           ) ||
           changed
         changed = hot_pass_remove_region_nops(
+            ctx,
             func,
             @ir.hot_region_catch_list_ref(func, node_id),
           ) ||
@@ -227,12 +209,12 @@ pub fn hot_pass_run(
   func : @ir.HotFunc,
 ) -> Result[HotPassResult, String] {
   let descriptor = ctx.descriptor
-  hot_pass_prepare_analyses(ctx.cache, func, descriptor)
+  pass_prepare_requirements(ctx, func)
   pipeline_trace_hook(ctx.trace, descriptor.name, "start")
   let before_revision = @ir.hot_revision_current(func)
   let result = match descriptor.name {
     "vacuum" =>
-      if hot_pass_remove_region_nops(func, @ir.HotRegionRef::root()) {
+      if hot_pass_remove_region_nops(ctx, func, @ir.HotRegionRef::root()) {
         HotPassResult::changed()
       } else {
         HotPassResult::unchanged()
@@ -242,12 +224,7 @@ pub fn hot_pass_run(
   if @ir.hot_revision_current(func) != before_revision {
     @ir.cache_invalidate_all(ctx.cache)
   }
-  match
-    pipeline_verify_checkpoint(
-      ctx.verify_policy,
-      "verify after \{descriptor.name}",
-      HotPipelineVerifyTarget::HotFuncTarget(func),
-    ) {
+  match pass_verify_before_after(ctx, func) {
     Ok(_) => ()
     Err(err) => return Err(err)
   }

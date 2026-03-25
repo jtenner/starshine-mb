@@ -1,14 +1,6 @@
 ///|
-fn passes_test_module_from_wat(text : String) -> @lib.Module {
-  match @wast.wast_to_binary_module(text, filename="passes-test.wat") {
-    Ok(mod) => mod
-    Err(err) => abort("unexpected test fixture parse failure: \{err}")
-  }
-}
-
-///|
 test "run_hot_pipeline applies optimize preset through the hot pass manager" {
-  let input = passes_test_module_from_wat(
+  let input = pass_test_module_from_wat(
     "(module (func (result i32) nop i32.const 7))",
   )
   let optimized = match
@@ -28,7 +20,7 @@ test "run_hot_pipeline applies optimize preset through the hot pass manager" {
 
 ///|
 test "run_hot_pipeline emits trace markers for hot passes" {
-  let input = passes_test_module_from_wat(
+  let input = pass_test_module_from_wat(
     "(module (func (result i32) nop i32.const 9))",
   )
   let trace : Array[String] = []
