@@ -78,7 +78,7 @@ Observed unique-pass order
      - Doc: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
    - [DCE]002 - Prefix Regression and Artifact Replay - Lock the corrected DCE behavior into focused tests and rerun the MoonBit debug-artifact compare harness.
      - Deliverables: add red/green regressions for dead results, unreachable tails, and imported calls; replay `--dce` parity on the artifact; document any intentional remaining divergence.
-     - Status: focused DCE regressions plus follow-up hot-lift/effects fixes landed; replay now gets past the earlier `func[80]` / `func[106]` hot-lift aborts, and the typed-loop lowering bug that broke canonical `--vacuum` replay at `func[81]` is fixed. Canonical parity is still blocked by one downstream validation gap: `--dead-code-elimination` lowers invalid structured output at `func[67]` after dead-result cleanup.
+     - Status: focused DCE regressions plus follow-up hot-lift/effects fixes landed; replay now gets past the earlier `func[80]` / `func[106]` hot-lift aborts, the typed-loop lowering bug that broke canonical `--vacuum` replay at `func[81]` is fixed, and the first dead-result wrapper failure at `func[67]` is closed by keeping typed wrappers concrete while incoming branches still target their label. Canonical parity is still blocked by one downstream validation gap: `--dead-code-elimination` now first fails final validation later at `func[190]`.
      - Doc: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.

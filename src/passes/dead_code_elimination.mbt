@@ -126,6 +126,25 @@ fn dead_code_elimination_can_voidify_control(
 }
 
 ///|
+fn dead_code_elimination_has_incoming_branches(
+  func : @ir.HotFunc,
+  label_id : Int,
+) -> Bool {
+  for branch_id = 0
+      branch_id < @ir.hot_node_count(func)
+      branch_id = branch_id + 1 {
+    if !@ir.hot_node_is_live(func, branch_id) {
+      continue
+    }
+    match @ir.hot_branch_target(func, branch_id) {
+      Some(target) if target == label_id => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn dead_code_elimination_branch_payload_count(
   func : @ir.HotFunc,
   node_id : Int,
@@ -215,6 +234,9 @@ fn dead_code_elimination_voidify_control(
     return false
   }
   let label_id = @ir.hot_control_node_label(func, node_id)
+  if dead_code_elimination_has_incoming_branches(func, label_id) {
+    return false
+  }
   let detached : Array[Int] = []
   for branch_id = 0
       branch_id < @ir.hot_node_count(func)

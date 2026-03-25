@@ -109,6 +109,26 @@ test "dead-code-elimination keeps value roots that feed later roots in void regi
 }
 
 ///|
+test "dead-code-elimination keeps typed branch wrappers with label-targeted payload branches" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) block (result i32) block local.get 0 if i32.const 1 local.set 1 br 1 end i32.const 0 br 1 end end drop local.get 1))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination to preserve typed branch wrappers, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(block I32"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination removes nested unreachable roots after return" {
   let optimized = match
     pass_test_run_pipeline(
