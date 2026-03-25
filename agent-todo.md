@@ -67,8 +67,8 @@ Observed unique-pass order
 
 #### DCE - Dead Code Elimination
 0. Shared blocker on canonical artifact parity.
-   - [HOT]001 - Binaryen Multivalue Block Lowering - Canonical single-pass artifact replay now survives hot lift, DCE, final module validation, and Binaryen's `ref.null` parse path, but Binaryen still rejects hot-pipeline output during canonicalization with `non-final block elements returning a value must be dropped`; the same failure reproduces under `--vacuum`, so later hot-pass compare signoff is blocked on multivalue block/tuple lowering rather than DCE alone.
-     - Deliverables: isolate a minimal lowered multivalue block that Binaryen rejects; add hot-lower or binary-facing regression coverage for the emitted block shape; keep `--vacuum` and `--dead-code-elimination` artifact outputs Binaryen-parseable and Binaryen-valid.
+   - [HOT]001 - Binaryen Multivalue Block Lowering - Canonical single-pass artifact replay now survives hot lift, DCE, final module validation, and Binaryen's `ref.null` parse path, and hot lowering now drops dead non-final multivalue roots while preserving valid trailing region-result roots, but Binaryen still rejects hot-pipeline output during canonicalization with `non-final block elements returning a value must be dropped`; the same failure reproduces under `--vacuum`, so later hot-pass compare signoff is blocked on a still-live multivalue block/tuple lowering shape rather than DCE alone.
+     - Deliverables: isolate a minimal lowered multivalue block that Binaryen rejects after the new dead-root cleanup; add hot-lower or binary-facing regression coverage for the remaining live emitted block shape; keep `--vacuum` and `--dead-code-elimination` artifact outputs Binaryen-parseable and Binaryen-valid.
      - Doc: [0066#L124](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L124)
 1. Research exact functionality in document.
    - Research exactly how it works with a document: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
