@@ -24,6 +24,8 @@ pub fn parse_cli_args(Array[String], starshine_input? : String?) -> Result[CliPa
 
 pub fn parse_starshine_input_env(String?) -> Array[String]
 
+pub fn resolve_closed_world(CliParseResult, default? : Bool) -> Bool
+
 pub fn resolve_pass_flags(CliParseResult) -> Array[String]
 
 pub fn resolve_traps_never_happen(CliParseResult, default? : Bool) -> Bool
@@ -107,9 +109,10 @@ pub struct CliParseResult {
   mut monomorphize_min_benefit : Int?
   mut low_memory_unused : Bool?
   mut low_memory_bound : UInt64?
+  mut closed_world : Bool?
   mut tracing : CliTracingLevel?
 }
-pub fn CliParseResult::new(config_path? : String?, input_globs? : Array[String], glob_enabled? : Bool, help_requested? : Bool, version_requested? : Bool, debug_serial_passes? : Bool, read_stdin? : Bool, input_format? : CliInputFormat?, output_targets? : Array[CliOutputTarget], pass_flags? : Array[String], optimize_flags? : Array[CliOptimizationFlag], trap_mode? : TrapMode?, monomorphize_min_benefit? : Int?, low_memory_unused? : Bool?, low_memory_bound? : UInt64?, tracing? : CliTracingLevel?) -> Self
+pub fn CliParseResult::new(config_path? : String?, input_globs? : Array[String], glob_enabled? : Bool, help_requested? : Bool, version_requested? : Bool, debug_serial_passes? : Bool, read_stdin? : Bool, input_format? : CliInputFormat?, output_targets? : Array[CliOutputTarget], pass_flags? : Array[String], optimize_flags? : Array[CliOptimizationFlag], trap_mode? : TrapMode?, monomorphize_min_benefit? : Int?, low_memory_unused? : Bool?, low_memory_bound? : UInt64?, closed_world? : Bool?, tracing? : CliTracingLevel?) -> Self
 pub impl Eq for CliParseResult
 pub impl Show for CliParseResult
 pub impl @debug.Debug for CliParseResult

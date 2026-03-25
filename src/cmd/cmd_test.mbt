@@ -934,6 +934,7 @@ test "run_cmd_with_adapter uses config passes when cli does not provide pass fla
     #|  "optimize": { "trapMode": "never", "olevel": "O3" },
     #|  "options": {
     #|    "monomorphizeMinBenefit": 2,
+    #|    "closedWorld": true,
     #|    "lowMemoryUnused": true,
     #|    "lowMemoryBound": 4096
     #|  }
@@ -962,7 +963,7 @@ test "run_cmd_with_adapter uses config passes when cli does not provide pass fla
       [
         "--config", "cfg.json", "--out-dir", "cli-dist", "-O1", "--trap-mode", "allow",
         "--monomorphize-min-benefit", "11", "--no-low-memory-unused", "--low-memory-bound",
-        "2048", "cli.wasm",
+        "2048", "--no-closed-world", "cli.wasm",
       ],
       io,
     ) {
@@ -976,6 +977,7 @@ test "run_cmd_with_adapter uses config passes when cli does not provide pass fla
   assert_eq(summary.optimize_level, 1)
   assert_eq(summary.traps_never_happen, false)
   assert_eq(summary.monomorphize_min_benefit, 11)
+  assert_eq(summary.closed_world, false)
   assert_eq(summary.low_memory_unused, false)
   assert_eq(summary.low_memory_bound, 2048UL)
   for entry in writes {
@@ -1370,6 +1372,7 @@ test "env optimize and trap overlays take precedence over config values when cli
       match name {
         "STARSHINE_OLEVEL" => Some("O3")
         "STARSHINE_TRAP_MODE" => Some("never")
+        "STARSHINE_CLOSED_WORLD" => Some("true")
         _ => None
       }
     },
@@ -1391,6 +1394,7 @@ test "env optimize and trap overlays take precedence over config values when cli
   assert_eq(summary.resolved_passes, ["optimize"])
   assert_eq(summary.optimize_level, 3)
   assert_true(summary.traps_never_happen)
+  assert_true(summary.closed_world)
 }
 
 ///|
@@ -1416,6 +1420,7 @@ test "run_cmd_with_adapter prints help text and exits successfully for --help" {
   assert_true(help.contains("--glob"))
   assert_true(help.contains("--vacuum"))
   assert_true(help.contains("--optimize"))
+  assert_true(help.contains("--closed-world"))
   assert_false(help.contains("--memory-packing"))
   assert_false(help.contains("--re-reloop"))
 }

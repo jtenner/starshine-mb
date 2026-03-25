@@ -20,6 +20,10 @@ pub fn global_refining_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn global_refining_summary() -> String
 
+pub fn global_struct_inference_run_module_pass(@lib.Module, Bool) -> @lib.Module
+
+pub fn global_struct_inference_summary() -> String
+
 pub fn hot_pass_run(HotPassContext, @ir.HotFunc) -> Result[HotPassResult, String]
 
 pub fn memory_packing_run_module_pass(@lib.Module) -> @lib.Module
@@ -139,10 +143,11 @@ pub struct HotPassContext {
   descriptor : @ir.HotPassDescriptor
   cache : @ir.HotAnalysisCache
   verify_policy : HotPipelineVerifyPolicy
+  closed_world : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
 }
-pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, (String) -> Unit, perf? : HotPerfSession?) -> Self
+pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, Bool, (String) -> Unit, perf? : HotPerfSession?) -> Self
 
 pub enum HotPassRegistryCategory {
   HotPass
@@ -228,10 +233,11 @@ pub fn HotPerfSession::new(enabled? : Bool, trace? : (String) -> Unit, trace_tim
 pub struct HotPipelineOptions {
   verify_policy : HotPipelineVerifyPolicy
   validate_final_module : Bool
+  closed_world : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
 }
-pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, trace? : ((String) -> Unit)?, perf? : HotPerfSession?) -> Self
+pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, closed_world? : Bool, trace? : ((String) -> Unit)?, perf? : HotPerfSession?) -> Self
 
 pub enum HotPipelineVerifyPolicy {
   FinalModuleOnly

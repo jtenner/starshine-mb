@@ -10,6 +10,7 @@ test "pass_require helpers build and reuse derived analyses" {
     @ir.HotPassDescriptor::new("test"),
     @ir.HotAnalysisCache::new(),
     HotPipelineVerifyPolicy::after_each_pass(),
+    false,
     fn(_) { () },
   )
 
@@ -33,6 +34,7 @@ test "pass_splice_region and pass_delete_detached_nodes mark mutation" {
     @ir.HotPassDescriptor::new("test"),
     @ir.HotAnalysisCache::new(),
     HotPipelineVerifyPolicy::after_each_pass(),
+    false,
     fn(_) { () },
   )
   let rev0 = @ir.hot_revision_current(func)

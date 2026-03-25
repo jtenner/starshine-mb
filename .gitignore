@@ -14,4 +14,5 @@ starshine.print.wat
 binaryen.print.wat
 commands.txt
 result.json
+.artifacts/
 agent-lost-and-found.md

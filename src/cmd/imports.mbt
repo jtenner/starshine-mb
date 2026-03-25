@@ -11,6 +11,7 @@ using @binary {
 using @cli {
   normalize_cli_path,
   parse_cli_args,
+  resolve_closed_world,
   resolve_pass_flags,
   resolve_traps_never_happen,
   infer_input_format,

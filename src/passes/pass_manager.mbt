@@ -23,6 +23,7 @@ fn hot_pipeline_trace_noop(_ : String) -> Unit {
 pub struct HotPipelineOptions {
   verify_policy : HotPipelineVerifyPolicy
   validate_final_module : Bool
+  closed_world : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
 }
@@ -31,12 +32,14 @@ pub struct HotPipelineOptions {
 pub fn HotPipelineOptions::new(
   verify_policy? : HotPipelineVerifyPolicy = HotPipelineVerifyPolicy::final_module_only(),
   validate_final_module? : Bool = true,
+  closed_world? : Bool = false,
   trace? : ((String) -> Unit)? = None,
   perf? : HotPerfSession? = None,
 ) -> HotPipelineOptions {
   {
     verify_policy,
     validate_final_module,
+    closed_world,
     trace: match trace {
       Some(cb) => cb
       None => hot_pipeline_trace_noop
@@ -50,6 +53,7 @@ pub struct HotPassContext {
   descriptor : @ir.HotPassDescriptor
   cache : @ir.HotAnalysisCache
   verify_policy : HotPipelineVerifyPolicy
+  closed_world : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
 }
@@ -59,10 +63,11 @@ pub fn HotPassContext::new(
   descriptor : @ir.HotPassDescriptor,
   cache : @ir.HotAnalysisCache,
   verify_policy : HotPipelineVerifyPolicy,
+  closed_world : Bool,
   trace : (String) -> Unit,
   perf? : HotPerfSession? = None,
 ) -> HotPassContext {
-  { descriptor, cache, verify_policy, trace, perf }
+  { descriptor, cache, verify_policy, closed_world, trace, perf }
 }
 
 ///|
@@ -316,6 +321,7 @@ fn run_hot_pipeline_func(
     descriptor,
     cache,
     options.verify_policy,
+    options.closed_world,
     options.trace,
     perf=options.perf,
   )
@@ -396,6 +402,8 @@ fn run_hot_pipeline_apply_module_pass(
     "memory-packing" => memory_packing_run_module_pass(mod_)
     "once-reduction" => once_reduction_run_module_pass(mod_)
     "global-refining" => global_refining_run_module_pass(mod_)
+    "global-struct-inference" =>
+      global_struct_inference_run_module_pass(mod_, options.closed_world)
     _ => return Err("unsupported module pass \{entry.name}")
   }
   perf_stop_timer_opt(options.perf, "pass:\{entry.name}", pass_timer_start)

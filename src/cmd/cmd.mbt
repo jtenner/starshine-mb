@@ -104,6 +104,7 @@ pub struct CmdRunSummary {
   shrink_level : Int
   traps_never_happen : Bool
   monomorphize_min_benefit : Int
+  closed_world : Bool
   low_memory_unused : Bool
   low_memory_bound : UInt64
 } derive(Eq, Show, Debug)
@@ -117,6 +118,7 @@ pub fn CmdRunSummary::new(
   shrink_level? : Int = 0,
   traps_never_happen? : Bool = false,
   monomorphize_min_benefit? : Int = 5,
+  closed_world? : Bool = false,
   low_memory_unused? : Bool = false,
   low_memory_bound? : UInt64 = 1024UL,
 ) -> CmdRunSummary {
@@ -128,6 +130,7 @@ pub fn CmdRunSummary::new(
     shrink_level,
     traps_never_happen,
     monomorphize_min_benefit,
+    closed_world,
     low_memory_unused,
     low_memory_bound,
   }
@@ -561,6 +564,7 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
   let mut monomorphize_min_benefit : Int? = None
   let mut low_memory_unused : Bool? = None
   let mut low_memory_bound : UInt64? = None
+  let mut closed_world : Bool? = None
   let mut tracing : CliTracingLevel? = None
   let mut debug_serial_passes = false
   let root_obj = match root {
@@ -832,6 +836,18 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
           }
         None => ()
       }
+      let closed_world_value = match options.get("closedWorld") {
+        Some(v) => Some(v)
+        None => options.get("closed-world")
+      }
+      match closed_world_value {
+        Some(value) =>
+          match parse_json_bool(value) {
+            Some(parsed_value) => closed_world = Some(parsed_value)
+            None => ()
+          }
+        None => ()
+      }
     }
     _ => ()
   }
@@ -847,6 +863,7 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
       monomorphize_min_benefit~,
       low_memory_unused~,
       low_memory_bound~,
+      closed_world~,
       tracing~,
       debug_serial_passes~,
     ),
@@ -867,6 +884,7 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
   let mut monomorphize_min_benefit : Int? = None
   let mut low_memory_unused : Bool? = None
   let mut low_memory_bound : UInt64? = None
+  let mut closed_world : Bool? = None
   let mut tracing : CliTracingLevel? = None
   let mut debug_serial_passes = false
 
@@ -995,6 +1013,14 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
       }
     None => ()
   }
+  match (io.get_env)("STARSHINE_CLOSED_WORLD") {
+    Some(raw) =>
+      match parse_bool_string(raw) {
+        Some(parsed_value) => closed_world = Some(parsed_value)
+        None => ()
+      }
+    None => ()
+  }
   match (io.get_env)("STARSHINE_TRACING") {
     Some(raw) =>
       match parse_tracing_level_name(raw) {
@@ -1020,6 +1046,7 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
     monomorphize_min_benefit~,
     low_memory_unused~,
     low_memory_bound~,
+    closed_world~,
     tracing~,
     debug_serial_passes~,
   )
@@ -1135,6 +1162,14 @@ fn merge_parse_results(
         None => config.low_memory_bound
       }
   }
+  let closed_world = match cli.closed_world {
+    Some(v) => Some(v)
+    None =>
+      match env.closed_world {
+        Some(v) => Some(v)
+        None => config.closed_world
+      }
+  }
   let tracing = match cli.tracing {
     Some(level) => Some(level)
     None =>
@@ -1160,6 +1195,7 @@ fn merge_parse_results(
     monomorphize_min_benefit~,
     low_memory_unused~,
     low_memory_bound~,
+    closed_world~,
     tracing~,
   )
 }
@@ -1284,6 +1320,7 @@ fn make_optimize_options(
   shrink_level : Int,
   traps_never_happen : Bool,
   monomorphize_min_benefit : Int,
+  closed_world : Bool,
   low_memory_unused : Bool,
   low_memory_bound : UInt64,
   debug_serial_passes : Bool,
@@ -1293,6 +1330,7 @@ fn make_optimize_options(
     shrink_level~,
     inlining=default_inlining_options(),
     monomorphize_min_benefit~,
+    closed_world~,
     low_memory_unused~,
     low_memory_bound~,
     traps_never_happen~,
@@ -1316,6 +1354,7 @@ fn optimize_options_to_hot_pipeline_options(
       FinalModuleOnly => @passes.HotPipelineVerifyPolicy::final_module_only()
     },
     validate_final_module=true,
+    closed_world=options.closed_world,
     trace~,
     perf=match trace {
       Some(cb) =>
@@ -1471,6 +1510,7 @@ fn cmd_post_encode_repro_note(
   shrink_level : Int,
   traps_never_happen : Bool,
   monomorphize_min_benefit : Int,
+  closed_world : Bool,
   low_memory_unused : Bool,
   low_memory_bound : UInt64,
 ) -> String {
@@ -1501,6 +1541,9 @@ fn cmd_post_encode_repro_note(
   if monomorphize_min_benefit != 5 {
     write_arg("--monomorphize-min-benefit \{monomorphize_min_benefit}")
   }
+  if closed_world {
+    write_arg("--closed-world")
+  }
   if low_memory_unused {
     write_arg("--low-memory-unused")
   }
@@ -1523,6 +1566,7 @@ test "cmd_post_encode_repro_note reflects active hot pipeline flags" {
     0,
     false,
     5,
+    false,
     false,
     1024UL,
   )
@@ -1612,6 +1656,12 @@ pub fn cmd_help_text() -> String {
   )
   append_help_line(out, "--traps-never-happen", "Alias for --trap-mode never.")
   append_help_line(out, "--traps-may-happen", "Alias for --trap-mode allow.")
+  append_help_line(
+    out, "--closed-world", "Allow passes to assume a closed-world module graph when required for whole-program GC rewrites.",
+  )
+  append_help_line(
+    out, "--no-closed-world", "Disable closed-world-only optimizations.",
+  )
   append_help_line(
     out, "--tracing <pass|phase|helper>", "Set optimization tracing level.",
   )
@@ -2073,6 +2123,7 @@ pub fn run_cmd_with_adapter(
     return Err(CmdError::NoInputFiles)
   }
   let traps_never_happen = resolve_traps_never_happen(merged)
+  let closed_world = resolve_closed_world(merged)
   let (optimize_level, shrink_level) = resolve_optimize_levels(
     merged.optimize_flags,
   )
@@ -2116,6 +2167,7 @@ pub fn run_cmd_with_adapter(
     shrink_level,
     traps_never_happen,
     monomorphize_min_benefit,
+    closed_world,
     low_memory_unused,
     low_memory_bound,
     merged.debug_serial_passes,
@@ -2123,7 +2175,7 @@ pub fn run_cmd_with_adapter(
   cmd_trace_emit(
     io,
     trace_optimize,
-    "options o=\{optimize_level} z=\{shrink_level} traps_never=\{traps_never_happen}",
+    "options o=\{optimize_level} z=\{shrink_level} traps_never=\{traps_never_happen} closed_world=\{closed_world}",
   )
   match merged.tracing {
     Some(level) =>
@@ -2274,7 +2326,7 @@ pub fn run_cmd_with_adapter(
               e,
               cmd_post_encode_repro_note(
                 io, mod, pipeline_passes, options, optimize_level, shrink_level,
-                traps_never_happen, monomorphize_min_benefit, low_memory_unused,
+                traps_never_happen, monomorphize_min_benefit, closed_world, low_memory_unused,
                 low_memory_bound,
               ),
             ),
@@ -2351,6 +2403,7 @@ pub fn run_cmd_with_adapter(
       shrink_level~,
       traps_never_happen~,
       monomorphize_min_benefit~,
+      closed_world~,
       low_memory_unused~,
       low_memory_bound~,
     ),

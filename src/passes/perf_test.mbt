@@ -58,6 +58,7 @@ test "pass require cfg records a single cfg build and optional cfg dump" {
     @ir.HotPassDescriptor::new("test"),
     @ir.HotAnalysisCache::new(),
     HotPipelineVerifyPolicy::after_each_pass(),
+    false,
     fn(_) { () },
     perf=Some(perf),
   )

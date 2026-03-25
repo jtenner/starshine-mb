@@ -92,10 +92,11 @@ pub struct CmdRunSummary {
   shrink_level : Int
   traps_never_happen : Bool
   monomorphize_min_benefit : Int
+  closed_world : Bool
   low_memory_unused : Bool
   low_memory_bound : UInt64
 }
-pub fn CmdRunSummary::new(input_files? : Array[String], output_files? : Array[String], resolved_passes? : Array[String], optimize_level? : Int, shrink_level? : Int, traps_never_happen? : Bool, monomorphize_min_benefit? : Int, low_memory_unused? : Bool, low_memory_bound? : UInt64) -> Self
+pub fn CmdRunSummary::new(input_files? : Array[String], output_files? : Array[String], resolved_passes? : Array[String], optimize_level? : Int, shrink_level? : Int, traps_never_happen? : Bool, monomorphize_min_benefit? : Int, closed_world? : Bool, low_memory_unused? : Bool, low_memory_bound? : UInt64) -> Self
 pub impl Eq for CmdRunSummary
 pub impl Show for CmdRunSummary
 pub impl @debug.Debug for CmdRunSummary

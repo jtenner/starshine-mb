@@ -57,29 +57,13 @@ Observed unique-pass order
 1. Remaining follow-up.
    - [RUME]003 - Ordered Replay and Runtime Budget Audit - The direct module pass, CLI flag, registry wiring, focused section/index rewrite coverage, explicit memarg-index rewrites, and canonical compare-harness artifact parity are landed; the remaining work is replaying the pass in the exact no-DWARF slots once the preset path can host the module-pass order and closing the runtime budget gap.
      - Deliverables: replay `remove-unused-module-elements` on `tests/node/dist/starshine-debug-wasi.wasm`; wire the pass into the documented repeated top-level slots when the public preset expansion is ready; keep canonical compare parity green while reducing Starshine runtime and pass time toward the Binaryen budget, with likely attention on imported/trapping instantiation roots if ordered replay exposes new semantic drift.
+     - Current blocker: the ordered `DFE -> RUME -> MP -> OR -> GR -> GSI` prefix still sits just under the `>= 50% as fast as Binaryen` wall-time target on the MoonBit debug artifact even though `global-struct-inference` itself is effectively free, so the remaining budget work stays upstream of `SSA`.
      - Doc: [0066#L148](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L148)
 2. Do work.
    - Keep the landed direct pass stable while tightening Binaryen parity; do not widen the public preset order until the exact replay slots are available.
 3. Test against binaryen.
    - Keep `moon test src/passes` and `moon test src/cmd` green while replaying the compare harness.
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-module-elements` and any required ordered-prefix replay.
-
-#### GSI - Global Struct Inference
-1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L168](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L168)
-2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [GSI]001 - Whole-Module Struct Fact Discovery - Infer the struct-field and instance facts Binaryen derives from global usage before function-local cleanup starts.
-     - Deliverables: gather struct allocations, stores, and reads across the module; preserve escaping and externally visible shapes; define the fact surface later passes consume.
-     - Doc: [0066#L168](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L168)
-   - [GSI]002 - Global GC Rewrite and Artifact Proof - Apply the inferred facts to module state and prove the resulting GC prefix matches Binaryen on real MoonBit output.
-     - Deliverables: rewrite eligible global struct state; add regressions for escaping refs and mixed field writes; run compare coverage on the GC pre-pass prefix.
-     - Doc: [0066#L168](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L168)
-3. Do work.
-   - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
-   - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
-4. Test against binaryen.
-   - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
-   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
 
 #### SSA - SSA No-Merge
 1. Research exact functionality in document.

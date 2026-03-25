@@ -183,6 +183,7 @@ pub struct CliParseResult {
   mut monomorphize_min_benefit : Int?
   mut low_memory_unused : Bool?
   mut low_memory_bound : UInt64?
+  mut closed_world : Bool?
   mut tracing : CliTracingLevel?
 } derive(Eq, Show, Debug)
 
@@ -203,6 +204,7 @@ pub fn CliParseResult::new(
   monomorphize_min_benefit? : Int? = None,
   low_memory_unused? : Bool? = None,
   low_memory_bound? : UInt64? = None,
+  closed_world? : Bool? = None,
   tracing? : CliTracingLevel? = None,
 ) -> CliParseResult {
   {
@@ -221,6 +223,7 @@ pub fn CliParseResult::new(
     monomorphize_min_benefit,
     low_memory_unused,
     low_memory_bound,
+    closed_world,
     tracing,
   }
 }
@@ -583,7 +586,8 @@ pub fn cli_config_schema_json() -> String {
     #|    "trapsNeverHappen": false,
     #|    "monomorphizeMinBenefit": 5,
     #|    "lowMemoryUnused": false,
-    #|    "lowMemoryBound": 1024
+    #|    "lowMemoryBound": 1024,
+    #|    "closedWorld": false
     #|  }
     #|}
   schema
@@ -880,6 +884,22 @@ pub fn parse_cli_args(
             }
             index += if consumed_next { 2 } else { 1 }
           }
+          "closed-world" => {
+            if inline_value is Some(_) {
+              return Err(CliParseError::unexpected_flag_value("--closed-world"))
+            }
+            parsed.closed_world = Some(true)
+            index += 1
+          }
+          "no-closed-world" => {
+            if inline_value is Some(_) {
+              return Err(
+                CliParseError::unexpected_flag_value("--no-closed-world"),
+              )
+            }
+            parsed.closed_world = Some(false)
+            index += 1
+          }
           "trap-mode" => {
             let (value, consumed_next) = match inline_value {
               Some(v) if v.length() > 0 => (v, false)
@@ -998,6 +1018,17 @@ pub fn resolve_traps_never_happen(
   match parsed.trap_mode {
     Some(Never) => true
     Some(Allow) => false
+    None => default
+  }
+}
+
+///|
+pub fn resolve_closed_world(
+  parsed : CliParseResult,
+  default? : Bool = false,
+) -> Bool {
+  match parsed.closed_world {
+    Some(value) => value
     None => default
   }
 }

@@ -316,11 +316,12 @@ test "parse_cli_args accepts inline long values for common option flags" {
 test "parse_cli_args accepts named optimization option flags" {
   let parsed = parse_ok([
     "--monomorphize-min-benefit", "9", "--low-memory-unused", "--low-memory-bound",
-    "2048", "--no-low-memory-unused",
+    "2048", "--no-low-memory-unused", "--closed-world", "--no-closed-world",
   ])
   assert_eq(parsed.monomorphize_min_benefit, Some(9))
   assert_eq(parsed.low_memory_bound, Some(2048UL))
   assert_eq(parsed.low_memory_unused, Some(false))
+  assert_eq(parsed.closed_world, Some(false))
 }
 
 ///|
@@ -379,4 +380,5 @@ test "cli_config_schema_json exposes public schema fields" {
   assert_true(schema.contains("\"format\""))
   assert_true(schema.contains("\"trapMode\""))
   assert_true(schema.contains("\"trapsNeverHappen\""))
+  assert_true(schema.contains("\"closedWorld\""))
 }
