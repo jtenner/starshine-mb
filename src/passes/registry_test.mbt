@@ -30,7 +30,11 @@ test "pass registry classifies active, boundary-only, and removed names" {
   )
   assert_eq(
     pass_registry_category("memory-packing"),
-    Some(HotPassRegistryCategory::boundary_only()),
+    Some(HotPassRegistryCategory::module_pass()),
+  )
+  assert_eq(
+    pass_registry_category("once-reduction"),
+    Some(HotPassRegistryCategory::module_pass()),
   )
   assert_eq(
     pass_registry_category("de-nan"),
@@ -52,35 +56,32 @@ test "batch 1 placeholder descriptors expose the planned first hot ports" {
 }
 
 ///|
-test "preset expansion stays on implemented hot pass names" {
+test "preset expansion stays on implemented active pass names" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   let shrink = shrink_preset_passes(HotPipelineOptions::new())
 
   assert_eq(optimize, [
-    "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+    "memory-packing", "once-reduction", "vacuum", "optimize-instructions", "simplify-locals",
+    "dead-code-elimination",
   ])
   assert_eq(shrink, [
-    "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+    "memory-packing", "once-reduction", "vacuum", "optimize-instructions", "simplify-locals",
+    "dead-code-elimination",
   ])
   for name in optimize {
-    assert_eq(
-      pass_registry_category(name),
-      Some(HotPassRegistryCategory::hot_pass()),
-    )
+    match pass_registry_category(name) {
+      Some(HotPass) | Some(ModulePass) => ()
+      other =>
+        fail("expected optimize preset pass category for \{name}, got \{other}")
+    }
   }
 }
 
 ///|
-test "run_hot_pipeline rejects removed and boundary-only registry names" {
+test "run_hot_pipeline rejects removed registry names" {
   let input = pass_test_module_from_wat(
     "(module (func (result i32) i32.const 1))",
   )
-
-  match run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
-    Ok(_) =>
-      fail("expected boundary-only registry name to reject in hot pipeline")
-    Err(err) => assert_true(err.contains("boundary-only"))
-  }
 
   match run_hot_pipeline(input, HotPipelineOptions::new(), ["de-nan"]) {
     Ok(_) => fail("expected removed registry name to reject in hot pipeline")

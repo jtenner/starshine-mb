@@ -203,7 +203,7 @@ test "run_wasm_smith_fuzz_harness reports explicit hot pass names on optimize fa
     run_wasm_smith_fuzz_harness(
       1,
       seed=0x5eedUL,
-      optimize_passes=["memory-packing"],
+      optimize_passes=["global-refining"],
       on_failure=Some(fn(report) {
         reports.push(report)
         Ok(())
@@ -212,13 +212,13 @@ test "run_wasm_smith_fuzz_harness reports explicit hot pass names on optimize fa
     Ok(stats) =>
       fail("expected optimize failure for boundary-only pass, got \{stats}")
     Err(msg) => {
-      assert_true(msg.contains("memory-packing"))
+      assert_true(msg.contains("global-refining"))
       assert_true(msg.contains("boundary-only"))
     }
   }
   assert_eq(reports.length(), 1)
   assert_eq(reports[0].stage, "optimize")
-  assert_eq(reports[0].optimize_passes, ["memory-packing"])
+  assert_eq(reports[0].optimize_passes, ["global-refining"])
 }
 
 ///|

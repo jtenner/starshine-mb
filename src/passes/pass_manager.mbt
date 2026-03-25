@@ -393,6 +393,8 @@ fn run_hot_pipeline_apply_module_pass(
     "duplicate-function-elimination" =>
       dfe_run_module_pass_with_perf(mod_, options.perf)
     "remove-unused-module-elements" => rume_run_module_pass(mod_)
+    "memory-packing" => memory_packing_run_module_pass(mod_)
+    "once-reduction" => once_reduction_run_module_pass(mod_)
     _ => return Err("unsupported module pass \{entry.name}")
   }
   perf_stop_timer_opt(options.perf, "pass:\{entry.name}", pass_timer_start)

@@ -18,6 +18,14 @@ pub fn dfe_summary() -> String
 
 pub fn hot_pass_run(HotPassContext, @ir.HotFunc) -> Result[HotPassResult, String]
 
+pub fn memory_packing_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn memory_packing_summary() -> String
+
+pub fn once_reduction_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn once_reduction_summary() -> String
+
 pub fn optimize_instructions_descriptor() -> @ir.HotPassDescriptor
 
 pub fn optimize_instructions_summary() -> String

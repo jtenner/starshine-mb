@@ -124,11 +124,11 @@ fn pass_registry_boundary_only_names() -> Array[String] {
     "global-effects", "propagate-globals-globally", "type-refining", "type-generalizing",
     "type-finalizing", "type-un-finalizing", "unsubtyping", "heap2local", "heap-store-optimization",
     "inlining", "inlining-optimizing", "inline-main", "merge-similar-functions",
-    "once-reduction", "minimize-rec-groups", "type-merging", "monomorphize", "monomorphize-always",
-    "memory-packing", "gufa", "gufa-optimizing", "gufa-cast-all", "i64-to-i32-lowering",
-    "remove-unused-names", "reorder-locals", "reorder-types", "reorder-globals",
-    "reorder-globals-always", "reorder-functions", "reorder-functions-by-name", "remove-unused-types",
-    "remove-unused", "remove-unused-non-function-elements",
+    "minimize-rec-groups", "type-merging", "monomorphize", "monomorphize-always",
+    "gufa", "gufa-optimizing", "gufa-cast-all", "i64-to-i32-lowering", "remove-unused-names",
+    "reorder-locals", "reorder-types", "reorder-globals", "reorder-globals-always",
+    "reorder-functions", "reorder-functions-by-name", "remove-unused-types", "remove-unused",
+    "remove-unused-non-function-elements",
   ]
 }
 
@@ -178,18 +178,22 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     ),
     pass_registry_entry_module("duplicate-function-elimination", dfe_summary()),
     pass_registry_entry_module("remove-unused-module-elements", rume_summary()),
+    pass_registry_entry_module("memory-packing", memory_packing_summary()),
+    pass_registry_entry_module("once-reduction", once_reduction_summary()),
     pass_registry_entry_preset(
       "optimize",
       "Run the default hot optimization preset.",
       [
-        "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+        "memory-packing", "once-reduction", "vacuum", "optimize-instructions", "simplify-locals",
+        "dead-code-elimination",
       ],
     ),
     pass_registry_entry_preset(
       "shrink",
       "Run the default size-biased hot optimization preset.",
       [
-        "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+        "memory-packing", "once-reduction", "vacuum", "optimize-instructions", "simplify-locals",
+        "dead-code-elimination",
       ],
     ),
   ]
@@ -228,14 +232,16 @@ pub fn pass_registry_category(name : String) -> HotPassRegistryCategory? {
 ///|
 pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
-    "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+    "memory-packing", "once-reduction", "vacuum", "optimize-instructions", "simplify-locals",
+    "dead-code-elimination",
   ]
 }
 
 ///|
 pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
-    "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+    "memory-packing", "once-reduction", "vacuum", "optimize-instructions", "simplify-locals",
+    "dead-code-elimination",
   ]
 }
 
