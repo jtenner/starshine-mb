@@ -68,6 +68,38 @@ pub fn pass_test_run_pipeline(String, Array[String], options? : HotPipelineOptio
 
 pub fn pass_verify_before_after(HotPassContext, @ir.HotFunc) -> Result[Unit, String]
 
+pub fn perf_count_cfg_build(HotPerfSession, count? : Int) -> Unit
+
+pub fn perf_count_child_span_alloc(HotPerfSession, count? : Int) -> Unit
+
+pub fn perf_count_dataflow_build(HotPerfSession, String, count? : Int) -> Unit
+
+pub fn perf_count_hot_alloc_delta(HotPerfSession, HotPerfHotSnapshot, HotPerfHotSnapshot) -> Unit
+
+pub fn perf_count_node_alloc(HotPerfSession, count? : Int) -> Unit
+
+pub fn perf_count_region_splice(HotPerfSession, count? : Int) -> Unit
+
+pub fn perf_count_side_table_alloc(HotPerfSession, count? : Int) -> Unit
+
+pub fn perf_count_traversal_visit(HotPerfSession, count? : Int) -> Unit
+
+pub fn perf_counters(HotPerfSession) -> HotPerfCounters
+
+pub fn perf_dump_cfg(HotPerfSession, @ir.HotCfg, String) -> Unit
+
+pub fn perf_dump_hot_func(HotPerfSession, @ir.HotFunc, String) -> Unit
+
+pub fn perf_emit_counters(HotPerfSession, String) -> Unit
+
+pub fn perf_snapshot_hot_func(@ir.HotFunc) -> HotPerfHotSnapshot
+
+pub fn perf_start_timer(HotPerfSession, String) -> UInt64
+
+pub fn perf_stop_timer(HotPerfSession, String, UInt64) -> Unit
+
+pub fn perf_validation_checkpoint(HotPerfSession, String) -> Unit
+
 pub fn pipeline_trace_hook((String) -> Unit, String, String, payload? : String) -> Unit
 
 pub fn pipeline_verify_checkpoint(HotPipelineVerifyPolicy, String, HotPipelineVerifyTarget) -> Result[Unit, String]
@@ -88,8 +120,9 @@ pub struct HotPassContext {
   cache : @ir.HotAnalysisCache
   verify_policy : HotPipelineVerifyPolicy
   trace : (String) -> Unit
+  perf : HotPerfSession?
 }
-pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, (String) -> Unit) -> Self
+pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, (String) -> Unit, perf? : HotPerfSession?) -> Self
 
 pub enum HotPassRegistryCategory {
   HotPass
@@ -125,12 +158,58 @@ pub impl Eq for HotPassResult
 pub impl Show for HotPassResult
 pub impl @debug.Debug for HotPassResult
 
+pub struct HotPerfCounters {
+  node_allocs : Int
+  child_span_allocs : Int
+  side_table_allocs : Int
+  region_splices : Int
+  cfg_builds : Int
+  dataflow_builds : Int
+  traversal_visits : Int
+}
+pub fn HotPerfCounters::new(node_allocs? : Int, child_span_allocs? : Int, side_table_allocs? : Int, region_splices? : Int, cfg_builds? : Int, dataflow_builds? : Int, traversal_visits? : Int) -> Self
+pub impl Eq for HotPerfCounters
+pub impl Show for HotPerfCounters
+pub impl @debug.Debug for HotPerfCounters
+
+pub struct HotPerfDumpOptions {
+  hot_func : Bool
+  cfg : Bool
+}
+pub fn HotPerfDumpOptions::new(hot_func? : Bool, cfg? : Bool) -> Self
+pub impl Eq for HotPerfDumpOptions
+pub impl Show for HotPerfDumpOptions
+pub impl @debug.Debug for HotPerfDumpOptions
+
+pub struct HotPerfHotSnapshot {
+  node_count : Int
+  child_span_count : Int
+  side_table_count : Int
+}
+pub fn HotPerfHotSnapshot::empty() -> Self
+pub impl Eq for HotPerfHotSnapshot
+pub impl Show for HotPerfHotSnapshot
+pub impl @debug.Debug for HotPerfHotSnapshot
+
+pub struct HotPerfSession {
+  enabled : Bool
+  trace : (String) -> Unit
+  trace_timings : Bool
+  trace_checkpoints : Bool
+  trace_counters : Bool
+  dump_options : HotPerfDumpOptions
+  mut counters : HotPerfCounters
+  timer_totals : Array[(String, UInt64)]
+}
+pub fn HotPerfSession::new(enabled? : Bool, trace? : (String) -> Unit, trace_timings? : Bool, trace_checkpoints? : Bool, trace_counters? : Bool, dump_options? : HotPerfDumpOptions) -> Self
+
 pub struct HotPipelineOptions {
   verify_policy : HotPipelineVerifyPolicy
   validate_final_module : Bool
   trace : (String) -> Unit
+  perf : HotPerfSession?
 }
-pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, trace? : ((String) -> Unit)?) -> Self
+pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, trace? : ((String) -> Unit)?, perf? : HotPerfSession?) -> Self
 
 pub enum HotPipelineVerifyPolicy {
   FinalModuleOnly

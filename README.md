@@ -174,6 +174,7 @@ fn parse_validate_encode(source : String) -> Bool {
 - The registry now keeps explicit `boundary-only` and `removed` mappings for legacy names so planning and diagnostics stay explicit while help output remains limited to the active pass surface.
 - The pass-manager contract is `lift -> verify -> run passes -> verify -> lower -> validate`, with per-function hot-IR verification and final module validation.
 - Pass authors now have shared migration helpers for analysis requests, mutation/invalidation, and pipeline-backed WAT fixtures in `jtenner/starshine/passes`.
+- Programmatic pipeline callers can now attach an opt-in hot perf session to collect stable phase timings, allocation/build counters, validation checkpoints, and lightweight hot-func / CFG debug dumps during IR2 work.
 
 ## Prerequisites
 

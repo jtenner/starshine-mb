@@ -260,12 +260,27 @@ fn run_hot_pipeline_func(
   entries : Array[HotPassRegistryEntry],
   options : HotPipelineOptions,
 ) -> Result[@lib.Func, String] {
+  let lift_start_us = perf_start_timer_opt(options.perf, "lift")
   let func = @ir.hot_lift_func(mod_, func_idx)
+  match options.perf {
+    Some(perf) => {
+      perf_count_hot_alloc_delta(
+        perf,
+        HotPerfHotSnapshot::empty(),
+        perf_snapshot_hot_func(func),
+      )
+      perf_dump_hot_func(perf, func, "after-lift")
+    }
+    None => ()
+  }
+  perf_stop_timer_opt(options.perf, "lift", lift_start_us)
   match
-    pipeline_verify_checkpoint(
+    pipeline_verify_checkpoint_with_perf(
+      options.perf,
       HotPipelineVerifyPolicy::AfterEachPass,
       "verify after lift",
       HotPipelineVerifyTarget::HotFuncTarget(func),
+      "verify:after-lift",
     ) {
     Ok(_) => ()
     Err(err) => return Err(err)
@@ -281,6 +296,7 @@ fn run_hot_pipeline_func(
       cache,
       options.verify_policy,
       options.trace,
+      perf=options.perf,
     )
     match hot_pass_run(ctx, func) {
       Ok(_) => ()
@@ -288,12 +304,19 @@ fn run_hot_pipeline_func(
     }
   }
   match
-    pipeline_verify_checkpoint(
+    pipeline_verify_checkpoint_with_perf(
+      options.perf,
       HotPipelineVerifyPolicy::AfterEachPass,
       "verify before lower",
       HotPipelineVerifyTarget::HotFuncTarget(func),
+      "verify:before-lower",
     ) {
-    Ok(_) => Ok(@ir.hot_lower_func(func))
+    Ok(_) => {
+      let lower_start_us = perf_start_timer_opt(options.perf, "lower")
+      let lowered = @ir.hot_lower_func(func)
+      perf_stop_timer_opt(options.perf, "lower", lower_start_us)
+      Ok(lowered)
+    }
     Err(err) => Err(err)
   }
 }
@@ -335,15 +358,18 @@ pub fn run_hot_pipeline(
   }
   if options.validate_final_module {
     match
-      pipeline_verify_checkpoint(
+      pipeline_verify_checkpoint_with_perf(
+        options.perf,
         HotPipelineVerifyPolicy::AfterEachPass,
         "final module validate",
         HotPipelineVerifyTarget::ModuleTarget(out),
+        "validate:final-module",
       ) {
       Ok(_) => ()
       Err(err) => return Err(err)
     }
   }
+  perf_emit_counters_opt(options.perf, "pipeline:done")
   (options.trace)("pipeline:done")
   Ok(out)
 }

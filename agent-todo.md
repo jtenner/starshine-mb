@@ -11,46 +11,6 @@
 
 ## v0.2.0 Backlog
 
-### IR2 - 300 - Performance Instrumentation and Profiling Support
-- Goal:
-  Add timers, allocation counters, traversal counters, debug dumps, and validation checkpoints for IR2 work.
-- Why this slice exists:
-  The rebuilt optimizer will add many overlays and rebuild opportunities; performance needs visibility early.
-- Concrete deliverables:
-  - `src/ir/perf.mbt` or `src/passes/perf.mbt`.
-  - Instrumentation tests.
-  - Pipeline trace/timing integration.
-- Detailed implementation tasks:
-  - Add per-pass timing hooks around lift, analysis build, pass run, verify checkpoints, lower, and final validation.
-  - Add counters for node allocs, child-span allocs, side-table allocs, region splices, CFG builds, dataflow builds, and traversal visits.
-  - Add optional before/after debug dumps gated by options.
-  - Add validation checkpoint reporting.
-  - Keep instrumentation overhead low when disabled.
-- Required utilities / APIs:
-  - `perf_start_timer(name)`.
-  - `perf_stop_timer(name)`.
-  - `perf_count_node_alloc()`.
-  - `perf_count_child_span_alloc()`.
-  - `perf_count_cfg_build()`.
-  - `perf_count_dataflow_build(name)`.
-  - `perf_dump_hot_func(func, options)`.
-  - `perf_dump_cfg(cfg, options)`.
-  - `perf_validation_checkpoint(name)`.
-- Invariants / correctness rules:
-  - Instrumentation is semantically inert.
-  - Trace keys and pass names are stable.
-- Dependencies:
-  - IR2 - 070 - Hot IR Direct Mutation Primitives.
-  - IR2 - 150 - CFG Construction.
-  - IR2 - 260 - Analysis Invalidation / Caching.
-  - IR2 - 270 - Pipeline Orchestration.
-- Exit criteria:
-  - Optimize runs can report pass and analysis timing plus key allocation counters.
-- Suggested tests:
-  - Counter increments on node allocation and CFG build.
-  - Timing/checkpoint trace lines present in a small run.
-  - Debug dumps remain opt-in.
-
 ### IR2 - 310 - Dead Code / Old Abstraction Cleanup
 - Goal:
   Remove stale compatibility shims, dead public claims, and obsolete optimizer naming once IR2 replaces them.

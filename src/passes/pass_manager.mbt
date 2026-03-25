@@ -24,6 +24,7 @@ pub struct HotPipelineOptions {
   verify_policy : HotPipelineVerifyPolicy
   validate_final_module : Bool
   trace : (String) -> Unit
+  perf : HotPerfSession?
 }
 
 ///|
@@ -31,6 +32,7 @@ pub fn HotPipelineOptions::new(
   verify_policy? : HotPipelineVerifyPolicy = HotPipelineVerifyPolicy::final_module_only(),
   validate_final_module? : Bool = true,
   trace? : ((String) -> Unit)? = None,
+  perf? : HotPerfSession? = None,
 ) -> HotPipelineOptions {
   {
     verify_policy,
@@ -39,6 +41,7 @@ pub fn HotPipelineOptions::new(
       Some(cb) => cb
       None => hot_pipeline_trace_noop
     },
+    perf,
   }
 }
 
@@ -48,6 +51,7 @@ pub struct HotPassContext {
   cache : @ir.HotAnalysisCache
   verify_policy : HotPipelineVerifyPolicy
   trace : (String) -> Unit
+  perf : HotPerfSession?
 }
 
 ///|
@@ -56,8 +60,80 @@ pub fn HotPassContext::new(
   cache : @ir.HotAnalysisCache,
   verify_policy : HotPipelineVerifyPolicy,
   trace : (String) -> Unit,
+  perf? : HotPerfSession? = None,
 ) -> HotPassContext {
-  { descriptor, cache, verify_policy, trace }
+  { descriptor, cache, verify_policy, trace, perf }
+}
+
+///|
+fn perf_start_timer_opt(perf : HotPerfSession?, name : String) -> UInt64 {
+  match perf {
+    Some(session) => perf_start_timer(session, name)
+    None => 0UL
+  }
+}
+
+///|
+fn perf_stop_timer_opt(
+  perf : HotPerfSession?,
+  name : String,
+  start_us : UInt64,
+) -> Unit {
+  match perf {
+    Some(session) => perf_stop_timer(session, name, start_us)
+    None => ()
+  }
+}
+
+///|
+fn perf_validation_checkpoint_opt(
+  perf : HotPerfSession?,
+  name : String,
+) -> Unit {
+  match perf {
+    Some(session) => perf_validation_checkpoint(session, name)
+    None => ()
+  }
+}
+
+///|
+fn perf_dump_hot_func_opt(
+  perf : HotPerfSession?,
+  func : @ir.HotFunc,
+  label : String,
+) -> Unit {
+  match perf {
+    Some(session) => perf_dump_hot_func(session, func, label)
+    None => ()
+  }
+}
+
+///|
+fn perf_emit_counters_opt(perf : HotPerfSession?, label : String) -> Unit {
+  match perf {
+    Some(session) => perf_emit_counters(session, label)
+    None => ()
+  }
+}
+
+///|
+fn pipeline_verify_checkpoint_with_perf(
+  perf : HotPerfSession?,
+  policy : HotPipelineVerifyPolicy,
+  label : String,
+  target : HotPipelineVerifyTarget,
+  timer_name : String,
+) -> Result[Unit, String] {
+  let start_us = perf_start_timer_opt(perf, timer_name)
+  let result = pipeline_verify_checkpoint(policy, label, target)
+  perf_stop_timer_opt(perf, timer_name, start_us)
+  match result {
+    Ok(_) => {
+      perf_validation_checkpoint_opt(perf, label)
+      Ok(())
+    }
+    Err(err) => Err(err)
+  }
 }
 
 ///|
@@ -211,7 +287,13 @@ pub fn hot_pass_run(
   let descriptor = ctx.descriptor
   pass_prepare_requirements(ctx, func)
   pipeline_trace_hook(ctx.trace, descriptor.name, "start")
+  perf_dump_hot_func_opt(ctx.perf, func, "before-pass:\{descriptor.name}")
+  let before_snapshot = perf_snapshot_hot_func(func)
   let before_revision = @ir.hot_revision_current(func)
+  let pass_timer_start = perf_start_timer_opt(
+    ctx.perf,
+    "pass:\{descriptor.name}",
+  )
   let result = match descriptor.name {
     "vacuum" =>
       if hot_pass_remove_region_nops(ctx, func, @ir.HotRegionRef::root()) {
@@ -221,6 +303,17 @@ pub fn hot_pass_run(
       }
     _ => return Err("unsupported hot pass \{descriptor.name}")
   }
+  perf_stop_timer_opt(ctx.perf, "pass:\{descriptor.name}", pass_timer_start)
+  match ctx.perf {
+    Some(perf) =>
+      perf_count_hot_alloc_delta(
+        perf,
+        before_snapshot,
+        perf_snapshot_hot_func(func),
+      )
+    None => ()
+  }
+  perf_dump_hot_func_opt(ctx.perf, func, "after-pass:\{descriptor.name}")
   if @ir.hot_revision_current(func) != before_revision {
     @ir.cache_invalidate_all(ctx.cache)
   }
