@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 IR: add analysis cache helpers
+
+- **Hot analysis cache** by **@jtenner**. Added [`src/ir/analysis_cache.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/analysis_cache.mbt) and [`src/ir/analysis_cache_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/analysis_cache_test.mbt) to cache CFG, traversal-order, dominance, post-dominance, loop-info, use-def, liveness, effect-summary, and local-SSA overlays behind `HotFunc.revision`, with typed `cache_get_or_build_*` helpers and explicit `cache_invalidate_all(...)` reset semantics so passes can safely reuse derived analyses without stale overlay bugs. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-260 slice.
+
 ## 2026-03-24 IR: add SSA destruction helpers
 
 - **Hot SSA destruction** by **@jtenner**. Added [`src/ir/ssa_destroy.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_destroy.mbt) and [`src/ir/ssa_destroy_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_destroy_test.mbt) to lower local SSA overlays back into plain hot local ops through concrete-local assignment, predecessor-copy insertion, temp-local scheduling for cyclic parallel copies, direct local-op rewrites, and dead local-def cleanup. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-250 slice.

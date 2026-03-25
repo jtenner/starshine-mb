@@ -72,6 +72,26 @@ pub fn block_local_defs(HotUseDef, Int) -> Bitset
 
 pub fn block_local_uses(HotUseDef, Int) -> Bitset
 
+pub fn cache_get_or_build_cfg(HotAnalysisCache, HotFunc) -> HotCfg
+
+pub fn cache_get_or_build_dom(HotAnalysisCache, HotFunc) -> HotDominators
+
+pub fn cache_get_or_build_effects(HotAnalysisCache, HotFunc) -> HotEffectsSummary
+
+pub fn cache_get_or_build_liveness(HotAnalysisCache, HotFunc) -> HotLiveness
+
+pub fn cache_get_or_build_loop_info(HotAnalysisCache, HotFunc) -> HotLoopInfo
+
+pub fn cache_get_or_build_orders(HotAnalysisCache, HotFunc) -> HotCfgOrders
+
+pub fn cache_get_or_build_postdom(HotAnalysisCache, HotFunc) -> HotPostDominators
+
+pub fn cache_get_or_build_ssa(HotAnalysisCache, HotFunc) -> HotLocalSsa
+
+pub fn cache_get_or_build_use_def(HotAnalysisCache, HotFunc) -> HotUseDef
+
+pub fn cache_invalidate_all(HotAnalysisCache) -> Unit
+
 pub fn cfg_block_boundary_reasons(HotFunc, Int) -> Array[CfgBlockBoundaryReason]
 
 pub fn cfg_block_count(HotCfg) -> Int
@@ -749,6 +769,22 @@ pub impl Eq for HotAnalysis
 pub impl Show for HotAnalysis
 pub impl @debug.Debug for HotAnalysis
 
+pub struct HotAnalysisCache {
+  mut cfg : HotCacheEntry[HotCfg]?
+  mut orders : HotCacheEntry[HotCfgOrders]?
+  mut dom : HotCacheEntry[HotDominators]?
+  mut postdom : HotCacheEntry[HotPostDominators]?
+  mut loop_info : HotCacheEntry[HotLoopInfo]?
+  mut use_def : HotCacheEntry[HotUseDef]?
+  mut liveness : HotCacheEntry[HotLiveness]?
+  mut effects : HotCacheEntry[HotEffectsSummary]?
+  mut ssa : HotCacheEntry[HotLocalSsa]?
+}
+pub fn HotAnalysisCache::new() -> Self
+pub impl Eq for HotAnalysisCache
+pub impl Show for HotAnalysisCache
+pub impl @debug.Debug for HotAnalysisCache
+
 pub struct HotBlockInfo {
   id : Int
   nodes : Array[Int]
@@ -771,6 +807,14 @@ pub fn HotBranchTable::new(Array[Int], Int) -> Self
 pub impl Eq for HotBranchTable
 pub impl Show for HotBranchTable
 pub impl @debug.Debug for HotBranchTable
+
+pub struct HotCacheEntry[T] {
+  built_at_revision : Int
+  value : T
+}
+pub impl[T : Eq] Eq for HotCacheEntry[T]
+pub impl[T : Show] Show for HotCacheEntry[T]
+pub impl[T : @debug.Debug] @debug.Debug for HotCacheEntry[T]
 
 pub struct HotCallSig {
   type_idx : @lib.TypeIdx
@@ -814,6 +858,19 @@ pub struct HotCfg {
 pub impl Eq for HotCfg
 pub impl Show for HotCfg
 pub impl @debug.Debug for HotCfg
+
+pub struct HotCfgOrders {
+  preorder : Array[Int]
+  postorder : Array[Int]
+  reverse_postorder : Array[Int]
+  reverse_postorder_with_exceptions : Array[Int]
+  reverse_exit_postorder : Array[Int]
+  reverse_exit_postorder_with_exceptions : Array[Int]
+  worklist_seed : Array[Int]
+}
+pub impl Eq for HotCfgOrders
+pub impl Show for HotCfgOrders
+pub impl @debug.Debug for HotCfgOrders
 
 pub enum HotConstPayload {
   I32Const(@lib.I32)
@@ -865,6 +922,15 @@ pub struct HotDominators {
 pub impl Eq for HotDominators
 pub impl Show for HotDominators
 pub impl @debug.Debug for HotDominators
+
+pub struct HotEffectsSummary {
+  node_masks : Array[UInt]
+  block_masks : Array[UInt]
+  root_region_mask : UInt
+}
+pub impl Eq for HotEffectsSummary
+pub impl Show for HotEffectsSummary
+pub impl @debug.Debug for HotEffectsSummary
 
 pub struct HotFunc {
   nodes : Array[HotNode]

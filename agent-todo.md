@@ -9,51 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 260 - Analysis Invalidation / Caching
-- Goal:
-  Provide one shared cache for derived analyses keyed to `HotFunc.revision`.
-- Why this slice exists:
-  CFG, dominance, liveness, effects, and SSA need safe reuse without stale overlay bugs.
-- Concrete deliverables:
-  - `src/ir/analysis_cache.mbt`.
-  - `src/ir/analysis_cache_test.mbt`.
-- Detailed implementation tasks:
-  - Define cache entries for CFG, orders, dominators, post-dominators, loop info, use-def, liveness, effects, and SSA.
-  - Store `built_at_revision` for each entry.
-  - Add typed `get_or_build_*` helpers.
-  - Use conservative invalidation on any semantic mutation for v1.
-  - Add explicit cache drop/reset helpers.
-- Required utilities / APIs:
-  - `HotAnalysisCache`.
-  - `cache_get_or_build_cfg(cache, func)`.
-  - `cache_get_or_build_dom(cache, func)`.
-  - `cache_get_or_build_postdom(cache, func)`.
-  - `cache_get_or_build_loop_info(cache, func)`.
-  - `cache_get_or_build_use_def(cache, func)`.
-  - `cache_get_or_build_liveness(cache, func)`.
-  - `cache_get_or_build_effects(cache, func)`.
-  - `cache_get_or_build_ssa(cache, func)`.
-  - `cache_invalidate_all(cache)`.
-- Invariants / correctness rules:
-  - Cached overlays are never reused across revision changes.
-  - Mutation primitives are the only source of revision change.
-  - Cache getters build dependencies internally rather than pushing that burden to passes.
-- Dependencies:
-  - IR2 - 150 - CFG Construction.
-  - IR2 - 170 - Dominators.
-  - IR2 - 180 - Post-Dominators.
-  - IR2 - 190 - Loop Info.
-  - IR2 - 200 - Use-Def.
-  - IR2 - 210 - Liveness.
-  - IR2 - 220 - Effect Summaries.
-  - IR2 - 240 - Local SSA Construction.
-- Exit criteria:
-  - Passes can request derived analyses safely from one cache object.
-- Suggested tests:
-  - Reuse without mutation.
-  - Rebuild after child/root mutation.
-  - Reject or rebuild stale overlay use.
-
 ### IR2 - 270 - Pipeline Orchestration
 - Goal:
   Replace compatibility-only pass execution with the real hot-IR pass manager and optimization pipeline.
