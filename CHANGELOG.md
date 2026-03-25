@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 CLI: trim direct parse substring churn
+
+- **CLI token-scan parsing cleanup** by **@jtenner**. Updated [`src/cli/cli.mbt`](/home/jtenner/Projects/starshine-mb/src/cli/cli.mbt) and [`src/cli/cli_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cli/cli_test.mbt) so the direct CLI parser now scans long flags, `-O` flags, and short-option clusters in-place instead of materializing extra intermediate substring copies on the hot path, while preserving inline-value behavior through added coverage and trimming native `--help` parse benchmark time on a 3,601-arg synthetic workload.
+
 ## 2026-03-25 Optimize: short-circuit no-op RUME rewrites
 
 - **RUME full-module no-op rewrite fast path** by **@jtenner**. Updated [`src/passes/remove_unused_module_elements.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_module_elements.mbt) so `remove-unused-module-elements` now returns the original module immediately when every remap is identity and every tracked section stays fully live, avoiding the remaining no-op section rebuild work on the large MoonBit debug artifact and cutting traced pass time a bit further while preserving canonical compare parity against Binaryen.

@@ -287,6 +287,22 @@ test "parse_cli_args accepts named optimize and shrink level flags" {
 }
 
 ///|
+test "parse_cli_args accepts inline long values for common option flags" {
+  let parsed = parse_ok([
+    "--config=local.json", "--format=wat", "--out=out.wasm", "--out-dir=dist", "--trap-mode=never",
+    "--tracing=helper",
+  ])
+  assert_eq(parsed.config_path, Some("local.json"))
+  assert_eq(parsed.input_format, Some(CliInputFormat::wat()))
+  assert_eq(parsed.output_targets, [
+    CliOutputTarget::file("out.wasm"),
+    CliOutputTarget::dir("dist"),
+  ])
+  assert_eq(parsed.trap_mode, Some(TrapMode::never()))
+  assert_eq(parsed.tracing, Some(CliTracingLevel::helper()))
+}
+
+///|
 test "parse_cli_args accepts named optimization option flags" {
   let parsed = parse_ok([
     "--monomorphize-min-benefit", "9", "--low-memory-unused", "--low-memory-bound",
