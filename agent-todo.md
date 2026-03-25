@@ -78,6 +78,7 @@ Observed unique-pass order
      - Doc: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
    - [DCE]002 - Prefix Regression and Artifact Replay - Lock the corrected DCE behavior into focused tests and rerun the MoonBit debug-artifact compare harness.
      - Deliverables: add red/green regressions for dead results, unreachable tails, and imported calls; replay `--dce` parity on the artifact; document any intentional remaining divergence.
+     - Status: focused DCE regressions landed, but artifact replay is still blocked by a hot-lift stack mismatch at `func[80]` (`_M0FP37jtenner9starshine3cmd29run__spec__cmd__with__adapter`) while lifting `local.set (Local 83)` during the `--dead-code-elimination` compare harness run.
      - Doc: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.

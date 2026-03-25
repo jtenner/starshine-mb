@@ -53,4 +53,11 @@ using @lib {
 }
 
 ///|
-using @validate {type Env, type TcState, trait Typecheck, empty_env, make_state}
+using @validate {
+  type Env,
+  type TcState,
+  trait Typecheck,
+  empty_env,
+  make_state,
+  tc_state_with_stack,
+}

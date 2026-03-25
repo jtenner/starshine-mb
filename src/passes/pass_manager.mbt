@@ -291,6 +291,12 @@ fn run_hot_pipeline_func(
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
 ) -> Result[@lib.Func, String] {
+  pipeline_trace_hook(
+    options.trace,
+    descriptor.name,
+    "func",
+    payload="func_idx=\{func_idx}",
+  )
   let lift_start_us = perf_start_timer_opt(options.perf, "lift")
   let func = @ir.hot_lift_func(mod_, func_idx)
   match options.perf {

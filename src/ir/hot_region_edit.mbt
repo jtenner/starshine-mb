@@ -176,6 +176,19 @@ pub fn hot_region_root_count(func : HotFunc, region_ref : HotRegionRef) -> Int {
 }
 
 ///|
+pub fn hot_region_result_arity(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> Int {
+  if hot_region_is_root(region_ref) {
+    return hot_type_result_arity(func, hot_body_result_type(func))
+  }
+  let holder = hot_region_require_holder(func, region_ref)
+  let label_id = hot_control_node_label(func, holder)
+  hot_label_branch_arity(func, label_id)
+}
+
+///|
 pub fn hot_region_get(
   func : HotFunc,
   region_ref : HotRegionRef,

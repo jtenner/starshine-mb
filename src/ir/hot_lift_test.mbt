@@ -127,6 +127,18 @@ fn hot_lift_test_func_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lift_test_block_param_module() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+      ),
+    ),
+  ])
+  @lib.Module::new().with_type_sec(type_sec)
+}
+
+///|
 test "hot lift func derives locals and direct call metadata from the module" {
   let func = hot_lift_func(hot_lift_test_func_module(), @lib.FuncIdx::new(1U))
 
@@ -174,4 +186,101 @@ test "hot lift maps try_table catches onto hot labels" {
       assert_eq(label_id, hot_control_node_label(func, block_id))
     other => fail("expected catch_all arm, got \{other}")
   }
+}
+
+///|
+test "hot lift preserves live prefixes across repeated stack types" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_const(@lib.I32(2)),
+      @lib.Instruction::i32_const(@lib.I32(3)),
+      @lib.Instruction::i32_sub(),
+    ]),
+    HotLocals::new(),
+  )
+
+  assert_eq(hot_root_count(func), 2)
+
+  let prefix = hot_root_get(func, 0)
+  let sub = hot_root_get(func, 1)
+
+  assert_true(hot_node_kind_is_numeric(func, prefix))
+  assert_eq(hot_child_count(func, prefix), 0)
+  assert_eq(hot_node_exact_instr(func, sub), Some(@lib.Instruction::i32_sub()))
+  assert_eq(hot_child_count(func, sub), 2)
+  assert_true(hot_node_kind_is_numeric(func, hot_child_get(func, sub, 0)))
+  assert_true(hot_node_kind_is_numeric(func, hot_child_get(func, sub, 1)))
+  assert_eq(hot_child_count(func, hot_child_get(func, sub, 0)), 0)
+  assert_eq(hot_child_count(func, hot_child_get(func, sub, 1)), 0)
+}
+
+///|
+test "hot lift seeds loop param values into nested regions" {
+  let module_ = hot_lift_test_block_param_module()
+  let ctx = hot_module_context_from_module(module_)
+  let func = hot_lift_body_with_context(
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::loop_(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        @lib.Expr::new([@lib.Instruction::local_tee(@lib.LocalIdx::new(0U))]),
+      ),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+    ctx,
+  )
+
+  assert_eq(hot_root_count(func), 1)
+
+  let loop_id = hot_root_get(func, 0)
+  let body_region = hot_region_body_ref(func, loop_id)
+  let tee_id = hot_region_get(func, body_region, 0)
+
+  assert_true(hot_node_kind_is_local(func, tee_id))
+  assert_eq(hot_child_count(func, tee_id), 1)
+  assert_true(hot_node_kind_is_numeric(func, hot_child_get(func, tee_id, 0)))
+  assert_eq(hot_child_count(func, hot_child_get(func, tee_id, 0)), 0)
+}
+
+///|
+test "hot lift preserves concrete unreachable stack prefixes for local.get" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::unreachable_(),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_const(@lib.I32(2)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+
+  assert_eq(hot_root_count(func), 4)
+
+  let trap = hot_root_get(func, 0)
+  let left = hot_root_get(func, 1)
+  let right = hot_root_get(func, 2)
+  let local_get = hot_root_get(func, 3)
+
+  assert_eq(hot_node_get(func, trap).op.to_string(), "Unreachable")
+  assert_true(hot_node_kind_is_numeric(func, left))
+  assert_true(hot_node_kind_is_numeric(func, right))
+  assert_true(hot_node_kind_is_local(func, local_get))
+  assert_eq(hot_child_count(func, local_get), 0)
+}
+
+///|
+test "hot lift tolerates polymorphic unreachable operands with no concrete values" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::unreachable_(),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+
+  assert_eq(hot_root_count(func), 1)
+
+  let trap = hot_root_get(func, 0)
+  assert_eq(hot_node_get(func, trap).op.to_string(), "Unreachable")
 }

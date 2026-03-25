@@ -26,6 +26,8 @@ pub fn make_state(Env, Array[@lib.ValType]) -> TcState
 
 pub fn run_validate_valid_fuzz(String, UInt64) -> Result[ValidateValidFuzzStats, String]
 
+pub fn tc_state_with_stack(TcState, Array[@lib.ValType]) -> TcState
+
 pub fn validate_codesec(@lib.CodeSec?, @lib.FuncSec?, Env) -> Result[Unit, String]
 
 pub fn validate_datacnt(@lib.DataCntSec?, @lib.DataSec?) -> Result[Unit, String]

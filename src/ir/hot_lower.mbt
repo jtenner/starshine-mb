@@ -18,6 +18,7 @@ fn hot_lower_impl_label_depth(
 fn hot_lower_impl_control_block_type(func : HotFunc, id : NodeId) -> BlockType {
   match hot_type_get(func, hot_node_get(func, id).ty) {
     BlockResult(block_type) => block_type
+    BlockResultResolved(block_type, _) => block_type
     _ => BlockType::void_()
   }
 }
