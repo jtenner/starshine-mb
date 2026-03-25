@@ -8,7 +8,7 @@
 ## Current Registry Contract
 
 - Active hot pass:
-  `vacuum`.
+  `vacuum`, `dead-code-elimination`.
 - Active presets:
   `optimize`, `shrink`.
 - Boundary-only names stay known to the registry for mapping and diagnostics, but remain rejected by the hot pipeline and hidden from help output.
@@ -16,14 +16,14 @@
 
 ## Batch 1
 
-- Current hot pass:
-  `vacuum`.
+- Current hot passes:
+  `vacuum`, `dead-code-elimination`.
 - Initial placeholder modules:
   [`src/passes/dead_code_elimination.mbt`](../src/passes/dead_code_elimination.mbt),
   [`src/passes/optimize_instructions.mbt`](../src/passes/optimize_instructions.mbt),
   [`src/passes/simplify_locals.mbt`](../src/passes/simplify_locals.mbt).
 - Removed until hot implementation lands:
-  `avoid-reinterprets`, `coalesce-locals`, `code-folding`, `code-pushing`, `const-hoisting`, `dataflow-optimization`, `dead-code-elimination`, `local-cse`, `merge-locals`, `optimize-added-constants`, `optimize-added-constants-propagate`, `optimize-instructions`, `precompute`, `precompute-propagate`, `simplify-locals`, `simplify-locals-no-tee`, `simplify-locals-no-structure`, `simplify-locals-no-tee-no-structure`, `simplify-locals-no-nesting`, `untee`, `de-nan`.
+  `avoid-reinterprets`, `coalesce-locals`, `code-folding`, `code-pushing`, `const-hoisting`, `dataflow-optimization`, `local-cse`, `merge-locals`, `optimize-added-constants`, `optimize-added-constants-propagate`, `optimize-instructions`, `precompute`, `precompute-propagate`, `simplify-locals`, `simplify-locals-no-tee`, `simplify-locals-no-structure`, `simplify-locals-no-tee-no-structure`, `simplify-locals-no-nesting`, `untee`, `de-nan`.
 
 ## Batch 2
 
@@ -64,5 +64,5 @@
 
 ## Open Questions
 
-- Whether batch 1 should grow a real `dead-code-elimination` implementation before additional registry expansion.
+- Whether `dead-code-elimination` should move into `optimize` / `shrink` immediately or stay explicit until more batch-1 passes land.
 - Whether any current boundary-only names should later move into the hot pipeline once the optimizer owns broader module context.

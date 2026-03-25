@@ -22,7 +22,7 @@
 - The hot pass pipeline is real and public: `lift -> verify -> run passes -> verify -> lower -> validate`.
 - Pipeline perf instrumentation now exists for opt-in timings, counters, checkpoints, and lightweight dumps.
 - The active hot registry surface is still intentionally small:
-  - hot pass: `vacuum`
+  - hot passes: `vacuum`, `dead-code-elimination`
   - presets: `optimize`, `shrink`
 - Legacy pass names remain categorized as `boundary-only` or `removed` in the registry for diagnostics, but they are not active help-surface entries.
 - CLI tooling and the fuzz harness now use real pass-name arrays; the deleted `ModulePass` compatibility shim is gone.
@@ -32,7 +32,7 @@
 
 - If pass migration resumes, start from the batch intent in [`0063-2026-03-24-pass-port-batches-and-registry-map.md`](./0063-2026-03-24-pass-port-batches-and-registry-map.md).
 - Preferred implementation order from the current state:
-  1. Batch 1 real hot pass ports: `dead-code-elimination`, `optimize-instructions`, `simplify-locals`
+  1. Finish batch 1 real hot pass ports: `optimize-instructions`, `simplify-locals`
   2. Batch 2 control and cleanup passes: `flatten`, `merge-blocks`, `re-reloop`, `tuple-optimization`, `remove-unused-brs`, `redundant-set-elimination`, `pick-load-signs`, `optimize-casts`
   3. Batch 3 dataflow-sensitive passes: `local-subtyping`, `loop-invariant-code-motion`
 - If a pass needs a new IR rule or overlay contract before implementation, land the contract/ADR update first in `docs/` and then add the new slice to `agent-todo.md`.

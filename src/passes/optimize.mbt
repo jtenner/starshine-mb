@@ -116,13 +116,13 @@ fn pass_registry_boundary_only_names() -> Array[String] {
 fn pass_registry_removed_names() -> Array[String] {
   [
     "avoid-reinterprets", "coalesce-locals", "code-folding", "code-pushing", "const-hoisting",
-    "dataflow-optimization", "dead-code-elimination", "local-cse", "local-subtyping",
-    "loop-invariant-code-motion", "merge-locals", "merge-blocks", "flatten", "re-reloop",
-    "tuple-optimization", "optimize-added-constants", "optimize-added-constants-propagate",
-    "optimize-instructions", "precompute", "precompute-propagate", "redundant-set-elimination",
-    "pick-load-signs", "optimize-casts", "de-nan", "remove-unused-brs", "simplify-locals",
-    "simplify-locals-no-tee", "simplify-locals-no-structure", "simplify-locals-no-tee-no-structure",
-    "simplify-locals-no-nesting", "untee",
+    "dataflow-optimization", "local-cse", "local-subtyping", "loop-invariant-code-motion",
+    "merge-locals", "merge-blocks", "flatten", "re-reloop", "tuple-optimization",
+    "optimize-added-constants", "optimize-added-constants-propagate", "optimize-instructions",
+    "precompute", "precompute-propagate", "redundant-set-elimination", "pick-load-signs",
+    "optimize-casts", "de-nan", "remove-unused-brs", "simplify-locals", "simplify-locals-no-tee",
+    "simplify-locals-no-structure", "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting",
+    "untee",
   ]
 }
 
@@ -141,6 +141,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
         @ir.HotAnalysis::loop_info(),
         @ir.HotAnalysis::ssa(),
       ]),
+    ),
+    pass_registry_entry_hot(
+      "dead-code-elimination",
+      dead_code_elimination_summary(),
+      dead_code_elimination_descriptor(),
     ),
     pass_registry_entry_preset(
       "optimize",
