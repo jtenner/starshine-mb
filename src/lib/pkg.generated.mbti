@@ -2505,6 +2505,7 @@ pub fn Module::with_stringrefs_sec(Self, StringRefsSec) -> Self
 pub fn Module::with_table_sec(Self, TableSec) -> Self
 pub fn Module::with_tag_sec(Self, TagSec) -> Self
 pub fn Module::with_type_sec(Self, TypeSec) -> Self
+pub fn Module::without_name_sec(Self) -> Self
 pub impl PrettyPrint for Module
 pub impl Eq for Module
 pub impl Hash for Module

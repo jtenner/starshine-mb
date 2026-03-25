@@ -62,6 +62,40 @@ fn dfe_test_block_type(mod_ : @lib.Module, defined_idx : Int) -> UInt raise {
 }
 
 ///|
+fn dfe_test_select_ref_type_idx(
+  mod_ : @lib.Module,
+  defined_idx : Int,
+) -> UInt raise {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[defined_idx] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          for instr in instrs {
+            match instr {
+              @lib.Select(
+                Some(
+                  [
+                    @lib.RefTypeValType(
+                      @lib.HeapTypeRefType(
+                        _,
+                        _,
+                        @lib.HeapType(@lib.TypeIdx(type_idx))
+                      )
+                    ),
+                  ]
+                )
+              ) => return type_idx
+              _ => ()
+            }
+          }
+          fail("expected typed select with concrete heap type")
+        }
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
 test "run_hot_pipeline applies duplicate-function-elimination and rewrites function references" {
   let input = @lib.Module::new()
     .with_type_sec(dfe_test_type_sec())
@@ -406,6 +440,219 @@ test "duplicate-function-elimination canonicalizes non-adjacent duplicate simple
 }
 
 ///|
+test "duplicate-function-elimination rewrites kept canonical block type indices after later type compaction" {
+  let dup_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let block_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i64()])),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([dup_type, dup_type, block_type, func_type, func_type]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(4U), @lib.TypeIdx::new(3U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(2U)),
+              @lib.Expr::new([@lib.Instruction::i64_const(@lib.I64(7L))]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(2U)),
+              @lib.Expr::new([@lib.Instruction::i64_const(@lib.I64(7L))]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "duplicate-function-elimination",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected duplicate-function-elimination pipeline success, got \{err}",
+      )
+  }
+
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 3)
+    None => fail("expected type section")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => {
+      assert_eq(type_idxs.length(), 1)
+      assert_eq(type_idxs[0], @lib.TypeIdx::new(2U))
+    }
+    None => fail("expected func section")
+  }
+  assert_eq(try! dfe_test_block_type(optimized, 0), 1U)
+}
+
+///|
+test "duplicate-function-elimination rewrites typed select and valtype block forms during type compaction" {
+  let dup_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let concrete_ref_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i64()]),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        dup_type, dup_type, concrete_ref_type, func_type, func_type,
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(4U), @lib.TypeIdx::new(3U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(
+                @lib.ValType::ref_null(
+                  @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+                ),
+              ),
+              @lib.Expr::new([
+                @lib.Instruction::ref_null(
+                  @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+                ),
+              ]),
+            ),
+            @lib.Instruction::ref_null(
+              @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+            ),
+            @lib.Instruction::ref_null(
+              @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::select(
+              types=Some([
+                @lib.ValType::ref_null(
+                  @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+                ),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(
+                @lib.ValType::ref_null(
+                  @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+                ),
+              ),
+              @lib.Expr::new([
+                @lib.Instruction::ref_null(
+                  @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+                ),
+              ]),
+            ),
+            @lib.Instruction::ref_null(
+              @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+            ),
+            @lib.Instruction::ref_null(
+              @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::select(
+              types=Some([
+                @lib.ValType::ref_null(
+                  @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+                ),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "duplicate-function-elimination",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected duplicate-function-elimination pipeline success, got \{err}",
+      )
+  }
+
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 3)
+    None => fail("expected type section")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => {
+      assert_eq(type_idxs.length(), 1)
+      assert_eq(type_idxs[0], @lib.TypeIdx::new(2U))
+    }
+    None => fail("expected func section")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(
+          _,
+          @lib.Expr(
+            [
+              @lib.Block(
+                @lib.ValTypeBlockType(
+                  @lib.RefTypeValType(
+                    @lib.HeapTypeRefType(
+                      _,
+                      _,
+                      @lib.HeapType(@lib.TypeIdx(block_type))
+                    )
+                  )
+                ),
+                _
+              ),
+              ..,
+            ]
+          )
+        ) => assert_eq(block_type, 1U)
+        _ => fail("expected leading block with concrete ref valtype")
+      }
+    None => fail("expected code section")
+  }
+  assert_eq(try! dfe_test_select_ref_type_idx(optimized, 0), 1U)
+}
+
+///|
 test "duplicate-function-elimination keeps annotated duplicates distinct" {
   let input = @lib.Module::new()
     .with_type_sec(dfe_test_type_sec())
@@ -516,7 +763,7 @@ test "duplicate-function-elimination canonicalizes compactable function element 
 }
 
 ///|
-test "duplicate-function-elimination rewrites function name and annotation maps to canonical survivors" {
+test "duplicate-function-elimination strips names and rewrites annotation maps to canonical survivors" {
   let input = @lib.Module::new()
     .with_type_sec(dfe_test_type_sec())
     .with_func_sec(
@@ -595,34 +842,7 @@ test "duplicate-function-elimination rewrites function name and annotation maps 
     Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 2)
     None => fail("expected code section")
   }
-  match optimized.name_sec {
-    Some(name_sec) => {
-      let { func_names, local_names, .. } = name_sec
-      assert_eq(
-        func_names,
-        Some(
-          @lib.NameMap::new([
-            @lib.NameAssoc::new(0U, @lib.Name::from_string("left")),
-            @lib.NameAssoc::new(1U, @lib.Name::from_string("middle")),
-          ]),
-        ),
-      )
-      assert_eq(
-        local_names,
-        Some(
-          @lib.IndirectNameMap::new([
-            @lib.IndirectNameAssoc::new(
-              1U,
-              @lib.NameMap::new([
-                @lib.NameAssoc::new(0U, @lib.Name::from_string("mid_local")),
-              ]),
-            ),
-          ]),
-        ),
-      )
-    }
-    None => fail("expected rewritten name section")
-  }
+  assert_eq(optimized.name_sec, None)
   match optimized.func_annotation_sec {
     Some(@lib.FuncAnnotationSec(entries)) =>
       assert_eq(entries, [

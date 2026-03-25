@@ -53,19 +53,6 @@ Observed unique-pass order
 - `DFE -> RUME -> MP -> OR -> GR -> GSI -> SSA -> DCE -> RUN -> RUB -> OI -> HSO -> PLS -> PC -> CP -> TO -> SLNS -> VQ -> RL -> H2L -> OC -> LS -> CL -> LCSE -> SL -> CF -> MB -> RSE -> DAE -> INL -> DIE -> SGO -> SG -> RG -> DIR`
 - Canonical ordered path and nested-shape notes live at [0066#L42](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L42) and [0066#L97](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L97).
 
-#### DFE - Duplicate Function Elimination
-1. Research exact functionality in document.
-   - Canonical implementation and parity notes: [0067](/home/jtenner/Projects/starshine-mb/docs/0067-2026-03-24-duplicate-function-elimination.md)
-2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [DFE]003 - Residual Artifact and Runtime Parity - The module-pass port is in place; the remaining work is narrowing the surviving debug-artifact drift and the still-open runtime gap against Binaryen.
-     - Deliverables: keep the closed `elements` fix recorded; separate the confirmed small custom-section/name cost from the much larger raw-module-shape cost; keep the landed hashed simple-type dedup, selective type-normalization rewrites, shallow sampled-instruction hashing, and loop-based remap scan cleanup; record whether the surviving artifact difference is Binaryen-specific type retention or codegen drift; use the compare harness pass timings to identify and land the next real DFE runtime reduction from the current roughly `615-638 ms` Starshine vs `158 ms` Binaryen direct-pass baseline on `tests/node/dist/starshine-debug-wasi.wasm`.
-     - Doc: [0067](/home/jtenner/Projects/starshine-mb/docs/0067-2026-03-24-duplicate-function-elimination.md)
-3. Do work.
-   - Treat the implementation as landed for explicit `duplicate-function-elimination`; keep follow-up work scoped to residual artifact parity and runtime reduction unless a semantic merge-set mismatch is found.
-4. Test against binaryen.
-   - Keep `moon test src/passes` and `moon test src/cmd` green while investigating the artifact delta.
-   - Replay `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --duplicate-function-elimination` and `wasm-tools objdump` after each parity change; record whether the remaining drift moved in `types`, `code`, runtime, or only `name`.
-
 #### RUME - Remove Unused Module Elements
 1. Research exact functionality in document.
    - Research exactly how it works with a document: [0066#L148](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L148)
