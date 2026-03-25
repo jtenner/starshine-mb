@@ -576,6 +576,18 @@ pub fn[S, E] hot_walk_subtree_preorder(HotFunc, Int, S, (S, Int) -> HotVisitCtl[
 
 pub fn[S, E] hot_worklist_walk(HotFunc, Array[Int], S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
 
+pub fn ir_test_assert_verify_and_lower(IrTestHotFixture) -> @lib.Module
+
+pub fn ir_test_build_hot_from_wat(String, code_idx? : Int) -> IrTestHotFixture
+
+pub fn ir_test_dump_cfg(HotFunc) -> String
+
+pub fn ir_test_dump_dom(HotFunc) -> String
+
+pub fn ir_test_dump_liveness(HotFunc) -> String
+
+pub fn ir_test_dump_ssa(HotFunc) -> String
+
 pub fn live_in(HotLiveness, Int) -> Bitset
 
 pub fn live_out(HotLiveness, Int) -> Bitset
@@ -1378,6 +1390,12 @@ pub enum HotVisitCtl[S, E] {
   Skip(S)
   Stop(S)
   Error(E)
+}
+
+pub struct IrTestHotFixture {
+  mod_ : @lib.Module
+  code_idx : Int
+  hot_func : HotFunc
 }
 
 // Type aliases

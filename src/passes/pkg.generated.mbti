@@ -58,6 +58,8 @@ pub fn pass_require_use_def(HotPassContext, @ir.HotFunc) -> @ir.HotUseDef
 
 pub fn pass_splice_region(HotPassContext, @ir.HotFunc, @ir.HotRegionRef, Int, Int, Array[Int]) -> Array[Int]
 
+pub fn pass_test_capture_trace(String, Array[String]) -> Result[Array[String], String]
+
 pub fn pass_test_lift_first_func(String) -> @ir.HotFunc
 
 pub fn pass_test_module_from_wat(String) -> @lib.Module

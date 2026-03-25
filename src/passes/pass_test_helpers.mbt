@@ -37,3 +37,20 @@ pub fn pass_test_run_pipeline(
 ) -> Result[@lib.Module, String] {
   run_hot_pipeline(pass_test_module_from_wat(text), options, requested_passes)
 }
+
+///|
+pub fn pass_test_capture_trace(
+  text : String,
+  requested_passes : Array[String],
+) -> Result[Array[String], String] {
+  let trace : Array[String] = []
+  match
+    run_hot_pipeline(
+      pass_test_module_from_wat(text),
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      requested_passes,
+    ) {
+    Ok(_) => Ok(trace)
+    Err(err) => Err(err)
+  }
+}
