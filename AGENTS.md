@@ -40,8 +40,8 @@
 - Preferred final quick check: `moon info && moon fmt`, then `moon test`.
 - Prefer `bun validate` checks before committing.
 - Multiple `moon` commands contend on `_build/.moon-lock`; serialize these runs.
-- When requested to test self-optimize pipeline, hand off to the user to run it.
-- For optimize-pipeline parity signoff, hand off `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --optimize` to the user and treat canonical parity plus Starshine wall time at least 50% as fast as Binaryen as the done threshold.
+- When requested to test the full self-optimize pipeline, ask the user for permission before running it.
+- For optimize-pipeline parity signoff, ask permission before running `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --optimize` and treat canonical parity plus Starshine wall time at least 50% as fast as Binaryen as the done threshold.
 
 # Commit Process
 - For any commit, update `CHANGELOG.md` first with a short completed-work entry.
