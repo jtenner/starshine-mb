@@ -292,6 +292,32 @@ fn fixture_remove_unused_module_elements_module() -> Module {
 }
 
 ///|
+fn fixture_rume_noop_module() -> Module {
+  let t_void = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([t_void]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("run"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn run_optimize_wat_fixture_regression(
   path : String,
   wat_text : String,
@@ -828,6 +854,74 @@ test "run_cmd_with_adapter applies remove-unused-module-elements to wasm inputs"
     Some(CodeSec(funcs)) => assert_eq(funcs.length(), 1)
     None => fail("expected code section")
   }
+}
+
+///|
+test "run_cmd_with_adapter reuses original wasm bytes when RUME is unchanged" {
+  let wasm = encode_module_bytes(fixture_rume_noop_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    encode_module=fn(_) {
+      abort(
+        "encode_module should not run when unchanged wasm bytes can pass through",
+      )
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--remove-unused-module-elements", "--out", "out.wasm", "a.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected unchanged RUME success, got \{e}")
+  }
+  assert_eq(summary.output_files, ["out.wasm"])
+  assert_eq(writes, [("out.wasm", wasm)])
+}
+
+///|
+test "run_cmd_with_adapter still encodes changed RUME outputs" {
+  let wasm = encode_module_bytes(fixture_remove_unused_module_elements_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    encode_module=fn(_) { Ok(b"encoded-changed-rume") },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--remove-unused-module-elements", "--out", "out.wasm", "a.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected changed RUME success, got \{e}")
+  }
+  assert_eq(summary.output_files, ["out.wasm"])
+  assert_eq(writes, [("out.wasm", b"encoded-changed-rume")])
 }
 
 ///|

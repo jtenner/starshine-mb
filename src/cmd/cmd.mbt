@@ -1913,6 +1913,23 @@ fn should_validate_encoded_module_after_encode(
 }
 
 ///|
+fn should_reuse_input_wasm_bytes(
+  format : CliInputFormat,
+  pass_count : Int,
+  debug_serial_passes : Bool,
+  input_mod : Module,
+  optimized_mod : Module,
+) -> Bool {
+  match format {
+    Wasm =>
+      pass_count > 0 &&
+      !should_validate_encoded_module_after_encode(debug_serial_passes) &&
+      optimized_mod == input_mod
+    Wat | Wast => false
+  }
+}
+
+///|
 fn lower_text_module_in_process(
   path : String,
   format : CliInputFormat,
@@ -2223,10 +2240,19 @@ pub fn run_cmd_with_adapter(
     }
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:optimize done")
 
-    let out_bytes = match
-      encode_module_for_pipeline(io, input_path, optimized) {
-      Ok(bytes) => bytes
-      Err(e) => return Err(e)
+    let out_bytes = if should_reuse_input_wasm_bytes(
+        format,
+        effective_pass_count,
+        merged.debug_serial_passes,
+        mod,
+        optimized,
+      ) {
+      wasm_bytes
+    } else {
+      match encode_module_for_pipeline(io, input_path, optimized) {
+        Ok(bytes) => bytes
+        Err(e) => return Err(e)
+      }
     }
     cmd_trace_emit(
       io,

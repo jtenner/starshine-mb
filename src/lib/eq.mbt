@@ -18,10 +18,12 @@ pub impl Eq for Module with equal(l, r) {
   l.type_sec == r.type_sec &&
   l.name_sec == r.name_sec &&
   l.import_sec == r.import_sec &&
+  l.func_annotation_sec == r.func_annotation_sec &&
   l.func_sec == r.func_sec &&
   l.table_sec == r.table_sec &&
   l.mem_sec == r.mem_sec &&
   l.tag_sec == r.tag_sec &&
+  l.stringrefs_sec == r.stringrefs_sec &&
   l.global_sec == r.global_sec &&
   l.export_sec == r.export_sec &&
   l.start_sec == r.start_sec &&
