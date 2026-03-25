@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 Optimize: trim DFE sampled-hash overhead
+
+- **DFE sampled-hash follow-up** by **@jtenner**. Updated [`src/passes/duplicate_function_elimination.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/duplicate_function_elimination.mbt) so duplicate-function-elimination now uses a shallow sampled hash for structured first/last instructions when building candidate keys, avoiding repeated recursive hashing of large nested instruction trees in the no-merge MoonBit debug-artifact case. The same update also moves the hot candidate-key maps onto mutable hash maps; the direct traced DFE pass on [`tests/node/dist/starshine-debug-wasi.wasm`](/home/jtenner/Projects/starshine-mb/tests/node/dist/starshine-debug-wasi.wasm) dropped again to roughly `660 ms`, while Binaryen remains roughly `158 ms`.
+
 ## 2026-03-25 Optimize: reduce DFE type-normalization churn
 
 - **DFE type-dedup and normalization hot-path cuts** by **@jtenner**. Updated [`src/passes/duplicate_function_elimination.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/duplicate_function_elimination.mbt), [`src/passes/duplicate_function_elimination_test.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/duplicate_function_elimination_test.mbt), and [`src/passes/moon.pkg`](/home/jtenner/Projects/starshine-mb/src/passes/moon.pkg) so duplicate simple-type canonicalization now uses hashed first-seen buckets instead of a raw quadratic scan, DFE only rewrites function bodies for duplicate-type normalization when a function actually mentions remapped type indices, and no-merge runs no longer compact duplicate simple types. Added regressions for no-merge type preservation and non-adjacent duplicate-type compaction so the optimized path stays parity-safe while cutting the raw MoonBit debug-artifact DFE pass time materially.

@@ -1556,6 +1556,37 @@ fn dfe_locals_shape_hash(locals : @lib.Locals) -> Int {
 }
 
 ///|
+fn dfe_instruction_sample_hash(instr : @lib.Instruction) -> Int {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(instrs)) =>
+      ((1 * 31 + block_type.hash()) * 31 + instrs.length().hash())
+    @lib.Loop(block_type, @lib.Expr(instrs)) =>
+      ((2 * 31 + block_type.hash()) * 31 + instrs.length().hash())
+    @lib.If(block_type, then_body, else_body) => {
+      let else_len = match else_body {
+        Some(body) => body.length().hash()
+        None => 0
+      }
+      (((3 * 31 + block_type.hash()) * 31 + then_body.length().hash()) * 31) +
+      else_len
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(instrs)) =>
+      (((4 * 31 + block_type.hash()) * 31 + catches.length().hash()) * 31) +
+      instrs.length().hash()
+    @lib.Call(func_idx) => (5 * 31 + func_idx.hash())
+    @lib.ReturnCall(func_idx) => (6 * 31 + func_idx.hash())
+    @lib.RefFunc(func_idx) => (7 * 31 + func_idx.hash())
+    @lib.CallIndirect(type_idx, table_idx) =>
+      ((8 * 31 + type_idx.hash()) * 31 + table_idx.hash())
+    @lib.ReturnCallIndirect(type_idx, table_idx) =>
+      ((9 * 31 + type_idx.hash()) * 31 + table_idx.hash())
+    @lib.CallRef(type_idx) => (10 * 31 + type_idx.hash())
+    @lib.ReturnCallRef(type_idx) => (11 * 31 + type_idx.hash())
+    _ => instr.hash()
+  }
+}
+
+///|
 fn dfe_functions_equivalent(
   type_canon : Map[UInt, UInt],
   left_type : @lib.TypeIdx,
@@ -1602,7 +1633,7 @@ fn dfe_function_hash_key(
   let sample_count = if instrs.length() < 3 { instrs.length() } else { 3 }
   let mut i = 0
   while i < sample_count {
-    key = key * 31 + instrs[i].hash()
+    key = key * 31 + dfe_instruction_sample_hash(instrs[i])
     i += 1
   }
   let sample_start = if instrs.length() > sample_count {
@@ -1612,7 +1643,7 @@ fn dfe_function_hash_key(
   }
   i = sample_start
   while i < instrs.length() {
-    key = key * 31 + instrs[i].hash()
+    key = key * 31 + dfe_instruction_sample_hash(instrs[i])
     i += 1
   }
   key
@@ -1723,8 +1754,11 @@ fn dfe_iteration(mod_ : @lib.Module) -> @lib.Module? {
         rewritten
       }
       let normalized_annotations : Array[Array[@lib.FuncAnnotation]] = []
-      let first_by_hash : Map[Int, Int] = {}
-      let collision_group_by_hash : Map[Int, Int] = {}
+      let first_by_hash : @hashmap.HashMap[Int, Int] = @hashmap.new(
+        capacity=funcs.length(),
+      )
+      let collision_group_by_hash : @hashmap.HashMap[Int, Int] =
+        @hashmap.new(capacity=funcs.length() / 8 + 1)
       let hash_groups : Array[Array[Int]] = []
       let mut local_idx = 0
       while local_idx < funcs.length() {
@@ -1745,11 +1779,11 @@ fn dfe_iteration(mod_ : @lib.Module) -> @lib.Module? {
             match collision_group_by_hash.get(key) {
               Some(group_idx) => hash_groups[group_idx].push(local_idx)
               None => {
-                collision_group_by_hash[key] = hash_groups.length()
+                collision_group_by_hash.set(key, hash_groups.length())
                 hash_groups.push([first_idx, local_idx])
               }
             }
-          None => first_by_hash[key] = local_idx
+          None => first_by_hash.set(key, local_idx)
         }
         local_idx += 1
       }
