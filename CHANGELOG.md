@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 Optimize: land remove-unused-module-elements as a module pass
+
+- **RUME direct module-pass landing** by **@jtenner**. Added [`src/passes/remove_unused_module_elements.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_module_elements.mbt) and [`src/passes/remove_unused_module_elements_test.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_module_elements_test.mbt), updated [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt), [`src/passes/pass_manager.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/pass_manager.mbt), [`src/passes/registry_test.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/registry_test.mbt), [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd_test.mbt), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/passes/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/passes/pkg.generated.mbti) so `remove-unused-module-elements` now runs as a real module pass, rewrites surviving module indices across the kept sections, and has focused pipeline and CLI coverage while the backlog narrows to ordered replay and runtime-budget follow-up.
+
 ## 2026-03-25 Tooling: canonicalize self-optimize compare artifacts
 
 - **Self-optimize compare canonical artifact parity** by **@jtenner**. Updated [`scripts/lib/self-optimize-compare-task.ts`](/home/jtenner/Projects/starshine-mb/scripts/lib/self-optimize-compare-task.ts) and [`scripts/test/self-optimize-compare-command.ts`](/home/jtenner/Projects/starshine-mb/scripts/test/self-optimize-compare-command.ts) so the compare harness now preserves raw Starshine and Binaryen outputs, canonicalizes the Starshine side into the published compare artifact, keeps Binaryen's direct output as the byte-for-byte reference artifact, records exact wasm equality in the summary, and verifies the canonical pair through the command test.

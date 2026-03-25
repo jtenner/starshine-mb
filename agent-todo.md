@@ -57,18 +57,14 @@ Observed unique-pass order
 1. Research exact functionality in document.
    - Research exactly how it works with a document: [0066#L148](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L148)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [RUME]001 - Reachability and Boundary Model - Define the exact module-scope liveness walk for functions, globals, tables, elements, exports, start, and data-count-sensitive sections.
-     - Deliverables: compute the same roots Binaryen keeps; preserve import/export/start contracts; mark every section rewrite that depends on the liveness result.
-     - Doc: [0066#L148](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L148)
-   - [RUME]002 - Section Rewrite and Repeated-Slot Validation - Remove dead module elements safely and prove the pass behaves the same in all three top-level slots.
-     - Deliverables: rewrite module sections and indices consistently; add regressions for repeated reruns after GC and global cleanup; compare single-pass and ordered multi-pass artifact output against Binaryen.
+   - [RUME]003 - Ordered Replay and Runtime Budget Audit - The direct module pass, CLI flag, registry wiring, focused section/index rewrite coverage, and canonical compare-harness artifact parity are landed; the remaining work is replaying the pass in the exact no-DWARF slots once the preset path can host the module-pass order and closing the runtime budget gap.
+     - Deliverables: replay `remove-unused-module-elements` on `tests/node/dist/starshine-debug-wasi.wasm`; wire the pass into the documented repeated top-level slots when the public preset expansion is ready; keep canonical compare parity green while reducing Starshine runtime and pass time toward the Binaryen budget, with likely attention on imported/trapping instantiation roots and explicit memarg-index rewrites if ordered replay exposes new semantic drift.
      - Doc: [0066#L148](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L148)
 3. Do work.
-   - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
-   - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
+   - Keep the landed direct pass stable while tightening Binaryen parity; do not widen the public preset order until the exact replay slots are available.
 4. Test against binaryen.
-   - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
-   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
+   - Keep `moon test src/passes` and `moon test src/cmd` green while replaying the compare harness.
+   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-module-elements` and any required ordered-prefix replay.
 
 #### MP - Memory Packing
 1. Research exact functionality in document.

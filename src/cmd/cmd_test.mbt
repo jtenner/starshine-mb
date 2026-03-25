@@ -260,6 +260,38 @@ fn fixture_duplicate_function_module() -> Module {
 }
 
 ///|
+fn fixture_remove_unused_module_elements_module() -> Module {
+  let t_void = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([t_void]))
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("run"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn run_optimize_wat_fixture_regression(
   path : String,
   wat_text : String,
@@ -758,6 +790,42 @@ test "run_cmd_with_adapter applies duplicate-function-elimination to wasm inputs
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.code_sec {
     Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    None => fail("expected code section")
+  }
+}
+
+///|
+test "run_cmd_with_adapter applies remove-unused-module-elements to wasm inputs" {
+  let wasm = encode_module_bytes(fixture_remove_unused_module_elements_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["rume.wasm"] },
+    file_exists=fn(path) { path == "rume.wasm" },
+    read_file=fn(path) {
+      if path == "rume.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--remove-unused-module-elements", "--out", "out.wasm", "rume.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["remove-unused-module-elements"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 1)
     None => fail("expected code section")
   }
 }
