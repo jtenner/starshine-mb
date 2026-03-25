@@ -29,6 +29,12 @@ type ComparisonSummary = {
   binaryenCommand: string[];
   starshineSize: number;
   binaryenSize: number;
+  starshineElapsedMs: number;
+  binaryenElapsedMs: number;
+  starshineAtLeastAsFast: boolean;
+  starshinePassElapsedMs: number;
+  binaryenPassElapsedMs: number;
+  starshinePassAtLeastAsFast: boolean;
   normalizedWatEqual: boolean;
 };
 
@@ -100,13 +106,42 @@ function normalizePrintWat(wasmOptBin: string, wasmPath: string, repoRoot: strin
   try {
     runOrThrow(
       wasmOptBin,
-      [wasmPath, "--all-features", "-S", "-o", watPath],
+      [wasmPath, "--all-features", "--strip-debug", "-S", "-o", watPath],
       { cwd: repoRoot, stdio: "pipe" },
     );
     return fs.readFileSync(watPath, "utf8");
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+}
+
+function runTimedOrThrow(
+  command: string,
+  args: string[],
+  options: Parameters<typeof runOrThrow>[2],
+): { stdout: string; stderr: string; elapsedMs: number } {
+  const start = process.hrtime.bigint();
+  const result = runOrThrow(command, args, options);
+  const elapsedMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+  return { ...result, elapsedMs };
+}
+
+function parseStarshinePassElapsedMs(stderr: string): number {
+  const matches = Array.from(stderr.matchAll(/perf:timer name=pass:[^\s]+ elapsed_us=(\d+)/g));
+  if (matches.length === 0) {
+    fail("failed to parse Starshine pass timing from traced stderr");
+  }
+  return matches.reduce((sum, match) => sum + Number(match[1]), 0) / 1000;
+}
+
+function parseBinaryenPassElapsedMs(stdout: string, stderr: string): number {
+  const combined = `${stdout}\n${stderr}`;
+  const matches = Array.from(combined.matchAll(/passes took ([0-9.]+) seconds\./g));
+  const last = matches.at(-1);
+  if (!last) {
+    fail("failed to parse Binaryen pass timing from --debug output");
+  }
+  return Number(last[1]) * 1000;
 }
 
 function validateInputBaseline(wasmToolsBin: string, inputPath: string, repoRoot: string): void {
@@ -229,12 +264,28 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     inputPath,
     "--all-features",
     ...binaryenPassFlags,
+    "--debug",
     "-o",
     binaryenOutputPath,
   ];
 
-  runOrThrow(starshineInvocation.command, starshineArgs, { cwd: repoRoot, stdio: "pipe" });
-  runOrThrow(options.wasmOptBin, binaryenArgs, { cwd: repoRoot, stdio: "pipe" });
+  const starshineRun = runTimedOrThrow(starshineInvocation.command, starshineArgs, {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      STARSHINE_TRACING: "pass",
+    },
+    stdio: "pipe",
+  });
+  const binaryenRun = runTimedOrThrow(options.wasmOptBin, binaryenArgs, {
+    cwd: repoRoot,
+    stdio: "pipe",
+  });
+  const starshinePassElapsedMs = parseStarshinePassElapsedMs(starshineRun.stderr);
+  const binaryenPassElapsedMs = parseBinaryenPassElapsedMs(
+    binaryenRun.stdout,
+    binaryenRun.stderr,
+  );
 
   const starshineWat = normalizePrintWat(options.wasmOptBin, starshineOutputPath, repoRoot);
   const binaryenWat = normalizePrintWat(options.wasmOptBin, binaryenOutputPath, repoRoot);
@@ -250,6 +301,12 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     binaryenCommand: [options.wasmOptBin, ...binaryenArgs],
     starshineSize: fs.statSync(starshineOutputPath).size,
     binaryenSize: fs.statSync(binaryenOutputPath).size,
+    starshineElapsedMs: starshineRun.elapsedMs,
+    binaryenElapsedMs: binaryenRun.elapsedMs,
+    starshineAtLeastAsFast: starshineRun.elapsedMs <= binaryenRun.elapsedMs,
+    starshinePassElapsedMs,
+    binaryenPassElapsedMs,
+    starshinePassAtLeastAsFast: starshinePassElapsedMs <= binaryenPassElapsedMs,
     normalizedWatEqual: starshineWat === binaryenWat,
   };
 
@@ -267,6 +324,12 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Binaryen wasm: ${binaryenOutputPath}\n`);
   process.stdout.write(`Starshine normalized WAT: ${starshineWatPath}\n`);
   process.stdout.write(`Binaryen normalized WAT: ${binaryenWatPath}\n`);
+  process.stdout.write(`Starshine runtime (ms): ${summary.starshineElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Binaryen runtime (ms): ${summary.binaryenElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine at least as fast: ${summary.starshineAtLeastAsFast ? "yes" : "no"}\n`);
+  process.stdout.write(`Starshine pass runtime (ms): ${summary.starshinePassElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Binaryen pass runtime (ms): ${summary.binaryenPassElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine pass at least as fast: ${summary.starshinePassAtLeastAsFast ? "yes" : "no"}\n`);
   process.stdout.write(`Normalized WAT equal: ${summary.normalizedWatEqual ? "yes" : "no"}\n`);
 }
 

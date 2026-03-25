@@ -12,6 +12,10 @@ pub fn dead_code_elimination_descriptor() -> @ir.HotPassDescriptor
 
 pub fn dead_code_elimination_summary() -> String
 
+pub fn dfe_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn dfe_summary() -> String
+
 pub fn hot_pass_run(HotPassContext, @ir.HotFunc) -> Result[HotPassResult, String]
 
 pub fn optimize_instructions_descriptor() -> @ir.HotPassDescriptor
@@ -126,12 +130,14 @@ pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipel
 
 pub enum HotPassRegistryCategory {
   HotPass
+  ModulePass
   BoundaryOnly
   Removed
   Preset
 }
 pub fn HotPassRegistryCategory::boundary_only() -> Self
 pub fn HotPassRegistryCategory::hot_pass() -> Self
+pub fn HotPassRegistryCategory::module_pass() -> Self
 pub fn HotPassRegistryCategory::preset() -> Self
 pub fn HotPassRegistryCategory::removed() -> Self
 pub impl Eq for HotPassRegistryCategory

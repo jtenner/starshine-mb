@@ -133,13 +133,13 @@ test "verify_readme_api_signatures_with_required_blocks succeeds when required p
   let readme = ras_join_lines([
     "<!-- README_API_VERIFY src/lib/pkg.generated.mbti -->", "```mbti", "pub fn type_idx_to_int(TypeIdx) -> Int",
     "```", "", "<!-- README_API_VERIFY src/ir/pkg.generated.mbti -->", "```mbti",
-    "pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc", "```",
+    "pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc",
+    "```",
   ])
   let interfaces = [
     ("src/lib/pkg.generated.mbti", "pub fn type_idx_to_int(TypeIdx) -> Int"),
     (
-      "src/ir/pkg.generated.mbti",
-      "pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc",
+      "src/ir/pkg.generated.mbti", "pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc",
     ),
   ]
   match

@@ -43,6 +43,9 @@ export function runSelfOptimizeCompareCommandTest(): void {
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+const start = Date.now();
+while (Date.now() - start < 40) {}
+process.stderr.write("[trace] input fixture:opt perf:timer name=pass:duplicate-function-elimination elapsed_us=40000 total_us=40000\\n");
 fs.writeFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args, null, 2));
 const outIndex = args.indexOf("--out");
 if (outIndex === -1 || outIndex + 1 >= args.length) {
@@ -60,24 +63,27 @@ fs.writeFileSync(args[outIndex + 1], "starshine-wasm");
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+const start = Date.now();
+while (Date.now() - start < 10) {}
 fs.appendFileSync(process.env.FAKE_BINARYEN_LOG, JSON.stringify(args) + "\\n");
-if (args.includes("--print")) {
-  const input = args[0];
-  if (input.endsWith("starshine.wasm")) {
-    process.stdout.write("(module ;; starshine normalized)\\n");
-  } else if (input.endsWith("binaryen.wasm")) {
-    process.stdout.write("(module ;; binaryen normalized)\\n");
-  } else {
-    process.stdout.write("(module ;; unknown normalized)\\n");
-  }
-  process.exit(0);
-}
 const outIndex = args.indexOf("-o");
 if (outIndex === -1 || outIndex + 1 >= args.length) {
   process.stderr.write("missing -o\\n");
   process.exit(1);
 }
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+if (args.includes("-S")) {
+  const input = args[0];
+  if (input.endsWith("starshine.wasm")) {
+    fs.writeFileSync(args[outIndex + 1], "(module ;; starshine normalized)\\n");
+  } else if (input.endsWith("binaryen.wasm")) {
+    fs.writeFileSync(args[outIndex + 1], "(module ;; binaryen normalized)\\n");
+  } else {
+    fs.writeFileSync(args[outIndex + 1], "(module ;; unknown normalized)\\n");
+  }
+  process.exit(0);
+}
+process.stderr.write("[PassRunner] passes took 0.010000 seconds.\\n");
 fs.writeFileSync(args[outIndex + 1], "binaryen-wasm");
 `,
   );
@@ -156,19 +162,26 @@ process.exit(0);
       "--all-features",
       "--duplicate-function-elimination",
       "--dce",
+      "--debug",
       "-o",
       path.join(outDir, "binaryen.wasm"),
     ]),
     `unexpected Binaryen compare args:\n${JSON.stringify(binaryenLogs[0], null, 2)}`,
   );
-  assert(binaryenLogs[1].includes("--print"), "expected Starshine normalization print invocation");
-  assert(binaryenLogs[2].includes("--print"), "expected Binaryen normalization print invocation");
+  assert(binaryenLogs[1].includes("-S"), "expected Starshine normalization text invocation");
+  assert(binaryenLogs[2].includes("-S"), "expected Binaryen normalization text invocation");
 
   const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
     passFlags: string[];
     binaryenPassFlags: string[];
     starshineSize: number;
     binaryenSize: number;
+    starshineElapsedMs: number;
+    binaryenElapsedMs: number;
+    starshineAtLeastAsFast: boolean;
+    starshinePassElapsedMs: number;
+    binaryenPassElapsedMs: number;
+    starshinePassAtLeastAsFast: boolean;
     normalizedWatEqual: boolean;
   };
   assert(
@@ -187,6 +200,12 @@ process.exit(0);
   );
   assert(summary.starshineSize === "starshine-wasm".length, `unexpected Starshine size: ${summary.starshineSize}`);
   assert(summary.binaryenSize === "binaryen-wasm".length, `unexpected Binaryen size: ${summary.binaryenSize}`);
+  assert(summary.starshineElapsedMs >= 30, `expected measured Starshine runtime, got ${summary.starshineElapsedMs}`);
+  assert(summary.binaryenElapsedMs >= 5, `expected measured Binaryen runtime, got ${summary.binaryenElapsedMs}`);
+  assert(summary.starshineAtLeastAsFast === false, "expected Starshine runtime parity flag to report slower");
+  assert(summary.starshinePassElapsedMs === 40, `expected parsed Starshine pass runtime, got ${summary.starshinePassElapsedMs}`);
+  assert(summary.binaryenPassElapsedMs === 10, `expected parsed Binaryen pass runtime, got ${summary.binaryenPassElapsedMs}`);
+  assert(summary.starshinePassAtLeastAsFast === false, "expected Starshine pass parity flag to report slower");
   assert(summary.normalizedWatEqual === false, "expected normalized WAT mismatch");
   assert(
     fs.readFileSync(path.join(outDir, "starshine.print.wat"), "utf8").includes("starshine normalized"),
@@ -195,6 +214,18 @@ process.exit(0);
   assert(
     fs.readFileSync(path.join(outDir, "binaryen.print.wat"), "utf8").includes("binaryen normalized"),
     "expected Binaryen normalized WAT output",
+  );
+  assert(result.stdout.includes("Starshine runtime (ms):"), `expected Starshine runtime in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Binaryen runtime (ms):"), `expected Binaryen runtime in stdout:\n${result.stdout}`);
+  assert(
+    result.stdout.includes("Starshine at least as fast: no"),
+    `expected runtime parity verdict in stdout:\n${result.stdout}`,
+  );
+  assert(result.stdout.includes("Starshine pass runtime (ms): 40.000"), `expected Starshine pass runtime in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Binaryen pass runtime (ms): 10.000"), `expected Binaryen pass runtime in stdout:\n${result.stdout}`);
+  assert(
+    result.stdout.includes("Starshine pass at least as fast: no"),
+    `expected pass parity verdict in stdout:\n${result.stdout}`,
   );
 }
 

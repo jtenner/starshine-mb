@@ -1317,6 +1317,17 @@ fn optimize_options_to_hot_pipeline_options(
     },
     validate_final_module=true,
     trace~,
+    perf=match trace {
+      Some(cb) =>
+        Some(
+          @passes.HotPerfSession::new(
+            trace=cb,
+            trace_checkpoints=false,
+            trace_counters=false,
+          ),
+        )
+      None => None
+    },
   )
 }
 
@@ -1359,6 +1370,7 @@ fn cmd_resolve_pipeline_pass_flags(
       Some(entry) =>
         match entry.category {
           @passes.HotPassRegistryCategory::HotPass
+          | @passes.HotPassRegistryCategory::ModulePass
           | @passes.HotPassRegistryCategory::Preset => out.push(flag)
           _ => return Err(CmdError::unknown_pass_flag(flag))
         }

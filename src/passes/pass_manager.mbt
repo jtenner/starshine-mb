@@ -280,6 +280,140 @@ fn hot_pass_remove_region_nops(
 }
 
 ///|
+fn run_hot_pipeline_func(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+  options : HotPipelineOptions,
+) -> Result[@lib.Func, String] {
+  let lift_start_us = perf_start_timer_opt(options.perf, "lift")
+  let func = @ir.hot_lift_func(mod_, func_idx)
+  match options.perf {
+    Some(perf) => {
+      perf_count_hot_alloc_delta(
+        perf,
+        HotPerfHotSnapshot::empty(),
+        perf_snapshot_hot_func(func),
+      )
+      perf_dump_hot_func(perf, func, "after-lift")
+    }
+    None => ()
+  }
+  perf_stop_timer_opt(options.perf, "lift", lift_start_us)
+  match
+    pipeline_verify_checkpoint_with_perf(
+      options.perf,
+      HotPipelineVerifyPolicy::AfterEachPass,
+      "verify after lift",
+      HotPipelineVerifyTarget::HotFuncTarget(func),
+      "verify:after-lift",
+    ) {
+    Ok(_) => ()
+    Err(err) => return Err(err)
+  }
+  let cache = @ir.HotAnalysisCache::new()
+  let ctx = HotPassContext::new(
+    descriptor,
+    cache,
+    options.verify_policy,
+    options.trace,
+    perf=options.perf,
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => return Err(err)
+  }
+  match
+    pipeline_verify_checkpoint_with_perf(
+      options.perf,
+      HotPipelineVerifyPolicy::AfterEachPass,
+      "verify before lower",
+      HotPipelineVerifyTarget::HotFuncTarget(func),
+      "verify:before-lower",
+    ) {
+    Ok(_) => {
+      let lower_start_us = perf_start_timer_opt(options.perf, "lower")
+      let lowered = @ir.hot_lower_func(func)
+      perf_stop_timer_opt(options.perf, "lower", lower_start_us)
+      Ok(lowered)
+    }
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn run_hot_pipeline_apply_hot_pass(
+  mod_ : @lib.Module,
+  entry : HotPassRegistryEntry,
+  options : HotPipelineOptions,
+) -> Result[@lib.Module, String] {
+  let descriptor = match entry.descriptor {
+    Some(descriptor) => descriptor
+    None => return Err("missing hot pass descriptor for \{entry.name}")
+  }
+  let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
+  let next_code_sec = match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let lowered : Array[@lib.Func] = []
+      for code_idx = 0; code_idx < defs.length(); code_idx = code_idx + 1 {
+        let func_idx = @lib.FuncIdx::new(
+          (imported_func_count + code_idx).reinterpret_as_uint(),
+        )
+        let lowered_func = match
+          run_hot_pipeline_func(mod_, func_idx, descriptor, options) {
+          Ok(func) => func
+          Err(err) => return Err("func[\{func_idx}]: \{err}")
+        }
+        lowered.push(lowered_func)
+      }
+      Some(@lib.CodeSec::new(lowered))
+    }
+    None => None
+  }
+  Ok(
+    match next_code_sec {
+      Some(code_sec) => mod_.with_code_sec(code_sec)
+      None => mod_
+    },
+  )
+}
+
+///|
+fn run_hot_pipeline_apply_module_pass(
+  mod_ : @lib.Module,
+  entry : HotPassRegistryEntry,
+  options : HotPipelineOptions,
+) -> Result[@lib.Module, String] {
+  pipeline_trace_hook(options.trace, entry.name, "start")
+  let pass_timer_start = perf_start_timer_opt(
+    options.perf,
+    "pass:\{entry.name}",
+  )
+  let next = match entry.name {
+    "duplicate-function-elimination" => dfe_run_module_pass(mod_)
+    _ => return Err("unsupported module pass \{entry.name}")
+  }
+  perf_stop_timer_opt(options.perf, "pass:\{entry.name}", pass_timer_start)
+  match options.verify_policy {
+    HotPipelineVerifyPolicy::AfterEachPass =>
+      match
+        pipeline_verify_checkpoint_with_perf(
+          options.perf,
+          HotPipelineVerifyPolicy::AfterEachPass,
+          "verify after module pass \{entry.name}",
+          HotPipelineVerifyTarget::ModuleTarget(next),
+          "verify:module-pass:\{entry.name}",
+        ) {
+        Ok(_) => ()
+        Err(err) => return Err(err)
+      }
+    HotPipelineVerifyPolicy::FinalModuleOnly => ()
+  }
+  pipeline_trace_hook(options.trace, entry.name, "done")
+  Ok(next)
+}
+
+///|
 pub fn hot_pass_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,

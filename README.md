@@ -39,7 +39,7 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 | `jtenner/starshine/binary` | Binary encoding/decoding + LEB128 helpers. |
 | `jtenner/starshine/lib` | Core Wasm types and constructors. |
 | `jtenner/starshine/ir` | `HotFunc` hot function IR, architecture contracts, and lift/lower helpers. |
-| `jtenner/starshine/passes` | Hot-IR pass registry, pass manager, and preset pipeline orchestration. |
+| `jtenner/starshine/passes` | Hot and module pass registry, pass manager, and preset pipeline orchestration. |
 | `jtenner/starshine/cli` | CLI parsing, config, globbing, and flags. |
 | `jtenner/starshine/cmd` | Command execution and host adapters. |
 | `jtenner/starshine/diff` | Myers diff helpers used by diagnostics and tooling. |

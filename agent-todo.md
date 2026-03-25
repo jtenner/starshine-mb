@@ -55,20 +55,16 @@ Observed unique-pass order
 
 #### DFE - Duplicate Function Elimination
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L143](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L143)
+   - Canonical implementation and parity notes: [0067](/home/jtenner/Projects/starshine-mb/docs/0067-2026-03-24-duplicate-function-elimination.md)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [DFE]001 - Function Equivalence Gate - Build exact duplicate detection for defined functions before any section compaction or index rewriting.
-     - Deliverables: bucket candidates by exact signature and body shape; skip imports and externally pinned cases; emit a stable replacement map for surviving `FuncIdx` values.
-     - Doc: [0066#L143](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L143)
-   - [DFE]002 - Rewrite, Compaction, and Artifact Parity - Rewrite every `FuncIdx` user, compact sections, and prove the result against Binaryen on the MoonBit debug artifact.
-     - Deliverables: patch calls, `ref.func`, elements, start, and exports; add section-compaction regressions; run the compare harness and record any remaining divergence.
-     - Doc: [0066#L143](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L143)
+   - [DFE]003 - Residual Artifact and Runtime Parity - The module-pass port is in place; the remaining work is narrowing the surviving debug-artifact drift and the still-open runtime gap against Binaryen.
+     - Deliverables: keep the closed `elements` fix recorded; separate the confirmed `name`-section gap from the still-open `types` / `code` deltas; record whether the surviving artifact difference is Binaryen-specific type retention or codegen drift; use the compare harness pass timings to identify and land the next real DFE runtime reduction.
+     - Doc: [0067](/home/jtenner/Projects/starshine-mb/docs/0067-2026-03-24-duplicate-function-elimination.md)
 3. Do work.
-   - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
-   - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
+   - Treat the implementation as landed for explicit `duplicate-function-elimination`; keep follow-up work scoped to residual artifact parity and runtime reduction unless a semantic merge-set mismatch is found.
 4. Test against binaryen.
-   - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
-   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
+   - Keep `moon test src/passes` and `moon test src/cmd` green while investigating the artifact delta.
+   - Replay `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --duplicate-function-elimination` and `wasm-tools objdump` after each parity change; record whether the remaining drift moved in `types`, `code`, runtime, or only `name`.
 
 #### RUME - Remove Unused Module Elements
 1. Research exact functionality in document.
