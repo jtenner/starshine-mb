@@ -1163,6 +1163,73 @@ test "run_cmd_with_adapter reports encode failures with EncodeFailed" {
 }
 
 ///|
+test "run_cmd_with_adapter skips post-encode validation outside debug mode" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(8))
+  let invalid_bytes = bytes_from_string("not a wasm module")
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    encode_module=fn(_) { Ok(invalid_bytes) },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match run_cmd_with_adapter(["-o", "out.wasm", "a.wasm"], io) {
+    Ok(summary) => {
+      assert_eq(summary.output_files, ["out.wasm"])
+      assert_eq(writes.length(), 1)
+      assert_eq(writes[0].0, "out.wasm")
+      assert_eq(writes[0].1, invalid_bytes)
+    }
+    Err(err) =>
+      fail("expected success without debug post-encode validation, got \{err}")
+  }
+}
+
+///|
+test "run_cmd_with_adapter keeps post-encode validation in debug mode" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(8))
+  let invalid_bytes = bytes_from_string("not a wasm module")
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    encode_module=fn(_) { Ok(invalid_bytes) },
+    write_file=fn(_, _) {
+      abort("write_file should not run after debug validation failure")
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      ["--debug-serial-passes", "-o", "out.wasm", "a.wasm"],
+      io,
+    ) {
+    Ok(summary) =>
+      fail("expected debug post-encode validation failure, got \{summary}")
+    Err(CmdError::EncodeFailed(path, Adapter(msg))) => {
+      assert_eq(path, "a.wasm")
+      assert_true(msg.contains("post-encode decode failed"))
+    }
+    Err(err) => fail("expected EncodeFailed in debug mode, got \{err}")
+  }
+}
+
+///|
 test "config pass flags take precedence over env pass overlays when cli pass flags are absent" {
   let config_json =
     #|{

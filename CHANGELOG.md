@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 CLI: make post-encode validation debug-only
+
+- **CLI post-encode validation gating** by **@jtenner**. Updated [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt) and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd_test.mbt) so the CLI now only performs the expensive `encode -> decode -> validate` round-trip in `--debug-serial-passes` mode instead of on every normal output write, keeps explicit coverage for both normal and debug behavior, and cuts real native `--remove-unused-module-elements` command time on the MoonBit debug artifact from the old ~7 second range down to about `4.67 s` while debug mode remains around `7.59 s` for diagnosis.
+
 ## 2026-03-25 CLI: avoid normalized value-string churn
 
 - **CLI in-place option-value matching** by **@jtenner**. Updated [`src/cli/cli.mbt`](/home/jtenner/Projects/starshine-mb/src/cli/cli.mbt) and [`src/cli/cli_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cli/cli_test.mbt) so direct CLI parsing now matches `--format`, `--trap-mode`, `--tracing`, and decimal-valued option payloads in-place with trimmed ASCII comparisons instead of allocating normalized helper strings, preserves existing mixed-case behavior through added coverage, and reduces native synthetic parse time again on the same 3,601-arg benchmark.

@@ -1616,7 +1616,7 @@ pub fn cmd_help_text() -> String {
     out, "--tracing <pass|phase|helper>", "Set optimization tracing level.",
   )
   append_help_line(
-    out, "--debug-serial-passes", "Debug mode: run one pass per segment and validate after each pass.",
+    out, "--debug-serial-passes", "Debug mode: run one pass per segment, validate after each pass, and revalidate encoded output.",
   )
   append_help_line(
     out, "--monomorphize-min-benefit <N>", "Set monomorphization benefit threshold.",
@@ -1903,6 +1903,13 @@ fn validate_encoded_module_for_pipeline(
       )
     }
   }
+}
+
+///|
+fn should_validate_encoded_module_after_encode(
+  debug_serial_passes : Bool,
+) -> Bool {
+  debug_serial_passes
 }
 
 ///|
@@ -2226,30 +2233,33 @@ pub fn run_cmd_with_adapter(
       trace_optimize,
       "input \{input_path}:encode bytes=\{out_bytes.length()}",
     )
-    cmd_trace_emit(
-      io,
-      trace_optimize,
-      "input \{input_path}:post-encode-validate:start",
-    )
-    match
-      validate_encoded_module_for_pipeline(input_path, optimized, out_bytes) {
-      Ok(_) => ()
-      Err(e) =>
-        return Err(
-          cmd_append_error_note(
-            e,
-            cmd_post_encode_repro_note(
-              io, mod, pipeline_passes, options, optimize_level, shrink_level, traps_never_happen,
-              monomorphize_min_benefit, low_memory_unused, low_memory_bound,
+    if should_validate_encoded_module_after_encode(merged.debug_serial_passes) {
+      cmd_trace_emit(
+        io,
+        trace_optimize,
+        "input \{input_path}:post-encode-validate:start",
+      )
+      match
+        validate_encoded_module_for_pipeline(input_path, optimized, out_bytes) {
+        Ok(_) => ()
+        Err(e) =>
+          return Err(
+            cmd_append_error_note(
+              e,
+              cmd_post_encode_repro_note(
+                io, mod, pipeline_passes, options, optimize_level, shrink_level,
+                traps_never_happen, monomorphize_min_benefit, low_memory_unused,
+                low_memory_bound,
+              ),
             ),
-          ),
-        )
+          )
+      }
+      cmd_trace_emit(
+        io,
+        trace_optimize,
+        "input \{input_path}:post-encode-validate:done",
+      )
     }
-    cmd_trace_emit(
-      io,
-      trace_optimize,
-      "input \{input_path}:post-encode-validate:done",
-    )
 
     if merged.output_targets.length() == 0 {
       let out_path = output_path_for_default_target(input_path, format)
