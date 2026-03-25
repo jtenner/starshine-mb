@@ -1,0 +1,6 @@
+import {
+  "jtenner/starshine/ir",
+  "jtenner/starshine/lib",
+  "jtenner/starshine/validate",
+  "jtenner/starshine/wast",
+}

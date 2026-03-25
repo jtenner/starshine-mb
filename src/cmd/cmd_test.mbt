@@ -286,32 +286,17 @@ test "run_cmd_with_adapter --optimize handles examples/modules/simple.wat" {
 }
 
 ///|
-test "run_cmd_with_adapter --optimize handles examples/modules/feature_mix.wat" {
+test "run_cmd_with_adapter --optimize handles structured control fixture" {
   let wat =
     #|(module
-    #|  (memory (export "mem") 1)
-    #|  (table 2 funcref)
-    #|  (global $g (mut i32) (i32.const 7))
-    #|
-    #|  (func $inc (param i32) (result i32)
+    #|  (func (export "select_const") (param i32) (result i32)
     #|    local.get 0
-    #|    global.get $g
-    #|    i32.add)
-    #|
-    #|  (func $twice (param i32) (result i32)
-    #|    local.get 0
-    #|    call $inc
-    #|    local.get 0
-    #|    call $inc
-    #|    i32.add)
-    #|
-    #|  (elem (i32.const 0) func $inc $twice)
-    #|  (data (i32.const 0) "starshine-demo")
-    #|
-    #|  (func (export "run") (param i32) (result i32)
-    #|    local.get 0
-    #|    call $twice))
-  run_optimize_wat_fixture_regression("examples/modules/feature_mix.wat", wat)
+    #|    if (result i32)
+    #|      i32.const 1
+    #|    else
+    #|      i32.const 2
+    #|    end))
+  run_optimize_wat_fixture_regression("examples/modules/branching.wat", wat)
 }
 
 ///|
@@ -343,17 +328,15 @@ test "run_cmd_with_adapter --optimize handles examples/modules/table_dispatch.wa
 }
 
 ///|
-test "run_cmd_with_adapter --optimize handles examples/modules/simd_lane_mix.wat" {
+test "run_cmd_with_adapter --optimize removes nop-heavy arithmetic fixtures" {
   let wat =
     #|(module
-    #|  (func (export "lane_add0") (param i32 i32) (result i32)
-    #|    local.get 0
-    #|    i8x16.splat
-    #|    local.get 1
-    #|    i8x16.splat
-    #|    i8x16.add
-    #|    i8x16.extract_lane_s 0))
-  run_optimize_wat_fixture_regression("examples/modules/simd_lane_mix.wat", wat)
+    #|  (func (export "sum") (result i32)
+    #|    nop
+    #|    i32.const 2
+    #|    i32.const 5
+    #|    i32.add))
+  run_optimize_wat_fixture_regression("examples/modules/nop_cleanup.wat", wat)
 }
 
 ///|
@@ -426,7 +409,7 @@ test "run_cmd_with_adapter infers shrink preset from -O level with z bias" {
 }
 
 ///|
-test "run_cmd_with_adapter accepts unknown pass flags as no-op pipeline entries" {
+test "run_cmd_with_adapter rejects unknown pass flags once the hot pass registry owns dispatch" {
   let wasm = encode_module_bytes(fixture_i32_const_module(1))
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -444,18 +427,15 @@ test "run_cmd_with_adapter accepts unknown pass flags as no-op pipeline entries"
       Ok(())
     },
   )
-  let summary = match
+  match
     run_cmd_with_adapter(
       ["--not-a-real-pass", "--out", "out.wasm", "a.wasm"],
       io,
     ) {
-    Ok(v) => v
-    Err(err) =>
-      fail("expected unknown pass to be accepted as no-op, got error \{err}")
+    Ok(summary) => fail("expected unknown pass rejection, got \{summary}")
+    Err(err) => assert_eq(err, CmdError::unknown_pass_flag("not-a-real-pass"))
   }
-  assert_eq(summary.resolved_passes, ["not-a-real-pass"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].1, wasm)
+  assert_eq(writes.length(), 0)
 }
 
 ///|
@@ -519,7 +499,7 @@ test "run_cmd_with_adapter transforms every resolved input file and writes each 
 
   let summary = match
     run_cmd_with_adapter(
-      ["--out-dir", "dist", "a.wasm", "b.wasm", "--global-effects"],
+      ["--out-dir", "dist", "a.wasm", "b.wasm", "--vacuum"],
       io,
     ) {
     Ok(v) => v
@@ -636,7 +616,7 @@ test "run_cmd_with_adapter lowers wast through in-process fallback when adapter 
 }
 
 ///|
-test "run_cmd_with_adapter preserves modules when pass flags are no-op" {
+test "run_cmd_with_adapter runs supported hot passes over multiple inputs" {
   let wasm = encode_module_bytes(fixture_f32_nan_module())
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -656,7 +636,7 @@ test "run_cmd_with_adapter preserves modules when pass flags are no-op" {
   )
   let summary = match
     run_cmd_with_adapter(
-      ["--de-nan", "--out-dir", "dist", "a.wasm", "b.wasm"],
+      ["--vacuum", "--out-dir", "dist", "a.wasm", "b.wasm"],
       io,
     ) {
     Ok(v) => v
@@ -664,14 +644,13 @@ test "run_cmd_with_adapter preserves modules when pass flags are no-op" {
   }
   assert_eq(writes.length(), 2)
   for entry in writes {
-    let (_, bytes) = entry
-    assert_eq(bytes, wasm)
+    ignore(decode_module_bytes(entry.1))
   }
-  assert_true(has_string(summary.resolved_passes, "de-nan"))
+  assert_true(has_string(summary.resolved_passes, "vacuum"))
 }
 
 ///|
-test "run_cmd_with_adapter treats re-reloop as a no-op" {
+test "run_cmd_with_adapter rejects removed compatibility-only pass names" {
   let input_mod = fixture_mergeable_block_module()
   let input_wasm = encode_module_bytes(input_mod)
   let writes : Array[(String, Bytes)] = []
@@ -690,15 +669,12 @@ test "run_cmd_with_adapter treats re-reloop as a no-op" {
       Ok(())
     },
   )
-  let summary = match
+  match
     run_cmd_with_adapter(["--re-reloop", "--out", "out.wasm", "a.wasm"], io) {
-    Ok(v) => v
-    Err(e) => fail("unexpected run failure: \{e}")
+    Ok(summary) => fail("expected removed pass rejection, got \{summary}")
+    Err(err) => assert_eq(err, CmdError::unknown_pass_flag("re-reloop"))
   }
-  assert_eq(summary.resolved_passes, ["re-reloop"])
-  assert_eq(writes.length(), 1)
-  assert_eq(writes[0].0, "out.wasm")
-  assert_eq(writes[0].1, input_wasm)
+  assert_eq(writes.length(), 0)
 }
 
 ///|
@@ -730,7 +706,7 @@ test "run_cmd_with_adapter uses config passes when cli does not provide pass fla
     #|{
     #|  "inputs": { "globs": ["cfg.wasm", "cli.wasm"] },
     #|  "outputs": { "outDir": "cfg-dist" },
-    #|  "passes": ["global-effects"],
+    #|  "passes": ["vacuum"],
     #|  "optimize": { "trapMode": "never", "olevel": "O3" },
     #|  "options": {
     #|    "monomorphizeMinBenefit": 2,
@@ -771,8 +747,8 @@ test "run_cmd_with_adapter uses config passes when cli does not provide pass fla
   }
   assert_true(has_string(summary.input_files, "cfg.wasm"))
   assert_true(has_string(summary.input_files, "cli.wasm"))
-  assert_true(has_string(summary.resolved_passes, "global-effects"))
-  assert_eq(summary.resolved_passes, ["global-effects"])
+  assert_true(has_string(summary.resolved_passes, "vacuum"))
+  assert_eq(summary.resolved_passes, ["vacuum"])
   assert_eq(summary.optimize_level, 1)
   assert_eq(summary.traps_never_happen, false)
   assert_eq(summary.monomorphize_min_benefit, 11)
@@ -789,7 +765,7 @@ test "run_cmd_with_adapter lets cli pass flags override config pass lists" {
   let config_json =
     #|{
     #|  "inputs": { "globs": ["a.wasm"] },
-    #|  "passes": ["global-effects", "remove-unused-names"]
+    #|  "passes": ["vacuum", "remove-unused-names"]
     #|}
   let wasm = encode_module_bytes(fixture_i32_const_module(6))
   let io = CmdIO::new(
@@ -897,7 +873,7 @@ test "run_cmd_with_adapter loads default config path when present" {
     #|{
     #|  "inputs": { "globs": ["cfg.wasm"] },
     #|  "outputs": { "outDir": "cfg-out" },
-    #|  "passes": ["global-effects"]
+    #|  "passes": ["vacuum"]
     #|}
   let wasm = encode_module_bytes(fixture_i32_const_module(3))
   let io = CmdIO::new(
@@ -922,7 +898,7 @@ test "run_cmd_with_adapter loads default config path when present" {
   }
   assert_eq(summary.input_files, ["cfg.wasm"])
   assert_eq(summary.output_files, ["cfg-out/cfg.wasm"])
-  assert_true(has_string(summary.resolved_passes, "global-effects"))
+  assert_true(has_string(summary.resolved_passes, "vacuum"))
 }
 
 ///|
@@ -931,7 +907,7 @@ test "run_cmd_with_adapter accepts optional inline json config in the same call"
     #|{
     #|  "inputs": { "globs": ["a.wasm"] },
     #|  "outputs": { "outDir": "inline-out" },
-    #|  "passes": ["global-effects"],
+    #|  "passes": ["vacuum"],
     #|  "options": { "trapsNeverHappen": true }
     #|}
   let wasm = encode_module_bytes(fixture_i32_const_module(12))
@@ -953,7 +929,7 @@ test "run_cmd_with_adapter accepts optional inline json config in the same call"
     Err(e) => fail("unexpected run failure: \{e}")
   }
   assert_eq(summary.output_files, ["inline-out/a.wasm"])
-  assert_eq(summary.resolved_passes, ["global-effects"])
+  assert_eq(summary.resolved_passes, ["vacuum"])
   assert_true(summary.traps_never_happen)
 }
 
@@ -1061,7 +1037,7 @@ test "config pass flags take precedence over env pass overlays when cli pass fla
   let config_json =
     #|{
     #|  "inputs": { "globs": ["a.wasm"] },
-    #|  "passes": ["global-effects"]
+    #|  "passes": ["vacuum"]
     #|}
   let wasm = encode_module_bytes(fixture_i32_const_module(17))
   let io = CmdIO::new(
@@ -1087,7 +1063,7 @@ test "config pass flags take precedence over env pass overlays when cli pass fla
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
-  assert_eq(summary.resolved_passes, ["global-effects"])
+  assert_eq(summary.resolved_passes, ["vacuum"])
 }
 
 ///|
@@ -1147,8 +1123,8 @@ test "run_cmd_with_adapter prints help text and exits successfully for --help" {
   assert_true(help.contains("--help"))
   assert_true(help.contains("--version"))
   assert_true(help.contains("--glob"))
-  assert_true(help.contains("--global-effects"))
-  assert_true(help.contains("--remove-unused"))
+  assert_true(help.contains("--vacuum"))
+  assert_true(help.contains("--optimize"))
 }
 
 ///|

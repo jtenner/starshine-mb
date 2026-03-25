@@ -39,6 +39,7 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 | `jtenner/starshine/binary` | Binary encoding/decoding + LEB128 helpers. |
 | `jtenner/starshine/lib` | Core Wasm types and constructors. |
 | `jtenner/starshine/ir` | `HotFunc` hot function IR, architecture contracts, and lift/lower helpers. |
+| `jtenner/starshine/passes` | Hot-IR pass registry, pass manager, and preset pipeline orchestration. |
 | `jtenner/starshine/cli` | CLI parsing, config, globbing, and flags. |
 | `jtenner/starshine/cmd` | Command execution and host adapters. |
 | `jtenner/starshine/diff` | Myers diff helpers used by diagnostics and tooling. |
@@ -166,11 +167,11 @@ fn parse_validate_encode(source : String) -> Bool {
 }
 ```
 
-## Compatibility Note
+## Pipeline Note
 
-- `--optimize` and `--shrink` still resolve through the current command-layer compatibility pipeline while the IR2 pass registry is being rebuilt.
-- Legacy explicit pass flags, including unknown names, are still accepted by the command surface for compatibility and reporting, but module execution remains identity/no-op today.
-- Pass scheduling and capping behavior for names like `--vacuum`, `--optimize`, and `--shrink` is still covered by command tests even before real hot-pass replacements land.
+- `--optimize`, `--shrink`, and `--vacuum` now route through the real IR2 hot-pass pipeline in `jtenner/starshine/passes`.
+- The current public registry is intentionally small while pass migration is in progress: presets expand to the implemented hot `vacuum` cleanup pass, and unknown legacy pass names now fail fast instead of being silently accepted as no-op entries.
+- The pass-manager contract is `lift -> verify -> run passes -> verify -> lower -> validate`, with per-function hot-IR verification and final module validation.
 
 ## Prerequisites
 

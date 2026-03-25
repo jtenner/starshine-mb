@@ -9,46 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 270 - Pipeline Orchestration
-- Goal:
-  Replace compatibility-only pass execution with the real hot-IR pass manager and optimization pipeline.
-- Why this slice exists:
-  `src/cmd/cmd.mbt` still routes many pass names through compatibility expansion and no-op execution.
-- Concrete deliverables:
-  - `src/passes/optimize.mbt`.
-  - `src/passes/pass_manager.mbt`.
-  - `src/passes/optimize_test.mbt`.
-  - `src/cmd/cmd.mbt` rewired to the real pipeline.
-- Detailed implementation tasks:
-  - Define pass descriptor, pass context, pass result, and analysis requirement metadata.
-  - Implement the pipeline sequence `lift -> verify -> run passes -> verify checkpoints -> lower -> optional module validation`.
-  - Support optimize/shrink presets and explicit pass lists through one registry.
-  - Integrate tracing/timing hooks aligned with `docs/0001-2026-03-10-tracing.md`.
-  - Remove the fiction that deleted pass layers execute real work.
-- Required utilities / APIs:
-  - `run_hot_pipeline(module, options, requested_passes)`.
-  - `HotPassDescriptor`.
-  - `hot_pass_requires(descriptor)`.
-  - `hot_pass_invalidates(descriptor)`.
-  - `hot_pass_run(ctx, func)`.
-  - `pipeline_verify_checkpoint(policy, func/module)`.
-  - `pipeline_trace_hook(pass_name, event, payload)`.
-- Invariants / correctness rules:
-  - Every hot pass runs on verified hot IR.
-  - Analysis invalidation flows through revision/cache semantics.
-  - CLI/pass reporting only describes real execution.
-- Dependencies:
-  - IR2 - 110 - Hot IR Verification Utilities.
-  - IR2 - 120 - Boundary -> Hot Lifting.
-  - IR2 - 130 - Hot -> Boundary Lowering.
-  - IR2 - 260 - Analysis Invalidation / Caching.
-- Exit criteria:
-  - CLI optimize paths call the real hot-IR pass manager.
-- Suggested tests:
-  - Real pass execution order on a small pipeline.
-  - Verification checkpoint policy coverage.
-  - Trace markers for hot passes.
-
 ### IR2 - 280 - Pass Migration Support
 - Goal:
   Provide shared scaffolding and migration rules for porting optimizer passes onto IR2.

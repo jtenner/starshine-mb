@@ -1,0 +1,93 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/passes"
+
+import {
+  "jtenner/starshine/ir",
+  "jtenner/starshine/lib",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn hot_pass_run(HotPassContext, @ir.HotFunc) -> Result[HotPassResult, String]
+
+pub fn optimize_preset_passes(HotPipelineOptions) -> Array[String]
+
+pub fn pass_registry_all() -> Array[HotPassRegistryEntry]
+
+pub fn pass_registry_category(String) -> HotPassRegistryCategory?
+
+pub fn pass_registry_lookup(String) -> HotPassRegistryEntry?
+
+pub fn pipeline_trace_hook((String) -> Unit, String, String, payload? : String) -> Unit
+
+pub fn pipeline_verify_checkpoint(HotPipelineVerifyPolicy, String, HotPipelineVerifyTarget) -> Result[Unit, String]
+
+pub fn run_hot_pipeline(@lib.Module, HotPipelineOptions, Array[String]) -> Result[@lib.Module, String]
+
+pub fn shrink_preset_passes(HotPipelineOptions) -> Array[String]
+
+// Errors
+
+// Types and methods
+pub struct HotPassContext {
+  descriptor : @ir.HotPassDescriptor
+  cache : @ir.HotAnalysisCache
+  verify_policy : HotPipelineVerifyPolicy
+  trace : (String) -> Unit
+}
+pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, (String) -> Unit) -> Self
+
+pub enum HotPassRegistryCategory {
+  HotPass
+  Preset
+}
+pub impl Eq for HotPassRegistryCategory
+pub impl Show for HotPassRegistryCategory
+pub impl @debug.Debug for HotPassRegistryCategory
+
+pub struct HotPassRegistryEntry {
+  name : String
+  summary : String
+  category : HotPassRegistryCategory
+  descriptor : @ir.HotPassDescriptor?
+  expanded_passes : Array[String]
+}
+pub impl Eq for HotPassRegistryEntry
+pub impl Show for HotPassRegistryEntry
+pub impl @debug.Debug for HotPassRegistryEntry
+
+pub struct HotPassResult {
+  changed : Bool
+}
+pub fn HotPassResult::changed() -> Self
+pub fn HotPassResult::unchanged() -> Self
+pub impl Eq for HotPassResult
+pub impl Show for HotPassResult
+pub impl @debug.Debug for HotPassResult
+
+pub struct HotPipelineOptions {
+  verify_policy : HotPipelineVerifyPolicy
+  validate_final_module : Bool
+  trace : (String) -> Unit
+}
+pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, trace? : ((String) -> Unit)?) -> Self
+
+pub enum HotPipelineVerifyPolicy {
+  FinalModuleOnly
+  AfterEachPass
+}
+pub fn HotPipelineVerifyPolicy::after_each_pass() -> Self
+pub fn HotPipelineVerifyPolicy::final_module_only() -> Self
+pub impl Eq for HotPipelineVerifyPolicy
+pub impl Show for HotPipelineVerifyPolicy
+pub impl @debug.Debug for HotPipelineVerifyPolicy
+
+pub enum HotPipelineVerifyTarget {
+  HotFuncTarget(@ir.HotFunc)
+  ModuleTarget(@lib.Module)
+}
+
+// Type aliases
+
+// Traits
+

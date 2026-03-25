@@ -1420,18 +1420,6 @@ fn make_optimize_options(
 }
 
 ///|
-/// Compatibility expansion shim after removing the generated optimizer package.
-/// Requested pass names are still normalized and counted, but execution is routed
-/// through the current compatibility no-op pass layer only.
-fn expand_legacy_passes_for_module(
-  pass_flags : Array[String],
-  mod : Module,
-  options : OptimizeOptions,
-) -> Result[Array[ModulePass], CmdError] {
-  expand_passes_for_module(pass_flags, mod, options)
-}
-
-///|
 fn default_global_optimization_pre_passes(
   _mod : Module,
   _options : OptimizeOptions,
@@ -1458,33 +1446,71 @@ fn default_global_optimization_post_passes(
 }
 
 ///|
-/// Compatibility execution entry for legacy module-level passes.
-/// Explicit pass names still resolve and are reported, but the current build keeps
-/// this path intentionally identity/no-op.
-fn optimize_module_with_options(
-  mod : Module,
-  _passes : Array[ModulePass],
-  _options : OptimizeOptions,
-) -> Result[Module, String] {
-  Ok(mod)
+fn optimize_options_to_hot_pipeline_options(
+  options : OptimizeOptions,
+  trace? : ((String) -> Unit)? = None,
+) -> @passes.HotPipelineOptions {
+  @passes.HotPipelineOptions::new(
+    verify_policy=match options.validation_policy {
+      AfterSegment => @passes.HotPipelineVerifyPolicy::after_each_pass()
+      FinalModuleOnly => @passes.HotPipelineVerifyPolicy::final_module_only()
+    },
+    validate_final_module=true,
+    trace~,
+  )
 }
 
 ///|
-/// Compatibility tracing entry for legacy passes.
-/// Still emits a trace marker when legacy passes are present, then returns input
-/// unchanged for no-op behavior.
-fn optimize_module_with_options_trace(
+fn optimize_module_with_pass_flags(
   mod : Module,
-  passes : Array[ModulePass],
-  _options : OptimizeOptions,
+  pass_flags : Array[String],
+  options : OptimizeOptions,
+) -> Result[Module, String] {
+  @passes.run_hot_pipeline(
+    mod,
+    optimize_options_to_hot_pipeline_options(options),
+    pass_flags,
+  )
+}
+
+///|
+fn optimize_module_with_pass_flags_trace(
+  mod : Module,
+  pass_flags : Array[String],
+  options : OptimizeOptions,
   trace : (String) -> Unit,
   trace_level? : OptimizeTracingLevel = OptimizeTracingLevel::pass(),
 ) -> Result[Module, String] {
   let _ = trace_level
-  if passes.length() > 0 {
-    trace("legacy pass set is currently no-op: count=\{passes.length()}")
+  @passes.run_hot_pipeline(
+    mod,
+    optimize_options_to_hot_pipeline_options(options, trace=Some(trace)),
+    pass_flags,
+  )
+}
+
+///|
+fn module_pass_to_hot_pipeline_name(pass : ModulePass) -> String? {
+  match pass {
+    Vacuum => Some("vacuum")
+    _ => None
   }
-  Ok(mod)
+}
+
+///|
+fn optimize_module_with_options(
+  mod : Module,
+  passes : Array[ModulePass],
+  options : OptimizeOptions,
+) -> Result[Module, String] {
+  let pass_flags : Array[String] = []
+  for pass in passes {
+    match module_pass_to_hot_pipeline_name(pass) {
+      Some(name) => pass_flags.push(name)
+      None => return Err("unsupported compatibility pass \{pass.to_string()}")
+    }
+  }
+  optimize_module_with_pass_flags(mod, pass_flags, options)
 }
 
 ///|
@@ -1907,6 +1933,20 @@ fn resolve_explicit_pass(flag : String) -> ModulePass? {
 }
 
 ///|
+fn cmd_resolve_pipeline_pass_flags(
+  pass_flags : Array[String],
+) -> Result[Array[String], CmdError] {
+  let out : Array[String] = []
+  for flag in pass_flags {
+    match @passes.pass_registry_lookup(flag) {
+      Some(_) => out.push(flag)
+      None => return Err(CmdError::unknown_pass_flag(flag))
+    }
+  }
+  Ok(out)
+}
+
+///|
 fn string_to_bytes(text : String) -> Bytes {
   let buf = @buffer.new(size_hint=text.length())
   for c in text {
@@ -1970,28 +2010,6 @@ fn limit_pass_flags_by_max_passes(
         (pass_flags, false)
       }
     None => (pass_flags, false)
-  }
-}
-
-///|
-fn limit_module_passes_by_max_passes(
-  passes : Array[ModulePass],
-  max_passes : Int?,
-) -> (Array[ModulePass], Bool) {
-  match max_passes {
-    Some(limit) =>
-      if limit < passes.length() {
-        let out : Array[ModulePass] = []
-        let mut i = 0
-        while i < limit {
-          out.push(passes[i])
-          i += 1
-        }
-        (out, true)
-      } else {
-        (passes, false)
-      }
-    None => (passes, false)
   }
 }
 
@@ -2137,8 +2155,8 @@ pub fn cmd_help_text() -> String {
   for c in "\nPasses (use as --<name>):\n" {
     out.write_char(c)
   }
-  for entry in explicit_pass_entries() {
-    append_help_line(out, "--\{entry.0}", entry.1)
+  for entry in @passes.pass_registry_all() {
+    append_help_line(out, "--\{entry.name}", entry.summary)
   }
   out.to_string()
 }
@@ -2830,24 +2848,18 @@ pub fn run_cmd_with_adapter(
     }
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:decode done")
 
-    let legacy_expanded_passes = match
-      expand_legacy_passes_for_module(resolved_passes, mod, options) {
-      Ok(passes) => passes
-      Err(e) => return Err(e)
+    let pipeline_passes = match
+      cmd_resolve_pipeline_pass_flags(resolved_passes) {
+      Ok(flags) => flags
+      Err(err) => return Err(err)
     }
-    let (legacy_passes, legacy_passes_truncated) = limit_module_passes_by_max_passes(
-      legacy_expanded_passes, max_passes,
-    )
-    let expanded_pass_count = legacy_expanded_passes.length()
-    let effective_pass_count = legacy_passes.length()
-    let expanded_passes_truncated = legacy_passes_truncated ||
-      expanded_pass_count != effective_pass_count
+    let effective_pass_count = pipeline_passes.length()
     match max_passes {
       Some(limit) =>
         cmd_trace_emit(
           io,
           trace_optimize,
-          "input \{input_path}:pass_limit max_passes=\{limit} expanded_truncated=\{expanded_passes_truncated} expanded_pass_count=\{expanded_pass_count} effective_pass_count=\{effective_pass_count}",
+          "input \{input_path}:pass_limit max_passes=\{limit} effective_pass_count=\{effective_pass_count}",
         )
       None => ()
     }
@@ -2857,15 +2869,15 @@ pub fn run_cmd_with_adapter(
       "input \{input_path}:pass_count=\{effective_pass_count} optimize:start",
     )
 
-    let optimized = if trace_optimize && legacy_passes.length() > 0 {
+    let optimized = if trace_optimize && pipeline_passes.length() > 0 {
       let resolved_trace_level = match trace_level {
         Some(level) => level
         None => OptimizeTracingLevel::pass()
       }
       match
-        optimize_module_with_options_trace(
+        optimize_module_with_pass_flags_trace(
           mod,
-          legacy_passes,
+          pipeline_passes,
           options,
           fn(msg) { cmd_trace_emit(io, true, "input \{input_path}:opt \{msg}") },
           trace_level=resolved_trace_level,
@@ -2874,7 +2886,7 @@ pub fn run_cmd_with_adapter(
         Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
       }
     } else {
-      match optimize_module_with_options(mod, legacy_passes, options) {
+      match optimize_module_with_pass_flags(mod, pipeline_passes, options) {
         Ok(out) => out
         Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
       }
@@ -2904,8 +2916,16 @@ pub fn run_cmd_with_adapter(
           cmd_append_error_note(
             e,
             cmd_post_encode_repro_note(
-              io, mod, legacy_passes, options, optimize_level, shrink_level, traps_never_happen,
-              monomorphize_min_benefit, low_memory_unused, low_memory_bound,
+              io,
+              mod,
+              [],
+              options,
+              optimize_level,
+              shrink_level,
+              traps_never_happen,
+              monomorphize_min_benefit,
+              low_memory_unused,
+              low_memory_bound,
             ),
           ),
         )
