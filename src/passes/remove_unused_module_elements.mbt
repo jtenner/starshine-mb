@@ -1593,6 +1593,16 @@ fn rume_apply_module_rewrite(
     tag_remap_is_identity &&
     elem_remap_is_identity &&
     data_remap_is_identity)
+  if !code_body_rewrite_needed &&
+    rume_all_true(kept_funcs) &&
+    rume_all_true(kept_globals) &&
+    rume_all_true(kept_tables) &&
+    rume_all_true(kept_mems) &&
+    rume_all_true(kept_tags) &&
+    rume_all_true(used_elems) &&
+    rume_all_true(used_datas) {
+    return mod_
+  }
   let next_export_sec = match mod_.export_sec {
     Some(@lib.ExportSec(exports)) => {
       let next : Array[@lib.Export] = []

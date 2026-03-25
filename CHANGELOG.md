@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 Optimize: short-circuit no-op RUME rewrites
+
+- **RUME full-module no-op rewrite fast path** by **@jtenner**. Updated [`src/passes/remove_unused_module_elements.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_module_elements.mbt) so `remove-unused-module-elements` now returns the original module immediately when every remap is identity and every tracked section stays fully live, avoiding the remaining no-op section rebuild work on the large MoonBit debug artifact and cutting traced pass time a bit further while preserving canonical compare parity against Binaryen.
+
 ## 2026-03-25 Optimize: skip no-op RUME function rewrites
 
 - **RUME no-op function/code rewrite fast path** by **@jtenner**. Updated [`src/passes/remove_unused_module_elements.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_module_elements.mbt) so `remove-unused-module-elements` now detects identity remap cases and reuses the original function and code sections when every defined function survives and no code-body indices need rewriting, avoiding whole-module function-body reconstruction on the large debug-artifact no-op path and cutting traced pass time materially while preserving canonical compare parity against Binaryen.
