@@ -8,7 +8,7 @@
 ## Current Registry Contract
 
 - Active hot pass:
-  `vacuum`, `dead-code-elimination`.
+  `vacuum`, `dead-code-elimination`, `optimize-instructions`.
 - Active presets:
   `optimize`, `shrink`.
 - Boundary-only names stay known to the registry for mapping and diagnostics, but remain rejected by the hot pipeline and hidden from help output.
@@ -17,13 +17,13 @@
 ## Batch 1
 
 - Current hot passes:
-  `vacuum`, `dead-code-elimination`.
+  `vacuum`, `dead-code-elimination`, `optimize-instructions`.
 - Initial placeholder modules:
   [`src/passes/dead_code_elimination.mbt`](../src/passes/dead_code_elimination.mbt),
   [`src/passes/optimize_instructions.mbt`](../src/passes/optimize_instructions.mbt),
   [`src/passes/simplify_locals.mbt`](../src/passes/simplify_locals.mbt).
 - Removed until hot implementation lands:
-  `avoid-reinterprets`, `coalesce-locals`, `code-folding`, `code-pushing`, `const-hoisting`, `dataflow-optimization`, `local-cse`, `merge-locals`, `optimize-added-constants`, `optimize-added-constants-propagate`, `optimize-instructions`, `precompute`, `precompute-propagate`, `simplify-locals`, `simplify-locals-no-tee`, `simplify-locals-no-structure`, `simplify-locals-no-tee-no-structure`, `simplify-locals-no-nesting`, `untee`, `de-nan`.
+  `avoid-reinterprets`, `coalesce-locals`, `code-folding`, `code-pushing`, `const-hoisting`, `dataflow-optimization`, `local-cse`, `merge-locals`, `optimize-added-constants`, `optimize-added-constants-propagate`, `precompute`, `precompute-propagate`, `simplify-locals`, `simplify-locals-no-tee`, `simplify-locals-no-structure`, `simplify-locals-no-tee-no-structure`, `simplify-locals-no-nesting`, `untee`, `de-nan`.
 
 ## Batch 2
 

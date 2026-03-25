@@ -11,38 +11,6 @@
 
 ## v0.2.0 Backlog
 
-### IR2 - 340 - Hot Instruction Peepholes
-- Goal:
-  Port the first real `optimize-instructions` peephole simplifications into the hot pipeline.
-- Why this slice exists:
-  Batch 1 needs a concrete instruction simplifier before preset growth can reflect a meaningful optimization sequence.
-- Concrete deliverables:
-  - Real `optimize-instructions` pass implementation.
-  - Initial constant-folding coverage for exact numeric instructions.
-  - Registry move from `removed` to active hot pass.
-- Detailed implementation tasks:
-  - Add failing tests first for simple folded WAT fixtures and registry expansion.
-  - Recognize supported constant unary/compare/select peepholes directly from hot nodes.
-  - Replace folded nodes without breaking exact-instruction payload invariants.
-  - Keep unsupported instructions untouched and verifier-clean.
-- Required utilities / APIs:
-  - `hot_node_exact_instr`, `hot_const_get`.
-  - `pass_replace_node`.
-  - hot builders / const payload allocators.
-- Invariants / correctness rules:
-  - Only fold patterns whose removed operands are proven pure.
-  - Preserve node result types and exact-instruction payload validity.
-  - Do not overclaim unsupported peepholes in docs.
-- Dependencies:
-  - IR2 - 050 - Side tables.
-  - IR2 - 060 - Builder helpers.
-  - IR2 - 220 - Effects.
-- Exit criteria:
-  - `optimize-instructions` is a real active hot pass with tests and docs.
-- Suggested tests:
-  - `moon test src/passes`.
-  - `bun validate readme-api-sync`.
-
 ### IR2 - 350 - Hot Local Simplification
 - Goal:
   Port the first real `simplify-locals` rewrite into the hot pipeline.
