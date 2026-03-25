@@ -120,7 +120,7 @@ fn pass_registry_removed_names() -> Array[String] {
     "merge-locals", "merge-blocks", "flatten", "re-reloop", "tuple-optimization",
     "optimize-added-constants", "optimize-added-constants-propagate", "precompute",
     "precompute-propagate", "redundant-set-elimination", "pick-load-signs", "optimize-casts",
-    "de-nan", "remove-unused-brs", "simplify-locals", "simplify-locals-no-tee", "simplify-locals-no-structure",
+    "de-nan", "remove-unused-brs", "simplify-locals-no-tee", "simplify-locals-no-structure",
     "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting", "untee",
   ]
 }
@@ -151,15 +151,24 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       optimize_instructions_summary(),
       optimize_instructions_descriptor(),
     ),
+    pass_registry_entry_hot(
+      "simplify-locals",
+      simplify_locals_summary(),
+      simplify_locals_descriptor(),
+    ),
     pass_registry_entry_preset(
       "optimize",
       "Run the default hot optimization preset.",
-      ["vacuum"],
+      [
+        "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+      ],
     ),
     pass_registry_entry_preset(
       "shrink",
       "Run the default size-biased hot optimization preset.",
-      ["vacuum"],
+      [
+        "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+      ],
     ),
   ]
   for name in pass_registry_boundary_only_names() {
@@ -196,12 +205,16 @@ pub fn pass_registry_category(name : String) -> HotPassRegistryCategory? {
 
 ///|
 pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
-  ["vacuum"]
+  [
+    "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+  ]
 }
 
 ///|
 pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
-  ["vacuum"]
+  [
+    "vacuum", "optimize-instructions", "simplify-locals", "dead-code-elimination",
+  ]
 }
 
 ///|

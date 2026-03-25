@@ -303,6 +303,7 @@ pub fn hot_pass_run(
       }
     "dead-code-elimination" => dead_code_elimination_run(ctx, func)
     "optimize-instructions" => optimize_instructions_run(ctx, func)
+    "simplify-locals" => simplify_locals_run(ctx, func)
     _ => return Err("unsupported hot pass \{descriptor.name}")
   }
   perf_stop_timer_opt(ctx.perf, "pass:\{descriptor.name}", pass_timer_start)
