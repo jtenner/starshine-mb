@@ -133,6 +133,7 @@ pub fn HotLocals::new(
 pub enum HotTypeInfo {
   VoidType
   BlockResult(BlockType)
+  BlockResultResolved(BlockType, Array[ValType])
   Value(ValType)
   Results(Array[ValType])
 } derive(Eq, Show, Debug)

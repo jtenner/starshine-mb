@@ -282,6 +282,7 @@ pub fn hot_type_resolve_results(
   match hot_type_get(func, type_id) {
     VoidType => Some([])
     BlockResult(block_type) => hot_module_resolve_block_results(ctx, block_type)
+    BlockResultResolved(_, values) => Some(values.copy())
     Value(val_type) => Some([val_type])
     Results(values) => Some(values)
   }

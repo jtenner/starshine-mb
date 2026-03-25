@@ -310,6 +310,8 @@ pub fn hot_control_node_label(HotFunc, Int) -> Int
 
 pub fn hot_control_region_slot_info(HotOp) -> Array[HotControlRegionSlotInfo]
 
+pub fn hot_control_result_type_set(HotFunc, Int, Int) -> Unit
+
 pub fn hot_debug_dump_core(HotFunc) -> String
 
 pub fn hot_default_flags_for_op(HotOp) -> UInt
@@ -472,6 +474,8 @@ pub fn hot_region_remove(HotFunc, HotRegionRef, Int, Int) -> Array[Int]
 
 pub fn hot_region_replace_body(HotFunc, HotRegionRef, Array[Int]) -> Unit
 
+pub fn hot_region_result_arity(HotFunc, HotRegionRef) -> Int
+
 pub fn hot_region_root_count(HotFunc, HotRegionRef) -> Int
 
 pub fn hot_region_set(HotFunc, HotRegionRef, Int, Int) -> Int
@@ -521,6 +525,8 @@ pub fn hot_side_table_kind_for_op(HotOp) -> HotSideTableKind?
 pub fn hot_type_get(HotFunc, Int) -> HotTypeInfo
 
 pub fn hot_type_intern_block_result(HotFunc, @lib.BlockType) -> Int
+
+pub fn hot_type_intern_resolved_block_result(HotFunc, @lib.BlockType, Array[@lib.ValType]) -> Int
 
 pub fn hot_type_intern_results(HotFunc, Array[@lib.ValType]) -> Int
 
@@ -1327,6 +1333,7 @@ pub impl @debug.Debug for HotStringBuiltin
 pub enum HotTypeInfo {
   VoidType
   BlockResult(@lib.BlockType)
+  BlockResultResolved(@lib.BlockType, Array[@lib.ValType])
   Value(@lib.ValType)
   Results(Array[@lib.ValType])
 }

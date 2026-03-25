@@ -15,6 +15,17 @@ fn hot_mutate_require_type_id(
 }
 
 ///|
+fn hot_mutate_require_label_id(
+  func : HotFunc,
+  label_id : LabelId,
+  context : String,
+) -> Unit {
+  if label_id < 0 || label_id >= func.labels.length() {
+    abort("\{context} must reference a valid LabelId")
+  }
+}
+
+///|
 fn hot_mutate_require_live_node(
   func : HotFunc,
   node_id : NodeId,
@@ -271,6 +282,64 @@ pub fn hot_replace_child_span(
   }
   hot_revision_bump(func)
   removed
+}
+
+///|
+pub fn hot_control_result_type_set(
+  func : HotFunc,
+  control_id : NodeId,
+  ty : TypeId,
+) -> Unit {
+  hot_mutate_require_live_node(func, control_id, "hot_control_result_type_set")
+  hot_mutate_require_type_id(
+    func, ty, "hot_control_result_type_set result type",
+  )
+  let node = hot_node_get(func, control_id)
+  let label_id = hot_control_node_label(func, control_id)
+  hot_mutate_require_label_id(
+    func, label_id, "hot_control_result_type_set control label",
+  )
+  let result_arity = hot_type_result_arity(func, ty)
+  func.nodes[control_id] = { ..node, ty, }
+  let label = hot_label_get(func, label_id)
+  let branch_arity = match node.op {
+    HotOp::Loop => label.branch_arity
+    _ => result_arity
+  }
+  func.labels[label_id] = { ..label, result_type: ty, branch_arity }
+  for slot_info in hot_control_region_slot_info(node.op) {
+    let holder = match slot_info.role {
+      HotControlRegionRole::BodyRegion =>
+        match node.op {
+          HotOp::Block | HotOp::Loop => control_id
+          _ =>
+            if slot_info.slot >= node.child_count {
+              HOT_NONE_NODE
+            } else {
+              hot_child_get(func, control_id, slot_info.slot)
+            }
+        }
+      _ =>
+        if slot_info.slot >= node.child_count {
+          HOT_NONE_NODE
+        } else {
+          hot_child_get(func, control_id, slot_info.slot)
+        }
+    }
+    if holder == HOT_NONE_NODE {
+      continue
+    }
+    let region_label_id = hot_control_node_label(func, holder)
+    hot_mutate_require_label_id(
+      func, region_label_id, "hot_control_result_type_set region label",
+    )
+    let region_label = hot_label_get(func, region_label_id)
+    func.labels[region_label_id] = {
+      ..region_label,
+      branch_arity: result_arity,
+    }
+  }
+  hot_revision_bump(func)
 }
 
 ///|

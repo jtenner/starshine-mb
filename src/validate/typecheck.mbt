@@ -3714,6 +3714,16 @@ pub fn make_state(env : Env, stack : Array[ValType]) -> TcState {
   { env, stack: stack.copy(), reachable: true, escape: NoTcEscape }
 }
 
+///|
+pub fn tc_state_with_stack(state : TcState, stack : Array[ValType]) -> TcState {
+  {
+    env: state.env,
+    stack: stack.copy(),
+    reachable: state.reachable,
+    escape: state.escape,
+  }
+}
+
 // =============================================================================
 // CONTROL INSTRUCTIONS
 // =============================================================================

@@ -68,24 +68,21 @@ fn[T] cache_entry_value(entry : HotCacheEntry[T]?) -> T {
 
 ///|
 fn cache_effects_build(func : HotFunc, cfg : HotCfg) -> HotEffectsSummary {
-  let node_masks : Array[EffectMask] = []
-  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
-    node_masks.push(
-      if hot_node_is_live(func, node_id) {
-        effects_for_node(func, node_id)
-      } else {
-        0U
-      },
-    )
-  }
+  let node_masks = effects_build_node_masks(func)
   let block_masks : Array[EffectMask] = []
   for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
-    block_masks.push(effects_for_block(func, cfg, block_id))
+    block_masks.push(
+      effects_for_block_with_node_masks(cfg, block_id, node_masks),
+    )
   }
   {
     node_masks,
     block_masks,
-    root_region_mask: effects_for_region(func, HotRegionRef::root()),
+    root_region_mask: effects_for_region_with_node_masks(
+      func,
+      HotRegionRef::root(),
+      node_masks,
+    ),
   }
 }
 

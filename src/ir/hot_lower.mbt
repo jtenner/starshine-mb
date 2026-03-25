@@ -18,6 +18,7 @@ fn hot_lower_impl_label_depth(
 fn hot_lower_impl_control_block_type(func : HotFunc, id : NodeId) -> BlockType {
   match hot_type_get(func, hot_node_get(func, id).ty) {
     BlockResult(block_type) => block_type
+    BlockResultResolved(block_type, _) => block_type
     _ => BlockType::void_()
   }
 }
@@ -72,7 +73,6 @@ fn hot_lower_impl_input_nodes(func : HotFunc, id : NodeId) -> Array[NodeId] {
   let node = hot_node_get(func, id)
   match node.op {
     HotOp::Block
-    | HotOp::Loop
     | HotOp::Try
     | HotOp::TryTable
     | HotOp::Nop
@@ -86,6 +86,17 @@ fn hot_lower_impl_input_nodes(func : HotFunc, id : NodeId) -> Array[NodeId] {
     | HotOp::DataDrop
     | HotOp::ElemDrop
     | HotOp::RefFunc => []
+    HotOp::Loop => {
+      let out : Array[NodeId] = []
+      let input_count = hot_label_branch_arity(
+        func,
+        hot_control_node_label(func, id),
+      )
+      for i = 0; i < input_count; i = i + 1 {
+        out.push(hot_child_get(func, id, i))
+      }
+      out
+    }
     HotOp::If => [hot_child_get(func, id, 0)]
     _ => {
       let out : Array[NodeId] = []
@@ -153,7 +164,8 @@ fn hot_lower_impl_push_results(
   id : NodeId,
   stack : Array[NodeId],
 ) -> Unit {
-  if hot_node_result_arity(func, id) > 0 {
+  let result_arity = hot_node_result_arity(func, id)
+  for _ in 0..<result_arity {
     stack.push(id)
   }
 }
@@ -271,6 +283,7 @@ fn hot_lower_impl_try_catches(
 fn hot_lower_impl_body_items(
   func : HotFunc,
   id : NodeId,
+  use_def : HotUseDef,
   label_stack : Array[LabelId],
 ) -> Array[Instruction] {
   let out : Array[Instruction] = []
@@ -280,12 +293,47 @@ fn hot_lower_impl_body_items(
     hot_label_kind(func, label_id) != HotLabelKind::RegionLabel {
     next_stack.push(label_id)
   }
-  let value_stack : Array[NodeId] = []
   let node = hot_node_get(func, id)
-  for i = 0; i < node.child_count; i = i + 1 {
+  let body_base = if node.op == HotOp::Loop {
+    hot_label_branch_arity(func, label_id)
+  } else {
+    0
+  }
+  let value_stack : Array[NodeId] = []
+  for i = 0; i < body_base; i = i + 1 {
+    value_stack.push(hot_child_get(func, id, i))
+  }
+  let root_ids : Array[NodeId] = []
+  for i = body_base; i < node.child_count; i = i + 1 {
     let child = hot_child_get(func, id, i)
     if child != HOT_NONE_NODE {
-      hot_lower_impl_emit_root(func, child, next_stack, value_stack, out)
+      root_ids.push(child)
+    }
+  }
+  let preserve_region_results = hot_lower_impl_preserve_region_result_roots(
+    func,
+    use_def,
+    root_ids,
+    hot_label_branch_arity(func, label_id),
+  )
+  let mut root_idx = 0
+  for i = body_base; i < node.child_count; i = i + 1 {
+    let child = hot_child_get(func, id, i)
+    if child != HOT_NONE_NODE {
+      hot_lower_impl_emit_root(
+        func, child, use_def, next_stack, value_stack, out,
+      )
+      let is_final_root = i + 1 == node.child_count
+      hot_lower_impl_drop_dead_nonfinal_root_results(
+        func,
+        child,
+        use_def,
+        preserve_region_results[root_idx],
+        is_final_root,
+        value_stack,
+        out,
+      )
+      root_idx += 1
     }
   }
   out
@@ -295,6 +343,7 @@ fn hot_lower_impl_body_items(
 fn hot_lower_impl_region_body(
   func : HotFunc,
   id : NodeId,
+  use_def : HotUseDef,
   label_stack : Array[LabelId],
 ) -> Array[Instruction] {
   if id == HOT_NONE_NODE {
@@ -305,18 +354,76 @@ fn hot_lower_impl_region_body(
   if node.op == HotOp::Block &&
     label_id >= 0 &&
     hot_label_kind(func, label_id) == HotLabelKind::RegionLabel {
-    return hot_lower_impl_body_items(func, id, label_stack)
+    return hot_lower_impl_body_items(func, id, use_def, label_stack)
   }
   let out : Array[Instruction] = []
   let value_stack : Array[NodeId] = []
-  hot_lower_impl_emit_root(func, id, label_stack, value_stack, out)
+  hot_lower_impl_emit_root(func, id, use_def, label_stack, value_stack, out)
   out
+}
+
+///|
+fn hot_lower_impl_drop_dead_nonfinal_root_results(
+  func : HotFunc,
+  id : NodeId,
+  use_def : HotUseDef,
+  preserve_region_result : Bool,
+  is_final_root : Bool,
+  stack : Array[NodeId],
+  out : Array[Instruction],
+) -> Unit {
+  if is_final_root || preserve_region_result {
+    return
+  }
+  let result_arity = hot_node_result_arity(func, id)
+  if result_arity == 0 || node_use_count(use_def, id) != 1 {
+    return
+  }
+  for _ in 0..<result_arity {
+    out.push(Instruction::drop())
+    ignore(stack.pop())
+  }
+}
+
+///|
+fn hot_lower_impl_preserve_region_result_roots(
+  func : HotFunc,
+  use_def : HotUseDef,
+  root_ids : Array[NodeId],
+  region_result_arity : Int,
+) -> Array[Bool] {
+  let preserve : Array[Bool] = []
+  for _ in 0..<root_ids.length() {
+    preserve.push(false)
+  }
+  let mut remaining = region_result_arity
+  for i = root_ids.length() - 1; i >= 0; i = i - 1 {
+    if remaining <= 0 {
+      break
+    }
+    let root_id = root_ids[i]
+    if node_use_count(use_def, root_id) != 1 {
+      continue
+    }
+    let result_arity = hot_node_result_arity(func, root_id)
+    if result_arity == 0 {
+      continue
+    }
+    preserve[i] = true
+    if result_arity >= remaining {
+      remaining = 0
+    } else {
+      remaining = remaining - result_arity
+    }
+  }
+  preserve
 }
 
 ///|
 fn hot_lower_impl_emit_instruction(
   func : HotFunc,
   id : NodeId,
+  use_def : HotUseDef,
   label_stack : Array[LabelId],
   out : Array[Instruction],
 ) -> Unit {
@@ -497,14 +604,14 @@ fn hot_lower_impl_emit_instruction(
       out.push(
         Instruction::block(
           hot_lower_impl_control_block_type(func, id),
-          Expr::new(hot_lower_impl_body_items(func, id, label_stack)),
+          Expr::new(hot_lower_impl_body_items(func, id, use_def, label_stack)),
         ),
       )
     HotOp::Loop =>
       out.push(
         Instruction::loop_(
           hot_lower_impl_control_block_type(func, id),
-          Expr::new(hot_lower_impl_body_items(func, id, label_stack)),
+          Expr::new(hot_lower_impl_body_items(func, id, use_def, label_stack)),
         ),
       )
     HotOp::If => {
@@ -520,12 +627,13 @@ fn hot_lower_impl_emit_instruction(
           hot_lower_impl_region_body(
             func,
             hot_child_get(func, id, 1),
+            use_def,
             next_stack,
           ),
           if else_id == HOT_NONE_NODE {
             None
           } else {
-            Some(hot_lower_impl_region_body(func, else_id, next_stack))
+            Some(hot_lower_impl_region_body(func, else_id, use_def, next_stack))
           },
         ),
       )
@@ -544,6 +652,7 @@ fn hot_lower_impl_emit_instruction(
             hot_lower_impl_region_body(
               func,
               hot_child_get(func, id, 0),
+              use_def,
               next_stack,
             ),
           ),
@@ -558,13 +667,14 @@ fn hot_lower_impl_emit_instruction(
 fn hot_lower_impl_emit_value(
   func : HotFunc,
   id : NodeId,
+  use_def : HotUseDef,
   label_stack : Array[LabelId],
   stack : Array[NodeId],
   out : Array[Instruction],
 ) -> Unit {
   match stack.last() {
     Some(top) if top == id => ()
-    _ => hot_lower_impl_emit_root(func, id, label_stack, stack, out)
+    _ => hot_lower_impl_emit_root(func, id, use_def, label_stack, stack, out)
   }
 }
 
@@ -572,13 +682,14 @@ fn hot_lower_impl_emit_value(
 fn hot_lower_impl_emit_inputs(
   func : HotFunc,
   inputs : Array[NodeId],
+  use_def : HotUseDef,
   label_stack : Array[LabelId],
   stack : Array[NodeId],
   out : Array[Instruction],
 ) -> Unit {
   let matched = hot_lower_impl_matching_input_prefix(stack, inputs)
   for i = matched; i < inputs.length(); i = i + 1 {
-    hot_lower_impl_emit_value(func, inputs[i], label_stack, stack, out)
+    hot_lower_impl_emit_value(func, inputs[i], use_def, label_stack, stack, out)
   }
 }
 
@@ -586,6 +697,7 @@ fn hot_lower_impl_emit_inputs(
 fn hot_lower_impl_emit_root(
   func : HotFunc,
   id : NodeId,
+  use_def : HotUseDef,
   label_stack : Array[LabelId],
   stack : Array[NodeId],
   out : Array[Instruction],
@@ -599,11 +711,12 @@ fn hot_lower_impl_emit_root(
   hot_lower_impl_emit_inputs(
     func,
     hot_lower_impl_input_nodes(func, id),
+    use_def,
     label_stack,
     stack,
     out,
   )
-  hot_lower_impl_emit_instruction(func, id, label_stack, out)
+  hot_lower_impl_emit_instruction(func, id, use_def, label_stack, out)
   hot_lower_impl_update_stack(func, id, stack)
 }
 
@@ -619,10 +732,28 @@ fn hot_lower_impl_declared_locals(func : HotFunc) -> Array[ValType] {
 ///|
 pub fn hot_lower_body(func : HotFunc) -> Expr {
   hot_verify_all_or_abort(func)
+  let use_def = use_def_build(func)
   let out : Array[Instruction] = []
   let value_stack : Array[NodeId] = []
+  let root_ids = hot_root_span(func)
+  let preserve_region_results = hot_lower_impl_preserve_region_result_roots(
+    func,
+    use_def,
+    root_ids,
+    hot_type_result_arity(func, hot_body_result_type(func)),
+  )
   for i = 0; i < hot_root_count(func); i = i + 1 {
-    hot_lower_impl_emit_root(func, hot_root_get(func, i), [], value_stack, out)
+    let root_id = root_ids[i]
+    hot_lower_impl_emit_root(func, root_id, use_def, [], value_stack, out)
+    hot_lower_impl_drop_dead_nonfinal_root_results(
+      func,
+      root_id,
+      use_def,
+      preserve_region_results[i],
+      i + 1 == hot_root_count(func),
+      value_stack,
+      out,
+    )
   }
   Expr::new(out)
 }

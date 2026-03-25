@@ -316,6 +316,27 @@ fn run_hot_pipeline_expand_passes(
 }
 
 ///|
+fn run_hot_pipeline_format_final_validate_error(
+  before_mod : @lib.Module,
+  mod_ : @lib.Module,
+  err : @validate.ValidationError,
+) -> String {
+  match @validate.validation_error_func_idx(err) {
+    Some(func_idx) =>
+      "final module validate: \{err}\n\nOriginal function:\n\{before_mod.pretty_print_func(func_idx)}\n\nOptimized function:\n\{mod_.pretty_print_func(func_idx)}"
+    None => "final module validate: \{err}"
+  }
+}
+
+///|
+fn run_hot_pipeline_dump_invalid_module(mod_ : @lib.Module) -> Unit {
+  match @binary.encode_module(mod_) {
+    Ok(bytes) => ignore(@sfs.write_file_bytes(".tmp/final-invalid.wasm", bytes))
+    Err(_) => ()
+  }
+}
+
+///|
 pub fn run_hot_pipeline(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
@@ -344,16 +365,30 @@ pub fn run_hot_pipeline(
     }
   }
   if options.validate_final_module {
-    match
-      pipeline_verify_checkpoint_with_perf(
-        options.perf,
-        HotPipelineVerifyPolicy::AfterEachPass,
-        "final module validate",
-        HotPipelineVerifyTarget::ModuleTarget(current),
-        "validate:final-module",
-      ) {
-      Ok(_) => ()
-      Err(err) => return Err(err)
+    let validate_start_us = perf_start_timer_opt(
+      options.perf,
+      "validate:final-module",
+    )
+    match @validate.validate_module(current) {
+      Ok(_) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "validate:final-module",
+          validate_start_us,
+        )
+        perf_validation_checkpoint_opt(options.perf, "final module validate")
+      }
+      Err(err) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "validate:final-module",
+          validate_start_us,
+        )
+        run_hot_pipeline_dump_invalid_module(current)
+        return Err(
+          run_hot_pipeline_format_final_validate_error(mod_, current, err),
+        )
+      }
     }
   }
   perf_emit_counters_opt(options.perf, "pipeline:done")

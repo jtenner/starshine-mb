@@ -127,6 +127,101 @@ fn hot_lift_test_func_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lift_test_block_param_module() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+      ),
+    ),
+  ])
+  @lib.Module::new().with_type_sec(type_sec)
+}
+
+///|
+fn hot_lift_test_multi_result_module() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([], [@lib.ValType::i32(), @lib.ValType::i32()]),
+      ),
+    ),
+  ])
+  let import_sec = @lib.ImportSec::new([
+    @lib.Import::new(
+      @lib.Name::from_string("env"),
+      @lib.Name::from_string("pair"),
+      @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+    ),
+  ])
+  @lib.Module::new().with_type_sec(type_sec).with_import_sec(import_sec)
+}
+
+///|
+fn hot_lift_test_triple_result_bridge_module() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([], [
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+        ]),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func(
+          [
+            @lib.ValType::i32(),
+            @lib.ValType::i32(),
+            @lib.ValType::i32(),
+            @lib.ValType::i64(),
+          ],
+          [@lib.ValType::i32()],
+        ),
+      ),
+    ),
+  ])
+  let import_sec = @lib.ImportSec::new([
+    @lib.Import::new(
+      @lib.Name::from_string("env"),
+      @lib.Name::from_string("check"),
+      @lib.ExternType::func(@lib.TypeIdx::new(1U)),
+    ),
+  ])
+  @lib.Module::new().with_type_sec(type_sec).with_import_sec(import_sec)
+}
+
+///|
+fn hot_lift_test_triple_result_tee_consumer_module() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([], [
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+        ]),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32()], []),
+      ),
+    ),
+  ])
+  let import_sec = @lib.ImportSec::new([
+    @lib.Import::new(
+      @lib.Name::from_string("env"),
+      @lib.Name::from_string("consume"),
+      @lib.ExternType::func(@lib.TypeIdx::new(1U)),
+    ),
+  ])
+  @lib.Module::new().with_type_sec(type_sec).with_import_sec(import_sec)
+}
+
+///|
 test "hot lift func derives locals and direct call metadata from the module" {
   let func = hot_lift_func(hot_lift_test_func_module(), @lib.FuncIdx::new(1U))
 
@@ -174,4 +269,504 @@ test "hot lift maps try_table catches onto hot labels" {
       assert_eq(label_id, hot_control_node_label(func, block_id))
     other => fail("expected catch_all arm, got \{other}")
   }
+}
+
+///|
+test "hot lift preserves live prefixes across repeated stack types" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_const(@lib.I32(2)),
+      @lib.Instruction::i32_const(@lib.I32(3)),
+      @lib.Instruction::i32_sub(),
+    ]),
+    HotLocals::new(),
+  )
+
+  assert_eq(hot_root_count(func), 2)
+
+  let prefix = hot_root_get(func, 0)
+  let sub = hot_root_get(func, 1)
+
+  assert_true(hot_node_kind_is_numeric(func, prefix))
+  assert_eq(hot_child_count(func, prefix), 0)
+  assert_eq(hot_node_exact_instr(func, sub), Some(@lib.Instruction::i32_sub()))
+  assert_eq(hot_child_count(func, sub), 2)
+  assert_true(hot_node_kind_is_numeric(func, hot_child_get(func, sub, 0)))
+  assert_true(hot_node_kind_is_numeric(func, hot_child_get(func, sub, 1)))
+  assert_eq(hot_child_count(func, hot_child_get(func, sub, 0)), 0)
+  assert_eq(hot_child_count(func, hot_child_get(func, sub, 1)), 0)
+}
+
+///|
+test "hot lift seeds loop param values into nested regions" {
+  let module_ = hot_lift_test_block_param_module()
+  let ctx = hot_module_context_from_module(module_)
+  let func = hot_lift_body_with_context(
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::loop_(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        @lib.Expr::new([@lib.Instruction::local_tee(@lib.LocalIdx::new(0U))]),
+      ),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+    ctx,
+  )
+
+  assert_eq(hot_root_count(func), 1)
+
+  let loop_id = hot_root_get(func, 0)
+  assert_eq(
+    hot_label_branch_arity(func, hot_control_node_label(func, loop_id)),
+    1,
+  )
+  assert_eq(hot_child_count(func, loop_id), 2)
+  let body_region = hot_region_body_ref(func, loop_id)
+  let tee_id = hot_region_get(func, body_region, 0)
+
+  assert_true(hot_node_kind_is_local(func, tee_id))
+  assert_eq(hot_child_count(func, tee_id), 1)
+  assert_true(hot_node_kind_is_numeric(func, hot_child_get(func, tee_id, 0)))
+  assert_eq(hot_child_count(func, hot_child_get(func, tee_id, 0)), 0)
+}
+
+///|
+test "hot lift preserves concrete unreachable stack prefixes for local.get" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::unreachable_(),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_const(@lib.I32(2)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+
+  assert_eq(hot_root_count(func), 4)
+
+  let trap = hot_root_get(func, 0)
+  let left = hot_root_get(func, 1)
+  let right = hot_root_get(func, 2)
+  let local_get = hot_root_get(func, 3)
+
+  assert_eq(hot_node_get(func, trap).op.to_string(), "Unreachable")
+  assert_true(hot_node_kind_is_numeric(func, left))
+  assert_true(hot_node_kind_is_numeric(func, right))
+  assert_true(hot_node_kind_is_local(func, local_get))
+  assert_eq(hot_child_count(func, local_get), 0)
+}
+
+///|
+test "hot lift tolerates polymorphic unreachable operands with no concrete values" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::unreachable_(),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+
+  assert_eq(hot_root_count(func), 1)
+
+  let trap = hot_root_get(func, 0)
+  assert_eq(hot_node_get(func, trap).op.to_string(), "Unreachable")
+}
+
+///|
+test "hot lift preserves surviving results from multi-result producers" {
+  let ctx = hot_module_context_from_module(hot_lift_test_multi_result_module())
+  let func = hot_lift_body_with_context(
+    @lib.Expr::new([
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::if_(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))],
+        Some([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+      ),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+    ctx,
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+
+  assert_eq(hot_root_count(func), 2)
+
+  let local_set = hot_root_get(func, 0)
+  let if_id = hot_root_get(func, 1)
+  let call_id = hot_child_get(func, local_set, 0)
+
+  assert_true(hot_node_kind_is_local(func, local_set))
+  assert_eq(hot_node_get(func, if_id).op.to_string(), "If")
+  assert_true(hot_node_kind_is_call(func, call_id))
+  assert_eq(hot_node_result_arity(func, call_id), 2)
+  assert_eq(hot_child_get(func, if_id, 0), call_id)
+}
+
+///|
+test "hot lift preserves explicit triple-result spill bridges" {
+  let ctx = hot_module_context_from_module(
+    hot_lift_test_triple_result_bridge_module(),
+  )
+  let func = hot_lift_body_with_context(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(10)),
+          @lib.Instruction::i32_const(@lib.I32(20)),
+          @lib.Instruction::i32_const(@lib.I32(30)),
+        ]),
+      ),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(3U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(6U)),
+      @lib.Instruction::i64_extend_i32s(),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(7U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+    HotLocals::new(
+      locals=[
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i64(),
+      ],
+    ),
+    ctx,
+  )
+
+  assert_eq(hot_root_count(func), 7)
+
+  let set2 = hot_root_get(func, 0)
+  let set1 = hot_root_get(func, 1)
+  let set0 = hot_root_get(func, 2)
+  let set4 = hot_root_get(func, 3)
+  let set5 = hot_root_get(func, 4)
+  let set7 = hot_root_get(func, 5)
+  let drop_id = hot_root_get(func, 6)
+
+  assert_eq(hot_node_get(func, set2).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set2).imm0, 2)
+  assert_eq(hot_node_get(func, set1).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set1).imm0, 1)
+  assert_eq(hot_node_get(func, set0).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set0).imm0, 0)
+
+  let producer = hot_child_get(func, set2, 0)
+  assert_eq(hot_child_get(func, set1, 0), producer)
+  assert_eq(hot_child_get(func, set0, 0), producer)
+  assert_eq(hot_node_get(func, producer).op.to_string(), "Block")
+  assert_eq(hot_node_result_arity(func, producer), 3)
+
+  assert_eq(hot_node_get(func, set4).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set4).imm0, 4)
+  assert_eq(hot_node_get(func, set5).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set5).imm0, 5)
+  assert_eq(hot_node_get(func, set7).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set7).imm0, 7)
+  assert_eq(hot_node_get(func, drop_id).op.to_string(), "Drop")
+}
+
+///|
+test "hot lift preserves branchy triple-result spill bridges" {
+  let ctx = hot_module_context_from_module(
+    hot_lift_test_triple_result_bridge_module(),
+  )
+  let func = hot_lift_body_with_context(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(1)),
+              @lib.Instruction::if_(
+                @lib.BlockType::void_(),
+                [
+                  @lib.Instruction::i32_const(@lib.I32(10)),
+                  @lib.Instruction::i32_const(@lib.I32(20)),
+                  @lib.Instruction::i32_const(@lib.I32(30)),
+                  @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                ],
+                None,
+              ),
+              @lib.Instruction::i32_const(@lib.I32(40)),
+              @lib.Instruction::i32_const(@lib.I32(50)),
+              @lib.Instruction::i32_const(@lib.I32(60)),
+              @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+            ]),
+          ),
+        ]),
+      ),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(3U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(6U)),
+      @lib.Instruction::i64_extend_i32s(),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(7U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+    HotLocals::new(
+      locals=[
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i64(),
+      ],
+    ),
+    ctx,
+  )
+
+  assert_eq(hot_root_count(func), 7)
+
+  let set2 = hot_root_get(func, 0)
+  let set1 = hot_root_get(func, 1)
+  let set0 = hot_root_get(func, 2)
+
+  assert_eq(hot_node_get(func, set2).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set2).imm0, 2)
+  assert_eq(hot_node_get(func, set1).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set1).imm0, 1)
+  assert_eq(hot_node_get(func, set0).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set0).imm0, 0)
+
+  let producer = hot_child_get(func, set2, 0)
+  assert_eq(hot_child_get(func, set1, 0), producer)
+  assert_eq(hot_child_get(func, set0, 0), producer)
+  assert_eq(hot_node_get(func, producer).op.to_string(), "Block")
+  assert_eq(hot_node_result_arity(func, producer), 3)
+}
+
+///|
+test "hot lift preserves spill bridges after branchy local-get result blocks" {
+  let ctx = hot_module_context_from_module(
+    hot_lift_test_triple_result_bridge_module(),
+  )
+  let func = hot_lift_body_with_context(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(1)),
+              @lib.Instruction::if_(
+                @lib.BlockType::void_(),
+                [
+                  @lib.Instruction::i32_const(@lib.I32(10)),
+                  @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                  @lib.Instruction::i32_const(@lib.I32(20)),
+                  @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                  @lib.Instruction::i32_const(@lib.I32(30)),
+                  @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+                  @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                ],
+                None,
+              ),
+              @lib.Instruction::i32_const(@lib.I32(40)),
+              @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+              @lib.Instruction::i32_const(@lib.I32(50)),
+              @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+              @lib.Instruction::i32_const(@lib.I32(60)),
+              @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+            ]),
+          ),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+        ]),
+      ),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(6U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(7U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(8U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+      @lib.Instruction::i64_extend_i32s(),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(9U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(8U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(9U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+    HotLocals::new(
+      locals=[
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i64(),
+      ],
+    ),
+    ctx,
+  )
+
+  assert_eq(hot_root_count(func), 7)
+
+  let set5 = hot_root_get(func, 0)
+  let set4 = hot_root_get(func, 1)
+  let set3 = hot_root_get(func, 2)
+
+  assert_eq(hot_node_get(func, set5).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set5).imm0, 5)
+  assert_eq(hot_node_get(func, set4).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set4).imm0, 4)
+  assert_eq(hot_node_get(func, set3).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set3).imm0, 3)
+
+  let producer = hot_child_get(func, set5, 0)
+  assert_eq(hot_child_get(func, set4, 0), producer)
+  assert_eq(hot_child_get(func, set3, 0), producer)
+  assert_eq(hot_node_get(func, producer).op.to_string(), "Block")
+  assert_eq(hot_node_result_arity(func, producer), 3)
+}
+
+///|
+test "hot lift preserves branchy triple-result bridges ending in local.tee" {
+  let ctx = hot_module_context_from_module(
+    hot_lift_test_triple_result_tee_consumer_module(),
+  )
+  let func = hot_lift_body_with_context(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(1)),
+              @lib.Instruction::if_(
+                @lib.BlockType::void_(),
+                [
+                  @lib.Instruction::i32_const(@lib.I32(10)),
+                  @lib.Instruction::i32_const(@lib.I32(20)),
+                  @lib.Instruction::i32_const(@lib.I32(30)),
+                  @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                ],
+                None,
+              ),
+              @lib.Instruction::i32_const(@lib.I32(40)),
+              @lib.Instruction::i32_const(@lib.I32(50)),
+              @lib.Instruction::i32_const(@lib.I32(60)),
+              @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+            ]),
+          ),
+        ]),
+      ),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::drop(),
+    ]),
+    HotLocals::new(
+      locals=[
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      ],
+    ),
+    ctx,
+  )
+
+  assert_eq(hot_root_count(func), 5)
+
+  let set2 = hot_root_get(func, 0)
+  let set1 = hot_root_get(func, 1)
+  let call_id = hot_root_get(func, 2)
+
+  assert_eq(hot_node_get(func, set2).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set2).imm0, 2)
+  assert_eq(hot_node_get(func, set1).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, set1).imm0, 1)
+  assert_eq(hot_node_get(func, call_id).op.to_string(), "Call")
+
+  let producer = hot_child_get(func, set2, 0)
+  assert_eq(hot_child_get(func, set1, 0), producer)
+  assert_eq(hot_node_get(func, producer).op.to_string(), "Block")
+  assert_eq(hot_node_result_arity(func, producer), 3)
+
+  let tee0 = hot_child_get(func, call_id, 0)
+  assert_eq(hot_node_get(func, tee0).op.to_string(), "LocalTee")
+  assert_eq(hot_node_get(func, tee0).imm0, 0)
+  assert_eq(hot_child_get(func, tee0, 0), producer)
+}
+
+///|
+test "hot lift tolerates unreachable br payloads with no concrete values" {
+  let func = match
+    hot_lift_body_result(
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::return_(),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+          ]),
+        ),
+      ]),
+      HotLocals::new(),
+      body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+    ) {
+    Ok(func) => func
+    Err(err) => fail(err.to_string())
+  }
+
+  assert_eq(hot_root_count(func), 1)
+  let block_id = hot_root_get(func, 0)
+  assert_eq(hot_node_get(func, block_id).op.to_string(), "Block")
+  assert_eq(hot_node_result_arity(func, block_id), 1)
+  assert_eq(hot_region_root_count(func, hot_region_body_ref(func, block_id)), 2)
 }

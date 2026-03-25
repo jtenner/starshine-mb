@@ -1649,6 +1649,46 @@ test "Ref Types" {
 }
 
 ///|
+test "encode ref.null uses heap-type immediate for abstract refs" {
+  let instr = Instruction::ref_null(HeapType::abs(AbsHeapType::extern_()))
+  let buf = @buffer.new()
+  match Encode::encode(instr, buf) {
+    Ok(_) => ()
+    Err(e) => fail("expected ref.null extern encode success, got \{e}")
+  }
+  let bytes = buf.to_bytes()
+  assert_eq(bytes, b"\xd0\x6f")
+  let (decoded, i) = match
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    Ok(v) => v
+    Err(e) => fail("expected ref.null extern decode success, got \{e}")
+  }
+  assert_eq(i, bytes.length())
+  assert_eq(decoded, instr)
+}
+
+///|
+test "encode ref.null exact type index uses heap-type immediate" {
+  let instr = Instruction::ref_null_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0U)), exact=true),
+  )
+  let buf = @buffer.new()
+  match Encode::encode(instr, buf) {
+    Ok(_) => ()
+    Err(e) => fail("expected exact typed ref.null encode success, got \{e}")
+  }
+  let bytes = buf.to_bytes()
+  assert_eq(bytes, b"\xd0\x62\x00")
+  let (decoded, i) = match
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    Ok(v) => v
+    Err(e) => fail("expected exact typed ref.null decode success, got \{e}")
+  }
+  assert_eq(i, bytes.length())
+  assert_eq(decoded, instr)
+}
+
+///|
 test "Comp Types" {
   roundtrip(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),

@@ -168,6 +168,186 @@ pub fn pipeline_trace_hook(
 }
 
 ///|
+fn pass_manager_debug_node_tag(func : @ir.HotFunc, node_id : Int) -> String {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet | @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+      "\{node.op}(\{node.imm0})#\{node_id}"
+    _ => "\{node.op}#\{node_id}"
+  }
+}
+
+///|
+fn pass_manager_debug_dump_target_regions_visit(
+  trace : (String) -> Unit,
+  func : @ir.HotFunc,
+  stage : String,
+  region_ref : @ir.HotRegionRef,
+) -> Unit {
+  let roots : Array[String] = []
+  let mut saw_target = false
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    let tag = pass_manager_debug_node_tag(func, node_id)
+    roots.push(tag)
+    if tag.contains("(35)") || tag.contains("(36)") || tag.contains("(37)") ||
+      tag.contains("(38)") || tag.contains("(39)") || tag.contains("(40)") ||
+      tag.contains("(97)") || tag.contains("(98)") || tag.contains("(99)") {
+      saw_target = true
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        pass_manager_debug_dump_target_regions_visit(
+          trace,
+          func,
+          stage,
+          @ir.hot_region_body_ref(func, node_id),
+        )
+      @ir.HotOp::If => {
+        pass_manager_debug_dump_target_regions_visit(
+          trace,
+          func,
+          stage,
+          @ir.hot_region_then_ref(func, node_id),
+        )
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_region) =>
+            pass_manager_debug_dump_target_regions_visit(
+              trace,
+              func,
+              stage,
+              else_region,
+            )
+          None => ()
+        }
+      }
+      @ir.HotOp::Try => {
+        pass_manager_debug_dump_target_regions_visit(
+          trace,
+          func,
+          stage,
+          @ir.hot_region_body_ref(func, node_id),
+        )
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_region) =>
+            pass_manager_debug_dump_target_regions_visit(
+              trace,
+              func,
+              stage,
+              catch_region,
+            )
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable => {
+        pass_manager_debug_dump_target_regions_visit(
+          trace,
+          func,
+          stage,
+          @ir.hot_region_body_ref(func, node_id),
+        )
+        pass_manager_debug_dump_target_regions_visit(
+          trace,
+          func,
+          stage,
+          @ir.hot_region_catch_list_ref(func, node_id),
+        )
+      }
+      _ => ()
+    }
+  }
+  if saw_target {
+    let region_label = if region_ref == @ir.HotRegionRef::root() {
+      "root"
+    } else {
+      "holder=\{region_ref.holder}"
+    }
+    trace("debug[\{stage}]:region \{region_label} roots=\{roots}")
+  }
+}
+
+///|
+fn pass_manager_debug_dump_target_regions(
+  trace : (String) -> Unit,
+  func : @ir.HotFunc,
+  stage : String,
+) -> Unit {
+  pass_manager_debug_dump_target_regions_visit(
+    trace,
+    func,
+    stage,
+    @ir.HotRegionRef::root(),
+  )
+}
+
+///|
+fn pass_manager_debug_dump_node(
+  trace : (String) -> Unit,
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  stage : String,
+  node_id : Int,
+) -> Unit {
+  if !@ir.hot_node_is_live(func, node_id) {
+    trace("debug[\{stage}]:node \{node_id} dead")
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let children : Array[String] = []
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    children.push("\{slot}=\{child_id}")
+  }
+  trace(
+    "debug[\{stage}]:node \{node_id} tag=\{pass_manager_debug_node_tag(func, node_id)} ty=\{node.ty} children=\{children} uses=\{@ir.node_use_count(use_def, node_id)}",
+  )
+}
+
+///|
+fn pass_manager_debug_dump_matching_nodes(
+  trace : (String) -> Unit,
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  stage : String,
+) -> Unit {
+  for node_id = 0; node_id < func.nodes.length(); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let tag = pass_manager_debug_node_tag(func, node_id)
+    if tag.contains("LocalSet(35)") || tag.contains("LocalSet(36)") ||
+      tag.contains("LocalSet(37)") {
+      pass_manager_debug_dump_node(trace, func, use_def, stage, node_id)
+    }
+  }
+}
+
+///|
+fn pass_manager_debug_dump_root_prefix(
+  trace : (String) -> Unit,
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  stage : String,
+  count : Int,
+) -> Unit {
+  let limit = if count < @ir.hot_root_count(func) {
+    count
+  } else {
+    @ir.hot_root_count(func)
+  }
+  for i = 0; i < limit; i = i + 1 {
+    let node_id = @ir.hot_root_get(func, i)
+    pass_manager_debug_dump_node(
+      trace,
+      func,
+      use_def,
+      "\{stage}:root[\{i}]",
+      node_id,
+    )
+  }
+}
+
+///|
 pub enum HotPipelineVerifyTarget {
   HotFuncTarget(@ir.HotFunc)
   ModuleTarget(@lib.Module)
@@ -291,8 +471,231 @@ fn run_hot_pipeline_func(
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
 ) -> Result[@lib.Func, String] {
+  pipeline_trace_hook(
+    options.trace,
+    descriptor.name,
+    "func",
+    payload="func_idx=\{func_idx}",
+  )
   let lift_start_us = perf_start_timer_opt(options.perf, "lift")
   let func = @ir.hot_lift_func(mod_, func_idx)
+  if func_idx == @lib.FuncIdx::new(2944U) &&
+    (descriptor.name == "vacuum" || descriptor.name == "dead-code-elimination") {
+    let use_def = @ir.use_def_build(func)
+    pass_manager_debug_dump_root_prefix(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      40,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      0,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      181,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      182,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      183,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      557,
+    )
+    for node_id in [552, 553, 554, 555, 556, 558, 559, 560, 561, 562, 563] {
+      pass_manager_debug_dump_node(
+        options.trace,
+        func,
+        use_def,
+        "after-lift:\{descriptor.name}",
+        node_id,
+      )
+    }
+  }
+  if func_idx == @lib.FuncIdx::new(2941U) &&
+    (descriptor.name == "vacuum" || descriptor.name == "dead-code-elimination") {
+    let use_def = @ir.use_def_build(func)
+    pass_manager_debug_dump_target_regions(
+      options.trace,
+      func,
+      "after-lift:\{descriptor.name}",
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      581,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      582,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1253,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1254,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1255,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1256,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1257,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1258,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1259,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1260,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1261,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1262,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1263,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1264,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1265,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1266,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1267,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1268,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1269,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1270,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+      1271,
+    )
+    pass_manager_debug_dump_matching_nodes(
+      options.trace,
+      func,
+      use_def,
+      "after-lift:\{descriptor.name}",
+    )
+  }
   match options.perf {
     Some(perf) => {
       perf_count_hot_alloc_delta(
@@ -328,6 +731,223 @@ fn run_hot_pipeline_func(
   match hot_pass_run(ctx, func) {
     Ok(_) => ()
     Err(err) => return Err(err)
+  }
+  if func_idx == @lib.FuncIdx::new(2944U) &&
+    (descriptor.name == "vacuum" || descriptor.name == "dead-code-elimination") {
+    let use_def = @ir.use_def_build(func)
+    pass_manager_debug_dump_root_prefix(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      40,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      0,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      181,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      182,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      183,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      557,
+    )
+    for node_id in [552, 553, 554, 555, 556, 558, 559, 560, 561, 562, 563] {
+      pass_manager_debug_dump_node(
+        options.trace,
+        func,
+        use_def,
+        "after-pass:\{descriptor.name}",
+        node_id,
+      )
+    }
+  }
+  if func_idx == @lib.FuncIdx::new(2941U) &&
+    (descriptor.name == "vacuum" || descriptor.name == "dead-code-elimination") {
+    let use_def = @ir.use_def_build(func)
+    pass_manager_debug_dump_target_regions(
+      options.trace,
+      func,
+      "after-pass:\{descriptor.name}",
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      581,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      582,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1253,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1254,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1255,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1256,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1257,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1258,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1259,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1260,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1261,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1262,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1263,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1264,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1265,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1266,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1267,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1268,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1269,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1270,
+    )
+    pass_manager_debug_dump_node(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+      1271,
+    )
+    pass_manager_debug_dump_matching_nodes(
+      options.trace,
+      func,
+      use_def,
+      "after-pass:\{descriptor.name}",
+    )
   }
   match
     pipeline_verify_checkpoint_with_perf(

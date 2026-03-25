@@ -155,7 +155,15 @@ fn effects_mask_for_node_exact(func : HotFunc, node_id : NodeId) -> EffectMask {
 }
 
 ///|
-fn effects_accumulate_node(func : HotFunc, node_id : NodeId) -> EffectMask {
+fn effects_accumulate_node_cached(
+  func : HotFunc,
+  node_id : NodeId,
+  node_masks : Array[EffectMask],
+  ready : Array[Bool],
+) -> EffectMask {
+  if ready[node_id] {
+    return node_masks[node_id]
+  }
   let mut mask = effects_mask_for_flags(hot_node_flags(func, node_id))
   mask = mask | effects_mask_for_node_exact(func, node_id)
   for slot = 0; slot < hot_child_count(func, node_id); slot = slot + 1 {
@@ -163,14 +171,48 @@ fn effects_accumulate_node(func : HotFunc, node_id : NodeId) -> EffectMask {
     if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
       continue
     }
-    mask = mask | effects_accumulate_node(func, child_id)
+    mask = mask |
+      effects_accumulate_node_cached(func, child_id, node_masks, ready)
   }
+  node_masks[node_id] = mask
+  ready[node_id] = true
   mask
 }
 
 ///|
+fn effects_build_node_masks(func : HotFunc) -> Array[EffectMask] {
+  let node_masks = Array::make(hot_node_count(func), 0U)
+  let ready = Array::make(hot_node_count(func), false)
+  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+    if !hot_node_is_live(func, node_id) {
+      continue
+    }
+    ignore(effects_accumulate_node_cached(func, node_id, node_masks, ready))
+  }
+  node_masks
+}
+
+///|
 pub fn effects_for_node(func : HotFunc, node_id : NodeId) -> EffectMask {
-  effects_accumulate_node(func, node_id)
+  effects_accumulate_node_cached(
+    func,
+    node_id,
+    Array::make(hot_node_count(func), 0U),
+    Array::make(hot_node_count(func), false),
+  )
+}
+
+///|
+fn effects_for_block_with_node_masks(
+  cfg : HotCfg,
+  block_id : BlockId,
+  node_masks : Array[EffectMask],
+) -> EffectMask {
+  let mut mask = 0U
+  for node_id in cfg_block_get(cfg, block_id).nodes {
+    mask = mask | node_masks[node_id]
+  }
+  mask
 }
 
 ///|
@@ -179,9 +221,26 @@ pub fn effects_for_block(
   cfg : HotCfg,
   block_id : BlockId,
 ) -> EffectMask {
+  effects_for_block_with_node_masks(
+    cfg,
+    block_id,
+    effects_build_node_masks(func),
+  )
+}
+
+///|
+fn effects_for_region_with_node_masks(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+  node_masks : Array[EffectMask],
+) -> EffectMask {
   let mut mask = 0U
-  for node_id in cfg_block_get(cfg, block_id).nodes {
-    mask = mask | effects_for_node(func, node_id)
+  for slot = 0; slot < hot_region_root_count(func, region_ref); slot = slot + 1 {
+    let node_id = hot_region_get(func, region_ref, slot)
+    if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
+      continue
+    }
+    mask = mask | node_masks[node_id]
   }
   mask
 }
@@ -191,15 +250,11 @@ pub fn effects_for_region(
   func : HotFunc,
   region_ref : HotRegionRef,
 ) -> EffectMask {
-  let mut mask = 0U
-  for slot = 0; slot < hot_region_root_count(func, region_ref); slot = slot + 1 {
-    let node_id = hot_region_get(func, region_ref, slot)
-    if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
-      continue
-    }
-    mask = mask | effects_for_node(func, node_id)
-  }
-  mask
+  effects_for_region_with_node_masks(
+    func,
+    region_ref,
+    effects_build_node_masks(func),
+  )
 }
 
 ///|

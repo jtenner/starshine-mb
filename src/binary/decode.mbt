@@ -143,25 +143,27 @@ pub impl Decode for AbsHeapType with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for RefType with decode(bytes, i) {
-  fn decode_ref_heap_type(
-    bytes : Bytes,
-    i : Int,
-  ) -> Result[(Bool, HeapType, Int), BinaryDecodeError] {
-    match bytes.get(i) {
-      Some(0x62) =>
-        match Decode::decode(bytes, i + 1) {
-          Ok((@lib.S33(s), next)) =>
-            Ok((true, HeapType::new(TypeIdx::new(s)), next))
-          Err(err) => Err(err)
-        }
-      _ =>
-        match Decode::decode(bytes, i) {
-          Ok((ht, next)) => Ok((false, ht, next))
-          Err(err) => Err(err)
-        }
-    }
+fn decode_ref_heap_type(
+  bytes : Bytes,
+  i : Int,
+) -> Result[(Bool, HeapType, Int), BinaryDecodeError] {
+  match bytes.get(i) {
+    Some(0x62) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.S33(s), next)) =>
+          Ok((true, HeapType::new(TypeIdx::new(s)), next))
+        Err(err) => Err(err)
+      }
+    _ =>
+      match Decode::decode(bytes, i) {
+        Ok((ht, next)) => Ok((false, ht, next))
+        Err(err) => Err(err)
+      }
   }
+}
+
+///|
+pub impl Decode for RefType with decode(bytes, i) {
   match bytes.get(i) {
     None => Err(BinaryDecodeError::IndexOutOfBounds)
     Some(0x63) =>
@@ -2592,9 +2594,14 @@ fn decode_instruction_with_depth(
         Err(t) => Err(t)
       }
     Some(0xD0) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((rt, i)) => Ok((Instruction::ref_null_type(rt), i))
-        Err(t) => Err(t)
+      match decode_ref_heap_type(bytes, i + 1) {
+        Ok((exact, ht, i)) =>
+          Ok((Instruction::ref_null_type(RefType::new(true, ht, exact~)), i))
+        Err(t) =>
+          match Decode::decode(bytes, i + 1) {
+            Ok((abs, i)) => Ok((Instruction::ref_null(HeapType::abs(abs)), i))
+            Err(_) => Err(t)
+          }
       }
     Some(0xD1) => Ok((Instruction::ref_is_null(), i + 1))
     Some(0xD2) =>

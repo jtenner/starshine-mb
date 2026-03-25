@@ -1,4 +1,6 @@
 import {
+  "jtenner/starshine/binary",
+  "jtenner/starshine/fs" @sfs,
   "jtenner/starshine/ir",
   "jtenner/starshine/lib",
   "jtenner/starshine/validate",
