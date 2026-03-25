@@ -847,6 +847,30 @@ fn rume_build_defined_remap(kept : Array[Bool]) -> Array[Int] {
 }
 
 ///|
+fn rume_remap_is_identity(remap : Array[Int]) -> Bool {
+  let mut idx = 0
+  while idx < remap.length() {
+    if remap[idx] != idx {
+      return false
+    }
+    idx += 1
+  }
+  true
+}
+
+///|
+fn rume_all_true(flags : Array[Bool]) -> Bool {
+  let mut idx = 0
+  while idx < flags.length() {
+    if !flags[idx] {
+      return false
+    }
+    idx += 1
+  }
+  true
+}
+
+///|
 fn rume_kept_defined_from_used(
   used : Array[Bool],
   imported_count : Int,
@@ -1555,6 +1579,20 @@ fn rume_apply_module_rewrite(
   let tag_remap = rume_build_abs_remap(tag_imports, kept_tags)
   let elem_remap = rume_build_defined_remap(used_elems)
   let data_remap = rume_build_defined_remap(used_datas)
+  let func_remap_is_identity = rume_remap_is_identity(func_remap)
+  let global_remap_is_identity = rume_remap_is_identity(global_remap)
+  let table_remap_is_identity = rume_remap_is_identity(table_remap)
+  let mem_remap_is_identity = rume_remap_is_identity(mem_remap)
+  let tag_remap_is_identity = rume_remap_is_identity(tag_remap)
+  let elem_remap_is_identity = rume_remap_is_identity(elem_remap)
+  let data_remap_is_identity = rume_remap_is_identity(data_remap)
+  let code_body_rewrite_needed = !(func_remap_is_identity &&
+    global_remap_is_identity &&
+    table_remap_is_identity &&
+    mem_remap_is_identity &&
+    tag_remap_is_identity &&
+    elem_remap_is_identity &&
+    data_remap_is_identity)
   let next_export_sec = match mod_.export_sec {
     Some(@lib.ExportSec(exports)) => {
       let next : Array[@lib.Export] = []
@@ -1595,37 +1633,42 @@ fn rume_apply_module_rewrite(
     None => None
   }
 
-  let (next_func_sec, next_code_sec) = match (mod_.func_sec, mod_.code_sec) {
-    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) => {
-      let next_type_idxs : Array[@lib.TypeIdx] = []
-      let next_funcs : Array[@lib.Func] = []
-      let mut idx = 0
-      while idx < type_idxs.length() && idx < funcs.length() {
-        if kept_funcs[idx] {
-          next_type_idxs.push(type_idxs[idx])
-          let @lib.Func(locals, body) = funcs[idx]
-          next_funcs.push(
-            @lib.Func::new(
-              locals,
-              rume_rewrite_expr(
-                body, func_remap, global_remap, table_remap, mem_remap, tag_remap,
-                elem_remap, data_remap,
+  let (next_func_sec, next_code_sec) = if !code_body_rewrite_needed &&
+    rume_all_true(kept_funcs) {
+    (mod_.func_sec, mod_.code_sec)
+  } else {
+    match (mod_.func_sec, mod_.code_sec) {
+      (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) => {
+        let next_type_idxs : Array[@lib.TypeIdx] = []
+        let next_funcs : Array[@lib.Func] = []
+        let mut idx = 0
+        while idx < type_idxs.length() && idx < funcs.length() {
+          if kept_funcs[idx] {
+            next_type_idxs.push(type_idxs[idx])
+            let @lib.Func(locals, body) = funcs[idx]
+            next_funcs.push(
+              @lib.Func::new(
+                locals,
+                rume_rewrite_expr(
+                  body, func_remap, global_remap, table_remap, mem_remap, tag_remap,
+                  elem_remap, data_remap,
+                ),
               ),
-            ),
+            )
+          }
+          idx += 1
+        }
+        if next_type_idxs.is_empty() {
+          (None, None)
+        } else {
+          (
+            Some(@lib.FuncSec::new(next_type_idxs)),
+            Some(@lib.CodeSec::new(next_funcs)),
           )
         }
-        idx += 1
       }
-      if next_type_idxs.is_empty() {
-        (None, None)
-      } else {
-        (
-          Some(@lib.FuncSec::new(next_type_idxs)),
-          Some(@lib.CodeSec::new(next_funcs)),
-        )
-      }
+      _ => (None, None)
     }
-    _ => (None, None)
   }
 
   let next_global_sec = match mod_.global_sec {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 Optimize: skip no-op RUME function rewrites
+
+- **RUME no-op function/code rewrite fast path** by **@jtenner**. Updated [`src/passes/remove_unused_module_elements.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_module_elements.mbt) so `remove-unused-module-elements` now detects identity remap cases and reuses the original function and code sections when every defined function survives and no code-body indices need rewriting, avoiding whole-module function-body reconstruction on the large debug-artifact no-op path and cutting traced pass time materially while preserving canonical compare parity against Binaryen.
+
 ## 2026-03-25 Optimize: fix RUME multimemory memarg parity
 
 - **RUME explicit memarg rewrite parity** by **@jtenner**. Updated [`src/passes/remove_unused_module_elements.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_module_elements.mbt), [`src/passes/remove_unused_module_elements_test.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_module_elements_test.mbt), and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) so `remove-unused-module-elements` now rewrites explicit `MemArg` memory indices across load/store/atomic/SIMD instructions after memory compaction, adds a focused multimemory regression, and narrows the remaining backlog to ordered replay and runtime work now that the single-pass and `DFE -> RUME` compare harness outputs match Binaryen canonically.
