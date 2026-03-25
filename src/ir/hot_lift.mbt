@@ -366,30 +366,98 @@ fn hot_lift_impl_matches_candidate_after(
 ///|
 fn hot_lift_impl_generic_pop_count(
   instr : Instruction,
+  candidate_before_types : Array[ValType],
   before_state : TcState,
   after_state : TcState,
-) -> Result[Int, HotLiftError] {
-  let before_types = before_state.stack
-  for count = 0; count <= before_types.length(); count = count + 1 {
+  min_count : Int,
+) -> Result[(Int, Array[ValType]), HotLiftError] {
+  for count = min_count; count <= candidate_before_types.length(); count = count +
+      1 {
     let candidate_state = tc_state_with_stack(
       before_state,
-      hot_lift_impl_stack_suffix(before_types, count),
+      hot_lift_impl_stack_suffix(candidate_before_types, count),
     )
     match Typecheck::typecheck(instr, candidate_state) {
       Ok(candidate_after) =>
         if hot_lift_impl_matches_candidate_after(
-            before_types, after_state, count, candidate_after,
+            candidate_before_types,
+            after_state,
+            count,
+            candidate_after,
           ) {
-          return Ok(count)
+          return Ok((count, candidate_after.stack))
         }
       Err(_) => ()
     }
   }
   Err(
     HotLiftError::InvalidBodyState(
-      "unable to derive concrete operand count for \{instr}",
+      "unable to derive concrete operand count for \{instr}: before=\{candidate_before_types} after=\{after_state.stack} reachable=\{before_state.reachable}",
     ),
   )
+}
+
+///|
+fn hot_lift_impl_resolve_generic_pop_count(
+  instr : Instruction,
+  before_state : TcState,
+  after_state : TcState,
+  concrete_before_types : Array[ValType],
+) -> Result[(Int, Array[ValType]), HotLiftError] {
+  let primary = hot_lift_impl_generic_pop_count(
+    instr,
+    before_state.stack,
+    before_state,
+    after_state,
+    0,
+  )
+  if before_state.reachable || concrete_before_types.length() == 0 {
+    return primary
+  }
+  let can_promote = match instr {
+    Instruction::Nop
+    | Instruction::Unreachable
+    | Instruction::I32Const(_)
+    | Instruction::I64Const(_)
+    | Instruction::F32Const(_)
+    | Instruction::F64Const(_)
+    | Instruction::RefNull(_)
+    | Instruction::StringConst(_)
+    | Instruction::RefFunc(_)
+    | Instruction::LocalGet(_)
+    | Instruction::GlobalGet(_)
+    | Instruction::MemorySize(_)
+    | Instruction::TableSize(_)
+    | Instruction::DataDrop(_)
+    | Instruction::ElemDrop(_) => false
+    _ => true
+  }
+  if !can_promote {
+    return primary
+  }
+  match primary {
+    Ok((count, _)) if count > 0 => primary
+    Ok(_) =>
+      match
+        hot_lift_impl_generic_pop_count(
+          instr,
+          concrete_before_types,
+          before_state,
+          after_state,
+          1,
+        ) {
+        Ok(promoted) => Ok(promoted)
+        Err(_) => primary
+      }
+    Err(_) =>
+      hot_lift_impl_generic_pop_count(
+        instr,
+        concrete_before_types,
+        before_state,
+        after_state,
+        1,
+      )
+  }
 }
 
 ///|
@@ -1611,10 +1679,15 @@ fn hot_lift_impl_lift_instruction(
     Ok(next) => next
     Err(err) => return Err(err)
   }
-  let after_types = after_state.stack
-  let child_count = match
-    hot_lift_impl_generic_pop_count(instr, before_state, after_state) {
-    Ok(count) => count
+  let concrete_before_types = hot_lift_impl_values_types(func, values)
+  let (child_count, pushed_types) = match
+    hot_lift_impl_resolve_generic_pop_count(
+      instr,
+      before_state,
+      after_state,
+      concrete_before_types,
+    ) {
+    Ok(resolved) => resolved
     Err(err) => return Err(err)
   }
   if !hot_lift_impl_can_materialize_unreachable_instr(
@@ -1629,9 +1702,6 @@ fn hot_lift_impl_lift_instruction(
     Ok(children) => children
     Err(err) => return Err(err)
   }
-  let pushed_types = hot_lift_impl_pushed_types(
-    before_types, after_types, child_count,
-  )
   match hot_lift_impl_direct_family(instr) {
     Some(op) => {
       let node_id = hot_lift_impl_build_direct_node(
