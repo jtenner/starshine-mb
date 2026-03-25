@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 CLI: avoid normalized value-string churn
+
+- **CLI in-place option-value matching** by **@jtenner**. Updated [`src/cli/cli.mbt`](/home/jtenner/Projects/starshine-mb/src/cli/cli.mbt) and [`src/cli/cli_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cli/cli_test.mbt) so direct CLI parsing now matches `--format`, `--trap-mode`, `--tracing`, and decimal-valued option payloads in-place with trimmed ASCII comparisons instead of allocating normalized helper strings, preserves existing mixed-case behavior through added coverage, and reduces native synthetic parse time again on the same 3,601-arg benchmark.
+
 ## 2026-03-25 CLI: trim direct parse substring churn
 
 - **CLI token-scan parsing cleanup** by **@jtenner**. Updated [`src/cli/cli.mbt`](/home/jtenner/Projects/starshine-mb/src/cli/cli.mbt) and [`src/cli/cli_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cli/cli_test.mbt) so the direct CLI parser now scans long flags, `-O` flags, and short-option clusters in-place instead of materializing extra intermediate substring copies on the hot path, while preserving inline-value behavior through added coverage and trimming native `--help` parse benchmark time on a 3,601-arg synthetic workload.

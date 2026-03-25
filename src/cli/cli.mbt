@@ -226,46 +226,87 @@ pub fn CliParseResult::new(
 }
 
 ///|
-fn ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
-  for c in input {
-    if c >= 'A' && c <= 'Z' {
-      out.write_char((c.to_int() + 32).unsafe_to_char())
-    } else {
-      out.write_char(c)
-    }
+fn is_ascii_space(c : UInt16) -> Bool {
+  c == ' '.to_int().to_uint16() ||
+  c == '\t'.to_int().to_uint16() ||
+  c == '\n'.to_int().to_uint16() ||
+  c == '\r'.to_int().to_uint16()
+}
+
+///|
+fn ascii_lower_u16(c : UInt16) -> UInt16 {
+  if c >= 'A'.to_int().to_uint16() && c <= 'Z'.to_int().to_uint16() {
+    (c.to_int() + 32).to_uint16()
+  } else {
+    c
   }
-  out.to_string()
+}
+
+///|
+fn trimmed_bounds(input : String) -> (Int, Int) {
+  let mut start = 0
+  let mut end = input.length()
+  while start < end && is_ascii_space(input[start]) {
+    start += 1
+  }
+  while end > start && is_ascii_space(input[end - 1]) {
+    end -= 1
+  }
+  (start, end)
+}
+
+///|
+fn trimmed_ascii_eq_ignore_case(input : String, expected : String) -> Bool {
+  let (start, end) = trimmed_bounds(input)
+  if end - start != expected.length() {
+    return false
+  }
+  let mut i = 0
+  while i < expected.length() {
+    if ascii_lower_u16(input[start + i]) != expected[i] {
+      return false
+    }
+    i += 1
+  }
+  true
 }
 
 ///|
 fn parse_input_format(raw : String) -> CliInputFormat? {
-  match ascii_lower(raw) {
-    "wasm" => Some(CliInputFormat::wasm())
-    "wat" => Some(CliInputFormat::wat())
-    "wast" => Some(CliInputFormat::wast())
-    _ => None
+  if trimmed_ascii_eq_ignore_case(raw, "wasm") {
+    Some(CliInputFormat::wasm())
+  } else if trimmed_ascii_eq_ignore_case(raw, "wat") {
+    Some(CliInputFormat::wat())
+  } else if trimmed_ascii_eq_ignore_case(raw, "wast") {
+    Some(CliInputFormat::wast())
+  } else {
+    None
   }
 }
 
 ///|
 fn parse_trap_mode(raw : String) -> TrapMode? {
-  match ascii_lower(raw) {
-    "allow" => Some(TrapMode::allow())
-    "never" => Some(TrapMode::never())
-    "traps-may-happen" => Some(TrapMode::allow())
-    "traps-never-happen" => Some(TrapMode::never())
-    _ => None
+  if trimmed_ascii_eq_ignore_case(raw, "allow") ||
+    trimmed_ascii_eq_ignore_case(raw, "traps-may-happen") {
+    Some(TrapMode::allow())
+  } else if trimmed_ascii_eq_ignore_case(raw, "never") ||
+    trimmed_ascii_eq_ignore_case(raw, "traps-never-happen") {
+    Some(TrapMode::never())
+  } else {
+    None
   }
 }
 
 ///|
 fn parse_tracing_level(raw : String) -> CliTracingLevel? {
-  match ascii_lower(raw) {
-    "pass" => Some(CliTracingLevel::pass())
-    "phase" => Some(CliTracingLevel::phase())
-    "helper" => Some(CliTracingLevel::helper())
-    _ => None
+  if trimmed_ascii_eq_ignore_case(raw, "pass") {
+    Some(CliTracingLevel::pass())
+  } else if trimmed_ascii_eq_ignore_case(raw, "phase") {
+    Some(CliTracingLevel::phase())
+  } else if trimmed_ascii_eq_ignore_case(raw, "helper") {
+    Some(CliTracingLevel::helper())
+  } else {
+    None
   }
 }
 
@@ -377,16 +418,19 @@ fn parse_opt_level_flag(
 
 ///|
 fn parse_non_negative_decimal(raw : String) -> Int? {
-  let text = raw.trim().to_string()
-  if text.length() == 0 {
+  let (start, end) = trimmed_bounds(raw)
+  if start == end {
     return None
   }
   let mut value = 0
-  for c in text {
+  let mut i = start
+  while i < end {
+    let c = raw[i]
     if c < '0' || c > '9' {
       return None
     }
     value = value * 10 + (c.to_int() - '0'.to_int())
+    i += 1
   }
   Some(value)
 }
