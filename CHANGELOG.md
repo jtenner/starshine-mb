@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 Binary: stop copying custom and name decode payload slices
+
+- **Binary decode payload-slice churn cleanup** by **@jtenner**. Updated [`src/binary/decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt) so custom-section decoding now parses section headers directly from the source bytes and name-section decoding validates subsection payloads against source byte ranges instead of materializing intermediate payload copies, preserving existing decode behavior while cutting native `--remove-unused-module-elements` CLI time on the large debug artifact from about `2.39 s` to about `2.17 s`.
+
 ## 2026-03-25 CLI: bypass unchanged wasm re-encode after module passes
 
 - **Unchanged wasm passthrough after real pass runs** by **@jtenner**. Updated [`src/cmd/cmd.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd.mbt), [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb/src/cmd/cmd_test.mbt), and [`src/lib/eq.mbt`](/home/jtenner/Projects/starshine-mb/src/lib/eq.mbt) so the CLI now writes the original input bytes back out for wasm inputs when at least one optimization pass ran, debug validation is off, and the resulting module is structurally unchanged, while keeping explicit coverage for unchanged and changed `remove-unused-module-elements` paths and tightening `Module` equality to include the previously omitted annotation and stringrefs sections. On the large debug artifact, the native `--remove-unused-module-elements` command drops again from about `3.60 s` to about `2.36 s`.
