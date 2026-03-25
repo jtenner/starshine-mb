@@ -602,13 +602,19 @@ pub fn postdom_ipdom(HotPostDominators, Int) -> Int?
 
 pub fn postdom_postdominates(HotPostDominators, Int, Int) -> Bool
 
+pub fn ssa_assign_concrete_locals(HotLocalSsa, HotLocals) -> HotSsaConcreteLocals
+
 pub fn ssa_build_local(HotFunc, HotCfg, HotDominators, HotLiveness, HotUseDef) -> HotLocalSsa
 
 pub fn ssa_def_for_local_set(HotLocalSsa, Int) -> Int
 
 pub fn ssa_default_init_def(Int) -> HotSsaValueOrigin
 
+pub fn ssa_destroy_into_hot(HotFunc, HotCfg, HotLocalSsa, policy? : HotSsaDestroyPolicy) -> HotSsaConcreteLocals
+
 pub fn ssa_destruction_policy() -> HotSsaDestructionPolicy
+
+pub fn ssa_insert_predecessor_copies(HotFunc, HotRegionRef, HotBlockInfo, Array[HotSsaCopy]) -> Array[Int]
 
 pub fn ssa_local_set_def(Int) -> HotSsaValueOrigin
 
@@ -630,7 +636,11 @@ pub fn ssa_phi_placement_blocks(HotFunc, HotCfg, HotDominators, HotLiveness, Hot
 
 pub fn ssa_phis_for_block(HotLocalSsa, Int) -> Array[Int]
 
+pub fn ssa_remove_dead_local_defs(HotFunc, Array[Int]) -> Unit
+
 pub fn ssa_rename_policy() -> HotSsaRenamePolicy
+
+pub fn ssa_rewrite_local_use(HotFunc, Int, Int) -> Unit
 
 pub fn ssa_uses_of_value(HotLocalSsa, Int) -> Array[HotSsaUseOrigin]
 
@@ -1142,6 +1152,31 @@ pub enum HotSideTableKind {
 pub impl Eq for HotSideTableKind
 pub impl Show for HotSideTableKind
 pub impl @debug.Debug for HotSideTableKind
+
+pub struct HotSsaConcreteLocals {
+  value_locals : Array[Int]
+  extra_local_types : Array[@lib.ValType]
+}
+pub fn HotSsaConcreteLocals::new(value_locals? : Array[Int], extra_local_types? : Array[@lib.ValType]) -> Self
+pub impl Eq for HotSsaConcreteLocals
+pub impl Show for HotSsaConcreteLocals
+pub impl @debug.Debug for HotSsaConcreteLocals
+
+pub struct HotSsaCopy {
+  source_local : Int
+  target_local : Int
+}
+pub fn HotSsaCopy::new(Int, Int) -> Self
+pub impl Eq for HotSsaCopy
+pub impl Show for HotSsaCopy
+pub impl @debug.Debug for HotSsaCopy
+
+pub enum HotSsaDestroyPolicy {
+  ReusePhiLocals
+}
+pub impl Eq for HotSsaDestroyPolicy
+pub impl Show for HotSsaDestroyPolicy
+pub impl @debug.Debug for HotSsaDestroyPolicy
 
 pub enum HotSsaDestructionPolicy {
   ParallelCopiesInPredecessors

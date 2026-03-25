@@ -9,43 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 250 - SSA Destruction
-- Goal:
-  Lower SSA-driven rewrites back into ordinary local ops inside hot IR.
-- Why this slice exists:
-  The architecture requires plain hot IR as the optimizer body after SSA-assisted work.
-- Concrete deliverables:
-  - `src/ir/ssa_destroy.mbt`.
-  - `src/ir/ssa_destroy_test.mbt`.
-- Detailed implementation tasks:
-  - Lower block-entry phis to predecessor copies or structured edge-local copies.
-  - Define critical-edge handling policy consistent with structured region editing.
-  - Allocate fresh locals when required for safe materialization.
-  - Rewrite `LocalGet` uses and insert `LocalSet` nodes as needed.
-  - Remove dead local defs created during destruction.
-  - Invalidate/rebuild analyses after destruction.
-- Required utilities / APIs:
-  - `ssa_destroy_into_hot(func, cfg, ssa, policy?)`.
-  - `ssa_assign_concrete_locals(ssa, func.locals)`.
-  - `ssa_insert_predecessor_copies(func, region_ref, predecessor_block, copies)`.
-  - `ssa_rewrite_local_use(func, node_id, local_id)`.
-  - `ssa_remove_dead_local_defs(func, dead_nodes)`.
-- Invariants / correctness rules:
-  - No phi artifacts remain in `HotFunc`.
-  - Fresh locals have correct types and metadata.
-  - Structured region semantics are preserved during copy insertion.
-- Dependencies:
-  - IR2 - 100 - Hot IR Region Editing Utilities.
-  - IR2 - 150 - CFG Construction.
-  - IR2 - 230 - SSA Design Policy.
-  - IR2 - 240 - Local SSA Construction.
-- Exit criteria:
-  - SSA-assisted passes can reliably return to plain hot IR.
-- Suggested tests:
-  - Diamond phi destruction to predecessor copies.
-  - Loop-header phi destruction.
-  - Fresh temporary local allocation coverage.
-
 ### IR2 - 260 - Analysis Invalidation / Caching
 - Goal:
   Provide one shared cache for derived analyses keyed to `HotFunc.revision`.

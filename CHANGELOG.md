@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-24 IR: add SSA destruction helpers
+
+- **Hot SSA destruction** by **@jtenner**. Added [`src/ir/ssa_destroy.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_destroy.mbt) and [`src/ir/ssa_destroy_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_destroy_test.mbt) to lower local SSA overlays back into plain hot local ops through concrete-local assignment, predecessor-copy insertion, temp-local scheduling for cyclic parallel copies, direct local-op rewrites, and dead local-def cleanup. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-250 slice.
+
 ## 2026-03-24 IR: add local SSA construction overlay
 
 - **Hot local SSA construction** by **@jtenner**. Added [`src/ir/ssa_local.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_local.mbt) and [`src/ir/ssa_local_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_local_test.mbt) to build a locals-only SSA overlay from hot IR, CFG, dominance, liveness, and use-def data, including synthetic entry defs, block-entry phis, predecessor-aligned phi inputs, `LocalGet` reaching defs, `LocalSet`/`LocalTee` def ids, and per-value use tracking. Updated [`src/ir/ssa_policy.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/ssa_policy.mbt), [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and regenerated [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) so the public API, docs, and backlog match the completed IR2-240 slice.
