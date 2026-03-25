@@ -48,6 +48,7 @@ pub struct CmdIO {
   file_exists : (String) -> Bool
   read_file : (String) -> Result[Bytes, String]
   encode_module : (Module) -> Result[Bytes, CmdEncodeError]
+  print_text_module : (Module) -> Result[Bytes, String]
   write_file : (String, Bytes) -> Result[Unit, String]
   write_stdout : (Bytes) -> Result[Unit, String]
   write_stderr : (Bytes) -> Result[Unit, String]
@@ -68,6 +69,9 @@ pub fn CmdIO::new(
       Err(err) => Err(CmdEncodeError::encode(err))
     }
   },
+  print_text_module? : (Module) -> Result[Bytes, String] = fn(_) {
+    Err("text module printing not configured")
+  },
   write_file? : (String, Bytes) -> Result[Unit, String] = fn(_, _) {
     Err("write_file not configured")
   },
@@ -87,6 +91,7 @@ pub fn CmdIO::new(
     file_exists,
     read_file,
     encode_module,
+    print_text_module,
     write_file,
     write_stdout,
     write_stderr,
@@ -156,6 +161,26 @@ pub fn OptimizeTracingLevel::phase() -> OptimizeTracingLevel {
 ///|
 pub fn OptimizeTracingLevel::helper() -> OptimizeTracingLevel {
   Helper
+}
+
+///|
+enum CmdPipelineDumpFormat {
+  Wasm
+  Wat
+}
+
+///|
+enum CmdPipelinePrintSelector {
+  Index(UInt)
+  Name(String)
+}
+
+///|
+enum CmdPipelineStep {
+  PipelinePass(String)
+  Dump(String, CmdPipelineDumpFormat)
+  Print(String, CmdPipelinePrintSelector)
+  Validate
 }
 
 ///|
@@ -403,6 +428,7 @@ fn cmd_cli_parse_error_message(err : CliParseError) -> String {
     UnknownShortFlag(flag) => "unknown short flag: -\{flag}"
     InvalidLongFlag(flag) => "invalid long flag: --\{flag}"
     UnexpectedFlagValue(flag) => "unexpected value for flag \{flag}"
+    InvalidDumpPath(path) => "dump path must end with .wasm or .wat: \{path}"
     InvalidOptimizationFlag(flag) => "invalid optimization flag: \{flag}"
     InvalidTrapMode(mode) => "invalid trap mode: \{mode}"
     InvalidTracingLevel(level) => "invalid tracing level: \{level}"
@@ -1346,6 +1372,7 @@ fn make_optimize_options(
 ///|
 fn optimize_options_to_hot_pipeline_options(
   options : OptimizeOptions,
+  validate_final_module? : Bool = true,
   trace? : ((String) -> Unit)? = None,
 ) -> @passes.HotPipelineOptions {
   @passes.HotPipelineOptions::new(
@@ -1353,7 +1380,7 @@ fn optimize_options_to_hot_pipeline_options(
       AfterSegment => @passes.HotPipelineVerifyPolicy::after_each_pass()
       FinalModuleOnly => @passes.HotPipelineVerifyPolicy::final_module_only()
     },
-    validate_final_module=true,
+    validate_final_module~,
     closed_world=options.closed_world,
     trace~,
     perf=match trace {
@@ -1375,10 +1402,11 @@ fn optimize_module_with_pass_flags(
   mod : Module,
   pass_flags : Array[String],
   options : OptimizeOptions,
+  validate_final_module? : Bool = true,
 ) -> Result[Module, String] {
   @passes.run_hot_pipeline(
     mod,
-    optimize_options_to_hot_pipeline_options(options),
+    optimize_options_to_hot_pipeline_options(options, validate_final_module~),
     pass_flags,
   )
 }
@@ -1389,28 +1417,177 @@ fn optimize_module_with_pass_flags_trace(
   pass_flags : Array[String],
   options : OptimizeOptions,
   trace : (String) -> Unit,
+  validate_final_module? : Bool = true,
   trace_level? : OptimizeTracingLevel = OptimizeTracingLevel::pass(),
 ) -> Result[Module, String] {
   let _ = trace_level
   @passes.run_hot_pipeline(
     mod,
-    optimize_options_to_hot_pipeline_options(options, trace=Some(trace)),
+    optimize_options_to_hot_pipeline_options(
+      options,
+      validate_final_module~,
+      trace=Some(trace),
+    ),
     pass_flags,
   )
 }
 
 ///|
-fn cmd_resolve_pipeline_pass_flags(
+fn cmd_path_has_ascii_suffix_ignore_case(
+  path : String,
+  suffix : String,
+) -> Bool {
+  if path.length() < suffix.length() {
+    return false
+  }
+  let start = path.length() - suffix.length()
+  let mut i = 0
+  while i < suffix.length() {
+    if ascii_lower(path[start + i].to_string()) != suffix[i].to_string() {
+      return false
+    }
+    i += 1
+  }
+  true
+}
+
+///|
+fn cmd_dump_output_format(path : String) -> CmdPipelineDumpFormat? {
+  if cmd_path_has_ascii_suffix_ignore_case(path, ".wasm") {
+    Some(CmdPipelineDumpFormat::Wasm)
+  } else if cmd_path_has_ascii_suffix_ignore_case(path, ".wat") {
+    Some(CmdPipelineDumpFormat::Wat)
+  } else {
+    None
+  }
+}
+
+///|
+fn cmd_dump_pass_target(flag : String) -> String? {
+  if flag.length() <= 5 || flag.sub(end=5).to_string() != "dump=" {
+    return None
+  }
+  Some(flag.sub(start=5).to_string())
+}
+
+///|
+fn cmd_print_pass_target(flag : String) -> (String, String)? {
+  if !flag.has_prefix("print-") {
+    return None
+  }
+  let mut i = 6
+  while i < flag.length() {
+    if flag[i] == '=' {
+      let kind = flag.sub(start=6, end=i).to_string()
+      let selector = flag.sub(start=i + 1).to_string()
+      if kind.length() == 0 || selector.length() == 0 {
+        return None
+      }
+      return Some((kind, selector))
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn cmd_is_supported_print_kind(kind : String) -> Bool {
+  match kind {
+    "type"
+    | "func"
+    | "import"
+    | "table"
+    | "memory"
+    | "global"
+    | "export"
+    | "tag"
+    | "elem"
+    | "data" => true
+    _ => false
+  }
+}
+
+///|
+fn cmd_parse_print_selector(raw : String) -> CmdPipelinePrintSelector? {
+  let trimmed = raw.trim().to_string()
+  if trimmed.length() == 0 {
+    return None
+  }
+  if trimmed.length() >= 2 &&
+    trimmed[0] == '(' &&
+    trimmed[trimmed.length() - 1] == ')' {
+    let inner = trimmed.sub(start=1, end=trimmed.length() - 1).to_string()
+    match parse_non_negative_decimal(inner) {
+      Some(idx) =>
+        return Some(CmdPipelinePrintSelector::Index(idx.reinterpret_as_uint()))
+      None => ()
+    }
+  }
+  match parse_non_negative_decimal(trimmed) {
+    Some(idx) =>
+      Some(CmdPipelinePrintSelector::Index(idx.reinterpret_as_uint()))
+    None => Some(CmdPipelinePrintSelector::Name(trimmed))
+  }
+}
+
+///|
+fn cmd_pipeline_step_optimize_count(steps : Array[CmdPipelineStep]) -> Int {
+  let mut count = 0
+  for step in steps {
+    match step {
+      PipelinePass(_) => count += 1
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn cmd_resolve_pipeline_steps(
   pass_flags : Array[String],
-) -> Result[Array[String], CmdError] {
-  let out : Array[String] = []
+) -> Result[Array[CmdPipelineStep], CmdError] {
+  let out : Array[CmdPipelineStep] = []
   for flag in pass_flags {
+    if flag == "validate" {
+      out.push(CmdPipelineStep::Validate)
+      continue
+    }
+    match cmd_dump_pass_target(flag) {
+      Some(path) =>
+        match cmd_dump_output_format(path) {
+          Some(format) => {
+            out.push(CmdPipelineStep::Dump(path, format))
+            continue
+          }
+          None =>
+            return Err(
+              CmdError::CliParse(CliParseError::invalid_dump_path(path)),
+            )
+        }
+      None => ()
+    }
+    match cmd_print_pass_target(flag) {
+      Some((kind, raw_selector)) =>
+        if !cmd_is_supported_print_kind(kind) {
+          return Err(CmdError::unknown_pass_flag("print-\{kind}"))
+        } else {
+          match cmd_parse_print_selector(raw_selector) {
+            Some(selector) => {
+              out.push(CmdPipelineStep::Print(kind, selector))
+              continue
+            }
+            None => return Err(CmdError::unknown_pass_flag(flag))
+          }
+        }
+      None => ()
+    }
     match @passes.pass_registry_lookup(flag) {
       Some(entry) =>
         match entry.category {
           @passes.HotPassRegistryCategory::HotPass
           | @passes.HotPassRegistryCategory::ModulePass
-          | @passes.HotPassRegistryCategory::Preset => out.push(flag)
+          | @passes.HotPassRegistryCategory::Preset =>
+            out.push(CmdPipelineStep::PipelinePass(flag))
           _ => return Err(CmdError::unknown_pass_flag(flag))
         }
       None => return Err(CmdError::unknown_pass_flag(flag))
@@ -1498,6 +1675,658 @@ fn cmd_trace_join_pass_flags(flags : Array[String]) -> String {
     i += 1
   }
   out.to_string()
+}
+
+///|
+fn format_pipeline_validation_error(
+  stage : String,
+  mod : Module,
+  err : ValidationError,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("\{stage}: \{validation_error_message(err)}")
+  match validation_error_func_idx(err) {
+    Some(func_idx) => {
+      out.write_string("\n\nOffending function idx=\{func_idx}\n")
+      out.write_string(mod.pretty_print_func(func_idx))
+    }
+    None => ()
+  }
+  out.to_string()
+}
+
+///|
+fn validate_module_for_pipeline_step(
+  mod : Module,
+  stage : String,
+) -> Result[Unit, CmdError] {
+  match validate_module(mod) {
+    Ok(_) => Ok(())
+    Err(err) =>
+      Err(
+        CmdError::OptimizeFailed(
+          format_pipeline_validation_error(stage, mod, err),
+        ),
+      )
+  }
+}
+
+///|
+fn write_pipeline_dump(
+  io : CmdIO,
+  mod : Module,
+  path : String,
+  format : CmdPipelineDumpFormat,
+) -> Result[Unit, CmdError] {
+  let bytes = match format {
+    Wasm =>
+      match (io.encode_module)(mod) {
+        Ok(bytes) => bytes
+        Err(err) => return Err(CmdError::EncodeFailed(path, err))
+      }
+    Wat =>
+      match (io.print_text_module)(mod) {
+        Ok(text) => text
+        Err(err) => return Err(CmdError::OptimizeFailed("dump \{path}: \{err}"))
+      }
+  }
+  match (io.write_file)(path, bytes) {
+    Ok(_) => Ok(())
+    Err(err) => Err(CmdError::OutputWriteFailed("\{path}: \{err}"))
+  }
+}
+
+///|
+fn cmd_name_to_string(name : @lib.Name) -> String {
+  let @lib.Name(sv) = name
+  sv.to_string()
+}
+
+///|
+fn cmd_lookup_name_map_index(names : @lib.NameMap?, target : String) -> UInt? {
+  match names {
+    Some(@lib.NameMap(entries)) =>
+      for entry in entries {
+        let @lib.NameAssoc(idx, name) = entry
+        if cmd_name_to_string(name) == target {
+          return Some(idx)
+        }
+      }
+    None => ()
+  }
+  None
+}
+
+///|
+fn cmd_lookup_name_map_name(
+  names : @lib.NameMap?,
+  target_idx : UInt,
+) -> String? {
+  match names {
+    Some(@lib.NameMap(entries)) =>
+      for entry in entries {
+        let @lib.NameAssoc(idx, name) = entry
+        if idx == target_idx {
+          return Some(cmd_name_to_string(name))
+        }
+      }
+    None => ()
+  }
+  None
+}
+
+///|
+fn cmd_flatten_type_sec(type_sec : @lib.TypeSec) -> Array[@lib.SubType] {
+  let @lib.TypeSec(rec_types) = type_sec
+  let subtypes : Array[@lib.SubType] = []
+  for rec_type in rec_types {
+    match rec_type {
+      @lib.SingleRecType(sub_type) => subtypes.push(sub_type)
+      @lib.GroupRecType(group) =>
+        for sub_type in group {
+          subtypes.push(sub_type)
+        }
+    }
+  }
+  subtypes
+}
+
+///|
+fn cmd_print_val_type_list(types : Array[@lib.ValType]) -> String {
+  let out = StringBuilder::new()
+  out.write_char('[')
+  let mut i = 0
+  while i < types.length() {
+    if i > 0 {
+      out.write_char(' ')
+    }
+    out.write_string(types[i].pretty_print(PrettyPrintContext::new()))
+    i += 1
+  }
+  out.write_char(']')
+  out.to_string()
+}
+
+///|
+fn cmd_print_type_idx_list(type_idxs : Array[@lib.TypeIdx]) -> String {
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < type_idxs.length() {
+    if i > 0 {
+      out.write_char(' ')
+    }
+    out.write_string(type_idxs[i].pretty_print(PrettyPrintContext::new()))
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+fn cmd_print_comp_type(comp_type : @lib.CompType) -> String {
+  match comp_type {
+    @lib.FuncCompType(params, results) =>
+      "(Func \{cmd_print_val_type_list(params)} \{cmd_print_val_type_list(results)})"
+    _ => comp_type.pretty_print(PrettyPrintContext::new())
+  }
+}
+
+///|
+fn cmd_print_sub_type(sub_type : @lib.SubType) -> String {
+  match sub_type {
+    @lib.CompTypeSubType(_, comp_type) =>
+      "(Sub Final \{cmd_print_comp_type(comp_type)})"
+    @lib.SubType(is_final, super_types, _, comp_type) => {
+      if super_types.is_empty() && !is_final {
+        return cmd_print_comp_type(comp_type)
+      }
+      let prefix = if is_final { "(Sub Final " } else { "(Sub " }
+      if super_types.is_empty() {
+        prefix + cmd_print_comp_type(comp_type) + ")"
+      } else {
+        prefix +
+        cmd_print_type_idx_list(super_types) +
+        " " +
+        cmd_print_comp_type(comp_type) +
+        ")"
+      }
+    }
+  }
+}
+
+///|
+fn cmd_print_selector_text(selector : CmdPipelinePrintSelector) -> String {
+  match selector {
+    Index(idx) => "(\{idx})"
+    Name(name) => "\"\{name}\""
+  }
+}
+
+///|
+fn cmd_print_lookup_failed(
+  kind : String,
+  selector : CmdPipelinePrintSelector,
+) -> CmdError {
+  CmdError::OptimizeFailed(
+    "print \{kind}: no item matched selector \{cmd_print_selector_text(selector)}",
+  )
+}
+
+///|
+fn cmd_print_kind_label(kind : String) -> String {
+  match kind {
+    "type" => "Type"
+    "func" => "Func"
+    "import" => "Import"
+    "table" => "Table"
+    "memory" => "Memory"
+    "global" => "Global"
+    "export" => "Export"
+    "tag" => "Tag"
+    "elem" => "Elem"
+    "data" => "Data"
+    _ => kind
+  }
+}
+
+///|
+fn cmd_module_item_names(mod : Module, kind : String) -> @lib.NameMap? {
+  match mod.name_sec {
+    Some(name_sec) =>
+      match kind {
+        "type" => name_sec.type_names
+        "func" => name_sec.func_names
+        "table" => name_sec.table_names
+        "memory" => name_sec.memory_names
+        "global" => name_sec.global_names
+        "tag" => name_sec.tag_names
+        "elem" => name_sec.elem_names
+        "data" => name_sec.data_names
+        _ => None
+      }
+    None => None
+  }
+}
+
+///|
+fn cmd_print_label(kind : String, idx : UInt, name? : String? = None) -> String {
+  match name {
+    Some(name) if name.length() > 0 =>
+      "\{cmd_print_kind_label(kind)}[\{idx} \{name}]"
+    _ => "\{cmd_print_kind_label(kind)}[\{idx}]"
+  }
+}
+
+///|
+fn cmd_resolve_named_section_index(
+  mod : Module,
+  kind : String,
+  selector : CmdPipelinePrintSelector,
+  count : Int,
+) -> Result[(UInt, String?), CmdError] {
+  let names = cmd_module_item_names(mod, kind)
+  match selector {
+    Index(idx) => {
+      if idx.reinterpret_as_int() >= count {
+        return Err(cmd_print_lookup_failed(kind, selector))
+      }
+      Ok((idx, cmd_lookup_name_map_name(names, idx)))
+    }
+    Name(target) =>
+      match cmd_lookup_name_map_index(names, target) {
+        Some(idx) if idx.reinterpret_as_int() < count => Ok((idx, Some(target)))
+        _ => Err(cmd_print_lookup_failed(kind, selector))
+      }
+  }
+}
+
+///|
+fn cmd_lookup_import_index(
+  imports : Array[@lib.Import],
+  target : String,
+) -> UInt? {
+  let mut field_match : UInt? = None
+  let mut i = 0
+  while i < imports.length() {
+    let @lib.Import(module_name, field_name, _) = imports[i]
+    let module_text = cmd_name_to_string(module_name)
+    let field_text = cmd_name_to_string(field_name)
+    if target == "\{module_text}.\{field_text}" {
+      return Some(i.reinterpret_as_uint())
+    }
+    if field_match is None && target == field_text {
+      field_match = Some(i.reinterpret_as_uint())
+    }
+    i += 1
+  }
+  field_match
+}
+
+///|
+fn cmd_lookup_export_index(
+  exports : Array[@lib.Export],
+  target : String,
+) -> UInt? {
+  let mut i = 0
+  while i < exports.length() {
+    let @lib.Export(name, _) = exports[i]
+    if cmd_name_to_string(name) == target {
+      return Some(i.reinterpret_as_uint())
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn cmd_resolve_import_index(
+  selector : CmdPipelinePrintSelector,
+  imports : Array[@lib.Import],
+) -> Result[(UInt, String?), CmdError] {
+  match selector {
+    Index(idx) => {
+      if idx.reinterpret_as_int() >= imports.length() {
+        return Err(cmd_print_lookup_failed("import", selector))
+      }
+      let @lib.Import(module_name, field_name, _) = imports[idx.reinterpret_as_int()]
+      Ok(
+        (
+          idx,
+          Some(
+            "\{cmd_name_to_string(module_name)}.\{cmd_name_to_string(field_name)}",
+          ),
+        ),
+      )
+    }
+    Name(target) =>
+      match cmd_lookup_import_index(imports, target) {
+        Some(idx) => {
+          let @lib.Import(module_name, field_name, _) = imports[idx.reinterpret_as_int()]
+          Ok(
+            (
+              idx,
+              Some(
+                "\{cmd_name_to_string(module_name)}.\{cmd_name_to_string(field_name)}",
+              ),
+            ),
+          )
+        }
+        None => Err(cmd_print_lookup_failed("import", selector))
+      }
+  }
+}
+
+///|
+fn cmd_resolve_export_index(
+  selector : CmdPipelinePrintSelector,
+  exports : Array[@lib.Export],
+) -> Result[(UInt, String?), CmdError] {
+  match selector {
+    Index(idx) => {
+      if idx.reinterpret_as_int() >= exports.length() {
+        return Err(cmd_print_lookup_failed("export", selector))
+      }
+      let @lib.Export(name, _) = exports[idx.reinterpret_as_int()]
+      Ok((idx, Some(cmd_name_to_string(name))))
+    }
+    Name(target) =>
+      match cmd_lookup_export_index(exports, target) {
+        Some(idx) => Ok((idx, Some(target)))
+        None => Err(cmd_print_lookup_failed("export", selector))
+      }
+  }
+}
+
+///|
+fn cmd_indent_print_body(text : String) -> String {
+  if text.length() == 0 {
+    return "  <empty>\n"
+  }
+  let out = StringBuilder::new()
+  let mut at_line_start = true
+  for c in text {
+    if at_line_start {
+      out.write_string("  ")
+      at_line_start = false
+    }
+    out.write_char(c)
+    if c == '\n' {
+      at_line_start = true
+    }
+  }
+  if !at_line_start {
+    out.write_char('\n')
+  }
+  out.to_string()
+}
+
+///|
+fn cmd_write_pipeline_print_log(
+  io : CmdIO,
+  input_path : String,
+  entry_idx : Int,
+  label : String,
+  body : String,
+  write_header : Bool,
+) -> Result[Unit, CmdError] {
+  let out = StringBuilder::new()
+  if write_header {
+    out.write_string("Log: \{input_path}\n")
+  }
+  out.write_string("\{entry_idx}: \{label}\n")
+  out.write_string(cmd_indent_print_body(body))
+  match (io.write_stderr)(string_to_bytes(out.to_string())) {
+    Ok(_) => Ok(())
+    Err(err) =>
+      Err(
+        CmdError::OutputWriteFailed(
+          "stderr print log for \{input_path}: \{err}",
+        ),
+      )
+  }
+}
+
+///|
+fn cmd_resolve_pipeline_print_entry(
+  mod : Module,
+  kind : String,
+  selector : CmdPipelinePrintSelector,
+) -> Result[(String, String), CmdError] {
+  match kind {
+    "type" =>
+      match mod.type_sec {
+        Some(type_sec) => {
+          let subtypes = cmd_flatten_type_sec(type_sec)
+          let (idx, name) = match
+            cmd_resolve_named_section_index(
+              mod,
+              kind,
+              selector,
+              subtypes.length(),
+            ) {
+            Ok(found) => found
+            Err(err) => return Err(err)
+          }
+          let body = match subtypes.get(idx.reinterpret_as_int()) {
+            Some(sub_type) => cmd_print_sub_type(sub_type)
+            None => return Err(cmd_print_lookup_failed(kind, selector))
+          }
+          Ok((cmd_print_label(kind, idx, name~), body))
+        }
+        None => Err(cmd_print_lookup_failed(kind, selector))
+      }
+    "func" => {
+      let imported_funcs = match mod.import_sec {
+        Some(@lib.ImportSec(imports)) => {
+          let mut count = 0
+          for import_entry in imports {
+            match import_entry {
+              @lib.Import(_, _, @lib.FuncExternType(_)) => count += 1
+              _ => ()
+            }
+          }
+          count
+        }
+        None => 0
+      }
+      let defined_funcs = match mod.func_sec {
+        Some(@lib.FuncSec(type_idxs)) => type_idxs.length()
+        None => 0
+      }
+      let total_funcs = imported_funcs + defined_funcs
+      let (idx, name) = match
+        cmd_resolve_named_section_index(mod, kind, selector, total_funcs) {
+        Ok(found) => found
+        Err(err) => return Err(err)
+      }
+      Ok(
+        (
+          cmd_print_label(kind, idx, name~),
+          mod.pretty_print_func(@lib.FuncIdx::new(idx)),
+        ),
+      )
+    }
+    "import" =>
+      match mod.import_sec {
+        Some(@lib.ImportSec(imports)) => {
+          let (idx, name) = match cmd_resolve_import_index(selector, imports) {
+            Ok(found) => found
+            Err(err) => return Err(err)
+          }
+          let body = match imports.get(idx.reinterpret_as_int()) {
+            Some(import_entry) => import_entry.to_string()
+            None => return Err(cmd_print_lookup_failed(kind, selector))
+          }
+          Ok((cmd_print_label(kind, idx, name~), body))
+        }
+        None => Err(cmd_print_lookup_failed(kind, selector))
+      }
+    "table" =>
+      match mod.table_sec {
+        Some(@lib.TableSec(tables)) => {
+          let (idx, name) = match
+            cmd_resolve_named_section_index(
+              mod,
+              kind,
+              selector,
+              tables.length(),
+            ) {
+            Ok(found) => found
+            Err(err) => return Err(err)
+          }
+          let body = match tables.get(idx.reinterpret_as_int()) {
+            Some(table) => table.to_string()
+            None => return Err(cmd_print_lookup_failed(kind, selector))
+          }
+          Ok((cmd_print_label(kind, idx, name~), body))
+        }
+        None => Err(cmd_print_lookup_failed(kind, selector))
+      }
+    "memory" =>
+      match mod.mem_sec {
+        Some(@lib.MemSec(mems)) => {
+          let (idx, name) = match
+            cmd_resolve_named_section_index(mod, kind, selector, mems.length()) {
+            Ok(found) => found
+            Err(err) => return Err(err)
+          }
+          let body = match mems.get(idx.reinterpret_as_int()) {
+            Some(mem) => mem.to_string()
+            None => return Err(cmd_print_lookup_failed(kind, selector))
+          }
+          Ok((cmd_print_label(kind, idx, name~), body))
+        }
+        None => Err(cmd_print_lookup_failed(kind, selector))
+      }
+    "global" =>
+      match mod.global_sec {
+        Some(@lib.GlobalSec(globals)) => {
+          let (idx, name) = match
+            cmd_resolve_named_section_index(
+              mod,
+              kind,
+              selector,
+              globals.length(),
+            ) {
+            Ok(found) => found
+            Err(err) => return Err(err)
+          }
+          let body = match globals.get(idx.reinterpret_as_int()) {
+            Some(global) => global.to_string()
+            None => return Err(cmd_print_lookup_failed(kind, selector))
+          }
+          Ok((cmd_print_label(kind, idx, name~), body))
+        }
+        None => Err(cmd_print_lookup_failed(kind, selector))
+      }
+    "export" =>
+      match mod.export_sec {
+        Some(@lib.ExportSec(exports)) => {
+          let (idx, name) = match cmd_resolve_export_index(selector, exports) {
+            Ok(found) => found
+            Err(err) => return Err(err)
+          }
+          let body = match exports.get(idx.reinterpret_as_int()) {
+            Some(export_entry) => export_entry.to_string()
+            None => return Err(cmd_print_lookup_failed(kind, selector))
+          }
+          Ok((cmd_print_label(kind, idx, name~), body))
+        }
+        None => Err(cmd_print_lookup_failed(kind, selector))
+      }
+    "tag" =>
+      match mod.tag_sec {
+        Some(@lib.TagSec(tags)) => {
+          let (idx, name) = match
+            cmd_resolve_named_section_index(mod, kind, selector, tags.length()) {
+            Ok(found) => found
+            Err(err) => return Err(err)
+          }
+          let body = match tags.get(idx.reinterpret_as_int()) {
+            Some(tag) => tag.to_string()
+            None => return Err(cmd_print_lookup_failed(kind, selector))
+          }
+          Ok((cmd_print_label(kind, idx, name~), body))
+        }
+        None => Err(cmd_print_lookup_failed(kind, selector))
+      }
+    "elem" =>
+      match mod.elem_sec {
+        Some(@lib.ElemSec(elems)) => {
+          let (idx, name) = match
+            cmd_resolve_named_section_index(mod, kind, selector, elems.length()) {
+            Ok(found) => found
+            Err(err) => return Err(err)
+          }
+          let body = match elems.get(idx.reinterpret_as_int()) {
+            Some(elem) => elem.to_string()
+            None => return Err(cmd_print_lookup_failed(kind, selector))
+          }
+          Ok((cmd_print_label(kind, idx, name~), body))
+        }
+        None => Err(cmd_print_lookup_failed(kind, selector))
+      }
+    "data" =>
+      match mod.data_sec {
+        Some(@lib.DataSec(datas)) => {
+          let (idx, name) = match
+            cmd_resolve_named_section_index(mod, kind, selector, datas.length()) {
+            Ok(found) => found
+            Err(err) => return Err(err)
+          }
+          let body = match datas.get(idx.reinterpret_as_int()) {
+            Some(data) => data.to_string()
+            None => return Err(cmd_print_lookup_failed(kind, selector))
+          }
+          Ok((cmd_print_label(kind, idx, name~), body))
+        }
+        None => Err(cmd_print_lookup_failed(kind, selector))
+      }
+    _ => Err(CmdError::unknown_pass_flag("print-\{kind}"))
+  }
+}
+
+///|
+fn run_pipeline_pass_segment(
+  io : CmdIO,
+  input_path : String,
+  mod : Module,
+  pass_flags : Array[String],
+  options : OptimizeOptions,
+  trace_optimize : Bool,
+  trace_level : OptimizeTracingLevel?,
+) -> Result[Module, CmdError] {
+  if pass_flags.length() == 0 {
+    return Ok(mod)
+  }
+  if trace_optimize {
+    let resolved_trace_level = match trace_level {
+      Some(level) => level
+      None => OptimizeTracingLevel::pass()
+    }
+    match
+      optimize_module_with_pass_flags_trace(
+        mod,
+        pass_flags,
+        options,
+        fn(msg) { cmd_trace_emit(io, true, "input \{input_path}:opt \{msg}") },
+        validate_final_module=false,
+        trace_level=resolved_trace_level,
+      ) {
+      Ok(out) => Ok(out)
+      Err(e) => Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
+    }
+  } else {
+    match
+      optimize_module_with_pass_flags(
+        mod,
+        pass_flags,
+        options,
+        validate_final_module=false,
+      ) {
+      Ok(out) => Ok(out)
+      Err(e) => Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
+    }
+  }
 }
 
 ///|
@@ -1639,6 +2468,42 @@ pub fn cmd_help_text() -> String {
   )
   append_help_line(
     out, "-d, --out-dir <DIR>", "Write outputs to a directory, preserving per-input basenames.",
+  )
+  append_help_line(
+    out, "--dump <PATH>", "Write the current module state to a .wasm or .wat file at that point in the pass queue.",
+  )
+  append_help_line(
+    out, "--validate", "Run module validation at that point in the pass queue.",
+  )
+  append_help_line(
+    out, "--print-type <name|index>", "Log a type entry from the current module state to stderr at that point in the pass queue.",
+  )
+  append_help_line(
+    out, "--print-func <name|index>", "Log a function entry from the current module state to stderr at that point in the pass queue.",
+  )
+  append_help_line(
+    out, "--print-import <name|index>", "Log an import entry from the current module state to stderr at that point in the pass queue.",
+  )
+  append_help_line(
+    out, "--print-table <name|index>", "Log a table entry from the current module state to stderr at that point in the pass queue.",
+  )
+  append_help_line(
+    out, "--print-memory <name|index>", "Log a memory entry from the current module state to stderr at that point in the pass queue.",
+  )
+  append_help_line(
+    out, "--print-global <name|index>", "Log a global entry from the current module state to stderr at that point in the pass queue.",
+  )
+  append_help_line(
+    out, "--print-export <name|index>", "Log an export entry from the current module state to stderr at that point in the pass queue.",
+  )
+  append_help_line(
+    out, "--print-tag <name|index>", "Log a tag entry from the current module state to stderr at that point in the pass queue.",
+  )
+  append_help_line(
+    out, "--print-elem <name|index>", "Log an elem entry from the current module state to stderr at that point in the pass queue.",
+  )
+  append_help_line(
+    out, "--print-data <name|index>", "Log a data entry from the current module state to stderr at that point in the pass queue.",
   )
   append_help_line(
     out, "--optimize", "Apply the default optimization preset pipeline.",
@@ -2247,12 +3112,11 @@ pub fn run_cmd_with_adapter(
     }
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:decode done")
 
-    let pipeline_passes = match
-      cmd_resolve_pipeline_pass_flags(resolved_passes) {
-      Ok(flags) => flags
+    let pipeline_steps = match cmd_resolve_pipeline_steps(resolved_passes) {
+      Ok(steps) => steps
       Err(err) => return Err(err)
     }
-    let effective_pass_count = pipeline_passes.length()
+    let effective_pass_count = cmd_pipeline_step_optimize_count(pipeline_steps)
     match max_passes {
       Some(limit) =>
         cmd_trace_emit(
@@ -2268,28 +3132,125 @@ pub fn run_cmd_with_adapter(
       "input \{input_path}:pass_count=\{effective_pass_count} optimize:start",
     )
 
-    let optimized = if trace_optimize && pipeline_passes.length() > 0 {
-      let resolved_trace_level = match trace_level {
-        Some(level) => level
-        None => OptimizeTracingLevel::pass()
-      }
-      match
-        optimize_module_with_pass_flags_trace(
-          mod,
-          pipeline_passes,
-          options,
-          fn(msg) { cmd_trace_emit(io, true, "input \{input_path}:opt \{msg}") },
-          trace_level=resolved_trace_level,
-        ) {
-        Ok(out) => out
-        Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
-      }
-    } else {
-      match optimize_module_with_pass_flags(mod, pipeline_passes, options) {
-        Ok(out) => out
-        Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
+    let pending_passes : Array[String] = []
+    let mut optimized = mod
+    let mut print_log_entries = 0
+    for step in pipeline_steps {
+      match step {
+        PipelinePass(flag) => pending_passes.push(flag)
+        Dump(path, format) => {
+          optimized = match
+            run_pipeline_pass_segment(
+              io, input_path, optimized, pending_passes, options, trace_optimize,
+              trace_level,
+            ) {
+            Ok(out) => out
+            Err(err) => return Err(err)
+          }
+          pending_passes.clear()
+          cmd_trace_emit(
+            io,
+            trace_optimize,
+            "input \{input_path}:dump:start path=\{path}",
+          )
+          match write_pipeline_dump(io, optimized, path, format) {
+            Ok(_) => ()
+            Err(err) => return Err(err)
+          }
+          cmd_trace_emit(
+            io,
+            trace_optimize,
+            "input \{input_path}:dump:done path=\{path}",
+          )
+        }
+        Print(kind, selector) => {
+          optimized = match
+            run_pipeline_pass_segment(
+              io, input_path, optimized, pending_passes, options, trace_optimize,
+              trace_level,
+            ) {
+            Ok(out) => out
+            Err(err) => return Err(err)
+          }
+          pending_passes.clear()
+          cmd_trace_emit(
+            io,
+            trace_optimize,
+            "input \{input_path}:print:start kind=\{kind} selector=\{cmd_print_selector_text(selector)}",
+          )
+          let (label, body) = match
+            cmd_resolve_pipeline_print_entry(optimized, kind, selector) {
+            Ok(entry) => entry
+            Err(err) => return Err(err)
+          }
+          match
+            cmd_write_pipeline_print_log(
+              io,
+              input_path,
+              print_log_entries,
+              label,
+              body,
+              print_log_entries == 0,
+            ) {
+            Ok(_) => ()
+            Err(err) => return Err(err)
+          }
+          print_log_entries += 1
+          cmd_trace_emit(
+            io,
+            trace_optimize,
+            "input \{input_path}:print:done kind=\{kind} selector=\{cmd_print_selector_text(selector)}",
+          )
+        }
+        Validate => {
+          optimized = match
+            run_pipeline_pass_segment(
+              io, input_path, optimized, pending_passes, options, trace_optimize,
+              trace_level,
+            ) {
+            Ok(out) => out
+            Err(err) => return Err(err)
+          }
+          pending_passes.clear()
+          cmd_trace_emit(
+            io,
+            trace_optimize,
+            "input \{input_path}:validate:start",
+          )
+          match validate_module_for_pipeline_step(optimized, "validate pass") {
+            Ok(_) => ()
+            Err(err) => return Err(err)
+          }
+          cmd_trace_emit(
+            io,
+            trace_optimize,
+            "input \{input_path}:validate:done",
+          )
+        }
       }
     }
+    optimized = match
+      run_pipeline_pass_segment(
+        io, input_path, optimized, pending_passes, options, trace_optimize, trace_level,
+      ) {
+      Ok(out) => out
+      Err(err) => return Err(err)
+    }
+    cmd_trace_emit(
+      io,
+      trace_optimize,
+      "input \{input_path}:final-validate:start",
+    )
+    match
+      validate_module_for_pipeline_step(optimized, "final module validate") {
+      Ok(_) => ()
+      Err(err) => return Err(err)
+    }
+    cmd_trace_emit(
+      io,
+      trace_optimize,
+      "input \{input_path}:final-validate:done",
+    )
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:optimize done")
 
     let out_bytes = if should_reuse_input_wasm_bytes(
@@ -2325,7 +3286,7 @@ pub fn run_cmd_with_adapter(
             cmd_append_error_note(
               e,
               cmd_post_encode_repro_note(
-                io, mod, pipeline_passes, options, optimize_level, shrink_level,
+                io, mod, resolved_passes, options, optimize_level, shrink_level,
                 traps_never_happen, monomorphize_min_benefit, closed_world, low_memory_unused,
                 low_memory_bound,
               ),
@@ -2881,11 +3842,60 @@ fn cmd_native_lower_text_module(
 
 ///|
 #cfg(target="native")
+fn cmd_native_print_text_module(mod : Module) -> Result[Bytes, String] {
+  let wasm_bytes = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(err) => return Err("failed to encode module for wat dump: \{err}")
+  }
+  let in_path = cmd_native_tmp_path("print-in", ".wasm")
+  let out_path = cmd_native_tmp_path("print-out", ".wat")
+  if cmd_native_write_file(in_path, wasm_bytes) is Err(e) {
+    cmd_native_remove_file(in_path)
+    cmd_native_remove_file(out_path)
+    return Err("failed to stage wat dump input: \{e}")
+  }
+
+  let in_q = cmd_native_shell_quote(in_path)
+  let out_q = cmd_native_shell_quote(out_path)
+  let commands = [
+    "wasm-tools print \{in_q} -o \{out_q}",
+    "wasm-tools print \{in_q} > \{out_q}",
+    "wasm-dis \{in_q} -o \{out_q}",
+  ]
+  let mut printed = false
+  for command in commands {
+    let c_command = cmd_native_c_string(command)
+    let code = cmd_native_system(c_command)
+    if code == 0 && cmd_native_file_exists(out_path) {
+      printed = true
+      break
+    }
+  }
+
+  let result = if printed {
+    match cmd_native_read_file(out_path) {
+      Ok(out) => Ok(out)
+      Err(e) => Err("failed to read printed wat dump: \{e}")
+    }
+  } else {
+    Err(
+      "failed to print wat dump: expected native `wasm-tools print` or `wasm-dis` to be available",
+    )
+  }
+
+  cmd_native_remove_file(in_path)
+  cmd_native_remove_file(out_path)
+  result
+}
+
+///|
+#cfg(target="native")
 fn default_cmd_io() -> CmdIO {
   CmdIO::new(
     get_env=cmd_native_get_env,
     file_exists=cmd_native_file_exists,
     read_file=cmd_native_read_file,
+    print_text_module=cmd_native_print_text_module,
     write_file=cmd_native_write_file,
     write_stdout=cmd_native_write_stdout,
     write_stderr=cmd_native_write_stderr,

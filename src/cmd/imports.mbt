@@ -26,7 +26,7 @@ using @cli {
 }
 
 ///|
-using @lib {type Module}
+using @lib {type Module, type PrettyPrintContext}
 
 ///|
 using @diff {render_line_diff}

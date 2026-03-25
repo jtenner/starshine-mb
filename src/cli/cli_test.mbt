@@ -166,6 +166,26 @@ test "parse_cli_args parses long-form kebab-case pass flags" {
 }
 
 ///|
+test "parse_cli_args accepts dump passes with separate and inline paths" {
+  let parsed = parse_ok([
+    "--dump", "before.wasm", "--ssa-nomerge", "--dump=after.wat", "--validate",
+  ])
+  assert_eq(parsed.pass_flags, [
+    "dump=before.wasm", "ssa-nomerge", "dump=after.wat", "validate",
+  ])
+}
+
+///|
+test "parse_cli_args accepts print passes with named and indexed targets" {
+  let parsed = parse_ok([
+    "--print-func", "main", "--print-type=(0)", "--print-elem", "elist",
+  ])
+  assert_eq(parsed.pass_flags, [
+    "print-func=main", "print-type=(0)", "print-elem=elist",
+  ])
+}
+
+///|
 test "parse_cli_args accepts global-effects pass flag" {
   let parsed = parse_ok(["--global-effects"])
   assert_eq(parsed.pass_flags, ["global-effects"])
@@ -355,6 +375,27 @@ test "parse_cli_args rejects unexpected pass flag values" {
   assert_eq(
     parse_err(["--validate=yes"]),
     CliParseError::unexpected_flag_value("--validate"),
+  )
+}
+
+///|
+test "parse_cli_args reports missing dump path" {
+  assert_eq(parse_err(["--dump"]), CliParseError::missing_flag_value("--dump"))
+}
+
+///|
+test "parse_cli_args reports missing print selector" {
+  assert_eq(
+    parse_err(["--print-func"]),
+    CliParseError::missing_flag_value("--print-func"),
+  )
+}
+
+///|
+test "parse_cli_args rejects dump paths without wasm or wat extensions" {
+  assert_eq(
+    parse_err(["--dump", "snapshot.txt"]),
+    CliParseError::invalid_dump_path("snapshot.txt"),
   )
 }
 

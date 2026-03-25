@@ -31,6 +31,40 @@ fn bytes_to_ascii_string(bytes : Bytes) -> String {
 }
 
 ///|
+fn concat_ascii_bytes(chunks : Array[Bytes]) -> String {
+  let out = StringBuilder::new()
+  for chunk in chunks {
+    out.write_string(bytes_to_ascii_string(chunk))
+  }
+  out.to_string()
+}
+
+///|
+fn assert_strings_appear_in_order(
+  text : String,
+  needles : Array[String],
+) -> Unit raise {
+  let mut start = 0
+  for needle in needles {
+    let mut found : Int? = None
+    let limit = text.length() - needle.length()
+    let mut i = start
+    while i <= limit {
+      if text.sub(start=i, end=i + needle.length()).to_string() == needle {
+        found = Some(i)
+        break
+      }
+      i += 1
+    }
+    match found {
+      Some(idx) => start = idx + needle.length()
+      None =>
+        fail("expected `\{needle}` after byte offset \{start} in `\{text}`")
+    }
+  }
+}
+
+///|
 fn encode_module_bytes(mod : Module) -> Bytes {
   let buf = @buffer.new()
   match Encode::encode(mod, buf) {
@@ -204,6 +238,84 @@ fn fixture_f32_nan_module() -> Module {
   )
   .with_type_sec(@lib.TypeSec::new([t_f32]))
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
+}
+
+///|
+fn fixture_invalid_i32_result_module() -> Module {
+  let t_i32 = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  Module::new()
+  .with_code_sec(
+    CodeSec::new([Func::new(@lib.Locals::empty(), @lib.Expr::new([]))]),
+  )
+  .with_type_sec(@lib.TypeSec::new([t_i32]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
+}
+
+///|
+fn fixture_print_log_module() -> Module {
+  let t_i32 = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([t_i32]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(5)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+  .with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+          @lib.Limits::i32(1U, Some(1U)),
+        ),
+        None,
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::active(
+          @lib.TableIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::new("main"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_name_sec(
+    @lib.NameSec::new(
+      func_names=Some(
+        @lib.NameMap::new([@lib.NameAssoc::new(0U, @lib.Name::new("main"))]),
+      ),
+      type_names=Some(
+        @lib.NameMap::new([@lib.NameAssoc::new(0U, @lib.Name::new("t0"))]),
+      ),
+      elem_names=Some(
+        @lib.NameMap::new([@lib.NameAssoc::new(0U, @lib.Name::new("elist"))]),
+      ),
+    ),
+  )
 }
 
 ///|
@@ -778,6 +890,210 @@ test "run_cmd_with_adapter applies ssa-nomerge to wasm inputs" {
     }
     _ => fail("expected transformed code section")
   }
+}
+
+///|
+test "run_cmd_with_adapter interleaves dump validate and optimize steps in cli order" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (result i32) (local i32) i32.const 5 local.set 0 local.get 0))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["ssa.wasm"] },
+    file_exists=fn(path) { path == "ssa.wasm" },
+    read_file=fn(path) {
+      if path == "ssa.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--dump", "before.wasm", "--ssa-nomerge", "--dump", "after.wasm", "--validate",
+        "--out", "out.wasm", "ssa.wasm",
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected dump/validate pipeline failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, [
+    "dump=before.wasm", "ssa-nomerge", "dump=after.wasm", "validate",
+  ])
+  assert_eq(writes.length(), 3)
+  assert_eq(writes[0].0, "before.wasm")
+  assert_eq(writes[1].0, "after.wasm")
+  assert_eq(writes[2].0, "out.wasm")
+
+  let before = decode_module_bytes(writes[0].1)
+  match before.code_sec {
+    Some(CodeSec([Func(locals, Expr(instrs))])) => {
+      assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+      assert_eq(instrs, [
+        @lib.Instruction::i32_const(@lib.I32(5)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ])
+    }
+    _ => fail("expected original code section in before dump")
+  }
+
+  let after = decode_module_bytes(writes[1].1)
+  match after.code_sec {
+    Some(CodeSec([Func(locals, Expr(instrs))])) => {
+      assert_eq(
+        locals,
+        @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+      )
+      assert_eq(instrs, [
+        @lib.Instruction::i32_const(@lib.I32(5)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      ])
+    }
+    _ => fail("expected transformed code section in after dump")
+  }
+
+  let final_mod = decode_module_bytes(writes[2].1)
+  assert_eq(final_mod, after)
+}
+
+///|
+test "run_cmd_with_adapter writes wat dumps as text" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(41))
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    print_text_module=fn(_) {
+      Ok(bytes_from_string("(module (func (result i32) i32.const 41))\n"))
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--dump", "snapshot.wat", "--out", "out.wasm", "a.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected wat dump failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["dump=snapshot.wat"])
+  assert_eq(writes.length(), 2)
+  assert_eq(writes[0].0, "snapshot.wat")
+  let wat = bytes_to_ascii_string(writes[0].1)
+  assert_true(wat.contains("(module"))
+  assert_true(wat.contains("i32.const 41"))
+  ignore(decode_module_bytes(writes[1].1))
+}
+
+///|
+test "run_cmd_with_adapter dumps current module before explicit validate fails" {
+  let wasm = encode_module_bytes(fixture_invalid_i32_result_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["broken.wasm"] },
+    file_exists=fn(path) { path == "broken.wasm" },
+    read_file=fn(path) {
+      if path == "broken.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--dump", "before-invalid.wasm", "--validate", "--out", "out.wasm", "broken.wasm",
+      ],
+      io,
+    ) {
+    Ok(summary) => fail("expected validate failure after dump, got \{summary}")
+    Err(CmdError::OptimizeFailed(msg)) =>
+      assert_true(msg.contains("validate"), msg~)
+    Err(err) => fail("expected validate failure, got \{err}")
+  }
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, "before-invalid.wasm")
+  ignore(decode_module_bytes(writes[0].1))
+}
+
+///|
+test "run_cmd_with_adapter prints ordered log entries to stderr and sees post-pass state" {
+  let wasm = encode_module_bytes(fixture_print_log_module())
+  let writes : Array[(String, Bytes)] = []
+  let stderr_writes : Array[Bytes] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["printable.wasm"] },
+    file_exists=fn(path) { path == "printable.wasm" },
+    read_file=fn(path) {
+      if path == "printable.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+    write_stderr=fn(bytes) {
+      stderr_writes.push(bytes)
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--print-type", "(0)", "--ssa-nomerge", "--print-func", "main", "--print-elem",
+        "elist", "--out", "out.wasm", "printable.wasm",
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected print pipeline failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, [
+    "print-type=(0)", "ssa-nomerge", "print-func=main", "print-elem=elist",
+  ])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, "out.wasm")
+
+  let stderr_text = concat_ascii_bytes(stderr_writes)
+  assert_true(stderr_text.contains("Log: printable.wasm"), msg=stderr_text)
+  assert_strings_appear_in_order(stderr_text, [
+    "0: Type[0", "1: Func[0", "2: Elem[0",
+  ])
+  assert_true(
+    stderr_text.contains("(Sub Final (Func [] [I32]))"),
+    msg=stderr_text,
+  )
+  assert_true(stderr_text.contains("local.set (Local 1)"), msg=stderr_text)
+  assert_true(stderr_text.contains("(Elem "), msg=stderr_text)
 }
 
 ///|
@@ -1465,6 +1781,11 @@ test "run_cmd_with_adapter prints help text and exits successfully for --help" {
   assert_true(help.contains("--help"))
   assert_true(help.contains("--version"))
   assert_true(help.contains("--glob"))
+  assert_true(help.contains("--dump <PATH>"))
+  assert_true(help.contains("--validate"))
+  assert_true(help.contains("--print-func <name|index>"))
+  assert_true(help.contains("--print-type <name|index>"))
+  assert_true(help.contains("--print-elem <name|index>"))
   assert_true(help.contains("--ssa-nomerge"))
   assert_true(help.contains("--vacuum"))
   assert_true(help.contains("--optimize"))

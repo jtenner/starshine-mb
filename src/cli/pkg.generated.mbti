@@ -76,10 +76,12 @@ pub enum CliParseError {
   UnknownShortFlag(Char)
   InvalidLongFlag(String)
   UnexpectedFlagValue(String)
+  InvalidDumpPath(String)
   InvalidOptimizationFlag(String)
   InvalidTrapMode(String)
   InvalidTracingLevel(String)
 }
+pub fn CliParseError::invalid_dump_path(String) -> Self
 pub fn CliParseError::invalid_input_format(String) -> Self
 pub fn CliParseError::invalid_long_flag(String) -> Self
 pub fn CliParseError::invalid_optimization_flag(String) -> Self

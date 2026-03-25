@@ -116,6 +116,7 @@ pub enum CliParseError {
   UnknownShortFlag(Char)
   InvalidLongFlag(String)
   UnexpectedFlagValue(String)
+  InvalidDumpPath(String)
   InvalidOptimizationFlag(String)
   InvalidTrapMode(String)
   InvalidTracingLevel(String)
@@ -149,6 +150,11 @@ pub fn CliParseError::invalid_long_flag(flag : String) -> CliParseError {
 ///|
 pub fn CliParseError::unexpected_flag_value(flag : String) -> CliParseError {
   UnexpectedFlagValue(flag)
+}
+
+///|
+pub fn CliParseError::invalid_dump_path(path : String) -> CliParseError {
+  InvalidDumpPath(path)
 }
 
 ///|
@@ -325,6 +331,47 @@ fn append_input_glob(out : Array[String], raw : String) -> Unit {
 ///|
 fn looks_like_option_token(token : String) -> Bool {
   token.length() > 1 && token[0] == '-'
+}
+
+///|
+fn path_has_ascii_suffix_ignore_case(path : String, suffix : String) -> Bool {
+  if path.length() < suffix.length() {
+    return false
+  }
+  let start = path.length() - suffix.length()
+  let mut i = 0
+  while i < suffix.length() {
+    if ascii_lower_u16(path[start + i]) != suffix[i] {
+      return false
+    }
+    i += 1
+  }
+  true
+}
+
+///|
+fn parse_dump_pass_value(raw : String) -> Result[String, CliParseError] {
+  let value = raw.trim().to_string()
+  if value.length() == 0 {
+    return Err(CliParseError::missing_flag_value("--dump"))
+  }
+  if path_has_ascii_suffix_ignore_case(value, ".wasm") ||
+    path_has_ascii_suffix_ignore_case(value, ".wat") {
+    return Ok("dump=\{value}")
+  }
+  Err(CliParseError::invalid_dump_path(value))
+}
+
+///|
+fn parse_print_pass_value(
+  flag_name : String,
+  raw : String,
+) -> Result[String, CliParseError] {
+  let value = raw.trim().to_string()
+  if value.length() == 0 {
+    return Err(CliParseError::missing_flag_value(long_flag_name(flag_name)))
+  }
+  Ok("\{flag_name}=\{value}")
 }
 
 ///|
@@ -734,6 +781,25 @@ pub fn parse_cli_args(
             )
             index += if consumed_next { 2 } else { 1 }
           }
+          "dump" => {
+            let raw_value = match inline_value {
+              Some(v) if v.length() > 0 => v
+              Some(_) => return Err(CliParseError::missing_flag_value("--dump"))
+              None =>
+                if index + 1 < args.length() &&
+                  !looks_like_option_token(args[index + 1]) {
+                  args[index + 1]
+                } else {
+                  return Err(CliParseError::missing_flag_value("--dump"))
+                }
+            }
+            let dump_flag = match parse_dump_pass_value(raw_value) {
+              Ok(flag) => flag
+              Err(err) => return Err(err)
+            }
+            parsed.pass_flags.push(dump_flag)
+            index += if inline_value is None { 2 } else { 1 }
+          }
           "optimize" => {
             if inline_value is Some(_) {
               return Err(CliParseError::unexpected_flag_value("--optimize"))
@@ -966,13 +1032,38 @@ pub fn parse_cli_args(
             index += 1
           }
           _ => {
+            if !is_kebab_case_flag_name(name) {
+              return Err(CliParseError::invalid_long_flag(name))
+            }
+            if name.has_prefix("print-") {
+              let (value, consumed_next) = match inline_value {
+                Some(v) if v.length() > 0 => (v, false)
+                Some(_) =>
+                  return Err(
+                    CliParseError::missing_flag_value(long_flag_name(name)),
+                  )
+                None =>
+                  if index + 1 < args.length() &&
+                    !looks_like_option_token(args[index + 1]) {
+                    (args[index + 1], true)
+                  } else {
+                    return Err(
+                      CliParseError::missing_flag_value(long_flag_name(name)),
+                    )
+                  }
+              }
+              let print_flag = match parse_print_pass_value(name, value) {
+                Ok(flag) => flag
+                Err(err) => return Err(err)
+              }
+              parsed.pass_flags.push(print_flag)
+              index += if consumed_next { 2 } else { 1 }
+              continue
+            }
             if inline_value is Some(_) {
               return Err(
                 CliParseError::unexpected_flag_value(long_flag_name(name)),
               )
-            }
-            if !is_kebab_case_flag_name(name) {
-              return Err(CliParseError::invalid_long_flag(name))
             }
             parsed.pass_flags.push(name)
             index += 1
