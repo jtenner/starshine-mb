@@ -1125,6 +1125,8 @@ test "run_cmd_with_adapter prints help text and exits successfully for --help" {
   assert_true(help.contains("--glob"))
   assert_true(help.contains("--vacuum"))
   assert_true(help.contains("--optimize"))
+  assert_false(help.contains("--memory-packing"))
+  assert_false(help.contains("--re-reloop"))
 }
 
 ///|

@@ -11,38 +11,6 @@
 
 ## v0.2.0 Backlog
 
-### IR2 - 310 - Dead Code / Old Abstraction Cleanup
-- Goal:
-  Remove stale compatibility shims, dead public claims, and obsolete optimizer naming once IR2 replaces them.
-- Why this slice exists:
-  Current docs and command comments still carry compatibility/no-op language tied to deleted layers.
-- Concrete deliverables:
-  - `src/cmd/cmd.mbt` cleaned of obsolete no-op optimizer paths.
-  - README/package map/help text aligned with the real IR2 surface.
-  - Cleanup regression tests.
-- Detailed implementation tasks:
-  - Remove or rewrite compatibility expansion and no-op execution shims once real pass paths exist.
-  - Remove stale docs/help text implying old explicit pass flags still do work when they do not.
-  - Remove dead exports/imports tied to deleted recursive optimizer bodies.
-  - Review `.mbti` diffs and public package descriptions.
-  - Update `agent-todo.md` as slices land.
-- Required utilities / APIs:
-  - Registry-backed CLI/help generation.
-  - README/API sync checks.
-  - Repository grep/assert tests for forbidden stale names.
-- Invariants / correctness rules:
-  - Public docs and CLI help only describe real current behavior.
-  - Cleanup never hides failures by deleting tests.
-- Dependencies:
-  - IR2 - 270 - Pipeline Orchestration.
-  - IR2 - 285 - Initial Pass Port Batches.
-- Exit criteria:
-  - No-op compatibility execution paths are gone or narrowed to explicit boundary-only behavior.
-- Suggested tests:
-  - CLI pass resolution uses the real registry.
-  - README/API sync alignment.
-  - Forbidden stale-name repository assertions.
-
 ### IR2 - 320 - Documentation / ADR / Handoff Notes
 - Goal:
   Leave the repository with canonical IR2 planning, ADRs, and backlog references so future agents can continue slice by slice.

@@ -293,19 +293,6 @@ pub fn persist_fuzz_failure_report(
 }
 
 ///|
-fn fuzz_default_pass_names(
-  optimize_passes : Array[ModulePass],
-) -> Array[String] {
-  let out = Array::new(capacity=optimize_passes.length())
-  let mut i = 0
-  while i < optimize_passes.length() {
-    out.push("pass-\{i}")
-    i += 1
-  }
-  out
-}
-
-///|
 fn fuzz_finalize_failure(
   on_failure : ((FuzzFailureReport) -> Result[Unit, String])?,
   report : FuzzFailureReport,
@@ -380,16 +367,12 @@ pub fn differential_validate_wasm(
 pub fn run_wasm_smith_fuzz_harness(
   valid_target : Int,
   seed? : UInt64 = 0x5eedUL,
-  optimize_passes? : Array[ModulePass] = [],
-  optimize_pass_names? : Array[String]? = None,
+  optimize_passes? : Array[String] = [],
   differential_adapters? : DifferentialAdapters? = None,
   differential_every? : Int = 0,
   on_failure? : ((FuzzFailureReport) -> Result[Unit, String])? = None,
 ) -> Result[WasmSmithFuzzStats, String] {
-  let pass_names = match optimize_pass_names {
-    Some(v) => fuzz_clone_passes(v)
-    None => fuzz_default_pass_names(optimize_passes)
-  }
+  let pass_names = fuzz_clone_passes(optimize_passes)
   if valid_target < 0 {
     let report = FuzzFailureReport::new(
       seed,
@@ -482,7 +465,7 @@ pub fn run_wasm_smith_fuzz_harness(
     }
 
     let optimized = match
-      optimize_module_with_options(
+      optimize_module_with_pass_flags(
         decoded,
         optimize_passes,
         OptimizeOptions::new(),

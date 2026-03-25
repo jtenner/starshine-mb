@@ -175,6 +175,7 @@ fn parse_validate_encode(source : String) -> Bool {
 - The pass-manager contract is `lift -> verify -> run passes -> verify -> lower -> validate`, with per-function hot-IR verification and final module validation.
 - Pass authors now have shared migration helpers for analysis requests, mutation/invalidation, and pipeline-backed WAT fixtures in `jtenner/starshine/passes`.
 - Programmatic pipeline callers can now attach an opt-in hot perf session to collect stable phase timings, allocation/build counters, validation checkpoints, and lightweight hot-func / CFG debug dumps during IR2 work.
+- The deleted `ModulePass` compatibility shim is gone; CLI tooling and the fuzz harness now use the same real pass-name arrays and registry-backed diagnostics as the hot pipeline itself.
 
 ## Prerequisites
 
