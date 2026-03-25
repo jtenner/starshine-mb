@@ -409,7 +409,7 @@ fn hot_lift_impl_resolve_generic_pop_count(
     after_state,
     0,
   )
-  if before_state.reachable || concrete_before_types.length() == 0 {
+  if concrete_before_types.length() == 0 {
     return primary
   }
   let can_promote = match instr {
@@ -432,6 +432,26 @@ fn hot_lift_impl_resolve_generic_pop_count(
   }
   if !can_promote {
     return primary
+  }
+  if before_state.reachable {
+    let has_concrete_prefix =
+      concrete_before_types.length() > before_state.stack.length()
+    return match primary {
+      Ok((count, _)) if count > 0 => primary
+      Ok(_) if has_concrete_prefix =>
+        match
+          hot_lift_impl_generic_pop_count(
+            instr, concrete_before_types, before_state, after_state, 1,
+          ) {
+          Ok(promoted) => Ok(promoted)
+          Err(_) => primary
+        }
+      Err(_) if has_concrete_prefix =>
+        hot_lift_impl_generic_pop_count(
+          instr, concrete_before_types, before_state, after_state, 1,
+        )
+      _ => primary
+    }
   }
   match primary {
     Ok((count, _)) if count > 0 => primary

@@ -320,7 +320,9 @@ fn hot_lower_impl_body_items(
   for i = body_base; i < node.child_count; i = i + 1 {
     let child = hot_child_get(func, id, i)
     if child != HOT_NONE_NODE {
-      hot_lower_impl_emit_root(func, child, use_def, next_stack, value_stack, out)
+      hot_lower_impl_emit_root(
+        func, child, use_def, next_stack, value_stack, out,
+      )
       let is_final_root = i + 1 == node.child_count
       hot_lower_impl_drop_dead_nonfinal_root_results(
         func,
