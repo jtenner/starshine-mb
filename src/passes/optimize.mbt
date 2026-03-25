@@ -1,8 +1,30 @@
 ///|
 pub enum HotPassRegistryCategory {
   HotPass
+  BoundaryOnly
+  Removed
   Preset
 } derive(Eq, Show, Debug)
+
+///|
+pub fn HotPassRegistryCategory::hot_pass() -> HotPassRegistryCategory {
+  HotPass
+}
+
+///|
+pub fn HotPassRegistryCategory::boundary_only() -> HotPassRegistryCategory {
+  BoundaryOnly
+}
+
+///|
+pub fn HotPassRegistryCategory::removed() -> HotPassRegistryCategory {
+  Removed
+}
+
+///|
+pub fn HotPassRegistryCategory::preset() -> HotPassRegistryCategory {
+  Preset
+}
 
 ///|
 pub struct HotPassRegistryEntry {
@@ -29,6 +51,34 @@ fn pass_registry_entry_hot(
 }
 
 ///|
+fn pass_registry_entry_boundary_only(
+  name : String,
+  summary? : String = "Legacy boundary-only pass; not available in the hot pipeline.",
+) -> HotPassRegistryEntry {
+  {
+    name,
+    summary,
+    category: HotPassRegistryCategory::boundary_only(),
+    descriptor: None,
+    expanded_passes: [],
+  }
+}
+
+///|
+fn pass_registry_entry_removed(
+  name : String,
+  summary? : String = "Legacy pass removed from the active hot pipeline until its IR2 port lands.",
+) -> HotPassRegistryEntry {
+  {
+    name,
+    summary,
+    category: HotPassRegistryCategory::removed(),
+    descriptor: None,
+    expanded_passes: [],
+  }
+}
+
+///|
 fn pass_registry_entry_preset(
   name : String,
   summary : String,
@@ -44,8 +94,41 @@ fn pass_registry_entry_preset(
 }
 
 ///|
-fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
+fn pass_registry_boundary_only_names() -> Array[String] {
   [
+    "abstract-type-refining", "alignment-lowering", "constant-field-propagation",
+    "constant-field-null-test-folding", "dead-argument-elimination", "dead-argument-elimination-optimizing",
+    "signature-pruning", "signature-refining", "duplicate-import-elimination", "directize",
+    "global-refining", "global-struct-inference", "global-struct-inference-desc-cast",
+    "global-type-optimization", "simplify-globals", "simplify-globals-optimizing",
+    "global-effects", "propagate-globals-globally", "type-refining", "type-generalizing",
+    "type-finalizing", "type-un-finalizing", "unsubtyping", "heap2local", "heap-store-optimization",
+    "inlining", "inlining-optimizing", "inline-main", "merge-similar-functions",
+    "once-reduction", "minimize-rec-groups", "type-merging", "monomorphize", "monomorphize-always",
+    "memory-packing", "gufa", "gufa-optimizing", "gufa-cast-all", "i64-to-i32-lowering",
+    "duplicate-function-elimination", "remove-unused-names", "reorder-locals", "reorder-types",
+    "reorder-globals", "reorder-globals-always", "reorder-functions", "reorder-functions-by-name",
+    "remove-unused-types", "remove-unused", "remove-unused-module-elements", "remove-unused-non-function-elements",
+  ]
+}
+
+///|
+fn pass_registry_removed_names() -> Array[String] {
+  [
+    "avoid-reinterprets", "coalesce-locals", "code-folding", "code-pushing", "const-hoisting",
+    "dataflow-optimization", "dead-code-elimination", "local-cse", "local-subtyping",
+    "loop-invariant-code-motion", "merge-locals", "merge-blocks", "flatten", "re-reloop",
+    "tuple-optimization", "optimize-added-constants", "optimize-added-constants-propagate",
+    "optimize-instructions", "precompute", "precompute-propagate", "redundant-set-elimination",
+    "pick-load-signs", "optimize-casts", "de-nan", "remove-unused-brs", "simplify-locals",
+    "simplify-locals-no-tee", "simplify-locals-no-structure", "simplify-locals-no-tee-no-structure",
+    "simplify-locals-no-nesting", "untee",
+  ]
+}
+
+///|
+fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
+  let entries = [
     pass_registry_entry_hot(
       "vacuum",
       "Remove `nop` roots and region entries through hot IR cleanup.",
@@ -70,6 +153,13 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       ["vacuum"],
     ),
   ]
+  for name in pass_registry_boundary_only_names() {
+    entries.push(pass_registry_entry_boundary_only(name))
+  }
+  for name in pass_registry_removed_names() {
+    entries.push(pass_registry_entry_removed(name))
+  }
+  entries
 }
 
 ///|
@@ -134,6 +224,14 @@ fn run_hot_pipeline_expand_passes(
     }
     match entry.category {
       HotPassRegistryCategory::HotPass => expanded.push(entry)
+      HotPassRegistryCategory::BoundaryOnly =>
+        return Err(
+          "pass flag \{name} is boundary-only and is not implemented in the hot pipeline",
+        )
+      HotPassRegistryCategory::Removed =>
+        return Err(
+          "pass flag \{name} is removed from the active hot pipeline registry",
+        )
       HotPassRegistryCategory::Preset => {
         let preset_passes = if name == "optimize" {
           optimize_preset_passes(options)

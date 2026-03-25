@@ -8,7 +8,15 @@ import {
 }
 
 // Values
+pub fn dead_code_elimination_descriptor() -> @ir.HotPassDescriptor
+
+pub fn dead_code_elimination_summary() -> String
+
 pub fn hot_pass_run(HotPassContext, @ir.HotFunc) -> Result[HotPassResult, String]
+
+pub fn optimize_instructions_descriptor() -> @ir.HotPassDescriptor
+
+pub fn optimize_instructions_summary() -> String
 
 pub fn optimize_preset_passes(HotPipelineOptions) -> Array[String]
 
@@ -66,6 +74,10 @@ pub fn run_hot_pipeline(@lib.Module, HotPipelineOptions, Array[String]) -> Resul
 
 pub fn shrink_preset_passes(HotPipelineOptions) -> Array[String]
 
+pub fn simplify_locals_descriptor() -> @ir.HotPassDescriptor
+
+pub fn simplify_locals_summary() -> String
+
 // Errors
 
 // Types and methods
@@ -79,8 +91,14 @@ pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipel
 
 pub enum HotPassRegistryCategory {
   HotPass
+  BoundaryOnly
+  Removed
   Preset
 }
+pub fn HotPassRegistryCategory::boundary_only() -> Self
+pub fn HotPassRegistryCategory::hot_pass() -> Self
+pub fn HotPassRegistryCategory::preset() -> Self
+pub fn HotPassRegistryCategory::removed() -> Self
 pub impl Eq for HotPassRegistryCategory
 pub impl Show for HotPassRegistryCategory
 pub impl @debug.Debug for HotPassRegistryCategory

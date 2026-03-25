@@ -9,41 +9,6 @@
 
 ## v0.1.0 Active Slice
 
-### IR2 - 285 - Initial Pass Port Batches
-- Goal:
-  Define the concrete pass-port batches that will replace the current compatibility/no-op surface.
-- Why this slice exists:
-  The CLI already exposes pass names and presets; future agents need an explicit port order.
-- Concrete deliverables:
-  - Pass-batch mapping doc under `docs/`.
-  - Pass registry coverage tests.
-  - Placeholder or initial pass files under `src/passes/` for batch 1.
-- Detailed implementation tasks:
-  - Batch 1: hot-query/traversal/effects passes such as `vacuum`, trivial DCE, constant folding, drop/nop cleanup.
-  - Batch 2: CFG/use-def/effects passes such as CFG simplification, stronger DCE, unreachable cleanup, branch cleanup.
-  - Batch 3: local SSA passes such as copy propagation, local forwarding, dead local cleanup.
-  - Batch 4: loop/effect-heavy passes if still desired.
-  - Map every currently CLI-visible pass name to one of: real hot pass, boundary-only pass, or remove from CLI/help.
-  - Define optimize/shrink preset composition against the new registry.
-- Required utilities / APIs:
-  - `pass_registry_all()`.
-  - `pass_registry_lookup(name)`.
-  - `optimize_preset_passes(options)`.
-  - `shrink_preset_passes(options)`.
-  - `pass_registry_category(name)`.
-- Invariants / correctness rules:
-  - No pass name remains silently accepted as a no-op once migrated.
-  - Presets only expand to implemented or explicitly documented boundary-only behavior.
-- Dependencies:
-  - IR2 - 270 - Pipeline Orchestration.
-  - IR2 - 280 - Pass Migration Support.
-- Exit criteria:
-  - There is an explicit registry and batch plan for every user-visible pass name/preset.
-- Suggested tests:
-  - Registry lookup for implemented vs removed names.
-  - Optimize/shrink preset expansion coverage.
-  - No-op placeholder rejection for names marked real.
-
 ## v0.2.0 Backlog
 
 ### IR2 - 290 - Tests / Fixtures / Golden Coverage

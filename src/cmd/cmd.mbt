@@ -1939,7 +1939,12 @@ fn cmd_resolve_pipeline_pass_flags(
   let out : Array[String] = []
   for flag in pass_flags {
     match @passes.pass_registry_lookup(flag) {
-      Some(_) => out.push(flag)
+      Some(entry) =>
+        match entry.category {
+          @passes.HotPassRegistryCategory::HotPass
+          | @passes.HotPassRegistryCategory::Preset => out.push(flag)
+          _ => return Err(CmdError::unknown_pass_flag(flag))
+        }
       None => return Err(CmdError::unknown_pass_flag(flag))
     }
   }
@@ -2156,7 +2161,12 @@ pub fn cmd_help_text() -> String {
     out.write_char(c)
   }
   for entry in @passes.pass_registry_all() {
-    append_help_line(out, "--\{entry.name}", entry.summary)
+    match entry.category {
+      @passes.HotPassRegistryCategory::HotPass
+      | @passes.HotPassRegistryCategory::Preset =>
+        append_help_line(out, "--\{entry.name}", entry.summary)
+      _ => ()
+    }
   }
   out.to_string()
 }
