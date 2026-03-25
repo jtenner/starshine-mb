@@ -8,7 +8,7 @@ Lock the optimizer rebuild around exactly two owned representations: boundary mo
 
 - Boundary parsing, validation, encode/decode, and debug surfaces already operate on `@lib.Module` and `@lib.Expr`.
 - `src/ir/hot.mbt` already owns the current hot function body representation, but the repo had no canonical ADR stating that later work must not recreate deleted recursive ownership layers.
-- Pass execution in `src/cmd/cmd.mbt` remains compatibility-only while the real hot pipeline is rebuilt.
+- Pass execution now routes through the real `jtenner/starshine/passes` hot pipeline, and deleted compatibility shims must not return.
 
 ## Architecture Rules
 
