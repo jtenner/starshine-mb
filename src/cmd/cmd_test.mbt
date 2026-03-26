@@ -547,6 +547,16 @@ fn fixture_hso_memory_size_ref_prefix_wasm() -> Bytes {
 }
 
 ///|
+fn fixture_hso_table_size_value_prefix_wasm() -> Bytes {
+  bytes_from_ints([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3,
+    2, 1, 1, 4, 4, 1, 112, 0, 1, 7, 5, 1, 1, 102, 0, 0, 10, 30, 1, 28, 1,
+    1, 99, 0, 251, 1, 0, 33, 0, 32, 0, 252, 16, 0, 26, 65, 7, 251, 5, 0, 0,
+    32, 0, 251, 2, 0, 0, 11,
+  ])
+}
+
+///|
 fn fixture_mergeable_block_module() -> Module {
   let t_void = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
@@ -1301,6 +1311,46 @@ test "run_cmd_with_adapter folds HSO readonly value-prefix memory.size wasm inpu
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("memory.size"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix table.size wasm inputs" {
+  let wasm = fixture_hso_table_size_value_prefix_wasm()
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-table-value.wasm"] },
+    file_exists=fn(path) { path == "hso-table-value.wasm" },
+    read_file=fn(path) {
+      if path == "hso-table-value.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--heap-store-optimization",
+        "--out",
+        "out.wasm",
+        "hso-table-value.wasm",
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected table value-prefix HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("table.size"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
