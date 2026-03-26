@@ -24,6 +24,7 @@ pub struct HotPipelineOptions {
   verify_policy : HotPipelineVerifyPolicy
   validate_final_module : Bool
   closed_world : Bool
+  trace_enabled : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
 }
@@ -40,6 +41,7 @@ pub fn HotPipelineOptions::new(
     verify_policy,
     validate_final_module,
     closed_world,
+    trace_enabled: trace is Some(_),
     trace: match trace {
       Some(cb) => cb
       None => hot_pipeline_trace_noop
@@ -165,6 +167,17 @@ pub fn pipeline_trace_hook(
 ) -> Unit {
   let suffix = if payload == "" { "" } else { " \{payload}" }
   trace("pass[\{pass_name}]:\{event}\{suffix}")
+}
+
+///|
+pub fn run_hot_pipeline_debug_dump_enabled(
+  options : HotPipelineOptions,
+  func_idx : @lib.FuncIdx,
+  descriptor_name : String,
+) -> Bool {
+  options.trace_enabled &&
+  (descriptor_name == "vacuum" || descriptor_name == "dead-code-elimination") &&
+  (func_idx == @lib.FuncIdx::new(2941U) || func_idx == @lib.FuncIdx::new(2944U))
 }
 
 ///|
@@ -543,6 +556,43 @@ fn run_hot_pipeline_dce_raw_has_early_terminator(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_has_nonfinal_nonfallthrough(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    let is_final = idx + 1 == instrs.length()
+    if !is_final && !run_hot_pipeline_dce_raw_instr_may_fallthrough(instr) {
+      return true
+    }
+    match instr {
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_has_nonfinal_nonfallthrough(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_dce_raw_has_nonfinal_nonfallthrough(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_dce_raw_has_nonfinal_nonfallthrough(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_has_nonfinal_nonfallthrough(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_dce_raw_instr_may_fallthrough(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -632,11 +682,53 @@ fn run_hot_pipeline_dce_raw_has_dead_drop_after_nonfallthrough(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_has_drop(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Drop => return true
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_has_drop(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_dce_raw_has_drop(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_dce_raw_has_drop(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_has_drop(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_dce_raw_requires_lowering_even_if_unchanged(
   original : @lib.Func,
 ) -> Bool {
   let @lib.Func(_, @lib.Expr(instrs)) = original
   run_hot_pipeline_dce_raw_has_dead_drop_after_nonfallthrough(instrs)
+}
+
+///|
+fn run_hot_pipeline_dce_raw_block_result_arity(
+  module_ctx : @ir.HotModuleContext,
+  block_type : @lib.BlockType,
+) -> Int {
+  match @ir.hot_module_resolve_block_results(module_ctx, block_type) {
+    Some(results) => results.length()
+    None => 1
+  }
 }
 
 ///|
@@ -647,6 +739,9 @@ fn run_hot_pipeline_dce_raw_instr_is_definitely_void(
   match instr {
     @lib.Nop
     | @lib.Drop
+    | @lib.Br(_)
+    | @lib.BrIf(_)
+    | @lib.BrTable(_, _)
     | @lib.Return
     | @lib.ReturnCall(_)
     | @lib.ReturnCallIndirect(_, _)
@@ -680,6 +775,10 @@ fn run_hot_pipeline_dce_raw_instr_is_definitely_void(
         Some(@lib.FuncType(_, results)) => results.is_empty()
         None => false
       }
+    @lib.Block(block_type, _) | @lib.Loop(block_type, _) =>
+      run_hot_pipeline_dce_raw_block_result_arity(module_ctx, block_type) == 0
+    @lib.If(block_type, _, _) | @lib.TryTable(block_type, _, _) =>
+      run_hot_pipeline_dce_raw_block_result_arity(module_ctx, block_type) == 0
     _ => false
   }
 }
@@ -725,6 +824,47 @@ fn run_hot_pipeline_dce_raw_void_structured_noop(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_branchy_void_structured_noop(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if run_hot_pipeline_dce_raw_has_early_terminator(instrs) {
+    return false
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Drop => return false
+      @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) => ()
+      @lib.Block(block_type, @lib.Expr(body))
+      | @lib.Loop(block_type, @lib.Expr(body)) =>
+        if block_type != @lib.BlockType::void_() ||
+          !run_hot_pipeline_dce_raw_branchy_void_structured_noop(body) {
+          return false
+        }
+      @lib.If(block_type, then_body, else_body) => {
+        if block_type != @lib.BlockType::void_() ||
+          !run_hot_pipeline_dce_raw_branchy_void_structured_noop(then_body) {
+          return false
+        }
+        match else_body {
+          Some(else_body) =>
+            if !run_hot_pipeline_dce_raw_branchy_void_structured_noop(else_body) {
+              return false
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(block_type, _, @lib.Expr(body)) =>
+        if block_type != @lib.BlockType::void_() ||
+          !run_hot_pipeline_dce_raw_branchy_void_structured_noop(body) {
+          return false
+        }
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_dce_raw_straight_line_noop(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -747,28 +887,33 @@ fn run_hot_pipeline_dce_can_skip_raw(
   func_idx : @lib.FuncIdx,
 ) -> Bool {
   let @lib.Func(_, @lib.Expr(instrs)) = original
+  let has_drop = run_hot_pipeline_dce_raw_has_drop(instrs)
   let (_, has_structured_control, has_branches, _) = run_hot_pipeline_instr_scan(
     instrs,
   )
-  if has_branches {
-    return false
-  }
   let straight_line_noop = !has_structured_control &&
     run_hot_pipeline_dce_raw_straight_line_noop(instrs)
   let structured_void_noop = has_structured_control &&
     run_hot_pipeline_dce_raw_void_structured_noop(instrs)
-  if !straight_line_noop && !structured_void_noop {
-    return false
-  }
   match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
-    Some(@lib.FuncType(_, results)) =>
+    Some(@lib.FuncType(_, results)) => {
+      let branchy_no_drop_noop = !has_drop &&
+        has_structured_control &&
+        has_branches &&
+        !run_hot_pipeline_dce_raw_has_nonfinal_nonfallthrough(instrs) &&
+        run_hot_pipeline_dce_raw_branchy_void_structured_noop(instrs)
+      if !straight_line_noop && !structured_void_noop && !branchy_no_drop_noop {
+        return false
+      }
       !results.is_empty() ||
       structured_void_noop ||
+      branchy_no_drop_noop ||
       instrs.is_empty() ||
       run_hot_pipeline_dce_raw_instr_is_definitely_void(
         instrs[instrs.length() - 1],
         module_ctx,
       )
+    }
     None =>
       abort(
         "hot pipeline raw dead-code-elimination skip requires the function type to resolve",
@@ -1570,8 +1715,8 @@ fn run_hot_pipeline_func(
     mod_, func_idx, module_ctx,
   )
   let lifted_revision = @ir.hot_revision_current(func)
-  if func_idx == @lib.FuncIdx::new(2944U) &&
-    (descriptor.name == "vacuum" || descriptor.name == "dead-code-elimination") {
+  if run_hot_pipeline_debug_dump_enabled(options, func_idx, descriptor.name) &&
+    func_idx == @lib.FuncIdx::new(2944U) {
     let use_def = @ir.use_def_build(func)
     pass_manager_debug_dump_root_prefix(
       options.trace,
@@ -1625,8 +1770,8 @@ fn run_hot_pipeline_func(
       )
     }
   }
-  if func_idx == @lib.FuncIdx::new(2941U) &&
-    (descriptor.name == "vacuum" || descriptor.name == "dead-code-elimination") {
+  if run_hot_pipeline_debug_dump_enabled(options, func_idx, descriptor.name) &&
+    func_idx == @lib.FuncIdx::new(2941U) {
     let use_def = @ir.use_def_build(func)
     pass_manager_debug_dump_target_regions(
       options.trace,
@@ -1835,8 +1980,8 @@ fn run_hot_pipeline_func(
       }
     Err(err) => return Err(err)
   }
-  if func_idx == @lib.FuncIdx::new(2944U) &&
-    (descriptor.name == "vacuum" || descriptor.name == "dead-code-elimination") {
+  if run_hot_pipeline_debug_dump_enabled(options, func_idx, descriptor.name) &&
+    func_idx == @lib.FuncIdx::new(2944U) {
     let use_def = @ir.use_def_build(func)
     pass_manager_debug_dump_root_prefix(
       options.trace,
@@ -1890,8 +2035,8 @@ fn run_hot_pipeline_func(
       )
     }
   }
-  if func_idx == @lib.FuncIdx::new(2941U) &&
-    (descriptor.name == "vacuum" || descriptor.name == "dead-code-elimination") {
+  if run_hot_pipeline_debug_dump_enabled(options, func_idx, descriptor.name) &&
+    func_idx == @lib.FuncIdx::new(2941U) {
     let use_def = @ir.use_def_build(func)
     pass_manager_debug_dump_target_regions(
       options.trace,

@@ -134,6 +134,8 @@ pub fn rume_summary() -> String
 
 pub fn run_hot_pipeline(@lib.Module, HotPipelineOptions, Array[String]) -> Result[@lib.Module, String]
 
+pub fn run_hot_pipeline_debug_dump_enabled(HotPipelineOptions, @lib.FuncIdx, String) -> Bool
+
 pub fn shrink_preset_passes(HotPipelineOptions) -> Array[String]
 
 pub fn simplify_locals_descriptor() -> @ir.HotPassDescriptor
@@ -242,6 +244,7 @@ pub struct HotPipelineOptions {
   verify_policy : HotPipelineVerifyPolicy
   validate_final_module : Bool
   closed_world : Bool
+  trace_enabled : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
 }
