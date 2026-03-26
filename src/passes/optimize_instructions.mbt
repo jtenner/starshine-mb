@@ -17,6 +17,21 @@ pub fn optimize_instructions_summary() -> String {
 }
 
 ///|
+fn optimize_instructions_node_is_live(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 {
+    return false
+  }
+  if node_id < dead.length() {
+    return !dead[node_id]
+  }
+  @ir.hot_node_is_live(func, node_id)
+}
+
+///|
 fn optimize_instructions_replace_with_const_i32(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -57,17 +72,22 @@ fn optimize_instructions_rewrite_exact_with_children(
 ///|
 fn optimize_instructions_i32_const(
   func : @ir.HotFunc,
+  dead : Array[Bool],
   node_id : Int,
 ) -> @lib.I32? {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
     return None
   }
-  let node = @ir.hot_node_get(func, node_id)
+  let node = if node_id < func.nodes.length() {
+    func.nodes[node_id]
+  } else {
+    @ir.hot_node_get(func, node_id)
+  }
   match node.op {
     @ir.HotOp::Const => ()
     _ => return None
   }
-  match @ir.hot_const_get(func, node.imm0) {
+  match func.consts[node.imm0] {
     @ir.HotConstPayload::I32Const(v) => Some(v)
     _ => None
   }
@@ -76,17 +96,22 @@ fn optimize_instructions_i32_const(
 ///|
 fn optimize_instructions_i64_const(
   func : @ir.HotFunc,
+  dead : Array[Bool],
   node_id : Int,
 ) -> @lib.I64? {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
     return None
   }
-  let node = @ir.hot_node_get(func, node_id)
+  let node = if node_id < func.nodes.length() {
+    func.nodes[node_id]
+  } else {
+    @ir.hot_node_get(func, node_id)
+  }
   match node.op {
     @ir.HotOp::Const => ()
     _ => return None
   }
-  match @ir.hot_const_get(func, node.imm0) {
+  match func.consts[node.imm0] {
     @ir.HotConstPayload::I64Const(v) => Some(v)
     _ => None
   }
@@ -112,9 +137,17 @@ fn optimize_instructions_shift_mask_bits(instr : @lib.Instruction) -> Int? {
 ///|
 fn optimize_instructions_is_trivially_pure_value(
   func : @ir.HotFunc,
+  dead : Array[Bool],
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  let node = if node_id < func.nodes.length() {
+    func.nodes[node_id]
+  } else {
+    @ir.hot_node_get(func, node_id)
+  }
   match node.op {
     @ir.HotOp::LocalGet
     | @ir.HotOp::GlobalGet
@@ -129,21 +162,22 @@ fn optimize_instructions_is_trivially_pure_value(
 fn optimize_instructions_try_fold_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  dead : Array[Bool],
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
+  let node = func.nodes[node_id]
   match node.op {
     @ir.HotOp::Unary => ()
     _ => return false
   }
-  if @ir.hot_child_count(func, node_id) != 1 {
+  if node.child_count != 1 {
     return false
   }
-  let operand_id = @ir.hot_child_get(func, node_id, 0)
-  if operand_id < 0 || !@ir.hot_node_is_live(func, operand_id) {
+  let operand_id = func.children[node.child_base]
+  if !optimize_instructions_node_is_live(func, dead, operand_id) {
     return false
   }
-  let operand = @ir.hot_node_get(func, operand_id)
+  let operand = func.nodes[operand_id]
   match operand.op {
     @ir.HotOp::Const => ()
     _ => return false
@@ -173,23 +207,24 @@ fn optimize_instructions_try_fold_eqz(
 fn optimize_instructions_try_rewrite_add_sub(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  dead : Array[Bool],
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
+  let node = func.nodes[node_id]
   match node.op {
     @ir.HotOp::Binary => ()
     _ => return false
   }
-  if @ir.hot_child_count(func, node_id) != 2 {
+  if node.child_count != 2 {
     return false
   }
   let instr = match @ir.hot_node_exact_instr(func, node_id) {
     Some(instr) => instr
     None => return false
   }
-  let lhs_id = @ir.hot_child_get(func, node_id, 0)
-  let rhs_id = @ir.hot_child_get(func, node_id, 1)
-  match (instr, optimize_instructions_i32_const(func, rhs_id)) {
+  let lhs_id = func.children[node.child_base]
+  let rhs_id = func.children[node.child_base + 1]
+  match (instr, optimize_instructions_i32_const(func, dead, rhs_id)) {
     (@lib.Instruction::I32Add, Some(@lib.I32(raw))) if raw < 0 => {
       let replacement_rhs = @ir.hot_build_const_i32(func, @lib.I32(-raw))
       optimize_instructions_rewrite_exact_with_children(
@@ -202,7 +237,7 @@ fn optimize_instructions_try_rewrite_add_sub(
       true
     }
     _ =>
-      match (instr, optimize_instructions_i64_const(func, rhs_id)) {
+      match (instr, optimize_instructions_i64_const(func, dead, rhs_id)) {
         (@lib.Instruction::I64Add, Some(@lib.I64(raw))) if raw < 0L => {
           let replacement_rhs = @ir.hot_build_const_i64(func, @lib.I64(-raw))
           optimize_instructions_rewrite_exact_with_children(
@@ -223,14 +258,15 @@ fn optimize_instructions_try_rewrite_add_sub(
 fn optimize_instructions_try_rewrite_shift(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  dead : Array[Bool],
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
+  let node = func.nodes[node_id]
   match node.op {
     @ir.HotOp::Binary => ()
     _ => return false
   }
-  if @ir.hot_child_count(func, node_id) != 2 {
+  if node.child_count != 2 {
     return false
   }
   let instr = match @ir.hot_node_exact_instr(func, node_id) {
@@ -241,10 +277,10 @@ fn optimize_instructions_try_rewrite_shift(
     Some(bits) => bits
     None => return false
   }
-  let lhs_id = @ir.hot_child_get(func, node_id, 0)
-  let rhs_id = @ir.hot_child_get(func, node_id, 1)
+  let lhs_id = func.children[node.child_base]
+  let rhs_id = func.children[node.child_base + 1]
 
-  match optimize_instructions_i32_const(func, rhs_id) {
+  match optimize_instructions_i32_const(func, dead, rhs_id) {
     Some(@lib.I32(raw)) => {
       let masked = raw & mask_bits
       if masked == raw {
@@ -267,7 +303,7 @@ fn optimize_instructions_try_rewrite_shift(
     None => ()
   }
 
-  match optimize_instructions_i64_const(func, rhs_id) {
+  match optimize_instructions_i64_const(func, dead, rhs_id) {
     Some(@lib.I64(raw)) => {
       let mask64 = mask_bits.to_int64()
       let masked = raw & mask64
@@ -291,28 +327,36 @@ fn optimize_instructions_try_rewrite_shift(
     None => ()
   }
 
-  let rhs = @ir.hot_node_get(func, rhs_id)
+  if !optimize_instructions_node_is_live(func, dead, rhs_id) {
+    return false
+  }
+  let rhs = if rhs_id < func.nodes.length() {
+    func.nodes[rhs_id]
+  } else {
+    @ir.hot_node_get(func, rhs_id)
+  }
   let mask_operand_id = match rhs.op {
     @ir.HotOp::Binary =>
       match @ir.hot_node_exact_instr(func, rhs_id) {
         Some(@lib.Instruction::I32And) =>
           match
-            optimize_instructions_i32_const(
-              func,
-              @ir.hot_child_get(func, rhs_id, 1),
-            ) {
-            Some(@lib.I32(raw)) if (raw & mask_bits) == mask_bits =>
-              Some(@ir.hot_child_get(func, rhs_id, 0))
+            optimize_instructions_i32_const(func, dead, func.children[
+              rhs.child_base + 1
+            ]) {
+            Some(@lib.I32(raw)) if (raw & mask_bits) == mask_bits => Some(
+              func.children[rhs.child_base]
+            )
             _ => None
           }
         Some(@lib.Instruction::I64And) =>
           match
             optimize_instructions_i64_const(
               func,
-              @ir.hot_child_get(func, rhs_id, 1),
+              dead,
+              func.children[rhs.child_base + 1],
             ) {
             Some(@lib.I64(raw)) if (raw & mask_bits.to_int64()) ==
-              mask_bits.to_int64() => Some(@ir.hot_child_get(func, rhs_id, 0))
+              mask_bits.to_int64() => Some(func.children[rhs.child_base])
             _ => None
           }
         _ => None
@@ -338,28 +382,29 @@ fn optimize_instructions_try_rewrite_shift(
 fn optimize_instructions_try_fold_compare_zero(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  dead : Array[Bool],
   node_id : Int,
 ) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
+  let node = func.nodes[node_id]
   match node.op {
     @ir.HotOp::Compare => ()
     _ => return false
   }
-  if @ir.hot_child_count(func, node_id) != 2 {
+  if node.child_count != 2 {
     return false
   }
   let instr = match @ir.hot_node_exact_instr(func, node_id) {
     Some(instr) => instr
     None => return false
   }
-  let lhs_id = @ir.hot_child_get(func, node_id, 0)
-  let rhs_id = @ir.hot_child_get(func, node_id, 1)
-  if !optimize_instructions_is_trivially_pure_value(func, lhs_id) {
+  let lhs_id = func.children[node.child_base]
+  let rhs_id = func.children[node.child_base + 1]
+  if !optimize_instructions_is_trivially_pure_value(func, dead, lhs_id) {
     return false
   }
   match instr {
     @lib.Instruction::I32GeU =>
-      match optimize_instructions_i32_const(func, rhs_id) {
+      match optimize_instructions_i32_const(func, dead, rhs_id) {
         Some(@lib.I32(raw)) if raw == 0 => {
           optimize_instructions_replace_with_const_i32(
             ctx,
@@ -372,7 +417,7 @@ fn optimize_instructions_try_fold_compare_zero(
         _ => false
       }
     @lib.Instruction::I32LtU =>
-      match optimize_instructions_i32_const(func, rhs_id) {
+      match optimize_instructions_i32_const(func, dead, rhs_id) {
         Some(@lib.I32(raw)) if raw == 0 => {
           optimize_instructions_replace_with_const_i32(
             ctx,
@@ -385,7 +430,7 @@ fn optimize_instructions_try_fold_compare_zero(
         _ => false
       }
     @lib.Instruction::I64GeU =>
-      match optimize_instructions_i64_const(func, rhs_id) {
+      match optimize_instructions_i64_const(func, dead, rhs_id) {
         Some(@lib.I64(raw)) if raw == 0L => {
           optimize_instructions_replace_with_const_i32(
             ctx,
@@ -398,7 +443,7 @@ fn optimize_instructions_try_fold_compare_zero(
         _ => false
       }
     @lib.Instruction::I64LtU =>
-      match optimize_instructions_i64_const(func, rhs_id) {
+      match optimize_instructions_i64_const(func, dead, rhs_id) {
         Some(@lib.I64(raw)) if raw == 0L => {
           optimize_instructions_replace_with_const_i32(
             ctx,
@@ -418,10 +463,11 @@ fn optimize_instructions_try_fold_compare_zero(
 fn optimize_instructions_visit_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  dead : Array[Bool],
   node_id : Int,
   seen : Array[Bool],
 ) -> Bool {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
     return false
   }
   if seen[node_id] {
@@ -432,22 +478,30 @@ fn optimize_instructions_visit_node(
     Some(perf) => perf_count_traversal_visit(perf)
     None => ()
   }
+  let node = func.nodes[node_id]
   let mut changed = false
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    let child_id = @ir.hot_child_get(func, node_id, slot)
-    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    let child_id = func.children[node.child_base + slot]
+    if !optimize_instructions_node_is_live(func, dead, child_id) {
       continue
     }
-    changed = optimize_instructions_visit_node(ctx, func, child_id, seen) ||
+    changed = optimize_instructions_visit_node(
+        ctx,
+        func,
+        dead,
+        child_id,
+        seen,
+      ) ||
       changed
   }
-  let local_changed = match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Unary => optimize_instructions_try_fold_eqz(ctx, func, node_id)
+  let local_changed = match node.op {
+    @ir.HotOp::Unary =>
+      optimize_instructions_try_fold_eqz(ctx, func, dead, node_id)
     @ir.HotOp::Binary =>
-      optimize_instructions_try_rewrite_add_sub(ctx, func, node_id) ||
-      optimize_instructions_try_rewrite_shift(ctx, func, node_id)
+      optimize_instructions_try_rewrite_add_sub(ctx, func, dead, node_id) ||
+      optimize_instructions_try_rewrite_shift(ctx, func, dead, node_id)
     @ir.HotOp::Compare =>
-      optimize_instructions_try_fold_compare_zero(ctx, func, node_id)
+      optimize_instructions_try_fold_compare_zero(ctx, func, dead, node_id)
     _ => false
   }
   local_changed || changed
@@ -459,12 +513,20 @@ fn optimize_instructions_run(
   func : @ir.HotFunc,
 ) -> HotPassResult {
   let mut changed = false
-  let seen = Array::make(@ir.hot_node_count(func), false)
-  for slot = 0; slot < @ir.hot_root_count(func); slot = slot + 1 {
+  let node_count = @ir.hot_node_count(func)
+  let seen = Array::make(node_count, false)
+  let dead = Array::make(node_count, false)
+  for free_id in func.free_nodes {
+    if free_id >= 0 && free_id < dead.length() {
+      dead[free_id] = true
+    }
+  }
+  for slot = 0; slot < func.roots.length(); slot = slot + 1 {
     changed = optimize_instructions_visit_node(
         ctx,
         func,
-        @ir.hot_root_get(func, slot),
+        dead,
+        func.roots[slot],
         seen,
       ) ||
       changed
