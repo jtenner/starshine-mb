@@ -1223,6 +1223,8 @@ fn hso_process_region(
       @ir.HotOp::LocalSet =>
         match hso_local_set_struct_new(type_cache, func, module_ctx, root_id) {
           Some((local_id, struct_new_id, type_idx)) => {
+            let segment_roots : Array[Int] = [root_id]
+            let mut segment_local_set_idx = 0
             let mut next_idx = idx + 1
             while next_idx < roots.length() {
               match
@@ -1238,7 +1240,7 @@ fn hso_process_region(
                       type_idx, field_idx, value_id, local_id,
                     ) {
                     changed = true
-                    next_roots.push(@ir.hot_build_nop(func))
+                    segment_roots.push(@ir.hot_build_nop(func))
                     next_idx = next_idx + 1
                     continue
                   }
@@ -1252,14 +1254,21 @@ fn hso_process_region(
                   roots[next_idx],
                   local_id,
                 ) {
-                next_roots.push(roots[next_idx])
+                segment_roots.push(roots[next_idx])
+                let last_idx = segment_roots.length() - 1
+                let moved_local_set_id = segment_roots[segment_local_set_idx]
+                segment_roots[segment_local_set_idx] = segment_roots[last_idx]
+                segment_roots[last_idx] = moved_local_set_id
+                segment_local_set_idx = last_idx
                 changed = true
                 next_idx = next_idx + 1
                 continue
               }
               break
             }
-            next_roots.push(root_id)
+            for segment_root_id in segment_roots {
+              next_roots.push(segment_root_id)
+            }
             idx = next_idx
           }
           None => {
