@@ -1421,6 +1421,14 @@ fn remove_unused_brs_is_region_child_slot(op : @ir.HotOp, slot : Int) -> Bool {
 }
 
 ///|
+fn remove_unused_brs_preserves_payload_context(op : @ir.HotOp) -> Bool {
+  match op {
+    @ir.HotOp::LocalTee | @ir.HotOp::TupleExtract => true
+    _ => false
+  }
+}
+
+///|
 fn remove_unused_brs_mark_seen(seen : Array[Bool], node_id : Int) -> Unit {
   while seen.length() <= node_id {
     seen.push(false)
@@ -1461,8 +1469,10 @@ fn remove_unused_brs_visit_embedded_subtree(
     if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
       continue
     }
+    let child_payload_context = payload_context &&
+      remove_unused_brs_preserves_payload_context(node.op)
     changed = remove_unused_brs_visit_embedded_subtree(
-        ctx, func, child_id, seen, reorder_cache, false,
+        ctx, func, child_id, seen, reorder_cache, child_payload_context,
       ) ||
       changed
   }

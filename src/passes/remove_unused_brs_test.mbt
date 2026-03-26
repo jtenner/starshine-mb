@@ -438,3 +438,23 @@ test "remove-unused-brs voidifies result ifs whose arms only return under drop" 
   assert_true(pretty.contains("(if (Void)"), msg=pretty)
   assert_true(pretty.contains("unreachable"), msg=pretty)
 }
+
+///|
+test "remove-unused-brs voidifies dropped exit-only ifs through local.tee wrappers" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) (drop (local.tee 1 (if (result i32) (local.get 0) (then (return (i32.const 1))) (else (return (i32.const 2)))))) (i32.const 0)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs dropped local.tee exit-only if success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if (I32)"), msg=pretty)
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
