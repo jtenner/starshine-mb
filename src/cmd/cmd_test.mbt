@@ -319,6 +319,173 @@ fn fixture_print_log_module() -> Module {
 }
 
 ///|
+fn fixture_hso_struct_fields(field_count : Int) -> Array[@lib.FieldType] {
+  let fields : Array[@lib.FieldType] = []
+  for _ in 0..<field_count {
+    fields.push(
+      @lib.FieldType::new(
+        @lib.StorageType::val_type(@lib.ValType::i32()),
+        @lib.Mut::var_(),
+      ),
+    )
+  }
+  fields
+}
+
+///|
+fn fixture_hso_nonlocal_readonly_prefix_module() -> Module {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(fixture_hso_struct_fields(1)),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      Func::new(
+        @lib.Locals::from_types([ref_type]),
+        @lib.Expr::new([
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_set(local0),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+              @lib.Instruction::drop(),
+              @lib.Instruction::i32_const(@lib.I32(7)),
+            ]),
+          ),
+          @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+        ]),
+      ),
+    ]),
+  )
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn fixture_hso_tee_nonlocal_readonly_prefix_module() -> Module {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(fixture_hso_struct_fields(1)),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      Func::new(
+        @lib.Locals::from_types([ref_type]),
+        @lib.Expr::new([
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_tee(local0),
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+              @lib.Instruction::drop(),
+              @lib.Instruction::i32_const(@lib.I32(7)),
+            ]),
+          ),
+          @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+        ]),
+      ),
+    ]),
+  )
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn fixture_hso_swapped_nonlocal_readonly_prefix_module() -> Module {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(fixture_hso_struct_fields(1)),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      Func::new(
+        @lib.Locals::from_types([ref_type]),
+        @lib.Expr::new([
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_set(local0),
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(9)),
+              @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            ]),
+          ),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+              @lib.Instruction::drop(),
+              @lib.Instruction::i32_const(@lib.I32(7)),
+            ]),
+          ),
+          @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+        ]),
+      ),
+    ]),
+  )
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn fixture_mergeable_block_module() -> Module {
   let t_void = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
@@ -890,6 +1057,114 @@ test "run_cmd_with_adapter applies ssa-nomerge to wasm inputs" {
     }
     _ => fail("expected transformed code section")
   }
+}
+
+///|
+test "run_cmd_with_adapter keeps struct.set for HSO readonly mutable-global prefixes" {
+  let wasm = encode_module_bytes(fixture_hso_nonlocal_readonly_prefix_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso.wasm"] },
+    file_exists=fn(path) { path == "hso.wasm" },
+    read_file=fn(path) {
+      if path == "hso.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--heap-store-optimization", "--out", "out.wasm", "hso.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected heap-store-optimization run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter keeps struct.set for tee HSO readonly mutable-global prefixes" {
+  let wasm = encode_module_bytes(fixture_hso_tee_nonlocal_readonly_prefix_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-tee.wasm"] },
+    file_exists=fn(path) { path == "hso-tee.wasm" },
+    read_file=fn(path) {
+      if path == "hso-tee.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--heap-store-optimization", "--out", "out.wasm", "hso-tee.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected tee heap-store-optimization run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter keeps struct.set for swapped-root HSO readonly mutable-global prefixes" {
+  let wasm = encode_module_bytes(
+    fixture_hso_swapped_nonlocal_readonly_prefix_module(),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-swap.wasm"] },
+    file_exists=fn(path) { path == "hso-swap.wasm" },
+    read_file=fn(path) {
+      if path == "hso-swap.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--heap-store-optimization", "--out", "out.wasm", "hso-swap.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected swapped heap-store-optimization run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|

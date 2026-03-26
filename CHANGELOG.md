@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Fix: cover HSO mutable-global readonly prefixes on the wasm CLI path
+
+- **`heap-store-optimization` cmd-path parity coverage** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) with encoded-wasm regressions that drive `run_cmd_with_adapter` through `--heap-store-optimization` for mutable-global readonly-prefix fixtures, including the direct, tee-wrapped, and swapped-root shapes seen in oracle work. Focused `moon test src/cmd` stays green at `77/77`.
+
 ## 2026-03-26 Fix: keep nonlocal readonly block prefixes out of direct HSO folds
 
 - **`heap-store-optimization` nonlocal readonly prefix parity tightening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), and [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt) so direct HSO folds now reject trapless-readonly multi-root block values when their prefixes read non-local state like `global.get`, `memory.size`, or `table.size`, while still preserving the existing folds for peeled `local.get` prefixes and branch-contained values. Focused `moon test src/passes` stays green at `110/110`; emitted-wasm parity on stack-decoded wrapper shapes is still being chased separately.
