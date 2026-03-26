@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Optimize: cache defaultable struct-field counts by type
+
+- **`heap-store-optimization` type-query hot-path cleanup** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt) so HSO now memoizes “defaultable field count by type index” instead of re-resolving the same GC struct field metadata from the module context for every `struct.new_default*` candidate. Focused `moon fmt && moon test src/passes` stays green, the synthetic `/tmp/hso-compare-big.wasm` replay remains canonical in raw wasm and normalized WAT, and repeated direct native HSO timings tightened into roughly the `8.88ms`–`9.76ms` band; the large gap to Binaryen remains open.
+
 ## 2026-03-26 Fix: swap HSO roots through structural wrapper blocks
 
 - **`heap-store-optimization` structural-root parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), and [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt) so HSO now uses the reorder-aware effect mask when deciding whether a `local.set (struct.new ...)` may swap across an intervening root, which lets harmless structural wrappers like block-wrapped unrelated `local.set` and block-wrapped readonly roots behave like Binaryen instead of being blocked by a raw control bit. Focused `moon fmt && moon test src/passes` stays green, and the synthetic `/tmp/hso-compare-big.wasm` replay remains canonical in raw wasm and normalized WAT; this slice closes another parity edge while the broader performance gap remains open.
