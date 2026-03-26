@@ -298,6 +298,62 @@ test "optimize-instructions folds unsigned ge zero on pure values" {
 }
 
 ///|
+test "optimize-instructions canonicalizes relational constants onto the rhs" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 9 local.get 0 i32.gt_u))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_lt_u()),
+  )
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected non-constant compare operand on the lhs")
+  }
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(9)),
+  )
+}
+
+///|
+test "optimize-instructions canonicalizes unsigned compare-to-one" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 1 i32.lt_u))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_eq()),
+  )
+  let rhs = @ir.hot_child_get(func, root, 1)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
+test "optimize-instructions canonicalizes signed compare to zero" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 1 i32.ge_s))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_gt_s()),
+  )
+  let rhs = @ir.hot_child_get(func, root, 1)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
 test "optimize-instructions visits shared dags once" {
   let func = optimize_instructions_shared_dag_fixture(24)
   let node_count = @ir.hot_node_count(func)
