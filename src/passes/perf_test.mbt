@@ -233,7 +233,8 @@ test "dead-code-elimination skips raw lift for straight-line value-returning fun
       options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
     ) {
     Ok(_) => ()
-    Err(err) => fail("expected raw-skip dead-code-elimination success, got \{err}")
+    Err(err) =>
+      fail("expected raw-skip dead-code-elimination success, got \{err}")
   }
 
   let text = perf_test_join_lines(lines)
@@ -260,7 +261,9 @@ test "dead-code-elimination skips raw lift for straight-line void direct calls" 
     ) {
     Ok(_) => ()
     Err(err) =>
-      fail("expected raw-skip dead-code-elimination direct-call success, got \{err}")
+      fail(
+        "expected raw-skip dead-code-elimination direct-call success, got \{err}",
+      )
   }
 
   let text = perf_test_join_lines(lines)
@@ -300,6 +303,35 @@ test "dead-code-elimination skips raw lift for branchless void structured contro
   )
   assert_false(text.contains("perf:timer name=lift"))
   assert_false(text.contains("perf:timer name=pass:dead-code-elimination"))
+}
+
+///|
+test "dead-code-elimination does not skip raw lift for straight-line dead drops" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 1 drop i32.const 7))",
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-drop dead-code-elimination success without raw skip, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_false(
+    text.contains(
+      "pass[dead-code-elimination]:skip-raw reason=no-dce-candidates",
+    ),
+  )
+  assert_true(text.contains("perf:timer name=lift"))
+  assert_true(text.contains("perf:timer name=pass:dead-code-elimination"))
 }
 
 ///|

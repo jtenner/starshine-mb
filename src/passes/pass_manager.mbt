@@ -535,10 +535,7 @@ fn run_hot_pipeline_dce_raw_has_early_terminator(
       | @lib.ReturnCallRef(_)
       | @lib.Throw(_)
       | @lib.ThrowRef
-      | @lib.Unreachable =>
-        if !is_final {
-          return true
-        }
+      | @lib.Unreachable => if !is_final { return true }
       _ => ()
     }
   }
@@ -631,17 +628,36 @@ fn run_hot_pipeline_dce_raw_void_structured_noop(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_straight_line_noop(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if run_hot_pipeline_dce_raw_has_early_terminator(instrs) {
+    return false
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Drop => return false
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_dce_can_skip_raw(
   original : @lib.Func,
   module_ctx : @ir.HotModuleContext,
   func_idx : @lib.FuncIdx,
 ) -> Bool {
   let @lib.Func(_, @lib.Expr(instrs)) = original
-  let (_, has_structured_control, has_branches, _) = run_hot_pipeline_instr_scan(instrs)
+  let (_, has_structured_control, has_branches, _) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
   if has_branches {
     return false
   }
-  let straight_line_noop = !has_structured_control
+  let straight_line_noop = !has_structured_control &&
+    run_hot_pipeline_dce_raw_straight_line_noop(instrs)
   let structured_void_noop = has_structured_control &&
     run_hot_pipeline_dce_raw_void_structured_noop(instrs)
   if !straight_line_noop && !structured_void_noop {
