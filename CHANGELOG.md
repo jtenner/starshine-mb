@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Fix: cover decoded HSO local and immutable-global value prefixes
+
+- **`heap-store-optimization` decoded local/global prefix parity coverage** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) with raw-wasm CLI regressions for the assembled `drop(local.get)` and immutable-`global.get` value-prefix shapes that Binaryen leaves as `struct.set`. Focused `moon test src/cmd` stays green at `82/82`.
+
 ## 2026-03-26 Fix: cover decoded HSO table.size value-prefix wasm parity
 
 - **`heap-store-optimization` decoded table-size parity coverage** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) with a raw-wasm CLI regression for the assembled `table.size` value-prefix shape that Binaryen leaves as `struct.set`. Focused `moon test src/cmd` stays green at `80/80`.
