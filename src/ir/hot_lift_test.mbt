@@ -206,9 +206,7 @@ fn hot_lift_test_triple_result_tee_consumer_module() -> @lib.Module {
       ),
     ),
     @lib.RecType::new(
-      @lib.SubType::comp_type(
-        @lib.CompType::func([@lib.ValType::i32()], []),
-      ),
+      @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
     ),
   ])
   let import_sec = @lib.ImportSec::new([
@@ -438,18 +436,16 @@ test "hot lift preserves explicit triple-result spill bridges" {
       @lib.Instruction::call(@lib.FuncIdx::new(0U)),
       @lib.Instruction::drop(),
     ]),
-    HotLocals::new(
-      locals=[
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i64(),
-      ],
-    ),
+    HotLocals::new(locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+    ]),
     ctx,
   )
 
@@ -536,18 +532,16 @@ test "hot lift preserves branchy triple-result spill bridges" {
       @lib.Instruction::call(@lib.FuncIdx::new(0U)),
       @lib.Instruction::drop(),
     ]),
-    HotLocals::new(
-      locals=[
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i64(),
-      ],
-    ),
+    HotLocals::new(locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+    ]),
     ctx,
   )
 
@@ -630,20 +624,18 @@ test "hot lift preserves spill bridges after branchy local-get result blocks" {
       @lib.Instruction::call(@lib.FuncIdx::new(0U)),
       @lib.Instruction::drop(),
     ]),
-    HotLocals::new(
-      locals=[
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i64(),
-      ],
-    ),
+    HotLocals::new(locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+    ]),
     ctx,
   )
 
@@ -708,13 +700,11 @@ test "hot lift preserves branchy triple-result bridges ending in local.tee" {
       @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
       @lib.Instruction::drop(),
     ]),
-    HotLocals::new(
-      locals=[
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-        @lib.ValType::i32(),
-      ],
-    ),
+    HotLocals::new(locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
     ctx,
   )
 
