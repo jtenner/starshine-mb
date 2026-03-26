@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Plan: refresh DCE backlog after the rebase
+
+- **DCE remaining-work backlog sync** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-dce/CHANGELOG.md) and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb-dce/agent-todo.md) after rebasing the worktree onto `master` so the active DCE backlog now matches the current [0066 DCE reference](/home/jtenner/Projects/starshine-mb-dce/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178), records that the old invalid-output blocker is closed by explicit final-tail `unreachable` materialization, and replaces the stale blocker text with the remaining ordered-replay, oracle-refresh, and runtime-budget work.
+
 ## 2026-03-26 Optimize: replace `remove-unused-names` subtree target scans with global label-use bits
 
 - **`remove-unused-names` global label-liveness rewrite** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb/CHANGELOG.md), [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md), and [`src/passes/remove_unused_names.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_names.mbt) so the pass now computes one function-wide label-use bitmap after the existing candidate precheck and uses lexical-label visibility to decide loop demotion and peeled-block safety directly, removing the old per-candidate stamped subtree branch scans and their worklist state entirely. Focused `moon test src/passes` and repeated `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir /tmp/... --remove-unused-names` runs remain green with canonical wasm and normalized WAT parity still exact; recent pass timings improved again into the ~`82.722-87.984ms` range versus Binaryen at ~`14.014-14.700ms`, so the pass is still well over Binaryen's budget but materially faster than the earlier traversal-only checkpoints.
