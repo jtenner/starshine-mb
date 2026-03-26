@@ -1,18 +1,14 @@
 ///|
 pub fn remove_unused_brs_descriptor() -> @ir.HotPassDescriptor {
-  @ir.HotPassDescriptor::new(
-    "remove-unused-brs",
-    requires=[@ir.HotAnalysis::use_def()],
-    invalidates=[
-      @ir.HotAnalysis::cfg(),
-      @ir.HotAnalysis::dominance(),
-      @ir.HotAnalysis::liveness(),
-      @ir.HotAnalysis::use_def(),
-      @ir.HotAnalysis::effects(),
-      @ir.HotAnalysis::loop_info(),
-      @ir.HotAnalysis::ssa(),
-    ],
-  )
+  @ir.HotPassDescriptor::new("remove-unused-brs", invalidates=[
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::dominance(),
+    @ir.HotAnalysis::liveness(),
+    @ir.HotAnalysis::use_def(),
+    @ir.HotAnalysis::effects(),
+    @ir.HotAnalysis::loop_info(),
+    @ir.HotAnalysis::ssa(),
+  ])
 }
 
 ///|

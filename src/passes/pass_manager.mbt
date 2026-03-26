@@ -536,6 +536,30 @@ fn run_hot_pipeline_instr_scan(
 }
 
 ///|
+fn run_hot_pipeline_instr_has_remove_unused_brs_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Nop
+      | @lib.If(_, _, _)
+      | @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.Return => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_instr_has_remove_unused_brs_candidate(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_dce_raw_has_early_terminator(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -788,8 +812,6 @@ fn run_hot_pipeline_dce_can_skip_raw(
       )
   }
 }
-
-///|
 fn run_hot_pipeline_required_func_params(
   module_ctx : @ir.HotModuleContext,
   func_idx : @lib.FuncIdx,
@@ -1552,6 +1574,24 @@ fn run_hot_pipeline_raw_ssa_nomerge(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> (String, @lib.Func)? {
+  if descriptor.name != "remove-unused-brs" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(_, @lib.Expr(instrs)) = original
+  if run_hot_pipeline_instr_has_remove_unused_brs_candidate(instrs) {
+    None
+  } else {
+    Some(("no-remove-unused-brs-candidates", original))
+  }
+}
+
+///|
 fn run_hot_pipeline_func(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -1567,6 +1607,18 @@ fn run_hot_pipeline_func(
   )
   match
     run_hot_pipeline_raw_ssa_nomerge(mod_, func_idx, module_ctx, descriptor) {
+    Some((reason, raw_func)) => {
+      pipeline_trace_hook(
+        options.trace,
+        descriptor.name,
+        "skip-raw",
+        payload="reason=\{reason}",
+      )
+      return Ok(raw_func)
+    }
+    None => ()
+  }
+  match run_hot_pipeline_raw_remove_unused_brs(mod_, func_idx, descriptor) {
     Some((reason, raw_func)) => {
       pipeline_trace_hook(
         options.trace,

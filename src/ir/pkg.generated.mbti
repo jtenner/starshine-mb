@@ -1475,4 +1475,3 @@ pub type SsaValueId = Int
 pub type TypeId = Int
 
 // Traits
-
