@@ -188,16 +188,19 @@ pub fn ssa_insert_predecessor_copies(
   predecessor_block : HotBlockInfo,
   copies : Array[HotSsaCopy],
 ) -> Array[NodeId] {
-  if predecessor_block.is_synthetic {
-    abort("ssa predecessor copies require a non-synthetic predecessor block")
+  let schedule = ssa_destroy_schedule_copies(func, copies)
+  if schedule.length() == 0 {
+    return []
+  }
+  if predecessor_block.start_slot < 0 || predecessor_block.end_slot < 0 {
+    abort(
+      "ssa predecessor copies require a predecessor block with an insertion site",
+    )
   }
   let nodes : Array[NodeId] = []
-  for copy in ssa_destroy_schedule_copies(func, copies) {
+  for copy in schedule {
     let source_get = hot_build_local_get(func, copy.source_local)
     nodes.push(hot_build_local_set(func, copy.target_local, source_get))
-  }
-  if nodes.length() == 0 {
-    return []
   }
   hot_region_insert(
     func,
@@ -213,7 +216,12 @@ pub fn ssa_remove_dead_local_defs(
   func : HotFunc,
   dead_nodes : Array[NodeId],
 ) -> Unit {
+  let seen = Array::make(hot_node_count(func), false)
   for node_id in dead_nodes {
+    if node_id < 0 || node_id >= seen.length() || seen[node_id] {
+      continue
+    }
+    seen[node_id] = true
     let node = hot_node_get(func, node_id)
     match node.op {
       HotOp::LocalSet =>
@@ -228,7 +236,11 @@ pub fn ssa_remove_dead_local_defs(
         let child = hot_node_get(func, hot_child_get(func, node_id, 0))
         hot_replace_node(func, node_id, child)
       }
-      _ => abort("ssa dead-def cleanup requires local_set/local_tee nodes")
+      HotOp::Drop => ()
+      _ =>
+        abort(
+          "ssa dead-def cleanup requires local_set/local_tee nodes, got \{node.op} at node \{node_id}",
+        )
     }
   }
 }

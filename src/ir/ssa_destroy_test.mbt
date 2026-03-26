@@ -119,3 +119,18 @@ test "ssa predecessor copy insertion allocates a temp for cycles" {
   assert_eq(hot_node_get(func, first_copy).imm0, 0)
   assert_eq(hot_node_get(func, second_copy).imm0, 1)
 }
+
+///|
+test "ssa dead local cleanup tolerates duplicate dead node ids" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let value = hot_build_const_i32(func, @lib.I32(1))
+  let set_id = hot_build_local_set(func, 0, value)
+  hot_root_append(func, set_id)
+
+  ssa_remove_dead_local_defs(func, [set_id, set_id])
+
+  let rewritten = hot_root_get(func, 0)
+  assert_eq(hot_node_get(func, rewritten).op.to_string(), "Drop")
+  let child = hot_child_get(func, rewritten, 0)
+  assert_eq(hot_node_get(func, child).op.to_string(), "Const")
+}

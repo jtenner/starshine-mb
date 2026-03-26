@@ -148,3 +148,57 @@ test "ssa-nomerge lowers loop-carried locals before the backedge" {
     @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
   ])
 }
+
+///|
+test "ssa-nomerge skips synthetic entry copies for root loop headers" {
+  let input =
+    #| (module
+    #|   (func (param i32)
+    #|     (local i32)
+    #|     loop
+    #|       local.get 1
+    #|       local.get 0
+    #|       i32.lt_s
+    #|       if
+    #|         local.get 1
+    #|         i32.const 1
+    #|         i32.add
+    #|         local.set 1
+    #|         br 1
+    #|       end
+    #|     end))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected root-loop ssa-nomerge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  assert_eq(instrs, [
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_lt_s(),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ],
+          None,
+        ),
+      ]),
+    ),
+  ])
+}

@@ -164,3 +164,40 @@ test "dead-code-elimination removes nested unreachable roots after return" {
   assert_true(pretty.contains("return"), msg=pretty)
   assert_false(pretty.contains("I32(9)"), msg=pretty)
 }
+
+///|
+test "dead-code-elimination deletes detached shared subtrees after unreachable tails" {
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let shared = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let drop0 = @ir.hot_build_drop(func, shared)
+  let drop1 = @ir.hot_build_drop(func, shared)
+  let ret = @ir.hot_build_return(func, [
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+  ])
+  @ir.hot_root_append(func, ret)
+  @ir.hot_root_append(func, drop0)
+  @ir.hot_root_append(func, drop1)
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected dead-code-elimination shared-subtree success, got \{err}")
+  }
+
+  assert_eq(@ir.hot_root_count(func), 1)
+  assert_eq(@ir.hot_root_get(func, 0), ret)
+  assert_false(@ir.hot_node_is_live(func, shared))
+  assert_false(@ir.hot_node_is_live(func, drop0))
+  assert_false(@ir.hot_node_is_live(func, drop1))
+}

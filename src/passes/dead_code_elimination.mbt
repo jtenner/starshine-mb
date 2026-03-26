@@ -72,16 +72,56 @@ fn dead_code_elimination_delete_unused_nodes(
   func : @ir.HotFunc,
   node_ids : Array[Int],
 ) -> Unit {
+  let pending = node_ids.copy()
   let mut changed = false
-  for node_id in node_ids {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
+  let mut progress = true
+  while progress {
+    progress = false
+    for idx = 0; idx < pending.length(); idx = idx + 1 {
+      let node_id = pending[idx]
+      if node_id < 0 {
+        continue
+      }
+      if !@ir.hot_node_is_live(func, node_id) {
+        pending[idx] = -1
+        continue
+      }
+      if !pass_node_is_unused(ctx, func, node_id) {
+        continue
+      }
+      let mut referenced = false
+      for root_idx = 0
+          root_idx < @ir.hot_root_count(func)
+          root_idx = root_idx + 1 {
+        if @ir.hot_root_get(func, root_idx) == node_id {
+          referenced = true
+          break
+        }
+      }
+      if referenced {
+        continue
+      }
+      for user_id = 0; user_id < @ir.hot_node_count(func); user_id = user_id + 1 {
+        if referenced ||
+          !@ir.hot_node_is_live(func, user_id) ||
+          user_id == node_id {
+          continue
+        }
+        for slot = 0; slot < @ir.hot_child_count(func, user_id); slot = slot + 1 {
+          if @ir.hot_child_get(func, user_id, slot) == node_id {
+            referenced = true
+            break
+          }
+        }
+      }
+      if referenced {
+        continue
+      }
+      @ir.hot_delete_node(func, node_id)
+      pending[idx] = -1
+      changed = true
+      progress = true
     }
-    if !pass_node_is_unused(ctx, func, node_id) {
-      continue
-    }
-    @ir.hot_delete_node(func, node_id)
-    changed = true
   }
   if changed {
     pass_mark_mutated(ctx, func)

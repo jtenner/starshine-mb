@@ -81,6 +81,25 @@ test "hot lower roundtrips branches through label metadata" {
 }
 
 ///|
+test "hot lower preserves result-only loop fallthrough values" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::loop_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+    ),
+  ])
+  let hot = hot_lift_body(
+    body,
+    HotLocals::new(),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+
+  let lowered = hot_lower_func(hot)
+
+  assert_eq(lowered, @lib.Func::new(@lib.Locals::from_types([]), body))
+}
+
+///|
 fn hot_lower_test_func_module() -> @lib.Module {
   let type_sec = @lib.TypeSec::new([
     @lib.RecType::new(
@@ -1466,6 +1485,38 @@ test "hot lower drops dead non-final multi-result roots after mutation" {
       @lib.Instruction::i32_const(@lib.I32(7)),
       @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
       @lib.Instruction::i32_const(@lib.I32(99)),
+    ]),
+  )
+}
+
+///|
+test "hot lower drops partially dead multi-result roots after mutation" {
+  let hot = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  hot_body_result_type_set(hot, hot_type_intern_value(hot, @lib.ValType::i32()))
+  let call = hot_build_call(
+    hot,
+    0,
+    [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+    [],
+  )
+  let set0 = hot_build_local_set(hot, 0, call)
+  hot_root_append(hot, call)
+  hot_root_append(hot, set0)
+  let lowered = hot_lower_func(hot)
+  let @lib.Func(locals, body) = lowered
+
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  assert_eq(
+    body,
+    @lib.Expr::new([
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
     ]),
   )
 }
