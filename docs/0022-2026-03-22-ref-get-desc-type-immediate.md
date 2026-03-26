@@ -45,9 +45,10 @@ That was enough for lower-level instruction smoke coverage, but it blocked clean
 
 ## Remaining Work
 
-- The next fixture-lift blocker is now missing higher-level GC accessor coverage in
-  `tests/spec/proposals/custom-descriptors/ref_get_desc.wast`, starting with folded
-  `struct.get`, and then dedicated native harness coverage for the fixture.
+- This slice is now fully landed; `tests/spec/proposals/custom-descriptors/ref_get_desc.wast`
+  moved through the parser/lowering/typecheck/static-harness steps in follow-up slices.
+- The next remaining work is in newer custom-descriptor slices after the mixed-runtime
+  fixture is fully green.
 
 ## Open Questions
 
