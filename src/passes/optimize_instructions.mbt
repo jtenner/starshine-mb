@@ -732,9 +732,14 @@ fn optimize_instructions_visit_node(
           optimize_instructions_try_rewrite_shift(
             ctx, func, dead, node_id, instr, lhs_id, rhs_id,
           )
-        if optimize_instructions_try_canonicalize_commutative(
+        let canonicalized = if optimize_instructions_is_commutative_instr(instr) {
+          optimize_instructions_try_canonicalize_commutative(
             ctx, func, dead, node_id, instr, lhs_id, rhs_id, scratch,
-          ) {
+          )
+        } else {
+          false
+        }
+        if canonicalized {
           let current = func.nodes[node_id]
           let current_lhs = func.children[current.child_base]
           let current_rhs = func.children[current.child_base + 1]
@@ -760,9 +765,14 @@ fn optimize_instructions_visit_node(
         let changed = optimize_instructions_try_fold_compare_zero(
           ctx, func, dead, node_id, instr, lhs_id, rhs_id,
         )
-        if optimize_instructions_try_canonicalize_commutative(
+        let canonicalized = if optimize_instructions_is_commutative_instr(instr) {
+          optimize_instructions_try_canonicalize_commutative(
             ctx, func, dead, node_id, instr, lhs_id, rhs_id, scratch,
-          ) {
+          )
+        } else {
+          false
+        }
+        if canonicalized {
           let current = func.nodes[node_id]
           let current_instr = func.instr_payloads[current.imm0].instr
           let current_lhs = func.children[current.child_base]

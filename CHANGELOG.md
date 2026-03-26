@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Optimize: skip impossible commutative canonicalization probes in `optimize-instructions`
+
+- **`optimize-instructions` commutative dispatch guard** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-optimize-instructions/CHANGELOG.md) and [`src/passes/optimize_instructions.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions.mbt) so the binary and compare visitors now check the cached exact instruction first and only enter the commutative canonicalization helper when that instruction is one of the commutative forms the helper can actually rewrite. `moon fmt` and `moon test src/passes` are green. On `tests/node/dist/starshine-debug-wasi.wasm --optimize-instructions`, canonical parity is still open, but recent Starshine pass timing improved from ~`574.792ms` to ~`563.745ms` versus Binaryen at ~`368.414ms`.
+
 ## 2026-03-26 Optimize: cache compare rerun payload reads in `optimize-instructions`
 
 - **`optimize-instructions` compare rerun fast path** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-optimize-instructions/CHANGELOG.md) and [`src/passes/optimize_instructions.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions.mbt) so the compare rerun path now reuses the rewritten node's exact instruction payload and child ids once before folding compare-to-zero again, matching the earlier binary fast-path cleanup and avoiding another round of repeated side-table reads in the hot dispatcher. `moon fmt` and `moon test src/passes` are green. On `tests/node/dist/starshine-debug-wasi.wasm --optimize-instructions`, canonical parity is still open, but recent Starshine pass timing improved from ~`592.187ms` to ~`574.792ms` versus Binaryen at ~`331.073ms`.
