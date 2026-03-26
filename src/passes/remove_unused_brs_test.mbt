@@ -202,6 +202,83 @@ test "remove-unused-brs flattens block-local if chains when the else arm breaks"
 }
 
 ///|
+test "remove-unused-brs rewrites two-armed branch exits into br_if plus branch" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (block $outer (block $inner (if (local.get 0) (then (br $outer)) (else (br $inner))) unreachable))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs two-arm br success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites branch-exit ifs even when neither target is the immediate holder" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (block $outer (block $other (block (if (local.get 0) (then (br $outer)) (else (br $other))) unreachable)))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs non-holder two-arm br success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites branch-exit ifs nested in dropped multi-value blocks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (block $outer (block $other (block (result i32 i64) (if (result i32 i64) (local.get 0) (then (br $outer)) (else (br $other))) unreachable) drop drop) (i32.const 9) (return)) (i32.const 7)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs dropped multi-value br success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs drains long runs of two-armed branch exits in one region" {
+  let input = {
+    let out = StringBuilder::new()
+    out.write_string("(module (func (param i32) (block $exit")
+    for idx = 0; idx < 300; idx = idx + 1 {
+      out.write_string(
+        " (block $inner\{idx} (if (local.get 0) (then (br $exit)) (else (br $inner\{idx}))) unreachable)",
+      )
+    }
+    out.write_string(")))")
+    out.to_string()
+  }
+  let optimized = match pass_test_run_pipeline(input, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected remove-unused-brs long-run success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs voidifies tail return-wrapped ifs whose arms already break away" {
   let optimized = match
     pass_test_run_pipeline(
@@ -216,6 +293,23 @@ test "remove-unused-brs voidifies tail return-wrapped ifs whose arms already bre
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("(if (Void)"), msg=pretty)
   assert_false(pretty.contains("(if (I32)"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs voidifies multi-value tail return-wrapped ifs" {
+  let input = "(module (func (param i32) (result i32 i64) (block $outer (block $inner (return (if (result i32 i64) (local.get 0) (then (br $inner)) (else (br $outer))))) (i32.const 9) (i64.const 10) (return)) (i32.const 7) (i64.const 8)))"
+  let optimized = match pass_test_run_pipeline(input, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs multi-value tail return-if success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
   assert_true(pretty.contains("unreachable"), msg=pretty)
 }
 
