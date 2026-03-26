@@ -722,17 +722,34 @@ fn optimize_instructions_visit_node(
   let local_changed = match node.op {
     @ir.HotOp::Unary =>
       optimize_instructions_try_fold_eqz(ctx, func, dead, node_id)
-    @ir.HotOp::Binary =>
-      optimize_instructions_try_rewrite_add_sub(ctx, func, dead, node_id) ||
-      optimize_instructions_try_rewrite_shift(ctx, func, dead, node_id) ||
-      optimize_instructions_try_canonicalize_commutative(
+    @ir.HotOp::Binary => {
+      let changed = optimize_instructions_try_rewrite_add_sub(
+          ctx, func, dead, node_id,
+        ) ||
+        optimize_instructions_try_rewrite_shift(ctx, func, dead, node_id)
+      if optimize_instructions_try_canonicalize_commutative(
+          ctx, func, dead, node_id,
+        ) {
+        optimize_instructions_try_rewrite_add_sub(ctx, func, dead, node_id) ||
+        optimize_instructions_try_rewrite_shift(ctx, func, dead, node_id) ||
+        true
+      } else {
+        changed
+      }
+    }
+    @ir.HotOp::Compare => {
+      let changed = optimize_instructions_try_fold_compare_zero(
         ctx, func, dead, node_id,
       )
-    @ir.HotOp::Compare =>
-      optimize_instructions_try_fold_compare_zero(ctx, func, dead, node_id) ||
-      optimize_instructions_try_canonicalize_commutative(
-        ctx, func, dead, node_id,
-      )
+      if optimize_instructions_try_canonicalize_commutative(
+          ctx, func, dead, node_id,
+        ) {
+        optimize_instructions_try_fold_compare_zero(ctx, func, dead, node_id) ||
+        true
+      } else {
+        changed
+      }
+    }
     _ => false
   }
   local_changed || changed
