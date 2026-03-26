@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Fix: normalize mixed swapped-prefix and nested-tail HSO values
+
+- **`heap-store-optimization` mixed wrapper parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), and [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt) so HSO now places the folded `nop` before peeled readonly prefixes when the allocation has already swapped past earlier roots, and it unwraps trivial readonly single-root value blocks that survive as the peeled tail instead of preserving a redundant nested `block`. Focused `moon fmt && moon test src/passes` stays green at `110/110`, and the second generated wrapper-heavy HSO oracle matrix is now canonical against Binaryen in normalized WAT.
+
 ## 2026-03-26 Fix: peel readonly tee values into region roots in HSO
 
 - **`heap-store-optimization` tee-wrapper parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), and [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt) so tee-wrapped `struct.set` folds now peel trapless-readonly block prefixes into the surrounding region instead of wrapping them back into a synthetic block, matching Binaryen on cases like `struct.set (local.tee ... ) (block(drop(global.get), i32.const ...))`. Focused `moon fmt && moon test src/passes` stays green at `108/108`, and the generated multi-case HSO oracle matrix is now canonical against Binaryen in normalized WAT.
