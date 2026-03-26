@@ -200,3 +200,41 @@ test "remove-unused-brs flattens block-local if chains when the else arm breaks"
   assert_false(pretty.contains("(if"), msg=pretty)
   assert_true(pretty.contains("br_if"), msg=pretty)
 }
+
+///|
+test "remove-unused-brs voidifies tail return-wrapped ifs whose arms already break away" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) (block $outer (block $inner (return (if (result i32) (local.get 0) (then (local.set 1 (i32.const 1)) (br $inner)) (else (local.set 1 (i32.const 2)) (br $outer))))) (i32.const 9) (return)) (local.get 1)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs tail return-if success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("(if (I32)"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs voidifies nested tail return-wrapped if ladders" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (block $outer (block $inner (return (if (result i32) (local.get 0) (then (if (result i32) (local.get 1) (then (br $inner)) (else (br $outer)))) (else (br $outer))))) (i32.const 9) (return)) (i32.const 7)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs nested tail return-if success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("(if (I32)"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
