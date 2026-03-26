@@ -17,15 +17,26 @@ pub fn remove_unused_names_summary() -> String {
 }
 
 ///|
-fn remove_unused_names_control_block_type(
+fn remove_unused_names_control_block_type_for_ty(
   func : @ir.HotFunc,
-  node_id : Int,
+  ty : Int,
 ) -> @lib.BlockType {
-  match @ir.hot_type_get(func, @ir.hot_node_get(func, node_id).ty) {
+  match @ir.hot_type_get(func, ty) {
     @ir.HotTypeInfo::BlockResult(block_type) => block_type
     @ir.HotTypeInfo::BlockResultResolved(block_type, _) => block_type
     _ => @lib.BlockType::void_()
   }
+}
+
+///|
+fn remove_unused_names_same_control_block_type(
+  func : @ir.HotFunc,
+  lhs_ty : Int,
+  rhs_ty : Int,
+) -> Bool {
+  lhs_ty == rhs_ty ||
+  remove_unused_names_control_block_type_for_ty(func, lhs_ty) ==
+  remove_unused_names_control_block_type_for_ty(func, rhs_ty)
 }
 
 ///|
@@ -176,7 +187,8 @@ fn remove_unused_names_peel_same_typed_blocks(
 ) -> Unit {
   removed_ids.clear()
   roots.clear()
-  let block_type = remove_unused_names_control_block_type(func, block_id)
+  let block_ty = @ir.hot_node_get(func, block_id).ty
+  let block_type = remove_unused_names_control_block_type_for_ty(func, block_ty)
   let mut region_ref = @ir.hot_region_body_ref(func, block_id)
   while @ir.hot_region_root_count(func, region_ref) == 1 {
     let child_id = @ir.hot_region_get(func, region_ref, 0)
@@ -186,7 +198,9 @@ fn remove_unused_names_peel_same_typed_blocks(
     let child = @ir.hot_node_get(func, child_id)
     match child.op {
       @ir.HotOp::Block =>
-        if remove_unused_names_control_block_type(func, child_id) != block_type {
+        if child.ty != block_ty &&
+          remove_unused_names_control_block_type_for_ty(func, child.ty) !=
+            block_type {
           break
         }
       _ => break
@@ -237,8 +251,11 @@ fn remove_unused_names_has_candidate(func : @ir.HotFunc) -> Bool {
         let child = @ir.hot_node_get(func, child_id)
         match child.op {
           @ir.HotOp::Block =>
-            if remove_unused_names_control_block_type(func, child_id) ==
-              remove_unused_names_control_block_type(func, node_id) {
+            if remove_unused_names_same_control_block_type(
+                func,
+                child.ty,
+                node.ty,
+              ) {
               return true
             }
           _ => ()
