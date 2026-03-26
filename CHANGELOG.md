@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Docs: refresh stale IR2 compatibility wording in `src/ir/README.md`
+
+- **IR2 facade wording cleanup** by **@jtenner**. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md) so the module map no longer claims `hot.mbt` still contains compatibility lift entries or legacy helper scaffolding, aligning the file with the current active IR2 ownership model and active module-pass architecture.
+
 ## 2026-03-26 Optimize: extend raw `ssa-nomerge` branch rewrites and hot IR fast paths
 
 - **Branch-aware raw `ssa-nomerge` plus fixed-arity hot-node builders** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb/CHANGELOG.md), [`src/passes/pass_manager.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/pass_manager.mbt), [`src/passes/ssa_nomerge_test.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/ssa_nomerge_test.mbt), [`src/passes/perf_test.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/perf_test.mbt), [`src/ir/hot_builders.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_builders.mbt), [`src/ir/hot_lift.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_lift.mbt), [`src/ir/hot_mutate.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_mutate.mbt), [`src/ir/hot_lower.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_lower.mbt), [`src/ir/liveness.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/liveness.mbt), and related IR tests so raw `ssa-nomerge` now rewrites block-target `br`/`br_if` flows through canonical locals without lifting, caps that raw branch path before large branch-heavy bodies, and trims hot IR child-span plus liveness/use-def overhead with direct child access and fixed-arity node allocation coverage.
