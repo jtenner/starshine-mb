@@ -2468,6 +2468,14 @@ fn remove_unused_brs_run(
         @ir.HotRegionRef::root(),
       ) ||
       changed
+    changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
+        ctx,
+        func,
+        @ir.HotRegionRef::root(),
+        reorder_cache,
+        label_refs,
+      ) ||
+      changed
     changed = remove_unused_brs_try_voidify_tail_return_if(
         ctx,
         func,
