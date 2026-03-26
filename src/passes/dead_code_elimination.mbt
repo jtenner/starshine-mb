@@ -1089,6 +1089,9 @@ fn dead_code_elimination_visit_region(
 
     let is_final_root = idx + 1 == @ir.hot_region_root_count(func, region_ref)
     let node_result_arity = @ir.hot_node_result_arity(func, node_id)
+    let needs_unreachable_tail = dead_code_elimination_needs_explicit_unreachable_tail(
+      func, node_id,
+    )
     let mut node_use_count = -1
 
     let node = @ir.hot_node_get(func, node_id)
@@ -1164,9 +1167,15 @@ fn dead_code_elimination_visit_region(
       }
     }
 
-    let node_may_fallthrough = dead_code_elimination_node_may_fallthrough(
-      func, branch_user_cache, fallthrough_cache, node_id,
-    )
+    let node_may_fallthrough = if !is_final_root ||
+      node_result_arity > 0 ||
+      needs_unreachable_tail {
+      dead_code_elimination_node_may_fallthrough(
+        func, branch_user_cache, fallthrough_cache, node_id,
+      )
+    } else {
+      true
+    }
 
     if is_final_root &&
       ({
@@ -1193,9 +1202,6 @@ fn dead_code_elimination_visit_region(
     }
 
     if !node_may_fallthrough {
-      let needs_unreachable_tail = dead_code_elimination_needs_explicit_unreachable_tail(
-        func, node_id,
-      )
       let keep_unreachable_tail = needs_unreachable_tail &&
         dead_code_elimination_has_explicit_unreachable_tail(
           func, region_ref, idx,

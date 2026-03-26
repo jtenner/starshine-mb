@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Optimize: skip final-root DCE fallthrough checks when they cannot change output
+
+- **Dead-code-elimination final-root fallthrough checkpoint** by **@jtenner**. Updated [CHANGELOG.md](/home/jtenner/Projects/starshine-mb/CHANGELOG.md) and [src/passes/dead_code_elimination.mbt](/home/jtenner/Projects/starshine-mb/src/passes/dead_code_elimination.mbt) so DCE no longer runs the expensive `node_may_fallthrough` query for final roots that have no result values and cannot need an explicit trailing `unreachable`. On the large native replay, the exact A/B check improved the direct `--dead-code-elimination` run from about `16.01s` to about `15.51s` and `15.59s` in repeat samples; parity is still incomplete and the Binaryen 50% speed target is still not met.
+
 ## 2026-03-26 Fix: keep branchy no-drop DCE bodies on the hot path
 
 - **Dead-code-elimination raw-skip rollback checkpoint** by **@jtenner**. Updated [CHANGELOG.md](/home/jtenner/Projects/starshine-mb/CHANGELOG.md) and [src/passes/pass_manager.mbt](/home/jtenner/Projects/starshine-mb/src/passes/pass_manager.mbt) so `dead-code-elimination` no longer classifies branchy no-drop structured bodies as raw no-op candidates. That widening was too aggressive for correctness work: it let branch-heavy wrappers bypass hot lift even when the pass still needed the typed view to decide whether the control result could be legally trimmed. `moon info`, `moon fmt`, `moon test`, and rebuilt release-artifact direct plus five-pass DCE replays still validate on the corrected path.
