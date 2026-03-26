@@ -407,6 +407,35 @@ fn hso_nodes_can_reorder(
 }
 
 ///|
+fn hso_root_can_swap_before_local_struct_new(
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  node_id : Int,
+  target_local_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let mask = hso_effects_for_node(func, node_masks, node_id)
+  let disallowed_effects = @ir.EFFECT_MASK_CONTROL |
+    @ir.EFFECT_MASK_CALL |
+    @ir.EFFECT_MASK_THROW |
+    @ir.EFFECT_MASK_TRAP |
+    @ir.EFFECT_MASK_MEMORY_READ |
+    @ir.EFFECT_MASK_MEMORY_WRITE |
+    @ir.EFFECT_MASK_TABLE_READ |
+    @ir.EFFECT_MASK_TABLE_WRITE
+  if (mask & disallowed_effects) != 0U {
+    return false
+  }
+  if (mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
+    hso_subtree_touches_local(func, node_id, target_local_id) {
+    return false
+  }
+  true
+}
+
+///|
 fn hso_build_const_f32(func : @ir.HotFunc) -> Int {
   @ir.hot_build_const_f32(func, @lib.F32(0.0))
 }
@@ -936,8 +965,11 @@ fn hso_process_region(
                 None => ()
               }
               if next_idx < roots.length() - 1 &&
-                hso_mask_is_pure(
-                  hso_effects_for_node(func, node_masks, roots[next_idx]),
+                hso_root_can_swap_before_local_struct_new(
+                  func,
+                  node_masks,
+                  roots[next_idx],
+                  local_id,
                 ) {
                 next_roots.push(roots[next_idx])
                 changed = true

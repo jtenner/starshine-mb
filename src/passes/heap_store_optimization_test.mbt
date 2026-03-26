@@ -77,6 +77,21 @@ fn hso_table_test_module(
 }
 
 ///|
+fn hso_global_test_module(
+  field_count : Int,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  hso_test_module(field_count, body).with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn hso_desc_test_module(body : Array[@lib.Instruction]) -> @lib.Module {
   let descriptor_group = @lib.RecType::group([
     @lib.SubType::comp_type(
@@ -184,6 +199,22 @@ fn hso_table_test_run(
     Err(err) =>
       abort(
         "unexpected invalid table heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_global_test_run(
+  body : Array[@lib.Instruction],
+  field_count : Int,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_global_test_module(field_count, body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid global heap-store-optimization test fixture: \{err}",
       )
   }
   run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
@@ -587,6 +618,70 @@ test "heap-store-optimization folds table.size values into struct.new" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("table.size"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization swaps across unrelated local.set roots" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let local1 = @lib.LocalIdx::new(1U)
+  let optimized = match
+    hso_test_run_with_locals(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::local_set(local1),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+      [@lib.ValType::ref_null(@lib.HeapType::new(pair)), @lib.ValType::i32()],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected unrelated-local-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization swaps across unrelated global.set roots" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_global_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected unrelated-global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
