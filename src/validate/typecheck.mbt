@@ -354,6 +354,29 @@ fn normalize_untyped_block_exit(
 }
 
 ///|
+fn normalize_loop_exit(
+  st : TcState,
+  results : Array[ValType],
+) -> Result[(Bool, TcEscape), String] {
+  if st.reachable {
+    match validate_end_stack(st, results) {
+      Err(e) => return Err(e)
+      Ok(_) => ()
+    }
+    return Ok((true, NoTcEscape))
+  }
+  match st.escape {
+    BranchTcEscape(depth) =>
+      if depth > 0 {
+        Ok((false, BranchTcEscape(depth - 1)))
+      } else {
+        Ok((false, TerminalTcEscape))
+      }
+    _ => Ok((false, TerminalTcEscape))
+  }
+}
+
+///|
 pub impl Typecheck for Expr with typecheck(self, st0) {
   let Expr(instrs) = self
   let mut st = st0
@@ -1637,21 +1660,21 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     Ok(s) => s
   }
 
-  match validate_end_stack(st_body, results) {
+  let (reaches_merge, loop_escape) = match
+    normalize_loop_exit(st_body, results) {
     Err(e) => return Err(e)
-    Ok(_) => ()
+    Ok(x) => x
   }
-
-  // restore outer env (pop label scope)
-  let out = TcState::{
-    env: st.env,
-    stack: st1.stack,
-    // A loop does not make outer control-flow unreachable by itself.
-    // Preserve entry reachability at the merge point.
-    reachable: st.reachable,
-    escape: st.escape,
+  if reaches_merge {
+    let out = TcState::{
+      env: st.env,
+      stack: st1.stack,
+      reachable: st.reachable,
+      escape: st.escape,
+    }
+    return Ok(out.push_types(results))
   }
-  Ok(out.push_types(results))
+  Ok(TcState::{ env: st.env, stack: [], reachable: false, escape: loop_escape })
 }
 
 ///|
@@ -3944,8 +3967,8 @@ test "Typecheck loop accepts nested if branches that escape to the loop and func
     ]),
   )
   let new_state = assert_ok(Typecheck::typecheck(loop_instr, state))
-  assert_true(new_state.reachable)
-  assert_stack(new_state, [ValType::i32()])
+  assert_false(new_state.reachable)
+  assert_stack(new_state, [])
 }
 
 ///|

@@ -3662,12 +3662,7 @@ test "validate_module rejects tail loop that leaves function result missing" {
       CodeSec::new([
         Func::new(
           Locals::empty(),
-          Expr::new([
-            Instruction::loop_(
-              BlockType::void_(),
-              Expr::new([Instruction::br(LabelIdx::new(0))]),
-            ),
-          ]),
+          Expr::new([Instruction::loop_(BlockType::void_(), Expr::new([]))]),
         ),
       ]),
     )
@@ -3805,10 +3800,7 @@ test "validate_module rejects wrong concrete loop result after infinite inner lo
             Instruction::loop_(
               BlockType::val_type(ValType::i32()),
               Expr::new([
-                Instruction::loop_(
-                  BlockType::void_(),
-                  Expr::new([Instruction::br(LabelIdx::new(0))]),
-                ),
+                Instruction::loop_(BlockType::void_(), Expr::new([])),
                 Instruction::f32_const(0.0),
               ]),
             ),

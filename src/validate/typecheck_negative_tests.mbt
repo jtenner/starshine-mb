@@ -969,7 +969,7 @@ test "Typecheck block with unreachable body propagates unreachable" {
 }
 
 ///|
-test "Typecheck loop with unconditional backedge preserves outer reachability" {
+test "Typecheck loop with unconditional backedge makes outer control unreachable" {
   let env = empty_env()
   let state = tcneg_make_state(env, [])
   let result = Typecheck::typecheck(
@@ -980,10 +980,10 @@ test "Typecheck loop with unconditional backedge preserves outer reachability" {
     state,
   )
   match result {
-    Ok(st) => assert_true(st.reachable)
+    Ok(st) => assert_false(st.reachable)
     Err(e) =>
       fail(
-        "Expected loop with unreachable body to keep outer reachability, got Err: \{e}",
+        "Expected loop with unconditional backedge to remain valid, got Err: \{e}",
       )
   }
 }
