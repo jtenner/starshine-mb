@@ -424,6 +424,8 @@ pub fn hot_node_exact_instr(HotFunc, Int) -> @lib.Instruction?
 
 pub fn hot_node_exact_instr_payload_id(HotFunc, Int) -> Int?
 
+pub fn hot_node_exact_instr_set(HotFunc, Int, @lib.Instruction) -> Unit
+
 pub fn hot_node_flags(HotFunc, Int) -> UInt
 
 pub fn hot_node_get(HotFunc, Int) -> HotNode

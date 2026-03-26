@@ -462,6 +462,27 @@ pub fn hot_node_set(func : HotFunc, id : NodeId, node : HotNode) -> Unit {
 }
 
 ///|
+pub fn hot_node_exact_instr_set(
+  func : HotFunc,
+  id : NodeId,
+  instr : Instruction,
+) -> Unit {
+  hot_mutate_require_live_node(func, id, "hot node_exact_instr_set")
+  let node = hot_node_get(func, id)
+  match hot_node_exact_instr_payload_id(func, id) {
+    Some(_) => {
+      let payload_id = hot_alloc_instr_payload(
+        func,
+        HotInstrPayload::new(instr),
+      )
+      func.nodes[id] = { ..node, imm0: payload_id }
+      hot_revision_bump(func)
+    }
+    None => abort("hot node_exact_instr_set requires an exact-instruction node")
+  }
+}
+
+///|
 pub fn hot_replace_node(
   func : HotFunc,
   id : NodeId,
