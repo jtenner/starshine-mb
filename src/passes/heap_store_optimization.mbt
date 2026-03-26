@@ -864,6 +864,70 @@ fn hso_build_preserved_replacement(
 }
 
 ///|
+fn hso_array_insert_prefix_roots(
+  roots : Array[Int],
+  idx : Int,
+  inserted : Array[Int],
+  count : Int,
+) -> Unit {
+  if count <= 0 {
+    return
+  }
+  let suffix : Array[Int] = []
+  for suffix_idx = idx; suffix_idx < roots.length(); suffix_idx = suffix_idx + 1 {
+    suffix.push(roots[suffix_idx])
+  }
+  while roots.length() > idx {
+    ignore(roots.pop())
+  }
+  for inserted_idx = 0; inserted_idx < count; inserted_idx = inserted_idx + 1 {
+    roots.push(inserted[inserted_idx])
+  }
+  for suffix_root_id in suffix {
+    roots.push(suffix_root_id)
+  }
+}
+
+///|
+fn hso_trapless_readonly_block_value_parts(
+  cache : HsoPredicateCache,
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  node_id : Int,
+) -> (@ir.HotRegionRef, Int, Int)? {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, node_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count < 2 {
+    return None
+  }
+  for idx = 0; idx < root_count; idx = idx + 1 {
+    if !hso_subtree_is_trapless_readonly(
+        cache,
+        func,
+        node_masks,
+        @ir.hot_region_get(func, body_ref, idx),
+      ) {
+      return None
+    }
+  }
+  Some(
+    (
+      body_ref,
+      root_count - 1,
+      @ir.hot_region_get(func, body_ref, root_count - 1),
+    ),
+  )
+}
+
+///|
 fn hso_try_fold_into_struct_new(
   cache : HsoPredicateCache,
   type_cache : HsoTypeCache,
@@ -1234,16 +1298,50 @@ fn hso_process_region(
                   local_id,
                   type_idx,
                 ) {
-                Some((field_idx, value_id)) =>
+                Some((field_idx, value_id)) => {
+                  let mut folded_value_id = value_id
+                  let mut extracted_prefix_region : @ir.HotRegionRef? = None
+                  let mut extracted_prefix_count = 0
+                  match
+                    hso_trapless_readonly_block_value_parts(
+                      cache, func, node_masks, value_id,
+                    ) {
+                    Some((region_ref, prefix_count, tail_id)) => {
+                      folded_value_id = tail_id
+                      extracted_prefix_region = Some(region_ref)
+                      extracted_prefix_count = prefix_count
+                    }
+                    None => ()
+                  }
                   if hso_try_fold_into_struct_new(
                       cache, type_cache, func, module_ctx, node_masks, struct_new_id,
-                      type_idx, field_idx, value_id, local_id,
+                      type_idx, field_idx, folded_value_id, local_id,
                     ) {
+                    match extracted_prefix_region {
+                      Some(region_ref) =>
+                        if extracted_prefix_count > 0 {
+                          let removed_roots = @ir.hot_region_splice(
+                            func,
+                            region_ref,
+                            0,
+                            extracted_prefix_count + 1,
+                            [],
+                          )
+                          hso_array_insert_prefix_roots(
+                            segment_roots, segment_local_set_idx, removed_roots,
+                            extracted_prefix_count,
+                          )
+                          segment_local_set_idx = segment_local_set_idx +
+                            extracted_prefix_count
+                        }
+                      None => ()
+                    }
                     changed = true
                     segment_roots.push(@ir.hot_build_nop(func))
                     next_idx = next_idx + 1
                     continue
                   }
+                }
                 None => ()
               }
               if next_idx < roots.length() - 1 &&
