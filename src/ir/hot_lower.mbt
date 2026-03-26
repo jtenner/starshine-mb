@@ -156,15 +156,15 @@ fn hot_lower_impl_input_info(func : HotFunc, id : NodeId) -> HotLowerInputs {
         hot_control_node_label(func, id),
       )
       for i = 0; i < input_count; i = i + 1 {
-        out.push(hot_child_get(func, id, i))
+        out.push(func.children[node.child_base + i])
       }
       { nodes: out, pop_count: input_count }
     }
-    HotOp::If => { nodes: [hot_child_get(func, id, 0)], pop_count: 1 }
+    HotOp::If => { nodes: [func.children[node.child_base]], pop_count: 1 }
     _ => {
       let out : Array[NodeId] = []
       for i = 0; i < node.child_count; i = i + 1 {
-        let child = hot_child_get(func, id, i)
+        let child = func.children[node.child_base + i]
         if child != HOT_NONE_NODE {
           out.push(child)
         }
@@ -367,7 +367,7 @@ fn hot_lower_impl_body_items(
   let input_ids : Array[NodeId] = []
   let input_occurrences : Array[Int] = []
   for i = 0; i < body_base; i = i + 1 {
-    let input_id = hot_child_get(func, id, i)
+    let input_id = func.children[node.child_base + i]
     let input_types = hot_type_results(func, hot_node_type(func, input_id))
     let mut occurrence = 0
     let mut existing = -1
@@ -390,7 +390,7 @@ fn hot_lower_impl_body_items(
   }
   let root_ids : Array[NodeId] = []
   for i = body_base; i < node.child_count; i = i + 1 {
-    let child = hot_child_get(func, id, i)
+    let child = func.children[node.child_base + i]
     if child != HOT_NONE_NODE {
       root_ids.push(child)
     }
@@ -400,7 +400,7 @@ fn hot_lower_impl_body_items(
   )
   let mut root_idx = 0
   for i = body_base; i < node.child_count; i = i + 1 {
-    let child = hot_child_get(func, id, i)
+    let child = func.children[node.child_base + i]
     if child != HOT_NONE_NODE {
       hot_lower_impl_emit_root(
         func, child, use_def, label_frames, next_stack, value_stack, out, extra_locals,
@@ -783,17 +783,14 @@ fn hot_lower_impl_emit_instruction(
       } else {
         label_stack_head
       }
-      let else_id = hot_child_get(func, id, 2)
+      let condition_region_base = node.child_base
+      let then_id = func.children[condition_region_base + 1]
+      let else_id = func.children[condition_region_base + 2]
       out.push(
         Instruction::if_(
           hot_lower_impl_control_block_type(func, id),
           hot_lower_impl_region_body(
-            func,
-            hot_child_get(func, id, 1),
-            use_def,
-            label_frames,
-            next_stack,
-            extra_locals,
+            func, then_id, use_def, label_frames, next_stack, extra_locals,
           ),
           if else_id == HOT_NONE_NODE {
             None
@@ -824,7 +821,7 @@ fn hot_lower_impl_emit_instruction(
           Expr::new(
             hot_lower_impl_region_body(
               func,
-              hot_child_get(func, id, 0),
+              func.children[node.child_base],
               use_def,
               label_frames,
               next_stack,

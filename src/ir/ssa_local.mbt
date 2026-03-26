@@ -58,24 +58,15 @@ fn ssa_local_record_use(
 fn ssa_local_is_region_slot(op : HotOp, slot : Int) -> Bool {
   match op {
     HotOp::Block | HotOp::Loop => true
-    _ => {
-      for slot_info in hot_control_region_slot_info(op) {
-        if slot_info.slot == slot {
-          return true
-        }
-      }
-      false
-    }
+    HotOp::If => slot == 1 || slot == 2
+    HotOp::Try | HotOp::TryTable => slot == 0 || slot == 1
+    _ => false
   }
 }
 
 ///|
-fn ssa_local_live_child(
-  func : HotFunc,
-  node_id : NodeId,
-  slot : Int,
-) -> NodeId? {
-  let child_id = hot_child_get(func, node_id, slot)
+fn ssa_local_live_child(func : HotFunc, node : HotNode, slot : Int) -> NodeId? {
+  let child_id = func.children[node.child_base + slot]
   if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
     return None
   }
@@ -91,11 +82,11 @@ fn ssa_local_visit_node(
   pushed_locals : Array[LocalId],
 ) -> Unit {
   let node = hot_node_get(func, node_id)
-  for slot = 0; slot < hot_child_count(func, node_id); slot = slot + 1 {
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
     if ssa_local_is_region_slot(node.op, slot) {
       continue
     }
-    match ssa_local_live_child(func, node_id, slot) {
+    match ssa_local_live_child(func, node, slot) {
       Some(child_id) =>
         ssa_local_visit_node(func, ssa, child_id, local_stacks, pushed_locals)
       None => ()

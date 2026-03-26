@@ -468,38 +468,58 @@ fn hot_pass_remove_region_nops(
 ///|
 fn run_hot_pipeline_instr_scan(
   instrs : Array[@lib.Instruction],
-) -> (Bool, Bool) {
+) -> (Bool, Bool, Bool, Int) {
   let mut has_writes = false
   let mut has_structured_control = false
+  let mut has_branches = false
+  let mut instr_count = 0
   for instr in instrs {
+    instr_count = instr_count + 1
     match instr {
       @lib.LocalSet(_) | @lib.LocalTee(_) => has_writes = true
+      @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) => has_branches = true
       @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) => {
         has_structured_control = true
-        let (nested_writes, _) = run_hot_pipeline_instr_scan(body)
+        let (nested_writes, _, nested_branches, nested_instr_count) = run_hot_pipeline_instr_scan(
+          body,
+        )
         has_writes = has_writes || nested_writes
+        has_branches = has_branches || nested_branches
+        instr_count = instr_count + nested_instr_count
       }
       @lib.If(_, then_body, else_body) => {
         has_structured_control = true
-        let (then_writes, _) = run_hot_pipeline_instr_scan(then_body)
+        let (then_writes, _, then_branches, then_instr_count) = run_hot_pipeline_instr_scan(
+          then_body,
+        )
         has_writes = has_writes || then_writes
+        has_branches = has_branches || then_branches
+        instr_count = instr_count + then_instr_count
         match else_body {
           Some(else_body) => {
-            let (else_writes, _) = run_hot_pipeline_instr_scan(else_body)
+            let (else_writes, _, else_branches, else_instr_count) = run_hot_pipeline_instr_scan(
+              else_body,
+            )
             has_writes = has_writes || else_writes
+            has_branches = has_branches || else_branches
+            instr_count = instr_count + else_instr_count
           }
           None => ()
         }
       }
       @lib.TryTable(_, _, @lib.Expr(body)) => {
         has_structured_control = true
-        let (nested_writes, _) = run_hot_pipeline_instr_scan(body)
+        let (nested_writes, _, nested_branches, nested_instr_count) = run_hot_pipeline_instr_scan(
+          body,
+        )
         has_writes = has_writes || nested_writes
+        has_branches = has_branches || nested_branches
+        instr_count = instr_count + nested_instr_count
       }
       _ => ()
     }
   }
-  (has_writes, has_structured_control)
+  (has_writes, has_structured_control, has_branches, instr_count)
 }
 
 ///|
@@ -542,6 +562,13 @@ fn run_hot_pipeline_raw_aliases_equal(
     }
   }
   true
+}
+
+///|
+priv struct RawSsaLabelTarget {
+  block_type : @lib.BlockType
+  result_types : Array[@lib.ValType]
+  is_loop : Bool
 }
 
 ///|
@@ -610,20 +637,210 @@ fn run_hot_pipeline_raw_append_alias_merge_copies(
 }
 
 ///|
+fn run_hot_pipeline_raw_append_alias_copies(
+  out : Array[@lib.Instruction],
+  source_aliases : Array[@lib.LocalIdx],
+  target_aliases : Array[@lib.LocalIdx],
+) -> Unit {
+  for local_id = 0; local_id < target_aliases.length(); local_id = local_id + 1 {
+    if source_aliases[local_id] == target_aliases[local_id] {
+      continue
+    }
+    out.push(@lib.Instruction::local_get(source_aliases[local_id]))
+    out.push(@lib.Instruction::local_set(target_aliases[local_id]))
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_canonical_aliases(
+  base_local_count : Int,
+) -> Array[@lib.LocalIdx] {
+  let canonical : Array[@lib.LocalIdx] = []
+  for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+    canonical.push(@lib.LocalIdx::new(local_id.reinterpret_as_uint()))
+  }
+  canonical
+}
+
+///|
+fn run_hot_pipeline_raw_label_target(
+  module_ctx : @ir.HotModuleContext,
+  block_type : @lib.BlockType,
+  is_loop : Bool,
+) -> RawSsaLabelTarget? {
+  match @ir.hot_module_resolve_block_results(module_ctx, block_type) {
+    Some(result_types) => Some({ block_type, result_types, is_loop })
+    None => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_push_label_target(
+  label_stack : Array[RawSsaLabelTarget],
+  label_target : RawSsaLabelTarget,
+) -> Array[RawSsaLabelTarget] {
+  let nested = label_stack.copy()
+  nested.push(label_target)
+  nested
+}
+
+///|
+fn run_hot_pipeline_raw_resolve_label_target(
+  label_stack : Array[RawSsaLabelTarget],
+  label_idx : @lib.LabelIdx,
+) -> RawSsaLabelTarget? {
+  let @lib.LabelIdx(raw) = label_idx
+  let depth = raw.reinterpret_as_int()
+  let stack_idx = label_stack.length() - depth - 1
+  if stack_idx < 0 {
+    return None
+  }
+  label_stack.get(stack_idx)
+}
+
+///|
+fn run_hot_pipeline_raw_label_inc(label_idx : @lib.LabelIdx) -> @lib.LabelIdx {
+  let @lib.LabelIdx(raw) = label_idx
+  @lib.LabelIdx::new(raw + 1U)
+}
+
+///|
+fn run_hot_pipeline_raw_empty_exit_depths(
+  label_stack : Array[RawSsaLabelTarget],
+) -> Array[Bool] {
+  let exit_depths : Array[Bool] = []
+  for _ in label_stack {
+    exit_depths.push(false)
+  }
+  exit_depths
+}
+
+///|
+fn run_hot_pipeline_raw_propagate_outer_exits(
+  exit_depths : Array[Bool],
+  nested_exit_depths : Array[Bool],
+) -> Unit {
+  for depth = 1; depth < nested_exit_depths.length(); depth = depth + 1 {
+    if nested_exit_depths[depth] {
+      exit_depths[depth - 1] = true
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_branch_if_block_type(
+  module_ctx : @ir.HotModuleContext,
+  label_target : RawSsaLabelTarget,
+) -> @lib.BlockType? {
+  match label_target.block_type {
+    @lib.VoidBlockType | @lib.ValTypeBlockType(_) =>
+      Some(label_target.block_type)
+    @lib.TypeIdxBlockType(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(params, _)) =>
+          if params.length() == 0 {
+            Some(label_target.block_type)
+          } else {
+            None
+          }
+        None => None
+      }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_rewrite_br_if(
+  module_ctx : @ir.HotModuleContext,
+  label_idx : @lib.LabelIdx,
+  label_target : RawSsaLabelTarget,
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Array[@lib.Instruction]? {
+  let target_label = run_hot_pipeline_raw_label_inc(label_idx)
+  if label_target.result_types.length() == 0 {
+    let then_body : Array[@lib.Instruction] = []
+    run_hot_pipeline_raw_append_alias_copies(
+      then_body, source_aliases, canonical_aliases,
+    )
+    then_body.push(@lib.Instruction::br(target_label))
+    return Some([
+      @lib.Instruction::if_(@lib.BlockType::void_(), then_body, None),
+    ])
+  }
+
+  let if_block_type = match
+    run_hot_pipeline_raw_branch_if_block_type(module_ctx, label_target) {
+    Some(block_type) => block_type
+    None => return None
+  }
+  let cond_local = run_hot_pipeline_raw_fresh_typed_local(
+    params,
+    locals,
+    @lib.ValType::i32(),
+    extra_local_types,
+  )
+  let result_scratch : Array[@lib.LocalIdx] = []
+  for result_type in label_target.result_types {
+    result_scratch.push(
+      run_hot_pipeline_raw_fresh_typed_local(
+        params, locals, result_type, extra_local_types,
+      ),
+    )
+  }
+
+  let rewritten : Array[@lib.Instruction] = []
+  rewritten.push(@lib.Instruction::local_set(cond_local))
+  for idx = result_scratch.length() - 1; idx >= 0; idx = idx - 1 {
+    rewritten.push(@lib.Instruction::local_set(result_scratch[idx]))
+  }
+  rewritten.push(@lib.Instruction::local_get(cond_local))
+
+  let then_body : Array[@lib.Instruction] = []
+  run_hot_pipeline_raw_append_alias_copies(
+    then_body, source_aliases, canonical_aliases,
+  )
+  for scratch_local in result_scratch {
+    then_body.push(@lib.Instruction::local_get(scratch_local))
+  }
+  then_body.push(@lib.Instruction::br(target_label))
+
+  let else_body : Array[@lib.Instruction] = []
+  for scratch_local in result_scratch {
+    else_body.push(@lib.Instruction::local_get(scratch_local))
+  }
+  rewritten.push(
+    @lib.Instruction::if_(if_block_type, then_body, Some(else_body)),
+  )
+  Some(rewritten)
+}
+
+///|
 fn run_hot_pipeline_raw_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   local_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  label_stack : Array[RawSsaLabelTarget],
   extra_local_types : Array[@lib.ValType],
-) -> (Array[@lib.Instruction], Array[@lib.LocalIdx], Bool)? {
+) -> (Array[@lib.Instruction], Array[@lib.LocalIdx], Bool, Array[Bool])? {
   let rewritten : Array[@lib.Instruction] = []
   let mut aliases = local_aliases
   let mut fallthrough = true
+  let exit_depths = run_hot_pipeline_raw_empty_exit_depths(label_stack)
   for instr in instrs {
+    let was_reachable = fallthrough
     match instr {
-      @lib.Block(block_type, @lib.Expr(body)) =>
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let label_target = match
+          run_hot_pipeline_raw_label_target(module_ctx, block_type, false) {
+          Some(label_target) => label_target
+          None => return None
+        }
         match
           run_hot_pipeline_raw_rewrite_instrs(
             body,
@@ -631,24 +848,58 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             params,
             locals,
             aliases.copy(),
+            canonical_aliases,
+            run_hot_pipeline_raw_push_label_target(label_stack, label_target),
             extra_local_types,
           ) {
-          Some((rewritten_body, body_aliases, body_fallthrough)) => {
+          Some(
+            (rewritten_body, body_aliases, body_fallthrough, body_exit_depths)
+          ) => {
+            let body_exits_current_label = body_exit_depths.length() > 0 &&
+              body_exit_depths[0]
+            let mut finalized_body = rewritten_body
+            if body_fallthrough && body_exits_current_label {
+              finalized_body = run_hot_pipeline_raw_append_alias_merge_copies(
+                finalized_body,
+                body_aliases,
+                canonical_aliases,
+                label_target.result_types,
+                params,
+                locals,
+                extra_local_types,
+              )
+            }
             rewritten.push(
               @lib.Instruction::block(
                 block_type,
-                @lib.Expr::new(rewritten_body),
+                @lib.Expr::new(finalized_body),
               ),
             )
-            if body_fallthrough {
-              aliases = body_aliases
-            } else {
-              fallthrough = false
+            if was_reachable {
+              run_hot_pipeline_raw_propagate_outer_exits(
+                exit_depths, body_exit_depths,
+              )
+              if body_fallthrough || body_exits_current_label {
+                aliases = if body_exits_current_label {
+                  canonical_aliases.copy()
+                } else {
+                  body_aliases
+                }
+                fallthrough = true
+              } else {
+                fallthrough = false
+              }
             }
           }
           None => return None
         }
+      }
       @lib.If(block_type, then_body, else_body) => {
+        let label_target = match
+          run_hot_pipeline_raw_label_target(module_ctx, block_type, false) {
+          Some(label_target) => label_target
+          None => return None
+        }
         let then_result = match
           run_hot_pipeline_raw_rewrite_instrs(
             then_body,
@@ -656,6 +907,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             params,
             locals,
             aliases.copy(),
+            canonical_aliases,
+            run_hot_pipeline_raw_push_label_target(label_stack, label_target),
             extra_local_types,
           ) {
           Some(result) => result
@@ -670,27 +923,65 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 params,
                 locals,
                 aliases.copy(),
+                canonical_aliases,
+                run_hot_pipeline_raw_push_label_target(
+                  label_stack, label_target,
+                ),
                 extra_local_types,
               ) {
               Some(result) => result
               None => return None
             }
-          None => ([], aliases.copy(), true)
+          None =>
+            (
+              [],
+              aliases.copy(),
+              true,
+              run_hot_pipeline_raw_empty_exit_depths(
+                run_hot_pipeline_raw_push_label_target(
+                  label_stack, label_target,
+                ),
+              ),
+            )
         }
-        let (rewritten_then, then_aliases, then_fallthrough) = then_result
-        let (rewritten_else, else_aliases, else_fallthrough) = else_result
-        let mut merged_then = rewritten_then
-        let mut merged_else = rewritten_else
+        let (rewritten_then, then_aliases, then_fallthrough, then_exit_depths) = then_result
+        let (rewritten_else, else_aliases, else_fallthrough, else_exit_depths) = else_result
+        let then_exits_current_label = then_exit_depths.length() > 0 &&
+          then_exit_depths[0]
+        let else_exits_current_label = else_exit_depths.length() > 0 &&
+          else_exit_depths[0]
+        let has_current_label_exits = then_exits_current_label ||
+          else_exits_current_label
+        let mut finalized_then = rewritten_then
+        let mut finalized_else = rewritten_else
         let mut merged_aliases = aliases
-        if then_fallthrough && else_fallthrough {
+        if has_current_label_exits {
+          if then_fallthrough {
+            finalized_then = run_hot_pipeline_raw_append_alias_merge_copies(
+              finalized_then,
+              then_aliases,
+              canonical_aliases,
+              label_target.result_types,
+              params,
+              locals,
+              extra_local_types,
+            )
+          }
+          if else_fallthrough {
+            finalized_else = run_hot_pipeline_raw_append_alias_merge_copies(
+              finalized_else,
+              else_aliases,
+              canonical_aliases,
+              label_target.result_types,
+              params,
+              locals,
+              extra_local_types,
+            )
+          }
+        } else if then_fallthrough && else_fallthrough {
           if run_hot_pipeline_raw_aliases_equal(then_aliases, else_aliases) {
             merged_aliases = then_aliases
           } else {
-            let result_types = match
-              @ir.hot_module_resolve_block_results(module_ctx, block_type) {
-              Some(result_types) => result_types
-              None => return None
-            }
             merged_aliases = then_aliases.copy()
             for local_id = 0
                 local_id < merged_aliases.length()
@@ -702,12 +993,22 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 params, locals, local_id, extra_local_types,
               )
             }
-            merged_then = run_hot_pipeline_raw_append_alias_merge_copies(
-              merged_then, then_aliases, merged_aliases, result_types, params, locals,
+            finalized_then = run_hot_pipeline_raw_append_alias_merge_copies(
+              finalized_then,
+              then_aliases,
+              merged_aliases,
+              label_target.result_types,
+              params,
+              locals,
               extra_local_types,
             )
-            merged_else = run_hot_pipeline_raw_append_alias_merge_copies(
-              merged_else, else_aliases, merged_aliases, result_types, params, locals,
+            finalized_else = run_hot_pipeline_raw_append_alias_merge_copies(
+              finalized_else,
+              else_aliases,
+              merged_aliases,
+              label_target.result_types,
+              params,
+              locals,
               extra_local_types,
             )
           }
@@ -715,30 +1016,104 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         rewritten.push(
           @lib.Instruction::if_(
             block_type,
-            merged_then,
+            finalized_then,
             match else_body {
-              Some(_) => Some(merged_else)
+              Some(_) => Some(finalized_else)
               None =>
-                if merged_else.length() == 0 {
+                if finalized_else.length() == 0 {
                   None
                 } else {
-                  Some(merged_else)
+                  Some(finalized_else)
                 }
             },
           ),
         )
-        match (then_fallthrough, else_fallthrough) {
-          (true, true) => aliases = merged_aliases
-          (true, false) => aliases = then_aliases
-          (false, true) => aliases = else_aliases
-          (false, false) => fallthrough = false
+        if was_reachable {
+          run_hot_pipeline_raw_propagate_outer_exits(
+            exit_depths, then_exit_depths,
+          )
+          run_hot_pipeline_raw_propagate_outer_exits(
+            exit_depths, else_exit_depths,
+          )
+          if has_current_label_exits {
+            if then_fallthrough ||
+              then_exits_current_label ||
+              else_fallthrough ||
+              else_exits_current_label {
+              aliases = canonical_aliases.copy()
+              fallthrough = true
+            } else {
+              fallthrough = false
+            }
+          } else {
+            match (then_fallthrough, else_fallthrough) {
+              (true, true) => {
+                aliases = merged_aliases
+                fallthrough = true
+              }
+              (true, false) => {
+                aliases = then_aliases
+                fallthrough = true
+              }
+              (false, true) => {
+                aliases = else_aliases
+                fallthrough = true
+              }
+              (false, false) => fallthrough = false
+            }
+          }
         }
       }
-      @lib.Loop(_, _)
-      | @lib.Br(_)
-      | @lib.BrIf(_)
-      | @lib.BrTable(_, _)
-      | @lib.TryTable(_, _, _) => return None
+      @lib.Loop(_, _) | @lib.BrTable(_, _) | @lib.TryTable(_, _, _) =>
+        return None
+      @lib.Br(label_idx) => {
+        let label_target = match
+          run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
+          Some(label_target) => label_target
+          None => return None
+        }
+        if label_target.is_loop {
+          return None
+        }
+        let branch_instrs = run_hot_pipeline_raw_append_alias_merge_copies(
+          [],
+          aliases,
+          canonical_aliases,
+          label_target.result_types,
+          params,
+          locals,
+          extra_local_types,
+        )
+        branch_instrs.push(@lib.Instruction::br(label_idx))
+        rewritten.append(branch_instrs)
+        if was_reachable {
+          let @lib.LabelIdx(raw) = label_idx
+          exit_depths[raw.reinterpret_as_int()] = true
+          fallthrough = false
+        }
+      }
+      @lib.BrIf(label_idx) => {
+        let label_target = match
+          run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
+          Some(label_target) => label_target
+          None => return None
+        }
+        if label_target.is_loop {
+          return None
+        }
+        match
+          run_hot_pipeline_raw_rewrite_br_if(
+            module_ctx, label_idx, label_target, aliases, canonical_aliases, params,
+            locals, extra_local_types,
+          ) {
+          Some(branch_instrs) => rewritten.append(branch_instrs)
+          None => return None
+        }
+        if was_reachable {
+          let @lib.LabelIdx(raw) = label_idx
+          exit_depths[raw.reinterpret_as_int()] = true
+        }
+      }
       @lib.LocalGet(@lib.LocalIdx(raw)) =>
         rewritten.push(
           @lib.Instruction::local_get(aliases[raw.reinterpret_as_int()]),
@@ -772,7 +1147,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
       _ => rewritten.push(instr)
     }
   }
-  Some((rewritten, aliases, fallthrough))
+  Some((rewritten, aliases, fallthrough, exit_depths))
 }
 
 ///|
@@ -782,17 +1157,22 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
   params : Array[@lib.ValType],
 ) -> @lib.Func? {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
-  let local_aliases : Array[@lib.LocalIdx] = []
   let base_local_count = params.length() + locals.length()
+  let local_aliases = run_hot_pipeline_raw_canonical_aliases(base_local_count)
+  let canonical_aliases = local_aliases.copy()
   let extra_local_types : Array[@lib.ValType] = []
-  for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
-    local_aliases.push(@lib.LocalIdx::new(local_id.reinterpret_as_uint()))
-  }
   match
     run_hot_pipeline_raw_rewrite_instrs(
-      instrs, module_ctx, params, locals, local_aliases, extra_local_types,
+      instrs,
+      module_ctx,
+      params,
+      locals,
+      local_aliases,
+      canonical_aliases,
+      [],
+      extra_local_types,
     ) {
-    Some((rewritten_instrs, _, _)) => {
+    Some((rewritten_instrs, _, _, _)) => {
       let rewritten_locals = locals.copy()
       rewritten_locals.append_types(extra_local_types)
       Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)))
@@ -859,22 +1239,31 @@ fn run_hot_pipeline_raw_ssa_nomerge(
   module_ctx : @ir.HotModuleContext,
   descriptor : @ir.HotPassDescriptor,
 ) -> (String, @lib.Func)? {
+  let structured_branch_raw_instr_limit = 128
+  let structured_branch_raw_local_limit = 64
   if descriptor.name != "ssa-nomerge" {
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
-  let @lib.Func(_, @lib.Expr(instrs)) = original
-  let (has_writes, has_structured_control) = run_hot_pipeline_instr_scan(instrs)
+  let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let (has_writes, has_structured_control, has_branches, instr_count) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
   if !has_writes {
     return Some(("no-local-writes", original))
   }
   if has_structured_control {
-    match
-      run_hot_pipeline_raw_ssa_nomerge_structured(
-        original,
-        module_ctx,
-        run_hot_pipeline_required_func_params(module_ctx, func_idx),
+    let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
+    let base_local_count = params.length() + locals.length()
+    if has_branches &&
+      (
+        instr_count > structured_branch_raw_instr_limit ||
+        base_local_count > structured_branch_raw_local_limit
       ) {
+      return None
+    }
+    match
+      run_hot_pipeline_raw_ssa_nomerge_structured(original, module_ctx, params) {
       Some(rewritten) => Some(("structured-local-writes", rewritten))
       None => None
     }

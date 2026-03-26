@@ -209,6 +209,8 @@ fn ssa_phi_placement_blocks_with_scratch(
     placements.clear()
     return []
   }
+  let live_in_word_idx = bitset_word_index(local_id)
+  let live_in_word_mask = bitset_word_bit_mask(local_id)
 
   queue.clear()
   placements.clear()
@@ -223,7 +225,11 @@ fn ssa_phi_placement_blocks_with_scratch(
   while queue.length() > 0 {
     let block_id = queue.pop().unwrap()
     for frontier in dom.frontiers[block_id] {
-      if !bitset_contains(liveness.live_in_sets[frontier], local_id) {
+      if (
+          liveness.live_in_sets[frontier].words[live_in_word_idx] &
+          live_in_word_mask
+        ) ==
+        0UL {
         continue
       }
       if placed_stamps[frontier] != stamp {

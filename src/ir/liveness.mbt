@@ -13,20 +13,45 @@ fn liveness_bitset_clone(src : Bitset) -> Bitset {
 }
 
 ///|
-fn liveness_bitset_clear(dst : Bitset) -> Unit {
-  for idx = 0; idx < dst.words.length(); idx = idx + 1 {
-    dst.words[idx] = 0UL
+fn liveness_update_block_words(
+  succs : Array[CfgEdge],
+  live_in_sets : Array[Bitset],
+  defs : Bitset,
+  uses : Bitset,
+  live_out : Bitset,
+  live_in : Bitset,
+  include_exceptional_edges : Bool,
+) -> (Bool, Bool) {
+  bitset_require_compatible(live_out, live_in)
+  bitset_require_compatible(live_out, defs)
+  bitset_require_compatible(live_out, uses)
+  let mut out_changed = false
+  let mut in_changed = false
+  for word_idx = 0; word_idx < live_out.words.length(); word_idx = word_idx + 1 {
+    let word_mask = bitset_word_mask(live_out, word_idx)
+    let mut next_out_word = 0UL
+    for edge in succs {
+      if !include_exceptional_edges && edge.kind == CfgEdgeKind::ExceptionalEdge {
+        continue
+      }
+      next_out_word = next_out_word | live_in_sets[edge.block].words[word_idx]
+    }
+    next_out_word = next_out_word & word_mask
+    if live_out.words[word_idx] != next_out_word {
+      live_out.words[word_idx] = next_out_word
+      out_changed = true
+    }
+    let next_in_word = (
+        (next_out_word & UInt64::lnot(defs.words[word_idx])) |
+        uses.words[word_idx]
+      ) &
+      word_mask
+    if live_in.words[word_idx] != next_in_word {
+      live_in.words[word_idx] = next_in_word
+      in_changed = true
+    }
   }
-}
-
-///|
-fn liveness_bitset_assign(dst : Bitset, src : Bitset) -> Unit {
-  if dst.size != src.size {
-    abort("liveness bitset assignment requires matching sizes")
-  }
-  for idx = 0; idx < dst.words.length(); idx = idx + 1 {
-    dst.words[idx] = src.words[idx]
-  }
+  (out_changed, in_changed)
 }
 
 ///|
@@ -94,35 +119,22 @@ pub fn liveness_build(cfg : HotCfg, use_def : HotUseDef) -> HotLiveness {
     queued[block_id] = true
     worklist.push(block_id)
   }
-  let next_out = bitset_new(local_count)
-  let next_in = bitset_new(local_count)
 
   while worklist.length() > 0 {
     let block_id = worklist.pop().unwrap()
     queued[block_id] = false
-
-    liveness_bitset_clear(next_out)
-    for edge in cfg_successor_edges(cfg, block_id) {
-      if !include_exceptional_edges && edge.kind == CfgEdgeKind::ExceptionalEdge {
-        continue
-      }
-      ignore(bitset_union_into(next_out, live_in_sets[edge.block]))
-    }
-
-    liveness_bitset_assign(next_in, next_out)
-    ignore(bitset_difference_into(next_in, use_def.block_defs[block_id]))
-    ignore(bitset_union_into(next_in, use_def.block_uses[block_id]))
-
-    let out_changed = !bitset_equals(live_out_sets[block_id], next_out)
-    let in_changed = !bitset_equals(live_in_sets[block_id], next_in)
-    if out_changed {
-      liveness_bitset_assign(live_out_sets[block_id], next_out)
-    }
-    if in_changed {
-      liveness_bitset_assign(live_in_sets[block_id], next_in)
-    }
+    let block = cfg.blocks[block_id]
+    let (out_changed, in_changed) = liveness_update_block_words(
+      block.succs,
+      live_in_sets,
+      use_def.block_defs[block_id],
+      use_def.block_uses[block_id],
+      live_out_sets[block_id],
+      live_in_sets[block_id],
+      include_exceptional_edges,
+    )
     if out_changed || in_changed {
-      for edge in cfg_predecessor_edges(cfg, block_id) {
+      for edge in block.preds {
         if !include_exceptional_edges &&
           edge.kind == CfgEdgeKind::ExceptionalEdge {
           continue

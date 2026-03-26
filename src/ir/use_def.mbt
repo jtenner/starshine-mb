@@ -50,26 +50,12 @@ fn use_def_require_local_range(use_def : HotUseDef, local_id : LocalId) -> Unit 
 }
 
 ///|
-fn use_def_live_child(func : HotFunc, node_id : NodeId, slot : Int) -> NodeId? {
-  let child_id = hot_child_get(func, node_id, slot)
-  if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
-    return None
-  }
-  Some(child_id)
-}
-
-///|
 fn use_def_region_slot(op : HotOp, slot : Int) -> Bool {
   match op {
     HotOp::Block | HotOp::Loop => true
-    _ => {
-      for slot_info in hot_control_region_slot_info(op) {
-        if slot_info.slot == slot {
-          return true
-        }
-      }
-      false
-    }
+    HotOp::If => slot == 1 || slot == 2
+    HotOp::Try | HotOp::TryTable => slot == 0 || slot == 1
+    _ => false
   }
 }
 
@@ -153,20 +139,19 @@ fn use_def_visit_node(
     }
     _ => ()
   }
-  for slot = 0; slot < hot_child_count(func, node_id); slot = slot + 1 {
-    match use_def_live_child(func, node_id, slot) {
-      Some(child_id) => {
-        use_def_add_site(node_uses, child_id, {
-          user: node_id,
-          slot,
-          kind: HotUseSlotKind::ChildUseSlot,
-        })
-        use_def_visit_node(
-          func, child_id, node_uses, local_reads, local_writes, seen,
-        )
-      }
-      None => ()
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    let child_id = func.children[node.child_base + slot]
+    if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
+      continue
     }
+    use_def_add_site(node_uses, child_id, {
+      user: node_id,
+      slot,
+      kind: HotUseSlotKind::ChildUseSlot,
+    })
+    use_def_visit_node(
+      func, child_id, node_uses, local_reads, local_writes, seen,
+    )
   }
 }
 
@@ -180,8 +165,10 @@ fn use_def_block_mark_use(
   if local_id < 0 || local_id >= local_count {
     abort("use-def local use must reference an existing local")
   }
-  if !bitset_contains(defs, local_id) {
-    ignore(bitset_set(uses, local_id))
+  let word_idx = bitset_word_index(local_id)
+  let mask = bitset_word_bit_mask(local_id)
+  if (defs.words[word_idx] & mask) == 0UL {
+    uses.words[word_idx] = uses.words[word_idx] | mask
   }
 }
 
@@ -196,7 +183,12 @@ fn use_def_block_mark_def(
   if local_id < 0 || local_id >= local_count {
     abort("use-def local def must reference an existing local")
   }
-  if bitset_set(defs, local_id) {
+  let word_idx = bitset_word_index(local_id)
+  let mask = bitset_word_bit_mask(local_id)
+  let before = defs.words[word_idx]
+  let after = before | mask
+  if after != before {
+    defs.words[word_idx] = after
     local_write_blocks[local_id].push(block_id)
   }
 }
@@ -217,18 +209,17 @@ fn use_def_scan_block_node(
   }
   seen_stamps[node_id] = block_id
   let node = hot_node_get(func, node_id)
-  for slot = 0; slot < hot_child_count(func, node_id); slot = slot + 1 {
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
     if use_def_region_slot(node.op, slot) {
       continue
     }
-    match use_def_live_child(func, node_id, slot) {
-      Some(child_id) =>
-        use_def_scan_block_node(
-          func, child_id, block_id, local_count, defs, uses, local_write_blocks,
-          seen_stamps,
-        )
-      None => ()
+    let child_id = func.children[node.child_base + slot]
+    if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
+      continue
     }
+    use_def_scan_block_node(
+      func, child_id, block_id, local_count, defs, uses, local_write_blocks, seen_stamps,
+    )
   }
   match node.op {
     HotOp::LocalGet =>

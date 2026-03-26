@@ -256,6 +256,127 @@ test "ssa-nomerge rewrites structured early-return local traffic without hot lif
 }
 
 ///|
+test "ssa-nomerge rewrites block-target branches through canonical locals" {
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (local i32)
+    #|     i32.const 0
+    #|     local.set 1
+    #|     block
+    #|       local.get 0
+    #|       if
+    #|         i32.const 7
+    #|         local.set 1
+    #|         br 1
+    #|       end
+    #|       i32.const 9
+    #|       local.set 1
+    #|     end
+    #|     local.get 1))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected block-target raw ssa-nomerge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  assert_eq(instrs, [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ],
+          None,
+        ),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      ]),
+    ),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ])
+}
+
+///|
+test "ssa-nomerge rewrites block-target br_if through canonical locals" {
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (local i32)
+    #|     i32.const 7
+    #|     local.set 1
+    #|     block
+    #|       local.get 0
+    #|       br_if 0
+    #|       i32.const 9
+    #|       local.set 1
+    #|     end
+    #|     local.get 1))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected block-target br_if raw ssa-nomerge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  assert_eq(instrs, [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ],
+          None,
+        ),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      ]),
+    ),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ])
+}
+
+///|
 test "ssa-nomerge rewrites structured branch merges with result-typed ifs" {
   let input =
     #| (module

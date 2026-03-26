@@ -345,18 +345,6 @@ fn hot_lift_impl_intern_control_result_type(
 }
 
 ///|
-fn hot_lift_impl_stack_prefix(
-  types : Array[ValType],
-  prefix_len : Int,
-) -> Array[ValType] {
-  let out : Array[ValType] = []
-  for i = 0; i < prefix_len; i = i + 1 {
-    out.push(types[i])
-  }
-  out
-}
-
-///|
 fn hot_lift_impl_stack_suffix(
   types : Array[ValType],
   suffix_len : Int,
@@ -370,22 +358,6 @@ fn hot_lift_impl_stack_suffix(
 }
 
 ///|
-fn hot_lift_impl_types_eq(
-  left : Array[ValType],
-  right : Array[ValType],
-) -> Bool {
-  if left.length() != right.length() {
-    return false
-  }
-  for i = 0; i < left.length(); i = i + 1 {
-    if left[i] != right[i] {
-      return false
-    }
-  }
-  true
-}
-
-///|
 fn hot_lift_impl_matches_candidate_after(
   before_types : Array[ValType],
   after_state : TcState,
@@ -396,15 +368,21 @@ fn hot_lift_impl_matches_candidate_after(
     candidate_after.escape != after_state.escape {
     return false
   }
-  let expected_stack : Array[ValType] = []
   let prefix_len = before_types.length() - pop_count
-  for ty in hot_lift_impl_stack_prefix(before_types, prefix_len) {
-    expected_stack.push(ty)
+  if prefix_len + candidate_after.stack.length() != after_state.stack.length() {
+    return false
   }
-  for ty in candidate_after.stack {
-    expected_stack.push(ty)
+  for i = 0; i < prefix_len; i = i + 1 {
+    if before_types[i] != after_state.stack[i] {
+      return false
+    }
   }
-  hot_lift_impl_types_eq(expected_stack, after_state.stack)
+  for i = 0; i < candidate_after.stack.length(); i = i + 1 {
+    if candidate_after.stack[i] != after_state.stack[prefix_len + i] {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -1025,6 +1003,86 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
 }
 
 ///|
+fn hot_lift_impl_direct_node_shape(
+  func : HotFunc,
+  op : HotOp,
+  instr : Instruction,
+  result_types : Array[ValType],
+) -> (HotOp, TypeId, Int, Int) {
+  let ty = hot_lift_impl_result_type(func, result_types)
+  match instr {
+    Instruction::LocalGet(LocalIdx(raw))
+    | Instruction::LocalSet(LocalIdx(raw))
+    | Instruction::LocalTee(LocalIdx(raw)) =>
+      (op, ty, raw.reinterpret_as_int(), 0)
+    Instruction::GlobalGet(GlobalIdx(raw))
+    | Instruction::GlobalSet(GlobalIdx(raw)) =>
+      (op, ty, raw.reinterpret_as_int(), 0)
+    Instruction::TableGet(TableIdx(raw))
+    | Instruction::TableSet(TableIdx(raw))
+    | Instruction::TableSize(TableIdx(raw))
+    | Instruction::TableGrow(TableIdx(raw))
+    | Instruction::TableFill(TableIdx(raw)) =>
+      (op, ty, raw.reinterpret_as_int(), 0)
+    Instruction::TableCopy(TableIdx(dst), TableIdx(src)) =>
+      (op, ty, dst.reinterpret_as_int(), src.reinterpret_as_int())
+    Instruction::TableInit(ElemIdx(elem), TableIdx(table)) =>
+      (op, ty, elem.reinterpret_as_int(), table.reinterpret_as_int())
+    Instruction::ElemDrop(ElemIdx(raw)) => (op, ty, raw.reinterpret_as_int(), 0)
+    Instruction::MemorySize(MemIdx(raw))
+    | Instruction::MemoryGrow(MemIdx(raw))
+    | Instruction::MemoryFill(MemIdx(raw)) =>
+      (op, ty, raw.reinterpret_as_int(), 0)
+    Instruction::MemoryCopy(MemIdx(dst), MemIdx(src)) =>
+      (op, ty, dst.reinterpret_as_int(), src.reinterpret_as_int())
+    Instruction::MemoryInit(DataIdx(data), MemIdx(mem)) =>
+      (op, ty, data.reinterpret_as_int(), mem.reinterpret_as_int())
+    Instruction::DataDrop(DataIdx(raw)) => (op, ty, raw.reinterpret_as_int(), 0)
+    Instruction::Call(FuncIdx(raw)) | Instruction::ReturnCall(FuncIdx(raw)) =>
+      (op, ty, raw.reinterpret_as_int(), 0)
+    Instruction::CallIndirect(type_idx, table_idx)
+    | Instruction::ReturnCallIndirect(type_idx, table_idx) => {
+      let sig_id = hot_alloc_call_sig(
+        func,
+        HotCallSig::new(type_idx, table_idx=Some(table_idx)),
+      )
+      (op, ty, sig_id, 0)
+    }
+    Instruction::CallRef(type_idx) | Instruction::ReturnCallRef(type_idx) => {
+      let sig_id = hot_alloc_call_sig(func, HotCallSig::new(type_idx))
+      (op, ty, sig_id, 0)
+    }
+    Instruction::I32Const(v) => {
+      let const_id = hot_alloc_const(func, HotConstPayload::i32_const(v))
+      (HotOp::Const, ty, const_id, 0)
+    }
+    Instruction::I64Const(v) => {
+      let const_id = hot_alloc_const(func, HotConstPayload::i64_const(v))
+      (HotOp::Const, ty, const_id, 0)
+    }
+    Instruction::F32Const(v) => {
+      let const_id = hot_alloc_const(func, HotConstPayload::f32_const(v))
+      (HotOp::Const, ty, const_id, 0)
+    }
+    Instruction::F64Const(v) => {
+      let const_id = hot_alloc_const(func, HotConstPayload::f64_const(v))
+      (HotOp::Const, ty, const_id, 0)
+    }
+    Instruction::RefNull(rt) => {
+      let const_id = hot_alloc_const(func, HotConstPayload::ref_null_const(rt))
+      (HotOp::RefNull, ty, const_id, 0)
+    }
+    Instruction::StringConst(bytes) => {
+      let const_id = hot_alloc_const(func, HotConstPayload::string_const(bytes))
+      (HotOp::Const, ty, const_id, 0)
+    }
+    Instruction::RefFunc(FuncIdx(raw)) => (op, ty, raw.reinterpret_as_int(), 0)
+    Instruction::Throw(TagIdx(raw)) => (op, ty, raw.reinterpret_as_int(), 0)
+    _ => (op, ty, 0, 0)
+  }
+}
+
+///|
 fn hot_lift_impl_build_direct_node(
   func : HotFunc,
   op : HotOp,
@@ -1032,119 +1090,64 @@ fn hot_lift_impl_build_direct_node(
   result_types : Array[ValType],
   children : Array[NodeId],
 ) -> NodeId {
-  let ty = hot_lift_impl_result_type(func, result_types)
-  match instr {
-    Instruction::LocalGet(LocalIdx(raw))
-    | Instruction::LocalSet(LocalIdx(raw))
-    | Instruction::LocalTee(LocalIdx(raw)) =>
-      hot_build_node(func, op, ty, imm0=raw.reinterpret_as_int(), children~)
-    Instruction::GlobalGet(GlobalIdx(raw))
-    | Instruction::GlobalSet(GlobalIdx(raw)) =>
-      hot_build_node(func, op, ty, imm0=raw.reinterpret_as_int(), children~)
-    Instruction::TableGet(TableIdx(raw))
-    | Instruction::TableSet(TableIdx(raw))
-    | Instruction::TableSize(TableIdx(raw))
-    | Instruction::TableGrow(TableIdx(raw))
-    | Instruction::TableFill(TableIdx(raw)) =>
-      hot_build_node(func, op, ty, imm0=raw.reinterpret_as_int(), children~)
-    Instruction::TableCopy(TableIdx(dst), TableIdx(src)) =>
-      hot_build_node(
-        func,
-        op,
-        ty,
-        imm0=dst.reinterpret_as_int(),
-        imm1=src.reinterpret_as_int(),
-        children~,
-      )
-    Instruction::TableInit(ElemIdx(elem), TableIdx(table)) =>
-      hot_build_node(
-        func,
-        op,
-        ty,
-        imm0=elem.reinterpret_as_int(),
-        imm1=table.reinterpret_as_int(),
-        children~,
-      )
-    Instruction::ElemDrop(ElemIdx(raw)) =>
-      hot_build_node(func, op, ty, imm0=raw.reinterpret_as_int(), children~)
-    Instruction::MemorySize(MemIdx(raw))
-    | Instruction::MemoryGrow(MemIdx(raw))
-    | Instruction::MemoryFill(MemIdx(raw)) =>
-      hot_build_node(func, op, ty, imm0=raw.reinterpret_as_int(), children~)
-    Instruction::MemoryCopy(MemIdx(dst), MemIdx(src)) =>
-      hot_build_node(
-        func,
-        op,
-        ty,
-        imm0=dst.reinterpret_as_int(),
-        imm1=src.reinterpret_as_int(),
-        children~,
-      )
-    Instruction::MemoryInit(DataIdx(data), MemIdx(mem)) =>
-      hot_build_node(
-        func,
-        op,
-        ty,
-        imm0=data.reinterpret_as_int(),
-        imm1=mem.reinterpret_as_int(),
-        children~,
-      )
-    Instruction::DataDrop(DataIdx(raw)) =>
-      hot_build_node(func, op, ty, imm0=raw.reinterpret_as_int(), children~)
-    Instruction::Call(FuncIdx(raw)) | Instruction::ReturnCall(FuncIdx(raw)) =>
-      hot_build_node(func, op, ty, imm0=raw.reinterpret_as_int(), children~)
-    Instruction::CallIndirect(type_idx, table_idx)
-    | Instruction::ReturnCallIndirect(type_idx, table_idx) => {
-      let sig_id = hot_alloc_call_sig(
-        func,
-        HotCallSig::new(type_idx, table_idx=Some(table_idx)),
-      )
-      hot_build_node(func, op, ty, imm0=sig_id, children~)
-    }
-    Instruction::CallRef(type_idx) | Instruction::ReturnCallRef(type_idx) => {
-      let sig_id = hot_alloc_call_sig(func, HotCallSig::new(type_idx))
-      hot_build_node(func, op, ty, imm0=sig_id, children~)
-    }
-    Instruction::I32Const(v) => {
-      let const_id = hot_alloc_const(func, HotConstPayload::i32_const(v))
-      hot_build_node(func, HotOp::Const, ty, imm0=const_id)
-    }
-    Instruction::I64Const(v) => {
-      let const_id = hot_alloc_const(func, HotConstPayload::i64_const(v))
-      hot_build_node(func, HotOp::Const, ty, imm0=const_id)
-    }
-    Instruction::F32Const(v) => {
-      let const_id = hot_alloc_const(func, HotConstPayload::f32_const(v))
-      hot_build_node(func, HotOp::Const, ty, imm0=const_id)
-    }
-    Instruction::F64Const(v) => {
-      let const_id = hot_alloc_const(func, HotConstPayload::f64_const(v))
-      hot_build_node(func, HotOp::Const, ty, imm0=const_id)
-    }
-    Instruction::RefNull(rt) => {
-      let const_id = hot_alloc_const(func, HotConstPayload::ref_null_const(rt))
-      hot_build_node(func, HotOp::RefNull, ty, imm0=const_id)
-    }
-    Instruction::StringConst(bytes) => {
-      let const_id = hot_alloc_const(func, HotConstPayload::string_const(bytes))
-      hot_build_node(func, HotOp::Const, ty, imm0=const_id)
-    }
-    Instruction::RefFunc(FuncIdx(raw)) =>
-      hot_build_node(func, op, ty, imm0=raw.reinterpret_as_int())
-    Instruction::Throw(TagIdx(raw)) =>
-      hot_build_node(func, op, ty, imm0=raw.reinterpret_as_int(), children~)
-    _ => hot_build_node(func, op, ty, children~)
-  }
+  let (build_op, ty, imm0, imm1) = hot_lift_impl_direct_node_shape(
+    func, op, instr, result_types,
+  )
+  hot_build_node(func, build_op, ty, imm0~, imm1~, children~)
 }
 
 ///|
-fn hot_lift_impl_build_exact_node(
+fn hot_lift_impl_build_direct_node1(
   func : HotFunc,
   op : HotOp,
   instr : Instruction,
   result_types : Array[ValType],
-  children : Array[NodeId],
+  child0 : NodeId,
 ) -> NodeId {
+  let (build_op, ty, imm0, imm1) = hot_lift_impl_direct_node_shape(
+    func, op, instr, result_types,
+  )
+  hot_build_node1(func, build_op, ty, child0, imm0~, imm1~)
+}
+
+///|
+fn hot_lift_impl_build_direct_node2(
+  func : HotFunc,
+  op : HotOp,
+  instr : Instruction,
+  result_types : Array[ValType],
+  child0 : NodeId,
+  child1 : NodeId,
+) -> NodeId {
+  let (build_op, ty, imm0, imm1) = hot_lift_impl_direct_node_shape(
+    func, op, instr, result_types,
+  )
+  hot_build_node2(func, build_op, ty, child0, child1, imm0~, imm1~)
+}
+
+///|
+fn hot_lift_impl_build_direct_node3(
+  func : HotFunc,
+  op : HotOp,
+  instr : Instruction,
+  result_types : Array[ValType],
+  child0 : NodeId,
+  child1 : NodeId,
+  child2 : NodeId,
+) -> NodeId {
+  let (build_op, ty, imm0, imm1) = hot_lift_impl_direct_node_shape(
+    func, op, instr, result_types,
+  )
+  hot_build_node3(func, build_op, ty, child0, child1, child2, imm0~, imm1~)
+}
+
+///|
+fn hot_lift_impl_exact_node_shape(
+  func : HotFunc,
+  op : HotOp,
+  instr : Instruction,
+  result_types : Array[ValType],
+) -> (HotOp, TypeId, Int, Int) {
   let ty = hot_lift_impl_result_type(func, result_types)
   let payload_id = hot_alloc_instr_payload(func, HotInstrPayload::new(instr))
   match instr {
@@ -1172,7 +1175,7 @@ fn hot_lift_impl_build_exact_node(
     | Instruction::I64Store16(memarg)
     | Instruction::I64Store32(memarg) => {
       let memarg_id = hot_alloc_memarg(func, HotMemArg::new(memarg))
-      hot_build_node(func, op, ty, imm0=memarg_id, imm1=payload_id, children~)
+      (op, ty, memarg_id, payload_id)
     }
     Instruction::MemoryAtomicNotify(memarg)
     | Instruction::MemoryAtomicWait32(memarg)
@@ -1194,15 +1197,73 @@ fn hot_lift_impl_build_exact_node(
     | Instruction::AtomicRmw(_, memarg)
     | Instruction::AtomicCmpxchg(_, memarg) => {
       let memarg_id = hot_alloc_memarg(func, HotMemArg::new(memarg))
-      hot_build_node(func, op, ty, imm0=memarg_id, imm1=payload_id, children~)
+      (op, ty, memarg_id, payload_id)
     }
     Instruction::RefTest(_, _)
     | Instruction::RefCast(_, _)
     | Instruction::RefTestDesc(_, _)
-    | Instruction::RefCastDescEq(_, _) =>
-      hot_build_node(func, op, ty, imm1=payload_id, children~)
-    _ => hot_build_node(func, op, ty, imm0=payload_id, children~)
+    | Instruction::RefCastDescEq(_, _) => (op, ty, 0, payload_id)
+    _ => (op, ty, payload_id, 0)
   }
+}
+
+///|
+fn hot_lift_impl_build_exact_node(
+  func : HotFunc,
+  op : HotOp,
+  instr : Instruction,
+  result_types : Array[ValType],
+  children : Array[NodeId],
+) -> NodeId {
+  let (build_op, ty, imm0, imm1) = hot_lift_impl_exact_node_shape(
+    func, op, instr, result_types,
+  )
+  hot_build_node(func, build_op, ty, imm0~, imm1~, children~)
+}
+
+///|
+fn hot_lift_impl_build_exact_node1(
+  func : HotFunc,
+  op : HotOp,
+  instr : Instruction,
+  result_types : Array[ValType],
+  child0 : NodeId,
+) -> NodeId {
+  let (build_op, ty, imm0, imm1) = hot_lift_impl_exact_node_shape(
+    func, op, instr, result_types,
+  )
+  hot_build_node1(func, build_op, ty, child0, imm0~, imm1~)
+}
+
+///|
+fn hot_lift_impl_build_exact_node2(
+  func : HotFunc,
+  op : HotOp,
+  instr : Instruction,
+  result_types : Array[ValType],
+  child0 : NodeId,
+  child1 : NodeId,
+) -> NodeId {
+  let (build_op, ty, imm0, imm1) = hot_lift_impl_exact_node_shape(
+    func, op, instr, result_types,
+  )
+  hot_build_node2(func, build_op, ty, child0, child1, imm0~, imm1~)
+}
+
+///|
+fn hot_lift_impl_build_exact_node3(
+  func : HotFunc,
+  op : HotOp,
+  instr : Instruction,
+  result_types : Array[ValType],
+  child0 : NodeId,
+  child1 : NodeId,
+  child2 : NodeId,
+) -> NodeId {
+  let (build_op, ty, imm0, imm1) = hot_lift_impl_exact_node_shape(
+    func, op, instr, result_types,
+  )
+  hot_build_node3(func, build_op, ty, child0, child1, child2, imm0~, imm1~)
 }
 
 ///|
@@ -1254,6 +1315,22 @@ fn hot_lift_impl_region_state(
 }
 
 ///|
+fn hot_lift_impl_copy_node_ids(values : Array[NodeId]) -> Array[NodeId] {
+  if values.length() == 0 {
+    return []
+  }
+  values.copy()
+}
+
+///|
+fn hot_lift_impl_copy_val_types(types : Array[ValType]) -> Array[ValType] {
+  if types.length() == 0 {
+    return []
+  }
+  types.copy()
+}
+
+///|
 fn hot_lift_impl_restore_outer_state(
   outer_state : TcState,
   entry_state : TcState,
@@ -1293,8 +1370,10 @@ fn hot_lift_impl_lift_region(
   let Expr(instrs) = expr
   let mut tc_state = tc_state
   let roots : Array[NodeId] = []
-  let values : Array[NodeId] = initial_values.copy()
-  let concrete_values : Array[ValType] = initial_value_types.copy()
+  let values : Array[NodeId] = hot_lift_impl_copy_node_ids(initial_values)
+  let concrete_values : Array[ValType] = hot_lift_impl_copy_val_types(
+    initial_value_types,
+  )
   for instr in instrs {
     match
       hot_lift_impl_lift_instruction(
@@ -1515,7 +1594,7 @@ fn hot_lift_impl_lift_control(
       let then_state = hot_lift_impl_region_state(
         entry_state,
         region_env,
-        entry_types.copy(),
+        hot_lift_impl_copy_val_types(entry_types),
       )
       let (then_roots, _, then_exit_state) = match
         hot_lift_impl_lift_region(
@@ -1545,7 +1624,7 @@ fn hot_lift_impl_lift_control(
           let else_state = hot_lift_impl_region_state(
             entry_state,
             region_env,
-            entry_types.copy(),
+            hot_lift_impl_copy_val_types(entry_types),
           )
           match
             hot_lift_impl_lift_region(
@@ -1577,7 +1656,7 @@ fn hot_lift_impl_lift_control(
           let else_exit_state = hot_lift_impl_region_state(
             entry_state,
             region_env,
-            entry_types.copy(),
+            hot_lift_impl_copy_val_types(entry_types),
           )
           match
             tc_state_normalize_untyped_if_branch_exit(else_exit_state, results) {
@@ -1973,9 +2052,7 @@ fn hot_lift_impl_lift_instruction(
         Err(err) => return Err(err)
       }
       roots.push(
-        hot_build_node(func, HotOp::ThrowRef, hot_type_void(func), children=[
-          exnref,
-        ]),
+        hot_build_node1(func, HotOp::ThrowRef, hot_type_void(func), exnref),
       )
       values.clear()
       concrete_values.clear()
@@ -2060,18 +2137,49 @@ fn hot_lift_impl_lift_instruction(
     ) {
     return Ok(after_state)
   }
-  let children = match
-    hot_lift_impl_pop_values_for_instr(
-      instr, values, concrete_values, child_count, "generic operands",
-    ) {
-    Ok(children) => children
-    Err(err) => return Err(err)
-  }
   match hot_lift_impl_direct_family(instr) {
     Some(op) => {
-      let node_id = hot_lift_impl_build_direct_node(
-        func, op, instr, pushed_types, children,
-      )
+      let node_id = match child_count {
+        0 => {
+          let (build_op, ty, imm0, imm1) = hot_lift_impl_direct_node_shape(
+            func, op, instr, pushed_types,
+          )
+          hot_build_node(func, build_op, ty, imm0~, imm1~)
+        }
+        1 => {
+          let child0 = hot_lift_impl_pop_value(values, concrete_values)
+          hot_lift_impl_build_direct_node1(
+            func, op, instr, pushed_types, child0,
+          )
+        }
+        2 => {
+          let child1 = hot_lift_impl_pop_value(values, concrete_values)
+          let child0 = hot_lift_impl_pop_value(values, concrete_values)
+          hot_lift_impl_build_direct_node2(
+            func, op, instr, pushed_types, child0, child1,
+          )
+        }
+        3 => {
+          let child2 = hot_lift_impl_pop_value(values, concrete_values)
+          let child1 = hot_lift_impl_pop_value(values, concrete_values)
+          let child0 = hot_lift_impl_pop_value(values, concrete_values)
+          hot_lift_impl_build_direct_node3(
+            func, op, instr, pushed_types, child0, child1, child2,
+          )
+        }
+        _ => {
+          let children = match
+            hot_lift_impl_pop_values_for_instr(
+              instr, values, concrete_values, child_count, "generic operands",
+            ) {
+            Ok(children) => children
+            Err(err) => return Err(err)
+          }
+          hot_lift_impl_build_direct_node(
+            func, op, instr, pushed_types, children,
+          )
+        }
+      }
       hot_lift_impl_push_node(
         roots, values, concrete_values, node_id, pushed_types,
       )
@@ -2080,9 +2188,47 @@ fn hot_lift_impl_lift_instruction(
     None =>
       match hot_lift_impl_exact_family(instr) {
         Some(op) => {
-          let node_id = hot_lift_impl_build_exact_node(
-            func, op, instr, pushed_types, children,
-          )
+          let node_id = match child_count {
+            0 => {
+              let (build_op, ty, imm0, imm1) = hot_lift_impl_exact_node_shape(
+                func, op, instr, pushed_types,
+              )
+              hot_build_node(func, build_op, ty, imm0~, imm1~)
+            }
+            1 => {
+              let child0 = hot_lift_impl_pop_value(values, concrete_values)
+              hot_lift_impl_build_exact_node1(
+                func, op, instr, pushed_types, child0,
+              )
+            }
+            2 => {
+              let child1 = hot_lift_impl_pop_value(values, concrete_values)
+              let child0 = hot_lift_impl_pop_value(values, concrete_values)
+              hot_lift_impl_build_exact_node2(
+                func, op, instr, pushed_types, child0, child1,
+              )
+            }
+            3 => {
+              let child2 = hot_lift_impl_pop_value(values, concrete_values)
+              let child1 = hot_lift_impl_pop_value(values, concrete_values)
+              let child0 = hot_lift_impl_pop_value(values, concrete_values)
+              hot_lift_impl_build_exact_node3(
+                func, op, instr, pushed_types, child0, child1, child2,
+              )
+            }
+            _ => {
+              let children = match
+                hot_lift_impl_pop_values_for_instr(
+                  instr, values, concrete_values, child_count, "generic operands",
+                ) {
+                Ok(children) => children
+                Err(err) => return Err(err)
+              }
+              hot_lift_impl_build_exact_node(
+                func, op, instr, pushed_types, children,
+              )
+            }
+          }
           hot_lift_impl_push_node(
             roots, values, concrete_values, node_id, pushed_types,
           )

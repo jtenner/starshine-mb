@@ -59,7 +59,7 @@ pub fn hot_build_node(
   imm1? : Int = 0,
   children? : Array[NodeId] = [],
 ) -> NodeId {
-  let id = hot_alloc_node(func, {
+  let node = {
     op,
     ty,
     flags: hot_default_flags_for_op(op),
@@ -67,11 +67,99 @@ pub fn hot_build_node(
     imm1,
     child_base: 0,
     child_count: 0,
-  })
-  if children.length() > 0 {
-    ignore(hot_replace_child_span(func, id, children))
   }
-  id
+  match children.length() {
+    0 => hot_alloc_node(func, node)
+    1 => hot_alloc_node_with_child1(func, node, children[0])
+    2 => hot_alloc_node_with_child2(func, node, children[0], children[1])
+    3 =>
+      hot_alloc_node_with_child3(
+        func,
+        node,
+        children[0],
+        children[1],
+        children[2],
+      )
+    _ => hot_alloc_node_with_children(func, node, children)
+  }
+}
+
+///|
+fn hot_build_node1(
+  func : HotFunc,
+  op : HotOp,
+  ty : TypeId,
+  child0 : NodeId,
+  imm0? : Int = 0,
+  imm1? : Int = 0,
+) -> NodeId {
+  hot_alloc_node_with_child1(
+    func,
+    {
+      op,
+      ty,
+      flags: hot_default_flags_for_op(op),
+      imm0,
+      imm1,
+      child_base: 0,
+      child_count: 0,
+    },
+    child0,
+  )
+}
+
+///|
+fn hot_build_node2(
+  func : HotFunc,
+  op : HotOp,
+  ty : TypeId,
+  child0 : NodeId,
+  child1 : NodeId,
+  imm0? : Int = 0,
+  imm1? : Int = 0,
+) -> NodeId {
+  hot_alloc_node_with_child2(
+    func,
+    {
+      op,
+      ty,
+      flags: hot_default_flags_for_op(op),
+      imm0,
+      imm1,
+      child_base: 0,
+      child_count: 0,
+    },
+    child0,
+    child1,
+  )
+}
+
+///|
+fn hot_build_node3(
+  func : HotFunc,
+  op : HotOp,
+  ty : TypeId,
+  child0 : NodeId,
+  child1 : NodeId,
+  child2 : NodeId,
+  imm0? : Int = 0,
+  imm1? : Int = 0,
+) -> NodeId {
+  hot_alloc_node_with_child3(
+    func,
+    {
+      op,
+      ty,
+      flags: hot_default_flags_for_op(op),
+      imm0,
+      imm1,
+      child_base: 0,
+      child_count: 0,
+    },
+    child0,
+    child1,
+    child2,
+  )
 }
 
 ///|
@@ -86,7 +174,7 @@ pub fn hot_build_unreachable(func : HotFunc) -> NodeId {
 
 ///|
 pub fn hot_build_drop(func : HotFunc, value : NodeId) -> NodeId {
-  hot_build_node(func, HotOp::Drop, hot_type_void(func), children=[value])
+  hot_build_node1(func, HotOp::Drop, hot_type_void(func), value)
 }
 
 ///|
@@ -159,9 +247,13 @@ pub fn hot_build_local_set(
   value : NodeId,
 ) -> NodeId {
   let _ = hot_builder_local_value_type(func, local_id)
-  hot_build_node(func, HotOp::LocalSet, hot_type_void(func), imm0=local_id, children=[
+  hot_build_node1(
+    func,
+    HotOp::LocalSet,
+    hot_type_void(func),
     value,
-  ])
+    imm0=local_id,
+  )
 }
 
 ///|
@@ -170,12 +262,12 @@ pub fn hot_build_local_tee(
   local_id : LocalId,
   value : NodeId,
 ) -> NodeId {
-  hot_build_node(
+  hot_build_node1(
     func,
     HotOp::LocalTee,
     hot_type_intern_value(func, hot_builder_local_value_type(func, local_id)),
+    value,
     imm0=local_id,
-    children=[value],
   )
 }
 
@@ -199,9 +291,13 @@ pub fn hot_build_global_set(
   global_idx : Int,
   value : NodeId,
 ) -> NodeId {
-  hot_build_node(func, HotOp::GlobalSet, hot_type_void(func), imm0=global_idx, children=[
+  hot_build_node1(
+    func,
+    HotOp::GlobalSet,
+    hot_type_void(func),
     value,
-  ])
+    imm0=global_idx,
+  )
 }
 
 ///|
@@ -452,9 +548,12 @@ pub fn hot_build_unary(
   result_type : ValType,
   operand : NodeId,
 ) -> NodeId {
-  hot_build_node(func, HotOp::Unary, hot_type_intern_value(func, result_type), children=[
+  hot_build_node1(
+    func,
+    HotOp::Unary,
+    hot_type_intern_value(func, result_type),
     operand,
-  ])
+  )
 }
 
 ///|
@@ -464,21 +563,23 @@ pub fn hot_build_binary(
   lhs : NodeId,
   rhs : NodeId,
 ) -> NodeId {
-  hot_build_node(
+  hot_build_node2(
     func,
     HotOp::Binary,
     hot_type_intern_value(func, result_type),
-    children=[lhs, rhs],
+    lhs,
+    rhs,
   )
 }
 
 ///|
 pub fn hot_build_compare(func : HotFunc, lhs : NodeId, rhs : NodeId) -> NodeId {
-  hot_build_node(
+  hot_build_node2(
     func,
     HotOp::Compare,
     hot_type_intern_value(func, @lib.ValType::i32()),
-    children=[lhs, rhs],
+    lhs,
+    rhs,
   )
 }
 
@@ -488,11 +589,11 @@ pub fn hot_build_convert(
   result_type : ValType,
   operand : NodeId,
 ) -> NodeId {
-  hot_build_node(
+  hot_build_node1(
     func,
     HotOp::Convert,
     hot_type_intern_value(func, result_type),
-    children=[operand],
+    operand,
   )
 }
 
@@ -517,12 +618,12 @@ pub fn hot_build_tuple_extract(
   tuple : NodeId,
   index : Int,
 ) -> NodeId {
-  hot_build_node(
+  hot_build_node1(
     func,
     HotOp::TupleExtract,
     hot_type_intern_value(func, result_type),
+    tuple,
     imm0=index,
-    children=[tuple],
   )
 }
 
@@ -543,7 +644,7 @@ pub fn hot_build_throw(
 
 ///|
 pub fn hot_build_throw_ref(func : HotFunc, exnref : NodeId) -> NodeId {
-  hot_build_node(func, HotOp::ThrowRef, hot_type_void(func), children=[exnref])
+  hot_build_node1(func, HotOp::ThrowRef, hot_type_void(func), exnref)
 }
 
 ///|
@@ -604,9 +705,14 @@ pub fn hot_build_if(
     Some(body) => hot_build_region(func, body, result_arity)
     None => HOT_NONE_NODE
   }
-  let id = hot_build_node(func, HotOp::If, ty, children=[
-    condition, then_region, else_region,
-  ])
+  let id = hot_build_node3(
+    func,
+    HotOp::If,
+    ty,
+    condition,
+    then_region,
+    else_region,
+  )
   let label_id = hot_label_alloc(
     func,
     HotLabelKind::IfLabel,
@@ -632,9 +738,7 @@ pub fn hot_build_try(
     Some(items) => hot_build_region(func, items, result_arity)
     None => HOT_NONE_NODE
   }
-  let id = hot_build_node(func, HotOp::Try, ty, children=[
-    body_region, catch_region,
-  ])
+  let id = hot_build_node2(func, HotOp::Try, ty, body_region, catch_region)
   let label_id = hot_label_alloc(
     func,
     HotLabelKind::TryLabel,
@@ -659,9 +763,14 @@ pub fn hot_build_try_table(
   let body_region = hot_build_region(func, body, result_arity)
   let catch_list_region = hot_build_region(func, catch_list_body, result_arity)
   let catch_info_id = hot_alloc_catch_info(func, HotCatchInfo::new(catches))
-  let id = hot_build_node(func, HotOp::TryTable, ty, imm1=catch_info_id, children=[
-    body_region, catch_list_region,
-  ])
+  let id = hot_build_node2(
+    func,
+    HotOp::TryTable,
+    ty,
+    body_region,
+    catch_list_region,
+    imm1=catch_info_id,
+  )
   let label_id = hot_label_alloc(
     func,
     HotLabelKind::TryTableLabel,

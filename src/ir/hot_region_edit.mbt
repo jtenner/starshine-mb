@@ -99,10 +99,11 @@ fn hot_region_optional_slot_ref(
   control_id : NodeId,
   slot : Int,
 ) -> HotRegionRef? {
-  if slot >= hot_child_count(func, control_id) {
+  let node = hot_node_get(func, control_id)
+  if slot >= node.child_count {
     return None
   }
-  let holder = hot_child_get(func, control_id, slot)
+  let holder = func.children[node.child_base + slot]
   if holder == HOT_NONE_NODE {
     return None
   }
@@ -162,11 +163,12 @@ fn hot_region_roots(func : HotFunc, region_ref : HotRegionRef) -> Array[NodeId] 
     return hot_root_span(func)
   }
   let holder = hot_region_require_holder(func, region_ref)
+  let node = hot_node_get(func, holder)
   let roots : Array[NodeId] = []
   let base = hot_region_body_base(func, holder)
-  let total = hot_child_count(func, holder)
+  let total = node.child_count
   for idx = base; idx < total; idx = idx + 1 {
-    roots.push(hot_child_get(func, holder, idx))
+    roots.push(func.children[node.child_base + idx])
   }
   roots
 }
@@ -181,10 +183,11 @@ fn hot_region_write_roots(
     return hot_root_splice(func, 0, hot_root_count(func), roots)
   }
   let holder = hot_region_require_holder(func, region_ref)
+  let node = hot_node_get(func, holder)
   let next : Array[NodeId] = []
   let base = hot_region_body_base(func, holder)
   for idx = 0; idx < base; idx = idx + 1 {
-    next.push(hot_child_get(func, holder, idx))
+    next.push(func.children[node.child_base + idx])
   }
   for root in roots {
     next.push(root)
@@ -198,7 +201,7 @@ pub fn hot_region_root_count(func : HotFunc, region_ref : HotRegionRef) -> Int {
     return hot_root_count(func)
   }
   let holder = hot_region_require_holder(func, region_ref)
-  hot_child_count(func, holder) - hot_region_body_base(func, holder)
+  hot_node_get(func, holder).child_count - hot_region_body_base(func, holder)
 }
 
 ///|
@@ -225,7 +228,8 @@ pub fn hot_region_get(
     return hot_root_get(func, idx)
   }
   let holder = hot_region_require_holder(func, region_ref)
-  hot_child_get(func, holder, hot_region_body_base(func, holder) + idx)
+  let node = hot_node_get(func, holder)
+  func.children[node.child_base + hot_region_body_base(func, holder) + idx]
 }
 
 ///|

@@ -109,6 +109,85 @@ fn hot_mutate_write_child_span(
 }
 
 ///|
+fn hot_mutate_attach_child_span(
+  func : HotFunc,
+  node : HotNode,
+  children : Array[NodeId],
+  context : String,
+) -> HotNode {
+  hot_mutate_require_type_id(func, node.ty, context)
+  if node.child_base != 0 || node.child_count != 0 {
+    abort("\{context} requires a detached child span")
+  }
+  if children.length() == 0 {
+    return node
+  }
+  let base = hot_alloc_child_span(func, children.length())
+  hot_mutate_write_child_span(func, base, children)
+  { ..node, child_base: base, child_count: children.length() }
+}
+
+///|
+fn hot_mutate_attach_child1(
+  func : HotFunc,
+  node : HotNode,
+  child0 : NodeId,
+  context : String,
+) -> HotNode {
+  hot_mutate_require_type_id(func, node.ty, context)
+  if node.child_base != 0 || node.child_count != 0 {
+    abort("\{context} requires a detached child span")
+  }
+  hot_mutate_require_child_ref(func, child0)
+  let base = hot_alloc_child_span(func, 1)
+  func.children[base] = child0
+  { ..node, child_base: base, child_count: 1 }
+}
+
+///|
+fn hot_mutate_attach_child2(
+  func : HotFunc,
+  node : HotNode,
+  child0 : NodeId,
+  child1 : NodeId,
+  context : String,
+) -> HotNode {
+  hot_mutate_require_type_id(func, node.ty, context)
+  if node.child_base != 0 || node.child_count != 0 {
+    abort("\{context} requires a detached child span")
+  }
+  hot_mutate_require_child_ref(func, child0)
+  hot_mutate_require_child_ref(func, child1)
+  let base = hot_alloc_child_span(func, 2)
+  func.children[base] = child0
+  func.children[base + 1] = child1
+  { ..node, child_base: base, child_count: 2 }
+}
+
+///|
+fn hot_mutate_attach_child3(
+  func : HotFunc,
+  node : HotNode,
+  child0 : NodeId,
+  child1 : NodeId,
+  child2 : NodeId,
+  context : String,
+) -> HotNode {
+  hot_mutate_require_type_id(func, node.ty, context)
+  if node.child_base != 0 || node.child_count != 0 {
+    abort("\{context} requires a detached child span")
+  }
+  hot_mutate_require_child_ref(func, child0)
+  hot_mutate_require_child_ref(func, child1)
+  hot_mutate_require_child_ref(func, child2)
+  let base = hot_alloc_child_span(func, 3)
+  func.children[base] = child0
+  func.children[base + 1] = child1
+  func.children[base + 2] = child2
+  { ..node, child_base: base, child_count: 3 }
+}
+
+///|
 pub fn hot_revision_bump(func : HotFunc) -> Unit {
   func.revision += 1
 }
@@ -375,6 +454,63 @@ pub fn hot_alloc_node(func : HotFunc, node : HotNode) -> NodeId {
   func.nodes.push(node)
   hot_revision_bump(func)
   id
+}
+
+///|
+fn hot_alloc_node_with_children(
+  func : HotFunc,
+  node : HotNode,
+  children : Array[NodeId],
+) -> NodeId {
+  hot_alloc_node(
+    func,
+    hot_mutate_attach_child_span(
+      func, node, children, "hot alloc_node_with_children",
+    ),
+  )
+}
+
+///|
+fn hot_alloc_node_with_child1(
+  func : HotFunc,
+  node : HotNode,
+  child0 : NodeId,
+) -> NodeId {
+  hot_alloc_node(
+    func,
+    hot_mutate_attach_child1(func, node, child0, "hot alloc_node_with_child1"),
+  )
+}
+
+///|
+fn hot_alloc_node_with_child2(
+  func : HotFunc,
+  node : HotNode,
+  child0 : NodeId,
+  child1 : NodeId,
+) -> NodeId {
+  hot_alloc_node(
+    func,
+    hot_mutate_attach_child2(
+      func, node, child0, child1, "hot alloc_node_with_child2",
+    ),
+  )
+}
+
+///|
+fn hot_alloc_node_with_child3(
+  func : HotFunc,
+  node : HotNode,
+  child0 : NodeId,
+  child1 : NodeId,
+  child2 : NodeId,
+) -> NodeId {
+  hot_alloc_node(
+    func,
+    hot_mutate_attach_child3(
+      func, node, child0, child1, child2, "hot alloc_node_with_child3",
+    ),
+  )
 }
 
 ///|
