@@ -45,9 +45,10 @@ That was enough for lower-level instruction smoke coverage, but it blocked clean
 
 ## Remaining Work
 
-- The next fixture-lift blocker is legacy GC reference-type aliases such as `anyref` in `tests/spec/proposals/custom-descriptors/ref_get_desc.wast`.
-- Once those aliases parse cleanly, the dedicated native harness coverage for `ref_get_desc.wast` can land as a separate slice.
+- The next fixture-lift blocker is now missing higher-level GC accessor coverage in
+  `tests/spec/proposals/custom-descriptors/ref_get_desc.wast`, starting with folded
+  `struct.get`, and then dedicated native harness coverage for the fixture.
 
 ## Open Questions
 
-- Whether the next alias-parsing slice should cover only the legacy aliases needed by `ref_get_desc.wast` or proactively cover the broader custom-descriptor fixture set that still uses `anyref`, `eqref`, `structref`, and `arrayref`.
+- Whether the next accessor-surface slice should target only the forms needed by `ref_get_desc.wast` or proactively cover additional missing higher-level GC forms now that alias parsing is already stabilized.

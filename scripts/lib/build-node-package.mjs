@@ -23,7 +23,8 @@ function copyArtifact(root, fromRelativePath, toRelativePath) {
 
 // Build the CLI release artifact and sync it into node/internal. The wasm-gc
 // adapter artifact is currently a checked-in boundary artifact while the old
-// generated node_api package is deleted and the Node surface is rebuilt.
+// generated `src/node_api` path is no longer part of the active rebuild flow
+// and the Node surface is rebuilt from the live CLI binary.
 export function buildNodePackage({
   repoRoot: root = repoRoot,
   moonBin = resolveMoonBin(),
@@ -34,7 +35,7 @@ export function buildNodePackage({
   const frozenWasmGcPath = path.join(root, 'node', 'internal', 'starshine.wasm-gc.wasm');
   if (!fs.existsSync(frozenWasmGcPath)) {
     throw new Error(
-      `Missing checked-in node/internal/starshine.wasm-gc.wasm; rebuilding the wasm-gc adapter is disabled after deleting src/node_api.`,
+      `Missing checked-in node/internal/starshine.wasm-gc.wasm; rebuilding the wasm-gc adapter is disabled while the active Node flow no longer rebuilds the legacy src/node_api path.`,
     );
   }
   const wasmGcSize = fs.statSync(frozenWasmGcPath).size;

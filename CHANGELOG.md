@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Docs and comments: stale compatibility sweep cleanup
+
+- **Refine stale doc and Node-package messaging after compatibility cleanup** by **@jtenner**. Updated [`docs/0022-2026-03-22-ref-get-desc-type-immediate.md`](/home/jtenner/Projects/starshine-mb/docs/0022-2026-03-22-ref-get-desc-type-immediate.md), [`scripts/lib/build-node-package.mjs`](/home/jtenner/Projects/starshine-mb/scripts/lib/build-node-package.mjs), and [`scripts/lib/generate-node-package.mjs`](/home/jtenner/Projects/starshine-mb/scripts/lib/generate-node-package.mjs) to reflect the completed legacy alias landing, current fixture-lift sequencing, and the current Node package rebuild flow so stale blockers and generation wording no longer describe completed work as still pending.
+
 ## 2026-03-26 Docs: sync README.mbt with active module-pass list
 
 - **Pass registry docs sync in MoonBit README surface** by **@jtenner**. Updated [`README.mbt.md`](/home/jtenner/Projects/starshine-mb/README.mbt.md) so the public pass-surface note now matches the active registry entries (including `duplicate-function-elimination` and `remove-unused-module-elements`) and no longer understates current module-pass implementation coverage.

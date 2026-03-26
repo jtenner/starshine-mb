@@ -4,7 +4,8 @@ import { pathToFileURL } from 'node:url';
 
 const DISABLED_MESSAGE =
   'Node package generation is disabled during the optimization pipeline refactor. '
-  + 'The old generator depended on the removed passes and node_api packages.';
+  + 'The old generator depended on the removed pass ports and the legacy '
+  + 'src/node_api adapter flow.';
 
 export function generateNodePackage() {
   throw new Error(DISABLED_MESSAGE);
