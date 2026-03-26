@@ -591,36 +591,70 @@ fn run_hot_pipeline_dce_raw_instr_is_definitely_void(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_void_structured_noop(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if run_hot_pipeline_dce_raw_has_early_terminator(instrs) {
+    return false
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Drop | @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) => return false
+      @lib.Block(block_type, @lib.Expr(body))
+      | @lib.Loop(block_type, @lib.Expr(body)) =>
+        if block_type != @lib.BlockType::void_() ||
+          !run_hot_pipeline_dce_raw_void_structured_noop(body) {
+          return false
+        }
+      @lib.If(block_type, then_body, else_body) => {
+        if block_type != @lib.BlockType::void_() ||
+          !run_hot_pipeline_dce_raw_void_structured_noop(then_body) {
+          return false
+        }
+        match else_body {
+          Some(else_body) =>
+            if !run_hot_pipeline_dce_raw_void_structured_noop(else_body) {
+              return false
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(block_type, _, @lib.Expr(body)) =>
+        if block_type != @lib.BlockType::void_() ||
+          !run_hot_pipeline_dce_raw_void_structured_noop(body) {
+          return false
+        }
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_dce_can_skip_raw(
   original : @lib.Func,
   module_ctx : @ir.HotModuleContext,
   func_idx : @lib.FuncIdx,
 ) -> Bool {
   let @lib.Func(_, @lib.Expr(instrs)) = original
-  let (_, has_structured_control, has_branches, _) = run_hot_pipeline_instr_scan(
-    instrs,
-  )
-  if has_structured_control || has_branches {
+  let (_, has_structured_control, has_branches, _) = run_hot_pipeline_instr_scan(instrs)
+  if has_branches {
     return false
   }
-  for instr in instrs {
-    match instr {
-      @lib.Drop => return false
-      _ => ()
-    }
-  }
-  if run_hot_pipeline_dce_raw_has_early_terminator(instrs) {
+  let straight_line_noop = !has_structured_control
+  let structured_void_noop = has_structured_control &&
+    run_hot_pipeline_dce_raw_void_structured_noop(instrs)
+  if !straight_line_noop && !structured_void_noop {
     return false
   }
   match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
     Some(@lib.FuncType(_, results)) =>
       !results.is_empty() ||
-      (
-        !instrs.is_empty() &&
-        run_hot_pipeline_dce_raw_instr_is_definitely_void(
-          instrs[instrs.length() - 1],
-          module_ctx,
-        )
+      structured_void_noop ||
+      instrs.is_empty() ||
+      run_hot_pipeline_dce_raw_instr_is_definitely_void(
+        instrs[instrs.length() - 1],
+        module_ctx,
       )
     None =>
       abort(
