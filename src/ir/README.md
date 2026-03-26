@@ -54,7 +54,7 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 - `hot_walk.mbt`: stable root, child, subtree, region, control-region, worklist, and rewrite-by-slot traversal helpers with explicit `Continue` / `Skip` / `Stop` / `Error` control flow.
 - `hot_region_edit.mbt`: one structured region reference plus root/body/then/else/catch splice helpers so passes can rewrite top-level and nested bodies through one mutation contract.
 - `hot_module_context.mbt`: shared boundary-module context resolution for function signatures, type-index block results, memories, tables, globals, tags, element segments, data segments, and aggregate field metadata so lift/lower and later analyses stop depending on validator-private lookups.
-- `hot_verify.mbt`: structured core/control verification plus placeholder CFG/dominance/SSA hooks and debug abort helpers so lift/lower and later passes fail fast on corruption.
+- `hot_verify.mbt`: structured core/control verification plus CFG, dominator, post-dominator, liveness, and SSA hooks plus debug abort helpers so lift/lower and later passes fail fast on corruption.
 - `hot_lift.mbt`: validator-backed boundary-to-hot lifting for function bodies and module functions, including module-context resolution, label metadata allocation, typed side-table payload preservation, and structured lift errors.
 - `hot_lower.mbt`: verified hot-to-boundary lowering for function bodies and `@lib.Func` definitions, including label-depth remapping, exact-instruction recovery, and stack-aware emission for shared branch payload values.
 - `hot.mbt`: compatibility-free hot-lift/lower façade helpers and glue used by active IR2 consumers.

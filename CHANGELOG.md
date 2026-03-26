@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Docs: continue stale wording cleanup in IR and Node docs
+
+- **Compatibility-adapter cleanup** by **@jtenner**. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md) and [`node/README.md`](/home/jtenner/Projects/starshine-mb/node/README.md) to remove stale `"deleted"` and `"placeholder"` language that over-described removed adapters and shim-like verification helper wording.
+
 ## 2026-03-26 Docs: refresh stale IR2 compatibility wording in `src/ir/README.md`
 
 - **IR2 facade wording cleanup** by **@jtenner**. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md) so the module map no longer claims `hot.mbt` still contains compatibility lift entries or legacy helper scaffolding, aligning the file with the current active IR2 ownership model and active module-pass architecture.

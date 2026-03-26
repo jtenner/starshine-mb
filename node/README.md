@@ -35,5 +35,5 @@ if (!encoded.ok) throw new Error(encoded.display ?? 'failed to encode');
 
 ## Build Note
 - `npm run build` regenerates the JS/TS package surface and refreshes the checked-in WASI CLI artifact under `node/internal/`.
-- The deleted `src/node_api` wasm-gc adapter is not rebuilt as part of the current node package flow.
+- The compatibility/staging `src/node_api` adapter surface is not rebuilt as part of the current node package flow.
 - CLI optimization flags run through the live command pass pipeline: `--optimize` / `--shrink` use the active hot preset, while legacy pass names are still surfaced for diagnostics but are not executable in the active registry.
