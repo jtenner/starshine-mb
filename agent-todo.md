@@ -71,6 +71,13 @@ Observed unique-pass order
      - Deliverables: isolate the minimal post-DCE/post-vacuum artifact shape that triggers the later `hot_lift_func` abort; add red/green regression coverage for that exact replay shape; keep the ordered post-SSA cleanup chain (`DCE -> VQ -> OI -> SL`) re-liftable, Binaryen-parseable, and ready for the remaining parity and runtime budget work; cut large-artifact hot-pass wall time from the remaining hot-lift setup and GC churn so post-SSA replay is no longer dominated by lift overhead.
      - Current blocker: post-prefix `--ssa-nomerge` replay now additionally skips raw no-write and straight-line local-write functions, borrows CFG edge arrays instead of copying them through the hot analyses, reuses owned concrete entry stacks during hot lift, and lowers without extra hot verification under final-module-only policy. The suite is green, but large-artifact replay is still over budget because a much smaller set of very large functions now dominates hot-lift wall time and allocation churn; grouped hot-pass batching is still not safe because later cleanup passes still expose re-lift verification failures.
      - Doc: [0066#L124](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L124)
+  - [HOT]002 - Native Parallel Hot-Batch Queue - Add a native-only worker queue for the existing hot-function batch so large modules can amortize hot-lift and analysis setup across cores before the Node package port lands.
+     - Deliverables: use the current hot batch boundary (`ssa-nomerge -> dead-code-elimination -> vacuum -> optimize-instructions -> simplify-locals`) as the worker payload; introduce an atomic queue over eligible defined functions; keep module passes and final merge deterministic; gate the worker path behind an explicit native-only option until the replay and perf story is stable.
+     - Required APIs: `src/passes/pass_manager.mbt` scheduler surface; a native-only threading adapter built from `mizchi/threads`; stable per-function result handoff that does not share mutable MoonBit heap state across workers.
+     - Invariants: do not reorder the public pass queue; keep final output byte-stable for unchanged function order; preserve current final-module validation behavior; keep worker-local IR state isolated and merge only serialized function results back on the main thread.
+     - Dependencies: [HOT]001 replay hardening must stay green because the worker payload is the same hot batch and still depends on re-liftable post-pass output.
+     - Exit Criteria: the native path can drain a queue of defined functions through the full hot batch without correctness regressions, has focused coverage for deterministic output and empty/single-function modules, and is ready for debug-artifact perf measurement against the current serial baseline.
+     - Suggested Tests: `moon test src/passes`, `moon test src/cmd`, targeted perf coverage in `src/passes/perf_test.mbt`, and native debug-artifact replay with the worker path both on and off.
 1. Research exact functionality in document.
    - Research exactly how it works with a document: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
@@ -548,4 +555,7 @@ Observed unique-pass order
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
 ## v0.2.0 Backlog
 
-- No active backlog slices. Add the next IR2 slice id here before new implementation work starts.
+- [HOT]003 - Node-Package Worker Queue Port - Reuse the native hot-batch queue contract in the shipped Node package with `worker_threads` rather than WASI threads.
+  - Deliverables: port the native scheduler contract to a Node host queue backed by `SharedArrayBuffer` and `Atomics`; instantiate one WasmGC module per worker; keep WasmGC refs and MoonBit heap objects worker-local; merge serialized per-function results back on the parent thread in stable function order.
+  - Dependencies: [HOT]002 native queue contract, worker-local function serialization hooks, and package-host integration work under the future Node package rebuild.
+  - Exit Criteria: the Node package can opt into the same per-function hot batch worker queue without changing optimizer semantics, and the host/runtime contract is documented clearly enough to preserve native and Node behavior parity.

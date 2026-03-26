@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-25 Plan: add native and Node-package hot-queue backlog slices
+
+- **Threading roadmap backlog update** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb/CHANGELOG.md) and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb/agent-todo.md) to add a native `v0.1.0` slice for a worker-queue version of the existing hot-function batch and a `v0.2.0` backlog slice for porting the same scheduler contract into the Node package with `worker_threads`. The new slices pin the intended batch boundary, queue ownership, determinism constraints, and worker-local state rules before implementation work starts.
+
 ## 2026-03-25 Repo: clean master worktree after `ssa-nomerge` perf triage
 
 - **Crash-dump ignore plus stray test-file formatting cleanup** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb/CHANGELOG.md), [`.gitignore`](/home/jtenner/Projects/starshine-mb/.gitignore), and [`src/ir/hot_lift_test.mbt`](/home/jtenner/Projects/starshine-mb/src/ir/hot_lift_test.mbt) to remove the stray `vgcore.*` artifact from the repository worktree, ignore future core dumps, and fold the remaining formatting-only `hot_lift_test` diff into master so the branch returns to a clean post-triage state.
