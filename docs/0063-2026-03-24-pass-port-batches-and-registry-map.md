@@ -50,14 +50,14 @@
 - Type, global, and signature shaping:
   `abstract-type-refining`, `constant-field-propagation`, `constant-field-null-test-folding`, `dead-argument-elimination`, `dead-argument-elimination-optimizing`, `signature-pruning`, `signature-refining`, `global-struct-inference-desc-cast`, `global-type-optimization`, `simplify-globals`, `simplify-globals-optimizing`, `global-effects`, `propagate-globals-globally`, `type-refining`, `type-generalizing`, `type-finalizing`, `type-un-finalizing`, `unsubtyping`.
 - Whole-module or layout transforms:
-  `alignment-lowering`, `duplicate-import-elimination`, `directize`, `heap2local`, `heap-store-optimization`, `inlining`, `inlining-optimizing`, `inline-main`, `merge-similar-functions`, `minimize-rec-groups`, `type-merging`, `monomorphize`, `monomorphize-always`, `gufa`, `gufa-optimizing`, `gufa-cast-all`, `i64-to-i32-lowering`.
+  `alignment-lowering`, `duplicate-import-elimination`, `directize`, `heap2local`, `inlining`, `inlining-optimizing`, `inline-main`, `merge-similar-functions`, `minimize-rec-groups`, `type-merging`, `monomorphize`, `monomorphize-always`, `gufa`, `gufa-optimizing`, `gufa-cast-all`, `i64-to-i32-lowering`.
 - Boundary cleanup and ordering:
   `reorder-locals`, `reorder-types`, `reorder-globals`, `reorder-globals-always`, `reorder-functions`, `reorder-functions-by-name`, `remove-unused-types`, `remove-unused`, `remove-unused-non-function-elements`.
 
 ## Preset Composition
 
-- `optimize` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions", "simplify-locals"]`.
-- `shrink` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions", "simplify-locals"]`.
+- `optimize` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions", "heap-store-optimization", "simplify-locals"]`.
+- `shrink` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions", "heap-store-optimization", "simplify-locals"]`.
 - Future preset growth must only add implemented module or hot passes or explicitly documented boundary-only phases.
 
 

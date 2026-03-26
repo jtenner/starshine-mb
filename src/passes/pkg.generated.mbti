@@ -24,6 +24,10 @@ pub fn global_struct_inference_run_module_pass(@lib.Module, Bool) -> @lib.Module
 
 pub fn global_struct_inference_summary() -> String
 
+pub fn heap_store_optimization_descriptor() -> @ir.HotPassDescriptor
+
+pub fn heap_store_optimization_summary() -> String
+
 pub fn hot_pass_run(HotPassContext, @ir.HotFunc) -> Result[HotPassResult, String]
 
 pub fn memory_packing_run_module_pass(@lib.Module) -> @lib.Module

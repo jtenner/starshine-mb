@@ -122,12 +122,12 @@ fn pass_registry_boundary_only_names() -> Array[String] {
     "global-struct-inference-desc-cast", "global-type-optimization", "simplify-globals",
     "simplify-globals-optimizing", "global-effects", "propagate-globals-globally",
     "type-refining", "type-generalizing", "type-finalizing", "type-un-finalizing",
-    "unsubtyping", "heap2local", "heap-store-optimization", "inlining", "inlining-optimizing",
-    "inline-main", "merge-similar-functions", "minimize-rec-groups", "type-merging",
-    "monomorphize", "monomorphize-always", "gufa", "gufa-optimizing", "gufa-cast-all",
-    "i64-to-i32-lowering", "reorder-locals", "reorder-types", "reorder-globals",
-    "reorder-globals-always", "reorder-functions", "reorder-functions-by-name", "remove-unused-types",
-    "remove-unused", "remove-unused-non-function-elements",
+    "unsubtyping", "heap2local", "inlining", "inlining-optimizing", "inline-main",
+    "merge-similar-functions", "minimize-rec-groups", "type-merging", "monomorphize",
+    "monomorphize-always", "gufa", "gufa-optimizing", "gufa-cast-all", "i64-to-i32-lowering",
+    "reorder-locals", "reorder-types", "reorder-globals", "reorder-globals-always",
+    "reorder-functions", "reorder-functions-by-name", "remove-unused-types", "remove-unused",
+    "remove-unused-non-function-elements",
   ]
 }
 
@@ -181,6 +181,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       optimize_instructions_descriptor(),
     ),
     pass_registry_entry_hot(
+      "heap-store-optimization",
+      heap_store_optimization_summary(),
+      heap_store_optimization_descriptor(),
+    ),
+    pass_registry_entry_hot(
       "pick-load-signs",
       pick_load_signs_summary(),
       pick_load_signs_descriptor(),
@@ -202,20 +207,22 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     pass_registry_entry_preset(
       "optimize",
       "Run the default hot optimization preset.",
-      [
-        "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-        "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
-        "optimize-instructions", "pick-load-signs", "simplify-locals",
-      ],
+        [
+          "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
+          "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
+          "optimize-instructions", "heap-store-optimization", "pick-load-signs",
+          "simplify-locals",
+        ],
     ),
     pass_registry_entry_preset(
       "shrink",
       "Run the default size-biased hot optimization preset.",
-      [
-        "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-        "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
-        "optimize-instructions", "pick-load-signs", "simplify-locals",
-      ],
+        [
+          "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
+          "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
+          "optimize-instructions", "heap-store-optimization", "pick-load-signs",
+          "simplify-locals",
+        ],
     ),
   ]
   for name in pass_registry_boundary_only_names() {
@@ -254,8 +261,9 @@ pub fn pass_registry_category(name : String) -> HotPassRegistryCategory? {
 pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
-    "pick-load-signs", "simplify-locals",
+    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
+    "optimize-instructions", "heap-store-optimization", "pick-load-signs",
+    "simplify-locals",
   ]
 }
 
@@ -263,8 +271,9 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
 pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
-    "pick-load-signs", "simplify-locals",
+    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
+    "optimize-instructions", "heap-store-optimization", "pick-load-signs",
+    "simplify-locals",
   ]
 }
 
