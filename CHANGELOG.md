@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Optimize: narrow HSO root scans to actual candidate ops
+
+- **`heap-store-optimization` root-walk prefilter** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt) so HSO now skips nested-region recursion on non-control roots and only runs its tee/local-set candidate matchers on `Heap` and `LocalSet` roots instead of every region entry. Focused `moon test src/passes` stays green, and the generated GC compare fixture kept canonical wasm / normalized WAT parity while improving recent HSO pass time again from roughly `8.9ms` to `7.7ms`; the pass still needs more work to approach Binaryen's budget.
+
 ## 2026-03-26 Optimize: cache HSO effect masks instead of rebuilding them per query
 
 - **`heap-store-optimization` severe perf checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt) so HSO now reuses the already-required hot `effects` analysis node-mask cache across its fold and swap checks, only falling back to ad-hoc effect recomputation for nodes allocated during the pass itself. Focused `moon test src/passes` remains green, and the generated GC compare fixture kept canonical wasm / normalized WAT parity while dropping recent HSO pass time from roughly `36.4ms` to `8.9ms`; the pass is still far slower than Binaryen, but the worst quadratic-style effect-query rebuild path is gone.
