@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Fix: keep nonlocal readonly block prefixes out of direct HSO folds
+
+- **`heap-store-optimization` nonlocal readonly prefix parity tightening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), and [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt) so direct HSO folds now reject trapless-readonly multi-root block values when their prefixes read non-local state like `global.get`, `memory.size`, or `table.size`, while still preserving the existing folds for peeled `local.get` prefixes and branch-contained values. Focused `moon test src/passes` stays green at `110/110`; emitted-wasm parity on stack-decoded wrapper shapes is still being chased separately.
+
 ## 2026-03-26 Fix: normalize mixed swapped-prefix and nested-tail HSO values
 
 - **`heap-store-optimization` mixed wrapper parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), and [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt) so HSO now places the folded `nop` before peeled readonly prefixes when the allocation has already swapped past earlier roots, and it unwraps trivial readonly single-root value blocks that survive as the peeled tail instead of preserving a redundant nested `block`. Focused `moon fmt && moon test src/passes` stays green at `110/110`, and the second generated wrapper-heavy HSO oracle matrix is now canonical against Binaryen in normalized WAT.

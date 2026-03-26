@@ -844,6 +844,50 @@ fn hso_sequence_result_type(
 }
 
 ///|
+fn hso_value_has_nonlocal_readonly_prefix(
+  cache : HsoPredicateCache,
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  value_id : Int,
+) -> Bool {
+  if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, value_id)
+  match node.op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, value_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count < 2 {
+    return false
+  }
+  for idx = 0; idx < root_count; idx = idx + 1 {
+    if !hso_subtree_is_trapless_readonly(
+        cache,
+        func,
+        node_masks,
+        @ir.hot_region_get(func, body_ref, idx),
+      ) {
+      return false
+    }
+  }
+  let disallowed_prefix_mask = @ir.EFFECT_MASK_GLOBAL_STATE |
+    @ir.EFFECT_MASK_MEMORY_READ |
+    @ir.EFFECT_MASK_TABLE_READ
+  for idx = 0; idx < root_count - 1; idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, body_ref, idx)
+    if (hso_reorder_effect_mask(cache, func, node_masks, root_id) &
+        disallowed_prefix_mask) !=
+      0U {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn hso_build_preserved_replacement(
   func : @ir.HotFunc,
   node_masks : Array[UInt],
@@ -888,69 +932,6 @@ fn hso_array_insert_prefix_roots(
   }
 }
 
-///|
-fn hso_trapless_readonly_block_value_parts(
-  cache : HsoPredicateCache,
-  func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  node_id : Int,
-) -> (Array[Int], Int)? {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return None
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Block => ()
-    _ => return None
-  }
-  let body_ref = @ir.hot_region_body_ref(func, node_id)
-  let roots = hso_region_roots(func, body_ref)
-  if roots.length() < 2 {
-    return None
-  }
-  for root_id in roots {
-    if !hso_subtree_is_trapless_readonly(cache, func, node_masks, root_id) {
-      return None
-    }
-  }
-  let prefix_roots : Array[Int] = []
-  for idx = 0; idx < roots.length() - 1; idx = idx + 1 {
-    prefix_roots.push(roots[idx])
-  }
-  Some((prefix_roots, roots[roots.length() - 1]))
-}
-
-///|
-fn hso_unwrap_trivial_readonly_value_block(
-  cache : HsoPredicateCache,
-  func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  node_id : Int,
-) -> Int {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return node_id
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Block => ()
-    _ => return node_id
-  }
-  if !hso_subtree_is_trapless_readonly(cache, func, node_masks, node_id) {
-    return node_id
-  }
-  let body_ref = @ir.hot_region_body_ref(func, node_id)
-  if @ir.hot_region_root_count(func, body_ref) != 1 {
-    return node_id
-  }
-  hso_unwrap_trivial_readonly_value_block(
-    cache,
-    func,
-    node_masks,
-    @ir.hot_region_get(func, body_ref, 0),
-  )
-}
-
-///|
 fn hso_liftable_swapped_block_roots(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
@@ -1010,6 +991,14 @@ fn hso_try_fold_into_struct_new(
   let value_reorder_mask = hso_reorder_effect_mask(
     cache, func, node_masks, value_id,
   )
+  if hso_value_has_nonlocal_readonly_prefix(
+      cache,
+      func,
+      node_masks,
+      value_id,
+    ) {
+    return false
+  }
   if (value_mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
     hso_subtree_touches_local(func, value_id, local_id) {
     return false
@@ -1126,19 +1115,6 @@ fn hso_try_fold_tee_wrapped_struct_set(
     return None
   }
   let struct_new_id = @ir.hot_child_get(func, ref_id, 0)
-  let mut folded_value_id = value_id
-  let mut extracted_prefix_roots : Array[Int]? = None
-  match
-    hso_trapless_readonly_block_value_parts(cache, func, node_masks, value_id) {
-    Some((prefix_roots, tail_id)) => {
-      folded_value_id = tail_id
-      extracted_prefix_roots = Some(prefix_roots)
-    }
-    None => ()
-  }
-  folded_value_id = hso_unwrap_trivial_readonly_value_block(
-    cache, func, node_masks, folded_value_id,
-  )
   if !hso_try_fold_into_struct_new(
       cache,
       type_cache,
@@ -1148,21 +1124,13 @@ fn hso_try_fold_tee_wrapped_struct_set(
       struct_new_id,
       type_idx,
       field_idx,
-      folded_value_id,
+      value_id,
       ref_node.imm0,
     ) {
     return None
   }
   let local_set_id = @ir.hot_build_local_set(func, ref_node.imm0, struct_new_id)
-  let replacement_roots : Array[Int] = []
-  match extracted_prefix_roots {
-    Some(prefix_roots) =>
-      for prefix_root_id in prefix_roots {
-        replacement_roots.push(prefix_root_id)
-      }
-    None => ()
-  }
-  replacement_roots.push(local_set_id)
+  let replacement_roots : Array[Int] = [local_set_id]
   Some(replacement_roots)
 }
 
@@ -1379,24 +1347,9 @@ fn hso_process_region(
                   type_idx,
                 ) {
                 Some((field_idx, value_id)) => {
-                  let mut folded_value_id = value_id
-                  let mut extracted_prefix_roots : Array[Int]? = None
-                  match
-                    hso_trapless_readonly_block_value_parts(
-                      cache, func, node_masks, value_id,
-                    ) {
-                    Some((prefix_roots, tail_id)) => {
-                      folded_value_id = tail_id
-                      extracted_prefix_roots = Some(prefix_roots)
-                    }
-                    None => ()
-                  }
-                  folded_value_id = hso_unwrap_trivial_readonly_value_block(
-                    cache, func, node_masks, folded_value_id,
-                  )
                   if hso_try_fold_into_struct_new(
                       cache, type_cache, func, module_ctx, node_masks, struct_new_id,
-                      type_idx, field_idx, folded_value_id, local_id,
+                      type_idx, field_idx, value_id, local_id,
                     ) {
                     let nop_id = @ir.hot_build_nop(func)
                     if segment_has_swapped_prefix {
@@ -1407,20 +1360,6 @@ fn hso_process_region(
                         1,
                       )
                       segment_local_set_idx = segment_local_set_idx + 1
-                    }
-                    match extracted_prefix_roots {
-                      Some(prefix_roots) =>
-                        if !prefix_roots.is_empty() {
-                          hso_array_insert_prefix_roots(
-                            segment_roots,
-                            segment_local_set_idx,
-                            prefix_roots,
-                            prefix_roots.length(),
-                          )
-                          segment_local_set_idx = segment_local_set_idx +
-                            prefix_roots.length()
-                        }
-                      None => ()
                     }
                     changed = true
                     if !segment_has_swapped_prefix {

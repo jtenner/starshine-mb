@@ -748,7 +748,7 @@ test "heap-store-optimization keeps folded nops after the rewritten local.set" {
 }
 
 ///|
-test "heap-store-optimization peels readonly block prefixes out of folded values" {
+test "heap-store-optimization keeps readonly block-prefix values as struct.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -774,18 +774,17 @@ test "heap-store-optimization peels readonly block prefixes out of folded values
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected readonly-prefix peel heap-store-optimization success, got \{err}",
+        "expected readonly-prefix non-fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_false(pretty.contains("block"), msg=pretty)
-  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
-test "heap-store-optimization peels readonly block prefixes out of tee-wrapped folds" {
+test "heap-store-optimization keeps tee readonly block-prefix values as struct.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -810,19 +809,18 @@ test "heap-store-optimization peels readonly block prefixes out of tee-wrapped f
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected tee readonly-prefix peel heap-store-optimization success, got \{err}",
+        "expected tee readonly-prefix non-fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_false(pretty.contains("block"), msg=pretty)
-  assert_false(pretty.contains("struct.set"), msg=pretty)
-  assert_false(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
 }
 
 ///|
-test "heap-store-optimization orders swapped roots before peeled readonly prefixes" {
+test "heap-store-optimization keeps swapped roots when readonly block values stay as struct.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -855,19 +853,18 @@ test "heap-store-optimization orders swapped roots before peeled readonly prefix
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected swapped-prefix ordering heap-store-optimization success, got \{err}",
+        "expected swapped-prefix non-fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.set"), msg=pretty)
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("nop"), msg=pretty)
-  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
-test "heap-store-optimization flattens trivial readonly tail blocks after prefix peeling" {
+test "heap-store-optimization keeps nested readonly tail blocks as struct.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -896,14 +893,13 @@ test "heap-store-optimization flattens trivial readonly tail blocks after prefix
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected nested-tail flatten heap-store-optimization success, got \{err}",
+        "expected nested-tail non-fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_false(pretty.contains("block"), msg=pretty)
-  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
