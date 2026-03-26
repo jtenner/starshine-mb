@@ -354,6 +354,26 @@ test "remove-unused-brs rewrites tail return ifs with simple payload arms" {
 }
 
 ///|
+test "remove-unused-brs rewrites payload ifs inside returned loop bodies" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) (return (loop (result i32) (if (result i32) (local.get 0) (then (i32.const 1)) (else (local.set 1 (i32.const 9)) (i32.const 2)))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs returned-loop payload success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if (I32)"), msg=pretty)
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("loop"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites branch payload ifs with branching else arms" {
   let optimized = match
     pass_test_run_pipeline(

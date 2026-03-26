@@ -1683,6 +1683,16 @@ fn remove_unused_brs_visit_node(
           ctx, func, body_ref, seen, reorder_cache, label_refs,
         ) ||
         changed
+      if payload_context {
+        changed = remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
+            ctx, func, body_ref, label_refs,
+          ) ||
+          changed
+        changed = remove_unused_brs_try_rewrite_tail_value_if_simple_payload_arm(
+            ctx, func, body_ref, label_refs,
+          ) ||
+          changed
+      }
       changed = remove_unused_brs_flatten_block_if_chains(
           ctx, func, body_ref, label_refs,
         ) ||
