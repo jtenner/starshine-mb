@@ -543,6 +543,103 @@ fn run_hot_pipeline_dce_raw_has_early_terminator(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_instr_may_fallthrough(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Br(_)
+    | @lib.BrTable(_, _)
+    | @lib.Return
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.Throw(_)
+    | @lib.ThrowRef
+    | @lib.Unreachable => false
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      run_hot_pipeline_dce_raw_body_may_fallthrough(body)
+    @lib.If(_, then_body, else_body) => {
+      let then_may_fallthrough = run_hot_pipeline_dce_raw_body_may_fallthrough(
+        then_body,
+      )
+      let else_may_fallthrough = match else_body {
+        Some(else_body) =>
+          run_hot_pipeline_dce_raw_body_may_fallthrough(else_body)
+        None => true
+      }
+      then_may_fallthrough || else_may_fallthrough
+    }
+    @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_dce_raw_body_may_fallthrough(body)
+    _ => true
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_body_may_fallthrough(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if !run_hot_pipeline_dce_raw_instr_may_fallthrough(instr) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_dce_raw_has_dead_drop_after_nonfallthrough(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut prev_may_fallthrough = true
+  for instr in instrs {
+    if !prev_may_fallthrough {
+      match instr {
+        @lib.Drop => return true
+        _ => ()
+      }
+    }
+    match instr {
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_has_dead_drop_after_nonfallthrough(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_dce_raw_has_dead_drop_after_nonfallthrough(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_dce_raw_has_dead_drop_after_nonfallthrough(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_has_dead_drop_after_nonfallthrough(body) {
+          return true
+        }
+      _ => ()
+    }
+    prev_may_fallthrough = run_hot_pipeline_dce_raw_instr_may_fallthrough(instr)
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_dce_raw_requires_lowering_even_if_unchanged(
+  original : @lib.Func,
+) -> Bool {
+  let @lib.Func(_, @lib.Expr(instrs)) = original
+  run_hot_pipeline_dce_raw_has_dead_drop_after_nonfallthrough(instrs)
+}
+
+///|
 fn run_hot_pipeline_dce_raw_instr_is_definitely_void(
   instr : @lib.Instruction,
   module_ctx : @ir.HotModuleContext,
@@ -1728,7 +1825,12 @@ fn run_hot_pipeline_func(
   )
   match hot_pass_run(ctx, func) {
     Ok(result) =>
-      if !result.changed && @ir.hot_revision_current(func) == lifted_revision {
+      if !result.changed &&
+        @ir.hot_revision_current(func) == lifted_revision &&
+        !(descriptor.name == "dead-code-elimination" &&
+        run_hot_pipeline_dce_raw_requires_lowering_even_if_unchanged(
+          run_hot_pipeline_original_func(mod_, func_idx),
+        )) {
         return Ok(run_hot_pipeline_original_func(mod_, func_idx))
       }
     Err(err) => return Err(err)

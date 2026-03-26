@@ -150,7 +150,7 @@ test "dead-code-elimination keeps typed branch wrappers with label-targeted payl
 }
 
 ///|
-test "dead-code-elimination preserves branch-skipping result block wrappers under drop" {
+test "dead-code-elimination removes branch-skipping result block wrappers under drop" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (param i32) (result i32) block block (result i32) local.get 0 if br 2 else br 2 end i32.const 1000 end drop end i32.const 0))",
@@ -159,14 +159,61 @@ test "dead-code-elimination preserves branch-skipping result block wrappers unde
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected dead-code-elimination to preserve branch-skipping result block wrappers, got \{err}",
+        "expected dead-code-elimination to remove branch-skipping result block wrappers, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("(block I32"), msg=pretty)
-  assert_true(pretty.contains("I32(1000)"), msg=pretty)
+  assert_false(pretty.contains("(block I32"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("I32(1000)"), msg=pretty)
   assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination removes dead drop wrappers around non-fallthrough branches" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (block $out (result i32) (drop (br $out (local.get 0))))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination to remove dead drop around branch payload, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(br "), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination batches consecutive dead drop root splices" {
+  let func = pass_test_lift_first_func(
+    "(module (func i32.const 1 drop i32.const 2 drop i32.const 3 drop))",
+  )
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  let rev0 = @ir.hot_revision_current(func)
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected batched dead-drop dead-code-elimination success, got \{err}",
+      )
+  }
+
+  assert_eq(@ir.hot_root_count(func), 0)
+  assert_true(@ir.hot_revision_current(func) - rev0 < 9)
 }
 
 ///|

@@ -471,6 +471,45 @@ test "hot lower preserves result blocks consumed by local.set" {
 }
 
 ///|
+test "hot lower does not reintroduce dead drops after non-fallthrough block exits" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ])
+  let hot = hot_lift_body(
+    body,
+    HotLocals::new(param_count=1, locals=[]),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+  let lowered = hot_lower_func(hot)
+  let @lib.Func(locals, lowered_body) = lowered
+
+  assert_eq(locals, @lib.Locals::from_types([]))
+  assert_false(
+    lowered_body.to_string().contains("drop"),
+    msg=lowered_body.to_string(),
+  )
+  assert_eq(
+    lowered_body,
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 test "hot lower preserves result blocks consumed by local.tee and later local.gets" {
   let memarg = hot_lower_test_memarg()
   let body = @lib.Expr::new([

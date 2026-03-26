@@ -502,6 +502,8 @@ pub fn hot_region_then_ref(HotFunc, Int) -> HotRegionRef
 
 pub fn hot_replace_child_span(HotFunc, Int, Array[Int]) -> Array[Int]
 
+pub fn hot_replace_child_spans_and_control_result_type(HotFunc, Int, Int, Array[HotChildSpanRewrite]) -> Unit
+
 pub fn hot_replace_node(HotFunc, Int, HotNode) -> Unit
 
 pub fn hot_revision_bump(HotFunc) -> Unit
@@ -911,6 +913,15 @@ pub struct HotCfgOrders {
 pub impl Eq for HotCfgOrders
 pub impl Show for HotCfgOrders
 pub impl @debug.Debug for HotCfgOrders
+
+pub struct HotChildSpanRewrite {
+  node_id : Int
+  new_children : Array[Int]
+}
+pub fn HotChildSpanRewrite::new(Int, Array[Int]) -> Self
+pub impl Eq for HotChildSpanRewrite
+pub impl Show for HotChildSpanRewrite
+pub impl @debug.Debug for HotChildSpanRewrite
 
 pub enum HotConstPayload {
   I32Const(@lib.I32)
