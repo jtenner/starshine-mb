@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Optimize: skip final-root DCE fallthrough checks for non-control value producers
+
+- **Dead-code-elimination final-root control-only fallthrough checkpoint** by **@jtenner**. Updated [CHANGELOG.md](/home/jtenner/Projects/starshine-mb/CHANGELOG.md) and [src/passes/dead_code_elimination.mbt](/home/jtenner/Projects/starshine-mb/src/passes/dead_code_elimination.mbt) so the final-root fallthrough query now stays on the hot path only for control nodes with live result semantics, instead of all value-producing roots. After rebuilding the native CLI, the direct `--dead-code-elimination` replay on `tests/node/dist/starshine-debug-wasi.wasm` improved again to about `14.84s`; parity is still incomplete and the Binaryen 50% speed target is still not met.
+
 ## 2026-03-26 Optimize: skip final-root DCE fallthrough checks when they cannot change output
 
 - **Dead-code-elimination final-root fallthrough checkpoint** by **@jtenner**. Updated [CHANGELOG.md](/home/jtenner/Projects/starshine-mb/CHANGELOG.md) and [src/passes/dead_code_elimination.mbt](/home/jtenner/Projects/starshine-mb/src/passes/dead_code_elimination.mbt) so DCE no longer runs the expensive `node_may_fallthrough` query for final roots that have no result values and cannot need an explicit trailing `unreachable`. On the large native replay, the exact A/B check improved the direct `--dead-code-elimination` run from about `16.01s` to about `15.51s` and `15.59s` in repeat samples; parity is still incomplete and the Binaryen 50% speed target is still not met.
