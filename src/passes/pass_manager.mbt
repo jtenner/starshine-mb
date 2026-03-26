@@ -523,6 +523,60 @@ fn run_hot_pipeline_instr_scan(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_has_early_terminator(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let is_final = idx + 1 == instrs.length()
+    match instrs[idx] {
+      @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Unreachable =>
+        if !is_final {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_dce_can_skip_raw(
+  original : @lib.Func,
+  module_ctx : @ir.HotModuleContext,
+  func_idx : @lib.FuncIdx,
+) -> Bool {
+  let @lib.Func(_, @lib.Expr(instrs)) = original
+  let (_, has_structured_control, has_branches, _) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
+  if has_structured_control || has_branches {
+    return false
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Drop => return false
+      _ => ()
+    }
+  }
+  if run_hot_pipeline_dce_raw_has_early_terminator(instrs) {
+    return false
+  }
+  match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+    Some(@lib.FuncType(_, results)) => !results.is_empty()
+    None =>
+      abort(
+        "hot pipeline raw dead-code-elimination skip requires the function type to resolve",
+      )
+  }
+}
+
+///|
 fn run_hot_pipeline_required_func_params(
   module_ctx : @ir.HotModuleContext,
   func_idx : @lib.FuncIdx,
@@ -1241,10 +1295,14 @@ fn run_hot_pipeline_raw_ssa_nomerge(
 ) -> (String, @lib.Func)? {
   let structured_branch_raw_instr_limit = 128
   let structured_branch_raw_local_limit = 64
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  if descriptor.name == "dead-code-elimination" &&
+    run_hot_pipeline_dce_can_skip_raw(original, module_ctx, func_idx) {
+    return Some(("no-dce-candidates", original))
+  }
   if descriptor.name != "ssa-nomerge" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   let (has_writes, has_structured_control, has_branches, instr_count) = run_hot_pipeline_instr_scan(
     instrs,
