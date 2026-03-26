@@ -407,6 +407,54 @@ test "optimize-instructions canonicalizes relational local gets against calls" {
 }
 
 ///|
+test "optimize-instructions simplifies if i32.ne x 0 conditions" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (if (result i32) (i32.ne (local.get 1) (i32.const 0)) (then (i32.const 1)) (else (i32.const 0)))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let cond = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, cond).op {
+    @ir.HotOp::LocalGet => ()
+    _ =>
+      fail(
+        "expected boolean if condition to collapse to the underlying local.get",
+      )
+  }
+  assert_eq(@ir.hot_node_get(func, cond).imm0, 1)
+}
+
+///|
+test "optimize-instructions flips if i32.eqz conditions by swapping arms" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (if (result i32) (i32.eqz (local.get 0)) (then (local.get 1)) (else (i32.const 7)))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let cond = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, cond).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected flipped if to use the raw local.get as its condition")
+  }
+  assert_eq(@ir.hot_node_get(func, cond).imm0, 0)
+  let then_region = @ir.hot_region_then_ref(func, root)
+  let else_region = @ir.hot_region_else_ref(func, root).unwrap()
+  let then_root = @ir.hot_region_get(func, then_region, 0)
+  let else_root = @ir.hot_region_get(func, else_region, 0)
+  match @ir.hot_node_get(func, then_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected flipped then arm to hold the original else payload")
+  }
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, then_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(7)),
+  )
+  match @ir.hot_node_get(func, else_root).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected flipped else arm to hold the original then payload")
+  }
+  assert_eq(@ir.hot_node_get(func, else_root).imm0, 1)
+}
+
+///|
 test "optimize-instructions does not reorder across the same local" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 local.get 0 local.tee 0 i32.const 1 i32.shl i32.add))",

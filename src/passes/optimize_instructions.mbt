@@ -878,6 +878,76 @@ fn optimize_instructions_try_canonicalize_compare_const(
 }
 
 ///|
+fn optimize_instructions_try_optimize_if_condition(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If if node.child_count == 3 => ()
+    _ => return false
+  }
+  let cond_id = func.children[node.child_base]
+  let then_region = func.children[node.child_base + 1]
+  let else_region = func.children[node.child_base + 2]
+  let flip_if = fn(next_cond : Int) {
+    ignore(
+      @ir.hot_replace_child_span(func, node_id, [
+        next_cond, else_region, then_region,
+      ]),
+    )
+    pass_mark_mutated(ctx, func)
+  }
+  let cond_instr = match @ir.hot_node_exact_instr(func, cond_id) {
+    Some(instr) => instr
+    None => return false
+  }
+  match cond_instr {
+    @lib.Instruction::I32Ne => {
+      if @ir.hot_child_count(func, cond_id) != 2 {
+        return false
+      }
+      let lhs_id = @ir.hot_child_get(func, cond_id, 0)
+      let rhs_id = @ir.hot_child_get(func, cond_id, 1)
+      match optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(raw)) if raw == 0 => {
+          @ir.hot_child_set(func, node_id, 0, lhs_id)
+          pass_mark_mutated(ctx, func)
+          true
+        }
+        _ => false
+      }
+    }
+    @lib.Instruction::I32Eq => {
+      if !@ir.hot_node_is_live(func, else_region) ||
+        @ir.hot_child_count(func, cond_id) != 2 {
+        return false
+      }
+      let lhs_id = @ir.hot_child_get(func, cond_id, 0)
+      let rhs_id = @ir.hot_child_get(func, cond_id, 1)
+      match optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(raw)) if raw == 0 => {
+          flip_if(lhs_id)
+          true
+        }
+        _ => false
+      }
+    }
+    @lib.Instruction::I32Eqz => {
+      if !@ir.hot_node_is_live(func, else_region) ||
+        @ir.hot_child_count(func, cond_id) != 1 {
+        return false
+      }
+      flip_if(@ir.hot_child_get(func, cond_id, 0))
+      true
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1444,6 +1514,8 @@ fn optimize_instructions_visit_node(
           }
         }
       }
+    @ir.HotOp::If =>
+      optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id)
     _ => false
   }
   local_changed || changed
