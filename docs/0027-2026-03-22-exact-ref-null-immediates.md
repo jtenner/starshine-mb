@@ -39,5 +39,6 @@ After this slice:
 
 ## Open Questions
 
-- `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` still fails on the remaining descriptor-compatibility rule for bottom null operands like `ref.null none`.
-- The next slice should likely tighten `Env::descriptor_result_type(...)` to compare operand and inspected types at the `RefType` level instead of only comparing raw heap types.
+- That remaining bottom-null compatibility gap has landed in
+  [`0028-2026-03-22-ref-get-desc-bottom-null-operands`](/home/jtenner/Projects/starshine-mb/docs/0028-2026-03-22-ref-get-desc-bottom-null-operands.md).
+- The broader custom-descriptor runtime-mixed fixture sequence is now the next work item after the static path is green.

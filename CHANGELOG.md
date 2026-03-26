@@ -8,6 +8,10 @@
 
 - **Align `ref_get_desc` blocker sequencing** by **@jtenner**. Updated [`docs/0022-2026-03-22-ref-get-desc-type-immediate.md`](/home/jtenner/Projects/starshine-mb/docs/0022-2026-03-22-ref-get-desc-type-immediate.md) to remove a stale accessor blocker and clearly indicate the current work sequence now moves past this slice.
 
+## 2026-03-26 Docs: close outdated ref_get_desc open-question references
+
+- **Resolve stale `exact-ref-null` follow-up wording** by **@jtenner**. Updated [`docs/0027-2026-03-22-exact-ref-null-immediates.md`](/home/jtenner/Projects/starshine-mb/docs/0027-2026-03-22-exact-ref-null-immediates.md) so the open question now correctly points to the landed bottom-null compatibility follow-up instead of describing it as still failing.
+
 ## 2026-03-26 Docs: sync README.mbt with active module-pass list
 
 - **Pass registry docs sync in MoonBit README surface** by **@jtenner**. Updated [`README.mbt.md`](/home/jtenner/Projects/starshine-mb/README.mbt.md) so the public pass-surface note now matches the active registry entries (including `duplicate-function-elimination` and `remove-unused-module-elements`) and no longer understates current module-pass implementation coverage.
