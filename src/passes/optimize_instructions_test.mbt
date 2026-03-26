@@ -189,6 +189,45 @@ test "optimize-instructions canonicalizes commutative constants onto the rhs" {
 }
 
 ///|
+test "optimize-instructions rewrites i32.mul by a power of two into shl" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 8 i32.mul))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_shl()),
+  )
+  let rhs = @ir.hot_child_get(func, root, 1)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(3)),
+  )
+}
+
+///|
+test "optimize-instructions chains const canonicalization into i64.mul shl rewrite" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) i64.const 4 local.get 0 i64.mul))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i64_shl()),
+  )
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected non-constant operand to stay on the lhs after rewrite")
+  }
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
+    @ir.HotConstPayload::i64_const(@lib.I64(2L)),
+  )
+}
+
+///|
 test "optimize-instructions canonicalizes commutative local gets after independent local state" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) (local i32) local.get 0 local.get 1 local.tee 2 i32.const 1 i32.shl i32.add))",

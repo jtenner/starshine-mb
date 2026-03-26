@@ -181,6 +181,34 @@ fn optimize_instructions_prefer_negative_leb_i64(raw : Int64) -> Bool {
 }
 
 ///|
+fn optimize_instructions_i32_power_of_two_shift(raw : Int) -> Int? {
+  if raw <= 0 || (raw & (raw - 1)) != 0 {
+    return None
+  }
+  let mut shift = 0
+  let mut value = raw
+  while value > 1 {
+    value = value >> 1
+    shift = shift + 1
+  }
+  Some(shift)
+}
+
+///|
+fn optimize_instructions_i64_power_of_two_shift(raw : Int64) -> Int64? {
+  if raw <= 0L || (raw & (raw - 1L)) != 0L {
+    return None
+  }
+  let mut shift = 0L
+  let mut value = raw
+  while value > 1L {
+    value = value >> 1
+    shift = shift + 1L
+  }
+  Some(shift)
+}
+
+///|
 fn optimize_instructions_is_commutative_instr(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Instruction::I32Add
@@ -778,6 +806,52 @@ fn optimize_instructions_try_rewrite_add_sub(
 }
 
 ///|
+fn optimize_instructions_try_rewrite_mul_shift(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match (instr, optimize_instructions_i32_const(func, dead, rhs_id)) {
+    (@lib.Instruction::I32Mul, Some(@lib.I32(raw))) =>
+      match optimize_instructions_i32_power_of_two_shift(raw) {
+        Some(shift) => {
+          optimize_instructions_rewrite_exact_with_children(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_shl(),
+            [lhs_id, @ir.hot_build_const_i32(func, @lib.I32(shift))],
+          )
+          true
+        }
+        None => false
+      }
+    _ =>
+      match (instr, optimize_instructions_i64_const(func, dead, rhs_id)) {
+        (@lib.Instruction::I64Mul, Some(@lib.I64(raw))) =>
+          match optimize_instructions_i64_power_of_two_shift(raw) {
+            Some(shift) => {
+              optimize_instructions_rewrite_exact_with_children(
+                ctx,
+                func,
+                node_id,
+                @lib.Instruction::i64_shl(),
+                [lhs_id, @ir.hot_build_const_i64(func, @lib.I64(shift))],
+              )
+              true
+            }
+            None => false
+          }
+        _ => false
+      }
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_shift(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1017,6 +1091,9 @@ fn optimize_instructions_visit_node(
         let changed = optimize_instructions_try_rewrite_add_sub(
             ctx, func, dead, node_id, instr, lhs_id, rhs_id,
           ) ||
+          optimize_instructions_try_rewrite_mul_shift(
+            ctx, func, dead, node_id, instr, lhs_id, rhs_id,
+          ) ||
           optimize_instructions_try_rewrite_shift(
             ctx, func, dead, node_id, instr, lhs_id, rhs_id,
           )
@@ -1033,6 +1110,9 @@ fn optimize_instructions_visit_node(
           let current_rhs = func.children[current.child_base + 1]
           let current_instr = func.instr_payloads[current.imm0].instr
           optimize_instructions_try_rewrite_add_sub(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
+          optimize_instructions_try_rewrite_mul_shift(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_rewrite_shift(
