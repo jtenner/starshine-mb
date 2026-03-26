@@ -378,6 +378,70 @@ fn remove_unused_brs_try_voidify_tail_return_if(
 }
 
 ///|
+fn remove_unused_brs_try_voidify_exit_only_value_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let if_node = @ir.hot_node_get(func, node_id)
+  match if_node.op {
+    @ir.HotOp::If =>
+      if @ir.hot_node_result_arity(func, node_id) != 1 {
+        return false
+      }
+    _ => return false
+  }
+  let else_ref = match @ir.hot_region_else_ref(func, node_id) {
+    Some(else_ref) => else_ref
+    None => return false
+  }
+  let then_ref = @ir.hot_region_then_ref(func, node_id)
+  if @ir.hot_region_root_count(func, then_ref) != 1 ||
+    @ir.hot_region_root_count(func, else_ref) != 1 {
+    return false
+  }
+  let then_root = @ir.hot_region_get(func, then_ref, 0)
+  let else_root = @ir.hot_region_get(func, else_ref, 0)
+  let then_node = @ir.hot_node_get(func, then_root)
+  let else_node = @ir.hot_node_get(func, else_root)
+  match then_node.op {
+    @ir.HotOp::Return => ()
+    @ir.HotOp::Br if then_node.child_count == 0 => ()
+    _ => return false
+  }
+  match else_node.op {
+    @ir.HotOp::Return => ()
+    @ir.HotOp::Br if else_node.child_count == 0 => ()
+    _ => return false
+  }
+  let void_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_child_get(func, node_id, 0),
+    remove_unused_brs_region_roots(func, then_ref),
+    else_body=Some(remove_unused_brs_region_roots(func, else_ref)),
+  )
+  let replacement = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(
+      @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))[0],
+    ),
+    [void_if, @ir.hot_build_unreachable(func)],
+  )
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
+  pass_mark_mutated(ctx, func)
+  remove_unused_brs_delete_unused_nodes(ctx, func, [
+    replacement,
+    then_ref.holder,
+    else_ref.holder,
+  ])
+  true
+}
+
+///|
 fn remove_unused_brs_try_remove_region_tail(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1528,6 +1592,10 @@ fn remove_unused_brs_visit_node(
         }
         None => ()
       }
+      if payload_context &&
+        remove_unused_brs_try_voidify_exit_only_value_if(ctx, func, node_id) {
+        return true
+      }
       changed = remove_unused_brs_try_rewrite_value_if_to_select(
           ctx, func, node_id, reorder_cache,
         ) ||
@@ -1541,6 +1609,28 @@ fn remove_unused_brs_visit_node(
         ) ||
         changed
     }
+    @ir.HotOp::LocalSet =>
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        let child_id = @ir.hot_child_get(func, node_id, slot)
+        if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+          continue
+        }
+        changed = remove_unused_brs_visit_embedded_subtree(
+            ctx, func, child_id, seen, reorder_cache, true,
+          ) ||
+          changed
+      }
+    @ir.HotOp::Drop =>
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        let child_id = @ir.hot_child_get(func, node_id, slot)
+        if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+          continue
+        }
+        changed = remove_unused_brs_visit_embedded_subtree(
+            ctx, func, child_id, seen, reorder_cache, true,
+          ) ||
+          changed
+      }
     @ir.HotOp::Br | @ir.HotOp::BrIf | @ir.HotOp::BrTable | @ir.HotOp::Return =>
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
         let child_id = @ir.hot_child_get(func, node_id, slot)

@@ -394,3 +394,47 @@ test "remove-unused-brs voidifies nested branch-exit ifs inside branch payload a
   assert_eq(typed_if_parts, 2, msg=pretty)
   assert_true(pretty.contains("(local.set (Local 2))"), msg=pretty)
 }
+
+///|
+test "remove-unused-brs voidifies nested branch-exit ifs inside local.set payload arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (block $exit (local.set 2 (if (result i32) (local.get 0) (then (i32.const 1)) (else (local.set 2 (i32.const 7)) (if (result i32) (local.get 1) (then (br $exit)) (else (local.get 2))))))) (local.get 2)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs nested local.set payload inner-if success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let mut typed_if_parts = 0
+  for _ in pretty.split("if I32") {
+    typed_if_parts += 1
+  }
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_eq(typed_if_parts, 2, msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 2))"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs voidifies result ifs whose arms only return under drop" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (drop (if (result i32) (local.get 0) (then (return (i32.const 1))) (else (return (i32.const 2))))) (i32.const 0)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs dropped exit-only value-if success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if (I32)"), msg=pretty)
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
