@@ -894,7 +894,7 @@ fn hso_trapless_readonly_block_value_parts(
   func : @ir.HotFunc,
   node_masks : Array[UInt],
   node_id : Int,
-) -> (@ir.HotRegionRef, Int, Int)? {
+) -> (Array[Int], Int)? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
@@ -904,27 +904,20 @@ fn hso_trapless_readonly_block_value_parts(
     _ => return None
   }
   let body_ref = @ir.hot_region_body_ref(func, node_id)
-  let root_count = @ir.hot_region_root_count(func, body_ref)
-  if root_count < 2 {
+  let roots = hso_region_roots(func, body_ref)
+  if roots.length() < 2 {
     return None
   }
-  for idx = 0; idx < root_count; idx = idx + 1 {
-    if !hso_subtree_is_trapless_readonly(
-        cache,
-        func,
-        node_masks,
-        @ir.hot_region_get(func, body_ref, idx),
-      ) {
+  for root_id in roots {
+    if !hso_subtree_is_trapless_readonly(cache, func, node_masks, root_id) {
       return None
     }
   }
-  Some(
-    (
-      body_ref,
-      root_count - 1,
-      @ir.hot_region_get(func, body_ref, root_count - 1),
-    ),
-  )
+  let prefix_roots : Array[Int] = []
+  for idx = 0; idx < roots.length() - 1; idx = idx + 1 {
+    prefix_roots.push(roots[idx])
+  }
+  Some((prefix_roots, roots[roots.length() - 1]))
 }
 
 ///|
@@ -934,7 +927,7 @@ fn hso_liftable_swapped_block_roots(
   node_masks : Array[UInt],
   node_id : Int,
   local_id : Int,
-) -> (@ir.HotRegionRef, Int)? {
+) -> Array[Int]? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
@@ -947,22 +940,18 @@ fn hso_liftable_swapped_block_roots(
     return None
   }
   let body_ref = @ir.hot_region_body_ref(func, node_id)
-  let root_count = @ir.hot_region_root_count(func, body_ref)
-  if root_count == 0 {
+  let roots = hso_region_roots(func, body_ref)
+  if roots.is_empty() {
     return None
   }
-  for idx = 0; idx < root_count; idx = idx + 1 {
+  for root_id in roots {
     if !hso_root_can_swap_before_local_struct_new(
-        cache,
-        func,
-        node_masks,
-        @ir.hot_region_get(func, body_ref, idx),
-        local_id,
+        cache, func, node_masks, root_id, local_id,
       ) {
       return None
     }
   }
-  Some((body_ref, root_count))
+  Some(roots)
 }
 
 ///|
@@ -1339,16 +1328,14 @@ fn hso_process_region(
                 ) {
                 Some((field_idx, value_id)) => {
                   let mut folded_value_id = value_id
-                  let mut extracted_prefix_region : @ir.HotRegionRef? = None
-                  let mut extracted_prefix_count = 0
+                  let mut extracted_prefix_roots : Array[Int]? = None
                   match
                     hso_trapless_readonly_block_value_parts(
                       cache, func, node_masks, value_id,
                     ) {
-                    Some((region_ref, prefix_count, tail_id)) => {
+                    Some((prefix_roots, tail_id)) => {
                       folded_value_id = tail_id
-                      extracted_prefix_region = Some(region_ref)
-                      extracted_prefix_count = prefix_count
+                      extracted_prefix_roots = Some(prefix_roots)
                     }
                     None => ()
                   }
@@ -1356,22 +1343,17 @@ fn hso_process_region(
                       cache, type_cache, func, module_ctx, node_masks, struct_new_id,
                       type_idx, field_idx, folded_value_id, local_id,
                     ) {
-                    match extracted_prefix_region {
-                      Some(region_ref) =>
-                        if extracted_prefix_count > 0 {
-                          let removed_roots = @ir.hot_region_splice(
-                            func,
-                            region_ref,
-                            0,
-                            extracted_prefix_count + 1,
-                            [],
-                          )
+                    match extracted_prefix_roots {
+                      Some(prefix_roots) =>
+                        if !prefix_roots.is_empty() {
                           hso_array_insert_prefix_roots(
-                            segment_roots, segment_local_set_idx, removed_roots,
-                            extracted_prefix_count,
+                            segment_roots,
+                            segment_local_set_idx,
+                            prefix_roots,
+                            prefix_roots.length(),
                           )
                           segment_local_set_idx = segment_local_set_idx +
-                            extracted_prefix_count
+                            prefix_roots.length()
                         }
                       None => ()
                     }
@@ -1403,18 +1385,15 @@ fn hso_process_region(
                     roots[next_idx],
                     local_id,
                   ) {
-                  Some((region_ref, root_count)) => {
-                    let lifted_roots = @ir.hot_region_splice(
-                      func,
-                      region_ref,
-                      0,
-                      root_count,
-                      [],
-                    )
+                  Some(lifted_roots) => {
                     hso_array_insert_prefix_roots(
-                      segment_roots, segment_local_set_idx, lifted_roots, root_count,
+                      segment_roots,
+                      segment_local_set_idx,
+                      lifted_roots,
+                      lifted_roots.length(),
                     )
-                    segment_local_set_idx = segment_local_set_idx + root_count
+                    segment_local_set_idx = segment_local_set_idx +
+                      lifted_roots.length()
                     segment_has_swapped_prefix = true
                     changed = true
                     next_idx = next_idx + 1

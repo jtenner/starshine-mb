@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Optimize: stop mutating inner block regions during HSO root lifting
+
+- **`heap-store-optimization` wrapper-lift hot-path cleanup** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt) so HSO now reuses the lifted inner block roots directly when peeling readonly prefixes or flattening swapped wrapper blocks, instead of splicing those small block regions in place before the outer region rewrite detaches the wrapper anyway. Focused `moon fmt && moon test src/passes` stays green at `107/107`, the targeted mixed oracle module remains canonical against Binaryen, and the 400-pattern synthetic GC stressor dropped slightly from roughly `629.9ms` to `616.5ms`; the larger performance gap is still open.
+
 ## 2026-03-26 Fix: flatten swapped structural block roots in HSO
 
 - **`heap-store-optimization` structural-wrapper parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), and [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt) so HSO now lifts swappable void block roots into the rewritten local-set segment instead of preserving the wrapper block, and it only front-loads the folded `nop` when the local-set actually moved past earlier roots rather than when readonly prefixes were merely peeled out of the folded value. Focused `moon fmt && moon test src/passes` stays green at `107/107`, and the targeted mixed oracle module for readonly values plus swapped block roots is now canonical against Binaryen in normalized WAT.
