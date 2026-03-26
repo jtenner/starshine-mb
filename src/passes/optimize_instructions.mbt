@@ -93,6 +93,22 @@ fn optimize_instructions_replace_with_existing_node(
 }
 
 ///|
+fn optimize_instructions_replace_with_exact_unary(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  instr : @lib.Instruction,
+  operand_id : Int,
+) -> Unit {
+  let temp = @ir.hot_build_unary(func, @lib.ValType::i32(), operand_id)
+  @ir.hot_node_exact_instr_set(func, temp, instr)
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
 fn optimize_instructions_rewrite_exact_with_children(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -921,18 +937,36 @@ fn optimize_instructions_try_optimize_if_condition(
       }
     }
     @lib.Instruction::I32Eq => {
-      if !@ir.hot_node_is_live(func, else_region) ||
-        @ir.hot_child_count(func, cond_id) != 2 {
+      if @ir.hot_child_count(func, cond_id) != 2 {
         return false
       }
       let lhs_id = @ir.hot_child_get(func, cond_id, 0)
       let rhs_id = @ir.hot_child_get(func, cond_id, 1)
-      match optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(raw)) if raw == 0 => {
-          flip_if(lhs_id)
-          true
-        }
-        _ => false
+      let operand_id = match
+        (
+          optimize_instructions_i32_const(func, dead, lhs_id),
+          optimize_instructions_i32_const(func, dead, rhs_id),
+        ) {
+        (Some(@lib.I32(0)), _) => Some(rhs_id)
+        (_, Some(@lib.I32(0))) => Some(lhs_id)
+        _ => None
+      }
+      match operand_id {
+        Some(operand_id) =>
+          if @ir.hot_node_is_live(func, else_region) {
+            flip_if(operand_id)
+            true
+          } else {
+            optimize_instructions_replace_with_exact_unary(
+              ctx,
+              func,
+              cond_id,
+              @lib.Instruction::i32_eqz(),
+              operand_id,
+            )
+            true
+          }
+        None => false
       }
     }
     @lib.Instruction::I32Eqz => {
@@ -1040,6 +1074,11 @@ fn optimize_instructions_try_rewrite_add_sub(
   rhs_id : Int,
 ) -> Bool {
   match (instr, optimize_instructions_i32_const(func, dead, rhs_id)) {
+    (@lib.Instruction::I32Add, Some(@lib.I32(0)))
+    | (@lib.Instruction::I32Sub, Some(@lib.I32(0))) => {
+      optimize_instructions_replace_with_existing_node(ctx, func, node_id)
+      true
+    }
     (@lib.Instruction::I32Add, Some(@lib.I32(raw))) if raw < 0 => {
       let replacement_rhs = @ir.hot_build_const_i32(func, @lib.I32(-raw))
       optimize_instructions_rewrite_exact_with_children(
@@ -1079,6 +1118,11 @@ fn optimize_instructions_try_rewrite_add_sub(
     }
     _ =>
       match (instr, optimize_instructions_i64_const(func, dead, rhs_id)) {
+        (@lib.Instruction::I64Add, Some(@lib.I64(0L)))
+        | (@lib.Instruction::I64Sub, Some(@lib.I64(0L))) => {
+          optimize_instructions_replace_with_existing_node(ctx, func, node_id)
+          true
+        }
         (@lib.Instruction::I64Add, Some(@lib.I64(raw))) if raw < 0L => {
           let replacement_rhs = @ir.hot_build_const_i64(func, @lib.I64(-raw))
           optimize_instructions_rewrite_exact_with_children(

@@ -166,6 +166,56 @@ test "optimize-instructions chains const canonicalization into leb rewrite" {
 }
 
 ///|
+test "optimize-instructions removes neutral add and sub zero" {
+  let add_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 8 i32.add i32.const 0 i32.add))",
+  )
+  let add_root = @ir.hot_root_get(add_func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(add_func, add_root),
+    Some(@lib.Instruction::i32_add()),
+  )
+  let add_lhs = @ir.hot_child_get(add_func, add_root, 0)
+  let add_rhs = @ir.hot_child_get(add_func, add_root, 1)
+  match @ir.hot_node_get(add_func, add_lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected neutral i32.add rewrite to expose the original lhs")
+  }
+  assert_eq(
+    @ir.hot_const_get(add_func, @ir.hot_node_get(add_func, add_rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(8)),
+  )
+
+  let sub_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) local.get 0 i64.const 0 i64.sub))",
+  )
+  let sub_root = @ir.hot_root_get(sub_func, 0)
+  match @ir.hot_node_get(sub_func, sub_root).op {
+    @ir.HotOp::LocalGet => ()
+    _ =>
+      fail("expected neutral i64.sub rewrite to replace the node with its lhs")
+  }
+}
+
+///|
+test "optimize-instructions canonicalizes if eq zero into eqz without else" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (if (i32.eq (local.get 0) (i32.const 0)) (then nop))))",
+  )
+  let if_ = @ir.hot_root_get(func, 0)
+  let cond = @ir.hot_child_get(func, if_, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, cond),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  assert_eq(@ir.hot_child_count(func, cond), 1)
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, cond, 0)).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected if-condition eqz operand to remain the original value")
+  }
+}
+
+///|
 test "optimize-instructions canonicalizes commutative constants onto the rhs" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) i32.const 7 local.get 0 i32.add))",
