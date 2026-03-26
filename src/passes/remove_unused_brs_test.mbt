@@ -370,3 +370,27 @@ test "remove-unused-brs rewrites multi-value branch payload ifs" {
   assert_false(pretty.contains("(if (I32, I64)"), msg=pretty)
   assert_true(pretty.contains("unreachable"), msg=pretty)
 }
+
+///|
+test "remove-unused-brs voidifies nested branch-exit ifs inside branch payload arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (block $exit (result i32) (block $other (br $exit (if (result i32) (local.get 0) (then (i32.const 1)) (else (local.set 2 (i32.const 7)) (if (result i32) (local.get 1) (then (br $other)) (else (local.get 2)))))) unreachable) (i32.const 9))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs nested branch-payload inner-if success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let mut typed_if_parts = 0
+  for _ in pretty.split("if I32") {
+    typed_if_parts += 1
+  }
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_eq(typed_if_parts, 2, msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 2))"), msg=pretty)
+}
