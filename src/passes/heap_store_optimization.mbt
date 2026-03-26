@@ -203,11 +203,13 @@ fn hso_subtree_touches_local(
 fn hso_region_may_skip_local_set(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  root_id : Int,
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    if hso_subtree_may_skip_local_set(
+    if hso_subtree_may_skip_local_set_from_root(
         func,
         @ir.hot_region_get(func, region_ref, idx),
+        root_id,
       ) {
       return true
     }
@@ -216,20 +218,161 @@ fn hso_region_may_skip_local_set(
 }
 
 ///|
+fn hso_subtree_contains_node(
+  func : @ir.HotFunc,
+  root_id : Int,
+  target_id : Int,
+) -> Bool {
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return false
+  }
+  if root_id == target_id {
+    return true
+  }
+  let node = @ir.hot_node_get(func, root_id)
+  for slot = 0; slot < @ir.hot_child_count(func, root_id); slot = slot + 1 {
+    if hso_subtree_contains_node(
+        func,
+        @ir.hot_child_get(func, root_id, slot),
+        target_id,
+      ) {
+      return true
+    }
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_region_contains_node(
+        func,
+        @ir.hot_region_body_ref(func, root_id),
+        target_id,
+      )
+    @ir.HotOp::If => {
+      let then_contains = hso_region_contains_node(
+        func,
+        @ir.hot_region_then_ref(func, root_id),
+        target_id,
+      )
+      if then_contains {
+        true
+      } else {
+        match @ir.hot_region_else_ref(func, root_id) {
+          Some(region_ref) =>
+            hso_region_contains_node(func, region_ref, target_id)
+          None => false
+        }
+      }
+    }
+    @ir.HotOp::Try => {
+      let body_contains = hso_region_contains_node(
+        func,
+        @ir.hot_region_body_ref(func, root_id),
+        target_id,
+      )
+      if body_contains {
+        true
+      } else {
+        match @ir.hot_region_catch_ref(func, root_id) {
+          Some(region_ref) =>
+            hso_region_contains_node(func, region_ref, target_id)
+          None => false
+        }
+      }
+    }
+    @ir.HotOp::TryTable =>
+      hso_region_contains_node(
+        func,
+        @ir.hot_region_body_ref(func, root_id),
+        target_id,
+      ) ||
+      hso_region_contains_node(
+        func,
+        @ir.hot_region_catch_list_ref(func, root_id),
+        target_id,
+      )
+    _ => false
+  }
+}
+
+///|
+fn hso_region_contains_node(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  target_id : Int,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if hso_subtree_contains_node(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        target_id,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hso_branch_escapes_subtree(
+  func : @ir.HotFunc,
+  root_id : Int,
+  node_id : Int,
+) -> Bool {
+  let targets : Array[Int] = []
+  match @ir.hot_branch_target(func, node_id) {
+    Some(label_id) => targets.push(label_id)
+    None => ()
+  }
+  for label_id in @ir.hot_branch_table_targets_for_node(func, node_id) {
+    targets.push(label_id)
+  }
+  if targets.is_empty() {
+    return true
+  }
+  for label_id in targets {
+    let owner_id = @ir.hot_label_owner(func, label_id)
+    if !hso_subtree_contains_node(func, root_id, owner_id) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn hso_subtree_may_skip_local_set(func : @ir.HotFunc, node_id : Int) -> Bool {
+  hso_subtree_may_skip_local_set_from_root(func, node_id, node_id)
+}
+
+///|
+fn hso_subtree_may_skip_local_set_from_root(
+  func : @ir.HotFunc,
+  node_id : Int,
+  root_id : Int,
+) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  if @ir.hot_is_branch(func, node_id) ||
-    @ir.hot_is_terminator_node(func, node_id) ||
-    @ir.hot_node_may_throw_exception(func, node_id) {
+  let node = @ir.hot_node_get(func, node_id)
+  if @ir.hot_is_branch(func, node_id) &&
+    hso_branch_escapes_subtree(func, root_id, node_id) {
     return true
   }
-  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Unreachable => return true
+    _ => ()
+  }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if hso_subtree_may_skip_local_set(
+    if hso_subtree_may_skip_local_set_from_root(
         func,
         @ir.hot_child_get(func, node_id, slot),
+        root_id,
       ) {
       return true
     }
@@ -239,17 +382,20 @@ fn hso_subtree_may_skip_local_set(func : @ir.HotFunc, node_id : Int) -> Bool {
       hso_region_may_skip_local_set(
         func,
         @ir.hot_region_body_ref(func, node_id),
+        root_id,
       )
     @ir.HotOp::If => {
       let then_skips = hso_region_may_skip_local_set(
         func,
         @ir.hot_region_then_ref(func, node_id),
+        root_id,
       )
       if then_skips {
         true
       } else {
         match @ir.hot_region_else_ref(func, node_id) {
-          Some(region_ref) => hso_region_may_skip_local_set(func, region_ref)
+          Some(region_ref) =>
+            hso_region_may_skip_local_set(func, region_ref, root_id)
           None => false
         }
       }
@@ -258,12 +404,14 @@ fn hso_subtree_may_skip_local_set(func : @ir.HotFunc, node_id : Int) -> Bool {
       let body_skips = hso_region_may_skip_local_set(
         func,
         @ir.hot_region_body_ref(func, node_id),
+        root_id,
       )
       if body_skips {
         true
       } else {
         match @ir.hot_region_catch_ref(func, node_id) {
-          Some(region_ref) => hso_region_may_skip_local_set(func, region_ref)
+          Some(region_ref) =>
+            hso_region_may_skip_local_set(func, region_ref, root_id)
           None => false
         }
       }
@@ -272,10 +420,12 @@ fn hso_subtree_may_skip_local_set(func : @ir.HotFunc, node_id : Int) -> Bool {
       hso_region_may_skip_local_set(
         func,
         @ir.hot_region_body_ref(func, node_id),
+        root_id,
       ) ||
       hso_region_may_skip_local_set(
         func,
         @ir.hot_region_catch_list_ref(func, node_id),
+        root_id,
       )
     _ => false
   }
