@@ -68,7 +68,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   assert_eq(ssa.name, "ssa-nomerge")
   assert_eq(@ir.hot_pass_requires(ssa), [])
   assert_eq(dce.name, "dead-code-elimination")
-  assert_eq(@ir.hot_pass_requires(dce), [@ir.HotAnalysis::effects()])
+  assert_eq(@ir.hot_pass_requires(dce), [])
   assert_eq(opt.name, "optimize-instructions")
   assert_eq(locals.name, "simplify-locals")
   assert_true(@ir.hot_pass_requires(locals).contains(@ir.HotAnalysis::ssa()))
