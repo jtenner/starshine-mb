@@ -282,6 +282,125 @@ fn hso_subtree_may_skip_local_set(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
+fn hso_region_is_trapless_readonly(
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if !hso_subtree_is_trapless_readonly(
+        func,
+        node_masks,
+        @ir.hot_region_get(func, region_ref, idx),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn hso_subtree_is_trapless_readonly(
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let mask = hso_reorder_effect_mask(func, node_masks, node_id)
+  let allowed_effects = @ir.EFFECT_MASK_LOCAL_STATE |
+    @ir.EFFECT_MASK_GLOBAL_STATE
+  let disallowed_effects = mask ^ (mask & allowed_effects)
+  if disallowed_effects != 0U ||
+    @ir.hot_has_side_effect(func, node_id) ||
+    @ir.hot_may_trap(func, node_id) ||
+    @ir.hot_is_branch(func, node_id) ||
+    @ir.hot_is_terminator_node(func, node_id) ||
+    @ir.hot_node_may_throw_exception(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if !hso_subtree_is_trapless_readonly(
+        func,
+        node_masks,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return false
+    }
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_region_is_trapless_readonly(
+        func,
+        node_masks,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    @ir.HotOp::If => {
+      let then_is_readonly = hso_region_is_trapless_readonly(
+        func,
+        node_masks,
+        @ir.hot_region_then_ref(func, node_id),
+      )
+      if !then_is_readonly {
+        false
+      } else {
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_is_trapless_readonly(func, node_masks, region_ref)
+          None => true
+        }
+      }
+    }
+    @ir.HotOp::Try => {
+      let body_is_readonly = hso_region_is_trapless_readonly(
+        func,
+        node_masks,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+      if !body_is_readonly {
+        false
+      } else {
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_is_trapless_readonly(func, node_masks, region_ref)
+          None => true
+        }
+      }
+    }
+    @ir.HotOp::TryTable =>
+      hso_region_is_trapless_readonly(
+        func,
+        node_masks,
+        @ir.hot_region_body_ref(func, node_id),
+      ) &&
+      hso_region_is_trapless_readonly(
+        func,
+        node_masks,
+        @ir.hot_region_catch_list_ref(func, node_id),
+      )
+    _ => true
+  }
+}
+
+///|
+fn hso_nodes_can_reorder(
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  barrier_id : Int,
+  barrier_mask : UInt,
+  moved_id : Int,
+  moved_mask : UInt,
+) -> Bool {
+  if !hso_mask_invalidates(barrier_mask, moved_mask) {
+    return true
+  }
+  hso_subtree_is_trapless_readonly(func, node_masks, barrier_id) &&
+  hso_subtree_is_trapless_readonly(func, node_masks, moved_id)
+}
+
+///|
 fn hso_build_const_f32(func : @ir.HotFunc) -> Int {
   @ir.hot_build_const_f32(func, @lib.F32(0.0))
 }
@@ -527,14 +646,19 @@ fn hso_try_fold_into_struct_new(
   if hso_mask_invalidates(
       hso_struct_new_shallow_effects(func, struct_new_id),
       value_reorder_mask,
-    ) {
+    ) &&
+    !hso_subtree_is_trapless_readonly(func, node_masks, value_id) {
     return false
   }
 
   for idx = field_idx + 1; idx < field_count; idx = idx + 1 {
     let later_id = @ir.hot_child_get(func, struct_new_id, idx)
-    if hso_mask_invalidates(
+    if !hso_nodes_can_reorder(
+        func,
+        node_masks,
+        later_id,
         hso_effects_for_node(func, node_masks, later_id),
+        value_id,
         value_reorder_mask,
       ) {
       return false
@@ -542,8 +666,12 @@ fn hso_try_fold_into_struct_new(
   }
   match desc_id {
     Some(desc_id) =>
-      if hso_mask_invalidates(
+      if !hso_nodes_can_reorder(
+          func,
+          node_masks,
+          desc_id,
           hso_effects_for_node(func, node_masks, desc_id),
+          value_id,
           value_reorder_mask,
         ) {
         return false
