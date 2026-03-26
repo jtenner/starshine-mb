@@ -437,6 +437,7 @@ pub fn global_refining_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
 
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
+      let module_ctx = @ir.hot_module_context_from_module(mod_)
       let imported_func_count = gr_imported_func_count(mod_)
       for defined_idx = 0
           defined_idx < funcs.length()
@@ -446,9 +447,10 @@ pub fn global_refining_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           continue
         }
         let abs_idx = imported_func_count + defined_idx
-        let hot_func = @ir.hot_lift_func(
+        let hot_func = @ir.hot_lift_func_with_context(
           mod_,
           @lib.FuncIdx::new(abs_idx.reinterpret_as_uint()),
+          module_ctx,
         )
         gr_collect_func_global_sets(hot_func, candidate_slots, noted, env)
       }

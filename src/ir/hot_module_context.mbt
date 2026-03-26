@@ -2,6 +2,7 @@
 pub struct HotModuleContext {
   subtypes : Array[SubType]
   func_type_idxs : Array[TypeIdx]
+  func_types : Array[FuncType]
   tables : Array[TableType]
   mems : Array[@lib.MemType]
   globals : Array[GlobalType]
@@ -27,6 +28,39 @@ fn hot_module_context_flatten_subtypes(
         }
       }
     None => ()
+  }
+  out
+}
+
+///|
+fn hot_module_context_resolve_func_types(
+  subtypes : Array[SubType],
+  func_type_idxs : Array[TypeIdx],
+) -> Array[FuncType] {
+  let out : Array[FuncType] = []
+  for type_idx in func_type_idxs {
+    match type_idx {
+      @lib.TypeIdx(raw) =>
+        match subtypes.get(raw.reinterpret_as_int()) {
+          Some(subtype) =>
+            match subtype.get_comptype() {
+              @lib.FuncCompType(params, results) =>
+                out.push(@lib.FuncType::new(params, results))
+              _ =>
+                abort(
+                  "hot module context function indices must resolve to function types",
+                )
+            }
+          None =>
+            abort(
+              "hot module context function indices must resolve within the subtype table",
+            )
+        }
+      @lib.RecIdx(_) =>
+        abort(
+          "hot module context function indices must not use rec-group indices",
+        )
+    }
   }
   out
 }
@@ -110,9 +144,12 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
     None => ()
   }
 
+  let subtypes = hot_module_context_flatten_subtypes(mod_.type_sec)
+
   {
-    subtypes: hot_module_context_flatten_subtypes(mod_.type_sec),
+    subtypes,
     func_type_idxs,
+    func_types: hot_module_context_resolve_func_types(subtypes, func_type_idxs),
     tables,
     mems,
     globals,
@@ -163,10 +200,8 @@ pub fn hot_module_resolve_func_type(
   ctx : HotModuleContext,
   func_idx : @lib.FuncIdx,
 ) -> FuncType? {
-  match hot_module_resolve_func_type_idx(ctx, func_idx) {
-    Some(type_idx) => hot_module_resolve_type_func_type(ctx, type_idx)
-    None => None
-  }
+  let @lib.FuncIdx(raw) = func_idx
+  ctx.func_types.get(raw.reinterpret_as_int())
 }
 
 ///|

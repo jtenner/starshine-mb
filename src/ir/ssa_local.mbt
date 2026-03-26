@@ -320,6 +320,20 @@ pub fn ssa_def_for_local_set(ssa : HotLocalSsa, node_id : NodeId) -> SsaValueId 
 }
 
 ///|
+pub fn ssa_maybe_def_for_local_set(
+  ssa : HotLocalSsa,
+  node_id : NodeId,
+) -> SsaValueId? {
+  ssa_local_require_node_range(ssa, node_id)
+  let value_id = ssa.local_write_defs[node_id]
+  if value_id < 0 {
+    None
+  } else {
+    Some(value_id)
+  }
+}
+
+///|
 pub fn ssa_phis_for_block(
   ssa : HotLocalSsa,
   block_id : BlockId,

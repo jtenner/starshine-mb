@@ -57,27 +57,6 @@ fn hot_lift_impl_declared_locals(locals : @lib.Locals) -> Array[ValType] {
 }
 
 ///|
-fn hot_lift_impl_func_types(ctx : HotModuleContext) -> Array[FuncType] {
-  let out : Array[FuncType] = []
-  for func_idx = 0
-      func_idx < ctx.func_type_idxs.length()
-      func_idx = func_idx + 1 {
-    match
-      hot_module_resolve_func_type(
-        ctx,
-        @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
-      ) {
-      Some(func_type) => out.push(func_type)
-      None =>
-        abort(
-          "hot module context function type indices must resolve to function types",
-        )
-    }
-  }
-  out
-}
-
-///|
 fn hot_lift_impl_env_from_context(
   ctx : HotModuleContext,
   locals : HotLocals,
@@ -85,7 +64,7 @@ fn hot_lift_impl_env_from_context(
 ) -> Env {
   let mut env = empty_env()
     .with_types(ctx.subtypes)
-    .with_funcs(hot_lift_impl_func_types(ctx))
+    .with_funcs(ctx.func_types)
     .with_tables(ctx.tables)
     .with_mems(ctx.mems)
     .with_globals(ctx.globals)
@@ -434,8 +413,8 @@ fn hot_lift_impl_resolve_generic_pop_count(
     return primary
   }
   if before_state.reachable {
-    let has_concrete_prefix =
-      concrete_before_types.length() > before_state.stack.length()
+    let has_concrete_prefix = concrete_before_types.length() >
+      before_state.stack.length()
     return match primary {
       Ok((count, _)) if count > 0 => primary
       Ok(_) if has_concrete_prefix =>
@@ -1816,8 +1795,11 @@ fn hot_lift_impl_imported_func_count(mod_ : Module) -> Int {
 }
 
 ///|
-pub fn hot_lift_func(mod_ : Module, func_idx : FuncIdx) -> HotFunc {
-  let ctx = hot_module_context_from_module(mod_)
+pub fn hot_lift_func_with_context(
+  mod_ : Module,
+  func_idx : FuncIdx,
+  ctx : HotModuleContext,
+) -> HotFunc {
   let func_type = match hot_module_resolve_func_type(ctx, func_idx) {
     Some(type_) => type_
     None => abort(HotLiftError::MissingFunctionType(func_idx).to_string())
@@ -1853,4 +1835,13 @@ pub fn hot_lift_func(mod_ : Module, func_idx : FuncIdx) -> HotFunc {
       }
   }
   hot_lift_body_with_context(body, locals, ctx, body_result_type~)
+}
+
+///|
+pub fn hot_lift_func(mod_ : Module, func_idx : FuncIdx) -> HotFunc {
+  hot_lift_func_with_context(
+    mod_,
+    func_idx,
+    hot_module_context_from_module(mod_),
+  )
 }

@@ -99,3 +99,25 @@ test "run hot pipeline emits perf timing and checkpoint lines while dumps stay o
   assert_true(text.contains("perf:counters label=pipeline:done"))
   assert_false(text.contains("perf:dump"))
 }
+
+///|
+test "run hot pipeline skips lower when a hot pass leaves the function unchanged" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 9))",
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected unchanged hot pipeline success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("perf:timer name=lift"))
+  assert_true(text.contains("perf:timer name=pass:ssa-nomerge"))
+  assert_false(text.contains("perf:timer name=lower"))
+}

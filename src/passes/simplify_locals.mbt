@@ -25,6 +25,63 @@ pub fn simplify_locals_summary() -> String {
 }
 
 ///|
+fn simplify_locals_delete_detached_nodes(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_ids : Array[Int],
+) -> Unit {
+  let pending = node_ids.copy()
+  let mut progress = true
+  while progress {
+    progress = false
+    for idx = 0; idx < pending.length(); idx = idx + 1 {
+      let node_id = pending[idx]
+      if node_id < 0 {
+        continue
+      }
+      if !@ir.hot_node_is_live(func, node_id) {
+        pending[idx] = -1
+        continue
+      }
+      if !pass_node_is_unused(ctx, func, node_id) {
+        continue
+      }
+      let mut referenced = false
+      for root_idx = 0
+          root_idx < @ir.hot_root_count(func)
+          root_idx = root_idx + 1 {
+        if @ir.hot_root_get(func, root_idx) == node_id {
+          referenced = true
+          break
+        }
+      }
+      if referenced {
+        continue
+      }
+      for user_id = 0; user_id < @ir.hot_node_count(func); user_id = user_id + 1 {
+        if referenced ||
+          !@ir.hot_node_is_live(func, user_id) ||
+          user_id == node_id {
+          continue
+        }
+        for slot = 0; slot < @ir.hot_child_count(func, user_id); slot = slot + 1 {
+          if @ir.hot_child_get(func, user_id, slot) == node_id {
+            referenced = true
+            break
+          }
+        }
+      }
+      if referenced {
+        continue
+      }
+      @ir.hot_delete_node(func, node_id)
+      pending[idx] = -1
+      progress = true
+    }
+  }
+}
+
+///|
 fn simplify_locals_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -39,7 +96,10 @@ fn simplify_locals_run(
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
       @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
-        let value_id = @ir.ssa_def_for_local_set(ssa, node_id)
+        let value_id = match @ir.ssa_maybe_def_for_local_set(ssa, node_id) {
+          Some(value_id) => value_id
+          None => continue
+        }
         if @ir.ssa_uses_of_value(ssa, value_id).length() != 0 {
           continue
         }
@@ -61,7 +121,8 @@ fn simplify_locals_run(
     return HotPassResult::unchanged()
   }
   @ir.ssa_remove_dead_local_defs(func, dead_nodes)
-  pass_delete_detached_nodes(ctx, func, detached_tee_nodes)
+  @ir.cache_invalidate_all(ctx.cache)
+  simplify_locals_delete_detached_nodes(ctx, func, detached_tee_nodes)
   pass_mark_mutated(ctx, func)
   HotPassResult::changed()
 }

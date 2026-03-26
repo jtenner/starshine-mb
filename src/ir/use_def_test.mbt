@@ -79,3 +79,16 @@ test "use-def builds block-local defs and uses across a CFG join" {
   assert_eq(local_read_nodes(use_def, 1), [local_get])
   assert_eq(local_write_nodes(use_def, 1), [local_set])
 }
+
+///|
+test "use-def records shared local reads once even with multiple use sites" {
+  let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
+  let local_get = hot_build_local_get(func, 0)
+  let add = hot_build_binary(func, @lib.ValType::i32(), local_get, local_get)
+  hot_root_append(func, add)
+
+  let use_def = use_def_build(func)
+
+  assert_eq(local_read_nodes(use_def, 0), [local_get])
+  assert_eq(node_use_count(use_def, local_get), 2)
+}

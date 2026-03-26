@@ -354,6 +354,8 @@ pub fn hot_lift_body_with_context(@lib.Expr, HotLocals, HotModuleContext, body_r
 
 pub fn hot_lift_func(@lib.Module, @lib.FuncIdx) -> HotFunc
 
+pub fn hot_lift_func_with_context(@lib.Module, @lib.FuncIdx, HotModuleContext) -> HotFunc
+
 pub fn hot_local_body_count(HotFunc) -> Int
 
 pub fn hot_local_count(HotFunc) -> Int
@@ -606,6 +608,8 @@ pub fn local_live_out(HotLiveness, Int, Int) -> Bool
 
 pub fn local_read_nodes(HotUseDef, Int) -> Array[Int]
 
+pub fn local_write_block_ids(HotUseDef, Int) -> Array[Int]
+
 pub fn local_write_nodes(HotUseDef, Int) -> Array[Int]
 
 pub fn loop_blocks(HotLoopInfo, Int) -> Array[Int]
@@ -657,6 +661,8 @@ pub fn ssa_insert_predecessor_copies(HotFunc, HotRegionRef, HotBlockInfo, Array[
 pub fn ssa_local_set_def(Int) -> HotSsaValueOrigin
 
 pub fn ssa_local_tee_def(Int) -> HotSsaValueOrigin
+
+pub fn ssa_maybe_def_for_local_set(HotLocalSsa, Int) -> Int?
 
 pub fn ssa_param_entry_def(Int) -> HotSsaValueOrigin
 
@@ -1090,6 +1096,7 @@ pub impl @debug.Debug for HotMemArg
 pub struct HotModuleContext {
   subtypes : Array[@lib.SubType]
   func_type_idxs : Array[@lib.TypeIdx]
+  func_types : Array[@lib.FuncType]
   tables : Array[@lib.TableType]
   mems : Array[@lib.MemType]
   globals : Array[@lib.GlobalType]
@@ -1347,6 +1354,7 @@ pub struct HotUseDef {
   block_uses : Array[Bitset]
   local_reads : Array[Array[Int]]
   local_writes : Array[Array[Int]]
+  local_write_blocks : Array[Array[Int]]
 }
 pub impl Eq for HotUseDef
 pub impl Show for HotUseDef

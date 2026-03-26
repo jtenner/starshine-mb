@@ -171,7 +171,8 @@ fn ssa_require_cfg_shapes(
     abort("ssa policy requires use-def block sets for the same cfg block count")
   }
   if use_def.local_reads.length() != hot_local_count(func) ||
-    use_def.local_writes.length() != hot_local_count(func) {
+    use_def.local_writes.length() != hot_local_count(func) ||
+    use_def.local_write_blocks.length() != hot_local_count(func) {
     abort("ssa policy requires use-def local sets for all locals")
   }
 }
@@ -271,12 +272,12 @@ pub fn ssa_phi_placement_blocks(
   let queued = bitset_new(block_count)
   let queue : Array[BlockId] = []
 
-  // Parameters and body locals both begin with a synthetic entry definition.
-  ssa_queue_push_once(queue, queued, cfg_entry_block(cfg))
-  for block_id = 0; block_id < block_count; block_id = block_id + 1 {
-    if bitset_contains(use_def.block_defs[block_id], local_id) {
-      ssa_queue_push_once(queue, queued, block_id)
-    }
+  let writes = use_def.local_write_blocks[local_id]
+  if writes.length() == 0 {
+    return []
+  }
+  for block_id in writes {
+    ssa_queue_push_once(queue, queued, block_id)
   }
 
   while queue.length() > 0 {

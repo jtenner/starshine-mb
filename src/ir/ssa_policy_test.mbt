@@ -70,3 +70,28 @@ test "ssa policy keeps phi nodes overlay only and documents v1 limits" {
     "ExceptionalEdges", "PersistentHotPhiNodes", "IrOwnedSsaBodies", "NonLocalValues",
   ])
 }
+
+///|
+test "ssa policy skips loop-header phis for locals with no writes" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let loop_id = hot_build_loop(func, @lib.BlockType::void_(), [])
+  let loop_get = hot_build_local_get(func, 0)
+  hot_region_replace_body(func, hot_region_body_ref(func, loop_id), [
+    hot_build_drop(func, loop_get),
+  ])
+  hot_root_append(func, loop_id)
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let loop_header = cfg_block_for_node(cfg, loop_id).unwrap()
+
+  assert_eq(ssa_phi_placement_blocks(func, cfg, dom, liveness, use_def, 0), [])
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  assert_eq(ssa_phis_for_block(ssa, loop_header), [])
+  assert_eq(
+    ssa_value_origin(ssa, ssa_value_for_local_get(ssa, loop_get)),
+    ssa_default_init_def(0),
+  )
+}

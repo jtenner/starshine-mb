@@ -18,6 +18,7 @@ pub struct HotUseDef {
   block_uses : Array[Bitset]
   local_reads : Array[Array[NodeId]]
   local_writes : Array[Array[NodeId]]
+  local_write_blocks : Array[Array[BlockId]]
 } derive(Eq, Show, Debug)
 
 ///|
@@ -82,16 +83,6 @@ fn use_def_add_site(
 }
 
 ///|
-fn use_def_append_unique(nodes : Array[NodeId], node_id : NodeId) -> Unit {
-  for existing in nodes {
-    if existing == node_id {
-      return
-    }
-  }
-  nodes.push(node_id)
-}
-
-///|
 fn use_def_track_local_node(
   func : HotFunc,
   node_id : NodeId,
@@ -100,9 +91,10 @@ fn use_def_track_local_node(
 ) -> Unit {
   let node = hot_node_get(func, node_id)
   match node.op {
-    HotOp::LocalGet => use_def_append_unique(local_reads[node.imm0], node_id)
-    HotOp::LocalSet | HotOp::LocalTee =>
-      use_def_append_unique(local_writes[node.imm0], node_id)
+    // use_def_visit_node only visits each live node once, so these per-local
+    // lists do not need an extra linear de-duplication scan.
+    HotOp::LocalGet => local_reads[node.imm0].push(node_id)
+    HotOp::LocalSet | HotOp::LocalTee => local_writes[node.imm0].push(node_id)
     _ => ()
   }
 }
@@ -197,21 +189,27 @@ fn use_def_block_mark_use(
 fn use_def_block_mark_def(
   local_count : Int,
   defs : Bitset,
+  block_id : BlockId,
   local_id : LocalId,
+  local_write_blocks : Array[Array[BlockId]],
 ) -> Unit {
   if local_id < 0 || local_id >= local_count {
     abort("use-def local def must reference an existing local")
   }
-  ignore(bitset_set(defs, local_id))
+  if bitset_set(defs, local_id) {
+    local_write_blocks[local_id].push(block_id)
+  }
 }
 
 ///|
 fn use_def_scan_block_node(
   func : HotFunc,
   node_id : NodeId,
+  block_id : BlockId,
   local_count : Int,
   defs : Bitset,
   uses : Bitset,
+  local_write_blocks : Array[Array[BlockId]],
 ) -> Unit {
   let node = hot_node_get(func, node_id)
   for slot = 0; slot < hot_child_count(func, node_id); slot = slot + 1 {
@@ -220,7 +218,9 @@ fn use_def_scan_block_node(
     }
     match use_def_live_child(func, node_id, slot) {
       Some(child_id) =>
-        use_def_scan_block_node(func, child_id, local_count, defs, uses)
+        use_def_scan_block_node(
+          func, child_id, block_id, local_count, defs, uses, local_write_blocks,
+        )
       None => ()
     }
   }
@@ -228,7 +228,13 @@ fn use_def_scan_block_node(
     HotOp::LocalGet =>
       use_def_block_mark_use(local_count, defs, uses, node.imm0)
     HotOp::LocalSet | HotOp::LocalTee =>
-      use_def_block_mark_def(local_count, defs, node.imm0)
+      use_def_block_mark_def(
+        local_count,
+        defs,
+        block_id,
+        node.imm0,
+        local_write_blocks,
+      )
     _ => ()
   }
 }
@@ -237,20 +243,26 @@ fn use_def_scan_block_node(
 fn use_def_build_block_sets(
   func : HotFunc,
   cfg : HotCfg,
-) -> (Array[Bitset], Array[Bitset]) {
+) -> (Array[Bitset], Array[Bitset], Array[Array[BlockId]]) {
   let local_count = hot_local_count(func)
   let block_defs : Array[Bitset] = []
   let block_uses : Array[Bitset] = []
+  let local_write_blocks : Array[Array[BlockId]] = []
+  for _ in 0..<local_count {
+    local_write_blocks.push([])
+  }
   for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
     let defs = bitset_new(local_count)
     let uses = bitset_new(local_count)
     for node_id in cfg_block_get(cfg, block_id).nodes {
-      use_def_scan_block_node(func, node_id, local_count, defs, uses)
+      use_def_scan_block_node(
+        func, node_id, block_id, local_count, defs, uses, local_write_blocks,
+      )
     }
     block_defs.push(defs)
     block_uses.push(uses)
   }
-  (block_defs, block_uses)
+  (block_defs, block_uses, local_write_blocks)
 }
 
 ///|
@@ -275,15 +287,22 @@ pub fn use_def_build(func : HotFunc, cfg? : HotCfg? = None) -> HotUseDef {
     local_writes,
     seen,
   )
-  let (block_defs, block_uses) = match cfg {
+  let (block_defs, block_uses, local_write_blocks) = match cfg {
     Some(existing) => use_def_build_block_sets(func, existing)
     None =>
       match hot_verify_control(func) {
         Ok(_) => use_def_build_block_sets(func, cfg_build(func))
-        Err(_) => ([], [])
+        Err(_) => ([], [], [])
       }
   }
-  { node_uses, block_defs, block_uses, local_reads, local_writes }
+  {
+    node_uses,
+    block_defs,
+    block_uses,
+    local_reads,
+    local_writes,
+    local_write_blocks,
+  }
 }
 
 ///|
@@ -329,4 +348,13 @@ pub fn local_write_nodes(
 ) -> Array[NodeId] {
   use_def_require_local_range(use_def, local_id)
   use_def.local_writes[local_id].copy()
+}
+
+///|
+pub fn local_write_block_ids(
+  use_def : HotUseDef,
+  local_id : LocalId,
+) -> Array[BlockId] {
+  use_def_require_local_range(use_def, local_id)
+  use_def.local_write_blocks[local_id].copy()
 }

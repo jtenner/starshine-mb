@@ -190,9 +190,15 @@ fn pass_manager_debug_dump_target_regions_visit(
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     let tag = pass_manager_debug_node_tag(func, node_id)
     roots.push(tag)
-    if tag.contains("(35)") || tag.contains("(36)") || tag.contains("(37)") ||
-      tag.contains("(38)") || tag.contains("(39)") || tag.contains("(40)") ||
-      tag.contains("(97)") || tag.contains("(98)") || tag.contains("(99)") {
+    if tag.contains("(35)") ||
+      tag.contains("(36)") ||
+      tag.contains("(37)") ||
+      tag.contains("(38)") ||
+      tag.contains("(39)") ||
+      tag.contains("(40)") ||
+      tag.contains("(97)") ||
+      tag.contains("(98)") ||
+      tag.contains("(99)") {
       saw_target = true
     }
     match @ir.hot_node_get(func, node_id).op {
@@ -213,10 +219,7 @@ fn pass_manager_debug_dump_target_regions_visit(
         match @ir.hot_region_else_ref(func, node_id) {
           Some(else_region) =>
             pass_manager_debug_dump_target_regions_visit(
-              trace,
-              func,
-              stage,
-              else_region,
+              trace, func, stage, else_region,
             )
           None => ()
         }
@@ -231,10 +234,7 @@ fn pass_manager_debug_dump_target_regions_visit(
         match @ir.hot_region_catch_ref(func, node_id) {
           Some(catch_region) =>
             pass_manager_debug_dump_target_regions_visit(
-              trace,
-              func,
-              stage,
-              catch_region,
+              trace, func, stage, catch_region,
             )
           None => ()
         }
@@ -315,7 +315,8 @@ fn pass_manager_debug_dump_matching_nodes(
       continue
     }
     let tag = pass_manager_debug_node_tag(func, node_id)
-    if tag.contains("LocalSet(35)") || tag.contains("LocalSet(36)") ||
+    if tag.contains("LocalSet(35)") ||
+      tag.contains("LocalSet(36)") ||
       tag.contains("LocalSet(37)") {
       pass_manager_debug_dump_node(trace, func, use_def, stage, node_id)
     }
@@ -469,6 +470,7 @@ fn run_hot_pipeline_func(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
+  module_ctx : @ir.HotModuleContext,
   options : HotPipelineOptions,
 ) -> Result[@lib.Func, String] {
   pipeline_trace_hook(
@@ -478,7 +480,8 @@ fn run_hot_pipeline_func(
     payload="func_idx=\{func_idx}",
   )
   let lift_start_us = perf_start_timer_opt(options.perf, "lift")
-  let func = @ir.hot_lift_func(mod_, func_idx)
+  let func = @ir.hot_lift_func_with_context(mod_, func_idx, module_ctx)
+  let lifted_revision = @ir.hot_revision_current(func)
   if func_idx == @lib.FuncIdx::new(2944U) &&
     (descriptor.name == "vacuum" || descriptor.name == "dead-code-elimination") {
     let use_def = @ir.use_def_build(func)
@@ -729,7 +732,10 @@ fn run_hot_pipeline_func(
     perf=options.perf,
   )
   match hot_pass_run(ctx, func) {
-    Ok(_) => ()
+    Ok(result) =>
+      if !result.changed && @ir.hot_revision_current(func) == lifted_revision {
+        return Ok(run_hot_pipeline_original_func(mod_, func_idx))
+      }
     Err(err) => return Err(err)
   }
   if func_idx == @lib.FuncIdx::new(2944U) &&
@@ -968,6 +974,30 @@ fn run_hot_pipeline_func(
 }
 
 ///|
+fn run_hot_pipeline_original_func(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+) -> @lib.Func {
+  let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
+  let @lib.FuncIdx(raw) = func_idx
+  let code_idx = raw.reinterpret_as_int() - imported_func_count
+  if code_idx < 0 {
+    abort("hot pipeline original func lookup requires a defined function index")
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) =>
+      match defs.get(code_idx) {
+        Some(def) => def
+        None =>
+          abort(
+            "hot pipeline original func lookup requires an existing code entry",
+          )
+      }
+    None => abort("hot pipeline original func lookup requires a code section")
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_hot_pass(
   mod_ : @lib.Module,
   entry : HotPassRegistryEntry,
@@ -977,6 +1007,7 @@ fn run_hot_pipeline_apply_hot_pass(
     Some(descriptor) => descriptor
     None => return Err("missing hot pass descriptor for \{entry.name}")
   }
+  let module_ctx = @ir.hot_module_context_from_module(mod_)
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let next_code_sec = match mod_.code_sec {
     Some(@lib.CodeSec(defs)) => {
@@ -986,7 +1017,7 @@ fn run_hot_pipeline_apply_hot_pass(
           (imported_func_count + code_idx).reinterpret_as_uint(),
         )
         let lowered_func = match
-          run_hot_pipeline_func(mod_, func_idx, descriptor, options) {
+          run_hot_pipeline_func(mod_, func_idx, descriptor, module_ctx, options) {
           Ok(func) => func
           Err(err) => return Err("func[\{func_idx}]: \{err}")
         }
