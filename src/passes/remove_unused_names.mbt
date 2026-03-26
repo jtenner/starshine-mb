@@ -213,6 +213,40 @@ fn remove_unused_names_detach_peeled_blocks(
 }
 
 ///|
+fn remove_unused_names_has_candidate(func : @ir.HotFunc) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::Loop => return true
+      @ir.HotOp::Block => {
+        let region_ref = @ir.hot_region_body_ref(func, node_id)
+        if @ir.hot_region_root_count(func, region_ref) != 1 {
+          continue
+        }
+        let child_id = @ir.hot_region_get(func, region_ref, 0)
+        if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+          continue
+        }
+        let child = @ir.hot_node_get(func, child_id)
+        match child.op {
+          @ir.HotOp::Block =>
+            if remove_unused_names_control_block_type(func, child_id) ==
+              remove_unused_names_control_block_type(func, node_id) {
+              return true
+            }
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn remove_unused_names_visit_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -382,6 +416,9 @@ fn remove_unused_names_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
+  if !remove_unused_names_has_candidate(func) {
+    return HotPassResult::unchanged()
+  }
   let label_marks = Array::make(func.labels.length(), 0)
   let node_marks = Array::make(@ir.hot_node_count(func), 0)
   let stamp_counter = [1]
