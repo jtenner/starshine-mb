@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Chore: checkpoint safe pass-manager and generated IR formatting
+
+- **Worktree-safe formatting checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb/CHANGELOG.md), [`src/passes/pass_manager.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/pass_manager.mbt), and [`src/ir/pkg.generated.mbti`](/home/jtenner/Projects/starshine-mb/src/ir/pkg.generated.mbti) to preserve the current block-order marker/layout cleanup already present in the worktree. `moon info` is green on this checkpoint.
+
 ## 2026-03-26 Fix: rewrite one-sided `remove-unused-brs` tail branch `if`s into `select`
 
 - **`remove-unused-brs` one-sided tail-exit parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb/CHANGELOG.md), [`src/passes/remove_unused_brs.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_brs_test.mbt) so tail result `if` nodes can now lower to `select` when exactly one arm exits through the enclosing `br`/`return` and the surviving payloads are reorder-safe, including the real branch-payload encoding where the exit value hangs directly off the trailing branch node. Focused `moon test src/passes/remove_unused_brs_test.mbt` and `moon test src/passes/perf_test.mbt` are green, and the March 26, 2026 compare runs at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1702041` and `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1703225` keep `remove-unused-brs` in the existing `~14.15s-14.25s` pass band while moving this oracle-backed parity family.

@@ -812,6 +812,8 @@ fn run_hot_pipeline_dce_can_skip_raw(
       )
   }
 }
+
+///|
 fn run_hot_pipeline_required_func_params(
   module_ctx : @ir.HotModuleContext,
   func_idx : @lib.FuncIdx,
