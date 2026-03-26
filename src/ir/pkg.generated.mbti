@@ -270,6 +270,8 @@ pub fn hot_build_return_call_indirect(HotFunc, @lib.TypeIdx, @lib.TableIdx, Arra
 
 pub fn hot_build_return_call_ref(HotFunc, @lib.TypeIdx, Array[Int], Int) -> Int
 
+pub fn hot_build_select(HotFunc, @lib.ValType, Int, Int, Int) -> Int
+
 pub fn hot_build_store(HotFunc, @lib.MemArg, Int, Int) -> Int
 
 pub fn hot_build_string_const(HotFunc, Bytes) -> Int

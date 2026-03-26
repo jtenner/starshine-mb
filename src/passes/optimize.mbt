@@ -139,8 +139,8 @@ fn pass_registry_removed_names() -> Array[String] {
     "merge-locals", "merge-blocks", "flatten", "re-reloop", "tuple-optimization",
     "optimize-added-constants", "optimize-added-constants-propagate", "precompute",
     "precompute-propagate", "redundant-set-elimination", "pick-load-signs", "optimize-casts",
-    "de-nan", "remove-unused-brs", "simplify-locals-no-tee", "simplify-locals-no-structure",
-    "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting", "untee",
+    "de-nan", "simplify-locals-no-tee", "simplify-locals-no-structure", "simplify-locals-no-tee-no-structure",
+    "simplify-locals-no-nesting", "untee",
   ]
 }
 
@@ -176,6 +176,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       remove_unused_names_descriptor(),
     ),
     pass_registry_entry_hot(
+      "remove-unused-brs",
+      remove_unused_brs_summary(),
+      remove_unused_brs_descriptor(),
+    ),
+    pass_registry_entry_hot(
       "optimize-instructions",
       optimize_instructions_summary(),
       optimize_instructions_descriptor(),
@@ -200,7 +205,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       [
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
         "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
-        "optimize-instructions", "simplify-locals",
+        "remove-unused-brs", "vacuum", "optimize-instructions", "simplify-locals",
       ],
     ),
     pass_registry_entry_preset(
@@ -209,7 +214,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       [
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
         "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
-        "optimize-instructions", "simplify-locals",
+        "remove-unused-brs", "vacuum", "optimize-instructions", "simplify-locals",
       ],
     ),
   ]
@@ -249,8 +254,8 @@ pub fn pass_registry_category(name : String) -> HotPassRegistryCategory? {
 pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
-    "simplify-locals",
+    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
+    "vacuum", "optimize-instructions", "simplify-locals",
   ]
 }
 
@@ -258,8 +263,8 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
 pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
-    "simplify-locals",
+    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
+    "vacuum", "optimize-instructions", "simplify-locals",
   ]
 }
 

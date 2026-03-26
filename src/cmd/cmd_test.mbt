@@ -1125,6 +1125,39 @@ test "run_cmd_with_adapter rejects removed compatibility-only pass names" {
 }
 
 ///|
+test "run_cmd_with_adapter accepts remove-unused-brs" {
+  let input_mod = fixture_mergeable_block_module()
+  let input_wasm = encode_module_bytes(input_mod)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(input_wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--remove-unused-brs", "--out", "out.wasm", "a.wasm"],
+      io,
+    ) {
+    Ok(summary) => summary
+    Err(err) => fail("expected remove-unused-brs cli success, got \{err}")
+  }
+  assert_eq(summary.resolved_passes, ["remove-unused-brs"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, "out.wasm")
+}
+
+///|
 test "run_cmd_with_adapter preserves repeated pass flags in cli order" {
   let wasm = encode_module_bytes(fixture_i32_const_module(4))
   let io = CmdIO::new(

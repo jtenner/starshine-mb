@@ -33,6 +33,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
+    pass_registry_category("remove-unused-brs"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
     pass_registry_category("optimize"),
     Some(HotPassRegistryCategory::preset()),
   )
@@ -64,6 +68,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   let dce = dead_code_elimination_descriptor()
   let opt = optimize_instructions_descriptor()
   let locals = simplify_locals_descriptor()
+  let rub = remove_unused_brs_descriptor()
 
   assert_eq(ssa.name, "ssa-nomerge")
   assert_eq(@ir.hot_pass_requires(ssa), [])
@@ -72,6 +77,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   assert_eq(opt.name, "optimize-instructions")
   assert_eq(locals.name, "simplify-locals")
   assert_true(@ir.hot_pass_requires(locals).contains(@ir.HotAnalysis::ssa()))
+  assert_eq(rub.name, "remove-unused-brs")
 }
 
 ///|
@@ -81,13 +87,13 @@ test "preset expansion stays on implemented active pass names" {
 
   assert_eq(optimize, [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
-    "simplify-locals",
+    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
+    "vacuum", "optimize-instructions", "simplify-locals",
   ])
   assert_eq(shrink, [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
-    "simplify-locals",
+    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
+    "vacuum", "optimize-instructions", "simplify-locals",
   ])
   for name in optimize {
     match pass_registry_category(name) {

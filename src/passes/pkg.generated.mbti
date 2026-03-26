@@ -124,6 +124,10 @@ pub fn pipeline_trace_hook((String) -> Unit, String, String, payload? : String) 
 
 pub fn pipeline_verify_checkpoint(HotPipelineVerifyPolicy, String, HotPipelineVerifyTarget) -> Result[Unit, String]
 
+pub fn remove_unused_brs_descriptor() -> @ir.HotPassDescriptor
+
+pub fn remove_unused_brs_summary() -> String
+
 pub fn remove_unused_names_descriptor() -> @ir.HotPassDescriptor
 
 pub fn remove_unused_names_summary() -> String
