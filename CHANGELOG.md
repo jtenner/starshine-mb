@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Optimize: trim DCE analysis rebuilds and detached cleanup scans
+
+- **Dead-code-elimination perf checkpoint** by **@jtenner**. Updated [CHANGELOG.md](/home/jtenner/Projects/starshine-mb/CHANGELOG.md), [src/passes/dead_code_elimination.mbt](/home/jtenner/Projects/starshine-mb/src/passes/dead_code_elimination.mbt), and [src/passes/registry_test.mbt](/home/jtenner/Projects/starshine-mb/src/passes/registry_test.mbt) so DCE now drops the old full `use_def` pass requirement, lazily caches node-use counts with `use_def_build_node_uses`, reuses cached effect masks for purity checks, avoids allocating CFG edge-kind arrays in fallthrough queries, and stops rescanning whole functions while deleting bounded detached subgraphs. `moon fmt`, `moon test src/passes`, and `moon build --target native --release src/cmd` are green; direct native `--dead-code-elimination` replay on `tests/node/dist/starshine-debug-wasi.wasm` is still over budget and currently times out at `40s`, so the remaining work is concentrated inside DCE’s hot giant-function cleanup path rather than hidden analysis setup.
+
 ## 2026-03-26 Plan: refresh DCE backlog after the rebase
 
 - **DCE remaining-work backlog sync** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-dce/CHANGELOG.md) and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb-dce/agent-todo.md) after rebasing the worktree onto `master` so the active DCE backlog now matches the current [0066 DCE reference](/home/jtenner/Projects/starshine-mb-dce/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178), records that the old invalid-output blocker is closed by explicit final-tail `unreachable` materialization, and replaces the stale blocker text with the remaining ordered-replay, oracle-refresh, and runtime-budget work.

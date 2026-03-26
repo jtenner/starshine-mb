@@ -2,7 +2,7 @@
 pub fn dead_code_elimination_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new(
     "dead-code-elimination",
-    requires=[@ir.HotAnalysis::use_def(), @ir.HotAnalysis::effects()],
+    requires=[@ir.HotAnalysis::effects()],
     invalidates=[
       @ir.HotAnalysis::cfg(),
       @ir.HotAnalysis::dominance(),
@@ -18,6 +18,44 @@ pub fn dead_code_elimination_descriptor() -> @ir.HotPassDescriptor {
 ///|
 pub fn dead_code_elimination_summary() -> String {
   "Prune unreachable tails, dead dropped values, and dead-result structured control in hot IR regions."
+}
+
+///|
+priv struct DeadCodeEliminationNodeUseCache {
+  mut revision : Int
+  mut use_def : @ir.HotUseDef?
+}
+
+///|
+fn DeadCodeEliminationNodeUseCache::new() -> DeadCodeEliminationNodeUseCache {
+  { revision: -1, use_def: None }
+}
+
+///|
+fn dead_code_elimination_require_node_uses(
+  cache : DeadCodeEliminationNodeUseCache,
+  func : @ir.HotFunc,
+) -> @ir.HotUseDef {
+  let revision = @ir.hot_revision_current(func)
+  match cache.use_def {
+    Some(existing) if cache.revision == revision => existing
+    _ => {
+      let rebuilt = @ir.use_def_build_node_uses(func)
+      cache.revision = revision
+      cache.use_def = Some(rebuilt)
+      rebuilt
+    }
+  }
+}
+
+///|
+fn dead_code_elimination_node_use_count(
+  cache : DeadCodeEliminationNodeUseCache,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int {
+  let use_def = dead_code_elimination_require_node_uses(cache, func)
+  @ir.node_use_count(use_def, node_id)
 }
 
 ///|
@@ -67,6 +105,7 @@ fn dead_code_elimination_region_result_arity(
 fn dead_code_elimination_delete_unused_nodes(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  node_use_cache : DeadCodeEliminationNodeUseCache,
   node_ids : Array[Int],
 ) -> Unit {
   // Large detached subgraphs do not affect lowered output once roots/child
@@ -98,32 +137,26 @@ fn dead_code_elimination_delete_unused_nodes(
   if candidates.is_empty() {
     return
   }
-  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
-    let root_id = @ir.hot_root_get(func, root_idx)
-    if root_id >= 0 && root_id < node_count && in_candidate[root_id] {
-      external_refs[root_id] += 1
-    }
-  }
+  let node_uses = dead_code_elimination_require_node_uses(node_use_cache, func)
   for label_id = 0; label_id < func.labels.length(); label_id = label_id + 1 {
     let owner = @ir.hot_label_owner(func, label_id)
     if owner >= 0 && owner < node_count && in_candidate[owner] {
       external_refs[owner] += 1
     }
   }
-  for user_id = 0; user_id < node_count; user_id = user_id + 1 {
-    if !@ir.hot_node_is_live(func, user_id) {
-      continue
-    }
-    let user_in_candidate = in_candidate[user_id]
-    for slot = 0; slot < @ir.hot_child_count(func, user_id); slot = slot + 1 {
-      let child_id = @ir.hot_child_get(func, user_id, slot)
-      if child_id < 0 || child_id >= node_count || !in_candidate[child_id] {
-        continue
-      }
-      if user_in_candidate {
+  for node_id in candidates {
+    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+      let child_id = @ir.hot_child_get(func, node_id, slot)
+      if child_id >= 0 && child_id < node_count && in_candidate[child_id] {
         internal_refs[child_id] += 1
-      } else {
-        external_refs[child_id] += 1
+      }
+    }
+  }
+  for node_id in candidates {
+    for site in @ir.node_use_sites(node_uses, node_id) {
+      let user_id = site.user
+      if user_id < 0 || user_id >= node_count || !in_candidate[user_id] {
+        external_refs[node_id] += 1
       }
     }
   }
@@ -163,7 +196,17 @@ fn dead_code_elimination_delete_unused_nodes(
 }
 
 ///|
+fn dead_code_elimination_node_is_pure(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  @ir.effects_is_pure(pass_require_effects(ctx, func).node_masks[node_id])
+}
+
+///|
 fn dead_code_elimination_drop_is_dead(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
@@ -178,7 +221,7 @@ fn dead_code_elimination_drop_is_dead(
   let child_id = @ir.hot_child_get(func, node_id, 0)
   child_id >= 0 &&
   @ir.hot_node_is_live(func, child_id) &&
-  @ir.effects_is_pure(@ir.effects_for_node(func, child_id))
+  dead_code_elimination_node_is_pure(ctx, func, child_id)
 }
 
 ///|
@@ -332,13 +375,39 @@ fn dead_code_elimination_has_incoming_internal_region_branches(
 }
 
 ///|
+fn dead_code_elimination_op_has_fallthrough_edge(op : @ir.HotOp) -> Bool {
+  match op {
+    @ir.HotOp::Br
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::Return
+    | @ir.HotOp::Throw
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Unreachable => false
+    @ir.HotOp::BrIf
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => true
+    _ => true
+  }
+}
+
+///|
 fn dead_code_elimination_region_may_fallthrough(
   func : @ir.HotFunc,
   branch_users_by_label : Array[Array[Int]],
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
   let mut idx = 0
-  while idx < @ir.hot_region_root_count(func, region_ref) {
+  while idx < root_count {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     if node_id >= 0 &&
       @ir.hot_node_is_live(func, node_id) &&
@@ -438,19 +507,7 @@ fn dead_code_elimination_node_may_fallthrough(
         branch_users_by_label,
         @ir.hot_region_catch_list_ref(func, node_id),
       )
-    _ => {
-      let edge_kinds = @ir.cfg_terminator_edge_kinds(node.op)
-      if edge_kinds.length() == 0 {
-        return true
-      }
-      for edge_kind in edge_kinds {
-        match edge_kind {
-          @ir.CfgEdgeKind::FallthroughEdge => return true
-          _ => ()
-        }
-      }
-      false
-    }
+    _ => dead_code_elimination_op_has_fallthrough_edge(node.op)
   }
 }
 
@@ -482,6 +539,7 @@ fn dead_code_elimination_visit_node_regions(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   branch_users_by_label : Array[Array[Int]],
+  node_use_cache : DeadCodeEliminationNodeUseCache,
   node_id : Int,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
@@ -491,6 +549,7 @@ fn dead_code_elimination_visit_node_regions(
         ctx,
         func,
         branch_users_by_label,
+        node_use_cache,
         @ir.hot_region_body_ref(func, node_id),
       )
     @ir.HotOp::If => {
@@ -498,12 +557,13 @@ fn dead_code_elimination_visit_node_regions(
         ctx,
         func,
         branch_users_by_label,
+        node_use_cache,
         @ir.hot_region_then_ref(func, node_id),
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           changed = dead_code_elimination_visit_region(
-              ctx, func, branch_users_by_label, else_region,
+              ctx, func, branch_users_by_label, node_use_cache, else_region,
             ) ||
             changed
         None => ()
@@ -515,12 +575,13 @@ fn dead_code_elimination_visit_node_regions(
         ctx,
         func,
         branch_users_by_label,
+        node_use_cache,
         @ir.hot_region_body_ref(func, node_id),
       )
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_region) =>
           changed = dead_code_elimination_visit_region(
-              ctx, func, branch_users_by_label, catch_region,
+              ctx, func, branch_users_by_label, node_use_cache, catch_region,
             ) ||
             changed
         None => ()
@@ -532,12 +593,14 @@ fn dead_code_elimination_visit_node_regions(
         ctx,
         func,
         branch_users_by_label,
+        node_use_cache,
         @ir.hot_region_body_ref(func, node_id),
       ) ||
       dead_code_elimination_visit_region(
         ctx,
         func,
         branch_users_by_label,
+        node_use_cache,
         @ir.hot_region_catch_list_ref(func, node_id),
       )
     _ => false
@@ -549,6 +612,7 @@ fn dead_code_elimination_voidify_control(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   branch_users_by_label : Array[Array[Int]],
+  node_use_cache : DeadCodeEliminationNodeUseCache,
   node_id : Int,
 ) -> Bool {
   if !dead_code_elimination_can_voidify_control(
@@ -586,7 +650,7 @@ fn dead_code_elimination_voidify_control(
         if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
           continue
         }
-        if !@ir.effects_is_pure(@ir.effects_for_node(func, child_id)) {
+        if !dead_code_elimination_node_is_pure(ctx, func, child_id) {
           return false
         }
         dead_code_elimination_collect_detached_nodes(
@@ -612,10 +676,10 @@ fn dead_code_elimination_voidify_control(
   }
   @ir.hot_control_result_type_set(func, node_id, @ir.hot_type_void(func))
   pass_mark_mutated(ctx, func)
-  dead_code_elimination_delete_unused_nodes(ctx, func, detached)
+  dead_code_elimination_delete_unused_nodes(ctx, func, node_use_cache, detached)
   ignore(
     dead_code_elimination_visit_node_regions(
-      ctx, func, branch_users_by_label, node_id,
+      ctx, func, branch_users_by_label, node_use_cache, node_id,
     ),
   )
   true
@@ -625,6 +689,7 @@ fn dead_code_elimination_voidify_control(
 fn dead_code_elimination_remove_roots(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  node_use_cache : DeadCodeEliminationNodeUseCache,
   region_ref : @ir.HotRegionRef,
   idx : Int,
   remove_count : Int,
@@ -647,7 +712,7 @@ fn dead_code_elimination_remove_roots(
       break
     }
   }
-  dead_code_elimination_delete_unused_nodes(ctx, func, detached)
+  dead_code_elimination_delete_unused_nodes(ctx, func, node_use_cache, detached)
   true
 }
 
@@ -655,12 +720,13 @@ fn dead_code_elimination_remove_roots(
 fn dead_code_elimination_replace_root_with_child(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  node_use_cache : DeadCodeEliminationNodeUseCache,
   region_ref : @ir.HotRegionRef,
   idx : Int,
   child_id : Int,
 ) -> Bool {
   let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [child_id])
-  dead_code_elimination_delete_unused_nodes(ctx, func, removed)
+  dead_code_elimination_delete_unused_nodes(ctx, func, node_use_cache, removed)
   true
 }
 
@@ -746,6 +812,7 @@ fn dead_code_elimination_visit_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   branch_users_by_label : Array[Array[Int]],
+  node_use_cache : DeadCodeEliminationNodeUseCache,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
   let mut changed = false
@@ -759,15 +826,28 @@ fn dead_code_elimination_visit_region(
     }
 
     changed = dead_code_elimination_visit_node_regions(
-        ctx, func, branch_users_by_label, node_id,
+        ctx, func, branch_users_by_label, node_use_cache, node_id,
       ) ||
       changed
 
-    if dead_code_elimination_drop_is_dead(func, node_id) {
-      ignore(dead_code_elimination_remove_roots(ctx, func, region_ref, idx, 1))
+    if dead_code_elimination_drop_is_dead(ctx, func, node_id) {
+      ignore(
+        dead_code_elimination_remove_roots(
+          ctx, func, node_use_cache, region_ref, idx, 1,
+        ),
+      )
       changed = true
       continue
     }
+
+    let is_final_root = idx + 1 == @ir.hot_region_root_count(func, region_ref)
+    let node_result_arity = @ir.hot_node_result_arity(func, node_id)
+    let node_use_count = dead_code_elimination_node_use_count(
+      node_use_cache, func, node_id,
+    )
+    let node_may_fallthrough = dead_code_elimination_node_may_fallthrough(
+      func, branch_users_by_label, node_id,
+    )
 
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
@@ -776,13 +856,14 @@ fn dead_code_elimination_visit_region(
           let child_id = @ir.hot_child_get(func, node_id, 0)
           if child_id >= 0 &&
             @ir.hot_node_is_live(func, child_id) &&
-            pass_node_use_count(ctx, func, child_id) == 1 &&
+            dead_code_elimination_node_use_count(node_use_cache, func, child_id) ==
+            1 &&
             dead_code_elimination_voidify_control(
-              ctx, func, branch_users_by_label, child_id,
+              ctx, func, branch_users_by_label, node_use_cache, child_id,
             ) {
             ignore(
               dead_code_elimination_replace_root_with_child(
-                ctx, func, region_ref, idx, child_id,
+                ctx, func, node_use_cache, region_ref, idx, child_id,
               ),
             )
             ignore(
@@ -797,21 +878,22 @@ fn dead_code_elimination_visit_region(
       _ => ()
     }
 
-    if result_arity == 0 && @ir.hot_node_result_arity(func, node_id) > 0 {
-      let is_final_root = idx + 1 == @ir.hot_region_root_count(func, region_ref)
+    if result_arity == 0 && node_result_arity > 0 {
       if is_final_root &&
-        pass_node_use_count(ctx, func, node_id) == 1 &&
-        @ir.effects_is_pure(@ir.effects_for_node(func, node_id)) {
+        node_use_count == 1 &&
+        dead_code_elimination_node_is_pure(ctx, func, node_id) {
         ignore(
-          dead_code_elimination_remove_roots(ctx, func, region_ref, idx, 1),
+          dead_code_elimination_remove_roots(
+            ctx, func, node_use_cache, region_ref, idx, 1,
+          ),
         )
         changed = true
         continue
       }
       if is_final_root &&
-        pass_node_use_count(ctx, func, node_id) == 1 &&
+        node_use_count == 1 &&
         dead_code_elimination_voidify_control(
-          ctx, func, branch_users_by_label, node_id,
+          ctx, func, branch_users_by_label, node_use_cache, node_id,
         ) {
         ignore(
           dead_code_elimination_finish_nonfallthrough_final_root(
@@ -823,15 +905,12 @@ fn dead_code_elimination_visit_region(
       }
     }
 
-    let is_final_root = idx + 1 == @ir.hot_region_root_count(func, region_ref)
     if is_final_root &&
-      pass_node_use_count(ctx, func, node_id) == 1 &&
-      @ir.hot_node_result_arity(func, node_id) > 0 &&
-      !dead_code_elimination_node_may_fallthrough(
-        func, branch_users_by_label, node_id,
-      ) &&
+      node_use_count == 1 &&
+      node_result_arity > 0 &&
+      !node_may_fallthrough &&
       dead_code_elimination_voidify_control(
-        ctx, func, branch_users_by_label, node_id,
+        ctx, func, branch_users_by_label, node_use_cache, node_id,
       ) {
       ignore(
         dead_code_elimination_finish_nonfallthrough_final_root(
@@ -842,9 +921,7 @@ fn dead_code_elimination_visit_region(
       continue
     }
 
-    if !dead_code_elimination_node_may_fallthrough(
-        func, branch_users_by_label, node_id,
-      ) {
+    if !node_may_fallthrough {
       let needs_unreachable_tail = dead_code_elimination_needs_explicit_unreachable_tail(
         func, node_id,
       )
@@ -862,6 +939,7 @@ fn dead_code_elimination_visit_region(
           dead_code_elimination_remove_roots(
             ctx,
             func,
+            node_use_cache,
             region_ref,
             idx + 1,
             removable_tail_count,
@@ -892,10 +970,12 @@ fn dead_code_elimination_run(
   let branch_users_by_label = dead_code_elimination_build_branch_users_by_label(
     func,
   )
+  let node_use_cache = DeadCodeEliminationNodeUseCache::new()
   if dead_code_elimination_visit_region(
       ctx,
       func,
       branch_users_by_label,
+      node_use_cache,
       @ir.HotRegionRef::root(),
     ) {
     HotPassResult::changed()
