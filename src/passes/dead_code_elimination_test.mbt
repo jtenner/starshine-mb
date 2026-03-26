@@ -68,6 +68,26 @@ test "dead-code-elimination preserves imported calls with dead results" {
 }
 
 ///|
+test "dead-code-elimination preserves global.get roots with dead results" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (global i32 (i32.const 0)) (func (result i32) global.get 0 drop i32.const 7))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination to preserve global.get roots, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination preserves dead type-index block wrappers" {
   let optimized = match
     pass_test_run_pipeline(

@@ -29,6 +29,11 @@ priv struct DeadCodeEliminationFallthroughCache {
 }
 
 ///|
+priv struct DeadCodeEliminationBranchUserCache {
+  mut by_label : Array[Array[Int]]?
+}
+
+///|
 priv struct DeadCodeEliminationPurityCache {
   revision : Array[Int]
   result : Array[Bool]
@@ -37,6 +42,11 @@ priv struct DeadCodeEliminationPurityCache {
 ///|
 fn DeadCodeEliminationNodeUseCache::new() -> DeadCodeEliminationNodeUseCache {
   { revision: -1, use_def: None }
+}
+
+///|
+fn DeadCodeEliminationBranchUserCache::new() -> DeadCodeEliminationBranchUserCache {
+  { by_label: None }
 }
 
 ///|
@@ -84,6 +94,53 @@ fn dead_code_elimination_ensure_purity_cache_capacity(
   while cache.revision.length() <= node_id {
     cache.revision.push(-1)
     cache.result.push(false)
+  }
+}
+
+///|
+fn dead_code_elimination_flags_force_impure(flags : UInt) -> Bool {
+  (flags & @ir.HOT_FLAG_CONTROL) != 0U ||
+  (flags & @ir.HOT_FLAG_BRANCH) != 0U ||
+  (flags & @ir.HOT_FLAG_TERMINATOR) != 0U ||
+  (flags & @ir.HOT_FLAG_CALL) != 0U ||
+  (flags & @ir.HOT_FLAG_THROWS) != 0U ||
+  (flags & @ir.HOT_FLAG_HAS_EXCEPTIONAL_SUCC) != 0U ||
+  (flags & @ir.HOT_FLAG_MAY_TRAP) != 0U
+}
+
+///|
+fn dead_code_elimination_node_is_intrinsically_impure(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if dead_code_elimination_flags_force_impure(@ir.hot_node_flags(func, node_id)) {
+    return true
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalGet
+    | @ir.HotOp::LocalSet
+    | @ir.HotOp::LocalTee
+    | @ir.HotOp::GlobalGet
+    | @ir.HotOp::GlobalSet
+    | @ir.HotOp::Load
+    | @ir.HotOp::Store
+    | @ir.HotOp::MemorySize
+    | @ir.HotOp::MemoryGrow
+    | @ir.HotOp::MemoryCopy
+    | @ir.HotOp::MemoryInit
+    | @ir.HotOp::MemoryFill
+    | @ir.HotOp::DataDrop
+    | @ir.HotOp::TableGet
+    | @ir.HotOp::TableSize
+    | @ir.HotOp::TableSet
+    | @ir.HotOp::TableGrow
+    | @ir.HotOp::TableFill
+    | @ir.HotOp::TableCopy
+    | @ir.HotOp::TableInit
+    | @ir.HotOp::ElemDrop
+    | @ir.HotOp::Atomic
+    | @ir.HotOp::Heap => true
+    _ => false
   }
 }
 
@@ -265,7 +322,21 @@ fn dead_code_elimination_node_is_pure(
   if purity_cache.revision[node_id] == revision {
     return purity_cache.result[node_id]
   }
-  let result = @ir.effects_is_pure(@ir.effects_for_node(func, node_id))
+  if dead_code_elimination_node_is_intrinsically_impure(func, node_id) {
+    purity_cache.revision[node_id] = revision
+    purity_cache.result[node_id] = false
+    return false
+  }
+  let mut result = true
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id >= 0 &&
+      @ir.hot_node_is_live(func, child_id) &&
+      !dead_code_elimination_node_is_pure(purity_cache, func, child_id) {
+      result = false
+      break
+    }
+  }
   purity_cache.revision[node_id] = revision
   purity_cache.result[node_id] = result
   result
@@ -341,9 +412,24 @@ fn dead_code_elimination_build_branch_users_by_label(
 }
 
 ///|
+fn dead_code_elimination_require_branch_users_by_label(
+  cache : DeadCodeEliminationBranchUserCache,
+  func : @ir.HotFunc,
+) -> Array[Array[Int]] {
+  match cache.by_label {
+    Some(existing) => existing
+    None => {
+      let built = dead_code_elimination_build_branch_users_by_label(func)
+      cache.by_label = Some(built)
+      built
+    }
+  }
+}
+
+///|
 fn dead_code_elimination_can_voidify_control(
   func : @ir.HotFunc,
-  branch_users_by_label : Array[Array[Int]],
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_id : Int,
 ) -> Bool {
   if @ir.hot_node_result_arity(func, node_id) == 0 {
@@ -358,7 +444,11 @@ fn dead_code_elimination_can_voidify_control(
       0
     @ir.HotOp::If | @ir.HotOp::Try | @ir.HotOp::TryTable =>
       !dead_code_elimination_has_incoming_internal_region_branches(
-        func, branch_users_by_label, node_id,
+        func,
+        dead_code_elimination_require_branch_users_by_label(
+          branch_user_cache, func,
+        ),
+        node_id,
       )
     _ => false
   }
@@ -469,7 +559,7 @@ fn dead_code_elimination_op_has_fallthrough_edge(op : @ir.HotOp) -> Bool {
 ///|
 fn dead_code_elimination_region_may_fallthrough(
   func : @ir.HotFunc,
-  branch_users_by_label : Array[Array[Int]],
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
@@ -480,7 +570,7 @@ fn dead_code_elimination_region_may_fallthrough(
     if node_id >= 0 &&
       @ir.hot_node_is_live(func, node_id) &&
       !dead_code_elimination_node_may_fallthrough(
-        func, branch_users_by_label, fallthrough_cache, node_id,
+        func, branch_user_cache, fallthrough_cache, node_id,
       ) {
       return false
     }
@@ -492,7 +582,7 @@ fn dead_code_elimination_region_may_fallthrough(
 ///|
 fn dead_code_elimination_node_may_fallthrough(
   func : @ir.HotFunc,
-  branch_users_by_label : Array[Array[Int]],
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
   node_id : Int,
 ) -> Bool {
@@ -507,7 +597,7 @@ fn dead_code_elimination_node_may_fallthrough(
     return fallthrough_cache.result[node_id]
   }
   let result = dead_code_elimination_node_may_fallthrough_uncached(
-    func, branch_users_by_label, fallthrough_cache, node_id,
+    func, branch_user_cache, fallthrough_cache, node_id,
   )
   fallthrough_cache.revision[node_id] = revision
   fallthrough_cache.result[node_id] = result
@@ -517,7 +607,7 @@ fn dead_code_elimination_node_may_fallthrough(
 ///|
 fn dead_code_elimination_node_may_fallthrough_uncached(
   func : @ir.HotFunc,
-  branch_users_by_label : Array[Array[Int]],
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
   node_id : Int,
 ) -> Bool {
@@ -528,23 +618,28 @@ fn dead_code_elimination_node_may_fallthrough_uncached(
   match node.op {
     @ir.HotOp::Block =>
       dead_code_elimination_has_incoming_branches(
-        branch_users_by_label,
+        dead_code_elimination_require_branch_users_by_label(
+          branch_user_cache, func,
+        ),
         @ir.hot_control_node_label(func, node_id),
       ) ||
       dead_code_elimination_region_may_fallthrough(
         func,
-        branch_users_by_label,
+        branch_user_cache,
         fallthrough_cache,
         @ir.hot_region_body_ref(func, node_id),
       )
     @ir.HotOp::Loop =>
       dead_code_elimination_region_may_fallthrough(
         func,
-        branch_users_by_label,
+        branch_user_cache,
         fallthrough_cache,
         @ir.hot_region_body_ref(func, node_id),
       )
     @ir.HotOp::If => {
+      let branch_users_by_label = dead_code_elimination_require_branch_users_by_label(
+        branch_user_cache, func,
+      )
       if dead_code_elimination_has_incoming_branches(
           branch_users_by_label,
           @ir.hot_control_node_label(func, node_id),
@@ -553,7 +648,7 @@ fn dead_code_elimination_node_may_fallthrough_uncached(
       }
       if dead_code_elimination_region_may_fallthrough(
           func,
-          branch_users_by_label,
+          branch_user_cache,
           fallthrough_cache,
           @ir.hot_region_then_ref(func, node_id),
         ) {
@@ -562,12 +657,15 @@ fn dead_code_elimination_node_may_fallthrough_uncached(
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           dead_code_elimination_region_may_fallthrough(
-            func, branch_users_by_label, fallthrough_cache, else_region,
+            func, branch_user_cache, fallthrough_cache, else_region,
           )
         None => true
       }
     }
     @ir.HotOp::Try => {
+      let branch_users_by_label = dead_code_elimination_require_branch_users_by_label(
+        branch_user_cache, func,
+      )
       if dead_code_elimination_has_incoming_branches(
           branch_users_by_label,
           @ir.hot_control_node_label(func, node_id),
@@ -576,7 +674,7 @@ fn dead_code_elimination_node_may_fallthrough_uncached(
       }
       if dead_code_elimination_region_may_fallthrough(
           func,
-          branch_users_by_label,
+          branch_user_cache,
           fallthrough_cache,
           @ir.hot_region_body_ref(func, node_id),
         ) {
@@ -585,28 +683,32 @@ fn dead_code_elimination_node_may_fallthrough_uncached(
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_region) =>
           dead_code_elimination_region_may_fallthrough(
-            func, branch_users_by_label, fallthrough_cache, catch_region,
+            func, branch_user_cache, fallthrough_cache, catch_region,
           )
         None => false
       }
     }
-    @ir.HotOp::TryTable =>
+    @ir.HotOp::TryTable => {
+      let branch_users_by_label = dead_code_elimination_require_branch_users_by_label(
+        branch_user_cache, func,
+      )
       dead_code_elimination_has_incoming_branches(
         branch_users_by_label,
         @ir.hot_control_node_label(func, node_id),
       ) ||
       dead_code_elimination_region_may_fallthrough(
         func,
-        branch_users_by_label,
+        branch_user_cache,
         fallthrough_cache,
         @ir.hot_region_body_ref(func, node_id),
       ) ||
       dead_code_elimination_region_may_fallthrough(
         func,
-        branch_users_by_label,
+        branch_user_cache,
         fallthrough_cache,
         @ir.hot_region_catch_list_ref(func, node_id),
       )
+    }
     _ => dead_code_elimination_op_has_fallthrough_edge(node.op)
   }
 }
@@ -638,7 +740,7 @@ fn dead_code_elimination_branch_payload_count(
 fn dead_code_elimination_visit_node_regions(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  branch_users_by_label : Array[Array[Int]],
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
   purity_cache : DeadCodeEliminationPurityCache,
@@ -650,7 +752,7 @@ fn dead_code_elimination_visit_node_regions(
       dead_code_elimination_visit_region(
         ctx,
         func,
-        branch_users_by_label,
+        branch_user_cache,
         node_use_cache,
         fallthrough_cache,
         purity_cache,
@@ -660,7 +762,7 @@ fn dead_code_elimination_visit_node_regions(
       let mut changed = dead_code_elimination_visit_region(
         ctx,
         func,
-        branch_users_by_label,
+        branch_user_cache,
         node_use_cache,
         fallthrough_cache,
         purity_cache,
@@ -669,8 +771,8 @@ fn dead_code_elimination_visit_node_regions(
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           changed = dead_code_elimination_visit_region(
-              ctx, func, branch_users_by_label, node_use_cache, fallthrough_cache,
-              purity_cache, else_region,
+              ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
+              else_region,
             ) ||
             changed
         None => ()
@@ -681,7 +783,7 @@ fn dead_code_elimination_visit_node_regions(
       let mut changed = dead_code_elimination_visit_region(
         ctx,
         func,
-        branch_users_by_label,
+        branch_user_cache,
         node_use_cache,
         fallthrough_cache,
         purity_cache,
@@ -690,8 +792,8 @@ fn dead_code_elimination_visit_node_regions(
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_region) =>
           changed = dead_code_elimination_visit_region(
-              ctx, func, branch_users_by_label, node_use_cache, fallthrough_cache,
-              purity_cache, catch_region,
+              ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
+              catch_region,
             ) ||
             changed
         None => ()
@@ -702,7 +804,7 @@ fn dead_code_elimination_visit_node_regions(
       dead_code_elimination_visit_region(
         ctx,
         func,
-        branch_users_by_label,
+        branch_user_cache,
         node_use_cache,
         fallthrough_cache,
         purity_cache,
@@ -711,7 +813,7 @@ fn dead_code_elimination_visit_node_regions(
       dead_code_elimination_visit_region(
         ctx,
         func,
-        branch_users_by_label,
+        branch_user_cache,
         node_use_cache,
         fallthrough_cache,
         purity_cache,
@@ -725,14 +827,14 @@ fn dead_code_elimination_visit_node_regions(
 fn dead_code_elimination_voidify_control(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  branch_users_by_label : Array[Array[Int]],
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
   purity_cache : DeadCodeEliminationPurityCache,
   node_id : Int,
 ) -> Bool {
   if !dead_code_elimination_can_voidify_control(
-      func, branch_users_by_label, node_id,
+      func, branch_user_cache, node_id,
     ) {
     return false
   }
@@ -742,6 +844,9 @@ fn dead_code_elimination_voidify_control(
     _ => false
   }
   let label_id = @ir.hot_control_node_label(func, node_id)
+  let branch_users_by_label = dead_code_elimination_require_branch_users_by_label(
+    branch_user_cache, func,
+  )
   if !is_loop &&
     dead_code_elimination_has_incoming_branches(branch_users_by_label, label_id) {
     return false
@@ -795,7 +900,7 @@ fn dead_code_elimination_voidify_control(
   dead_code_elimination_delete_unused_nodes(ctx, func, node_use_cache, detached)
   ignore(
     dead_code_elimination_visit_node_regions(
-      ctx, func, branch_users_by_label, node_use_cache, fallthrough_cache, purity_cache,
+      ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
       node_id,
     ),
   )
@@ -909,7 +1014,7 @@ fn dead_code_elimination_ensure_explicit_unreachable_tail(
 fn dead_code_elimination_finish_nonfallthrough_final_root(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  branch_users_by_label : Array[Array[Int]],
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
   region_ref : @ir.HotRegionRef,
   idx : Int,
@@ -918,7 +1023,7 @@ fn dead_code_elimination_finish_nonfallthrough_final_root(
   idx + 1 == @ir.hot_region_root_count(func, region_ref) &&
   dead_code_elimination_needs_explicit_unreachable_tail(func, node_id) &&
   !dead_code_elimination_node_may_fallthrough(
-    func, branch_users_by_label, fallthrough_cache, node_id,
+    func, branch_user_cache, fallthrough_cache, node_id,
   ) &&
   dead_code_elimination_ensure_explicit_unreachable_tail(
     ctx, func, region_ref, idx,
@@ -929,7 +1034,7 @@ fn dead_code_elimination_finish_nonfallthrough_final_root(
 fn dead_code_elimination_visit_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  branch_users_by_label : Array[Array[Int]],
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
   purity_cache : DeadCodeEliminationPurityCache,
@@ -946,7 +1051,7 @@ fn dead_code_elimination_visit_region(
     }
 
     changed = dead_code_elimination_visit_node_regions(
-        ctx, func, branch_users_by_label, node_use_cache, fallthrough_cache, purity_cache,
+        ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
         node_id,
       ) ||
       changed
@@ -963,12 +1068,7 @@ fn dead_code_elimination_visit_region(
 
     let is_final_root = idx + 1 == @ir.hot_region_root_count(func, region_ref)
     let node_result_arity = @ir.hot_node_result_arity(func, node_id)
-    let node_use_count = dead_code_elimination_node_use_count(
-      node_use_cache, func, node_id,
-    )
-    let node_may_fallthrough = dead_code_elimination_node_may_fallthrough(
-      func, branch_users_by_label, fallthrough_cache, node_id,
-    )
+    let mut node_use_count = -1
 
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
@@ -980,8 +1080,8 @@ fn dead_code_elimination_visit_region(
             dead_code_elimination_node_use_count(node_use_cache, func, child_id) ==
             1 &&
             dead_code_elimination_voidify_control(
-              ctx, func, branch_users_by_label, node_use_cache, fallthrough_cache,
-              purity_cache, child_id,
+              ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
+              child_id,
             ) {
             ignore(
               dead_code_elimination_replace_root_with_child(
@@ -990,8 +1090,8 @@ fn dead_code_elimination_visit_region(
             )
             ignore(
               dead_code_elimination_finish_nonfallthrough_final_root(
-                ctx, func, branch_users_by_label, fallthrough_cache, region_ref,
-                idx, child_id,
+                ctx, func, branch_user_cache, fallthrough_cache, region_ref, idx,
+                child_id,
               ),
             )
             changed = true
@@ -1003,7 +1103,14 @@ fn dead_code_elimination_visit_region(
 
     if result_arity == 0 && node_result_arity > 0 {
       if is_final_root &&
-        node_use_count == 1 &&
+        ({
+          if node_use_count < 0 {
+            node_use_count = dead_code_elimination_node_use_count(
+              node_use_cache, func, node_id,
+            )
+          }
+          node_use_count == 1
+        }) &&
         dead_code_elimination_node_is_pure(purity_cache, func, node_id) {
         ignore(
           dead_code_elimination_remove_roots(
@@ -1014,15 +1121,21 @@ fn dead_code_elimination_visit_region(
         continue
       }
       if is_final_root &&
-        node_use_count == 1 &&
+        ({
+          if node_use_count < 0 {
+            node_use_count = dead_code_elimination_node_use_count(
+              node_use_cache, func, node_id,
+            )
+          }
+          node_use_count == 1
+        }) &&
         dead_code_elimination_voidify_control(
-          ctx, func, branch_users_by_label, node_use_cache, fallthrough_cache, purity_cache,
+          ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
           node_id,
         ) {
         ignore(
           dead_code_elimination_finish_nonfallthrough_final_root(
-            ctx, func, branch_users_by_label, fallthrough_cache, region_ref, idx,
-            node_id,
+            ctx, func, branch_user_cache, fallthrough_cache, region_ref, idx, node_id,
           ),
         )
         changed = true
@@ -1030,17 +1143,28 @@ fn dead_code_elimination_visit_region(
       }
     }
 
+    let node_may_fallthrough = dead_code_elimination_node_may_fallthrough(
+      func, branch_user_cache, fallthrough_cache, node_id,
+    )
+
     if is_final_root &&
-      node_use_count == 1 &&
+      ({
+        if node_use_count < 0 {
+          node_use_count = dead_code_elimination_node_use_count(
+            node_use_cache, func, node_id,
+          )
+        }
+        node_use_count == 1
+      }) &&
       node_result_arity > 0 &&
       !node_may_fallthrough &&
       dead_code_elimination_voidify_control(
-        ctx, func, branch_users_by_label, node_use_cache, fallthrough_cache, purity_cache,
+        ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
         node_id,
       ) {
       ignore(
         dead_code_elimination_finish_nonfallthrough_final_root(
-          ctx, func, branch_users_by_label, fallthrough_cache, region_ref, idx, node_id,
+          ctx, func, branch_user_cache, fallthrough_cache, region_ref, idx, node_id,
         ),
       )
       changed = true
@@ -1093,16 +1217,14 @@ fn dead_code_elimination_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
-  let branch_users_by_label = dead_code_elimination_build_branch_users_by_label(
-    func,
-  )
+  let branch_user_cache = DeadCodeEliminationBranchUserCache::new()
   let node_use_cache = DeadCodeEliminationNodeUseCache::new()
   let fallthrough_cache = dead_code_elimination_new_fallthrough_cache(func)
   let purity_cache = dead_code_elimination_new_purity_cache(func)
   if dead_code_elimination_visit_region(
       ctx,
       func,
-      branch_users_by_label,
+      branch_user_cache,
       node_use_cache,
       fallthrough_cache,
       purity_cache,
