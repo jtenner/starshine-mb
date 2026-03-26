@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Fix: keep branchy no-drop DCE bodies on the hot path
+
+- **Dead-code-elimination raw-skip rollback checkpoint** by **@jtenner**. Updated [CHANGELOG.md](/home/jtenner/Projects/starshine-mb/CHANGELOG.md) and [src/passes/pass_manager.mbt](/home/jtenner/Projects/starshine-mb/src/passes/pass_manager.mbt) so `dead-code-elimination` no longer classifies branchy no-drop structured bodies as raw no-op candidates. That widening was too aggressive for correctness work: it let branch-heavy wrappers bypass hot lift even when the pass still needed the typed view to decide whether the control result could be legally trimmed. `moon info`, `moon fmt`, `moon test`, and rebuilt release-artifact direct plus five-pass DCE replays still validate on the corrected path.
+
 ## 2026-03-26 Fix: trim severe DCE replay overhead in pass-manager raw skips
 
 - **Dead-code-elimination pass-manager performance checkpoint** by **@jtenner**. Updated [CHANGELOG.md](/home/jtenner/Projects/starshine-mb/CHANGELOG.md), [src/passes/pass_manager.mbt](/home/jtenner/Projects/starshine-mb/src/passes/pass_manager.mbt), [src/passes/pass_manager_test.mbt](/home/jtenner/Projects/starshine-mb/src/passes/pass_manager_test.mbt), and [src/passes/pkg.generated.mbti](/home/jtenner/Projects/starshine-mb/src/passes/pkg.generated.mbti) so the hardcoded large-function DCE and vacuum debug dumps are now completely gated behind explicit tracing, and DCE can skip raw replay for branchy no-drop void structured no-op functions instead of lifting them just to discover no candidates. The new pass-manager gating tests protect the fast path; the rebuilt native replay on `tests/node/dist/starshine-debug-wasi.wasm` drops to about `15.449s`, but parity is still incomplete and the Binaryen 50% speed target is still not met.
