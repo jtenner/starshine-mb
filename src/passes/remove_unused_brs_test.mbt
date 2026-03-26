@@ -30,6 +30,42 @@ test "remove-unused-brs removes trailing return at function exit" {
 }
 
 ///|
+test "remove-unused-brs removes trailing multi-value branch to the enclosing block" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32 i64) block (result i32 i64) i32.const 7 i64.const 8 br 0 end))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs multi-value br success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("I64(8)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs removes trailing multi-value return at function exit" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32 i64) i32.const 9 i64.const 10 return))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs multi-value return success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+  assert_true(pretty.contains("I64(10)"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites one-armed if break into br_if" {
   let optimized = match
     pass_test_run_pipeline(

@@ -143,6 +143,41 @@ fn remove_unused_brs_replace_with_child(
 }
 
 ///|
+fn remove_unused_brs_splice_tail_with_children(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  tail_id : Int,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return false
+  }
+  let tail_idx = root_count - 1
+  if @ir.hot_region_get(func, region_ref, tail_idx) != tail_id {
+    return false
+  }
+  let replacement : Array[Int] = []
+  for child_idx = 0
+      child_idx < @ir.hot_child_count(func, tail_id)
+      child_idx = child_idx + 1 {
+    let child_id = @ir.hot_child_get(func, tail_id, child_idx)
+    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+      return false
+    }
+    replacement.push(child_id)
+  }
+  let removed = pass_splice_region(
+    ctx, func, region_ref, tail_idx, 1, replacement,
+  )
+  let nop_node = @ir.hot_node_get(func, @ir.hot_build_nop(func))
+  for removed_id in removed {
+    @ir.hot_replace_node(func, removed_id, nop_node)
+  }
+  true
+}
+
+///|
 fn remove_unused_brs_reorder_cache_resize(
   cache : Array[Int],
   node_id : Int,
@@ -580,7 +615,9 @@ fn remove_unused_brs_try_remove_region_tail(
               @ir.hot_child_get(func, tail_id, 0),
             )
           } else {
-            false
+            remove_unused_brs_splice_tail_with_children(
+              ctx, func, region_ref, tail_id,
+            )
           }
         _ => false
       }
@@ -597,7 +634,9 @@ fn remove_unused_brs_try_remove_region_tail(
               @ir.hot_child_get(func, tail_id, 0),
             )
           } else {
-            false
+            remove_unused_brs_splice_tail_with_children(
+              ctx, func, region_ref, tail_id,
+            )
           }
         _ => false
       }
@@ -622,13 +661,12 @@ fn remove_unused_brs_tail_control_payload_count(
   match remove_unused_brs_tail_target(func, region_ref) {
     ReturnTarget =>
       match tail.op {
-        @ir.HotOp::Return if tail.child_count <= 1 => Some(tail.child_count)
+        @ir.HotOp::Return => Some(tail.child_count)
         _ => None
       }
     BranchTarget(target) =>
       match tail.op {
-        @ir.HotOp::Br if tail.imm0 == target && tail.child_count <= 1 =>
-          Some(tail.child_count)
+        @ir.HotOp::Br if tail.imm0 == target => Some(tail.child_count)
         _ => None
       }
     NoTarget => None
@@ -657,7 +695,7 @@ fn remove_unused_brs_strip_tail_control(
       @ir.hot_child_get(func, tail_id, 0),
     )
   } else {
-    false
+    remove_unused_brs_splice_tail_with_children(ctx, func, region_ref, tail_id)
   }
 }
 
