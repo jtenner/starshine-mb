@@ -101,7 +101,7 @@ Observed unique-pass order
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [RUN]001 - Triple-Slot Replay and Ordered-Prefix Parity - The core function pass is landed with exact single-pass oracle parity for same-typed block peeling and loop demotion, but the Binaryen default optimize path still needs the repeated RUN slots replayed in the ordered prefix once surrounding passes are in place.
      - Deliverables: wire `remove-unused-names` into each required top-level RUN slot in the public optimize path; add repeated-slot regressions around stale labels after `remove-unused-brs` and `merge-blocks`; keep canonical compare parity green on the debug artifact while replaying the exact ordered prefix.
-     - Current blocker: standalone `--remove-unused-names` parity is exact, but Starshine pass time is still roughly `93.607-97.888ms` versus Binaryen at roughly `14.575-15.384ms` on `tests/node/dist/starshine-debug-wasi.wasm`, so the remaining work is now ordered replay plus more serial throughput / GC-churn reduction rather than missing core semantics.
+     - Current blocker: standalone `--remove-unused-names` parity is exact, but Starshine pass time is still roughly `92.452-93.801ms` versus Binaryen at roughly `14.030-14.872ms` on `tests/node/dist/starshine-debug-wasi.wasm`, so the remaining work is now ordered replay plus more serial throughput / GC-churn reduction rather than missing core semantics.
      - Doc: [0066#L183](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L183)
 3. Do work.
    - Keep the landed direct pass stable while tightening runtime and ordered-prefix parity; do not weaken the current single-pass oracle compare to chase perf.

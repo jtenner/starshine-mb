@@ -75,7 +75,8 @@ fn remove_unused_names_seed_scan_region(
   stack : Array[Int],
 ) -> Unit {
   stack.clear()
-  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  for idx = 0; idx < root_count; idx = idx + 1 {
     let root_id = @ir.hot_region_get(func, region_ref, idx)
     if root_id < 0 ||
       !@ir.hot_node_is_live(func, root_id) ||
@@ -186,7 +187,6 @@ fn remove_unused_names_peel_same_typed_blocks(
   roots : Array[Int],
 ) -> Unit {
   removed_ids.clear()
-  roots.clear()
   let block_ty = @ir.hot_node_get(func, block_id).ty
   let block_type = remove_unused_names_control_block_type_for_ty(func, block_ty)
   let mut region_ref = @ir.hot_region_body_ref(func, block_id)
@@ -211,7 +211,9 @@ fn remove_unused_names_peel_same_typed_blocks(
   if removed_ids.is_empty() {
     return
   }
-  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+  roots.clear()
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  for idx = 0; idx < root_count; idx = idx + 1 {
     roots.push(@ir.hot_region_get(func, region_ref, idx))
   }
 }
@@ -279,8 +281,9 @@ fn remove_unused_names_visit_region(
   peeled_roots : Array[Int],
 ) -> Bool {
   let mut changed = false
+  let root_count = @ir.hot_region_root_count(func, region_ref)
   let mut idx = 0
-  while idx < @ir.hot_region_root_count(func, region_ref) {
+  while idx < root_count {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     changed = remove_unused_names_visit_node(
         func, node_id, label_marks, node_marks, stamp_counter, stack, removed_ids,
