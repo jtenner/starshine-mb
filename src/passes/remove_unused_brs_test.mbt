@@ -525,6 +525,25 @@ test "remove-unused-brs strips stack-style branch exits from tail value if arms"
 }
 
 ///|
+test "remove-unused-brs rewrites one-sided stack-style tail branch ifs into select" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (block $exit (result i32) (if (result i32) (local.get 0) (then (i32.const 1)) (else (i32.const 2) (br $exit))) (br $exit))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs one-sided stack-style branch success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs strips stack-style returns from tail value if arms" {
   let optimized = match
     pass_test_run_pipeline(
