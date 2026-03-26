@@ -356,7 +356,7 @@ test "dead-code-elimination deletes detached shared subtrees after unreachable t
 }
 
 ///|
-test "dead-code-elimination voidifies typed loop-body wrappers whose results never reach function exit" {
+test "dead-code-elimination materializes unreachable tails after voidifying typed loop-body wrappers" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (import \"env\" \"array_length\" (func $moonbit.array_length (param i32) (result i32))) (memory 1) (func $moonbit.string_equal (param $stra i32) (param $strb i32) (result i32) (local $counter i32) local.get $stra call $moonbit.array_length local.get $strb call $moonbit.array_length i32.eq if (result i32) loop (result i32) local.get $counter local.get $stra call $moonbit.array_length i32.lt_s if (result i32) local.get $stra local.get $counter i32.const 1 i32.shl i32.add i32.load16_u offset=8 align=1 local.get $strb local.get $counter i32.const 1 i32.shl i32.add i32.load16_u offset=8 align=1 i32.eq if (result i32) local.get $counter i32.const 1 i32.add local.set $counter br 2 else i32.const 0 return end else i32.const 1 return end end else i32.const 0 return end))",
@@ -372,6 +372,36 @@ test "dead-code-elimination voidifies typed loop-body wrappers whose results nev
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("(if (Void)"), msg=pretty)
   assert_true(pretty.contains("(loop (Void)"), msg=pretty)
-  assert_false(pretty.contains("unreachable"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
   assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination leaves explicit unreachable root after final voidified control" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (import \"env\" \"array_length\" (func $moonbit.array_length (param i32) (result i32))) (memory 1) (func $moonbit.string_equal (param $stra i32) (param $strb i32) (result i32) (local $counter i32) local.get $stra call $moonbit.array_length local.get $strb call $moonbit.array_length i32.eq if (result i32) loop (result i32) local.get $counter local.get $stra call $moonbit.array_length i32.lt_s if (result i32) local.get $stra local.get $counter i32.const 1 i32.shl i32.add i32.load16_u offset=8 align=1 local.get $strb local.get $counter i32.const 1 i32.shl i32.add i32.load16_u offset=8 align=1 i32.eq if (result i32) local.get $counter i32.const 1 i32.add local.set $counter br 2 else i32.const 0 return end else i32.const 1 return end end else i32.const 0 return end))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(1U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination final control tail success, got \{err}",
+      )
+  }
+
+  assert_eq(@ir.hot_root_count(func), 2)
+  let tail_id = @ir.hot_root_get(func, 1)
+  match @ir.hot_node_get(func, tail_id).op {
+    @ir.HotOp::Unreachable => ()
+    other => fail("expected explicit unreachable tail root, got \{other}")
+  }
 }

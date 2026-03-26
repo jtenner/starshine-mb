@@ -665,6 +665,83 @@ fn dead_code_elimination_replace_root_with_child(
 }
 
 ///|
+fn dead_code_elimination_needs_explicit_unreachable_tail(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    @ir.hot_node_result_arity(func, node_id) != 0 {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => true
+    _ => false
+  }
+}
+
+///|
+fn dead_code_elimination_has_explicit_unreachable_tail(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+) -> Bool {
+  let tail_idx = idx + 1
+  if tail_idx < 0 || tail_idx >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let tail_id = @ir.hot_region_get(func, region_ref, tail_idx)
+  if tail_id < 0 || !@ir.hot_node_is_live(func, tail_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, tail_id).op {
+    @ir.HotOp::Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn dead_code_elimination_ensure_explicit_unreachable_tail(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+) -> Bool {
+  if dead_code_elimination_has_explicit_unreachable_tail(func, region_ref, idx) {
+    return false
+  }
+  ignore(
+    pass_splice_region(ctx, func, region_ref, idx + 1, 0, [
+      @ir.hot_build_unreachable(func),
+    ]),
+  )
+  true
+}
+
+///|
+fn dead_code_elimination_finish_nonfallthrough_final_root(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  branch_users_by_label : Array[Array[Int]],
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  node_id : Int,
+) -> Bool {
+  idx + 1 == @ir.hot_region_root_count(func, region_ref) &&
+  dead_code_elimination_needs_explicit_unreachable_tail(func, node_id) &&
+  !dead_code_elimination_node_may_fallthrough(
+    func, branch_users_by_label, node_id,
+  ) &&
+  dead_code_elimination_ensure_explicit_unreachable_tail(
+    ctx, func, region_ref, idx,
+  )
+}
+
+///|
 fn dead_code_elimination_visit_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -708,6 +785,11 @@ fn dead_code_elimination_visit_region(
                 ctx, func, region_ref, idx, child_id,
               ),
             )
+            ignore(
+              dead_code_elimination_finish_nonfallthrough_final_root(
+                ctx, func, branch_users_by_label, region_ref, idx, child_id,
+              ),
+            )
             changed = true
             continue
           }
@@ -731,6 +813,11 @@ fn dead_code_elimination_visit_region(
         dead_code_elimination_voidify_control(
           ctx, func, branch_users_by_label, node_id,
         ) {
+        ignore(
+          dead_code_elimination_finish_nonfallthrough_final_root(
+            ctx, func, branch_users_by_label, region_ref, idx, node_id,
+          ),
+        )
         changed = true
         continue
       }
@@ -746,24 +833,51 @@ fn dead_code_elimination_visit_region(
       dead_code_elimination_voidify_control(
         ctx, func, branch_users_by_label, node_id,
       ) {
+      ignore(
+        dead_code_elimination_finish_nonfallthrough_final_root(
+          ctx, func, branch_users_by_label, region_ref, idx, node_id,
+        ),
+      )
       changed = true
       continue
     }
 
     if !dead_code_elimination_node_may_fallthrough(
         func, branch_users_by_label, node_id,
-      ) &&
-      idx + 1 < @ir.hot_region_root_count(func, region_ref) {
-      ignore(
-        dead_code_elimination_remove_roots(
-          ctx,
-          func,
-          region_ref,
-          idx + 1,
-          @ir.hot_region_root_count(func, region_ref) - (idx + 1),
-        ),
+      ) {
+      let needs_unreachable_tail = dead_code_elimination_needs_explicit_unreachable_tail(
+        func, node_id,
       )
-      changed = true
+      let keep_unreachable_tail = needs_unreachable_tail &&
+        dead_code_elimination_has_explicit_unreachable_tail(
+          func, region_ref, idx,
+        ) &&
+        idx + 2 == @ir.hot_region_root_count(func, region_ref)
+      let keep_tail_count = if keep_unreachable_tail { 1 } else { 0 }
+      let removable_tail_count = @ir.hot_region_root_count(func, region_ref) -
+        (idx + 1) -
+        keep_tail_count
+      if removable_tail_count > 0 {
+        ignore(
+          dead_code_elimination_remove_roots(
+            ctx,
+            func,
+            region_ref,
+            idx + 1,
+            removable_tail_count,
+          ),
+        )
+        changed = true
+      }
+      if needs_unreachable_tail &&
+        idx + 1 == @ir.hot_region_root_count(func, region_ref) &&
+        dead_code_elimination_ensure_explicit_unreachable_tail(
+          ctx, func, region_ref, idx,
+        ) {
+        changed = true
+        idx += 2
+        continue
+      }
     }
     idx += 1
   }
