@@ -285,11 +285,29 @@ fn remove_unused_names_visit_region(
   let mut idx = 0
   while idx < root_count {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
-    changed = remove_unused_names_visit_node(
-        func, node_id, label_marks, node_marks, stamp_counter, stack, removed_ids,
-        peeled_roots,
-      ) ||
-      changed
+    if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
+      let node = @ir.hot_node_get(func, node_id)
+      match node.op {
+        @ir.HotOp::Block
+        | @ir.HotOp::Loop
+        | @ir.HotOp::If
+        | @ir.HotOp::Try
+        | @ir.HotOp::TryTable =>
+          changed = remove_unused_names_visit_control_node(
+              func,
+              node_id,
+              node,
+              label_marks,
+              node_marks,
+              stamp_counter,
+              stack,
+              removed_ids,
+              peeled_roots,
+            ) ||
+            changed
+        _ => ()
+      }
+    }
     idx = idx + 1
   }
   changed
@@ -301,9 +319,10 @@ fn remove_unused_names_demote_loop(func : @ir.HotFunc, node_id : Int) -> Unit {
 }
 
 ///|
-fn remove_unused_names_visit_node(
+fn remove_unused_names_visit_control_node(
   func : @ir.HotFunc,
   node_id : Int,
+  node : @ir.HotNode,
   label_marks : Array[Int],
   node_marks : Array[Int],
   stamp_counter : Array[Int],
@@ -311,10 +330,6 @@ fn remove_unused_names_visit_node(
   removed_ids : Array[Int],
   peeled_roots : Array[Int],
 ) -> Bool {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return false
-  }
-  let node = @ir.hot_node_get(func, node_id)
   let mut changed = false
   match node.op {
     @ir.HotOp::Block | @ir.HotOp::Loop =>
