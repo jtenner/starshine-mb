@@ -430,6 +430,53 @@ test "heap-store-optimization reorders unrelated local.get field values within s
 }
 
 ///|
+test "heap-store-optimization folds drop-wrapped readonly local values into struct.new" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let local1 = @lib.LocalIdx::new(1U)
+  let local2 = @lib.LocalIdx::new(2U)
+  let optimized = match
+    hso_test_run_with_locals(
+      [
+        @lib.Instruction::i32_const(@lib.I32(5)),
+        @lib.Instruction::local_set(local1),
+        @lib.Instruction::i32_const(@lib.I32(6)),
+        @lib.Instruction::local_set(local2),
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(local1),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(local2),
+          ]),
+        ),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+      [
+        @lib.ValType::ref_null(@lib.HeapType::new(pair)),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      ],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected drop-wrapped readonly heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps branching struct.set values when the target local is read later" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
