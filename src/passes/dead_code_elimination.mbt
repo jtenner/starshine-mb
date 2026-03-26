@@ -430,12 +430,26 @@ fn dead_code_elimination_require_branch_users_by_label(
 fn dead_code_elimination_can_voidify_control(
   func : @ir.HotFunc,
   branch_user_cache : DeadCodeEliminationBranchUserCache,
+  fallthrough_cache : DeadCodeEliminationFallthroughCache,
   node_id : Int,
 ) -> Bool {
   if @ir.hot_node_result_arity(func, node_id) == 0 {
     return false
   }
   match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block =>
+      dead_code_elimination_has_incoming_branches(
+        dead_code_elimination_require_branch_users_by_label(
+          branch_user_cache, func,
+        ),
+        @ir.hot_control_node_label(func, node_id),
+      ) ||
+      !dead_code_elimination_region_may_fallthrough(
+        func,
+        branch_user_cache,
+        fallthrough_cache,
+        @ir.hot_region_body_ref(func, node_id),
+      )
     @ir.HotOp::Loop =>
       @ir.hot_label_branch_arity(
         func,
@@ -834,7 +848,7 @@ fn dead_code_elimination_voidify_control(
   node_id : Int,
 ) -> Bool {
   if !dead_code_elimination_can_voidify_control(
-      func, branch_user_cache, node_id,
+      func, branch_user_cache, fallthrough_cache, node_id,
     ) {
     return false
   }

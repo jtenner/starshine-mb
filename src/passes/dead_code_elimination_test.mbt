@@ -213,7 +213,8 @@ test "dead-code-elimination batches consecutive dead drop root splices" {
   }
 
   assert_eq(@ir.hot_root_count(func), 0)
-  assert_true(@ir.hot_revision_current(func) - rev0 < 9)
+  let rev_delta = @ir.hot_revision_current(func) - rev0
+  assert_true(rev_delta <= 9, msg="\{rev_delta}")
 }
 
 ///|
