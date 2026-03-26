@@ -546,6 +546,51 @@ fn run_hot_pipeline_dce_raw_has_early_terminator(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_instr_is_definitely_void(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  match instr {
+    @lib.Nop
+    | @lib.Drop
+    | @lib.Return
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.Throw(_)
+    | @lib.ThrowRef
+    | @lib.Unreachable
+    | @lib.LocalSet(_)
+    | @lib.GlobalSet(_)
+    | @lib.TableSet(_)
+    | @lib.I32Store(_)
+    | @lib.I64Store(_)
+    | @lib.F32Store(_)
+    | @lib.F64Store(_)
+    | @lib.I32Store8(_)
+    | @lib.I32Store16(_)
+    | @lib.I64Store8(_)
+    | @lib.I64Store16(_)
+    | @lib.I64Store32(_)
+    | @lib.MemoryFill(_)
+    | @lib.DataDrop(_)
+    | @lib.ElemDrop(_)
+    | @lib.AtomicFence => true
+    @lib.Call(func_idx) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(_, results)) => results.is_empty()
+        None => false
+      }
+    @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(_, results)) => results.is_empty()
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_dce_can_skip_raw(
   original : @lib.Func,
   module_ctx : @ir.HotModuleContext,
@@ -568,7 +613,15 @@ fn run_hot_pipeline_dce_can_skip_raw(
     return false
   }
   match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
-    Some(@lib.FuncType(_, results)) => !results.is_empty()
+    Some(@lib.FuncType(_, results)) =>
+      !results.is_empty() ||
+      (
+        !instrs.is_empty() &&
+        run_hot_pipeline_dce_raw_instr_is_definitely_void(
+          instrs[instrs.length() - 1],
+          module_ctx,
+        )
+      )
     None =>
       abort(
         "hot pipeline raw dead-code-elimination skip requires the function type to resolve",

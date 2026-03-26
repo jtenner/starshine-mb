@@ -247,6 +247,33 @@ test "dead-code-elimination skips raw lift for straight-line value-returning fun
 }
 
 ///|
+test "dead-code-elimination skips raw lift for straight-line void direct calls" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (type (func)) (import \"env\" \"ping\" (func (type 0))) (func call 0))",
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected raw-skip dead-code-elimination direct-call success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[dead-code-elimination]:skip-raw reason=no-dce-candidates",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:dead-code-elimination"))
+}
+
+///|
 test "ssa-nomerge rewrites structured early-return locals without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
