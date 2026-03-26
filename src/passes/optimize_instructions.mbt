@@ -17,6 +17,28 @@ pub fn optimize_instructions_summary() -> String {
 }
 
 ///|
+priv struct OptimizeInstructionsScratch {
+  cross_seen_stamps : Array[Int]
+  mut next_cross_seen_stamp : Int
+}
+
+///|
+fn OptimizeInstructionsScratch::new(
+  node_count : Int,
+) -> OptimizeInstructionsScratch {
+  { cross_seen_stamps: Array::make(node_count, -1), next_cross_seen_stamp: 0 }
+}
+
+///|
+fn optimize_instructions_alloc_cross_seen_stamp(
+  scratch : OptimizeInstructionsScratch,
+) -> Int {
+  let stamp = scratch.next_cross_seen_stamp
+  scratch.next_cross_seen_stamp = stamp + 1
+  stamp
+}
+
+///|
 fn optimize_instructions_node_is_live(
   func : @ir.HotFunc,
   dead : Array[Bool],
@@ -225,16 +247,17 @@ fn optimize_instructions_can_cross_local_get(
   dead : Array[Bool],
   node_id : Int,
   local_id : Int,
-  seen : Array[Bool],
+  seen_stamps : Array[Int],
+  seen_stamp : Int,
 ) -> Bool {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
     return true
   }
-  if node_id < seen.length() && seen[node_id] {
+  if node_id < seen_stamps.length() && seen_stamps[node_id] == seen_stamp {
     return true
   }
-  if node_id < seen.length() {
-    seen[node_id] = true
+  if node_id < seen_stamps.length() {
+    seen_stamps[node_id] = seen_stamp
   }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
@@ -252,7 +275,8 @@ fn optimize_instructions_can_cross_local_get(
         dead,
         func.children[node.child_base + slot],
         local_id,
-        seen,
+        seen_stamps,
+        seen_stamp,
       ) {
       return false
     }
@@ -266,17 +290,14 @@ fn optimize_instructions_try_canonicalize_commutative(
   func : @ir.HotFunc,
   dead : Array[Bool],
   node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+  scratch : OptimizeInstructionsScratch,
 ) -> Bool {
-  let node = func.nodes[node_id]
-  if node.child_count != 2 {
+  if !optimize_instructions_is_commutative_instr(instr) {
     return false
   }
-  let instr = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(instr) if optimize_instructions_is_commutative_instr(instr) => instr
-    _ => return false
-  }
-  let lhs_id = func.children[node.child_base]
-  let rhs_id = func.children[node.child_base + 1]
   if optimize_instructions_is_constlike(func, dead, lhs_id) &&
     !optimize_instructions_is_constlike(func, dead, rhs_id) {
     optimize_instructions_rewrite_exact_with_children(
@@ -293,10 +314,16 @@ fn optimize_instructions_try_canonicalize_commutative(
       if optimize_instructions_is_constlike(func, dead, rhs_id) {
         return false
       }
-      let seen = Array::make(@ir.hot_node_count(func), false)
-      if !optimize_instructions_can_cross_local_get(
-          func, dead, rhs_id, local_id, seen,
-        ) {
+      let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
+      let can_cross = optimize_instructions_can_cross_local_get(
+        func,
+        dead,
+        rhs_id,
+        local_id,
+        scratch.cross_seen_stamps,
+        seen_stamp,
+      )
+      if !can_cross {
         return false
       }
       optimize_instructions_rewrite_exact_with_children(
@@ -342,16 +369,9 @@ fn optimize_instructions_try_fold_eqz(
   func : @ir.HotFunc,
   dead : Array[Bool],
   node_id : Int,
+  instr : @lib.Instruction,
+  operand_id : Int,
 ) -> Bool {
-  let node = func.nodes[node_id]
-  match node.op {
-    @ir.HotOp::Unary => ()
-    _ => return false
-  }
-  if node.child_count != 1 {
-    return false
-  }
-  let operand_id = func.children[node.child_base]
   if !optimize_instructions_node_is_live(func, dead, operand_id) {
     return false
   }
@@ -361,14 +381,10 @@ fn optimize_instructions_try_fold_eqz(
     _ => return false
   }
 
-  let folded = match
-    (
-      @ir.hot_node_exact_instr(func, node_id),
-      @ir.hot_const_get(func, operand.imm0),
-    ) {
-    (Some(@lib.Instruction::I32Eqz), @ir.HotConstPayload::I32Const(v)) =>
+  let folded = match (instr, @ir.hot_const_get(func, operand.imm0)) {
+    (@lib.Instruction::I32Eqz, @ir.HotConstPayload::I32Const(v)) =>
       Some(if v == @lib.I32(0) { @lib.I32(1) } else { @lib.I32(0) })
-    (Some(@lib.Instruction::I64Eqz), @ir.HotConstPayload::I64Const(v)) =>
+    (@lib.Instruction::I64Eqz, @ir.HotConstPayload::I64Const(v)) =>
       Some(if v == @lib.I64(0) { @lib.I32(1) } else { @lib.I32(0) })
     _ => None
   }
@@ -387,21 +403,10 @@ fn optimize_instructions_try_rewrite_add_sub(
   func : @ir.HotFunc,
   dead : Array[Bool],
   node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
 ) -> Bool {
-  let node = func.nodes[node_id]
-  match node.op {
-    @ir.HotOp::Binary => ()
-    _ => return false
-  }
-  if node.child_count != 2 {
-    return false
-  }
-  let instr = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(instr) => instr
-    None => return false
-  }
-  let lhs_id = func.children[node.child_base]
-  let rhs_id = func.children[node.child_base + 1]
   match (instr, optimize_instructions_i32_const(func, dead, rhs_id)) {
     (@lib.Instruction::I32Add, Some(@lib.I32(raw))) if raw < 0 => {
       let replacement_rhs = @ir.hot_build_const_i32(func, @lib.I32(-raw))
@@ -490,25 +495,14 @@ fn optimize_instructions_try_rewrite_shift(
   func : @ir.HotFunc,
   dead : Array[Bool],
   node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
 ) -> Bool {
-  let node = func.nodes[node_id]
-  match node.op {
-    @ir.HotOp::Binary => ()
-    _ => return false
-  }
-  if node.child_count != 2 {
-    return false
-  }
-  let instr = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(instr) => instr
-    None => return false
-  }
   let mask_bits = match optimize_instructions_shift_mask_bits(instr) {
     Some(bits) => bits
     None => return false
   }
-  let lhs_id = func.children[node.child_base]
-  let rhs_id = func.children[node.child_base + 1]
 
   match optimize_instructions_i32_const(func, dead, rhs_id) {
     Some(@lib.I32(raw)) => {
@@ -615,21 +609,10 @@ fn optimize_instructions_try_fold_compare_zero(
   func : @ir.HotFunc,
   dead : Array[Bool],
   node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
 ) -> Bool {
-  let node = func.nodes[node_id]
-  match node.op {
-    @ir.HotOp::Compare => ()
-    _ => return false
-  }
-  if node.child_count != 2 {
-    return false
-  }
-  let instr = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(instr) => instr
-    None => return false
-  }
-  let lhs_id = func.children[node.child_base]
-  let rhs_id = func.children[node.child_base + 1]
   if !optimize_instructions_is_trivially_pure_value(func, dead, lhs_id) {
     return false
   }
@@ -697,6 +680,7 @@ fn optimize_instructions_visit_node(
   dead : Array[Bool],
   node_id : Int,
   seen : Array[Bool],
+  scratch : OptimizeInstructionsScratch,
 ) -> Bool {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
     return false
@@ -716,40 +700,84 @@ fn optimize_instructions_visit_node(
     if !optimize_instructions_node_is_live(func, dead, child_id) {
       continue
     }
-    changed = optimize_instructions_visit_node(ctx, func, dead, child_id, seen) ||
+    changed = optimize_instructions_visit_node(
+        ctx, func, dead, child_id, seen, scratch,
+      ) ||
       changed
   }
   let local_changed = match node.op {
     @ir.HotOp::Unary =>
-      optimize_instructions_try_fold_eqz(ctx, func, dead, node_id)
-    @ir.HotOp::Binary => {
-      let changed = optimize_instructions_try_rewrite_add_sub(
-          ctx, func, dead, node_id,
-        ) ||
-        optimize_instructions_try_rewrite_shift(ctx, func, dead, node_id)
-      if optimize_instructions_try_canonicalize_commutative(
-          ctx, func, dead, node_id,
-        ) {
-        optimize_instructions_try_rewrite_add_sub(ctx, func, dead, node_id) ||
-        optimize_instructions_try_rewrite_shift(ctx, func, dead, node_id) ||
-        true
+      if node.child_count != 1 {
+        false
       } else {
-        changed
+        optimize_instructions_try_fold_eqz(
+          ctx,
+          func,
+          dead,
+          node_id,
+          func.instr_payloads[node.imm0].instr,
+          func.children[node.child_base],
+        )
       }
-    }
-    @ir.HotOp::Compare => {
-      let changed = optimize_instructions_try_fold_compare_zero(
-        ctx, func, dead, node_id,
-      )
-      if optimize_instructions_try_canonicalize_commutative(
-          ctx, func, dead, node_id,
-        ) {
-        optimize_instructions_try_fold_compare_zero(ctx, func, dead, node_id) ||
-        true
+    @ir.HotOp::Binary =>
+      if node.child_count != 2 {
+        false
       } else {
-        changed
+        let instr = func.instr_payloads[node.imm0].instr
+        let lhs_id = func.children[node.child_base]
+        let rhs_id = func.children[node.child_base + 1]
+        let changed = optimize_instructions_try_rewrite_add_sub(
+            ctx, func, dead, node_id, instr, lhs_id, rhs_id,
+          ) ||
+          optimize_instructions_try_rewrite_shift(
+            ctx, func, dead, node_id, instr, lhs_id, rhs_id,
+          )
+        if optimize_instructions_try_canonicalize_commutative(
+            ctx, func, dead, node_id, instr, lhs_id, rhs_id, scratch,
+          ) {
+          let current = func.nodes[node_id]
+          let current_lhs = func.children[current.child_base]
+          let current_rhs = func.children[current.child_base + 1]
+          let current_instr = func.instr_payloads[current.imm0].instr
+          optimize_instructions_try_rewrite_add_sub(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
+          optimize_instructions_try_rewrite_shift(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
+          true
+        } else {
+          changed
+        }
       }
-    }
+    @ir.HotOp::Compare =>
+      if node.child_count != 2 {
+        false
+      } else {
+        let instr = func.instr_payloads[node.imm0].instr
+        let lhs_id = func.children[node.child_base]
+        let rhs_id = func.children[node.child_base + 1]
+        let changed = optimize_instructions_try_fold_compare_zero(
+          ctx, func, dead, node_id, instr, lhs_id, rhs_id,
+        )
+        if optimize_instructions_try_canonicalize_commutative(
+            ctx, func, dead, node_id, instr, lhs_id, rhs_id, scratch,
+          ) {
+          let current = func.nodes[node_id]
+          optimize_instructions_try_fold_compare_zero(
+            ctx,
+            func,
+            dead,
+            node_id,
+            func.instr_payloads[current.imm0].instr,
+            func.children[current.child_base],
+            func.children[current.child_base + 1],
+          ) ||
+          true
+        } else {
+          changed
+        }
+      }
     _ => false
   }
   local_changed || changed
@@ -764,6 +792,7 @@ fn optimize_instructions_run(
   let node_count = @ir.hot_node_count(func)
   let seen = Array::make(node_count, false)
   let dead = Array::make(node_count, false)
+  let scratch = OptimizeInstructionsScratch::new(node_count)
   for free_id in func.free_nodes {
     if free_id >= 0 && free_id < dead.length() {
       dead[free_id] = true
@@ -776,6 +805,7 @@ fn optimize_instructions_run(
         dead,
         func.roots[slot],
         seen,
+        scratch,
       ) ||
       changed
   }
