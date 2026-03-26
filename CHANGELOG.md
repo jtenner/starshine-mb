@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Optimize: canonicalize relational operand ordering in `optimize-instructions`
+
+- **`optimize-instructions` relational-order parity follow-up** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-optimize-instructions/CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions_test.mbt) so reversible relational compares now use the same lhs-local, rhs-local, and local-index canonicalization rules as Binaryen, but reverse the opcode when operands swap. Validation and artifact parity follow-up are in progress.
+
 ## 2026-03-26 Optimize: canonicalize commutative `local.get` pairs by index in `optimize-instructions`
 
 - **`optimize-instructions` local-pair parity follow-up** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-optimize-instructions/CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions_test.mbt) so commutative `local.get` / `local.get` pairs now match Binaryen’s ascending-local-index canonicalization instead of blindly reversing any lhs `local.get`. Validation and artifact parity follow-up are in progress.

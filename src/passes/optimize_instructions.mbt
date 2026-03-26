@@ -556,6 +556,94 @@ fn optimize_instructions_try_canonicalize_relational_const(
 }
 
 ///|
+fn optimize_instructions_try_canonicalize_relational_operands(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+  scratch : OptimizeInstructionsScratch,
+) -> Bool {
+  let reversed = match optimize_instructions_reverse_relational_instr(instr) {
+    Some(reversed) => reversed
+    None => return false
+  }
+  let lhs_canonicalized = match
+    optimize_instructions_local_get_id(func, dead, lhs_id) {
+    Some(local_id) => {
+      if optimize_instructions_is_constlike(func, dead, rhs_id) {
+        return false
+      }
+      let should_swap = match
+        optimize_instructions_local_get_id(func, dead, rhs_id) {
+        Some(rhs_local_id) => local_id > rhs_local_id
+        None => true
+      }
+      if !should_swap {
+        return false
+      }
+      let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
+      let can_cross = optimize_instructions_can_cross_local_get(
+        func,
+        dead,
+        rhs_id,
+        local_id,
+        scratch.cross_seen_stamps,
+        seen_stamp,
+      )
+      if !can_cross {
+        return false
+      }
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        reversed,
+        [rhs_id, lhs_id],
+      )
+      true
+    }
+    None => false
+  }
+  if lhs_canonicalized {
+    return true
+  }
+  match optimize_instructions_local_get_id(func, dead, rhs_id) {
+    Some(local_id) => {
+      if optimize_instructions_is_constlike(func, dead, lhs_id) ||
+        !optimize_instructions_should_swap_commutative_node_kinds(
+          func, dead, lhs_id, rhs_id,
+        ) {
+        return false
+      }
+      let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
+      let can_cross = optimize_instructions_can_cross_local_get(
+        func,
+        dead,
+        lhs_id,
+        local_id,
+        scratch.cross_seen_stamps,
+        seen_stamp,
+      )
+      if !can_cross {
+        return false
+      }
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        reversed,
+        [rhs_id, lhs_id],
+      )
+      true
+    }
+    None => false
+  }
+}
+
+///|
 fn optimize_instructions_try_canonicalize_compare_const(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1297,6 +1385,15 @@ fn optimize_instructions_visit_node(
         let mut changed = false
         if optimize_instructions_try_canonicalize_relational_const(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) {
+          changed = true
+          let current = func.nodes[node_id]
+          current_instr = func.instr_payloads[current.imm0].instr
+          current_lhs = func.children[current.child_base]
+          current_rhs = func.children[current.child_base + 1]
+        }
+        if optimize_instructions_try_canonicalize_relational_operands(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs, scratch,
           ) {
           changed = true
           let current = func.nodes[node_id]
