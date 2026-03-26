@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Fix: peel readonly tee values into region roots in HSO
+
+- **`heap-store-optimization` tee-wrapper parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), and [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt) so tee-wrapped `struct.set` folds now peel trapless-readonly block prefixes into the surrounding region instead of wrapping them back into a synthetic block, matching Binaryen on cases like `struct.set (local.tee ... ) (block(drop(global.get), i32.const ...))`. Focused `moon fmt && moon test src/passes` stays green at `108/108`, and the generated multi-case HSO oracle matrix is now canonical against Binaryen in normalized WAT.
+
 ## 2026-03-26 Optimize: stop mutating inner block regions during HSO root lifting
 
 - **`heap-store-optimization` wrapper-lift hot-path cleanup** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt) so HSO now reuses the lifted inner block roots directly when peeling readonly prefixes or flattening swapped wrapper blocks, instead of splicing those small block regions in place before the outer region rewrite detaches the wrapper anyway. Focused `moon fmt && moon test src/passes` stays green at `107/107`, the targeted mixed oracle module remains canonical against Binaryen, and the 400-pattern synthetic GC stressor dropped slightly from roughly `629.9ms` to `616.5ms`; the larger performance gap is still open.

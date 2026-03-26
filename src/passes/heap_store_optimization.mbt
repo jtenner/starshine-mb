@@ -1078,24 +1078,34 @@ fn hso_try_fold_tee_wrapped_struct_set(
   module_ctx : @ir.HotModuleContext?,
   node_masks : Array[UInt],
   node_id : Int,
-) -> Bool {
+) -> Array[Int]? {
   let (type_idx, field_idx, ref_id, value_id) = match
     hso_struct_set_parts(func, node_id) {
     Some(parts) => parts
-    None => return false
+    None => return None
   }
   if !@ir.hot_node_is_live(func, ref_id) {
-    return false
+    return None
   }
   let ref_node = @ir.hot_node_get(func, ref_id)
   match ref_node.op {
     @ir.HotOp::LocalTee => ()
-    _ => return false
+    _ => return None
   }
   if @ir.hot_child_count(func, ref_id) != 1 {
-    return false
+    return None
   }
   let struct_new_id = @ir.hot_child_get(func, ref_id, 0)
+  let mut folded_value_id = value_id
+  let mut extracted_prefix_roots : Array[Int]? = None
+  match
+    hso_trapless_readonly_block_value_parts(cache, func, node_masks, value_id) {
+    Some((prefix_roots, tail_id)) => {
+      folded_value_id = tail_id
+      extracted_prefix_roots = Some(prefix_roots)
+    }
+    None => ()
+  }
   if !hso_try_fold_into_struct_new(
       cache,
       type_cache,
@@ -1105,20 +1115,22 @@ fn hso_try_fold_tee_wrapped_struct_set(
       struct_new_id,
       type_idx,
       field_idx,
-      value_id,
+      folded_value_id,
       ref_node.imm0,
     ) {
-    return false
+    return None
   }
-  let replacement_id = @ir.hot_build_local_set(
-    func,
-    ref_node.imm0,
-    struct_new_id,
-  )
-  let replacement = @ir.hot_node_get(func, replacement_id)
-  @ir.hot_delete_node(func, replacement_id)
-  @ir.hot_replace_node(func, node_id, replacement)
-  true
+  let local_set_id = @ir.hot_build_local_set(func, ref_node.imm0, struct_new_id)
+  let replacement_roots : Array[Int] = []
+  match extracted_prefix_roots {
+    Some(prefix_roots) =>
+      for prefix_root_id in prefix_roots {
+        replacement_roots.push(prefix_root_id)
+      }
+    None => ()
+  }
+  replacement_roots.push(local_set_id)
+  Some(replacement_roots)
 }
 
 ///|
@@ -1304,11 +1316,18 @@ fn hso_process_region(
     let root_node = @ir.hot_node_get(func, root_id)
     match root_node.op {
       @ir.HotOp::Heap => {
-        changed = hso_try_fold_tee_wrapped_struct_set(
+        match
+          hso_try_fold_tee_wrapped_struct_set(
             cache, type_cache, func, module_ctx, node_masks, root_id,
-          ) ||
-          changed
-        next_roots.push(root_id)
+          ) {
+          Some(replacement_roots) => {
+            changed = true
+            for replacement_root_id in replacement_roots {
+              next_roots.push(replacement_root_id)
+            }
+          }
+          None => next_roots.push(root_id)
+        }
         idx = idx + 1
       }
       @ir.HotOp::LocalSet =>
