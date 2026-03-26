@@ -99,14 +99,12 @@ Observed unique-pass order
 1. Research exact functionality in document.
    - Research exactly how it works with a document: [0066#L183](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L183)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [RUN]001 - Name and Label Liveness Rules - Define the exact name, label, and debug-visible identifier cleanup Binaryen performs after DCE and branch reduction.
-     - Deliverables: identify removable labels and names after each cleanup stage; preserve externally required names; expose the repeated-slot contract.
-     - Doc: [0066#L183](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L183)
-   - [RUN]002 - Triple-Slot Replay and Parity - Implement the pass and prove all three top-level RUN slots line up with Binaryen's repeated cleanup opportunities.
-     - Deliverables: wire the pass into each required slot; add regressions around stale labels after `remove-unused-brs` and `merge-blocks`; compare pass output on the debug artifact.
+   - [RUN]001 - Triple-Slot Replay and Ordered-Prefix Parity - The core function pass is landed with exact single-pass oracle parity for same-typed block peeling and loop demotion, but the Binaryen default optimize path still needs the repeated RUN slots replayed in the ordered prefix once surrounding passes are in place.
+     - Deliverables: wire `remove-unused-names` into each required top-level RUN slot in the public optimize path; add repeated-slot regressions around stale labels after `remove-unused-brs` and `merge-blocks`; keep canonical compare parity green on the debug artifact while replaying the exact ordered prefix.
+     - Current blocker: standalone `--remove-unused-names` parity is exact, but Starshine pass time is still roughly `94.883-99.492ms` versus Binaryen at roughly `13.875-14.369ms` on `tests/node/dist/starshine-debug-wasi.wasm`, so the remaining work is now ordered replay plus more serial throughput / GC-churn reduction rather than missing core semantics.
      - Doc: [0066#L183](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L183)
 3. Do work.
-   - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
+   - Keep the landed direct pass stable while tightening runtime and ordered-prefix parity; do not weaken the current single-pass oracle compare to chase perf.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
 4. Test against binaryen.
    - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.

@@ -171,8 +171,11 @@ fn remove_unused_names_targets_label(
 fn remove_unused_names_peel_same_typed_blocks(
   func : @ir.HotFunc,
   block_id : Int,
-) -> (Array[Int], Array[Int]) {
-  let removed_ids : Array[Int] = []
+  removed_ids : Array[Int],
+  roots : Array[Int],
+) -> Unit {
+  removed_ids.clear()
+  roots.clear()
   let block_type = remove_unused_names_control_block_type(func, block_id)
   let mut region_ref = @ir.hot_region_body_ref(func, block_id)
   while @ir.hot_region_root_count(func, region_ref) == 1 {
@@ -191,11 +194,12 @@ fn remove_unused_names_peel_same_typed_blocks(
     removed_ids.push(child_id)
     region_ref = @ir.hot_region_body_ref(func, child_id)
   }
-  let roots : Array[Int] = []
+  if removed_ids.is_empty() {
+    return
+  }
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     roots.push(@ir.hot_region_get(func, region_ref, idx))
   }
-  (removed_ids, roots)
 }
 
 ///|
@@ -254,13 +258,16 @@ fn remove_unused_names_visit_region(
   node_marks : Array[Int],
   stamp_counter : Array[Int],
   stack : Array[Int],
+  removed_ids : Array[Int],
+  peeled_roots : Array[Int],
 ) -> Bool {
   let mut changed = false
   let mut idx = 0
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     changed = remove_unused_names_visit_node(
-        func, node_id, label_marks, node_marks, stamp_counter, stack,
+        func, node_id, label_marks, node_marks, stamp_counter, stack, removed_ids,
+        peeled_roots,
       ) ||
       changed
     idx = idx + 1
@@ -281,6 +288,8 @@ fn remove_unused_names_visit_node(
   node_marks : Array[Int],
   stamp_counter : Array[Int],
   stack : Array[Int],
+  removed_ids : Array[Int],
+  peeled_roots : Array[Int],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -296,6 +305,8 @@ fn remove_unused_names_visit_node(
           node_marks,
           stamp_counter,
           stack,
+          removed_ids,
+          peeled_roots,
         ) ||
         changed
     @ir.HotOp::If => {
@@ -306,12 +317,15 @@ fn remove_unused_names_visit_node(
           node_marks,
           stamp_counter,
           stack,
+          removed_ids,
+          peeled_roots,
         ) ||
         changed
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           changed = remove_unused_names_visit_region(
-              func, else_region, label_marks, node_marks, stamp_counter, stack,
+              func, else_region, label_marks, node_marks, stamp_counter, stack, removed_ids,
+              peeled_roots,
             ) ||
             changed
         None => ()
@@ -325,12 +339,15 @@ fn remove_unused_names_visit_node(
           node_marks,
           stamp_counter,
           stack,
+          removed_ids,
+          peeled_roots,
         ) ||
         changed
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_region) =>
           changed = remove_unused_names_visit_region(
               func, catch_region, label_marks, node_marks, stamp_counter, stack,
+              removed_ids, peeled_roots,
             ) ||
             changed
         None => ()
@@ -344,6 +361,8 @@ fn remove_unused_names_visit_node(
           node_marks,
           stamp_counter,
           stack,
+          removed_ids,
+          peeled_roots,
         ) ||
         changed
       changed = remove_unused_names_visit_region(
@@ -353,16 +372,18 @@ fn remove_unused_names_visit_node(
           node_marks,
           stamp_counter,
           stack,
+          removed_ids,
+          peeled_roots,
         ) ||
         changed
     }
     _ => return false
   }
 
-  match @ir.hot_node_get(func, node_id).op {
+  match node.op {
     @ir.HotOp::Block => {
-      let (removed_ids, peeled_roots) = remove_unused_names_peel_same_typed_blocks(
-        func, node_id,
+      remove_unused_names_peel_same_typed_blocks(
+        func, node_id, removed_ids, peeled_roots,
       )
       if removed_ids.is_empty() {
         return changed
@@ -423,6 +444,8 @@ fn remove_unused_names_run(
   let node_marks = Array::make(@ir.hot_node_count(func), 0)
   let stamp_counter = [1]
   let stack : Array[Int] = []
+  let removed_ids : Array[Int] = []
+  let peeled_roots : Array[Int] = []
   if !remove_unused_names_visit_region(
       func,
       @ir.HotRegionRef::root(),
@@ -430,6 +453,8 @@ fn remove_unused_names_run(
       node_marks,
       stamp_counter,
       stack,
+      removed_ids,
+      peeled_roots,
     ) {
     return HotPassResult::unchanged()
   }
