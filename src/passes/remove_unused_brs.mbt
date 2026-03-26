@@ -645,9 +645,11 @@ fn remove_unused_brs_try_remove_region_tail(
 }
 
 ///|
-fn remove_unused_brs_tail_control_payload_count(
+fn remove_unused_brs_region_tail_control_payload_count(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  target : RemoveUnusedBrsTailTarget,
+  expected_payloads : Int,
 ) -> Int? {
   if @ir.hot_region_root_count(func, region_ref) == 0 {
     return None
@@ -658,15 +660,36 @@ fn remove_unused_brs_tail_control_payload_count(
     @ir.hot_region_root_count(func, region_ref) - 1,
   )
   let tail = @ir.hot_node_get(func, tail_id)
-  match remove_unused_brs_tail_target(func, region_ref) {
+  let stack_payloads = if expected_payloads == 0 {
+    Some(0)
+  } else {
+    match
+      remove_unused_brs_region_split_payload_roots(
+        func, region_ref, expected_payloads,
+      ) {
+      Some(_) => Some(expected_payloads)
+      None => None
+    }
+  }
+  match target {
     ReturnTarget =>
       match tail.op {
-        @ir.HotOp::Return => Some(tail.child_count)
+        @ir.HotOp::Return =>
+          if tail.child_count > 0 {
+            Some(tail.child_count)
+          } else {
+            stack_payloads
+          }
         _ => None
       }
     BranchTarget(target) =>
       match tail.op {
-        @ir.HotOp::Br if tail.imm0 == target => Some(tail.child_count)
+        @ir.HotOp::Br if tail.imm0 == target =>
+          if tail.child_count > 0 {
+            Some(tail.child_count)
+          } else {
+            stack_payloads
+          }
         _ => None
       }
     NoTarget => None
@@ -678,6 +701,7 @@ fn remove_unused_brs_strip_tail_control(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  target : RemoveUnusedBrsTailTarget,
 ) -> Bool {
   let tail_id = @ir.hot_region_get(
     func,
@@ -685,6 +709,19 @@ fn remove_unused_brs_strip_tail_control(
     @ir.hot_region_root_count(func, region_ref) - 1,
   )
   let tail = @ir.hot_node_get(func, tail_id)
+  match target {
+    ReturnTarget =>
+      match tail.op {
+        @ir.HotOp::Return => ()
+        _ => return false
+      }
+    BranchTarget(label_id) =>
+      match tail.op {
+        @ir.HotOp::Br if tail.imm0 == label_id => ()
+        _ => return false
+      }
+    NoTarget => return false
+  }
   if tail.child_count == 0 {
     remove_unused_brs_replace_with_nop(ctx, func, tail_id)
   } else if tail.child_count == 1 {
@@ -723,22 +760,34 @@ fn remove_unused_brs_try_strip_tail_if_exits(
     Some(else_ref) => else_ref
     None => return false
   }
+  let target = remove_unused_brs_tail_target(func, region_ref)
+  match target {
+    NoTarget => return false
+    _ => ()
+  }
+  let result_arity = @ir.hot_node_result_arity(func, tail_id)
   let then_payloads = match
-    remove_unused_brs_tail_control_payload_count(func, then_ref) {
+    remove_unused_brs_region_tail_control_payload_count(
+      func, then_ref, target, result_arity,
+    ) {
     Some(count) => count
     None => return false
   }
   let else_payloads = match
-    remove_unused_brs_tail_control_payload_count(func, else_ref) {
+    remove_unused_brs_region_tail_control_payload_count(
+      func, else_ref, target, result_arity,
+    ) {
     Some(count) => count
     None => return false
   }
-  if then_payloads != else_payloads ||
-    then_payloads != @ir.hot_node_result_arity(func, tail_id) {
+  if then_payloads != else_payloads || then_payloads != result_arity {
     return false
   }
-  let mut changed = remove_unused_brs_strip_tail_control(ctx, func, then_ref)
-  changed = remove_unused_brs_strip_tail_control(ctx, func, else_ref) || changed
+  let mut changed = remove_unused_brs_strip_tail_control(
+    ctx, func, then_ref, target,
+  )
+  changed = remove_unused_brs_strip_tail_control(ctx, func, else_ref, target) ||
+    changed
   changed = remove_unused_brs_trim_trailing_nops(ctx, func, then_ref) || changed
   changed = remove_unused_brs_trim_trailing_nops(ctx, func, else_ref) || changed
   changed

@@ -448,6 +448,44 @@ test "remove-unused-brs rewrites multi-value branch payload ifs" {
 }
 
 ///|
+test "remove-unused-brs strips stack-style branch exits from tail value if arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (block $exit (result i32) (if (result i32) (local.get 0) (then (i32.const 1) (br $exit)) (else (i32.const 2) (br $exit))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs stack-style branch-exit success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs strips stack-style returns from tail value if arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (if (result i32) (local.get 0) (then (i32.const 1) (return)) (else (i32.const 2) (return)))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs stack-style return success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites nested simple payload ifs under branch payload arms" {
   let optimized = match
     pass_test_run_pipeline(
