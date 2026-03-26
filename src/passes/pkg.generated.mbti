@@ -164,8 +164,9 @@ pub struct HotPassContext {
   closed_world : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
+  module_ctx : @ir.HotModuleContext?
 }
-pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, Bool, (String) -> Unit, perf? : HotPerfSession?) -> Self
+pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, Bool, (String) -> Unit, perf? : HotPerfSession?, module_ctx? : @ir.HotModuleContext?) -> Self
 
 pub enum HotPassRegistryCategory {
   HotPass

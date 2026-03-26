@@ -58,6 +58,7 @@ pub struct HotPassContext {
   closed_world : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
+  module_ctx : @ir.HotModuleContext?
 }
 
 ///|
@@ -68,8 +69,9 @@ pub fn HotPassContext::new(
   closed_world : Bool,
   trace : (String) -> Unit,
   perf? : HotPerfSession? = None,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> HotPassContext {
-  { descriptor, cache, verify_policy, closed_world, trace, perf }
+  { descriptor, cache, verify_policy, closed_world, trace, perf, module_ctx }
 }
 
 ///|
@@ -1835,6 +1837,7 @@ fn run_hot_pipeline_func(
     options.closed_world,
     options.trace,
     perf=options.perf,
+    module_ctx=Some(module_ctx),
   )
   match hot_pass_run(ctx, func) {
     Ok(result) =>

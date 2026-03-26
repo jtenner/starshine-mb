@@ -209,6 +209,47 @@ pub fn hot_build_const_i64(func : HotFunc, value : I64) -> NodeId {
 }
 
 ///|
+pub fn hot_build_const_f32(func : HotFunc, value : F32) -> NodeId {
+  let const_id = hot_alloc_const(func, HotConstPayload::f32_const(value))
+  hot_build_node(
+    func,
+    HotOp::Const,
+    hot_type_intern_value(func, @lib.ValType::f32()),
+    imm0=const_id,
+  )
+}
+
+///|
+pub fn hot_build_const_f64(func : HotFunc, value : F64) -> NodeId {
+  let const_id = hot_alloc_const(func, HotConstPayload::f64_const(value))
+  hot_build_node(
+    func,
+    HotOp::Const,
+    hot_type_intern_value(func, @lib.ValType::f64()),
+    imm0=const_id,
+  )
+}
+
+///|
+pub fn hot_build_const_v128_zero(func : HotFunc) -> NodeId {
+  let payload_id = hot_alloc_instr_payload(
+    func,
+    HotInstrPayload::new(
+      @lib.Instruction::v128_const(
+        b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+        b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      ),
+    ),
+  )
+  hot_build_node(
+    func,
+    HotOp::Simd,
+    hot_type_intern_value(func, @lib.ValType::v128()),
+    imm0=payload_id,
+  )
+}
+
+///|
 pub fn hot_build_ref_null(func : HotFunc, value : RefType) -> NodeId {
   let const_id = hot_alloc_const(func, HotConstPayload::ref_null_const(value))
   hot_build_node(

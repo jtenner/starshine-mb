@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Fix: fold default struct allocations through HSO store sinking
+
+- **`heap-store-optimization` default-allocation parity fix** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/ir/hot_builders.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/ir/hot_builders.mbt), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt), and [`src/passes/pass_manager.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/pass_manager.mbt) so HSO can expand `struct.new_default` and `struct.new_default_desc` into explicit operand lists using resolved field defaults before folding later `struct.set` stores into the allocation. Focused pass tests and the generated GC self-compare fixture stay green with canonical wasm and normalized WAT parity, while recent synthetic HSO pass time remains roughly `7.7ms` versus Binaryen at `0.36ms`, leaving the remaining work concentrated on throughput rather than missing semantics.
+
 ## 2026-03-26 Optimize: narrow HSO root scans to actual candidate ops
 
 - **`heap-store-optimization` root-walk prefilter** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt) so HSO now skips nested-region recursion on non-control roots and only runs its tee/local-set candidate matchers on `Heap` and `LocalSet` roots instead of every region entry. Focused `moon test src/passes` stays green, and the generated GC compare fixture kept canonical wasm / normalized WAT parity while improving recent HSO pass time again from roughly `8.9ms` to `7.7ms`; the pass still needs more work to approach Binaryen's budget.

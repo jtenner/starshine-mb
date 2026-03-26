@@ -117,8 +117,84 @@ fn hso_subtree_touches_local(
 }
 
 ///|
+fn hso_build_const_f32(func : @ir.HotFunc) -> Int {
+  @ir.hot_build_const_f32(func, @lib.F32(0.0))
+}
+
+///|
+fn hso_build_const_f64(func : @ir.HotFunc) -> Int {
+  @ir.hot_build_const_f64(func, @lib.F64(0.0))
+}
+
+///|
+fn hso_build_const_v128_zero(func : @ir.HotFunc) -> Int {
+  @ir.hot_build_const_v128_zero(func)
+}
+
+///|
+fn hso_build_default_value(func : @ir.HotFunc, vt : @lib.ValType) -> Int? {
+  match vt {
+    @lib.NumTypeValType(@lib.I32NumType) =>
+      Some(@ir.hot_build_const_i32(func, @lib.I32(0)))
+    @lib.NumTypeValType(@lib.I64NumType) =>
+      Some(@ir.hot_build_const_i64(func, @lib.I64(0L)))
+    @lib.NumTypeValType(@lib.F32NumType) => Some(hso_build_const_f32(func))
+    @lib.NumTypeValType(@lib.F64NumType) => Some(hso_build_const_f64(func))
+    @lib.VecTypeValType => Some(hso_build_const_v128_zero(func))
+    @lib.RefTypeValType(ref_type) =>
+      if ref_type.is_nullable() {
+        Some(@ir.hot_build_ref_null(func, ref_type))
+      } else {
+        None
+      }
+    @lib.BotValType => None
+  }
+}
+
+///|
+fn hso_expand_default_struct_new(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  node_id : Int,
+  type_idx : @lib.TypeIdx,
+  desc_id : Int?,
+) -> Bool {
+  let fields = match
+    @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+    Some(fields) => fields
+    None => return false
+  }
+  let children : Array[Int] = []
+  for field in fields {
+    let @lib.FieldType(stor, _) = field
+    match hso_build_default_value(func, stor.unpack()) {
+      Some(value_id) => children.push(value_id)
+      None => return false
+    }
+  }
+  let instr = match desc_id {
+    Some(desc_id) => {
+      children.push(desc_id)
+      @lib.Instruction::struct_new_desc(type_idx)
+    }
+    None => @lib.Instruction::struct_new(type_idx)
+  }
+  let replacement_id = @ir.hot_build_heap(
+    func,
+    @ir.hot_type_results(func, @ir.hot_node_get(func, node_id).ty),
+    instr,
+    children,
+  )
+  let replacement = @ir.hot_node_get(func, replacement_id)
+  @ir.hot_delete_node(func, replacement_id)
+  @ir.hot_replace_node(func, node_id, replacement)
+  true
+}
+
+///|
 fn hso_supported_struct_new(
   func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
   node_id : Int,
 ) -> (@lib.TypeIdx, Int, Int?)? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -137,6 +213,43 @@ fn hso_supported_struct_new(
             Some(@ir.hot_child_get(func, node_id, child_count - 1)),
           ),
         )
+      } else {
+        None
+      }
+    Some(@lib.Instruction::StructNewDefault(type_idx)) =>
+      match module_ctx {
+        Some(module_ctx) =>
+          if hso_expand_default_struct_new(
+              func,
+              module_ctx,
+              node_id,
+              type_idx,
+              None,
+            ) {
+            hso_supported_struct_new(func, Some(module_ctx), node_id)
+          } else {
+            None
+          }
+        None => None
+      }
+    Some(@lib.Instruction::StructNewDefaultDesc(type_idx)) =>
+      if child_count > 0 {
+        let desc_id = @ir.hot_child_get(func, node_id, child_count - 1)
+        match module_ctx {
+          Some(module_ctx) =>
+            if hso_expand_default_struct_new(
+                func,
+                module_ctx,
+                node_id,
+                type_idx,
+                Some(desc_id),
+              ) {
+              hso_supported_struct_new(func, Some(module_ctx), node_id)
+            } else {
+              None
+            }
+          None => None
+        }
       } else {
         None
       }
@@ -220,6 +333,7 @@ fn hso_build_preserved_replacement(
 ///|
 fn hso_try_fold_into_struct_new(
   func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
   node_masks : Array[UInt],
   struct_new_id : Int,
   type_idx : @lib.TypeIdx,
@@ -228,7 +342,7 @@ fn hso_try_fold_into_struct_new(
   local_id : Int,
 ) -> Bool {
   let (new_type_idx, field_count, desc_id) = match
-    hso_supported_struct_new(func, struct_new_id) {
+    hso_supported_struct_new(func, module_ctx, struct_new_id) {
     Some(parts) => parts
     _ => return false
   }
@@ -281,6 +395,7 @@ fn hso_try_fold_into_struct_new(
 ///|
 fn hso_try_fold_tee_wrapped_struct_set(
   func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
   node_masks : Array[UInt],
   node_id : Int,
 ) -> Bool {
@@ -303,6 +418,7 @@ fn hso_try_fold_tee_wrapped_struct_set(
   let struct_new_id = @ir.hot_child_get(func, ref_id, 0)
   if !hso_try_fold_into_struct_new(
       func,
+      module_ctx,
       node_masks,
       struct_new_id,
       type_idx,
@@ -326,6 +442,7 @@ fn hso_try_fold_tee_wrapped_struct_set(
 ///|
 fn hso_local_set_struct_new(
   func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
   node_id : Int,
 ) -> (Int, Int, @lib.TypeIdx)? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -340,7 +457,7 @@ fn hso_local_set_struct_new(
     return None
   }
   let struct_new_id = @ir.hot_child_get(func, node_id, 0)
-  match hso_supported_struct_new(func, struct_new_id) {
+  match hso_supported_struct_new(func, module_ctx, struct_new_id) {
     Some((type_idx, _, _)) => Some((node.imm0, struct_new_id, type_idx))
     None => None
   }
@@ -372,6 +489,7 @@ fn hso_struct_set_for_local(
 ///|
 fn hso_process_node_regions(
   func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
   node_masks : Array[UInt],
   node_id : Int,
 ) -> Bool {
@@ -383,18 +501,21 @@ fn hso_process_node_regions(
     @ir.HotOp::Block | @ir.HotOp::Loop =>
       hso_process_region(
         func,
+        module_ctx,
         node_masks,
         @ir.hot_region_body_ref(func, node_id),
       )
     @ir.HotOp::If => {
       let mut changed = hso_process_region(
         func,
+        module_ctx,
         node_masks,
         @ir.hot_region_then_ref(func, node_id),
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(region_ref) =>
-          changed = hso_process_region(func, node_masks, region_ref) || changed
+          changed = hso_process_region(func, module_ctx, node_masks, region_ref) ||
+            changed
         None => ()
       }
       changed
@@ -402,12 +523,14 @@ fn hso_process_node_regions(
     @ir.HotOp::Try => {
       let mut changed = hso_process_region(
         func,
+        module_ctx,
         node_masks,
         @ir.hot_region_body_ref(func, node_id),
       )
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(region_ref) =>
-          changed = hso_process_region(func, node_masks, region_ref) || changed
+          changed = hso_process_region(func, module_ctx, node_masks, region_ref) ||
+            changed
         None => ()
       }
       changed
@@ -415,11 +538,13 @@ fn hso_process_node_regions(
     @ir.HotOp::TryTable =>
       hso_process_region(
         func,
+        module_ctx,
         node_masks,
         @ir.hot_region_body_ref(func, node_id),
       ) ||
       hso_process_region(
         func,
+        module_ctx,
         node_masks,
         @ir.hot_region_catch_list_ref(func, node_id),
       )
@@ -454,6 +579,7 @@ fn hso_region_roots(
 ///|
 fn hso_process_region(
   func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
   node_masks : Array[UInt],
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
@@ -463,7 +589,8 @@ fn hso_process_region(
   for root_id in roots {
     let root_node = @ir.hot_node_get(func, root_id)
     if hso_node_may_have_regions(root_node.op) {
-      changed = hso_process_node_regions(func, node_masks, root_id) || changed
+      changed = hso_process_node_regions(func, module_ctx, node_masks, root_id) ||
+        changed
     }
   }
 
@@ -474,13 +601,15 @@ fn hso_process_region(
     let root_node = @ir.hot_node_get(func, root_id)
     match root_node.op {
       @ir.HotOp::Heap => {
-        changed = hso_try_fold_tee_wrapped_struct_set(func, node_masks, root_id) ||
+        changed = hso_try_fold_tee_wrapped_struct_set(
+            func, module_ctx, node_masks, root_id,
+          ) ||
           changed
         next_roots.push(root_id)
         idx = idx + 1
       }
       @ir.HotOp::LocalSet =>
-        match hso_local_set_struct_new(func, root_id) {
+        match hso_local_set_struct_new(func, module_ctx, root_id) {
           Some((local_id, struct_new_id, type_idx)) => {
             let mut next_idx = idx + 1
             while next_idx < roots.length() {
@@ -493,8 +622,8 @@ fn hso_process_region(
                 ) {
                 Some((field_idx, value_id)) =>
                   if hso_try_fold_into_struct_new(
-                      func, node_masks, struct_new_id, type_idx, field_idx, value_id,
-                      local_id,
+                      func, module_ctx, node_masks, struct_new_id, type_idx, field_idx,
+                      value_id, local_id,
                     ) {
                     changed = true
                     next_roots.push(@ir.hot_build_nop(func))
@@ -544,7 +673,12 @@ fn heap_store_optimization_run(
   func : @ir.HotFunc,
 ) -> HotPassResult {
   let effects = pass_require_effects(ctx, func)
-  if hso_process_region(func, effects.node_masks, @ir.HotRegionRef::root()) {
+  if hso_process_region(
+      func,
+      ctx.module_ctx,
+      effects.node_masks,
+      @ir.HotRegionRef::root(),
+    ) {
     pass_mark_mutated(ctx, func)
     HotPassResult::changed()
   } else {

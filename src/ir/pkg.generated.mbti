@@ -228,9 +228,15 @@ pub fn hot_build_call_ref(HotFunc, @lib.TypeIdx, Array[@lib.ValType], Array[Int]
 
 pub fn hot_build_compare(HotFunc, Int, Int) -> Int
 
+pub fn hot_build_const_f32(HotFunc, @lib.F32) -> Int
+
+pub fn hot_build_const_f64(HotFunc, @lib.F64) -> Int
+
 pub fn hot_build_const_i32(HotFunc, @lib.I32) -> Int
 
 pub fn hot_build_const_i64(HotFunc, @lib.I64) -> Int
+
+pub fn hot_build_const_v128_zero(HotFunc) -> Int
 
 pub fn hot_build_convert(HotFunc, @lib.ValType, Int) -> Int
 
