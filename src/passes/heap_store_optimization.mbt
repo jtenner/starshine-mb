@@ -351,7 +351,10 @@ fn hso_try_fold_into_struct_new(
   }
 
   let value_mask = hso_effects_for_node(func, node_masks, value_id)
-  if hso_subtree_touches_local(func, value_id, local_id) ||
+  if (
+      (value_mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
+      hso_subtree_touches_local(func, value_id, local_id)
+    ) ||
     hso_mask_has_control_transfer(value_mask) {
     return false
   }
