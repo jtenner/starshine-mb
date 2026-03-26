@@ -59,5 +59,7 @@ using @validate {
   trait Typecheck,
   empty_env,
   make_state,
+  make_state_owned,
   tc_state_with_stack,
+  tc_state_with_owned_stack,
 }

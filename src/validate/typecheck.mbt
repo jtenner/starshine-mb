@@ -3715,6 +3715,11 @@ pub fn make_state(env : Env, stack : Array[ValType]) -> TcState {
 }
 
 ///|
+pub fn make_state_owned(env : Env, stack : Array[ValType]) -> TcState {
+  { env, stack, reachable: true, escape: NoTcEscape }
+}
+
+///|
 pub fn tc_state_with_stack(state : TcState, stack : Array[ValType]) -> TcState {
   {
     env: state.env,
@@ -3722,6 +3727,14 @@ pub fn tc_state_with_stack(state : TcState, stack : Array[ValType]) -> TcState {
     reachable: state.reachable,
     escape: state.escape,
   }
+}
+
+///|
+pub fn tc_state_with_owned_stack(
+  state : TcState,
+  stack : Array[ValType],
+) -> TcState {
+  { env: state.env, stack, reachable: state.reachable, escape: state.escape }
 }
 
 // =============================================================================

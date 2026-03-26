@@ -62,19 +62,17 @@ fn hot_lift_impl_env_from_context(
   locals : HotLocals,
   return_types : Array[ValType],
 ) -> Env {
-  let mut env = empty_env()
+  let env = empty_env()
     .with_types(ctx.subtypes)
-    .with_funcs(ctx.func_types)
+    .with_funcs_and_type_idxs(ctx.func_types, ctx.func_type_slots)
     .with_tables(ctx.tables)
     .with_mems(ctx.mems)
     .with_globals(ctx.globals)
     .with_elems(ctx.elems)
+    .with_datas(ctx.datas)
     .with_tags(ctx.tags)
     .with_locals(hot_lift_impl_all_locals(locals))
     .with_return_type(Some(return_types))
-  for data in ctx.datas {
-    env = env.push_data(data)
-  }
   env
 }
 
@@ -105,23 +103,23 @@ fn hot_lift_impl_block_results(
 }
 
 ///|
-fn hot_lift_impl_values_types(
-  func : HotFunc,
-  values : Array[NodeId],
-) -> Array[ValType] {
-  let out : Array[ValType] = []
-  for id in values {
-    for ty in hot_type_results(func, hot_node_type(func, id)) {
-      out.push(ty)
-    }
+fn hot_lift_impl_pop_concrete_type(concrete_values : Array[ValType]) -> ValType {
+  match concrete_values.pop() {
+    Some(ty) => ty
+    None => abort("hot lift concrete stack underflow")
   }
-  out
 }
 
 ///|
-fn hot_lift_impl_pop_value(values : Array[NodeId]) -> NodeId {
+fn hot_lift_impl_pop_value(
+  values : Array[NodeId],
+  concrete_values : Array[ValType],
+) -> NodeId {
   match values.pop() {
-    Some(id) => id
+    Some(id) => {
+      ignore(hot_lift_impl_pop_concrete_type(concrete_values))
+      id
+    }
     None => abort("hot lift stack underflow")
   }
 }
@@ -129,17 +127,46 @@ fn hot_lift_impl_pop_value(values : Array[NodeId]) -> NodeId {
 ///|
 fn hot_lift_impl_pop_values(
   values : Array[NodeId],
+  concrete_values : Array[ValType],
   count : Int,
 ) -> Array[NodeId] {
   let rev : Array[NodeId] = []
   for _ in 0..<count {
-    rev.push(hot_lift_impl_pop_value(values))
+    rev.push(hot_lift_impl_pop_value(values, concrete_values))
   }
   let out : Array[NodeId] = []
   for id in rev.rev_iter() {
     out.push(id)
   }
   out
+}
+
+///|
+fn hot_lift_impl_pop_typed_values(
+  values : Array[NodeId],
+  concrete_values : Array[ValType],
+  count : Int,
+) -> (Array[NodeId], Array[ValType]) {
+  let rev_values : Array[NodeId] = []
+  let rev_types : Array[ValType] = []
+  for _ in 0..<count {
+    match values.pop() {
+      Some(id) => {
+        rev_values.push(id)
+        rev_types.push(hot_lift_impl_pop_concrete_type(concrete_values))
+      }
+      None => abort("hot lift stack underflow")
+    }
+  }
+  let out_values : Array[NodeId] = []
+  let out_types : Array[ValType] = []
+  for id in rev_values.rev_iter() {
+    out_values.push(id)
+  }
+  for ty in rev_types.rev_iter() {
+    out_types.push(ty)
+  }
+  (out_values, out_types)
 }
 
 ///|
@@ -179,10 +206,11 @@ fn hot_lift_impl_require_value_count(
 fn hot_lift_impl_pop_value_for_instr(
   instr : Instruction,
   values : Array[NodeId],
+  concrete_values : Array[ValType],
   context : String,
 ) -> Result[NodeId, HotLiftError] {
   match hot_lift_impl_require_value_count(instr, values, 1, context) {
-    Ok(_) => Ok(hot_lift_impl_pop_value(values))
+    Ok(_) => Ok(hot_lift_impl_pop_value(values, concrete_values))
     Err(err) => Err(err)
   }
 }
@@ -191,11 +219,26 @@ fn hot_lift_impl_pop_value_for_instr(
 fn hot_lift_impl_pop_values_for_instr(
   instr : Instruction,
   values : Array[NodeId],
+  concrete_values : Array[ValType],
   count : Int,
   context : String,
 ) -> Result[Array[NodeId], HotLiftError] {
   match hot_lift_impl_require_value_count(instr, values, count, context) {
-    Ok(_) => Ok(hot_lift_impl_pop_values(values, count))
+    Ok(_) => Ok(hot_lift_impl_pop_values(values, concrete_values, count))
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn hot_lift_impl_pop_typed_values_for_instr(
+  instr : Instruction,
+  values : Array[NodeId],
+  concrete_values : Array[ValType],
+  count : Int,
+  context : String,
+) -> Result[(Array[NodeId], Array[ValType]), HotLiftError] {
+  match hot_lift_impl_require_value_count(instr, values, count, context) {
+    Ok(_) => Ok(hot_lift_impl_pop_typed_values(values, concrete_values, count))
     Err(err) => Err(err)
   }
 }
@@ -353,7 +396,7 @@ fn hot_lift_impl_generic_pop_count(
   for count = min_count
       count <= candidate_before_types.length()
       count = count + 1 {
-    let candidate_state = tc_state_with_stack(
+    let candidate_state = tc_state_with_owned_stack(
       before_state,
       hot_lift_impl_stack_suffix(candidate_before_types, count),
     )
@@ -450,23 +493,136 @@ fn hot_lift_impl_resolve_generic_pop_count(
 }
 
 ///|
+fn hot_lift_impl_call_param_count(env : Env, instr : Instruction) -> Int? {
+  match instr {
+    Instruction::Call(func_idx) | Instruction::ReturnCall(func_idx) =>
+      match env.get_functype_by_funcidx(func_idx) {
+        Some(FuncType(params, _)) => Some(params.length())
+        None => None
+      }
+    Instruction::CallIndirect(type_idx, _)
+    | Instruction::ReturnCallIndirect(type_idx, _) =>
+      match env.resolve_functype(type_idx) {
+        Some(FuncType(params, _)) => Some(params.length() + 1)
+        None => None
+      }
+    Instruction::CallRef(type_idx) | Instruction::ReturnCallRef(type_idx) =>
+      match env.resolve_functype(type_idx) {
+        Some(FuncType(params, _)) => Some(params.length() + 1)
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int? {
+  match hot_lift_impl_direct_family(instr) {
+    Some(HotOp::Nop)
+    | Some(HotOp::Unreachable)
+    | Some(HotOp::Const)
+    | Some(HotOp::LocalGet)
+    | Some(HotOp::GlobalGet)
+    | Some(HotOp::TableSize)
+    | Some(HotOp::MemorySize)
+    | Some(HotOp::ElemDrop)
+    | Some(HotOp::DataDrop)
+    | Some(HotOp::RefNull)
+    | Some(HotOp::RefFunc) => return Some(0)
+    Some(HotOp::LocalSet)
+    | Some(HotOp::LocalTee)
+    | Some(HotOp::GlobalSet)
+    | Some(HotOp::TableGet)
+    | Some(HotOp::MemoryGrow)
+    | Some(HotOp::Drop)
+    | Some(HotOp::RefIsNull) => return Some(1)
+    Some(HotOp::TableSet) | Some(HotOp::TableGrow) => return Some(2)
+    Some(HotOp::TableFill)
+    | Some(HotOp::TableCopy)
+    | Some(HotOp::TableInit)
+    | Some(HotOp::MemoryCopy)
+    | Some(HotOp::MemoryFill)
+    | Some(HotOp::MemoryInit) => return Some(3)
+    Some(HotOp::Call) =>
+      match hot_lift_impl_call_param_count(env, instr) {
+        Some(count) => return Some(count)
+        None => ()
+      }
+    _ => ()
+  }
+  match hot_lift_impl_exact_family(instr) {
+    Some(HotOp::Select) => Some(3)
+    Some(HotOp::Load)
+    | Some(HotOp::RefTest)
+    | Some(HotOp::RefCast)
+    | Some(HotOp::RefTestDesc)
+    | Some(HotOp::RefCastDescEq)
+    | Some(HotOp::Unary)
+    | Some(HotOp::Convert) => Some(1)
+    Some(HotOp::Store) | Some(HotOp::Binary) | Some(HotOp::Compare) => Some(2)
+    Some(HotOp::Heap) =>
+      match instr {
+        Instruction::StructGet(_, _)
+        | Instruction::StructGetS(_, _)
+        | Instruction::StructGetU(_, _)
+        | Instruction::ArrayLen
+        | Instruction::RefAsNonNull
+        | Instruction::AnyConvertExtern
+        | Instruction::ExternConvertAny
+        | Instruction::RefI31
+        | Instruction::I31GetS
+        | Instruction::I31GetU => Some(1)
+        Instruction::StructSet(_, _)
+        | Instruction::ArrayGet(_)
+        | Instruction::ArrayGetS(_)
+        | Instruction::ArrayGetU(_)
+        | Instruction::RefEq => Some(2)
+        Instruction::ArraySet(_) => Some(3)
+        _ => None
+      }
+    Some(HotOp::Atomic) =>
+      match instr {
+        Instruction::I32AtomicLoad(_)
+        | Instruction::I64AtomicLoad(_)
+        | Instruction::I32AtomicLoad8U(_)
+        | Instruction::I32AtomicLoad16U(_)
+        | Instruction::I64AtomicLoad8U(_)
+        | Instruction::I64AtomicLoad16U(_)
+        | Instruction::I64AtomicLoad32U(_) => Some(1)
+        Instruction::MemoryAtomicNotify(_)
+        | Instruction::AtomicRmw(_, _)
+        | Instruction::I32AtomicStore(_)
+        | Instruction::I64AtomicStore(_)
+        | Instruction::I32AtomicStore8(_)
+        | Instruction::I32AtomicStore16(_)
+        | Instruction::I64AtomicStore8(_)
+        | Instruction::I64AtomicStore16(_)
+        | Instruction::I64AtomicStore32(_) => Some(2)
+        Instruction::MemoryAtomicWait32(_)
+        | Instruction::MemoryAtomicWait64(_)
+        | Instruction::AtomicCmpxchg(_, _) => Some(3)
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn hot_lift_impl_can_materialize_unreachable_instr(
-  func : HotFunc,
   instr : Instruction,
   tc_state : TcState,
-  values : Array[NodeId],
+  concrete_values : Array[ValType],
   child_count : Int,
 ) -> Bool {
-  let concrete_types = hot_lift_impl_values_types(func, values)
-  if child_count > concrete_types.length() {
+  if child_count > concrete_values.length() {
     return false
   }
   match
     Typecheck::typecheck(
       instr,
-      make_state(
+      make_state_owned(
         tc_state.env,
-        hot_lift_impl_stack_suffix(concrete_types, child_count),
+        hot_lift_impl_stack_suffix(concrete_values, child_count),
       ),
     ) {
     Ok(_) => true
@@ -1028,14 +1184,16 @@ fn hot_lift_impl_build_exact_node(
 fn hot_lift_impl_push_node(
   roots : Array[NodeId],
   values : Array[NodeId],
+  concrete_values : Array[ValType],
   node_id : NodeId,
   result_types : Array[ValType],
 ) -> Unit {
   if result_types.length() == 0 {
     roots.push(node_id)
   } else {
-    for _ in 0..<result_types.length() {
+    for ty in result_types {
       values.push(node_id)
+      concrete_values.push(ty)
     }
   }
 }
@@ -1072,15 +1230,17 @@ fn hot_lift_impl_lift_region(
   tc_state : TcState,
   label_stack : Array[LabelId],
   initial_values? : Array[NodeId] = [],
+  initial_value_types? : Array[ValType] = [],
 ) -> Result[(Array[NodeId], Array[NodeId], TcState), HotLiftError] {
   let Expr(instrs) = expr
   let mut tc_state = tc_state
   let roots : Array[NodeId] = []
   let values : Array[NodeId] = initial_values.copy()
+  let concrete_values : Array[ValType] = initial_value_types.copy()
   for instr in instrs {
     match
       hot_lift_impl_lift_instruction(
-        func, instr, tc_state, label_stack, roots, values,
+        func, instr, tc_state, label_stack, roots, values, concrete_values,
       ) {
       Ok(next) => tc_state = next
       Err(err) => return Err(err)
@@ -1100,6 +1260,7 @@ fn hot_lift_impl_lift_control(
   label_stack : Array[LabelId],
   roots : Array[NodeId],
   values : Array[NodeId],
+  concrete_values : Array[ValType],
 ) -> Result[TcState, HotLiftError] {
   let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
     Ok(next) => next
@@ -1112,10 +1273,11 @@ fn hot_lift_impl_lift_control(
         Ok(types) => types
         Err(err) => return Err(err)
       }
-      let entry_values = match
-        hot_lift_impl_pop_values_for_instr(
+      let (entry_values, entry_types) = match
+        hot_lift_impl_pop_typed_values_for_instr(
           instr,
           values,
+          concrete_values,
           params.length(),
           "block entry values",
         ) {
@@ -1136,10 +1298,7 @@ fn hot_lift_impl_lift_control(
       let next_stack = label_stack.copy()
       next_stack.push(label_id)
       let region_env = tc_state.env.with_label(results)
-      let region_state = make_state(
-        region_env,
-        hot_lift_impl_values_types(func, entry_values),
-      )
+      let region_state = make_state_owned(region_env, entry_types)
       let (body_roots, _, _) = match
         hot_lift_impl_lift_region(
           func,
@@ -1147,13 +1306,14 @@ fn hot_lift_impl_lift_control(
           region_state,
           next_stack,
           initial_values=entry_values,
+          initial_value_types=entry_types,
         ) {
         Ok(state) => state
         Err(err) => return Err(err)
       }
       ignore(hot_replace_child_span(func, id, body_roots))
       hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
-      hot_lift_impl_push_node(roots, values, id, results)
+      hot_lift_impl_push_node(roots, values, concrete_values, id, results)
       Ok(after_state)
     }
     Instruction::Loop(block_type, body) => {
@@ -1162,10 +1322,11 @@ fn hot_lift_impl_lift_control(
         Ok(types) => types
         Err(err) => return Err(err)
       }
-      let entry_values = match
-        hot_lift_impl_pop_values_for_instr(
+      let (entry_values, entry_types) = match
+        hot_lift_impl_pop_typed_values_for_instr(
           instr,
           values,
+          concrete_values,
           params.length(),
           "loop entry values",
         ) {
@@ -1186,10 +1347,7 @@ fn hot_lift_impl_lift_control(
       let next_stack = label_stack.copy()
       next_stack.push(label_id)
       let region_env = tc_state.env.with_label(params)
-      let region_state = make_state(
-        region_env,
-        hot_lift_impl_values_types(func, entry_values),
-      )
+      let region_state = make_state_owned(region_env, entry_types)
       let (body_roots, _, _) = match
         hot_lift_impl_lift_region(
           func,
@@ -1197,6 +1355,7 @@ fn hot_lift_impl_lift_control(
           region_state,
           next_stack,
           initial_values=entry_values,
+          initial_value_types=entry_types,
         ) {
         Ok(state) => state
         Err(err) => return Err(err)
@@ -1210,7 +1369,7 @@ fn hot_lift_impl_lift_control(
       }
       ignore(hot_replace_child_span(func, id, loop_children))
       hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
-      hot_lift_impl_push_node(roots, values, id, results)
+      hot_lift_impl_push_node(roots, values, concrete_values, id, results)
       Ok(after_state)
     }
     Instruction::If(block_type, then_instrs, else_instrs) => {
@@ -1220,14 +1379,17 @@ fn hot_lift_impl_lift_control(
         Err(err) => return Err(err)
       }
       let condition = match
-        hot_lift_impl_pop_value_for_instr(instr, values, "if condition") {
+        hot_lift_impl_pop_value_for_instr(
+          instr, values, concrete_values, "if condition",
+        ) {
         Ok(condition) => condition
         Err(err) => return Err(err)
       }
-      let entry_values = match
-        hot_lift_impl_pop_values_for_instr(
+      let (entry_values, entry_types) = match
+        hot_lift_impl_pop_typed_values_for_instr(
           instr,
           values,
+          concrete_values,
           params.length(),
           "if entry values",
         ) {
@@ -1249,10 +1411,7 @@ fn hot_lift_impl_lift_control(
       let next_stack = label_stack.copy()
       next_stack.push(label_id)
       let region_env = tc_state.env.with_label(results)
-      let then_state = make_state(
-        region_env,
-        hot_lift_impl_values_types(func, entry_values),
-      )
+      let then_state = make_state_owned(region_env, entry_types.copy())
       let (then_roots, _, _) = match
         hot_lift_impl_lift_region(
           func,
@@ -1260,6 +1419,7 @@ fn hot_lift_impl_lift_control(
           then_state,
           next_stack,
           initial_values=entry_values,
+          initial_value_types=entry_types,
         ) {
         Ok(state) => state
         Err(err) => return Err(err)
@@ -1269,10 +1429,7 @@ fn hot_lift_impl_lift_control(
       )
       let else_region = match else_instrs {
         Some(instrs) => {
-          let else_state = make_state(
-            region_env,
-            hot_lift_impl_values_types(func, entry_values),
-          )
+          let else_state = make_state_owned(region_env, entry_types.copy())
           match
             hot_lift_impl_lift_region(
               func,
@@ -1280,6 +1437,7 @@ fn hot_lift_impl_lift_control(
               else_state,
               next_stack,
               initial_values=entry_values,
+              initial_value_types=entry_types,
             ) {
             Ok((else_roots, _, _)) =>
               hot_lift_impl_make_region(func, else_roots, result_arity)
@@ -1292,7 +1450,7 @@ fn hot_lift_impl_lift_control(
         hot_replace_child_span(func, id, [condition, then_region, else_region]),
       )
       hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
-      hot_lift_impl_push_node(roots, values, id, results)
+      hot_lift_impl_push_node(roots, values, concrete_values, id, results)
       Ok(after_state)
     }
     Instruction::TryTable(block_type, catches, body) => {
@@ -1301,10 +1459,11 @@ fn hot_lift_impl_lift_control(
         Ok(types) => types
         Err(err) => return Err(err)
       }
-      let entry_values = match
-        hot_lift_impl_pop_values_for_instr(
+      let (entry_values, entry_types) = match
+        hot_lift_impl_pop_typed_values_for_instr(
           instr,
           values,
+          concrete_values,
           params.length(),
           "try_table entry values",
         ) {
@@ -1326,10 +1485,7 @@ fn hot_lift_impl_lift_control(
       let next_stack = label_stack.copy()
       next_stack.push(label_id)
       let region_env = tc_state.env.with_label(results)
-      let body_state = make_state(
-        region_env,
-        hot_lift_impl_values_types(func, entry_values),
-      )
+      let body_state = make_state_owned(region_env, entry_types)
       let (body_roots, _, _) = match
         hot_lift_impl_lift_region(
           func,
@@ -1337,6 +1493,7 @@ fn hot_lift_impl_lift_control(
           body_state,
           next_stack,
           initial_values=entry_values,
+          initial_value_types=entry_types,
         ) {
         Ok(state) => state
         Err(err) => return Err(err)
@@ -1364,7 +1521,7 @@ fn hot_lift_impl_lift_control(
         imm0: label_id,
         imm1: catch_info_id,
       })
-      hot_lift_impl_push_node(roots, values, id, results)
+      hot_lift_impl_push_node(roots, values, concrete_values, id, results)
       Ok(after_state)
     }
     _ => Err(HotLiftError::UnsupportedInstruction(instr.to_string()))
@@ -1379,6 +1536,7 @@ fn hot_lift_impl_lift_instruction(
   label_stack : Array[LabelId],
   roots : Array[NodeId],
   values : Array[NodeId],
+  concrete_values : Array[ValType],
 ) -> Result[TcState, HotLiftError] {
   match instr {
     Instruction::Block(_, _)
@@ -1386,7 +1544,7 @@ fn hot_lift_impl_lift_instruction(
     | Instruction::If(_, _, _)
     | Instruction::TryTable(_, _, _) =>
       return hot_lift_impl_lift_control(
-        func, instr, tc_state, label_stack, roots, values,
+        func, instr, tc_state, label_stack, roots, values, concrete_values,
       )
     Instruction::Br(label_idx) => {
       let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
@@ -1399,13 +1557,13 @@ fn hot_lift_impl_lift_instruction(
       }
       let payload_count = hot_label_branch_arity(func, target)
       if !hot_lift_impl_can_materialize_unreachable_instr(
-          func, instr, tc_state, values, payload_count,
+          instr, tc_state, concrete_values, payload_count,
         ) {
         return Ok(after_state)
       }
       let payload = match
         hot_lift_impl_pop_values_for_instr(
-          instr, values, payload_count, "br payload",
+          instr, values, concrete_values, payload_count, "br payload",
         ) {
         Ok(payload) => payload
         Err(err) => return Err(err)
@@ -1419,6 +1577,7 @@ fn hot_lift_impl_lift_instruction(
       )
       roots.push(node_id)
       values.clear()
+      concrete_values.clear()
       return Ok(after_state)
     }
     Instruction::BrIf(label_idx) => {
@@ -1432,16 +1591,17 @@ fn hot_lift_impl_lift_instruction(
       }
       let payload_count = hot_label_branch_arity(func, target)
       if !hot_lift_impl_can_materialize_unreachable_instr(
-          func,
           instr,
           tc_state,
-          values,
+          concrete_values,
           payload_count + 1,
         ) {
         return Ok(after_state)
       }
       let condition = match
-        hot_lift_impl_pop_value_for_instr(instr, values, "br_if condition") {
+        hot_lift_impl_pop_value_for_instr(
+          instr, values, concrete_values, "br_if condition",
+        ) {
         Ok(condition) => condition
         Err(err) => return Err(err)
       }
@@ -1478,16 +1638,17 @@ fn hot_lift_impl_lift_instruction(
       }
       let payload_count = hot_label_branch_arity(func, default_label)
       if !hot_lift_impl_can_materialize_unreachable_instr(
-          func,
           instr,
           tc_state,
-          values,
+          concrete_values,
           payload_count + 1,
         ) {
         return Ok(after_state)
       }
       let selector = match
-        hot_lift_impl_pop_value_for_instr(instr, values, "br_table selector") {
+        hot_lift_impl_pop_value_for_instr(
+          instr, values, concrete_values, "br_table selector",
+        ) {
         Ok(selector) => selector
         Err(err) => return Err(err)
       }
@@ -1524,10 +1685,9 @@ fn hot_lift_impl_lift_instruction(
           )
       }
       if !hot_lift_impl_can_materialize_unreachable_instr(
-          func,
           instr,
           tc_state,
-          values,
+          concrete_values,
           return_types.length(),
         ) {
         return Ok(after_state)
@@ -1536,6 +1696,7 @@ fn hot_lift_impl_lift_instruction(
         hot_lift_impl_pop_values_for_instr(
           instr,
           values,
+          concrete_values,
           return_types.length(),
           "return payload",
         ) {
@@ -1551,6 +1712,7 @@ fn hot_lift_impl_lift_instruction(
         ),
       )
       values.clear()
+      concrete_values.clear()
       return Ok(after_state)
     }
     Instruction::Throw(tag_idx) => {
@@ -1568,10 +1730,9 @@ fn hot_lift_impl_lift_instruction(
           )
       }
       if !hot_lift_impl_can_materialize_unreachable_instr(
-          func,
           instr,
           tc_state,
-          values,
+          concrete_values,
           payload_types.length(),
         ) {
         return Ok(after_state)
@@ -1580,6 +1741,7 @@ fn hot_lift_impl_lift_instruction(
         hot_lift_impl_pop_values_for_instr(
           instr,
           values,
+          concrete_values,
           payload_types.length(),
           "throw payload",
         ) {
@@ -1597,6 +1759,7 @@ fn hot_lift_impl_lift_instruction(
         ),
       )
       values.clear()
+      concrete_values.clear()
       return Ok(after_state)
     }
     Instruction::ThrowRef => {
@@ -1605,12 +1768,14 @@ fn hot_lift_impl_lift_instruction(
         Err(err) => return Err(err)
       }
       if !hot_lift_impl_can_materialize_unreachable_instr(
-          func, instr, tc_state, values, 1,
+          instr, tc_state, concrete_values, 1,
         ) {
         return Ok(after_state)
       }
       let exnref = match
-        hot_lift_impl_pop_value_for_instr(instr, values, "throw_ref payload") {
+        hot_lift_impl_pop_value_for_instr(
+          instr, values, concrete_values, "throw_ref payload",
+        ) {
         Ok(exnref) => exnref
         Err(err) => return Err(err)
       }
@@ -1620,10 +1785,11 @@ fn hot_lift_impl_lift_instruction(
         ]),
       )
       values.clear()
+      concrete_values.clear()
       return Ok(after_state)
     }
     Instruction::BrOnNull(label_idx) => {
-      let before_types = tc_state.stack.copy()
+      let before_types = tc_state.stack
       let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
         Ok(next) => next
         Err(err) => return Err(err)
@@ -1634,16 +1800,17 @@ fn hot_lift_impl_lift_instruction(
       }
       let payload_count = hot_label_branch_arity(func, target)
       if !hot_lift_impl_can_materialize_unreachable_instr(
-          func,
           instr,
           tc_state,
-          values,
+          concrete_values,
           payload_count + 1,
         ) {
         return Ok(after_state)
       }
       let guard_id = match
-        hot_lift_impl_pop_value_for_instr(instr, values, "br_on_null guard") {
+        hot_lift_impl_pop_value_for_instr(
+          instr, values, concrete_values, "br_on_null guard",
+        ) {
         Ok(guard_id) => guard_id
         Err(err) => return Err(err)
       }
@@ -1662,35 +1829,46 @@ fn hot_lift_impl_lift_instruction(
         imm0=target,
         children~,
       )
-      hot_lift_impl_push_node(roots, values, node_id, pushed_types)
+      hot_lift_impl_push_node(
+        roots, values, concrete_values, node_id, pushed_types,
+      )
       return Ok(after_state)
     }
     _ => ()
   }
 
-  let before_types = tc_state.stack.copy()
-  let before_state = tc_state_with_stack(tc_state, before_types)
+  let before_types = tc_state.stack
+  let before_state = tc_state
   let typecheck_state = tc_state_with_stack(tc_state, before_types)
   let after_state = match hot_lift_impl_typecheck(instr, typecheck_state) {
     Ok(next) => next
     Err(err) => return Err(err)
   }
-  let concrete_before_types = hot_lift_impl_values_types(func, values)
+  let concrete_before_types = concrete_values
   let (child_count, pushed_types) = match
-    hot_lift_impl_resolve_generic_pop_count(
-      instr, before_state, after_state, concrete_before_types,
-    ) {
-    Ok(resolved) => resolved
-    Err(err) => return Err(err)
+    hot_lift_impl_known_pop_count(instr, tc_state.env) {
+    Some(count) if count <= before_types.length() =>
+      (
+        count,
+        hot_lift_impl_pushed_types(before_types, after_state.stack, count),
+      )
+    _ =>
+      match
+        hot_lift_impl_resolve_generic_pop_count(
+          instr, before_state, after_state, concrete_before_types,
+        ) {
+        Ok(resolved) => resolved
+        Err(err) => return Err(err)
+      }
   }
   if !hot_lift_impl_can_materialize_unreachable_instr(
-      func, instr, tc_state, values, child_count,
+      instr, tc_state, concrete_values, child_count,
     ) {
     return Ok(after_state)
   }
   let children = match
     hot_lift_impl_pop_values_for_instr(
-      instr, values, child_count, "generic operands",
+      instr, values, concrete_values, child_count, "generic operands",
     ) {
     Ok(children) => children
     Err(err) => return Err(err)
@@ -1700,7 +1878,9 @@ fn hot_lift_impl_lift_instruction(
       let node_id = hot_lift_impl_build_direct_node(
         func, op, instr, pushed_types, children,
       )
-      hot_lift_impl_push_node(roots, values, node_id, pushed_types)
+      hot_lift_impl_push_node(
+        roots, values, concrete_values, node_id, pushed_types,
+      )
       Ok(after_state)
     }
     None =>
@@ -1709,7 +1889,9 @@ fn hot_lift_impl_lift_instruction(
           let node_id = hot_lift_impl_build_exact_node(
             func, op, instr, pushed_types, children,
           )
-          hot_lift_impl_push_node(roots, values, node_id, pushed_types)
+          hot_lift_impl_push_node(
+            roots, values, concrete_values, node_id, pushed_types,
+          )
           Ok(after_state)
         }
         None => Err(HotLiftError::UnsupportedInstruction(instr.to_string()))
@@ -1718,11 +1900,17 @@ fn hot_lift_impl_lift_instruction(
 }
 
 ///|
-fn hot_lift_impl_finish(func : HotFunc, roots : Array[NodeId]) -> HotFunc {
+fn hot_lift_impl_finish(
+  func : HotFunc,
+  roots : Array[NodeId],
+  verify? : Bool = true,
+) -> HotFunc {
   for root in roots {
     hot_root_append(func, root)
   }
-  hot_verify_all_or_abort(func)
+  if verify {
+    hot_verify_all_or_abort(func)
+  }
   func
 }
 
@@ -1758,6 +1946,23 @@ pub fn hot_lift_body_with_context(
   ctx : HotModuleContext,
   body_result_type? : BlockType = BlockType::void_(),
 ) -> HotFunc {
+  let func = hot_lift_body_with_context_unverified(
+    body,
+    locals,
+    ctx,
+    body_result_type~,
+  )
+  hot_verify_all_or_abort(func)
+  func
+}
+
+///|
+pub fn hot_lift_body_with_context_unverified(
+  body : Expr,
+  locals : HotLocals,
+  ctx : HotModuleContext,
+  body_result_type? : BlockType = BlockType::void_(),
+) -> HotFunc {
   let return_env = hot_lift_impl_env_from_context(ctx, locals, [])
   let (_, return_types) = match
     hot_lift_impl_block_results(return_env, body_result_type) {
@@ -1773,7 +1978,7 @@ pub fn hot_lift_body_with_context(
     ),
   )
   match hot_lift_impl_lift_region(func, body, make_state(env, []), []) {
-    Ok((roots, _, _)) => hot_lift_impl_finish(func, roots)
+    Ok((roots, _, _)) => hot_lift_impl_finish(func, roots, verify=false)
     Err(err) => abort(err.to_string())
   }
 }
@@ -1796,6 +2001,17 @@ fn hot_lift_impl_imported_func_count(mod_ : Module) -> Int {
 
 ///|
 pub fn hot_lift_func_with_context(
+  mod_ : Module,
+  func_idx : FuncIdx,
+  ctx : HotModuleContext,
+) -> HotFunc {
+  let func = hot_lift_func_with_context_unverified(mod_, func_idx, ctx)
+  hot_verify_all_or_abort(func)
+  func
+}
+
+///|
+pub fn hot_lift_func_with_context_unverified(
   mod_ : Module,
   func_idx : FuncIdx,
   ctx : HotModuleContext,
@@ -1834,7 +2050,7 @@ pub fn hot_lift_func_with_context(
         _ => abort(HotLiftError::MissingFunctionType(func_idx).to_string())
       }
   }
-  hot_lift_body_with_context(body, locals, ctx, body_result_type~)
+  hot_lift_body_with_context_unverified(body, locals, ctx, body_result_type~)
 }
 
 ///|

@@ -61,25 +61,6 @@ fn liveness_require_use_def_shape(cfg : HotCfg, use_def : HotUseDef) -> Int {
 }
 
 ///|
-fn liveness_successors(
-  cfg : HotCfg,
-  block_id : BlockId,
-  include_exceptional_edges : Bool,
-) -> Array[BlockId] {
-  let succs : Array[BlockId] = []
-  let seen = bitset_new(cfg_block_count(cfg))
-  for edge in cfg_successors(cfg, block_id) {
-    if !include_exceptional_edges && edge.kind == CfgEdgeKind::ExceptionalEdge {
-      continue
-    }
-    if bitset_set(seen, edge.block) {
-      succs.push(edge.block)
-    }
-  }
-  succs
-}
-
-///|
 pub fn liveness_build(cfg : HotCfg, use_def : HotUseDef) -> HotLiveness {
   let local_count = liveness_require_use_def_shape(cfg, use_def)
   let live_in_sets : Array[Bitset] = []
@@ -97,8 +78,12 @@ pub fn liveness_build(cfg : HotCfg, use_def : HotUseDef) -> HotLiveness {
         block_id >= 0
         block_id = block_id - 1 {
       let next_out = bitset_new(local_count)
-      for succ in liveness_successors(cfg, block_id, include_exceptional_edges) {
-        ignore(bitset_union_into(next_out, live_in_sets[succ]))
+      for edge in cfg_successor_edges(cfg, block_id) {
+        if !include_exceptional_edges &&
+          edge.kind == CfgEdgeKind::ExceptionalEdge {
+          continue
+        }
+        ignore(bitset_union_into(next_out, live_in_sets[edge.block]))
       }
       let next_in = liveness_bitset_clone(next_out)
       ignore(bitset_difference_into(next_in, use_def.block_defs[block_id]))

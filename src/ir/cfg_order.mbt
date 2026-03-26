@@ -43,9 +43,9 @@ fn cfg_order_postorder_from_roots(
     visited[block_id] = true
     stack.push((block_id, true))
     let edges = if reverse {
-      cfg_predecessors(cfg, block_id)
+      cfg_predecessor_edges(cfg, block_id)
     } else {
-      cfg_successors(cfg, block_id)
+      cfg_successor_edges(cfg, block_id)
     }
     for idx = edges.length() - 1; idx >= 0; idx = idx - 1 {
       let edge = edges[idx]
@@ -82,9 +82,9 @@ fn cfg_order_preorder_from_roots(
     visited[block_id] = true
     preorder.push(block_id)
     let edges = if reverse {
-      cfg_predecessors(cfg, block_id)
+      cfg_predecessor_edges(cfg, block_id)
     } else {
-      cfg_successors(cfg, block_id)
+      cfg_successor_edges(cfg, block_id)
     }
     for idx = edges.length() - 1; idx >= 0; idx = idx - 1 {
       let edge = edges[idx]

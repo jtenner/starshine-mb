@@ -3,6 +3,7 @@ pub struct HotModuleContext {
   subtypes : Array[SubType]
   func_type_idxs : Array[TypeIdx]
   func_types : Array[FuncType]
+  func_type_slots : Array[TypeIdx?]
   tables : Array[TableType]
   mems : Array[@lib.MemType]
   globals : Array[GlobalType]
@@ -61,6 +62,17 @@ fn hot_module_context_resolve_func_types(
           "hot module context function indices must not use rec-group indices",
         )
     }
+  }
+  out
+}
+
+///|
+fn hot_module_context_empty_func_type_slots(
+  func_type_idxs : Array[TypeIdx],
+) -> Array[TypeIdx?] {
+  let out : Array[TypeIdx?] = []
+  for _ in func_type_idxs {
+    out.push(None)
   }
   out
 }
@@ -150,6 +162,7 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
     subtypes,
     func_type_idxs,
     func_types: hot_module_context_resolve_func_types(subtypes, func_type_idxs),
+    func_type_slots: hot_module_context_empty_func_type_slots(func_type_idxs),
     tables,
     mems,
     globals,

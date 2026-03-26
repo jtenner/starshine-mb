@@ -24,7 +24,11 @@ pub fn gen_valid_valtype(GenValidContext) -> @lib.ValType
 
 pub fn make_state(Env, Array[@lib.ValType]) -> TcState
 
+pub fn make_state_owned(Env, Array[@lib.ValType]) -> TcState
+
 pub fn run_validate_valid_fuzz(String, UInt64) -> Result[ValidateValidFuzzStats, String]
+
+pub fn tc_state_with_owned_stack(TcState, Array[@lib.ValType]) -> TcState
 
 pub fn tc_state_with_stack(TcState, Array[@lib.ValType]) -> TcState
 
@@ -126,8 +130,10 @@ pub fn Env::resolve_struct_subtype(Self, @lib.TypeIdx) -> Result[@lib.SubType, S
 pub fn Env::resolve_subtype(Self, @lib.TypeIdx) -> @lib.SubType?
 pub fn Env::resolve_tag_functype(Self, @lib.TagIdx) -> @lib.FuncType?
 pub fn Env::resolve_typeidx_subtype(Self, @lib.TypeIdx) -> @lib.SubType?
+pub fn Env::with_datas(Self, Array[@lib.Data]) -> Self
 pub fn Env::with_elems(Self, Array[@lib.Elem]) -> Self
 pub fn Env::with_funcs(Self, Array[@lib.FuncType]) -> Self
+pub fn Env::with_funcs_and_type_idxs(Self, Array[@lib.FuncType], Array[@lib.TypeIdx?]) -> Self
 pub fn Env::with_globals(Self, Array[@lib.GlobalType]) -> Self
 pub fn Env::with_label(Self, Array[@lib.ValType]) -> Self
 pub fn Env::with_labels(Self, Array[Array[@lib.ValType]]) -> Self

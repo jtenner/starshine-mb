@@ -40,7 +40,7 @@ fn postdom_successors(
   block_id : BlockId,
 ) -> Array[BlockId] {
   let succs : Array[BlockId] = []
-  for edge in cfg_successors(cfg, block_id) {
+  for edge in cfg_successor_edges(cfg, block_id) {
     if postdom_has_reachable(reachable, edge.block) {
       succs.push(edge.block)
     }

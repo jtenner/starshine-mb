@@ -846,6 +846,11 @@ fn hot_lower_impl_declared_locals(
 ///|
 fn hot_lower_body_with_extras(func : HotFunc) -> HotLowerBodyResult {
   hot_verify_all_or_abort(func)
+  hot_lower_body_with_extras_unverified(func)
+}
+
+///|
+fn hot_lower_body_with_extras_unverified(func : HotFunc) -> HotLowerBodyResult {
   let use_def = use_def_build(func)
   let out : Array[Instruction] = []
   let value_stack : Array[HotLowerStackValue] = []
@@ -887,8 +892,32 @@ pub fn hot_lower_body(func : HotFunc) -> Expr {
 }
 
 ///|
+pub fn hot_lower_body_unverified(func : HotFunc) -> Expr {
+  Expr::new(hot_lower_body_with_extras_unverified(func).body)
+}
+
+///|
 pub fn hot_lower_func(func : HotFunc) -> @lib.Func {
   let lowered = hot_lower_body_with_extras(func)
+  let body = lowered.body.copy()
+  hot_lower_impl_finalize_region_stack(
+    func,
+    hot_type_result_arity(func, hot_body_result_type(func)),
+    lowered.final_stack.copy(),
+    body,
+    lowered.extra_locals,
+  )
+  @lib.Func::new(
+    @lib.Locals::from_types(
+      hot_lower_impl_declared_locals(func, lowered.extra_locals),
+    ),
+    Expr::new(body),
+  )
+}
+
+///|
+pub fn hot_lower_func_unverified(func : HotFunc) -> @lib.Func {
+  let lowered = hot_lower_body_with_extras_unverified(func)
   let body = lowered.body.copy()
   hot_lower_impl_finalize_region_stack(
     func,

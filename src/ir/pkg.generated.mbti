@@ -118,6 +118,8 @@ pub fn cfg_exit_block(HotCfg) -> Int
 
 pub fn cfg_postorder(HotCfg) -> Array[Int]
 
+pub fn cfg_predecessor_edges(HotCfg, Int) -> Array[CfgEdge]
+
 pub fn cfg_predecessors(HotCfg, Int) -> Array[CfgEdge]
 
 pub fn cfg_preorder(HotCfg) -> Array[Int]
@@ -131,6 +133,8 @@ pub fn cfg_reverse_postorder_from_exit(HotCfg) -> Array[Int]
 pub fn cfg_reverse_postorder_from_exit_with_exceptions(HotCfg) -> Array[Int]
 
 pub fn cfg_reverse_postorder_with_exceptions(HotCfg) -> Array[Int]
+
+pub fn cfg_successor_edges(HotCfg, Int) -> Array[CfgEdge]
 
 pub fn cfg_successors(HotCfg, Int) -> Array[CfgEdge]
 
@@ -352,9 +356,13 @@ pub fn hot_lift_body_result(@lib.Expr, HotLocals, body_result_type? : @lib.Block
 
 pub fn hot_lift_body_with_context(@lib.Expr, HotLocals, HotModuleContext, body_result_type? : @lib.BlockType) -> HotFunc
 
+pub fn hot_lift_body_with_context_unverified(@lib.Expr, HotLocals, HotModuleContext, body_result_type? : @lib.BlockType) -> HotFunc
+
 pub fn hot_lift_func(@lib.Module, @lib.FuncIdx) -> HotFunc
 
 pub fn hot_lift_func_with_context(@lib.Module, @lib.FuncIdx, HotModuleContext) -> HotFunc
+
+pub fn hot_lift_func_with_context_unverified(@lib.Module, @lib.FuncIdx, HotModuleContext) -> HotFunc
 
 pub fn hot_local_body_count(HotFunc) -> Int
 
@@ -368,7 +376,11 @@ pub fn hot_local_type(HotFunc, Int) -> @lib.ValType?
 
 pub fn hot_lower_body(HotFunc) -> @lib.Expr
 
+pub fn hot_lower_body_unverified(HotFunc) -> @lib.Expr
+
 pub fn hot_lower_func(HotFunc) -> @lib.Func
+
+pub fn hot_lower_func_unverified(HotFunc) -> @lib.Func
 
 pub fn hot_make_simple_node(HotOp, Int, UInt, Int, Int, Array[Int]) -> HotNode
 
@@ -1097,6 +1109,7 @@ pub struct HotModuleContext {
   subtypes : Array[@lib.SubType]
   func_type_idxs : Array[@lib.TypeIdx]
   func_types : Array[@lib.FuncType]
+  func_type_slots : Array[@lib.TypeIdx?]
   tables : Array[@lib.TableType]
   mems : Array[@lib.MemType]
   globals : Array[@lib.GlobalType]

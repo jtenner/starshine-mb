@@ -90,7 +90,7 @@ fn loop_info_build_one(
   }
   while worklist.length() > 0 {
     let block_id = worklist.pop().unwrap()
-    for pred in cfg_predecessors(cfg, block_id) {
+    for pred in cfg_predecessor_edges(cfg, block_id) {
       if pred.kind == CfgEdgeKind::ExceptionalEdge {
         continue
       }
@@ -102,7 +102,7 @@ fn loop_info_build_one(
   let blocks = loop_info_bitset_to_blocks(block_bits)
   let exits : Array[HotLoopExit] = []
   for block_id in blocks {
-    for edge in cfg_successors(cfg, block_id) {
+    for edge in cfg_successor_edges(cfg, block_id) {
       if bitset_contains(block_bits, edge.block) {
         continue
       }
@@ -213,7 +213,7 @@ pub fn loop_info_build(cfg : HotCfg, dom : HotDominators) -> HotLoopInfo {
     if !loop_info_is_reachable(dom, block_id) {
       continue
     }
-    for edge in cfg_successors(cfg, block_id) {
+    for edge in cfg_successor_edges(cfg, block_id) {
       if loop_info_has_backedge(edge, dom, block_id) {
         latches_by_header[edge.block].push(block_id)
       }

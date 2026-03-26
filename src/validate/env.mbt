@@ -419,6 +419,15 @@ pub fn Env::with_funcs(env : Env, funcs : Array[FuncType]) -> Env {
 }
 
 ///|
+pub fn Env::with_funcs_and_type_idxs(
+  env : Env,
+  funcs : Array[FuncType],
+  func_type_idxs : Array[TypeIdx?],
+) -> Env {
+  Env::{ ..env, funcs, func_type_idxs }
+}
+
+///|
 pub fn Env::with_types(env : Env, global_types : Array[SubType]) -> Env {
   Env::{ ..env, global_types, }
 }
@@ -447,6 +456,11 @@ pub fn Env::with_tags(env : Env, tags : Array[TagType]) -> Env {
 pub fn Env::push_data(env : Env, d : Data) -> Env {
   let datas = env.datas.copy()
   datas.push(d)
+  Env::{ ..env, datas, }
+}
+
+///|
+pub fn Env::with_datas(env : Env, datas : Array[Data]) -> Env {
   Env::{ ..env, datas, }
 }
 

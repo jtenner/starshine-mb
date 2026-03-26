@@ -466,6 +466,151 @@ fn hot_pass_remove_region_nops(
 }
 
 ///|
+fn run_hot_pipeline_instr_scan(
+  instrs : Array[@lib.Instruction],
+) -> (Bool, Bool) {
+  let mut has_writes = false
+  let mut has_structured_control = false
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(_) | @lib.LocalTee(_) => has_writes = true
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) => {
+        has_structured_control = true
+        let (nested_writes, _) = run_hot_pipeline_instr_scan(body)
+        has_writes = has_writes || nested_writes
+      }
+      @lib.If(_, then_body, else_body) => {
+        has_structured_control = true
+        let (then_writes, _) = run_hot_pipeline_instr_scan(then_body)
+        has_writes = has_writes || then_writes
+        match else_body {
+          Some(else_body) => {
+            let (else_writes, _) = run_hot_pipeline_instr_scan(else_body)
+            has_writes = has_writes || else_writes
+          }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) => {
+        has_structured_control = true
+        let (nested_writes, _) = run_hot_pipeline_instr_scan(body)
+        has_writes = has_writes || nested_writes
+      }
+      _ => ()
+    }
+  }
+  (has_writes, has_structured_control)
+}
+
+///|
+fn run_hot_pipeline_required_func_params(
+  module_ctx : @ir.HotModuleContext,
+  func_idx : @lib.FuncIdx,
+) -> Array[@lib.ValType] {
+  match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+    Some(@lib.FuncType(params, _)) => params
+    None =>
+      abort(
+        "hot pipeline raw ssa-nomerge rewrite requires the function type to resolve",
+      )
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_local_type(
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  local_id : Int,
+) -> @lib.ValType {
+  if local_id < params.length() {
+    return params[local_id]
+  }
+  locals.get(local_id - params.length())
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> @lib.Func {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let rewritten_instrs : Array[@lib.Instruction] = []
+  let local_aliases : Array[@lib.LocalIdx] = []
+  let extra_local_types : Array[@lib.ValType] = []
+  let base_local_count = params.length() + locals.length()
+  for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+    local_aliases.push(@lib.LocalIdx::new(local_id.reinterpret_as_uint()))
+  }
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        rewritten_instrs.push(
+          @lib.Instruction::local_get(local_aliases[raw.reinterpret_as_int()]),
+        )
+      @lib.LocalSet(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        let fresh_local_id = base_local_count + extra_local_types.length()
+        let fresh_local = @lib.LocalIdx::new(
+          fresh_local_id.reinterpret_as_uint(),
+        )
+        extra_local_types.push(
+          run_hot_pipeline_raw_local_type(params, locals, local_id),
+        )
+        local_aliases[local_id] = fresh_local
+        rewritten_instrs.push(@lib.Instruction::local_set(fresh_local))
+      }
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        let fresh_local_id = base_local_count + extra_local_types.length()
+        let fresh_local = @lib.LocalIdx::new(
+          fresh_local_id.reinterpret_as_uint(),
+        )
+        extra_local_types.push(
+          run_hot_pipeline_raw_local_type(params, locals, local_id),
+        )
+        local_aliases[local_id] = fresh_local
+        rewritten_instrs.push(@lib.Instruction::local_tee(fresh_local))
+      }
+      _ => rewritten_instrs.push(instr)
+    }
+  }
+  let rewritten_locals = locals.copy()
+  rewritten_locals.append_types(extra_local_types)
+  @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs))
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  module_ctx : @ir.HotModuleContext,
+  descriptor : @ir.HotPassDescriptor,
+) -> (String, @lib.Func)? {
+  if descriptor.name != "ssa-nomerge" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(_, @lib.Expr(instrs)) = original
+  let (has_writes, has_structured_control) = run_hot_pipeline_instr_scan(instrs)
+  if !has_writes {
+    return Some(("no-local-writes", original))
+  }
+  if has_structured_control {
+    None
+  } else {
+    Some(
+      (
+        "straight-line-local-writes",
+        run_hot_pipeline_raw_ssa_nomerge_straight_line(
+          original,
+          run_hot_pipeline_required_func_params(module_ctx, func_idx),
+        ),
+      ),
+    )
+  }
+}
+
+///|
 fn run_hot_pipeline_func(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -479,8 +624,23 @@ fn run_hot_pipeline_func(
     "func",
     payload="func_idx=\{func_idx}",
   )
+  match
+    run_hot_pipeline_raw_ssa_nomerge(mod_, func_idx, module_ctx, descriptor) {
+    Some((reason, raw_func)) => {
+      pipeline_trace_hook(
+        options.trace,
+        descriptor.name,
+        "skip-raw",
+        payload="reason=\{reason}",
+      )
+      return Ok(raw_func)
+    }
+    None => ()
+  }
   let lift_start_us = perf_start_timer_opt(options.perf, "lift")
-  let func = @ir.hot_lift_func_with_context(mod_, func_idx, module_ctx)
+  let func = @ir.hot_lift_func_with_context_unverified(
+    mod_, func_idx, module_ctx,
+  )
   let lifted_revision = @ir.hot_revision_current(func)
   if func_idx == @lib.FuncIdx::new(2944U) &&
     (descriptor.name == "vacuum" || descriptor.name == "dead-code-elimination") {
@@ -711,16 +871,20 @@ fn run_hot_pipeline_func(
     None => ()
   }
   perf_stop_timer_opt(options.perf, "lift", lift_start_us)
-  match
-    pipeline_verify_checkpoint_with_perf(
-      options.perf,
-      HotPipelineVerifyPolicy::AfterEachPass,
-      "verify after lift",
-      HotPipelineVerifyTarget::HotFuncTarget(func),
-      "verify:after-lift",
-    ) {
-    Ok(_) => ()
-    Err(err) => return Err(err)
+  match options.verify_policy {
+    HotPipelineVerifyPolicy::AfterEachPass =>
+      match
+        pipeline_verify_checkpoint_with_perf(
+          options.perf,
+          options.verify_policy,
+          "verify after lift",
+          HotPipelineVerifyTarget::HotFuncTarget(func),
+          "verify:after-lift",
+        ) {
+        Ok(_) => ()
+        Err(err) => return Err(err)
+      }
+    HotPipelineVerifyPolicy::FinalModuleOnly => ()
   }
   let cache = @ir.HotAnalysisCache::new()
   let ctx = HotPassContext::new(
@@ -955,21 +1119,30 @@ fn run_hot_pipeline_func(
       "after-pass:\{descriptor.name}",
     )
   }
-  match
-    pipeline_verify_checkpoint_with_perf(
-      options.perf,
-      HotPipelineVerifyPolicy::AfterEachPass,
-      "verify before lower",
-      HotPipelineVerifyTarget::HotFuncTarget(func),
-      "verify:before-lower",
-    ) {
-    Ok(_) => {
+  match options.verify_policy {
+    HotPipelineVerifyPolicy::AfterEachPass =>
+      match
+        pipeline_verify_checkpoint_with_perf(
+          options.perf,
+          options.verify_policy,
+          "verify before lower",
+          HotPipelineVerifyTarget::HotFuncTarget(func),
+          "verify:before-lower",
+        ) {
+        Ok(_) => {
+          let lower_start_us = perf_start_timer_opt(options.perf, "lower")
+          let lowered = @ir.hot_lower_func(func)
+          perf_stop_timer_opt(options.perf, "lower", lower_start_us)
+          Ok(lowered)
+        }
+        Err(err) => Err(err)
+      }
+    HotPipelineVerifyPolicy::FinalModuleOnly => {
       let lower_start_us = perf_start_timer_opt(options.perf, "lower")
-      let lowered = @ir.hot_lower_func(func)
+      let lowered = @ir.hot_lower_func_unverified(func)
       perf_stop_timer_opt(options.perf, "lower", lower_start_us)
       Ok(lowered)
     }
-    Err(err) => Err(err)
   }
 }
 

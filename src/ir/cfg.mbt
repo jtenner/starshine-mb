@@ -774,10 +774,23 @@ pub fn cfg_block_for_region_root(
 
 ///|
 pub fn cfg_successors(cfg : HotCfg, block_id : BlockId) -> Array[CfgEdge] {
-  cfg.blocks[block_id].succs.copy()
+  cfg_successor_edges(cfg, block_id).copy()
 }
 
 ///|
 pub fn cfg_predecessors(cfg : HotCfg, block_id : BlockId) -> Array[CfgEdge] {
-  cfg.blocks[block_id].preds.copy()
+  cfg_predecessor_edges(cfg, block_id).copy()
+}
+
+///|
+pub fn cfg_successor_edges(cfg : HotCfg, block_id : BlockId) -> Array[CfgEdge] {
+  cfg.blocks[block_id].succs
+}
+
+///|
+pub fn cfg_predecessor_edges(
+  cfg : HotCfg,
+  block_id : BlockId,
+) -> Array[CfgEdge] {
+  cfg.blocks[block_id].preds
 }

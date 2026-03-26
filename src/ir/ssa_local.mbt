@@ -138,7 +138,7 @@ fn ssa_local_record_successor_phi_inputs(
   block_id : BlockId,
   local_stacks : Array[Array[SsaValueId]],
 ) -> Unit {
-  for succ in cfg_successors(cfg, block_id) {
+  for succ in cfg_successor_edges(cfg, block_id) {
     if succ.kind == CfgEdgeKind::ExceptionalEdge {
       continue
     }
@@ -189,7 +189,7 @@ fn ssa_local_normal_predecessors(
   block_id : BlockId,
 ) -> Array[BlockId] {
   let preds : Array[BlockId] = []
-  for pred in cfg_predecessors(cfg, block_id) {
+  for pred in cfg_predecessor_edges(cfg, block_id) {
     if pred.kind == CfgEdgeKind::ExceptionalEdge {
       continue
     }

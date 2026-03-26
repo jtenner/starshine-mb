@@ -24,7 +24,7 @@ fn dom_normal_preds(
   block_id : BlockId,
 ) -> Array[BlockId] {
   let preds : Array[BlockId] = []
-  for edge in cfg_predecessors(cfg, block_id) {
+  for edge in cfg_predecessor_edges(cfg, block_id) {
     if edge.kind == CfgEdgeKind::ExceptionalEdge ||
       !dom_has_reachable(reachable, edge.block) {
       continue
@@ -207,9 +207,13 @@ pub fn dom_build(cfg : HotCfg) -> HotDominators {
     changed = false
     for idx = 1; idx < reachable_rpo.length(); idx = idx + 1 {
       let block_id = reachable_rpo[idx]
-      let preds = dom_normal_preds(cfg, reachable, block_id)
       let mut new_idom = -1
-      for pred in preds {
+      for edge in cfg_predecessor_edges(cfg, block_id) {
+        if edge.kind == CfgEdgeKind::ExceptionalEdge ||
+          !dom_has_reachable(reachable, edge.block) {
+          continue
+        }
+        let pred = edge.block
         if idoms[pred] < 0 {
           continue
         }

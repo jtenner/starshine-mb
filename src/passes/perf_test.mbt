@@ -78,7 +78,11 @@ test "run hot pipeline emits perf timing and checkpoint lines while dumps stay o
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
-  let options = HotPipelineOptions::new(trace=Some(trace), perf=Some(perf))
+  let options = HotPipelineOptions::new(
+    verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+    trace=Some(trace),
+    perf=Some(perf),
+  )
 
   match
     pass_test_run_pipeline(
@@ -101,7 +105,54 @@ test "run hot pipeline emits perf timing and checkpoint lines while dumps stay o
 }
 
 ///|
+test "run hot pipeline omits hot verify checkpoints under final-module-only policy" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (result i32) nop i32.const 9))",
+      ["vacuum"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected final-module-only perf pipeline success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_false(text.contains("perf:checkpoint name=verify after lift"))
+  assert_false(text.contains("perf:timer name=verify:after-lift"))
+  assert_false(text.contains("perf:checkpoint name=verify before lower"))
+  assert_false(text.contains("perf:timer name=verify:before-lower"))
+  assert_true(text.contains("perf:timer name=validate:final-module"))
+}
+
+///|
 test "run hot pipeline skips lower when a hot pass leaves the function unchanged" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 9))",
+      ["vacuum"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected unchanged hot pipeline success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("perf:timer name=lift"))
+  assert_true(text.contains("perf:timer name=pass:vacuum"))
+  assert_false(text.contains("perf:timer name=lower"))
+}
+
+///|
+test "ssa-nomerge skips ssa analysis when there are no local writes" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
@@ -113,11 +164,58 @@ test "run hot pipeline skips lower when a hot pass leaves the function unchanged
       options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
     ) {
     Ok(_) => ()
-    Err(err) => fail("expected unchanged hot pipeline success, got \{err}")
+    Err(err) => fail("expected no-write ssa-nomerge success, got \{err}")
   }
 
   let text = perf_test_join_lines(lines)
-  assert_true(text.contains("perf:timer name=lift"))
-  assert_true(text.contains("perf:timer name=pass:ssa-nomerge"))
-  assert_false(text.contains("perf:timer name=lower"))
+  assert_false(text.contains("perf:timer name=analysis:ssa"))
+}
+
+///|
+test "ssa-nomerge skips raw lift when the original function has no local writes" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 9))",
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected raw-skip ssa-nomerge success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("pass[ssa-nomerge]:skip-raw"))
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:ssa-nomerge"))
+}
+
+///|
+test "ssa-nomerge rewrites straight-line local traffic without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32) i32.const 5 local.set 0 local.get 0))",
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected straight-line raw ssa-nomerge success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[ssa-nomerge]:skip-raw reason=straight-line-local-writes",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=analysis:ssa"))
 }

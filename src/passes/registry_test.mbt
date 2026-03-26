@@ -62,7 +62,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   let locals = simplify_locals_descriptor()
 
   assert_eq(ssa.name, "ssa-nomerge")
-  assert_true(@ir.hot_pass_requires(ssa).contains(@ir.HotAnalysis::ssa()))
+  assert_eq(@ir.hot_pass_requires(ssa), [])
   assert_eq(dce.name, "dead-code-elimination")
   assert_true(@ir.hot_pass_requires(dce).contains(@ir.HotAnalysis::use_def()))
   assert_eq(opt.name, "optimize-instructions")
