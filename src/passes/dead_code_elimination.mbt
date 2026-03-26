@@ -31,6 +31,7 @@ priv struct DeadCodeEliminationFallthroughCache {
 ///|
 priv struct DeadCodeEliminationBranchUserCache {
   mut has_any_branch : Bool?
+  mut has_incoming_by_label : Array[Bool]?
   mut by_label : Array[Array[Int]]?
 }
 
@@ -47,7 +48,7 @@ fn DeadCodeEliminationNodeUseCache::new() -> DeadCodeEliminationNodeUseCache {
 
 ///|
 fn DeadCodeEliminationBranchUserCache::new() -> DeadCodeEliminationBranchUserCache {
-  { has_any_branch: None, by_label: None }
+  { has_any_branch: None, has_incoming_by_label: None, by_label: None }
 }
 
 ///|
@@ -381,6 +382,17 @@ fn dead_code_elimination_record_branch_target(
 }
 
 ///|
+fn dead_code_elimination_record_incoming_branch_target(
+  has_incoming_by_label : Array[Bool],
+  target : Int,
+) -> Unit {
+  if target < 0 || target >= has_incoming_by_label.length() {
+    return
+  }
+  has_incoming_by_label[target] = true
+}
+
+///|
 fn dead_code_elimination_build_branch_users_by_label(
   func : @ir.HotFunc,
 ) -> Array[Array[Int]] {
@@ -413,6 +425,36 @@ fn dead_code_elimination_build_branch_users_by_label(
 }
 
 ///|
+fn dead_code_elimination_build_has_incoming_branches_by_label(
+  func : @ir.HotFunc,
+) -> Array[Bool] {
+  let has_incoming_by_label : Array[Bool] = []
+  for _ in 0..<func.labels.length() {
+    has_incoming_by_label.push(false)
+  }
+  for branch_id = 0
+      branch_id < @ir.hot_node_count(func)
+      branch_id = branch_id + 1 {
+    if !@ir.hot_node_is_live(func, branch_id) {
+      continue
+    }
+    match @ir.hot_branch_target(func, branch_id) {
+      Some(target) =>
+        dead_code_elimination_record_incoming_branch_target(
+          has_incoming_by_label, target,
+        )
+      _ => ()
+    }
+    for target in @ir.hot_branch_table_targets_for_node(func, branch_id) {
+      dead_code_elimination_record_incoming_branch_target(
+        has_incoming_by_label, target,
+      )
+    }
+  }
+  has_incoming_by_label
+}
+
+///|
 fn dead_code_elimination_build_empty_branch_users_by_label(
   func : @ir.HotFunc,
 ) -> Array[Array[Int]] {
@@ -421,6 +463,17 @@ fn dead_code_elimination_build_empty_branch_users_by_label(
     branch_users_by_label.push([])
   }
   branch_users_by_label
+}
+
+///|
+fn dead_code_elimination_build_empty_incoming_branches_by_label(
+  func : @ir.HotFunc,
+) -> Array[Bool] {
+  let has_incoming_by_label : Array[Bool] = []
+  for _ in 0..<func.labels.length() {
+    has_incoming_by_label.push(false)
+  }
+  has_incoming_by_label
 }
 
 ///|
@@ -441,6 +494,25 @@ fn dead_code_elimination_require_has_any_branch(
       }
       cache.has_any_branch = Some(has_any_branch)
       has_any_branch
+    }
+  }
+}
+
+///|
+fn dead_code_elimination_require_has_incoming_branches_by_label(
+  cache : DeadCodeEliminationBranchUserCache,
+  func : @ir.HotFunc,
+) -> Array[Bool] {
+  match cache.has_incoming_by_label {
+    Some(existing) => existing
+    None => {
+      let built = if dead_code_elimination_require_has_any_branch(cache, func) {
+        dead_code_elimination_build_has_incoming_branches_by_label(func)
+      } else {
+        dead_code_elimination_build_empty_incoming_branches_by_label(func)
+      }
+      cache.has_incoming_by_label = Some(built)
+      built
     }
   }
 }
@@ -476,8 +548,8 @@ fn dead_code_elimination_can_voidify_control(
   }
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block =>
-      dead_code_elimination_has_incoming_branches(
-        dead_code_elimination_require_branch_users_by_label(
+      dead_code_elimination_label_has_incoming_branch(
+        dead_code_elimination_require_has_incoming_branches_by_label(
           branch_user_cache, func,
         ),
         @ir.hot_control_node_label(func, node_id),
@@ -497,7 +569,7 @@ fn dead_code_elimination_can_voidify_control(
     @ir.HotOp::If | @ir.HotOp::Try | @ir.HotOp::TryTable =>
       !dead_code_elimination_has_incoming_internal_region_branches(
         func,
-        dead_code_elimination_require_branch_users_by_label(
+        dead_code_elimination_require_has_incoming_branches_by_label(
           branch_user_cache, func,
         ),
         node_id,
@@ -507,26 +579,26 @@ fn dead_code_elimination_can_voidify_control(
 }
 
 ///|
-fn dead_code_elimination_has_incoming_branches(
-  branch_users_by_label : Array[Array[Int]],
+fn dead_code_elimination_label_has_incoming_branch(
+  has_incoming_by_label : Array[Bool],
   label_id : Int,
 ) -> Bool {
   label_id >= 0 &&
-  label_id < branch_users_by_label.length() &&
-  !branch_users_by_label[label_id].is_empty()
+  label_id < has_incoming_by_label.length() &&
+  has_incoming_by_label[label_id]
 }
 
 ///|
 fn dead_code_elimination_region_has_incoming_branches(
   func : @ir.HotFunc,
-  branch_users_by_label : Array[Array[Int]],
+  has_incoming_by_label : Array[Bool],
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
   if region_ref == @ir.HotRegionRef::root() {
     return false
   }
-  dead_code_elimination_has_incoming_branches(
-    branch_users_by_label,
+  dead_code_elimination_label_has_incoming_branch(
+    has_incoming_by_label,
     @ir.hot_control_node_label(func, region_ref.holder),
   )
 }
@@ -534,20 +606,20 @@ fn dead_code_elimination_region_has_incoming_branches(
 ///|
 fn dead_code_elimination_has_incoming_internal_region_branches(
   func : @ir.HotFunc,
-  branch_users_by_label : Array[Array[Int]],
+  has_incoming_by_label : Array[Bool],
   node_id : Int,
 ) -> Bool {
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::If => {
       let then_has_branches = dead_code_elimination_region_has_incoming_branches(
         func,
-        branch_users_by_label,
+        has_incoming_by_label,
         @ir.hot_region_then_ref(func, node_id),
       )
       let else_has_branches = match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           dead_code_elimination_region_has_incoming_branches(
-            func, branch_users_by_label, else_region,
+            func, has_incoming_by_label, else_region,
           )
         None => false
       }
@@ -556,13 +628,13 @@ fn dead_code_elimination_has_incoming_internal_region_branches(
     @ir.HotOp::Try => {
       let body_has_branches = dead_code_elimination_region_has_incoming_branches(
         func,
-        branch_users_by_label,
+        has_incoming_by_label,
         @ir.hot_region_body_ref(func, node_id),
       )
       let catch_has_branches = match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_region) =>
           dead_code_elimination_region_has_incoming_branches(
-            func, branch_users_by_label, catch_region,
+            func, has_incoming_by_label, catch_region,
           )
         None => false
       }
@@ -571,12 +643,12 @@ fn dead_code_elimination_has_incoming_internal_region_branches(
     @ir.HotOp::TryTable =>
       dead_code_elimination_region_has_incoming_branches(
         func,
-        branch_users_by_label,
+        has_incoming_by_label,
         @ir.hot_region_body_ref(func, node_id),
       ) ||
       dead_code_elimination_region_has_incoming_branches(
         func,
-        branch_users_by_label,
+        has_incoming_by_label,
         @ir.hot_region_catch_list_ref(func, node_id),
       )
     _ => false
@@ -669,8 +741,8 @@ fn dead_code_elimination_node_may_fallthrough_uncached(
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Block =>
-      dead_code_elimination_has_incoming_branches(
-        dead_code_elimination_require_branch_users_by_label(
+      dead_code_elimination_label_has_incoming_branch(
+        dead_code_elimination_require_has_incoming_branches_by_label(
           branch_user_cache, func,
         ),
         @ir.hot_control_node_label(func, node_id),
@@ -689,11 +761,11 @@ fn dead_code_elimination_node_may_fallthrough_uncached(
         @ir.hot_region_body_ref(func, node_id),
       )
     @ir.HotOp::If => {
-      let branch_users_by_label = dead_code_elimination_require_branch_users_by_label(
+      let has_incoming_by_label = dead_code_elimination_require_has_incoming_branches_by_label(
         branch_user_cache, func,
       )
-      if dead_code_elimination_has_incoming_branches(
-          branch_users_by_label,
+      if dead_code_elimination_label_has_incoming_branch(
+          has_incoming_by_label,
           @ir.hot_control_node_label(func, node_id),
         ) {
         return true
@@ -715,11 +787,11 @@ fn dead_code_elimination_node_may_fallthrough_uncached(
       }
     }
     @ir.HotOp::Try => {
-      let branch_users_by_label = dead_code_elimination_require_branch_users_by_label(
+      let has_incoming_by_label = dead_code_elimination_require_has_incoming_branches_by_label(
         branch_user_cache, func,
       )
-      if dead_code_elimination_has_incoming_branches(
-          branch_users_by_label,
+      if dead_code_elimination_label_has_incoming_branch(
+          has_incoming_by_label,
           @ir.hot_control_node_label(func, node_id),
         ) {
         return true
@@ -741,11 +813,11 @@ fn dead_code_elimination_node_may_fallthrough_uncached(
       }
     }
     @ir.HotOp::TryTable => {
-      let branch_users_by_label = dead_code_elimination_require_branch_users_by_label(
+      let has_incoming_by_label = dead_code_elimination_require_has_incoming_branches_by_label(
         branch_user_cache, func,
       )
-      dead_code_elimination_has_incoming_branches(
-        branch_users_by_label,
+      dead_code_elimination_label_has_incoming_branch(
+        has_incoming_by_label,
         @ir.hot_control_node_label(func, node_id),
       ) ||
       dead_code_elimination_region_may_fallthrough(
@@ -896,13 +968,18 @@ fn dead_code_elimination_voidify_control(
     _ => false
   }
   let label_id = @ir.hot_control_node_label(func, node_id)
-  let branch_users_by_label = dead_code_elimination_require_branch_users_by_label(
+  let has_incoming_by_label = dead_code_elimination_require_has_incoming_branches_by_label(
     branch_user_cache, func,
   )
   if !is_loop &&
-    dead_code_elimination_has_incoming_branches(branch_users_by_label, label_id) {
+    dead_code_elimination_label_has_incoming_branch(
+      has_incoming_by_label, label_id,
+    ) {
     return false
   }
+  let branch_users_by_label = dead_code_elimination_require_branch_users_by_label(
+    branch_user_cache, func,
+  )
   let detached : Array[Int] = []
   let branch_rewrites : Array[@ir.HotChildSpanRewrite] = []
   if !is_loop {
