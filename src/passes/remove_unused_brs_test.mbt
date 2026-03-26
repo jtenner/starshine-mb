@@ -334,6 +334,26 @@ test "remove-unused-brs voidifies nested tail return-wrapped if ladders" {
 }
 
 ///|
+test "remove-unused-brs rewrites tail return ifs with simple payload arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) (return (if (result i32) (local.get 0) (then (i32.const 1)) (else (local.set 1 (i32.const 9)) (i32.const 2))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs tail return simple-arm success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("(if (I32)"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites branch payload ifs with branching else arms" {
   let optimized = match
     pass_test_run_pipeline(
@@ -369,6 +389,23 @@ test "remove-unused-brs rewrites multi-value branch payload ifs" {
   assert_true(pretty.contains("br_if"), msg=pretty)
   assert_false(pretty.contains("(if (I32, I64)"), msg=pretty)
   assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites nested simple payload ifs under branch payload arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (block $out (result i32) (br $out (if (result i32) (local.get 0) (then (i32.const 1)) (else (local.set 2 (i32.const 9)) (if (result i32) (local.get 1) (then (i32.const 2)) (else (i32.const 3)))))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested branch payload rewrite success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if (I32) (local.get (Local 1))"), msg=pretty)
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
 }
 
 ///|
