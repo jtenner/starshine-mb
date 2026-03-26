@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Optimize: canonicalize commutative rhs `local.get` node kinds in `optimize-instructions`
+
+- **`optimize-instructions` rhs-`local.get` parity follow-up** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-optimize-instructions/CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions_test.mbt) so the commutative canonicalization helper now mirrors Binaryen’s extra node-kind sort when a plain `local.get` starts on the rhs, including `shl/load/and/local.tee + local.get` mismatch families without changing the earlier lhs-`local.get` commute rules. Validation and artifact parity follow-up are in progress.
+
 ## 2026-03-26 Optimize: fold exact const adds in `optimize-instructions`
 
 - **`optimize-instructions` exact const-add parity follow-up** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-optimize-instructions/CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions_test.mbt) so the pass now folds exact `i32.add` / `i64.add` const pairs into single const nodes before surrounding peepholes run. `moon info`, `moon fmt`, and `moon test` are green. On `tests/node/dist/starshine-debug-wasi.wasm --optimize-instructions`, canonical parity is still open, but the earlier `249384 + 15` artifact mismatch under `i32.and` now matches Binaryen exactly and current Starshine output shrinks again from `8,450,962` bytes to `8,450,959` bytes.

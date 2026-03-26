@@ -261,6 +261,39 @@ test "optimize-instructions folds exact i32 const adds under and" {
 }
 
 ///|
+test "optimize-instructions keeps tlsf-style local plus shifted-local ordering canonical" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (memory 1) (func (param i32 i32) (result i32) (local i32 i32 i32 i32) local.get 1 i32.load align=1 i32.const -4 i32.and local.tee 2 i32.const 256 i32.lt_u if (result i32) local.get 2 i32.const 4 i32.shr_u local.set 3 i32.const 0 else i32.const 31 local.get 2 i32.const 1073741820 local.get 2 i32.const 1073741820 i32.ge_u select local.tee 3 i32.clz i32.sub local.set 2 local.get 3 local.get 2 i32.const 4 i32.sub i32.shr_u i32.const 16 i32.xor local.set 3 local.get 2 i32.const 7 i32.sub end local.set 5 local.get 1 local.get 0 local.get 5 i32.const 4 i32.shl local.get 3 i32.add i32.const 2 i32.shl i32.add local.tee 4 i32.load offset=96 align=1 i32.eq))",
+  )
+  let root = @ir.hot_root_get(func, func.roots.length() - 1)
+  let first = @ir.hot_child_get(func, root, 0)
+  let second = @ir.hot_child_get(func, root, 1)
+  let load = match @ir.hot_node_get(func, first).op {
+    @ir.HotOp::Load => first
+    _ =>
+      match @ir.hot_node_get(func, second).op {
+        @ir.HotOp::Load => second
+        _ => fail("expected compare root to keep one load child")
+      }
+  }
+  let load_addr = @ir.hot_child_get(func, load, 0)
+  let top_add = @ir.hot_child_get(func, load_addr, 0)
+  let scaled = @ir.hot_child_get(func, top_add, 0)
+  let inner_add = @ir.hot_child_get(func, scaled, 0)
+  let inner_lhs = @ir.hot_child_get(func, inner_add, 0)
+  let inner_rhs = @ir.hot_child_get(func, inner_add, 1)
+  match @ir.hot_node_get(func, inner_lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected tlsf-style plain local term on the lhs")
+  }
+  assert_eq(@ir.hot_node_get(func, inner_lhs).imm0, 3)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, inner_rhs),
+    Some(@lib.Instruction::i32_shl()),
+  )
+}
+
+///|
 test "optimize-instructions canonicalizes commutative local gets after independent local state" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) (local i32) local.get 0 local.get 1 local.tee 2 i32.const 1 i32.shl i32.add))",
@@ -283,6 +316,45 @@ test "optimize-instructions canonicalizes commutative local gets after independe
       fail("expected independent local.get to move to the canonical rhs slot")
   }
   assert_eq(rhs_node.imm0, 0)
+}
+
+///|
+test "optimize-instructions canonicalizes commutative rhs local gets by node kind" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) local.get 1 i32.const 1 i32.shl local.get 0 i32.add))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ =>
+      fail("expected rhs local.get to move into the lhs after node-kind sort")
+  }
+  assert_eq(@ir.hot_node_get(func, lhs).imm0, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, rhs),
+    Some(@lib.Instruction::i32_shl()),
+  )
+}
+
+///|
+test "optimize-instructions canonicalizes commutative rhs local gets ahead of local.tee" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) (local i32 i32) local.get 0 local.tee 1 local.get 2 i32.eq))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected rhs local.get to move ahead of local.tee")
+  }
+  assert_eq(@ir.hot_node_get(func, lhs).imm0, 2)
+  match @ir.hot_node_get(func, rhs).op {
+    @ir.HotOp::LocalTee => ()
+    _ => fail("expected local.tee subtree to move behind the local.get")
+  }
 }
 
 ///|

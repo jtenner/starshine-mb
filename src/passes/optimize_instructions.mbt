@@ -327,6 +327,59 @@ fn optimize_instructions_can_cross_local_get(
 }
 
 ///|
+fn optimize_instructions_commutative_node_kind_rank(op : @ir.HotOp) -> Int? {
+  match op {
+    @ir.HotOp::LocalGet => Some(0)
+    @ir.HotOp::LocalTee => Some(1)
+    @ir.HotOp::GlobalGet => Some(2)
+    @ir.HotOp::Load => Some(3)
+    @ir.HotOp::Const | @ir.HotOp::RefNull | @ir.HotOp::RefFunc => Some(4)
+    @ir.HotOp::Unary => Some(5)
+    @ir.HotOp::Binary => Some(6)
+    @ir.HotOp::Compare => Some(7)
+    @ir.HotOp::Convert => Some(8)
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_should_swap_commutative_node_kinds(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, lhs_id) ||
+    !optimize_instructions_node_is_live(func, dead, rhs_id) {
+    return false
+  }
+  let lhs = if lhs_id < func.nodes.length() {
+    func.nodes[lhs_id]
+  } else {
+    @ir.hot_node_get(func, lhs_id)
+  }
+  let rhs = if rhs_id < func.nodes.length() {
+    func.nodes[rhs_id]
+  } else {
+    @ir.hot_node_get(func, rhs_id)
+  }
+  match
+    (
+      optimize_instructions_commutative_node_kind_rank(lhs.op),
+      optimize_instructions_commutative_node_kind_rank(rhs.op),
+    ) {
+    (Some(lhs_rank), Some(rhs_rank)) => {
+      let local_get_tie_break = match (lhs.op, rhs.op) {
+        (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => lhs.imm0 > rhs.imm0
+        _ => false
+      }
+      lhs_rank > rhs_rank || (lhs_rank == rhs_rank && local_get_tie_break)
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_canonicalize_commutative(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -351,7 +404,8 @@ fn optimize_instructions_try_canonicalize_commutative(
     )
     return true
   }
-  match optimize_instructions_local_get_id(func, dead, lhs_id) {
+  let lhs_canonicalized = match
+    optimize_instructions_local_get_id(func, dead, lhs_id) {
     Some(local_id) => {
       if optimize_instructions_is_constlike(func, dead, rhs_id) {
         return false
@@ -361,6 +415,40 @@ fn optimize_instructions_try_canonicalize_commutative(
         func,
         dead,
         rhs_id,
+        local_id,
+        scratch.cross_seen_stamps,
+        seen_stamp,
+      )
+      if !can_cross {
+        return false
+      }
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        instr,
+        [rhs_id, lhs_id],
+      )
+      true
+    }
+    None => false
+  }
+  if lhs_canonicalized {
+    return true
+  }
+  match optimize_instructions_local_get_id(func, dead, rhs_id) {
+    Some(local_id) => {
+      if optimize_instructions_is_constlike(func, dead, lhs_id) ||
+        !optimize_instructions_should_swap_commutative_node_kinds(
+          func, dead, lhs_id, rhs_id,
+        ) {
+        return false
+      }
+      let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
+      let can_cross = optimize_instructions_can_cross_local_get(
+        func,
+        dead,
+        lhs_id,
         local_id,
         scratch.cross_seen_stamps,
         seen_stamp,
