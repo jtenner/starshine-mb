@@ -2902,7 +2902,7 @@ fn output_path_for_default_target(
 ///|
 /// CLI entrypoint used by the Node runtime bridge and tests.
 /// It builds a merged CLI/env/config view, constructs a scheduled pass list, then
-/// routes requested pass names through the current compatibility execution layer.
+/// routes requested pass names through the active hot pass pipeline.
 pub fn run_cmd_with_adapter(
   args : Array[String],
   io : CmdIO,

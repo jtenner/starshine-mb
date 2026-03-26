@@ -71,7 +71,6 @@ test "without_name_sec clears the structured name section" {
   assert_true(mod.name_sec is Some(_))
   assert_eq(mod.without_name_sec().name_sec, None)
 }
-
 ///|
 test "with_name_sec and without_name_sec clear cached raw name payload" {
   let mod = Module::new()

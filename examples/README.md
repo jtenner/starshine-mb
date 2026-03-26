@@ -4,7 +4,7 @@ Examples are small, runnable CLI inputs for common workflows.
 
 ## Layout
 - `modules/simple.wat`: tiny smoke-test module.
-- `modules/feature_mix.wat`: multi-feature module for CLI and compatibility-pipeline exercises.
+- `modules/feature_mix.wat`: multi-feature module for CLI and IR2 optimizer pipeline exercises.
 - `modules/table_dispatch.wat`: table + `call_indirect` flow.
 - `modules/simd_lane_mix.wat`: SIMD lane expressions.
 - `modules/memory64_data.wat`: memory64 + data offset cases.
@@ -31,6 +31,6 @@ starshine --shrink --out-dir out examples/modules/table_dispatch.wat
 ## Notes
 - Build/install CLI first if `starshine` is not found.
 - Config/env/CLI precedence is `config -> env -> cli`; in practice, CLI overrides all, env overrides config, and config provides defaults.
-- `--optimize` and `--shrink` still go through the current compatibility preset path while IR2 passes are being rebuilt.
-- Explicit legacy pass-only flags are still accepted by the CLI for compatibility and reporting, but they are not evidence of distinct rebuilt optimizer implementations yet.
+- `--optimize` and `--shrink` run through the active hot preset pipeline.
+- Legacy pass names are still surfaced in registry diagnostics, but only active hot/module/preset names are accepted for actual execution.
 - Prefer small-module checks before running long command sequences on large inputs.

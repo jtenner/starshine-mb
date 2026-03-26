@@ -27,9 +27,9 @@ Or change into `node/` first and run `node examples/<file>.mjs`.
 - `17-lib-module-from-scratch-control-flow.mjs`: structured control-flow construction example.
 - `18-lib-module-function-annotations.mjs`: direct Binaryen-style function annotation construction from the `lib` API.
 
-## Compatibility Note
-- Examples that pass optimizer flags exercise the current command-layer compatibility surface.
-- `--optimize` and `--shrink` still route through the compatibility preset path, and explicit legacy pass names remain compatibility/reporting inputs rather than rebuilt hot-pass implementations.
+## Optimizer Path Note
+- Examples that pass optimizer flags exercise the command pipeline surface (`--optimize` and `--shrink`) and the generated pass ordering.
+- `--optimize` and `--shrink` run through the active hot preset pipeline; legacy pass names are still tracked in registry diagnostics, but they are not executable as active pass flags.
 
 ## What to Run
 - Roundtrip baseline: `01-barrel-roundtrip.mjs`
