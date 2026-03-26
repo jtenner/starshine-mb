@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Docs: sync registry documentation with active module-pass surface
+
+- **IR2 pass surface drift cleanup** by **@jtenner**. Updated [`README.md`](/home/jtenner/Projects/starshine-mb/README.md), [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](/home/jtenner/Projects/starshine-mb/docs/0063-2026-03-24-pass-port-batches-and-registry-map.md), and [`docs/0065-2026-03-24-ir2-execution-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0065-2026-03-24-ir2-execution-plan.md) so active-module passes (`memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `duplicate-function-elimination`, and `remove-unused-module-elements`) are consistently described as implemented and active in registry contracts, preset expansions, batch implementation lists, and mixed module/hot preset sequence notes.
+
 ## 2026-03-26 Docs: continue stale wording cleanup in IR and Node docs
 
 - **Compatibility-adapter cleanup** by **@jtenner**. Updated [`src/ir/README.md`](/home/jtenner/Projects/starshine-mb/src/ir/README.md) and [`node/README.md`](/home/jtenner/Projects/starshine-mb/node/README.md) to remove stale `"deleted"` and `"placeholder"` language that over-described removed adapters and shim-like verification helper wording.

@@ -9,6 +9,8 @@
 
 - Active hot passes:
   `ssa-nomerge`, `dead-code-elimination`, `vacuum`, `optimize-instructions`, `simplify-locals`.
+- Active module passes:
+  `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `duplicate-function-elimination`, `remove-unused-module-elements`.
 - Active presets:
   `optimize`, `shrink`.
 - Boundary-only names stay known to the registry for mapping and diagnostics, but remain rejected by the hot pipeline and hidden from help output.
@@ -18,10 +20,16 @@
 
 - Current hot passes:
   `ssa-nomerge`, `dead-code-elimination`, `vacuum`, `optimize-instructions`, `simplify-locals`.
-- Initial placeholder modules:
+- Current first-batch implementations:
+  [`src/passes/global_refining.mbt`](../src/passes/global_refining.mbt),
+  [`src/passes/global_struct_inference.mbt`](../src/passes/global_struct_inference.mbt),
+  [`src/passes/memory_packing.mbt`](../src/passes/memory_packing.mbt),
   [`src/passes/ssa_nomerge.mbt`](../src/passes/ssa_nomerge.mbt),
   [`src/passes/dead_code_elimination.mbt`](../src/passes/dead_code_elimination.mbt),
+  [`src/passes/once_reduction.mbt`](../src/passes/once_reduction.mbt),
+  [`src/passes/duplicate_function_elimination.mbt`](../src/passes/duplicate_function_elimination.mbt),
   [`src/passes/optimize_instructions.mbt`](../src/passes/optimize_instructions.mbt),
+  [`src/passes/remove_unused_module_elements.mbt`](../src/passes/remove_unused_module_elements.mbt),
   [`src/passes/simplify_locals.mbt`](../src/passes/simplify_locals.mbt).
 - Removed until hot implementation lands:
   `avoid-reinterprets`, `coalesce-locals`, `code-folding`, `code-pushing`, `const-hoisting`, `dataflow-optimization`, `local-cse`, `merge-locals`, `optimize-added-constants`, `optimize-added-constants-propagate`, `precompute`, `precompute-propagate`, `simplify-locals-no-tee`, `simplify-locals-no-structure`, `simplify-locals-no-tee-no-structure`, `simplify-locals-no-nesting`, `untee`, `de-nan`.
@@ -39,17 +47,17 @@
 ## Boundary-Only Names
 
 - Type, global, and signature shaping:
-  `abstract-type-refining`, `constant-field-propagation`, `constant-field-null-test-folding`, `dead-argument-elimination`, `dead-argument-elimination-optimizing`, `signature-pruning`, `signature-refining`, `global-refining`, `global-struct-inference`, `global-struct-inference-desc-cast`, `global-type-optimization`, `simplify-globals`, `simplify-globals-optimizing`, `global-effects`, `propagate-globals-globally`, `type-refining`, `type-generalizing`, `type-finalizing`, `type-un-finalizing`, `unsubtyping`.
+  `abstract-type-refining`, `constant-field-propagation`, `constant-field-null-test-folding`, `dead-argument-elimination`, `dead-argument-elimination-optimizing`, `signature-pruning`, `signature-refining`, `global-struct-inference-desc-cast`, `global-type-optimization`, `simplify-globals`, `simplify-globals-optimizing`, `global-effects`, `propagate-globals-globally`, `type-refining`, `type-generalizing`, `type-finalizing`, `type-un-finalizing`, `unsubtyping`.
 - Whole-module or layout transforms:
-  `alignment-lowering`, `duplicate-import-elimination`, `directize`, `heap2local`, `heap-store-optimization`, `inlining`, `inlining-optimizing`, `inline-main`, `merge-similar-functions`, `once-reduction`, `minimize-rec-groups`, `type-merging`, `monomorphize`, `monomorphize-always`, `memory-packing`, `gufa`, `gufa-optimizing`, `gufa-cast-all`, `i64-to-i32-lowering`, `duplicate-function-elimination`.
+  `alignment-lowering`, `duplicate-import-elimination`, `directize`, `heap2local`, `heap-store-optimization`, `inlining`, `inlining-optimizing`, `inline-main`, `merge-similar-functions`, `minimize-rec-groups`, `type-merging`, `monomorphize`, `monomorphize-always`, `gufa`, `gufa-optimizing`, `gufa-cast-all`, `i64-to-i32-lowering`.
 - Boundary cleanup and ordering:
-  `remove-unused-names`, `reorder-locals`, `reorder-types`, `reorder-globals`, `reorder-globals-always`, `reorder-functions`, `reorder-functions-by-name`, `remove-unused-types`, `remove-unused`, `remove-unused-module-elements`, `remove-unused-non-function-elements`.
+  `remove-unused-names`, `reorder-locals`, `reorder-types`, `reorder-globals`, `reorder-globals-always`, `reorder-functions`, `reorder-functions-by-name`, `remove-unused-types`, `remove-unused`, `remove-unused-non-function-elements`.
 
 ## Preset Composition
 
-- `optimize` expands to `["ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals"]`.
-- `shrink` expands to `["ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals"]`.
-- Future preset growth must only add implemented hot passes or explicitly documented boundary-only phases.
+- `optimize` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals"]`.
+- `shrink` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals"]`.
+- Future preset growth must only add implemented module or hot passes or explicitly documented boundary-only phases.
 
 ## Correctness Rules
 
