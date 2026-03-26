@@ -30,6 +30,7 @@ priv struct DeadCodeEliminationFallthroughCache {
 
 ///|
 priv struct DeadCodeEliminationBranchUserCache {
+  mut has_any_branch : Bool?
   mut by_label : Array[Array[Int]]?
 }
 
@@ -46,7 +47,7 @@ fn DeadCodeEliminationNodeUseCache::new() -> DeadCodeEliminationNodeUseCache {
 
 ///|
 fn DeadCodeEliminationBranchUserCache::new() -> DeadCodeEliminationBranchUserCache {
-  { by_label: None }
+  { has_any_branch: None, by_label: None }
 }
 
 ///|
@@ -412,6 +413,39 @@ fn dead_code_elimination_build_branch_users_by_label(
 }
 
 ///|
+fn dead_code_elimination_build_empty_branch_users_by_label(
+  func : @ir.HotFunc,
+) -> Array[Array[Int]] {
+  let branch_users_by_label : Array[Array[Int]] = []
+  for _ in 0..<func.labels.length() {
+    branch_users_by_label.push([])
+  }
+  branch_users_by_label
+}
+
+///|
+fn dead_code_elimination_require_has_any_branch(
+  cache : DeadCodeEliminationBranchUserCache,
+  func : @ir.HotFunc,
+) -> Bool {
+  match cache.has_any_branch {
+    Some(existing) => existing
+    None => {
+      let mut has_any_branch = false
+      for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+        if @ir.hot_node_is_live(func, node_id) &&
+          @ir.hot_node_has_flag(func, node_id, @ir.HOT_FLAG_BRANCH) {
+          has_any_branch = true
+          break
+        }
+      }
+      cache.has_any_branch = Some(has_any_branch)
+      has_any_branch
+    }
+  }
+}
+
+///|
 fn dead_code_elimination_require_branch_users_by_label(
   cache : DeadCodeEliminationBranchUserCache,
   func : @ir.HotFunc,
@@ -419,7 +453,11 @@ fn dead_code_elimination_require_branch_users_by_label(
   match cache.by_label {
     Some(existing) => existing
     None => {
-      let built = dead_code_elimination_build_branch_users_by_label(func)
+      let built = if dead_code_elimination_require_has_any_branch(cache, func) {
+        dead_code_elimination_build_branch_users_by_label(func)
+      } else {
+        dead_code_elimination_build_empty_branch_users_by_label(func)
+      }
       cache.by_label = Some(built)
       built
     }
