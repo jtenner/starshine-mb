@@ -929,15 +929,24 @@ fn remove_unused_brs_match_value_if_to_select(
   let else_root = @ir.hot_region_get(func, else_ref, 0)
   let condition = @ir.hot_child_get(func, node_id, 0)
   if !remove_unused_brs_node_is_reorder_safe(
-      ctx, func, condition, reorder_cache,
-    ) {
-    return None
-  }
-  if !remove_unused_brs_node_is_reorder_safe(
       ctx, func, then_root, reorder_cache,
     ) ||
     !remove_unused_brs_node_is_reorder_safe(ctx, func, else_root, reorder_cache) {
     return None
+  }
+  if !remove_unused_brs_node_is_reorder_safe(
+      ctx, func, condition, reorder_cache,
+    ) {
+    let then_node = @ir.hot_node_get(func, then_root)
+    let else_node = @ir.hot_node_get(func, else_root)
+    match then_node.op {
+      @ir.HotOp::Const => ()
+      _ => return None
+    }
+    match else_node.op {
+      @ir.HotOp::Const => ()
+      _ => return None
+    }
   }
   Some({
     replacement: remove_unused_brs_build_select(

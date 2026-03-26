@@ -134,6 +134,25 @@ test "remove-unused-brs rewrites pure const ifs into select" {
 }
 
 ///|
+test "remove-unused-brs rewrites const-arm ifs into select even with local.tee conditions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) (if (result i32) (i32.eq (local.tee 1 (local.get 0)) (i32.const 1)) (then (i32.const 1)) (else (i32.const 0)))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs local.tee const-select success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites pure local.get ifs into select" {
   let optimized = match
     pass_test_run_pipeline(
