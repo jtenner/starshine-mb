@@ -627,6 +627,28 @@ fn hso_root_can_swap_before_local_struct_new(
 }
 
 ///|
+fn hso_swapped_readonly_roots_respect_ref_order(
+  cache : HsoPredicateCache,
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  swapped_roots : Array[Int],
+  ref_id : Int,
+) -> Bool {
+  for root_id in swapped_roots {
+    if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+      continue
+    }
+    let mask = hso_reorder_effect_mask(cache, func, node_masks, root_id)
+    if !hso_mask_is_pure(mask) &&
+      hso_subtree_is_trapless_readonly(cache, func, node_masks, root_id) &&
+      ref_id < root_id {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn hso_build_const_f32(func : @ir.HotFunc) -> Int {
   @ir.hot_build_const_f32(func, @lib.F32(0.0))
 }
@@ -844,7 +866,7 @@ fn hso_sequence_result_type(
 }
 
 ///|
-fn hso_value_has_nonlocal_readonly_prefix(
+fn hso_value_has_readonly_prefix_block(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
   node_masks : Array[UInt],
@@ -863,28 +885,25 @@ fn hso_value_has_nonlocal_readonly_prefix(
   if root_count < 2 {
     return false
   }
+  let mut has_local_or_global_state = false
   for idx = 0; idx < root_count; idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, body_ref, idx)
     if !hso_subtree_is_trapless_readonly(
         cache,
         func,
         node_masks,
-        @ir.hot_region_get(func, body_ref, idx),
+        root_id,
       ) {
       return false
     }
-  }
-  let disallowed_prefix_mask = @ir.EFFECT_MASK_GLOBAL_STATE |
-    @ir.EFFECT_MASK_MEMORY_READ |
-    @ir.EFFECT_MASK_TABLE_READ
-  for idx = 0; idx < root_count - 1; idx = idx + 1 {
-    let root_id = @ir.hot_region_get(func, body_ref, idx)
-    if (hso_reorder_effect_mask(cache, func, node_masks, root_id) &
-        disallowed_prefix_mask) !=
+    let root_mask = hso_reorder_effect_mask(cache, func, node_masks, root_id)
+    if (root_mask &
+      (@ir.EFFECT_MASK_LOCAL_STATE | @ir.EFFECT_MASK_GLOBAL_STATE)) !=
       0U {
-      return true
+      has_local_or_global_state = true
     }
   }
-  false
+  has_local_or_global_state
 }
 
 ///|
@@ -991,7 +1010,7 @@ fn hso_try_fold_into_struct_new(
   let value_reorder_mask = hso_reorder_effect_mask(
     cache, func, node_masks, value_id,
   )
-  if hso_value_has_nonlocal_readonly_prefix(
+  if hso_value_has_readonly_prefix_block(
       cache,
       func,
       node_masks,
@@ -1165,7 +1184,7 @@ fn hso_struct_set_for_local(
   node_id : Int,
   local_id : Int,
   expected_type_idx : @lib.TypeIdx,
-) -> (Int, Int)? {
+) -> (Int, Int, Int)? {
   let (type_idx, field_idx, ref_id, value_id) = match
     hso_struct_set_parts(func, node_id) {
     Some(parts) => parts
@@ -1179,7 +1198,7 @@ fn hso_struct_set_for_local(
     @ir.HotOp::LocalGet => if ref_node.imm0 != local_id { return None }
     _ => return None
   }
-  Some((field_idx, value_id))
+  Some((field_idx, ref_id, value_id))
 }
 
 ///|
@@ -1335,6 +1354,7 @@ fn hso_process_region(
         match hso_local_set_struct_new(type_cache, func, module_ctx, root_id) {
           Some((local_id, struct_new_id, type_idx)) => {
             let segment_roots : Array[Int] = [root_id]
+            let swapped_prefix_roots : Array[Int] = []
             let mut segment_local_set_idx = 0
             let mut segment_has_swapped_prefix = false
             let mut next_idx = idx + 1
@@ -1346,7 +1366,17 @@ fn hso_process_region(
                   local_id,
                   type_idx,
                 ) {
-                Some((field_idx, value_id)) => {
+                Some((field_idx, ref_id, value_id)) => {
+                  if segment_has_swapped_prefix &&
+                    !hso_swapped_readonly_roots_respect_ref_order(
+                        cache,
+                        func,
+                        node_masks,
+                        swapped_prefix_roots,
+                        ref_id,
+                      ) {
+                    break
+                  }
                   if hso_try_fold_into_struct_new(
                       cache, type_cache, func, module_ctx, node_masks, struct_new_id,
                       type_idx, field_idx, value_id, local_id,
@@ -1387,6 +1417,9 @@ fn hso_process_region(
                       lifted_roots,
                       lifted_roots.length(),
                     )
+                    for lifted_root_id in lifted_roots {
+                      swapped_prefix_roots.push(lifted_root_id)
+                    }
                     segment_local_set_idx = segment_local_set_idx +
                       lifted_roots.length()
                     segment_has_swapped_prefix = true
@@ -1407,6 +1440,7 @@ fn hso_process_region(
                       let moved_local_set_id = segment_roots[segment_local_set_idx]
                       segment_roots[segment_local_set_idx] = segment_roots[last_idx]
                       segment_roots[last_idx] = moved_local_set_id
+                      swapped_prefix_roots.push(roots[next_idx])
                       segment_local_set_idx = last_idx
                       segment_has_swapped_prefix = true
                       changed = true

@@ -1,4 +1,7 @@
 ///|
+using @binary {trait Decode}
+
+///|
 fn hso_struct_fields(field_count : Int) -> Array[@lib.FieldType] {
   let fields : Array[@lib.FieldType] = []
   for _ in 0..<field_count {
@@ -35,6 +38,30 @@ fn hso_test_module_with_locals(
       @lib.Func::new(@lib.Locals::from_types(local_types), @lib.Expr::new(body)),
     ]),
   )
+}
+
+///|
+fn hso_decode_fixture_module(bytes : Bytes) -> @lib.Module {
+  match Decode::decode(bytes, 0) {
+    Ok((mod_, idx)) => {
+      if idx != bytes.length() {
+        abort(
+          "unexpected trailing bytes while decoding HSO fixture: decoded \{idx}, total \{bytes.length()}",
+        )
+      }
+      mod_
+    }
+    Err(err) => abort("unexpected HSO fixture decode failure: \{err}")
+  }
+}
+
+///|
+fn hso_bytes_from_ints(values : Array[Int]) -> Bytes {
+  let out = @buffer.new(size_hint=values.length())
+  for value in values {
+    out.write_byte(value.to_byte())
+  }
+  out.to_bytes()
 }
 
 ///|
@@ -85,6 +112,21 @@ fn hso_global_test_module(
     @lib.GlobalSec::new([
       @lib.Global::new(
         @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn hso_immutable_global_test_module(
+  field_count : Int,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  hso_test_module(field_count, body).with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), false),
         @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
       ),
     ]),
@@ -189,6 +231,35 @@ fn hso_memory_test_run(
 }
 
 ///|
+fn hso_memory_test_run_with_locals(
+  body : Array[@lib.Instruction],
+  field_count : Int,
+  local_types : Array[@lib.ValType],
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_test_module_with_locals(field_count, local_types, body).with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid memory+locals heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_test_run_module(mod_ : @lib.Module) -> Result[@lib.Module, String] {
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort("unexpected invalid heap-store-optimization module fixture: \{err}")
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
 fn hso_table_test_run(
   body : Array[@lib.Instruction],
   field_count : Int,
@@ -215,6 +286,22 @@ fn hso_global_test_run(
     Err(err) =>
       abort(
         "unexpected invalid global heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_immutable_global_test_run(
+  body : Array[@lib.Instruction],
+  field_count : Int,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_immutable_global_test_module(field_count, body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid immutable-global heap-store-optimization test fixture: \{err}",
       )
   }
   run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
@@ -555,7 +642,7 @@ test "heap-store-optimization reorders unrelated local.get field values within s
 }
 
 ///|
-test "heap-store-optimization folds drop-wrapped readonly local values into struct.new" {
+test "heap-store-optimization keeps drop-wrapped readonly local block values as struct.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let local1 = @lib.LocalIdx::new(1U)
@@ -592,13 +679,12 @@ test "heap-store-optimization folds drop-wrapped readonly local values into stru
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected drop-wrapped readonly heap-store-optimization success, got \{err}",
+        "expected drop-wrapped readonly non-fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("struct.new"), msg=pretty)
-  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
@@ -628,6 +714,205 @@ test "heap-store-optimization folds memory.size values into struct.new" {
   assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
+///|
+test "heap-store-optimization keeps immutable global readonly block prefixes as struct.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_immutable_global_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+          ]),
+        ),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected immutable-global readonly-prefix non-fold heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds memory.size readonly block prefixes into struct.new" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+          ]),
+        ),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory-size readonly-prefix fold heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps struct.set when the ref child is wrapped in a readonly prefix block" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let local1 = @lib.LocalIdx::new(1U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  let optimized = match
+    hso_memory_test_run_with_locals(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(ref_type),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::local_set(local1),
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(local1),
+          ]),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+      [ref_type, ref_type],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected readonly-ref-prefix non-fold heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps struct.set for decoded raw wasm memory-size ref prefixes" {
+  let optimized = match
+    hso_test_run_module(
+      hso_decode_fixture_module(
+        hso_bytes_from_ints([
+          0,
+          97,
+          115,
+          109,
+          1,
+          0,
+          0,
+          0,
+          1,
+          9,
+          2,
+          95,
+          1,
+          127,
+          1,
+          96,
+          0,
+          1,
+          127,
+          3,
+          2,
+          1,
+          1,
+          5,
+          3,
+          1,
+          0,
+          1,
+          7,
+          5,
+          1,
+          1,
+          102,
+          0,
+          0,
+          10,
+          29,
+          1,
+          27,
+          1,
+          1,
+          99,
+          0,
+          251,
+          1,
+          0,
+          33,
+          0,
+          32,
+          0,
+          63,
+          0,
+          26,
+          65,
+          7,
+          251,
+          5,
+          0,
+          0,
+          32,
+          0,
+          251,
+          2,
+          0,
+          0,
+          11,
+        ]),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected decoded-raw memory-prefix heap-store-optimization success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 ///|
 test "heap-store-optimization folds table.size values into struct.new" {
   let pair = @lib.TypeIdx::new(0U)

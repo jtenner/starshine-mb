@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Fix: split HSO decoded readonly-prefix handling by state kind
+
+- **`heap-store-optimization` decoded-prefix parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt), and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) so HSO now treats decoded trapless-readonly prefixes more like Binaryen: it preserves `struct.set` when hot lifting has peeled a ref-prefix readonly root ahead of the rewritten store, but it still folds normal decoded `memory.size` value-prefix blocks back into `struct.new` while keeping local/global readonly block prefixes conservative. Focused `moon test src/passes` stays green at `114/114`, and focused `moon test src/cmd` stays green at `79/79`.
+
 ## 2026-03-26 Fix: cover HSO mutable-global readonly prefixes on the wasm CLI path
 
 - **`heap-store-optimization` cmd-path parity coverage** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) with encoded-wasm regressions that drive `run_cmd_with_adapter` through `--heap-store-optimization` for mutable-global readonly-prefix fixtures, including the direct, tee-wrapped, and swapped-root shapes seen in oracle work. Focused `moon test src/cmd` stays green at `77/77`.

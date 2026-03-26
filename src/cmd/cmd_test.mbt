@@ -31,6 +31,15 @@ fn bytes_to_ascii_string(bytes : Bytes) -> String {
 }
 
 ///|
+fn bytes_from_ints(values : Array[Int]) -> Bytes {
+  let out = @buffer.new(size_hint=values.length())
+  for value in values {
+    out.write_byte(value.to_byte())
+  }
+  out.to_bytes()
+}
+
+///|
 fn concat_ascii_bytes(chunks : Array[Bytes]) -> String {
   let out = StringBuilder::new()
   for chunk in chunks {
@@ -483,6 +492,58 @@ fn fixture_hso_swapped_nonlocal_readonly_prefix_module() -> Module {
       ),
     ]),
   )
+}
+
+///|
+fn fixture_hso_memory_size_value_prefix_module() -> Module {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(fixture_hso_struct_fields(1)),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      Func::new(
+        @lib.Locals::from_types([ref_type]),
+        @lib.Expr::new([
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_set(local0),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+              @lib.Instruction::drop(),
+              @lib.Instruction::i32_const(@lib.I32(7)),
+            ]),
+          ),
+          @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+        ]),
+      ),
+    ]),
+  )
+  .with_mem_sec(@lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]))
+}
+
+///|
+fn fixture_hso_memory_size_ref_prefix_wasm() -> Bytes {
+  bytes_from_ints([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3,
+    2, 1, 1, 5, 3, 1, 0, 1, 7, 5, 1, 1, 102, 0, 0, 10, 29, 1, 27, 1, 1, 99,
+    0, 251, 1, 0, 33, 0, 32, 0, 63, 0, 26, 65, 7, 251, 5, 0, 0, 32, 0, 251,
+    2, 0, 0, 11,
+  ])
 }
 
 ///|
@@ -1165,6 +1226,81 @@ test "run_cmd_with_adapter keeps struct.set for swapped-root HSO readonly mutabl
   assert_true(pretty.contains("global.set"), msg=pretty)
   assert_true(pretty.contains("global.get"), msg=pretty)
   assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter keeps struct.set for HSO readonly ref-prefix memory.size wasm inputs" {
+  let wasm = fixture_hso_memory_size_ref_prefix_wasm()
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-mem-ref.wasm"] },
+    file_exists=fn(path) { path == "hso-mem-ref.wasm" },
+    read_file=fn(path) {
+      if path == "hso-mem-ref.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--heap-store-optimization", "--out", "out.wasm", "hso-mem-ref.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected memory ref-prefix HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter folds HSO readonly value-prefix memory.size wasm inputs" {
+  let wasm = encode_module_bytes(fixture_hso_memory_size_value_prefix_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-mem-value.wasm"] },
+    file_exists=fn(path) { path == "hso-mem-value.wasm" },
+    read_file=fn(path) {
+      if path == "hso-mem-value.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--heap-store-optimization",
+        "--out",
+        "out.wasm",
+        "hso-mem-value.wasm",
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected memory value-prefix HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
