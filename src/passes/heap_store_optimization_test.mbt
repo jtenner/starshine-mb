@@ -782,6 +782,80 @@ test "heap-store-optimization swaps across drop(table.size) roots" {
 }
 
 ///|
+test "heap-store-optimization swaps across block-wrapped unrelated local.set roots" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let local1 = @lib.LocalIdx::new(1U)
+  let optimized = match
+    hso_test_run_with_locals(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::local_set(local1),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+      [@lib.ValType::ref_null(@lib.HeapType::new(pair)), @lib.ValType::i32()],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected block-local-set-root heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization swaps across block-wrapped readonly roots" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected block-readonly-root heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps branching struct.set values when the target local is read later" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
