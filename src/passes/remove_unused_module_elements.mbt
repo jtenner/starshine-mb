@@ -95,6 +95,98 @@ fn rume_imported_tag_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
+fn rume_imported_counts(mod_ : @lib.Module) -> (Int, Int, Int, Int, Int) {
+  let mut func_imports = 0
+  let mut table_imports = 0
+  let mut mem_imports = 0
+  let mut global_imports = 0
+  let mut tag_imports = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(_)) => func_imports += 1
+          @lib.Import(_, _, @lib.TableExternType(_)) => table_imports += 1
+          @lib.Import(_, _, @lib.MemExternType(_)) => mem_imports += 1
+          @lib.Import(_, _, @lib.GlobalExternType(_)) => global_imports += 1
+          @lib.Import(_, _, @lib.TagExternType(_)) => tag_imports += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  (func_imports, table_imports, mem_imports, global_imports, tag_imports)
+}
+
+///|
+fn rume_build_table_to_elem_map(
+  table_count : Int,
+  mod_ : @lib.Module,
+) -> Array[Array[@lib.ElemIdx]] {
+  let table_to_elems : Array[Array[@lib.ElemIdx]] = []
+  let mut table_idx = 0
+  while table_idx < table_count {
+    table_to_elems.push([])
+    table_idx += 1
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) => {
+      let mut elem_idx = 0
+      while elem_idx < elems.length() {
+        match elems[elem_idx] {
+          @lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _) => {
+            let table_slot = table_idx.reinterpret_as_int()
+            if table_slot >= 0 && table_slot < table_to_elems.length() {
+              table_to_elems[table_slot].push(
+                @lib.ElemIdx::new(elem_idx.reinterpret_as_uint()),
+              )
+            }
+          }
+          _ => ()
+        }
+        elem_idx += 1
+      }
+    }
+    None => ()
+  }
+  table_to_elems
+}
+
+///|
+fn rume_build_mem_to_data_map(
+  mem_count : Int,
+  mod_ : @lib.Module,
+) -> Array[Array[@lib.DataIdx]] {
+  let mem_to_datas : Array[Array[@lib.DataIdx]] = []
+  let mut mem_idx = 0
+  while mem_idx < mem_count {
+    mem_to_datas.push([])
+    mem_idx += 1
+  }
+  match mod_.data_sec {
+    Some(@lib.DataSec(datas)) => {
+      let mut data_idx = 0
+      while data_idx < datas.length() {
+        match datas[data_idx] {
+          @lib.Data(@lib.Active(@lib.MemIdx(mem_idx), _), _) => {
+            let mem_slot = mem_idx.reinterpret_as_int()
+            if mem_slot >= 0 && mem_slot < mem_to_datas.length() {
+              mem_to_datas[mem_slot].push(
+                @lib.DataIdx::new(data_idx.reinterpret_as_uint()),
+              )
+            }
+          }
+          _ => ()
+        }
+        data_idx += 1
+      }
+    }
+    None => ()
+  }
+  mem_to_datas
+}
+
+///|
 fn rume_defined_func_count(mod_ : @lib.Module) -> Int {
   match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs.length()
@@ -514,6 +606,7 @@ fn rume_process_table(
   used_tags : Array[Bool],
   used_elems : Array[Bool],
   used_datas : Array[Bool],
+  table_to_elems : Array[Array[@lib.ElemIdx]],
 ) -> Unit {
   let def_idx = abs_idx.reinterpret_as_int() - table_imports
   if def_idx >= 0 {
@@ -530,57 +623,23 @@ fn rume_process_table(
       None => ()
     }
   }
-  match mod_.elem_sec {
-    Some(@lib.ElemSec(elems)) => {
-      let mut elem_idx = 0
-      while elem_idx < elems.length() {
-        match elems[elem_idx] {
-          @lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _) =>
-            if table_idx == abs_idx {
-              rume_mark_elem(
-                queue,
-                used_elems,
-                @lib.ElemIdx::new(elem_idx.reinterpret_as_uint()),
-              )
-            }
-          _ => ()
-        }
-        elem_idx += 1
-      }
-    }
-    None => ()
+  let slot = abs_idx.reinterpret_as_int()
+  for elem_idx in table_to_elems[slot] {
+    rume_mark_elem(queue, used_elems, elem_idx)
   }
 }
 
 ///|
 fn rume_process_mem(
-  mod_ : @lib.Module,
   abs_idx : UInt,
   queue : Array[RumeItem],
-  used_mems : Array[Bool],
   used_datas : Array[Bool],
+  mem_to_datas : Array[Array[@lib.DataIdx]],
 ) -> Unit {
-  match mod_.data_sec {
-    Some(@lib.DataSec(datas)) => {
-      let mut data_idx = 0
-      while data_idx < datas.length() {
-        match datas[data_idx] {
-          @lib.Data(@lib.Active(@lib.MemIdx(mem_idx), _), _) =>
-            if mem_idx == abs_idx {
-              rume_mark_data(
-                queue,
-                used_datas,
-                @lib.DataIdx::new(data_idx.reinterpret_as_uint()),
-              )
-            }
-          _ => ()
-        }
-        data_idx += 1
-      }
-    }
-    None => ()
+  let slot = abs_idx.reinterpret_as_int()
+  for data_idx in mem_to_datas[slot] {
+    rume_mark_data(queue, used_datas, data_idx)
   }
-  ignore(used_mems)
 }
 
 ///|
@@ -671,11 +730,9 @@ fn rume_collect_liveness(
   Array[Bool],
   Array[Bool],
 ) {
-  let func_imports = rume_imported_func_count(mod_)
-  let table_imports = rume_imported_table_count(mod_)
-  let mem_imports = rume_imported_mem_count(mod_)
-  let global_imports = rume_imported_global_count(mod_)
-  let tag_imports = rume_imported_tag_count(mod_)
+  let (func_imports, table_imports, mem_imports, global_imports, tag_imports) = rume_imported_counts(
+    mod_,
+  )
   let used_funcs = Array::make(
     func_imports + rume_defined_func_count(mod_),
     false,
@@ -704,6 +761,8 @@ fn rume_collect_liveness(
     },
     false,
   )
+  let table_to_elems = rume_build_table_to_elem_map(used_tables.length(), mod_)
+  let mem_to_datas = rume_build_mem_to_data_map(used_mems.length(), mod_)
   let queue : Array[RumeItem] = []
 
   match mod_.start_sec {
@@ -727,45 +786,23 @@ fn rume_collect_liveness(
       }
     None => ()
   }
-  match mod_.elem_sec {
-    Some(@lib.ElemSec(elems)) => {
-      let mut elem_idx = 0
-      while elem_idx < elems.length() {
-        match elems[elem_idx] {
-          @lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _) =>
-            if table_idx.reinterpret_as_int() < table_imports {
-              rume_mark_elem(
-                queue,
-                used_elems,
-                @lib.ElemIdx::new(elem_idx.reinterpret_as_uint()),
-              )
-            }
-          _ => ()
-        }
-        elem_idx += 1
-      }
-    }
-    None => ()
+  let mut table_slot = 0
+  while table_slot < table_imports {
+    rume_mark_table(
+      queue,
+      used_tables,
+      @lib.TableIdx::new(table_slot.reinterpret_as_uint()),
+    )
+    table_slot += 1
   }
-  match mod_.data_sec {
-    Some(@lib.DataSec(datas)) => {
-      let mut data_idx = 0
-      while data_idx < datas.length() {
-        match datas[data_idx] {
-          @lib.Data(@lib.Active(@lib.MemIdx(mem_idx), _), _) =>
-            if mem_idx.reinterpret_as_int() < mem_imports {
-              rume_mark_data(
-                queue,
-                used_datas,
-                @lib.DataIdx::new(data_idx.reinterpret_as_uint()),
-              )
-            }
-          _ => ()
-        }
-        data_idx += 1
-      }
-    }
-    None => ()
+  let mut mem_slot = 0
+  while mem_slot < mem_imports {
+    rume_mark_mem(
+      queue,
+      used_mems,
+      @lib.MemIdx::new(mem_slot.reinterpret_as_uint()),
+    )
+    mem_slot += 1
   }
 
   let mut cursor = 0
@@ -784,10 +821,10 @@ fn rume_collect_liveness(
       RumeItem::Table(abs_idx) =>
         rume_process_table(
           mod_, abs_idx, table_imports, queue, used_funcs, used_globals, used_tables,
-          used_mems, used_tags, used_elems, used_datas,
+          used_mems, used_tags, used_elems, used_datas, table_to_elems,
         )
       RumeItem::Mem(abs_idx) =>
-        rume_process_mem(mod_, abs_idx, queue, used_mems, used_datas)
+        rume_process_mem(abs_idx, queue, used_datas, mem_to_datas)
       RumeItem::Tag(_) => ()
       RumeItem::Elem(elem_idx) =>
         rume_process_elem(

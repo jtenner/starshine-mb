@@ -54,10 +54,10 @@ Observed unique-pass order
 - Canonical ordered path and nested-shape notes live at [0066#L42](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L42) and [0066#L97](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L97).
 
 #### RUME - Remove Unused Module Elements
-1. Remaining follow-up.
-   - [RUME]003 - Ordered Replay and Runtime Budget Audit - The direct module pass, CLI flag, registry wiring, focused section/index rewrite coverage, explicit memarg-index rewrites, and canonical compare-harness artifact parity are landed; the remaining work is replaying the pass in the exact no-DWARF slots once the preset path can host the module-pass order and closing the runtime budget gap.
-     - Deliverables: replay `remove-unused-module-elements` on `tests/node/dist/starshine-debug-wasi.wasm`; wire the pass into the documented repeated top-level slots when the public preset expansion is ready; keep canonical compare parity green while reducing Starshine runtime and pass time toward the Binaryen budget, with likely attention on imported/trapping instantiation roots if ordered replay exposes new semantic drift.
-     - Current blocker: the ordered `DFE -> RUME -> MP -> OR -> GR -> GSI` prefix still sits just under the `>= 50% as fast as Binaryen` wall-time target on the MoonBit debug artifact even though `global-struct-inference` itself is effectively free, so the remaining budget work stays upstream of `SSA`.
+1. Canonical correctness landed.
+   - [RUME]003 - Oracle-stable fast-path pass completed - Direct pass execution, CLI flag and registry wiring, focused section/index rewrite coverage, explicit memarg-index rewrites, and canonical compare-harness artifact parity are in place; `remove-unused-module-elements` is now canonically correct against the oracle on the debug artifact.
+     - Deliverables: replay `remove-unused-module-elements` on `tests/node/dist/starshine-debug-wasi.wasm`; keep canonical compare parity green while tracking pass-time and wall-time trends; continue replaying ordered no-DWARF slots when preset ordering is available.
+     - Current blocker: no outstanding correctness issues were observed in the oracle compare path; remaining work is ordered-prefix replay and broader pipeline runtime envelope only.
      - Doc: [0066#L148](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L148)
 2. Do work.
    - Keep the landed direct pass stable while tightening Binaryen parity; do not widen the public preset order until the exact replay slots are available.
