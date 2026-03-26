@@ -311,7 +311,9 @@ fn hso_subtree_is_trapless_readonly(
   let node = @ir.hot_node_get(func, node_id)
   let mask = hso_reorder_effect_mask(func, node_masks, node_id)
   let allowed_effects = @ir.EFFECT_MASK_LOCAL_STATE |
-    @ir.EFFECT_MASK_GLOBAL_STATE
+    @ir.EFFECT_MASK_GLOBAL_STATE |
+    @ir.EFFECT_MASK_MEMORY_READ |
+    @ir.EFFECT_MASK_TABLE_READ
   let disallowed_effects = mask ^ (mask & allowed_effects)
   let allows_side_effect = match node.op {
     @ir.HotOp::Drop => true

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Fix: fold trapless memory/table size HSO values
+
+- **`heap-store-optimization` memory-table readonly parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), and [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt) so HSO now treats trapless readonly `memory.size` and `table.size` queries like Binaryen when folding `struct.set` into `struct.new`, while still rejecting trapping loads and writes through the existing trap/side-effect gates. Focused `moon fmt && moon test src/passes` stays green, and the synthetic `/tmp/hso-compare-big.wasm` replay remains canonical in raw wasm and normalized WAT; recent HSO pass time is still roughly `8.45ms` versus Binaryen at `0.31ms`, so this slice is correctness-only.
+
 ## 2026-03-26 Fix: accept drop-wrapped readonly HSO values
 
 - **`heap-store-optimization` drop-wrapper parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), and [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt) so HSO now treats `drop` as movable when its child subtree is otherwise trapless, side-effect-free, and readonly, matching Binaryen on block-wrapped `drop(local.get ...)` field values that still fold into `struct.new`. Focused `moon fmt && moon test src/passes` stays green; this is a correctness-only parity slice, and the broader HSO runtime gap remains open.
