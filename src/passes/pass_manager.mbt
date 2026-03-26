@@ -741,6 +741,84 @@ fn run_hot_pipeline_dce_raw_instr_is_definitely_void(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_instr_is_definitely_impure_value(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  match instr {
+    @lib.Call(func_idx) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(_, results)) => !results.is_empty()
+        None => false
+      }
+    @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(_, results)) => !results.is_empty()
+        None => false
+      }
+    @lib.Block(block_type, @lib.Expr(_))
+    | @lib.Loop(block_type, @lib.Expr(_))
+    | @lib.If(block_type, _, _)
+    | @lib.TryTable(block_type, _, @lib.Expr(_)) =>
+      block_type != @lib.BlockType::void_()
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_drops_follow_definitely_impure_values(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  let mut prev : @lib.Instruction? = None
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if !run_hot_pipeline_dce_raw_drops_follow_definitely_impure_values(
+            body, module_ctx,
+          ) {
+          return false
+        }
+      @lib.If(_, then_body, else_body) => {
+        if !run_hot_pipeline_dce_raw_drops_follow_definitely_impure_values(
+            then_body, module_ctx,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(else_body) =>
+            if !run_hot_pipeline_dce_raw_drops_follow_definitely_impure_values(
+                else_body, module_ctx,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if !run_hot_pipeline_dce_raw_drops_follow_definitely_impure_values(
+            body, module_ctx,
+          ) {
+          return false
+        }
+      _ => ()
+    }
+    match instr {
+      @lib.Drop =>
+        match prev {
+          Some(prev) if run_hot_pipeline_dce_raw_instr_is_definitely_impure_value(
+              prev, module_ctx,
+            ) => ()
+          _ => return false
+        }
+      _ => ()
+    }
+    prev = Some(instr)
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_dce_raw_void_structured_noop(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -847,9 +925,13 @@ fn run_hot_pipeline_dce_can_skip_raw(
     run_hot_pipeline_dce_raw_straight_line_noop(instrs)
   let structured_void_noop = has_structured_control &&
     run_hot_pipeline_dce_raw_void_structured_noop(instrs)
+  let drops_follow_impure_values = !has_drop ||
+    run_hot_pipeline_dce_raw_drops_follow_definitely_impure_values(
+      instrs, module_ctx,
+    )
   let structured_typed_noop = has_structured_control &&
     returns_value &&
-    !has_drop &&
+    drops_follow_impure_values &&
     !has_dead_tail_after_nonfallthrough &&
     run_hot_pipeline_dce_raw_final_instr_is_fallthrough_value_structured(instrs)
   if !straight_line_noop && !structured_void_noop && !structured_typed_noop {
