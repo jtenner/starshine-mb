@@ -127,6 +127,46 @@ test "optimize-instructions rewrites add with a negative constant into sub" {
 }
 
 ///|
+test "optimize-instructions prefers signed-leb-friendly add immediates" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 64 i32.add))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_sub()),
+  )
+  let rhs = @ir.hot_child_get(func, root, 1)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(-64)),
+  )
+}
+
+///|
+test "optimize-instructions canonicalizes commutative constants onto the rhs" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 7 local.get 0 i32.add))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected non-constant commutative operand to move into the lhs")
+  }
+  let rhs_node = @ir.hot_node_get(func, rhs)
+  match rhs_node.op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected commutative constant to move into the rhs")
+  }
+  assert_eq(
+    @ir.hot_const_get(func, rhs_node.imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(7)),
+  )
+}
+
+///|
 test "optimize-instructions canonicalizes commutative local gets after independent local state" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) (local i32) local.get 0 local.get 1 local.tee 2 i32.const 1 i32.shl i32.add))",

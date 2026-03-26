@@ -135,6 +135,30 @@ fn optimize_instructions_shift_mask_bits(instr : @lib.Instruction) -> Int? {
 }
 
 ///|
+fn optimize_instructions_prefer_negative_leb_i32(raw : Int) -> Bool {
+  match raw {
+    0x40 | 0x2000 | 0x100000 | 0x8000000 => true
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_prefer_negative_leb_i64(raw : Int64) -> Bool {
+  match raw {
+    0x40L
+    | 0x2000L
+    | 0x100000L
+    | 0x8000000L
+    | 0x400000000L
+    | 0x20000000000L
+    | 0x1000000000000L
+    | 0x80000000000000L
+    | 0x4000000000000000L => true
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_is_commutative_instr(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Instruction::I32Add
@@ -253,6 +277,17 @@ fn optimize_instructions_try_canonicalize_commutative(
   }
   let lhs_id = func.children[node.child_base]
   let rhs_id = func.children[node.child_base + 1]
+  if optimize_instructions_is_constlike(func, dead, lhs_id) &&
+    !optimize_instructions_is_constlike(func, dead, rhs_id) {
+    optimize_instructions_rewrite_exact_with_children(
+      ctx,
+      func,
+      node_id,
+      instr,
+      [rhs_id, lhs_id],
+    )
+    return true
+  }
   match optimize_instructions_local_get_id(func, dead, lhs_id) {
     Some(local_id) => {
       if optimize_instructions_is_constlike(func, dead, rhs_id) {
@@ -379,6 +414,32 @@ fn optimize_instructions_try_rewrite_add_sub(
       )
       true
     }
+    (@lib.Instruction::I32Add, Some(@lib.I32(raw))) if optimize_instructions_prefer_negative_leb_i32(
+        raw,
+      ) => {
+      let replacement_rhs = @ir.hot_build_const_i32(func, @lib.I32(-raw))
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_sub(),
+        [lhs_id, replacement_rhs],
+      )
+      true
+    }
+    (@lib.Instruction::I32Sub, Some(@lib.I32(raw))) if optimize_instructions_prefer_negative_leb_i32(
+        raw,
+      ) => {
+      let replacement_rhs = @ir.hot_build_const_i32(func, @lib.I32(-raw))
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_add(),
+        [lhs_id, replacement_rhs],
+      )
+      true
+    }
     _ =>
       match (instr, optimize_instructions_i64_const(func, dead, rhs_id)) {
         (@lib.Instruction::I64Add, Some(@lib.I64(raw))) if raw < 0L => {
@@ -388,6 +449,32 @@ fn optimize_instructions_try_rewrite_add_sub(
             func,
             node_id,
             @lib.Instruction::i64_sub(),
+            [lhs_id, replacement_rhs],
+          )
+          true
+        }
+        (@lib.Instruction::I64Add, Some(@lib.I64(raw))) if optimize_instructions_prefer_negative_leb_i64(
+            raw,
+          ) => {
+          let replacement_rhs = @ir.hot_build_const_i64(func, @lib.I64(-raw))
+          optimize_instructions_rewrite_exact_with_children(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_sub(),
+            [lhs_id, replacement_rhs],
+          )
+          true
+        }
+        (@lib.Instruction::I64Sub, Some(@lib.I64(raw))) if optimize_instructions_prefer_negative_leb_i64(
+            raw,
+          ) => {
+          let replacement_rhs = @ir.hot_build_const_i64(func, @lib.I64(-raw))
+          optimize_instructions_rewrite_exact_with_children(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_add(),
             [lhs_id, replacement_rhs],
           )
           true
