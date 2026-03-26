@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Optimize: cut `remove-unused-brs` tail cleanup churn on one-child exits
+
+- **`remove-unused-brs` tail-splice perf checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb/CHANGELOG.md), [`src/passes/remove_unused_brs.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_brs.mbt), and [`src/passes/perf_test.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/perf_test.mbt) so tail `br`/`return` cleanup now splices zero-child and one-child exits out of regions directly instead of routing through the older replace-and-delete path, while keeping the existing tail-return and payload correctness rewrites intact. Focused pass tests are green, and the March 26, 2026 compare run at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1509633` improves `remove-unused-brs` pass runtime from the rebased `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1479612` baseline (`13032.287ms -> 12633.317ms`) without changing the current non-parity status.
+
 ## 2026-03-26 Optimize: skip final-root DCE fallthrough checks for non-control value producers
 
 - **Dead-code-elimination final-root control-only fallthrough checkpoint** by **@jtenner**. Updated [CHANGELOG.md](/home/jtenner/Projects/starshine-mb/CHANGELOG.md) and [src/passes/dead_code_elimination.mbt](/home/jtenner/Projects/starshine-mb/src/passes/dead_code_elimination.mbt) so the final-root fallthrough query now stays on the hot path only for control nodes with live result semantics, instead of all value-producing roots. After rebuilding the native CLI, the direct `--dead-code-elimination` replay on `tests/node/dist/starshine-debug-wasi.wasm` improved again to about `14.84s`; parity is still incomplete and the Binaryen 50% speed target is still not met.

@@ -11,6 +11,20 @@ fn perf_test_join_lines(lines : Array[String]) -> String {
 }
 
 ///|
+fn perf_test_count_occurrences(text : String, needle : String) -> Int {
+  let mut count = 0
+  let mut seen_first = false
+  for _ in text.split(needle) {
+    if seen_first {
+      count += 1
+    } else {
+      seen_first = true
+    }
+  }
+  count
+}
+
+///|
 test "perf session records hot allocation deltas dumps and checkpoints" {
   let lines : Array[String] = []
   let perf = HotPerfSession::new(
@@ -236,6 +250,33 @@ test "remove-unused-brs does not build use-def when rewriting tail returns" {
   assert_true(text.contains("perf:timer name=lift"))
   assert_true(text.contains("perf:timer name=pass:remove-unused-brs"))
   assert_false(text.contains("perf:timer name=analysis:use-def"))
+}
+
+///|
+test "remove-unused-brs trims one mutation step from tail branch payload if cleanup" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (block (result i32) (br 0 (if (result i32) (local.get 0) (then (i32.const 1)) (else (i32.const 0)))))))",
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected tail-branch-payload remove-unused-brs success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  let mutations = perf_test_count_occurrences(
+    text, "pass[remove-unused-brs]:mutated revision=",
+  )
+  assert_true(
+    mutations <= 3,
+    msg="unexpected mutation churn: \{mutations}\n\{text}",
+  )
 }
 
 ///|
