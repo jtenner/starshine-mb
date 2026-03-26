@@ -121,6 +121,58 @@ test "ssa predecessor copy insertion allocates a temp for cycles" {
 }
 
 ///|
+test "ssa destruction preserves root-region copy order for multiple loop preheaders" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+
+  let entry1_value = hot_build_const_i32(func, @lib.I32(1))
+  let entry1_set = hot_build_local_set(func, 0, entry1_value)
+  let loop1 = hot_build_loop(func, @lib.BlockType::void_(), [])
+  let loop1_label = hot_control_node_label(func, loop1)
+  hot_region_replace_body(func, hot_region_body_ref(func, loop1), [
+    hot_build_drop(func, hot_build_local_get(func, 0)),
+    hot_build_local_set(func, 0, hot_build_const_i32(func, @lib.I32(2))),
+    hot_build_br_if(func, loop1_label, hot_build_const_i32(func, @lib.I32(1))),
+  ])
+
+  let entry2_value = hot_build_const_i32(func, @lib.I32(3))
+  let entry2_set = hot_build_local_set(func, 0, entry2_value)
+  let loop2 = hot_build_loop(func, @lib.BlockType::void_(), [])
+  let loop2_label = hot_control_node_label(func, loop2)
+  hot_region_replace_body(func, hot_region_body_ref(func, loop2), [
+    hot_build_drop(func, hot_build_local_get(func, 0)),
+    hot_build_local_set(func, 0, hot_build_const_i32(func, @lib.I32(4))),
+    hot_build_br_if(func, loop2_label, hot_build_const_i32(func, @lib.I32(1))),
+  ])
+
+  hot_root_append(func, entry1_set)
+  hot_root_append(func, loop1)
+  hot_root_append(func, entry2_set)
+  hot_root_append(func, loop2)
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+
+  ignore(ssa_destroy_into_hot(func, cfg, ssa))
+
+  assert_eq(hot_root_count(func), 6)
+  assert_eq(hot_root_get(func, 0), entry1_set)
+  assert_eq(
+    hot_node_get(func, hot_root_get(func, 1)).op.to_string(),
+    "LocalSet",
+  )
+  assert_eq(hot_root_get(func, 2), loop1)
+  assert_eq(hot_root_get(func, 3), entry2_set)
+  assert_eq(
+    hot_node_get(func, hot_root_get(func, 4)).op.to_string(),
+    "LocalSet",
+  )
+  assert_eq(hot_root_get(func, 5), loop2)
+}
+
+///|
 test "ssa dead local cleanup tolerates duplicate dead node ids" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let value = hot_build_const_i32(func, @lib.I32(1))
@@ -133,4 +185,48 @@ test "ssa dead local cleanup tolerates duplicate dead node ids" {
   assert_eq(hot_node_get(func, rewritten).op.to_string(), "Drop")
   let child = hot_child_get(func, rewritten, 0)
   assert_eq(hot_node_get(func, child).op.to_string(), "Const")
+}
+
+///|
+test "ssa destruction does not allocate extra locals for dead local sets" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let set_id = hot_build_local_set(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(1)),
+  )
+  hot_root_append(func, set_id)
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+
+  ignore(ssa_destroy_into_hot(func, cfg, ssa))
+
+  assert_eq(hot_local_count(func), 1)
+  assert_eq(hot_node_get(func, hot_root_get(func, 0)).op.to_string(), "Drop")
+}
+
+///|
+test "ssa destruction does not allocate extra locals for dead local tees" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let tee_id = hot_build_local_tee(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(1)),
+  )
+  hot_root_append(func, tee_id)
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+
+  ignore(ssa_destroy_into_hot(func, cfg, ssa))
+
+  assert_eq(hot_local_count(func), 1)
+  assert_eq(hot_node_get(func, hot_root_get(func, 0)).op.to_string(), "Const")
 }

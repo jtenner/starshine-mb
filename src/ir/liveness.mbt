@@ -13,6 +13,23 @@ fn liveness_bitset_clone(src : Bitset) -> Bitset {
 }
 
 ///|
+fn liveness_bitset_clear(dst : Bitset) -> Unit {
+  for idx = 0; idx < dst.words.length(); idx = idx + 1 {
+    dst.words[idx] = 0UL
+  }
+}
+
+///|
+fn liveness_bitset_assign(dst : Bitset, src : Bitset) -> Unit {
+  if dst.size != src.size {
+    abort("liveness bitset assignment requires matching sizes")
+  }
+  for idx = 0; idx < dst.words.length(); idx = idx + 1 {
+    dst.words[idx] = src.words[idx]
+  }
+}
+
+///|
 fn liveness_require_block_range(
   liveness : HotLiveness,
   block_id : BlockId,
@@ -65,36 +82,55 @@ pub fn liveness_build(cfg : HotCfg, use_def : HotUseDef) -> HotLiveness {
   let local_count = liveness_require_use_def_shape(cfg, use_def)
   let live_in_sets : Array[Bitset] = []
   let live_out_sets : Array[Bitset] = []
-  for _ in 0..<cfg_block_count(cfg) {
+  let block_count = cfg_block_count(cfg)
+  for _ in 0..<block_count {
     live_in_sets.push(bitset_new(local_count))
     live_out_sets.push(bitset_new(local_count))
   }
   let include_exceptional_edges = false
+  let queued = Array::make(block_count, false)
+  let worklist : Array[BlockId] = []
+  for block_id = 0; block_id < block_count; block_id = block_id + 1 {
+    queued[block_id] = true
+    worklist.push(block_id)
+  }
+  let next_out = bitset_new(local_count)
+  let next_in = bitset_new(local_count)
 
-  let mut changed = true
-  while changed {
-    changed = false
-    for block_id = cfg_block_count(cfg) - 1
-        block_id >= 0
-        block_id = block_id - 1 {
-      let next_out = bitset_new(local_count)
-      for edge in cfg_successor_edges(cfg, block_id) {
+  while worklist.length() > 0 {
+    let block_id = worklist.pop().unwrap()
+    queued[block_id] = false
+
+    liveness_bitset_clear(next_out)
+    for edge in cfg_successor_edges(cfg, block_id) {
+      if !include_exceptional_edges && edge.kind == CfgEdgeKind::ExceptionalEdge {
+        continue
+      }
+      ignore(bitset_union_into(next_out, live_in_sets[edge.block]))
+    }
+
+    liveness_bitset_assign(next_in, next_out)
+    ignore(bitset_difference_into(next_in, use_def.block_defs[block_id]))
+    ignore(bitset_union_into(next_in, use_def.block_uses[block_id]))
+
+    let out_changed = !bitset_equals(live_out_sets[block_id], next_out)
+    let in_changed = !bitset_equals(live_in_sets[block_id], next_in)
+    if out_changed {
+      liveness_bitset_assign(live_out_sets[block_id], next_out)
+    }
+    if in_changed {
+      liveness_bitset_assign(live_in_sets[block_id], next_in)
+    }
+    if out_changed || in_changed {
+      for edge in cfg_predecessor_edges(cfg, block_id) {
         if !include_exceptional_edges &&
           edge.kind == CfgEdgeKind::ExceptionalEdge {
           continue
         }
-        ignore(bitset_union_into(next_out, live_in_sets[edge.block]))
-      }
-      let next_in = liveness_bitset_clone(next_out)
-      ignore(bitset_difference_into(next_in, use_def.block_defs[block_id]))
-      ignore(bitset_union_into(next_in, use_def.block_uses[block_id]))
-      if !bitset_equals(live_out_sets[block_id], next_out) {
-        live_out_sets[block_id] = next_out
-        changed = true
-      }
-      if !bitset_equals(live_in_sets[block_id], next_in) {
-        live_in_sets[block_id] = next_in
-        changed = true
+        if !queued[edge.block] {
+          queued[edge.block] = true
+          worklist.push(edge.block)
+        }
       }
     }
   }

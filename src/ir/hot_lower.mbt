@@ -12,14 +12,58 @@ priv struct HotLowerBodyResult {
 }
 
 ///|
+priv struct HotLowerLabelFrames {
+  active : Array[LabelId]
+  depths : Array[Int]
+}
+
+///|
+fn hot_lower_impl_new_label_frames() -> HotLowerLabelFrames {
+  { active: [], depths: [] }
+}
+
+///|
+fn hot_lower_impl_push_label(
+  frames : HotLowerLabelFrames,
+  label_stack_head : Int,
+  label_id : LabelId,
+) -> Int {
+  ignore(label_stack_head)
+  while frames.depths.length() <= label_id {
+    frames.depths.push(-1)
+  }
+  let next = frames.active.length()
+  frames.depths[label_id] = next
+  frames.active.push(label_id)
+  next
+}
+
+///|
+fn hot_lower_impl_pop_label(
+  frames : HotLowerLabelFrames,
+  label_stack_head : Int,
+) -> Unit {
+  ignore(label_stack_head)
+  match frames.active.pop() {
+    Some(label_id) => frames.depths[label_id] = -1
+    None => abort("hot lower label pop requires a non-empty active label stack")
+  }
+}
+
+///|
 fn hot_lower_impl_label_depth(
-  label_stack : Array[LabelId],
+  frames : HotLowerLabelFrames,
+  label_stack_head : Int,
   label_id : LabelId,
 ) -> LabelIdx {
-  for i = label_stack.length() - 1; i >= 0; i = i - 1 {
-    if label_stack[i] == label_id {
-      let depth = label_stack.length() - 1 - i
-      return LabelIdx::new(depth.reinterpret_as_uint())
+  ignore(label_stack_head)
+  if label_id >= 0 && label_id < frames.depths.length() {
+    let absolute_depth = frames.depths[label_id]
+    if absolute_depth >= 0 &&
+      absolute_depth < frames.active.length() &&
+      frames.active[absolute_depth] == label_id {
+      let relative_depth = frames.active.length() - 1 - absolute_depth
+      return LabelIdx::new(relative_depth.reinterpret_as_uint())
     }
   }
   abort(
@@ -82,7 +126,13 @@ fn hot_lower_impl_mem_idx(raw : Int) -> MemIdx {
 }
 
 ///|
-fn hot_lower_impl_input_nodes(func : HotFunc, id : NodeId) -> Array[NodeId] {
+priv struct HotLowerInputs {
+  nodes : Array[NodeId]
+  pop_count : Int
+}
+
+///|
+fn hot_lower_impl_input_info(func : HotFunc, id : NodeId) -> HotLowerInputs {
   let node = hot_node_get(func, id)
   match node.op {
     HotOp::Block
@@ -98,7 +148,7 @@ fn hot_lower_impl_input_nodes(func : HotFunc, id : NodeId) -> Array[NodeId] {
     | HotOp::TableSize
     | HotOp::DataDrop
     | HotOp::ElemDrop
-    | HotOp::RefFunc => []
+    | HotOp::RefFunc => { nodes: [], pop_count: 0 }
     HotOp::Loop => {
       let out : Array[NodeId] = []
       let input_count = hot_label_branch_arity(
@@ -108,9 +158,9 @@ fn hot_lower_impl_input_nodes(func : HotFunc, id : NodeId) -> Array[NodeId] {
       for i = 0; i < input_count; i = i + 1 {
         out.push(hot_child_get(func, id, i))
       }
-      out
+      { nodes: out, pop_count: input_count }
     }
-    HotOp::If => [hot_child_get(func, id, 0)]
+    HotOp::If => { nodes: [hot_child_get(func, id, 0)], pop_count: 1 }
     _ => {
       let out : Array[NodeId] = []
       for i = 0; i < node.child_count; i = i + 1 {
@@ -119,36 +169,17 @@ fn hot_lower_impl_input_nodes(func : HotFunc, id : NodeId) -> Array[NodeId] {
           out.push(child)
         }
       }
-      out
+      let pop_count = match node.op {
+        HotOp::BrIf
+        | HotOp::BrTable
+        | HotOp::BrOnNull
+        | HotOp::BrOnNonNull
+        | HotOp::BrOnCast
+        | HotOp::BrOnCastFail => 1
+        _ => out.length()
+      }
+      { nodes: out, pop_count }
     }
-  }
-}
-
-///|
-fn hot_lower_impl_input_pop_count(func : HotFunc, id : NodeId) -> Int {
-  let node = hot_node_get(func, id)
-  match node.op {
-    HotOp::Block
-    | HotOp::Try
-    | HotOp::TryTable
-    | HotOp::Nop
-    | HotOp::Unreachable
-    | HotOp::Const
-    | HotOp::RefNull
-    | HotOp::LocalGet
-    | HotOp::GlobalGet
-    | HotOp::MemorySize
-    | HotOp::TableSize
-    | HotOp::DataDrop
-    | HotOp::ElemDrop
-    | HotOp::RefFunc => 0
-    HotOp::BrIf
-    | HotOp::BrTable
-    | HotOp::BrOnNull
-    | HotOp::BrOnNonNull
-    | HotOp::BrOnCast
-    | HotOp::BrOnCastFail => 1
-    _ => hot_lower_impl_input_nodes(func, id).length()
   }
 }
 
@@ -212,6 +243,7 @@ fn hot_lower_impl_matching_input_prefix(
 fn hot_lower_impl_update_stack(
   func : HotFunc,
   id : NodeId,
+  pop_count : Int,
   stack : Array[HotLowerStackValue],
 ) -> Unit {
   let node = hot_node_get(func, id)
@@ -219,7 +251,6 @@ fn hot_lower_impl_update_stack(
     stack.clear()
     return
   }
-  let pop_count = hot_lower_impl_input_pop_count(func, id)
   for _ in 0..<pop_count {
     ignore(stack.pop())
   }
@@ -230,10 +261,15 @@ fn hot_lower_impl_update_stack(
 fn hot_lower_impl_lower_br_on_cast(
   func : HotFunc,
   id : NodeId,
-  label_stack : Array[LabelId],
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int,
 ) -> Instruction {
   let node = hot_node_get(func, id)
-  let label_idx = hot_lower_impl_label_depth(label_stack, node.imm0)
+  let label_idx = hot_lower_impl_label_depth(
+    label_frames,
+    label_stack_head,
+    node.imm0,
+  )
   match hot_lower_impl_exact_instr(func, id) {
     Instruction::BrOnCast(_, CastOp(src_nullable, dst_nullable), src_ht, dst_ht) =>
       Instruction::br_on_cast(
@@ -259,7 +295,8 @@ fn hot_lower_impl_lower_br_on_cast(
 fn hot_lower_impl_try_catches(
   func : HotFunc,
   id : NodeId,
-  label_stack : Array[LabelId],
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int,
 ) -> Array[Catch] {
   let node = hot_node_get(func, id)
   let info = hot_catch_info_get(func, node.imm1)
@@ -268,22 +305,29 @@ fn hot_lower_impl_try_catches(
     match arm {
       HotCatchArm::CatchArm(tag_idx, label_id) =>
         catches.push(
-          Catch::new(tag_idx, hot_lower_impl_label_depth(label_stack, label_id)),
+          Catch::new(
+            tag_idx,
+            hot_lower_impl_label_depth(label_frames, label_stack_head, label_id),
+          ),
         )
       HotCatchArm::CatchRefArm(tag_idx, label_id) =>
         catches.push(
           Catch::ref_(
             tag_idx,
-            hot_lower_impl_label_depth(label_stack, label_id),
+            hot_lower_impl_label_depth(label_frames, label_stack_head, label_id),
           ),
         )
       HotCatchArm::CatchAllArm(label_id) =>
         catches.push(
-          Catch::all(hot_lower_impl_label_depth(label_stack, label_id)),
+          Catch::all(
+            hot_lower_impl_label_depth(label_frames, label_stack_head, label_id),
+          ),
         )
       HotCatchArm::CatchAllRefArm(label_id) =>
         catches.push(
-          Catch::all_ref(hot_lower_impl_label_depth(label_stack, label_id)),
+          Catch::all_ref(
+            hot_lower_impl_label_depth(label_frames, label_stack_head, label_id),
+          ),
         )
     }
   }
@@ -295,15 +339,18 @@ fn hot_lower_impl_body_items(
   func : HotFunc,
   id : NodeId,
   use_def : HotUseDef,
-  label_stack : Array[LabelId],
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int,
   extra_locals : Array[ValType],
 ) -> Array[Instruction] {
   let out : Array[Instruction] = []
-  let next_stack = label_stack.copy()
+  let mut next_stack = label_stack_head
   let label_id = hot_control_node_label(func, id)
   if label_id >= 0 &&
     hot_label_kind(func, label_id) != HotLabelKind::RegionLabel {
-    next_stack.push(label_id)
+    next_stack = hot_lower_impl_push_label(
+      label_frames, label_stack_head, label_id,
+    )
   }
   let node = hot_node_get(func, id)
   let body_base = if node.op == HotOp::Loop {
@@ -317,15 +364,29 @@ fn hot_lower_impl_body_items(
     hot_label_branch_arity(func, label_id)
   }
   let value_stack : Array[HotLowerStackValue] = []
-  let input_occurrences = Array::make(hot_node_count(func), 0)
+  let input_ids : Array[NodeId] = []
+  let input_occurrences : Array[Int] = []
   for i = 0; i < body_base; i = i + 1 {
     let input_id = hot_child_get(func, id, i)
     let input_types = hot_type_results(func, hot_node_type(func, input_id))
-    let occurrence = input_occurrences[input_id]
+    let mut occurrence = 0
+    let mut existing = -1
+    for idx = 0; idx < input_ids.length(); idx = idx + 1 {
+      if input_ids[idx] == input_id {
+        occurrence = input_occurrences[idx]
+        existing = idx
+        break
+      }
+    }
     if occurrence < input_types.length() {
       value_stack.push({ node_id: input_id, val_type: input_types[occurrence] })
     }
-    input_occurrences[input_id] = occurrence + 1
+    if existing >= 0 {
+      input_occurrences[existing] = occurrence + 1
+    } else {
+      input_ids.push(input_id)
+      input_occurrences.push(1)
+    }
   }
   let root_ids : Array[NodeId] = []
   for i = body_base; i < node.child_count; i = i + 1 {
@@ -342,7 +403,7 @@ fn hot_lower_impl_body_items(
     let child = hot_child_get(func, id, i)
     if child != HOT_NONE_NODE {
       hot_lower_impl_emit_root(
-        func, child, use_def, next_stack, value_stack, out, extra_locals,
+        func, child, use_def, label_frames, next_stack, value_stack, out, extra_locals,
       )
       let is_final_root = i + 1 == node.child_count
       hot_lower_impl_drop_dead_nonfinal_root_results(
@@ -360,6 +421,9 @@ fn hot_lower_impl_body_items(
   hot_lower_impl_finalize_region_stack(
     func, region_keep_count, value_stack, out, extra_locals,
   )
+  if next_stack != label_stack_head {
+    hot_lower_impl_pop_label(label_frames, next_stack)
+  }
   out
 }
 
@@ -368,7 +432,8 @@ fn hot_lower_impl_region_body(
   func : HotFunc,
   id : NodeId,
   use_def : HotUseDef,
-  label_stack : Array[LabelId],
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int,
   extra_locals : Array[ValType],
 ) -> Array[Instruction] {
   if id == HOT_NONE_NODE {
@@ -380,13 +445,13 @@ fn hot_lower_impl_region_body(
     label_id >= 0 &&
     hot_label_kind(func, label_id) == HotLabelKind::RegionLabel {
     return hot_lower_impl_body_items(
-      func, id, use_def, label_stack, extra_locals,
+      func, id, use_def, label_frames, label_stack_head, extra_locals,
     )
   }
   let out : Array[Instruction] = []
   let value_stack : Array[HotLowerStackValue] = []
   hot_lower_impl_emit_root(
-    func, id, use_def, label_stack, value_stack, out, extra_locals,
+    func, id, use_def, label_frames, label_stack_head, value_stack, out, extra_locals,
   )
   out
 }
@@ -500,7 +565,8 @@ fn hot_lower_impl_emit_instruction(
   func : HotFunc,
   id : NodeId,
   use_def : HotUseDef,
-  label_stack : Array[LabelId],
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int,
   out : Array[Instruction],
   extra_locals : Array[ValType],
 ) -> Unit {
@@ -616,22 +682,29 @@ fn hot_lower_impl_emit_instruction(
       )
     HotOp::Br =>
       out.push(
-        Instruction::br(hot_lower_impl_label_depth(label_stack, node.imm0)),
+        Instruction::br(
+          hot_lower_impl_label_depth(label_frames, label_stack_head, node.imm0),
+        ),
       )
     HotOp::BrIf =>
       out.push(
-        Instruction::br_if(hot_lower_impl_label_depth(label_stack, node.imm0)),
+        Instruction::br_if(
+          hot_lower_impl_label_depth(label_frames, label_stack_head, node.imm0),
+        ),
       )
     HotOp::BrTable => {
       let targets : Array[LabelIdx] = []
       for label_id in hot_branch_table_targets(func, node.imm0) {
-        targets.push(hot_lower_impl_label_depth(label_stack, label_id))
+        targets.push(
+          hot_lower_impl_label_depth(label_frames, label_stack_head, label_id),
+        )
       }
       out.push(
         Instruction::br_table(
           targets,
           hot_lower_impl_label_depth(
-            label_stack,
+            label_frames,
+            label_stack_head,
             hot_branch_table_default_target(func, node.imm0),
           ),
         ),
@@ -640,17 +713,21 @@ fn hot_lower_impl_emit_instruction(
     HotOp::BrOnNull =>
       out.push(
         Instruction::br_on_null(
-          hot_lower_impl_label_depth(label_stack, node.imm0),
+          hot_lower_impl_label_depth(label_frames, label_stack_head, node.imm0),
         ),
       )
     HotOp::BrOnNonNull =>
       out.push(
         Instruction::br_on_non_null(
-          hot_lower_impl_label_depth(label_stack, node.imm0),
+          hot_lower_impl_label_depth(label_frames, label_stack_head, node.imm0),
         ),
       )
     HotOp::BrOnCast | HotOp::BrOnCastFail =>
-      out.push(hot_lower_impl_lower_br_on_cast(func, id, label_stack))
+      out.push(
+        hot_lower_impl_lower_br_on_cast(
+          func, id, label_frames, label_stack_head,
+        ),
+      )
     HotOp::Return => out.push(Instruction::return_())
     HotOp::RefIsNull => out.push(Instruction::ref_is_null())
     HotOp::RefFunc =>
@@ -683,7 +760,7 @@ fn hot_lower_impl_emit_instruction(
           hot_lower_impl_control_block_type(func, id),
           Expr::new(
             hot_lower_impl_body_items(
-              func, id, use_def, label_stack, extra_locals,
+              func, id, use_def, label_frames, label_stack_head, extra_locals,
             ),
           ),
         ),
@@ -694,16 +771,17 @@ fn hot_lower_impl_emit_instruction(
           hot_lower_impl_control_block_type(func, id),
           Expr::new(
             hot_lower_impl_body_items(
-              func, id, use_def, label_stack, extra_locals,
+              func, id, use_def, label_frames, label_stack_head, extra_locals,
             ),
           ),
         ),
       )
     HotOp::If => {
-      let next_stack = label_stack.copy()
       let label_id = hot_control_node_label(func, id)
-      if label_id >= 0 {
-        next_stack.push(label_id)
+      let next_stack = if label_id >= 0 {
+        hot_lower_impl_push_label(label_frames, label_stack_head, label_id)
+      } else {
+        label_stack_head
       }
       let else_id = hot_child_get(func, id, 2)
       out.push(
@@ -713,6 +791,7 @@ fn hot_lower_impl_emit_instruction(
             func,
             hot_child_get(func, id, 1),
             use_def,
+            label_frames,
             next_stack,
             extra_locals,
           ),
@@ -721,34 +800,42 @@ fn hot_lower_impl_emit_instruction(
           } else {
             Some(
               hot_lower_impl_region_body(
-                func, else_id, use_def, next_stack, extra_locals,
+                func, else_id, use_def, label_frames, next_stack, extra_locals,
               ),
             )
           },
         ),
       )
+      if next_stack != label_stack_head {
+        hot_lower_impl_pop_label(label_frames, next_stack)
+      }
     }
     HotOp::TryTable => {
-      let next_stack = label_stack.copy()
       let label_id = hot_control_node_label(func, id)
-      if label_id >= 0 {
-        next_stack.push(label_id)
+      let next_stack = if label_id >= 0 {
+        hot_lower_impl_push_label(label_frames, label_stack_head, label_id)
+      } else {
+        label_stack_head
       }
       out.push(
         Instruction::try_table(
           hot_lower_impl_control_block_type(func, id),
-          hot_lower_impl_try_catches(func, id, label_stack),
+          hot_lower_impl_try_catches(func, id, label_frames, label_stack_head),
           Expr::new(
             hot_lower_impl_region_body(
               func,
               hot_child_get(func, id, 0),
               use_def,
+              label_frames,
               next_stack,
               extra_locals,
             ),
           ),
         ),
       )
+      if next_stack != label_stack_head {
+        hot_lower_impl_pop_label(label_frames, next_stack)
+      }
     }
     _ => abort("unsupported node for hot lowering")
   }
@@ -759,7 +846,8 @@ fn hot_lower_impl_emit_value(
   func : HotFunc,
   id : NodeId,
   use_def : HotUseDef,
-  label_stack : Array[LabelId],
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int,
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
@@ -768,7 +856,7 @@ fn hot_lower_impl_emit_value(
     Some(top) if top.node_id == id => ()
     _ =>
       hot_lower_impl_emit_root(
-        func, id, use_def, label_stack, stack, out, extra_locals,
+        func, id, use_def, label_frames, label_stack_head, stack, out, extra_locals,
       )
   }
 }
@@ -778,7 +866,8 @@ fn hot_lower_impl_emit_inputs(
   func : HotFunc,
   inputs : Array[NodeId],
   use_def : HotUseDef,
-  label_stack : Array[LabelId],
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int,
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
@@ -789,7 +878,8 @@ fn hot_lower_impl_emit_inputs(
       func,
       inputs[i],
       use_def,
-      label_stack,
+      label_frames,
+      label_stack_head,
       stack,
       out,
       extra_locals,
@@ -802,7 +892,8 @@ fn hot_lower_impl_emit_root(
   func : HotFunc,
   id : NodeId,
   use_def : HotUseDef,
-  label_stack : Array[LabelId],
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int,
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
@@ -813,19 +904,21 @@ fn hot_lower_impl_emit_root(
       _ => ()
     }
   }
+  let inputs = hot_lower_impl_input_info(func, id)
   hot_lower_impl_emit_inputs(
     func,
-    hot_lower_impl_input_nodes(func, id),
+    inputs.nodes,
     use_def,
-    label_stack,
+    label_frames,
+    label_stack_head,
     stack,
     out,
     extra_locals,
   )
   hot_lower_impl_emit_instruction(
-    func, id, use_def, label_stack, out, extra_locals,
+    func, id, use_def, label_frames, label_stack_head, out, extra_locals,
   )
-  hot_lower_impl_update_stack(func, id, stack)
+  hot_lower_impl_update_stack(func, id, inputs.pop_count, stack)
 }
 
 ///|
@@ -851,7 +944,8 @@ fn hot_lower_body_with_extras(func : HotFunc) -> HotLowerBodyResult {
 
 ///|
 fn hot_lower_body_with_extras_unverified(func : HotFunc) -> HotLowerBodyResult {
-  let use_def = use_def_build(func)
+  let use_def = use_def_build_node_uses(func)
+  let label_frames = hot_lower_impl_new_label_frames()
   let out : Array[Instruction] = []
   let value_stack : Array[HotLowerStackValue] = []
   let extra_locals : Array[ValType] = []
@@ -865,13 +959,7 @@ fn hot_lower_body_with_extras_unverified(func : HotFunc) -> HotLowerBodyResult {
   for i = 0; i < hot_root_count(func); i = i + 1 {
     let root_id = root_ids[i]
     hot_lower_impl_emit_root(
-      func,
-      root_id,
-      use_def,
-      [],
-      value_stack,
-      out,
-      extra_locals,
+      func, root_id, use_def, label_frames, -1, value_stack, out, extra_locals,
     )
     hot_lower_impl_drop_dead_nonfinal_root_results(
       func,
@@ -899,11 +987,11 @@ pub fn hot_lower_body_unverified(func : HotFunc) -> Expr {
 ///|
 pub fn hot_lower_func(func : HotFunc) -> @lib.Func {
   let lowered = hot_lower_body_with_extras(func)
-  let body = lowered.body.copy()
+  let body = lowered.body
   hot_lower_impl_finalize_region_stack(
     func,
     hot_type_result_arity(func, hot_body_result_type(func)),
-    lowered.final_stack.copy(),
+    lowered.final_stack,
     body,
     lowered.extra_locals,
   )
@@ -918,11 +1006,11 @@ pub fn hot_lower_func(func : HotFunc) -> @lib.Func {
 ///|
 pub fn hot_lower_func_unverified(func : HotFunc) -> @lib.Func {
   let lowered = hot_lower_body_with_extras_unverified(func)
-  let body = lowered.body.copy()
+  let body = lowered.body
   hot_lower_impl_finalize_region_stack(
     func,
     hot_type_result_arity(func, hot_body_result_type(func)),
-    lowered.final_stack.copy(),
+    lowered.final_stack,
     body,
     lowered.extra_locals,
   )

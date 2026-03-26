@@ -656,7 +656,7 @@ pub fn postdom_ipdom(HotPostDominators, Int) -> Int?
 
 pub fn postdom_postdominates(HotPostDominators, Int, Int) -> Bool
 
-pub fn ssa_assign_concrete_locals(HotLocalSsa, HotLocals) -> HotSsaConcreteLocals
+pub fn ssa_assign_concrete_locals(HotFunc, HotLocalSsa) -> HotSsaConcreteLocals
 
 pub fn ssa_build_local(HotFunc, HotCfg, HotDominators, HotLiveness, HotUseDef) -> HotLocalSsa
 
@@ -688,7 +688,7 @@ pub fn ssa_phi_local(HotLocalSsa, Int) -> Int
 
 pub fn ssa_phi_nodes_are_overlay_only() -> Bool
 
-pub fn ssa_phi_placement_blocks(HotFunc, HotCfg, HotDominators, HotLiveness, HotUseDef, Int) -> Array[Int]
+pub fn ssa_phi_placement_blocks(HotFunc, HotCfg, HotDominators, HotLiveness, HotUseDef, Array[Int], Int) -> Array[Int]
 
 pub fn ssa_phis_for_block(HotLocalSsa, Int) -> Array[Int]
 
@@ -709,6 +709,8 @@ pub fn ssa_value_origin(HotLocalSsa, Int) -> HotSsaValueOrigin
 pub fn ssa_value_type(HotLocalSsa, Int) -> @lib.ValType
 
 pub fn use_def_build(HotFunc, cfg? : HotCfg?) -> HotUseDef
+
+pub fn use_def_build_node_uses(HotFunc) -> HotUseDef
 
 // Errors
 
@@ -1299,6 +1301,11 @@ pub impl Eq for HotSsaExcludedFeature
 pub impl Show for HotSsaExcludedFeature
 pub impl @debug.Debug for HotSsaExcludedFeature
 
+type HotSsaPendingInsert
+pub impl Eq for HotSsaPendingInsert
+pub impl Show for HotSsaPendingInsert
+pub impl @debug.Debug for HotSsaPendingInsert
+
 pub struct HotSsaPhi {
   block : Int
   local_id : Int
@@ -1316,6 +1323,11 @@ pub fn HotSsaPhiInput::new(Int, Int) -> Self
 pub impl Eq for HotSsaPhiInput
 pub impl Show for HotSsaPhiInput
 pub impl @debug.Debug for HotSsaPhiInput
+
+type HotSsaRegionInsertGroup
+pub impl Eq for HotSsaRegionInsertGroup
+pub impl Show for HotSsaRegionInsertGroup
+pub impl @debug.Debug for HotSsaRegionInsertGroup
 
 pub enum HotSsaRenamePolicy {
   DominatorTreeRename

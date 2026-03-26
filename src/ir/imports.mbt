@@ -55,11 +55,23 @@ using @lib {
 ///|
 using @validate {
   type Env,
+  type TcEscape,
   type TcState,
   trait Typecheck,
   empty_env,
   make_state,
   make_state_owned,
+  tc_escape_none,
+  tc_escape_terminal,
+  tc_state_merge_nonfallthrough_if_exits,
+  tc_state_new,
+  tc_state_normalize_untyped_block_exit,
+  tc_state_normalize_untyped_if_branch_exit,
+  tc_state_pop_expect,
+  tc_state_pop_types,
+  tc_state_push_types,
+  tc_state_typecheck_catch_clause,
+  tc_state_validate_end_stack,
   tc_state_with_stack,
   tc_state_with_owned_stack,
 }

@@ -64,6 +64,7 @@ test "ssa-nomerge lowers branch joins through predecessor copies" {
       @lib.ValType::i32(),
       @lib.ValType::i32(),
       @lib.ValType::i32(),
+      @lib.ValType::i32(),
     ]),
   )
   assert_eq(instrs, [
@@ -76,15 +77,15 @@ test "ssa-nomerge lowers branch joins through predecessor copies" {
         @lib.Instruction::i32_const(@lib.I32(7)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
         @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
-        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
       ],
       Some([
         @lib.Instruction::nop(),
         @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
       ]),
     ),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
   ])
 }
 
@@ -200,5 +201,126 @@ test "ssa-nomerge skips synthetic entry copies for root loop headers" {
         ),
       ]),
     ),
+  ])
+}
+
+///|
+test "ssa-nomerge rewrites structured early-return local traffic without hot lift" {
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (local i32)
+    #|     local.get 0
+    #|     if
+    #|       i32.const 7
+    #|       local.set 1
+    #|       local.get 1
+    #|       return
+    #|     else
+    #|       i32.const 9
+    #|       local.set 1
+    #|     end
+    #|     local.get 1))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected structured raw ssa-nomerge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  assert_eq(instrs, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::return_(),
+      ],
+      Some([
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+      ]),
+    ),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+  ])
+}
+
+///|
+test "ssa-nomerge rewrites structured branch merges with result-typed ifs" {
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (local i32)
+    #|     i32.const 0
+    #|     local.set 1
+    #|     local.get 0
+    #|     if (result i32)
+    #|       i32.const 1
+    #|       local.set 1
+    #|       i32.const 7
+    #|     else
+    #|       i32.const 2
+    #|       local.set 1
+    #|       i32.const 9
+    #|     end
+    #|     drop
+    #|     local.get 1))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected structured merge raw ssa-nomerge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  assert_eq(instrs, [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(6U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+      ],
+      Some([
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(7U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
+      ]),
+    ),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
   ])
 }

@@ -975,7 +975,7 @@ fn validate_const_expr(
   let env_tc = Env::{
     ..env,
     locals: Locals::empty(),
-    labels: [],
+    labels: LabelStack::new(),
     return_type: None,
   }
   let st0 = TcState::{
@@ -1224,13 +1224,7 @@ fn validate_func_body_against_functype(
       // - return appended by results
       let env1 = env
         .with_locals(validate_append_all_locals_from_decls(params, local_decls))
-        .with_labels(
-          {
-            let ls = env.labels.copy()
-            ls.push(results)
-            ls
-          },
-        )
+        .with_label(results)
         .with_return_type(Some(results))
       let st0 = TcState::{
         env: env1,

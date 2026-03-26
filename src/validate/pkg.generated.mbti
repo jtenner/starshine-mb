@@ -28,6 +28,28 @@ pub fn make_state_owned(Env, Array[@lib.ValType]) -> TcState
 
 pub fn run_validate_valid_fuzz(String, UInt64) -> Result[ValidateValidFuzzStats, String]
 
+pub fn tc_escape_none() -> TcEscape
+
+pub fn tc_escape_terminal() -> TcEscape
+
+pub fn tc_state_merge_nonfallthrough_if_exits(TcEscape, TcEscape) -> TcEscape
+
+pub fn tc_state_new(Env, Array[@lib.ValType], Bool, TcEscape) -> TcState
+
+pub fn tc_state_normalize_untyped_block_exit(TcState, Array[@lib.ValType]) -> Result[(Bool, TcEscape), String]
+
+pub fn tc_state_normalize_untyped_if_branch_exit(TcState, Array[@lib.ValType]) -> Result[(Bool, TcEscape), String]
+
+pub fn tc_state_pop_expect(TcState, @lib.ValType) -> Result[TcState, String]
+
+pub fn tc_state_pop_types(TcState, Array[@lib.ValType]) -> Result[TcState, String]
+
+pub fn tc_state_push_types(TcState, Array[@lib.ValType]) -> TcState
+
+pub fn tc_state_typecheck_catch_clause(TcState, @lib.Catch) -> Result[Unit, String]
+
+pub fn tc_state_validate_end_stack(TcState, Array[@lib.ValType]) -> Result[Unit, String]
+
 pub fn tc_state_with_owned_stack(TcState, Array[@lib.ValType]) -> TcState
 
 pub fn tc_state_with_stack(TcState, Array[@lib.ValType]) -> TcState
@@ -91,7 +113,7 @@ pub(all) struct Env {
   datas : Array[@lib.Data]
   tags : Array[@lib.TagType]
   locals : @lib.Locals
-  labels : Array[Array[@lib.ValType]]
+  labels : LabelStack
   return_type : Array[@lib.ValType]?
 }
 pub fn Env::append_rectype_types(Self, @lib.RecType) -> Self
@@ -149,6 +171,21 @@ pub impl Hash for Env
 pub impl Show for Env
 
 type GenValidContext
+
+pub(all) struct LabelStack {
+  values : Array[Array[@lib.ValType]]
+  parents : Array[Int]
+  mut head : Int
+  mut len : Int
+}
+pub fn LabelStack::copy(Self) -> Self
+pub fn LabelStack::from_labels(Array[Array[@lib.ValType]]) -> Self
+pub fn LabelStack::get(Self, Int) -> Array[@lib.ValType]?
+pub fn LabelStack::length(Self) -> Int
+pub fn LabelStack::new() -> Self
+pub fn LabelStack::push(Self, Array[@lib.ValType]) -> Unit
+pub impl Hash for LabelStack
+pub impl Show for LabelStack
 
 pub enum TcEscape {
   NoTcEscape

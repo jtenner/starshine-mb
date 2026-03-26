@@ -529,6 +529,279 @@ fn run_hot_pipeline_raw_local_type(
 }
 
 ///|
+fn run_hot_pipeline_raw_aliases_equal(
+  lhs : Array[@lib.LocalIdx],
+  rhs : Array[@lib.LocalIdx],
+) -> Bool {
+  if lhs.length() != rhs.length() {
+    return false
+  }
+  for idx = 0; idx < lhs.length(); idx = idx + 1 {
+    if lhs[idx] != rhs[idx] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_fresh_local(
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  local_id : Int,
+  extra_local_types : Array[@lib.ValType],
+) -> @lib.LocalIdx {
+  let fresh_local_id = params.length() +
+    locals.length() +
+    extra_local_types.length()
+  extra_local_types.push(
+    run_hot_pipeline_raw_local_type(params, locals, local_id),
+  )
+  @lib.LocalIdx::new(fresh_local_id.reinterpret_as_uint())
+}
+
+///|
+fn run_hot_pipeline_raw_fresh_typed_local(
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  val_type : @lib.ValType,
+  extra_local_types : Array[@lib.ValType],
+) -> @lib.LocalIdx {
+  let fresh_local_id = params.length() +
+    locals.length() +
+    extra_local_types.length()
+  extra_local_types.push(val_type)
+  @lib.LocalIdx::new(fresh_local_id.reinterpret_as_uint())
+}
+
+///|
+fn run_hot_pipeline_raw_append_alias_merge_copies(
+  branch_instrs : Array[@lib.Instruction],
+  source_aliases : Array[@lib.LocalIdx],
+  target_aliases : Array[@lib.LocalIdx],
+  result_types : Array[@lib.ValType],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Array[@lib.Instruction] {
+  let out = branch_instrs.copy()
+  let result_scratch : Array[@lib.LocalIdx] = []
+  for result_type in result_types {
+    result_scratch.push(
+      run_hot_pipeline_raw_fresh_typed_local(
+        params, locals, result_type, extra_local_types,
+      ),
+    )
+  }
+  for idx = result_scratch.length() - 1; idx >= 0; idx = idx - 1 {
+    out.push(@lib.Instruction::local_set(result_scratch[idx]))
+  }
+  for local_id = 0; local_id < target_aliases.length(); local_id = local_id + 1 {
+    if source_aliases[local_id] == target_aliases[local_id] {
+      continue
+    }
+    out.push(@lib.Instruction::local_get(source_aliases[local_id]))
+    out.push(@lib.Instruction::local_set(target_aliases[local_id]))
+  }
+  for local_idx in result_scratch {
+    out.push(@lib.Instruction::local_get(local_idx))
+  }
+  out
+}
+
+///|
+fn run_hot_pipeline_raw_rewrite_instrs(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  local_aliases : Array[@lib.LocalIdx],
+  extra_local_types : Array[@lib.ValType],
+) -> (Array[@lib.Instruction], Array[@lib.LocalIdx], Bool)? {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut aliases = local_aliases
+  let mut fallthrough = true
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        match
+          run_hot_pipeline_raw_rewrite_instrs(
+            body,
+            module_ctx,
+            params,
+            locals,
+            aliases.copy(),
+            extra_local_types,
+          ) {
+          Some((rewritten_body, body_aliases, body_fallthrough)) => {
+            rewritten.push(
+              @lib.Instruction::block(
+                block_type,
+                @lib.Expr::new(rewritten_body),
+              ),
+            )
+            if body_fallthrough {
+              aliases = body_aliases
+            } else {
+              fallthrough = false
+            }
+          }
+          None => return None
+        }
+      @lib.If(block_type, then_body, else_body) => {
+        let then_result = match
+          run_hot_pipeline_raw_rewrite_instrs(
+            then_body,
+            module_ctx,
+            params,
+            locals,
+            aliases.copy(),
+            extra_local_types,
+          ) {
+          Some(result) => result
+          None => return None
+        }
+        let else_result = match else_body {
+          Some(body) =>
+            match
+              run_hot_pipeline_raw_rewrite_instrs(
+                body,
+                module_ctx,
+                params,
+                locals,
+                aliases.copy(),
+                extra_local_types,
+              ) {
+              Some(result) => result
+              None => return None
+            }
+          None => ([], aliases.copy(), true)
+        }
+        let (rewritten_then, then_aliases, then_fallthrough) = then_result
+        let (rewritten_else, else_aliases, else_fallthrough) = else_result
+        let mut merged_then = rewritten_then
+        let mut merged_else = rewritten_else
+        let mut merged_aliases = aliases
+        if then_fallthrough && else_fallthrough {
+          if run_hot_pipeline_raw_aliases_equal(then_aliases, else_aliases) {
+            merged_aliases = then_aliases
+          } else {
+            let result_types = match
+              @ir.hot_module_resolve_block_results(module_ctx, block_type) {
+              Some(result_types) => result_types
+              None => return None
+            }
+            merged_aliases = then_aliases.copy()
+            for local_id = 0
+                local_id < merged_aliases.length()
+                local_id = local_id + 1 {
+              if then_aliases[local_id] == else_aliases[local_id] {
+                continue
+              }
+              merged_aliases[local_id] = run_hot_pipeline_raw_fresh_local(
+                params, locals, local_id, extra_local_types,
+              )
+            }
+            merged_then = run_hot_pipeline_raw_append_alias_merge_copies(
+              merged_then, then_aliases, merged_aliases, result_types, params, locals,
+              extra_local_types,
+            )
+            merged_else = run_hot_pipeline_raw_append_alias_merge_copies(
+              merged_else, else_aliases, merged_aliases, result_types, params, locals,
+              extra_local_types,
+            )
+          }
+        }
+        rewritten.push(
+          @lib.Instruction::if_(
+            block_type,
+            merged_then,
+            match else_body {
+              Some(_) => Some(merged_else)
+              None =>
+                if merged_else.length() == 0 {
+                  None
+                } else {
+                  Some(merged_else)
+                }
+            },
+          ),
+        )
+        match (then_fallthrough, else_fallthrough) {
+          (true, true) => aliases = merged_aliases
+          (true, false) => aliases = then_aliases
+          (false, true) => aliases = else_aliases
+          (false, false) => fallthrough = false
+        }
+      }
+      @lib.Loop(_, _)
+      | @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.TryTable(_, _, _) => return None
+      @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        rewritten.push(
+          @lib.Instruction::local_get(aliases[raw.reinterpret_as_int()]),
+        )
+      @lib.LocalSet(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        let fresh_local = run_hot_pipeline_raw_fresh_local(
+          params, locals, local_id, extra_local_types,
+        )
+        aliases[local_id] = fresh_local
+        rewritten.push(@lib.Instruction::local_set(fresh_local))
+      }
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        let fresh_local = run_hot_pipeline_raw_fresh_local(
+          params, locals, local_id, extra_local_types,
+        )
+        aliases[local_id] = fresh_local
+        rewritten.push(@lib.Instruction::local_tee(fresh_local))
+      }
+      @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Unreachable => {
+        rewritten.push(instr)
+        fallthrough = false
+      }
+      _ => rewritten.push(instr)
+    }
+  }
+  Some((rewritten, aliases, fallthrough))
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_structured(
+  func : @lib.Func,
+  module_ctx : @ir.HotModuleContext,
+  params : Array[@lib.ValType],
+) -> @lib.Func? {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let local_aliases : Array[@lib.LocalIdx] = []
+  let base_local_count = params.length() + locals.length()
+  let extra_local_types : Array[@lib.ValType] = []
+  for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+    local_aliases.push(@lib.LocalIdx::new(local_id.reinterpret_as_uint()))
+  }
+  match
+    run_hot_pipeline_raw_rewrite_instrs(
+      instrs, module_ctx, params, locals, local_aliases, extra_local_types,
+    ) {
+    Some((rewritten_instrs, _, _)) => {
+      let rewritten_locals = locals.copy()
+      rewritten_locals.append_types(extra_local_types)
+      Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)))
+    }
+    None => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
   func : @lib.Func,
   params : Array[@lib.ValType],
@@ -596,7 +869,15 @@ fn run_hot_pipeline_raw_ssa_nomerge(
     return Some(("no-local-writes", original))
   }
   if has_structured_control {
-    None
+    match
+      run_hot_pipeline_raw_ssa_nomerge_structured(
+        original,
+        module_ctx,
+        run_hot_pipeline_required_func_params(module_ctx, func_idx),
+      ) {
+      Some(rewritten) => Some(("structured-local-writes", rewritten))
+      None => None
+    }
   } else {
     Some(
       (

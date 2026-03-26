@@ -103,10 +103,11 @@ fn dom_build_frontiers(
   reachable : Bitset,
   idoms : Array[BlockId],
 ) -> Array[Array[BlockId]] {
-  let frontier_bits : Array[Bitset] = []
+  let frontiers : Array[Array[BlockId]] = []
   for _ in 0..<cfg_block_count(cfg) {
-    frontier_bits.push(bitset_new(cfg_block_count(cfg)))
+    frontiers.push([])
   }
+  let frontier_stamps = Array::make(cfg_block_count(cfg), -1)
   for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
     if !dom_has_reachable(reachable, block_id) {
       continue
@@ -118,18 +119,13 @@ fn dom_build_frontiers(
     for pred in preds {
       let mut runner = pred
       while runner != idoms[block_id] {
-        ignore(bitset_set(frontier_bits[runner], block_id))
+        if frontier_stamps[runner] != block_id {
+          frontier_stamps[runner] = block_id
+          frontiers[runner].push(block_id)
+        }
         runner = idoms[runner]
       }
     }
-  }
-  let frontiers : Array[Array[BlockId]] = []
-  for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
-    let frontier : Array[BlockId] = []
-    bitset_for_each_set_bit(frontier_bits[block_id], fn(target) {
-      frontier.push(target)
-    })
-    frontiers.push(frontier)
   }
   frontiers
 }

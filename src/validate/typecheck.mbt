@@ -3737,6 +3737,90 @@ pub fn tc_state_with_owned_stack(
   { env: state.env, stack, reachable: state.reachable, escape: state.escape }
 }
 
+///|
+pub fn tc_state_new(
+  env : Env,
+  stack : Array[ValType],
+  reachable : Bool,
+  escape : TcEscape,
+) -> TcState {
+  { env, stack, reachable, escape }
+}
+
+///|
+pub fn tc_escape_none() -> TcEscape {
+  NoTcEscape
+}
+
+///|
+pub fn tc_escape_terminal() -> TcEscape {
+  TerminalTcEscape
+}
+
+///|
+pub fn tc_state_pop_expect(
+  state : TcState,
+  expected : ValType,
+) -> Result[TcState, String] {
+  state.pop_expect(expected)
+}
+
+///|
+pub fn tc_state_pop_types(
+  state : TcState,
+  types : Array[ValType],
+) -> Result[TcState, String] {
+  state.pop_types(types)
+}
+
+///|
+pub fn tc_state_push_types(state : TcState, types : Array[ValType]) -> TcState {
+  state.push_types(types)
+}
+
+///|
+pub fn tc_state_validate_end_stack(
+  state : TcState,
+  results : Array[ValType],
+) -> Result[Unit, String] {
+  validate_end_stack(state, results)
+}
+
+///|
+pub fn tc_state_normalize_untyped_block_exit(
+  state : TcState,
+  results : Array[ValType],
+) -> Result[(Bool, TcEscape), String] {
+  normalize_untyped_block_exit(state, results)
+}
+
+///|
+pub fn tc_state_normalize_untyped_if_branch_exit(
+  state : TcState,
+  results : Array[ValType],
+) -> Result[(Bool, TcEscape), String] {
+  normalize_untyped_if_branch_exit(state, results)
+}
+
+///|
+pub fn tc_state_merge_nonfallthrough_if_exits(
+  left : TcEscape,
+  right : TcEscape,
+) -> TcEscape {
+  merge_nonfallthrough_if_exits(left, right)
+}
+
+///|
+pub fn tc_state_typecheck_catch_clause(
+  state : TcState,
+  catch_ : Catch,
+) -> Result[Unit, String] {
+  match typecheck_catch_clause(state, catch_) {
+    Ok(_) => Ok(())
+    Err(err) => Err(err)
+  }
+}
+
 // =============================================================================
 // CONTROL INSTRUCTIONS
 // =============================================================================

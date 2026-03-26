@@ -92,3 +92,37 @@ test "use-def records shared local reads once even with multiple use sites" {
   assert_eq(local_read_nodes(use_def, 0), [local_get])
   assert_eq(node_use_count(use_def, local_get), 2)
 }
+
+///|
+test "use-def lightweight build preserves node uses and local traffic" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        ],
+        Some([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        ]),
+      ),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    ]),
+    HotLocals::new(params=[@lib.ValType::i32()], locals=[@lib.ValType::i32()]),
+  )
+  let cfg = cfg_build(func)
+  let full = use_def_build(func, cfg=Some(cfg))
+  let light = use_def_build_node_uses(func)
+  let if_id = hot_root_get(func, 0)
+  let join_get = hot_root_get(func, 1)
+
+  assert_eq(node_use_sites(light, if_id), node_use_sites(full, if_id))
+  assert_eq(node_use_sites(light, join_get), node_use_sites(full, join_get))
+  assert_eq(local_read_nodes(light, 0), local_read_nodes(full, 0))
+  assert_eq(local_write_nodes(light, 1), local_write_nodes(full, 1))
+  assert_eq(local_write_block_ids(light, 0), [])
+  assert_eq(local_write_block_ids(light, 1), [])
+}

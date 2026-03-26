@@ -220,6 +220,24 @@ fn hot_lift_test_triple_result_tee_consumer_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lift_test_deep_branch_body(depth : Int) -> @lib.Expr {
+  let mut current = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::br(@lib.LabelIdx::new((depth - 1).reinterpret_as_uint())),
+    @lib.Instruction::unreachable_(),
+  ])
+  for _ in 0..<depth {
+    current = @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        current,
+      ),
+    ])
+  }
+  current
+}
+
+///|
 test "hot lift func derives locals and direct call metadata from the module" {
   let func = hot_lift_func(hot_lift_test_func_module(), @lib.FuncIdx::new(1U))
 
@@ -267,6 +285,30 @@ test "hot lift maps try_table catches onto hot labels" {
       assert_eq(label_id, hot_control_node_label(func, block_id))
     other => fail("expected catch_all arm, got \{other}")
   }
+}
+
+///|
+test "hot lift resolves deep branch labels without copying full label stacks" {
+  let depth = 64
+  let body = hot_lift_test_deep_branch_body(depth)
+  let func = hot_lift_body(
+    body,
+    HotLocals::new(),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+
+  let outer_block = hot_root_get(func, 0)
+  let outer_label = hot_control_node_label(func, outer_block)
+  let mut current = outer_block
+  for _ in 1..<depth {
+    let region = hot_region_body_ref(func, current)
+    current = hot_region_get(func, region, 0)
+  }
+  let inner_region = hot_region_body_ref(func, current)
+  let br_id = hot_region_get(func, inner_region, 0)
+
+  assert_eq(hot_node_get(func, br_id).op.to_string(), "Br")
+  assert_eq(hot_node_get(func, br_id).imm0, outer_label)
 }
 
 ///|

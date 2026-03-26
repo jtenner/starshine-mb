@@ -2,6 +2,74 @@
 type Stack[T] = Array[T]
 
 ///|
+pub(all) struct LabelStack {
+  values : Array[Array[ValType]]
+  parents : Array[Int]
+  mut head : Int
+  mut len : Int
+} derive(Hash, Show)
+
+///|
+pub fn LabelStack::new() -> LabelStack {
+  { values: [], parents: [], head: -1, len: 0 }
+}
+
+///|
+pub fn LabelStack::from_labels(labels : Array[Array[ValType]]) -> LabelStack {
+  let parents : Array[Int] = []
+  let mut head = -1
+  for idx = 0; idx < labels.length(); idx = idx + 1 {
+    parents.push(head)
+    head = idx
+  }
+  { values: labels, parents, head, len: labels.length() }
+}
+
+///|
+pub fn LabelStack::copy(stack : LabelStack) -> LabelStack {
+  {
+    values: stack.values,
+    parents: stack.parents,
+    head: stack.head,
+    len: stack.len,
+  }
+}
+
+///|
+pub fn LabelStack::push(
+  stack : LabelStack,
+  label_types : Array[ValType],
+) -> Unit {
+  let next = stack.values.length()
+  stack.values.push(label_types)
+  stack.parents.push(stack.head)
+  stack.head = next
+  stack.len = stack.len + 1
+}
+
+///|
+pub fn LabelStack::length(stack : LabelStack) -> Int {
+  stack.len
+}
+
+///|
+pub fn LabelStack::get(stack : LabelStack, idx : Int) -> Array[ValType]? {
+  if idx < 0 || idx >= stack.len {
+    return None
+  }
+  let mut remaining = stack.len - 1 - idx
+  let mut cursor = stack.head
+  while cursor >= 0 {
+    if remaining == 0 {
+      return Some(stack.values[cursor])
+    }
+    cursor = stack.parents[cursor]
+    remaining = remaining - 1
+  }
+  None
+}
+
+///|
 pub(all) struct Env {
   global_types : Array[SubType]
   rec_stack : Stack[Array[SubType]]
@@ -14,7 +82,7 @@ pub(all) struct Env {
   datas : Array[Data]
   tags : Array[TagType]
   locals : Locals
-  labels : Stack[Array[ValType]]
+  labels : LabelStack
   return_type : Array[ValType]?
 } derive(Hash, Show)
 
@@ -124,7 +192,7 @@ pub fn Env::with_label(env : Env, ts : Array[ValType]) -> Env {
 
 ///|
 pub fn Env::with_labels(env : Env, labels : Stack[Array[ValType]]) -> Env {
-  Env::{ ..env, labels, }
+  Env::{ ..env, labels: LabelStack::from_labels(labels) }
 }
 
 ///|
@@ -178,7 +246,7 @@ pub fn empty_env() -> Env {
     datas: [],
     tags: [],
     locals: Locals::empty(),
-    labels: [],
+    labels: LabelStack::new(),
     return_type: None,
   }
 }

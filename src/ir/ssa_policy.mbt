@@ -178,14 +178,68 @@ fn ssa_require_cfg_shapes(
 }
 
 ///|
-fn ssa_queue_push_once(
+fn ssa_phi_block_order_index(cfg : HotCfg, rpo : Array[BlockId]) -> Array[Int] {
+  let out = Array::make(cfg_block_count(cfg), -1)
+  for idx = 0; idx < rpo.length(); idx = idx + 1 {
+    out[rpo[idx]] = idx
+  }
+  out
+}
+
+///|
+fn ssa_phi_placement_blocks_with_scratch(
+  func : HotFunc,
+  cfg : HotCfg,
+  dom : HotDominators,
+  liveness : HotLiveness,
+  use_def : HotUseDef,
+  local_id : LocalId,
+  rpo_index : Array[Int],
+  placed_stamps : Array[Int],
+  queued_stamps : Array[Int],
   queue : Array[BlockId],
-  queued : Bitset,
-  block_id : BlockId,
-) -> Unit {
-  if bitset_set(queued, block_id) {
+  placements : Array[BlockId],
+  stamp : Int,
+) -> Array[BlockId] {
+  ssa_require_local_range(func, local_id)
+  ssa_require_cfg_shapes(func, cfg, liveness, use_def)
+
+  let writes = use_def.local_write_blocks[local_id]
+  if writes.length() == 0 || use_def.local_reads[local_id].length() == 0 {
+    placements.clear()
+    return []
+  }
+
+  queue.clear()
+  placements.clear()
+  for block_id in writes {
+    if queued_stamps[block_id] == stamp {
+      continue
+    }
+    queued_stamps[block_id] = stamp
     queue.push(block_id)
   }
+
+  while queue.length() > 0 {
+    let block_id = queue.pop().unwrap()
+    for frontier in dom.frontiers[block_id] {
+      if !bitset_contains(liveness.live_in_sets[frontier], local_id) {
+        continue
+      }
+      if placed_stamps[frontier] != stamp {
+        placed_stamps[frontier] = stamp
+        placements.push(frontier)
+      }
+      if queued_stamps[frontier] != stamp {
+        queued_stamps[frontier] = stamp
+        queue.push(frontier)
+      }
+    }
+  }
+  if placements.length() > 1 {
+    placements.sort_by((lhs, rhs) => rpo_index[lhs] - rpo_index[rhs])
+  }
+  placements
 }
 
 ///|
@@ -262,43 +316,23 @@ pub fn ssa_phi_placement_blocks(
   dom : HotDominators,
   liveness : HotLiveness,
   use_def : HotUseDef,
+  rpo : Array[BlockId],
   local_id : LocalId,
 ) -> Array[BlockId] {
-  ssa_require_local_range(func, local_id)
-  ssa_require_cfg_shapes(func, cfg, liveness, use_def)
-
-  let block_count = cfg_block_count(cfg)
-  let placed = bitset_new(block_count)
-  let queued = bitset_new(block_count)
-  let queue : Array[BlockId] = []
-
-  let writes = use_def.local_write_blocks[local_id]
-  if writes.length() == 0 {
-    return []
-  }
-  for block_id in writes {
-    ssa_queue_push_once(queue, queued, block_id)
-  }
-
-  while queue.length() > 0 {
-    let block_id = queue.pop().unwrap()
-    for frontier in dom_frontier(dom, block_id) {
-      if !local_live_in(liveness, frontier, local_id) {
-        continue
-      }
-      if bitset_set(placed, frontier) {
-        ssa_queue_push_once(queue, queued, frontier)
-      }
-    }
-  }
-
-  let placements : Array[BlockId] = []
-  for block_id in cfg_reverse_postorder(cfg) {
-    if bitset_contains(placed, block_id) {
-      placements.push(block_id)
-    }
-  }
-  placements
+  ssa_phi_placement_blocks_with_scratch(
+    func,
+    cfg,
+    dom,
+    liveness,
+    use_def,
+    local_id,
+    ssa_phi_block_order_index(cfg, rpo),
+    Array::make(cfg_block_count(cfg), -1),
+    Array::make(cfg_block_count(cfg), -1),
+    [],
+    [],
+    0,
+  )
 }
 
 ///|

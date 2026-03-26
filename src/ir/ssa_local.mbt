@@ -175,7 +175,7 @@ fn ssa_local_visit_block(
     ssa_local_visit_node(func, ssa, node_id, local_stacks, pushed_locals)
   }
   ssa_local_record_successor_phi_inputs(cfg, ssa, block_id, local_stacks)
-  for child_block in dom_children(dom, block_id) {
+  for child_block in dom.children[block_id] {
     ssa_local_visit_block(func, cfg, dom, ssa, child_block, local_stacks)
   }
   for idx = pushed_locals.length() - 1; idx >= 0; idx = idx - 1 {
@@ -200,30 +200,45 @@ fn ssa_local_normal_predecessors(
 
 ///|
 fn ssa_local_sort_phi_inputs(cfg : HotCfg, ssa : HotLocalSsa) -> Unit {
-  for phi_id = 0; phi_id < ssa.phis.length(); phi_id = phi_id + 1 {
-    let current = ssa.phi_inputs[phi_id].copy()
-    let ordered : Array[HotSsaPhiInput] = []
-    let used = Array::make(current.length(), false)
-    for
-      predecessor in ssa_local_normal_predecessors(cfg, ssa.phis[phi_id].block) {
-      let mut matched = false
-      for idx = 0; idx < current.length(); idx = idx + 1 {
-        if used[idx] || current[idx].predecessor != predecessor {
-          continue
+  let pred_order = Array::make(cfg_block_count(cfg), -1)
+  for block_id = 0; block_id < ssa.block_phis.length(); block_id = block_id + 1 {
+    let preds = ssa_local_normal_predecessors(cfg, block_id)
+    for predecessor in preds {
+      pred_order[predecessor] = -1
+    }
+    for idx = 0; idx < preds.length(); idx = idx + 1 {
+      pred_order[preds[idx]] = idx
+    }
+    for phi_id in ssa.block_phis[block_id] {
+      let current = ssa.phi_inputs[phi_id]
+      if current.length() == 0 {
+        continue
+      }
+      let ordered = Array::make(current.length(), current[0])
+      let filled = Array::make(current.length(), false)
+      for input in current {
+        let idx = if input.predecessor >= 0 &&
+          input.predecessor < pred_order.length() {
+          pred_order[input.predecessor]
+        } else {
+          -1
         }
-        ordered.push(current[idx])
-        used[idx] = true
-        matched = true
-        break
+        if idx < 0 || idx >= ordered.length() || filled[idx] {
+          abort("ssa phi inputs must align with normal-flow predecessors")
+        }
+        ordered[idx] = input
+        filled[idx] = true
       }
-      if !matched {
-        abort("ssa phi inputs must align with normal-flow predecessors")
+      for is_filled in filled {
+        if !is_filled {
+          abort("ssa phi inputs must align with normal-flow predecessors")
+        }
       }
+      ssa.phi_inputs[phi_id] = ordered
     }
-    if ordered.length() != current.length() {
-      abort("ssa phi inputs must not contain extra predecessor entries")
+    for predecessor in preds {
+      pred_order[predecessor] = -1
     }
-    ssa.phi_inputs[phi_id] = ordered
   }
 }
 
@@ -238,6 +253,12 @@ pub fn ssa_build_local(
   let local_count = hot_local_count(func)
   let node_count = hot_node_count(func)
   let block_count = cfg_block_count(cfg)
+  let rpo = cfg_reverse_postorder(cfg)
+  let rpo_index = ssa_phi_block_order_index(cfg, rpo)
+  let phi_placed_stamps = Array::make(block_count, -1)
+  let phi_queued_stamps = Array::make(block_count, -1)
+  let phi_queue : Array[BlockId] = []
+  let phi_placements : Array[BlockId] = []
   let entry_defs = Array::make(local_count, -1)
   let local_stacks : Array[Array[SsaValueId]] = []
   for _ in 0..<local_count {
@@ -271,8 +292,9 @@ pub fn ssa_build_local(
 
   for local_id = 0; local_id < local_count; local_id = local_id + 1 {
     for
-      block_id in ssa_phi_placement_blocks(
-        func, cfg, dom, liveness, use_def, local_id,
+      block_id in ssa_phi_placement_blocks_with_scratch(
+        func, cfg, dom, liveness, use_def, local_id, rpo_index, phi_placed_stamps,
+        phi_queued_stamps, phi_queue, phi_placements, local_id,
       ) {
       let phi_id = ssa.phis.length()
       ssa.phis.push(HotSsaPhi::new(block_id, local_id))

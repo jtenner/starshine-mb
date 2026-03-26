@@ -219,3 +219,43 @@ test "ssa-nomerge rewrites straight-line local traffic without hot lift" {
   assert_false(text.contains("perf:timer name=lift"))
   assert_false(text.contains("perf:timer name=analysis:ssa"))
 }
+
+///|
+test "ssa-nomerge rewrites structured early-return locals without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (local i32)
+    #|     local.get 0
+    #|     if
+    #|       i32.const 7
+    #|       local.set 1
+    #|       local.get 1
+    #|       return
+    #|     else
+    #|       i32.const 9
+    #|       local.set 1
+    #|     end
+    #|     local.get 1))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected structured raw ssa-nomerge success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes"),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=analysis:ssa"))
+}

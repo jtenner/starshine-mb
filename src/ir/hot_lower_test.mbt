@@ -100,6 +100,36 @@ test "hot lower preserves result-only loop fallthrough values" {
 }
 
 ///|
+fn hot_lower_test_deep_branch_body(depth : Int) -> @lib.Expr {
+  let mut current = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::br(@lib.LabelIdx::new((depth - 1).reinterpret_as_uint())),
+    @lib.Instruction::unreachable_(),
+  ])
+  for _ in 0..<depth {
+    current = @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        current,
+      ),
+    ])
+  }
+  current
+}
+
+///|
+test "hot lower roundtrips deep nested branch label stacks" {
+  let body = hot_lower_test_deep_branch_body(64)
+  let hot = hot_lift_body(
+    body,
+    HotLocals::new(),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+
+  assert_eq(hot_lower_body(hot), body)
+}
+
+///|
 fn hot_lower_test_func_module() -> @lib.Module {
   let type_sec = @lib.TypeSec::new([
     @lib.RecType::new(

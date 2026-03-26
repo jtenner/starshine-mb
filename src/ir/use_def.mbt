@@ -210,7 +210,12 @@ fn use_def_scan_block_node(
   defs : Bitset,
   uses : Bitset,
   local_write_blocks : Array[Array[BlockId]],
+  seen_stamps : Array[Int],
 ) -> Unit {
+  if seen_stamps[node_id] == block_id {
+    return
+  }
+  seen_stamps[node_id] = block_id
   let node = hot_node_get(func, node_id)
   for slot = 0; slot < hot_child_count(func, node_id); slot = slot + 1 {
     if use_def_region_slot(node.op, slot) {
@@ -220,6 +225,7 @@ fn use_def_scan_block_node(
       Some(child_id) =>
         use_def_scan_block_node(
           func, child_id, block_id, local_count, defs, uses, local_write_blocks,
+          seen_stamps,
         )
       None => ()
     }
@@ -245,6 +251,7 @@ fn use_def_build_block_sets(
   cfg : HotCfg,
 ) -> (Array[Bitset], Array[Bitset], Array[Array[BlockId]]) {
   let local_count = hot_local_count(func)
+  let seen_stamps = Array::make(hot_node_count(func), -1)
   let block_defs : Array[Bitset] = []
   let block_uses : Array[Bitset] = []
   let local_write_blocks : Array[Array[BlockId]] = []
@@ -256,7 +263,7 @@ fn use_def_build_block_sets(
     let uses = bitset_new(local_count)
     for node_id in cfg_block_get(cfg, block_id).nodes {
       use_def_scan_block_node(
-        func, node_id, block_id, local_count, defs, uses, local_write_blocks,
+        func, node_id, block_id, local_count, defs, uses, local_write_blocks, seen_stamps,
       )
     }
     block_defs.push(defs)
@@ -266,7 +273,9 @@ fn use_def_build_block_sets(
 }
 
 ///|
-pub fn use_def_build(func : HotFunc, cfg? : HotCfg? = None) -> HotUseDef {
+fn use_def_build_node_and_local_uses(
+  func : HotFunc,
+) -> (Array[Array[HotUseSite]], Array[Array[NodeId]], Array[Array[NodeId]]) {
   let node_uses : Array[Array[HotUseSite]] = []
   let seen : Array[Bool] = []
   for _ in 0..<hot_node_count(func) {
@@ -286,6 +295,38 @@ pub fn use_def_build(func : HotFunc, cfg? : HotCfg? = None) -> HotUseDef {
     local_reads,
     local_writes,
     seen,
+  )
+  (node_uses, local_reads, local_writes)
+}
+
+///|
+fn use_def_empty_local_write_blocks(local_count : Int) -> Array[Array[BlockId]] {
+  let local_write_blocks : Array[Array[BlockId]] = []
+  for _ in 0..<local_count {
+    local_write_blocks.push([])
+  }
+  local_write_blocks
+}
+
+///|
+pub fn use_def_build_node_uses(func : HotFunc) -> HotUseDef {
+  let (node_uses, local_reads, local_writes) = use_def_build_node_and_local_uses(
+    func,
+  )
+  {
+    node_uses,
+    block_defs: [],
+    block_uses: [],
+    local_reads,
+    local_writes,
+    local_write_blocks: use_def_empty_local_write_blocks(hot_local_count(func)),
+  }
+}
+
+///|
+pub fn use_def_build(func : HotFunc, cfg? : HotCfg? = None) -> HotUseDef {
+  let (node_uses, local_reads, local_writes) = use_def_build_node_and_local_uses(
+    func,
   )
   let (block_defs, block_uses, local_write_blocks) = match cfg {
     Some(existing) => use_def_build_block_sets(func, existing)
