@@ -170,6 +170,26 @@ test "optimize-instructions does not reorder across the same local" {
 }
 
 ///|
+test "optimize-instructions canonicalizes commutative local gets after trapping loads" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (memory 1) (func (param i32 i32) (result i32) local.get 0 local.get 1 i32.load i32.add))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::Load => ()
+    _ =>
+      fail("expected trapping load subtree to move into the canonical lhs slot")
+  }
+  match @ir.hot_node_get(func, rhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected pure local.get to move behind a trapping load subtree")
+  }
+  assert_eq(@ir.hot_node_get(func, rhs).imm0, 0)
+}
+
+///|
 test "optimize-instructions removes redundant shift masks" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) local.get 0 local.get 1 i32.const 31 i32.and i32.shl))",

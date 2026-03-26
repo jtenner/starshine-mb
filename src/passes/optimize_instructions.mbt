@@ -212,11 +212,6 @@ fn optimize_instructions_can_cross_local_get(
   if node_id < seen.length() {
     seen[node_id] = true
   }
-  if @ir.hot_may_trap(func, node_id) ||
-    @ir.hot_node_may_throw_exception(func, node_id) ||
-    @ir.hot_is_branch(func, node_id) {
-    return false
-  }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
   } else {
@@ -226,12 +221,6 @@ fn optimize_instructions_can_cross_local_get(
     @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 == local_id =>
       return false
     _ => ()
-  }
-  if @ir.hot_has_side_effect(func, node_id) {
-    match node.op {
-      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => ()
-      _ => return false
-    }
   }
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     if !optimize_instructions_can_cross_local_get(
