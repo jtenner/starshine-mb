@@ -204,6 +204,64 @@ test "dead-code-elimination keeps typed if wrappers with hidden region-label pay
 }
 
 ///|
+test "dead-code-elimination keeps typed if wrappers with hidden br_table payload branches" {
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let if_id = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    else_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let then_region = @ir.hot_region_then_ref(func, if_id)
+  let then_label = @ir.hot_control_node_label(func, then_region.holder)
+  @ir.hot_region_replace_body(func, then_region, [
+    @ir.hot_build_br_table(
+      func,
+      [then_label],
+      then_label,
+      @ir.hot_build_const_i32(func, @lib.I32(0)),
+      values=[@ir.hot_build_const_i32(func, @lib.I32(1))],
+    ),
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, if_id))
+  @ir.hot_root_append(func, @ir.hot_build_const_i32(func, @lib.I32(7)))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) => fail("expected br_table fixture core verification, got \{err}")
+  }
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected br_table fixture control verification, got \{err}")
+  }
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected dead-code-elimination hidden br_table success, got \{err}")
+  }
+
+  assert_eq(@ir.hot_node_result_arity(func, if_id), 1)
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected typed if br_table wrapper to remain valid, got \{err}")
+  }
+}
+
+///|
 test "dead-code-elimination removes nested unreachable roots after return" {
   let optimized = match
     pass_test_run_pipeline(
