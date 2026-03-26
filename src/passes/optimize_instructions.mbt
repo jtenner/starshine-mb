@@ -135,6 +135,160 @@ fn optimize_instructions_shift_mask_bits(instr : @lib.Instruction) -> Int? {
 }
 
 ///|
+fn optimize_instructions_is_commutative_instr(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Instruction::I32Add
+    | @lib.Instruction::I64Add
+    | @lib.Instruction::I32Mul
+    | @lib.Instruction::I64Mul
+    | @lib.Instruction::I32And
+    | @lib.Instruction::I64And
+    | @lib.Instruction::I32Or
+    | @lib.Instruction::I64Or
+    | @lib.Instruction::I32Xor
+    | @lib.Instruction::I64Xor
+    | @lib.Instruction::I32Eq
+    | @lib.Instruction::I64Eq
+    | @lib.Instruction::I32Ne
+    | @lib.Instruction::I64Ne => true
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_local_get_id(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Int? {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return None
+  }
+  let node = if node_id < func.nodes.length() {
+    func.nodes[node_id]
+  } else {
+    @ir.hot_node_get(func, node_id)
+  }
+  match node.op {
+    @ir.HotOp::LocalGet => Some(node.imm0)
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_is_constlike(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  let node = if node_id < func.nodes.length() {
+    func.nodes[node_id]
+  } else {
+    @ir.hot_node_get(func, node_id)
+  }
+  match node.op {
+    @ir.HotOp::Const | @ir.HotOp::RefNull | @ir.HotOp::RefFunc => true
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_can_cross_local_get(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+  local_id : Int,
+  seen : Array[Bool],
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return true
+  }
+  if node_id < seen.length() && seen[node_id] {
+    return true
+  }
+  if node_id < seen.length() {
+    seen[node_id] = true
+  }
+  if @ir.hot_may_trap(func, node_id) ||
+    @ir.hot_node_may_throw_exception(func, node_id) ||
+    @ir.hot_is_branch(func, node_id) {
+    return false
+  }
+  let node = if node_id < func.nodes.length() {
+    func.nodes[node_id]
+  } else {
+    @ir.hot_node_get(func, node_id)
+  }
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 == local_id =>
+      return false
+    _ => ()
+  }
+  if @ir.hot_has_side_effect(func, node_id) {
+    match node.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => ()
+      _ => return false
+    }
+  }
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if !optimize_instructions_can_cross_local_get(
+        func,
+        dead,
+        func.children[node.child_base + slot],
+        local_id,
+        seen,
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn optimize_instructions_try_canonicalize_commutative(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  let node = func.nodes[node_id]
+  if node.child_count != 2 {
+    return false
+  }
+  let instr = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) if optimize_instructions_is_commutative_instr(instr) => instr
+    _ => return false
+  }
+  let lhs_id = func.children[node.child_base]
+  let rhs_id = func.children[node.child_base + 1]
+  match optimize_instructions_local_get_id(func, dead, lhs_id) {
+    Some(local_id) => {
+      if optimize_instructions_is_constlike(func, dead, rhs_id) {
+        return false
+      }
+      let seen = Array::make(@ir.hot_node_count(func), false)
+      if !optimize_instructions_can_cross_local_get(
+          func, dead, rhs_id, local_id, seen,
+        ) {
+        return false
+      }
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        instr,
+        [rhs_id, lhs_id],
+      )
+      true
+    }
+    None => false
+  }
+}
+
+///|
 fn optimize_instructions_is_trivially_pure_value(
   func : @ir.HotFunc,
   dead : Array[Bool],
@@ -340,12 +494,13 @@ fn optimize_instructions_try_rewrite_shift(
       match @ir.hot_node_exact_instr(func, rhs_id) {
         Some(@lib.Instruction::I32And) =>
           match
-            optimize_instructions_i32_const(func, dead, func.children[
-              rhs.child_base + 1
-            ]) {
-            Some(@lib.I32(raw)) if (raw & mask_bits) == mask_bits => Some(
-              func.children[rhs.child_base]
-            )
+            optimize_instructions_i32_const(
+              func,
+              dead,
+              func.children[rhs.child_base + 1],
+            ) {
+            Some(@lib.I32(raw)) if (raw & mask_bits) == mask_bits =>
+              Some(func.children[rhs.child_base])
             _ => None
           }
         Some(@lib.Instruction::I64And) =>
@@ -485,13 +640,7 @@ fn optimize_instructions_visit_node(
     if !optimize_instructions_node_is_live(func, dead, child_id) {
       continue
     }
-    changed = optimize_instructions_visit_node(
-        ctx,
-        func,
-        dead,
-        child_id,
-        seen,
-      ) ||
+    changed = optimize_instructions_visit_node(ctx, func, dead, child_id, seen) ||
       changed
   }
   let local_changed = match node.op {
@@ -499,9 +648,15 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_fold_eqz(ctx, func, dead, node_id)
     @ir.HotOp::Binary =>
       optimize_instructions_try_rewrite_add_sub(ctx, func, dead, node_id) ||
-      optimize_instructions_try_rewrite_shift(ctx, func, dead, node_id)
+      optimize_instructions_try_rewrite_shift(ctx, func, dead, node_id) ||
+      optimize_instructions_try_canonicalize_commutative(
+        ctx, func, dead, node_id,
+      )
     @ir.HotOp::Compare =>
-      optimize_instructions_try_fold_compare_zero(ctx, func, dead, node_id)
+      optimize_instructions_try_fold_compare_zero(ctx, func, dead, node_id) ||
+      optimize_instructions_try_canonicalize_commutative(
+        ctx, func, dead, node_id,
+      )
     _ => false
   }
   local_changed || changed

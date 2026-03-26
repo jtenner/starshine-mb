@@ -127,6 +127,49 @@ test "optimize-instructions rewrites add with a negative constant into sub" {
 }
 
 ///|
+test "optimize-instructions canonicalizes commutative local gets after independent local state" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (local i32) local.get 0 local.get 1 local.tee 2 i32.const 1 i32.shl i32.add))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_add()),
+  )
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, lhs),
+    Some(@lib.Instruction::i32_shl()),
+  )
+  let rhs_node = @ir.hot_node_get(func, rhs)
+  match rhs_node.op {
+    @ir.HotOp::LocalGet => ()
+    _ =>
+      fail("expected independent local.get to move to the canonical rhs slot")
+  }
+  assert_eq(rhs_node.imm0, 0)
+}
+
+///|
+test "optimize-instructions does not reorder across the same local" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 local.get 0 local.tee 0 i32.const 1 i32.shl i32.add))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let lhs_node = @ir.hot_node_get(func, lhs)
+  match lhs_node.op {
+    @ir.HotOp::LocalGet => ()
+    _ =>
+      fail(
+        "expected same-local read to stay ahead of a conflicting tee subtree",
+      )
+  }
+  assert_eq(lhs_node.imm0, 0)
+}
+
+///|
 test "optimize-instructions removes redundant shift masks" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) local.get 0 local.get 1 i32.const 31 i32.and i32.shl))",
