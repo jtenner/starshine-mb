@@ -332,3 +332,41 @@ test "remove-unused-brs voidifies nested tail return-wrapped if ladders" {
   assert_false(pretty.contains("(if (I32)"), msg=pretty)
   assert_true(pretty.contains("unreachable"), msg=pretty)
 }
+
+///|
+test "remove-unused-brs rewrites branch payload ifs with branching else arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (block $exit (result i32) (block $other (br $exit (if (result i32) (local.get 0) (then (i32.const 1)) (else (br $other)))) unreachable) (i32.const 9))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs branch-payload success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("(if (I32)"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites multi-value branch payload ifs" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32 i64) (block $exit (result i32 i64) (block $other (br $exit (if (result i32 i64) (local.get 0) (then (i32.const 1) (i64.const 2)) (else (br $other)))) unreachable) (i32.const 9) (i64.const 10))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs multi-value branch-payload success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("(if (I32, I64)"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
