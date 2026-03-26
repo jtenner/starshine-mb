@@ -342,6 +342,20 @@ pub fn hot_alloc_children(func : HotFunc, count : Int) -> Int {
 }
 
 ///|
+pub struct HotChildSpanRewrite {
+  node_id : NodeId
+  new_children : Array[NodeId]
+} derive(Eq, Show, Debug)
+
+///|
+pub fn HotChildSpanRewrite::new(
+  node_id : NodeId,
+  new_children : Array[NodeId],
+) -> HotChildSpanRewrite {
+  { node_id, new_children }
+}
+
+///|
 pub fn hot_replace_child_span(
   func : HotFunc,
   id : NodeId,
@@ -411,6 +425,86 @@ pub fn hot_control_result_type_set(
     let region_label_id = hot_control_node_label(func, holder)
     hot_mutate_require_label_id(
       func, region_label_id, "hot_control_result_type_set region label",
+    )
+    let region_label = hot_label_get(func, region_label_id)
+    func.labels[region_label_id] = {
+      ..region_label,
+      branch_arity: result_arity,
+    }
+  }
+  hot_revision_bump(func)
+}
+
+///|
+pub fn hot_replace_child_spans_and_control_result_type(
+  func : HotFunc,
+  control_id : NodeId,
+  ty : TypeId,
+  rewrites : Array[HotChildSpanRewrite],
+) -> Unit {
+  hot_mutate_require_live_node(
+    func, control_id, "hot_replace_child_spans_and_control_result_type",
+  )
+  hot_mutate_require_type_id(
+    func, ty, "hot_replace_child_spans_and_control_result_type result type",
+  )
+  for rewrite in rewrites {
+    hot_mutate_require_live_node(
+      func,
+      rewrite.node_id,
+      "hot_replace_child_spans_and_control_result_type child rewrite",
+    )
+    for child_id in rewrite.new_children {
+      hot_mutate_require_child_ref(func, child_id)
+    }
+    let node = hot_node_get(func, rewrite.node_id)
+    let base = hot_alloc_child_span(func, rewrite.new_children.length())
+    hot_mutate_write_child_span(func, base, rewrite.new_children)
+    func.nodes[rewrite.node_id] = {
+      ..node,
+      child_base: base,
+      child_count: rewrite.new_children.length(),
+    }
+  }
+
+  let node = hot_node_get(func, control_id)
+  let label_id = hot_control_node_label(func, control_id)
+  hot_mutate_require_label_id(
+    func, label_id, "hot_replace_child_spans_and_control_result_type control label",
+  )
+  let result_arity = hot_type_result_arity(func, ty)
+  func.nodes[control_id] = { ..node, ty, }
+  let label = hot_label_get(func, label_id)
+  let branch_arity = match node.op {
+    HotOp::Loop => label.branch_arity
+    _ => result_arity
+  }
+  func.labels[label_id] = { ..label, result_type: ty, branch_arity }
+  for slot_info in hot_control_region_slot_info(node.op) {
+    let holder = match slot_info.role {
+      HotControlRegionRole::BodyRegion =>
+        match node.op {
+          HotOp::Block | HotOp::Loop => control_id
+          _ =>
+            if slot_info.slot >= node.child_count {
+              HOT_NONE_NODE
+            } else {
+              hot_child_get(func, control_id, slot_info.slot)
+            }
+        }
+      _ =>
+        if slot_info.slot >= node.child_count {
+          HOT_NONE_NODE
+        } else {
+          hot_child_get(func, control_id, slot_info.slot)
+        }
+    }
+    if holder == HOT_NONE_NODE {
+      continue
+    }
+    let region_label_id = hot_control_node_label(func, holder)
+    hot_mutate_require_label_id(
+      func, region_label_id, "hot_replace_child_spans_and_control_result_type region label",
     )
     let region_label = hot_label_get(func, region_label_id)
     func.labels[region_label_id] = {

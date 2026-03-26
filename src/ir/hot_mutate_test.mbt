@@ -55,6 +55,38 @@ test "child span replacement rewires node children and returns replaced slots" {
 }
 
 ///|
+test "batched child span replacement and control result updates bump revision once" {
+  let func = HotFunc::new()
+  let payload = hot_build_const_i32(func, @lib.I32(1))
+  let if_id = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    hot_build_const_i32(func, @lib.I32(1)),
+    [hot_build_const_i32(func, @lib.I32(2))],
+    else_body=Some([hot_build_const_i32(func, @lib.I32(3))]),
+  )
+  let branch = hot_build_br(func, hot_control_node_label(func, if_id), values=[
+    payload,
+  ])
+  hot_region_replace_body(func, hot_region_then_ref(func, if_id), [branch])
+
+  let rev0 = hot_revision_current(func)
+  hot_replace_child_spans_and_control_result_type(
+    func,
+    if_id,
+    hot_type_void(func),
+    [HotChildSpanRewrite::new(branch, [])],
+  )
+  assert_eq(hot_revision_current(func), rev0 + 1)
+  assert_eq(hot_child_count(func, branch), 0)
+  assert_eq(hot_node_result_arity(func, if_id), 0)
+  assert_eq(
+    hot_label_branch_arity(func, hot_control_node_label(func, if_id)),
+    0,
+  )
+}
+
+///|
 test "node deletion records tombstones without immediate free-list reuse" {
   let func = HotFunc::new()
   let deleted = hot_build_nop(func)

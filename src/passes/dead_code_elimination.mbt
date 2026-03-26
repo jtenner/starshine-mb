@@ -852,6 +852,7 @@ fn dead_code_elimination_voidify_control(
     return false
   }
   let detached : Array[Int] = []
+  let branch_rewrites : Array[@ir.HotChildSpanRewrite] = []
   if !is_loop {
     if label_id < 0 || label_id >= branch_users_by_label.length() {
       return false
@@ -891,11 +892,17 @@ fn dead_code_elimination_voidify_control(
           ),
         )
       }
-      ignore(@ir.hot_replace_child_span(func, branch_id, new_children))
-      pass_mark_mutated(ctx, func)
+      branch_rewrites.push(
+        @ir.HotChildSpanRewrite::new(branch_id, new_children),
+      )
     }
   }
-  @ir.hot_control_result_type_set(func, node_id, @ir.hot_type_void(func))
+  @ir.hot_replace_child_spans_and_control_result_type(
+    func,
+    node_id,
+    @ir.hot_type_void(func),
+    branch_rewrites,
+  )
   pass_mark_mutated(ctx, func)
   dead_code_elimination_delete_unused_nodes(ctx, func, node_use_cache, detached)
   ignore(
