@@ -764,14 +764,11 @@ fn optimize_instructions_visit_node(
             ctx, func, dead, node_id, instr, lhs_id, rhs_id, scratch,
           ) {
           let current = func.nodes[node_id]
+          let current_instr = func.instr_payloads[current.imm0].instr
+          let current_lhs = func.children[current.child_base]
+          let current_rhs = func.children[current.child_base + 1]
           optimize_instructions_try_fold_compare_zero(
-            ctx,
-            func,
-            dead,
-            node_id,
-            func.instr_payloads[current.imm0].instr,
-            func.children[current.child_base],
-            func.children[current.child_base + 1],
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           true
         } else {

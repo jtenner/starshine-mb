@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Optimize: cache compare rerun payload reads in `optimize-instructions`
+
+- **`optimize-instructions` compare rerun fast path** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-optimize-instructions/CHANGELOG.md) and [`src/passes/optimize_instructions.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions.mbt) so the compare rerun path now reuses the rewritten node's exact instruction payload and child ids once before folding compare-to-zero again, matching the earlier binary fast-path cleanup and avoiding another round of repeated side-table reads in the hot dispatcher. `moon fmt` and `moon test src/passes` are green. On `tests/node/dist/starshine-debug-wasi.wasm --optimize-instructions`, canonical parity is still open, but recent Starshine pass timing improved from ~`592.187ms` to ~`574.792ms` versus Binaryen at ~`331.073ms`.
+
 ## 2026-03-26 Optimize: cache `optimize-instructions` node payload reads in the binary/compare dispatcher
 
 - **`optimize-instructions` per-node dispatch fast path** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-optimize-instructions/CHANGELOG.md) and [`src/passes/optimize_instructions.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions.mbt) so unary, binary, and compare visitors now fetch each node's exact instruction payload and child ids once, then thread those cached values through the local peephole helpers instead of re-decoding the same node shape multiple times per visit. `moon fmt` and `moon test src/passes` are green. On `tests/node/dist/starshine-debug-wasi.wasm --optimize-instructions`, canonical parity remains open follow-up work, but recent Starshine pass timing improved from ~`622.824ms` to ~`592.187ms` versus Binaryen at ~`392.406ms`.
