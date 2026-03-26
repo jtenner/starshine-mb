@@ -25,11 +25,6 @@ pub fn Module::with_raw_name_sec_payload(
 }
 
 ///|
-pub fn Module::without_name_sec(self : Module) -> Module {
-  Module::{ ..self, name_sec: None }
-}
-
-///|
 pub fn Module::with_type_sec(self : Module, type_sec : TypeSec) -> Module {
   Module::{ ..self, type_sec: Some(type_sec) }
 }
