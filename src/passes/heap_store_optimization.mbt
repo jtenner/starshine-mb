@@ -416,6 +416,9 @@ fn hso_root_can_swap_before_local_struct_new(
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
+  if hso_subtree_is_trapless_readonly(func, node_masks, node_id) {
+    return true
+  }
   let mask = hso_effects_for_node(func, node_masks, node_id)
   let disallowed_effects = @ir.EFFECT_MASK_CONTROL |
     @ir.EFFECT_MASK_CALL |
