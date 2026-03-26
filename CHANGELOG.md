@@ -63,6 +63,9 @@
 ## 2026-03-26 Plan: refresh DCE backlog after the rebase
 
 - **DCE remaining-work backlog sync** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-dce/CHANGELOG.md) and [`agent-todo.md`](/home/jtenner/Projects/starshine-mb-dce/agent-todo.md) after rebasing the worktree onto `master` so the active DCE backlog now matches the current [0066 DCE reference](/home/jtenner/Projects/starshine-mb-dce/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178), records that the old invalid-output blocker is closed by explicit final-tail `unreachable` materialization, and replaces the stale blocker text with the remaining ordered-replay, oracle-refresh, and runtime-budget work.
+## 2026-03-26 Optimize: broaden pure value `if` to `select` rewrites in `remove-unused-brs`
+
+- **`remove-unused-brs` pure-select parity follow-up** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb/CHANGELOG.md), [`src/passes/remove_unused_brs.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/remove_unused_brs_test.mbt) so pure single-value `if` nodes now lower to `select` whenever the condition and both arms are reorder-safe, instead of only recognizing the old zero-constant special case. `moon info`, `moon fmt`, and full `moon test` are green, and the March 26, 2026 compare run at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1412559` now matches Binaryen exactly on real functions like `$3324`, `$119`, `$224`, and `$3421`, though overall canonical parity and the Binaryen speed target are still not met.
 
 ## 2026-03-26 Optimize: strip stack-style tail exits from result `if` arms in `remove-unused-brs`
 

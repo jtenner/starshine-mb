@@ -289,26 +289,6 @@ fn remove_unused_brs_build_i32_eqz(func : @ir.HotFunc, operand : Int) -> Int {
 }
 
 ///|
-fn remove_unused_brs_is_zero_const(func : @ir.HotFunc, node_id : Int) -> Bool {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return false
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Const =>
-      match @ir.hot_const_get(func, node.imm0) {
-        @ir.HotConstPayload::I32Const(value) => value == @lib.I32(0)
-        @ir.HotConstPayload::I64Const(value) => value == @lib.I64(0L)
-        @ir.HotConstPayload::F32Const(value) => value == @lib.F32(0.0)
-        @ir.HotConstPayload::F64Const(value) => value == @lib.F64(0.0)
-        _ => false
-      }
-    @ir.HotOp::RefNull => true
-    _ => false
-  }
-}
-
-///|
 fn remove_unused_brs_trim_trailing_nops(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -890,20 +870,17 @@ fn remove_unused_brs_try_rewrite_value_if_to_select(
     ) {
     return false
   }
-  let (if_true, if_false) = if remove_unused_brs_is_zero_const(func, else_root) &&
-    remove_unused_brs_node_is_reorder_safe(ctx, func, then_root, reorder_cache) {
-    (then_root, else_root)
-  } else if remove_unused_brs_is_zero_const(func, then_root) &&
-    remove_unused_brs_node_is_reorder_safe(ctx, func, else_root, reorder_cache) {
-    (then_root, else_root)
-  } else {
+  if !remove_unused_brs_node_is_reorder_safe(
+      ctx, func, then_root, reorder_cache,
+    ) ||
+    !remove_unused_brs_node_is_reorder_safe(ctx, func, else_root, reorder_cache) {
     return false
   }
   let replacement = remove_unused_brs_build_select(
     func,
     @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))[0],
-    if_true,
-    if_false,
+    then_root,
+    else_root,
     condition,
   )
   @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))

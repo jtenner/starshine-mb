@@ -115,6 +115,44 @@ test "remove-unused-brs rewrites pure value if into select" {
 }
 
 ///|
+test "remove-unused-brs rewrites pure const ifs into select" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (if (result i32) (local.get 0) (then (i32.const 11)) (else (i32.const 22)))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs const-select success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("I32(11)"), msg=pretty)
+  assert_true(pretty.contains("I32(22)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites pure local.get ifs into select" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32 i32) (result i32) (if (result i32) (local.get 0) (then (local.get 1)) (else (local.get 2)))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs local-select success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("(local.get (Local 1))"), msg=pretty)
+  assert_true(pretty.contains("(local.get (Local 2))"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs merges nested one-armed if conditions before branching" {
   let optimized = match
     pass_test_run_pipeline(
@@ -499,7 +537,7 @@ test "remove-unused-brs rewrites nested simple payload ifs under branch payload 
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("(if (I32) (local.get (Local 1))"), msg=pretty)
-  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
 }
 
 ///|
