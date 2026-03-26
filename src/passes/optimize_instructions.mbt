@@ -68,6 +68,20 @@ fn optimize_instructions_replace_with_const_i32(
 }
 
 ///|
+fn optimize_instructions_replace_with_const_i64(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  value : @lib.I64,
+) -> Unit {
+  let temp = @ir.hot_build_const_i64(func, value)
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
 fn optimize_instructions_replace_with_existing_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -714,6 +728,54 @@ fn optimize_instructions_try_fold_eqz(
 }
 
 ///|
+fn optimize_instructions_try_fold_exact_const_binary(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match
+    (
+      instr,
+      optimize_instructions_i32_const(func, dead, lhs_id),
+      optimize_instructions_i32_const(func, dead, rhs_id),
+    ) {
+    (@lib.Instruction::I32Add, Some(@lib.I32(lhs_raw)), Some(@lib.I32(rhs_raw))) => {
+      let folded = @lib.I32(
+        (lhs_raw.reinterpret_as_uint() + rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
+      )
+      optimize_instructions_replace_with_const_i32(ctx, func, node_id, folded)
+      true
+    }
+    _ =>
+      match
+        (
+          instr,
+          optimize_instructions_i64_const(func, dead, lhs_id),
+          optimize_instructions_i64_const(func, dead, rhs_id),
+        ) {
+        (
+          @lib.Instruction::I64Add,
+          Some(@lib.I64(lhs_raw)),
+          Some(@lib.I64(rhs_raw)),
+        ) => {
+          let folded = @lib.I64(
+            (lhs_raw.reinterpret_as_uint64() + rhs_raw.reinterpret_as_uint64()).reinterpret_as_int64(),
+          )
+          optimize_instructions_replace_with_const_i64(
+            ctx, func, node_id, folded,
+          )
+          true
+        }
+        _ => false
+      }
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_add_sub(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1088,7 +1150,10 @@ fn optimize_instructions_visit_node(
         let instr = func.instr_payloads[node.imm0].instr
         let lhs_id = func.children[node.child_base]
         let rhs_id = func.children[node.child_base + 1]
-        let changed = optimize_instructions_try_rewrite_add_sub(
+        let changed = optimize_instructions_try_fold_exact_const_binary(
+            ctx, func, dead, node_id, instr, lhs_id, rhs_id,
+          ) ||
+          optimize_instructions_try_rewrite_add_sub(
             ctx, func, dead, node_id, instr, lhs_id, rhs_id,
           ) ||
           optimize_instructions_try_rewrite_mul_shift(
@@ -1109,6 +1174,9 @@ fn optimize_instructions_visit_node(
           let current_lhs = func.children[current.child_base]
           let current_rhs = func.children[current.child_base + 1]
           let current_instr = func.instr_payloads[current.imm0].instr
+          optimize_instructions_try_fold_exact_const_binary(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
           optimize_instructions_try_rewrite_add_sub(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||

@@ -228,6 +228,39 @@ test "optimize-instructions chains const canonicalization into i64.mul shl rewri
 }
 
 ///|
+test "optimize-instructions folds exact i32 const adds" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 249384 i32.const 15 i32.add))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected exact const add to fold into a const node")
+  }
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(249399)),
+  )
+}
+
+///|
+test "optimize-instructions folds exact i32 const adds under and" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 249384 i32.const 15 i32.add i32.const -16 i32.and))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let lhs = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected const-add child to fold before the enclosing and")
+  }
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, lhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(249399)),
+  )
+}
+
+///|
 test "optimize-instructions canonicalizes commutative local gets after independent local state" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) (local i32) local.get 0 local.get 1 local.tee 2 i32.const 1 i32.shl i32.add))",
