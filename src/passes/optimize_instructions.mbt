@@ -410,6 +410,14 @@ fn optimize_instructions_try_canonicalize_commutative(
       if optimize_instructions_is_constlike(func, dead, rhs_id) {
         return false
       }
+      let should_swap = match
+        optimize_instructions_local_get_id(func, dead, rhs_id) {
+        Some(rhs_local_id) => local_id > rhs_local_id
+        None => true
+      }
+      if !should_swap {
+        return false
+      }
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
         func,
