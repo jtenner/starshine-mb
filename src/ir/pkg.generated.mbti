@@ -310,6 +310,8 @@ pub fn hot_child_storage_count(HotFunc) -> Int
 
 pub fn hot_const_get(HotFunc, Int) -> HotConstPayload
 
+pub fn hot_control_demote_loop_to_block(HotFunc, Int) -> Unit
+
 pub fn hot_control_node_label(HotFunc, Int) -> Int
 
 pub fn hot_control_region_slot_info(HotOp) -> Array[HotControlRegionSlotInfo]

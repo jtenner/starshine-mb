@@ -171,6 +171,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       dead_code_elimination_descriptor(),
     ),
     pass_registry_entry_hot(
+      "remove-unused-names",
+      remove_unused_names_summary(),
+      remove_unused_names_descriptor(),
+    ),
+    pass_registry_entry_hot(
       "optimize-instructions",
       optimize_instructions_summary(),
       optimize_instructions_descriptor(),
@@ -194,8 +199,8 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "Run the default hot optimization preset.",
       [
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-        "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions",
-        "simplify-locals",
+        "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
+        "optimize-instructions", "simplify-locals",
       ],
     ),
     pass_registry_entry_preset(
@@ -203,8 +208,8 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "Run the default size-biased hot optimization preset.",
       [
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-        "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions",
-        "simplify-locals",
+        "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
+        "optimize-instructions", "simplify-locals",
       ],
     ),
   ]
@@ -244,7 +249,8 @@ pub fn pass_registry_category(name : String) -> HotPassRegistryCategory? {
 pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals",
+    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
+    "simplify-locals",
   ]
 }
 
@@ -252,7 +258,8 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
 pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals",
+    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
+    "simplify-locals",
   ]
 }
 

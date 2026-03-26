@@ -40,3 +40,21 @@ test "run_hot_pipeline emits trace markers for hot passes" {
   assert_true(trace.any(fn(line) { line.contains("pass[vacuum]:start") }))
   assert_true(trace.any(fn(line) { line.contains("pass[vacuum]:done") }))
 }
+
+///|
+test "run_hot_pipeline accepts remove-unused-names as an active hot pass" {
+  let input = pass_test_module_from_wat(
+    "(module (func block block nop end end))",
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["remove-unused-names"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected remove-unused-names pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected remove-unused-names module to validate, got \{err}")
+  }
+}

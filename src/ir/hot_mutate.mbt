@@ -422,6 +422,32 @@ pub fn hot_control_result_type_set(
 }
 
 ///|
+pub fn hot_control_demote_loop_to_block(
+  func : HotFunc,
+  loop_id : NodeId,
+) -> Unit {
+  hot_mutate_require_live_node(
+    func, loop_id, "hot_control_demote_loop_to_block",
+  )
+  let node = hot_node_get(func, loop_id)
+  if node.op != HotOp::Loop {
+    abort("hot_control_demote_loop_to_block requires a loop node")
+  }
+  let label_id = hot_control_node_label(func, loop_id)
+  hot_mutate_require_label_id(
+    func, label_id, "hot_control_demote_loop_to_block loop label",
+  )
+  let label = hot_label_get(func, label_id)
+  func.nodes[loop_id] = {
+    ..node,
+    op: HotOp::Block,
+    flags: hot_default_flags_for_op(HotOp::Block),
+  }
+  func.labels[label_id] = { ..label, kind: HotLabelKind::BlockLabel }
+  hot_revision_bump(func)
+}
+
+///|
 pub fn hot_node_get(func : HotFunc, id : NodeId) -> HotNode {
   hot_mutate_require_live_node(func, id, "hot node_get")
   func.nodes[id]

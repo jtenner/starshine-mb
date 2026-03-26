@@ -5,6 +5,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
+    pass_registry_category("remove-unused-names"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
     pass_registry_category("ssa-nomerge"),
     Some(HotPassRegistryCategory::hot_pass()),
   )
@@ -77,11 +81,13 @@ test "preset expansion stays on implemented active pass names" {
 
   assert_eq(optimize, [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals",
+    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
+    "simplify-locals",
   ])
   assert_eq(shrink, [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals",
+    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
+    "simplify-locals",
   ])
   for name in optimize {
     match pass_registry_category(name) {

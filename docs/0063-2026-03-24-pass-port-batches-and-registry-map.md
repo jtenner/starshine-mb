@@ -8,7 +8,7 @@
 ## Current Registry Contract
 
 - Active hot passes:
-  `ssa-nomerge`, `dead-code-elimination`, `vacuum`, `optimize-instructions`, `simplify-locals`.
+  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `vacuum`, `optimize-instructions`, `simplify-locals`.
 - Active module passes:
   `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `duplicate-function-elimination`, `remove-unused-module-elements`.
 - Active presets:
@@ -19,7 +19,7 @@
 ## Batch 1
 
 - Current hot passes:
-  `ssa-nomerge`, `dead-code-elimination`, `vacuum`, `optimize-instructions`, `simplify-locals`.
+  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `vacuum`, `optimize-instructions`, `simplify-locals`.
 - Current first-batch implementations:
   [`src/passes/global_refining.mbt`](../src/passes/global_refining.mbt),
   [`src/passes/global_struct_inference.mbt`](../src/passes/global_struct_inference.mbt),
@@ -28,6 +28,7 @@
   [`src/passes/dead_code_elimination.mbt`](../src/passes/dead_code_elimination.mbt),
   [`src/passes/once_reduction.mbt`](../src/passes/once_reduction.mbt),
   [`src/passes/duplicate_function_elimination.mbt`](../src/passes/duplicate_function_elimination.mbt),
+  [`src/passes/remove_unused_names.mbt`](../src/passes/remove_unused_names.mbt),
   [`src/passes/optimize_instructions.mbt`](../src/passes/optimize_instructions.mbt),
   [`src/passes/remove_unused_module_elements.mbt`](../src/passes/remove_unused_module_elements.mbt),
   [`src/passes/simplify_locals.mbt`](../src/passes/simplify_locals.mbt).
@@ -51,13 +52,14 @@
 - Whole-module or layout transforms:
   `alignment-lowering`, `duplicate-import-elimination`, `directize`, `heap2local`, `heap-store-optimization`, `inlining`, `inlining-optimizing`, `inline-main`, `merge-similar-functions`, `minimize-rec-groups`, `type-merging`, `monomorphize`, `monomorphize-always`, `gufa`, `gufa-optimizing`, `gufa-cast-all`, `i64-to-i32-lowering`.
 - Boundary cleanup and ordering:
-  `remove-unused-names`, `reorder-locals`, `reorder-types`, `reorder-globals`, `reorder-globals-always`, `reorder-functions`, `reorder-functions-by-name`, `remove-unused-types`, `remove-unused`, `remove-unused-non-function-elements`.
+  `reorder-locals`, `reorder-types`, `reorder-globals`, `reorder-globals-always`, `reorder-functions`, `reorder-functions-by-name`, `remove-unused-types`, `remove-unused`, `remove-unused-non-function-elements`.
 
 ## Preset Composition
 
-- `optimize` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals"]`.
-- `shrink` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals"]`.
+- `optimize` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions", "simplify-locals"]`.
+- `shrink` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions", "simplify-locals"]`.
 - Future preset growth must only add implemented module or hot passes or explicitly documented boundary-only phases.
+
 
 ## Correctness Rules
 
