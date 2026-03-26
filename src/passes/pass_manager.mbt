@@ -2126,6 +2126,11 @@ fn run_hot_pipeline_apply_hot_pass(
     Some(descriptor) => descriptor
     None => return Err("missing hot pass descriptor for \{entry.name}")
   }
+  if descriptor.name == "pick-load-signs" &&
+    !run_hot_pipeline_module_has_memory(mod_) {
+    pipeline_trace_hook(options.trace, descriptor.name, "skip-no-memory")
+    return Ok(mod_)
+  }
   let module_ctx = @ir.hot_module_context_from_module(mod_)
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let next_code_sec = match mod_.code_sec {
@@ -2222,6 +2227,7 @@ pub fn hot_pass_run(
     "dead-code-elimination" => dead_code_elimination_run(ctx, func)
     "remove-unused-names" => remove_unused_names_run(ctx, func)
     "optimize-instructions" => optimize_instructions_run(ctx, func)
+    "pick-load-signs" => pick_load_signs_run(ctx, func)
     "simplify-locals" => simplify_locals_run(ctx, func)
     _ => return Err("unsupported hot pass \{descriptor.name}")
   }

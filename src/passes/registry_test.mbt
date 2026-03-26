@@ -21,16 +21,20 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
+    pass_registry_category("pick-load-signs"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
+    pass_registry_category("simplify-locals"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
     pass_registry_category("duplicate-function-elimination"),
     Some(HotPassRegistryCategory::module_pass()),
   )
   assert_eq(
     pass_registry_category("remove-unused-module-elements"),
     Some(HotPassRegistryCategory::module_pass()),
-  )
-  assert_eq(
-    pass_registry_category("simplify-locals"),
-    Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
     pass_registry_category("optimize"),
@@ -63,6 +67,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   let ssa = ssa_nomerge_descriptor()
   let dce = dead_code_elimination_descriptor()
   let opt = optimize_instructions_descriptor()
+  let pls = pick_load_signs_descriptor()
   let locals = simplify_locals_descriptor()
 
   assert_eq(ssa.name, "ssa-nomerge")
@@ -70,6 +75,8 @@ test "batch 1 descriptors expose the active first hot ports" {
   assert_eq(dce.name, "dead-code-elimination")
   assert_eq(@ir.hot_pass_requires(dce), [])
   assert_eq(opt.name, "optimize-instructions")
+  assert_eq(pls.name, "pick-load-signs")
+  assert_eq(@ir.hot_pass_requires(pls), [@ir.HotAnalysis::use_def()])
   assert_eq(locals.name, "simplify-locals")
   assert_true(@ir.hot_pass_requires(locals).contains(@ir.HotAnalysis::ssa()))
 }
@@ -82,12 +89,12 @@ test "preset expansion stays on implemented active pass names" {
   assert_eq(optimize, [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
-    "simplify-locals",
+    "pick-load-signs", "simplify-locals",
   ])
   assert_eq(shrink, [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
-    "simplify-locals",
+    "pick-load-signs", "simplify-locals",
   ])
   for name in optimize {
     match pass_registry_category(name) {

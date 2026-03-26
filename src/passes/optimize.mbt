@@ -138,8 +138,8 @@ fn pass_registry_removed_names() -> Array[String] {
     "dataflow-optimization", "local-cse", "local-subtyping", "loop-invariant-code-motion",
     "merge-locals", "merge-blocks", "flatten", "re-reloop", "tuple-optimization",
     "optimize-added-constants", "optimize-added-constants-propagate", "precompute",
-    "precompute-propagate", "redundant-set-elimination", "pick-load-signs", "optimize-casts",
-    "de-nan", "remove-unused-brs", "simplify-locals-no-tee", "simplify-locals-no-structure",
+    "precompute-propagate", "redundant-set-elimination", "optimize-casts", "de-nan",
+    "remove-unused-brs", "simplify-locals-no-tee", "simplify-locals-no-structure",
     "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting", "untee",
   ]
 }
@@ -181,6 +181,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       optimize_instructions_descriptor(),
     ),
     pass_registry_entry_hot(
+      "pick-load-signs",
+      pick_load_signs_summary(),
+      pick_load_signs_descriptor(),
+    ),
+    pass_registry_entry_hot(
       "simplify-locals",
       simplify_locals_summary(),
       simplify_locals_descriptor(),
@@ -200,7 +205,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       [
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
         "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
-        "optimize-instructions", "simplify-locals",
+        "optimize-instructions", "pick-load-signs", "simplify-locals",
       ],
     ),
     pass_registry_entry_preset(
@@ -209,7 +214,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       [
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
         "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
-        "optimize-instructions", "simplify-locals",
+        "optimize-instructions", "pick-load-signs", "simplify-locals",
       ],
     ),
   ]
@@ -250,7 +255,7 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
-    "simplify-locals",
+    "pick-load-signs", "simplify-locals",
   ]
 }
 
@@ -259,7 +264,7 @@ pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions",
-    "simplify-locals",
+    "pick-load-signs", "simplify-locals",
   ]
 }
 
@@ -277,6 +282,29 @@ fn run_hot_pipeline_imported_func_count(mod_ : @lib.Module) -> Int {
     None => ()
   }
   count
+}
+
+///|
+fn run_hot_pipeline_module_has_memory(mod_ : @lib.Module) -> Bool {
+  let has_defined_memory = match mod_.mem_sec {
+    Some(@lib.MemSec(mems)) => mems.length() > 0
+    None => false
+  }
+  if has_defined_memory {
+    return true
+  }
+  let mut has_imported_memory = false
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.MemExternType(_)) => has_imported_memory = true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  has_imported_memory
 }
 
 ///|

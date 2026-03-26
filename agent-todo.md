@@ -166,21 +166,15 @@ Observed unique-pass order
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
 
 #### PLS - Pick Load Signs
-1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L203](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L203)
-2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [PLS]001 - Signedness Selection Rules - Port the integer-load signedness heuristics Binaryen uses when it can encode the same semantics more compactly.
-     - Deliverables: map eligible load/extend patterns; preserve observable integer results; reject patterns where traps or later folds could diverge.
-     - Doc: [0066#L203](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L203)
+1. Canonical correctness landed.
    - [PLS]002 - Rewrite Matrix and Artifact Compare - Add the rewrite, cover signed/unsigned boundary cases, and compare single-pass output against Binaryen on the debug artifact.
-     - Deliverables: add focused load-sign regressions; test interactions with `precompute` and `optimize-instructions`; replay Binaryen parity for `--pick-load-signs`.
+     - Deliverables: focused load-sign regressions now lock signed/unsigned inference, rewrite behavior matches `--pick-load-signs` output against Binaryen, and the pass is wired into the optimize/shrink preset path.
+     - Current blocker: no correctness issues are known after this lane is landed; runtime is still above the 50% Binaryen target on the debug artifact.
      - Doc: [0066#L203](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L203)
-3. Do work.
-   - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
-   - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
-4. Test against binaryen.
-   - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
-   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
+2. Do work.
+   - Keep the landed direct pass stable while continuing ordered-prefix and runtime work in neighboring slices.
+3. Test against binaryen.
+   - Keep focused regressions in `src/passes/pick_load_signs_test.mbt` green and compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --pick-load-signs` plus any required ordered-prefix replay.
 
 #### PC - Precompute
 1. Research exact functionality in document.

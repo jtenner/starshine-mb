@@ -120,6 +120,10 @@ pub fn perf_stop_timer(HotPerfSession, String, UInt64) -> Unit
 
 pub fn perf_validation_checkpoint(HotPerfSession, String) -> Unit
 
+pub fn pick_load_signs_descriptor() -> @ir.HotPassDescriptor
+
+pub fn pick_load_signs_summary() -> String
+
 pub fn pipeline_trace_hook((String) -> Unit, String, String, payload? : String) -> Unit
 
 pub fn pipeline_verify_checkpoint(HotPipelineVerifyPolicy, String, HotPipelineVerifyTarget) -> Result[Unit, String]
