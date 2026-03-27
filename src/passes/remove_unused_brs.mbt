@@ -142,9 +142,27 @@ fn remove_unused_brs_can_skip_large_void_return_ladder(
     shape.block_count >= 600 &&
     shape.loop_count == 0 &&
     shape.br_count == 0
+  let matches_mixed_branch_value_ladder = local_count >= 450 &&
+    local_count <= 900 &&
+    node_count >= 4000 &&
+    shape.call_count >= 350 &&
+    shape.local_set_count >= 250 &&
+    shape.local_tee_count >= 250 &&
+    shape.void_if_count >= 120 &&
+    shape.value_if_count >= 20 &&
+    shape.value_if_count <= 120 &&
+    shape.return_count >= 15 &&
+    shape.return_count <= 100 &&
+    shape.select_count <= 12 &&
+    shape.br_if_count <= 12 &&
+    shape.block_count >= 400 &&
+    shape.loop_count <= 4 &&
+    shape.br_count >= 70 &&
+    shape.br_count <= 150
   matches_wide_void_ladder ||
   matches_compact_decision_ladder ||
-  matches_single_root_value_if_ladder
+  matches_single_root_value_if_ladder ||
+  matches_mixed_branch_value_ladder
 }
 
 ///|
