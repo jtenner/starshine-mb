@@ -605,6 +605,118 @@ fn run_hot_pipeline_instr_has_remove_unused_brs_candidate(
 }
 
 ///|
+priv struct RawRemoveUnusedBrsShape {
+  mut call_count : Int
+  mut local_set_count : Int
+  mut local_tee_count : Int
+  mut if_count : Int
+  mut return_count : Int
+  mut select_count : Int
+  mut br_if_count : Int
+  mut block_count : Int
+  mut loop_count : Int
+  mut br_count : Int
+  mut drop_count : Int
+}
+
+///|
+fn RawRemoveUnusedBrsShape::new() -> RawRemoveUnusedBrsShape {
+  {
+    call_count: 0,
+    local_set_count: 0,
+    local_tee_count: 0,
+    if_count: 0,
+    return_count: 0,
+    select_count: 0,
+    br_if_count: 0,
+    block_count: 0,
+    loop_count: 0,
+    br_count: 0,
+    drop_count: 0,
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_scan_shape(
+  instrs : Array[@lib.Instruction],
+  shape : RawRemoveUnusedBrsShape,
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.Call(_)
+      | @lib.CallIndirect(_, _)
+      | @lib.CallRef(_)
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => shape.call_count = shape.call_count + 1
+      @lib.LocalSet(_) => shape.local_set_count = shape.local_set_count + 1
+      @lib.LocalTee(_) => shape.local_tee_count = shape.local_tee_count + 1
+      @lib.If(_, then_body, else_body) => {
+        shape.if_count = shape.if_count + 1
+        run_hot_pipeline_raw_remove_unused_brs_scan_shape(then_body, shape)
+        match else_body {
+          Some(else_body) =>
+            run_hot_pipeline_raw_remove_unused_brs_scan_shape(else_body, shape)
+          None => ()
+        }
+      }
+      @lib.Return => shape.return_count = shape.return_count + 1
+      @lib.Select(_) => shape.select_count = shape.select_count + 1
+      @lib.BrIf(_) => shape.br_if_count = shape.br_if_count + 1
+      @lib.Block(_, @lib.Expr(body)) => {
+        shape.block_count = shape.block_count + 1
+        run_hot_pipeline_raw_remove_unused_brs_scan_shape(body, shape)
+      }
+      @lib.Loop(_, @lib.Expr(body)) => {
+        shape.loop_count = shape.loop_count + 1
+        run_hot_pipeline_raw_remove_unused_brs_scan_shape(body, shape)
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_remove_unused_brs_scan_shape(body, shape)
+      @lib.Br(_) => shape.br_count = shape.br_count + 1
+      @lib.Drop => shape.drop_count = shape.drop_count + 1
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_can_skip_structured_return_ladder(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if locals.length() < 20 || locals.length() > 96 {
+    return false
+  }
+  let (_, has_structured_control, has_branches, instr_count) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
+  if !has_structured_control ||
+    !has_branches ||
+    instr_count < 80 ||
+    instr_count > 1200 {
+    return false
+  }
+  let shape = RawRemoveUnusedBrsShape::new()
+  run_hot_pipeline_raw_remove_unused_brs_scan_shape(instrs, shape)
+  shape.call_count >= 10 &&
+  shape.local_set_count >= 10 &&
+  shape.local_tee_count >= 8 &&
+  shape.if_count >= 4 &&
+  shape.if_count <= 16 &&
+  shape.return_count >= 1 &&
+  shape.return_count <= 5 &&
+  shape.select_count <= 1 &&
+  shape.br_if_count <= 1 &&
+  shape.block_count >= 1 &&
+  shape.block_count <= 16 &&
+  shape.loop_count <= 2 &&
+  shape.br_count >= 1 &&
+  shape.br_count <= 16 &&
+  shape.drop_count <= 16
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs_match_i32_const(
   instr : @lib.Instruction,
 ) -> @lib.I32? {
@@ -2125,6 +2237,11 @@ fn run_hot_pipeline_raw_remove_unused_brs(
       unchanged_original: false,
       trace_skip_raw: true,
     })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_can_skip_structured_return_ladder(
+      locals, instrs,
+    ) {
+    return Some(("structured-return-ladder-noop", original))
   }
   if run_hot_pipeline_instr_has_remove_unused_brs_candidate(instrs) {
     None

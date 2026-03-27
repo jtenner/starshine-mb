@@ -128,6 +128,84 @@ fn perf_test_make_single_root_value_if_ladder_module(
 }
 
 ///|
+fn perf_test_make_structured_return_ladder_module(repetitions : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    local.get 0)\n")
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 56 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("    local.set 0\n")
+  out.write_string("    block (result i32)\n")
+  out.write_string("      loop\n")
+  let mut i = 0
+  while i < repetitions {
+    let read_local = i % 8
+    let tee_local = i + 8
+    let set_local = i + 20
+    let spill_local = i + 32
+    out.write_string("        local.get 0\n")
+    out.write_string("        call 0\n")
+    out.write_string("        local.tee ")
+    out.write_string(tee_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(set_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(read_local.to_string())
+    out.write_string("\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get ")
+    out.write_string(tee_local.to_string())
+    out.write_string("\n")
+    out.write_string("          call 0\n")
+    out.write_string("          local.tee ")
+    out.write_string((tee_local + 1).to_string())
+    out.write_string("\n")
+    out.write_string("          local.set ")
+    out.write_string(spill_local.to_string())
+    out.write_string("\n")
+    if i < 3 {
+      out.write_string("          local.get ")
+      out.write_string((tee_local + 1).to_string())
+      out.write_string("\n")
+      out.write_string("          return\n")
+    } else {
+      out.write_string("          local.get ")
+      out.write_string((tee_local + 1).to_string())
+      out.write_string("\n")
+      out.write_string("          drop\n")
+    }
+    out.write_string("        end\n")
+    i = i + 1
+  }
+  out.write_string("        local.get 0\n")
+  out.write_string("        br_if 0\n")
+  out.write_string("        local.get 1\n")
+  out.write_string("        call 0\n")
+  out.write_string("        local.tee 48\n")
+  out.write_string("        local.set 49\n")
+  out.write_string("        local.get 48\n")
+  out.write_string("        local.get 1\n")
+  out.write_string("        local.get 0\n")
+  out.write_string("        select\n")
+  out.write_string("        br 1\n")
+  out.write_string("      end\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("    end)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 test "perf session records hot allocation deltas dumps and checkpoints" {
   let lines : Array[String] = []
   let perf = HotPerfSession::new(
@@ -446,6 +524,36 @@ test "remove-unused-brs skips single-root value-if ladders after lift" {
   )
   assert_true(text.contains("perf:timer name=lift"))
   assert_true(text.contains("perf:timer name=pass:remove-unused-brs"))
+}
+
+///|
+test "remove-unused-brs skips structured return ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_structured_return_ladder_module(6)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected structured return ladder remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-raw reason=structured-return-ladder-noop",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:remove-unused-brs"))
 }
 
 ///|
