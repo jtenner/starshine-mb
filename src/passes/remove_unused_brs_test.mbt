@@ -662,6 +662,26 @@ test "remove-unused-brs lowers scalar returned ladders with side-effect arms to 
 }
 
 ///|
+test "remove-unused-brs lowers nested scalar returned ladders with side-effect arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (block (result i32) (return (if (result i32) (local.get 0) (then (local.set 2 (i32.const 7)) (return (local.get 2))) (else (return (block (result i32) (if (result i32) (local.get 1) (then (drop (i32.const 9)) (return (i32.const 1))) (else (drop (i32.const 8)) (return (i32.const 2)))))))))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs nested scalar side-effect ladder success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_false(pretty.contains("(if (Void)"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites branch payload ifs with branching else arms" {
   let optimized = match
     pass_test_run_pipeline(
