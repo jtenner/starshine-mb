@@ -464,6 +464,80 @@ test "optimize-instructions replaces dead block fallback branches after escaping
 }
 
 ///|
+test "optimize-instructions keeps outer fallthrough when inner branches only exit inner blocks" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let outer_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let inner_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let inner_label = @ir.hot_control_node_label(func, inner_block)
+  let inner_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_local_get(func, 0),
+    [
+      @ir.hot_build_br(func, inner_label, values=[
+        @ir.hot_build_const_i32(func, @lib.I32(1)),
+      ]),
+    ],
+    else_body=Some([
+      @ir.hot_build_br(func, inner_label, values=[
+        @ir.hot_build_const_i32(func, @lib.I32(2)),
+      ]),
+    ]),
+  )
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_body_ref(func, inner_block),
+    [inner_if, @ir.hot_build_const_i32(func, @lib.I32(0))],
+  )
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_body_ref(func, outer_block),
+    [inner_block, @ir.hot_build_const_i32(func, @lib.I32(9))],
+  )
+  @ir.hot_root_append(func, outer_block)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimize-instructions inner-branch fallthrough success, got \{err}",
+      )
+  }
+
+  let outer_body = @ir.hot_region_body_ref(func, outer_block)
+  assert_eq(@ir.hot_region_root_count(func, outer_body), 2)
+  let outer_tail = @ir.hot_region_get(func, outer_body, 1)
+  match @ir.hot_node_get(func, outer_tail).op {
+    @ir.HotOp::Const => ()
+    _ =>
+      fail(
+        "expected outer fallthrough to remain live when inner branches only exit the inner block",
+      )
+  }
+}
+
+///|
 test "optimize-instructions canonicalizes commutative constants onto the rhs" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) i32.const 7 local.get 0 i32.add))",
