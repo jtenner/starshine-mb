@@ -27,6 +27,7 @@ priv struct PLSUsage {
   mut unsigned_usages : Int
   mut unsigned_bits : Int
   mut total_usages : Int
+  mut invalid : Bool
 }
 
 ///|
@@ -37,6 +38,7 @@ fn PLSUsage::new() -> PLSUsage {
     unsigned_usages: 0,
     unsigned_bits: 0,
     total_usages: 0,
+    invalid: false,
   }
 }
 
@@ -44,13 +46,24 @@ fn PLSUsage::new() -> PLSUsage {
 priv struct PLSCandidateLoad {
   local_idx : Int
   set_node : Int
+  load_id : Int
+  load_addr_id : Int
   load_bits : Int
+  load_is_i64 : Bool
   current_signed : Bool
+  target_signed : Bool
+}
+
+///|
+priv struct PLSShiftExtCacheEntry {
+  computed : Bool
+  has_result : Bool
+  is_signed : Bool
+  bits : Int
 }
 
 ///|
 priv struct PLSAnalysis {
-  usage_by_local : Array[PLSUsage]
   candidates : Array[PLSCandidateLoad]
   rewritable_candidates : Int
 }
@@ -70,14 +83,16 @@ fn pls_record_signed_usage(
   local_idx : Int,
   bits : Int,
 ) -> Unit {
-  if local_idx < 0 || local_idx >= usage_by_local.length() {
+  let usage = usage_by_local[local_idx]
+  if usage.invalid {
     return
   }
-  let usage = usage_by_local[local_idx]
   if usage.signed_usages == 0 {
     usage.signed_bits = bits
   } else if usage.signed_bits != bits {
-    usage.signed_bits = 0
+    usage.invalid = true
+    usage_by_local[local_idx] = usage
+    return
   }
   usage.signed_usages += 1
   usage_by_local[local_idx] = usage
@@ -89,32 +104,34 @@ fn pls_record_unsigned_usage(
   local_idx : Int,
   bits : Int,
 ) -> Unit {
-  if local_idx < 0 || local_idx >= usage_by_local.length() {
+  let usage = usage_by_local[local_idx]
+  if usage.invalid {
     return
   }
-  let usage = usage_by_local[local_idx]
   if usage.unsigned_usages == 0 {
     usage.unsigned_bits = bits
   } else if usage.unsigned_bits != bits {
-    usage.unsigned_bits = 0
+    usage.invalid = true
+    usage_by_local[local_idx] = usage
+    return
   }
   usage.unsigned_usages += 1
   usage_by_local[local_idx] = usage
 }
 
 ///|
-fn pls_load_info(instr : @lib.Instruction) -> (Bool, Int)? {
+fn pls_load_info(instr : @lib.Instruction) -> (Bool, Int, Bool)? {
   match instr {
-    @lib.Instruction::I32Load8S(_) => Some((true, 8))
-    @lib.Instruction::I32Load8U(_) => Some((false, 8))
-    @lib.Instruction::I32Load16S(_) => Some((true, 16))
-    @lib.Instruction::I32Load16U(_) => Some((false, 16))
-    @lib.Instruction::I64Load8S(_) => Some((true, 8))
-    @lib.Instruction::I64Load8U(_) => Some((false, 8))
-    @lib.Instruction::I64Load16S(_) => Some((true, 16))
-    @lib.Instruction::I64Load16U(_) => Some((false, 16))
-    @lib.Instruction::I64Load32S(_) => Some((true, 32))
-    @lib.Instruction::I64Load32U(_) => Some((false, 32))
+    @lib.Instruction::I32Load8S(_) => Some((true, 8, false))
+    @lib.Instruction::I32Load8U(_) => Some((false, 8, false))
+    @lib.Instruction::I32Load16S(_) => Some((true, 16, false))
+    @lib.Instruction::I32Load16U(_) => Some((false, 16, false))
+    @lib.Instruction::I64Load8S(_) => Some((true, 8, true))
+    @lib.Instruction::I64Load8U(_) => Some((false, 8, true))
+    @lib.Instruction::I64Load16S(_) => Some((true, 16, true))
+    @lib.Instruction::I64Load16U(_) => Some((false, 16, true))
+    @lib.Instruction::I64Load32S(_) => Some((true, 32, true))
+    @lib.Instruction::I64Load32U(_) => Some((false, 32, true))
     _ => None
   }
 }
@@ -324,7 +341,8 @@ fn pls_target_signedness(
   candidate : PLSCandidateLoad,
   usage : PLSUsage,
 ) -> Bool {
-  if usage.total_usages == 0 ||
+  if usage.invalid ||
+    usage.total_usages == 0 ||
     usage.signed_usages + usage.unsigned_usages != usage.total_usages ||
     (usage.signed_usages != 0 && usage.signed_bits != candidate.load_bits) ||
     (usage.unsigned_usages != 0 && usage.unsigned_bits != candidate.load_bits) {
@@ -343,7 +361,7 @@ fn pls_extension_from_grandparent_zero_ext(
   parent_id : Int,
   shift_bits : @lib.I32,
 ) -> (Bool, Int)? {
-  for grand_site in @ir.node_use_sites(use_def, parent_id) {
+  for grand_site in @ir.node_use_sites_borrowed(use_def, parent_id) {
     if !pls_is_child_use_slot(grand_site.kind) || grand_site.slot != 0 {
       continue
     }
@@ -374,7 +392,7 @@ fn pls_extension_from_grandparent_zero_ext64(
   parent_id : Int,
   shift_bits : @lib.I64,
 ) -> (Bool, Int)? {
-  for grand_site in @ir.node_use_sites(use_def, parent_id) {
+  for grand_site in @ir.node_use_sites_borrowed(use_def, parent_id) {
     if !pls_is_child_use_slot(grand_site.kind) || grand_site.slot != 0 {
       continue
     }
@@ -404,6 +422,7 @@ fn pls_extension_from_parent(
   use_def : @ir.HotUseDef,
   _read_node_id : Int,
   site : @ir.HotUseSite,
+  shift_ext_cache : Array[PLSShiftExtCacheEntry],
 ) -> (Bool, Int)? {
   if !pls_is_child_use_slot(site.kind) {
     return None
@@ -428,9 +447,33 @@ fn pls_extension_from_parent(
           Some(bits) => bits
           None => return None
         }
-        return pls_extension_from_grandparent_zero_ext(
-          func, use_def, parent_id, shift_bits,
-        )
+        let cache = shift_ext_cache[parent_id]
+        if !cache.computed {
+          match
+            pls_extension_from_grandparent_zero_ext(
+              func, use_def, parent_id, shift_bits,
+            ) {
+            Some((is_signed, bits)) =>
+              shift_ext_cache[parent_id] = {
+                computed: true,
+                has_result: true,
+                is_signed,
+                bits,
+              }
+            None =>
+              shift_ext_cache[parent_id] = {
+                computed: true,
+                has_result: false,
+                is_signed: false,
+                bits: 0,
+              }
+          }
+        }
+        let updated_cache = shift_ext_cache[parent_id]
+        if updated_cache.has_result {
+          return Some((updated_cache.is_signed, updated_cache.bits))
+        }
+        return None
       }
       @lib.Instruction::I64Shl => {
         let shift_bits = match
@@ -438,9 +481,33 @@ fn pls_extension_from_parent(
           Some(bits) => bits
           None => return None
         }
-        return pls_extension_from_grandparent_zero_ext64(
-          func, use_def, parent_id, shift_bits,
-        )
+        let cache = shift_ext_cache[parent_id]
+        if !cache.computed {
+          match
+            pls_extension_from_grandparent_zero_ext64(
+              func, use_def, parent_id, shift_bits,
+            ) {
+            Some((is_signed, bits)) =>
+              shift_ext_cache[parent_id] = {
+                computed: true,
+                has_result: true,
+                is_signed,
+                bits,
+              }
+            None =>
+              shift_ext_cache[parent_id] = {
+                computed: true,
+                has_result: false,
+                is_signed: false,
+                bits: 0,
+              }
+          }
+        }
+        let updated_cache = shift_ext_cache[parent_id]
+        if updated_cache.has_result {
+          return Some((updated_cache.is_signed, updated_cache.bits))
+        }
+        return None
       }
       _ => ()
     }
@@ -485,79 +552,138 @@ fn pls_extension_from_parent(
 }
 
 ///|
+fn pls_shift_ext_cache_make_empty(size : Int) -> Array[PLSShiftExtCacheEntry] {
+  let out : Array[PLSShiftExtCacheEntry] = []
+  for _ in 0..<size {
+    out.push({ computed: false, has_result: false, is_signed: false, bits: 0 })
+  }
+  out
+}
+
+///|
 fn pls_analyze_candidates(
   func : @ir.HotFunc,
   candidates : Array[PLSCandidateLoad],
   use_def : @ir.HotUseDef,
 ) -> PLSAnalysis {
   let usage_by_local = pls_make_usage_by_local(@ir.hot_local_count(func))
+  let seen_local : Array[Bool] = []
+  let local_work_list : Array[Int] = []
+  for _ in 0..<usage_by_local.length() {
+    seen_local.push(false)
+  }
+  let shift_ext_cache = pls_shift_ext_cache_make_empty(@ir.hot_node_count(func))
   for candidate in candidates {
     let local_idx = candidate.local_idx
     if local_idx < 0 || local_idx >= usage_by_local.length() {
       continue
     }
-    for read_id in @ir.local_read_nodes(use_def, local_idx) {
+    if seen_local[local_idx] {
+      continue
+    }
+    seen_local[local_idx] = true
+    local_work_list.push(local_idx)
+  }
+  for local_idx in local_work_list {
+    for read_id in @ir.local_read_nodes_borrowed(use_def, local_idx) {
+      if usage_by_local[local_idx].invalid {
+        break
+      }
       if !@ir.hot_node_is_live(func, read_id) {
         continue
       }
-      for site in @ir.node_use_sites(use_def, read_id) {
+      for site in @ir.node_use_sites_borrowed(use_def, read_id) {
         let usage = usage_by_local[local_idx]
+        if usage.invalid {
+          break
+        }
         usage.total_usages += 1
         usage_by_local[local_idx] = usage
-        match pls_extension_from_parent(func, use_def, read_id, site) {
+        match
+          pls_extension_from_parent(
+            func, use_def, read_id, site, shift_ext_cache,
+          ) {
           Some((is_signed, bits)) =>
             if is_signed {
               pls_record_signed_usage(usage_by_local, local_idx, bits)
             } else {
               pls_record_unsigned_usage(usage_by_local, local_idx, bits)
             }
-          None => ()
+          None => {
+            let usage = usage_by_local[local_idx]
+            usage.invalid = true
+            usage_by_local[local_idx] = usage
+          }
         }
       }
     }
   }
   let mut rewritable_candidates = 0
-  for candidate in candidates {
-    if candidate.local_idx < 0 || candidate.local_idx >= usage_by_local.length() {
-      continue
-    }
+  for idx in 0..<candidates.length() {
+    let candidate = candidates[idx]
     let usage = usage_by_local[candidate.local_idx]
-    if pls_target_signedness(candidate, usage) != candidate.current_signed {
+    let target_signed = pls_target_signedness(candidate, usage)
+    if target_signed != candidate.current_signed {
       rewritable_candidates += 1
     }
+    candidates[idx] = {
+      local_idx: candidate.local_idx,
+      set_node: candidate.set_node,
+      load_id: candidate.load_id,
+      load_addr_id: candidate.load_addr_id,
+      load_bits: candidate.load_bits,
+      load_is_i64: candidate.load_is_i64,
+      current_signed: candidate.current_signed,
+      target_signed,
+    }
   }
-  { usage_by_local, candidates, rewritable_candidates }
+  { candidates, rewritable_candidates }
 }
 
 ///|
-fn pls_scan_candidate_loads(func : @ir.HotFunc) -> Array[PLSCandidateLoad] {
+fn pls_scan_candidate_loads(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+) -> Array[PLSCandidateLoad] {
   let candidates : Array[PLSCandidateLoad] = []
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    let node = @ir.hot_node_get(func, node_id)
-    match node.op {
-      @ir.HotOp::LocalSet => ()
-      _ => continue
-    }
-    let child_id = @ir.hot_child_get(func, node_id, 0)
-    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
-      continue
-    }
-    let info = match @ir.hot_node_exact_instr(func, child_id) {
-      Some(instr) => pls_load_info(instr)
-      None => None
-    }
-    match info {
-      Some((current_signed, load_bits)) =>
-        candidates.push({
-          local_idx: node.imm0,
-          set_node: node_id,
-          load_bits,
-          current_signed,
-        })
-      None => ()
+  for local_idx in 0..<@ir.hot_local_count(func) {
+    for node_id in @ir.local_write_nodes_borrowed(use_def, local_idx) {
+      let node = @ir.hot_node_get(func, node_id)
+      match node.op {
+        @ir.HotOp::LocalSet => ()
+        _ => continue
+      }
+      let child_id = @ir.hot_child_get(func, node_id, 0)
+      if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+        continue
+      }
+      let child_node = @ir.hot_node_get(func, child_id)
+      match child_node.op {
+        @ir.HotOp::Load => ()
+        _ => continue
+      }
+      let current_load = match @ir.hot_node_exact_instr(func, child_id) {
+        Some(v) => v
+        None => continue
+      }
+      let load_addr_id = @ir.hot_child_get(func, child_id, 0)
+      if load_addr_id < 0 || !@ir.hot_node_is_live(func, load_addr_id) {
+        continue
+      }
+      match pls_load_info(current_load) {
+        Some((current_signed, load_bits, load_is_i64)) =>
+          candidates.push({
+            local_idx,
+            set_node: node_id,
+            load_id: child_id,
+            load_addr_id,
+            load_bits,
+            load_is_i64,
+            current_signed,
+            target_signed: false,
+          })
+        None => ()
+      }
     }
   }
   candidates
@@ -571,30 +697,18 @@ fn pls_rewrite_candidates(
 ) -> Bool {
   let mut changed = false
   for candidate in analysis.candidates {
-    if candidate.local_idx < 0 ||
-      candidate.local_idx >= analysis.usage_by_local.length() {
+    if candidate.target_signed == candidate.current_signed {
       continue
     }
-    let usage = analysis.usage_by_local[candidate.local_idx]
-    let target_signed = pls_target_signedness(candidate, usage)
-    if target_signed == candidate.current_signed {
+    if !@ir.hot_node_is_live(func, candidate.load_id) {
       continue
     }
-    let set_node = @ir.hot_node_get(func, candidate.set_node)
-    match set_node.op {
-      @ir.HotOp::LocalSet => ()
-      _ => continue
-    }
-    let load_id = @ir.hot_child_get(func, candidate.set_node, 0)
-    if load_id < 0 || !@ir.hot_node_is_live(func, load_id) {
-      continue
-    }
-    let current_load = match @ir.hot_node_exact_instr(func, load_id) {
-      Some(load_instr) => load_instr
+    let current_load = match @ir.hot_node_exact_instr(func, candidate.load_id) {
+      Some(v) => v
       None => continue
     }
     let next_load = match
-      pls_load_with_signedness(current_load, target_signed) {
+      pls_load_with_signedness(current_load, candidate.target_signed) {
       Some(instr) => instr
       None => continue
     }
@@ -602,39 +716,30 @@ fn pls_rewrite_candidates(
       ctx.trace,
       "pick-load-signs",
       "replace-load",
-      payload="candidate(\{candidate.local_idx},\{candidate.set_node}) load_id=\{load_id} target_signed=\{target_signed}",
+      payload="candidate(\{candidate.local_idx},\{candidate.set_node}) load_id=\{candidate.load_id} target_signed=\{candidate.target_signed}",
     )
-    let next_types = @ir.hot_type_results(
-      func,
-      @ir.hot_node_get(func, load_id).ty,
-    )
-    if next_types.length() != 1 {
-      pipeline_trace_hook(
-        ctx.trace,
-        "pick-load-signs",
-        "skip-load-no-type",
-        payload="load_id=\{load_id}",
-      )
-      continue
+    let next_ty = if candidate.load_is_i64 {
+      @lib.ValType::i64()
+    } else {
+      @lib.ValType::i32()
     }
-    let next_ty = next_types[0]
     pipeline_trace_hook(
       ctx.trace,
       "pick-load-signs",
       "replace-load-build",
-      payload="load_id=\{load_id} ty=\{next_ty} memarg",
+      payload="load_id=\{candidate.load_id} ty=\{next_ty} memarg",
     )
     let replacement = @ir.hot_build_heap(func, [next_ty], next_load, [
-      @ir.hot_child_get(func, load_id, 0),
+      candidate.load_addr_id,
     ])
     let replacement_node = @ir.hot_node_get(func, replacement)
     @ir.hot_delete_node(func, replacement)
-    pass_replace_node(ctx, func, load_id, replacement_node)
+    pass_replace_node(ctx, func, candidate.load_id, replacement_node)
     pipeline_trace_hook(
       ctx.trace,
       "pick-load-signs",
       "replace-load-done",
-      payload="load_id=\{load_id} replaced_by=\{replacement}",
+      payload="load_id=\{candidate.load_id} replaced_by=\{replacement}",
     )
     changed = true
   }
@@ -646,7 +751,8 @@ fn pick_load_signs_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
-  let candidates = pls_scan_candidate_loads(func)
+  let use_def = pass_require_use_def(ctx, func)
+  let candidates = pls_scan_candidate_loads(func, use_def)
   pipeline_trace_hook(
     ctx.trace,
     "pick-load-signs",
@@ -657,7 +763,6 @@ fn pick_load_signs_run(
     pipeline_trace_hook(ctx.trace, "pick-load-signs", "scan-none")
     return HotPassResult::unchanged()
   }
-  let use_def = pass_require_use_def(ctx, func)
   let analysis = pls_analyze_candidates(func, candidates, use_def)
   pipeline_trace_hook(
     ctx.trace,
@@ -677,5 +782,3 @@ fn pick_load_signs_run(
     HotPassResult::unchanged()
   }
 }
-
-///|

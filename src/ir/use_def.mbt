@@ -347,6 +347,19 @@ pub fn node_use_sites(
 }
 
 ///|
+/// Return direct internal node-use site storage for read-only callers.
+///
+/// This avoids allocating a full copy of the use sites vector.
+/// Callers must not mutate the returned array.
+pub fn node_use_sites_borrowed(
+  use_def : HotUseDef,
+  node_id : NodeId,
+) -> Array[HotUseSite] {
+  use_def_require_node_range(use_def, node_id)
+  use_def.node_uses[node_id]
+}
+
+///|
 pub fn node_use_count(use_def : HotUseDef, node_id : NodeId) -> Int {
   use_def_require_node_range(use_def, node_id)
   use_def.node_uses[node_id].length()
@@ -374,12 +387,38 @@ pub fn local_read_nodes(
 }
 
 ///|
+/// Return direct internal local-read node storage for read-only callers.
+///
+/// This avoids allocating a full copy of the local-read list.
+/// Callers must not mutate the returned array.
+pub fn local_read_nodes_borrowed(
+  use_def : HotUseDef,
+  local_id : LocalId,
+) -> Array[NodeId] {
+  use_def_require_local_range(use_def, local_id)
+  use_def.local_reads[local_id]
+}
+
+///|
 pub fn local_write_nodes(
   use_def : HotUseDef,
   local_id : LocalId,
 ) -> Array[NodeId] {
   use_def_require_local_range(use_def, local_id)
   use_def.local_writes[local_id].copy()
+}
+
+///|
+/// Return direct internal local-write node storage for read-only callers.
+///
+/// This avoids allocating a full copy of the local-write list.
+/// Callers must not mutate the returned array.
+pub fn local_write_nodes_borrowed(
+  use_def : HotUseDef,
+  local_id : LocalId,
+) -> Array[NodeId] {
+  use_def_require_local_range(use_def, local_id)
+  use_def.local_writes[local_id]
 }
 
 ///|

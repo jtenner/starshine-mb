@@ -161,7 +161,7 @@ function parseStarshinePassElapsedMs(stderr: string): number {
 
 function parseBinaryenPassElapsedMs(stdout: string, stderr: string): number {
   const combined = `${stdout}\n${stderr}`;
-  const matches = Array.from(combined.matchAll(/passes took ([0-9.]+) seconds\./g));
+  const matches = Array.from(combined.matchAll(/passes took ([0-9.eE+-]+) seconds\./g));
   const last = matches.at(-1);
   if (!last) {
     fail("failed to parse Binaryen pass timing from --debug output");
