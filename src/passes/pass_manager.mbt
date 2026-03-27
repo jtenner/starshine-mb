@@ -1694,12 +1694,6 @@ fn run_hot_pipeline_func(
   module_state : HotPipelineModuleState,
   options : HotPipelineOptions,
 ) -> Result[HotPipelineFuncResult, String] {
-  pipeline_trace_hook(
-    options.trace,
-    descriptor.name,
-    "func",
-    payload="func_idx=\{func_idx}",
-  )
   match
     run_hot_pipeline_raw_ssa_nomerge(
       mod_, func_idx, module_state, descriptor, options,
@@ -1728,6 +1722,12 @@ fn run_hot_pipeline_func(
     }
     None => ()
   }
+  pipeline_trace_hook(
+    options.trace,
+    descriptor.name,
+    "func",
+    payload="func_idx=\{func_idx}",
+  )
   let lift_start_us = perf_start_timer_opt(options.perf, "lift")
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,

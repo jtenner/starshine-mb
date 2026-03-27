@@ -435,6 +435,7 @@ test "heap-store-optimization skips raw lift when the original function has no H
 
   let text = perf_test_join_lines(lines)
   assert_true(text.contains("pass[heap-store-optimization]:skip-raw"))
+  assert_false(text.contains("pass[heap-store-optimization]:func"))
   assert_false(text.contains("perf:timer name=lift"))
   assert_false(text.contains("perf:timer name=analysis:effects"))
   assert_false(text.contains("perf:timer name=analysis:module-context"))
