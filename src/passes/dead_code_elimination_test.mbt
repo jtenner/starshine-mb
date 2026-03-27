@@ -300,6 +300,85 @@ test "dead-code-elimination batches consecutive dead drop root splices" {
 }
 
 ///|
+test "dead-code-elimination folds nonfallthrough prefix blocks into branch payloads" {
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+
+  let payload_value = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let prefix = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let prefix_label = @ir.hot_control_node_label(func, prefix)
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, prefix), [
+    @ir.hot_build_br(func, prefix_label),
+    @ir.hot_build_unreachable(func),
+  ])
+
+  let out = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let out_label = @ir.hot_control_node_label(func, out)
+  let branch = @ir.hot_build_br(func, out_label, values=[payload_value])
+  let mid = @ir.hot_build_block(func, @lib.BlockType::void_(), [prefix, branch])
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, out), [
+    mid,
+    @ir.hot_build_const_i32(func, @lib.I32(9)),
+  ])
+  @ir.hot_root_append(func, out)
+
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected prefix-payload fixture core verification, got \{err}")
+  }
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected prefix-payload fixture control verification, got \{err}")
+  }
+  assert_eq(
+    @ir.hot_region_root_count(func, @ir.hot_region_body_ref(func, mid)),
+    2,
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination prefix-payload fold success, got \{err}",
+      )
+  }
+
+  let mid_region = @ir.hot_region_body_ref(func, mid)
+  assert_eq(@ir.hot_region_root_count(func, mid_region), 1)
+  let folded_branch = @ir.hot_region_get(func, mid_region, 0)
+  match @ir.hot_node_get(func, folded_branch).op {
+    @ir.HotOp::Br => ()
+    other => fail("expected folded root branch, got \{other}")
+  }
+  let folded_payload = @ir.hot_child_get(func, folded_branch, 0)
+  match @ir.hot_node_get(func, folded_payload).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected folded branch payload block, got \{other}")
+  }
+  let folded_region = @ir.hot_region_body_ref(func, folded_payload)
+  assert_eq(@ir.hot_region_root_count(func, folded_region), 2)
+  assert_eq(@ir.hot_region_get(func, folded_region, 0), prefix)
+  assert_eq(@ir.hot_region_get(func, folded_region, 1), payload_value)
+}
+
+///|
 test "dead-code-elimination keeps typed if wrappers with hidden region-label payload branches" {
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(

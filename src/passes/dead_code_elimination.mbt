@@ -1136,6 +1136,69 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder_in_control_tree(
 }
 
 ///|
+fn dead_code_elimination_try_fold_nonfallthrough_prefix_into_branch_payload(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  node_id : Int,
+) -> Bool {
+  if idx <= 0 ||
+    node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    @ir.hot_node_count(func) > 5000 ||
+    idx + 1 != @ir.hot_region_root_count(func, region_ref) ||
+    dead_code_elimination_branch_payload_count(func, node_id) != 1 {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Br => ()
+    _ => return false
+  }
+  let payload_id = @ir.hot_child_get(func, node_id, 0)
+  if payload_id < 0 ||
+    !@ir.hot_node_is_live(func, payload_id) ||
+    @ir.hot_node_result_arity(func, payload_id) != 1 {
+    return false
+  }
+  let prefix_id = @ir.hot_region_get(func, region_ref, idx - 1)
+  if prefix_id < 0 ||
+    !@ir.hot_node_is_live(func, prefix_id) ||
+    @ir.hot_node_result_arity(func, prefix_id) != 0 {
+    return false
+  }
+  match @ir.hot_node_get(func, prefix_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let prefix_region = @ir.hot_region_body_ref(func, prefix_id)
+  let prefix_root_count = @ir.hot_region_root_count(func, prefix_region)
+  if prefix_root_count == 0 || prefix_root_count > 2 {
+    return false
+  }
+  match @ir.hot_node_get(func, payload_id).op {
+    @ir.HotOp::Const | @ir.HotOp::LocalGet | @ir.HotOp::LocalTee => ()
+    _ => return false
+  }
+  let payload_types = @ir.hot_type_results(
+    func,
+    @ir.hot_node_type(func, payload_id),
+  )
+  if payload_types.length() != 1 {
+    return false
+  }
+  let payload_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(payload_types[0]),
+    [prefix_id, payload_id],
+  )
+  @ir.hot_child_set(func, node_id, 0, payload_block)
+  ignore(pass_splice_region(ctx, func, region_ref, idx - 1, 1, []))
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn dead_code_elimination_visit_node_regions(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1482,6 +1545,12 @@ fn dead_code_elimination_visit_region(
           continue
         }
       _ => ()
+    }
+    if dead_code_elimination_try_fold_nonfallthrough_prefix_into_branch_payload(
+        ctx, func, region_ref, idx, node_id,
+      ) {
+      changed = true
+      continue
     }
 
     if dead_code_elimination_drop_is_dead(purity_cache, func, node_id) {
