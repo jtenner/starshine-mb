@@ -910,6 +910,156 @@ test "hot lower preserves result blocks consumed by local.set" {
 }
 
 ///|
+test "hot lower canonicalizes tail if forwarders into void if plus unreachable" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    (local.set 2
+    #|      (block $outer (result i32)
+    #|        (block $exit
+    #|          (br $outer
+    #|            (block $mid (result i32)
+    #|              (block $cont
+    #|                (if (result i32)
+    #|                  (local.get 0)
+    #|                  (then
+    #|                    (i32.const 7)
+    #|                    (local.set 1)
+    #|                    (br $cont))
+    #|                  (else
+    #|                    (i32.const 9)
+    #|                    (local.set 1)
+    #|                    (br $exit))))
+    #|              (local.get 1)))))
+    #|    (local.get 2)))
+  let module_ = match @wast.wast_to_binary_module(source) {
+    Ok(module_) => module_
+    Err(err) => fail("expected module to parse, got \{err}")
+  }
+  let hot = hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let lowered = hot_lower_func(hot)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
+test "hot lower canonicalizes nested local.set payload forwarders from compare shape" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    (local.set 1
+    #|      (block $block11 (result i32)
+    #|        (block $block9
+    #|          (br $block11
+    #|            (block $block10 (result i32)
+    #|              (block $block8
+    #|                (br $block10
+    #|                  (if (result i32)
+    #|                    (local.get 0)
+    #|                    (then
+    #|                      (i32.const 7)
+    #|                      (local.set 1)
+    #|                      (br $block8))
+    #|                    (else
+    #|                      (i32.const 9)
+    #|                      (local.set 1)
+    #|                      (br $block9)))))
+    #|              (local.get 1))))
+    #|    (local.get 1)))
+  let module_ = match @wast.wast_to_binary_module(source) {
+    Ok(module_) => module_
+    Err(err) => fail("expected module to parse, got \{err}")
+  }
+  let hot = hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let lowered = hot_lower_func(hot)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
+test "hot lower canonicalizes prefix-heavy nested local.set payload forwarders from compare shape" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32 i32) (result i32) (local i32 i32)
+    #|    (local.set 3
+    #|      (block $block11 (result i32)
+    #|        (block $block9
+    #|          (br $block11
+    #|            (block $block10 (result i32)
+    #|              (block $block8
+    #|                (local.set 4 (local.get 0))
+    #|                (drop (local.get 1))
+    #|                (drop (local.get 2))
+    #|                (br $block10
+    #|                  (if (result i32)
+    #|                    (local.get 2)
+    #|                    (then
+    #|                      (local.set 4 (i32.const 7))
+    #|                      (br $block8))
+    #|                    (else
+    #|                      (local.set 4 (i32.const 9))
+    #|                      (br $block9)))))
+    #|              (local.get 4))))
+    #|    (local.get 3)))
+  let module_ = match @wast.wast_to_binary_module(source) {
+    Ok(module_) => module_
+    Err(err) => fail("expected module to parse, got \{err}")
+  }
+  let hot = hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let lowered = hot_lower_func(hot)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+              ],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
 test "hot lower does not reintroduce dead drops after non-fallthrough block exits" {
   let body = @lib.Expr::new([
     @lib.Instruction::block(

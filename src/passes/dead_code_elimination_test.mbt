@@ -684,6 +684,463 @@ test "dead-code-elimination retargets stacked payload blocks to the inner result
 }
 
 ///|
+test "dead-code-elimination retargets outer wrapper payload forwarders in local.set values" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32 i32 i32) (result i32) (local i32 i32) (local.set 3 (block $outer (result i32) (block $mid (br $outer (block $inner (result i32) (block $cont (local.set 4 (local.get 0)) (drop (local.get 1)) (drop (local.get 2)) (br $inner (if (result i32) (local.get 0) (then (local.set 4 (local.get 1)) (br $cont)) (else (local.set 3 (local.get 2)) (br $mid))))) (local.get 4)))) (local.get 3))) (local.get 3)))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination outer-wrapper payload retarget success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block $outer (result i32)"), msg=pretty)
+  assert_false(pretty.contains("(br $inner"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination rewrites split local.set wrapper forwarders" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32 i32) (result i32) (local i32) (local.set 2 (block $outer (result i32) (block $exit (block $mid (result i32) (block $cont (local.get 0) (if (result i32) (local.get 1) (then (i32.const 1) (br $cont)) (else (i32.const 2))) (br $mid)) (local.get 0)) (br $outer (block $inner (result i32) (block $carry (br $inner (if (result i32) (local.get 1) (then (local.get 0) (br $carry)) (else (local.get 0)))))))) (local.get 2))) (local.get 2)))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination split local.set wrapper rewrite success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::i32()],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination rewrites split local.set wrapper direct payload tails with trailing values" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32 i32) (result i32) (local i32) (local i32) (local.set 2 (block $outer (result i32) (block $exit (br $outer (block $mid (result i32) (block $cont (local.set 3 (local.get 1)) (br $mid (if (result i32) (local.get 0) (then (local.set 3 (i32.const 7)) (br $cont)) (else (local.set 3 (i32.const 9)) (br $exit))))) (local.get 3)))) (i32.const 1))) (local.get 2)))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination split local.set direct-tail rewrite success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+  assert_false(pretty.contains("(br $mid"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination retargets nested split local.set wrapper payload blocks" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32 i32) (result i32) (local i32) (local i32) (local.set 2 (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 3 (local.get 0)) (br $block10 (if (result i32) (local.get 1) (then (local.set 3 (i32.const 7)) (br $block8)) (else (local.set 3 (i32.const 9)) (br $block9))))) (local.get 3)))) (i32.const 1))) (local.get 2)))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination nested split local.set payload retarget success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination retargets split local.set wrappers with trailing outer roots" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32 i32) (result i32) (local i32) (local i32) (local.set 2 (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 3 (local.get 0)) (br $block10 (if (result i32) (local.get 1) (then (local.set 3 (i32.const 7)) (br $block8)) (else (local.set 3 (i32.const 9)) (br $block9))))) (local.get 3)))) (drop (local.get 0)) (local.get 3))) (local.get 2)))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination split local.set trailing-root retarget success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination retargets split local.set wrappers with void-if forwarders" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) (local i32 i32) (local.set 1 (block $outer (result i32) (block $exit (br $outer (block $mid (result i32) (block $cont (if (local.get 0) (then (local.set 2 (i32.const 7)) (br $cont)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (local.get 2)))) (local.get 1))) (local.get 1)))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination split local.set void-if forwarder success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block $outer (result i32)"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination retargets split local.set wrappers with void-if forwarders and trailing outer roots" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) (local i32 i32) (local.set 1 (block $outer (result i32) (block $exit (br $outer (block $mid (result i32) (block $cont (if (local.get 0) (then (local.set 2 (i32.const 7)) (br $cont)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (local.get 2)))) (drop (local.get 0)) (local.get 1))) (local.get 1)))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination split local.set void-if trailing-root success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block $outer (result i32)"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination retargets prefix-heavy split local.set void-if forwarders" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32 i32 i32) (result i32) (local i32 i32) (local.set 3 (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 4 (local.get 0)) (drop (local.get 1)) (drop (local.get 2)) (if (local.get 2) (then (local.set 4 (i32.const 7)) (br $block8)) (else (local.set 4 (i32.const 9)) (br $block9))) unreachable) (local.get 4)))) (local.get 3))) (local.get 3)))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination prefix-heavy split local.set void-if rewrite success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+              ],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination retargets prefix-heavy nested split local.set payload blocks" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32 i32 i32) (result i32) (local i32) (local i32) (local.set 3 (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 4 (local.get 0)) (drop (local.get 1)) (drop (local.get 2)) (br $block10 (if (result i32) (local.get 2) (then (local.set 4 (i32.const 7)) (br $block8)) (else (local.set 4 (i32.const 9)) (br $block9))))) (local.get 4)))) (local.get 3))) (local.get 3)))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination prefix-heavy nested split local.set payload retarget success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+              ],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination keeps void-if lowered in call-store-heavy split wrappers" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (memory 1) (func $sink (param i32)) (func (param i32 i32 i32) (result i32) (local i32 i32 i32) (local.set 3 (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 4 (local.get 0)) (call $sink (local.get 4)) (call $sink (local.get 1)) (i32.store align=1 (i32.const 0) (local.get 2)) (i32.store align=1 (i32.const 4) (local.get 1)) (local.set 5 (local.get 2)) (call $sink (local.get 5)) (if (local.get 2) (then (local.set 4 (i32.const 7)) (br $block8)) (else (local.set 4 (i32.const 9)) (br $block9))) unreachable) (local.get 4)))) (local.get 3))) (local.get 3)))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(1U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination call/store-heavy split wrapper success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+              ],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new([])),
+        lowered,
+      ]),
+    )
+    .pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination keeps typed if wrappers with hidden region-label payload branches" {
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(
