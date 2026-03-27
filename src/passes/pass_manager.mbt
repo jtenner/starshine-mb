@@ -1876,6 +1876,7 @@ fn run_hot_pipeline_func(
     Ok(result) =>
       if !result.changed &&
         @ir.hot_revision_current(func) == lifted_revision &&
+        descriptor.name != "heap-store-optimization" &&
         !(descriptor.name == "dead-code-elimination" &&
         run_hot_pipeline_dce_raw_requires_lowering_even_if_unchanged(
           run_hot_pipeline_original_func(mod_, func_idx),

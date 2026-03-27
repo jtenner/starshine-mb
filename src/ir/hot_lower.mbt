@@ -1235,12 +1235,36 @@ fn hot_lower_impl_canonicalize_block_body(
 }
 
 ///|
+fn hot_lower_impl_can_inline_value_wrapper(
+  bt : BlockType,
+  body : Array[Instruction],
+) -> Bool {
+  match bt {
+    VoidBlockType => false
+    _ =>
+      match body {
+        [LocalGet(_)] => !hot_lower_impl_body_targets_removed_label(body, 0)
+        _ => false
+      }
+  }
+}
+
+///|
 fn hot_lower_impl_canonicalize_body(
   body : Array[Instruction],
 ) -> Array[Instruction] {
   let canonical : Array[Instruction] = []
   for instr in body {
-    canonical.push(hot_lower_impl_canonicalize_instr(instr))
+    match hot_lower_impl_canonicalize_instr(instr) {
+      Block(bt, Expr(inner_body)) if hot_lower_impl_can_inline_value_wrapper(
+          bt,
+          inner_body,
+        ) =>
+        for inner in inner_body {
+          canonical.push(inner)
+        }
+      canonical_instr => canonical.push(canonical_instr)
+    }
   }
   canonical
 }
