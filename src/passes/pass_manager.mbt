@@ -896,6 +896,76 @@ fn run_hot_pipeline_dce_raw_final_instr_is_fallthrough_value_structured(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_live_typed_control_only(
+  instrs : Array[@lib.Instruction],
+  result_live : Bool,
+) -> Bool {
+  let mut prev_may_fallthrough = true
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    let is_final = idx + 1 == instrs.length()
+    if !prev_may_fallthrough {
+      return false
+    }
+    match instr {
+      @lib.Drop => return false
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let child_result_live = is_final &&
+          result_live &&
+          block_type != @lib.BlockType::void_()
+        if block_type != @lib.BlockType::void_() && !child_result_live {
+          return false
+        }
+        if !run_hot_pipeline_dce_raw_live_typed_control_only(
+            body, child_result_live,
+          ) {
+          return false
+        }
+      }
+      @lib.Loop(_, @lib.Expr(_)) => return false
+      @lib.If(block_type, then_body, else_body) => {
+        let child_result_live = is_final &&
+          result_live &&
+          block_type != @lib.BlockType::void_()
+        if block_type != @lib.BlockType::void_() && !child_result_live {
+          return false
+        }
+        if !run_hot_pipeline_dce_raw_live_typed_control_only(
+            then_body, child_result_live,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(else_body) =>
+            if !run_hot_pipeline_dce_raw_live_typed_control_only(
+                else_body, child_result_live,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(block_type, _, @lib.Expr(body)) => {
+        let child_result_live = is_final &&
+          result_live &&
+          block_type != @lib.BlockType::void_()
+        if block_type != @lib.BlockType::void_() && !child_result_live {
+          return false
+        }
+        if !run_hot_pipeline_dce_raw_live_typed_control_only(
+            body, child_result_live,
+          ) {
+          return false
+        }
+      }
+      _ => ()
+    }
+    prev_may_fallthrough = run_hot_pipeline_dce_raw_instr_may_fallthrough(instr)
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_dce_can_skip_raw(
   original : @lib.Func,
   module_ctx : @ir.HotModuleContext,
@@ -910,9 +980,6 @@ fn run_hot_pipeline_dce_can_skip_raw(
     has_dead_tail_after_nonfallthrough,
     _,
   ) = run_hot_pipeline_instr_scan(instrs)
-  if has_branches {
-    return false
-  }
   let returns_value = match
     @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
     Some(@lib.FuncType(_, results)) => !results.is_empty()
@@ -934,8 +1001,16 @@ fn run_hot_pipeline_dce_can_skip_raw(
     drops_follow_impure_values &&
     !has_dead_tail_after_nonfallthrough &&
     run_hot_pipeline_dce_raw_final_instr_is_fallthrough_value_structured(instrs)
+  let branchy_live_typed_noop = has_branches &&
+    has_structured_control &&
+    returns_value &&
+    !has_drop &&
+    !has_dead_tail_after_nonfallthrough &&
+    run_hot_pipeline_dce_raw_live_typed_control_only(instrs, true)
   if !straight_line_noop && !structured_void_noop && !structured_typed_noop {
-    return false
+    if !branchy_live_typed_noop {
+      return false
+    }
   }
   returns_value ||
   structured_void_noop ||

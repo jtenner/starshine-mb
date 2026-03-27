@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-27 Optimize: skip branchy DCE no-ops when typed control results stay live
+
+- **Dead-code-elimination branchy raw-skip checkpoint** by **@jtenner**. Updated [CHANGELOG.md](/home/jtenner/Projects/starshine-mb-dce/CHANGELOG.md), [src/passes/pass_manager.mbt](/home/jtenner/Projects/starshine-mb-dce/src/passes/pass_manager.mbt), and [src/passes/perf_test.mbt](/home/jtenner/Projects/starshine-mb-dce/src/passes/perf_test.mbt) so the raw DCE precheck now accepts branch-heavy functions when they have no drops, no unreachable tails, no loops, and every typed structured control result remains live all the way to the enclosing live result. Focused pass tests and the native release build stay green; on `tests/node/dist/starshine-debug-wasi.wasm`, traced `skip-raw reason=no-dce-candidates` increased from `1909` to `1985`, traced totals improved from about `lift=882961us / pass=548716us` to `lift=872527us / pass=522026us`, and the output stays byte-identical.
+
 ## 2026-03-27 Optimize: reuse one `if` entry-type snapshot in hot lift
 
 - **Dead-code-elimination lift budget checkpoint** by **@jtenner**. Updated [CHANGELOG.md](/home/jtenner/Projects/starshine-mb-dce/CHANGELOG.md) and [src/ir/hot_lift.mbt](/home/jtenner/Projects/starshine-mb-dce/src/ir/hot_lift.mbt) so nested `if` lifting now copies the entry type stack once per `if` instead of once per branch, reusing the original snapshot for the second branch and the empty-else normalization path. `moon test src/ir`, `moon test src/passes`, and `moon build --target native --release src/cmd` stay green; on `tests/node/dist/starshine-debug-wasi.wasm`, direct native `--dead-code-elimination` replay improved from about `2.328s` to `2.275s` while preserving byte-identical output, and traced totals improved from about `lift=902105us / pass=564258us` to `lift=882961us / pass=548716us`.
