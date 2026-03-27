@@ -42,6 +42,13 @@ priv struct DeadCodeEliminationPurityCache {
 }
 
 ///|
+priv struct DeadCodeEliminationStackedForwarderTail {
+  payload_if : Int
+  rewrite_region : @ir.HotRegionRef
+  rewrite_idx : Int
+}
+
+///|
 fn DeadCodeEliminationNodeUseCache::new() -> DeadCodeEliminationNodeUseCache {
   { revision: -1, use_def: None }
 }
@@ -896,6 +903,81 @@ fn dead_code_elimination_branch_payload_count(
 }
 
 ///|
+fn DeadCodeEliminationStackedForwarderTail::new(
+  payload_if : Int,
+  rewrite_region : @ir.HotRegionRef,
+  rewrite_idx : Int,
+) -> DeadCodeEliminationStackedForwarderTail {
+  { payload_if, rewrite_region, rewrite_idx }
+}
+
+///|
+fn dead_code_elimination_try_extract_stacked_forwarder_tail(
+  func : @ir.HotFunc,
+  candidate_node : Int,
+  rewrite_region : @ir.HotRegionRef,
+  rewrite_idx : Int,
+) -> DeadCodeEliminationStackedForwarderTail? {
+  if candidate_node < 0 ||
+    !@ir.hot_node_is_live(func, candidate_node) ||
+    @ir.hot_node_result_arity(func, candidate_node) == 0 {
+    return None
+  }
+  match @ir.hot_node_get(func, candidate_node).op {
+    @ir.HotOp::If =>
+      Some(
+        DeadCodeEliminationStackedForwarderTail::new(
+          candidate_node, rewrite_region, rewrite_idx,
+        ),
+      )
+    @ir.HotOp::Block => {
+      let wrapper_body = @ir.hot_region_body_ref(func, candidate_node)
+      let wrapper_root_count = @ir.hot_region_root_count(func, wrapper_body)
+      if wrapper_root_count == 0 || wrapper_root_count > 2 {
+        return None
+      }
+      let wrapper_prefix = @ir.hot_region_get(func, wrapper_body, 0)
+      if wrapper_prefix < 0 || !@ir.hot_node_is_live(func, wrapper_prefix) {
+        return None
+      }
+      match @ir.hot_node_get(func, wrapper_prefix).op {
+        @ir.HotOp::Block => ()
+        _ => return None
+      }
+      let wrapper_prefix_body = @ir.hot_region_body_ref(func, wrapper_prefix)
+      let wrapper_prefix_root_count = @ir.hot_region_root_count(
+        func, wrapper_prefix_body,
+      )
+      if wrapper_prefix_root_count < 2 {
+        return None
+      }
+      let wrapper_br_idx = wrapper_prefix_root_count - 1
+      let wrapper_br = @ir.hot_region_get(
+        func, wrapper_prefix_body, wrapper_br_idx,
+      )
+      if wrapper_br < 0 ||
+        !@ir.hot_node_is_live(func, wrapper_br) ||
+        @ir.hot_branch_target(func, wrapper_br) !=
+        Some(@ir.hot_control_node_label(func, candidate_node)) ||
+        dead_code_elimination_branch_payload_count(func, wrapper_br) != 0 {
+        return None
+      }
+      match @ir.hot_node_get(func, wrapper_br).op {
+        @ir.HotOp::Br => ()
+        _ => return None
+      }
+      dead_code_elimination_try_extract_stacked_forwarder_tail(
+        func,
+        @ir.hot_region_get(func, wrapper_prefix_body, wrapper_br_idx - 1),
+        wrapper_prefix_body,
+        wrapper_br_idx,
+      )
+    }
+    _ => None
+  }
+}
+
+///|
 fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -921,7 +1003,8 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
     _ => return false
   }
   let payload_body = @ir.hot_region_body_ref(func, payload_block)
-  if @ir.hot_region_root_count(func, payload_body) != 2 {
+  let payload_root_count = @ir.hot_region_root_count(func, payload_body)
+  if payload_root_count == 0 || payload_root_count > 2 {
     return false
   }
   let forwarder = @ir.hot_region_get(func, payload_body, 0)
@@ -941,6 +1024,8 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
   let inner_br = @ir.hot_region_get(func, forwarder_body, inner_br_idx)
   let mut payload_if = -1
   let mut stacked_tail = false
+  let mut stacked_rewrite_region = forwarder_body
+  let mut stacked_rewrite_idx = inner_br_idx
   if inner_br >= 0 &&
     @ir.hot_node_is_live(func, inner_br) &&
     @ir.hot_branch_target(func, inner_br) ==
@@ -949,21 +1034,23 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
       @ir.HotOp::Br =>
         if dead_code_elimination_branch_payload_count(func, inner_br) == 1 {
           payload_if = @ir.hot_child_get(func, inner_br, 0)
-        } else if dead_code_elimination_branch_payload_count(func, inner_br) == 0 &&
+        } else if dead_code_elimination_branch_payload_count(func, inner_br) ==
+          0 &&
           inner_br_idx > 0 {
-          let candidate_if = @ir.hot_region_get(func, forwarder_body, inner_br_idx - 1)
-          if candidate_if >= 0 &&
-            @ir.hot_node_is_live(func, candidate_if) &&
-            @ir.hot_node_result_arity(func, candidate_if) > 0 {
-            match @ir.hot_node_get(func, candidate_if).op {
-              @ir.HotOp::If => {
-                payload_if = candidate_if
-                stacked_tail = true
-              }
-              _ => return false
+          match
+            dead_code_elimination_try_extract_stacked_forwarder_tail(
+              func,
+              @ir.hot_region_get(func, forwarder_body, inner_br_idx - 1),
+              forwarder_body,
+              inner_br_idx,
+            ) {
+            Some(match_) => {
+              payload_if = match_.payload_if
+              stacked_tail = true
+              stacked_rewrite_region = match_.rewrite_region
+              stacked_rewrite_idx = match_.rewrite_idx
             }
-          } else {
-            return false
+            None => return false
           }
         } else {
           return false
@@ -976,9 +1063,11 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
   if payload_if < 0 ||
     !@ir.hot_node_is_live(func, payload_if) ||
     @ir.hot_node_result_arity(func, payload_if) == 0 ||
-    (!stacked_tail &&
+    (
+      !stacked_tail &&
       dead_code_elimination_node_use_count(node_use_cache, func, payload_if) !=
-      1) {
+      1
+    ) {
     return false
   }
   match @ir.hot_node_get(func, payload_if).op {
@@ -1026,12 +1115,14 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
     let removed = pass_splice_region(
       ctx,
       func,
-      forwarder_body,
-      inner_br_idx,
+      stacked_rewrite_region,
+      stacked_rewrite_idx,
       1,
       [@ir.hot_build_unreachable(func)],
     )
-    dead_code_elimination_delete_unused_nodes(ctx, func, node_use_cache, removed)
+    dead_code_elimination_delete_unused_nodes(
+      ctx, func, node_use_cache, removed,
+    )
   } else {
     ignore(
       dead_code_elimination_replace_root_with_child(
@@ -1520,10 +1611,7 @@ fn dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_bra
     ) ||
     !dead_code_elimination_region_has_terminal_last_live_root(func, body_ref) ||
     dead_code_elimination_region_may_fallthrough(
-      func,
-      branch_user_cache,
-      fallthrough_cache,
-      body_ref,
+      func, branch_user_cache, fallthrough_cache, body_ref,
     ) {
     return false
   }
@@ -1546,7 +1634,9 @@ fn dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_bra
       @ir.HotOp::Br => ()
       _ => return false
     }
-    let payload_count = dead_code_elimination_branch_payload_count(func, branch_id)
+    let payload_count = dead_code_elimination_branch_payload_count(
+      func, branch_id,
+    )
     if payload_count != 1 {
       return false
     }
@@ -1566,7 +1656,11 @@ fn dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_bra
     let new_children : Array[Int] = []
     if payload_count < @ir.hot_child_count(func, branch_id) {
       new_children.push(
-        @ir.hot_child_get(func, branch_id, @ir.hot_child_count(func, branch_id) - 1),
+        @ir.hot_child_get(
+          func,
+          branch_id,
+          @ir.hot_child_count(func, branch_id) - 1,
+        ),
       )
     }
     branch_rewrites.push(@ir.HotChildSpanRewrite::new(branch_id, new_children))
@@ -1796,22 +1890,12 @@ fn dead_code_elimination_visit_region(
             1 &&
             (
               dead_code_elimination_voidify_control(
-                ctx,
-                func,
-                branch_user_cache,
-                node_use_cache,
-                fallthrough_cache,
-                purity_cache,
-                child_id,
+                ctx, func, branch_user_cache, node_use_cache, fallthrough_cache,
+                purity_cache, child_id,
               ) ||
               dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_branches(
-                ctx,
-                func,
-                branch_user_cache,
-                node_use_cache,
-                fallthrough_cache,
-                purity_cache,
-                child_id,
+                ctx, func, branch_user_cache, node_use_cache, fallthrough_cache,
+                purity_cache, child_id,
               )
             ) {
             ignore(
@@ -1861,12 +1945,7 @@ fn dead_code_elimination_visit_region(
           node_use_count == 1
         }) &&
         dead_code_elimination_voidify_control(
-          ctx,
-          func,
-          branch_user_cache,
-          node_use_cache,
-          fallthrough_cache,
-          purity_cache,
+          ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
           node_id,
         ) {
         ignore(
@@ -1901,12 +1980,7 @@ fn dead_code_elimination_visit_region(
       node_result_arity > 0 &&
       !node_may_fallthrough &&
       dead_code_elimination_voidify_control(
-        ctx,
-        func,
-        branch_user_cache,
-        node_use_cache,
-        fallthrough_cache,
-        purity_cache,
+        ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
         node_id,
       ) {
       ignore(

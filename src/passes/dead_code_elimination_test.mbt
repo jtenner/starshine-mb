@@ -531,7 +531,9 @@ test "dead-code-elimination voidifies dropped nonfallthrough value blocks with i
   match @ir.hot_node_get(func, root1).op {
     @ir.HotOp::Const => ()
     other =>
-      fail("expected drop wrapper removal to expose trailing const, got \{other}")
+      fail(
+        "expected drop wrapper removal to expose trailing const, got \{other}",
+      )
   }
 }
 
@@ -639,6 +641,46 @@ test "dead-code-elimination folds nonfallthrough prefix blocks into branch paylo
   assert_eq(@ir.hot_region_root_count(func, folded_region), 2)
   assert_eq(@ir.hot_region_get(func, folded_region, 0), prefix)
   assert_eq(@ir.hot_region_get(func, folded_region, 1), payload_value)
+}
+
+///|
+test "dead-code-elimination retargets stacked payload blocks to the inner result block" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) (local i32) (block $outer (result i32) (block $exit (br $outer (block $inner (result i32) (block $cont (br $inner (if (result i32) (local.get 0) (then (i32.const 1) (local.set 1) (br $cont)) (else (br $exit)))))))) (i32.const 9))))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination stacked payload retarget success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|
