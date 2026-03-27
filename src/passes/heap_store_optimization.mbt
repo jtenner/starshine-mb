@@ -888,17 +888,13 @@ fn hso_value_has_readonly_prefix_block(
   let mut has_local_or_global_state = false
   for idx = 0; idx < root_count; idx = idx + 1 {
     let root_id = @ir.hot_region_get(func, body_ref, idx)
-    if !hso_subtree_is_trapless_readonly(
-        cache,
-        func,
-        node_masks,
-        root_id,
-      ) {
+    if !hso_subtree_is_trapless_readonly(cache, func, node_masks, root_id) {
       return false
     }
     let root_mask = hso_reorder_effect_mask(cache, func, node_masks, root_id)
-    if (root_mask &
-      (@ir.EFFECT_MASK_LOCAL_STATE | @ir.EFFECT_MASK_GLOBAL_STATE)) !=
+    if (
+        root_mask & (@ir.EFFECT_MASK_LOCAL_STATE | @ir.EFFECT_MASK_GLOBAL_STATE)
+      ) !=
       0U {
       has_local_or_global_state = true
     }
@@ -951,6 +947,7 @@ fn hso_array_insert_prefix_roots(
   }
 }
 
+///|
 fn hso_liftable_swapped_block_roots(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
@@ -1010,12 +1007,7 @@ fn hso_try_fold_into_struct_new(
   let value_reorder_mask = hso_reorder_effect_mask(
     cache, func, node_masks, value_id,
   )
-  if hso_value_has_readonly_prefix_block(
-      cache,
-      func,
-      node_masks,
-      value_id,
-    ) {
+  if hso_value_has_readonly_prefix_block(cache, func, node_masks, value_id) {
     return false
   }
   if (value_mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
@@ -1369,12 +1361,8 @@ fn hso_process_region(
                 Some((field_idx, ref_id, value_id)) => {
                   if segment_has_swapped_prefix &&
                     !hso_swapped_readonly_roots_respect_ref_order(
-                        cache,
-                        func,
-                        node_masks,
-                        swapped_prefix_roots,
-                        ref_id,
-                      ) {
+                      cache, func, node_masks, swapped_prefix_roots, ref_id,
+                    ) {
                     break
                   }
                   if hso_try_fold_into_struct_new(

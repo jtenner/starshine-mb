@@ -533,56 +533,57 @@ fn fixture_hso_memory_size_value_prefix_module() -> Module {
       ),
     ]),
   )
-  .with_mem_sec(@lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]))
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
 }
 
 ///|
 fn fixture_hso_memory_size_ref_prefix_wasm() -> Bytes {
   bytes_from_ints([
-    0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3,
-    2, 1, 1, 5, 3, 1, 0, 1, 7, 5, 1, 1, 102, 0, 0, 10, 29, 1, 27, 1, 1, 99,
-    0, 251, 1, 0, 33, 0, 32, 0, 63, 0, 26, 65, 7, 251, 5, 0, 0, 32, 0, 251,
-    2, 0, 0, 11,
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3, 2, 1,
+    1, 5, 3, 1, 0, 1, 7, 5, 1, 1, 102, 0, 0, 10, 29, 1, 27, 1, 1, 99, 0, 251, 1,
+    0, 33, 0, 32, 0, 63, 0, 26, 65, 7, 251, 5, 0, 0, 32, 0, 251, 2, 0, 0, 11,
   ])
 }
 
 ///|
 fn fixture_hso_table_size_value_prefix_wasm() -> Bytes {
   bytes_from_ints([
-    0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3,
-    2, 1, 1, 4, 4, 1, 112, 0, 1, 7, 5, 1, 1, 102, 0, 0, 10, 30, 1, 28, 1,
-    1, 99, 0, 251, 1, 0, 33, 0, 32, 0, 252, 16, 0, 26, 65, 7, 251, 5, 0, 0,
-    32, 0, 251, 2, 0, 0, 11,
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3, 2, 1,
+    1, 4, 4, 1, 112, 0, 1, 7, 5, 1, 1, 102, 0, 0, 10, 30, 1, 28, 1, 1, 99, 0, 251,
+    1, 0, 33, 0, 32, 0, 252, 16, 0, 26, 65, 7, 251, 5, 0, 0, 32, 0, 251, 2, 0, 0,
+    11,
   ])
 }
 
 ///|
 fn fixture_hso_local_value_prefix_wasm() -> Bytes {
   bytes_from_ints([
-    0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3,
-    2, 1, 1, 7, 5, 1, 1, 102, 0, 0, 10, 39, 1, 37, 2, 1, 99, 0, 2, 127, 65,
-    5, 33, 1, 65, 6, 33, 2, 251, 1, 0, 33, 0, 32, 0, 32, 1, 26, 32, 2, 251,
-    5, 0, 0, 32, 0, 251, 2, 0, 0, 11,
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3, 2, 1,
+    1, 7, 5, 1, 1, 102, 0, 0, 10, 39, 1, 37, 2, 1, 99, 0, 2, 127, 65, 5, 33, 1, 65,
+    6, 33, 2, 251, 1, 0, 33, 0, 32, 0, 32, 1, 26, 32, 2, 251, 5, 0, 0, 32, 0, 251,
+    2, 0, 0, 11,
   ])
 }
 
 ///|
 fn fixture_hso_immutable_global_value_prefix_wasm() -> Bytes {
   bytes_from_ints([
-    0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3,
-    2, 1, 1, 6, 6, 1, 127, 0, 65, 0, 11, 7, 5, 1, 1, 102, 0, 0, 10, 29, 1,
-    27, 1, 1, 99, 0, 251, 1, 0, 33, 0, 32, 0, 35, 0, 26, 65, 7, 251, 5, 0,
-    0, 32, 0, 251, 2, 0, 0, 11,
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3, 2, 1,
+    1, 6, 6, 1, 127, 0, 65, 0, 11, 7, 5, 1, 1, 102, 0, 0, 10, 29, 1, 27, 1, 1, 99,
+    0, 251, 1, 0, 33, 0, 32, 0, 35, 0, 26, 65, 7, 251, 5, 0, 0, 32, 0, 251, 2, 0,
+    0, 11,
   ])
 }
 
 ///|
 fn fixture_hso_mutable_global_value_prefix_wasm() -> Bytes {
   bytes_from_ints([
-    0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3,
-    2, 1, 1, 6, 6, 1, 127, 1, 65, 0, 11, 7, 5, 1, 1, 102, 0, 0, 10, 29, 1,
-    27, 1, 1, 99, 0, 251, 1, 0, 33, 0, 32, 0, 35, 0, 26, 65, 7, 251, 5, 0,
-    0, 32, 0, 251, 2, 0, 0, 11,
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3, 2, 1,
+    1, 6, 6, 1, 127, 1, 65, 0, 11, 7, 5, 1, 1, 102, 0, 0, 10, 29, 1, 27, 1, 1, 99,
+    0, 251, 1, 0, 33, 0, 32, 0, 35, 0, 26, 65, 7, 251, 5, 0, 0, 32, 0, 251, 2, 0,
+    0, 11,
   ])
 }
 
@@ -1197,7 +1198,9 @@ test "run_cmd_with_adapter keeps struct.set for HSO readonly mutable-global pref
 
 ///|
 test "run_cmd_with_adapter keeps struct.set for tee HSO readonly mutable-global prefixes" {
-  let wasm = encode_module_bytes(fixture_hso_tee_nonlocal_readonly_prefix_module())
+  let wasm = encode_module_bytes(
+    fixture_hso_tee_nonlocal_readonly_prefix_module(),
+  )
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
     list_candidates=fn() { ["hso-tee.wasm"] },
@@ -1257,7 +1260,8 @@ test "run_cmd_with_adapter keeps struct.set for swapped-root HSO readonly mutabl
       io,
     ) {
     Ok(v) => v
-    Err(e) => fail("unexpected swapped heap-store-optimization run failure: \{e}")
+    Err(e) =>
+      fail("unexpected swapped heap-store-optimization run failure: \{e}")
   }
   assert_eq(summary.resolved_passes, ["heap-store-optimization"])
   assert_eq(writes.length(), 1)
@@ -1324,12 +1328,7 @@ test "run_cmd_with_adapter folds HSO readonly value-prefix memory.size wasm inpu
   )
   let summary = match
     run_cmd_with_adapter(
-      [
-        "--heap-store-optimization",
-        "--out",
-        "out.wasm",
-        "hso-mem-value.wasm",
-      ],
+      ["--heap-store-optimization", "--out", "out.wasm", "hso-mem-value.wasm"],
       io,
     ) {
     Ok(v) => v
@@ -1364,12 +1363,7 @@ test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix table.s
   )
   let summary = match
     run_cmd_with_adapter(
-      [
-        "--heap-store-optimization",
-        "--out",
-        "out.wasm",
-        "hso-table-value.wasm",
-      ],
+      ["--heap-store-optimization", "--out", "out.wasm", "hso-table-value.wasm"],
       io,
     ) {
     Ok(v) => v
@@ -1404,12 +1398,7 @@ test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix local.g
   )
   let summary = match
     run_cmd_with_adapter(
-      [
-        "--heap-store-optimization",
-        "--out",
-        "out.wasm",
-        "hso-local-value.wasm",
-      ],
+      ["--heap-store-optimization", "--out", "out.wasm", "hso-local-value.wasm"],
       io,
     ) {
     Ok(v) => v
@@ -1445,15 +1434,13 @@ test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix immutab
   let summary = match
     run_cmd_with_adapter(
       [
-        "--heap-store-optimization",
-        "--out",
-        "out.wasm",
-        "hso-immut-global-value.wasm",
+        "--heap-store-optimization", "--out", "out.wasm", "hso-immut-global-value.wasm",
       ],
       io,
     ) {
     Ok(v) => v
-    Err(e) => fail("unexpected immutable-global value-prefix HSO run failure: \{e}")
+    Err(e) =>
+      fail("unexpected immutable-global value-prefix HSO run failure: \{e}")
   }
   assert_eq(summary.resolved_passes, ["heap-store-optimization"])
   assert_eq(writes.length(), 1)
@@ -1485,15 +1472,13 @@ test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix mutable
   let summary = match
     run_cmd_with_adapter(
       [
-        "--heap-store-optimization",
-        "--out",
-        "out.wasm",
-        "hso-mut-global-value.wasm",
+        "--heap-store-optimization", "--out", "out.wasm", "hso-mut-global-value.wasm",
       ],
       io,
     ) {
     Ok(v) => v
-    Err(e) => fail("unexpected mutable-global value-prefix HSO run failure: \{e}")
+    Err(e) =>
+      fail("unexpected mutable-global value-prefix HSO run failure: \{e}")
   }
   assert_eq(summary.resolved_passes, ["heap-store-optimization"])
   assert_eq(writes.length(), 1)
