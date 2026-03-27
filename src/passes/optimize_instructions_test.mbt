@@ -900,7 +900,7 @@ test "optimize-instructions does not reorder relational local gets across contro
 }
 
 ///|
-test "optimize-instructions canonicalizes relational local gets across loop-carried tees" {
+test "optimize-instructions does not reorder relational local gets across loop-carried tees" {
   let fixture = @ir.ir_test_build_hot_from_wat(
     "(module (func (param i32) (result i32) (local i32) (block (result i32) (i32.const 0) (loop (param i32) (result i32) (if (result i32) (i32.lt_s (local.tee 1) (local.get 0)) (then (local.get 1) (i32.const 1) (i32.add) (br 1)) (else (local.get 1)))))))",
   )
@@ -927,16 +927,15 @@ test "optimize-instructions canonicalizes relational local gets across loop-carr
 
   assert_eq(
     @ir.hot_node_exact_instr(func, compare),
-    Some(@lib.Instruction::i32_gt_s()),
+    Some(@lib.Instruction::i32_lt_s()),
   )
   match @ir.hot_node_get(func, @ir.hot_child_get(func, compare, 0)).op {
-    @ir.HotOp::LocalGet => ()
-    _ =>
-      fail("expected loop-carried compare to move the local.get onto the lhs")
+    @ir.HotOp::LocalTee => ()
+    _ => fail("expected loop-carried tee subtree to stay on the lhs")
   }
   match @ir.hot_node_get(func, @ir.hot_child_get(func, compare, 1)).op {
-    @ir.HotOp::LocalTee => ()
-    _ => fail("expected loop-carried tee subtree to move onto the rhs")
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected loop-carried limit local.get to stay on the rhs")
   }
 }
 

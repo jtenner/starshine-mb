@@ -19,6 +19,8 @@ pub fn optimize_instructions_summary() -> String {
 ///|
 priv struct OptimizeInstructionsScratch {
   cross_seen_stamps : Array[Int]
+  loop_input_nodes : Array[Bool]
+  mut loop_input_nodes_ready : Bool
   mut next_cross_seen_stamp : Int
 }
 
@@ -26,7 +28,12 @@ priv struct OptimizeInstructionsScratch {
 fn OptimizeInstructionsScratch::new(
   node_count : Int,
 ) -> OptimizeInstructionsScratch {
-  { cross_seen_stamps: Array::make(node_count, -1), next_cross_seen_stamp: 0 }
+  {
+    cross_seen_stamps: Array::make(node_count, -1),
+    loop_input_nodes: Array::make(node_count, false),
+    loop_input_nodes_ready: false,
+    next_cross_seen_stamp: 0,
+  }
 }
 
 ///|
@@ -36,6 +43,38 @@ fn optimize_instructions_alloc_cross_seen_stamp(
   let stamp = scratch.next_cross_seen_stamp
   scratch.next_cross_seen_stamp = stamp + 1
   stamp
+}
+
+///|
+fn optimize_instructions_mark_loop_input_nodes(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  scratch : OptimizeInstructionsScratch,
+) -> Unit {
+  if scratch.loop_input_nodes_ready {
+    return
+  }
+  for node_id = 0; node_id < func.nodes.length(); node_id = node_id + 1 {
+    if !optimize_instructions_node_is_live(func, dead, node_id) {
+      continue
+    }
+    let node = func.nodes[node_id]
+    match node.op {
+      @ir.HotOp::Loop => ()
+      _ => continue
+    }
+    let input_count = @ir.hot_label_branch_arity(
+      func,
+      @ir.hot_control_node_label(func, node_id),
+    )
+    for slot = 0; slot < input_count; slot = slot + 1 {
+      let child_id = func.children[node.child_base + slot]
+      if child_id >= 0 && child_id < scratch.loop_input_nodes.length() {
+        scratch.loop_input_nodes[child_id] = true
+      }
+    }
+  }
+  scratch.loop_input_nodes_ready = true
 }
 
 ///|
@@ -333,6 +372,7 @@ fn optimize_instructions_can_cross_local_get(
   node_id : Int,
   local_id : Int,
   under_local_tee_payload : Bool,
+  loop_input_nodes : Array[Bool],
   seen_stamps : Array[Int],
   seen_stamp : Int,
 ) -> Bool {
@@ -344,6 +384,9 @@ fn optimize_instructions_can_cross_local_get(
   }
   if node_id < seen_stamps.length() {
     seen_stamps[node_id] = seen_stamp
+  }
+  if node_id < loop_input_nodes.length() && loop_input_nodes[node_id] {
+    return false
   }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
@@ -399,6 +442,7 @@ fn optimize_instructions_can_cross_local_get(
         func.children[node.child_base + slot],
         local_id,
         child_is_local_tee_payload,
+        loop_input_nodes,
         seen_stamps,
         seen_stamp,
       ) {
@@ -502,6 +546,7 @@ fn optimize_instructions_try_canonicalize_commutative(
       }
       let effects = pass_require_effects(ctx, func)
       let use_def = pass_require_use_def(ctx, func)
+      optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
         ctx,
@@ -512,6 +557,7 @@ fn optimize_instructions_try_canonicalize_commutative(
         rhs_id,
         local_id,
         false,
+        scratch.loop_input_nodes,
         scratch.cross_seen_stamps,
         seen_stamp,
       )
@@ -542,6 +588,7 @@ fn optimize_instructions_try_canonicalize_commutative(
       }
       let effects = pass_require_effects(ctx, func)
       let use_def = pass_require_use_def(ctx, func)
+      optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
         ctx,
@@ -552,6 +599,7 @@ fn optimize_instructions_try_canonicalize_commutative(
         lhs_id,
         local_id,
         false,
+        scratch.loop_input_nodes,
         scratch.cross_seen_stamps,
         seen_stamp,
       )
@@ -680,6 +728,7 @@ fn optimize_instructions_try_canonicalize_relational_operands(
       }
       let effects = pass_require_effects(ctx, func)
       let use_def = pass_require_use_def(ctx, func)
+      optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
         ctx,
@@ -690,6 +739,7 @@ fn optimize_instructions_try_canonicalize_relational_operands(
         rhs_id,
         local_id,
         false,
+        scratch.loop_input_nodes,
         scratch.cross_seen_stamps,
         seen_stamp,
       )
@@ -720,6 +770,7 @@ fn optimize_instructions_try_canonicalize_relational_operands(
       }
       let effects = pass_require_effects(ctx, func)
       let use_def = pass_require_use_def(ctx, func)
+      optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
         ctx,
@@ -730,6 +781,7 @@ fn optimize_instructions_try_canonicalize_relational_operands(
         lhs_id,
         local_id,
         false,
+        scratch.loop_input_nodes,
         scratch.cross_seen_stamps,
         seen_stamp,
       )
