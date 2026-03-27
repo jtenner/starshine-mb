@@ -483,40 +483,71 @@ fn hot_pass_remove_region_nops(
 ///|
 fn run_hot_pipeline_instr_scan(
   instrs : Array[@lib.Instruction],
-) -> (Bool, Bool, Bool, Int) {
+) -> (Bool, Bool, Bool, Bool, Bool, Int) {
   let mut has_writes = false
   let mut has_structured_control = false
   let mut has_branches = false
+  let mut has_drop = false
+  let mut has_dead_tail_after_nonfallthrough = false
   let mut instr_count = 0
+  let mut prev_may_fallthrough = true
   for instr in instrs {
+    if !prev_may_fallthrough {
+      has_dead_tail_after_nonfallthrough = true
+    }
     instr_count = instr_count + 1
     match instr {
       @lib.LocalSet(_) | @lib.LocalTee(_) => has_writes = true
+      @lib.Drop => has_drop = true
       @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) => has_branches = true
       @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) => {
         has_structured_control = true
-        let (nested_writes, _, nested_branches, nested_instr_count) = run_hot_pipeline_instr_scan(
-          body,
-        )
+        let (
+          nested_writes,
+          _,
+          nested_branches,
+          nested_drop,
+          nested_dead_tail,
+          nested_instr_count,
+        ) = run_hot_pipeline_instr_scan(body)
         has_writes = has_writes || nested_writes
         has_branches = has_branches || nested_branches
+        has_drop = has_drop || nested_drop
+        has_dead_tail_after_nonfallthrough = has_dead_tail_after_nonfallthrough ||
+          nested_dead_tail
         instr_count = instr_count + nested_instr_count
       }
       @lib.If(_, then_body, else_body) => {
         has_structured_control = true
-        let (then_writes, _, then_branches, then_instr_count) = run_hot_pipeline_instr_scan(
-          then_body,
-        )
+        let (
+          then_writes,
+          _,
+          then_branches,
+          then_drop,
+          then_dead_tail,
+          then_instr_count,
+        ) = run_hot_pipeline_instr_scan(then_body)
         has_writes = has_writes || then_writes
         has_branches = has_branches || then_branches
+        has_drop = has_drop || then_drop
+        has_dead_tail_after_nonfallthrough = has_dead_tail_after_nonfallthrough ||
+          then_dead_tail
         instr_count = instr_count + then_instr_count
         match else_body {
           Some(else_body) => {
-            let (else_writes, _, else_branches, else_instr_count) = run_hot_pipeline_instr_scan(
-              else_body,
-            )
+            let (
+              else_writes,
+              _,
+              else_branches,
+              else_drop,
+              else_dead_tail,
+              else_instr_count,
+            ) = run_hot_pipeline_instr_scan(else_body)
             has_writes = has_writes || else_writes
             has_branches = has_branches || else_branches
+            has_drop = has_drop || else_drop
+            has_dead_tail_after_nonfallthrough = has_dead_tail_after_nonfallthrough ||
+              else_dead_tail
             instr_count = instr_count + else_instr_count
           }
           None => ()
@@ -524,17 +555,29 @@ fn run_hot_pipeline_instr_scan(
       }
       @lib.TryTable(_, _, @lib.Expr(body)) => {
         has_structured_control = true
-        let (nested_writes, _, nested_branches, nested_instr_count) = run_hot_pipeline_instr_scan(
-          body,
-        )
+        let (
+          nested_writes,
+          _,
+          nested_branches,
+          nested_drop,
+          nested_dead_tail,
+          nested_instr_count,
+        ) = run_hot_pipeline_instr_scan(body)
         has_writes = has_writes || nested_writes
         has_branches = has_branches || nested_branches
+        has_drop = has_drop || nested_drop
+        has_dead_tail_after_nonfallthrough = has_dead_tail_after_nonfallthrough ||
+          nested_dead_tail
         instr_count = instr_count + nested_instr_count
       }
       _ => ()
     }
+    prev_may_fallthrough = run_hot_pipeline_dce_raw_instr_may_fallthrough(instr)
   }
-  (has_writes, has_structured_control, has_branches, instr_count)
+  (
+    has_writes, has_structured_control, has_branches, has_drop, has_dead_tail_after_nonfallthrough,
+    instr_count,
+  )
 }
 
 ///|
@@ -700,6 +743,84 @@ fn run_hot_pipeline_dce_raw_instr_is_definitely_void(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_instr_is_definitely_impure_value(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  match instr {
+    @lib.Call(func_idx) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(_, results)) => !results.is_empty()
+        None => false
+      }
+    @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(_, results)) => !results.is_empty()
+        None => false
+      }
+    @lib.Block(block_type, @lib.Expr(_))
+    | @lib.Loop(block_type, @lib.Expr(_))
+    | @lib.If(block_type, _, _)
+    | @lib.TryTable(block_type, _, @lib.Expr(_)) =>
+      block_type != @lib.BlockType::void_()
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_drops_follow_definitely_impure_values(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  let mut prev : @lib.Instruction? = None
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if !run_hot_pipeline_dce_raw_drops_follow_definitely_impure_values(
+            body, module_ctx,
+          ) {
+          return false
+        }
+      @lib.If(_, then_body, else_body) => {
+        if !run_hot_pipeline_dce_raw_drops_follow_definitely_impure_values(
+            then_body, module_ctx,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(else_body) =>
+            if !run_hot_pipeline_dce_raw_drops_follow_definitely_impure_values(
+                else_body, module_ctx,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if !run_hot_pipeline_dce_raw_drops_follow_definitely_impure_values(
+            body, module_ctx,
+          ) {
+          return false
+        }
+      _ => ()
+    }
+    match instr {
+      @lib.Drop =>
+        match prev {
+          Some(prev) if run_hot_pipeline_dce_raw_instr_is_definitely_impure_value(
+              prev, module_ctx,
+            ) => ()
+          _ => return false
+        }
+      _ => ()
+    }
+    prev = Some(instr)
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_dce_raw_void_structured_noop(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -756,39 +877,150 @@ fn run_hot_pipeline_dce_raw_straight_line_noop(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_final_instr_is_fallthrough_value_structured(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.is_empty() {
+    return false
+  }
+  let final_instr = instrs[instrs.length() - 1]
+  if !run_hot_pipeline_dce_raw_instr_may_fallthrough(final_instr) {
+    return false
+  }
+  match final_instr {
+    @lib.Block(block_type, @lib.Expr(_))
+    | @lib.Loop(block_type, @lib.Expr(_))
+    | @lib.If(block_type, _, _)
+    | @lib.TryTable(block_type, _, @lib.Expr(_)) =>
+      block_type != @lib.BlockType::void_()
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_live_typed_control_only(
+  instrs : Array[@lib.Instruction],
+  result_live : Bool,
+) -> Bool {
+  let mut prev_may_fallthrough = true
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    let is_final = idx + 1 == instrs.length()
+    if !prev_may_fallthrough {
+      return false
+    }
+    match instr {
+      @lib.Drop => return false
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let child_result_live = is_final &&
+          result_live &&
+          block_type != @lib.BlockType::void_()
+        if block_type != @lib.BlockType::void_() && !child_result_live {
+          return false
+        }
+        if !run_hot_pipeline_dce_raw_live_typed_control_only(
+            body, child_result_live,
+          ) {
+          return false
+        }
+      }
+      @lib.Loop(_, @lib.Expr(_)) => return false
+      @lib.If(block_type, then_body, else_body) => {
+        let child_result_live = is_final &&
+          result_live &&
+          block_type != @lib.BlockType::void_()
+        if block_type != @lib.BlockType::void_() && !child_result_live {
+          return false
+        }
+        if !run_hot_pipeline_dce_raw_live_typed_control_only(
+            then_body, child_result_live,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(else_body) =>
+            if !run_hot_pipeline_dce_raw_live_typed_control_only(
+                else_body, child_result_live,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(block_type, _, @lib.Expr(body)) => {
+        let child_result_live = is_final &&
+          result_live &&
+          block_type != @lib.BlockType::void_()
+        if block_type != @lib.BlockType::void_() && !child_result_live {
+          return false
+        }
+        if !run_hot_pipeline_dce_raw_live_typed_control_only(
+            body, child_result_live,
+          ) {
+          return false
+        }
+      }
+      _ => ()
+    }
+    prev_may_fallthrough = run_hot_pipeline_dce_raw_instr_may_fallthrough(instr)
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_dce_can_skip_raw(
   original : @lib.Func,
   module_ctx : @ir.HotModuleContext,
   func_idx : @lib.FuncIdx,
 ) -> Bool {
   let @lib.Func(_, @lib.Expr(instrs)) = original
-  let (_, has_structured_control, has_branches, _) = run_hot_pipeline_instr_scan(
-    instrs,
-  )
-  if has_branches {
-    return false
-  }
-  let straight_line_noop = !has_structured_control &&
-    run_hot_pipeline_dce_raw_straight_line_noop(instrs)
-  let structured_void_noop = has_structured_control &&
-    run_hot_pipeline_dce_raw_void_structured_noop(instrs)
-  if !straight_line_noop && !structured_void_noop {
-    return false
-  }
-  match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
-    Some(@lib.FuncType(_, results)) =>
-      !results.is_empty() ||
-      structured_void_noop ||
-      instrs.is_empty() ||
-      run_hot_pipeline_dce_raw_instr_is_definitely_void(
-        instrs[instrs.length() - 1],
-        module_ctx,
-      )
+  let (
+    _,
+    has_structured_control,
+    has_branches,
+    has_drop,
+    has_dead_tail_after_nonfallthrough,
+    _,
+  ) = run_hot_pipeline_instr_scan(instrs)
+  let returns_value = match
+    @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+    Some(@lib.FuncType(_, results)) => !results.is_empty()
     None =>
       abort(
         "hot pipeline raw dead-code-elimination skip requires the function type to resolve",
       )
   }
+  let straight_line_noop = !has_structured_control &&
+    run_hot_pipeline_dce_raw_straight_line_noop(instrs)
+  let structured_void_noop = has_structured_control &&
+    run_hot_pipeline_dce_raw_void_structured_noop(instrs)
+  let drops_follow_impure_values = !has_drop ||
+    run_hot_pipeline_dce_raw_drops_follow_definitely_impure_values(
+      instrs, module_ctx,
+    )
+  let structured_typed_noop = has_structured_control &&
+    returns_value &&
+    drops_follow_impure_values &&
+    !has_dead_tail_after_nonfallthrough &&
+    run_hot_pipeline_dce_raw_final_instr_is_fallthrough_value_structured(instrs)
+  let branchy_live_typed_noop = has_branches &&
+    has_structured_control &&
+    returns_value &&
+    !has_drop &&
+    !has_dead_tail_after_nonfallthrough &&
+    run_hot_pipeline_dce_raw_live_typed_control_only(instrs, true)
+  if !straight_line_noop && !structured_void_noop && !structured_typed_noop {
+    if !branchy_live_typed_noop {
+      return false
+    }
+  }
+  returns_value ||
+  structured_void_noop ||
+  instrs.is_empty() ||
+  run_hot_pipeline_dce_raw_instr_is_definitely_void(
+    instrs[instrs.length() - 1],
+    module_ctx,
+  )
 }
 
 ///|
@@ -1615,7 +1847,7 @@ fn run_hot_pipeline_raw_ssa_nomerge(
     return None
   }
   let @lib.Func(locals, @lib.Expr(instrs)) = original
-  let (has_writes, has_structured_control, has_branches, instr_count) = run_hot_pipeline_instr_scan(
+  let (has_writes, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
     instrs,
   )
   if !has_writes {

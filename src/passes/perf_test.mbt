@@ -334,6 +334,173 @@ test "dead-code-elimination skips raw lift for branchless void structured contro
 }
 
 ///|
+test "dead-code-elimination skips raw lift for branchless typed final if" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     local.get 0
+    #|     if (result i32)
+    #|       i32.const 7
+    #|     else
+    #|       i32.const 9
+    #|     end))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected typed raw-skip dead-code-elimination success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[dead-code-elimination]:skip-raw reason=no-dce-candidates",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:dead-code-elimination"))
+}
+
+///|
+test "dead-code-elimination skips raw lift for branchless typed final if after impure dropped call" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (type (func (result i32)))
+    #|   (import "env" "next" (func (type 0)))
+    #|   (func (param i32) (result i32)
+    #|     call 0
+    #|     drop
+    #|     local.get 0
+    #|     if (result i32)
+    #|       i32.const 7
+    #|     else
+    #|       i32.const 9
+    #|     end))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected impure-drop typed raw-skip dead-code-elimination success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[dead-code-elimination]:skip-raw reason=no-dce-candidates",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:dead-code-elimination"))
+}
+
+///|
+test "dead-code-elimination skips raw lift for branchy typed final control with only live typed results" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     local.get 0
+    #|     if (result i32)
+    #|       block (result i32)
+    #|         i32.const 7
+    #|         br 0
+    #|       end
+    #|     else
+    #|       block (result i32)
+    #|         i32.const 9
+    #|         br 0
+    #|       end
+    #|     end))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected branchy typed raw-skip dead-code-elimination success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[dead-code-elimination]:skip-raw reason=no-dce-candidates",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:dead-code-elimination"))
+}
+
+///|
+test "dead-code-elimination does not skip raw lift for nonfallthrough typed final if" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     local.get 0
+    #|     if (result i32)
+    #|       i32.const 7
+    #|       return
+    #|     else
+    #|       i32.const 9
+    #|       return
+    #|     end
+    #|     unreachable))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nonfallthrough typed dead-code-elimination success without raw skip, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_false(
+    text.contains(
+      "pass[dead-code-elimination]:skip-raw reason=no-dce-candidates",
+    ),
+  )
+  assert_true(text.contains("perf:timer name=lift"))
+  assert_true(text.contains("perf:timer name=pass:dead-code-elimination"))
+}
+
+///|
 test "dead-code-elimination does not skip raw lift for straight-line dead drops" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
