@@ -773,6 +773,98 @@ fn fixture_hso_tee_memory_branch_fold_ref_result_module() -> Module {
 }
 
 ///|
+fn fixture_hso_nested_branch_trim_ref_result_module() -> Module {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(fixture_hso_struct_fields(1)),
+    ),
+  )
+  let pair = @lib.TypeIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [ref_type])),
+  )
+  let local0 = @lib.LocalIdx::new(0U)
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      Func::new(
+        @lib.Locals::from_types([ref_type]),
+        @lib.Expr::new([
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_set(local0),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(0)),
+              @lib.Instruction::drop(),
+              @lib.Instruction::block(
+                @lib.BlockType::void_(),
+                @lib.Expr::new([
+                  @lib.Instruction::i32_const(@lib.I32(7)),
+                  @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                ]),
+              ),
+              @lib.Instruction::i32_const(@lib.I32(8)),
+            ]),
+          ),
+          @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          @lib.Instruction::local_get(local0),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn fixture_hso_loop_exit_trim_ref_result_module() -> Module {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(fixture_hso_struct_fields(1)),
+    ),
+  )
+  let pair = @lib.TypeIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [ref_type])),
+  )
+  let local0 = @lib.LocalIdx::new(0U)
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      Func::new(
+        @lib.Locals::from_types([ref_type]),
+        @lib.Expr::new([
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_set(local0),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::loop_(
+                @lib.BlockType::void_(),
+                @lib.Expr::new([
+                  @lib.Instruction::i32_const(@lib.I32(7)),
+                  @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                ]),
+              ),
+              @lib.Instruction::i32_const(@lib.I32(8)),
+            ]),
+          ),
+          @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          @lib.Instruction::local_get(local0),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn fixture_hso_swapped_nonlocal_readonly_prefix_module() -> Module {
   let struct_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -1901,6 +1993,82 @@ test "run_cmd_with_adapter folds tee HSO memory-size branch values" {
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter trims tails after nested branch exits in folded HSO values" {
+  let wasm = encode_module_bytes(
+    fixture_hso_nested_branch_trim_ref_result_module(),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-nested-branch.wasm"] },
+    file_exists=fn(path) { path == "hso-nested-branch.wasm" },
+    read_file=fn(path) {
+      if path == "hso-nested-branch.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--heap-store-optimization", "--out", "out.wasm", "hso-nested-branch.wasm",
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected nested-branch HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter trims loop tails after folded HSO exits to the outer block" {
+  let wasm = encode_module_bytes(fixture_hso_loop_exit_trim_ref_result_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-loop-exit.wasm"] },
+    file_exists=fn(path) { path == "hso-loop-exit.wasm" },
+    read_file=fn(path) {
+      if path == "hso-loop-exit.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--heap-store-optimization", "--out", "out.wasm", "hso-loop-exit.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected loop-exit HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("struct.new"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
   assert_false(pretty.contains("I32(8)"), msg=pretty)

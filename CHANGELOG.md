@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-27 Fix: trim HSO tails after nested exits to outer owners
+
+- **`heap-store-optimization` nested-exit tail trimming** by **@jtenner**. Updating [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt), and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) so HSO now trims dead tails after nested blocks and loops branch out of the current folded value owner, matching Binaryen’s folded semantics instead of leaving unreachable trailing roots alive. Focused pass and command-path regressions cover nested block exits and loop exits to the outer block, with probe timings recorded alongside the implementation commit.
+
 ## 2026-03-27 Fix: fold readonly HSO value-prefix blocks like Binaryen
 
 - **`heap-store-optimization` value-prefix parity correction** by **@jtenner**. Updating [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt), and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) so HSO now folds non-branching readonly value-prefix blocks and contained readonly branch-prefix blocks the same way Binaryen does, while still keeping target-local branch values as `struct.set`. The folded and non-folded branch shapes now trim unreachable tails canonically, and a raw WAT probe matrix over pure, memory/table/global/local prefixes in direct and tee forms is feature-aligned with Binaryen.

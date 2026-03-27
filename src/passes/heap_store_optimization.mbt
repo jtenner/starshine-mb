@@ -1045,6 +1045,151 @@ fn hso_build_preserved_replacement(
 }
 
 ///|
+fn hso_branch_exits_owner(
+  func : @ir.HotFunc,
+  owner_id : Int,
+  active_owners : Array[Int],
+  node_id : Int,
+) -> Bool {
+  let targets : Array[Int] = []
+  match @ir.hot_branch_target(func, node_id) {
+    Some(label_id) => targets.push(label_id)
+    None => ()
+  }
+  for label_id in @ir.hot_branch_table_targets_for_node(func, node_id) {
+    targets.push(label_id)
+  }
+  if targets.is_empty() {
+    return false
+  }
+  for label_id in targets {
+    let target_owner_id = @ir.hot_label_owner(func, label_id)
+    if target_owner_id != owner_id &&
+      hso_active_owners_contains(active_owners, target_owner_id) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn hso_region_exits_owner(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  owner_id : Int,
+  active_owners : Array[Int],
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    if hso_subtree_exits_owner(func, root_id, owner_id, active_owners) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hso_subtree_exits_owner(
+  func : @ir.HotFunc,
+  node_id : Int,
+  owner_id : Int,
+  active_owners : Array[Int],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  if @ir.hot_is_branch(func, node_id) &&
+    @ir.hot_is_terminator_node(func, node_id) {
+    return hso_branch_exits_owner(func, owner_id, active_owners, node_id)
+  }
+  match node.op {
+    @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Unreachable => return true
+    _ => ()
+  }
+  let pushes_owner = match node.op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => true
+    _ => false
+  }
+  if pushes_owner {
+    active_owners.push(node_id)
+  }
+  let exits_owner = match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_region_exits_owner(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        owner_id,
+        active_owners,
+      )
+    @ir.HotOp::If => {
+      let then_exits_owner = hso_region_exits_owner(
+        func,
+        @ir.hot_region_then_ref(func, node_id),
+        owner_id,
+        active_owners,
+      )
+      if !then_exits_owner {
+        false
+      } else {
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_exits_owner(func, region_ref, owner_id, active_owners)
+          None => false
+        }
+      }
+    }
+    @ir.HotOp::Try => {
+      let body_exits_owner = hso_region_exits_owner(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        owner_id,
+        active_owners,
+      )
+      if !body_exits_owner {
+        false
+      } else {
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_exits_owner(func, region_ref, owner_id, active_owners)
+          None => false
+        }
+      }
+    }
+    @ir.HotOp::TryTable =>
+      hso_region_exits_owner(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        owner_id,
+        active_owners,
+      ) &&
+      hso_region_exits_owner(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+        owner_id,
+        active_owners,
+      )
+    _ => false
+  }
+  if pushes_owner {
+    ignore(active_owners.pop())
+  }
+  exits_owner
+}
+
+///|
 fn hso_trim_unreachable_subtree(func : @ir.HotFunc, node_id : Int) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1055,15 +1200,17 @@ fn hso_trim_unreachable_subtree(func : @ir.HotFunc, node_id : Int) -> Bool {
       hso_trim_unreachable_region_tails(
         func,
         @ir.hot_region_body_ref(func, node_id),
+        node_id,
       )
     @ir.HotOp::If => {
       let mut changed = hso_trim_unreachable_region_tails(
         func,
         @ir.hot_region_then_ref(func, node_id),
+        node_id,
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(region_ref) =>
-          changed = hso_trim_unreachable_region_tails(func, region_ref) ||
+          changed = hso_trim_unreachable_region_tails(func, region_ref, node_id) ||
             changed
         None => ()
       }
@@ -1073,10 +1220,11 @@ fn hso_trim_unreachable_subtree(func : @ir.HotFunc, node_id : Int) -> Bool {
       let mut changed = hso_trim_unreachable_region_tails(
         func,
         @ir.hot_region_body_ref(func, node_id),
+        node_id,
       )
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(region_ref) =>
-          changed = hso_trim_unreachable_region_tails(func, region_ref) ||
+          changed = hso_trim_unreachable_region_tails(func, region_ref, node_id) ||
             changed
         None => ()
       }
@@ -1086,10 +1234,12 @@ fn hso_trim_unreachable_subtree(func : @ir.HotFunc, node_id : Int) -> Bool {
       hso_trim_unreachable_region_tails(
         func,
         @ir.hot_region_body_ref(func, node_id),
+        node_id,
       ) ||
       hso_trim_unreachable_region_tails(
         func,
         @ir.hot_region_catch_list_ref(func, node_id),
+        node_id,
       )
     _ => false
   }
@@ -1099,6 +1249,7 @@ fn hso_trim_unreachable_subtree(func : @ir.HotFunc, node_id : Int) -> Bool {
 fn hso_trim_unreachable_region_tails(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  owner_id : Int,
 ) -> Bool {
   let mut changed = false
   let root_count = @ir.hot_region_root_count(func, region_ref)
@@ -1106,7 +1257,8 @@ fn hso_trim_unreachable_region_tails(
   while idx < root_count {
     let root_id = @ir.hot_region_get(func, region_ref, idx)
     changed = hso_trim_unreachable_subtree(func, root_id) || changed
-    if @ir.hot_is_terminator_node(func, root_id) {
+    if @ir.hot_is_terminator_node(func, root_id) ||
+      hso_subtree_exits_owner(func, root_id, owner_id, [owner_id]) {
       let removed = root_count - idx - 1
       if removed > 0 {
         ignore(@ir.hot_region_splice(func, region_ref, idx + 1, removed, []))

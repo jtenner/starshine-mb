@@ -783,6 +783,88 @@ test "heap-store-optimization folds tee memory.size branches into struct.new" {
 }
 
 ///|
+test "heap-store-optimization trims tails after nested blocks branch out of folded values" {
+  let pair = @lib.TypeIdx::new(0U)
+  let optimized = match
+    hso_ref_result_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(7)),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+          ]),
+        ),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nested-branch fold heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization trims loop tails after folded exits to the outer block" {
+  let pair = @lib.TypeIdx::new(0U)
+  let optimized = match
+    hso_ref_result_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::loop_(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(7)),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+          ]),
+        ),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected loop-exit fold heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds unrelated local.get values into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
