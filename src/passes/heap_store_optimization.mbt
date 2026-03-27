@@ -638,9 +638,7 @@ fn hso_swapped_readonly_roots_respect_ref_order(
     if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
       continue
     }
-    let mask = hso_reorder_effect_mask(cache, func, node_masks, root_id)
-    if !hso_mask_is_pure(mask) &&
-      hso_subtree_is_trapless_readonly(cache, func, node_masks, root_id) &&
+    if hso_subtree_is_trapless_readonly(cache, func, node_masks, root_id) &&
       ref_id < root_id {
       return false
     }
@@ -866,21 +864,7 @@ fn hso_sequence_result_type(
 }
 
 ///|
-fn hso_value_is_multi_root_block(func : @ir.HotFunc, value_id : Int) -> Bool {
-  if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
-    return false
-  }
-  let node = @ir.hot_node_get(func, value_id)
-  match node.op {
-    @ir.HotOp::Block =>
-      @ir.hot_region_root_count(func, @ir.hot_region_body_ref(func, value_id)) >=
-      2
-    _ => false
-  }
-}
-
-///|
-fn hso_value_has_readonly_prefix_block(
+fn hso_value_has_nonbranching_prefix_block(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
   node_masks : Array[UInt],
@@ -899,21 +883,18 @@ fn hso_value_has_readonly_prefix_block(
   if root_count < 2 {
     return false
   }
-  let mut has_local_or_global_state = false
-  for idx = 0; idx < root_count; idx = idx + 1 {
+  let last_root_id = @ir.hot_region_get(func, body_ref, root_count - 1)
+  if @ir.hot_is_branch(func, last_root_id) ||
+    @ir.hot_is_terminator_node(func, last_root_id) {
+    return false
+  }
+  for idx = 0; idx < root_count - 1; idx = idx + 1 {
     let root_id = @ir.hot_region_get(func, body_ref, idx)
     if !hso_subtree_is_trapless_readonly(cache, func, node_masks, root_id) {
       return false
     }
-    let root_mask = hso_reorder_effect_mask(cache, func, node_masks, root_id)
-    if (
-        root_mask & (@ir.EFFECT_MASK_LOCAL_STATE | @ir.EFFECT_MASK_GLOBAL_STATE)
-      ) !=
-      0U {
-      has_local_or_global_state = true
-    }
   }
-  has_local_or_global_state
+  true
 }
 
 ///|
@@ -1021,7 +1002,7 @@ fn hso_try_fold_into_struct_new(
   let value_reorder_mask = hso_reorder_effect_mask(
     cache, func, node_masks, value_id,
   )
-  if hso_value_has_readonly_prefix_block(cache, func, node_masks, value_id) {
+  if hso_value_has_nonbranching_prefix_block(cache, func, node_masks, value_id) {
     return false
   }
   if (value_mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
@@ -1137,9 +1118,6 @@ fn hso_try_fold_tee_wrapped_struct_set(
     _ => return None
   }
   if @ir.hot_child_count(func, ref_id) != 1 {
-    return None
-  }
-  if hso_value_is_multi_root_block(func, value_id) {
     return None
   }
   let struct_new_id = @ir.hot_child_get(func, ref_id, 0)

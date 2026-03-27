@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Fix: keep non-branching prefix blocks out of HSO folds
+
+- **`heap-store-optimization` prefix-block parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt), and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) so HSO now leaves non-branching multi-root prefix blocks as `struct.set` instead of incorrectly folding them into `struct.new`, matching Binaryen on the direct pure-prefix and direct `memory.size`-prefix pass cases. Additional CLI ref-result parity coverage continues in follow-up work.
+
 ## 2026-03-26 Test: cover tee multi-root block ref-result HSO pass parity
 
 - **`heap-store-optimization` ref-result pass regression coverage** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt) with direct hot-pipeline regressions for tee multi-root pure-block and `memory.size` block values that return the ref itself, not just a later `struct.get`, so the pass-level suite now pins that shape explicitly. Focused `moon test src/passes` stays green at `120/120`.
