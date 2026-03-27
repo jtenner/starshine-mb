@@ -31,6 +31,81 @@ priv struct RemoveUnusedBrsValueIfSelectRewrite {
 }
 
 ///|
+priv struct RemoveUnusedBrsHotVoidReturnLadderShape {
+  mut call_count : Int
+  mut local_set_count : Int
+  mut local_tee_count : Int
+  mut void_if_count : Int
+  mut value_if_count : Int
+  mut return_count : Int
+  mut select_count : Int
+  mut br_if_count : Int
+}
+
+///|
+fn remove_unused_brs_scan_hot_void_return_ladder_shape(
+  func : @ir.HotFunc,
+  shape : RemoveUnusedBrsHotVoidReturnLadderShape,
+) -> Unit {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Call
+      | @ir.HotOp::CallIndirect
+      | @ir.HotOp::CallRef
+      | @ir.HotOp::ReturnCall
+      | @ir.HotOp::ReturnCallIndirect
+      | @ir.HotOp::ReturnCallRef => shape.call_count = shape.call_count + 1
+      @ir.HotOp::LocalSet => shape.local_set_count = shape.local_set_count + 1
+      @ir.HotOp::LocalTee => shape.local_tee_count = shape.local_tee_count + 1
+      @ir.HotOp::Return => shape.return_count = shape.return_count + 1
+      @ir.HotOp::Select => shape.select_count = shape.select_count + 1
+      @ir.HotOp::BrIf => shape.br_if_count = shape.br_if_count + 1
+      @ir.HotOp::If => {
+        let node = @ir.hot_node_get(func, node_id)
+        if @ir.hot_type_result_arity(func, node.ty) == 0 {
+          shape.void_if_count = shape.void_if_count + 1
+        } else {
+          shape.value_if_count = shape.value_if_count + 1
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn remove_unused_brs_can_skip_large_void_return_ladder(
+  func : @ir.HotFunc,
+) -> Bool {
+  if @ir.hot_local_count(func) < 700 || @ir.hot_root_count(func) < 64 {
+    return false
+  }
+  let shape = {
+    call_count: 0,
+    local_set_count: 0,
+    local_tee_count: 0,
+    void_if_count: 0,
+    value_if_count: 0,
+    return_count: 0,
+    select_count: 0,
+    br_if_count: 0,
+  }
+  remove_unused_brs_scan_hot_void_return_ladder_shape(func, shape)
+  shape.call_count >= 900 &&
+  shape.local_set_count >= 350 &&
+  shape.local_tee_count >= 350 &&
+  shape.void_if_count >= 150 &&
+  shape.value_if_count == 0 &&
+  shape.return_count >= 90 &&
+  shape.return_count * 5 >= shape.void_if_count &&
+  shape.select_count <= 4 &&
+  shape.br_if_count <= 2
+}
+
+///|
 fn remove_unused_brs_tail_target(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -2933,6 +3008,15 @@ fn remove_unused_brs_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
+  if remove_unused_brs_can_skip_large_void_return_ladder(func) {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "skip-hot",
+      payload="reason=large-void-if-return-ladder-noop",
+    )
+    return HotPassResult::unchanged()
+  }
   let mut any_changed = false
   let mut changed = true
   let mut cycles = 0
