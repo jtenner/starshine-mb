@@ -89,9 +89,6 @@ fn remove_unused_brs_can_skip_large_void_return_ladder(
   let local_count = @ir.hot_local_count(func)
   let root_count = @ir.hot_root_count(func)
   let node_count = @ir.hot_node_count(func)
-  if local_count < 700 {
-    return false
-  }
   let shape = {
     call_count: 0,
     local_set_count: 0,
@@ -106,7 +103,8 @@ fn remove_unused_brs_can_skip_large_void_return_ladder(
     br_count: 0,
   }
   remove_unused_brs_scan_hot_void_return_ladder_shape(func, shape)
-  let matches_wide_void_ladder = root_count >= 64 &&
+  let matches_wide_void_ladder = local_count >= 700 &&
+    root_count >= 64 &&
     shape.call_count >= 900 &&
     shape.local_set_count >= 350 &&
     shape.local_tee_count >= 350 &&
@@ -116,7 +114,8 @@ fn remove_unused_brs_can_skip_large_void_return_ladder(
     shape.return_count * 5 >= shape.void_if_count &&
     shape.select_count <= 4 &&
     shape.br_if_count <= 2
-  let matches_compact_decision_ladder = root_count <= 8 &&
+  let matches_compact_decision_ladder = local_count >= 700 &&
+    root_count <= 8 &&
     node_count >= 8000 &&
     shape.call_count >= 1200 &&
     shape.local_set_count >= 500 &&
@@ -129,7 +128,8 @@ fn remove_unused_brs_can_skip_large_void_return_ladder(
     shape.br_count >= 150 &&
     shape.select_count <= 2 &&
     shape.br_if_count <= 2
-  let matches_single_root_value_if_ladder = root_count == 1 &&
+  let matches_single_root_value_if_ladder = local_count >= 700 &&
+    root_count == 1 &&
     node_count >= 5000 &&
     shape.call_count >= 600 &&
     shape.local_set_count >= 300 &&
@@ -2386,8 +2386,8 @@ fn remove_unused_brs_visit_embedded_subtree(
         payload_context,
         return_context &&
         (
-          remove_unused_brs_subtree_has_return(func, node_id, return_cache) ||
-          @ir.hot_node_result_arity(func, node_id) > 0
+          @ir.hot_node_result_arity(func, node_id) > 0 ||
+          remove_unused_brs_subtree_has_return(func, node_id, return_cache)
         ),
         control_cache,
         return_cache,
