@@ -1199,6 +1199,54 @@ fn dead_code_elimination_try_fold_nonfallthrough_prefix_into_branch_payload(
 }
 
 ///|
+fn dead_code_elimination_try_voidify_split_drop_control(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
+  node_use_cache : DeadCodeEliminationNodeUseCache,
+  fallthrough_cache : DeadCodeEliminationFallthroughCache,
+  purity_cache : DeadCodeEliminationPurityCache,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    @ir.hot_node_result_arity(func, node_id) == 0 ||
+    idx + 1 >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let drop_id = @ir.hot_region_get(func, region_ref, idx + 1)
+  if drop_id < 0 ||
+    !@ir.hot_node_is_live(func, drop_id) ||
+    @ir.hot_child_count(func, drop_id) != 1 ||
+    @ir.hot_child_get(func, drop_id, 0) != node_id {
+    return false
+  }
+  match @ir.hot_node_get(func, drop_id).op {
+    @ir.HotOp::Drop => ()
+    _ => return false
+  }
+  if !dead_code_elimination_voidify_control(
+      ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
+      node_id,
+    ) {
+    return false
+  }
+  ignore(
+    dead_code_elimination_remove_roots(
+      ctx,
+      func,
+      node_use_cache,
+      region_ref,
+      idx + 1,
+      1,
+    ),
+  )
+  true
+}
+
+///|
 fn dead_code_elimination_visit_node_regions(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1548,6 +1596,13 @@ fn dead_code_elimination_visit_region(
     }
     if dead_code_elimination_try_fold_nonfallthrough_prefix_into_branch_payload(
         ctx, func, region_ref, idx, node_id,
+      ) {
+      changed = true
+      continue
+    }
+    if dead_code_elimination_try_voidify_split_drop_control(
+        ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
+        region_ref, idx, node_id,
       ) {
       changed = true
       continue
