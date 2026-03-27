@@ -785,6 +785,36 @@ test "remove-unused-brs skips nested constructor ladders after lift" {
 }
 
 ///|
+test "remove-unused-brs skips wider structured return ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_structured_return_ladder_module(17)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected wider structured return ladder remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-raw reason=structured-return-ladder-noop",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:remove-unused-brs"))
+}
+
+///|
 test "remove-unused-brs does not build use-def when rewriting tail returns" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }

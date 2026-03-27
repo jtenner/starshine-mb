@@ -688,7 +688,7 @@ fn run_hot_pipeline_raw_remove_unused_brs_can_skip_structured_return_ladder(
   if locals.length() < 20 || locals.length() > 96 {
     return false
   }
-  let (_, has_structured_control, has_branches, instr_count) = run_hot_pipeline_instr_scan(
+  let (_, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
     instrs,
   )
   if !has_structured_control ||
@@ -703,7 +703,7 @@ fn run_hot_pipeline_raw_remove_unused_brs_can_skip_structured_return_ladder(
   shape.local_set_count >= 10 &&
   shape.local_tee_count >= 8 &&
   shape.if_count >= 4 &&
-  shape.if_count <= 16 &&
+  shape.if_count <= 18 &&
   shape.return_count >= 1 &&
   shape.return_count <= 5 &&
   shape.select_count <= 1 &&
@@ -724,7 +724,7 @@ fn run_hot_pipeline_raw_remove_unused_brs_can_skip_unique_loop_select_return_lad
   if locals.length() < 48 || locals.length() > 64 {
     return false
   }
-  let (_, has_structured_control, has_branches, instr_count) = run_hot_pipeline_instr_scan(
+  let (_, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
     instrs,
   )
   if !has_structured_control ||
@@ -2280,12 +2280,22 @@ fn run_hot_pipeline_raw_remove_unused_brs(
   if run_hot_pipeline_raw_remove_unused_brs_can_skip_unique_loop_select_return_ladder(
       locals, instrs,
     ) {
-    return Some(("unique-loop-select-return-ladder-noop", original))
+    return Some({
+      reason: "unique-loop-select-return-ladder-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
   }
   if run_hot_pipeline_raw_remove_unused_brs_can_skip_structured_return_ladder(
       locals, instrs,
     ) {
-    return Some(("structured-return-ladder-noop", original))
+    return Some({
+      reason: "structured-return-ladder-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
   }
   if run_hot_pipeline_instr_has_remove_unused_brs_candidate(instrs) {
     None
