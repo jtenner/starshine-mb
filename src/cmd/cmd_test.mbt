@@ -2272,6 +2272,44 @@ test "run_cmd_with_adapter drops stale label names after HSO relowers named cont
 }
 
 ///|
+test "run_cmd_with_adapter preserves label names when HSO raw-skips every function" {
+  let wasm = encode_module_bytes(
+    module_with_label_names(fixture_mergeable_block_module(), 1),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-skip-names.wasm"] },
+    file_exists=fn(path) { path == "hso-skip-names.wasm" },
+    read_file=fn(path) {
+      if path == "hso-skip-names.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--heap-store-optimization", "--out", "out.wasm", "hso-skip-names.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected raw-skip named-label HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.name_sec {
+    Some(name_sec) => assert_true(name_sec.label_names is Some(_))
+    None => fail("expected preserved name section after raw-skip HSO")
+  }
+}
+
+///|
 test "run_cmd_with_adapter folds swapped-root HSO readonly mutable-global prefixes into struct.new" {
   let wasm = encode_module_bytes(
     fixture_hso_swapped_nonlocal_readonly_prefix_module(),

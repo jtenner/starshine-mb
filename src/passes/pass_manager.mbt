@@ -799,6 +799,32 @@ priv struct HsoCandidateScanState {
 }
 
 ///|
+priv struct HotPipelineModuleState {
+  mut module_ctx : @ir.HotModuleContext?
+}
+
+///|
+fn run_hot_pipeline_require_module_ctx(
+  mod_ : @lib.Module,
+  module_state : HotPipelineModuleState,
+  options : HotPipelineOptions,
+) -> @ir.HotModuleContext {
+  match module_state.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => {
+      let start_us = perf_start_timer_opt(
+        options.perf,
+        "analysis:module-context",
+      )
+      let module_ctx = @ir.hot_module_context_from_module(mod_)
+      perf_stop_timer_opt(options.perf, "analysis:module-context", start_us)
+      module_state.module_ctx = Some(module_ctx)
+      module_ctx
+    }
+  }
+}
+
+///|
 fn run_hot_pipeline_hso_candidate_scan_into(
   instrs : Array[@lib.Instruction],
   state : HsoCandidateScanState,
@@ -1555,18 +1581,34 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
 }
 
 ///|
+priv struct HotPipelineFuncResult {
+  reason : String
+  func : @lib.Func
+  unchanged_original : Bool
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
-  module_ctx : @ir.HotModuleContext,
+  module_state : HotPipelineModuleState,
   descriptor : @ir.HotPassDescriptor,
-) -> (String, @lib.Func)? {
+  options : HotPipelineOptions,
+) -> HotPipelineFuncResult? {
   let structured_branch_raw_instr_limit = 128
   let structured_branch_raw_local_limit = 64
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   if descriptor.name == "dead-code-elimination" &&
-    run_hot_pipeline_dce_can_skip_raw(original, module_ctx, func_idx) {
-    return Some(("no-dce-candidates", original))
+    run_hot_pipeline_dce_can_skip_raw(
+      original,
+      run_hot_pipeline_require_module_ctx(mod_, module_state, options),
+      func_idx,
+    ) {
+    return Some({
+      reason: "no-dce-candidates",
+      func: original,
+      unchanged_original: true,
+    })
   }
   if descriptor.name != "ssa-nomerge" {
     return None
@@ -1576,9 +1618,16 @@ fn run_hot_pipeline_raw_ssa_nomerge(
     instrs,
   )
   if !has_writes {
-    return Some(("no-local-writes", original))
+    return Some({
+      reason: "no-local-writes",
+      func: original,
+      unchanged_original: true,
+    })
   }
   if has_structured_control {
+    let module_ctx = run_hot_pipeline_require_module_ctx(
+      mod_, module_state, options,
+    )
     let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
     let base_local_count = params.length() + locals.length()
     if has_branches &&
@@ -1590,19 +1639,26 @@ fn run_hot_pipeline_raw_ssa_nomerge(
     }
     match
       run_hot_pipeline_raw_ssa_nomerge_structured(original, module_ctx, params) {
-      Some(rewritten) => Some(("structured-local-writes", rewritten))
+      Some(rewritten) =>
+        Some({
+          reason: "structured-local-writes",
+          func: rewritten,
+          unchanged_original: false,
+        })
       None => None
     }
   } else {
-    Some(
-      (
-        "straight-line-local-writes",
-        run_hot_pipeline_raw_ssa_nomerge_straight_line(
-          original,
-          run_hot_pipeline_required_func_params(module_ctx, func_idx),
-        ),
-      ),
+    let module_ctx = run_hot_pipeline_require_module_ctx(
+      mod_, module_state, options,
     )
+    Some({
+      reason: "straight-line-local-writes",
+      func: run_hot_pipeline_raw_ssa_nomerge_straight_line(
+        original,
+        run_hot_pipeline_required_func_params(module_ctx, func_idx),
+      ),
+      unchanged_original: false,
+    })
   }
 }
 
@@ -1611,7 +1667,7 @@ fn run_hot_pipeline_raw_heap_store_optimization(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
-) -> (String, @lib.Func)? {
+) -> HotPipelineFuncResult? {
   if descriptor.name != "heap-store-optimization" {
     return None
   }
@@ -1623,7 +1679,11 @@ fn run_hot_pipeline_raw_heap_store_optimization(
   if has_local_writes && has_struct_alloc && has_struct_set {
     return None
   }
-  Some(("no-heap-store-candidates", original))
+  Some({
+    reason: "no-heap-store-candidates",
+    func: original,
+    unchanged_original: true,
+  })
 }
 
 ///|
@@ -1631,9 +1691,9 @@ fn run_hot_pipeline_func(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
-  module_ctx : @ir.HotModuleContext,
+  module_state : HotPipelineModuleState,
   options : HotPipelineOptions,
-) -> Result[@lib.Func, String] {
+) -> Result[HotPipelineFuncResult, String] {
   pipeline_trace_hook(
     options.trace,
     descriptor.name,
@@ -1641,32 +1701,37 @@ fn run_hot_pipeline_func(
     payload="func_idx=\{func_idx}",
   )
   match
-    run_hot_pipeline_raw_ssa_nomerge(mod_, func_idx, module_ctx, descriptor) {
-    Some((reason, raw_func)) => {
+    run_hot_pipeline_raw_ssa_nomerge(
+      mod_, func_idx, module_state, descriptor, options,
+    ) {
+    Some(result) => {
       pipeline_trace_hook(
         options.trace,
         descriptor.name,
         "skip-raw",
-        payload="reason=\{reason}",
+        payload="reason=\{result.reason}",
       )
-      return Ok(raw_func)
+      return Ok(result)
     }
     None => ()
   }
   match
     run_hot_pipeline_raw_heap_store_optimization(mod_, func_idx, descriptor) {
-    Some((reason, raw_func)) => {
+    Some(result) => {
       pipeline_trace_hook(
         options.trace,
         descriptor.name,
         "skip-raw",
-        payload="reason=\{reason}",
+        payload="reason=\{result.reason}",
       )
-      return Ok(raw_func)
+      return Ok(result)
     }
     None => ()
   }
   let lift_start_us = perf_start_timer_opt(options.perf, "lift")
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_, module_state, options,
+  )
   let func = @ir.hot_lift_func_with_context_unverified(
     mod_, func_idx, module_ctx,
   )
@@ -1934,9 +1999,13 @@ fn run_hot_pipeline_func(
         run_hot_pipeline_dce_raw_requires_lowering_even_if_unchanged(
           run_hot_pipeline_original_func(mod_, func_idx),
         )) {
-        return Ok(run_hot_pipeline_original_func(mod_, func_idx))
-      }
-    Err(err) => return Err(err)
+        return Ok({
+          reason: "",
+          func: run_hot_pipeline_original_func(mod_, func_idx),
+          unchanged_original: true,
+        })
+        }
+      Err(err) => return Err(err)
   }
   if run_hot_pipeline_debug_dump_enabled(options, func_idx, descriptor.name) &&
     func_idx == @lib.FuncIdx::new(2944U) {
@@ -2169,7 +2238,7 @@ fn run_hot_pipeline_func(
           let lower_start_us = perf_start_timer_opt(options.perf, "lower")
           let lowered = @ir.hot_lower_func(func)
           perf_stop_timer_opt(options.perf, "lower", lower_start_us)
-          Ok(lowered)
+          Ok({ reason: "", func: lowered, unchanged_original: false })
         }
         Err(err) => Err(err)
       }
@@ -2177,7 +2246,7 @@ fn run_hot_pipeline_func(
       let lower_start_us = perf_start_timer_opt(options.perf, "lower")
       let lowered = @ir.hot_lower_func_unverified(func)
       perf_stop_timer_opt(options.perf, "lower", lower_start_us)
-      Ok(lowered)
+      Ok({ reason: "", func: lowered, unchanged_original: false })
     }
   }
 }
@@ -2248,23 +2317,36 @@ fn run_hot_pipeline_apply_hot_pass(
     pipeline_trace_hook(options.trace, descriptor.name, "skip-no-memory")
     return Ok(mod_)
   }
-  let module_ctx = @ir.hot_module_context_from_module(mod_)
+  let module_state = { module_ctx: None }
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let next_code_sec = match mod_.code_sec {
     Some(@lib.CodeSec(defs)) => {
-      let lowered : Array[@lib.Func] = []
+      let mut lowered : Array[@lib.Func]? = None
       for code_idx = 0; code_idx < defs.length(); code_idx = code_idx + 1 {
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
         )
-        let lowered_func = match
-          run_hot_pipeline_func(mod_, func_idx, descriptor, module_ctx, options) {
-          Ok(func) => func
+        let result = match
+          run_hot_pipeline_func(
+            mod_, func_idx, descriptor, module_state, options,
+          ) {
+          Ok(result) => result
           Err(err) => return Err("func[\{func_idx}]: \{err}")
         }
-        lowered.push(lowered_func)
+        match lowered {
+          Some(defs_copy) => defs_copy[code_idx] = result.func
+          None =>
+            if !result.unchanged_original {
+              let defs_copy = defs.copy()
+              defs_copy[code_idx] = result.func
+              lowered = Some(defs_copy)
+            }
+        }
       }
-      Some(@lib.CodeSec::new(lowered))
+      match lowered {
+        Some(lowered) => Some(@lib.CodeSec::new(lowered))
+        None => None
+      }
     }
     None => None
   }

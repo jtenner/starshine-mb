@@ -437,6 +437,7 @@ test "heap-store-optimization skips raw lift when the original function has no H
   assert_true(text.contains("pass[heap-store-optimization]:skip-raw"))
   assert_false(text.contains("perf:timer name=lift"))
   assert_false(text.contains("perf:timer name=analysis:effects"))
+  assert_false(text.contains("perf:timer name=analysis:module-context"))
   assert_false(text.contains("perf:timer name=pass:heap-store-optimization"))
 }
 
@@ -464,5 +465,6 @@ test "heap-store-optimization skips raw lift when struct allocations cannot feed
     ),
   )
   assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=analysis:module-context"))
   assert_false(text.contains("perf:timer name=analysis:effects"))
 }
