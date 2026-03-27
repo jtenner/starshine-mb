@@ -76,11 +76,51 @@ fn hso_test_module(
 }
 
 ///|
+fn hso_ref_result_test_module(
+  field_count : Int,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let struct_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(hso_struct_fields(field_count)),
+    ),
+  )
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [struct_ref_type])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([struct_ref_type]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
 fn hso_memory_test_module(
   field_count : Int,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   hso_test_module(field_count, body).with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+}
+
+///|
+fn hso_memory_ref_result_test_module(
+  field_count : Int,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  hso_ref_result_test_module(field_count, body).with_mem_sec(
     @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
   )
 }
@@ -215,6 +255,20 @@ fn hso_test_run_with_locals(
 }
 
 ///|
+fn hso_ref_result_test_run(
+  body : Array[@lib.Instruction],
+  field_count : Int,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_ref_result_test_module(field_count, body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort("unexpected invalid heap-store-optimization test fixture: \{err}")
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
 fn hso_memory_test_run(
   body : Array[@lib.Instruction],
   field_count : Int,
@@ -255,6 +309,20 @@ fn hso_test_run_module(mod_ : @lib.Module) -> Result[@lib.Module, String] {
     Ok(_) => ()
     Err(err) =>
       abort("unexpected invalid heap-store-optimization module fixture: \{err}")
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_memory_ref_result_test_run(
+  body : Array[@lib.Instruction],
+  field_count : Int,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_memory_ref_result_test_module(field_count, body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort("unexpected invalid memory heap-store-optimization test fixture: \{err}")
   }
   run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
 }
@@ -1108,6 +1176,76 @@ test "heap-store-optimization keeps tee memory.size block values as struct.set" 
     Err(err) =>
       fail(
         "expected tee memory-size block non-fold heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps tee pure block ref results as struct.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_ref_result_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_tee(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+          ]),
+        ),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected tee pure-block ref-result non-fold heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps tee memory.size ref results as struct.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_ref_result_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_tee(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+          ]),
+        ),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected tee memory-size ref-result non-fold heap-store-optimization success, got \{err}",
       )
   }
 

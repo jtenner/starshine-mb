@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Test: cover tee multi-root block ref-result HSO pass parity
+
+- **`heap-store-optimization` ref-result pass regression coverage** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt) with direct hot-pipeline regressions for tee multi-root pure-block and `memory.size` block values that return the ref itself, not just a later `struct.get`, so the pass-level suite now pins that shape explicitly. Focused `moon test src/passes` stays green at `120/120`.
+
 ## 2026-03-26 Test: cover tee multi-root block ref-result HSO cmd parity
 
 - **`heap-store-optimization` ref-result cmd regression coverage** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) with a direct `run_cmd_with_adapter` regression for the tee multi-root pure-block case that returns the ref itself, pinning the source-level command pipeline behavior after the latest tee-block parity fix. Focused `moon test src/cmd` stays green at `85/85`.
