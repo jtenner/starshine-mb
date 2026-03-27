@@ -1093,6 +1093,64 @@ fn fixture_hso_nested_if_tail_ref_result_wasm() -> Bytes {
 }
 
 ///|
+fn fixture_hso_wrapped_ref_if_branch_prefix_ref_result_wasm() -> Bytes {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(fixture_hso_struct_fields(1)),
+    ),
+  )
+  let pair = @lib.TypeIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [ref_type])),
+  )
+  let local0 = @lib.LocalIdx::new(0U)
+  encode_module_fixture_bytes(
+    Module::new()
+    .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::new("f"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        Func::new(
+          @lib.Locals::from_types([ref_type]),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(pair),
+            @lib.Instruction::local_set(local0),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(ref_type),
+              @lib.Expr::new([@lib.Instruction::local_get(local0)]),
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::if_(
+                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  [@lib.Instruction::i32_const(@lib.I32(7))],
+                  Some([@lib.Instruction::i32_const(@lib.I32(9))]),
+                ),
+              ]),
+            ),
+            @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+            @lib.Instruction::local_get(local0),
+          ]),
+        ),
+      ]),
+    ),
+  )
+}
+
+///|
 fn fixture_hso_table_size_value_prefix_wasm() -> Bytes {
   bytes_from_ints([
     0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3, 2, 1,
@@ -2356,6 +2414,45 @@ test "run_cmd_with_adapter flattens nested if-tail wrappers inside folded HSO va
     ) => ()
     _ => fail("expected flattened nested if-tail wrapper on HSO CLI path")
   }
+}
+
+///|
+test "run_cmd_with_adapter keeps wrapped-ref if conditions outside HSO scratch blocks" {
+  let wasm = fixture_hso_wrapped_ref_if_branch_prefix_ref_result_wasm()
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-wrapped-ref-if.wasm"] },
+    file_exists=fn(path) { path == "hso-wrapped-ref-if.wasm" },
+    read_file=fn(path) {
+      if path == "hso-wrapped-ref-if.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--heap-store-optimization", "--out", "out.wasm", "hso-wrapped-ref-if.wasm",
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected wrapped-ref if-branch HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("block"), msg=pretty)
 }
 
 ///|

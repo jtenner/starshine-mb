@@ -1291,18 +1291,24 @@ fn hot_lower_impl_canonicalize_body(
 }
 
 ///|
-fn hot_lower_impl_can_stackify_struct_set_value_prefix(
+fn hot_lower_impl_stackify_struct_set_value_tail_start(
   body : Array[Instruction],
-) -> Bool {
+) -> Int? {
   if body.length() < 2 || hot_lower_impl_body_targets_removed_label(body, 0) {
-    return false
+    return None
   }
-  for i = 0; i < body.length() - 1; i = i + 1 {
+  let tail_start = match body[body.length() - 1] {
+    If(_, _, _) if body.length() >= 3 &&
+      !hot_lower_impl_has_control_transfer(body[body.length() - 2]) =>
+      body.length() - 2
+    _ => body.length() - 1
+  }
+  for i = 0; i < tail_start; i = i + 1 {
     if hot_lower_impl_has_control_transfer(body[i]) {
-      return false
+      return None
     }
   }
-  true
+  Some(tail_start)
 }
 
 ///|
@@ -1318,48 +1324,55 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
       match body[idx] {
         LocalGet(local_idx) =>
           match body[idx + 1] {
-            Block(_, Expr(value_body)) if hot_lower_impl_can_stackify_struct_set_value_prefix(
-                value_body,
-              ) =>
-              match body[idx + 2] {
-                StructSet(_, _) =>
-                  match local_idx {
-                    LocalIdx(raw_local) => {
-                      let local_id = raw_local.reinterpret_as_int()
-                      match hot_local_type(func, local_id) {
-                        Some(local_ty) => {
-                          let scratch_local = LocalIdx::new(
-                            (hot_local_count(func) + extra_locals.length()).reinterpret_as_uint(),
-                          )
-                          extra_locals.push(local_ty)
-                          let wrapper_body : Array[Instruction] = [
-                            Instruction::local_get(local_idx),
-                            Instruction::local_set(scratch_local),
-                          ]
-                          for prefix_idx = 0
-                              prefix_idx < value_body.length() - 1
-                              prefix_idx = prefix_idx + 1 {
-                            wrapper_body.push(value_body[prefix_idx])
+            Block(_, Expr(value_body)) =>
+              match
+                hot_lower_impl_stackify_struct_set_value_tail_start(value_body) {
+                Some(tail_start) =>
+                  match body[idx + 2] {
+                    StructSet(_, _) =>
+                      match local_idx {
+                        LocalIdx(raw_local) => {
+                          let local_id = raw_local.reinterpret_as_int()
+                          match hot_local_type(func, local_id) {
+                            Some(local_ty) => {
+                              let scratch_local = LocalIdx::new(
+                                (hot_local_count(func) + extra_locals.length()).reinterpret_as_uint(),
+                              )
+                              extra_locals.push(local_ty)
+                              let wrapper_body : Array[Instruction] = [
+                                Instruction::local_get(local_idx),
+                                Instruction::local_set(scratch_local),
+                              ]
+                              for prefix_idx = 0
+                                  prefix_idx < tail_start
+                                  prefix_idx = prefix_idx + 1 {
+                                wrapper_body.push(value_body[prefix_idx])
+                              }
+                              wrapper_body.push(
+                                Instruction::local_get(scratch_local),
+                              )
+                              rewritten.push(
+                                Instruction::block(
+                                  BlockType::val_type(local_ty),
+                                  Expr::new(wrapper_body),
+                                ),
+                              )
+                              for tail_idx = tail_start
+                                  tail_idx < value_body.length()
+                                  tail_idx = tail_idx + 1 {
+                                rewritten.push(value_body[tail_idx])
+                              }
+                              rewritten.push(body[idx + 2])
+                              idx = idx + 3
+                              continue
+                            }
+                            None => ()
                           }
-                          wrapper_body.push(
-                            Instruction::local_get(scratch_local),
-                          )
-                          rewritten.push(
-                            Instruction::block(
-                              BlockType::val_type(local_ty),
-                              Expr::new(wrapper_body),
-                            ),
-                          )
-                          rewritten.push(value_body[value_body.length() - 1])
-                          rewritten.push(body[idx + 2])
-                          idx = idx + 3
-                          continue
                         }
-                        None => ()
                       }
-                    }
+                    _ => ()
                   }
-                _ => ()
+                None => ()
               }
             _ => ()
           }
