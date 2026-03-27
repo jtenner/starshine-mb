@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Optimize: skip raw HSO lift for functions without foldable candidates
+
+- **`heap-store-optimization` pre-lift candidate screening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/pass_manager.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/pass_manager.mbt), and [`src/passes/perf_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/perf_test.mbt) so the hot pipeline now skips raw HSO entirely when a function lacks the minimum local-write plus `struct.new*` plus `struct.set` shape needed for any current fold, avoiding needless lift and effects analysis on the real self-opt artifact. Focused `moon test src/passes` and `moon test src/cmd` stay green, and the regenerated `tests/node/dist/starshine-debug-wasi.wasm` artifact still matches Binaryen canonically while Starshine wall time drops to roughly `0.57s` versus Binaryen at `0.48s`.
+
 ## 2026-03-26 Fix: cover decoded HSO mutable-global value prefixes
 
 - **`heap-store-optimization` decoded mutable-global prefix parity coverage** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) with a raw-wasm CLI regression for the assembled mutable-`global.get` value-prefix shape that Binaryen leaves as `struct.set`. Focused `moon test src/cmd` stays green at `83/83`.

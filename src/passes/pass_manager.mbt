@@ -1554,6 +1554,26 @@ fn run_hot_pipeline_raw_ssa_nomerge(
 }
 
 ///|
+fn run_hot_pipeline_raw_heap_store_optimization(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> (String, @lib.Func)? {
+  if descriptor.name != "heap-store-optimization" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(_, @lib.Expr(instrs)) = original
+  let (has_local_writes, has_struct_alloc, has_struct_set) = run_hot_pipeline_hso_candidate_scan(
+    instrs,
+  )
+  if has_local_writes && has_struct_alloc && has_struct_set {
+    return None
+  }
+  Some(("no-heap-store-candidates", original))
+}
+
+///|
 fn run_hot_pipeline_func(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -1569,6 +1589,19 @@ fn run_hot_pipeline_func(
   )
   match
     run_hot_pipeline_raw_ssa_nomerge(mod_, func_idx, module_ctx, descriptor) {
+    Some((reason, raw_func)) => {
+      pipeline_trace_hook(
+        options.trace,
+        descriptor.name,
+        "skip-raw",
+        payload="reason=\{reason}",
+      )
+      return Ok(raw_func)
+    }
+    None => ()
+  }
+  match
+    run_hot_pipeline_raw_heap_store_optimization(mod_, func_idx, descriptor) {
     Some((reason, raw_func)) => {
       pipeline_trace_hook(
         options.trace,

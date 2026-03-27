@@ -416,3 +416,53 @@ test "ssa-nomerge rewrites block-target branches without hot lift" {
   assert_false(text.contains("perf:timer name=lift"))
   assert_false(text.contains("perf:timer name=analysis:ssa"))
 }
+
+///|
+test "heap-store-optimization skips raw lift when the original function has no HSO candidates" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 9))",
+      ["heap-store-optimization"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected raw-skip HSO success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("pass[heap-store-optimization]:skip-raw"))
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=analysis:effects"))
+  assert_false(text.contains("perf:timer name=pass:heap-store-optimization"))
+}
+
+///|
+test "heap-store-optimization skips raw lift when struct allocations cannot feed struct.set" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (type (struct (field (mut i32)))) (func (result i32) (local (ref null 0)) (local.set 0 (struct.new_default 0)) i32.const 7))",
+      ["heap-store-optimization"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected allocation-only raw-skip HSO success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[heap-store-optimization]:skip-raw reason=no-heap-store-candidates",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=analysis:effects"))
+}
