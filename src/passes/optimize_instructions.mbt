@@ -788,6 +788,58 @@ fn optimize_instructions_region_exits_to_label(
 }
 
 ///|
+fn optimize_instructions_region_never_falls_through(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return false
+  }
+  optimize_instructions_node_never_falls_through(
+    func,
+    dead,
+    @ir.hot_region_get(func, region_ref, root_count - 1),
+  )
+}
+
+///|
+fn optimize_instructions_node_never_falls_through(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Unreachable
+    | @ir.HotOp::Return
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Br => true
+    @ir.HotOp::If =>
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_region) =>
+          optimize_instructions_region_never_falls_through(
+            func,
+            dead,
+            @ir.hot_region_then_ref(func, node_id),
+          ) &&
+          optimize_instructions_region_never_falls_through(
+            func, dead, else_region,
+          )
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_node_exits_to_label(
   func : @ir.HotFunc,
   dead : Array[Bool],
@@ -846,7 +898,9 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
       | @ir.HotOp::Rethrow
       | @ir.HotOp::ThrowRef
       | @ir.HotOp::Delegate => true
-      _ => optimize_instructions_node_exits_to_label(func, dead, root, label_id)
+      _ =>
+        optimize_instructions_node_exits_to_label(func, dead, root, label_id) ||
+        optimize_instructions_node_never_falls_through(func, dead, root)
     }
     if !escapes {
       continue

@@ -603,6 +603,73 @@ test "optimize-instructions keeps outer fallthrough when inner branches only exi
 }
 
 ///|
+test "optimize-instructions replaces dead mixed-label fallback branches after non-fallthrough ifs with unreachable" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let carrier = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let carrier_label = @ir.hot_control_node_label(func, carrier)
+  let middle = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let middle_label = @ir.hot_control_node_label(func, middle)
+  let escape_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_local_get(func, 0),
+    [@ir.hot_build_br(func, middle_label)],
+    else_body=Some([
+      @ir.hot_build_br(func, carrier_label, values=[
+        @ir.hot_build_const_i32(func, @lib.I32(2)),
+      ]),
+    ]),
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, middle), [
+    escape_if,
+    @ir.hot_build_br(func, carrier_label, values=[
+      @ir.hot_build_const_i32(func, @lib.I32(0)),
+    ]),
+  ])
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, carrier), [
+    middle,
+    @ir.hot_build_const_i32(func, @lib.I32(9)),
+  ])
+  @ir.hot_root_append(func, carrier)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimize-instructions mixed-label dead-fallback cleanup success, got \{err}",
+      )
+  }
+
+  let middle_body = @ir.hot_region_body_ref(func, middle)
+  assert_eq(@ir.hot_region_root_count(func, middle_body), 2)
+  let middle_tail = @ir.hot_region_get(func, middle_body, 1)
+  match @ir.hot_node_get(func, middle_tail).op {
+    @ir.HotOp::Unreachable => ()
+    _ =>
+      fail(
+        "expected mixed-label dead fallback branch to canonicalize into unreachable",
+      )
+  }
+}
+
+///|
 test "optimize-instructions canonicalizes commutative constants onto the rhs" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) i32.const 7 local.get 0 i32.add))",
