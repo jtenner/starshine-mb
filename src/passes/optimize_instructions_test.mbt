@@ -175,6 +175,19 @@ test "optimize-instructions canonicalizes i64.eq zero into eqz" {
 }
 
 ///|
+test "optimize-instructions keeps i32.rem zero compares in eq form" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 64 i32.rem_s i32.const 0 i32.eq))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_eq()),
+  )
+  assert_eq(@ir.hot_child_count(func, root), 2)
+}
+
+///|
 test "optimize-instructions rewrites add with a negative constant into sub" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.const -5 i32.add))",

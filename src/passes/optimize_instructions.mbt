@@ -1962,6 +1962,31 @@ fn optimize_instructions_try_fold_compare_zero(
 }
 
 ///|
+fn optimize_instructions_is_remainder_instr(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  let exact_id = match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalTee if @ir.hot_child_count(func, node_id) == 1 =>
+      @ir.hot_child_get(func, node_id, 0)
+    _ => node_id
+  }
+  match @ir.hot_node_exact_instr(func, exact_id) {
+    Some(
+      @lib.Instruction::I32RemS
+      | @lib.Instruction::I32RemU
+      | @lib.Instruction::I64RemS
+      | @lib.Instruction::I64RemU
+    ) => true
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_compare_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1977,26 +2002,32 @@ fn optimize_instructions_try_rewrite_compare_eqz(
       optimize_instructions_i32_const(func, dead, lhs_id),
       optimize_instructions_i32_const(func, dead, rhs_id),
     ) {
-    (@lib.Instruction::I32Eq, Some(@lib.I32(0)), _) => {
-      optimize_instructions_replace_with_exact_unary(
-        ctx,
-        func,
-        node_id,
-        @lib.Instruction::i32_eqz(),
-        rhs_id,
-      )
-      return true
-    }
-    (@lib.Instruction::I32Eq, _, Some(@lib.I32(0))) => {
-      optimize_instructions_replace_with_exact_unary(
-        ctx,
-        func,
-        node_id,
-        @lib.Instruction::i32_eqz(),
-        lhs_id,
-      )
-      return true
-    }
+    (@lib.Instruction::I32Eq, Some(@lib.I32(0)), _) =>
+      if optimize_instructions_is_remainder_instr(func, dead, rhs_id) {
+        ()
+      } else {
+        optimize_instructions_replace_with_exact_unary(
+          ctx,
+          func,
+          node_id,
+          @lib.Instruction::i32_eqz(),
+          rhs_id,
+        )
+        return true
+      }
+    (@lib.Instruction::I32Eq, _, Some(@lib.I32(0))) =>
+      if optimize_instructions_is_remainder_instr(func, dead, lhs_id) {
+        ()
+      } else {
+        optimize_instructions_replace_with_exact_unary(
+          ctx,
+          func,
+          node_id,
+          @lib.Instruction::i32_eqz(),
+          lhs_id,
+        )
+        return true
+      }
     _ => ()
   }
   match
@@ -2005,26 +2036,32 @@ fn optimize_instructions_try_rewrite_compare_eqz(
       optimize_instructions_i64_const(func, dead, lhs_id),
       optimize_instructions_i64_const(func, dead, rhs_id),
     ) {
-    (@lib.Instruction::I64Eq, Some(@lib.I64(0L)), _) => {
-      optimize_instructions_replace_with_exact_unary(
-        ctx,
-        func,
-        node_id,
-        @lib.Instruction::i64_eqz(),
-        rhs_id,
-      )
-      true
-    }
-    (@lib.Instruction::I64Eq, _, Some(@lib.I64(0L))) => {
-      optimize_instructions_replace_with_exact_unary(
-        ctx,
-        func,
-        node_id,
-        @lib.Instruction::i64_eqz(),
-        lhs_id,
-      )
-      true
-    }
+    (@lib.Instruction::I64Eq, Some(@lib.I64(0L)), _) =>
+      if optimize_instructions_is_remainder_instr(func, dead, rhs_id) {
+        false
+      } else {
+        optimize_instructions_replace_with_exact_unary(
+          ctx,
+          func,
+          node_id,
+          @lib.Instruction::i64_eqz(),
+          rhs_id,
+        )
+        true
+      }
+    (@lib.Instruction::I64Eq, _, Some(@lib.I64(0L))) =>
+      if optimize_instructions_is_remainder_instr(func, dead, lhs_id) {
+        false
+      } else {
+        optimize_instructions_replace_with_exact_unary(
+          ctx,
+          func,
+          node_id,
+          @lib.Instruction::i64_eqz(),
+          lhs_id,
+        )
+        true
+      }
     _ => false
   }
 }
