@@ -216,35 +216,6 @@ test "optimize-instructions canonicalizes if eq zero into eqz without else" {
 }
 
 ///|
-test "optimize-instructions canonicalizes select on reversed relational guards" {
-  let func = optimize_instructions_test_run_hot(
-    "(module (func (param i32) (result i32) local.get 0 i32.const 7 local.get 0 i32.const 7 i32.ge_u select))",
-  )
-  let root = @ir.hot_root_get(func, 0)
-  let first = @ir.hot_child_get(func, root, 0)
-  let second = @ir.hot_child_get(func, root, 1)
-  let selector = @ir.hot_child_get(func, root, 2)
-  match @ir.hot_node_get(func, first).op {
-    @ir.HotOp::Const => ()
-    _ =>
-      fail(
-        "expected select canonicalization to move the const into the first slot",
-      )
-  }
-  match @ir.hot_node_get(func, second).op {
-    @ir.HotOp::LocalGet => ()
-    _ =>
-      fail(
-        "expected select canonicalization to move the local into the second slot",
-      )
-  }
-  assert_eq(
-    @ir.hot_node_exact_instr(func, selector),
-    Some(@lib.Instruction::i32_lt_u()),
-  )
-}
-
-///|
 test "optimize-instructions canonicalizes commutative constants onto the rhs" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) i32.const 7 local.get 0 i32.add))",

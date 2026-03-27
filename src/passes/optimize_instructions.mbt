@@ -750,75 +750,6 @@ fn optimize_instructions_try_canonicalize_relational_operands(
 }
 
 ///|
-fn optimize_instructions_negate_relational_instr(
-  instr : @lib.Instruction,
-) -> @lib.Instruction? {
-  match instr {
-    @lib.Instruction::I32LtS => Some(@lib.Instruction::i32_ge_s())
-    @lib.Instruction::I32LtU => Some(@lib.Instruction::i32_ge_u())
-    @lib.Instruction::I32LeS => Some(@lib.Instruction::i32_gt_s())
-    @lib.Instruction::I32LeU => Some(@lib.Instruction::i32_gt_u())
-    @lib.Instruction::I32GtS => Some(@lib.Instruction::i32_le_s())
-    @lib.Instruction::I32GtU => Some(@lib.Instruction::i32_le_u())
-    @lib.Instruction::I32GeS => Some(@lib.Instruction::i32_lt_s())
-    @lib.Instruction::I32GeU => Some(@lib.Instruction::i32_lt_u())
-    @lib.Instruction::I64LtS => Some(@lib.Instruction::i64_ge_s())
-    @lib.Instruction::I64LtU => Some(@lib.Instruction::i64_ge_u())
-    @lib.Instruction::I64LeS => Some(@lib.Instruction::i64_gt_s())
-    @lib.Instruction::I64LeU => Some(@lib.Instruction::i64_gt_u())
-    @lib.Instruction::I64GtS => Some(@lib.Instruction::i64_le_s())
-    @lib.Instruction::I64GtU => Some(@lib.Instruction::i64_le_u())
-    @lib.Instruction::I64GeS => Some(@lib.Instruction::i64_lt_s())
-    @lib.Instruction::I64GeU => Some(@lib.Instruction::i64_lt_u())
-    _ => None
-  }
-}
-
-///|
-fn optimize_instructions_try_canonicalize_select_selector(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  dead : Array[Bool],
-  node_id : Int,
-  true_id : Int,
-  false_id : Int,
-  selector_id : Int,
-) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, selector_id) {
-    return false
-  }
-  let selector = func.nodes[selector_id]
-  match selector.op {
-    @ir.HotOp::Compare if selector.child_count == 2 => ()
-    _ => return false
-  }
-  if @ir.node_use_count(pass_require_use_def(ctx, func), selector_id) > 1 {
-    return false
-  }
-  let negated = match
-    optimize_instructions_negate_relational_instr(
-      func.instr_payloads[selector.imm0].instr,
-    ) {
-    Some(negated) => negated
-    None => return false
-  }
-  let lhs_id = func.children[selector.child_base]
-  let rhs_id = func.children[selector.child_base + 1]
-  optimize_instructions_rewrite_exact_with_children(
-    ctx,
-    func,
-    selector_id,
-    negated,
-    [lhs_id, rhs_id],
-  )
-  ignore(
-    @ir.hot_replace_child_span(func, node_id, [false_id, true_id, selector_id]),
-  )
-  pass_mark_mutated(ctx, func)
-  true
-}
-
-///|
 fn optimize_instructions_try_canonicalize_compare_const(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1716,20 +1647,6 @@ fn optimize_instructions_visit_node(
             changed
           }
         }
-      }
-    @ir.HotOp::Select =>
-      if node.child_count != 3 {
-        false
-      } else {
-        optimize_instructions_try_canonicalize_select_selector(
-          ctx,
-          func,
-          dead,
-          node_id,
-          func.children[node.child_base],
-          func.children[node.child_base + 1],
-          func.children[node.child_base + 2],
-        )
       }
     @ir.HotOp::If =>
       optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id)
