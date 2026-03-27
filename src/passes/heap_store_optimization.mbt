@@ -918,6 +918,81 @@ fn hso_build_preserved_replacement(
 }
 
 ///|
+fn hso_trim_unreachable_subtree(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_trim_unreachable_region_tails(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    @ir.HotOp::If => {
+      let mut changed = hso_trim_unreachable_region_tails(
+        func,
+        @ir.hot_region_then_ref(func, node_id),
+      )
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          changed = hso_trim_unreachable_region_tails(func, region_ref) ||
+            changed
+        None => ()
+      }
+      changed
+    }
+    @ir.HotOp::Try => {
+      let mut changed = hso_trim_unreachable_region_tails(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+      match @ir.hot_region_catch_ref(func, node_id) {
+        Some(region_ref) =>
+          changed = hso_trim_unreachable_region_tails(func, region_ref) ||
+            changed
+        None => ()
+      }
+      changed
+    }
+    @ir.HotOp::TryTable =>
+      hso_trim_unreachable_region_tails(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      ) ||
+      hso_trim_unreachable_region_tails(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+      )
+    _ => false
+  }
+}
+
+///|
+fn hso_trim_unreachable_region_tails(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let mut changed = false
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let mut idx = 0
+  while idx < root_count {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    changed = hso_trim_unreachable_subtree(func, root_id) || changed
+    if @ir.hot_is_terminator_node(func, root_id) {
+      let removed = root_count - idx - 1
+      if removed > 0 {
+        ignore(@ir.hot_region_splice(func, region_ref, idx + 1, removed, []))
+        changed = true
+      }
+      return changed
+    }
+    idx = idx + 1
+  }
+  changed
+}
+
+///|
 fn hso_array_insert_prefix_roots(
   roots : Array[Int],
   idx : Int,
@@ -1059,6 +1134,7 @@ fn hso_try_fold_into_struct_new(
   }
 
   if needs_default_materialization {
+    ignore(hso_trim_unreachable_subtree(func, value_id))
     let module_ctx = match module_ctx {
       Some(module_ctx) => module_ctx
       None => return false
@@ -1084,6 +1160,7 @@ fn hso_try_fold_into_struct_new(
     @ir.hot_delete_node(func, replacement_id)
     @ir.hot_replace_node(func, struct_new_id, replacement)
   } else {
+    ignore(hso_trim_unreachable_subtree(func, value_id))
     let old_value_id = @ir.hot_child_get(func, struct_new_id, field_idx)
     let replacement = match
       hso_build_preserved_replacement(func, node_masks, old_value_id, value_id) {

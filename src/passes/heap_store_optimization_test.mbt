@@ -667,6 +667,7 @@ test "heap-store-optimization folds value branches that stay inside the moved su
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("struct.new"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("I32(8)"), msg=pretty)
 }
 
 ///|
@@ -988,9 +989,9 @@ test "heap-store-optimization keeps struct.set for decoded raw wasm tee pure ref
     hso_test_run_module(
       hso_decode_fixture_module(
         hso_bytes_from_ints([
-          0, 97, 115, 109, 1, 0, 0, 0, 1, 10, 2, 95, 1, 127, 1, 96, 0, 1, 99,
-          0, 3, 2, 1, 1, 10, 23, 1, 21, 1, 1, 99, 0, 251, 1, 0, 34, 0, 65, 0,
-          26, 65, 7, 251, 5, 0, 0, 32, 0, 11,
+          0, 97, 115, 109, 1, 0, 0, 0, 1, 10, 2, 95, 1, 127, 1, 96, 0, 1, 99, 0,
+          3, 2, 1, 1, 10, 23, 1, 21, 1, 1, 99, 0, 251, 1, 0, 34, 0, 65, 0, 26, 65,
+          7, 251, 5, 0, 0, 32, 0, 11,
         ]),
       ),
     ) {

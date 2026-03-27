@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-27 Fix: trim unreachable HSO branch tails after folded moves
+
+- **`heap-store-optimization` branch-tail parity hardening** by **@jtenner**. Updating [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt), and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) so HSO prunes dead tail roots that become unreachable inside moved branch-contained value blocks, matching Binaryen’s canonical folded `struct.new` output instead of keeping dead instructions alive. Focused verification and timings are recorded with the implementation commit.
+
 ## 2026-03-26 Fix: keep decoded tee pure ref-prefix HSO ref results as struct.set
 
 - **`heap-store-optimization` decoded tee ref-prefix parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt), and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) so raw decoded tee-wrapped pure ref-prefix ref-result wasm now stays as `struct.set` like Binaryen instead of folding into `local.set (struct.new ...)`. Focused `moon test src/passes` and `moon test src/cmd` stay green, and the targeted 30-case encoded-wasm probe drops from `18` mismatches to `10` in about `1.415s`.
