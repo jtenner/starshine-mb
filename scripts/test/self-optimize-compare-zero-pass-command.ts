@@ -52,10 +52,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-process.stderr.write("[trace] input fixture:opt pass[heap-store-optimization]:func func_idx=(Func 0)\\n");
-process.stderr.write("[trace] input fixture:opt pass[heap-store-optimization]:skip-raw reason=no-heap-store-candidates\\n");
-process.stderr.write("[trace] input fixture:opt pass[heap-store-optimization]:func func_idx=(Func 1)\\n");
-process.stderr.write("[trace] input fixture:opt pass[heap-store-optimization]:skip-raw reason=no-heap-store-candidates\\n");
+process.stderr.write("[trace] input fixture:opt pass[heap-store-optimization]:skip-raw reason=no-heap-store-candidates count=2\\n");
 const outIndex = args.indexOf("--out");
 if (outIndex === -1 || outIndex + 1 >= args.length) {
   process.stderr.write("missing --out\\n");

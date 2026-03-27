@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-27 Test: cover aggregated zero-pass HSO self-compare traces
+
+- **`self-optimize-compare` aggregated raw-skip parser coverage** by **@jtenner**. Updating [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`scripts/test/self-optimize-compare-zero-pass-command.ts`](/home/jtenner/Projects/starshine-mb-hso/scripts/test/self-optimize-compare-zero-pass-command.ts) so the zero-pass harness regression now exercises the current aggregated HSO trace shape, where one `skip-raw reason=no-heap-store-candidates count=N` summary line replaces the older per-function spam. The scripted regression stays green and keeps `Starshine pass runtime (ms): 0.000` pinned for zero-pass runs.
+
 ## 2026-03-27 Optimize: aggregate identical HSO raw-skip trace lines
 
 - **`heap-store-optimization` traced raw-skip aggregation** by **@jtenner**. Updating [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/pass_manager.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/pass_manager.mbt), and [`src/passes/perf_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/perf_test.mbt) so HSO no longer emits one identical `skip-raw` trace line per screened-out function. Instead it aggregates `no-heap-store-candidates` into one summary trace after the pass loop, which sharply reduces traced stderr churn on the compare harness while keeping zero-pass timing semantics intact. Focused `moon test src/passes` and `moon test src/cmd` stay green, and real `--heap-store-optimization` self-compare on `tests/node/dist/starshine-debug-wasi.wasm` remains canonically equal while Starshine runtime improves to about `475.439ms` versus Binaryen `343.789ms` with `Starshine pass runtime (ms): 0.000`.
