@@ -1221,39 +1221,14 @@ fn optimize_instructions_try_rewrite_add_sub(
       optimize_instructions_replace_with_existing_node(ctx, func, node_id)
       true
     }
-    (@lib.Instruction::I32Add, Some(@lib.I32(raw))) if raw < 0 => {
+    (@lib.Instruction::I32Add, Some(@lib.I32(raw))) if raw < 0 &&
+      !optimize_instructions_prefer_negative_leb_i32(-raw) => {
       let replacement_rhs = @ir.hot_build_const_i32(func, @lib.I32(-raw))
       optimize_instructions_rewrite_exact_with_children(
         ctx,
         func,
         node_id,
         @lib.Instruction::i32_sub(),
-        [lhs_id, replacement_rhs],
-      )
-      true
-    }
-    (@lib.Instruction::I32Add, Some(@lib.I32(raw))) if optimize_instructions_prefer_negative_leb_i32(
-        raw,
-      ) => {
-      let replacement_rhs = @ir.hot_build_const_i32(func, @lib.I32(-raw))
-      optimize_instructions_rewrite_exact_with_children(
-        ctx,
-        func,
-        node_id,
-        @lib.Instruction::i32_sub(),
-        [lhs_id, replacement_rhs],
-      )
-      true
-    }
-    (@lib.Instruction::I32Sub, Some(@lib.I32(raw))) if optimize_instructions_prefer_negative_leb_i32(
-        raw,
-      ) => {
-      let replacement_rhs = @ir.hot_build_const_i32(func, @lib.I32(-raw))
-      optimize_instructions_rewrite_exact_with_children(
-        ctx,
-        func,
-        node_id,
-        @lib.Instruction::i32_add(),
         [lhs_id, replacement_rhs],
       )
       true
@@ -1265,39 +1240,14 @@ fn optimize_instructions_try_rewrite_add_sub(
           optimize_instructions_replace_with_existing_node(ctx, func, node_id)
           true
         }
-        (@lib.Instruction::I64Add, Some(@lib.I64(raw))) if raw < 0L => {
+        (@lib.Instruction::I64Add, Some(@lib.I64(raw))) if raw < 0L &&
+          !optimize_instructions_prefer_negative_leb_i64(-raw) => {
           let replacement_rhs = @ir.hot_build_const_i64(func, @lib.I64(-raw))
           optimize_instructions_rewrite_exact_with_children(
             ctx,
             func,
             node_id,
             @lib.Instruction::i64_sub(),
-            [lhs_id, replacement_rhs],
-          )
-          true
-        }
-        (@lib.Instruction::I64Add, Some(@lib.I64(raw))) if optimize_instructions_prefer_negative_leb_i64(
-            raw,
-          ) => {
-          let replacement_rhs = @ir.hot_build_const_i64(func, @lib.I64(-raw))
-          optimize_instructions_rewrite_exact_with_children(
-            ctx,
-            func,
-            node_id,
-            @lib.Instruction::i64_sub(),
-            [lhs_id, replacement_rhs],
-          )
-          true
-        }
-        (@lib.Instruction::I64Sub, Some(@lib.I64(raw))) if optimize_instructions_prefer_negative_leb_i64(
-            raw,
-          ) => {
-          let replacement_rhs = @ir.hot_build_const_i64(func, @lib.I64(-raw))
-          optimize_instructions_rewrite_exact_with_children(
-            ctx,
-            func,
-            node_id,
-            @lib.Instruction::i64_add(),
             [lhs_id, replacement_rhs],
           )
           true

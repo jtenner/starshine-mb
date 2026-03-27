@@ -127,14 +127,14 @@ test "optimize-instructions rewrites add with a negative constant into sub" {
 }
 
 ///|
-test "optimize-instructions prefers signed-leb-friendly add immediates" {
+test "optimize-instructions preserves signed-leb-friendly negative adds" {
   let func = optimize_instructions_test_run_hot(
-    "(module (func (param i32) (result i32) local.get 0 i32.const 64 i32.add))",
+    "(module (func (param i32) (result i32) local.get 0 i32.const -64 i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
   assert_eq(
     @ir.hot_node_exact_instr(func, root),
-    Some(@lib.Instruction::i32_sub()),
+    Some(@lib.Instruction::i32_add()),
   )
   let rhs = @ir.hot_child_get(func, root, 1)
   assert_eq(
@@ -144,14 +144,31 @@ test "optimize-instructions prefers signed-leb-friendly add immediates" {
 }
 
 ///|
-test "optimize-instructions chains const canonicalization into leb rewrite" {
+test "optimize-instructions preserves positive add immediates for parity" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 64 i32.add))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_add()),
+  )
+  let rhs = @ir.hot_child_get(func, root, 1)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(64)),
+  )
+}
+
+///|
+test "optimize-instructions keeps canonicalized positive adds in add form" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) i32.const 64 local.get 0 i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
   assert_eq(
     @ir.hot_node_exact_instr(func, root),
-    Some(@lib.Instruction::i32_sub()),
+    Some(@lib.Instruction::i32_add()),
   )
   let lhs = @ir.hot_child_get(func, root, 0)
   let rhs = @ir.hot_child_get(func, root, 1)
@@ -161,7 +178,7 @@ test "optimize-instructions chains const canonicalization into leb rewrite" {
   }
   assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
-    @ir.HotConstPayload::i32_const(@lib.I32(-64)),
+    @ir.HotConstPayload::i32_const(@lib.I32(64)),
   )
 }
 
