@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-27 Fix: canonicalize lowered HSO control wrappers and clear stale label names
+
+- **`heap-store-optimization` lowered-control parity completion** by **@jtenner**. Updating [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/ir/hot_lower.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/ir/hot_lower.mbt), [`src/ir/hot_lower_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/ir/hot_lower_test.mbt), [`src/passes/pass_manager.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/pass_manager.mbt), and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) so post-lower canonicalization now peels the remaining safe HSO branch-wrapper blocks, materializes the Binaryen-style `unreachable` loop tails, and drops stale `label_names` when relowered hot-pass functions change control counts. The focused raw-wasm control probe is now clean for all ref-result cases, the named-label CLI regression is pinned, and the real `--heap-store-optimization` self-compare on `tests/node/dist/starshine-debug-wasi.wasm` remains canonically equal with Starshine wall time about `512.477ms` versus Binaryen at `282.926ms`.
+
 ## 2026-03-27 Fix: peel canonical HSO result-block prefixes
 
 - **`heap-store-optimization` folded result-block prefix peeling** by **@jtenner**. Updating [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt) so HSO peels reorderable prefix roots out of folded result blocks and flattens the resulting one-root value blocks when that stays label-safe. This aligns the folded `if` family with Binaryen’s canonical output shape and drops the focused control probe from 8 remaining mismatches to 6, while keeping `moon test src/passes` and `moon test src/cmd` green.

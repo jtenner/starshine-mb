@@ -2153,6 +2153,33 @@ fn run_hot_pipeline_original_func(
 }
 
 ///|
+fn run_hot_pipeline_drop_label_names(mod_ : @lib.Module) -> @lib.Module {
+  match mod_.name_sec {
+    Some(name_sec) => {
+      if name_sec.label_names is None {
+        return mod_
+      }
+      mod_.with_name_sec(
+        @lib.NameSec::new(
+          module_name=name_sec.module_name,
+          func_names=name_sec.func_names,
+          local_names=name_sec.local_names,
+          type_names=name_sec.type_names,
+          table_names=name_sec.table_names,
+          memory_names=name_sec.memory_names,
+          global_names=name_sec.global_names,
+          elem_names=name_sec.elem_names,
+          data_names=name_sec.data_names,
+          field_names=name_sec.field_names,
+          tag_names=name_sec.tag_names,
+        ),
+      )
+    }
+    None => mod_
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_hot_pass(
   mod_ : @lib.Module,
   entry : HotPassRegistryEntry,
@@ -2189,7 +2216,8 @@ fn run_hot_pipeline_apply_hot_pass(
   }
   Ok(
     match next_code_sec {
-      Some(code_sec) => mod_.with_code_sec(code_sec)
+      Some(code_sec) =>
+        run_hot_pipeline_drop_label_names(mod_.with_code_sec(code_sec))
       None => mod_
     },
   )

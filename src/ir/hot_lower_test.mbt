@@ -23,6 +23,21 @@ fn hot_lower_test_context_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lower_test_struct_module() -> @lib.Module {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  @lib.Module::new().with_type_sec(@lib.TypeSec::new([struct_type]))
+}
+
+///|
 test "hot lower roundtrips representative exact-payload families" {
   let memarg = hot_lower_test_memarg()
   let body = @lib.Expr::new([
@@ -97,6 +112,171 @@ test "hot lower preserves result-only loop fallthrough values" {
   let lowered = hot_lower_func(hot)
 
   assert_eq(lowered, @lib.Func::new(@lib.Locals::from_types([]), body))
+}
+
+///|
+test "hot lower peels typed wrapper blocks that only branch to the parent" {
+  let struct_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let body = @lib.Expr::new([
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(locals=[struct_ref_type]),
+    hot_module_context_from_module(hot_lower_test_struct_module()),
+    body_result_type=@lib.BlockType::val_type(struct_ref_type),
+  )
+
+  assert_eq(
+    hot_lower_func(hot),
+    @lib.Func::new(
+      @lib.Locals::from_types([struct_ref_type]),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+          ]),
+        ),
+        @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::nop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ]),
+    ),
+  )
+}
+
+///|
+test "hot lower peels escaping wrapper blocks and trims dead tails" {
+  let struct_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let body = @lib.Expr::new([
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ]),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(8)),
+      ]),
+    ),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(locals=[struct_ref_type]),
+    hot_module_context_from_module(hot_lower_test_struct_module()),
+    body_result_type=@lib.BlockType::val_type(struct_ref_type),
+  )
+
+  assert_eq(
+    hot_lower_func(hot),
+    @lib.Func::new(
+      @lib.Locals::from_types([struct_ref_type]),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+          ]),
+        ),
+        @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::nop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ]),
+    ),
+  )
+}
+
+///|
+test "hot lower materializes unreachable tails after loop exits to the parent block" {
+  let struct_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let body = @lib.Expr::new([
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::loop_(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ]),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(8)),
+      ]),
+    ),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(locals=[struct_ref_type]),
+    hot_module_context_from_module(hot_lower_test_struct_module()),
+    body_result_type=@lib.BlockType::val_type(struct_ref_type),
+  )
+
+  assert_eq(
+    hot_lower_func(hot),
+    @lib.Func::new(
+      @lib.Locals::from_types([struct_ref_type]),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::loop_(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(7)),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ]),
+            ),
+            @lib.Instruction::unreachable_(),
+          ]),
+        ),
+        @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::nop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ]),
+    ),
+  )
 }
 
 ///|

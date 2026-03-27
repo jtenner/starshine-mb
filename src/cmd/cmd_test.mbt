@@ -98,6 +98,25 @@ fn decode_module_bytes(bytes : Bytes) -> Module {
 }
 
 ///|
+fn module_with_label_names(mod_ : Module, label_count : Int) -> Module {
+  let label_entries : Array[@lib.NameAssoc] = []
+  for i = 0; i < label_count; i = i + 1 {
+    label_entries.push(
+      @lib.NameAssoc::new(i.reinterpret_as_uint(), @lib.Name::new("label\{i}")),
+    )
+  }
+  mod_.with_name_sec(
+    @lib.NameSec::new(
+      label_names=Some(
+        @lib.IndirectNameMap::new([
+          @lib.IndirectNameAssoc::new(0U, @lib.NameMap::new(label_entries)),
+        ]),
+      ),
+    ),
+  )
+}
+
+///|
 fn name_map_order_error(label : String, names : @lib.NameMap) -> String? {
   let @lib.NameMap(entries) = names
   let mut prev_idx : UInt? = None
@@ -2072,6 +2091,44 @@ test "run_cmd_with_adapter trims loop tails after folded HSO exits to the outer 
   assert_true(pretty.contains("struct.new"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
   assert_false(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter drops stale label names after HSO relowers named control" {
+  let wasm = encode_module_bytes(
+    module_with_label_names(fixture_hso_loop_exit_trim_ref_result_module(), 2),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-loop-names.wasm"] },
+    file_exists=fn(path) { path == "hso-loop-names.wasm" },
+    read_file=fn(path) {
+      if path == "hso-loop-names.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--heap-store-optimization", "--out", "out.wasm", "hso-loop-names.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected named-label HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.name_sec {
+    Some(name_sec) => assert_true(name_sec.label_names is None)
+    None => ()
+  }
 }
 
 ///|

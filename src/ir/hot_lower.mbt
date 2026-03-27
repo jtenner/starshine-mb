@@ -934,6 +934,318 @@ fn hot_lower_impl_declared_locals(
 }
 
 ///|
+fn hot_lower_impl_decoded_label_depth(li : LabelIdx) -> Int {
+  let @lib.LabelIdx(depth) = li
+  depth.reinterpret_as_int()
+}
+
+///|
+fn hot_lower_impl_rebased_label_depth(
+  li : LabelIdx,
+  owner_depth : Int,
+) -> LabelIdx {
+  let depth = hot_lower_impl_decoded_label_depth(li)
+  if depth > owner_depth {
+    LabelIdx::new((depth - 1).reinterpret_as_uint())
+  } else {
+    li
+  }
+}
+
+///|
+fn hot_lower_impl_catch_targets_removed_label(
+  catch_ : Catch,
+  owner_depth : Int,
+) -> Bool {
+  match catch_ {
+    Catch(_, li) | CatchRef(_, li) | CatchAll(li) | CatchAllRef(li) =>
+      hot_lower_impl_decoded_label_depth(li) == owner_depth
+  }
+}
+
+///|
+fn hot_lower_impl_rebase_catch(catch_ : Catch, owner_depth : Int) -> Catch {
+  match catch_ {
+    Catch(tag, li) =>
+      Catch::new(tag, hot_lower_impl_rebased_label_depth(li, owner_depth))
+    CatchRef(tag, li) =>
+      Catch::ref_(tag, hot_lower_impl_rebased_label_depth(li, owner_depth))
+    CatchAll(li) =>
+      Catch::all(hot_lower_impl_rebased_label_depth(li, owner_depth))
+    CatchAllRef(li) =>
+      Catch::all_ref(hot_lower_impl_rebased_label_depth(li, owner_depth))
+  }
+}
+
+///|
+fn hot_lower_impl_instr_targets_removed_label(
+  instr : Instruction,
+  owner_depth : Int,
+) -> Bool {
+  match instr {
+    Br(li) | BrIf(li) | BrOnNull(li) | BrOnNonNull(li) =>
+      hot_lower_impl_decoded_label_depth(li) == owner_depth
+    BrTable(labels, fallback) => {
+      if hot_lower_impl_decoded_label_depth(fallback) == owner_depth {
+        return true
+      }
+      for li in labels {
+        if hot_lower_impl_decoded_label_depth(li) == owner_depth {
+          return true
+        }
+      }
+      false
+    }
+    Block(_, Expr(body)) | Loop(_, Expr(body)) =>
+      hot_lower_impl_body_targets_removed_label(body, owner_depth + 1)
+    If(_, then_, else_) => {
+      if hot_lower_impl_body_targets_removed_label(then_, owner_depth + 1) {
+        return true
+      }
+      match else_ {
+        Some(else_body) =>
+          hot_lower_impl_body_targets_removed_label(else_body, owner_depth + 1)
+        None => false
+      }
+    }
+    TryTable(_, catches, Expr(body)) => {
+      for catch_ in catches {
+        if hot_lower_impl_catch_targets_removed_label(catch_, owner_depth) {
+          return true
+        }
+      }
+      hot_lower_impl_body_targets_removed_label(body, owner_depth + 1)
+    }
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_body_targets_removed_label(
+  body : Array[Instruction],
+  owner_depth : Int,
+) -> Bool {
+  for instr in body {
+    if hot_lower_impl_instr_targets_removed_label(instr, owner_depth) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_lower_impl_rebase_instr(
+  instr : Instruction,
+  owner_depth : Int,
+) -> Instruction {
+  match instr {
+    Br(li) =>
+      Instruction::br(hot_lower_impl_rebased_label_depth(li, owner_depth))
+    BrIf(li) =>
+      Instruction::br_if(hot_lower_impl_rebased_label_depth(li, owner_depth))
+    BrTable(labels, fallback) => {
+      let rebased : Array[LabelIdx] = []
+      for li in labels {
+        rebased.push(hot_lower_impl_rebased_label_depth(li, owner_depth))
+      }
+      Instruction::br_table(
+        rebased,
+        hot_lower_impl_rebased_label_depth(fallback, owner_depth),
+      )
+    }
+    BrOnNull(li) =>
+      Instruction::br_on_null(
+        hot_lower_impl_rebased_label_depth(li, owner_depth),
+      )
+    BrOnNonNull(li) =>
+      Instruction::br_on_non_null(
+        hot_lower_impl_rebased_label_depth(li, owner_depth),
+      )
+    Block(bt, Expr(body)) =>
+      Instruction::block(
+        bt,
+        Expr::new(hot_lower_impl_rebase_body(body, owner_depth + 1)),
+      )
+    Loop(bt, Expr(body)) =>
+      Instruction::loop_(
+        bt,
+        Expr::new(hot_lower_impl_rebase_body(body, owner_depth + 1)),
+      )
+    If(bt, then_, else_) =>
+      Instruction::if_(
+        bt,
+        hot_lower_impl_rebase_body(then_, owner_depth + 1),
+        match else_ {
+          Some(else_body) =>
+            Some(hot_lower_impl_rebase_body(else_body, owner_depth + 1))
+          None => None
+        },
+      )
+    TryTable(bt, catches, Expr(body)) => {
+      let rebased_catches : Array[Catch] = []
+      for catch_ in catches {
+        rebased_catches.push(hot_lower_impl_rebase_catch(catch_, owner_depth))
+      }
+      Instruction::try_table(
+        bt,
+        rebased_catches,
+        Expr::new(hot_lower_impl_rebase_body(body, owner_depth + 1)),
+      )
+    }
+    _ => instr
+  }
+}
+
+///|
+fn hot_lower_impl_rebase_body(
+  body : Array[Instruction],
+  owner_depth : Int,
+) -> Array[Instruction] {
+  let rebased : Array[Instruction] = []
+  for instr in body {
+    rebased.push(hot_lower_impl_rebase_instr(instr, owner_depth))
+  }
+  rebased
+}
+
+///|
+fn hot_lower_impl_has_control_transfer(instr : Instruction) -> Bool {
+  match instr {
+    Block(_, _)
+    | Loop(_, _)
+    | If(_, _, _)
+    | TryTable(_, _, _)
+    | Br(_)
+    | BrIf(_)
+    | BrTable(_, _)
+    | BrOnNull(_)
+    | BrOnNonNull(_)
+    | Return
+    | Throw(_)
+    | ThrowRef
+    | Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_is_simple_parent_exit_body(
+  body : Array[Instruction],
+  parent_depth : Int,
+) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  for i = 0; i < body.length() - 1; i = i + 1 {
+    if hot_lower_impl_has_control_transfer(body[i]) {
+      return false
+    }
+  }
+  match body[body.length() - 1] {
+    Br(li) => hot_lower_impl_decoded_label_depth(li) == parent_depth
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_canonicalize_instr(instr : Instruction) -> Instruction {
+  match instr {
+    Block(bt, Expr(body)) =>
+      Instruction::block(
+        bt,
+        Expr::new(hot_lower_impl_canonicalize_block_body(bt, body)),
+      )
+    Loop(bt, Expr(body)) =>
+      Instruction::loop_(bt, Expr::new(hot_lower_impl_canonicalize_body(body)))
+    If(bt, then_, else_) =>
+      Instruction::if_(
+        bt,
+        hot_lower_impl_canonicalize_body(then_),
+        match else_ {
+          Some(else_body) => Some(hot_lower_impl_canonicalize_body(else_body))
+          None => None
+        },
+      )
+    TryTable(bt, catches, Expr(body)) =>
+      Instruction::try_table(
+        bt,
+        catches,
+        Expr::new(hot_lower_impl_canonicalize_body(body)),
+      )
+    _ => instr
+  }
+}
+
+///|
+fn hot_lower_impl_canonicalize_block_body(
+  bt : BlockType,
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  let canonical = hot_lower_impl_canonicalize_body(body)
+  let peeled = match canonical {
+    [Block(inner_bt, Expr(inner_body))] if bt == inner_bt &&
+      hot_lower_impl_is_simple_parent_exit_body(inner_body, 1) &&
+      !hot_lower_impl_body_targets_removed_label(inner_body, 0) =>
+      hot_lower_impl_rebase_body(inner_body, 0)
+    _ => canonical
+  }
+  let spliced : Array[Instruction] = []
+  let mut loop_exit_idx = -1
+  for i = 0; i < peeled.length(); i = i + 1 {
+    let instr = peeled[i]
+    match instr {
+      Block(VoidBlockType, Expr(inner_body)) if hot_lower_impl_is_simple_parent_exit_body(
+          inner_body, 1,
+        ) &&
+        !hot_lower_impl_body_targets_removed_label(inner_body, 0) =>
+        for inner in hot_lower_impl_rebase_body(inner_body, 0) {
+          spliced.push(inner)
+        }
+      Loop(_, Expr(loop_body)) if hot_lower_impl_is_simple_parent_exit_body(
+          loop_body, 1,
+        ) => {
+        spliced.push(instr)
+        loop_exit_idx = spliced.length() - 1
+      }
+      _ => spliced.push(instr)
+    }
+  }
+  let trimmed : Array[Instruction] = []
+  for instr in spliced {
+    trimmed.push(instr)
+    match instr {
+      Br(li) if hot_lower_impl_decoded_label_depth(li) == 0 => return trimmed
+      _ => ()
+    }
+  }
+  if loop_exit_idx >= 0 {
+    let prefix : Array[Instruction] = []
+    for i = 0; i <= loop_exit_idx; i = i + 1 {
+      prefix.push(spliced[i])
+    }
+    return match bt {
+      VoidBlockType => prefix
+      _ => {
+        prefix.push(Instruction::unreachable_())
+        prefix
+      }
+    }
+  }
+  trimmed
+}
+
+///|
+fn hot_lower_impl_canonicalize_body(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  let canonical : Array[Instruction] = []
+  for instr in body {
+    canonical.push(hot_lower_impl_canonicalize_instr(instr))
+  }
+  canonical
+}
+
+///|
 fn hot_lower_body_with_extras(func : HotFunc) -> HotLowerBodyResult {
   hot_verify_all_or_abort(func)
   hot_lower_body_with_extras_unverified(func)
@@ -968,7 +1280,11 @@ fn hot_lower_body_with_extras_unverified(func : HotFunc) -> HotLowerBodyResult {
       out,
     )
   }
-  { body: out, extra_locals, final_stack: value_stack }
+  {
+    body: hot_lower_impl_canonicalize_body(out),
+    extra_locals,
+    final_stack: value_stack,
+  }
 }
 
 ///|
