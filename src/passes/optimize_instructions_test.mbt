@@ -233,6 +233,69 @@ test "optimize-instructions canonicalizes if eq zero into eqz without else" {
 }
 
 ///|
+test "optimize-instructions collapses duplicate branch ifs in then regions" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  let outer_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let outer_label = @ir.hot_control_node_label(func, outer_block)
+  let inner_compare = @ir.hot_build_compare(
+    func,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  @ir.hot_node_exact_instr_set(func, inner_compare, @lib.Instruction::i32_eq())
+  let branch_value = @ir.hot_build_local_get(func, 1)
+  let inner_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    inner_compare,
+    [@ir.hot_build_br(func, outer_label, values=[branch_value])],
+    else_body=Some([@ir.hot_build_br(func, outer_label, values=[branch_value])]),
+  )
+  let outer_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @ir.hot_build_local_get(func, 0),
+    [inner_if, @ir.hot_build_unreachable(func)],
+    else_body=Some([@ir.hot_build_local_get(func, 1)]),
+  )
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_body_ref(func, outer_block),
+    [outer_if],
+  )
+  @ir.hot_root_append(func, outer_block)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimize-instructions duplicate-branch success, got \{err}",
+      )
+  }
+
+  let then_region = @ir.hot_region_then_ref(func, outer_if)
+  assert_eq(@ir.hot_region_root_count(func, then_region), 1)
+  let then_root = @ir.hot_region_get(func, then_region, 0)
+  match @ir.hot_node_get(func, then_root).op {
+    @ir.HotOp::Br => ()
+    _ => fail("expected duplicate then-branch if to collapse into a direct br")
+  }
+}
+
+///|
 test "optimize-instructions canonicalizes commutative constants onto the rhs" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) i32.const 7 local.get 0 i32.add))",

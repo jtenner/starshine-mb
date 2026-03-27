@@ -644,6 +644,124 @@ fn optimize_instructions_is_trivially_pure_value(
 }
 
 ///|
+fn optimize_instructions_is_side_effect_free_expr(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  let node = if node_id < func.nodes.length() {
+    func.nodes[node_id]
+  } else {
+    @ir.hot_node_get(func, node_id)
+  }
+  match node.op {
+    @ir.HotOp::LocalGet
+    | @ir.HotOp::GlobalGet
+    | @ir.HotOp::Const
+    | @ir.HotOp::RefNull
+    | @ir.HotOp::RefFunc => true
+    @ir.HotOp::Unary
+    | @ir.HotOp::Binary
+    | @ir.HotOp::Compare
+    | @ir.HotOp::Convert
+    | @ir.HotOp::Select => {
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        if !optimize_instructions_is_side_effect_free_expr(
+            func,
+            dead,
+            func.children[node.child_base + slot],
+          ) {
+          return false
+        }
+      }
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_same_branch_shape(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, lhs_id) ||
+    !optimize_instructions_node_is_live(func, dead, rhs_id) {
+    return false
+  }
+  let lhs = @ir.hot_node_get(func, lhs_id)
+  let rhs = @ir.hot_node_get(func, rhs_id)
+  match (lhs.op, rhs.op) {
+    (@ir.HotOp::Br, @ir.HotOp::Br) if lhs.imm0 == rhs.imm0 &&
+      lhs.child_count == rhs.child_count => {
+      for slot = 0; slot < lhs.child_count; slot = slot + 1 {
+        if @ir.hot_child_get(func, lhs_id, slot) !=
+          @ir.hot_child_get(func, rhs_id, slot) {
+          return false
+        }
+      }
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_try_collapse_duplicate_then_branch(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  let then_region = @ir.hot_region_then_ref(func, node_id)
+  if @ir.hot_region_root_count(func, then_region) != 2 {
+    return false
+  }
+  let inner_if_id = @ir.hot_region_get(func, then_region, 0)
+  let tail_id = @ir.hot_region_get(func, then_region, 1)
+  match @ir.hot_node_get(func, tail_id).op {
+    @ir.HotOp::Unreachable => ()
+    _ => return false
+  }
+  match @ir.hot_node_get(func, inner_if_id).op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  let inner_else = match @ir.hot_region_else_ref(func, inner_if_id) {
+    Some(region) => region
+    None => return false
+  }
+  let inner_then = @ir.hot_region_then_ref(func, inner_if_id)
+  if @ir.hot_region_root_count(func, inner_then) != 1 ||
+    @ir.hot_region_root_count(func, inner_else) != 1 {
+    return false
+  }
+  let inner_cond_id = @ir.hot_child_get(func, inner_if_id, 0)
+  if !optimize_instructions_is_side_effect_free_expr(func, dead, inner_cond_id) {
+    return false
+  }
+  let then_root = @ir.hot_region_get(func, inner_then, 0)
+  let else_root = @ir.hot_region_get(func, inner_else, 0)
+  if !optimize_instructions_same_branch_shape(func, dead, then_root, else_root) {
+    return false
+  }
+  let branch = @ir.hot_node_get(func, then_root)
+  let replacement = @ir.hot_build_br(
+    func,
+    branch.imm0,
+    values=@ir.hot_child_span(func, then_root),
+  )
+  @ir.hot_region_replace_body(func, then_region, [replacement])
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn optimize_instructions_reverse_relational_instr(
   instr : @lib.Instruction,
 ) -> @lib.Instruction? {
@@ -1046,6 +1164,11 @@ fn optimize_instructions_try_optimize_if_condition(
   match node.op {
     @ir.HotOp::If if node.child_count == 3 => ()
     _ => return false
+  }
+  if optimize_instructions_try_collapse_duplicate_then_branch(
+      ctx, func, dead, node_id,
+    ) {
+    return true
   }
   let cond_id = func.children[node.child_base]
   let then_region = func.children[node.child_base + 1]
