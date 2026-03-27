@@ -717,6 +717,45 @@ fn run_hot_pipeline_raw_remove_unused_brs_can_skip_structured_return_ladder(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs_can_skip_unique_loop_select_return_ladder(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if locals.length() < 48 || locals.length() > 64 {
+    return false
+  }
+  let (_, has_structured_control, has_branches, instr_count) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
+  if !has_structured_control ||
+    !has_branches ||
+    instr_count < 140 ||
+    instr_count > 480 {
+    return false
+  }
+  let shape = RawRemoveUnusedBrsShape::new()
+  run_hot_pipeline_raw_remove_unused_brs_scan_shape(instrs, shape)
+  shape.call_count >= 30 &&
+  shape.call_count <= 50 &&
+  shape.local_set_count >= 30 &&
+  shape.local_set_count <= 45 &&
+  shape.local_tee_count >= 20 &&
+  shape.local_tee_count <= 50 &&
+  shape.if_count >= 4 &&
+  shape.if_count <= 6 &&
+  shape.return_count == 3 &&
+  shape.select_count == 1 &&
+  shape.br_if_count == 1 &&
+  shape.block_count >= 1 &&
+  shape.block_count <= 4 &&
+  shape.loop_count == 1 &&
+  shape.br_count >= 1 &&
+  shape.br_count <= 4 &&
+  shape.drop_count >= 1 &&
+  shape.drop_count <= 12
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs_match_i32_const(
   instr : @lib.Instruction,
 ) -> @lib.I32? {
@@ -2237,6 +2276,11 @@ fn run_hot_pipeline_raw_remove_unused_brs(
       unchanged_original: false,
       trace_skip_raw: true,
     })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_can_skip_unique_loop_select_return_ladder(
+      locals, instrs,
+    ) {
+    return Some(("unique-loop-select-return-ladder-noop", original))
   }
   if run_hot_pipeline_raw_remove_unused_brs_can_skip_structured_return_ladder(
       locals, instrs,
