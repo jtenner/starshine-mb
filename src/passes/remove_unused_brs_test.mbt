@@ -523,6 +523,25 @@ test "remove-unused-brs detects nested multi-value root return context" {
 }
 
 ///|
+test "remove-unused-brs preserves result ifs for nested multi-value root return blocks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32 i32) (local i32) (block (result i32 i32) (return (if (result i32 i32) (local.get 0) (then (local.set 2 (i32.const 7)) (if (result i32 i32) (local.get 1) (then (return (i32.const 1) (local.get 2))) (else (return (i32.const 2) (i32.const 3))))) (else (return (i32.const 4) (i32.const 5))))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs nested multi-value root return block success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("(if "), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites branch payload ifs with branching else arms" {
   let optimized = match
     pass_test_run_pipeline(

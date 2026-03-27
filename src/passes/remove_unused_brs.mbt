@@ -514,6 +514,19 @@ fn remove_unused_brs_try_voidify_tail_return_if(
   if then_body.is_empty() || else_body.is_empty() {
     return false
   }
+  if return_arity > 1 {
+    let return_cache : Array[Int] = []
+    for root_id in then_body {
+      if remove_unused_brs_subtree_has_return(func, root_id, return_cache) {
+        return false
+      }
+    }
+    for root_id in else_body {
+      if remove_unused_brs_subtree_has_return(func, root_id, return_cache) {
+        return false
+      }
+    }
+  }
   let replacement = @ir.hot_build_if(
     func,
     @lib.BlockType::void_(),
