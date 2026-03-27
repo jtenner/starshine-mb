@@ -1190,13 +1190,283 @@ fn hso_subtree_exits_owner(
 }
 
 ///|
+fn hso_subtree_targets_owner_label(
+  func : @ir.HotFunc,
+  node_id : Int,
+  owner_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_branch_target(func, node_id) {
+    Some(label_id) =>
+      if @ir.hot_label_owner(func, label_id) == owner_id {
+        return true
+      }
+    None => ()
+  }
+  for label_id in @ir.hot_branch_table_targets_for_node(func, node_id) {
+    if @ir.hot_label_owner(func, label_id) == owner_id {
+      return true
+    }
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if hso_subtree_targets_owner_label(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+        owner_id,
+      ) {
+      return true
+    }
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_region_targets_owner_label(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        owner_id,
+      )
+    @ir.HotOp::If => {
+      let then_targets_owner = hso_region_targets_owner_label(
+        func,
+        @ir.hot_region_then_ref(func, node_id),
+        owner_id,
+      )
+      if then_targets_owner {
+        true
+      } else {
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_targets_owner_label(func, region_ref, owner_id)
+          None => false
+        }
+      }
+    }
+    @ir.HotOp::Try => {
+      let body_targets_owner = hso_region_targets_owner_label(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        owner_id,
+      )
+      if body_targets_owner {
+        true
+      } else {
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_targets_owner_label(func, region_ref, owner_id)
+          None => false
+        }
+      }
+    }
+    @ir.HotOp::TryTable =>
+      hso_region_targets_owner_label(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        owner_id,
+      ) ||
+      hso_region_targets_owner_label(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+        owner_id,
+      )
+    _ => false
+  }
+}
+
+///|
+fn hso_region_targets_owner_label(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  owner_id : Int,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if hso_subtree_targets_owner_label(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        owner_id,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hso_try_flatten_block_wrapper(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, node_id)
+  if @ir.hot_region_root_count(func, body_ref) != 1 {
+    return false
+  }
+  let block_type = match hso_sequence_result_type(func, node_id) {
+    Some(block_type) => block_type
+    None => return false
+  }
+  let root_id = @ir.hot_region_get(func, body_ref, 0)
+  let root_self_targets = root_id >= 0 &&
+    @ir.hot_node_is_live(func, root_id) &&
+    hso_subtree_targets_owner_label(func, root_id, root_id)
+  if root_self_targets {
+    let root_node = @ir.hot_node_get(func, root_id)
+    match root_node.op {
+      @ir.HotOp::Block => {
+        let old_label_id = @ir.hot_control_node_label(func, root_id)
+        let new_label_id = @ir.hot_control_node_label(func, node_id)
+        hso_retarget_subtree_label(func, root_id, old_label_id, new_label_id)
+      }
+      _ => return false
+    }
+  }
+  if root_id < 0 ||
+    !@ir.hot_node_is_live(func, root_id) ||
+    Some(block_type) != hso_sequence_result_type(func, root_id) ||
+    hso_subtree_targets_owner_label(func, root_id, node_id) ||
+    hso_subtree_targets_owner_label(func, root_id, root_id) {
+    return false
+  }
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, root_id))
+  true
+}
+
+///|
+fn hso_retarget_subtree_label(
+  func : @ir.HotFunc,
+  node_id : Int,
+  from_label_id : Int,
+  to_label_id : Int,
+) -> Unit {
+  if node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    from_label_id == to_label_id {
+    return
+  }
+  match @ir.hot_branch_target(func, node_id) {
+    Some(label_id) =>
+      if label_id == from_label_id {
+        match @ir.hot_node_get(func, node_id).op {
+          @ir.HotOp::Br => {
+            let values : Array[Int] = []
+            for slot = 0
+                slot < @ir.hot_child_count(func, node_id)
+                slot = slot + 1 {
+              values.push(@ir.hot_child_get(func, node_id, slot))
+            }
+            let replacement_id = @ir.hot_build_br(func, to_label_id, values~)
+            let replacement = @ir.hot_node_get(func, replacement_id)
+            @ir.hot_delete_node(func, replacement_id)
+            @ir.hot_replace_node(func, node_id, replacement)
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    hso_retarget_subtree_label(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      from_label_id,
+      to_label_id,
+    )
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_retarget_region_label(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        from_label_id,
+        to_label_id,
+      )
+    @ir.HotOp::If => {
+      hso_retarget_region_label(
+        func,
+        @ir.hot_region_then_ref(func, node_id),
+        from_label_id,
+        to_label_id,
+      )
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          hso_retarget_region_label(
+            func, region_ref, from_label_id, to_label_id,
+          )
+        None => ()
+      }
+    }
+    @ir.HotOp::Try => {
+      hso_retarget_region_label(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        from_label_id,
+        to_label_id,
+      )
+      match @ir.hot_region_catch_ref(func, node_id) {
+        Some(region_ref) =>
+          hso_retarget_region_label(
+            func, region_ref, from_label_id, to_label_id,
+          )
+        None => ()
+      }
+    }
+    @ir.HotOp::TryTable => {
+      hso_retarget_region_label(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        from_label_id,
+        to_label_id,
+      )
+      hso_retarget_region_label(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+        from_label_id,
+        to_label_id,
+      )
+    }
+    _ => ()
+  }
+}
+
+///|
+fn hso_retarget_region_label(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  from_label_id : Int,
+  to_label_id : Int,
+) -> Unit {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    hso_retarget_subtree_label(
+      func,
+      @ir.hot_region_get(func, region_ref, idx),
+      from_label_id,
+      to_label_id,
+    )
+  }
+}
+
+///|
 fn hso_trim_unreachable_subtree(func : @ir.HotFunc, node_id : Int) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Loop =>
+    @ir.HotOp::Block => {
+      let changed = hso_trim_unreachable_region_tails(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        node_id,
+      )
+      hso_try_flatten_block_wrapper(func, node_id) || changed
+    }
+    @ir.HotOp::Loop =>
       hso_trim_unreachable_region_tails(
         func,
         @ir.hot_region_body_ref(func, node_id),
@@ -1331,6 +1601,55 @@ fn hso_liftable_swapped_block_roots(
 }
 
 ///|
+fn hso_peel_reorderable_value_prefix_roots(
+  cache : HsoPredicateCache,
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  value_id : Int,
+  local_id : Int,
+) -> Array[Int]? {
+  if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, value_id)
+  match node.op {
+    @ir.HotOp::Block => ()
+    _ => return Some([])
+  }
+  let block_type = match hso_sequence_result_type(func, value_id) {
+    Some(block_type) => block_type
+    None => return Some([])
+  }
+  let body_ref = @ir.hot_region_body_ref(func, value_id)
+  let roots = hso_region_roots(func, body_ref)
+  if roots.length() < 2 {
+    return Some([])
+  }
+  let final_root_id = roots[roots.length() - 1]
+  if hso_sequence_result_type(func, final_root_id) != Some(block_type) {
+    return Some([])
+  }
+  let prefix_roots : Array[Int] = []
+  for idx = 0; idx < roots.length() - 1; idx = idx + 1 {
+    let root_id = roots[idx]
+    if !hso_root_can_swap_before_local_struct_new(
+        cache, func, node_masks, root_id, local_id,
+      ) {
+      return Some([])
+    }
+    prefix_roots.push(root_id)
+  }
+  if prefix_roots.is_empty() {
+    return Some([])
+  }
+  ignore(
+    @ir.hot_region_splice(func, body_ref, 0, roots.length(), [final_root_id]),
+  )
+  ignore(hso_try_flatten_block_wrapper(func, value_id))
+  Some(prefix_roots)
+}
+
+///|
 fn hso_try_fold_into_struct_new(
   cache : HsoPredicateCache,
   type_cache : HsoTypeCache,
@@ -1342,16 +1661,23 @@ fn hso_try_fold_into_struct_new(
   field_idx : Int,
   value_id : Int,
   local_id : Int,
-) -> Bool {
+) -> Array[Int]? {
   let (new_type_idx, field_count, desc_id, needs_default_materialization) = match
     hso_supported_struct_new(type_cache, func, module_ctx, struct_new_id) {
     Some(parts) => parts
-    _ => return false
+    _ => return None
   }
   if new_type_idx != type_idx || field_idx < 0 || field_idx >= field_count {
-    return false
+    return None
   }
   ignore(hso_trim_unreachable_subtree(func, value_id))
+  let lifted_prefix_roots = match
+    hso_peel_reorderable_value_prefix_roots(
+      cache, func, node_masks, value_id, local_id,
+    ) {
+    Some(roots) => roots
+    None => return None
+  }
 
   let value_mask = hso_effects_for_node(func, node_masks, value_id)
   let value_reorder_mask = hso_reorder_effect_mask(
@@ -1359,17 +1685,17 @@ fn hso_try_fold_into_struct_new(
   )
   if (value_mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
     hso_subtree_touches_local(func, value_id, local_id) {
-    return false
+    return None
   }
   if hso_subtree_may_skip_local_set(cache, func, value_id) {
-    return false
+    return None
   }
   if hso_mask_invalidates(
       hso_struct_new_shallow_effects(func, struct_new_id),
       value_reorder_mask,
     ) &&
     !hso_subtree_is_trapless_reorderable(cache, func, node_masks, value_id, []) {
-    return false
+    return None
   }
 
   for idx = field_idx + 1; idx < field_count; idx = idx + 1 {
@@ -1391,7 +1717,7 @@ fn hso_try_fold_into_struct_new(
         value_id,
         value_reorder_mask,
       ) {
-      return false
+      return None
     }
   }
   match desc_id {
@@ -1405,7 +1731,7 @@ fn hso_try_fold_into_struct_new(
           value_id,
           value_reorder_mask,
         ) {
-        return false
+        return None
       }
     None => ()
   }
@@ -1413,14 +1739,14 @@ fn hso_try_fold_into_struct_new(
   if needs_default_materialization {
     let module_ctx = match module_ctx {
       Some(module_ctx) => module_ctx
-      None => return false
+      None => return None
     }
     let children = match
       hso_build_default_struct_new_children(
         func, module_ctx, type_idx, field_idx, value_id, desc_id,
       ) {
       Some(children) => children
-      None => return false
+      None => return None
     }
     let instr = match desc_id {
       Some(_) => @lib.Instruction::struct_new_desc(type_idx)
@@ -1440,11 +1766,11 @@ fn hso_try_fold_into_struct_new(
     let replacement = match
       hso_build_preserved_replacement(func, node_masks, old_value_id, value_id) {
       Some(replacement) => replacement
-      None => return false
+      None => return None
     }
     @ir.hot_child_set(func, struct_new_id, field_idx, replacement)
   }
-  true
+  Some(lifted_prefix_roots)
 }
 
 ///|
@@ -1473,7 +1799,8 @@ fn hso_try_fold_tee_wrapped_struct_set(
     return None
   }
   let struct_new_id = @ir.hot_child_get(func, ref_id, 0)
-  if !hso_try_fold_into_struct_new(
+  let lifted_prefix_roots = match
+    hso_try_fold_into_struct_new(
       cache,
       type_cache,
       func,
@@ -1485,10 +1812,15 @@ fn hso_try_fold_tee_wrapped_struct_set(
       value_id,
       ref_node.imm0,
     ) {
-    return None
+    Some(roots) => roots
+    None => return None
   }
   let local_set_id = @ir.hot_build_local_set(func, ref_node.imm0, struct_new_id)
-  let replacement_roots : Array[Int] = [local_set_id]
+  let replacement_roots : Array[Int] = []
+  for root_id in lifted_prefix_roots {
+    replacement_roots.push(root_id)
+  }
+  replacement_roots.push(local_set_id)
   Some(replacement_roots)
 }
 
@@ -1770,26 +2102,40 @@ fn hso_process_region(
                     ) {
                     break
                   }
-                  if hso_try_fold_into_struct_new(
+                  match
+                    hso_try_fold_into_struct_new(
                       cache, type_cache, func, module_ctx, node_masks, struct_new_id,
                       type_idx, field_idx, value_id, local_id,
                     ) {
-                    let nop_id = @ir.hot_build_nop(func)
-                    if segment_has_swapped_prefix {
-                      hso_array_insert_prefix_roots(
-                        segment_roots,
-                        segment_local_set_idx,
-                        [nop_id],
-                        1,
-                      )
-                      segment_local_set_idx = segment_local_set_idx + 1
+                    Some(lifted_prefix_roots) => {
+                      if !lifted_prefix_roots.is_empty() {
+                        hso_array_insert_prefix_roots(
+                          segment_roots,
+                          segment_local_set_idx,
+                          lifted_prefix_roots,
+                          lifted_prefix_roots.length(),
+                        )
+                        segment_local_set_idx = segment_local_set_idx +
+                          lifted_prefix_roots.length()
+                      }
+                      let nop_id = @ir.hot_build_nop(func)
+                      if segment_has_swapped_prefix {
+                        hso_array_insert_prefix_roots(
+                          segment_roots,
+                          segment_local_set_idx,
+                          [nop_id],
+                          1,
+                        )
+                        segment_local_set_idx = segment_local_set_idx + 1
+                      }
+                      changed = true
+                      if !segment_has_swapped_prefix {
+                        segment_roots.push(nop_id)
+                      }
+                      next_idx = next_idx + 1
+                      continue
                     }
-                    changed = true
-                    if !segment_has_swapped_prefix {
-                      segment_roots.push(nop_id)
-                    }
-                    next_idx = next_idx + 1
-                    continue
+                    None => ()
                   }
                 }
                 None => ()

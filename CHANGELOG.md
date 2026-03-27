@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-27 Fix: peel canonical HSO result-block prefixes
+
+- **`heap-store-optimization` folded result-block prefix peeling** by **@jtenner**. Updating [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt) so HSO peels reorderable prefix roots out of folded result blocks and flattens the resulting one-root value blocks when that stays label-safe. This aligns the folded `if` family with Binaryen’s canonical output shape and drops the focused control probe from 8 remaining mismatches to 6, while keeping `moon test src/passes` and `moon test src/cmd` green.
+
 ## 2026-03-27 Fix: trim HSO tails after nested exits to outer owners
 
 - **`heap-store-optimization` nested-exit tail trimming** by **@jtenner**. Updating [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt), and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) so HSO now trims dead tails after nested blocks and loops branch out of the current folded value owner, matching Binaryen’s folded semantics instead of leaving unreachable trailing roots alive. Focused pass and command-path regressions cover nested block exits and loop exits to the outer block, with probe timings recorded alongside the implementation commit.
