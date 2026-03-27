@@ -254,6 +254,90 @@ test "dead-code-elimination removes typed branch-payload forwarders nested under
 }
 
 ///|
+test "dead-code-elimination removes typed branch-payload forwarders with prefix work nested under local.set" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32 i32) (result i32) (local i32) (local i32) (local.set 2 (block $out (result i32) (block $exit (br $out (block $mid (result i32) (block $cont (local.set 3 (local.get 1)) (br $mid (if (result i32) (local.get 0) (then (i32.const 1) (local.set 2) (br $cont)) (else (i32.const 2) (local.set 3) (br $exit))))) (local.get 3)))) (i32.const 9))) (local.get 2)))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination prefixed nested payload-forwarder success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination removes stacked typed branch-payload forwarders nested under local.set" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32 i32) (result i32) (local i32) (local i32) (local.set 2 (block $out (result i32) (block $exit (br $out (block $mid (result i32) (block $cont (local.set 3 (local.get 1)) (if (result i32) (local.get 0) (then (i32.const 1) (local.set 2) (br $cont)) (else (i32.const 2) (local.set 3) (br $exit))) (br $mid)) (local.get 3)))) (i32.const 9))) (local.get 2)))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination stacked nested payload-forwarder success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination removes dead drop wrappers around non-fallthrough branches" {
   let optimized = match
     pass_test_run_pipeline(
@@ -377,6 +461,77 @@ test "dead-code-elimination removes split drop roots after nonfallthrough result
   match @ir.hot_node_get(func, root1).op {
     @ir.HotOp::Unreachable => ()
     other => fail("expected explicit unreachable tail, got \{other}")
+  }
+}
+
+///|
+test "dead-code-elimination voidifies nonfinal nonfallthrough value blocks in lifted void regions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32) i32.const 1 if block (result i32) block br 0 end i32.const 5 local.set 0 i32.const 1 return end local.get 0 drop end i32.const 7))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination nonfinal nonfallthrough value-block success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(drop (block I32"), msg=pretty)
+  assert_true(pretty.contains("(block (Void)"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination voidifies dropped nonfallthrough value blocks with incoming pure payload branches" {
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let wrapped = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let wrapped_label = @ir.hot_control_node_label(func, wrapped)
+  let inner = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    @ir.hot_build_br(func, wrapped_label, values=[
+      @ir.hot_build_const_i32(func, @lib.I32(0)),
+    ]),
+  ])
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, wrapped), [
+    inner,
+    @ir.hot_build_return(func, [@ir.hot_build_const_i32(func, @lib.I32(1))]),
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, wrapped))
+  @ir.hot_root_append(func, @ir.hot_build_const_i32(func, @lib.I32(7)))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination dropped pure-payload branch wrapper success, got \{err}",
+      )
+  }
+
+  let root0 = @ir.hot_root_get(func, 0)
+  assert_eq(root0, wrapped)
+  assert_eq(@ir.hot_node_result_arity(func, root0), 0)
+  let root1 = @ir.hot_root_get(func, 1)
+  match @ir.hot_node_get(func, root1).op {
+    @ir.HotOp::Const => ()
+    other =>
+      fail("expected drop wrapper removal to expose trailing const, got \{other}")
   }
 }
 
