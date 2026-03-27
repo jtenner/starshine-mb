@@ -261,6 +261,27 @@ pub fn hot_build_ref_null(func : HotFunc, value : RefType) -> NodeId {
 }
 
 ///|
+pub fn hot_build_select(
+  func : HotFunc,
+  result_type : ValType,
+  if_true : NodeId,
+  if_false : NodeId,
+  condition : NodeId,
+) -> NodeId {
+  let instr = @lib.Instruction::select(
+    types=if result_type.is_ref_type() { Some([result_type]) } else { None },
+  )
+  let payload_id = hot_alloc_instr_payload(func, HotInstrPayload::new(instr))
+  hot_build_node(
+    func,
+    HotOp::Select,
+    hot_type_intern_value(func, result_type),
+    imm0=payload_id,
+    children=[if_true, if_false, condition],
+  )
+}
+
+///|
 pub fn hot_build_string_const(func : HotFunc, value : Bytes) -> NodeId {
   let const_id = hot_alloc_const(func, HotConstPayload::string_const(value))
   hot_build_node(

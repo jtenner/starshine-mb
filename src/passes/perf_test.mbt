@@ -222,6 +222,134 @@ test "ssa-nomerge skips raw lift when the original function has no local writes"
 }
 
 ///|
+test "remove-unused-brs skips raw lift when the original function has no candidate control flow" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 9))",
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected raw-skip remove-unused-brs success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("pass[remove-unused-brs]:skip-raw"))
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:remove-unused-brs"))
+}
+
+///|
+test "remove-unused-brs rewrites decision ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (func (param i32 i32) (result i32)
+    #|     (block (result i32)
+    #|       (block
+    #|         (block
+    #|           local.get 0
+    #|           br_table 0 1
+    #|         )
+    #|         local.get 1
+    #|         i32.const 0
+    #|         i32.eq
+    #|         if (result i32)
+    #|           i32.const 1
+    #|         else
+    #|           i32.const 0
+    #|         end
+    #|         br 1
+    #|         )
+    #|       local.get 1
+    #|       i32.const 1
+    #|       i32.eq
+    #|       if (result i32)
+    #|         i32.const 1
+    #|       else
+    #|         i32.const 0
+    #|       end
+    #|     )))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected raw decision-ladder remove-unused-brs success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-raw reason=decision-ladder-selects",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:remove-unused-brs"))
+}
+
+///|
+test "remove-unused-brs does not build use-def when rewriting tail returns" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 9 return))",
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected tail-return remove-unused-brs success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("perf:timer name=lift"))
+  assert_true(text.contains("perf:timer name=pass:remove-unused-brs"))
+  assert_false(text.contains("perf:timer name=analysis:use-def"))
+}
+
+///|
+test "remove-unused-brs trims one mutation step from tail branch payload if cleanup" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (block (result i32) (br 0 (if (result i32) (local.get 0) (then (i32.const 1)) (else (i32.const 0)))))))",
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected tail-branch-payload remove-unused-brs success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  let mutations = perf_test_count_occurrences(
+    text, "pass[remove-unused-brs]:mutated revision=",
+  )
+  assert_true(
+    mutations <= 3,
+    msg="unexpected mutation churn: \{mutations}\n\{text}",
+  )
+}
+
+///|
 test "ssa-nomerge rewrites straight-line local traffic without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }

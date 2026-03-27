@@ -276,6 +276,8 @@ pub fn hot_build_return_call_indirect(HotFunc, @lib.TypeIdx, @lib.TableIdx, Arra
 
 pub fn hot_build_return_call_ref(HotFunc, @lib.TypeIdx, Array[Int], Int) -> Int
 
+pub fn hot_build_select(HotFunc, @lib.ValType, Int, Int, Int) -> Int
+
 pub fn hot_build_store(HotFunc, @lib.MemArg, Int, Int) -> Int
 
 pub fn hot_build_string_const(HotFunc, Bytes) -> Int
@@ -632,9 +634,13 @@ pub fn local_live_out(HotLiveness, Int, Int) -> Bool
 
 pub fn local_read_nodes(HotUseDef, Int) -> Array[Int]
 
+pub fn local_read_nodes_borrowed(HotUseDef, Int) -> Array[Int]
+
 pub fn local_write_block_ids(HotUseDef, Int) -> Array[Int]
 
 pub fn local_write_nodes(HotUseDef, Int) -> Array[Int]
+
+pub fn local_write_nodes_borrowed(HotUseDef, Int) -> Array[Int]
 
 pub fn loop_blocks(HotLoopInfo, Int) -> Array[Int]
 
@@ -655,6 +661,8 @@ pub fn loop_latches(HotLoopInfo, Int) -> Array[Int]
 pub fn node_use_count(HotUseDef, Int) -> Int
 
 pub fn node_use_sites(HotUseDef, Int) -> Array[HotUseSite]
+
+pub fn node_use_sites_borrowed(HotUseDef, Int) -> Array[HotUseSite]
 
 pub fn postdom_build(HotCfg) -> HotPostDominators
 

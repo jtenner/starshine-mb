@@ -208,6 +208,33 @@ test "general family builders create nodes without raw field assembly" {
 }
 
 ///|
+test "select builder wires exact instruction payload" {
+  let func = HotFunc::new()
+  let if_true = hot_build_const_i32(func, @lib.I32(1))
+  let if_false = hot_build_const_i32(func, @lib.I32(0))
+  let condition = hot_build_const_i32(func, @lib.I32(7))
+  let select_id = hot_build_select(
+    func,
+    @lib.ValType::i32(),
+    if_true,
+    if_false,
+    condition,
+  )
+
+  match hot_node_get(func, select_id).op {
+    Select => ()
+    _ => fail("expected select node")
+  }
+  assert_eq(
+    hot_node_exact_instr(func, select_id),
+    Some(@lib.Instruction::select()),
+  )
+  assert_eq(hot_child_get(func, select_id, 0), if_true)
+  assert_eq(hot_child_get(func, select_id, 1), if_false)
+  assert_eq(hot_child_get(func, select_id, 2), condition)
+}
+
+///|
 test "builder created nodes can replace roots and lower through existing hot lowering" {
   let func = HotFunc::new()
   let first_root = hot_build_drop(func, hot_build_const_i32(func, @lib.I32(7)))
