@@ -1141,6 +1141,52 @@ fn hso_try_fold_tee_wrapped_struct_set(
 }
 
 ///|
+fn hso_tee_wrapped_struct_set_local_id(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int? {
+  let (_, _, ref_id, _) = match hso_struct_set_parts(func, node_id) {
+    Some(parts) => parts
+    None => return None
+  }
+  if !@ir.hot_node_is_live(func, ref_id) {
+    return None
+  }
+  let ref_node = @ir.hot_node_get(func, ref_id)
+  match ref_node.op {
+    @ir.HotOp::LocalTee => Some(ref_node.imm0)
+    _ => None
+  }
+}
+
+///|
+fn hso_tee_fold_has_adjacent_readonly_prefix(
+  cache : HsoPredicateCache,
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  roots : Array[Int],
+  idx : Int,
+  local_id : Int,
+) -> Bool {
+  if idx <= 0 || idx + 1 >= roots.length() {
+    return false
+  }
+  let prefix_id = roots[idx - 1]
+  if !hso_subtree_is_trapless_readonly(cache, func, node_masks, prefix_id) {
+    return false
+  }
+  let next_id = roots[idx + 1]
+  if next_id < 0 || !@ir.hot_node_is_live(func, next_id) {
+    return false
+  }
+  let next_node = @ir.hot_node_get(func, next_id)
+  match next_node.op {
+    @ir.HotOp::LocalGet => next_node.imm0 == local_id
+    _ => false
+  }
+}
+
+///|
 fn hso_local_set_struct_new(
   type_cache : HsoTypeCache,
   func : @ir.HotFunc,
@@ -1323,17 +1369,29 @@ fn hso_process_region(
     let root_node = @ir.hot_node_get(func, root_id)
     match root_node.op {
       @ir.HotOp::Heap => {
-        match
-          hso_try_fold_tee_wrapped_struct_set(
-            cache, type_cache, func, module_ctx, node_masks, root_id,
-          ) {
-          Some(replacement_roots) => {
-            changed = true
-            for replacement_root_id in replacement_roots {
-              next_roots.push(replacement_root_id)
+        let tee_local_id = hso_tee_wrapped_struct_set_local_id(func, root_id)
+        let skip_tee_fold = match tee_local_id {
+          Some(local_id) =>
+            hso_tee_fold_has_adjacent_readonly_prefix(
+              cache, func, node_masks, roots, idx, local_id,
+            )
+          None => false
+        }
+        if skip_tee_fold {
+          next_roots.push(root_id)
+        } else {
+          match
+            hso_try_fold_tee_wrapped_struct_set(
+              cache, type_cache, func, module_ctx, node_masks, root_id,
+            ) {
+            Some(replacement_roots) => {
+              changed = true
+              for replacement_root_id in replacement_roots {
+                next_roots.push(replacement_root_id)
+              }
             }
+            None => next_roots.push(root_id)
           }
-          None => next_roots.push(root_id)
         }
         idx = idx + 1
       }

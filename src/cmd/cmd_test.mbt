@@ -717,6 +717,15 @@ fn fixture_hso_pure_ref_prefix_ref_result_wasm() -> Bytes {
 }
 
 ///|
+fn fixture_hso_tee_pure_ref_prefix_ref_result_wasm() -> Bytes {
+  bytes_from_ints([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 10, 2, 95, 1, 127, 1, 96, 0, 1, 99, 0, 3,
+    2, 1, 1, 10, 23, 1, 21, 1, 1, 99, 0, 251, 1, 0, 34, 0, 65, 0, 26, 65, 7,
+    251, 5, 0, 0, 32, 0, 11,
+  ])
+}
+
+///|
 fn fixture_hso_table_size_value_prefix_wasm() -> Bytes {
   bytes_from_ints([
     0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3, 2, 1,
@@ -1673,6 +1682,47 @@ test "run_cmd_with_adapter keeps struct.set for HSO pure ref-prefix ref-result w
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter keeps struct.set for HSO tee pure ref-prefix ref-result wasm inputs" {
+  let wasm = fixture_hso_tee_pure_ref_prefix_ref_result_wasm()
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-tee-pure-ref-result.wasm"] },
+    file_exists=fn(path) { path == "hso-tee-pure-ref-result.wasm" },
+    read_file=fn(path) {
+      if path == "hso-tee-pure-ref-result.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--heap-store-optimization",
+        "--out",
+        "out.wasm",
+        "hso-tee-pure-ref-result.wasm",
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected tee pure ref-result HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
 }
 
 ///|

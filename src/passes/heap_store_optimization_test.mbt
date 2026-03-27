@@ -983,6 +983,31 @@ test "heap-store-optimization keeps struct.set for decoded raw wasm pure ref-pre
 }
 
 ///|
+test "heap-store-optimization keeps struct.set for decoded raw wasm tee pure ref-prefix ref results" {
+  let optimized = match
+    hso_test_run_module(
+      hso_decode_fixture_module(
+        hso_bytes_from_ints([
+          0, 97, 115, 109, 1, 0, 0, 0, 1, 10, 2, 95, 1, 127, 1, 96, 0, 1, 99,
+          0, 3, 2, 1, 1, 10, 23, 1, 21, 1, 1, 99, 0, 251, 1, 0, 34, 0, 65, 0,
+          26, 65, 7, 251, 5, 0, 0, 32, 0, 11,
+        ]),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected decoded-raw tee pure ref-prefix ref-result heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
 
 ///|
 test "heap-store-optimization folds table.size values into struct.new" {

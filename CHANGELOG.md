@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Fix: keep decoded tee pure ref-prefix HSO ref results as struct.set
+
+- **`heap-store-optimization` decoded tee ref-prefix parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt), and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) so raw decoded tee-wrapped pure ref-prefix ref-result wasm now stays as `struct.set` like Binaryen instead of folding into `local.set (struct.new ...)`. Focused `moon test src/passes` and `moon test src/cmd` stay green, and the targeted 30-case encoded-wasm probe drops from `18` mismatches to `10` in about `1.415s`.
+
 ## 2026-03-26 Fix: keep non-branching prefix blocks out of HSO folds
 
 - **`heap-store-optimization` prefix-block parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt), and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) so HSO now leaves non-branching multi-root prefix blocks as `struct.set` instead of incorrectly folding them into `struct.new`, matching Binaryen on the direct pure-prefix and direct `memory.size`-prefix pass cases. Additional CLI ref-result parity coverage continues in follow-up work.
