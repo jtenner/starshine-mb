@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Optimize: keep `optimize-instructions` off loop-carried tee payloads
+
+- **`optimize-instructions` tee-payload safety guard** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-optimize-instructions/CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions_test.mbt) so commutative and relational `local.get` reordering now refuses to cross subtrees that contain loop-input carrier nodes, closing the loop-carried `local.tee` miscompile and locking the shared/control/loop tee fronts behind focused regressions. `moon test src/passes` is green; native/artifact parity follow-up remains open.
+
 ## 2026-03-26 Optimize: canonicalize zero forms in `optimize-instructions`
 
 - **`optimize-instructions` zero-canonicalization parity follow-up** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-optimize-instructions/CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions_test.mbt) so the pass now removes neutral `add/sub` zero operands and rewrites no-else `if (i32.eq x, 0)` conditions into `i32.eqz` without widening the compare canonicalization surface. `moon test src/passes`, a rebuilt native `cmd`, and `tests/node/dist/starshine-debug-wasi.wasm --optimize-instructions` are green for this slice; canonical parity is still open behind a remaining local-layout drift in the artifact diff.

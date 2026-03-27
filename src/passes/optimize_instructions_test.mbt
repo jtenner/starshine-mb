@@ -645,6 +645,233 @@ test "optimize-instructions canonicalizes signed compare to zero" {
 }
 
 ///|
+test "optimize-instructions does not reorder relational operands across shared tee payloads" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  let shared = @ir.hot_build_local_get(func, 1)
+  let tee = @ir.hot_build_local_tee(func, 2, shared)
+  let limit = @ir.hot_build_local_get(func, 0)
+  let compare = @ir.hot_build_compare(func, tee, limit)
+  @ir.hot_node_exact_instr_set(func, compare, @lib.Instruction::i32_lt_s())
+  @ir.hot_root_append(func, compare)
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, shared))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected optimize-instructions shared-tee success, got \{err}")
+  }
+
+  assert_eq(
+    @ir.hot_node_exact_instr(func, compare),
+    Some(@lib.Instruction::i32_lt_s()),
+  )
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, compare, 0)).op {
+    @ir.HotOp::LocalTee => ()
+    _ => fail("expected shared tee subtree to stay on the lhs")
+  }
+  let lowered = @ir.hot_lower_func(func)
+  let @lib.Func(locals, body) = lowered
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  assert_eq(
+    body,
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::i32_lt_s(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+}
+
+///|
+test "optimize-instructions does not allocate scratch locals for shared relational tee payloads in blocks" {
+  let fixture = @ir.ir_test_build_hot_from_wat(
+    "(module (func (param i32) (result i32) (local i32 i32) i32.const 0 local.set 1 loop $label2 block $block5 block $block4 (result i32) local.get 1 local.tee 2 local.get 0 i32.lt_s if local.get 2 i32.const 1 i32.add br $block4 end br $block5 end local.set 1 end br $label2 end local.get 1))",
+  )
+  let func = fixture.hot_func
+  let loop_id = @ir.hot_root_get(func, 1)
+  let block5 = @ir.hot_region_get(
+    func,
+    @ir.hot_region_body_ref(func, loop_id),
+    0,
+  )
+  let set1 = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, block5), 0)
+  let block4 = @ir.hot_child_get(func, set1, 0)
+  let block4_body = @ir.hot_region_body_ref(func, block4)
+  let if_id = @ir.hot_region_get(func, block4_body, 0)
+  let branch = @ir.hot_region_get(func, block4_body, 1)
+  let compare = @ir.hot_child_get(func, if_id, 0)
+  let tee = @ir.hot_child_get(func, compare, 0)
+  let shared = @ir.hot_child_get(func, tee, 0)
+  @ir.hot_region_replace_body(func, block4_body, [
+    if_id,
+    @ir.hot_build_drop(func, shared),
+    branch,
+  ])
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected optimize-instructions shared-block success, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let @lib.Func(locals, _) = lowered
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+}
+
+///|
+test "optimize-instructions does not allocate scratch locals for shared tee payload fallthroughs" {
+  let fixture = @ir.ir_test_build_hot_from_wat(
+    "(module (func (param i32) (result i32) (local i32 i32) i32.const 0 local.set 1 loop $label block $body (result i32) local.get 1 local.tee 2 local.get 0 i32.lt_s if local.get 2 i32.const 1 i32.add br $body end local.get 1 end local.set 1 br $label end unreachable))",
+  )
+  let func = fixture.hot_func
+  let loop_id = @ir.hot_root_get(func, 1)
+  let set1 = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, loop_id), 0)
+  let body = @ir.hot_child_get(func, set1, 0)
+  let body_region = @ir.hot_region_body_ref(func, body)
+  let if_id = @ir.hot_region_get(func, body_region, 0)
+  let compare = @ir.hot_child_get(func, if_id, 0)
+  let tee = @ir.hot_child_get(func, compare, 0)
+  let shared = @ir.hot_child_get(func, tee, 0)
+  @ir.hot_region_replace_body(func, body_region, [if_id, shared])
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimize-instructions shared-fallthrough success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let @lib.Func(locals, _) = lowered
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+}
+
+///|
+test "optimize-instructions does not reorder relational local gets across control-bearing tee payloads" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  let block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let label = @ir.hot_control_node_label(func, block)
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, block), [
+    @ir.hot_build_br(func, label, values=[
+      @ir.hot_build_const_i32(func, @lib.I32(7)),
+    ]),
+  ])
+  let tee = @ir.hot_build_local_tee(func, 2, block)
+  let limit = @ir.hot_build_local_get(func, 0)
+  let compare = @ir.hot_build_compare(func, tee, limit)
+  @ir.hot_node_exact_instr_set(func, compare, @lib.Instruction::i32_lt_s())
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, compare))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected optimize-instructions control-tee success, got \{err}")
+  }
+
+  assert_eq(
+    @ir.hot_node_exact_instr(func, compare),
+    Some(@lib.Instruction::i32_lt_s()),
+  )
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, compare, 0)).op {
+    @ir.HotOp::LocalTee => ()
+    _ => fail("expected control-bearing tee subtree to stay on the lhs")
+  }
+}
+
+///|
+test "optimize-instructions does not reorder relational local gets across loop-carried tee payloads" {
+  let fixture = @ir.ir_test_build_hot_from_wat(
+    "(module (func (param i32) (result i32) (local i32) (block (result i32) (i32.const 0) (loop (param i32) (result i32) (if (result i32) (i32.lt_s (local.tee 1) (local.get 0)) (then (local.get 1) (i32.const 1) (i32.add) (br 1)) (else (local.get 1)))))))",
+  )
+  let func = fixture.hot_func
+  let block_id = @ir.hot_root_get(func, 0)
+  let block_body = @ir.hot_region_body_ref(func, block_id)
+  let loop_id = @ir.hot_region_get(func, block_body, 0)
+  let body_region = @ir.hot_region_body_ref(func, loop_id)
+  let if_id = @ir.hot_region_get(func, body_region, 0)
+  let compare = @ir.hot_child_get(func, if_id, 0)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected optimize-instructions loop-carried success, got \{err}")
+  }
+
+  assert_eq(
+    @ir.hot_node_exact_instr(func, compare),
+    Some(@lib.Instruction::i32_lt_s()),
+  )
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, compare, 0)).op {
+    @ir.HotOp::LocalTee => ()
+    _ => fail("expected loop-carried tee subtree to stay on the lhs")
+  }
+}
+
+///|
 test "optimize-instructions visits shared dags once" {
   let func = optimize_instructions_shared_dag_fixture(24)
   let node_count = @ir.hot_node_count(func)
