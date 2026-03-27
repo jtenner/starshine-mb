@@ -23,10 +23,10 @@
 - Pipeline perf instrumentation now exists for opt-in timings, counters, checkpoints, and lightweight dumps.
 - The active registry surface is still intentionally small:
   - module passes: `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `duplicate-function-elimination`, `remove-unused-module-elements`
-  - hot passes: `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `vacuum`, `optimize-instructions`, `simplify-locals`
+- hot passes: `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `pick-load-signs`, `simplify-locals`
   - presets: `optimize`, `shrink`
 - `optimize` and `shrink` now expand to the implemented mixed batch-1 module + hot sequence:
-  `memory-packing -> once-reduction -> global-refining -> global-struct-inference -> ssa-nomerge -> dead-code-elimination -> remove-unused-names -> vacuum -> optimize-instructions -> simplify-locals`.
+  `memory-packing -> once-reduction -> global-refining -> global-struct-inference -> ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs -> vacuum -> optimize-instructions -> heap-store-optimization -> pick-load-signs -> simplify-locals`.
 - Legacy pass names remain categorized as `boundary-only` or `removed` in the registry for diagnostics, but they are not active help-surface entries.
 - CLI tooling and the fuzz harness now use real pass-name arrays; the deleted `ModulePass` compatibility shim is gone.
 - `agent-todo.md` is now the active-only backlog again. If future IR2 work resumes, add the next slice id there before landing code.
@@ -35,7 +35,7 @@
 
 - If pass migration resumes, start from the batch intent in [`0063-2026-03-24-pass-port-batches-and-registry-map.md`](./0063-2026-03-24-pass-port-batches-and-registry-map.md).
 - Preferred implementation order from the current state:
-  1. Batch 2 control and cleanup passes: `flatten`, `merge-blocks`, `re-reloop`, `tuple-optimization`, `remove-unused-brs`, `redundant-set-elimination`, `pick-load-signs`, `optimize-casts`
+  1. Batch 2 control and cleanup passes: `flatten`, `merge-blocks`, `re-reloop`, `tuple-optimization`, `redundant-set-elimination`, `optimize-casts`
   2. Batch 3 dataflow-sensitive passes: `local-subtyping`, `loop-invariant-code-motion`
 - If a pass needs a new IR rule or overlay contract before implementation, land the contract/ADR update first in `docs/` and then add the new slice to `agent-todo.md`.
 - Keep one atomic slice per coherent dependency step; do not mix architecture contracts, pass ports, and follow-up cleanup in one commit unless the dependency is inseparable.

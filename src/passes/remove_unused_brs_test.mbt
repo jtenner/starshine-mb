@@ -638,9 +638,9 @@ test "remove-unused-brs strips nested returned scalar wrapper blocks" {
 
   match optimized.code_sec {
     Some(
-      @lib.CodeSec([
-        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0U))])),
-      ]),
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0U))]))]
+      )
     ) => ()
     _ =>
       fail(

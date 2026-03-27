@@ -8,7 +8,7 @@
 ## Current Registry Contract
 
 - Active hot passes:
-  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `vacuum`, `optimize-instructions`, `simplify-locals`.
+  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `pick-load-signs`, `simplify-locals`.
 - Active module passes:
   `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `duplicate-function-elimination`, `remove-unused-module-elements`.
 - Active presets:
@@ -19,7 +19,7 @@
 ## Batch 1
 
 - Current hot passes:
-  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `vacuum`, `optimize-instructions`, `simplify-locals`.
+  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `pick-load-signs`, `simplify-locals`.
 - Current first-batch implementations:
   [`src/passes/global_refining.mbt`](../src/passes/global_refining.mbt),
   [`src/passes/global_struct_inference.mbt`](../src/passes/global_struct_inference.mbt),
@@ -29,7 +29,10 @@
   [`src/passes/once_reduction.mbt`](../src/passes/once_reduction.mbt),
   [`src/passes/duplicate_function_elimination.mbt`](../src/passes/duplicate_function_elimination.mbt),
   [`src/passes/remove_unused_names.mbt`](../src/passes/remove_unused_names.mbt),
+  [`src/passes/remove_unused_brs.mbt`](../src/passes/remove_unused_brs.mbt),
   [`src/passes/optimize_instructions.mbt`](../src/passes/optimize_instructions.mbt),
+  [`src/passes/heap_store_optimization.mbt`](../src/passes/heap_store_optimization.mbt),
+  [`src/passes/pick_load_signs.mbt`](../src/passes/pick_load_signs.mbt),
   [`src/passes/remove_unused_module_elements.mbt`](../src/passes/remove_unused_module_elements.mbt),
   [`src/passes/simplify_locals.mbt`](../src/passes/simplify_locals.mbt).
 - Removed until hot implementation lands:
@@ -38,7 +41,7 @@
 ## Batch 2
 
 - Removed until hot implementation lands:
-  `flatten`, `merge-blocks`, `re-reloop`, `tuple-optimization`, `remove-unused-brs`, `redundant-set-elimination`, `pick-load-signs`, `optimize-casts`.
+  `flatten`, `merge-blocks`, `re-reloop`, `tuple-optimization`, `redundant-set-elimination`, `optimize-casts`.
 
 ## Batch 3
 
@@ -56,8 +59,8 @@
 
 ## Preset Composition
 
-- `optimize` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions", "heap-store-optimization", "simplify-locals"]`.
-- `shrink` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum", "optimize-instructions", "heap-store-optimization", "simplify-locals"]`.
+- `optimize` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "vacuum", "optimize-instructions", "heap-store-optimization", "pick-load-signs", "simplify-locals"]`.
+- `shrink` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "vacuum", "optimize-instructions", "heap-store-optimization", "pick-load-signs", "simplify-locals"]`.
 - Future preset growth must only add implemented module or hot passes or explicitly documented boundary-only phases.
 
 

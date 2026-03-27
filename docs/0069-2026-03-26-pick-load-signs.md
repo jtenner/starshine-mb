@@ -2,7 +2,8 @@
 
 ## Scope
 
-- Port `pick-load-signs` as an active hot IR pass.
+- Completed active hot IR port for `pick-load-signs` (shipped in 2026-03-26/27).
+  This document records the implemented behavior and the remaining follow-up validation notes.
 - Keep the implementation narrowly faithful to Binaryen’s load-sign selection behavior on the default no-DWARF path.
 - Prioritize correctness parity first, then runtime parity against `bun scripts/self-optimize-compare.ts`.
 
@@ -92,19 +93,13 @@ For each local that has at least one candidate load producer:
 - Keep module skip behavior: if module has no memory (defined/imported), skip pass execution.
 - Preserve all existing control-flow behavior by only mutating exact opcode payload inside equivalent load child.
 
-## Integration Points
+## Integration Status
 
-- Add `pick_load_signs.mbt` + `pick_load_signs_test.mbt`.
-- Add descriptors:
-  - `pick_load_signs_descriptor()` returning `"pick-load-signs"`, invalidating standard analyses touched by load rewrite.
-  - `pick_load_signs_summary()`.
-- Register pass as hot in `src/passes/optimize.mbt`:
-  - remove from removed names list
-  - add to optimize/shrink preset sequences in the artifact order slot after `optimize-instructions` and before `simplify-locals`.
-- Route execution in `src/passes/pass_manager.mbt`:
-  - add `pick-load-signs` to `hot_pass_run`.
-  - add module-memory fast-skip so pass returns without rewriting if module has no memories.
-- Add/adjust registry/preset tests to match active pass availability.
+- Completed: `pick_load_signs.mbt` + `pick_load_signs_test.mbt` landed.
+- Completed: descriptors added via `pick_load_signs_descriptor()` and `pick_load_signs_summary()`.
+- Completed: `pick-load-signs` is registered as hot in `src/passes/optimize.mbt` and placed in `optimize`/`shrink` after `optimize-instructions`.
+- Completed: `src/passes/pass_manager.mbt` now routes `pick-load-signs` through `hot_pass_run` with module-memory fast-skip.
+- Completed: registry/preset tests were updated to reflect active pass availability.
 
 ## Validation Plan
 
