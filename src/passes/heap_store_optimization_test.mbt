@@ -1780,9 +1780,9 @@ test "heap-store-optimization keeps swapped fold nops before peeled prefix roots
           0, 97, 115, 109, 1, 0, 0, 0, 1, 10, 2, 95, 1, 127, 1, 96, 0, 1, 99, 0,
           3, 2, 1, 1, 7, 5, 1, 1, 102, 0, 0, 10, 44, 1, 42, 2, 1, 99, 0, 1, 127,
           251, 1, 0, 33, 0, 2, 64, 65, 9, 33, 1, 11, 32, 0, 2, 127, 65, 0, 26, 2,
-          127, 65, 7, 12, 0, 65, 8, 11, 11, 251, 5, 0, 0, 32, 0, 11, 0, 26, 4,
-          110, 97, 109, 101, 3, 13, 1, 0, 2, 1, 1, 118, 2, 5, 105, 110, 110, 101,
-          114, 4, 4, 1, 0, 1, 115,
+          127, 65, 7, 12, 0, 65, 8, 11, 11, 251, 5, 0, 0, 32, 0, 11, 0, 26, 4, 110,
+          97, 109, 101, 3, 13, 1, 0, 2, 1, 1, 118, 2, 5, 105, 110, 110, 101, 114,
+          4, 4, 1, 0, 1, 115,
         ]),
       ),
       HotPipelineOptions::new(),
@@ -1790,7 +1790,9 @@ test "heap-store-optimization keeps swapped fold nops before peeled prefix roots
     ) {
     Ok(mod_) => mod_
     Err(err) =>
-      fail("expected swapped nop-order heap-store-optimization success, got \{err}")
+      fail(
+        "expected swapped nop-order heap-store-optimization success, got \{err}",
+      )
   }
 
   match optimized.code_sec {
@@ -1803,6 +1805,86 @@ test "heap-store-optimization keeps swapped fold nops before peeled prefix roots
   assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("struct.new"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization flattens nested if-tail wrappers inside folded values" {
+  let optimized = match
+    hso_ref_result_test_run(
+      [
+        @lib.Instruction::struct_new_default(@lib.TypeIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::if_(
+                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  [
+                    @lib.Instruction::i32_const(@lib.I32(7)),
+                    @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                  ],
+                  Some([@lib.Instruction::i32_const(@lib.I32(9))]),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+        @lib.Instruction::struct_set(@lib.TypeIdx::new(0U), @lib.U32(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nested-if-tail heap-store-optimization success, got \{err}",
+      )
+  }
+
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.I32Const(@lib.I32(0)),
+                @lib.Drop,
+                @lib.Block(
+                  @lib.ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
+                  @lib.Expr(
+                    [
+                      @lib.I32Const(@lib.I32(1)),
+                      @lib.If(
+                        @lib.ValTypeBlockType(
+                          @lib.NumTypeValType(@lib.I32NumType)
+                        ),
+                        [@lib.I32Const(@lib.I32(7)), @lib.Br(@lib.LabelIdx(1U))],
+                        Some([@lib.I32Const(@lib.I32(9))])
+                      ),
+                    ]
+                  )
+                ),
+                @lib.StructNew(_),
+                @lib.LocalSet(@lib.LocalIdx(0U)),
+                @lib.Nop,
+                @lib.LocalGet(@lib.LocalIdx(0U)),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ => fail("expected flattened nested if-tail wrapper after HSO fold")
+  }
 }
 
 ///|

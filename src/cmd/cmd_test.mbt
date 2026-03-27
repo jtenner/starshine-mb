@@ -40,6 +40,14 @@ fn bytes_from_ints(values : Array[Int]) -> Bytes {
 }
 
 ///|
+fn encode_module_fixture_bytes(mod : Module) -> Bytes {
+  match @binary.encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) => abort("unexpected cmd fixture encode failure: \{e}")
+  }
+}
+
+///|
 fn concat_ascii_bytes(chunks : Array[Bytes]) -> String {
   let out = StringBuilder::new()
   for chunk in chunks {
@@ -1014,11 +1022,74 @@ fn fixture_hso_tee_pure_ref_prefix_ref_result_wasm() -> Bytes {
 fn fixture_hso_swapped_inner_branch_prefix_ref_result_wasm() -> Bytes {
   bytes_from_ints([
     0, 97, 115, 109, 1, 0, 0, 0, 1, 10, 2, 95, 1, 127, 1, 96, 0, 1, 99, 0, 3, 2,
-    1, 1, 7, 5, 1, 1, 102, 0, 0, 10, 44, 1, 42, 2, 1, 99, 0, 1, 127, 251, 1, 0,
-    33, 0, 2, 64, 65, 9, 33, 1, 11, 32, 0, 2, 127, 65, 0, 26, 2, 127, 65, 7, 12,
-    0, 65, 8, 11, 11, 251, 5, 0, 0, 32, 0, 11, 0, 26, 4, 110, 97, 109, 101, 3,
-    13, 1, 0, 2, 1, 1, 118, 2, 5, 105, 110, 110, 101, 114, 4, 4, 1, 0, 1, 115,
+    1, 1, 7, 5, 1, 1, 102, 0, 0, 10, 44, 1, 42, 2, 1, 99, 0, 1, 127, 251, 1, 0, 33,
+    0, 2, 64, 65, 9, 33, 1, 11, 32, 0, 2, 127, 65, 0, 26, 2, 127, 65, 7, 12, 0, 65,
+    8, 11, 11, 251, 5, 0, 0, 32, 0, 11, 0, 26, 4, 110, 97, 109, 101, 3, 13, 1, 0,
+    2, 1, 1, 118, 2, 5, 105, 110, 110, 101, 114, 4, 4, 1, 0, 1, 115,
   ])
+}
+
+///|
+fn fixture_hso_nested_if_tail_ref_result_wasm() -> Bytes {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(fixture_hso_struct_fields(1)),
+    ),
+  )
+  let pair = @lib.TypeIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [ref_type])),
+  )
+  let local0 = @lib.LocalIdx::new(0U)
+  encode_module_fixture_bytes(
+    Module::new()
+    .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::new("f"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        Func::new(
+          @lib.Locals::from_types([ref_type]),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(pair),
+            @lib.Instruction::local_set(local0),
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  @lib.Expr::new([
+                    @lib.Instruction::i32_const(@lib.I32(1)),
+                    @lib.Instruction::if_(
+                      @lib.BlockType::val_type(@lib.ValType::i32()),
+                      [
+                        @lib.Instruction::i32_const(@lib.I32(7)),
+                        @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                      ],
+                      Some([@lib.Instruction::i32_const(@lib.I32(9))]),
+                    ),
+                  ]),
+                ),
+              ]),
+            ),
+            @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+            @lib.Instruction::local_get(local0),
+          ]),
+        ),
+      ]),
+    ),
+  )
 }
 
 ///|
@@ -2218,6 +2289,73 @@ test "run_cmd_with_adapter keeps swapped HSO nops before peeled prefix roots" {
   assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("struct.new"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter flattens nested if-tail wrappers inside folded HSO values" {
+  let wasm = fixture_hso_nested_if_tail_ref_result_wasm()
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-nested-if.wasm"] },
+    file_exists=fn(path) { path == "hso-nested-if.wasm" },
+    read_file=fn(path) {
+      if path == "hso-nested-if.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--heap-store-optimization", "--out", "out.wasm", "hso-nested-if.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected nested-if-tail HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                I32Const(I32(0)),
+                Drop,
+                Block(
+                  ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
+                  Expr(
+                    [
+                      I32Const(I32(1)),
+                      If(
+                        ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
+                        [I32Const(I32(7)), Br(LabelIdx(1U))],
+                        Some([I32Const(I32(9))])
+                      ),
+                    ]
+                  )
+                ),
+                StructNew(_),
+                LocalSet(LocalIdx(0U)),
+                Nop,
+                LocalGet(LocalIdx(0U)),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ => fail("expected flattened nested if-tail wrapper on HSO CLI path")
+  }
 }
 
 ///|

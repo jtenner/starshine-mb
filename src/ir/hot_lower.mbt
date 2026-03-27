@@ -1148,6 +1148,25 @@ fn hot_lower_impl_is_simple_parent_exit_body(
 }
 
 ///|
+fn hot_lower_impl_is_same_typed_single_if_wrapper(
+  bt : BlockType,
+  body : Array[Instruction],
+) -> Bool {
+  if body.length() == 0 || hot_lower_impl_body_targets_removed_label(body, 0) {
+    return false
+  }
+  for i = 0; i < body.length() - 1; i = i + 1 {
+    if hot_lower_impl_has_control_transfer(body[i]) {
+      return false
+    }
+  }
+  match body[body.length() - 1] {
+    If(inner_bt, _, _) => bt == inner_bt
+    _ => false
+  }
+}
+
+///|
 fn hot_lower_impl_canonicalize_instr(instr : Instruction) -> Instruction {
   match instr {
     Block(bt, Expr(body)) =>
@@ -1186,6 +1205,9 @@ fn hot_lower_impl_canonicalize_block_body(
     [Block(inner_bt, Expr(inner_body))] if bt == inner_bt &&
       hot_lower_impl_is_simple_parent_exit_body(inner_body, 1) &&
       !hot_lower_impl_body_targets_removed_label(inner_body, 0) =>
+      hot_lower_impl_rebase_body(inner_body, 0)
+    [Block(inner_bt, Expr(inner_body))] if bt == inner_bt &&
+      hot_lower_impl_is_same_typed_single_if_wrapper(bt, inner_body) =>
       hot_lower_impl_rebase_body(inner_body, 0)
     _ => canonical
   }
@@ -1257,8 +1279,7 @@ fn hot_lower_impl_canonicalize_body(
   for instr in body {
     match hot_lower_impl_canonicalize_instr(instr) {
       Block(bt, Expr(inner_body)) if hot_lower_impl_can_inline_value_wrapper(
-          bt,
-          inner_body,
+          bt, inner_body,
         ) =>
         for inner in inner_body {
           canonical.push(inner)
@@ -1297,8 +1318,9 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
       match body[idx] {
         LocalGet(local_idx) =>
           match body[idx + 1] {
-            Block(_, Expr(value_body)) if
-              hot_lower_impl_can_stackify_struct_set_value_prefix(value_body) =>
+            Block(_, Expr(value_body)) if hot_lower_impl_can_stackify_struct_set_value_prefix(
+                value_body,
+              ) =>
               match body[idx + 2] {
                 StructSet(_, _) =>
                   match local_idx {
@@ -1314,12 +1336,14 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
                             Instruction::local_get(local_idx),
                             Instruction::local_set(scratch_local),
                           ]
-                          for prefix_idx = 0;
-                            prefix_idx < value_body.length() - 1;
-                            prefix_idx = prefix_idx + 1 {
+                          for prefix_idx = 0
+                              prefix_idx < value_body.length() - 1
+                              prefix_idx = prefix_idx + 1 {
                             wrapper_body.push(value_body[prefix_idx])
                           }
-                          wrapper_body.push(Instruction::local_get(scratch_local))
+                          wrapper_body.push(
+                            Instruction::local_get(scratch_local),
+                          )
                           rewritten.push(
                             Instruction::block(
                               BlockType::val_type(local_ty),
@@ -1386,9 +1410,7 @@ fn hot_lower_body_with_extras_unverified(func : HotFunc) -> HotLowerBodyResult {
   let canonical = hot_lower_impl_canonicalize_body(out)
   {
     body: hot_lower_impl_stackify_wrapped_struct_set_prefixes(
-      func,
-      canonical,
-      extra_locals,
+      func, canonical, extra_locals,
     ),
     extra_locals,
     final_stack: value_stack,

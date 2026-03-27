@@ -166,6 +166,71 @@ test "hot lower peels typed wrapper blocks that only branch to the parent" {
 }
 
 ///|
+test "hot lower peels same-typed nested if wrappers when inner label is unused" {
+  let struct_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let body = @lib.Expr::new([
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [
+                @lib.Instruction::i32_const(@lib.I32(7)),
+                @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+              ],
+              Some([@lib.Instruction::i32_const(@lib.I32(9))]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(locals=[struct_ref_type]),
+    hot_module_context_from_module(hot_lower_test_struct_module()),
+    body_result_type=@lib.BlockType::val_type(struct_ref_type),
+  )
+
+  assert_eq(
+    hot_lower_func(hot),
+    @lib.Func::new(
+      @lib.Locals::from_types([struct_ref_type]),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [
+                @lib.Instruction::i32_const(@lib.I32(7)),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ],
+              Some([@lib.Instruction::i32_const(@lib.I32(9))]),
+            ),
+          ]),
+        ),
+        @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::nop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ]),
+    ),
+  )
+}
+
+///|
 test "hot lower peels escaping wrapper blocks and trims dead tails" {
   let struct_ref_type = @lib.ValType::ref_null(
     @lib.HeapType::new(@lib.TypeIdx::new(0U)),
