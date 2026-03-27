@@ -703,25 +703,66 @@ fn remove_unused_brs_region_tail_control_payload_count(
     @ir.hot_region_root_count(func, region_ref) - 1,
   )
   let tail = @ir.hot_node_get(func, tail_id)
-  let stack_payloads = if expected_payloads == 0 {
-    Some(0)
-  } else {
+  let stack_payloads = fn() -> Int? {
+    if expected_payloads == 0 {
+      return Some(0)
+    }
+    let roots = remove_unused_brs_region_roots(func, region_ref)
+    if roots.is_empty() {
+      return None
+    }
+    let payload_roots : Array[Int] = []
+    for idx = 0; idx < roots.length() - 1; idx = idx + 1 {
+      payload_roots.push(roots[idx])
+    }
     match
-      remove_unused_brs_region_split_payload_roots(
-        func, region_ref, expected_payloads,
+      remove_unused_brs_split_payload_roots(
+        func, payload_roots, expected_payloads,
       ) {
       Some(_) => Some(expected_payloads)
       None => None
     }
+  }
+  let child_payloads = fn() -> Int? {
+    if tail.child_count > 1 {
+      let first_id = @ir.hot_child_get(func, tail_id, 0)
+      if first_id < 0 || !@ir.hot_node_is_live(func, first_id) {
+        return None
+      }
+      let first_arity = @ir.hot_node_result_arity(func, first_id)
+      if first_arity == expected_payloads {
+        let mut repeated = true
+        for child_idx = 1
+            child_idx < tail.child_count
+            child_idx = child_idx + 1 {
+          if @ir.hot_child_get(func, tail_id, child_idx) != first_id {
+            repeated = false
+            break
+          }
+        }
+        if repeated {
+          return Some(expected_payloads)
+        }
+      }
+    }
+    let mut payloads = 0
+    for child_idx = 0; child_idx < tail.child_count; child_idx = child_idx + 1 {
+      let child_id = @ir.hot_child_get(func, tail_id, child_idx)
+      if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+        return None
+      }
+      payloads += @ir.hot_node_result_arity(func, child_id)
+    }
+    Some(payloads)
   }
   match target {
     ReturnTarget =>
       match tail.op {
         @ir.HotOp::Return =>
           if tail.child_count > 0 {
-            Some(tail.child_count)
+            child_payloads()
           } else {
-            stack_payloads
+            stack_payloads()
           }
         _ => None
       }
@@ -729,9 +770,9 @@ fn remove_unused_brs_region_tail_control_payload_count(
       match tail.op {
         @ir.HotOp::Br if tail.imm0 == target =>
           if tail.child_count > 0 {
-            Some(tail.child_count)
+            child_payloads()
           } else {
-            stack_payloads
+            stack_payloads()
           }
         _ => None
       }
@@ -1972,11 +2013,27 @@ fn remove_unused_brs_preserves_payload_context(op : @ir.HotOp) -> Bool {
 }
 
 ///|
-fn remove_unused_brs_mark_seen(seen : Array[Bool], node_id : Int) -> Unit {
+fn remove_unused_brs_mark_seen(
+  seen : Array[Int],
+  node_id : Int,
+  payload_context : Bool,
+  return_context : Bool,
+) -> Bool {
   while seen.length() <= node_id {
-    seen.push(false)
+    seen.push(0)
   }
-  seen[node_id] = true
+  let mut mode = 1
+  if payload_context {
+    mode = mode | 2
+  }
+  if return_context {
+    mode = mode | 4
+  }
+  if (seen[node_id] & mode) == mode {
+    return false
+  }
+  seen[node_id] = seen[node_id] | mode
+  true
 }
 
 ///|
@@ -2125,7 +2182,7 @@ fn remove_unused_brs_visit_embedded_subtree(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
-  seen : Array[Bool],
+  seen : Array[Int],
   reorder_cache : Array[Int],
   label_refs : Array[Int],
   payload_context : Bool,
@@ -2188,7 +2245,7 @@ fn remove_unused_brs_visit_generic_children(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
-  seen : Array[Bool],
+  seen : Array[Int],
   reorder_cache : Array[Int],
   label_refs : Array[Int],
   control_cache : Array[Int],
@@ -2218,7 +2275,7 @@ fn remove_unused_brs_visit_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
-  seen : Array[Bool],
+  seen : Array[Int],
   reorder_cache : Array[Int],
   label_refs : Array[Int],
   payload_context : Bool,
@@ -2229,10 +2286,11 @@ fn remove_unused_brs_visit_node(
   if !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  if node_id < seen.length() && seen[node_id] {
+  if !remove_unused_brs_mark_seen(
+      seen, node_id, payload_context, return_context,
+    ) {
     return false
   }
-  remove_unused_brs_mark_seen(seen, node_id)
   let mut changed = false
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block | @ir.HotOp::Loop => {
@@ -2577,7 +2635,7 @@ fn remove_unused_brs_visit_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  seen : Array[Bool],
+  seen : Array[Int],
   reorder_cache : Array[Int],
   label_refs : Array[Int],
   return_context : Bool,
@@ -2623,19 +2681,10 @@ fn remove_unused_brs_visit_region(
       changed = true
       continue
     }
+    let node_return_context = return_context && idx == roots.length() - 1
     changed = remove_unused_brs_visit_node(
-        ctx,
-        func,
-        node_id,
-        seen,
-        reorder_cache,
-        label_refs,
-        false,
-        return_context &&
-        idx == roots.length() - 1 &&
-        remove_unused_brs_subtree_has_return(func, node_id, return_cache),
-        control_cache,
-        return_cache,
+        ctx, func, node_id, seen, reorder_cache, label_refs, false, node_return_context,
+        control_cache, return_cache,
       ) ||
       changed
   }
@@ -2653,7 +2702,7 @@ fn remove_unused_brs_run(
   while changed && cycles < 8 {
     cycles += 1
     changed = false
-    let seen : Array[Bool] = []
+    let seen : Array[Int] = []
     let reorder_cache : Array[Int] = []
     let control_cache : Array[Int] = []
     let return_cache : Array[Int] = []

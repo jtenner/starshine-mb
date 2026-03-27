@@ -487,6 +487,42 @@ test "remove-unused-brs strips nested returns inside root returned loops" {
 }
 
 ///|
+test "remove-unused-brs strips nested multi-value returns in root return context" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32 i32) (if (result i32 i32) (local.get 0) (then (if (result i32 i32) (local.get 1) (then (return (block (result i32 i32) (i32.const 1) (i32.const 2)))) (else (return (block (result i32 i32) (i32.const 3) (i32.const 4)))))) (else (return (block (result i32 i32) (i32.const 5) (i32.const 6)))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs nested multi-value return success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("(if "), msg=pretty)
+}
+
+///|
+test "remove-unused-brs detects nested multi-value root return context" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32 i32) (result i32 i32) (if (result i32 i32) (local.get 0) (then (if (result i32 i32) (local.get 1) (then (return (block (result i32 i32) (i32.const 1) (i32.const 2)))) (else (return (block (result i32 i32) (i32.const 3) (i32.const 4)))))) (else (return (block (result i32 i32) (i32.const 5) (i32.const 6)))))))",
+  )
+  let outer_if = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let then_ref = @ir.hot_region_then_ref(func, outer_if)
+  let inner_if = @ir.hot_region_get(func, then_ref, 1)
+  let inner_then_ref = @ir.hot_region_then_ref(func, inner_if)
+  let tail = @ir.hot_region_get(func, inner_then_ref, 0)
+  let child = @ir.hot_child_get(func, tail, 0)
+  assert_eq(@ir.hot_region_result_arity(func, inner_then_ref), 2)
+  assert_eq(@ir.hot_node_get(func, tail).child_count, 2)
+  assert_eq(@ir.hot_child_get(func, tail, 1), child)
+  assert_eq(@ir.hot_node_result_arity(func, child), 2)
+}
+
+///|
 test "remove-unused-brs rewrites branch payload ifs with branching else arms" {
   let optimized = match
     pass_test_run_pipeline(
