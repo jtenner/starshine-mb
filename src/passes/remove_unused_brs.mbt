@@ -49,6 +49,32 @@ fn remove_unused_brs_tail_target(
 }
 
 ///|
+fn remove_unused_brs_region_tail_id(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Int {
+  if @ir.hot_region_root_count(func, region_ref) == 0 {
+    return -1
+  }
+  @ir.hot_region_get(
+    func,
+    region_ref,
+    @ir.hot_region_root_count(func, region_ref) - 1,
+  )
+}
+
+///|
+fn remove_unused_brs_region_has_removable_tail_target(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  match remove_unused_brs_tail_target(func, region_ref) {
+    NoTarget => false
+    _ => true
+  }
+}
+
+///|
 fn remove_unused_brs_live_children(
   func : @ir.HotFunc,
   node_id : Int,
@@ -2332,11 +2358,19 @@ fn remove_unused_brs_visit_node(
           return_cache,
         ) ||
         changed
-      if return_context {
-        changed = remove_unused_brs_try_strip_return_context_tail(
-            ctx, func, body_ref,
-          ) ||
-          changed
+      let body_tail_id_for_return = remove_unused_brs_region_tail_id(
+        func, body_ref,
+      )
+      if return_context && body_tail_id_for_return >= 0 {
+        let body_tail_op = @ir.hot_node_get(func, body_tail_id_for_return).op
+        match body_tail_op {
+          @ir.HotOp::Return =>
+            changed = remove_unused_brs_try_strip_return_context_tail(
+                ctx, func, body_ref,
+              ) ||
+              changed
+          _ => ()
+        }
       }
       if allow_payload_rewrites {
         changed = remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
@@ -2352,22 +2386,38 @@ fn remove_unused_brs_visit_node(
           ctx, func, body_ref, label_refs,
         ) ||
         changed
-      changed = remove_unused_brs_try_strip_tail_if_exits(ctx, func, body_ref) ||
-        changed
-      changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
-          ctx, func, body_ref, reorder_cache, label_refs,
-        ) ||
-        changed
-      changed = remove_unused_brs_try_voidify_tail_return_if(
-          ctx, func, body_ref, label_refs,
-        ) ||
-        changed
-      changed = remove_unused_brs_try_remove_region_tail(
-          ctx, func, body_ref, reorder_cache,
-        ) ||
-        changed
-      changed = remove_unused_brs_trim_trailing_nops(ctx, func, body_ref) ||
-        changed
+      let body_tail_id = remove_unused_brs_region_tail_id(func, body_ref)
+      if body_tail_id >= 0 {
+        let body_tail_op = @ir.hot_node_get(func, body_tail_id).op
+        match body_tail_op {
+          @ir.HotOp::If => {
+            changed = remove_unused_brs_try_strip_tail_if_exits(
+                ctx, func, body_ref,
+              ) ||
+              changed
+            changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
+                ctx, func, body_ref, reorder_cache, label_refs,
+              ) ||
+              changed
+          }
+          @ir.HotOp::Return =>
+            changed = remove_unused_brs_try_voidify_tail_return_if(
+                ctx, func, body_ref, label_refs,
+              ) ||
+              changed
+          @ir.HotOp::Nop =>
+            changed = remove_unused_brs_trim_trailing_nops(ctx, func, body_ref) ||
+              changed
+          _ => ()
+        }
+      }
+      if body_tail_id >= 0 &&
+        remove_unused_brs_region_has_removable_tail_target(func, body_ref) {
+        changed = remove_unused_brs_try_remove_region_tail(
+            ctx, func, body_ref, reorder_cache,
+          ) ||
+          changed
+      }
     }
     @ir.HotOp::If => {
       changed = remove_unused_brs_visit_embedded_subtree(
@@ -2389,11 +2439,19 @@ fn remove_unused_brs_visit_node(
           return_cache,
         ) ||
         changed
-      if return_context {
-        changed = remove_unused_brs_try_strip_return_context_tail(
-            ctx, func, then_ref,
-          ) ||
-          changed
+      let then_tail_id_for_return = remove_unused_brs_region_tail_id(
+        func, then_ref,
+      )
+      if return_context && then_tail_id_for_return >= 0 {
+        let then_tail_op = @ir.hot_node_get(func, then_tail_id_for_return).op
+        match then_tail_op {
+          @ir.HotOp::Return =>
+            changed = remove_unused_brs_try_strip_return_context_tail(
+                ctx, func, then_ref,
+              ) ||
+              changed
+          _ => ()
+        }
       }
       if payload_context && !return_context {
         changed = remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
@@ -2405,22 +2463,38 @@ fn remove_unused_brs_visit_node(
           ) ||
           changed
       }
-      changed = remove_unused_brs_try_strip_tail_if_exits(ctx, func, then_ref) ||
-        changed
-      changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
-          ctx, func, then_ref, reorder_cache, label_refs,
-        ) ||
-        changed
-      changed = remove_unused_brs_try_voidify_tail_return_if(
-          ctx, func, then_ref, label_refs,
-        ) ||
-        changed
-      changed = remove_unused_brs_try_remove_region_tail(
-          ctx, func, then_ref, reorder_cache,
-        ) ||
-        changed
-      changed = remove_unused_brs_trim_trailing_nops(ctx, func, then_ref) ||
-        changed
+      let then_tail_id = remove_unused_brs_region_tail_id(func, then_ref)
+      if then_tail_id >= 0 {
+        let then_tail_op = @ir.hot_node_get(func, then_tail_id).op
+        match then_tail_op {
+          @ir.HotOp::If => {
+            changed = remove_unused_brs_try_strip_tail_if_exits(
+                ctx, func, then_ref,
+              ) ||
+              changed
+            changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
+                ctx, func, then_ref, reorder_cache, label_refs,
+              ) ||
+              changed
+          }
+          @ir.HotOp::Return =>
+            changed = remove_unused_brs_try_voidify_tail_return_if(
+                ctx, func, then_ref, label_refs,
+              ) ||
+              changed
+          @ir.HotOp::Nop =>
+            changed = remove_unused_brs_trim_trailing_nops(ctx, func, then_ref) ||
+              changed
+          _ => ()
+        }
+      }
+      if then_tail_id >= 0 &&
+        remove_unused_brs_region_has_removable_tail_target(func, then_ref) {
+        changed = remove_unused_brs_try_remove_region_tail(
+            ctx, func, then_ref, reorder_cache,
+          ) ||
+          changed
+      }
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_ref) => {
           changed = remove_unused_brs_visit_region(
@@ -2428,11 +2502,19 @@ fn remove_unused_brs_visit_node(
               control_cache, return_cache,
             ) ||
             changed
-          if return_context {
-            changed = remove_unused_brs_try_strip_return_context_tail(
-                ctx, func, else_ref,
-              ) ||
-              changed
+          let else_tail_id_for_return = remove_unused_brs_region_tail_id(
+            func, else_ref,
+          )
+          if return_context && else_tail_id_for_return >= 0 {
+            let else_tail_op = @ir.hot_node_get(func, else_tail_id_for_return).op
+            match else_tail_op {
+              @ir.HotOp::Return =>
+                changed = remove_unused_brs_try_strip_return_context_tail(
+                    ctx, func, else_ref,
+                  ) ||
+                  changed
+              _ => ()
+            }
           }
           if payload_context && !return_context {
             changed = remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
@@ -2444,24 +2526,40 @@ fn remove_unused_brs_visit_node(
               ) ||
               changed
           }
-          changed = remove_unused_brs_try_strip_tail_if_exits(
-              ctx, func, else_ref,
-            ) ||
-            changed
-          changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
-              ctx, func, else_ref, reorder_cache, label_refs,
-            ) ||
-            changed
-          changed = remove_unused_brs_try_voidify_tail_return_if(
-              ctx, func, else_ref, label_refs,
-            ) ||
-            changed
-          changed = remove_unused_brs_try_remove_region_tail(
-              ctx, func, else_ref, reorder_cache,
-            ) ||
-            changed
-          changed = remove_unused_brs_trim_trailing_nops(ctx, func, else_ref) ||
-            changed
+          let else_tail_id = remove_unused_brs_region_tail_id(func, else_ref)
+          if else_tail_id >= 0 {
+            let else_tail_op = @ir.hot_node_get(func, else_tail_id).op
+            match else_tail_op {
+              @ir.HotOp::If => {
+                changed = remove_unused_brs_try_strip_tail_if_exits(
+                    ctx, func, else_ref,
+                  ) ||
+                  changed
+                changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
+                    ctx, func, else_ref, reorder_cache, label_refs,
+                  ) ||
+                  changed
+              }
+              @ir.HotOp::Return =>
+                changed = remove_unused_brs_try_voidify_tail_return_if(
+                    ctx, func, else_ref, label_refs,
+                  ) ||
+                  changed
+              @ir.HotOp::Nop =>
+                changed = remove_unused_brs_trim_trailing_nops(
+                    ctx, func, else_ref,
+                  ) ||
+                  changed
+              _ => ()
+            }
+          }
+          if else_tail_id >= 0 &&
+            remove_unused_brs_region_has_removable_tail_target(func, else_ref) {
+            changed = remove_unused_brs_try_remove_region_tail(
+                ctx, func, else_ref, reorder_cache,
+              ) ||
+              changed
+          }
         }
         None => ()
       }
@@ -2536,28 +2634,52 @@ fn remove_unused_brs_visit_node(
           return_cache,
         ) ||
         changed
-      if return_context {
-        changed = remove_unused_brs_try_strip_return_context_tail(
-            ctx, func, body_ref,
+      let body_tail_id_for_return = remove_unused_brs_region_tail_id(
+        func, body_ref,
+      )
+      if return_context && body_tail_id_for_return >= 0 {
+        let body_tail_op = @ir.hot_node_get(func, body_tail_id_for_return).op
+        match body_tail_op {
+          @ir.HotOp::Return =>
+            changed = remove_unused_brs_try_strip_return_context_tail(
+                ctx, func, body_ref,
+              ) ||
+              changed
+          _ => ()
+        }
+      }
+      let body_tail_id = remove_unused_brs_region_tail_id(func, body_ref)
+      if body_tail_id >= 0 {
+        let body_tail_op = @ir.hot_node_get(func, body_tail_id).op
+        match body_tail_op {
+          @ir.HotOp::If => {
+            changed = remove_unused_brs_try_strip_tail_if_exits(
+                ctx, func, body_ref,
+              ) ||
+              changed
+            changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
+                ctx, func, body_ref, reorder_cache, label_refs,
+              ) ||
+              changed
+          }
+          @ir.HotOp::Return =>
+            changed = remove_unused_brs_try_voidify_tail_return_if(
+                ctx, func, body_ref, label_refs,
+              ) ||
+              changed
+          @ir.HotOp::Nop =>
+            changed = remove_unused_brs_trim_trailing_nops(ctx, func, body_ref) ||
+              changed
+          _ => ()
+        }
+      }
+      if body_tail_id >= 0 &&
+        remove_unused_brs_region_has_removable_tail_target(func, body_ref) {
+        changed = remove_unused_brs_try_remove_region_tail(
+            ctx, func, body_ref, reorder_cache,
           ) ||
           changed
       }
-      changed = remove_unused_brs_try_strip_tail_if_exits(ctx, func, body_ref) ||
-        changed
-      changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
-          ctx, func, body_ref, reorder_cache, label_refs,
-        ) ||
-        changed
-      changed = remove_unused_brs_try_voidify_tail_return_if(
-          ctx, func, body_ref, label_refs,
-        ) ||
-        changed
-      changed = remove_unused_brs_try_remove_region_tail(
-          ctx, func, body_ref, reorder_cache,
-        ) ||
-        changed
-      changed = remove_unused_brs_trim_trailing_nops(ctx, func, body_ref) ||
-        changed
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_ref) => {
           changed = remove_unused_brs_visit_region(
@@ -2565,30 +2687,54 @@ fn remove_unused_brs_visit_node(
               control_cache, return_cache,
             ) ||
             changed
-          if return_context {
-            changed = remove_unused_brs_try_strip_return_context_tail(
-                ctx, func, catch_ref,
+          let catch_tail_id_for_return = remove_unused_brs_region_tail_id(
+            func, catch_ref,
+          )
+          if return_context && catch_tail_id_for_return >= 0 {
+            let catch_tail_op = @ir.hot_node_get(func, catch_tail_id_for_return).op
+            match catch_tail_op {
+              @ir.HotOp::Return =>
+                changed = remove_unused_brs_try_strip_return_context_tail(
+                    ctx, func, catch_ref,
+                  ) ||
+                  changed
+              _ => ()
+            }
+          }
+          let catch_tail_id = remove_unused_brs_region_tail_id(func, catch_ref)
+          if catch_tail_id >= 0 {
+            let catch_tail_op = @ir.hot_node_get(func, catch_tail_id).op
+            match catch_tail_op {
+              @ir.HotOp::If => {
+                changed = remove_unused_brs_try_strip_tail_if_exits(
+                    ctx, func, catch_ref,
+                  ) ||
+                  changed
+                changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
+                    ctx, func, catch_ref, reorder_cache, label_refs,
+                  ) ||
+                  changed
+              }
+              @ir.HotOp::Return =>
+                changed = remove_unused_brs_try_voidify_tail_return_if(
+                    ctx, func, catch_ref, label_refs,
+                  ) ||
+                  changed
+              @ir.HotOp::Nop =>
+                changed = remove_unused_brs_trim_trailing_nops(
+                    ctx, func, catch_ref,
+                  ) ||
+                  changed
+              _ => ()
+            }
+          }
+          if catch_tail_id >= 0 &&
+            remove_unused_brs_region_has_removable_tail_target(func, catch_ref) {
+            changed = remove_unused_brs_try_remove_region_tail(
+                ctx, func, catch_ref, reorder_cache,
               ) ||
               changed
           }
-          changed = remove_unused_brs_try_strip_tail_if_exits(
-              ctx, func, catch_ref,
-            ) ||
-            changed
-          changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
-              ctx, func, catch_ref, reorder_cache, label_refs,
-            ) ||
-            changed
-          changed = remove_unused_brs_try_voidify_tail_return_if(
-              ctx, func, catch_ref, label_refs,
-            ) ||
-            changed
-          changed = remove_unused_brs_try_remove_region_tail(
-              ctx, func, catch_ref, reorder_cache,
-            ) ||
-            changed
-          changed = remove_unused_brs_trim_trailing_nops(ctx, func, catch_ref) ||
-            changed
         }
         None => ()
       }
@@ -2600,58 +2746,110 @@ fn remove_unused_brs_visit_node(
           return_cache,
         ) ||
         changed
-      if return_context {
-        changed = remove_unused_brs_try_strip_return_context_tail(
-            ctx, func, body_ref,
+      let body_tail_id_for_return = remove_unused_brs_region_tail_id(
+        func, body_ref,
+      )
+      if return_context && body_tail_id_for_return >= 0 {
+        let body_tail_op = @ir.hot_node_get(func, body_tail_id_for_return).op
+        match body_tail_op {
+          @ir.HotOp::Return =>
+            changed = remove_unused_brs_try_strip_return_context_tail(
+                ctx, func, body_ref,
+              ) ||
+              changed
+          _ => ()
+        }
+      }
+      let body_tail_id = remove_unused_brs_region_tail_id(func, body_ref)
+      if body_tail_id >= 0 {
+        let body_tail_op = @ir.hot_node_get(func, body_tail_id).op
+        match body_tail_op {
+          @ir.HotOp::If => {
+            changed = remove_unused_brs_try_strip_tail_if_exits(
+                ctx, func, body_ref,
+              ) ||
+              changed
+            changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
+                ctx, func, body_ref, reorder_cache, label_refs,
+              ) ||
+              changed
+          }
+          @ir.HotOp::Return =>
+            changed = remove_unused_brs_try_voidify_tail_return_if(
+                ctx, func, body_ref, label_refs,
+              ) ||
+              changed
+          @ir.HotOp::Nop =>
+            changed = remove_unused_brs_trim_trailing_nops(ctx, func, body_ref) ||
+              changed
+          _ => ()
+        }
+      }
+      if body_tail_id >= 0 &&
+        remove_unused_brs_region_has_removable_tail_target(func, body_ref) {
+        changed = remove_unused_brs_try_remove_region_tail(
+            ctx, func, body_ref, reorder_cache,
           ) ||
           changed
       }
-      changed = remove_unused_brs_try_strip_tail_if_exits(ctx, func, body_ref) ||
-        changed
-      changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
-          ctx, func, body_ref, reorder_cache, label_refs,
-        ) ||
-        changed
-      changed = remove_unused_brs_try_voidify_tail_return_if(
-          ctx, func, body_ref, label_refs,
-        ) ||
-        changed
-      changed = remove_unused_brs_try_remove_region_tail(
-          ctx, func, body_ref, reorder_cache,
-        ) ||
-        changed
-      changed = remove_unused_brs_trim_trailing_nops(ctx, func, body_ref) ||
-        changed
       let catch_list_ref = @ir.hot_region_catch_list_ref(func, node_id)
       changed = remove_unused_brs_visit_region(
           ctx, func, catch_list_ref, seen, reorder_cache, label_refs, return_context,
           control_cache, return_cache,
         ) ||
         changed
-      if return_context {
-        changed = remove_unused_brs_try_strip_return_context_tail(
-            ctx, func, catch_list_ref,
+      let catch_list_tail_id_for_return = remove_unused_brs_region_tail_id(
+        func, catch_list_ref,
+      )
+      if return_context && catch_list_tail_id_for_return >= 0 {
+        let catch_list_tail_op = @ir.hot_node_get(
+            func, catch_list_tail_id_for_return,
+          ).op
+        match catch_list_tail_op {
+          @ir.HotOp::Return =>
+            changed = remove_unused_brs_try_strip_return_context_tail(
+                ctx, func, catch_list_ref,
+              ) ||
+              changed
+          _ => ()
+        }
+      }
+      let catch_list_tail_id = remove_unused_brs_region_tail_id(
+        func, catch_list_ref,
+      )
+      if catch_list_tail_id >= 0 {
+        let catch_list_tail_op = @ir.hot_node_get(func, catch_list_tail_id).op
+        match catch_list_tail_op {
+          @ir.HotOp::If => {
+            changed = remove_unused_brs_try_strip_tail_if_exits(
+                ctx, func, catch_list_ref,
+              ) ||
+              changed
+            changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
+                ctx, func, catch_list_ref, reorder_cache, label_refs,
+              ) ||
+              changed
+          }
+          @ir.HotOp::Return =>
+            changed = remove_unused_brs_try_voidify_tail_return_if(
+                ctx, func, catch_list_ref, label_refs,
+              ) ||
+              changed
+          @ir.HotOp::Nop =>
+            changed = remove_unused_brs_trim_trailing_nops(
+                ctx, func, catch_list_ref,
+              ) ||
+              changed
+          _ => ()
+        }
+      }
+      if catch_list_tail_id >= 0 &&
+        remove_unused_brs_region_has_removable_tail_target(func, catch_list_ref) {
+        changed = remove_unused_brs_try_remove_region_tail(
+            ctx, func, catch_list_ref, reorder_cache,
           ) ||
           changed
       }
-      changed = remove_unused_brs_try_strip_tail_if_exits(
-          ctx, func, catch_list_ref,
-        ) ||
-        changed
-      changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
-          ctx, func, catch_list_ref, reorder_cache, label_refs,
-        ) ||
-        changed
-      changed = remove_unused_brs_try_voidify_tail_return_if(
-          ctx, func, catch_list_ref, label_refs,
-        ) ||
-        changed
-      changed = remove_unused_brs_try_remove_region_tail(
-          ctx, func, catch_list_ref, reorder_cache,
-        ) ||
-        changed
-      changed = remove_unused_brs_trim_trailing_nops(ctx, func, catch_list_ref) ||
-        changed
     }
     _ =>
       changed = remove_unused_brs_visit_generic_children(
