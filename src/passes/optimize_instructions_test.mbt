@@ -110,6 +110,71 @@ test "optimize-instructions folds i64.eqz on non-zero constants" {
 }
 
 ///|
+test "optimize-instructions rewrites eqz on sub into eq" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) local.get 0 local.get 1 i32.sub i32.eqz))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_eq()),
+  )
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected lhs of eqz(sub) rewrite to remain the original lhs")
+  }
+  match @ir.hot_node_get(func, rhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected rhs of eqz(sub) rewrite to remain the original rhs")
+  }
+}
+
+///|
+test "optimize-instructions rewrites eqz on add const into eq negated const" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 5 i32.add i32.eqz))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_eq()),
+  )
+  let rhs = @ir.hot_child_get(func, root, 1)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(-5)),
+  )
+}
+
+///|
+test "optimize-instructions canonicalizes i32.eq zero into eqz" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 0 i32.eq))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  assert_eq(@ir.hot_child_count(func, root), 1)
+}
+
+///|
+test "optimize-instructions canonicalizes i64.eq zero into eqz" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.const 0 i64.eq))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i64_eqz()),
+  )
+  assert_eq(@ir.hot_child_count(func, root), 1)
+}
+
+///|
 test "optimize-instructions rewrites add with a negative constant into sub" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.const -5 i32.add))",

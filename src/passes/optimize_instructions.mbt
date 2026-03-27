@@ -148,6 +148,23 @@ fn optimize_instructions_replace_with_exact_unary(
 }
 
 ///|
+fn optimize_instructions_replace_with_exact_compare(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Unit {
+  let temp = @ir.hot_build_compare(func, lhs_id, rhs_id)
+  @ir.hot_node_exact_instr_set(func, temp, instr)
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
 fn optimize_instructions_rewrite_exact_with_children(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1345,6 +1362,99 @@ fn optimize_instructions_try_fold_eqz(
     return false
   }
   let operand = func.nodes[operand_id]
+  match (instr, operand.op, @ir.hot_node_exact_instr(func, operand_id)) {
+    (@lib.Instruction::I32Eqz, @ir.HotOp::Binary, Some(@lib.Instruction::I32Sub)
+    )
+    | (
+      @lib.Instruction::I64Eqz,
+      @ir.HotOp::Binary,
+      Some(@lib.Instruction::I64Sub),
+    ) => {
+      let lhs_id = @ir.hot_child_get(func, operand_id, 0)
+      let rhs_id = @ir.hot_child_get(func, operand_id, 1)
+      optimize_instructions_replace_with_exact_compare(
+        ctx,
+        func,
+        node_id,
+        match instr {
+          @lib.Instruction::I32Eqz => @lib.Instruction::i32_eq()
+          _ => @lib.Instruction::i64_eq()
+        },
+        lhs_id,
+        rhs_id,
+      )
+      return true
+    }
+    (@lib.Instruction::I32Eqz, @ir.HotOp::Binary, Some(@lib.Instruction::I32Add)
+    ) => {
+      let lhs_id = @ir.hot_child_get(func, operand_id, 0)
+      let rhs_id = @ir.hot_child_get(func, operand_id, 1)
+      match
+        (
+          optimize_instructions_i32_const(func, dead, lhs_id),
+          optimize_instructions_i32_const(func, dead, rhs_id),
+        ) {
+        (Some(@lib.I32(raw)), _) => {
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_eq(),
+            rhs_id,
+            @ir.hot_build_const_i32(func, @lib.I32(-raw)),
+          )
+          return true
+        }
+        (_, Some(@lib.I32(raw))) => {
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_eq(),
+            lhs_id,
+            @ir.hot_build_const_i32(func, @lib.I32(-raw)),
+          )
+          return true
+        }
+        _ => ()
+      }
+    }
+    (@lib.Instruction::I64Eqz, @ir.HotOp::Binary, Some(@lib.Instruction::I64Add)
+    ) => {
+      let lhs_id = @ir.hot_child_get(func, operand_id, 0)
+      let rhs_id = @ir.hot_child_get(func, operand_id, 1)
+      match
+        (
+          optimize_instructions_i64_const(func, dead, lhs_id),
+          optimize_instructions_i64_const(func, dead, rhs_id),
+        ) {
+        (Some(@lib.I64(raw)), _) => {
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_eq(),
+            rhs_id,
+            @ir.hot_build_const_i64(func, @lib.I64(-raw)),
+          )
+          return true
+        }
+        (_, Some(@lib.I64(raw))) => {
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_eq(),
+            lhs_id,
+            @ir.hot_build_const_i64(func, @lib.I64(-raw)),
+          )
+          return true
+        }
+        _ => ()
+      }
+    }
+    _ => ()
+  }
   match operand.op {
     @ir.HotOp::Const => ()
     _ => return false
@@ -1798,6 +1908,74 @@ fn optimize_instructions_try_fold_compare_zero(
 }
 
 ///|
+fn optimize_instructions_try_rewrite_compare_eqz(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match
+    (
+      instr,
+      optimize_instructions_i32_const(func, dead, lhs_id),
+      optimize_instructions_i32_const(func, dead, rhs_id),
+    ) {
+    (@lib.Instruction::I32Eq, Some(@lib.I32(0)), _) => {
+      optimize_instructions_replace_with_exact_unary(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_eqz(),
+        rhs_id,
+      )
+      return true
+    }
+    (@lib.Instruction::I32Eq, _, Some(@lib.I32(0))) => {
+      optimize_instructions_replace_with_exact_unary(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_eqz(),
+        lhs_id,
+      )
+      return true
+    }
+    _ => ()
+  }
+  match
+    (
+      instr,
+      optimize_instructions_i64_const(func, dead, lhs_id),
+      optimize_instructions_i64_const(func, dead, rhs_id),
+    ) {
+    (@lib.Instruction::I64Eq, Some(@lib.I64(0L)), _) => {
+      optimize_instructions_replace_with_exact_unary(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i64_eqz(),
+        rhs_id,
+      )
+      true
+    }
+    (@lib.Instruction::I64Eq, _, Some(@lib.I64(0L))) => {
+      optimize_instructions_replace_with_exact_unary(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i64_eqz(),
+        lhs_id,
+      )
+      true
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_visit_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1909,64 +2087,71 @@ fn optimize_instructions_visit_node(
         let mut current_lhs = func.children[node.child_base]
         let mut current_rhs = func.children[node.child_base + 1]
         let mut changed = false
-        if optimize_instructions_try_canonicalize_relational_const(
+        if optimize_instructions_try_rewrite_compare_eqz(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) {
-          changed = true
-          let current = func.nodes[node_id]
-          current_instr = func.instr_payloads[current.imm0].instr
-          current_lhs = func.children[current.child_base]
-          current_rhs = func.children[current.child_base + 1]
-        }
-        if optimize_instructions_try_canonicalize_relational_operands(
-            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs, scratch,
-          ) {
-          changed = true
-          let current = func.nodes[node_id]
-          current_instr = func.instr_payloads[current.imm0].instr
-          current_lhs = func.children[current.child_base]
-          current_rhs = func.children[current.child_base + 1]
-        }
-        if optimize_instructions_try_canonicalize_compare_const(
-            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
-          ) {
-          changed = true
-          let current = func.nodes[node_id]
-          current_instr = func.instr_payloads[current.imm0].instr
-          current_lhs = func.children[current.child_base]
-          current_rhs = func.children[current.child_base + 1]
-        }
-        let zero_folded = optimize_instructions_try_fold_compare_zero(
-          ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
-        )
-        changed = zero_folded || changed
-        if zero_folded {
-          changed
+          true
         } else {
-          let canonicalized = if optimize_instructions_is_commutative_instr(
-              current_instr,
+          if optimize_instructions_try_canonicalize_relational_const(
+              ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
             ) {
-            optimize_instructions_try_canonicalize_commutative(
+            changed = true
+            let current = func.nodes[node_id]
+            current_instr = func.instr_payloads[current.imm0].instr
+            current_lhs = func.children[current.child_base]
+            current_rhs = func.children[current.child_base + 1]
+          }
+          if optimize_instructions_try_canonicalize_relational_operands(
               ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
               scratch,
-            )
-          } else {
-            false
-          }
-          if canonicalized {
+            ) {
+            changed = true
             let current = func.nodes[node_id]
-            let next_instr = func.instr_payloads[current.imm0].instr
-            let next_lhs = func.children[current.child_base]
-            let next_rhs = func.children[current.child_base + 1]
-            optimize_instructions_try_canonicalize_compare_const(
-              ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
-            ) ||
-            optimize_instructions_try_fold_compare_zero(
-              ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
-            ) ||
-            true
-          } else {
+            current_instr = func.instr_payloads[current.imm0].instr
+            current_lhs = func.children[current.child_base]
+            current_rhs = func.children[current.child_base + 1]
+          }
+          if optimize_instructions_try_canonicalize_compare_const(
+              ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+            ) {
+            changed = true
+            let current = func.nodes[node_id]
+            current_instr = func.instr_payloads[current.imm0].instr
+            current_lhs = func.children[current.child_base]
+            current_rhs = func.children[current.child_base + 1]
+          }
+          let zero_folded = optimize_instructions_try_fold_compare_zero(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          )
+          changed = zero_folded || changed
+          if zero_folded {
             changed
+          } else {
+            let canonicalized = if optimize_instructions_is_commutative_instr(
+                current_instr,
+              ) {
+              optimize_instructions_try_canonicalize_commutative(
+                ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+                scratch,
+              )
+            } else {
+              false
+            }
+            if canonicalized {
+              let current = func.nodes[node_id]
+              let next_instr = func.instr_payloads[current.imm0].instr
+              let next_lhs = func.children[current.child_base]
+              let next_rhs = func.children[current.child_base + 1]
+              optimize_instructions_try_canonicalize_compare_const(
+                ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
+              ) ||
+              optimize_instructions_try_fold_compare_zero(
+                ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
+              ) ||
+              true
+            } else {
+              changed
+            }
           }
         }
       }
