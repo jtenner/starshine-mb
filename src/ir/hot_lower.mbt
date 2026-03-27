@@ -1270,6 +1270,85 @@ fn hot_lower_impl_canonicalize_body(
 }
 
 ///|
+fn hot_lower_impl_can_stackify_struct_set_value_prefix(
+  body : Array[Instruction],
+) -> Bool {
+  if body.length() < 2 || hot_lower_impl_body_targets_removed_label(body, 0) {
+    return false
+  }
+  for i = 0; i < body.length() - 1; i = i + 1 {
+    if hot_lower_impl_has_control_transfer(body[i]) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
+  func : HotFunc,
+  body : Array[Instruction],
+  extra_locals : Array[ValType],
+) -> Array[Instruction] {
+  let rewritten : Array[Instruction] = []
+  let mut idx = 0
+  while idx < body.length() {
+    if idx + 2 < body.length() {
+      match body[idx] {
+        LocalGet(local_idx) =>
+          match body[idx + 1] {
+            Block(_, Expr(value_body)) if
+              hot_lower_impl_can_stackify_struct_set_value_prefix(value_body) =>
+              match body[idx + 2] {
+                StructSet(_, _) =>
+                  match local_idx {
+                    LocalIdx(raw_local) => {
+                      let local_id = raw_local.reinterpret_as_int()
+                      match hot_local_type(func, local_id) {
+                        Some(local_ty) => {
+                          let scratch_local = LocalIdx::new(
+                            (hot_local_count(func) + extra_locals.length()).reinterpret_as_uint(),
+                          )
+                          extra_locals.push(local_ty)
+                          let wrapper_body : Array[Instruction] = [
+                            Instruction::local_get(local_idx),
+                            Instruction::local_set(scratch_local),
+                          ]
+                          for prefix_idx = 0;
+                            prefix_idx < value_body.length() - 1;
+                            prefix_idx = prefix_idx + 1 {
+                            wrapper_body.push(value_body[prefix_idx])
+                          }
+                          wrapper_body.push(Instruction::local_get(scratch_local))
+                          rewritten.push(
+                            Instruction::block(
+                              BlockType::val_type(local_ty),
+                              Expr::new(wrapper_body),
+                            ),
+                          )
+                          rewritten.push(value_body[value_body.length() - 1])
+                          rewritten.push(body[idx + 2])
+                          idx = idx + 3
+                          continue
+                        }
+                        None => ()
+                      }
+                    }
+                  }
+                _ => ()
+              }
+            _ => ()
+          }
+        _ => ()
+      }
+    }
+    rewritten.push(body[idx])
+    idx = idx + 1
+  }
+  rewritten
+}
+
+///|
 fn hot_lower_body_with_extras(func : HotFunc) -> HotLowerBodyResult {
   hot_verify_all_or_abort(func)
   hot_lower_body_with_extras_unverified(func)
@@ -1304,8 +1383,13 @@ fn hot_lower_body_with_extras_unverified(func : HotFunc) -> HotLowerBodyResult {
       out,
     )
   }
+  let canonical = hot_lower_impl_canonicalize_body(out)
   {
-    body: hot_lower_impl_canonicalize_body(out),
+    body: hot_lower_impl_stackify_wrapped_struct_set_prefixes(
+      func,
+      canonical,
+      extra_locals,
+    ),
     extra_locals,
     final_stack: value_stack,
   }
