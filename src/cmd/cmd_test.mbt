@@ -640,6 +640,139 @@ fn fixture_hso_branch_fold_module() -> Module {
 }
 
 ///|
+fn fixture_hso_local_branch_trim_module() -> Module {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(fixture_hso_struct_fields(1)),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      Func::new(
+        @lib.Locals::from_types([ref_type]),
+        @lib.Expr::new([
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_set(local0),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::local_get(local0),
+              @lib.Instruction::drop(),
+              @lib.Instruction::i32_const(@lib.I32(7)),
+              @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+              @lib.Instruction::i32_const(@lib.I32(8)),
+            ]),
+          ),
+          @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn fixture_hso_memory_branch_fold_module() -> Module {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(fixture_hso_struct_fields(1)),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      Func::new(
+        @lib.Locals::from_types([ref_type]),
+        @lib.Expr::new([
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_set(local0),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+              @lib.Instruction::drop(),
+              @lib.Instruction::i32_const(@lib.I32(7)),
+              @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+              @lib.Instruction::i32_const(@lib.I32(8)),
+            ]),
+          ),
+          @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+        ]),
+      ),
+    ]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+}
+
+///|
+fn fixture_hso_tee_memory_branch_fold_ref_result_module() -> Module {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(fixture_hso_struct_fields(1)),
+    ),
+  )
+  let pair = @lib.TypeIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [ref_type])),
+  )
+  let local0 = @lib.LocalIdx::new(0U)
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      Func::new(
+        @lib.Locals::from_types([ref_type]),
+        @lib.Expr::new([
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_tee(local0),
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+              @lib.Instruction::drop(),
+              @lib.Instruction::i32_const(@lib.I32(7)),
+              @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+              @lib.Instruction::i32_const(@lib.I32(8)),
+            ]),
+          ),
+          @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          @lib.Instruction::local_get(local0),
+        ]),
+      ),
+    ]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+}
+
+///|
 fn fixture_hso_swapped_nonlocal_readonly_prefix_module() -> Module {
   let struct_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -1381,7 +1514,7 @@ test "run_cmd_with_adapter applies ssa-nomerge to wasm inputs" {
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for HSO readonly mutable-global prefixes" {
+test "run_cmd_with_adapter folds HSO readonly mutable-global prefixes into struct.new" {
   let wasm = encode_module_bytes(fixture_hso_nonlocal_readonly_prefix_module())
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -1412,11 +1545,12 @@ test "run_cmd_with_adapter keeps struct.set for HSO readonly mutable-global pref
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.get"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for tee HSO readonly mutable-global prefixes" {
+test "run_cmd_with_adapter folds tee HSO readonly mutable-global prefixes into struct.new" {
   let wasm = encode_module_bytes(
     fixture_hso_tee_nonlocal_readonly_prefix_module(),
   )
@@ -1449,11 +1583,12 @@ test "run_cmd_with_adapter keeps struct.set for tee HSO readonly mutable-global 
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.get"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for tee HSO pure multi-root block values" {
+test "run_cmd_with_adapter folds tee HSO pure multi-root block values into struct.new" {
   let wasm = encode_module_bytes(fixture_hso_tee_pure_block_prefix_module())
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -1487,12 +1622,13 @@ test "run_cmd_with_adapter keeps struct.set for tee HSO pure multi-root block va
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
-  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for tee HSO pure multi-root block ref results" {
+test "run_cmd_with_adapter folds tee HSO pure multi-root block ref results into struct.new" {
   let wasm = encode_module_bytes(
     fixture_hso_tee_pure_block_prefix_ref_result_module(),
   )
@@ -1530,12 +1666,13 @@ test "run_cmd_with_adapter keeps struct.set for tee HSO pure multi-root block re
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
-  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for direct HSO pure prefix blocks" {
+test "run_cmd_with_adapter folds direct HSO pure prefix blocks into struct.new" {
   let wasm = encode_module_bytes(fixture_hso_direct_pure_block_prefix_module())
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -1569,11 +1706,12 @@ test "run_cmd_with_adapter keeps struct.set for direct HSO pure prefix blocks" {
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for direct HSO pure prefix ref results" {
+test "run_cmd_with_adapter folds direct HSO pure prefix ref results into struct.new" {
   let wasm = encode_module_bytes(
     fixture_hso_direct_pure_block_prefix_ref_result_module(),
   )
@@ -1611,7 +1749,8 @@ test "run_cmd_with_adapter keeps struct.set for direct HSO pure prefix ref resul
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
@@ -1651,7 +1790,124 @@ test "run_cmd_with_adapter trims unreachable tails in folded HSO branch values" 
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for swapped-root HSO readonly mutable-global prefixes" {
+test "run_cmd_with_adapter trims unreachable tails in non-folded HSO local branch values" {
+  let wasm = encode_module_bytes(fixture_hso_local_branch_trim_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-local-branch.wasm"] },
+    file_exists=fn(path) { path == "hso-local-branch.wasm" },
+    read_file=fn(path) {
+      if path == "hso-local-branch.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--heap-store-optimization", "--out", "out.wasm", "hso-local-branch.wasm",
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected local-branch HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter folds HSO memory-size branch values" {
+  let wasm = encode_module_bytes(fixture_hso_memory_branch_fold_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-memory-branch.wasm"] },
+    file_exists=fn(path) { path == "hso-memory-branch.wasm" },
+    read_file=fn(path) {
+      if path == "hso-memory-branch.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--heap-store-optimization", "--out", "out.wasm", "hso-memory-branch.wasm",
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected memory-branch HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter folds tee HSO memory-size branch values" {
+  let wasm = encode_module_bytes(
+    fixture_hso_tee_memory_branch_fold_ref_result_module(),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-tee-memory-branch.wasm"] },
+    file_exists=fn(path) { path == "hso-tee-memory-branch.wasm" },
+    read_file=fn(path) {
+      if path == "hso-tee-memory-branch.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--heap-store-optimization", "--out", "out.wasm", "hso-tee-memory-branch.wasm",
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected tee memory-branch HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter folds swapped-root HSO readonly mutable-global prefixes into struct.new" {
   let wasm = encode_module_bytes(
     fixture_hso_swapped_nonlocal_readonly_prefix_module(),
   )
@@ -1686,7 +1942,8 @@ test "run_cmd_with_adapter keeps struct.set for swapped-root HSO readonly mutabl
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.set"), msg=pretty)
   assert_true(pretty.contains("global.get"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
@@ -1800,7 +2057,7 @@ test "run_cmd_with_adapter keeps struct.set for HSO tee pure ref-prefix ref-resu
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for HSO readonly value-prefix memory.size wasm inputs" {
+test "run_cmd_with_adapter folds HSO readonly value-prefix memory.size wasm inputs" {
   let wasm = encode_module_bytes(fixture_hso_memory_size_value_prefix_module())
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -1831,7 +2088,8 @@ test "run_cmd_with_adapter keeps struct.set for HSO readonly value-prefix memory
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("memory.size"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|

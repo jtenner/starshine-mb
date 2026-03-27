@@ -580,6 +580,167 @@ fn hso_subtree_is_trapless_readonly(
 }
 
 ///|
+fn hso_region_is_trapless_reorderable(
+  cache : HsoPredicateCache,
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  region_ref : @ir.HotRegionRef,
+  active_owners : Array[Int],
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if !hso_subtree_is_trapless_reorderable(
+        cache,
+        func,
+        node_masks,
+        @ir.hot_region_get(func, region_ref, idx),
+        active_owners,
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn hso_subtree_is_trapless_reorderable(
+  cache : HsoPredicateCache,
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  node_id : Int,
+  active_owners : Array[Int],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  if @ir.hot_is_branch(func, node_id) &&
+    hso_branch_escapes_active_owners(func, active_owners, node_id) {
+    return false
+  }
+  let mask = hso_effects_for_node(func, node_masks, node_id)
+  let allowed_effects = @ir.EFFECT_MASK_CONTROL |
+    @ir.EFFECT_MASK_LOCAL_STATE |
+    @ir.EFFECT_MASK_GLOBAL_STATE |
+    @ir.EFFECT_MASK_MEMORY_READ |
+    @ir.EFFECT_MASK_TABLE_READ
+  let disallowed_effects = mask ^ (mask & allowed_effects)
+  let allows_side_effect = match node.op {
+    @ir.HotOp::Drop
+    | @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => true
+    _ => @ir.hot_is_branch(func, node_id)
+  }
+  if disallowed_effects != 0U ||
+    (!allows_side_effect && @ir.hot_has_side_effect(func, node_id)) ||
+    @ir.hot_may_trap(func, node_id) ||
+    @ir.hot_node_may_throw_exception(func, node_id) ||
+    (
+      !@ir.hot_is_branch(func, node_id) &&
+      @ir.hot_is_terminator_node(func, node_id)
+    ) {
+    return false
+  }
+  let pushes_owner = match node.op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => true
+    _ => false
+  }
+  if pushes_owner {
+    active_owners.push(node_id)
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if !hso_subtree_is_trapless_reorderable(
+        cache,
+        func,
+        node_masks,
+        @ir.hot_child_get(func, node_id, slot),
+        active_owners,
+      ) {
+      if pushes_owner {
+        ignore(active_owners.pop())
+      }
+      return false
+    }
+  }
+  let regions_ok = match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_region_is_trapless_reorderable(
+        cache,
+        func,
+        node_masks,
+        @ir.hot_region_body_ref(func, node_id),
+        active_owners,
+      )
+    @ir.HotOp::If => {
+      let then_is_reorderable = hso_region_is_trapless_reorderable(
+        cache,
+        func,
+        node_masks,
+        @ir.hot_region_then_ref(func, node_id),
+        active_owners,
+      )
+      if !then_is_reorderable {
+        false
+      } else {
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_is_trapless_reorderable(
+              cache, func, node_masks, region_ref, active_owners,
+            )
+          None => true
+        }
+      }
+    }
+    @ir.HotOp::Try => {
+      let body_is_reorderable = hso_region_is_trapless_reorderable(
+        cache,
+        func,
+        node_masks,
+        @ir.hot_region_body_ref(func, node_id),
+        active_owners,
+      )
+      if !body_is_reorderable {
+        false
+      } else {
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_is_trapless_reorderable(
+              cache, func, node_masks, region_ref, active_owners,
+            )
+          None => true
+        }
+      }
+    }
+    @ir.HotOp::TryTable =>
+      hso_region_is_trapless_reorderable(
+        cache,
+        func,
+        node_masks,
+        @ir.hot_region_body_ref(func, node_id),
+        active_owners,
+      ) &&
+      hso_region_is_trapless_reorderable(
+        cache,
+        func,
+        node_masks,
+        @ir.hot_region_catch_list_ref(func, node_id),
+        active_owners,
+      )
+    _ => true
+  }
+  if pushes_owner {
+    ignore(active_owners.pop())
+  }
+  regions_ok
+}
+
+///|
 fn hso_nodes_can_reorder(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
@@ -623,7 +784,7 @@ fn hso_root_can_swap_before_local_struct_new(
   if (mask & disallowed_effects) == 0U {
     return true
   }
-  hso_subtree_is_trapless_readonly(cache, func, node_masks, node_id)
+  hso_subtree_is_trapless_reorderable(cache, func, node_masks, node_id, [])
 }
 
 ///|
@@ -638,7 +799,7 @@ fn hso_swapped_readonly_roots_respect_ref_order(
     if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
       continue
     }
-    if hso_subtree_is_trapless_readonly(cache, func, node_masks, root_id) &&
+    if hso_subtree_is_trapless_reorderable(cache, func, node_masks, root_id, []) &&
       ref_id < root_id {
       return false
     }
@@ -864,40 +1025,6 @@ fn hso_sequence_result_type(
 }
 
 ///|
-fn hso_value_has_nonbranching_prefix_block(
-  cache : HsoPredicateCache,
-  func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  value_id : Int,
-) -> Bool {
-  if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
-    return false
-  }
-  let node = @ir.hot_node_get(func, value_id)
-  match node.op {
-    @ir.HotOp::Block => ()
-    _ => return false
-  }
-  let body_ref = @ir.hot_region_body_ref(func, value_id)
-  let root_count = @ir.hot_region_root_count(func, body_ref)
-  if root_count < 2 {
-    return false
-  }
-  let last_root_id = @ir.hot_region_get(func, body_ref, root_count - 1)
-  if @ir.hot_is_branch(func, last_root_id) ||
-    @ir.hot_is_terminator_node(func, last_root_id) {
-    return false
-  }
-  for idx = 0; idx < root_count - 1; idx = idx + 1 {
-    let root_id = @ir.hot_region_get(func, body_ref, idx)
-    if !hso_subtree_is_trapless_readonly(cache, func, node_masks, root_id) {
-      return false
-    }
-  }
-  true
-}
-
-///|
 fn hso_build_preserved_replacement(
   func : @ir.HotFunc,
   node_masks : Array[UInt],
@@ -1072,14 +1199,12 @@ fn hso_try_fold_into_struct_new(
   if new_type_idx != type_idx || field_idx < 0 || field_idx >= field_count {
     return false
   }
+  ignore(hso_trim_unreachable_subtree(func, value_id))
 
   let value_mask = hso_effects_for_node(func, node_masks, value_id)
   let value_reorder_mask = hso_reorder_effect_mask(
     cache, func, node_masks, value_id,
   )
-  if hso_value_has_nonbranching_prefix_block(cache, func, node_masks, value_id) {
-    return false
-  }
   if (value_mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
     hso_subtree_touches_local(func, value_id, local_id) {
     return false
@@ -1091,7 +1216,7 @@ fn hso_try_fold_into_struct_new(
       hso_struct_new_shallow_effects(func, struct_new_id),
       value_reorder_mask,
     ) &&
-    !hso_subtree_is_trapless_readonly(cache, func, node_masks, value_id) {
+    !hso_subtree_is_trapless_reorderable(cache, func, node_masks, value_id, []) {
     return false
   }
 
@@ -1134,7 +1259,6 @@ fn hso_try_fold_into_struct_new(
   }
 
   if needs_default_materialization {
-    ignore(hso_trim_unreachable_subtree(func, value_id))
     let module_ctx = match module_ctx {
       Some(module_ctx) => module_ctx
       None => return false
@@ -1160,7 +1284,6 @@ fn hso_try_fold_into_struct_new(
     @ir.hot_delete_node(func, replacement_id)
     @ir.hot_replace_node(func, struct_new_id, replacement)
   } else {
-    ignore(hso_trim_unreachable_subtree(func, value_id))
     let old_value_id = @ir.hot_child_get(func, struct_new_id, field_idx)
     let replacement = match
       hso_build_preserved_replacement(func, node_masks, old_value_id, value_id) {

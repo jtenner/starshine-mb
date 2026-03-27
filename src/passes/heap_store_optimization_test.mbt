@@ -600,7 +600,7 @@ test "heap-store-optimization folds pure block-wrapped struct.set values into st
 }
 
 ///|
-test "heap-store-optimization keeps non-branching pure prefix blocks as struct.set" {
+test "heap-store-optimization folds non-branching pure prefix blocks into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -626,13 +626,14 @@ test "heap-store-optimization keeps non-branching pure prefix blocks as struct.s
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected pure-prefix non-fold heap-store-optimization success, got \{err}",
+        "expected pure-prefix fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
@@ -665,6 +666,117 @@ test "heap-store-optimization folds value branches that stay inside the moved su
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization trims unreachable tails in non-folded local branch values" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+          ]),
+        ),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected local-branch heap-store-optimization success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds memory.size branches into struct.new" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+          ]),
+        ),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected memory-branch heap-store-optimization success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds tee memory.size branches into struct.new" {
+  let pair = @lib.TypeIdx::new(0U)
+  let optimized = match
+    hso_memory_ref_result_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+          ]),
+        ),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected tee memory-branch heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
   assert_true(pretty.contains("struct.new"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
   assert_false(pretty.contains("I32(8)"), msg=pretty)
@@ -749,7 +861,7 @@ test "heap-store-optimization reorders unrelated local.get field values within s
 }
 
 ///|
-test "heap-store-optimization keeps drop-wrapped readonly local block values as struct.set" {
+test "heap-store-optimization folds drop-wrapped readonly local block values into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let local1 = @lib.LocalIdx::new(1U)
@@ -786,12 +898,13 @@ test "heap-store-optimization keeps drop-wrapped readonly local block values as 
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected drop-wrapped readonly non-fold heap-store-optimization success, got \{err}",
+        "expected drop-wrapped readonly fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
@@ -822,7 +935,7 @@ test "heap-store-optimization folds memory.size values into struct.new" {
 }
 
 ///|
-test "heap-store-optimization keeps immutable global readonly block prefixes as struct.set" {
+test "heap-store-optimization folds immutable global readonly block prefixes into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -848,17 +961,18 @@ test "heap-store-optimization keeps immutable global readonly block prefixes as 
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected immutable-global readonly-prefix non-fold heap-store-optimization success, got \{err}",
+        "expected immutable-global readonly-prefix fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.get"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
-test "heap-store-optimization keeps memory.size readonly block prefixes as struct.set" {
+test "heap-store-optimization folds memory.size readonly block prefixes into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -884,13 +998,14 @@ test "heap-store-optimization keeps memory.size readonly block prefixes as struc
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected memory-size readonly-prefix non-fold heap-store-optimization success, got \{err}",
+        "expected memory-size readonly-prefix fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("memory.size"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
@@ -1130,7 +1245,7 @@ test "heap-store-optimization keeps folded nops after the rewritten local.set" {
 }
 
 ///|
-test "heap-store-optimization keeps readonly block-prefix values as struct.set" {
+test "heap-store-optimization folds readonly block-prefix values into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -1156,17 +1271,18 @@ test "heap-store-optimization keeps readonly block-prefix values as struct.set" 
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected readonly-prefix non-fold heap-store-optimization success, got \{err}",
+        "expected readonly-prefix fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
-test "heap-store-optimization keeps tee readonly block-prefix values as struct.set" {
+test "heap-store-optimization folds tee readonly block-prefix values into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -1191,18 +1307,19 @@ test "heap-store-optimization keeps tee readonly block-prefix values as struct.s
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected tee readonly-prefix non-fold heap-store-optimization success, got \{err}",
+        "expected tee readonly-prefix fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
-  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
-test "heap-store-optimization keeps tee multi-root pure block values as struct.set" {
+test "heap-store-optimization folds tee multi-root pure block values into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -1227,18 +1344,19 @@ test "heap-store-optimization keeps tee multi-root pure block values as struct.s
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected tee multi-root pure-block non-fold heap-store-optimization success, got \{err}",
+        "expected tee multi-root pure-block fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
-  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
-test "heap-store-optimization keeps tee memory.size block values as struct.set" {
+test "heap-store-optimization folds tee memory.size block values into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -1263,18 +1381,19 @@ test "heap-store-optimization keeps tee memory.size block values as struct.set" 
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected tee memory-size block non-fold heap-store-optimization success, got \{err}",
+        "expected tee memory-size block fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("memory.size"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
-  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
-test "heap-store-optimization keeps tee pure block ref results as struct.set" {
+test "heap-store-optimization folds tee pure block ref results into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -1298,18 +1417,19 @@ test "heap-store-optimization keeps tee pure block ref results as struct.set" {
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected tee pure-block ref-result non-fold heap-store-optimization success, got \{err}",
+        "expected tee pure-block ref-result fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
-  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
-test "heap-store-optimization keeps tee memory.size ref results as struct.set" {
+test "heap-store-optimization folds tee memory.size ref results into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -1333,18 +1453,19 @@ test "heap-store-optimization keeps tee memory.size ref results as struct.set" {
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected tee memory-size ref-result non-fold heap-store-optimization success, got \{err}",
+        "expected tee memory-size ref-result fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("memory.size"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
-  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
 }
 
 ///|
-test "heap-store-optimization keeps swapped roots when readonly block values stay as struct.set" {
+test "heap-store-optimization folds swapped readonly block values into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -1377,18 +1498,19 @@ test "heap-store-optimization keeps swapped roots when readonly block values sta
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected swapped-prefix non-fold heap-store-optimization success, got \{err}",
+        "expected swapped-prefix fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.set"), msg=pretty)
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
-test "heap-store-optimization keeps nested readonly tail blocks as struct.set" {
+test "heap-store-optimization folds nested readonly tail blocks into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -1417,13 +1539,14 @@ test "heap-store-optimization keeps nested readonly tail blocks as struct.set" {
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected nested-tail non-fold heap-store-optimization success, got \{err}",
+        "expected nested-tail fold heap-store-optimization success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
