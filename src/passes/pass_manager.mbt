@@ -792,6 +792,59 @@ fn run_hot_pipeline_dce_can_skip_raw(
 }
 
 ///|
+priv struct HsoCandidateScanState {
+  mut has_local_writes : Bool
+  mut has_struct_alloc : Bool
+  mut has_struct_set : Bool
+}
+
+///|
+fn run_hot_pipeline_hso_candidate_scan_into(
+  instrs : Array[@lib.Instruction],
+  state : HsoCandidateScanState,
+) -> Unit {
+  for instr in instrs {
+    if state.has_local_writes && state.has_struct_alloc && state.has_struct_set {
+      return
+    }
+    match instr {
+      @lib.LocalSet(_) | @lib.LocalTee(_) => state.has_local_writes = true
+      @lib.StructNew(_)
+      | @lib.StructNewDefault(_)
+      | @lib.StructNewDesc(_)
+      | @lib.StructNewDefaultDesc(_) => state.has_struct_alloc = true
+      @lib.StructSet(_, _) => state.has_struct_set = true
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        run_hot_pipeline_hso_candidate_scan_into(body, state)
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_hso_candidate_scan_into(then_body, state)
+        match else_body {
+          Some(else_body) =>
+            run_hot_pipeline_hso_candidate_scan_into(else_body, state)
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_hso_candidate_scan_into(body, state)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_hso_candidate_scan(
+  instrs : Array[@lib.Instruction],
+) -> (Bool, Bool, Bool) {
+  let state = {
+    has_local_writes: false,
+    has_struct_alloc: false,
+    has_struct_set: false,
+  }
+  run_hot_pipeline_hso_candidate_scan_into(instrs, state)
+  (state.has_local_writes, state.has_struct_alloc, state.has_struct_set)
+}
+
+///|
 fn run_hot_pipeline_required_func_params(
   module_ctx : @ir.HotModuleContext,
   func_idx : @lib.FuncIdx,
