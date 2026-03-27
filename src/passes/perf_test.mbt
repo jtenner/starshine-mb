@@ -79,6 +79,55 @@ fn perf_test_make_large_void_if_return_ladder_module(
 }
 
 ///|
+fn perf_test_make_single_root_value_if_ladder_module(
+  repetitions : Int,
+) -> String {
+  let expr = StringBuilder::new()
+  expr.write_string("(i32.const 0)")
+  let mut i = 0
+  while i < repetitions {
+    let tee_local = i % 200 + 1
+    let set_local = i % 200 + 301
+    let next = StringBuilder::new()
+    next.write_string("(block (result i32) (drop ")
+    next.write_string(expr.to_string())
+    next.write_string(
+      ") (if (result i32) (local.get 0) (then (local.get 0) (call 0) (local.tee ",
+    )
+    next.write_string(tee_local.to_string())
+    next.write_string(") (local.set ")
+    next.write_string(set_local.to_string())
+    next.write_string(
+      ") (i32.const 1)) (else (local.get 0) (call 0) (local.tee ",
+    )
+    next.write_string(tee_local.to_string())
+    next.write_string(") (local.set ")
+    next.write_string(set_local.to_string())
+    next.write_string(") (i32.const 2))))")
+    expr.write_string("")
+    expr.reset()
+    expr.write_string(next.to_string())
+    i = i + 1
+  }
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    local.get 0)\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 800 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n    ")
+  out.write_string(expr.to_string())
+  out.write_string(")\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 test "perf session records hot allocation deltas dumps and checkpoints" {
   let lines : Array[String] = []
   let perf = HotPerfSession::new(
@@ -356,6 +405,36 @@ test "remove-unused-brs skips large void-if return ladders after lift" {
     Err(err) =>
       fail(
         "expected large void-if return ladder raw remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-hot reason=large-void-if-return-ladder-noop",
+    ),
+  )
+  assert_true(text.contains("perf:timer name=lift"))
+  assert_true(text.contains("perf:timer name=pass:remove-unused-brs"))
+}
+
+///|
+test "remove-unused-brs skips single-root value-if ladders after lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_single_root_value_if_ladder_module(320)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected single-root value-if remove-unused-brs success, got \{err}",
       )
   }
 
