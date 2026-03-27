@@ -8,7 +8,7 @@ bun validate trace-benchmark --repeat 1
 
 Default target: `wasm-gc`.
 
-The corpora come from [`src/validate_trace/main.mbt`](/home/jtenner/Projects/starshine-mb/src/validate_trace/main.mbt). Wall-clock `elapsed_ms` will vary by machine and load, but the `phase_totals`, `helper_totals`, and `hotspots` lines below are the committed baseline snapshot for later validator performance work.
+The corpora come from [`src/validate_trace/main.mbt`](../src/validate_trace/main.mbt). Wall-clock `elapsed_ms` will vary by machine and load, but the `phase_totals`, `helper_totals`, and `hotspots` lines below are the committed baseline snapshot for later validator performance work.
 
 ## deep-control
 

@@ -40,5 +40,5 @@ After this slice:
 ## Open Questions
 
 - That remaining bottom-null compatibility gap has landed in
-  [`0028-2026-03-22-ref-get-desc-bottom-null-operands`](/home/jtenner/Projects/starshine-mb/docs/0028-2026-03-22-ref-get-desc-bottom-null-operands.md).
+  [`0028-2026-03-22-ref-get-desc-bottom-null-operands`](./0028-2026-03-22-ref-get-desc-bottom-null-operands.md).
 - The broader custom-descriptor runtime-mixed fixture sequence is now the next work item after the static path is green.
