@@ -497,6 +497,13 @@ fn remove_unused_brs_try_voidify_tail_return_if(
   if remove_unused_brs_label_is_used(label_refs, if_label) {
     return false
   }
+  if return_arity == 1 &&
+    (
+      !remove_unused_brs_tail_is_nonfallthrough(func, then_ref) ||
+      !remove_unused_brs_tail_is_nonfallthrough(func, else_ref)
+    ) {
+    return false
+  }
   let then_body = match
     remove_unused_brs_build_tail_return_if_arm_body(
       func, then_ref, return_arity,
@@ -2227,7 +2234,10 @@ fn remove_unused_brs_visit_embedded_subtree(
         label_refs,
         payload_context,
         return_context &&
-        remove_unused_brs_subtree_has_return(func, node_id, return_cache),
+        (
+          remove_unused_brs_subtree_has_return(func, node_id, return_cache) ||
+          @ir.hot_node_result_arity(func, node_id) > 0
+        ),
         control_cache,
         return_cache,
       )
@@ -2308,6 +2318,7 @@ fn remove_unused_brs_visit_node(
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block | @ir.HotOp::Loop => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
+      let allow_payload_rewrites = payload_context && !return_context
       changed = remove_unused_brs_visit_region(
           ctx, func, body_ref, seen, reorder_cache, label_refs, return_context, control_cache,
           return_cache,
@@ -2319,7 +2330,7 @@ fn remove_unused_brs_visit_node(
           ) ||
           changed
       }
-      if payload_context {
+      if allow_payload_rewrites {
         changed = remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
             ctx, func, body_ref, label_refs,
           ) ||
@@ -2376,7 +2387,7 @@ fn remove_unused_brs_visit_node(
           ) ||
           changed
       }
-      if payload_context {
+      if payload_context && !return_context {
         changed = remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
             ctx, func, then_ref, label_refs,
           ) ||
@@ -2415,7 +2426,7 @@ fn remove_unused_brs_visit_node(
               ) ||
               changed
           }
-          if payload_context {
+          if payload_context && !return_context {
             changed = remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
                 ctx, func, else_ref, label_refs,
               ) ||

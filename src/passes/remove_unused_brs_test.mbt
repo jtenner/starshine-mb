@@ -441,9 +441,9 @@ test "remove-unused-brs rewrites tail return ifs with simple payload arms" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("(if (Void)"), msg=pretty)
-  assert_false(pretty.contains("(if (I32)"), msg=pretty)
-  assert_true(pretty.contains("return"), msg=pretty)
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("(if "), msg=pretty)
+  assert_false(pretty.contains("(if (Void)"), msg=pretty)
 }
 
 ///|
@@ -461,8 +461,9 @@ test "remove-unused-brs rewrites payload ifs inside returned loop bodies" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("(if (I32)"), msg=pretty)
-  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("(if "), msg=pretty)
+  assert_false(pretty.contains("(if (Void)"), msg=pretty)
   assert_true(pretty.contains("loop"), msg=pretty)
 }
 
@@ -503,6 +504,7 @@ test "remove-unused-brs strips nested multi-value returns in root return context
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("return"), msg=pretty)
   assert_true(pretty.contains("(if "), msg=pretty)
+  assert_false(pretty.contains("(if (Void)"), msg=pretty)
 }
 
 ///|
@@ -533,6 +535,85 @@ test "remove-unused-brs preserves result ifs for nested multi-value root return 
     Err(err) =>
       fail(
         "expected remove-unused-brs nested multi-value root return block success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("(if"), msg=pretty)
+  assert_false(pretty.contains("(if (Void)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs preserves scalar root return ifs with returned block arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (block (result i32) (return (if (result i32) (local.get 0) (then (local.set 2 (i32.const 7)) (return (local.get 2))) (else (return (block (result i32) (if (result i32) (local.get 1) (then (i32.const 1)) (else (i32.const 2)))))))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs scalar returned-block arm success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("(if (Void)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs preserves scalar root return ifs with nested returned block ladders" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (return (if (result i32) (local.get 0) (then (i32.const 7)) (else (block (result i32) (if (result i32) (local.get 1) (then (return (i32.const 1))) (else (return (i32.const 2))))))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs scalar nested returned-block ladder success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("(if (Void)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs preserves result ifs for nested scalar root return blocks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (block (result i32) (return (if (result i32) (local.get 0) (then (local.set 2 (i32.const 7)) (if (result i32) (local.get 1) (then (return (local.get 2))) (else (return (i32.const 3))))) (else (return (i32.const 4))))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs nested scalar root return block success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("(if "), msg=pretty)
+}
+
+///|
+test "remove-unused-brs preserves scalar root return ifs with direct return arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (block (result i32) (return (if (result i32) (local.get 0) (then (local.set 2 (i32.const 7)) (return (local.get 2))) (else (return (if (result i32) (local.get 1) (then (i32.const 1)) (else (i32.const 2))))))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs scalar direct-return arm success, got \{err}",
       )
   }
 
