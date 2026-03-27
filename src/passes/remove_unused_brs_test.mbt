@@ -467,6 +467,26 @@ test "remove-unused-brs rewrites payload ifs inside returned loop bodies" {
 }
 
 ///|
+test "remove-unused-brs strips nested returns inside root returned loops" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (if (result i32) (local.get 0) (then (loop $l (result i32) (if (result i32) (local.get 1) (then (local.set 2 (i32.const 7)) (br $l (i32.const 1))) (else (return (i32.const 2)))))) (else (return (i32.const 3))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs returned-loop nested-return success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("loop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites branch payload ifs with branching else arms" {
   let optimized = match
     pass_test_run_pipeline(

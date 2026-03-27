@@ -837,6 +837,41 @@ fn remove_unused_brs_try_strip_tail_if_exits(
 }
 
 ///|
+fn remove_unused_brs_region_result_arity(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Int? {
+  Some(@ir.hot_region_result_arity(func, region_ref))
+}
+
+///|
+fn remove_unused_brs_try_strip_return_context_tail(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let expected_payloads = match
+    remove_unused_brs_region_result_arity(func, region_ref) {
+    Some(arity) => arity
+    None => return false
+  }
+  let payloads = match
+    remove_unused_brs_region_tail_control_payload_count(
+      func,
+      region_ref,
+      ReturnTarget,
+      expected_payloads,
+    ) {
+    Some(payloads) => payloads
+    None => return false
+  }
+  if payloads != expected_payloads {
+    return false
+  }
+  remove_unused_brs_strip_tail_control(ctx, func, region_ref, ReturnTarget)
+}
+
+///|
 fn remove_unused_brs_try_rewrite_if_br(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1955,6 +1990,97 @@ fn remove_unused_brs_control_cache_resize(
 }
 
 ///|
+fn remove_unused_brs_return_cache_resize(
+  cache : Array[Int],
+  node_id : Int,
+) -> Unit {
+  while cache.length() <= node_id {
+    cache.push(-1)
+  }
+}
+
+///|
+fn remove_unused_brs_subtree_has_return(
+  func : @ir.HotFunc,
+  node_id : Int,
+  cache : Array[Int],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  remove_unused_brs_return_cache_resize(cache, node_id)
+  match cache[node_id] {
+    0 => return false
+    1 => return true
+    _ => ()
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let mut has_return = match node.op {
+    @ir.HotOp::Return => true
+    _ => false
+  }
+  if !has_return {
+    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+      if remove_unused_brs_is_region_child_slot(node.op, slot) {
+        continue
+      }
+      let child_id = @ir.hot_child_get(func, node_id, slot)
+      if remove_unused_brs_subtree_has_return(func, child_id, cache) {
+        has_return = true
+        break
+      }
+    }
+  }
+  if !has_return {
+    let scan_region = fn(region_ref : @ir.HotRegionRef) -> Bool {
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, region_ref)
+          idx = idx + 1 {
+        if remove_unused_brs_subtree_has_return(
+            func,
+            @ir.hot_region_get(func, region_ref, idx),
+            cache,
+          ) {
+          return true
+        }
+      }
+      false
+    }
+    match node.op {
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        has_return = scan_region(@ir.hot_region_body_ref(func, node_id))
+      @ir.HotOp::If => {
+        has_return = scan_region(@ir.hot_region_then_ref(func, node_id))
+        if !has_return {
+          match @ir.hot_region_else_ref(func, node_id) {
+            Some(else_ref) => has_return = scan_region(else_ref)
+            None => ()
+          }
+        }
+      }
+      @ir.HotOp::Try => {
+        has_return = scan_region(@ir.hot_region_body_ref(func, node_id))
+        if !has_return {
+          match @ir.hot_region_catch_ref(func, node_id) {
+            Some(catch_ref) => has_return = scan_region(catch_ref)
+            None => ()
+          }
+        }
+      }
+      @ir.HotOp::TryTable => {
+        has_return = scan_region(@ir.hot_region_body_ref(func, node_id))
+        if !has_return {
+          has_return = scan_region(@ir.hot_region_catch_list_ref(func, node_id))
+        }
+      }
+      _ => ()
+    }
+  }
+  cache[node_id] = if has_return { 1 } else { 0 }
+  has_return
+}
+
+///|
 fn remove_unused_brs_subtree_has_embedded_control(
   func : @ir.HotFunc,
   node_id : Int,
@@ -2003,7 +2129,9 @@ fn remove_unused_brs_visit_embedded_subtree(
   reorder_cache : Array[Int],
   label_refs : Array[Int],
   payload_context : Bool,
+  return_context : Bool,
   control_cache : Array[Int],
+  return_cache : Array[Int],
 ) -> Bool {
   if !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2021,7 +2149,17 @@ fn remove_unused_brs_visit_embedded_subtree(
     | @ir.HotOp::Try
     | @ir.HotOp::TryTable =>
       return remove_unused_brs_visit_node(
-        ctx, func, node_id, seen, reorder_cache, label_refs, payload_context, control_cache,
+        ctx,
+        func,
+        node_id,
+        seen,
+        reorder_cache,
+        label_refs,
+        payload_context,
+        return_context &&
+        remove_unused_brs_subtree_has_return(func, node_id, return_cache),
+        control_cache,
+        return_cache,
       )
     _ => ()
   }
@@ -2038,7 +2176,7 @@ fn remove_unused_brs_visit_embedded_subtree(
       remove_unused_brs_preserves_payload_context(node.op)
     changed = remove_unused_brs_visit_embedded_subtree(
         ctx, func, child_id, seen, reorder_cache, label_refs, child_payload_context,
-        control_cache,
+        false, control_cache, return_cache,
       ) ||
       changed
   }
@@ -2054,6 +2192,7 @@ fn remove_unused_brs_visit_generic_children(
   reorder_cache : Array[Int],
   label_refs : Array[Int],
   control_cache : Array[Int],
+  return_cache : Array[Int],
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   let mut changed = false
@@ -2066,7 +2205,8 @@ fn remove_unused_brs_visit_generic_children(
       continue
     }
     changed = remove_unused_brs_visit_embedded_subtree(
-        ctx, func, child_id, seen, reorder_cache, label_refs, false, control_cache,
+        ctx, func, child_id, seen, reorder_cache, label_refs, false, false, control_cache,
+        return_cache,
       ) ||
       changed
   }
@@ -2082,7 +2222,9 @@ fn remove_unused_brs_visit_node(
   reorder_cache : Array[Int],
   label_refs : Array[Int],
   payload_context : Bool,
+  return_context : Bool,
   control_cache : Array[Int],
+  return_cache : Array[Int],
 ) -> Bool {
   if !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2096,9 +2238,16 @@ fn remove_unused_brs_visit_node(
     @ir.HotOp::Block | @ir.HotOp::Loop => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       changed = remove_unused_brs_visit_region(
-          ctx, func, body_ref, seen, reorder_cache, label_refs, control_cache,
+          ctx, func, body_ref, seen, reorder_cache, label_refs, return_context, control_cache,
+          return_cache,
         ) ||
         changed
+      if return_context {
+        changed = remove_unused_brs_try_strip_return_context_tail(
+            ctx, func, body_ref,
+          ) ||
+          changed
+      }
       if payload_context {
         changed = remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
             ctx, func, body_ref, label_refs,
@@ -2139,14 +2288,23 @@ fn remove_unused_brs_visit_node(
           reorder_cache,
           label_refs,
           false,
+          false,
           control_cache,
+          return_cache,
         ) ||
         changed
       let then_ref = @ir.hot_region_then_ref(func, node_id)
       changed = remove_unused_brs_visit_region(
-          ctx, func, then_ref, seen, reorder_cache, label_refs, control_cache,
+          ctx, func, then_ref, seen, reorder_cache, label_refs, return_context, control_cache,
+          return_cache,
         ) ||
         changed
+      if return_context {
+        changed = remove_unused_brs_try_strip_return_context_tail(
+            ctx, func, then_ref,
+          ) ||
+          changed
+      }
       if payload_context {
         changed = remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
             ctx, func, then_ref, label_refs,
@@ -2176,9 +2334,16 @@ fn remove_unused_brs_visit_node(
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_ref) => {
           changed = remove_unused_brs_visit_region(
-              ctx, func, else_ref, seen, reorder_cache, label_refs, control_cache,
+              ctx, func, else_ref, seen, reorder_cache, label_refs, return_context,
+              control_cache, return_cache,
             ) ||
             changed
+          if return_context {
+            changed = remove_unused_brs_try_strip_return_context_tail(
+                ctx, func, else_ref,
+              ) ||
+              changed
+          }
           if payload_context {
             changed = remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
                 ctx, func, else_ref, label_refs,
@@ -2234,7 +2399,8 @@ fn remove_unused_brs_visit_node(
           continue
         }
         changed = remove_unused_brs_visit_embedded_subtree(
-            ctx, func, child_id, seen, reorder_cache, label_refs, true, control_cache,
+            ctx, func, child_id, seen, reorder_cache, label_refs, true, false, control_cache,
+            return_cache,
           ) ||
           changed
       }
@@ -2245,7 +2411,8 @@ fn remove_unused_brs_visit_node(
           continue
         }
         changed = remove_unused_brs_visit_embedded_subtree(
-            ctx, func, child_id, seen, reorder_cache, label_refs, true, control_cache,
+            ctx, func, child_id, seen, reorder_cache, label_refs, true, false, control_cache,
+            return_cache,
           ) ||
           changed
       }
@@ -2262,18 +2429,29 @@ fn remove_unused_brs_visit_node(
           @ir.HotOp::BrTable => slot < @ir.hot_child_count(func, node_id) - 1
           _ => false
         }
+        let child_return_context = match @ir.hot_node_get(func, node_id).op {
+          @ir.HotOp::Return => true
+          _ => false
+        }
         changed = remove_unused_brs_visit_embedded_subtree(
             ctx, func, child_id, seen, reorder_cache, label_refs, child_payload_context,
-            control_cache,
+            child_return_context, control_cache, return_cache,
           ) ||
           changed
       }
     @ir.HotOp::Try => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       changed = remove_unused_brs_visit_region(
-          ctx, func, body_ref, seen, reorder_cache, label_refs, control_cache,
+          ctx, func, body_ref, seen, reorder_cache, label_refs, return_context, control_cache,
+          return_cache,
         ) ||
         changed
+      if return_context {
+        changed = remove_unused_brs_try_strip_return_context_tail(
+            ctx, func, body_ref,
+          ) ||
+          changed
+      }
       changed = remove_unused_brs_try_strip_tail_if_exits(ctx, func, body_ref) ||
         changed
       changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
@@ -2293,9 +2471,16 @@ fn remove_unused_brs_visit_node(
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_ref) => {
           changed = remove_unused_brs_visit_region(
-              ctx, func, catch_ref, seen, reorder_cache, label_refs, control_cache,
+              ctx, func, catch_ref, seen, reorder_cache, label_refs, return_context,
+              control_cache, return_cache,
             ) ||
             changed
+          if return_context {
+            changed = remove_unused_brs_try_strip_return_context_tail(
+                ctx, func, catch_ref,
+              ) ||
+              changed
+          }
           changed = remove_unused_brs_try_strip_tail_if_exits(
               ctx, func, catch_ref,
             ) ||
@@ -2321,9 +2506,16 @@ fn remove_unused_brs_visit_node(
     @ir.HotOp::TryTable => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       changed = remove_unused_brs_visit_region(
-          ctx, func, body_ref, seen, reorder_cache, label_refs, control_cache,
+          ctx, func, body_ref, seen, reorder_cache, label_refs, return_context, control_cache,
+          return_cache,
         ) ||
         changed
+      if return_context {
+        changed = remove_unused_brs_try_strip_return_context_tail(
+            ctx, func, body_ref,
+          ) ||
+          changed
+      }
       changed = remove_unused_brs_try_strip_tail_if_exits(ctx, func, body_ref) ||
         changed
       changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
@@ -2342,9 +2534,16 @@ fn remove_unused_brs_visit_node(
         changed
       let catch_list_ref = @ir.hot_region_catch_list_ref(func, node_id)
       changed = remove_unused_brs_visit_region(
-          ctx, func, catch_list_ref, seen, reorder_cache, label_refs, control_cache,
+          ctx, func, catch_list_ref, seen, reorder_cache, label_refs, return_context,
+          control_cache, return_cache,
         ) ||
         changed
+      if return_context {
+        changed = remove_unused_brs_try_strip_return_context_tail(
+            ctx, func, catch_list_ref,
+          ) ||
+          changed
+      }
       changed = remove_unused_brs_try_strip_tail_if_exits(
           ctx, func, catch_list_ref,
         ) ||
@@ -2366,7 +2565,7 @@ fn remove_unused_brs_visit_node(
     }
     _ =>
       changed = remove_unused_brs_visit_generic_children(
-          ctx, func, node_id, seen, reorder_cache, label_refs, control_cache,
+          ctx, func, node_id, seen, reorder_cache, label_refs, control_cache, return_cache,
         ) ||
         changed
   }
@@ -2381,7 +2580,9 @@ fn remove_unused_brs_visit_region(
   seen : Array[Bool],
   reorder_cache : Array[Int],
   label_refs : Array[Int],
+  return_context : Bool,
   control_cache : Array[Int],
+  return_cache : Array[Int],
 ) -> Bool {
   let mut changed = false
   let roots : Array[Int] = []
@@ -2423,7 +2624,18 @@ fn remove_unused_brs_visit_region(
       continue
     }
     changed = remove_unused_brs_visit_node(
-        ctx, func, node_id, seen, reorder_cache, label_refs, false, control_cache,
+        ctx,
+        func,
+        node_id,
+        seen,
+        reorder_cache,
+        label_refs,
+        false,
+        return_context &&
+        idx == roots.length() - 1 &&
+        remove_unused_brs_subtree_has_return(func, node_id, return_cache),
+        control_cache,
+        return_cache,
       ) ||
       changed
   }
@@ -2444,6 +2656,7 @@ fn remove_unused_brs_run(
     let seen : Array[Bool] = []
     let reorder_cache : Array[Int] = []
     let control_cache : Array[Int] = []
+    let return_cache : Array[Int] = []
     let label_refs = remove_unused_brs_compute_label_refs(func)
     changed = remove_unused_brs_visit_region(
         ctx,
@@ -2452,7 +2665,9 @@ fn remove_unused_brs_run(
         seen,
         reorder_cache,
         label_refs,
+        true,
         control_cache,
+        return_cache,
       ) ||
       changed
     changed = remove_unused_brs_flatten_block_if_chains(
