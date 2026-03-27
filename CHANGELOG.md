@@ -1,8 +1,12 @@
 # Changelog
 
+## 2026-03-27 Chore: de-localize docs links
+
+- **Docs link portability cleanup** by **@jtenner**. Updated [`docs/0010-2026-03-18-validate-trace-baseline.md`](./docs/0010-2026-03-18-validate-trace-baseline.md) and [`docs/0027-2026-03-22-exact-ref-null-immediates.md`](./docs/0027-2026-03-22-exact-ref-null-immediates.md) to replace hard-coded absolute filesystem links with repository-relative links.
+
 ## 2026-03-27 Chore: sync pass-surface docs with active registry
 
-- **Pass registry docs refresh** by **@jtenner**. Updated [`README.md`](/home/jtenner/Projects/starshine-mb/README.md), [`README.mbt.md`](/home/jtenner/Projects/starshine-mb/README.mbt.md), [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](/home/jtenner/Projects/starshine-mb/docs/0063-2026-03-24-pass-port-batches-and-registry-map.md), [`docs/0065-2026-03-24-ir2-execution-plan.md`](/home/jtenner/Projects/starshine-mb/docs/0065-2026-03-24-ir2-execution-plan.md), [`docs/0069-2026-03-26-pick-load-signs.md`](/home/jtenner/Projects/starshine-mb/docs/0069-2026-03-26-pick-load-signs.md), and [`src/passes/optimize.mbt`](/home/jtenner/Projects/starshine-mb/src/passes/optimize.mbt) so the documented active hot passes and preset composition match the shipped implementation; also updated `README.mbt.md` CLI pass list to include active flags for `remove-unused-brs` and `pick-load-signs`. `moon info`, `moon fmt`, and `moon test src/passes` are green.
+- **Pass registry docs refresh** by **@jtenner**. Updated [`README.md`](./README.md), [`README.mbt.md`](./README.mbt.md), [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](./docs/0063-2026-03-24-pass-port-batches-and-registry-map.md), [`docs/0065-2026-03-24-ir2-execution-plan.md`](./docs/0065-2026-03-24-ir2-execution-plan.md), [`docs/0069-2026-03-26-pick-load-signs.md`](./docs/0069-2026-03-26-pick-load-signs.md), and [`src/passes/optimize.mbt`](./src/passes/optimize.mbt) so the documented active hot passes and preset composition match the shipped implementation; also updated `README.mbt.md` CLI pass list to include active flags for `remove-unused-brs` and `pick-load-signs`. `moon info`, `moon fmt`, and `moon test src/passes` are green.
 
 ## 2026-03-27 Optimize: cut failed root-level `remove-unused-brs` matcher churn
 
