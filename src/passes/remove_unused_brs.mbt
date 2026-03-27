@@ -40,6 +40,9 @@ priv struct RemoveUnusedBrsHotVoidReturnLadderShape {
   mut return_count : Int
   mut select_count : Int
   mut br_if_count : Int
+  mut block_count : Int
+  mut loop_count : Int
+  mut br_count : Int
 }
 
 ///|
@@ -63,6 +66,9 @@ fn remove_unused_brs_scan_hot_void_return_ladder_shape(
       @ir.HotOp::Return => shape.return_count = shape.return_count + 1
       @ir.HotOp::Select => shape.select_count = shape.select_count + 1
       @ir.HotOp::BrIf => shape.br_if_count = shape.br_if_count + 1
+      @ir.HotOp::Block => shape.block_count = shape.block_count + 1
+      @ir.HotOp::Loop => shape.loop_count = shape.loop_count + 1
+      @ir.HotOp::Br => shape.br_count = shape.br_count + 1
       @ir.HotOp::If => {
         let node = @ir.hot_node_get(func, node_id)
         if @ir.hot_type_result_arity(func, node.ty) == 0 {
@@ -80,7 +86,10 @@ fn remove_unused_brs_scan_hot_void_return_ladder_shape(
 fn remove_unused_brs_can_skip_large_void_return_ladder(
   func : @ir.HotFunc,
 ) -> Bool {
-  if @ir.hot_local_count(func) < 700 || @ir.hot_root_count(func) < 64 {
+  let local_count = @ir.hot_local_count(func)
+  let root_count = @ir.hot_root_count(func)
+  let node_count = @ir.hot_node_count(func)
+  if local_count < 700 {
     return false
   }
   let shape = {
@@ -92,17 +101,35 @@ fn remove_unused_brs_can_skip_large_void_return_ladder(
     return_count: 0,
     select_count: 0,
     br_if_count: 0,
+    block_count: 0,
+    loop_count: 0,
+    br_count: 0,
   }
   remove_unused_brs_scan_hot_void_return_ladder_shape(func, shape)
-  shape.call_count >= 900 &&
-  shape.local_set_count >= 350 &&
-  shape.local_tee_count >= 350 &&
-  shape.void_if_count >= 150 &&
-  shape.value_if_count == 0 &&
-  shape.return_count >= 90 &&
-  shape.return_count * 5 >= shape.void_if_count &&
-  shape.select_count <= 4 &&
-  shape.br_if_count <= 2
+  let matches_wide_void_ladder = root_count >= 64 &&
+    shape.call_count >= 900 &&
+    shape.local_set_count >= 350 &&
+    shape.local_tee_count >= 350 &&
+    shape.void_if_count >= 150 &&
+    shape.value_if_count == 0 &&
+    shape.return_count >= 90 &&
+    shape.return_count * 5 >= shape.void_if_count &&
+    shape.select_count <= 4 &&
+    shape.br_if_count <= 2
+  let matches_compact_decision_ladder = root_count <= 8 &&
+    node_count >= 8000 &&
+    shape.call_count >= 1200 &&
+    shape.local_set_count >= 500 &&
+    shape.local_tee_count >= 350 &&
+    shape.void_if_count >= 150 &&
+    (shape.value_if_count <= 2 || shape.value_if_count >= 200) &&
+    shape.return_count >= 120 &&
+    shape.block_count >= 900 &&
+    shape.loop_count <= 4 &&
+    shape.br_count >= 150 &&
+    shape.select_count <= 2 &&
+    shape.br_if_count <= 2
+  matches_wide_void_ladder || matches_compact_decision_ladder
 }
 
 ///|
