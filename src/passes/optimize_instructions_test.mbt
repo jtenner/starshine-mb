@@ -216,6 +216,35 @@ test "optimize-instructions canonicalizes if eq zero into eqz without else" {
 }
 
 ///|
+test "optimize-instructions canonicalizes select on reversed relational guards" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 7 local.get 0 i32.const 7 i32.ge_u select))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let first = @ir.hot_child_get(func, root, 0)
+  let second = @ir.hot_child_get(func, root, 1)
+  let selector = @ir.hot_child_get(func, root, 2)
+  match @ir.hot_node_get(func, first).op {
+    @ir.HotOp::Const => ()
+    _ =>
+      fail(
+        "expected select canonicalization to move the const into the first slot",
+      )
+  }
+  match @ir.hot_node_get(func, second).op {
+    @ir.HotOp::LocalGet => ()
+    _ =>
+      fail(
+        "expected select canonicalization to move the local into the second slot",
+      )
+  }
+  assert_eq(
+    @ir.hot_node_exact_instr(func, selector),
+    Some(@lib.Instruction::i32_lt_u()),
+  )
+}
+
+///|
 test "optimize-instructions canonicalizes commutative constants onto the rhs" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) i32.const 7 local.get 0 i32.add))",
@@ -386,6 +415,70 @@ test "optimize-instructions canonicalizes commutative rhs local gets by node kin
     @ir.hot_node_exact_instr(func, rhs),
     Some(@lib.Instruction::i32_shl()),
   )
+}
+
+///|
+test "optimize-instructions canonicalizes commutative local gets across shared pure if leaves" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(
+      params=[@lib.ValType::i32(), @lib.ValType::i32()],
+      locals=[@lib.ValType::i32()],
+    ),
+  )
+  let shared = @ir.hot_build_local_get(func, 1)
+  let limit = @ir.hot_build_const_i32(func, @lib.I32(256))
+  let cond = @ir.hot_build_compare(func, shared, limit)
+  @ir.hot_node_exact_instr_set(func, cond, @lib.Instruction::i32_lt_u())
+  let if_ = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    cond,
+    [@ir.hot_build_const_i32(func, @lib.I32(0))],
+    else_body=Some([shared]),
+  )
+  let tee = @ir.hot_build_local_tee(func, 2, if_)
+  let shift = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    tee,
+    @ir.hot_build_const_i32(func, @lib.I32(2)),
+  )
+  @ir.hot_node_exact_instr_set(func, shift, @lib.Instruction::i32_shl())
+  let add = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    @ir.hot_build_local_get(func, 0),
+    shift,
+  )
+  @ir.hot_node_exact_instr_set(func, add, @lib.Instruction::i32_add())
+  @ir.hot_root_append(func, add)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected optimize-instructions shared-if success, got \{err}")
+  }
+
+  let lhs = @ir.hot_child_get(func, add, 0)
+  let rhs = @ir.hot_child_get(func, add, 1)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, lhs),
+    Some(@lib.Instruction::i32_shl()),
+  )
+  match @ir.hot_node_get(func, rhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ =>
+      fail(
+        "expected shared-if canonicalization to move the plain local.get rhs",
+      )
+  }
 }
 
 ///|
@@ -836,7 +929,7 @@ test "optimize-instructions does not reorder relational local gets across contro
 }
 
 ///|
-test "optimize-instructions does not reorder relational local gets across loop-carried tee payloads" {
+test "optimize-instructions canonicalizes relational local gets across loop-carried tees" {
   let fixture = @ir.ir_test_build_hot_from_wat(
     "(module (func (param i32) (result i32) (local i32) (block (result i32) (i32.const 0) (loop (param i32) (result i32) (if (result i32) (i32.lt_s (local.tee 1) (local.get 0)) (then (local.get 1) (i32.const 1) (i32.add) (br 1)) (else (local.get 1)))))))",
   )
@@ -863,11 +956,16 @@ test "optimize-instructions does not reorder relational local gets across loop-c
 
   assert_eq(
     @ir.hot_node_exact_instr(func, compare),
-    Some(@lib.Instruction::i32_lt_s()),
+    Some(@lib.Instruction::i32_gt_s()),
   )
   match @ir.hot_node_get(func, @ir.hot_child_get(func, compare, 0)).op {
+    @ir.HotOp::LocalGet => ()
+    _ =>
+      fail("expected loop-carried compare to move the local.get onto the lhs")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, compare, 1)).op {
     @ir.HotOp::LocalTee => ()
-    _ => fail("expected loop-carried tee subtree to stay on the lhs")
+    _ => fail("expected loop-carried tee subtree to move onto the rhs")
   }
 }
 

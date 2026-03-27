@@ -19,8 +19,6 @@ pub fn optimize_instructions_summary() -> String {
 ///|
 priv struct OptimizeInstructionsScratch {
   cross_seen_stamps : Array[Int]
-  loop_input_nodes : Array[Bool]
-  mut loop_input_nodes_ready : Bool
   mut next_cross_seen_stamp : Int
 }
 
@@ -28,12 +26,7 @@ priv struct OptimizeInstructionsScratch {
 fn OptimizeInstructionsScratch::new(
   node_count : Int,
 ) -> OptimizeInstructionsScratch {
-  {
-    cross_seen_stamps: Array::make(node_count, -1),
-    loop_input_nodes: Array::make(node_count, false),
-    loop_input_nodes_ready: false,
-    next_cross_seen_stamp: 0,
-  }
+  { cross_seen_stamps: Array::make(node_count, -1), next_cross_seen_stamp: 0 }
 }
 
 ///|
@@ -43,38 +36,6 @@ fn optimize_instructions_alloc_cross_seen_stamp(
   let stamp = scratch.next_cross_seen_stamp
   scratch.next_cross_seen_stamp = stamp + 1
   stamp
-}
-
-///|
-fn optimize_instructions_mark_loop_input_nodes(
-  func : @ir.HotFunc,
-  dead : Array[Bool],
-  scratch : OptimizeInstructionsScratch,
-) -> Unit {
-  if scratch.loop_input_nodes_ready {
-    return
-  }
-  for node_id = 0; node_id < func.nodes.length(); node_id = node_id + 1 {
-    if !optimize_instructions_node_is_live(func, dead, node_id) {
-      continue
-    }
-    let node = func.nodes[node_id]
-    match node.op {
-      @ir.HotOp::Loop => ()
-      _ => continue
-    }
-    let input_count = @ir.hot_label_branch_arity(
-      func,
-      @ir.hot_control_node_label(func, node_id),
-    )
-    for slot = 0; slot < input_count; slot = slot + 1 {
-      let child_id = func.children[node.child_base + slot]
-      if child_id >= 0 && child_id < scratch.loop_input_nodes.length() {
-        scratch.loop_input_nodes[child_id] = true
-      }
-    }
-  }
-  scratch.loop_input_nodes_ready = true
 }
 
 ///|
@@ -339,14 +300,39 @@ fn optimize_instructions_is_constlike(
 }
 
 ///|
+fn optimize_instructions_is_shared_cross_safe_leaf(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  let node = if node_id < func.nodes.length() {
+    func.nodes[node_id]
+  } else {
+    @ir.hot_node_get(func, node_id)
+  }
+  match node.op {
+    @ir.HotOp::LocalGet
+    | @ir.HotOp::GlobalGet
+    | @ir.HotOp::Const
+    | @ir.HotOp::RefNull
+    | @ir.HotOp::RefFunc => true
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_can_cross_local_get(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : Array[Bool],
   effects : @ir.HotEffectsSummary,
   use_def : @ir.HotUseDef,
   node_id : Int,
   local_id : Int,
-  loop_input_nodes : Array[Bool],
+  under_local_tee_payload : Bool,
   seen_stamps : Array[Int],
   seen_stamp : Int,
 ) -> Bool {
@@ -359,20 +345,40 @@ fn optimize_instructions_can_cross_local_get(
   if node_id < seen_stamps.length() {
     seen_stamps[node_id] = seen_stamp
   }
-  if node_id < loop_input_nodes.length() && loop_input_nodes[node_id] {
-    return false
-  }
-  if node_id < effects.node_masks.length() &&
-    (effects.node_masks[node_id] & @ir.EFFECT_MASK_CONTROL) != 0U {
-    return false
-  }
-  if @ir.node_use_count(use_def, node_id) > 1 {
-    return false
-  }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
   } else {
     @ir.hot_node_get(func, node_id)
+  }
+  match node.op {
+    @ir.HotOp::If => ()
+    @ir.HotOp::Block => {
+      let label_id = @ir.hot_control_node_label(func, node_id)
+      match @ir.hot_label_kind(func, label_id) {
+        @ir.HotLabelKind::RegionLabel => ()
+        _ => return false
+      }
+    }
+    @ir.HotOp::Loop
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable
+    | @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::Return
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Catch
+    | @ir.HotOp::CatchAll => return false
+    _ => ()
+  }
+  if @ir.node_use_count(use_def, node_id) > 1 {
+    if !optimize_instructions_is_shared_cross_safe_leaf(func, dead, node_id) ||
+      under_local_tee_payload {
+      return false
+    }
   }
   match node.op {
     @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 == local_id =>
@@ -380,14 +386,19 @@ fn optimize_instructions_can_cross_local_get(
     _ => ()
   }
   for slot = 0; slot < node.child_count; slot = slot + 1 {
+    let child_is_local_tee_payload = match node.op {
+      @ir.HotOp::LocalTee => slot == 0
+      _ => false
+    }
     if !optimize_instructions_can_cross_local_get(
+        ctx,
         func,
         dead,
         effects,
         use_def,
         func.children[node.child_base + slot],
         local_id,
-        loop_input_nodes,
+        child_is_local_tee_payload,
         seen_stamps,
         seen_stamp,
       ) {
@@ -493,13 +504,14 @@ fn optimize_instructions_try_canonicalize_commutative(
       let use_def = pass_require_use_def(ctx, func)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
+        ctx,
         func,
         dead,
         effects,
         use_def,
         rhs_id,
         local_id,
-        scratch.loop_input_nodes,
+        false,
         scratch.cross_seen_stamps,
         seen_stamp,
       )
@@ -532,13 +544,14 @@ fn optimize_instructions_try_canonicalize_commutative(
       let use_def = pass_require_use_def(ctx, func)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
+        ctx,
         func,
         dead,
         effects,
         use_def,
         lhs_id,
         local_id,
-        scratch.loop_input_nodes,
+        false,
         scratch.cross_seen_stamps,
         seen_stamp,
       )
@@ -669,13 +682,14 @@ fn optimize_instructions_try_canonicalize_relational_operands(
       let use_def = pass_require_use_def(ctx, func)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
+        ctx,
         func,
         dead,
         effects,
         use_def,
         rhs_id,
         local_id,
-        scratch.loop_input_nodes,
+        false,
         scratch.cross_seen_stamps,
         seen_stamp,
       )
@@ -708,13 +722,14 @@ fn optimize_instructions_try_canonicalize_relational_operands(
       let use_def = pass_require_use_def(ctx, func)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
+        ctx,
         func,
         dead,
         effects,
         use_def,
         lhs_id,
         local_id,
-        scratch.loop_input_nodes,
+        false,
         scratch.cross_seen_stamps,
         seen_stamp,
       )
@@ -732,6 +747,75 @@ fn optimize_instructions_try_canonicalize_relational_operands(
     }
     None => false
   }
+}
+
+///|
+fn optimize_instructions_negate_relational_instr(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Instruction::I32LtS => Some(@lib.Instruction::i32_ge_s())
+    @lib.Instruction::I32LtU => Some(@lib.Instruction::i32_ge_u())
+    @lib.Instruction::I32LeS => Some(@lib.Instruction::i32_gt_s())
+    @lib.Instruction::I32LeU => Some(@lib.Instruction::i32_gt_u())
+    @lib.Instruction::I32GtS => Some(@lib.Instruction::i32_le_s())
+    @lib.Instruction::I32GtU => Some(@lib.Instruction::i32_le_u())
+    @lib.Instruction::I32GeS => Some(@lib.Instruction::i32_lt_s())
+    @lib.Instruction::I32GeU => Some(@lib.Instruction::i32_lt_u())
+    @lib.Instruction::I64LtS => Some(@lib.Instruction::i64_ge_s())
+    @lib.Instruction::I64LtU => Some(@lib.Instruction::i64_ge_u())
+    @lib.Instruction::I64LeS => Some(@lib.Instruction::i64_gt_s())
+    @lib.Instruction::I64LeU => Some(@lib.Instruction::i64_gt_u())
+    @lib.Instruction::I64GtS => Some(@lib.Instruction::i64_le_s())
+    @lib.Instruction::I64GtU => Some(@lib.Instruction::i64_le_u())
+    @lib.Instruction::I64GeS => Some(@lib.Instruction::i64_lt_s())
+    @lib.Instruction::I64GeU => Some(@lib.Instruction::i64_lt_u())
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_try_canonicalize_select_selector(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+  true_id : Int,
+  false_id : Int,
+  selector_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, selector_id) {
+    return false
+  }
+  let selector = func.nodes[selector_id]
+  match selector.op {
+    @ir.HotOp::Compare if selector.child_count == 2 => ()
+    _ => return false
+  }
+  if @ir.node_use_count(pass_require_use_def(ctx, func), selector_id) > 1 {
+    return false
+  }
+  let negated = match
+    optimize_instructions_negate_relational_instr(
+      func.instr_payloads[selector.imm0].instr,
+    ) {
+    Some(negated) => negated
+    None => return false
+  }
+  let lhs_id = func.children[selector.child_base]
+  let rhs_id = func.children[selector.child_base + 1]
+  optimize_instructions_rewrite_exact_with_children(
+    ctx,
+    func,
+    selector_id,
+    negated,
+    [lhs_id, rhs_id],
+  )
+  ignore(
+    @ir.hot_replace_child_span(func, node_id, [false_id, true_id, selector_id]),
+  )
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|
@@ -1633,6 +1717,20 @@ fn optimize_instructions_visit_node(
           }
         }
       }
+    @ir.HotOp::Select =>
+      if node.child_count != 3 {
+        false
+      } else {
+        optimize_instructions_try_canonicalize_select_selector(
+          ctx,
+          func,
+          dead,
+          node_id,
+          func.children[node.child_base],
+          func.children[node.child_base + 1],
+          func.children[node.child_base + 2],
+        )
+      }
     @ir.HotOp::If =>
       optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id)
     _ => false
@@ -1655,7 +1753,6 @@ fn optimize_instructions_run(
       dead[free_id] = true
     }
   }
-  optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
   for slot = 0; slot < func.roots.length(); slot = slot + 1 {
     changed = optimize_instructions_visit_node(
         ctx,
