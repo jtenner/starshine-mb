@@ -1585,6 +1585,7 @@ priv struct HotPipelineFuncResult {
   reason : String
   func : @lib.Func
   unchanged_original : Bool
+  trace_skip_raw : Bool
 }
 
 ///|
@@ -1622,6 +1623,7 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       reason: "no-local-writes",
       func: original,
       unchanged_original: true,
+      trace_skip_raw: true,
     })
   }
   if has_structured_control {
@@ -1644,6 +1646,7 @@ fn run_hot_pipeline_raw_ssa_nomerge(
           reason: "structured-local-writes",
           func: rewritten,
           unchanged_original: false,
+          trace_skip_raw: true,
         })
       None => None
     }
@@ -1658,6 +1661,7 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         run_hot_pipeline_required_func_params(module_ctx, func_idx),
       ),
       unchanged_original: false,
+      trace_skip_raw: true,
     })
   }
 }
@@ -1683,6 +1687,7 @@ fn run_hot_pipeline_raw_heap_store_optimization(
     reason: "no-heap-store-candidates",
     func: original,
     unchanged_original: true,
+    trace_skip_raw: true,
   })
 }
 
@@ -1698,28 +1703,12 @@ fn run_hot_pipeline_func(
     run_hot_pipeline_raw_ssa_nomerge(
       mod_, func_idx, module_state, descriptor, options,
     ) {
-    Some(result) => {
-      pipeline_trace_hook(
-        options.trace,
-        descriptor.name,
-        "skip-raw",
-        payload="reason=\{result.reason}",
-      )
-      return Ok(result)
-    }
+    Some(result) => return Ok(result)
     None => ()
   }
   match
     run_hot_pipeline_raw_heap_store_optimization(mod_, func_idx, descriptor) {
-    Some(result) => {
-      pipeline_trace_hook(
-        options.trace,
-        descriptor.name,
-        "skip-raw",
-        payload="reason=\{result.reason}",
-      )
-      return Ok(result)
-    }
+    Some(result) => return Ok(result)
     None => ()
   }
   pipeline_trace_hook(
@@ -2003,8 +1992,9 @@ fn run_hot_pipeline_func(
           reason: "",
           func: run_hot_pipeline_original_func(mod_, func_idx),
           unchanged_original: true,
+          trace_skip_raw: false,
         })
-        }
+      }
       Err(err) => return Err(err)
   }
   if run_hot_pipeline_debug_dump_enabled(options, func_idx, descriptor.name) &&
@@ -2238,7 +2228,12 @@ fn run_hot_pipeline_func(
           let lower_start_us = perf_start_timer_opt(options.perf, "lower")
           let lowered = @ir.hot_lower_func(func)
           perf_stop_timer_opt(options.perf, "lower", lower_start_us)
-          Ok({ reason: "", func: lowered, unchanged_original: false })
+          Ok({
+            reason: "",
+            func: lowered,
+            unchanged_original: false,
+            trace_skip_raw: false,
+          })
         }
         Err(err) => Err(err)
       }
@@ -2246,7 +2241,12 @@ fn run_hot_pipeline_func(
       let lower_start_us = perf_start_timer_opt(options.perf, "lower")
       let lowered = @ir.hot_lower_func_unverified(func)
       perf_stop_timer_opt(options.perf, "lower", lower_start_us)
-      Ok({ reason: "", func: lowered, unchanged_original: false })
+      Ok({
+        reason: "",
+        func: lowered,
+        unchanged_original: false,
+        trace_skip_raw: false,
+      })
     }
   }
 }
@@ -2322,6 +2322,7 @@ fn run_hot_pipeline_apply_hot_pass(
   let next_code_sec = match mod_.code_sec {
     Some(@lib.CodeSec(defs)) => {
       let mut lowered : Array[@lib.Func]? = None
+      let mut hso_raw_skip_count = 0
       for code_idx = 0; code_idx < defs.length(); code_idx = code_idx + 1 {
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
@@ -2333,6 +2334,19 @@ fn run_hot_pipeline_apply_hot_pass(
           Ok(result) => result
           Err(err) => return Err("func[\{func_idx}]: \{err}")
         }
+        if result.trace_skip_raw {
+          if descriptor.name == "heap-store-optimization" &&
+            result.reason == "no-heap-store-candidates" {
+            hso_raw_skip_count += 1
+          } else {
+            pipeline_trace_hook(
+              options.trace,
+              descriptor.name,
+              "skip-raw",
+              payload="reason=\{result.reason}",
+            )
+          }
+        }
         match lowered {
           Some(defs_copy) => defs_copy[code_idx] = result.func
           None =>
@@ -2342,6 +2356,14 @@ fn run_hot_pipeline_apply_hot_pass(
               lowered = Some(defs_copy)
             }
         }
+      }
+      if hso_raw_skip_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-raw",
+          payload="reason=no-heap-store-candidates count=\{hso_raw_skip_count}",
+        )
       }
       match lowered {
         Some(lowered) => Some(@lib.CodeSec::new(lowered))

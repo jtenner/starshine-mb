@@ -11,6 +11,34 @@ fn perf_test_join_lines(lines : Array[String]) -> String {
 }
 
 ///|
+fn perf_test_count_occurrences(text : String, needle : String) -> Int {
+  if needle == "" {
+    return 0
+  }
+  let mut count = 0
+  let mut start = 0
+  while start <= text.length() - needle.length() {
+    let mut found : Int? = None
+    let mut i = start
+    while i <= text.length() - needle.length() {
+      if text.sub(start=i, end=i + needle.length()).to_string() == needle {
+        found = Some(i)
+        break
+      }
+      i += 1
+    }
+    match found {
+      Some(idx) => {
+        count += 1
+        start = idx + needle.length()
+      }
+      None => break
+    }
+  }
+  count
+}
+
+///|
 test "perf session records hot allocation deltas dumps and checkpoints" {
   let lines : Array[String] = []
   let perf = HotPerfSession::new(
@@ -468,4 +496,34 @@ test "heap-store-optimization skips raw lift when struct allocations cannot feed
   assert_false(text.contains("perf:timer name=lift"))
   assert_false(text.contains("perf:timer name=analysis:module-context"))
   assert_false(text.contains("perf:timer name=analysis:effects"))
+}
+
+///|
+test "heap-store-optimization aggregates identical raw-skip trace lines across functions" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let input =
+    #| (module
+    #|   (func (result i32) i32.const 1)
+    #|   (func (result i32) i32.const 2))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["heap-store-optimization"],
+      options=HotPipelineOptions::new(trace=Some(trace)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected aggregated HSO raw-skip success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_eq(
+    perf_test_count_occurrences(
+      text, "pass[heap-store-optimization]:skip-raw reason=no-heap-store-candidates",
+    ),
+    1,
+  )
+  assert_false(text.contains("pass[heap-store-optimization]:func"))
 }
