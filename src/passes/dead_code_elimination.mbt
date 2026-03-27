@@ -52,6 +52,15 @@ fn DeadCodeEliminationBranchUserCache::new() -> DeadCodeEliminationBranchUserCac
 }
 
 ///|
+fn dead_code_elimination_invalidate_branch_user_cache(
+  cache : DeadCodeEliminationBranchUserCache,
+) -> Unit {
+  cache.has_any_branch = None
+  cache.has_incoming_by_label = None
+  cache.by_label = None
+}
+
+///|
 fn dead_code_elimination_new_fallthrough_cache(
   func : @ir.HotFunc,
 ) -> DeadCodeEliminationFallthroughCache {
@@ -861,6 +870,272 @@ fn dead_code_elimination_branch_payload_count(
 }
 
 ///|
+fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
+  node_use_cache : DeadCodeEliminationNodeUseCache,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    dead_code_elimination_branch_payload_count(func, node_id) != 1 {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Br => ()
+    _ => return false
+  }
+  let payload_block = @ir.hot_child_get(func, node_id, 0)
+  if payload_block < 0 || !@ir.hot_node_is_live(func, payload_block) {
+    return false
+  }
+  match @ir.hot_node_get(func, payload_block).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let payload_body = @ir.hot_region_body_ref(func, payload_block)
+  if @ir.hot_region_root_count(func, payload_body) != 2 {
+    return false
+  }
+  let forwarder = @ir.hot_region_get(func, payload_body, 0)
+  if forwarder < 0 || !@ir.hot_node_is_live(func, forwarder) {
+    return false
+  }
+  match @ir.hot_node_get(func, forwarder).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let forwarder_body = @ir.hot_region_body_ref(func, forwarder)
+  if @ir.hot_region_root_count(func, forwarder_body) != 1 {
+    return false
+  }
+  let inner_br = @ir.hot_region_get(func, forwarder_body, 0)
+  if inner_br < 0 ||
+    !@ir.hot_node_is_live(func, inner_br) ||
+    @ir.hot_branch_target(func, inner_br) !=
+    Some(@ir.hot_control_node_label(func, payload_block)) ||
+    dead_code_elimination_branch_payload_count(func, inner_br) != 1 {
+    return false
+  }
+  match @ir.hot_node_get(func, inner_br).op {
+    @ir.HotOp::Br => ()
+    _ => return false
+  }
+  let payload_if = @ir.hot_child_get(func, inner_br, 0)
+  if payload_if < 0 ||
+    !@ir.hot_node_is_live(func, payload_if) ||
+    @ir.hot_node_result_arity(func, payload_if) == 0 ||
+    dead_code_elimination_node_use_count(node_use_cache, func, payload_if) != 1 {
+    return false
+  }
+  match @ir.hot_node_get(func, payload_if).op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  let then_region = @ir.hot_region_then_ref(func, payload_if)
+  let else_region = match @ir.hot_region_else_ref(func, payload_if) {
+    Some(else_region) => else_region
+    None => return false
+  }
+  if @ir.hot_region_root_count(func, then_region) == 0 ||
+    @ir.hot_region_root_count(func, else_region) == 0 {
+    return false
+  }
+  let then_tail = @ir.hot_region_get(
+    func,
+    then_region,
+    @ir.hot_region_root_count(func, then_region) - 1,
+  )
+  let else_tail = @ir.hot_region_get(
+    func,
+    else_region,
+    @ir.hot_region_root_count(func, else_region) - 1,
+  )
+  if then_tail < 0 ||
+    else_tail < 0 ||
+    !@ir.hot_node_is_live(func, then_tail) ||
+    !@ir.hot_node_is_live(func, else_tail) {
+    return false
+  }
+  match @ir.hot_node_get(func, then_tail).op {
+    @ir.HotOp::Br => ()
+    _ => return false
+  }
+  match @ir.hot_node_get(func, else_tail).op {
+    @ir.HotOp::Br => ()
+    _ => return false
+  }
+
+  @ir.hot_control_result_type_set(func, payload_if, @ir.hot_type_void(func))
+  @ir.hot_control_result_type_set(func, forwarder, @ir.hot_type_void(func))
+  pass_mark_mutated(ctx, func)
+  ignore(
+    dead_code_elimination_replace_root_with_child(
+      ctx, func, node_use_cache, forwarder_body, 0, payload_if,
+    ),
+  )
+  ignore(
+    dead_code_elimination_ensure_explicit_unreachable_tail(
+      ctx, func, forwarder_body, 0,
+    ),
+  )
+  dead_code_elimination_invalidate_branch_user_cache(branch_user_cache)
+  true
+}
+
+///|
+fn dead_code_elimination_try_rewrite_branch_payload_forwarder_in_subtree(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
+  node_use_cache : DeadCodeEliminationNodeUseCache,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    @ir.hot_child_count(func, node_id) == 0 ||
+    @ir.hot_node_count(func) > 10000 {
+    return false
+  }
+  let value_id = @ir.hot_child_get(func, node_id, 0)
+  if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, value_id).op {
+    @ir.HotOp::Block | @ir.HotOp::Loop => ()
+    _ => return false
+  }
+  let body = @ir.hot_region_body_ref(func, value_id)
+  if @ir.hot_region_root_count(func, body) == 0 {
+    return false
+  }
+  let control_root = @ir.hot_region_get(func, body, 0)
+  if control_root < 0 || !@ir.hot_node_is_live(func, control_root) {
+    return false
+  }
+  match @ir.hot_node_get(func, control_root).op {
+    @ir.HotOp::Br =>
+      return dead_code_elimination_try_rewrite_branch_payload_forwarder(
+        ctx, func, branch_user_cache, node_use_cache, control_root,
+      )
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
+      let control_body = @ir.hot_region_body_ref(func, control_root)
+      if @ir.hot_region_root_count(func, control_body) == 0 {
+        return false
+      }
+      let nested_root = @ir.hot_region_get(func, control_body, 0)
+      return dead_code_elimination_try_rewrite_branch_payload_forwarder(
+        ctx, func, branch_user_cache, node_use_cache, nested_root,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
+fn dead_code_elimination_try_rewrite_branch_payload_forwarder_in_control_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
+  node_use_cache : DeadCodeEliminationNodeUseCache,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    if dead_code_elimination_try_rewrite_branch_payload_forwarder_in_control_tree(
+        ctx, func, branch_user_cache, node_use_cache, root_id,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn dead_code_elimination_try_rewrite_branch_payload_forwarder_in_control_tree(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
+  node_use_cache : DeadCodeEliminationNodeUseCache,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if dead_code_elimination_try_rewrite_branch_payload_forwarder(
+      ctx, func, branch_user_cache, node_use_cache, node_id,
+    ) {
+    return true
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      dead_code_elimination_try_rewrite_branch_payload_forwarder_in_control_region(
+        ctx,
+        func,
+        branch_user_cache,
+        node_use_cache,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    @ir.HotOp::If => {
+      if dead_code_elimination_try_rewrite_branch_payload_forwarder_in_control_region(
+          ctx,
+          func,
+          branch_user_cache,
+          node_use_cache,
+          @ir.hot_region_then_ref(func, node_id),
+        ) {
+        return true
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_region) =>
+          dead_code_elimination_try_rewrite_branch_payload_forwarder_in_control_region(
+            ctx, func, branch_user_cache, node_use_cache, else_region,
+          )
+        None => false
+      }
+    }
+    @ir.HotOp::Try => {
+      if dead_code_elimination_try_rewrite_branch_payload_forwarder_in_control_region(
+          ctx,
+          func,
+          branch_user_cache,
+          node_use_cache,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        return true
+      }
+      match @ir.hot_region_catch_ref(func, node_id) {
+        Some(catch_region) =>
+          dead_code_elimination_try_rewrite_branch_payload_forwarder_in_control_region(
+            ctx, func, branch_user_cache, node_use_cache, catch_region,
+          )
+        None => false
+      }
+    }
+    @ir.HotOp::TryTable => {
+      if dead_code_elimination_try_rewrite_branch_payload_forwarder_in_control_region(
+          ctx,
+          func,
+          branch_user_cache,
+          node_use_cache,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        return true
+      }
+      dead_code_elimination_try_rewrite_branch_payload_forwarder_in_control_region(
+        ctx,
+        func,
+        branch_user_cache,
+        node_use_cache,
+        @ir.hot_region_catch_list_ref(func, node_id),
+      )
+    }
+    _ => false
+  }
+}
+
+///|
 fn dead_code_elimination_visit_node_regions(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1191,6 +1466,23 @@ fn dead_code_elimination_visit_region(
         node_id,
       ) ||
       changed
+
+    if dead_code_elimination_try_rewrite_branch_payload_forwarder(
+        ctx, func, branch_user_cache, node_use_cache, node_id,
+      ) {
+      changed = true
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+        if dead_code_elimination_try_rewrite_branch_payload_forwarder_in_subtree(
+            ctx, func, branch_user_cache, node_use_cache, node_id,
+          ) {
+          changed = true
+          continue
+        }
+      _ => ()
+    }
 
     if dead_code_elimination_drop_is_dead(purity_cache, func, node_id) {
       ignore(
