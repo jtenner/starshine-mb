@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Fix: keep tee multi-root block values out of HSO folds
+
+- **`heap-store-optimization` tee multi-root block parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt), and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) so tee-wrapped `struct.set` values now stay as `struct.set` when the value is a multi-root block, matching Binaryen on pure and readonly prefix blocks instead of incorrectly folding them into `struct.new`.
+
 ## 2026-03-26 Chore: normalize HSO test fixture formatting after verification
 
 - **`heap-store-optimization` fixture formatting cleanup** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), and [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt) to keep the HSO command fixtures, helper layout, and long byte-array literals in repo formatting shape after the recent perf and parity work. No behavior change.

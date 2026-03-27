@@ -866,6 +866,20 @@ fn hso_sequence_result_type(
 }
 
 ///|
+fn hso_value_is_multi_root_block(func : @ir.HotFunc, value_id : Int) -> Bool {
+  if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, value_id)
+  match node.op {
+    @ir.HotOp::Block =>
+      @ir.hot_region_root_count(func, @ir.hot_region_body_ref(func, value_id)) >=
+      2
+    _ => false
+  }
+}
+
+///|
 fn hso_value_has_readonly_prefix_block(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
@@ -1123,6 +1137,9 @@ fn hso_try_fold_tee_wrapped_struct_set(
     _ => return None
   }
   if @ir.hot_child_count(func, ref_id) != 1 {
+    return None
+  }
+  if hso_value_is_multi_root_block(func, value_id) {
     return None
   }
   let struct_new_id = @ir.hot_child_get(func, ref_id, 0)
