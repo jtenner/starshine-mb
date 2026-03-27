@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Test: cover tee multi-root block ref-result HSO cmd parity
+
+- **`heap-store-optimization` ref-result cmd regression coverage** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md) and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) with a direct `run_cmd_with_adapter` regression for the tee multi-root pure-block case that returns the ref itself, pinning the source-level command pipeline behavior after the latest tee-block parity fix. Focused `moon test src/cmd` stays green at `85/85`.
+
 ## 2026-03-26 Fix: keep tee multi-root block values out of HSO folds
 
 - **`heap-store-optimization` tee multi-root block parity hardening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/heap_store_optimization.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization.mbt), [`src/passes/heap_store_optimization_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/heap_store_optimization_test.mbt), and [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/cmd/cmd_test.mbt) so tee-wrapped `struct.set` values now stay as `struct.set` when the value is a multi-root block, matching Binaryen on pure and readonly prefix blocks instead of incorrectly folding them into `struct.new`.

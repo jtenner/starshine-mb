@@ -479,6 +479,45 @@ fn fixture_hso_tee_pure_block_prefix_module() -> Module {
 }
 
 ///|
+fn fixture_hso_tee_pure_block_prefix_ref_result_module() -> Module {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(fixture_hso_struct_fields(1)),
+    ),
+  )
+  let pair = @lib.TypeIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [ref_type])),
+  )
+  let local0 = @lib.LocalIdx::new(0U)
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      Func::new(
+        @lib.Locals::from_types([ref_type]),
+        @lib.Expr::new([
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_tee(local0),
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(0)),
+              @lib.Instruction::drop(),
+              @lib.Instruction::i32_const(@lib.I32(7)),
+            ]),
+          ),
+          @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          @lib.Instruction::local_get(local0),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn fixture_hso_swapped_nonlocal_readonly_prefix_module() -> Module {
   let struct_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -1301,6 +1340,52 @@ test "run_cmd_with_adapter keeps struct.set for tee HSO pure multi-root block va
     Err(e) =>
       fail(
         "unexpected tee pure-block heap-store-optimization run failure: \{e}",
+      )
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter keeps struct.set for tee HSO pure multi-root block ref results" {
+  let wasm = encode_module_bytes(
+    fixture_hso_tee_pure_block_prefix_ref_result_module(),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-tee-pure-ref.wasm"] },
+    file_exists=fn(path) { path == "hso-tee-pure-ref.wasm" },
+    read_file=fn(path) {
+      if path == "hso-tee-pure-ref.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--heap-store-optimization",
+        "--out",
+        "out.wasm",
+        "hso-tee-pure-ref.wasm",
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "unexpected tee pure-block ref-result heap-store-optimization run failure: \{e}",
       )
   }
   assert_eq(summary.resolved_passes, ["heap-store-optimization"])
