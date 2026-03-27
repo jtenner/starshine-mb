@@ -616,7 +616,7 @@ test "optimize-instructions keeps outer fallthrough when inner branches only exi
 }
 
 ///|
-test "optimize-instructions replaces dead mixed-label fallback branches after non-fallthrough ifs with unreachable" {
+test "optimize-instructions preserves mixed-label fallback branches after non-fallthrough ifs" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
   )
@@ -666,7 +666,7 @@ test "optimize-instructions replaces dead mixed-label fallback branches after no
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected optimize-instructions mixed-label dead-fallback cleanup success, got \{err}",
+        "expected optimize-instructions mixed-label fallback cleanup success, got \{err}",
       )
   }
 
@@ -674,12 +674,16 @@ test "optimize-instructions replaces dead mixed-label fallback branches after no
   assert_eq(@ir.hot_region_root_count(func, middle_body), 2)
   let middle_tail = @ir.hot_region_get(func, middle_body, 1)
   match @ir.hot_node_get(func, middle_tail).op {
-    @ir.HotOp::Unreachable => ()
+    @ir.HotOp::Br => ()
     _ =>
-      fail(
-        "expected mixed-label dead fallback branch to canonicalize into unreachable",
-      )
+      fail("expected mixed-label fallback branch to remain a value-carrying br")
   }
+  assert_eq(@ir.hot_node_get(func, middle_tail).imm0, carrier_label)
+  let middle_tail_value = @ir.hot_child_get(func, middle_tail, 0)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, middle_tail_value).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
 }
 
 ///|

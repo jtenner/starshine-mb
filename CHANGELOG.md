@@ -56,6 +56,10 @@
 
 - **`dead-code-elimination` parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) so DCE now rewrites stacked typed branch-payload forwarders whose forwarding block carries prefix work before the terminal branch, and can voidify dropped nonfallthrough value blocks with a single incoming pure payload branch while preserving explicit `unreachable` tails. Added focused hot-pass regressions for prefixed payload forwarders, stacked-tail payload forwarders, nonfinal nonfallthrough value blocks in lifted void regions, and dropped pure-payload branch wrappers. `moon test src/passes` and `moon build --target native --release src/cmd` are green on this checkpoint.
 
+## 2026-03-27 Fix: keep branch-only mixed-label OI fallbacks live
+
+- **`optimize-instructions` branch-only mixed-label dead-suffix parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) so dead-suffix cleanup no longer erases fallback branches after `if` nodes that exit only via label branches, matching Binaryen on the reduced mixed-label fallback shape while keeping the existing return/throw-driven `unreachable` cleanup coverage. `moon test src/passes` and `moon build --target native --release src/cmd` are green.
+
 ## 2026-03-27 Chore: de-localize docs links
 
 - **Docs link portability cleanup** by **@jtenner**. Updated [`docs/0010-2026-03-18-validate-trace-baseline.md`](./docs/0010-2026-03-18-validate-trace-baseline.md) and [`docs/0027-2026-03-22-exact-ref-null-immediates.md`](./docs/0027-2026-03-22-exact-ref-null-immediates.md) to replace hard-coded absolute filesystem links with repository-relative links.

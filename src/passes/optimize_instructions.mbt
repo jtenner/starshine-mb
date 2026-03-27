@@ -877,6 +877,52 @@ fn optimize_instructions_node_exits_to_label(
 }
 
 ///|
+fn optimize_instructions_region_exits_only_via_branches(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return false
+  }
+  optimize_instructions_node_exits_only_via_branches(
+    func,
+    dead,
+    @ir.hot_region_get(func, region_ref, root_count - 1),
+  )
+}
+
+///|
+fn optimize_instructions_node_exits_only_via_branches(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br => true
+    @ir.HotOp::If =>
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_region) =>
+          optimize_instructions_region_exits_only_via_branches(
+            func,
+            dead,
+            @ir.hot_region_then_ref(func, node_id),
+          ) &&
+          optimize_instructions_region_exits_only_via_branches(
+            func, dead, else_region,
+          )
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_collapse_dead_region_suffix(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -891,6 +937,11 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
   for idx = 0; idx < root_count - 1; idx = idx + 1 {
     let root = @ir.hot_region_get(func, region_ref, idx)
     let root_op = @ir.hot_node_get(func, root).op
+    let branch_only_if_escape = match root_op {
+      @ir.HotOp::If =>
+        optimize_instructions_node_exits_only_via_branches(func, dead, root)
+      _ => false
+    }
     let direct_terminal = match root_op {
       @ir.HotOp::Br
       | @ir.HotOp::Unreachable
@@ -901,17 +952,21 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
       | @ir.HotOp::Delegate => true
       _ => false
     }
-    let escapes = match root_op {
-      @ir.HotOp::Br
-      | @ir.HotOp::Unreachable
-      | @ir.HotOp::Return
-      | @ir.HotOp::Throw
-      | @ir.HotOp::Rethrow
-      | @ir.HotOp::ThrowRef
-      | @ir.HotOp::Delegate => true
-      _ =>
-        optimize_instructions_node_exits_to_label(func, dead, root, label_id) ||
-        optimize_instructions_node_never_falls_through(func, dead, root)
+    let escapes = if branch_only_if_escape {
+      false
+    } else {
+      match root_op {
+        @ir.HotOp::Br
+        | @ir.HotOp::Unreachable
+        | @ir.HotOp::Return
+        | @ir.HotOp::Throw
+        | @ir.HotOp::Rethrow
+        | @ir.HotOp::ThrowRef
+        | @ir.HotOp::Delegate => true
+        _ =>
+          optimize_instructions_node_exits_to_label(func, dead, root, label_id) ||
+          optimize_instructions_node_never_falls_through(func, dead, root)
+      }
     }
     if !escapes {
       continue
@@ -927,7 +982,13 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
     for keep = 0; keep <= idx; keep = keep + 1 {
       next.push(@ir.hot_region_get(func, region_ref, keep))
     }
+    let root_is_if = match root_op {
+      @ir.HotOp::If => true
+      _ => false
+    }
     let needs_unreachable = if direct_terminal {
+      false
+    } else if root_is_if && branch_only_if_escape {
       false
     } else if region_ref == @ir.HotRegionRef::root() {
       true
