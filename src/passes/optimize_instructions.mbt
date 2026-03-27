@@ -1338,11 +1338,112 @@ fn optimize_instructions_try_rewrite_add_sub(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
+  match instr {
+    @lib.Instruction::I32Add => {
+      let rhs = @ir.hot_node_get(func, rhs_id)
+      if rhs.child_count == 2 {
+        match rhs.op {
+          @ir.HotOp::Binary if func.instr_payloads[rhs.imm0].instr ==
+            @lib.Instruction::i32_sub() => {
+            let zero_id = func.children[rhs.child_base]
+            let sub_rhs_id = func.children[rhs.child_base + 1]
+            if optimize_instructions_i32_const(func, dead, zero_id) ==
+              Some(@lib.I32(0)) {
+              optimize_instructions_rewrite_exact_with_children(
+                ctx,
+                func,
+                node_id,
+                @lib.Instruction::i32_sub(),
+                [lhs_id, sub_rhs_id],
+              )
+              return true
+            }
+          }
+          _ => ()
+        }
+      }
+      let lhs = @ir.hot_node_get(func, lhs_id)
+      if lhs.child_count == 2 {
+        match lhs.op {
+          @ir.HotOp::Binary if func.instr_payloads[lhs.imm0].instr ==
+            @lib.Instruction::i32_sub() => {
+            let zero_id = func.children[lhs.child_base]
+            let sub_rhs_id = func.children[lhs.child_base + 1]
+            let effects = pass_require_effects(ctx, func)
+            if optimize_instructions_i32_const(func, dead, zero_id) ==
+              Some(@lib.I32(0)) &&
+              @ir.effects_is_pure(effects.node_masks[rhs_id]) &&
+              @ir.effects_is_pure(effects.node_masks[sub_rhs_id]) {
+              optimize_instructions_rewrite_exact_with_children(
+                ctx,
+                func,
+                node_id,
+                @lib.Instruction::i32_sub(),
+                [rhs_id, sub_rhs_id],
+              )
+              return true
+            }
+          }
+          _ => ()
+        }
+      }
+    }
+    @lib.Instruction::I64Add => {
+      let rhs = @ir.hot_node_get(func, rhs_id)
+      if rhs.child_count == 2 {
+        match rhs.op {
+          @ir.HotOp::Binary if func.instr_payloads[rhs.imm0].instr ==
+            @lib.Instruction::i64_sub() => {
+            let zero_id = func.children[rhs.child_base]
+            let sub_rhs_id = func.children[rhs.child_base + 1]
+            if optimize_instructions_i64_const(func, dead, zero_id) ==
+              Some(@lib.I64(0L)) {
+              optimize_instructions_rewrite_exact_with_children(
+                ctx,
+                func,
+                node_id,
+                @lib.Instruction::i64_sub(),
+                [lhs_id, sub_rhs_id],
+              )
+              return true
+            }
+          }
+          _ => ()
+        }
+      }
+      let lhs = @ir.hot_node_get(func, lhs_id)
+      if lhs.child_count == 2 {
+        match lhs.op {
+          @ir.HotOp::Binary if func.instr_payloads[lhs.imm0].instr ==
+            @lib.Instruction::i64_sub() => {
+            let zero_id = func.children[lhs.child_base]
+            let sub_rhs_id = func.children[lhs.child_base + 1]
+            let effects = pass_require_effects(ctx, func)
+            if optimize_instructions_i64_const(func, dead, zero_id) ==
+              Some(@lib.I64(0L)) &&
+              @ir.effects_is_pure(effects.node_masks[rhs_id]) &&
+              @ir.effects_is_pure(effects.node_masks[sub_rhs_id]) {
+              optimize_instructions_rewrite_exact_with_children(
+                ctx,
+                func,
+                node_id,
+                @lib.Instruction::i64_sub(),
+                [rhs_id, sub_rhs_id],
+              )
+              return true
+            }
+          }
+          _ => ()
+        }
+      }
+    }
+    _ => ()
+  }
   match (instr, optimize_instructions_i32_const(func, dead, rhs_id)) {
     (@lib.Instruction::I32Add, Some(@lib.I32(0)))
     | (@lib.Instruction::I32Sub, Some(@lib.I32(0))) => {
       optimize_instructions_replace_with_existing_node(ctx, func, node_id)
-      true
+      return true
     }
     (@lib.Instruction::I32Add, Some(@lib.I32(raw))) if raw < 0 &&
       !optimize_instructions_prefer_negative_leb_i32(-raw) => {
@@ -1354,29 +1455,29 @@ fn optimize_instructions_try_rewrite_add_sub(
         @lib.Instruction::i32_sub(),
         [lhs_id, replacement_rhs],
       )
+      return true
+    }
+    _ => ()
+  }
+  match (instr, optimize_instructions_i64_const(func, dead, rhs_id)) {
+    (@lib.Instruction::I64Add, Some(@lib.I64(0L)))
+    | (@lib.Instruction::I64Sub, Some(@lib.I64(0L))) => {
+      optimize_instructions_replace_with_existing_node(ctx, func, node_id)
       true
     }
-    _ =>
-      match (instr, optimize_instructions_i64_const(func, dead, rhs_id)) {
-        (@lib.Instruction::I64Add, Some(@lib.I64(0L)))
-        | (@lib.Instruction::I64Sub, Some(@lib.I64(0L))) => {
-          optimize_instructions_replace_with_existing_node(ctx, func, node_id)
-          true
-        }
-        (@lib.Instruction::I64Add, Some(@lib.I64(raw))) if raw < 0L &&
-          !optimize_instructions_prefer_negative_leb_i64(-raw) => {
-          let replacement_rhs = @ir.hot_build_const_i64(func, @lib.I64(-raw))
-          optimize_instructions_rewrite_exact_with_children(
-            ctx,
-            func,
-            node_id,
-            @lib.Instruction::i64_sub(),
-            [lhs_id, replacement_rhs],
-          )
-          true
-        }
-        _ => false
-      }
+    (@lib.Instruction::I64Add, Some(@lib.I64(raw))) if raw < 0L &&
+      !optimize_instructions_prefer_negative_leb_i64(-raw) => {
+      let replacement_rhs = @ir.hot_build_const_i64(func, @lib.I64(-raw))
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i64_sub(),
+        [lhs_id, replacement_rhs],
+      )
+      true
+    }
+    _ => false
   }
 }
 
@@ -1660,27 +1761,37 @@ fn optimize_instructions_visit_node(
       if node.child_count != 2 {
         false
       } else {
-        let instr = func.instr_payloads[node.imm0].instr
-        let lhs_id = func.children[node.child_base]
-        let rhs_id = func.children[node.child_base + 1]
+        let initial_instr = func.instr_payloads[node.imm0].instr
+        let initial_lhs = func.children[node.child_base]
+        let initial_rhs = func.children[node.child_base + 1]
         let changed = optimize_instructions_try_fold_exact_const_binary(
-            ctx, func, dead, node_id, instr, lhs_id, rhs_id,
+            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
           optimize_instructions_try_rewrite_add_sub(
-            ctx, func, dead, node_id, instr, lhs_id, rhs_id,
+            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
           optimize_instructions_try_rewrite_mul_shift(
-            ctx, func, dead, node_id, instr, lhs_id, rhs_id,
+            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
           optimize_instructions_try_rewrite_shift(
-            ctx, func, dead, node_id, instr, lhs_id, rhs_id,
+            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           )
-        let canonicalized = if optimize_instructions_is_commutative_instr(instr) {
-          optimize_instructions_try_canonicalize_commutative(
-            ctx, func, dead, node_id, instr, lhs_id, rhs_id, scratch,
-          )
-        } else {
-          false
+        let current = func.nodes[node_id]
+        let canonicalized = match current.op {
+          @ir.HotOp::Binary => {
+            let current_instr = func.instr_payloads[current.imm0].instr
+            if !optimize_instructions_is_commutative_instr(current_instr) {
+              false
+            } else {
+              let current_lhs = func.children[current.child_base]
+              let current_rhs = func.children[current.child_base + 1]
+              optimize_instructions_try_canonicalize_commutative(
+                ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+                scratch,
+              )
+            }
+          }
+          _ => false
         }
         if canonicalized {
           let current = func.nodes[node_id]

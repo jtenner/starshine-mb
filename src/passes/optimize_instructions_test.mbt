@@ -183,6 +183,50 @@ test "optimize-instructions keeps canonicalized positive adds in add form" {
 }
 
 ///|
+test "optimize-instructions rewrites add with trailing zero-sub into sub" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) local.get 0 i32.const 0 local.get 1 i32.sub i32.add))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_sub()),
+  )
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected x + (0 - y) rewrite to preserve the lhs local")
+  }
+  match @ir.hot_node_get(func, rhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected x + (0 - y) rewrite to expose the rhs local")
+  }
+}
+
+///|
+test "optimize-instructions rewrites leading zero-sub add into sub" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) i32.const 0 local.get 0 i32.sub local.get 1 i32.add))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_sub()),
+  )
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected (0 - x) + y rewrite to expose the new lhs local")
+  }
+  match @ir.hot_node_get(func, rhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected (0 - x) + y rewrite to expose the rhs local")
+  }
+}
+
+///|
 test "optimize-instructions removes neutral add and sub zero" {
   let add_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.const 8 i32.add i32.const 0 i32.add))",
