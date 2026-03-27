@@ -683,6 +683,81 @@ test "optimize-instructions replaces dead mixed-label fallback branches after no
 }
 
 ///|
+test "optimize-instructions does not add unreachable tails to escaping if arms" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let carrier = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let carrier_label = @ir.hot_control_node_label(func, carrier)
+  let nested = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_local_get(func, 0),
+    [
+      @ir.hot_build_br(func, carrier_label, values=[
+        @ir.hot_build_const_i32(func, @lib.I32(2)),
+      ]),
+    ],
+    else_body=Some([
+      @ir.hot_build_return(func, [@ir.hot_build_const_i32(func, @lib.I32(9))]),
+    ]),
+  )
+  let outer_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_local_get(func, 0),
+    [
+      nested,
+      @ir.hot_build_drop(func, @ir.hot_build_const_i32(func, @lib.I32(11))),
+      @ir.hot_build_drop(func, @ir.hot_build_const_i32(func, @lib.I32(12))),
+    ],
+    else_body=Some([
+      @ir.hot_build_drop(func, @ir.hot_build_const_i32(func, @lib.I32(13))),
+      @ir.hot_build_drop(func, @ir.hot_build_const_i32(func, @lib.I32(14))),
+    ]),
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, carrier), [
+    outer_if,
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  ])
+  @ir.hot_root_append(func, carrier)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimize-instructions escaping-if-arm cleanup success, got \{err}",
+      )
+  }
+
+  let then_region = @ir.hot_region_then_ref(func, outer_if)
+  assert_eq(@ir.hot_region_root_count(func, then_region), 1)
+  let tail = @ir.hot_region_get(func, then_region, 0)
+  match @ir.hot_node_get(func, tail).op {
+    @ir.HotOp::If => ()
+    _ =>
+      fail(
+        "expected escaping if arms to drop dead tails without a synthetic unreachable",
+      )
+  }
+}
+
+///|
 test "optimize-instructions truncates dead suffixes after direct returns" {
   let func = @ir.HotFunc::new()
   let block = @ir.hot_build_block(func, @lib.BlockType::void_(), [])

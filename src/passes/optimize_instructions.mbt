@@ -927,7 +927,19 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
     for keep = 0; keep <= idx; keep = keep + 1 {
       next.push(@ir.hot_region_get(func, region_ref, keep))
     }
-    if !direct_terminal {
+    let needs_unreachable = if direct_terminal {
+      false
+    } else if region_ref == @ir.HotRegionRef::root() {
+      true
+    } else {
+      let holder = region_ref.holder
+      let holder_label = @ir.hot_control_node_label(func, holder)
+      match @ir.hot_label_kind(func, holder_label) {
+        @ir.HotLabelKind::RegionLabel => false
+        _ => true
+      }
+    }
+    if needs_unreachable {
       next.push(@ir.hot_build_unreachable(func))
     }
     @ir.hot_region_replace_body(func, region_ref, next)
