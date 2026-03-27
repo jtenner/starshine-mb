@@ -151,6 +151,9 @@
 ## 2026-03-27 Optimize: reuse one `if` entry-type snapshot in hot lift
 
 - **Dead-code-elimination lift budget checkpoint** by **@jtenner**. Updated [CHANGELOG.md](/home/jtenner/Projects/starshine-mb-dce/CHANGELOG.md) and [src/ir/hot_lift.mbt](/home/jtenner/Projects/starshine-mb-dce/src/ir/hot_lift.mbt) so nested `if` lifting now copies the entry type stack once per `if` instead of once per branch, reusing the original snapshot for the second branch and the empty-else normalization path. `moon test src/ir`, `moon test src/passes`, and `moon build --target native --release src/cmd` stay green; on `tests/node/dist/starshine-debug-wasi.wasm`, direct native `--dead-code-elimination` replay improved from about `2.328s` to `2.275s` while preserving byte-identical output, and traced totals improved from about `lift=902105us / pass=564258us` to `lift=882961us / pass=548716us`.
+## 2026-03-27 Optimize: stop forcing unused effects analysis in `optimize-instructions` crossing checks
+
+- **`optimize-instructions` crossing-check analysis trim** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-optimize-instructions/CHANGELOG.md) and [`src/passes/optimize_instructions.mbt`](/home/jtenner/Projects/starshine-mb-optimize-instructions/src/passes/optimize_instructions.mbt) so commutative and relational operand canonicalization no longer forces the `effects` analysis for subtree crossing checks that only consult liveness, use counts, loop-input marks, and local writes. This removes unnecessary hot-path analysis work while keeping the existing crossing safety and parity behavior unchanged.
 
 ## 2026-03-27 Optimize: restrict dead suffix collapse to branches that exit the current label in `optimize-instructions`
 

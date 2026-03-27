@@ -364,10 +364,8 @@ fn optimize_instructions_is_shared_cross_safe_leaf(
 
 ///|
 fn optimize_instructions_can_cross_local_get(
-  ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : Array[Bool],
-  effects : @ir.HotEffectsSummary,
   use_def : @ir.HotUseDef,
   node_id : Int,
   local_id : Int,
@@ -434,10 +432,8 @@ fn optimize_instructions_can_cross_local_get(
       _ => false
     }
     if !optimize_instructions_can_cross_local_get(
-        ctx,
         func,
         dead,
-        effects,
         use_def,
         func.children[node.child_base + slot],
         local_id,
@@ -544,15 +540,12 @@ fn optimize_instructions_try_canonicalize_commutative(
       if !should_swap {
         return false
       }
-      let effects = pass_require_effects(ctx, func)
       let use_def = pass_require_use_def(ctx, func)
       optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
-        ctx,
         func,
         dead,
-        effects,
         use_def,
         rhs_id,
         local_id,
@@ -586,15 +579,12 @@ fn optimize_instructions_try_canonicalize_commutative(
         ) {
         return false
       }
-      let effects = pass_require_effects(ctx, func)
       let use_def = pass_require_use_def(ctx, func)
       optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
-        ctx,
         func,
         dead,
-        effects,
         use_def,
         lhs_id,
         local_id,
@@ -946,15 +936,12 @@ fn optimize_instructions_try_canonicalize_relational_operands(
       if !should_swap {
         return false
       }
-      let effects = pass_require_effects(ctx, func)
       let use_def = pass_require_use_def(ctx, func)
       optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
-        ctx,
         func,
         dead,
-        effects,
         use_def,
         rhs_id,
         local_id,
@@ -988,15 +975,12 @@ fn optimize_instructions_try_canonicalize_relational_operands(
         ) {
         return false
       }
-      let effects = pass_require_effects(ctx, func)
       let use_def = pass_require_use_def(ctx, func)
       optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
-        ctx,
         func,
         dead,
-        effects,
         use_def,
         lhs_id,
         local_id,
