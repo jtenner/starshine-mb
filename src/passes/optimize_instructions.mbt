@@ -890,7 +890,18 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
   }
   for idx = 0; idx < root_count - 1; idx = idx + 1 {
     let root = @ir.hot_region_get(func, region_ref, idx)
-    let escapes = match @ir.hot_node_get(func, root).op {
+    let root_op = @ir.hot_node_get(func, root).op
+    let direct_terminal = match root_op {
+      @ir.HotOp::Br
+      | @ir.HotOp::Unreachable
+      | @ir.HotOp::Return
+      | @ir.HotOp::Throw
+      | @ir.HotOp::Rethrow
+      | @ir.HotOp::ThrowRef
+      | @ir.HotOp::Delegate => true
+      _ => false
+    }
+    let escapes = match root_op {
       @ir.HotOp::Br
       | @ir.HotOp::Unreachable
       | @ir.HotOp::Return
@@ -916,7 +927,9 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
     for keep = 0; keep <= idx; keep = keep + 1 {
       next.push(@ir.hot_region_get(func, region_ref, keep))
     }
-    next.push(@ir.hot_build_unreachable(func))
+    if !direct_terminal {
+      next.push(@ir.hot_build_unreachable(func))
+    }
     @ir.hot_region_replace_body(func, region_ref, next)
     pass_mark_mutated(ctx, func)
     return true

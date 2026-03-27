@@ -683,6 +683,39 @@ test "optimize-instructions replaces dead mixed-label fallback branches after no
 }
 
 ///|
+test "optimize-instructions truncates dead suffixes after direct returns" {
+  let func = @ir.HotFunc::new()
+  let block = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, block), [
+    @ir.hot_build_return(func, []),
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+  ])
+  @ir.hot_root_append(func, block)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimize-instructions direct-return dead-suffix cleanup success, got \{err}",
+      )
+  }
+
+  let body = @ir.hot_region_body_ref(func, block)
+  assert_eq(@ir.hot_region_root_count(func, body), 1)
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 0)).op {
+    @ir.HotOp::Return => ()
+    _ => fail("expected dead roots after return to be truncated")
+  }
+}
+
+///|
 test "optimize-instructions canonicalizes commutative constants onto the rhs" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) i32.const 7 local.get 0 i32.add))",
