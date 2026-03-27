@@ -166,6 +166,59 @@ test "hot lower peels typed wrapper blocks that only branch to the parent" {
 }
 
 ///|
+test "hot lower peels same-typed payload wrappers that feed a final parent branch" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(7)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32(9)),
+              ]),
+            ),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let hot = hot_lift_body(
+    body,
+    HotLocals::new(),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+
+  assert_eq(
+    hot_lower_func(hot),
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(7)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32(9)),
+              ]),
+            ),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    ),
+  )
+}
+
+///|
 test "hot lower peels same-typed nested if wrappers when inner label is unused" {
   let struct_ref_type = @lib.ValType::ref_null(
     @lib.HeapType::new(@lib.TypeIdx::new(0U)),

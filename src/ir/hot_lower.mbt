@@ -1148,6 +1148,25 @@ fn hot_lower_impl_is_simple_parent_exit_body(
 }
 
 ///|
+fn hot_lower_impl_is_parent_exit_payload_body(
+  bt : BlockType,
+  body : Array[Instruction],
+  parent_depth : Int,
+) -> Bool {
+  if body.length() != 2 || hot_lower_impl_body_targets_removed_label(body, 0) {
+    return false
+  }
+  match body[0] {
+    Block(inner_bt, _) if inner_bt == bt => ()
+    _ => return false
+  }
+  match body[1] {
+    Br(li) => hot_lower_impl_decoded_label_depth(li) == parent_depth
+    _ => false
+  }
+}
+
+///|
 fn hot_lower_impl_is_same_typed_single_if_wrapper(
   bt : BlockType,
   body : Array[Instruction],
@@ -1205,6 +1224,12 @@ fn hot_lower_impl_canonicalize_block_body(
     [Block(inner_bt, Expr(inner_body))] if bt == inner_bt &&
       hot_lower_impl_is_simple_parent_exit_body(inner_body, 1) &&
       !hot_lower_impl_body_targets_removed_label(inner_body, 0) =>
+      hot_lower_impl_rebase_body(inner_body, 0)
+    [Block(VoidBlockType, Expr(inner_body))] if hot_lower_impl_is_parent_exit_payload_body(
+        bt,
+        inner_body,
+        1,
+      ) =>
       hot_lower_impl_rebase_body(inner_body, 0)
     [Block(inner_bt, Expr(inner_body))] if bt == inner_bt &&
       hot_lower_impl_is_same_typed_single_if_wrapper(bt, inner_body) =>
