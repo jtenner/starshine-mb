@@ -245,7 +245,8 @@ fn remove_unused_brs_node_is_reorder_safe(
     | @ir.HotOp::RefNull
     | @ir.HotOp::RefIsNull
     | @ir.HotOp::RefFunc
-    | @ir.HotOp::Nop => ()
+    | @ir.HotOp::Nop
+    | @ir.HotOp::Drop => ()
     @ir.HotOp::Unary
     | @ir.HotOp::Binary
     | @ir.HotOp::Compare
@@ -1017,18 +1018,29 @@ fn remove_unused_brs_match_value_if_to_select(
     Some(else_ref) => else_ref
     None => return None
   }
-  if @ir.hot_region_root_count(func, then_ref) != 1 ||
-    @ir.hot_region_root_count(func, else_ref) != 1 {
-    return None
-  }
-  let then_root = @ir.hot_region_get(func, then_ref, 0)
-  let else_root = @ir.hot_region_get(func, else_ref, 0)
   let condition = @ir.hot_child_get(func, node_id, 0)
-  if !remove_unused_brs_node_is_reorder_safe(
-      ctx, func, then_root, reorder_cache,
-    ) ||
-    !remove_unused_brs_node_is_reorder_safe(ctx, func, else_root, reorder_cache) {
-    return None
+  let result_type = @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))[0]
+  let then_root = match
+    remove_unused_brs_build_region_value_expr(
+      ctx,
+      func,
+      remove_unused_brs_region_roots(func, then_ref),
+      result_type,
+      reorder_cache,
+    ) {
+    Some(expr) => expr
+    None => return None
+  }
+  let else_root = match
+    remove_unused_brs_build_region_value_expr(
+      ctx,
+      func,
+      remove_unused_brs_region_roots(func, else_ref),
+      result_type,
+      reorder_cache,
+    ) {
+    Some(expr) => expr
+    None => return None
   }
   if !remove_unused_brs_node_is_reorder_safe(
       ctx, func, condition, reorder_cache,
@@ -1046,11 +1058,7 @@ fn remove_unused_brs_match_value_if_to_select(
   }
   Some({
     replacement: remove_unused_brs_build_select(
-      func,
-      @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))[0],
-      then_root,
-      else_root,
-      condition,
+      func, result_type, then_root, else_root, condition,
     ),
     then_holder: then_ref.holder,
     else_holder: else_ref.holder,
