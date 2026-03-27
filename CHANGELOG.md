@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-26 Fix: accept zero-timer self-compare runs when HSO skips raw everywhere
+
+- **`self-optimize-compare` zero-pass timing support** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`scripts/lib/self-optimize-compare-task.ts`](/home/jtenner/Projects/starshine-mb-hso/scripts/lib/self-optimize-compare-task.ts), and [`scripts/test/self-optimize-compare-zero-pass-command.ts`](/home/jtenner/Projects/starshine-mb-hso/scripts/test/self-optimize-compare-zero-pass-command.ts) so the compare harness now reports `0ms` instead of failing when a pass emits only `skip-raw` trace lines and no `perf:timer name=pass:*` samples. The new zero-pass command regression passes, the invalid-input compare test stays green, and the real `--heap-store-optimization` self-compare on `tests/node/dist/starshine-debug-wasi.wasm` is canonical again with `Starshine pass runtime (ms): 0.000`.
+
 ## 2026-03-26 Optimize: skip raw HSO lift for functions without foldable candidates
 
 - **`heap-store-optimization` pre-lift candidate screening** by **@jtenner**. Updated [`CHANGELOG.md`](/home/jtenner/Projects/starshine-mb-hso/CHANGELOG.md), [`src/passes/pass_manager.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/pass_manager.mbt), and [`src/passes/perf_test.mbt`](/home/jtenner/Projects/starshine-mb-hso/src/passes/perf_test.mbt) so the hot pipeline now skips raw HSO entirely when a function lacks the minimum local-write plus `struct.new*` plus `struct.set` shape needed for any current fold, avoiding needless lift and effects analysis on the real self-opt artifact. Focused `moon test src/passes` and `moon test src/cmd` stay green, and the regenerated `tests/node/dist/starshine-debug-wasi.wasm` artifact still matches Binaryen canonically while Starshine wall time drops to roughly `0.57s` versus Binaryen at `0.48s`.

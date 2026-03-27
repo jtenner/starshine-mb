@@ -153,10 +153,13 @@ function runTimedOrThrow(
 
 function parseStarshinePassElapsedMs(stderr: string): number {
   const matches = Array.from(stderr.matchAll(/perf:timer name=pass:[^\s]+ elapsed_us=(\d+)/g));
-  if (matches.length === 0) {
-    fail("failed to parse Starshine pass timing from traced stderr");
+  if (matches.length !== 0) {
+    return matches.reduce((sum, match) => sum + Number(match[1]), 0) / 1000;
   }
-  return matches.reduce((sum, match) => sum + Number(match[1]), 0) / 1000;
+  if (/pass\[[^\]]+\]:skip-raw\b/.test(stderr)) {
+    return 0;
+  }
+  fail("failed to parse Starshine pass timing from traced stderr");
 }
 
 function parseBinaryenPassElapsedMs(stdout: string, stderr: string): number {
