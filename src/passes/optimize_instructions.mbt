@@ -762,6 +762,97 @@ fn optimize_instructions_try_collapse_duplicate_then_branch(
 }
 
 ///|
+fn optimize_instructions_region_always_escapes(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return false
+  }
+  optimize_instructions_node_always_escapes(
+    func,
+    dead,
+    @ir.hot_region_get(func, region_ref, root_count - 1),
+  )
+}
+
+///|
+fn optimize_instructions_node_always_escapes(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Unreachable
+    | @ir.HotOp::Br
+    | @ir.HotOp::Return
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate => true
+    @ir.HotOp::If =>
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_region) =>
+          optimize_instructions_region_always_escapes(
+            func,
+            dead,
+            @ir.hot_region_then_ref(func, node_id),
+          ) &&
+          optimize_instructions_region_always_escapes(func, dead, else_region)
+        None => false
+      }
+    @ir.HotOp::Block =>
+      optimize_instructions_region_always_escapes(
+        func,
+        dead,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_try_collapse_dead_region_suffix(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count < 2 {
+    return false
+  }
+  for idx = 0; idx < root_count - 1; idx = idx + 1 {
+    let root = @ir.hot_region_get(func, region_ref, idx)
+    if !optimize_instructions_node_always_escapes(func, dead, root) {
+      continue
+    }
+    if idx + 2 == root_count {
+      match
+        @ir.hot_node_get(func, @ir.hot_region_get(func, region_ref, idx + 1)).op {
+        @ir.HotOp::Unreachable => return false
+        _ => ()
+      }
+    }
+    let next : Array[Int] = []
+    for keep = 0; keep <= idx; keep = keep + 1 {
+      next.push(@ir.hot_region_get(func, region_ref, keep))
+    }
+    next.push(@ir.hot_build_unreachable(func))
+    @ir.hot_region_replace_body(func, region_ref, next)
+    pass_mark_mutated(ctx, func)
+    return true
+  }
+  false
+}
+
+///|
 fn optimize_instructions_reverse_relational_instr(
   instr : @lib.Instruction,
 ) -> @lib.Instruction? {
@@ -1884,8 +1975,28 @@ fn optimize_instructions_visit_node(
           }
         }
       }
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      optimize_instructions_try_collapse_dead_region_suffix(
+        ctx,
+        func,
+        dead,
+        @ir.hot_region_body_ref(func, node_id),
+      )
     @ir.HotOp::If =>
-      optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id)
+      optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id) ||
+      optimize_instructions_try_collapse_dead_region_suffix(
+        ctx,
+        func,
+        dead,
+        @ir.hot_region_then_ref(func, node_id),
+      ) ||
+      (match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_region) =>
+          optimize_instructions_try_collapse_dead_region_suffix(
+            ctx, func, dead, else_region,
+          )
+        None => false
+      })
     _ => false
   }
   local_changed || changed
