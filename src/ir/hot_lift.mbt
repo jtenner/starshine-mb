@@ -1591,10 +1591,9 @@ fn hot_lift_impl_lift_control(
         label_frames, label_stack_head, label_id,
       )
       let region_env = entry_state.env.with_label(results)
+      let then_entry_types = hot_lift_impl_copy_val_types(entry_types)
       let then_state = hot_lift_impl_region_state(
-        entry_state,
-        region_env,
-        hot_lift_impl_copy_val_types(entry_types),
+        entry_state, region_env, then_entry_types,
       )
       let (then_roots, _, then_exit_state) = match
         hot_lift_impl_lift_region(
@@ -1604,7 +1603,7 @@ fn hot_lift_impl_lift_control(
           label_frames,
           next_stack,
           initial_values=entry_values,
-          initial_value_types=entry_types,
+          initial_value_types=then_entry_types,
         ) {
         Ok(state) => state
         Err(err) => return Err(err)
@@ -1622,9 +1621,7 @@ fn hot_lift_impl_lift_control(
       let else_region = match else_instrs {
         Some(instrs) => {
           let else_state = hot_lift_impl_region_state(
-            entry_state,
-            region_env,
-            hot_lift_impl_copy_val_types(entry_types),
+            entry_state, region_env, entry_types,
           )
           match
             hot_lift_impl_lift_region(
@@ -1654,9 +1651,7 @@ fn hot_lift_impl_lift_control(
         }
         None => {
           let else_exit_state = hot_lift_impl_region_state(
-            entry_state,
-            region_env,
-            hot_lift_impl_copy_val_types(entry_types),
+            entry_state, region_env, entry_types,
           )
           match
             tc_state_normalize_untyped_if_branch_exit(else_exit_state, results) {

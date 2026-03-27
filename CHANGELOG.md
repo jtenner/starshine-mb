@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-27 Optimize: reuse one `if` entry-type snapshot in hot lift
+
+- **Dead-code-elimination lift budget checkpoint** by **@jtenner**. Updated [CHANGELOG.md](/home/jtenner/Projects/starshine-mb-dce/CHANGELOG.md) and [src/ir/hot_lift.mbt](/home/jtenner/Projects/starshine-mb-dce/src/ir/hot_lift.mbt) so nested `if` lifting now copies the entry type stack once per `if` instead of once per branch, reusing the original snapshot for the second branch and the empty-else normalization path. `moon test src/ir`, `moon test src/passes`, and `moon build --target native --release src/cmd` stay green; on `tests/node/dist/starshine-debug-wasi.wasm`, direct native `--dead-code-elimination` replay improved from about `2.328s` to `2.275s` while preserving byte-identical output, and traced totals improved from about `lift=902105us / pass=564258us` to `lift=882961us / pass=548716us`.
+
 ## 2026-03-26 Optimize: reduce pick-load-signs scan and inference churn
 
 - **Pick-load-signs runtime budget checkpoint** by **@jtenner**. Updated [src/passes/pick_load_signs.mbt](/home/jtenner/Projects/starshine-mb-pick-load-signs/src/passes/pick_load_signs.mbt), [src/ir/use_def.mbt](/home/jtenner/Projects/starshine-mb-pick-load-signs/src/ir/use_def.mbt), and [scripts/lib/self-optimize-compare-task.ts](/home/jtenner/Projects/starshine-mb-pick-load-signs/scripts/lib/self-optimize-compare-task.ts) to cut repeated parent/grandparent scans, avoid retaining full load instructions in candidate state, and use borrowed use-def views where the pass only needs read-only access. Focused pass tests and use-def tests stay green, and the self-opt compare remains canonically equal to Binaryen on `tests/node/dist/starshine-debug-wasi.wasm`.
