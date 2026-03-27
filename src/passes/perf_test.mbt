@@ -297,6 +297,83 @@ fn perf_test_make_unique_loop_select_return_ladder_module() -> String {
 }
 
 ///|
+fn perf_test_make_nested_constructor_hot_skip_module() -> String {
+  (
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     local.get 0)
+    #|   (func (param i32) (result i32)
+    #|     local.get 0)
+    #|   (func (param i32) (result i32)
+    #|     local.get 0)
+    #|   (func (param i32) (result i32)
+    #|     local.get 0)
+    #|   (func (param i32) (result i32)
+    #|     local.get 0)
+    #|   (func (param i32 i32) (result i32)
+    #|     local.get 0
+    #|     local.get 1
+    #|     i32.add)
+    #|   (func (param i32 i32) (result i32)
+    #|     (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+    #|     block
+    #|       block
+    #|         local.get 0
+    #|         call 0
+    #|         local.tee 3
+    #|         i32.const 1
+    #|         i32.eq
+    #|         if
+    #|           local.get 0
+    #|           call 1
+    #|           local.tee 4
+    #|           i32.const 0
+    #|           i32.gt_s
+    #|           if
+    #|             local.get 4
+    #|             local.get 1
+    #|             call 5
+    #|             local.set 5
+    #|           else
+    #|             local.get 4
+    #|             i32.const 1
+    #|             i32.eq
+    #|             if
+    #|               local.get 4
+    #|               call 2
+    #|               local.set 5
+    #|             end
+    #|           end
+    #|           local.get 4
+    #|           call 3
+    #|           local.tee 6
+    #|           local.set 7
+    #|           br 1
+    #|         else
+    #|           local.get 0
+    #|           call 1
+    #|           local.tee 6
+    #|           local.set 7
+    #|           br 0
+    #|         end
+    #|         unreachable
+    #|       end
+    #|       local.get 6
+    #|       call 3
+    #|       local.set 8
+    #|       local.get 7
+    #|       local.get 8
+    #|       call 5
+    #|       local.tee 9
+    #|       local.set 10
+    #|       return
+    #|     end
+    #|     local.get 7))
+    #|
+  )
+}
+
+///|
 test "perf session records hot allocation deltas dumps and checkpoints" {
   let lines : Array[String] = []
   let perf = HotPerfSession::new(
@@ -675,6 +752,36 @@ test "remove-unused-brs skips unique loop-select return ladders without hot lift
   )
   assert_false(text.contains("perf:timer name=lift"))
   assert_false(text.contains("perf:timer name=pass:remove-unused-brs"))
+}
+
+///|
+test "remove-unused-brs skips nested constructor ladders after lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_nested_constructor_hot_skip_module()
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested constructor ladder remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-hot reason=nested-constructor-return-ladder-noop",
+    ),
+  )
+  assert_true(text.contains("perf:timer name=lift"))
+  assert_true(text.contains("perf:timer name=pass:remove-unused-brs"))
 }
 
 ///|

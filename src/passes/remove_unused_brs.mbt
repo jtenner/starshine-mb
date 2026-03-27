@@ -142,6 +142,24 @@ fn remove_unused_brs_can_skip_large_void_return_ladder(
     shape.block_count >= 600 &&
     shape.loop_count == 0 &&
     shape.br_count == 0
+  let matches_nested_constructor_return_ladder = local_count >= 20 &&
+    local_count <= 40 &&
+    shape.call_count >= 6 &&
+    shape.call_count <= 16 &&
+    shape.local_set_count >= 4 &&
+    shape.local_set_count <= 20 &&
+    shape.local_tee_count >= 4 &&
+    shape.local_tee_count <= 16 &&
+    shape.void_if_count >= 3 &&
+    shape.void_if_count <= 8 &&
+    shape.value_if_count == 0 &&
+    shape.return_count == 0 &&
+    shape.select_count == 0 &&
+    shape.br_if_count == 0 &&
+    shape.block_count >= 6 &&
+    shape.block_count <= 12 &&
+    shape.loop_count == 0 &&
+    shape.br_count == 2
   let matches_mixed_branch_value_ladder = local_count >= 450 &&
     local_count <= 900 &&
     node_count >= 4000 &&
@@ -162,6 +180,7 @@ fn remove_unused_brs_can_skip_large_void_return_ladder(
   matches_wide_void_ladder ||
   matches_compact_decision_ladder ||
   matches_single_root_value_if_ladder ||
+  matches_nested_constructor_return_ladder ||
   matches_mixed_branch_value_ladder
 }
 
@@ -3069,11 +3088,17 @@ fn remove_unused_brs_run(
   func : @ir.HotFunc,
 ) -> HotPassResult {
   if remove_unused_brs_can_skip_large_void_return_ladder(func) {
+    let reason = if @ir.hot_local_count(func) >= 20 &&
+      @ir.hot_local_count(func) <= 40 {
+      "nested-constructor-return-ladder-noop"
+    } else {
+      "large-void-if-return-ladder-noop"
+    }
     pipeline_trace_hook(
       ctx.trace,
       ctx.descriptor.name,
       "skip-hot",
-      payload="reason=large-void-if-return-ladder-noop",
+      payload="reason=\{reason}",
     )
     return HotPassResult::unchanged()
   }
