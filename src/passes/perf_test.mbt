@@ -230,6 +230,62 @@ test "remove-unused-brs skips raw lift when the original function has no candida
 }
 
 ///|
+test "remove-unused-brs rewrites decision ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (func (param i32 i32) (result i32)
+    #|     (block (result i32)
+    #|       (block
+    #|         (block
+    #|           local.get 0
+    #|           br_table 0 1
+    #|         )
+    #|         local.get 1
+    #|         i32.const 0
+    #|         i32.eq
+    #|         if (result i32)
+    #|           i32.const 1
+    #|         else
+    #|           i32.const 0
+    #|         end
+    #|         br 1
+    #|         )
+    #|       local.get 1
+    #|       i32.const 1
+    #|       i32.eq
+    #|       if (result i32)
+    #|         i32.const 1
+    #|       else
+    #|         i32.const 0
+    #|       end
+    #|     )))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected raw decision-ladder remove-unused-brs success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-raw reason=decision-ladder-selects",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:remove-unused-brs"))
+}
+
+///|
 test "remove-unused-brs does not build use-def when rewriting tail returns" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }

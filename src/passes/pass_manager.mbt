@@ -560,6 +560,158 @@ fn run_hot_pipeline_instr_has_remove_unused_brs_candidate(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs_match_i32_const(
+  instr : @lib.Instruction,
+) -> @lib.I32? {
+  match instr {
+    @lib.I32Const(value) => Some(value)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int, Bool) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  let mut saw_br_table = false
+  for instr in instrs {
+    match instr {
+      @lib.Block(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites, nested_br_table) = run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::block(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+        saw_br_table = saw_br_table || nested_br_table
+      }
+      @lib.Loop(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites, nested_br_table) = run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::loop_(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+        saw_br_table = saw_br_table || nested_br_table
+      }
+      @lib.TryTable(bt, catches, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites, nested_br_table) = run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::try_table(
+            bt,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+        saw_br_table = saw_br_table || nested_br_table
+      }
+      @lib.If(bt, then_body, else_body) => {
+        let (rewritten_then, then_rewrites, then_br_table) = run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(
+          then_body,
+        )
+        rewrite_count = rewrite_count + then_rewrites
+        saw_br_table = saw_br_table || then_br_table
+        let rewritten_else = match else_body {
+          Some(else_body) => {
+            let (rewritten_else, else_rewrites, else_br_table) = run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(
+              else_body,
+            )
+            rewrite_count = rewrite_count + else_rewrites
+            saw_br_table = saw_br_table || else_br_table
+            Some(rewritten_else)
+          }
+          None => None
+        }
+        normalized.push(
+          @lib.Instruction::if_(bt, rewritten_then, rewritten_else),
+        )
+      }
+      @lib.BrTable(_, _) => {
+        saw_br_table = true
+        normalized.push(instr)
+      }
+      _ => normalized.push(instr)
+    }
+  }
+  let rewritten : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < normalized.length() {
+    if idx + 3 < normalized.length() {
+      let instr0 = normalized[idx]
+      let instr1 = normalized[idx + 1]
+      let instr2 = normalized[idx + 2]
+      let instr3 = normalized[idx + 3]
+      match (instr0, instr1, instr2, instr3) {
+        (
+          @lib.LocalGet(local_id),
+          @lib.I32Const(cond_const),
+          @lib.I32Eq,
+          @lib.If(
+            @lib.ValTypeBlockType(result_type),
+            then_body,
+            Some(else_body)
+          ),
+        ) if result_type == @lib.ValType::i32() =>
+          match
+            (
+              then_body.length(),
+              else_body.length(),
+              run_hot_pipeline_raw_remove_unused_brs_match_i32_const(
+                then_body[0],
+              ),
+              run_hot_pipeline_raw_remove_unused_brs_match_i32_const(
+                else_body[0],
+              ),
+            ) {
+            (1, 1, Some(then_value), Some(else_value)) => {
+              rewritten.push(@lib.Instruction::i32_const(then_value))
+              rewritten.push(@lib.Instruction::i32_const(else_value))
+              rewritten.push(@lib.Instruction::local_get(local_id))
+              rewritten.push(@lib.Instruction::i32_const(cond_const))
+              rewritten.push(@lib.Instruction::i32_eq())
+              rewritten.push(@lib.Instruction::select())
+              rewrite_count = rewrite_count + 1
+              idx = idx + 4
+              continue
+            }
+            _ => ()
+          }
+        _ => ()
+      }
+    }
+    rewritten.push(normalized[idx])
+    idx = idx + 1
+  }
+  (rewritten, rewrite_count, saw_br_table)
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_hot_only_candidates(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Nop | @lib.If(_, _, _) | @lib.BrIf(_) | @lib.Return => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_hot_only_candidates(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_dce_raw_has_early_terminator(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -1585,7 +1737,22 @@ fn run_hot_pipeline_raw_remove_unused_brs(
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
-  let @lib.Func(_, @lib.Expr(instrs)) = original
+  let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let (rewritten_instrs, rewrite_count, saw_br_table) = run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(
+    instrs,
+  )
+  if rewrite_count > 0 &&
+    saw_br_table &&
+    !run_hot_pipeline_raw_remove_unused_brs_has_hot_only_candidates(
+      rewritten_instrs,
+    ) {
+    return Some(
+      (
+        "decision-ladder-selects",
+        @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
+      ),
+    )
+  }
   if run_hot_pipeline_instr_has_remove_unused_brs_candidate(instrs) {
     None
   } else {
