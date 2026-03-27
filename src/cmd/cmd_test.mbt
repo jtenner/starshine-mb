@@ -1011,6 +1011,17 @@ fn fixture_hso_tee_pure_ref_prefix_ref_result_wasm() -> Bytes {
 }
 
 ///|
+fn fixture_hso_swapped_inner_branch_prefix_ref_result_wasm() -> Bytes {
+  bytes_from_ints([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 10, 2, 95, 1, 127, 1, 96, 0, 1, 99, 0, 3, 2,
+    1, 1, 7, 5, 1, 1, 102, 0, 0, 10, 44, 1, 42, 2, 1, 99, 0, 1, 127, 251, 1, 0,
+    33, 0, 2, 64, 65, 9, 33, 1, 11, 32, 0, 2, 127, 65, 0, 26, 2, 127, 65, 7, 12,
+    0, 65, 8, 11, 11, 251, 5, 0, 0, 32, 0, 11, 0, 26, 4, 110, 97, 109, 101, 3,
+    13, 1, 0, 2, 1, 1, 118, 2, 5, 105, 110, 110, 101, 114, 4, 4, 1, 0, 1, 115,
+  ])
+}
+
+///|
 fn fixture_hso_table_size_value_prefix_wasm() -> Bytes {
   bytes_from_ints([
     0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 95, 1, 127, 1, 96, 0, 1, 127, 3, 2, 1,
@@ -2167,6 +2178,44 @@ test "run_cmd_with_adapter folds swapped-root HSO readonly mutable-global prefix
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.set"), msg=pretty)
   assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter keeps swapped HSO nops before peeled prefix roots" {
+  let wasm = fixture_hso_swapped_inner_branch_prefix_ref_result_wasm()
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso-swap-nop.wasm"] },
+    file_exists=fn(path) { path == "hso-swap-nop.wasm" },
+    read_file=fn(path) {
+      if path == "hso-swap-nop.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--heap-store-optimization", "--out", "out.wasm", "hso-swap-nop.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected swapped-nop HSO run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("struct.new"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
 }

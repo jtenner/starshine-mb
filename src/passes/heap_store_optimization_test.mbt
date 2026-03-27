@@ -1772,6 +1772,40 @@ test "heap-store-optimization swaps across block-wrapped unrelated local.set roo
 }
 
 ///|
+test "heap-store-optimization keeps swapped fold nops before peeled prefix roots" {
+  let optimized = match
+    run_hot_pipeline(
+      hso_decode_fixture_module(
+        hso_bytes_from_ints([
+          0, 97, 115, 109, 1, 0, 0, 0, 1, 10, 2, 95, 1, 127, 1, 96, 0, 1, 99, 0,
+          3, 2, 1, 1, 7, 5, 1, 1, 102, 0, 0, 10, 44, 1, 42, 2, 1, 99, 0, 1, 127,
+          251, 1, 0, 33, 0, 2, 64, 65, 9, 33, 1, 11, 32, 0, 2, 127, 65, 0, 26, 2,
+          127, 65, 7, 12, 0, 65, 8, 11, 11, 251, 5, 0, 0, 32, 0, 11, 0, 26, 4,
+          110, 97, 109, 101, 3, 13, 1, 0, 2, 1, 1, 118, 2, 5, 105, 110, 110, 101,
+          114, 4, 4, 1, 0, 1, 115,
+        ]),
+      ),
+      HotPipelineOptions::new(),
+      ["heap-store-optimization"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected swapped nop-order heap-store-optimization success, got \{err}")
+  }
+
+  match optimized.code_sec {
+    Some(_) => ()
+    None => fail("expected optimized decoded fixture code")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization swaps across block-wrapped readonly roots" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)

@@ -2108,16 +2108,6 @@ fn hso_process_region(
                       type_idx, field_idx, value_id, local_id,
                     ) {
                     Some(lifted_prefix_roots) => {
-                      if !lifted_prefix_roots.is_empty() {
-                        hso_array_insert_prefix_roots(
-                          segment_roots,
-                          segment_local_set_idx,
-                          lifted_prefix_roots,
-                          lifted_prefix_roots.length(),
-                        )
-                        segment_local_set_idx = segment_local_set_idx +
-                          lifted_prefix_roots.length()
-                      }
                       let nop_id = @ir.hot_build_nop(func)
                       if segment_has_swapped_prefix {
                         hso_array_insert_prefix_roots(
@@ -2127,6 +2117,16 @@ fn hso_process_region(
                           1,
                         )
                         segment_local_set_idx = segment_local_set_idx + 1
+                      }
+                      if !lifted_prefix_roots.is_empty() {
+                        hso_array_insert_prefix_roots(
+                          segment_roots,
+                          segment_local_set_idx,
+                          lifted_prefix_roots,
+                          lifted_prefix_roots.length(),
+                        )
+                        segment_local_set_idx = segment_local_set_idx +
+                          lifted_prefix_roots.length()
                       }
                       changed = true
                       if !segment_has_swapped_prefix {
