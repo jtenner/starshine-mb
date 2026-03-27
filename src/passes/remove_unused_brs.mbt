@@ -2689,29 +2689,36 @@ fn remove_unused_brs_visit_region(
       ) {
       continue
     }
-    if remove_unused_brs_try_rewrite_branch_payload_if(
-        ctx, func, region_ref, idx, label_refs,
-      ) {
-      changed = true
-      continue
-    }
-    if remove_unused_brs_try_rewrite_two_arm_branch_if(
-        ctx, func, region_ref, idx,
-      ) {
-      changed = true
-      continue
-    }
-    if remove_unused_brs_try_rewrite_region_local_set_br_arm(
-        ctx, func, region_ref, idx,
-      ) {
-      changed = true
-      continue
-    }
-    if remove_unused_brs_try_rewrite_region_local_set_copy_arm(
-        ctx, func, region_ref, idx,
-      ) {
-      changed = true
-      continue
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Br =>
+        if remove_unused_brs_try_rewrite_branch_payload_if(
+            ctx, func, region_ref, idx, label_refs,
+          ) {
+          changed = true
+          continue
+        }
+      @ir.HotOp::If =>
+        if remove_unused_brs_try_rewrite_two_arm_branch_if(
+            ctx, func, region_ref, idx,
+          ) {
+          changed = true
+          continue
+        }
+      @ir.HotOp::LocalSet => {
+        if remove_unused_brs_try_rewrite_region_local_set_br_arm(
+            ctx, func, region_ref, idx,
+          ) {
+          changed = true
+          continue
+        }
+        if remove_unused_brs_try_rewrite_region_local_set_copy_arm(
+            ctx, func, region_ref, idx,
+          ) {
+          changed = true
+          continue
+        }
+      }
+      _ => ()
     }
     let node_return_context = return_context && idx == roots.length() - 1
     changed = remove_unused_brs_visit_node(
