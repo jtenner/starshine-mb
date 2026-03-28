@@ -762,6 +762,44 @@ fn optimize_instructions_negate_boolean_expr_recursive(
 }
 
 ///|
+fn optimize_instructions_is_boolean_constant_tree(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  match optimize_instructions_i32_const(func, dead, node_id) {
+    Some(@lib.I32(0)) | Some(@lib.I32(1)) => return true
+    _ => ()
+  }
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  let then_region = @ir.hot_region_then_ref(func, node_id)
+  let else_region = match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) => region
+    None => return false
+  }
+  if @ir.hot_region_root_count(func, then_region) != 1 ||
+    @ir.hot_region_root_count(func, else_region) != 1 {
+    return false
+  }
+  optimize_instructions_is_boolean_constant_tree(
+    func,
+    dead,
+    @ir.hot_region_get(func, then_region, 0),
+  ) &&
+  optimize_instructions_is_boolean_constant_tree(
+    func,
+    dead,
+    @ir.hot_region_get(func, else_region, 0),
+  )
+}
+
+///|
 fn optimize_instructions_same_branch_shape(
   func : @ir.HotFunc,
   dead : Array[Bool],
@@ -1799,6 +1837,10 @@ fn optimize_instructions_try_wrap_boolean_if_value_in_eqz(
     _ => false
   }
   if plain_boolean_const_arms {
+    return false
+  }
+  if optimize_instructions_is_boolean_constant_tree(func, dead, then_root) &&
+    optimize_instructions_is_boolean_constant_tree(func, dead, else_root) {
     return false
   }
   let use_def = pass_require_use_def(ctx, func)

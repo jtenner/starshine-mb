@@ -1652,6 +1652,22 @@ test "optimize-instructions keeps trivial boolean value ifs unwrapped in local s
 }
 
 ///|
+test "optimize-instructions keeps constant boolean decision trees unwrapped in local sets" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (local i32) local.get 0 if (result i32) i32.const 1 else local.get 1 if (result i32) i32.const 1 else i32.const 0 end end local.set 2 local.get 2))",
+  )
+  let set_ = @ir.hot_root_get(func, 0)
+  let payload = @ir.hot_child_get(func, set_, 0)
+  match @ir.hot_node_get(func, payload).op {
+    @ir.HotOp::If => ()
+    _ =>
+      fail(
+        "expected constant boolean local-set decision tree to stay as the original if",
+      )
+  }
+}
+
+///|
 test "optimize-instructions does not reorder across the same local" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 local.get 0 local.tee 0 i32.const 1 i32.shl i32.add))",
