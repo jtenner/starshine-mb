@@ -888,6 +888,82 @@ test "optimize-instructions preserves value fallback branches after return-or-in
 }
 
 ///|
+test "optimize-instructions preserves zero sentinels under dropped value carriers" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let loop_ = @ir.hot_build_loop(func, @lib.BlockType::void_(), [])
+  let loop_label = @ir.hot_control_node_label(func, loop_)
+  let inner_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_local_get(func, 1),
+    [@ir.hot_build_return(func, [@ir.hot_build_const_i32(func, @lib.I32(7))])],
+    else_body=Some([@ir.hot_build_br(func, loop_label)]),
+  )
+  let outer_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_local_get(func, 0),
+    [@ir.hot_build_return(func, [@ir.hot_build_const_i32(func, @lib.I32(8))])],
+    else_body=Some([
+      inner_if,
+      @ir.hot_build_drop(func, @ir.hot_build_const_i32(func, @lib.I32(0))),
+    ]),
+  )
+  let carrier = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [outer_if, @ir.hot_build_const_i32(func, @lib.I32(0))],
+  )
+  let dropped = @ir.hot_build_drop(func, carrier)
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, loop_), [
+    dropped,
+    @ir.hot_build_br(func, loop_label),
+  ])
+  @ir.hot_root_append(func, loop_)
+  @ir.hot_root_append(func, @ir.hot_build_unreachable(func))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimize-instructions dropped-carrier sentinel preservation success, got \{err}",
+      )
+  }
+
+  let outer_else = @ir.hot_region_else_ref(func, outer_if).unwrap()
+  assert_eq(@ir.hot_region_root_count(func, outer_else), 2)
+  let outer_else_tail = @ir.hot_region_get(func, outer_else, 1)
+  match @ir.hot_node_get(func, outer_else_tail).op {
+    @ir.HotOp::Drop => ()
+    _ =>
+      fail(
+        "expected dropped carrier else tail to keep explicit drop-zero sentinel",
+      )
+  }
+
+  let carrier_body = @ir.hot_region_body_ref(func, carrier)
+  assert_eq(@ir.hot_region_root_count(func, carrier_body), 2)
+  let carrier_tail = @ir.hot_region_get(func, carrier_body, 1)
+  match @ir.hot_node_get(func, carrier_tail).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected dropped carrier body to keep explicit zero sentinel")
+  }
+}
+
+///|
 test "optimize-instructions does not add unreachable tails to escaping if arms" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),

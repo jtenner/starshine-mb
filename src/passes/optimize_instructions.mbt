@@ -795,6 +795,79 @@ fn optimize_instructions_try_collapse_duplicate_then_branch(
 }
 
 ///|
+fn optimize_instructions_node_is_zero_sentinel(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Const =>
+      @ir.hot_const_get(func, node.imm0) ==
+      @ir.HotConstPayload::i32_const(@lib.I32(0))
+    @ir.HotOp::Drop =>
+      if @ir.hot_child_count(func, node_id) != 1 {
+        false
+      } else {
+        optimize_instructions_node_is_zero_sentinel(
+          func,
+          @ir.hot_child_get(func, node_id, 0),
+        )
+      }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_node_is_drop_zero_sentinel(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Drop =>
+      @ir.hot_child_count(func, node_id) == 1 &&
+      optimize_instructions_node_is_zero_sentinel(
+        func,
+        @ir.hot_child_get(func, node_id, 0),
+      )
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_holder_flows_to_drop(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  if region_ref == @ir.HotRegionRef::root() {
+    return false
+  }
+  let use_def = pass_require_use_def(ctx, func)
+  let mut current = region_ref.holder
+  for hops = 0; hops < 64; hops = hops + 1 {
+    if @ir.node_use_count(use_def, current) != 1 {
+      return false
+    }
+    let sites = @ir.node_use_sites_borrowed(use_def, current)
+    let site = sites[0]
+    if site.user == -1 {
+      return false
+    }
+    let user = @ir.hot_node_get(func, site.user)
+    match site.kind {
+      @ir.HotUseSlotKind::ChildUseSlot =>
+        match user.op {
+          @ir.HotOp::Drop => return true
+          _ => return false
+        }
+      @ir.HotUseSlotKind::RootUseSlot => current = site.user
+    }
+  }
+  false
+}
+
+///|
 fn optimize_instructions_region_exits_to_label(
   func : @ir.HotFunc,
   dead : Array[Bool],
@@ -1070,6 +1143,21 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
     }
     if !escapes {
       continue
+    }
+    if idx + 2 == root_count {
+      let tail_id = @ir.hot_region_get(func, region_ref, idx + 1)
+      let root_is_if = match root_op {
+        @ir.HotOp::If => true
+        _ => false
+      }
+      if root_is_if &&
+        optimize_instructions_node_is_drop_zero_sentinel(func, tail_id) {
+        return false
+      }
+      if optimize_instructions_node_is_zero_sentinel(func, tail_id) &&
+        optimize_instructions_holder_flows_to_drop(ctx, func, region_ref) {
+        return false
+      }
     }
     if idx + 2 == root_count {
       let tail_id = @ir.hot_region_get(func, region_ref, idx + 1)
