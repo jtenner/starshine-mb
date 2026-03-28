@@ -1619,6 +1619,51 @@ test "optimize-instructions canonicalizes relational local gets across array.len
 }
 
 ///|
+test "optimize-instructions canonicalizes relational local gets across shared loads" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  let addr = @ir.hot_build_local_get(func, 0)
+  let load = @ir.hot_build_load(
+    func,
+    @lib.ValType::i32(),
+    @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0)),
+    addr,
+  )
+  let local_get = @ir.hot_build_local_get(func, 1)
+  let compare = @ir.hot_build_compare(func, local_get, load)
+  @ir.hot_node_exact_instr_set(func, compare, @lib.Instruction::i32_lt_s())
+  @ir.hot_root_append(func, compare)
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, load))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected optimize-instructions shared-load success, got \{err}")
+  }
+
+  assert_eq(
+    @ir.hot_node_exact_instr(func, compare),
+    Some(@lib.Instruction::i32_gt_s()),
+  )
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, compare, 0)).op {
+    @ir.HotOp::Load => ()
+    _ => fail("expected shared load to move to the lhs")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, compare, 1)).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected local.get to move to the rhs")
+  }
+}
+
+///|
 test "optimize-instructions simplifies if i32.ne x 0 conditions" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) (if (result i32) (i32.ne (local.get 1) (i32.const 0)) (then (i32.const 1)) (else (i32.const 0)))))",

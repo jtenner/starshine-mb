@@ -1557,10 +1557,6 @@ fn optimize_instructions_try_canonicalize_relational_operands(
         if !optimize_instructions_is_side_effect_free_expr(func, dead, rhs_id) {
           return false
         }
-        let use_def = pass_require_use_def(ctx, func)
-        if @ir.node_use_count(use_def, rhs_id) > 1 {
-          return false
-        }
       }
       optimize_instructions_rewrite_exact_with_children(
         ctx,
@@ -1588,10 +1584,6 @@ fn optimize_instructions_try_canonicalize_relational_operands(
       }
       if !lhs_is_local_get {
         if !optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
-          return false
-        }
-        let use_def = pass_require_use_def(ctx, func)
-        if @ir.node_use_count(use_def, lhs_id) > 1 {
           return false
         }
       }
