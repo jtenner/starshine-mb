@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Refactor: route more `remove-unused-brs` branch-arm matching through HOT queries
+
+- **`remove-unused-brs` plain-branch query adoption** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt) so more branch-exit helpers now use the shared HOT plain-branch-arm queries instead of reimplementing single-root `br` detection and target extraction locally. This keeps the pass shape recovery aligned before the next parity matcher lands.
+
 ## 2026-03-28 Refactor: add canonical HOT plain-branch arm queries
 
 - **HOT plain-branch query checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti), and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt) so IR2 now exposes canonical helpers for single plain branch roots and their targets. `RemoveUnusedBrs` uses those shared queries for branch-arm and block-chain matching instead of open-coding single-root `br` detection in multiple helpers.

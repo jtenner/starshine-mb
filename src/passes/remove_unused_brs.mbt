@@ -760,12 +760,18 @@ fn remove_unused_brs_try_voidify_exit_only_value_if(
   let else_node = @ir.hot_node_get(func, else_root)
   match then_node.op {
     @ir.HotOp::Return => ()
-    @ir.HotOp::Br if then_node.child_count == 0 => ()
+    @ir.HotOp::Br =>
+      if @ir.hot_region_single_plain_br_root(func, then_ref) == None {
+        return false
+      }
     _ => return false
   }
   match else_node.op {
     @ir.HotOp::Return => ()
-    @ir.HotOp::Br if else_node.child_count == 0 => ()
+    @ir.HotOp::Br =>
+      if @ir.hot_region_single_plain_br_root(func, else_ref) == None {
+        return false
+      }
     _ => return false
   }
   let void_if = @ir.hot_build_if(
@@ -1431,14 +1437,17 @@ fn remove_unused_brs_try_rewrite_region_local_set_br_arm(
     @ir.hot_region_root_count(func, else_ref) != 1 {
     return false
   }
-  let then_root = @ir.hot_region_get(func, then_ref, 0)
-  let then_node = @ir.hot_node_get(func, then_root)
-  match then_node.op {
-    @ir.HotOp::Br if then_node.child_count == 0 => ()
-    _ => return false
+  let then_root = match @ir.hot_region_single_plain_br_root(func, then_ref) {
+    Some(then_root) => then_root
+    None => return false
+  }
+  let then_target = match
+    @ir.hot_region_single_plain_br_target(func, then_ref) {
+    Some(then_target) => then_target
+    None => return false
   }
   let condition = @ir.hot_child_get(func, value_id, 0)
-  let branch = @ir.hot_build_br_if(func, then_node.imm0, condition)
+  let branch = @ir.hot_build_br_if(func, then_target, condition)
   let replacement_set = @ir.hot_build_local_set(
     func,
     node.imm0,
@@ -1480,24 +1489,30 @@ fn remove_unused_brs_try_rewrite_two_arm_branch_if(
     @ir.hot_region_root_count(func, else_ref) != 1 {
     return false
   }
-  let then_root = @ir.hot_region_get(func, then_ref, 0)
-  let else_root = @ir.hot_region_get(func, else_ref, 0)
-  let then_node = @ir.hot_node_get(func, then_root)
-  let else_node = @ir.hot_node_get(func, else_root)
-  match then_node.op {
-    @ir.HotOp::Br if then_node.child_count == 0 => ()
-    _ => return false
+  let then_root = match @ir.hot_region_single_plain_br_root(func, then_ref) {
+    Some(then_root) => then_root
+    None => return false
   }
-  match else_node.op {
-    @ir.HotOp::Br if else_node.child_count == 0 => ()
-    _ => return false
+  let else_root = match @ir.hot_region_single_plain_br_root(func, else_ref) {
+    Some(else_root) => else_root
+    None => return false
+  }
+  let then_target = match
+    @ir.hot_region_single_plain_br_target(func, then_ref) {
+    Some(then_target) => then_target
+    None => return false
+  }
+  let else_target = match
+    @ir.hot_region_single_plain_br_target(func, else_ref) {
+    Some(else_target) => else_target
+    None => return false
   }
   let if_label = @ir.hot_control_node_label(func, if_id)
-  if then_node.imm0 == if_label || else_node.imm0 == if_label {
+  if then_target == if_label || else_target == if_label {
     return false
   }
-  if then_node.imm0 == else_node.imm0 {
-    let replacement = @ir.hot_build_br(func, then_node.imm0)
+  if then_target == else_target {
+    let replacement = @ir.hot_build_br(func, then_target)
     let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [
       replacement,
     ])
@@ -1513,8 +1528,8 @@ fn remove_unused_brs_try_rewrite_two_arm_branch_if(
     return true
   }
   let condition = @ir.hot_child_get(func, if_id, 0)
-  let branch_if = @ir.hot_build_br_if(func, then_node.imm0, condition)
-  let branch = @ir.hot_build_br(func, else_node.imm0)
+  let branch_if = @ir.hot_build_br_if(func, then_target, condition)
+  let branch = @ir.hot_build_br(func, else_target)
   let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [
     branch_if, branch,
   ])
@@ -1857,16 +1872,12 @@ fn remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
     body_ref : @ir.HotRegionRef,
     negate_condition : Bool,
   ) -> Bool {
-    if @ir.hot_region_root_count(func, branch_ref) != 1 {
-      return false
+    let branch_target = match
+      @ir.hot_region_single_plain_br_target(func, branch_ref) {
+      Some(branch_target) => branch_target
+      None => return false
     }
-    let branch_root = @ir.hot_region_get(func, branch_ref, 0)
-    let branch_node = @ir.hot_node_get(func, branch_root)
-    match branch_node.op {
-      @ir.HotOp::Br if branch_node.child_count == 0 => ()
-      _ => return false
-    }
-    if branch_node.imm0 == if_label {
+    if branch_target == if_label {
       return false
     }
     let (body_prefix, body_payload) = match
@@ -1879,11 +1890,7 @@ fn remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
     } else {
       @ir.hot_child_get(func, if_id, 0)
     }
-    let guard_branch = @ir.hot_build_br_if(
-      func,
-      branch_node.imm0,
-      guard_condition,
-    )
+    let guard_branch = @ir.hot_build_br_if(func, branch_target, guard_condition)
     let replacement = [guard_branch] + body_prefix + body_payload
     let removed = pass_splice_region(
       ctx, func, region_ref, tail_idx, 1, replacement,
