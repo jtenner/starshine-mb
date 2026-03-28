@@ -123,6 +123,7 @@ Observed unique-pass order
      - Doc: [0066#L188](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L188)
    - [RUB]002 - Multi-Slot Cleanup and Artifact Compare - Replay the pass in each Binaryen slot and confirm later `merge-blocks` opportunities match the reference output.
      - Deliverables: add early, mid, and late slot coverage; write regressions for branch-value and typed-block cases; compare the pass on the MoonBit debug artifact.
+     - Current blocker: the remaining debug-artifact families are no longer best described by normalized WAT alone. Recent lift inspection shows returned ladders arrive in HOT as `Block(result) -> Return -> If` with zero-result holder blocks around simple arms, so the next parity slice must target those lifted entry points directly instead of broadly widening existing return-context tail helpers.
      - Doc: [0066#L188](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L188)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
