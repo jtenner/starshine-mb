@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Chore: refresh IR2 and pass backlog against current red suite
+
+- **IR2/DCE/RUB backlog checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to record the current `moon test` failure set precisely: `hot_lower` still owns the shared payload-forwarder and returned-if lowering breakage, `dead-code-elimination` still has four downstream red fixtures in that same family, `remove-unused-brs` still misses the dropped returned-if `unreachable` rewrite, and `optimize-instructions` is currently green.
+
 ## 2026-03-28 Chore: sync DCE backlog state after live parity fix
 
 - **DCE todo and oracle-regression checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to record the carried-wrapper `unreachable` parity fix that is now committed, refresh the remaining DCE runtime and oracle blockers against current measurements, and realign one local-set wrapper regression with the current Binaryen behavior observed during artifact reduction.
