@@ -87,3 +87,42 @@ test "hot lower live repro validates compare-shape split local.set carry" {
     Err(err) => fail(@validate.validation_error_message(err))
   }
 }
+
+///|
+test "hot lower live repro validates typed loop carrier reloads backedge value" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $loop (type $loop_t)
+    #|      local.tee 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      if
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        br $loop
+    #|      end
+    #|      local.get 1
+    #|      drop
+    #|    end
+    #|    i32.const 1)
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source)
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Test: lock typed loop-carrier hot-lower coverage
+
+- **IR2 typed loop-carrier guardrail** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/ir/hot_lower_live_repro_test.mbt`](./src/ir/hot_lower_live_repro_test.mbt) to add a focused `hot_lower` live repro for a typed loop-carried value that is tee'd, used for the backedge increment, and later dropped on fallthrough. This keeps one adjacent carrier shape explicitly green while the later RUB debug-artifact blocker at `Func 807` is still awaiting a smaller artifact-backed reduction.
+
 ## 2026-03-28 Fix: preserve multi-slot branch payload arity in RUB
 
 - **RUB multi-value branch-payload safety** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so `remove-unused-brs` no longer rewrites branch-payload `if` nodes when the surviving payload side would collapse several branch slots into a single multi-value node. Focused regressions now cover both the lifted repeated-payload ladder shape and a standalone multi-value `br (if ...)` repro, `moon test src/passes` and `moon test src/cmd` stay green, and the native debug-artifact replay advances past `Func 7756` to the next blocker: final-module `stack underflow` in `Func 807`.
