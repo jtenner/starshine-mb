@@ -212,6 +212,45 @@ test "holder and single-if queries expose canonical lifted control entry points"
 }
 
 ///|
+test "plain-branch arm queries expose single plain branch roots canonically" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [@lib.Instruction::br(@lib.LabelIdx::new(0U))],
+            Some([
+              @lib.Instruction::i32_const(@lib.I32(2)),
+              @lib.Instruction::drop(),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+    HotLocals::new(),
+  )
+  let block_id = hot_region_single_live_block_root(func, HotRegionRef::root()).unwrap()
+  let if_id = hot_region_single_live_if_root(
+    func,
+    hot_region_body_ref(func, block_id),
+  ).unwrap()
+  let then_ref = hot_region_then_ref(func, if_id)
+  let else_ref = hot_region_else_ref(func, if_id).unwrap()
+  let then_root = hot_region_get(func, then_ref, 0)
+
+  assert_eq(
+    hot_region_single_plain_br_target(func, then_ref),
+    hot_branch_target(func, then_root),
+  )
+  assert_eq(hot_region_single_plain_br_root(func, then_ref), Some(then_root))
+  assert_eq(hot_region_single_plain_br_root(func, else_ref), None)
+  assert_eq(hot_region_single_plain_br_target(func, else_ref), None)
+}
+
+///|
 test "payload split queries expose trailing result roots canonically" {
   let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
   let prefix = hot_build_drop(func, hot_build_const_i32(func, @lib.I32(1)))

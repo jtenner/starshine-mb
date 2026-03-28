@@ -530,6 +530,10 @@ pub fn hot_region_single_live_if_root(HotFunc, HotRegionRef) -> Int?
 
 pub fn hot_region_single_live_root(HotFunc, HotRegionRef) -> Int?
 
+pub fn hot_region_single_plain_br_root(HotFunc, HotRegionRef) -> Int?
+
+pub fn hot_region_single_plain_br_target(HotFunc, HotRegionRef) -> Int?
+
 pub fn hot_region_splice(HotFunc, HotRegionRef, Int, Int, Array[Int]) -> Array[Int]
 
 pub fn hot_region_split_trailing_payload_roots(HotFunc, HotRegionRef, Int) -> (Array[Int], Array[Int])?

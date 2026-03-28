@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Refactor: add canonical HOT plain-branch arm queries
+
+- **HOT plain-branch query checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti), and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt) so IR2 now exposes canonical helpers for single plain branch roots and their targets. `RemoveUnusedBrs` uses those shared queries for branch-arm and block-chain matching instead of open-coding single-root `br` detection in multiple helpers.
+
 ## 2026-03-28 Refactor: add canonical HOT repeated-wrapper queries
 
 - **HOT repeated-wrapper query checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti), and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt) so IR2 now exposes canonical helpers for repeated live `if` roots and repeated block-wrapper bodies. `RemoveUnusedBrs` also routes another repeated-child payload probe through the shared HOT query surface instead of open-coding the same storage pattern.

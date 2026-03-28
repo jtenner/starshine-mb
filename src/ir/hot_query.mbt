@@ -229,6 +229,33 @@ pub fn hot_region_single_live_if_root(
 }
 
 ///|
+pub fn hot_region_single_plain_br_root(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> NodeId? {
+  let candidate = match hot_region_single_live_root(func, region_ref) {
+    Some(candidate) => candidate
+    None => return None
+  }
+  let node = hot_node_get(func, candidate)
+  match node.op {
+    HotOp::Br if node.child_count == 0 => Some(candidate)
+    _ => None
+  }
+}
+
+///|
+pub fn hot_region_single_plain_br_target(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> LabelId? {
+  match hot_region_single_plain_br_root(func, region_ref) {
+    Some(br_id) => hot_branch_target(func, br_id)
+    None => None
+  }
+}
+
+///|
 pub fn hot_region_holder_block_root(
   func : HotFunc,
   region_ref : HotRegionRef,
