@@ -348,6 +348,68 @@ fn rume_test_import_remap_fixture() -> @lib.Module {
 }
 
 ///|
+fn rume_test_empty_active_data_fixture() -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(rume_test_type_sec())
+  .with_mem_sec(@lib.MemSec::new([rume_test_mem_type()]))
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("mem"),
+        @lib.ExternIdx::mem(@lib.MemIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32(1U)))
+  .with_data_sec(
+    @lib.DataSec::new([
+      @lib.Data::new(
+        @lib.DataMode::active(
+          @lib.MemIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        Bytes::new(0),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rume_test_empty_active_data_import_fixture() -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(rume_test_type_sec())
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("mem"),
+        @lib.ExternType::mem(rume_test_mem_type()),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("mem"),
+        @lib.ExternIdx::mem(@lib.MemIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32(1U)))
+  .with_data_sec(
+    @lib.DataSec::new([
+      @lib.Data::new(
+        @lib.DataMode::active(
+          @lib.MemIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i64_const(@lib.I64(130L))]),
+        ),
+        Bytes::new(0),
+      ),
+    ]),
+  )
+}
+
+///|
 fn rume_test_live_access_targets(
   mod_ : @lib.Module,
 ) -> (UInt, UInt, UInt) raise {
@@ -713,6 +775,75 @@ test "remove-unused-module-elements drops unused imported module elements and re
     Err(err) =>
       fail(
         "expected imported-element remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements drops empty active data on live memories" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_empty_active_data_fixture(),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected empty-active-data remove-unused-module-elements success, got \{err}",
+      )
+  }
+
+  assert_eq(optimized.mem_sec, Some(@lib.MemSec::new([rume_test_mem_type()])))
+  match optimized.export_sec {
+    Some(
+      @lib.ExportSec([@lib.Export(_, @lib.MemExternIdx(@lib.MemIdx(mem_idx)))])
+    ) => assert_eq(mem_idx, 0U)
+    _ => fail("expected rewritten memory export")
+  }
+  assert_eq(optimized.data_sec, None)
+  assert_eq(optimized.data_cnt_sec, Some(@lib.DataCntSec::new(@lib.U32(0U))))
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected empty-active-data remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements drops empty active data on imported memories" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_empty_active_data_import_fixture(),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected imported-empty-active-data remove-unused-module-elements success, got \{err}",
+      )
+  }
+
+  match optimized.import_sec {
+    Some(@lib.ImportSec([@lib.Import(_, _, @lib.MemExternType(_))])) => ()
+    _ => fail("expected imported memory to remain live")
+  }
+  match optimized.export_sec {
+    Some(
+      @lib.ExportSec([@lib.Export(_, @lib.MemExternIdx(@lib.MemIdx(mem_idx)))])
+    ) => assert_eq(mem_idx, 0U)
+    _ => fail("expected imported memory export")
+  }
+  assert_eq(optimized.data_sec, None)
+  assert_eq(optimized.data_cnt_sec, Some(@lib.DataCntSec::new(@lib.U32(0U))))
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected imported-empty-active-data remove-unused-module-elements module to validate, got \{err}",
       )
   }
 }

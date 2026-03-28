@@ -168,9 +168,11 @@ fn rume_build_mem_to_data_map(
       let mut data_idx = 0
       while data_idx < datas.length() {
         match datas[data_idx] {
-          @lib.Data(@lib.Active(@lib.MemIdx(mem_idx), _), _) => {
+          @lib.Data(@lib.Active(@lib.MemIdx(mem_idx), _), bytes) => {
             let mem_slot = mem_idx.reinterpret_as_int()
-            if mem_slot >= 0 && mem_slot < mem_to_datas.length() {
+            if bytes.length() > 0 &&
+              mem_slot >= 0 &&
+              mem_slot < mem_to_datas.length() {
               mem_to_datas[mem_slot].push(
                 @lib.DataIdx::new(data_idx.reinterpret_as_uint()),
               )
@@ -752,8 +754,8 @@ fn rume_mark_imported_parent_segments(
       let mut data_idx = 0
       while data_idx < datas.length() {
         match datas[data_idx] {
-          @lib.Data(@lib.Active(@lib.MemIdx(mem_idx), _), _) =>
-            if mem_idx.reinterpret_as_int() < mem_imports {
+          @lib.Data(@lib.Active(@lib.MemIdx(mem_idx), _), bytes) =>
+            if bytes.length() > 0 && mem_idx.reinterpret_as_int() < mem_imports {
               rume_mark_data(
                 queue,
                 used_datas,

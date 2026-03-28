@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: drop empty active data during RUME parity replay
+
+- **`remove-unused-module-elements` empty-data parity** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/remove_unused_module_elements.mbt`](./src/passes/remove_unused_module_elements.mbt), and [`src/passes/remove_unused_module_elements_test.mbt`](./src/passes/remove_unused_module_elements_test.mbt) so RUME drops zero-byte active data segments on both defined and imported memories instead of retaining them through parent-memory liveness. Focused regressions now cover both forms, the saved `case-000077-wasm-smith` repro matches Binaryen, the saved imported-element repro corpus also matches, and fresh post-fix fuzz evidence is down to command-failure blockers only.
+
 ## 2026-03-28 Fix: allow wasm-smith-only pass-fuzz compare runs
 
 - **Pass-fuzz generator-mode fix** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so `bun scripts/pass-fuzz-compare.ts --generator wasm-smith ...` no longer aborts before the first case by scanning a missing `inputs/gen-valid` directory. The runner now skips that scan when no `gen-valid` batch is requested, and the command test covers the `wasm-smith`-only mode to keep the targeted RUME replay workflow working.
