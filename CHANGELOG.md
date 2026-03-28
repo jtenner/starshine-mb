@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: preserve carried-wrapper unreachable in hot lower
+
+- **`hot_lower` live carried-wrapper parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_live_repro_test.mbt`](./src/ir/hot_lower_live_repro_test.mbt), and [`src/passes/dead_code_elimination_live_repro_test.mbt`](./src/passes/dead_code_elimination_live_repro_test.mbt) so lowering now preserves or materializes the explicit `unreachable` required by the exact `run_cmd_with_adapter.inner` carried split-wrapper shape seen on the real debug artifact. Focused live repro tests, native release build, and the full native `--dead-code-elimination` replay remain green on this checkpoint, and the old normalized-WAT blocker around line `6281` is gone on the refreshed artifact.
+
 ## 2026-03-28 Research: tighten OI dead-suffix zero-sentinel regressions
 
 - **`optimize-instructions` dead-suffix zero-sentinel probe checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to strengthen the reduced HOT regressions around explicit zero sentinels after returning `if` carriers, including wrapped result blocks and arm-local dead suffixes, while also tightening the helper probes used to classify non-branch terminal exits during dead-suffix cleanup. Focused `moon test src/passes/optimize_instructions_test.mbt` is green on this checkpoint; the real debug artifact still retains the remaining `func 2390` / `func 3379` lone `unreachable` mismatch, so this commit captures the narrowed investigation state rather than a final parity fix.

@@ -1205,6 +1205,120 @@ fn hot_lower_impl_has_nonfallthrough_tail(body : Array[Instruction]) -> Bool {
 }
 
 ///|
+fn hot_lower_impl_instr_is_nonfallthrough(instr : Instruction) -> Bool {
+  match instr {
+    Return
+    | Throw(_)
+    | ThrowRef
+    | Unreachable => true
+    Block(_, Expr(body)) | Loop(_, Expr(body)) =>
+      hot_lower_impl_body_is_nonfallthrough(body)
+    If(_, then_, Some(else_)) =>
+      hot_lower_impl_body_is_nonfallthrough(then_) &&
+      hot_lower_impl_body_is_nonfallthrough(else_)
+    _ => false
+  }
+}
+
+fn hot_lower_impl_body_is_nonfallthrough(body : Array[Instruction]) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  hot_lower_impl_instr_is_nonfallthrough(body[body.length() - 1])
+}
+
+///|
+fn hot_lower_impl_body_has_terminal_exit(body : Array[Instruction]) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  match body[body.length() - 1] {
+    Br(_) | BrTable(_, _) | Return | Throw(_) | ThrowRef | Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_body_terminal_branch_depth(body : Array[Instruction]) -> Int? {
+  if body.length() == 0 {
+    return None
+  }
+  match body[body.length() - 1] {
+    Br(li) => Some(hot_lower_impl_decoded_label_depth(li))
+    _ => None
+  }
+}
+
+///|
+fn hot_lower_impl_needs_explicit_unreachable_after_peeled_prefix(
+  body : Array[Instruction],
+) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  match body[body.length() - 1] {
+    If(VoidBlockType, then_, Some(else_)) => {
+      if !hot_lower_impl_body_has_terminal_exit(then_) ||
+        !hot_lower_impl_body_has_terminal_exit(else_) {
+        return false
+      }
+      match (
+        hot_lower_impl_body_terminal_branch_depth(then_),
+        hot_lower_impl_body_terminal_branch_depth(else_),
+      ) {
+        (Some(then_depth), Some(else_depth)) => then_depth != else_depth
+        (Some(_), None) => true
+        (None, Some(_)) => true
+        (None, None) => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_append_unreachable_if_needed(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  if !hot_lower_impl_needs_explicit_unreachable_after_peeled_prefix(body) {
+    return body
+  }
+  match body[body.length() - 1] {
+    Unreachable => body
+    _ => {
+      let rewritten : Array[Instruction] = []
+      for instr in body {
+        rewritten.push(instr)
+      }
+      rewritten.push(Instruction::unreachable_())
+      rewritten
+    }
+  }
+}
+
+///|
+fn hot_lower_impl_trim_redundant_unreachable_tail(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  if body.length() < 2 {
+    return body
+  }
+  match body[body.length() - 1] {
+    Unreachable if hot_lower_impl_instr_is_nonfallthrough(
+        body[body.length() - 2],
+      ) =>
+      {
+        let trimmed : Array[Instruction] = []
+        for i = 0; i < body.length() - 1; i = i + 1 {
+          trimmed.push(body[i])
+        }
+        trimmed
+      }
+    _ => body
+  }
+}
+
+///|
 fn hot_lower_impl_try_sink_terminal_exit_into_arm(
   body : Array[Instruction],
   exit_ : Instruction,
@@ -1257,6 +1371,10 @@ fn hot_lower_impl_try_voidify_parent_exit_if_forwarder(
   for i = 0; i < body.length() - 2; i = i + 1 {
     rewritten.push(body[i])
   }
+  let append_unreachable = match body[body.length() - 1] {
+    Br(_) => true
+    _ => false
+  }
   match body[body.length() - 2] {
     If(inner_bt, then_, Some(else_)) if inner_bt != @lib.BlockType::void_() =>
       match
@@ -1278,7 +1396,9 @@ fn hot_lower_impl_try_voidify_parent_exit_if_forwarder(
                   Some(rewritten_else),
                 ),
               )
-              rewritten.push(Instruction::unreachable_())
+              if append_unreachable {
+                rewritten.push(Instruction::unreachable_())
+              }
               Some(rewritten)
             }
             None => None
@@ -1325,7 +1445,6 @@ fn hot_lower_impl_try_voidify_terminal_return_if_forwarder(
                   Some(rewritten_else),
                 ),
               )
-              rewritten.push(Instruction::unreachable_())
               Some(rewritten)
             }
             None => None
@@ -1624,7 +1743,16 @@ fn hot_lower_impl_canonicalize_block_body(
   bt : BlockType,
   body : Array[Instruction],
 ) -> Array[Instruction] {
-  let canonical = hot_lower_impl_canonicalize_body(body)
+  let canonical = match hot_lower_impl_canonicalize_body(body) {
+    [Block(VoidBlockType, Expr(prefix_body)), tail] => [
+      Instruction::block(
+        @lib.BlockType::void_(),
+        Expr::new(hot_lower_impl_append_unreachable_if_needed(prefix_body)),
+      ),
+      tail,
+    ]
+    canonical => canonical
+  }
   match hot_lower_impl_try_unpack_parent_exit_payload_wrapper(bt, canonical) {
     Some(rewritten) => return rewritten
     None => ()
@@ -1745,9 +1873,22 @@ fn hot_lower_impl_canonicalize_body(
             match inner_body {
               [Block(VoidBlockType, Expr(prefix_body)), LocalGet(_)] =>
                 if !hot_lower_impl_body_targets_removed_label(prefix_body, 1) {
-                  for inner in inner_body {
-                    canonical.push(inner)
+                  let peeled_prefix : Array[Instruction] = []
+                  for prefix_instr in prefix_body {
+                    peeled_prefix.push(prefix_instr)
                   }
+                  if hot_lower_impl_needs_explicit_unreachable_after_peeled_prefix(
+                    prefix_body,
+                  ) {
+                    peeled_prefix.push(Instruction::unreachable_())
+                  }
+                  canonical.push(
+                    Instruction::block(
+                      @lib.BlockType::void_(),
+                      Expr::new(peeled_prefix),
+                    ),
+                  )
+                  canonical.push(inner_body[1])
                   peeled = true
                 }
               [Block(VoidBlockType, Expr(_)), Block(_, _)] =>
@@ -1766,16 +1907,35 @@ fn hot_lower_impl_canonicalize_body(
             }
         }
         if !peeled {
-          canonical.push(Instruction::block(bt, Expr::new(inner_body)))
+          match inner_body {
+            [Block(VoidBlockType, Expr(prefix_body)), tail] => {
+              let rewritten_prefix =
+                hot_lower_impl_append_unreachable_if_needed(prefix_body)
+              canonical.push(
+                Instruction::block(
+                  bt,
+                  Expr::new([
+                    Instruction::block(
+                      @lib.BlockType::void_(),
+                      Expr::new(rewritten_prefix),
+                    ),
+                    tail,
+                  ]),
+                ),
+              )
+            }
+            _ => canonical.push(Instruction::block(bt, Expr::new(inner_body)))
+          }
         }
       }
       canonical_instr => canonical.push(canonical_instr)
     }
   }
-  match hot_lower_impl_try_voidify_terminal_return_if_forwarder(canonical) {
+  let canonical = match hot_lower_impl_try_voidify_terminal_return_if_forwarder(canonical) {
     Some(rewritten) => rewritten
     None => canonical
   }
+  hot_lower_impl_trim_redundant_unreachable_tail(canonical)
 }
 
 ///|
@@ -2020,7 +2180,9 @@ fn hot_lower_body_with_extras_unverified(func : HotFunc) -> HotLowerBodyResult {
     func, canonical, extra_locals,
   )
   {
-    body: hot_lower_impl_canonicalize_body(stackified),
+    body: hot_lower_impl_trim_redundant_unreachable_tail(
+      hot_lower_impl_canonicalize_body(stackified),
+    ),
     extra_locals,
     final_stack: value_stack,
   }
