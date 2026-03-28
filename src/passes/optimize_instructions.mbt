@@ -749,14 +749,17 @@ fn optimize_instructions_try_collapse_duplicate_then_branch(
   node_id : Int,
 ) -> Bool {
   let then_region = @ir.hot_region_then_ref(func, node_id)
-  if @ir.hot_region_root_count(func, then_region) != 2 {
+  let then_root_count = @ir.hot_region_root_count(func, then_region)
+  if then_root_count != 1 && then_root_count != 2 {
     return false
   }
   let inner_if_id = @ir.hot_region_get(func, then_region, 0)
-  let tail_id = @ir.hot_region_get(func, then_region, 1)
-  match @ir.hot_node_get(func, tail_id).op {
-    @ir.HotOp::Unreachable => ()
-    _ => return false
+  if then_root_count == 2 {
+    let tail_id = @ir.hot_region_get(func, then_region, 1)
+    match @ir.hot_node_get(func, tail_id).op {
+      @ir.HotOp::Unreachable => ()
+      _ => return false
+    }
   }
   match @ir.hot_node_get(func, inner_if_id).op {
     @ir.HotOp::If => ()
@@ -1069,9 +1072,26 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
       continue
     }
     if idx + 2 == root_count {
-      match
-        @ir.hot_node_get(func, @ir.hot_region_get(func, region_ref, idx + 1)).op {
+      let tail_id = @ir.hot_region_get(func, region_ref, idx + 1)
+      let tail = @ir.hot_node_get(func, tail_id)
+      match tail.op {
         @ir.HotOp::Unreachable => return false
+        @ir.HotOp::Br =>
+          if @ir.hot_child_count(func, tail_id) > 0 {
+            let root_is_if = match root_op {
+              @ir.HotOp::If => true
+              _ => false
+            }
+            if root_is_if &&
+              !optimize_instructions_node_exits_to_label(
+                func,
+                dead,
+                root,
+                tail.imm0,
+              ) {
+              return false
+            }
+          }
         _ => ()
       }
     }

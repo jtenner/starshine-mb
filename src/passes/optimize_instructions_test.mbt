@@ -418,6 +418,75 @@ test "optimize-instructions collapses duplicate branch ifs in then regions" {
 }
 
 ///|
+test "optimize-instructions collapses duplicate branch ifs in single-root then regions" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  let carrier = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let carrier_label = @ir.hot_control_node_label(func, carrier)
+  let middle = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let middle_label = @ir.hot_control_node_label(func, middle)
+  let inner_compare = @ir.hot_build_compare(
+    func,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  @ir.hot_node_exact_instr_set(func, inner_compare, @lib.Instruction::i32_eq())
+  let inner_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    inner_compare,
+    [@ir.hot_build_br(func, middle_label)],
+    else_body=Some([@ir.hot_build_br(func, middle_label)]),
+  )
+  let outer_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @ir.hot_build_local_get(func, 0),
+    [inner_if],
+    else_body=Some([@ir.hot_build_local_get(func, 1)]),
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, middle), [
+    @ir.hot_build_br(func, carrier_label, values=[outer_if]),
+  ])
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, carrier), [
+    middle,
+  ])
+  @ir.hot_root_append(func, carrier)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimize-instructions single-root duplicate-branch success, got \{err}",
+      )
+  }
+
+  let then_region = @ir.hot_region_then_ref(func, outer_if)
+  assert_eq(@ir.hot_region_root_count(func, then_region), 1)
+  let then_root = @ir.hot_region_get(func, then_region, 0)
+  match @ir.hot_node_get(func, then_root).op {
+    @ir.HotOp::Br => ()
+    _ =>
+      fail(
+        "expected single-root duplicate then-branch if to collapse into a direct br",
+      )
+  }
+  assert_eq(@ir.hot_node_get(func, then_root).imm0, middle_label)
+}
+
+///|
 test "optimize-instructions replaces dead block fallthroughs after escaping ifs with unreachable" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
@@ -747,6 +816,73 @@ test "optimize-instructions preserves outer fallback branches after nested retur
   let carrier_tail_value = @ir.hot_child_get(func, carrier_tail, 0)
   assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, carrier_tail_value).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
+test "optimize-instructions preserves value fallback branches after return-or-inner-label ifs" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let carrier = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let carrier_label = @ir.hot_control_node_label(func, carrier)
+  let middle = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let middle_label = @ir.hot_control_node_label(func, middle)
+  let escape_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_local_get(func, 0),
+    [@ir.hot_build_return(func, [@ir.hot_build_const_i32(func, @lib.I32(9))])],
+    else_body=Some([@ir.hot_build_br(func, middle_label)]),
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, middle), [
+    escape_if,
+    @ir.hot_build_br(func, carrier_label, values=[
+      @ir.hot_build_const_i32(func, @lib.I32(0)),
+    ]),
+  ])
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, carrier), [
+    middle,
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  ])
+  @ir.hot_root_append(func, carrier)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimize-instructions inner-label fallback cleanup success, got \{err}",
+      )
+  }
+
+  let middle_body = @ir.hot_region_body_ref(func, middle)
+  assert_eq(@ir.hot_region_root_count(func, middle_body), 2)
+  let middle_tail = @ir.hot_region_get(func, middle_body, 1)
+  match @ir.hot_node_get(func, middle_tail).op {
+    @ir.HotOp::Br => ()
+    _ =>
+      fail("expected inner-label fallback branch to remain a value-carrying br")
+  }
+  assert_eq(@ir.hot_node_get(func, middle_tail).imm0, carrier_label)
+  let middle_tail_value = @ir.hot_child_get(func, middle_tail, 0)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, middle_tail_value).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(0)),
   )
 }
