@@ -2223,6 +2223,60 @@ fn dead_code_elimination_try_voidify_split_drop_control(
 }
 
 ///|
+fn dead_code_elimination_try_flatten_untargeted_void_block_root(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
+  node_use_cache : DeadCodeEliminationNodeUseCache,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  node_id : Int,
+) -> Bool {
+  if region_ref != @ir.HotRegionRef::root() ||
+    node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    @ir.hot_node_result_arity(func, node_id) != 0 {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if dead_code_elimination_label_has_incoming_branch(
+      dead_code_elimination_require_has_incoming_branches_by_label(
+        branch_user_cache, func,
+      ),
+      @ir.hot_control_node_label(func, node_id),
+    ) {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, node_id)
+  if @ir.hot_region_root_count(func, body_ref) < 3 {
+    return false
+  }
+  let last_root = @ir.hot_region_get(
+    func,
+    body_ref,
+    @ir.hot_region_root_count(func, body_ref) - 1,
+  )
+  if last_root >= 0 && @ir.hot_node_is_live(func, last_root) {
+    match @ir.hot_node_get(func, last_root).op {
+      @ir.HotOp::Unreachable => return false
+      _ => ()
+    }
+  }
+  let replacement : Array[Int] = []
+  for root_idx = 0
+      root_idx < @ir.hot_region_root_count(func, body_ref)
+      root_idx = root_idx + 1 {
+    replacement.push(@ir.hot_region_get(func, body_ref, root_idx))
+  }
+  let removed = pass_splice_region(ctx, func, region_ref, idx, 1, replacement)
+  dead_code_elimination_delete_unused_nodes(ctx, func, node_use_cache, removed)
+  true
+}
+
+///|
 fn dead_code_elimination_visit_node_regions(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2652,6 +2706,12 @@ fn dead_code_elimination_visit_region(
       ) ||
       changed
 
+    if dead_code_elimination_try_flatten_untargeted_void_block_root(
+        ctx, func, branch_user_cache, node_use_cache, region_ref, idx, node_id,
+      ) {
+      changed = true
+      continue
+    }
     if dead_code_elimination_try_rewrite_branch_payload_forwarder(
         ctx, func, branch_user_cache, node_use_cache, node_id,
       ) {
