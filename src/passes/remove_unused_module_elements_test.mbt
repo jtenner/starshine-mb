@@ -437,7 +437,9 @@ fn rume_test_nullref_active_elem_import_fixture() -> @lib.Module {
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
           [
             @lib.Expr::new([
-              @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::none())),
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::none()),
+              ),
             ]),
           ],
         ),
@@ -451,7 +453,9 @@ fn rume_test_nullref_active_elem_import_fixture() -> @lib.Module {
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
           [
             @lib.Expr::new([
-              @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::none())),
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::none()),
+              ),
             ]),
           ],
         ),
@@ -467,7 +471,10 @@ fn rume_test_nullfuncref_active_elem_live_table_fixture() -> @lib.Module {
     @lib.TableSec::new([
       @lib.Table::new(
         @lib.TableType::new(
-          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::no_func())),
+          @lib.RefType::new(
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::no_func()),
+          ),
           @lib.Limits::i32(21U, None),
         ),
         None,
@@ -498,7 +505,10 @@ fn rume_test_nullfuncref_active_elem_live_table_fixture() -> @lib.Module {
           @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
         ),
         @lib.ElemKind::typed_exprs(
-          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::no_func())),
+          @lib.RefType::new(
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::no_func()),
+          ),
           [
             @lib.Expr::new([
               @lib.Instruction::ref_null(
@@ -1016,7 +1026,8 @@ test "remove-unused-module-elements keeps nullfuncref active elem segments on li
       assert_eq(table_idx, 0U)
       assert_eq(exprs.length(), 3)
     }
-    _ => fail("expected active nullfuncref elem segment to remain on live table")
+    _ =>
+      fail("expected active nullfuncref elem segment to remain on live table")
   }
   match @validate.validate_module(optimized) {
     Ok(_) => ()
