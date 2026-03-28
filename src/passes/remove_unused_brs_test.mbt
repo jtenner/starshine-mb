@@ -591,6 +591,82 @@ test "remove-unused-brs lifts scalar returned ladders through return and holder 
 }
 
 ///|
+test "remove-unused-brs lifts multi-value returned ladders through repeated holder blocks" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32 i32 i32 i32) (result i32 i32) (if (result i32 i32) (local.get 3) (then (block $out (result i32 i32) (block $mid (result i32 i32) (if (local.get 0) (then (drop (i32.const 9)) (drop (i32.const 8)) (br $mid (if (result i32 i32) (local.get 1) (then (i32.const 1) (i32.const 2)) (else (i32.const 3) (i32.const 4)))))) (i32.const 5) (i32.const 6)))) (else (i32.const 7) (i32.const 8)))))",
+  )
+  let root0 = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let root1 = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 1)
+  let then_ref = @ir.hot_region_then_ref(func, root0)
+  let else_ref = @ir.hot_region_else_ref(func, root0).unwrap()
+  let then_root0 = @ir.hot_region_get(func, then_ref, 0)
+  let then_root0_body = @ir.hot_region_body_ref(func, then_root0)
+  let body0 = @ir.hot_region_get(func, then_root0_body, 0)
+  let body1 = @ir.hot_region_get(func, then_root0_body, 1)
+  let body0_body = @ir.hot_region_body_ref(func, body0)
+  let nested0 = @ir.hot_region_get(func, body0_body, 0)
+  let nested1 = @ir.hot_region_get(func, body0_body, 1)
+  let nested0_then = @ir.hot_region_then_ref(func, nested0)
+  let nested0_then2 = @ir.hot_region_get(func, nested0_then, 2)
+  let payload_if = @ir.hot_child_get(func, nested0_then2, 0)
+
+  match @ir.hot_node_get(func, root0).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected first lifted root to stay an if")
+  }
+  match @ir.hot_node_get(func, root1).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected repeated multi-value root to stay an if")
+  }
+  match @ir.hot_node_get(func, then_ref.holder).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected lifted then holder to be a block")
+  }
+  match @ir.hot_node_get(func, else_ref.holder).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected lifted else holder to be a block")
+  }
+  assert_eq(@ir.hot_region_root_count(func, then_ref), 2)
+  assert_eq(@ir.hot_region_root_count(func, else_ref), 2)
+  match @ir.hot_node_get(func, then_root0).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected returned then root to be a result block")
+  }
+  assert_eq(@ir.hot_region_root_count(func, then_root0_body), 2)
+  match @ir.hot_node_get(func, body0).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected nested returned ladder wrapper block")
+  }
+  match @ir.hot_node_get(func, body1).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected repeated returned ladder wrapper block")
+  }
+  assert_eq(@ir.hot_region_root_count(func, body0_body), 3)
+  match @ir.hot_node_get(func, nested0).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected leading nested guard to stay an if")
+  }
+  match @ir.hot_node_get(func, nested1).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected trailing fallthrough value root to stay a const")
+  }
+  match @ir.hot_node_get(func, nested0_then.holder).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected nested guard then holder to stay a block")
+  }
+  assert_eq(@ir.hot_region_root_count(func, nested0_then), 3)
+  match @ir.hot_node_get(func, nested0_then2).op {
+    @ir.HotOp::Br => ()
+    _ => fail("expected nested then tail to stay a branch")
+  }
+  match @ir.hot_node_get(func, payload_if).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected branch payload to stay a repeated result if")
+  }
+  assert_eq(@ir.hot_node_get(func, nested0_then2).child_count, 2)
+}
+
+///|
 test "remove-unused-brs flattens nested returned ladder branch exits" {
   let optimized = match
     pass_test_run_pipeline(
