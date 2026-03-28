@@ -1803,6 +1803,11 @@ fn optimize_instructions_try_wrap_boolean_if_value_in_eqz(
     @ir.HotUseSlotKind::ChildUseSlot => ()
     @ir.HotUseSlotKind::RootUseSlot => return false
   }
+  let use_user = @ir.hot_node_get(func, use_site.user)
+  match use_user.op {
+    @ir.HotOp::If if use_site.slot == 0 => return false
+    _ => ()
+  }
   let neg_then = match
     optimize_instructions_negate_boolean_expr_recursive(
       func,

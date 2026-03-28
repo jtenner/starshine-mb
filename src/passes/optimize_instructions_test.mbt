@@ -1587,6 +1587,40 @@ test "optimize-instructions wraps boolean value ifs in eqz at unique child uses"
 }
 
 ///|
+test "optimize-instructions keeps boolean value ifs unwrapped when they feed if conditions" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result i32) local.get 0 if (result i32) local.get 1 if (result i32) local.get 2 i32.eqz else i32.const 0 end else i32.const 0 end if (result i32) i32.const 7 else i32.const 8 end))",
+  )
+  let outer_if = @ir.hot_root_get(func, 0)
+  let outer_cond = @ir.hot_child_get(func, outer_if, 0)
+  match @ir.hot_node_get(func, outer_cond).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected outer if condition to remain the nested boolean if")
+  }
+  let outer_then = @ir.hot_region_then_ref(func, outer_if)
+  let outer_else = match @ir.hot_region_else_ref(func, outer_if) {
+    Some(region) => region
+    None => fail("expected outer if to keep an else region")
+  }
+  let then_root = @ir.hot_region_get(func, outer_then, 0)
+  let else_root = @ir.hot_region_get(func, outer_else, 0)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, then_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(7)),
+  )
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, else_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(8)),
+  )
+  let cond_then = @ir.hot_region_then_ref(func, outer_cond)
+  let cond_then_root = @ir.hot_region_get(func, cond_then, 0)
+  match @ir.hot_node_get(func, cond_then_root).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected nested boolean then arm to stay as the inner if")
+  }
+}
+
+///|
 test "optimize-instructions does not reorder across the same local" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 local.get 0 local.tee 0 i32.const 1 i32.shl i32.add))",
