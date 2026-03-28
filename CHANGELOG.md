@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: checkpoint DCE live-forwarder deletion and unreachable regressions
+
+- **`dead-code-elimination` live-forwarder checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_live_repro_test.mbt`](./src/ir/hot_lower_live_repro_test.mbt), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), [`src/passes/dead_code_elimination_live_repro_test.mbt`](./src/passes/dead_code_elimination_live_repro_test.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to checkpoint the current live DCE slice: dead node deletion now uses a direct live-reference scan instead of the cached internal/external ref accounting path, hot-lower keeps the carried-wrapper unreachable canonicalization aligned with `moon fmt`, and the DCE suite adds explicit regressions for carried-result wrappers and typed loop-body wrappers with required `unreachable` tails. This is a work-in-progress checkpoint on `master`, not a parity signoff.
+
 ## 2026-03-28 Fix: preserve carried-wrapper unreachable in hot lower
 
 - **`hot_lower` live carried-wrapper parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_live_repro_test.mbt`](./src/ir/hot_lower_live_repro_test.mbt), and [`src/passes/dead_code_elimination_live_repro_test.mbt`](./src/passes/dead_code_elimination_live_repro_test.mbt) so lowering now preserves or materializes the explicit `unreachable` required by the exact `run_cmd_with_adapter.inner` carried split-wrapper shape seen on the real debug artifact. Focused live repro tests, native release build, and the full native `--dead-code-elimination` replay remain green on this checkpoint, and the old normalized-WAT blocker around line `6281` is gone on the refreshed artifact.

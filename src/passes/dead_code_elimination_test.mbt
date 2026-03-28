@@ -1,4 +1,35 @@
 ///|
+fn dead_code_elimination_test_count_occurrences(
+  text : String,
+  needle : String,
+) -> Int {
+  if needle == "" {
+    return 0
+  }
+  let mut count = 0
+  let mut start = 0
+  while start <= text.length() - needle.length() {
+    let mut found : Int? = None
+    let mut i = start
+    while i <= text.length() - needle.length() {
+      if text.sub(start=i, end=i + needle.length()).to_string() == needle {
+        found = Some(i)
+        break
+      }
+      i += 1
+    }
+    match found {
+      Some(idx) => {
+        count += 1
+        start = idx + needle.length()
+      }
+      None => break
+    }
+  }
+  count
+}
+
+///|
 test "dead-code-elimination removes pure drop roots" {
   let optimized = match
     pass_test_run_pipeline(
@@ -767,6 +798,45 @@ test "dead-code-elimination retargets stacked payload blocks to the inner result
 }
 
 ///|
+test "dead-code-elimination preserves explicit unreachable in branchy carried result blocks" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) (local i32 i32) (block $block2 (result i32) (block $block1 (br $block2 (block (result i32) (block $block (if (local.get 0) (then (local.set 1 (i32.const 7)) (br $block)) (else (local.set 2 (i32.const 9)) (br $block1))) unreachable) (local.get 1)))))))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination branchy carried-result wrapper success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination retargets outer wrapper payload forwarders in local.set values" {
   let mod_ = pass_test_module_from_wat(
     "(module (func (param i32 i32 i32) (result i32) (local i32 i32) (local.set 3 (block $outer (result i32) (block $mid (br $outer (block $inner (result i32) (block $cont (local.set 4 (local.get 0)) (drop (local.get 1)) (drop (local.get 2)) (br $inner (if (result i32) (local.get 0) (then (local.set 4 (local.get 1)) (br $cont)) (else (local.set 3 (local.get 2)) (br $mid))))) (local.get 4)))) (local.get 3))) (local.get 3)))",
@@ -1422,8 +1492,12 @@ test "dead-code-elimination materializes unreachable tails after voidifying type
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("(if (Void)"), msg=pretty)
   assert_true(pretty.contains("(loop (Void)"), msg=pretty)
-  assert_true(pretty.contains("unreachable"), msg=pretty)
   assert_true(pretty.contains("br"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "unreachable"),
+    1,
+    msg=pretty,
+  )
 }
 
 ///|
@@ -1454,4 +1528,38 @@ test "dead-code-elimination leaves explicit unreachable root after final voidifi
     @ir.HotOp::Unreachable => ()
     other => fail("expected explicit unreachable tail root, got \{other}")
   }
+}
+
+///|
+test "dead-code-elimination lowering avoids nested unreachable tails for typed loop-body wrappers" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (import \"env\" \"array_length\" (func $moonbit.array_length (param i32) (result i32))) (memory 1) (func $moonbit.string_equal (param $stra i32) (param $strb i32) (result i32) (local $counter i32) local.get $stra call $moonbit.array_length local.get $strb call $moonbit.array_length i32.eq if (result i32) loop (result i32) local.get $counter local.get $stra call $moonbit.array_length i32.lt_s if (result i32) local.get $stra local.get $counter i32.const 1 i32.shl i32.add i32.load16_u offset=8 align=1 local.get $strb local.get $counter i32.const 1 i32.shl i32.add i32.load16_u offset=8 align=1 i32.eq if (result i32) local.get $counter i32.const 1 i32.add local.set $counter br 2 else i32.const 0 return end else i32.const 1 return end end else i32.const 0 return end))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(1U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination lowered loop-body wrapper success, got \{err}",
+      )
+  }
+
+  let pretty = mod_
+    .with_code_sec(@lib.CodeSec::new([@ir.hot_lower_func(func)]))
+    .pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("(loop (Void)"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "unreachable"),
+    1,
+    msg=pretty,
+  )
 }
