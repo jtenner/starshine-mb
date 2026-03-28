@@ -2905,10 +2905,16 @@ fn optimize_instructions_visit_node(
             current_lhs = func.children[current.child_base]
             current_rhs = func.children[current.child_base + 1]
           }
-          if optimize_instructions_try_canonicalize_relational_operands(
+
+          let relational_operands_changed = if false {
+            optimize_instructions_try_canonicalize_relational_operands(
               ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
               scratch,
-            ) {
+            )
+          } else {
+            false
+          }
+          if relational_operands_changed {
             changed = true
             let current = func.nodes[node_id]
             current_instr = func.instr_payloads[current.imm0].instr
@@ -2968,7 +2974,13 @@ fn optimize_instructions_visit_node(
         @ir.hot_control_node_label(func, node_id),
       )
     @ir.HotOp::If =>
-      optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id) ||
+      (if false {
+        optimize_instructions_try_optimize_if_condition(
+          ctx, func, dead, node_id,
+        )
+      } else {
+        false
+      }) ||
       optimize_instructions_try_wrap_boolean_if_value_in_eqz(
         ctx, func, dead, node_id,
       ) ||

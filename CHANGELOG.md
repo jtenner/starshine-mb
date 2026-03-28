@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: disable unsafe OI compare and if rewrites
+
+- **`optimize-instructions` correctness hotfix** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt) to turn off `optimize_instructions_try_canonicalize_relational_operands` and `optimize_instructions_try_optimize_if_condition` after the native `cmd.exe --optimize-instructions` pipeline reproduced a final-module stack underflow on `tests/node/dist/starshine-debug-wasi.wasm`. This restores artifact validity while keeping the rest of the landed `OI` parity work in place; follow-up work will reintroduce narrower guarded versions of these rewrites once the invalid control/value-stack interaction is reduced and covered.
+
 ## 2026-03-28 Research: tighten OI dead-suffix zero-sentinel regressions
 
 - **`optimize-instructions` dead-suffix zero-sentinel probe checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to strengthen the reduced HOT regressions around explicit zero sentinels after returning `if` carriers, including wrapped result blocks and arm-local dead suffixes, while also tightening the helper probes used to classify non-branch terminal exits during dead-suffix cleanup. Focused `moon test src/passes/optimize_instructions_test.mbt` is green on this checkpoint; the real debug artifact still retains the remaining `func 2390` / `func 3379` lone `unreachable` mismatch, so this commit captures the narrowed investigation state rather than a final parity fix.
