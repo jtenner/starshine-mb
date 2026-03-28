@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Refactor: add canonical HOT holder-block and single-if queries
+
+- **HOT holder/single-if query checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti), and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt) so IR2 now exposes canonical helpers for holder block labels and single live `if` roots. `RemoveUnusedBrs` now consumes those shared queries for tail-target and block-chain entry checks instead of open-coding holder-node shape recovery, which is groundwork for the remaining returned-ladder parity families.
+
 ## 2026-03-28 Refactor: add canonical HOT single-root wrapper queries
 
 - **HOT single-wrapper query checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), and [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti) so IR2 now exposes canonical helpers for single live region roots and single live block-wrapper peeling. This makes the returned-ladder `holder Block -> nested Block` family queryable through shared IR APIs instead of pass-local root-count and op checks.

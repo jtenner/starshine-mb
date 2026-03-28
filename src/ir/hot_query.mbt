@@ -214,6 +214,47 @@ pub fn hot_region_single_live_block_body(
 }
 
 ///|
+pub fn hot_region_single_live_if_root(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> NodeId? {
+  let candidate = match hot_region_single_live_root(func, region_ref) {
+    Some(candidate) => candidate
+    None => return None
+  }
+  match hot_query_op(func, candidate) {
+    HotOp::If => Some(candidate)
+    _ => None
+  }
+}
+
+///|
+pub fn hot_region_holder_block_root(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> NodeId? {
+  let holder = region_ref.holder
+  if holder < 0 || !hot_node_is_live(func, holder) {
+    return None
+  }
+  match hot_query_op(func, holder) {
+    HotOp::Block => Some(holder)
+    _ => None
+  }
+}
+
+///|
+pub fn hot_region_holder_block_label(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> LabelId? {
+  match hot_region_holder_block_root(func, region_ref) {
+    Some(holder) => Some(hot_control_node_label(func, holder))
+    None => None
+  }
+}
+
+///|
 pub fn hot_region_split_trailing_payload_roots(
   func : HotFunc,
   region_ref : HotRegionRef,

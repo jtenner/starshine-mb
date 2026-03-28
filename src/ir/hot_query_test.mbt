@@ -157,12 +157,58 @@ test "single-root wrapper queries peel canonical block wrappers" {
   assert_eq(hot_region_single_live_root(func, root_ref), Some(root_block))
   assert_eq(hot_region_single_live_block_root(func, root_ref), Some(root_block))
   assert_eq(hot_region_single_live_block_body(func, root_ref), Some(outer_body))
-  assert_eq(hot_region_single_live_block_root(func, outer_body), Some(inner_block))
+  assert_eq(
+    hot_region_single_live_block_root(func, outer_body),
+    Some(inner_block),
+  )
   assert_eq(hot_region_single_live_root(func, inner_body), Some(payload))
   match hot_node_get(func, payload).op {
     HotOp::Const => ()
     _ => fail("expected peeled inner payload to be a const")
   }
+}
+
+///|
+test "holder and single-if queries expose canonical lifted control entry points" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [@lib.Instruction::br(@lib.LabelIdx::new(0U))],
+            Some([@lib.Instruction::nop()]),
+          ),
+        ]),
+      ),
+    ]),
+    HotLocals::new(),
+  )
+  let root_ref = HotRegionRef::root()
+  let block_id = hot_region_single_live_block_root(func, root_ref).unwrap()
+  let body_ref = hot_region_body_ref(func, block_id)
+  let if_id = hot_region_single_live_if_root(func, body_ref).unwrap()
+  let then_ref = hot_region_then_ref(func, if_id)
+  let else_ref = hot_region_else_ref(func, if_id).unwrap()
+  let target = hot_control_node_label(func, block_id)
+  let then_holder = then_ref.holder
+  let else_holder = else_ref.holder
+
+  assert_eq(hot_region_holder_block_root(func, body_ref), Some(block_id))
+  assert_eq(hot_region_holder_block_label(func, body_ref), Some(target))
+  assert_eq(hot_region_single_live_if_root(func, body_ref), Some(if_id))
+  assert_eq(hot_region_holder_block_root(func, then_ref), Some(then_holder))
+  assert_eq(
+    hot_region_holder_block_label(func, then_ref),
+    Some(hot_control_node_label(func, then_holder)),
+  )
+  assert_eq(hot_region_holder_block_root(func, else_ref), Some(else_holder))
+  assert_eq(
+    hot_region_holder_block_label(func, else_ref),
+    Some(hot_control_node_label(func, else_holder)),
+  )
 }
 
 ///|

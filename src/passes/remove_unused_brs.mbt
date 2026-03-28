@@ -192,13 +192,9 @@ fn remove_unused_brs_tail_target(
   if region_ref == @ir.HotRegionRef::root() {
     return ReturnTarget
   }
-  let holder = region_ref.holder
-  if holder < 0 || !@ir.hot_node_is_live(func, holder) {
-    return NoTarget
-  }
-  match @ir.hot_node_get(func, holder).op {
-    @ir.HotOp::Block => BranchTarget(@ir.hot_control_node_label(func, holder))
-    _ => NoTarget
+  match @ir.hot_region_holder_block_label(func, region_ref) {
+    Some(target) => BranchTarget(target)
+    None => NoTarget
   }
 }
 
@@ -2109,13 +2105,9 @@ fn remove_unused_brs_try_flatten_block_if_chain(
     idx >= @ir.hot_region_root_count(func, region_ref) {
     return false
   }
-  let holder = region_ref.holder
-  if holder < 0 || !@ir.hot_node_is_live(func, holder) {
-    return false
-  }
-  match @ir.hot_node_get(func, holder).op {
-    @ir.HotOp::Block => ()
-    _ => return false
+  let holder = match @ir.hot_region_holder_block_root(func, region_ref) {
+    Some(holder) => holder
+    None => return false
   }
   let if_id = @ir.hot_region_get(func, region_ref, idx)
   let if_node = @ir.hot_node_get(func, if_id)
@@ -2199,16 +2191,9 @@ fn remove_unused_brs_flatten_block_if_chains(
   region_ref : @ir.HotRegionRef,
   label_refs : Array[Int],
 ) -> Bool {
-  if region_ref == @ir.HotRegionRef::root() {
-    return false
-  }
-  let holder = region_ref.holder
-  if holder < 0 || !@ir.hot_node_is_live(func, holder) {
-    return false
-  }
-  match @ir.hot_node_get(func, holder).op {
-    @ir.HotOp::Block => ()
-    _ => return false
+  match @ir.hot_region_holder_block_root(func, region_ref) {
+    Some(_) => ()
+    None => return false
   }
   let mut changed = false
   let mut idx = 0

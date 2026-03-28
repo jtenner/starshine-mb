@@ -498,6 +498,10 @@ pub fn hot_region_else_ref(HotFunc, Int) -> HotRegionRef?
 
 pub fn hot_region_get(HotFunc, HotRegionRef, Int) -> Int
 
+pub fn hot_region_holder_block_label(HotFunc, HotRegionRef) -> Int?
+
+pub fn hot_region_holder_block_root(HotFunc, HotRegionRef) -> Int?
+
 pub fn hot_region_insert(HotFunc, HotRegionRef, Int, Array[Int]) -> Unit
 
 pub fn hot_region_remove(HotFunc, HotRegionRef, Int, Int) -> Array[Int]
@@ -515,6 +519,8 @@ pub fn hot_region_set(HotFunc, HotRegionRef, Int, Int) -> Int
 pub fn hot_region_single_live_block_body(HotFunc, HotRegionRef) -> HotRegionRef?
 
 pub fn hot_region_single_live_block_root(HotFunc, HotRegionRef) -> Int?
+
+pub fn hot_region_single_live_if_root(HotFunc, HotRegionRef) -> Int?
 
 pub fn hot_region_single_live_root(HotFunc, HotRegionRef) -> Int?
 
