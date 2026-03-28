@@ -251,6 +251,38 @@ test "plain-branch arm queries expose single plain branch roots canonically" {
 }
 
 ///|
+test "single-exit-arm queries expose return and plain branch arms canonically" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [@lib.Instruction::return_()],
+            Some([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+          ),
+        ]),
+      ),
+    ]),
+    HotLocals::new(),
+  )
+  let block_id = hot_region_single_live_block_root(func, HotRegionRef::root()).unwrap()
+  let if_id = hot_region_single_live_if_root(
+    func,
+    hot_region_body_ref(func, block_id),
+  ).unwrap()
+  let then_ref = hot_region_then_ref(func, if_id)
+  let else_ref = hot_region_else_ref(func, if_id).unwrap()
+  let then_root = hot_region_get(func, then_ref, 0)
+  let else_root = hot_region_get(func, else_ref, 0)
+
+  assert_eq(hot_region_single_exit_root(func, then_ref), Some(then_root))
+  assert_eq(hot_region_single_exit_root(func, else_ref), Some(else_root))
+}
+
+///|
 test "payload split queries expose trailing result roots canonically" {
   let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
   let prefix = hot_build_drop(func, hot_build_const_i32(func, @lib.I32(1)))

@@ -754,25 +754,11 @@ fn remove_unused_brs_try_voidify_exit_only_value_if(
     @ir.hot_region_root_count(func, else_ref) != 1 {
     return false
   }
-  let then_root = @ir.hot_region_get(func, then_ref, 0)
-  let else_root = @ir.hot_region_get(func, else_ref, 0)
-  let then_node = @ir.hot_node_get(func, then_root)
-  let else_node = @ir.hot_node_get(func, else_root)
-  match then_node.op {
-    @ir.HotOp::Return => ()
-    @ir.HotOp::Br =>
-      if @ir.hot_region_single_plain_br_root(func, then_ref) == None {
-        return false
-      }
-    _ => return false
+  if @ir.hot_region_single_exit_root(func, then_ref) == None {
+    return false
   }
-  match else_node.op {
-    @ir.HotOp::Return => ()
-    @ir.HotOp::Br =>
-      if @ir.hot_region_single_plain_br_root(func, else_ref) == None {
-        return false
-      }
-    _ => return false
+  if @ir.hot_region_single_exit_root(func, else_ref) == None {
+    return false
   }
   let void_if = @ir.hot_build_if(
     func,

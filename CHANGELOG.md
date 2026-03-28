@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Refactor: add canonical HOT single-exit-arm queries
+
+- **HOT single-exit-arm query checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti), and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt) so IR2 now exposes a canonical helper for single-root exit arms (`return` or plain `br`). `RemoveUnusedBrs` uses that shared query in tail-return voidification instead of open-coding the same exit-arm check across both arms.
+
 ## 2026-03-28 Refactor: route more `remove-unused-brs` branch-arm matching through HOT queries
 
 - **`remove-unused-brs` plain-branch query adoption** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt) so more branch-exit helpers now use the shared HOT plain-branch-arm queries instead of reimplementing single-root `br` detection and target extraction locally. This keeps the pass shape recovery aligned before the next parity matcher lands.

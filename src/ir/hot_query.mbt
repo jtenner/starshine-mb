@@ -256,6 +256,23 @@ pub fn hot_region_single_plain_br_target(
 }
 
 ///|
+pub fn hot_region_single_exit_root(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> NodeId? {
+  let candidate = match hot_region_single_live_root(func, region_ref) {
+    Some(candidate) => candidate
+    None => return None
+  }
+  let node = hot_node_get(func, candidate)
+  match node.op {
+    HotOp::Return => Some(candidate)
+    HotOp::Br if node.child_count == 0 => Some(candidate)
+    _ => None
+  }
+}
+
+///|
 pub fn hot_region_holder_block_root(
   func : HotFunc,
   region_ref : HotRegionRef,
