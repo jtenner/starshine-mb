@@ -1119,6 +1119,54 @@ test "optimize-instructions negates nested boolean if conditions under then-only
 }
 
 ///|
+test "optimize-instructions recursively negates nested boolean if conditions under then-only ifs" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32 i32) (result i32) local.get 0 if (result i32) local.get 1 if (result i32) i32.const 0 else local.get 2 if (result i32) i32.const 0 else local.get 3 i32.eqz end end else i32.const 0 end if local.get 1 drop end i32.const 0))",
+  )
+  let outer_if = @ir.hot_root_get(func, 0)
+  let outer_cond = @ir.hot_child_get(func, outer_if, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, outer_cond),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  let top_if = @ir.hot_child_get(func, outer_cond, 0)
+  let top_then = @ir.hot_region_then_ref(func, top_if)
+  let top_else = match @ir.hot_region_else_ref(func, top_if) {
+    Some(region) => region
+    None => fail("expected top nested if to keep an else region")
+  }
+  let top_then_root = @ir.hot_region_get(func, top_then, 0)
+  let top_else_root = @ir.hot_region_get(func, top_else, 0)
+  match @ir.hot_node_get(func, top_then_root).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected recursive negation to preserve nested boolean if shape")
+  }
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, top_else_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+  let inner_if = top_then_root
+  let inner_then = @ir.hot_region_then_ref(func, inner_if)
+  let inner_else = match @ir.hot_region_else_ref(func, inner_if) {
+    Some(region) => region
+    None => fail("expected inner nested if to keep an else region")
+  }
+  assert_eq(
+    @ir.hot_const_get(
+      func,
+      @ir.hot_node_get(func, @ir.hot_region_get(func, inner_then, 0)).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+  let inner_else_root = @ir.hot_region_get(func, inner_else, 0)
+  match @ir.hot_node_get(func, inner_else_root).op {
+    @ir.HotOp::If => ()
+    _ =>
+      fail("expected inner else arm to remain the nested recursive boolean if")
+  }
+}
+
+///|
 test "optimize-instructions truncates dead suffixes after direct returns" {
   let func = @ir.HotFunc::new()
   let block = @ir.hot_build_block(func, @lib.BlockType::void_(), [])

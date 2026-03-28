@@ -699,6 +699,42 @@ fn optimize_instructions_negate_boolean_expr(
   if !optimize_instructions_node_is_live(func, dead, node_id) {
     return None
   }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => {
+      let then_region = @ir.hot_region_then_ref(func, node_id)
+      let else_region = match @ir.hot_region_else_ref(func, node_id) {
+        Some(region) => region
+        None => return None
+      }
+      if @ir.hot_region_root_count(func, then_region) != 1 ||
+        @ir.hot_region_root_count(func, else_region) != 1 {
+        return None
+      }
+      let neg_then = match
+        optimize_instructions_negate_boolean_expr(
+          func,
+          dead,
+          @ir.hot_region_get(func, then_region, 0),
+        ) {
+        Some(node) => node
+        None => return None
+      }
+      let neg_else = match
+        optimize_instructions_negate_boolean_expr(
+          func,
+          dead,
+          @ir.hot_region_get(func, else_region, 0),
+        ) {
+        Some(node) => node
+        None => return None
+      }
+      @ir.hot_region_replace_body(func, then_region, [neg_then])
+      @ir.hot_region_replace_body(func, else_region, [neg_else])
+      return Some(node_id)
+    }
+    _ => ()
+  }
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
       Some(@ir.hot_child_get(func, node_id, 0))
