@@ -173,6 +173,47 @@ pub fn hot_nodes_match_simple_value(
 }
 
 ///|
+pub fn hot_region_single_live_root(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> NodeId? {
+  if hot_region_root_count(func, region_ref) != 1 {
+    return None
+  }
+  let candidate = hot_region_get(func, region_ref, 0)
+  if candidate < 0 || !hot_node_is_live(func, candidate) {
+    return None
+  }
+  Some(candidate)
+}
+
+///|
+pub fn hot_region_single_live_block_root(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> NodeId? {
+  let candidate = match hot_region_single_live_root(func, region_ref) {
+    Some(candidate) => candidate
+    None => return None
+  }
+  match hot_query_op(func, candidate) {
+    HotOp::Block => Some(candidate)
+    _ => None
+  }
+}
+
+///|
+pub fn hot_region_single_live_block_body(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> HotRegionRef? {
+  match hot_region_single_live_block_root(func, region_ref) {
+    Some(block_id) => Some(hot_region_body_ref(func, block_id))
+    None => None
+  }
+}
+
+///|
 pub fn hot_region_split_trailing_payload_roots(
   func : HotFunc,
   region_ref : HotRegionRef,

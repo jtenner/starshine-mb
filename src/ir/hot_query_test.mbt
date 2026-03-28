@@ -131,6 +131,41 @@ test "simple value queries compare semantic leaf identity" {
 }
 
 ///|
+test "single-root wrapper queries peel canonical block wrappers" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+          ),
+        ]),
+      ),
+    ]),
+    HotLocals::new(),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+  let root_ref = HotRegionRef::root()
+  let root_block = hot_region_single_live_block_root(func, root_ref).unwrap()
+  let outer_body = hot_region_single_live_block_body(func, root_ref).unwrap()
+  let inner_block = hot_region_single_live_block_root(func, outer_body).unwrap()
+  let inner_body = hot_region_single_live_block_body(func, outer_body).unwrap()
+  let payload = hot_region_single_live_root(func, inner_body).unwrap()
+
+  assert_eq(hot_region_single_live_root(func, root_ref), Some(root_block))
+  assert_eq(hot_region_single_live_block_root(func, root_ref), Some(root_block))
+  assert_eq(hot_region_single_live_block_body(func, root_ref), Some(outer_body))
+  assert_eq(hot_region_single_live_block_root(func, outer_body), Some(inner_block))
+  assert_eq(hot_region_single_live_root(func, inner_body), Some(payload))
+  match hot_node_get(func, payload).op {
+    HotOp::Const => ()
+    _ => fail("expected peeled inner payload to be a const")
+  }
+}
+
+///|
 test "payload split queries expose trailing result roots canonically" {
   let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
   let prefix = hot_build_drop(func, hot_build_const_i32(func, @lib.I32(1)))

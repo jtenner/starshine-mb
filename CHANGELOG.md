@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Refactor: add canonical HOT single-root wrapper queries
+
+- **HOT single-wrapper query checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), and [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti) so IR2 now exposes canonical helpers for single live region roots and single live block-wrapper peeling. This makes the returned-ladder `holder Block -> nested Block` family queryable through shared IR APIs instead of pass-local root-count and op checks.
+
 ## 2026-03-28 Refactor: add canonical HOT repeated-root and repeated-child queries
 
 - **HOT repeated-shape query checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti), and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt) so IR2 now exposes canonical helpers for repeated live child payloads and repeated live region roots. `RemoveUnusedBrs` uses the repeated-child query for branch-payload matching instead of open-coding the HOT storage pattern, which is groundwork for the remaining repeated-root multi-value parity family.
