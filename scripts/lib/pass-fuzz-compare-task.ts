@@ -26,6 +26,8 @@ type PassFuzzCompareOptions = {
   generator: GeneratorMode;
   maxFailures: number;
   passFlags: string[];
+  replayFailuresFrom: string | null;
+  failureClass: CommandFailureClass | null;
 };
 
 type ParseCommand =
@@ -44,6 +46,12 @@ type CaseRecord = {
   status: "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure";
   detail: string;
   failureClass?: CommandFailureClass;
+};
+
+type ReplayCase = {
+  caseIndex: number;
+  generator: GeneratorKind;
+  inputPath: string;
 };
 
 type PassFuzzCompareSummary = {
@@ -78,6 +86,8 @@ const RESERVED_OPTIONS = new Set([
   "--generator",
   "--max-failures",
   "--pass",
+  "--replay-failures-from",
+  "--failure-class",
 ]);
 
 const SUPPORTED_PASS_FLAGS = new Set([
@@ -112,6 +122,9 @@ const HELP_TEXT = [
   "  --generator <mode>    both | wasm-smith | gen-valid. Default: both",
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
   "  --pass <name>         Canonical pass name without leading --. May repeat",
+  "  --replay-failures-from <dir>",
+  "                       Replay saved command-failure inputs from a prior out dir",
+  "  --failure-class <id> Restrict replay to one failure family",
   "  --list-passes         Print supported pass names and exit",
   "  --help                Print this text and exit",
 ].join("\n");
@@ -160,6 +173,19 @@ function normalizePassNameToFlag(raw: string): string {
     fail(`unsupported pass flag for pass-fuzz-compare: ${raw}`);
   }
   return normalized;
+}
+
+function normalizeCommandFailureClass(raw: string): CommandFailureClass {
+  switch (raw.trim()) {
+    case "starshine-command-failed":
+    case "binaryen-invalid-type-index":
+    case "binaryen-rec-group-zero":
+    case "binaryen-invalid-wasm-type-neg64":
+    case "binaryen-command-failed":
+      return raw.trim();
+    default:
+      fail(`unsupported failure class for pass-fuzz-compare: ${raw}`);
+  }
 }
 
 function resolveStarshineInvocation(
@@ -347,6 +373,53 @@ function writeJsonlLine(pathname: string, record: CaseRecord): void {
   fs.appendFileSync(pathname, `${JSON.stringify(record)}\n`);
 }
 
+function loadReplayCases(
+  repoRoot: string,
+  replayFailuresFrom: string,
+  failureClass: CommandFailureClass | null,
+): ReplayCase[] {
+  const replayDir = resolveRepoPath(repoRoot, replayFailuresFrom);
+  const casesPath = path.join(replayDir, "cases.jsonl");
+  if (!fs.existsSync(casesPath)) {
+    fail(`missing cases.jsonl for replay source: ${replayDir}`);
+  }
+
+  const replayCases: ReplayCase[] = [];
+  for (const line of fs.readFileSync(casesPath, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) {
+      continue;
+    }
+    const record = JSON.parse(trimmed) as CaseRecord;
+    if (record.status !== "command-failure") {
+      continue;
+    }
+    if (failureClass !== null && record.failureClass !== failureClass) {
+      continue;
+    }
+    const failureDir = path.join(
+      replayDir,
+      "failures",
+      `case-${String(record.caseIndex).padStart(6, "0")}-${record.generator}`,
+    );
+    const inputPath = path.join(failureDir, "input.wasm");
+    if (!fs.existsSync(inputPath)) {
+      fail(`missing saved replay input: ${inputPath}`);
+    }
+    replayCases.push({
+      caseIndex: record.caseIndex,
+      generator: record.generator,
+      inputPath,
+    });
+  }
+
+  if (replayCases.length === 0) {
+    const detail = failureClass === null ? "command-failure" : failureClass;
+    fail(`no replay cases found for ${detail} in ${replayDir}`);
+  }
+  return replayCases;
+}
+
 export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let count = 10000;
   let seed = 0x5eedn;
@@ -358,6 +431,8 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let generator: GeneratorMode = "both";
   let maxFailures = 20;
   const passFlags: string[] = [];
+  let replayFailuresFrom: string | null = null;
+  let failureClass: CommandFailureClass | null = null;
   let command: ParseCommand["kind"] = "run";
 
   for (let i = 0; i < argv.length; ) {
@@ -420,6 +495,16 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         passFlags.push(normalizePassNameToFlag(argv[i + 1] ?? fail("missing value for --pass")));
         i += 2;
         break;
+      case "--replay-failures-from":
+        replayFailuresFrom = argv[i + 1] ?? fail("missing value for --replay-failures-from");
+        i += 2;
+        break;
+      case "--failure-class":
+        failureClass = normalizeCommandFailureClass(
+          argv[i + 1] ?? fail("missing value for --failure-class"),
+        );
+        i += 2;
+        break;
       default:
         if (RESERVED_OPTIONS.has(token)) {
           fail(`missing value for ${token}`);
@@ -442,6 +527,9 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   if (passFlags.length === 0) {
     fail("expected at least one pass flag to compare");
   }
+  if (failureClass !== null && replayFailuresFrom === null) {
+    fail("--failure-class requires --replay-failures-from");
+  }
 
   return {
     kind: "run",
@@ -456,6 +544,8 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       generator,
       maxFailures,
       passFlags,
+      replayFailuresFrom,
+      failureClass,
     },
   };
 }
@@ -479,6 +569,11 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const resultPath = path.join(outDir, "result.json");
   const casesPath = path.join(outDir, "cases.jsonl");
   const binaryenPassFlags = options.passFlags.map(normalizeBinaryenPassFlag);
+  const replayCases =
+    options.replayFailuresFrom === null
+      ? null
+      : loadReplayCases(repoRoot, options.replayFailuresFrom, options.failureClass);
+  const requestedCount = replayCases?.length ?? options.count;
 
   fs.mkdirSync(outDir, { recursive: true });
   fs.mkdirSync(inputsDir, { recursive: true });
@@ -487,7 +582,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
 
   compileStarshine(repoRoot, options.moonBin);
 
-  const genValidCount = requiredGenValidCount(options.generator, options.count);
+  const genValidCount =
+    replayCases === null ? requiredGenValidCount(options.generator, options.count) : 0;
   if (genValidCount > 0) {
     fs.mkdirSync(genValidDir, { recursive: true });
     runOrThrow(
@@ -514,7 +610,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
 
   const starshineInvocation = resolveStarshineInvocation(repoRoot, options.starshineBin, options.moonBin);
   const summary: PassFuzzCompareSummary = {
-    requestedCount: options.count,
+    requestedCount,
     comparedCount: 0,
     normalizedMatchCount: 0,
     mismatchCount: 0,
@@ -537,13 +633,15 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   let genValidIndex = 0;
   let failures = 0;
 
-  for (let caseIndex = 0; caseIndex < options.count; caseIndex += 1) {
+  for (let replayIndex = 0; replayIndex < requestedCount; replayIndex += 1) {
     if (failures >= options.maxFailures) {
       summary.maxFailuresHit = true;
       break;
     }
 
-    const generator = generatorForIndex(options.generator, caseIndex);
+    const replayCase = replayCases?.[replayIndex] ?? null;
+    const generator = replayCase?.generator ?? generatorForIndex(options.generator, replayIndex);
+    const caseNumber = replayCase?.caseIndex ?? replayIndex + 1;
     const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-case-"));
     const inputPath = path.join(workDir, "input.wasm");
     const starshineRawPath = path.join(workDir, "starshine.raw.wasm");
@@ -554,7 +652,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     const binaryenWatPath = path.join(workDir, "binaryen.wat");
 
     try {
-      if (generator === "gen-valid") {
+      if (replayCase !== null) {
+        fs.copyFileSync(replayCase.inputPath, inputPath);
+      } else if (generator === "gen-valid") {
         const source = genValidInputs[genValidIndex] ?? fail("not enough generated gen-valid inputs");
         genValidIndex += 1;
         fs.copyFileSync(source, inputPath);
@@ -562,16 +662,16 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         const smith = runSmith(
           options.wasmToolsBin,
           inputPath,
-          makeSmithSeedBytes(options.seed + BigInt(caseIndex)),
+          makeSmithSeedBytes(options.seed + BigInt(replayIndex)),
           repoRoot,
         );
         if (!smith.ok) {
           summary.generatorFailureCount += 1;
           failures += 1;
           const detail = `wasm-smith generation failed: ${smith.stderr || "unknown error"}`;
-          summary.failureDirs.push(persistFailureArtifacts(outDir, caseIndex + 1, generator, detail, workDir));
+          summary.failureDirs.push(persistFailureArtifacts(outDir, caseNumber, generator, detail, workDir));
           writeJsonlLine(casesPath, {
-            caseIndex: caseIndex + 1,
+            caseIndex: caseNumber,
             generator,
             status: "generator-failure",
             detail,
@@ -585,9 +685,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         summary.generatorFailureCount += 1;
         failures += 1;
         const detail = `generated input failed validation: ${baselineValidation.stderr || "unknown error"}`;
-        summary.failureDirs.push(persistFailureArtifacts(outDir, caseIndex + 1, generator, detail, workDir));
+        summary.failureDirs.push(persistFailureArtifacts(outDir, caseNumber, generator, detail, workDir));
         writeJsonlLine(casesPath, {
-          caseIndex: caseIndex + 1,
+          caseIndex: caseNumber,
           generator,
           status: "generator-failure",
           detail,
@@ -610,9 +710,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         const detail = `Starshine command failed: ${commandFailureDetail(error)}`;
         const failureClass = classifyCommandFailure(detail);
         noteCommandFailureClass(summary, failureClass);
-        summary.failureDirs.push(persistFailureArtifacts(outDir, caseIndex + 1, generator, detail, workDir));
+        summary.failureDirs.push(persistFailureArtifacts(outDir, caseNumber, generator, detail, workDir));
         writeJsonlLine(casesPath, {
-          caseIndex: caseIndex + 1,
+          caseIndex: caseNumber,
           generator,
           status: "command-failure",
           detail,
@@ -626,9 +726,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         summary.validationFailureCount += 1;
         failures += 1;
         const detail = `Starshine output failed validation: ${starshineValidation.stderr || "unknown error"}`;
-        summary.failureDirs.push(persistFailureArtifacts(outDir, caseIndex + 1, generator, detail, workDir));
+        summary.failureDirs.push(persistFailureArtifacts(outDir, caseNumber, generator, detail, workDir));
         writeJsonlLine(casesPath, {
-          caseIndex: caseIndex + 1,
+          caseIndex: caseNumber,
           generator,
           status: "validation-failure",
           detail,
@@ -654,9 +754,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         const detail = `Binaryen/canonicalization command failed: ${commandFailureDetail(error)}`;
         const failureClass = classifyCommandFailure(detail);
         noteCommandFailureClass(summary, failureClass);
-        summary.failureDirs.push(persistFailureArtifacts(outDir, caseIndex + 1, generator, detail, workDir));
+        summary.failureDirs.push(persistFailureArtifacts(outDir, caseNumber, generator, detail, workDir));
         writeJsonlLine(casesPath, {
-          caseIndex: caseIndex + 1,
+          caseIndex: caseNumber,
           generator,
           status: "command-failure",
           detail,
@@ -675,7 +775,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       if (starshineWat === binaryenWat) {
         summary.normalizedMatchCount += 1;
         writeJsonlLine(casesPath, {
-          caseIndex: caseIndex + 1,
+          caseIndex: caseNumber,
           generator,
           status: "match",
           detail: "normalized outputs matched",
@@ -684,9 +784,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         summary.mismatchCount += 1;
         failures += 1;
         const detail = "normalized outputs differed";
-        summary.failureDirs.push(persistFailureArtifacts(outDir, caseIndex + 1, generator, detail, workDir));
+        summary.failureDirs.push(persistFailureArtifacts(outDir, caseNumber, generator, detail, workDir));
         writeJsonlLine(casesPath, {
-          caseIndex: caseIndex + 1,
+          caseIndex: caseNumber,
           generator,
           status: "mismatch",
           detail,

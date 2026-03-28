@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: replay pass-fuzz command failures by failure class
+
+- **Pass-fuzz failure-family replay** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so `pass-fuzz-compare` can replay saved command-failure inputs from a prior out dir and restrict the run to a single structured `failureClass`. This makes the `invalid type index`, recursion-group-zero, and `invalid wasm type: -64` Binaryen families reproducible one at a time without rerunning the full mixed corpus.
+
 ## 2026-03-28 Fix: classify pass-fuzz command failures by parser family
 
 - **Pass-fuzz failure classification output** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so `pass-fuzz-compare` records structured `failureClass` values for command failures in both `cases.jsonl` and `result.json`. The harness now auto-buckets Binaryen parser failures such as `invalid type index`, `Recursion groups of size zero not supported`, and `invalid wasm type: -64`, and the focused command test covers the `invalid type index` classification path directly.
