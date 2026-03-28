@@ -1611,14 +1611,49 @@ fn optimize_instructions_try_invert_nested_if_condition(
   then_region : Int,
   else_region : Int,
 ) -> Bool {
-  let _ = ctx
-  let _ = func
-  let _ = dead
-  let _ = node_id
-  let _ = cond_id
-  let _ = then_region
-  let _ = else_region
-  false
+  if !@ir.hot_node_is_live(func, else_region) {
+    return false
+  }
+  match @ir.hot_node_get(func, cond_id).op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  let cond_then = @ir.hot_region_then_ref(func, cond_id)
+  let cond_else = match @ir.hot_region_else_ref(func, cond_id) {
+    Some(region) => region
+    None => return false
+  }
+  if @ir.hot_region_root_count(func, cond_then) != 1 ||
+    @ir.hot_region_root_count(func, cond_else) != 1 {
+    return false
+  }
+  let neg_then = match
+    optimize_instructions_negate_boolean_expr(
+      func,
+      dead,
+      @ir.hot_region_get(func, cond_then, 0),
+    ) {
+    Some(node) => node
+    None => return false
+  }
+  let neg_else = match
+    optimize_instructions_negate_boolean_expr(
+      func,
+      dead,
+      @ir.hot_region_get(func, cond_else, 0),
+    ) {
+    Some(node) => node
+    None => return false
+  }
+  @ir.hot_region_replace_body(func, cond_then, [neg_then])
+  @ir.hot_region_replace_body(func, cond_else, [neg_else])
+  ignore(
+    @ir.hot_replace_child_span(func, node_id, [
+      cond_id, else_region, then_region,
+    ]),
+  )
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|

@@ -827,7 +827,7 @@ test "optimize-instructions does not add unreachable tails to escaping if arms" 
 }
 
 ///|
-test "optimize-instructions keeps nested boolean if conditions in place for parity" {
+test "optimize-instructions negates nested boolean if conditions by swapping outer arms" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i64 i32) (result i32) local.get 0 i64.eqz if (result i32) local.get 1 i32.eqz else i32.const 0 end if (result i32) i32.const 1 else local.get 0 i64.const -1 i64.eq if (result i32) local.get 1 else i32.const 0 end end))",
   )
@@ -848,18 +848,14 @@ test "optimize-instructions keeps nested boolean if conditions in place for pari
   }
   let inner_then_root = @ir.hot_region_get(func, inner_then, 0)
   let inner_else_root = @ir.hot_region_get(func, inner_else, 0)
-  assert_eq(
-    @ir.hot_node_exact_instr(func, inner_then_root),
-    Some(@lib.Instruction::i32_eqz()),
-  )
-  match @ir.hot_node_get(func, @ir.hot_child_get(func, inner_then_root, 0)).op {
+  match @ir.hot_node_get(func, inner_then_root).op {
     @ir.HotOp::LocalGet => ()
-    _ => fail("expected nested if then arm to keep the original eqz payload")
+    _ => fail("expected nested if then arm to drop eqz and expose the local")
   }
-  match @ir.hot_node_get(func, inner_else_root).op {
-    @ir.HotOp::Const => ()
-    _ => fail("expected nested if else arm to keep the original const payload")
-  }
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, inner_else_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
   let outer_then = @ir.hot_region_then_ref(func, outer_if)
   let outer_else = match @ir.hot_region_else_ref(func, outer_if) {
     Some(region) => region
@@ -868,17 +864,13 @@ test "optimize-instructions keeps nested boolean if conditions in place for pari
   let outer_then_root = @ir.hot_region_get(func, outer_then, 0)
   let outer_else_root = @ir.hot_region_get(func, outer_else, 0)
   match @ir.hot_node_get(func, outer_then_root).op {
-    @ir.HotOp::Const => ()
-    _ => fail("expected outer then arm to keep the original const branch")
+    @ir.HotOp::If => ()
+    _ => fail("expected outer then arm to become the previous else branch")
   }
   assert_eq(
-    @ir.hot_const_get(func, @ir.hot_node_get(func, outer_then_root).imm0),
+    @ir.hot_const_get(func, @ir.hot_node_get(func, outer_else_root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(1)),
   )
-  match @ir.hot_node_get(func, outer_else_root).op {
-    @ir.HotOp::If => ()
-    _ => fail("expected outer else arm to keep the original nested branch")
-  }
 }
 
 ///|
