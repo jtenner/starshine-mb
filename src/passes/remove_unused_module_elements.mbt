@@ -119,6 +119,32 @@ fn rume_imported_counts(mod_ : @lib.Module) -> (Int, Int, Int, Int, Int) {
 }
 
 ///|
+fn rume_expr_is_ref_null(expr : @lib.Expr) -> Bool {
+  match expr {
+    @lib.Expr([@lib.RefNull(_)]) => true
+    _ => false
+  }
+}
+
+///|
+fn rume_elem_init_has_effect(kind : @lib.ElemKind) -> Bool {
+  match kind {
+    @lib.FuncsElemKind(funcs) => funcs.length() > 0
+    @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) => {
+      if exprs.length() == 0 {
+        return false
+      }
+      for expr in exprs {
+        if !rume_expr_is_ref_null(expr) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
 fn rume_build_table_to_elem_map(
   table_count : Int,
   mod_ : @lib.Module,
@@ -134,14 +160,15 @@ fn rume_build_table_to_elem_map(
       let mut elem_idx = 0
       while elem_idx < elems.length() {
         match elems[elem_idx] {
-          @lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _) => {
+          @lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), kind) =>
+            if rume_elem_init_has_effect(kind) {
             let table_slot = table_idx.reinterpret_as_int()
             if table_slot >= 0 && table_slot < table_to_elems.length() {
               table_to_elems[table_slot].push(
                 @lib.ElemIdx::new(elem_idx.reinterpret_as_uint()),
               )
             }
-          }
+            }
           _ => ()
         }
         elem_idx += 1
@@ -734,8 +761,9 @@ fn rume_mark_imported_parent_segments(
       let mut elem_idx = 0
       while elem_idx < elems.length() {
         match elems[elem_idx] {
-          @lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _) =>
-            if table_idx.reinterpret_as_int() < table_imports {
+          @lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), kind) =>
+            if table_idx.reinterpret_as_int() < table_imports &&
+              rume_elem_init_has_effect(kind) {
               rume_mark_elem(
                 queue,
                 used_elems,

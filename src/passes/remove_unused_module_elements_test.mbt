@@ -410,6 +410,57 @@ fn rume_test_empty_active_data_import_fixture() -> @lib.Module {
 }
 
 ///|
+fn rume_test_nullref_active_elem_import_fixture() -> @lib.Module {
+  @lib.Module::new()
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("table"),
+        @lib.ExternType::table(
+          @lib.TableType::new(
+            @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+            @lib.Limits::i64(44UL, None),
+          ),
+        ),
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::active(
+          @lib.TableIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.ElemKind::typed_exprs(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+          [
+            @lib.Expr::new([
+              @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::none())),
+            ]),
+          ],
+        ),
+      ),
+      @lib.Elem::new(
+        @lib.ElemMode::active(
+          @lib.TableIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.ElemKind::typed_exprs(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+          [
+            @lib.Expr::new([
+              @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::none())),
+            ]),
+          ],
+        ),
+      ),
+    ]),
+  )
+}
+
+///|
 fn rume_test_live_access_targets(
   mod_ : @lib.Module,
 ) -> (UInt, UInt, UInt) raise {
@@ -844,6 +895,32 @@ test "remove-unused-module-elements drops empty active data on imported memories
     Err(err) =>
       fail(
         "expected imported-empty-active-data remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements drops no-op active nullref elem segments on imported tables" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_nullref_active_elem_import_fixture(),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected imported-nullref-active-elem remove-unused-module-elements success, got \{err}",
+      )
+  }
+
+  assert_eq(optimized.import_sec, None)
+  assert_eq(optimized.elem_sec, None)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected imported-nullref-active-elem remove-unused-module-elements module to validate, got \{err}",
       )
   }
 }

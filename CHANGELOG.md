@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: drop imported-table nullref-only active elem roots in RUME
+
+- **Imported-table no-op elem parity** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/remove_unused_module_elements.mbt`](./src/passes/remove_unused_module_elements.mbt), and [`src/passes/remove_unused_module_elements_test.mbt`](./src/passes/remove_unused_module_elements_test.mbt) so RUME no longer roots imported tables through active elem segments whose payload is entirely `ref.null` and therefore has no live element payload to preserve. The focused regression covers the imported `anyref` repro shape directly, and the refreshed `wasm-smith` replay moved that frontier forward to a later defined-table `nullfuncref` active-segment mismatch while keeping the remaining `19` failure slots Binaryen-only.
+
 ## 2026-03-28 Fix: accept extended-const arithmetic in initializers
 
 - **Extended-const arithmetic validation** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/validate/validate.mbt`](./src/validate/validate.mbt) so global and data-offset const expressions now accept pure extended-const arithmetic and conversion operators instead of rejecting them at the explicit const-expression gate. The focused validator regressions cover arithmetic in both global initializers and active-data offsets, and the refreshed RUME `wasm-smith` replay cleared the last Starshine-side final-validation failure before exposing a later no-op active-elem mismatch plus Binaryen-only parser failures.
