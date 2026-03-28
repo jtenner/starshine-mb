@@ -1787,6 +1787,20 @@ fn optimize_instructions_try_wrap_boolean_if_value_in_eqz(
     @ir.hot_region_root_count(func, else_region) != 1 {
     return false
   }
+  let then_root = @ir.hot_region_get(func, then_region, 0)
+  let else_root = @ir.hot_region_get(func, else_region, 0)
+  let plain_boolean_const_arms = match
+    (
+      optimize_instructions_i32_const(func, dead, then_root),
+      optimize_instructions_i32_const(func, dead, else_root),
+    ) {
+    (Some(@lib.I32(0)), Some(@lib.I32(1)))
+    | (Some(@lib.I32(1)), Some(@lib.I32(0))) => true
+    _ => false
+  }
+  if plain_boolean_const_arms {
+    return false
+  }
   let use_def = pass_require_use_def(ctx, func)
   if @ir.node_use_count(use_def, node_id) != 1 {
     return false
@@ -1809,20 +1823,12 @@ fn optimize_instructions_try_wrap_boolean_if_value_in_eqz(
     _ => return false
   }
   let neg_then = match
-    optimize_instructions_negate_boolean_expr_recursive(
-      func,
-      dead,
-      @ir.hot_region_get(func, then_region, 0),
-    ) {
+    optimize_instructions_negate_boolean_expr_recursive(func, dead, then_root) {
     Some(node) => node
     None => return false
   }
   let neg_else = match
-    optimize_instructions_negate_boolean_expr_recursive(
-      func,
-      dead,
-      @ir.hot_region_get(func, else_region, 0),
-    ) {
+    optimize_instructions_negate_boolean_expr_recursive(func, dead, else_root) {
     Some(node) => node
     None => return false
   }
