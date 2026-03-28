@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: preserve DCE loop-input drops needed by hot lowering
+
+- **DCE typed-loop input-drop guard** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), and [`src/passes/dead_code_elimination_live_repro_test.mbt`](./src/passes/dead_code_elimination_live_repro_test.mbt) so `dead-code-elimination` no longer deletes loop-body `drop` roots that consume typed loop input children. The new HOT-based live repro mutates a lifted loop into the exact shared-node carrier shape from the debug artifact, `moon test src/passes` and `moon test src/cmd` stay green, and the remaining large-artifact blocker is still the later `Func 1730` `stack underflow`, not this reduced loop-input-drop case.
+
 ## 2026-03-28 Fix: sync generated lib MemType interface
 
 - **Shared-memory public interface sync** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/lib/pkg.generated.mbti`](./src/lib/pkg.generated.mbti) so the generated `lib` package surface matches the landed shared-memory `MemType(Limits, Bool)` API and the optional `shared` parameter on `mem_type(...)`.

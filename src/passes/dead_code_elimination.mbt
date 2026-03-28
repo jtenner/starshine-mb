@@ -390,6 +390,45 @@ fn dead_code_elimination_drop_is_dead(
 }
 
 ///|
+fn dead_code_elimination_drop_consumes_loop_input(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  node_id : Int,
+) -> Bool {
+  if region_ref == @ir.HotRegionRef::root() {
+    return false
+  }
+  let holder = region_ref.holder
+  if holder < 0 || !@ir.hot_node_is_live(func, holder) {
+    return false
+  }
+  match @ir.hot_node_get(func, holder).op {
+    @ir.HotOp::Loop => ()
+    _ => return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Drop =>
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return false
+      }
+    _ => return false
+  }
+  let child_id = @ir.hot_child_get(func, node_id, 0)
+  if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+    return false
+  }
+  let label_id = @ir.hot_control_node_label(func, holder)
+  let input_count = @ir.hot_label_branch_arity(func, label_id)
+  for slot = 0; slot < input_count; slot = slot + 1 {
+    if @ir.hot_child_get(func, holder, slot) == child_id {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn dead_code_elimination_record_branch_target(
   branch_users_by_label : Array[Array[Int]],
   last_seen_branch : Array[Int],
@@ -2920,7 +2959,8 @@ fn dead_code_elimination_visit_region(
       continue
     }
 
-    if dead_code_elimination_drop_is_dead(purity_cache, func, node_id) {
+    if dead_code_elimination_drop_is_dead(purity_cache, func, node_id) &&
+      !dead_code_elimination_drop_consumes_loop_input(func, region_ref, node_id) {
       ignore(
         dead_code_elimination_remove_roots(
           ctx, func, node_use_cache, region_ref, idx, 1,
