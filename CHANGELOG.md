@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Docs: tighten AGENTS workflow guide
+
+- **`AGENTS.md` workflow rewrite** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`AGENTS.md`](./AGENTS.md) to replace the older mixed instruction list with a terser layout organized by project layout, grouped task rules, and tool usage. The new guide keeps the same repo-specific constraints while making commit, publish, research, backlog, and MoonBit-style expectations easier to scan and apply consistently.
+
 ## 2026-03-28 Fix: checkpoint validated hot-lower and DCE test rebaseline outside the fuzz work
 
 - **Non-fuzz checkpoint commit** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_test.mbt`](./src/ir/hot_lower_test.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to preserve the validated `hot_lower` payload-carrier repair and the downstream `dead-code-elimination` assertion rebaseline as their own commit, separate from the in-progress fuzz and pass-compare work elsewhere in the tree. This keeps the IR and pass-suite checkpoint isolated around the repaired `Label 0 / Label 1` carrier shapes, dropped-`if` voidification, and the updated DCE oracle expectations that now match the validated lowered output.
