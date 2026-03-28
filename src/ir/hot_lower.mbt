@@ -1306,6 +1306,22 @@ fn hot_lower_impl_trim_redundant_unreachable_tail(
     Unreachable if hot_lower_impl_instr_is_nonfallthrough(
         body[body.length() - 2],
       ) => {
+      match body[body.length() - 2] {
+        If(VoidBlockType, then_, Some(else_)) =>
+          if hot_lower_impl_body_has_terminal_exit(then_) &&
+            hot_lower_impl_body_has_terminal_exit(else_) {
+            return body
+          }
+        Br(_) =>
+          if body.length() >= 3 {
+            match body[body.length() - 3] {
+              If(VoidBlockType, _, _) => ()
+              If(_, _, _) => return body
+              _ => ()
+            }
+          }
+        _ => ()
+      }
       let trimmed : Array[Instruction] = []
       for i = 0; i < body.length() - 1; i = i + 1 {
         trimmed.push(body[i])
@@ -1443,6 +1459,7 @@ fn hot_lower_impl_try_voidify_terminal_return_if_forwarder(
                   Some(rewritten_else),
                 ),
               )
+              rewritten.push(Instruction::unreachable_())
               Some(rewritten)
             }
             None => None
@@ -1589,15 +1606,23 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
           return None
         }
         match arm[arm.length() - 1] {
-          Br(li) if hot_lower_impl_decoded_label_depth(li) == 0 => ()
+          Br(li) if {
+              let depth = hot_lower_impl_decoded_label_depth(li)
+              depth == 0 || depth == 1
+            } => ()
           _ => return None
         }
-        match arm[arm.length() - 2] {
-          Drop => ()
-          _ => return None
+        let value_end = match arm[arm.length() - 2] {
+          Drop => arm.length() - 2
+          _ =>
+            if arm.length() == 2 {
+              1
+            } else {
+              return None
+            }
         }
         let value_instrs : Array[Instruction] = []
-        for i = 0; i < arm.length() - 2; i = i + 1 {
+        for i = 0; i < value_end; i = i + 1 {
           if hot_lower_impl_has_control_transfer(arm[i]) {
             return None
           }
@@ -1613,7 +1638,10 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
           return false
         }
         match arm[arm.length() - 1] {
-          Br(li) if hot_lower_impl_decoded_label_depth(li) == 0 => ()
+          Br(li) if {
+              let depth = hot_lower_impl_decoded_label_depth(li)
+              depth == 0 || depth == 1
+            } => ()
           _ => return false
         }
         for i = 0; i < arm.length() - 1; i = i + 1 {
@@ -1641,7 +1669,11 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
                 Instruction::block(
                   @lib.BlockType::void_(),
                   Expr::new(
-                    prefix + [rebuilt_if, Instruction::br(LabelIdx::new(1U))],
+                    prefix + [
+                      rebuilt_if,
+                      Instruction::br(LabelIdx::new(1U)),
+                      Instruction::unreachable_(),
+                    ],
                   ),
                 ),
                 Instruction::local_get(carried_local),
@@ -1689,7 +1721,7 @@ fn hot_lower_impl_try_unpack_parent_exit_payload_wrapper(
                   Some([
                     Instruction::block(
                       @lib.BlockType::void_(),
-                      Expr::new(hot_lower_impl_rebase_body(child_body, 0)),
+                      Expr::new(hot_lower_impl_rebase_body(child_body, 1)),
                     ),
                     payload,
                     Instruction::br(li),

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: checkpoint hot-lower payload-forwarder repair progress
+
+- **`hot_lower` payload-forwarder checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), and [`src/ir/hot_lower_test.mbt`](./src/ir/hot_lower_test.mbt) to narrow the current IR2 payload-forwarder repair slice: malformed compare-shape WAT fixtures now parse, terminal-return voidification keeps the required explicit `unreachable`, parent-exit wrapper rebasing is tighter, and the split local-set carry matcher handles more dropped-value and parent-exit arm shapes. Focused `moon test src/ir/hot_lower_test.mbt` improved from 12 failures to 6 on this checkpoint; the remaining red cases are the packed local-set carry and parent-exit payload families, so this is an explicit WIP savepoint rather than signoff.
+
 ## 2026-03-28 Chore: refresh IR2 and pass backlog against current red suite
 
 - **IR2/DCE/RUB backlog checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to record the current `moon test` failure set precisely: `hot_lower` still owns the shared payload-forwarder and returned-if lowering breakage, `dead-code-elimination` still has four downstream red fixtures in that same family, `remove-unused-brs` still misses the dropped returned-if `unreachable` rewrite, and `optimize-instructions` is currently green.

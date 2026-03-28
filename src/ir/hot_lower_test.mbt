@@ -1399,7 +1399,7 @@ test "hot lower canonicalizes tail if forwarders into void if plus unreachable" 
     #|                    (local.set 1)
     #|                    (br $exit))))
     #|              (local.get 1)))))
-    #|    (local.get 2)))
+    #|    (local.get 2))))
   let module_ = match @wast.wast_to_binary_module(source) {
     Ok(module_) => module_
     Err(err) => fail("expected module to parse, got \{err}")
@@ -1446,7 +1446,7 @@ test "hot lower canonicalizes nested local.set payload forwarders from compare s
     #|                      (local.set 1)
     #|                      (br $block9)))))
     #|              (local.get 1))))
-    #|    (local.get 1)))
+    #|    (local.get 1)))))
   let module_ = match @wast.wast_to_binary_module(source) {
     Ok(module_) => module_
     Err(err) => fail("expected module to parse, got \{err}")
@@ -1495,7 +1495,7 @@ test "hot lower canonicalizes prefix-heavy nested local.set payload forwarders f
     #|                      (local.set 4 (i32.const 9))
     #|                      (br $block9)))))
     #|              (local.get 4))))
-    #|    (local.get 3)))
+    #|    (local.get 3)))))
   let module_ = match @wast.wast_to_binary_module(source) {
     Ok(module_) => module_
     Err(err) => fail("expected module to parse, got \{err}")
