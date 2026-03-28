@@ -670,7 +670,39 @@ fn optimize_instructions_is_side_effect_free_expr(
     | @ir.HotOp::Const
     | @ir.HotOp::RefNull
     | @ir.HotOp::RefFunc => true
-    @ir.HotOp::Load => {
+    @ir.HotOp::Load
+    | @ir.HotOp::MemorySize
+    | @ir.HotOp::TableGet
+    | @ir.HotOp::TableSize => {
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        if !optimize_instructions_is_side_effect_free_expr(
+            func,
+            dead,
+            func.children[node.child_base + slot],
+          ) {
+          return false
+        }
+      }
+      true
+    }
+    @ir.HotOp::Heap => {
+      let allowed = match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::StructGet(_, _))
+        | Some(@lib.Instruction::StructGetS(_, _))
+        | Some(@lib.Instruction::StructGetU(_, _))
+        | Some(@lib.Instruction::ArrayGet(_))
+        | Some(@lib.Instruction::ArrayGetS(_))
+        | Some(@lib.Instruction::ArrayGetU(_))
+        | Some(@lib.Instruction::ArrayLen)
+        | Some(@lib.Instruction::RefGetDesc(_))
+        | Some(@lib.Instruction::RefAsNonNull)
+        | Some(@lib.Instruction::I31GetS)
+        | Some(@lib.Instruction::I31GetU) => true
+        _ => false
+      }
+      if !allowed {
+        return false
+      }
       for slot = 0; slot < node.child_count; slot = slot + 1 {
         if !optimize_instructions_is_side_effect_free_expr(
             func,

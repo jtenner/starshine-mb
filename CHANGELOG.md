@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: restore read-only heap and table relational swaps in OI
+
+- **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to widen relational operand canonicalization again so unique-use read-only heap/table/memory expressions can cross `local.get` operands, including `array.len` and pure-address loads. Focused `OI` tests and the native `cmd.exe --optimize-instructions` run on `tests/node/dist/starshine-debug-wasi.wasm` stay green on this read-only compare recovery.
+
 ## 2026-03-28 Fix: restore load-safe relational swaps in OI
 
 - **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to widen relational operand canonicalization further so unique-use loads with pure address trees can cross `local.get` operands. Focused `OI` tests and the native `cmd.exe --optimize-instructions` run on `tests/node/dist/starshine-debug-wasi.wasm` stay green on this load-safe compare recovery.

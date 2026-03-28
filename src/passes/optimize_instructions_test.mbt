@@ -1566,6 +1566,59 @@ test "optimize-instructions canonicalizes relational local gets across loads" {
 }
 
 ///|
+test "optimize-instructions canonicalizes relational local gets across array.len" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+  let rhs = @ir.hot_build_ref_null(
+    func,
+    @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+  )
+  let heap = @ir.hot_build_heap(
+    func,
+    [@lib.ValType::i32()],
+    @lib.Instruction::array_len(),
+    [rhs],
+  )
+  let local_get = @ir.hot_build_local_get(func, 0)
+  let root = @ir.hot_build_compare(func, local_get, heap)
+  @ir.hot_node_exact_instr_set(func, root, @lib.Instruction::i32_lt_s())
+  @ir.hot_root_append(func, root)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected optimize-instructions array.len success, got \{err}")
+  }
+
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_gt_s()),
+  )
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::Heap => ()
+    _ => fail("expected lhs heap read to move ahead of the local.get")
+  }
+  assert_eq(
+    @ir.hot_node_exact_instr(func, lhs),
+    Some(@lib.Instruction::array_len()),
+  )
+  match @ir.hot_node_get(func, rhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected rhs local.get to move behind the heap read")
+  }
+}
+
+///|
 test "optimize-instructions simplifies if i32.ne x 0 conditions" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) (if (result i32) (i32.ne (local.get 1) (i32.const 0)) (then (i32.const 1)) (else (i32.const 0)))))",
