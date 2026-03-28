@@ -798,7 +798,11 @@ fn remove_unused_brs_try_voidify_exit_only_value_if(
     ),
     [void_if, @ir.hot_build_unreachable(func)],
   )
-  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
+  @ir.hot_control_demote_if_to_block(
+    func,
+    node_id,
+    [void_if, @ir.hot_child_get(func, replacement, 1)],
+  )
   pass_mark_mutated(ctx, func)
   remove_unused_brs_delete_unused_nodes(ctx, func, [
     replacement,
