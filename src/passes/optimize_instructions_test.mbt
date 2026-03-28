@@ -1474,7 +1474,7 @@ test "optimize-instructions canonicalizes commutative local get pairs by index" 
 }
 
 ///|
-test "optimize-instructions keeps relational local gets against calls when relational operand rewrites are disabled" {
+test "optimize-instructions keeps relational local gets against calls under current parity guards" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32 i32) (result i32) local.get 2 local.get 0 local.get 1 local.get 2 call 0 i32.lt_s))",
   )
@@ -1494,6 +1494,30 @@ test "optimize-instructions keeps relational local gets against calls when relat
     _ => fail("expected rhs call to remain in place")
   }
   assert_eq(@ir.hot_node_get(func, lhs).imm0, 2)
+}
+
+///|
+test "optimize-instructions canonicalizes relational local-get ordering" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result i32) local.get 2 local.get 0 i32.lt_s))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_gt_s()),
+  )
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected lhs to stay a local.get after relational local swap")
+  }
+  match @ir.hot_node_get(func, rhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected rhs to stay a local.get after relational local swap")
+  }
+  assert_eq(@ir.hot_node_get(func, lhs).imm0, 0)
+  assert_eq(@ir.hot_node_get(func, rhs).imm0, 2)
 }
 
 ///|

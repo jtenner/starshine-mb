@@ -1490,7 +1490,6 @@ fn optimize_instructions_try_canonicalize_relational_operands(
   instr : @lib.Instruction,
   lhs_id : Int,
   rhs_id : Int,
-  scratch : OptimizeInstructionsScratch,
 ) -> Bool {
   let reversed = match optimize_instructions_reverse_relational_instr(instr) {
     Some(reversed) => reversed
@@ -1502,32 +1501,13 @@ fn optimize_instructions_try_canonicalize_relational_operands(
       if optimize_instructions_is_constlike(func, dead, rhs_id) {
         return false
       }
-      let should_swap = match
+      let rhs_local_id = match
         optimize_instructions_local_get_id(func, dead, rhs_id) {
-        Some(rhs_local_id) => local_id > rhs_local_id
-        None => true
+        Some(rhs_local_id) => rhs_local_id
+        None => return false
       }
+      let should_swap = local_id > rhs_local_id
       if !should_swap {
-        return false
-      }
-      let use_def = pass_require_use_def(ctx, func)
-      if @ir.node_use_count(use_def, rhs_id) > 1 {
-        return false
-      }
-      optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
-      let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
-      let can_cross = optimize_instructions_can_cross_local_get(
-        func,
-        dead,
-        use_def,
-        rhs_id,
-        local_id,
-        false,
-        scratch.loop_input_nodes,
-        scratch.cross_seen_stamps,
-        seen_stamp,
-      )
-      if !can_cross {
         return false
       }
       optimize_instructions_rewrite_exact_with_children(
@@ -1545,31 +1525,21 @@ fn optimize_instructions_try_canonicalize_relational_operands(
     return true
   }
   match optimize_instructions_local_get_id(func, dead, rhs_id) {
-    Some(local_id) => {
-      if optimize_instructions_is_constlike(func, dead, lhs_id) ||
-        !optimize_instructions_should_swap_commutative_node_kinds(
+    Some(_) => {
+      if optimize_instructions_is_constlike(func, dead, lhs_id) {
+        return false
+      }
+      let lhs_is_local_get = match
+        optimize_instructions_local_get_id(func, dead, lhs_id) {
+        Some(_) => true
+        None => false
+      }
+      if !lhs_is_local_get {
+        return false
+      }
+      if !optimize_instructions_should_swap_commutative_node_kinds(
           func, dead, lhs_id, rhs_id,
         ) {
-        return false
-      }
-      let use_def = pass_require_use_def(ctx, func)
-      if @ir.node_use_count(use_def, lhs_id) > 1 {
-        return false
-      }
-      optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
-      let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
-      let can_cross = optimize_instructions_can_cross_local_get(
-        func,
-        dead,
-        use_def,
-        lhs_id,
-        local_id,
-        false,
-        scratch.loop_input_nodes,
-        scratch.cross_seen_stamps,
-        seen_stamp,
-      )
-      if !can_cross {
         return false
       }
       optimize_instructions_rewrite_exact_with_children(
@@ -2897,10 +2867,9 @@ fn optimize_instructions_visit_node(
             current_rhs = func.children[current.child_base + 1]
           }
 
-          let relational_operands_changed = if false {
+          let relational_operands_changed = if true {
             optimize_instructions_try_canonicalize_relational_operands(
               ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
-              scratch,
             )
           } else {
             false
