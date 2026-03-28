@@ -1156,6 +1156,7 @@ fn remove_unused_brs_match_value_if_to_select(
   func : @ir.HotFunc,
   node_id : Int,
   reorder_cache : Array[Int],
+  allow_nonreorder_condition_with_reorder_safe_arms? : Bool = false,
 ) -> RemoveUnusedBrsValueIfSelectRewrite? {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -1199,13 +1200,15 @@ fn remove_unused_brs_match_value_if_to_select(
     ) {
     let then_node = @ir.hot_node_get(func, then_root)
     let else_node = @ir.hot_node_get(func, else_root)
-    match then_node.op {
-      @ir.HotOp::Const => ()
-      _ => return None
-    }
-    match else_node.op {
-      @ir.HotOp::Const => ()
-      _ => return None
+    if !allow_nonreorder_condition_with_reorder_safe_arms {
+      match then_node.op {
+        @ir.HotOp::Const => ()
+        _ => return None
+      }
+      match else_node.op {
+        @ir.HotOp::Const => ()
+        _ => return None
+      }
     }
   }
   Some({
@@ -1233,6 +1236,56 @@ fn remove_unused_brs_try_rewrite_value_if_to_select(
         ctx,
         func,
         node_id,
+        rewrite.replacement,
+        detached=[rewrite.then_holder, rewrite.else_holder],
+      )
+    None => false
+  }
+}
+
+///|
+fn remove_unused_brs_try_rewrite_condition_child_value_if_to_select(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  owner_id : Int,
+  reorder_cache : Array[Int],
+) -> Bool {
+  let owner = @ir.hot_node_get(func, owner_id)
+  match owner.op {
+    @ir.HotOp::If =>
+      if @ir.hot_node_result_arity(func, owner_id) != 0 {
+        return false
+      }
+    _ => return false
+  }
+  match @ir.hot_region_else_ref(func, owner_id) {
+    Some(_) => return false
+    None => ()
+  }
+  if owner.child_count == 0 {
+    return false
+  }
+  let condition_id = @ir.hot_child_get(func, owner_id, 0)
+  if condition_id < 0 || !@ir.hot_node_is_live(func, condition_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, condition_id).op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  match
+    remove_unused_brs_match_value_if_to_select(
+      ctx,
+      func,
+      condition_id,
+      reorder_cache,
+      allow_nonreorder_condition_with_reorder_safe_arms=true,
+    ) {
+    Some(rewrite) =>
+      remove_unused_brs_replace_with_node(
+        ctx,
+        func,
+        condition_id,
         rewrite.replacement,
         detached=[rewrite.then_holder, rewrite.else_holder],
       )
@@ -2660,6 +2713,10 @@ fn remove_unused_brs_visit_node(
           false,
           control_cache,
           return_cache,
+        ) ||
+        changed
+      changed = remove_unused_brs_try_rewrite_condition_child_value_if_to_select(
+          ctx, func, node_id, reorder_cache,
         ) ||
         changed
       let then_ref = @ir.hot_region_then_ref(func, node_id)

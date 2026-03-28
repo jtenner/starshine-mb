@@ -153,6 +153,25 @@ test "remove-unused-brs rewrites const-arm ifs into select even with local.tee c
 }
 
 ///|
+test "remove-unused-brs rewrites reorder-safe condition ladders into select" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (if (if (result i32) (i32.eqz (local.tee 2 (local.get 0))) (then (i32.const 1)) (else (i32.le_s (local.get 1) (i32.const 0)))) (then (return (i32.const 0)))) (i32.const 1)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs condition-ladder select success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("(if (I32)"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites pure local.get ifs into select" {
   let optimized = match
     pass_test_run_pipeline(

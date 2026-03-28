@@ -12,6 +12,10 @@
 
 - **Formatting-only checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_test.mbt`](./src/ir/hot_lower_test.mbt), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to bring the rebased DCE and hot-lower files back to the current `moon fmt` layout without changing pass behavior.
 
+## 2026-03-28 Fix: lower reorder-safe condition ladders to `select`
+
+- **`remove-unused-brs` condition-ladder select checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so the pass can lower nested value-`if` condition ladders with non-reorder-safe conditions when both arms are reorder-safe. This targets the remaining Binaryen parity gap around functions like `$549` without broadening the global select matcher.
+
 ## 2026-03-28 Fix: lower one-arm payload branch ladders to `br_if`
 
 - **`remove-unused-brs` payload branch ladder checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so the pass can lower the remaining one-arm enclosing-block payload branch family to payload-carrying `br_if` plus fallthrough roots instead of leaving the outer void `if` in place. This targets the still-open Binaryen parity gap around functions like `$1105`/`$1106`.
