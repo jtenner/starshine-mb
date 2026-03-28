@@ -1093,6 +1093,42 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
       _ => ()
     }
   }
+  if trimmed_unreachable &&
+    inner_br >= 0 &&
+    @ir.hot_node_is_live(func, inner_br) {
+    match @ir.hot_node_get(func, inner_br).op {
+      @ir.HotOp::If if @ir.hot_node_result_arity(func, inner_br) == 0 => {
+        let arm_is_bare_br = fn(region_ref : @ir.HotRegionRef) -> Bool {
+          let root_count = @ir.hot_region_root_count(func, region_ref)
+          if root_count == 0 {
+            return false
+          }
+          let tail = @ir.hot_region_get(func, region_ref, root_count - 1)
+          if tail < 0 || !@ir.hot_node_is_live(func, tail) {
+            return false
+          }
+          match @ir.hot_node_get(func, tail).op {
+            @ir.HotOp::Br =>
+              dead_code_elimination_branch_payload_count(func, tail) == 0
+            _ => false
+          }
+        }
+        let then_region = @ir.hot_region_then_ref(func, inner_br)
+        let else_region = match @ir.hot_region_else_ref(func, inner_br) {
+          Some(else_region) => else_region
+          None => return false
+        }
+        if arm_is_bare_br(then_region) && arm_is_bare_br(else_region) {
+          ignore(
+            pass_splice_region(ctx, func, forwarder_body, inner_br_idx + 1, 1, []),
+          )
+          dead_code_elimination_invalidate_branch_user_cache(branch_user_cache)
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
   let mut payload_if = -1
   let mut stacked_tail = false
   let mut direct_tail_if = false
