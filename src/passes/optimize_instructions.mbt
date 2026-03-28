@@ -670,6 +670,18 @@ fn optimize_instructions_is_side_effect_free_expr(
     | @ir.HotOp::Const
     | @ir.HotOp::RefNull
     | @ir.HotOp::RefFunc => true
+    @ir.HotOp::Load => {
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        if !optimize_instructions_is_side_effect_free_expr(
+            func,
+            dead,
+            func.children[node.child_base + slot],
+          ) {
+          return false
+        }
+      }
+      true
+    }
     @ir.HotOp::Unary
     | @ir.HotOp::Binary
     | @ir.HotOp::Compare
