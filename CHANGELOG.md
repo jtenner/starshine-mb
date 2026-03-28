@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: allow wasm-smith-only pass-fuzz compare runs
+
+- **Pass-fuzz generator-mode fix** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so `bun scripts/pass-fuzz-compare.ts --generator wasm-smith ...` no longer aborts before the first case by scanning a missing `inputs/gen-valid` directory. The runner now skips that scan when no `gen-valid` batch is requested, and the command test covers the `wasm-smith`-only mode to keep the targeted RUME replay workflow working.
+
 ## 2026-03-28 Fix: drop and remap unused imported module elements in RUME
 
 - **`remove-unused-module-elements` imported-element parity** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/remove_unused_module_elements.mbt`](./src/passes/remove_unused_module_elements.mbt), and [`src/passes/remove_unused_module_elements_test.mbt`](./src/passes/remove_unused_module_elements_test.mbt) so RUME no longer preserves dead imported tables, memories, globals, and tags by copying `import_sec` through unchanged. The pass now roots imported parents only when active elem/data segments still initialize them, rebuilds absolute remaps from actual surviving imports, rewrites downstream indices against those compacted maps, and covers the imported-element case with a focused regression that checks surviving imports plus export and name-section remaps.

@@ -478,7 +478,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       { cwd: repoRoot, stdio: "pipe" },
     );
   }
-  const genValidInputs = listGeneratedGenValidInputs(genValidDir);
+  const genValidInputs = genValidCount > 0 ? listGeneratedGenValidInputs(genValidDir) : [];
 
   const starshineInvocation = resolveStarshineInvocation(repoRoot, options.starshineBin, options.moonBin);
   const summary: PassFuzzCompareSummary = {
