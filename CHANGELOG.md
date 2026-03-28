@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Docs: classify RUME fuzz mismatches and command failures
+
+- **RUME fuzz classification update** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to record the full classified `remove-unused-module-elements` rerun after the harness failure-accounting fix: five saved imported-module-element retention mismatches, one empty active-data mismatch, and the accumulated Starshine/Binaryen command-failure buckets from the first `20` failing `wasm-smith` cases. The backlog now distinguishes semantic parity work from fuzz-coverage blockers and lists the exact saved repro directories that need focused reduction or follow-up.
+
 ## 2026-03-28 Fix: accumulate pass-fuzz command failures up to the cutoff
 
 - **Pass-fuzz failure accounting** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so `bun scripts/pass-fuzz-compare.ts ...` records Starshine, Binaryen, and canonicalization command failures as persisted `command-failure` cases instead of aborting the whole run on the first thrown command error. The summary now reports command-failure counts alongside mismatches, validation failures, and generator failures, and the focused Bun command test covers repeated failing Starshine invocations to verify the harness keeps collecting failures until `--max-failures` is hit.
