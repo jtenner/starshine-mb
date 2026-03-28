@@ -898,7 +898,11 @@ pub impl Validate for MemType with validate(self, env) {
       _ => return Err("shared memories require a max")
     }
   }
-  ValidateMax::validate_max(lim, env, 65536)
+  let max_pages = match lim {
+    I32Limits(_, _) => 65536UL
+    I64Limits(_, _) => 18446744073709551615UL
+  }
+  ValidateMax::validate_max(lim, env, max_pages)
 }
 
 ///|
@@ -4428,6 +4432,13 @@ test "MemType validates with valid limits" {
 test "shared MemType validates with valid max" {
   let env = empty_env()
   let mt = MemType::new(Limits::i32(0, Some(100)), shared=true)
+  assert_eq(Validate::validate(mt, env), Ok(()))
+}
+
+///|
+test "memory64 MemType validates with large max" {
+  let env = empty_env()
+  let mt = MemType::new(Limits::i64(5250UL, Some(7098475342658UL)))
   assert_eq(Validate::validate(mt, env), Ok(()))
 }
 
