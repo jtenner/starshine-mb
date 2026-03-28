@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-03-28 Chore: refresh OI todo state after rebased parity work
+
+- **`optimize-instructions` backlog refresh** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to record the current `OI` state after the rebased parity/correctness series: nested boolean `if` rewrites are restored; relational operand canonicalization is restored for local/local, pure-expression, load-safe, read-only heap/table, shared read-only, and unique `local.tee` compare roots; and the remaining blockers are now concentrated in the still-blocked shared/control/loop tee families plus dual-slot / ordered-prefix replay evidence.
 ## 2026-03-28 Fix: checkpoint DCE live-forwarder deletion and unreachable regressions
 
 - **`dead-code-elimination` live-forwarder checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_live_repro_test.mbt`](./src/ir/hot_lower_live_repro_test.mbt), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), [`src/passes/dead_code_elimination_live_repro_test.mbt`](./src/passes/dead_code_elimination_live_repro_test.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to checkpoint the current live DCE slice: dead node deletion now uses a direct live-reference scan instead of the cached internal/external ref accounting path, hot-lower keeps the carried-wrapper unreachable canonicalization aligned with `moon fmt`, and the DCE suite adds explicit regressions for carried-result wrappers and typed loop-body wrappers with required `unreachable` tails. This is a work-in-progress checkpoint on `master`, not a parity signoff.

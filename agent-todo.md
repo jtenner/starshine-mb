@@ -133,21 +133,20 @@ Observed unique-pass order
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
 
 #### OI - Optimize Instructions
-1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L193](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L193)
-2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [OI]001 - Peephole Parity Audit - Audit the existing optimize-instructions pass against Binaryen's early and late peephole expectations for the MoonBit artifact.
-     - Deliverables: diff current Starshine patterns vs Binaryen's observed reductions; add missing peepholes or safety guards; preserve effect and trap semantics.
+1. Keep the remaining follow-up visible.
+   - [OI]001 - Relational/Boolean Parity Finish - Continue the Binaryen parity audit from the current landed checkpoint instead of redoing the whole pass.
+     - Deliverables: keep the restored nested-boolean `if` rewrites stable; keep relational operand canonicalization enabled for local/local, pure-expression, load-safe, read-only heap/table/memory, shared read-only, and unique `local.tee` compare roots; finish reducing the remaining Binaryen deltas in the still-blocked shared tee payload, control-bearing tee payload, and loop-carried tee families without reopening the known tuple/result-shape regressions.
+     - Current blocker: the broad unsafe compare/control rewrites are no longer disabled wholesale, but the highest-risk tee/control families are still intentionally blocked pending focused artifact reductions.
      - Doc: [0066#L193](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L193)
    - [OI]002 - Dual-Slot Replay and Regression Lock - Verify both OI slots remain correct after surrounding pipeline work and lock the behavior in focused tests.
-     - Deliverables: add repeated-slot pipeline coverage; regress edge cases around typed ops and tuple users; rerun the debug-artifact compare harness for `--optimize-instructions`.
+     - Deliverables: add repeated-slot pipeline coverage; extend regressions around tuple users, typed ops, dead-suffix carriers, and compare/tee replay; rerun the debug-artifact compare harness for `--optimize-instructions` with any required ordered-prefix replay and record the remaining parity/perf gap explicitly.
+     - Current blocker: the direct pass now has many focused regressions and multiple artifact fixes, but the repeated-slot / ordered-prefix evidence is still not fully refreshed after the latest parity series.
      - Doc: [0066#L193](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L193)
-3. Do work.
-   - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
-   - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
-4. Test against binaryen.
-   - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
-   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
+2. Do work.
+   - Keep the landed compare and nested-boolean rewrites stable while finishing the blocked tee/control parity families and the repeated-slot replay work.
+   - Wire any remaining OI updates into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
+3. Test against binaryen.
+   - Keep focused regressions in `src/passes/optimize_instructions_test.mbt` green, add scheduler/dispatcher coverage when slot behavior changes, and compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --optimize-instructions` plus any required ordered-prefix replay.
 
 #### HSO - Heap Store Optimization
 1. Keep the remaining follow-up visible.

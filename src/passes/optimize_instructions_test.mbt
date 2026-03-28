@@ -355,7 +355,7 @@ test "optimize-instructions canonicalizes if eq zero into eqz without else" {
 }
 
 ///|
-test "optimize-instructions collapses duplicate branch ifs in then regions" {
+test "optimize-instructions keeps duplicate branch ifs in then regions when if-condition rewrites are disabled" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32(), @lib.ValType::i32()]),
   )
@@ -409,16 +409,16 @@ test "optimize-instructions collapses duplicate branch ifs in then regions" {
   }
 
   let then_region = @ir.hot_region_then_ref(func, outer_if)
-  assert_eq(@ir.hot_region_root_count(func, then_region), 1)
+  assert_eq(@ir.hot_region_root_count(func, then_region), 2)
   let then_root = @ir.hot_region_get(func, then_region, 0)
   match @ir.hot_node_get(func, then_root).op {
-    @ir.HotOp::Br => ()
-    _ => fail("expected duplicate then-branch if to collapse into a direct br")
+    @ir.HotOp::If => ()
+    _ => fail("expected duplicate then-branch if to remain explicit")
   }
 }
 
 ///|
-test "optimize-instructions collapses duplicate branch ifs in single-root then regions" {
+test "optimize-instructions keeps duplicate branch ifs in single-root then regions when if-condition rewrites are disabled" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32(), @lib.ValType::i32()]),
   )
@@ -477,13 +477,10 @@ test "optimize-instructions collapses duplicate branch ifs in single-root then r
   assert_eq(@ir.hot_region_root_count(func, then_region), 1)
   let then_root = @ir.hot_region_get(func, then_region, 0)
   match @ir.hot_node_get(func, then_root).op {
-    @ir.HotOp::Br => ()
+    @ir.HotOp::If => ()
     _ =>
-      fail(
-        "expected single-root duplicate then-branch if to collapse into a direct br",
-      )
+      fail("expected single-root duplicate then-branch if to remain explicit")
   }
-  assert_eq(@ir.hot_node_get(func, then_root).imm0, middle_label)
 }
 
 ///|
@@ -1039,7 +1036,7 @@ test "optimize-instructions does not add unreachable tails to escaping if arms" 
 }
 
 ///|
-test "optimize-instructions negates nested boolean if conditions by swapping outer arms" {
+test "optimize-instructions keeps nested boolean if conditions when if-condition rewrites are disabled" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i64 i32) (result i32) local.get 0 i64.eqz if (result i32) local.get 1 i32.eqz else i32.const 0 end if (result i32) i32.const 1 else local.get 0 i64.const -1 i64.eq if (result i32) local.get 1 else i32.const 0 end end))",
   )
@@ -1060,13 +1057,13 @@ test "optimize-instructions negates nested boolean if conditions by swapping out
   }
   let inner_then_root = @ir.hot_region_get(func, inner_then, 0)
   let inner_else_root = @ir.hot_region_get(func, inner_else, 0)
-  match @ir.hot_node_get(func, inner_then_root).op {
-    @ir.HotOp::LocalGet => ()
-    _ => fail("expected nested if then arm to drop eqz and expose the local")
-  }
+  assert_eq(
+    @ir.hot_node_exact_instr(func, inner_then_root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
   assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, inner_else_root).imm0),
-    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
   )
   let outer_then = @ir.hot_region_then_ref(func, outer_if)
   let outer_else = match @ir.hot_region_else_ref(func, outer_if) {
@@ -1076,27 +1073,31 @@ test "optimize-instructions negates nested boolean if conditions by swapping out
   let outer_then_root = @ir.hot_region_get(func, outer_then, 0)
   let outer_else_root = @ir.hot_region_get(func, outer_else, 0)
   match @ir.hot_node_get(func, outer_then_root).op {
-    @ir.HotOp::If => ()
-    _ => fail("expected outer then arm to become the previous else branch")
+    @ir.HotOp::Const => ()
+    _ => fail("expected outer then arm to remain the original constant branch")
   }
   assert_eq(
-    @ir.hot_const_get(func, @ir.hot_node_get(func, outer_else_root).imm0),
+    @ir.hot_const_get(func, @ir.hot_node_get(func, outer_then_root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(1)),
   )
+  match @ir.hot_node_get(func, outer_else_root).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected outer else arm to remain the original nested branch")
+  }
 }
 
 ///|
-test "optimize-instructions negates nested boolean if conditions under then-only ifs" {
+test "optimize-instructions keeps nested boolean if conditions under then-only ifs when if-condition rewrites are disabled" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) local.get 0 if (result i32) local.get 1 i32.eqz else i32.const 0 end if local.get 1 drop end i32.const 0))",
   )
   let outer_if = @ir.hot_root_get(func, 0)
   let outer_cond = @ir.hot_child_get(func, outer_if, 0)
-  assert_eq(
-    @ir.hot_node_exact_instr(func, outer_cond),
-    Some(@lib.Instruction::i32_eqz()),
-  )
-  let nested_if = @ir.hot_child_get(func, outer_cond, 0)
+  match @ir.hot_node_get(func, outer_cond).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected then-only outer if condition to remain a nested if")
+  }
+  let nested_if = outer_cond
   match @ir.hot_node_get(func, nested_if).op {
     @ir.HotOp::If => ()
     _ => fail("expected then-only outer if condition to remain a nested if")
@@ -1108,28 +1109,28 @@ test "optimize-instructions negates nested boolean if conditions under then-only
   }
   let inner_then_root = @ir.hot_region_get(func, inner_then, 0)
   let inner_else_root = @ir.hot_region_get(func, inner_else, 0)
-  match @ir.hot_node_get(func, inner_then_root).op {
-    @ir.HotOp::LocalGet => ()
-    _ => fail("expected nested if then arm to drop eqz and expose the local")
-  }
+  assert_eq(
+    @ir.hot_node_exact_instr(func, inner_then_root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
   assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, inner_else_root).imm0),
-    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
   )
 }
 
 ///|
-test "optimize-instructions recursively negates nested boolean if conditions under then-only ifs" {
+test "optimize-instructions keeps recursive nested boolean if conditions under then-only ifs when if-condition rewrites are disabled" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32 i32 i32) (result i32) local.get 0 if (result i32) local.get 1 if (result i32) i32.const 0 else local.get 2 if (result i32) i32.const 0 else local.get 3 i32.eqz end end else i32.const 0 end if local.get 1 drop end i32.const 0))",
   )
   let outer_if = @ir.hot_root_get(func, 0)
   let outer_cond = @ir.hot_child_get(func, outer_if, 0)
-  assert_eq(
-    @ir.hot_node_exact_instr(func, outer_cond),
-    Some(@lib.Instruction::i32_eqz()),
-  )
-  let top_if = @ir.hot_child_get(func, outer_cond, 0)
+  match @ir.hot_node_get(func, outer_cond).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected outer condition to remain a nested if")
+  }
+  let top_if = outer_cond
   let top_then = @ir.hot_region_then_ref(func, top_if)
   let top_else = match @ir.hot_region_else_ref(func, top_if) {
     Some(region) => region
@@ -1143,7 +1144,7 @@ test "optimize-instructions recursively negates nested boolean if conditions und
   }
   assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, top_else_root).imm0),
-    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
   )
   let inner_if = top_then_root
   let inner_then = @ir.hot_region_then_ref(func, inner_if)
@@ -1156,7 +1157,7 @@ test "optimize-instructions recursively negates nested boolean if conditions und
       func,
       @ir.hot_node_get(func, @ir.hot_region_get(func, inner_then, 0)).imm0,
     ),
-    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
   )
   let inner_else_root = @ir.hot_region_get(func, inner_else, 0)
   match @ir.hot_node_get(func, inner_else_root).op {
@@ -1478,78 +1479,68 @@ test "optimize-instructions canonicalizes commutative local get pairs by index" 
 }
 
 ///|
-test "optimize-instructions canonicalizes relational local gets against calls" {
+test "optimize-instructions keeps relational local gets against calls when relational operand rewrites are disabled" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32 i32) (result i32) local.get 2 local.get 0 local.get 1 local.get 2 call 0 i32.lt_s))",
   )
   let root = @ir.hot_root_get(func, 0)
   assert_eq(
     @ir.hot_node_exact_instr(func, root),
-    Some(@lib.Instruction::i32_gt_s()),
+    Some(@lib.Instruction::i32_lt_s()),
   )
   let lhs = @ir.hot_child_get(func, root, 0)
   let rhs = @ir.hot_child_get(func, root, 1)
   match @ir.hot_node_get(func, lhs).op {
-    @ir.HotOp::Call => ()
-    _ =>
-      fail("expected relational canonicalization to move the call onto the lhs")
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected lhs local.get to remain in place")
   }
   match @ir.hot_node_get(func, rhs).op {
-    @ir.HotOp::LocalGet => ()
-    _ =>
-      fail(
-        "expected relational canonicalization to move the local.get onto the rhs",
-      )
+    @ir.HotOp::Call => ()
+    _ => fail("expected rhs call to remain in place")
   }
-  assert_eq(@ir.hot_node_get(func, rhs).imm0, 2)
+  assert_eq(@ir.hot_node_get(func, lhs).imm0, 2)
 }
 
 ///|
-test "optimize-instructions simplifies if i32.ne x 0 conditions" {
+test "optimize-instructions keeps if i32.ne x 0 conditions when if-condition rewrites are disabled" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) (if (result i32) (i32.ne (local.get 1) (i32.const 0)) (then (i32.const 1)) (else (i32.const 0)))))",
   )
   let root = @ir.hot_root_get(func, 0)
   let cond = @ir.hot_child_get(func, root, 0)
-  match @ir.hot_node_get(func, cond).op {
-    @ir.HotOp::LocalGet => ()
-    _ =>
-      fail(
-        "expected boolean if condition to collapse to the underlying local.get",
-      )
-  }
-  assert_eq(@ir.hot_node_get(func, cond).imm0, 1)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, cond),
+    Some(@lib.Instruction::i32_ne()),
+  )
 }
 
 ///|
-test "optimize-instructions flips if i32.eqz conditions by swapping arms" {
+test "optimize-instructions keeps if i32.eqz conditions when if-condition rewrites are disabled" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) (if (result i32) (i32.eqz (local.get 0)) (then (local.get 1)) (else (i32.const 7)))))",
   )
   let root = @ir.hot_root_get(func, 0)
   let cond = @ir.hot_child_get(func, root, 0)
-  match @ir.hot_node_get(func, cond).op {
-    @ir.HotOp::LocalGet => ()
-    _ => fail("expected flipped if to use the raw local.get as its condition")
-  }
-  assert_eq(@ir.hot_node_get(func, cond).imm0, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, cond),
+    Some(@lib.Instruction::i32_eqz()),
+  )
   let then_region = @ir.hot_region_then_ref(func, root)
   let else_region = @ir.hot_region_else_ref(func, root).unwrap()
   let then_root = @ir.hot_region_get(func, then_region, 0)
   let else_root = @ir.hot_region_get(func, else_region, 0)
   match @ir.hot_node_get(func, then_root).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected then arm to remain the original then payload")
+  }
+  match @ir.hot_node_get(func, else_root).op {
     @ir.HotOp::Const => ()
-    _ => fail("expected flipped then arm to hold the original else payload")
+    _ => fail("expected else arm to remain the original else payload")
   }
   assert_eq(
-    @ir.hot_const_get(func, @ir.hot_node_get(func, then_root).imm0),
+    @ir.hot_const_get(func, @ir.hot_node_get(func, else_root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(7)),
   )
-  match @ir.hot_node_get(func, else_root).op {
-    @ir.HotOp::LocalGet => ()
-    _ => fail("expected flipped else arm to hold the original then payload")
-  }
-  assert_eq(@ir.hot_node_get(func, else_root).imm0, 1)
 }
 
 ///|
