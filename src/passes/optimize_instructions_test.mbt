@@ -1553,6 +1553,40 @@ test "optimize-instructions flips if i32.eqz conditions by swapping arms" {
 }
 
 ///|
+test "optimize-instructions wraps boolean value ifs in eqz at unique child uses" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (local i32) local.get 0 if (result i32) local.get 1 i32.eqz else i32.const 0 end local.set 2 local.get 2))",
+  )
+  let set_ = @ir.hot_root_get(func, 0)
+  let wrapped = @ir.hot_child_get(func, set_, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, wrapped),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  let nested_if = @ir.hot_child_get(func, wrapped, 0)
+  match @ir.hot_node_get(func, nested_if).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected wrapped value rewrite to preserve the nested if")
+  }
+  let then_region = @ir.hot_region_then_ref(func, nested_if)
+  let else_region = match @ir.hot_region_else_ref(func, nested_if) {
+    Some(region) => region
+    None => fail("expected wrapped value if to keep an else region")
+  }
+  let then_root = @ir.hot_region_get(func, then_region, 0)
+  let else_root = @ir.hot_region_get(func, else_region, 0)
+  match @ir.hot_node_get(func, then_root).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected wrapped value if then arm to expose the local")
+  }
+  assert_eq(@ir.hot_node_get(func, then_root).imm0, 1)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, else_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+}
+
+///|
 test "optimize-instructions does not reorder across the same local" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 local.get 0 local.tee 0 i32.const 1 i32.shl i32.add))",

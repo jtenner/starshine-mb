@@ -1769,6 +1769,68 @@ fn optimize_instructions_try_optimize_if_condition(
 }
 
 ///|
+fn optimize_instructions_try_wrap_boolean_if_value_in_eqz(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_node_result_arity(func, node_id) != 1 {
+    return false
+  }
+  let else_region = match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) => region
+    None => return false
+  }
+  let then_region = @ir.hot_region_then_ref(func, node_id)
+  if @ir.hot_region_root_count(func, then_region) != 1 ||
+    @ir.hot_region_root_count(func, else_region) != 1 {
+    return false
+  }
+  let use_def = pass_require_use_def(ctx, func)
+  if @ir.node_use_count(use_def, node_id) != 1 {
+    return false
+  }
+  let use_sites = @ir.node_use_sites_borrowed(use_def, node_id)
+  if use_sites.length() != 1 {
+    return false
+  }
+  let use_site = use_sites[0]
+  if use_site.user == -1 {
+    return false
+  }
+  match use_site.kind {
+    @ir.HotUseSlotKind::ChildUseSlot => ()
+    @ir.HotUseSlotKind::RootUseSlot => return false
+  }
+  let neg_then = match
+    optimize_instructions_negate_boolean_expr_recursive(
+      func,
+      dead,
+      @ir.hot_region_get(func, then_region, 0),
+    ) {
+    Some(node) => node
+    None => return false
+  }
+  let neg_else = match
+    optimize_instructions_negate_boolean_expr_recursive(
+      func,
+      dead,
+      @ir.hot_region_get(func, else_region, 0),
+    ) {
+    Some(node) => node
+    None => return false
+  }
+  @ir.hot_region_replace_body(func, then_region, [neg_then])
+  @ir.hot_region_replace_body(func, else_region, [neg_else])
+  let wrapped = @ir.hot_build_unary(func, @lib.ValType::i32(), node_id)
+  @ir.hot_node_exact_instr_set(func, wrapped, @lib.Instruction::i32_eqz())
+  @ir.hot_child_set(func, use_site.user, use_site.slot, wrapped)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn optimize_instructions_try_invert_nested_if_condition(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2728,6 +2790,9 @@ fn optimize_instructions_visit_node(
       )
     @ir.HotOp::If =>
       optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id) ||
+      optimize_instructions_try_wrap_boolean_if_value_in_eqz(
+        ctx, func, dead, node_id,
+      ) ||
       optimize_instructions_try_collapse_dead_region_suffix(
         ctx,
         func,
