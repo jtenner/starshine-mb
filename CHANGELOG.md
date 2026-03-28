@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: accept extended-const arithmetic in initializers
+
+- **Extended-const arithmetic validation** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/validate/validate.mbt`](./src/validate/validate.mbt) so global and data-offset const expressions now accept pure extended-const arithmetic and conversion operators instead of rejecting them at the explicit const-expression gate. The focused validator regressions cover arithmetic in both global initializers and active-data offsets, and the refreshed RUME `wasm-smith` replay cleared the last Starshine-side final-validation failure before exposing a later no-op active-elem mismatch plus Binaryen-only parser failures.
+
 ## 2026-03-28 Fix: validate memory64 limits against the correct page bound
 
 - **Memory64 limit-range validation** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/validate/validate.mbt`](./src/validate/validate.mbt) so `MemType` validation checks `i64` memories against the memory64 page bound instead of the 32-bit `65536`-page cap. The focused validator regression covers a large valid memory64 maximum, and the post-fix RUME `wasm-smith` replay reached `147/147` normalized matches with `0` mismatches before the `20` command-failure cutoff, leaving only one Starshine-side final-validation blocker plus Binaryen parser failures.
