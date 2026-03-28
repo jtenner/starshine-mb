@@ -57,13 +57,15 @@ Observed unique-pass order
 1. Canonical correctness landed.
    - [RUME]003 - Oracle-stable fast-path pass completed - Direct pass execution, CLI flag and registry wiring, focused section/index rewrite coverage, explicit memarg-index rewrites, and canonical compare-harness artifact parity are in place; `remove-unused-module-elements` is now canonically correct against the oracle on the debug artifact.
      - Deliverables: replay `remove-unused-module-elements` on `tests/node/dist/starshine-debug-wasi.wasm`; keep canonical compare parity green while tracking pass-time and wall-time trends; continue replaying ordered no-DWARF slots when preset ordering is available.
-     - Current blocker: no outstanding correctness issues were observed in the oracle compare path; remaining work is ordered-prefix replay and broader pipeline runtime envelope only.
+     - Current blocker: targeted `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --count 300 --max-failures 5 --out-dir .tmp/pass-fuzz-rume` found two `wasm-smith` parity mismatches before a later decoder abort, while the clean `gen-valid` sweep `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 500 --max-failures 5 --out-dir .tmp/pass-fuzz-rume-genvalid` was `500/500` normalized matches with no validation or generator failures. The saved repros are `.tmp/pass-fuzz-rume/failures/case-000001-wasm-smith` and `.tmp/pass-fuzz-rume/failures/case-000005-wasm-smith`: Binaryen drops all unused imported module elements in both cases, but Starshine keeps unused imported memory/table/global entries. The likely gap is in `src/passes/remove_unused_module_elements.mbt`, where the pass computes imported remaps but still copies `import_sec` through unchanged, so unused imported module elements can never be removed. A separate follow-up remains on the later `wasm-smith` decoder abort (`DecodeAt(InvalidLimits, 11, 17)`) so fuzz coverage is not cut short by non-parity failures.
      - Doc: [0066#L148](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L148)
 2. Do work.
    - Keep the landed direct pass stable while tightening Binaryen parity; do not widen the public preset order until the exact replay slots are available.
+   - Fix imported module-element removal so unused imported memories, tables, globals, and tags can be dropped and remapped consistently instead of preserving `import_sec` verbatim.
 3. Test against binaryen.
    - Keep `moon test src/passes` and `moon test src/cmd` green while replaying the compare harness.
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-module-elements` and any required ordered-prefix replay.
+   - Replay the saved fuzz repros under `.tmp/pass-fuzz-rume/failures/case-000001-wasm-smith` and `.tmp/pass-fuzz-rume/failures/case-000005-wasm-smith`, then rerun the targeted `wasm-smith` compare harness after the imported-element fix to confirm those mismatches close without regressing the `gen-valid` sweep.
 
 #### DCE - Dead Code Elimination
 0. Shared blocker on canonical artifact parity.
