@@ -1039,7 +1039,7 @@ test "optimize-instructions does not add unreachable tails to escaping if arms" 
 }
 
 ///|
-test "optimize-instructions keeps nested boolean if conditions when if-condition rewrites are disabled" {
+test "optimize-instructions keeps nested boolean if conditions under current parity guards" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i64 i32) (result i32) local.get 0 i64.eqz if (result i32) local.get 1 i32.eqz else i32.const 0 end if (result i32) i32.const 1 else local.get 0 i64.const -1 i64.eq if (result i32) local.get 1 else i32.const 0 end end))",
   )
@@ -1090,16 +1090,12 @@ test "optimize-instructions keeps nested boolean if conditions when if-condition
 }
 
 ///|
-test "optimize-instructions keeps nested boolean if conditions under then-only ifs when if-condition rewrites are disabled" {
+test "optimize-instructions keeps nested boolean if conditions under then-only ifs with current parity guards" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) local.get 0 if (result i32) local.get 1 i32.eqz else i32.const 0 end if local.get 1 drop end i32.const 0))",
   )
   let outer_if = @ir.hot_root_get(func, 0)
   let outer_cond = @ir.hot_child_get(func, outer_if, 0)
-  match @ir.hot_node_get(func, outer_cond).op {
-    @ir.HotOp::If => ()
-    _ => fail("expected then-only outer if condition to remain a nested if")
-  }
   let nested_if = outer_cond
   match @ir.hot_node_get(func, nested_if).op {
     @ir.HotOp::If => ()
@@ -1123,16 +1119,12 @@ test "optimize-instructions keeps nested boolean if conditions under then-only i
 }
 
 ///|
-test "optimize-instructions keeps recursive nested boolean if conditions under then-only ifs when if-condition rewrites are disabled" {
+test "optimize-instructions keeps recursive nested boolean if conditions under then-only ifs with current parity guards" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32 i32 i32) (result i32) local.get 0 if (result i32) local.get 1 if (result i32) i32.const 0 else local.get 2 if (result i32) i32.const 0 else local.get 3 i32.eqz end end else i32.const 0 end if local.get 1 drop end i32.const 0))",
   )
   let outer_if = @ir.hot_root_get(func, 0)
   let outer_cond = @ir.hot_child_get(func, outer_if, 0)
-  match @ir.hot_node_get(func, outer_cond).op {
-    @ir.HotOp::If => ()
-    _ => fail("expected outer condition to remain a nested if")
-  }
   let top_if = outer_cond
   let top_then = @ir.hot_region_then_ref(func, top_if)
   let top_else = match @ir.hot_region_else_ref(func, top_if) {

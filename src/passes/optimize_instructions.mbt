@@ -1913,7 +1913,14 @@ fn optimize_instructions_try_optimize_if_condition(
   if direct_rewrite {
     return true
   }
-  false
+  if optimize_instructions_try_invert_nested_if_condition(
+      ctx, func, dead, node_id, cond_id, then_region, else_region,
+    ) {
+    return true
+  }
+  optimize_instructions_try_negate_nested_if_condition_to_eqz(
+    ctx, func, dead, node_id, cond_id, else_region,
+  )
 }
 
 ///|

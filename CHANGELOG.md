@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: restore nested boolean if rewrites in OI
+
+- **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to re-enable the nested boolean `if` inversion and `eqz` negation helpers inside `optimize_instructions_try_optimize_if_condition` now that the real invalid-module artifact no longer reproduces with the current parity stack. Focused `OI` tests, native `moon build --target native --release src/cmd`, and the native `cmd.exe --optimize-instructions` run on `tests/node/dist/starshine-debug-wasi.wasm` are green; `optimize_instructions_try_canonicalize_relational_operands` remains disabled as the still-unsafe compare-side surface.
+
 ## 2026-03-28 Fix: restore safe direct if rewrites in OI
 
 - **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to re-enable the safe subset of `optimize_instructions_try_optimize_if_condition`: duplicate-branch collapse and the direct `i32.ne` / `i32.eq` / `i32.eqz` condition rewrites. The nested boolean `if` inversion/negation helpers remain disabled while the invalid control/value-stack interaction is reduced further. Focused `OI` tests and the native `cmd.exe --optimize-instructions` artifact validation stay green on `tests/node/dist/starshine-debug-wasi.wasm`.
