@@ -104,6 +104,74 @@ if (process.argv[2] === "run" && process.argv[3] === "src/cmd") {
   }
   process.exit(0);
 }
+if (process.argv[2] === "run" && process.argv.includes("src/fuzz")) {
+  const args = process.argv.slice(2);
+  const outDir = args[args.indexOf("--out-dir") + 1];
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, "gen-valid-000001.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000002.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000003.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000004.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000005.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000006.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000007.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000008.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000009.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000010.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000011.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000012.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000013.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000014.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000015.wasm"), "x");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000016.wasm"), "x");
+  process.exit(0);
+}
+process.exit(0);
+`,
+  );
+  const fakeStarshinePath = makeExecutable(
+    path.join(tmpdir, "starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const outIndex = args.indexOf("--out");
+if (outIndex !== -1) {
+  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+  fs.writeFileSync(args[outIndex + 1], "starshine");
+}
+process.exit(0);
+`,
+  );
+  const fakeWasmOptPath = makeExecutable(
+    path.join(tmpdir, "wasm-opt"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const outIndex = args.indexOf("-o");
+if (outIndex !== -1) {
+  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+  if (args.includes("-S")) {
+    fs.writeFileSync(args[outIndex + 1], "(module)\\n");
+  } else {
+    fs.writeFileSync(args[outIndex + 1], "binaryen");
+  }
+}
+process.exit(0);
+`,
+  );
+  const fakeWasmToolsPath = makeExecutable(
+    path.join(tmpdir, "wasm-tools"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+if (args[0] === "smith") {
+  const outIndex = args.indexOf("-o");
+  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+  fs.writeFileSync(args[outIndex + 1], "smith");
+}
 process.exit(0);
 `,
   );
@@ -115,6 +183,8 @@ process.exit(0);
     ...process.env,
     FAKE_MOON_LOG: logPath,
     MOON_BIN: fakeMoonPath,
+    WASM_OPT_BIN: fakeWasmOptPath,
+    WASM_TOOLS_BIN: fakeWasmToolsPath,
   };
 
   fs.writeFileSync(logPath, "");
@@ -168,6 +238,34 @@ process.exit(0);
   assert(
     actualFuzzSuiteProfileAlias === "run --target wasm src/fuzz -- cmd-harness stress --seed 0x5eed",
     `unexpected fuzz suite/profile alias command log:\n${actualFuzzSuiteProfileAlias}`,
+  );
+
+  fs.writeFileSync(logPath, "");
+  const comparePassOutDir = path.join(tmpdir, "compare-pass-out");
+  runBun(
+    repoRoot,
+    [
+      "fuzz",
+      "compare-pass",
+      "--count",
+      "32",
+      "--seed",
+      "0x5eed",
+      "--pass",
+      "remove-unused-brs",
+      "--starshine-bin",
+      fakeStarshinePath,
+      "--out-dir",
+      comparePassOutDir,
+      "--moon",
+      fakeMoonPath,
+    ],
+    env,
+  );
+  const actualComparePass = fs.readFileSync(logPath, "utf8").trim();
+  assert(
+    actualComparePass === `build --target native --release --package jtenner/starshine/cmd\nrun --target native --release src/fuzz -- --emit-gen-valid-batch --count 16 --seed 0x5eed --out-dir ${path.join(comparePassOutDir, "inputs", "gen-valid")}`,
+    `unexpected compare-pass command log:\n${actualComparePass}`,
   );
 
   fs.writeFileSync(logPath, "");

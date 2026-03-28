@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fuzz: add targeted Starshine vs Binaryen pass-differential harness
+
+- **Pass-differential fuzz harness** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`AGENTS.md`](./AGENTS.md), [`README.md`](./README.md), [`scripts/lib/fuzz-task.ts`](./scripts/lib/fuzz-task.ts), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), [`scripts/pass-fuzz-compare.ts`](./scripts/pass-fuzz-compare.ts), [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts), [`scripts/test/task-family-commands.ts`](./scripts/test/task-family-commands.ts), [`src/fuzz/imports.mbt`](./src/fuzz/imports.mbt), [`src/fuzz/main.mbt`](./src/fuzz/main.mbt), [`src/fuzz/main_test.mbt`](./src/fuzz/main_test.mbt), [`src/fuzz/moon.pkg`](./src/fuzz/moon.pkg), and [`src/fuzz/pkg.generated.mbti`](./src/fuzz/pkg.generated.mbti) to add a targeted Starshine-vs-Binaryen fuzzing tool for implemented passes. The new workflow supports `bun fuzz compare-pass ...` and `bun scripts/pass-fuzz-compare.ts ...`, canonical `--pass <name>` targeting plus `--list-passes`, deterministic `gen_valid` batch emission from `src/fuzz`, alternating `wasm-tools smith` and in-repo `gen_valid` inputs, required `wasm-tools validate` checks on Starshine output, and normalized `wasm-opt -S --strip-debug` parity comparison with persisted failure artifacts for mismatch reduction.
+
 ## 2026-03-28 Docs: tighten AGENTS workflow guide
 
 - **`AGENTS.md` workflow rewrite** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`AGENTS.md`](./AGENTS.md) to replace the older mixed instruction list with a terser layout organized by project layout, grouped task rules, and tool usage. The new guide keeps the same repo-specific constraints while making commit, publish, research, backlog, and MoonBit-style expectations easier to scan and apply consistently.

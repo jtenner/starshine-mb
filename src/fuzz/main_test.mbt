@@ -1,4 +1,10 @@
 ///|
+using @binary {decode_module}
+
+///|
+using @validate {validate_module, validation_error_message}
+
+///|
 test "parse_fuzz_cli_args defaults to all smoke seed" {
   let parsed = parse_fuzz_cli_args([])
   assert_eq(parsed.suite, "all")
@@ -73,6 +79,52 @@ test "parse_fuzz_cli_command detects control commands" {
   match parse_fuzz_cli_command(["--list-profiles"]) {
     ListProfiles => ()
     _ => fail("expected list profiles command")
+  }
+}
+
+///|
+test "parse_fuzz_cli_command detects emit-gen-valid-batch command" {
+  match
+    parse_fuzz_cli_command([
+      "--emit-gen-valid-batch", "--count", "2", "--seed", "0x5eed", "--out-dir",
+      "tmp/gen-valid",
+    ]) {
+    EmitGenValidBatch(args) => {
+      assert_eq(args.count, 2)
+      assert_eq(args.seed, 0x5eedUL)
+      assert_eq(args.out_dir, "tmp/gen-valid")
+    }
+    _ => fail("expected emit-gen-valid-batch command")
+  }
+}
+
+///|
+test "emit_gen_valid_batch_artifacts returns deterministic validated wasm files" {
+  let first = match emit_gen_valid_batch_artifacts(2, 0x5eedUL) {
+    Ok(v) => v
+    Err(e) => fail("expected gen-valid artifacts success, got \{e}")
+  }
+  let second = match emit_gen_valid_batch_artifacts(2, 0x5eedUL) {
+    Ok(v) => v
+    Err(e) => fail("expected second gen-valid artifacts success, got \{e}")
+  }
+  assert_eq(first.length(), 2)
+  assert_eq(first, second)
+  assert_eq(first[0].0, "gen-valid-000001.wasm")
+  assert_eq(first[1].0, "gen-valid-000002.wasm")
+  for artifact in first {
+    assert_true(artifact.1.length() > 0)
+    let decoded = match decode_module(artifact.1) {
+      Ok(v) => v
+      Err(e) => fail("expected generated artifact to decode, got \{e}")
+    }
+    match validate_module(decoded) {
+      Ok(_) => ()
+      Err(e) =>
+        fail(
+          "expected generated artifact to validate, got \{validation_error_message(e)}",
+        )
+    }
   }
 }
 

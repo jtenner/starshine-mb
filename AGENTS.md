@@ -90,6 +90,7 @@
 - For pass-specific Starshine vs Binaryen differential fuzzing, use `bun fuzz compare-pass ...` or `bun scripts/pass-fuzz-compare.ts ...`.
 - Prefer `--pass <name>` with canonical pass names.
 - Use `bun scripts/pass-fuzz-compare.ts --list-passes` to discover supported passes.
+- Treat the harness as a targeted pass tool: start with one named pass and only expand to multi-pass runs when combined-pass behavior is the goal.
 - The harness alternates `wasm-tools smith` and in-repo `gen_valid`, validates with `wasm-tools validate`, and compares normalized `wasm-opt -S --strip-debug` output.
 
 ## Validation And Signoff

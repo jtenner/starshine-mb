@@ -1,6 +1,7 @@
 import process from "node:process";
 
 import { assertTarget, fail, resolveMoonBin, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
+import { runPassFuzzCompare } from "./pass-fuzz-compare-task";
 
 export type FuzzOptions = {
   profile: string;
@@ -132,16 +133,16 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
     }
   }
 
-  if (positional.length() > 3) {
+  if (positional.length > 3) {
     fail("too many positional arguments; expected [suite] [profile] [seed]");
   }
-  if (positional.length() >= 1) {
+  if (positional.length >= 1) {
     options.suite = positional[0];
   }
-  if (positional.length() >= 2) {
+  if (positional.length >= 2) {
     options.profile = positional[1];
   }
-  if (positional.length() === 3) {
+  if (positional.length === 3) {
     if (options.seed !== null) {
       fail("seed provided both as positional argument and --seed flag");
     }
@@ -154,7 +155,7 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
   }
   if (
     (options.listSuites || options.listProfiles || options.help) &&
-    (options.seed !== null || positional.length() > 0)
+    (options.seed !== null || positional.length > 0)
   ) {
     fail(
       "--list-suites, --list-profiles, and --help cannot be combined with suite/profile/seed arguments",
@@ -191,11 +192,11 @@ export function runFuzz(options: FuzzOptions, repoRoot = resolveWorkspaceRoot())
   }
 
   const args = ["run", "--target", options.target, "src/fuzz", "--", options.suite, options.profile];
-  if (options.output === "jsonl") {
-    args.push("--output", "jsonl");
-  }
   if (options.seed !== null) {
     args.push("--seed", options.seed);
+  }
+  if (options.output === "jsonl") {
+    args.push("--output", "jsonl");
   }
   runOrThrow(options.moonBin, args, { cwd: repoRoot });
 }
@@ -203,9 +204,13 @@ export function runFuzz(options: FuzzOptions, repoRoot = resolveWorkspaceRoot())
 // `bun fuzz run` entrypoint with a strict single subcommand and no fallback parser.
 export function main(argv: string[]): void {
   const [subcommand, ...rest] = argv;
+  if (subcommand === "compare-pass") {
+    void runPassFuzzCompare(rest);
+    return;
+  }
   if (subcommand !== "run") {
     fail(
-      "usage: bun fuzz run [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <hex>|--seed=<hex>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]",
+      "usage: bun fuzz run [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <hex>|--seed=<hex>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]",
     );
   }
   runFuzz(parseFuzzRunArgs(rest));

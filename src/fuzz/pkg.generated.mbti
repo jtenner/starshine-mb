@@ -6,6 +6,8 @@ import {
 }
 
 // Values
+pub fn emit_gen_valid_batch_artifacts(Int, UInt64) -> Result[Array[(String, Bytes)], String]
+
 pub fn format_fuzz_suite_result(FuzzSuiteResult, FuzzOutputMode) -> String
 
 pub fn parse_fuzz_cli_args(Array[String]) -> FuzzCliArgs
@@ -17,6 +19,16 @@ pub fn run_fuzz_suite(String, String, Int64) -> Result[Array[FuzzSuiteResult], S
 // Errors
 
 // Types and methods
+pub struct EmitGenValidBatchArgs {
+  count : Int
+  seed : UInt64
+  out_dir : String
+}
+pub fn EmitGenValidBatchArgs::new(Int, UInt64, String) -> Self
+pub impl Eq for EmitGenValidBatchArgs
+pub impl Show for EmitGenValidBatchArgs
+pub impl @debug.Debug for EmitGenValidBatchArgs
+
 pub struct FuzzCliArgs {
   suite : String
   profile : String
@@ -33,6 +45,7 @@ pub enum FuzzCliCommand {
   Help
   ListSuites
   ListProfiles
+  EmitGenValidBatch(EmitGenValidBatchArgs)
 }
 pub impl Eq for FuzzCliCommand
 pub impl Show for FuzzCliCommand

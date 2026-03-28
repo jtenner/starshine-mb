@@ -14,11 +14,28 @@ pub struct FuzzCliArgs {
 } derive(Eq, Show, Debug)
 
 ///|
+pub struct EmitGenValidBatchArgs {
+  count : Int
+  seed : UInt64
+  out_dir : String
+} derive(Eq, Show, Debug)
+
+///|
+pub fn EmitGenValidBatchArgs::new(
+  count : Int,
+  seed : UInt64,
+  out_dir : String,
+) -> EmitGenValidBatchArgs {
+  { count, seed, out_dir }
+}
+
+///|
 pub enum FuzzCliCommand {
   Run(FuzzCliArgs)
   Help
   ListSuites
   ListProfiles
+  EmitGenValidBatch(EmitGenValidBatchArgs)
 } derive(Eq, Show, Debug)
 
 ///|
@@ -73,7 +90,7 @@ fn fuzz_join(values : Array[String], sep : String) -> String {
 fn fuzz_usage_text() -> String {
   let suites = fuzz_join(fuzz_suite_names(), ", ")
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
-  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles\nsuites: \{suites}\nprofiles: \{profiles}"
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir>\nsuites: \{suites}\nprofiles: \{profiles}"
 }
 
 ///|
@@ -286,6 +303,21 @@ fn fuzz_has_output_equals_flag(arg : String) -> Bool {
 }
 
 ///|
+fn fuzz_has_prefix_text(arg : String, prefix : String) -> Bool {
+  if arg.length() < prefix.length() {
+    return false
+  }
+  let mut i = 0
+  while i < prefix.length() {
+    if arg[i] != prefix[i] {
+      return false
+    }
+    i += 1
+  }
+  true
+}
+
+///|
 fn fuzz_tail_string(input : String, start : Int) -> String {
   let out = StringBuilder::new()
   let mut i = start
@@ -313,6 +345,135 @@ fn fuzz_parse_output_or_abort(raw : String) -> FuzzOutputMode {
 }
 
 ///|
+fn fuzz_parse_uint64_or_abort(raw : String) -> UInt64 {
+  match fuzz_parse_seed(raw) {
+    Ok(v) =>
+      if v < 0L {
+        abort("seed must be non-negative")
+      } else {
+        v.reinterpret_as_uint64()
+      }
+    Err(e) => abort(e)
+  }
+}
+
+///|
+fn fuzz_parse_non_negative_decimal_or_abort(
+  label : String,
+  raw : String,
+) -> Int {
+  let text = raw.trim().to_string()
+  if text.length() == 0 {
+    abort("\{label} must not be empty")
+  }
+  let mut value = 0
+  for c in text {
+    if c < '0' || c > '9' {
+      abort("invalid \{label} '\{raw}'")
+    }
+    let digit = c.to_int() - '0'.to_int()
+    value = value * 10 + digit
+  }
+  value
+}
+
+///|
+fn fuzz_parse_emit_gen_valid_batch_args(
+  args : Array[String],
+) -> EmitGenValidBatchArgs {
+  let mut count : Int? = None
+  let mut seed : UInt64? = None
+  let mut out_dir : String? = None
+  let mut i = 1
+  while i < args.length() {
+    let arg = args[i].trim().to_string()
+    if arg == "--count" {
+      if i + 1 >= args.length() {
+        abort("missing value for --count")
+      }
+      if count is Some(_) {
+        abort("duplicate --count flag")
+      }
+      count = Some(
+        fuzz_parse_non_negative_decimal_or_abort("count", args[i + 1]),
+      )
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--count=") {
+      if count is Some(_) {
+        abort("duplicate --count flag")
+      }
+      count = Some(
+        fuzz_parse_non_negative_decimal_or_abort(
+          "count",
+          fuzz_tail_string(arg, 8),
+        ),
+      )
+      i += 1
+      continue
+    }
+    if arg == "--seed" {
+      if i + 1 >= args.length() {
+        abort("missing value for --seed")
+      }
+      if seed is Some(_) {
+        abort("duplicate --seed flag")
+      }
+      seed = Some(fuzz_parse_uint64_or_abort(args[i + 1]))
+      i += 2
+      continue
+    }
+    if fuzz_has_seed_equals_flag(arg) {
+      if seed is Some(_) {
+        abort("duplicate --seed flag")
+      }
+      seed = Some(fuzz_parse_uint64_or_abort(fuzz_tail_string(arg, 7)))
+      i += 1
+      continue
+    }
+    if arg == "--out-dir" {
+      if i + 1 >= args.length() {
+        abort("missing value for --out-dir")
+      }
+      if out_dir is Some(_) {
+        abort("duplicate --out-dir flag")
+      }
+      out_dir = Some(args[i + 1])
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--out-dir=") {
+      if out_dir is Some(_) {
+        abort("duplicate --out-dir flag")
+      }
+      out_dir = Some(fuzz_tail_string(arg, 10))
+      i += 1
+      continue
+    }
+    abort("unknown flag '\{arg}'")
+  }
+  let resolved_count = match count {
+    Some(v) => v
+    None => abort("missing required --count for --emit-gen-valid-batch")
+  }
+  let resolved_seed = match seed {
+    Some(v) => v
+    None => abort("missing required --seed for --emit-gen-valid-batch")
+  }
+  let resolved_out_dir = match out_dir {
+    Some(v) =>
+      if v.trim().to_string().length() == 0 {
+        abort("--out-dir must not be empty")
+      } else {
+        v
+      }
+    None => abort("missing required --out-dir for --emit-gen-valid-batch")
+  }
+  EmitGenValidBatchArgs::new(resolved_count, resolved_seed, resolved_out_dir)
+}
+
+///|
 fn fuzz_parse_control_command(arg : String) -> FuzzCliCommand? {
   let normalized = fuzz_ascii_lower(arg.trim().to_string())
   match normalized {
@@ -326,6 +487,12 @@ fn fuzz_parse_control_command(arg : String) -> FuzzCliCommand? {
 
 ///|
 pub fn parse_fuzz_cli_command(args : Array[String]) -> FuzzCliCommand {
+  if args.length() > 0 &&
+    fuzz_ascii_lower(args[0].trim().to_string()) == "--emit-gen-valid-batch" {
+    return FuzzCliCommand::EmitGenValidBatch(
+      fuzz_parse_emit_gen_valid_batch_args(args),
+    )
+  }
   let mut control : FuzzCliCommand? = None
   let mut i = 0
   while i < args.length() {
@@ -495,6 +662,84 @@ fn run_single_suite(
 }
 
 ///|
+fn fuzz_zero_pad_decimal(value : Int, width : Int) -> String {
+  let raw = value.to_string()
+  if raw.length() >= width {
+    return raw
+  }
+  let out = StringBuilder::new()
+  let mut i = raw.length()
+  while i < width {
+    out.write_char('0')
+    i += 1
+  }
+  out.write_string(raw)
+  out.to_string()
+}
+
+///|
+fn fuzz_join_path(dir : String, name : String) -> String {
+  if dir.length() == 0 || dir == "." {
+    return name
+  }
+  let last = dir[dir.length() - 1]
+  if last == '/' || last == '\\' {
+    "\{dir}\{name}"
+  } else {
+    "\{dir}/\{name}"
+  }
+}
+
+///|
+pub fn emit_gen_valid_batch_artifacts(
+  count : Int,
+  seed : UInt64,
+) -> Result[Array[(String, Bytes)], String] {
+  if count < 0 {
+    return Err("count must be non-negative")
+  }
+  let rnd = @splitmix.new(seed~)
+  let artifacts : Array[(String, Bytes)] = []
+  let mut i = 0
+  while i < count {
+    let mod = gen_valid_module(rnd)
+    match validate_module(mod) {
+      Ok(_) => ()
+      Err(err) =>
+        return Err(
+          "gen-valid batch produced invalid module at index \{i + 1}: \{validation_error_message(err)}",
+        )
+    }
+    let bytes = match encode_module(mod) {
+      Ok(v) => v
+      Err(err) =>
+        return Err("gen-valid batch encode failed at index \{i + 1}: \{err}")
+    }
+    artifacts.push(("gen-valid-\{fuzz_zero_pad_decimal(i + 1, 6)}.wasm", bytes))
+    i += 1
+  }
+  Ok(artifacts)
+}
+
+///|
+fn emit_gen_valid_batch_to_dir(
+  args : EmitGenValidBatchArgs,
+) -> Result[Int, String] {
+  let artifacts = match emit_gen_valid_batch_artifacts(args.count, args.seed) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  for artifact in artifacts {
+    let path = fuzz_join_path(args.out_dir, artifact.0)
+    match write_file_bytes(path, artifact.1) {
+      Ok(_) => ()
+      Err(e) => return Err("failed to write gen-valid artifact \{path}: \{e}")
+    }
+  }
+  Ok(args.count)
+}
+
+///|
 pub fn run_fuzz_suite(
   suite : String,
   profile : String,
@@ -590,6 +835,14 @@ fn main {
     FuzzCliCommand::ListProfiles =>
       for profile in fuzz_profile_names() {
         println(profile)
+      }
+    FuzzCliCommand::EmitGenValidBatch(args) =>
+      match emit_gen_valid_batch_to_dir(args) {
+        Ok(count) =>
+          println(
+            "generated=\{count} seed=\{args.seed} out_dir=\{args.out_dir}",
+          )
+        Err(e) => abort(e)
       }
     FuzzCliCommand::Run(parsed) => {
       let output_mode = parsed.output_mode

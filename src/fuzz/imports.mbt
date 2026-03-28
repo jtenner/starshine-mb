@@ -11,7 +11,7 @@ using @lib {trace_elapsed_ms, trace_now_ms, trace_now_us}
 using @validate {gen_valid_module, validate_module, validation_error_message}
 
 ///|
-using @fs {create_dir, list_files_recursive, read_file_sync, write_file_bytes}
+using @fs {write_file_bytes}
 
 ///|
 using @wast {run_wast_roundtrip_fuzz}
