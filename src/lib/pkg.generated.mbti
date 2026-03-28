@@ -50,7 +50,7 @@ pub fn mem_extern_idx(MemIdx) -> ExternIdx
 
 pub fn mem_extern_type(MemType) -> ExternType
 
-pub fn mem_type(Limits) -> MemType
+pub fn mem_type(Limits, shared? : Bool) -> MemType
 
 pub fn min_addr(Limits, Limits) -> Limits
 
@@ -2455,10 +2455,8 @@ pub impl Show for MemSec
 pub impl @debug.Debug for MemSec
 pub impl @quickcheck.Arbitrary for MemSec
 
-pub struct MemType(Limits)
-#deprecated
-pub fn MemType::inner(Self) -> Limits
-pub fn MemType::new(Limits) -> Self
+pub struct MemType(Limits, Bool)
+pub fn MemType::new(Limits, shared? : Bool) -> Self
 pub impl PrettyPrint for MemType
 pub impl Eq for MemType
 pub impl Hash for MemType

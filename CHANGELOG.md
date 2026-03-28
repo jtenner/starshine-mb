@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: sync generated lib MemType interface
+
+- **Shared-memory public interface sync** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/lib/pkg.generated.mbti`](./src/lib/pkg.generated.mbti) so the generated `lib` package surface matches the landed shared-memory `MemType(Limits, Bool)` API and the optional `shared` parameter on `mem_type(...)`.
+
 ## 2026-03-28 Test: lock typed loop-carrier hot-lower coverage
 
 - **IR2 typed loop-carrier guardrail** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/ir/hot_lower_live_repro_test.mbt`](./src/ir/hot_lower_live_repro_test.mbt) to add a focused `hot_lower` live repro for a typed loop-carried value that is tee'd, used for the backedge increment, and later dropped on fallthrough. This keeps one adjacent carrier shape explicitly green while the later RUB debug-artifact blocker at `Func 807` is still awaiting a smaller artifact-backed reduction.
