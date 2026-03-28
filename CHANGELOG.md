@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: classify Binaryen invalid-tag-index fuzz failures
+
+- **Large RUN oracle refresh** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) after a larger `remove-unused-names` oracle sweep. The harness now classifies Binaryen `invalid tag index` parser failures explicitly, the command suite covers that path, and the backlog records the stronger safety evidence from `.tmp/pass-fuzz-run-genvalid-5000`, `.tmp/pass-fuzz-run-smith-2000`, and `.tmp/self-opt-run-remove-unused-names`.
+
 ## 2026-03-28 Docs: prune stale red-test backlog blockers
 
 - **Backlog blocker refresh** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) after re-running `moon test src/passes` and full `moon test`, both of which are green in the current tree. The stale red-test blocker text under `IR2`, `DCE`, `RUB`, and `OI` now reflects the current state: repo-side correctness is green, while the remaining work is artifact replay, ordered-prefix proof, and runtime follow-up.

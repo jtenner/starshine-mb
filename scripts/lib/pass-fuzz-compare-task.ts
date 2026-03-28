@@ -11,6 +11,7 @@ type GeneratorKind = "wasm-smith" | "gen-valid";
 type CommandFailureClass =
   | "starshine-command-failed"
   | "binaryen-invalid-type-index"
+  | "binaryen-invalid-tag-index"
   | "binaryen-rec-group-zero"
   | "binaryen-invalid-wasm-type-neg64"
   | "binaryen-command-failed";
@@ -179,6 +180,7 @@ function normalizeCommandFailureClass(raw: string): CommandFailureClass {
   switch (raw.trim()) {
     case "starshine-command-failed":
     case "binaryen-invalid-type-index":
+    case "binaryen-invalid-tag-index":
     case "binaryen-rec-group-zero":
     case "binaryen-invalid-wasm-type-neg64":
     case "binaryen-command-failed":
@@ -249,6 +251,9 @@ function classifyCommandFailure(detail: string): CommandFailureClass {
   }
   if (detail.includes("invalid type index")) {
     return "binaryen-invalid-type-index";
+  }
+  if (detail.includes("invalid tag index")) {
+    return "binaryen-invalid-tag-index";
   }
   if (detail.includes("Recursion groups of size zero not supported")) {
     return "binaryen-rec-group-zero";
