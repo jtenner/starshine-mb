@@ -31,6 +31,26 @@ test "dead-code-elimination removes unreachable roots after return" {
 }
 
 ///|
+test "dead-code-elimination avoids wrapping parent-exit payloads in extra result blocks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit (block $work (if (i32.eq (local.get 0) (i32.const 1)) (then (local.set 2 (local.get 1)) (br $work)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (br $outer (local.get 2))) (i32.const 0))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination parent-exit payload success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_true(pretty.contains("(block (Void)"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination voids dead if results and drops pure arm values" {
   let optimized = match
     pass_test_run_pipeline(
@@ -334,6 +354,49 @@ test "dead-code-elimination removes stacked typed branch-payload forwarders nest
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination removes direct void-if payload forwarders with trailing values" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32 i32) (result i32) (local i32) (local.set 2 (block $out (result i32) (block $exit (br $out (block $mid (result i32) (block $cont (local.set 2 (local.get 0)) (if (local.get 1) (then (local.set 2 (i32.const 7)) (br $exit)) (else (local.set 2 (i32.const 9)))) unreachable) (local.get 2)))) (i32.const 5))) (local.get 2)))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination direct void-if payload-forwarder success, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(br $mid"), msg=pretty)
   assert_false(pretty.contains("(if I32"), msg=pretty)
 }
 
@@ -1078,11 +1141,12 @@ test "dead-code-elimination retargets prefix-heavy nested split local.set payloa
 }
 
 ///|
-test "dead-code-elimination keeps void-if lowered in call-store-heavy split wrappers" {
+///|
+test "dead-code-elimination retargets split wrappers with store-store-return tails" {
   let mod_ = pass_test_module_from_wat(
-    "(module (memory 1) (func $sink (param i32)) (func (param i32 i32 i32) (result i32) (local i32 i32 i32) (local.set 3 (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 4 (local.get 0)) (call $sink (local.get 4)) (call $sink (local.get 1)) (i32.store align=1 (i32.const 0) (local.get 2)) (i32.store align=1 (i32.const 4) (local.get 1)) (local.set 5 (local.get 2)) (call $sink (local.get 5)) (if (local.get 2) (then (local.set 4 (i32.const 7)) (br $block8)) (else (local.set 4 (i32.const 9)) (br $block9))) unreachable) (local.get 4)))) (local.get 3))) (local.get 3)))",
+    "(module (memory 1) (func (param i32) (result i32) (local i32 i32) (local.set 1 (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 2 (i32.const 1)) (br $block10 (if (result i32) (local.get 0) (then (local.set 2 (i32.const 7)) (br $block8)) (else (local.set 2 (i32.const 9)) (br $block9))))) (local.get 2)))) (i32.store align=1 (i32.const 0) (local.get 2)) (i32.store align=1 (i32.const 4) (local.get 2)) (return (local.get 2)))) (i32.const 0)))",
   )
-  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(1U))
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
   let ctx = HotPassContext::new(
     dead_code_elimination_descriptor(),
     @ir.HotAnalysisCache::new(),
@@ -1095,7 +1159,7 @@ test "dead-code-elimination keeps void-if lowered in call-store-heavy split wrap
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected dead-code-elimination call/store-heavy split wrapper success, got \{err}",
+        "expected dead-code-elimination store/store/return split wrapper success, got \{err}",
       )
   }
 
@@ -1105,41 +1169,23 @@ test "dead-code-elimination keeps void-if lowered in call-store-heavy split wrap
       @lib.TypeSec::new([
         @lib.RecType::new(
           @lib.SubType::comp_type(
-            @lib.CompType::func([@lib.ValType::i32()], []),
-          ),
-        ),
-        @lib.RecType::new(
-          @lib.SubType::comp_type(
-            @lib.CompType::func(
-              [
-                @lib.ValType::i32(),
-                @lib.ValType::i32(),
-                @lib.ValType::i32(),
-              ],
-              [@lib.ValType::i32()],
-            ),
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
           ),
         ),
       ]),
     )
-    .with_func_sec(
-      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
-    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
     .with_mem_sec(
       @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1, None))]),
     )
-    .with_code_sec(
-      @lib.CodeSec::new([
-        @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new([])),
-        lowered,
-      ]),
-    )
-    .pretty_print_func(@lib.FuncIdx::new(1U))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("unreachable"), msg=pretty)
   assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
   assert_false(pretty.contains("(if I32"), msg=pretty)
 }
 
+///|
 ///|
 test "dead-code-elimination keeps typed if wrappers with hidden region-label payload branches" {
   let func = @ir.HotFunc::new()

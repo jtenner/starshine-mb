@@ -1186,6 +1186,429 @@ fn hot_lower_impl_is_same_typed_single_if_wrapper(
 }
 
 ///|
+fn hot_lower_impl_has_nonfallthrough_tail(
+  body : Array[Instruction],
+) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  match body[body.length() - 1] {
+    Br(_)
+    | BrIf(_)
+    | BrTable(_, _)
+    | BrOnNull(_)
+    | BrOnNonNull(_)
+    | Return
+    | Throw(_)
+    | ThrowRef
+    | Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_try_sink_terminal_exit_into_arm(
+  body : Array[Instruction],
+  exit_ : Instruction,
+) -> Option[Array[Instruction]] {
+  if hot_lower_impl_has_nonfallthrough_tail(body) {
+    return Some(body)
+  }
+  if body.length() == 0 {
+    return None
+  }
+  for i = 0; i < body.length() - 1; i = i + 1 {
+    if hot_lower_impl_has_control_transfer(body[i]) {
+      return None
+    }
+  }
+  if hot_lower_impl_has_control_transfer(body[body.length() - 1]) {
+    return None
+  }
+  let rewritten : Array[Instruction] = []
+  for instr in body {
+    rewritten.push(instr)
+  }
+  rewritten.push(exit_)
+  Some(rewritten)
+}
+
+///|
+fn hot_lower_impl_try_voidify_parent_exit_if_forwarder(
+  bt : BlockType,
+  body : Array[Instruction],
+) -> Option[Array[Instruction]] {
+  match bt {
+    VoidBlockType => ()
+    _ => return None
+  }
+  if body.length() < 2 {
+    return None
+  }
+  for i = 0; i < body.length() - 2; i = i + 1 {
+    if hot_lower_impl_has_control_transfer(body[i]) {
+      return None
+    }
+  }
+  match body[body.length() - 1] {
+    Br(li) if hot_lower_impl_decoded_label_depth(li) == 1 => ()
+    Return => ()
+    _ => return None
+  }
+  let rewritten : Array[Instruction] = []
+  for i = 0; i < body.length() - 2; i = i + 1 {
+    rewritten.push(body[i])
+  }
+  match body[body.length() - 2] {
+    If(inner_bt, then_, Some(else_)) if inner_bt != @lib.BlockType::void_() =>
+      match
+        hot_lower_impl_try_sink_terminal_exit_into_arm(
+          then_,
+          body[body.length() - 1],
+        ) {
+        Some(rewritten_then) =>
+          match
+            hot_lower_impl_try_sink_terminal_exit_into_arm(
+              else_,
+              body[body.length() - 1],
+            ) {
+            Some(rewritten_else) => {
+      rewritten.push(
+        Instruction::if_(
+          @lib.BlockType::void_(),
+          rewritten_then,
+          Some(rewritten_else),
+        ),
+      )
+      rewritten.push(Instruction::unreachable_())
+      Some(rewritten)
+    }
+            None => None
+          }
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn hot_lower_impl_try_voidify_terminal_return_if_forwarder(
+  body : Array[Instruction],
+) -> Option[Array[Instruction]] {
+  if body.length() < 2 {
+    return None
+  }
+  match body[body.length() - 1] {
+    Return => ()
+    _ => return None
+  }
+  let rewritten : Array[Instruction] = []
+  for i = 0; i < body.length() - 2; i = i + 1 {
+    rewritten.push(body[i])
+  }
+  match body[body.length() - 2] {
+    If(inner_bt, then_, Some(else_)) if inner_bt != @lib.BlockType::void_() =>
+      match
+        hot_lower_impl_try_sink_terminal_exit_into_arm(
+          then_,
+          Instruction::return_(),
+        ) {
+        Some(rewritten_then) =>
+          match
+            hot_lower_impl_try_sink_terminal_exit_into_arm(
+              else_,
+              Instruction::return_(),
+            ) {
+            Some(rewritten_else) => {
+      rewritten.push(
+        Instruction::if_(
+          @lib.BlockType::void_(),
+          rewritten_then,
+          Some(rewritten_else),
+        ),
+      )
+      rewritten.push(Instruction::unreachable_())
+      Some(rewritten)
+    }
+            None => None
+          }
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn hot_lower_impl_try_pack_unreachable_child_payload(
+  bt : BlockType,
+  body : Array[Instruction],
+) -> Option[Array[Instruction]] {
+  match bt {
+    VoidBlockType => return None
+    _ => ()
+  }
+  match body {
+    [Block(VoidBlockType, Expr(inner_body))] => {
+      if inner_body.length() != 3 {
+        return None
+      }
+      let child = inner_body[0]
+      let payload = inner_body[1]
+      let exit_ = inner_body[2]
+      if hot_lower_impl_has_control_transfer(payload) {
+        return None
+      }
+      match exit_ {
+        Br(li) if hot_lower_impl_decoded_label_depth(li) == 1 => ()
+        _ => return None
+      }
+      match child {
+        Block(VoidBlockType, Expr(child_body)) => {
+          if child_body.length() == 0 {
+            return None
+          }
+          match child_body[child_body.length() - 1] {
+            Unreachable => ()
+            _ => return None
+          }
+        }
+        _ => return None
+      }
+      let packed = Instruction::block(bt, Expr::new([child, payload]))
+      Some([
+        Instruction::block(
+          @lib.BlockType::void_(),
+          Expr::new([packed, exit_]),
+        ),
+      ])
+    }
+    _ => None
+  }
+}
+
+///|
+fn hot_lower_impl_try_pack_split_parent_exit_payload(
+  bt : BlockType,
+  body : Array[Instruction],
+) -> Option[Array[Instruction]] {
+  match bt {
+    VoidBlockType => return None
+    _ => ()
+  }
+  match body {
+    [Block(VoidBlockType, Expr(inner_body))] => {
+      if inner_body.length() != 3 {
+        return None
+      }
+      let prefix = inner_body[0]
+      let payload = inner_body[1]
+      let exit_ = inner_body[2]
+      if hot_lower_impl_has_control_transfer(payload) {
+        return None
+      }
+      match exit_ {
+        Br(li) if hot_lower_impl_decoded_label_depth(li) == 1 => ()
+        _ => return None
+      }
+      match prefix {
+        Block(VoidBlockType, Expr(prefix_body)) => {
+          if prefix_body.length() == 0 {
+            return None
+          }
+          match prefix_body[prefix_body.length() - 1] {
+            Unreachable => ()
+            _ => return None
+          }
+        }
+        _ => return None
+      }
+      let packed = Instruction::block(bt, Expr::new([prefix, payload]))
+      if inner_body.length() == 3 {
+        let prefix_kind = match prefix {
+          Block(_, _) => "Block"
+          _ => "Other"
+        }
+        let payload_kind = match payload {
+          LocalGet(_) => "LocalGet"
+          Call(_) => "Call"
+          _ => "Other"
+        }
+        ignore(prefix_kind)
+        ignore(payload_kind)
+      }
+      Some([
+        Instruction::block(
+          @lib.BlockType::void_(),
+          Expr::new([packed, exit_]),
+        ),
+      ])
+    }
+    _ => None
+  }
+}
+
+///|
+fn hot_lower_impl_try_pack_split_if_payload_forwarder(
+  bt : BlockType,
+  body : Array[Instruction],
+) -> Option[Array[Instruction]] {
+  match bt {
+    VoidBlockType => return None
+    _ => ()
+  }
+  match body {
+    [Block(VoidBlockType, Expr(inner_body)), LocalGet(carried_local)] => {
+      if inner_body.length() < 2 {
+        return None
+      }
+      let inner_if = inner_body[inner_body.length() - 2]
+      match inner_body[inner_body.length() - 1] {
+        Unreachable => ()
+        _ => return None
+      }
+      let prefix : Array[Instruction] = []
+      for i = 0; i < inner_body.length() - 2; i = i + 1 {
+        if hot_lower_impl_has_control_transfer(inner_body[i]) {
+          return None
+        }
+        prefix.push(inner_body[i])
+      }
+      let extract_dropped_value_arm = fn(
+        arm : Array[Instruction],
+      ) -> Option[Array[Instruction]] {
+        if arm.length() < 2 {
+          return None
+        }
+        match arm[arm.length() - 1] {
+          Br(li) if hot_lower_impl_decoded_label_depth(li) == 0 => ()
+          _ => return None
+        }
+        match arm[arm.length() - 2] {
+          Drop => ()
+          _ => return None
+        }
+        let value_instrs : Array[Instruction] = []
+        for i = 0; i < arm.length() - 2; i = i + 1 {
+          if hot_lower_impl_has_control_transfer(arm[i]) {
+            return None
+          }
+          value_instrs.push(arm[i])
+        }
+        if value_instrs.length() == 0 {
+          return None
+        }
+        Some(value_instrs)
+      }
+      let arm_is_forwarding = fn(arm : Array[Instruction]) -> Bool {
+        if arm.length() == 0 {
+          return false
+        }
+        match arm[arm.length() - 1] {
+          Br(li) if hot_lower_impl_decoded_label_depth(li) == 0 => ()
+          _ => return false
+        }
+        for i = 0; i < arm.length() - 1; i = i + 1 {
+          if hot_lower_impl_has_control_transfer(arm[i]) {
+            return false
+          }
+        }
+        true
+      }
+      match inner_if {
+        If(VoidBlockType, then_, Some(else_)) => {
+          let rebuilt = match extract_dropped_value_arm(then_) {
+            Some(then_value) if arm_is_forwarding(else_) =>
+              Some(
+                Instruction::if_(
+                  bt,
+                  then_value,
+                  Some(else_),
+                ),
+              )
+            _ =>
+              match extract_dropped_value_arm(else_) {
+                Some(else_value) if arm_is_forwarding(then_) =>
+                  Some(
+                    Instruction::if_(
+                      bt,
+                      then_,
+                      Some(else_value),
+                    ),
+                  )
+                _ => None
+              }
+          }
+          match rebuilt {
+            Some(rebuilt_if) =>
+              Some([
+                Instruction::block(
+                  @lib.BlockType::void_(),
+                  Expr::new(prefix + [rebuilt_if, Instruction::br(LabelIdx::new(1U))]),
+                ),
+                Instruction::local_get(carried_local),
+              ])
+            None => None
+          }
+        }
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn hot_lower_impl_try_unpack_parent_exit_payload_wrapper(
+  bt : BlockType,
+  body : Array[Instruction],
+) -> Option[Array[Instruction]] {
+  match bt {
+    VoidBlockType => ()
+    _ => return None
+  }
+  match body {
+    [Block(inner_bt, Expr(inner_body)), Br(li)] => {
+      match inner_bt {
+        VoidBlockType => return None
+        _ => ()
+      }
+      if hot_lower_impl_decoded_label_depth(li) != 1 {
+        return None
+      }
+      match inner_body {
+        [child, payload] => {
+          if hot_lower_impl_has_control_transfer(payload) {
+            return None
+          }
+          match child {
+            Block(VoidBlockType, Expr(child_body)) => {
+              if child_body.length() == 0 {
+                return None
+              }
+              match child_body[child_body.length() - 1] {
+                Unreachable =>
+                  Some([
+                    Instruction::block(
+                      @lib.BlockType::void_(),
+                      Expr::new(hot_lower_impl_rebase_body(child_body, 0)),
+                    ),
+                    payload,
+                    Instruction::br(li),
+                  ])
+                _ => None
+              }
+            }
+            _ => None
+          }
+        }
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
 fn hot_lower_impl_canonicalize_instr(instr : Instruction) -> Instruction {
   match instr {
     Block(bt, Expr(body)) =>
@@ -1220,6 +1643,18 @@ fn hot_lower_impl_canonicalize_block_body(
   body : Array[Instruction],
 ) -> Array[Instruction] {
   let canonical = hot_lower_impl_canonicalize_body(body)
+  match hot_lower_impl_try_unpack_parent_exit_payload_wrapper(bt, canonical) {
+    Some(rewritten) => return rewritten
+    None => ()
+  }
+  match hot_lower_impl_try_voidify_parent_exit_if_forwarder(bt, canonical) {
+    Some(rewritten) => return rewritten
+    None => ()
+  }
+  match hot_lower_impl_try_pack_split_if_payload_forwarder(bt, canonical) {
+    Some(rewritten) => return rewritten
+    None => ()
+  }
   let peeled = match canonical {
     [Block(inner_bt, Expr(inner_body))] if bt == inner_bt &&
       hot_lower_impl_is_simple_parent_exit_body(inner_body, 1) &&
@@ -1245,6 +1680,14 @@ fn hot_lower_impl_canonicalize_block_body(
           inner_body, 1,
         ) &&
         !hot_lower_impl_body_targets_removed_label(inner_body, 0) =>
+        for inner in hot_lower_impl_rebase_body(inner_body, 0) {
+          spliced.push(inner)
+        }
+      Block(VoidBlockType, Expr(inner_body)) if hot_lower_impl_is_parent_exit_payload_body(
+          bt,
+          inner_body,
+          1,
+        ) =>
         for inner in hot_lower_impl_rebase_body(inner_body, 0) {
           spliced.push(inner)
         }
@@ -1312,7 +1755,10 @@ fn hot_lower_impl_canonicalize_body(
       canonical_instr => canonical.push(canonical_instr)
     }
   }
-  canonical
+  match hot_lower_impl_try_voidify_terminal_return_if_forwarder(canonical) {
+    Some(rewritten) => rewritten
+    None => canonical
+  }
 }
 
 ///|
@@ -1347,6 +1793,52 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
   while idx < body.length() {
     if idx + 2 < body.length() {
       match body[idx] {
+        Block(VoidBlockType, Expr(prefix_body)) =>
+          if prefix_body.length() > 0 {
+            match prefix_body[prefix_body.length() - 1] {
+              Unreachable =>
+                match body[idx + 1] {
+                  LocalGet(source_local) =>
+                    match body[idx + 2] {
+                      LocalSet(target_local) | LocalTee(target_local) =>
+                        if source_local != target_local {
+                          match target_local {
+                            LocalIdx(raw_local) => {
+                              let local_id = raw_local.reinterpret_as_int()
+                              match hot_local_type(func, local_id) {
+                                Some(local_ty) => {
+                              rewritten.push(
+                                Instruction::block(
+                                  BlockType::val_type(local_ty),
+                                  Expr::new(
+                                    hot_lower_impl_canonicalize_block_body(
+                                      BlockType::val_type(local_ty),
+                                      [body[idx], body[idx + 1]],
+                                    ),
+                                  ),
+                                ),
+                              )
+                              rewritten.push(body[idx + 2])
+                              idx = idx + 3
+                              continue
+                                }
+                                None => ()
+                              }
+                            }
+                          }
+                        }
+                      _ => ()
+                    }
+                  _ => ()
+                }
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+    }
+    if idx + 2 < body.length() {
+      match body[idx] {
         LocalGet(local_idx) =>
           match body[idx + 1] {
             Block(_, Expr(value_body)) =>
@@ -1379,7 +1871,12 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
                               rewritten.push(
                                 Instruction::block(
                                   BlockType::val_type(local_ty),
-                                  Expr::new(wrapper_body),
+                                  Expr::new(
+                                    hot_lower_impl_canonicalize_block_body(
+                                      BlockType::val_type(local_ty),
+                                      wrapper_body,
+                                    ),
+                                  ),
                                 ),
                               )
                               for tail_idx = tail_start
@@ -1408,6 +1905,68 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
     idx = idx + 1
   }
   rewritten
+}
+
+///|
+fn hot_lower_impl_stackify_nested_instr(
+  func : HotFunc,
+  instr : Instruction,
+  extra_locals : Array[ValType],
+) -> Instruction {
+  match instr {
+    Block(bt, Expr(body)) =>
+      Instruction::block(
+        bt,
+        Expr::new(hot_lower_impl_stackify_nested_body(func, body, extra_locals)),
+      )
+    Loop(bt, Expr(body)) =>
+      Instruction::loop_(
+        bt,
+        Expr::new(hot_lower_impl_stackify_nested_body(func, body, extra_locals)),
+      )
+    If(bt, then_, else_) =>
+      Instruction::if_(
+        bt,
+        hot_lower_impl_stackify_nested_body(func, then_, extra_locals),
+        match else_ {
+          Some(else_body) =>
+            Some(
+              hot_lower_impl_stackify_nested_body(
+                func,
+                else_body,
+                extra_locals,
+              ),
+            )
+          None => None
+        },
+      )
+    TryTable(bt, catches, Expr(body)) =>
+      Instruction::try_table(
+        bt,
+        catches,
+        Expr::new(hot_lower_impl_stackify_nested_body(func, body, extra_locals)),
+      )
+    _ => instr
+  }
+}
+
+///|
+fn hot_lower_impl_stackify_nested_body(
+  func : HotFunc,
+  body : Array[Instruction],
+  extra_locals : Array[ValType],
+) -> Array[Instruction] {
+  let rewritten_children : Array[Instruction] = []
+  for instr in body {
+    rewritten_children.push(
+      hot_lower_impl_stackify_nested_instr(func, instr, extra_locals),
+    )
+  }
+  hot_lower_impl_stackify_wrapped_struct_set_prefixes(
+    func,
+    rewritten_children,
+    extra_locals,
+  )
 }
 
 ///|
@@ -1446,10 +2005,13 @@ fn hot_lower_body_with_extras_unverified(func : HotFunc) -> HotLowerBodyResult {
     )
   }
   let canonical = hot_lower_impl_canonicalize_body(out)
+  let stackified = hot_lower_impl_stackify_nested_body(
+    func,
+    canonical,
+    extra_locals,
+  )
   {
-    body: hot_lower_impl_stackify_wrapped_struct_set_prefixes(
-      func, canonical, extra_locals,
-    ),
+    body: hot_lower_impl_canonicalize_body(stackified),
     extra_locals,
     final_stack: value_stack,
   }
