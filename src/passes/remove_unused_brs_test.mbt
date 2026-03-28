@@ -190,6 +190,27 @@ test "remove-unused-brs merges nested one-armed if conditions before branching" 
 }
 
 ///|
+test "remove-unused-brs flattens multi-root then arms before block exits" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (block $exit (if (local.get 0) (then (drop (i32.const 0)) (drop (i32.const 1))) (else (br $exit))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs multi-root block-exit success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("(i32.const I32(0))"), msg=pretty)
+  assert_true(pretty.contains("(i32.const I32(1))"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites nested condition if expressions under branches" {
   let optimized = match
     pass_test_run_pipeline(
