@@ -256,6 +256,43 @@ pub fn hot_region_single_plain_br_target(
 }
 
 ///|
+pub fn hot_region_split_trailing_plain_br_root(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> (Array[NodeId], NodeId)? {
+  let root_count = hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return None
+  }
+  let tail = hot_region_get(func, region_ref, root_count - 1)
+  let node = hot_node_get(func, tail)
+  match node.op {
+    HotOp::Br if node.child_count == 0 => ()
+    _ => return None
+  }
+  let prefix : Array[NodeId] = []
+  for idx = 0; idx < root_count - 1; idx = idx + 1 {
+    prefix.push(hot_region_get(func, region_ref, idx))
+  }
+  Some((prefix, tail))
+}
+
+///|
+pub fn hot_region_split_trailing_plain_br_target(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> (Array[NodeId], LabelId)? {
+  match hot_region_split_trailing_plain_br_root(func, region_ref) {
+    Some((prefix, tail)) =>
+      match hot_branch_target(func, tail) {
+        Some(target) => Some((prefix, target))
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
 pub fn hot_region_single_exit_root(
   func : HotFunc,
   region_ref : HotRegionRef,

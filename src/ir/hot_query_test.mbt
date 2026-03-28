@@ -283,6 +283,46 @@ test "single-exit-arm queries expose return and plain branch arms canonically" {
 }
 
 ///|
+test "trailing plain-branch split queries expose prefix roots and tail target canonically" {
+  let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
+  let prefix0 = hot_build_drop(func, hot_build_const_i32(func, @lib.I32(0)))
+  let prefix1 = hot_build_drop(func, hot_build_const_i32(func, @lib.I32(1)))
+  let tail = hot_build_br(func, 7)
+  let block = hot_build_block(func, @lib.BlockType::void_(), [prefix0, prefix1, tail])
+  let body_ref = hot_region_body_ref(func, block)
+  let mixed = hot_build_block(func, @lib.BlockType::void_(), [
+    prefix0,
+    hot_build_br(func, 7, values=[hot_build_const_i32(func, @lib.I32(2))]),
+  ])
+
+  match hot_region_split_trailing_plain_br_root(func, body_ref) {
+    Some((prefix, split_tail)) => {
+      assert_eq(prefix, [prefix0, prefix1])
+      assert_eq(split_tail, tail)
+    }
+    None => fail("expected trailing plain br split for region roots")
+  }
+  match hot_region_split_trailing_plain_br_target(func, body_ref) {
+    Some((prefix, target)) => {
+      assert_eq(prefix, [prefix0, prefix1])
+      assert_eq(target, 7)
+    }
+    None => fail("expected trailing plain br target split for region roots")
+  }
+  assert_eq(
+    hot_region_split_trailing_plain_br_root(func, hot_region_body_ref(func, mixed)),
+    None,
+  )
+  assert_eq(
+    hot_region_split_trailing_plain_br_target(
+      func,
+      hot_region_body_ref(func, mixed),
+    ),
+    None,
+  )
+}
+
+///|
 test "payload split queries expose trailing result roots canonically" {
   let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
   let prefix = hot_build_drop(func, hot_build_const_i32(func, @lib.I32(1)))
