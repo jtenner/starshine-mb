@@ -1585,6 +1585,68 @@ test "hot lower repacks split local.set carry blocks from compare shape" {
 }
 
 ///|
+test "hot lower preserves packed local.set carry blocks" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (param i32 i32) (result i32) (local i32) (local.set 2 (block $outer (result i32) (block $mid (br $outer (block (result i32) (block $cont (if (local.get 0) (then (local.set 2 (local.get 1)) (br $cont)) (else (local.set 2 (i32.const 9)) (br $mid)))) (local.get 2)))) (i32.const 1))) (local.get 2)))",
+  )
+  let lowered = hot_lower_func(fixture.hot_func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains("(br $outer\n      (block (result i32)") ||
+    pretty.contains("(br $outer\n      (block I32"),
+    msg=pretty,
+  )
+}
+
+///|
+test "hot lower repacks prefix-heavy split local.set carry blocks" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (param i32 i32 i32) (result i32) (local i32 i32) (local.set 3 (block $block2 (result i32) (block $block1 (block $block (local.set 4 (local.get 0)) (drop (local.get 1)) (drop (local.get 2)) (if (local.get 2) (then (local.set 4 (i32.const 7)) (br $block)) (else (local.set 4 (i32.const 9)) (br $block1))) unreachable) (local.get 4) (br $block2)) (local.get 3))) (local.get 3)))",
+  )
+  let lowered = hot_lower_func(fixture.hot_func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains("(br $block2\n      (block (result i32)") ||
+    pretty.contains("(br $block2\n      (block I32"),
+    msg=pretty,
+  )
+  assert_false(
+    pretty.contains("(local.get $4)\n     (br $block2)") ||
+    pretty.contains("(local.get (Local 4))\n     (br (Label 1))"),
+    msg=pretty,
+  )
+}
+
+///|
 test "hot lower peels nested br payload blocks with unreachable child payloads" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit (block $work (if (i32.eq (local.get 0) (i32.const 1)) (then (local.set 2 (local.get 1)) (br $work)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (br $outer (local.get 2))) (i32.const 0))))",

@@ -1407,7 +1407,7 @@ fn hot_lower_impl_try_pack_split_parent_exit_payload(
       }
       match prefix {
         Block(VoidBlockType, Expr(prefix_body)) => {
-          if prefix_body.length() == 0 {
+          if prefix_body.length() <= 2 {
             return None
           }
           match prefix_body[prefix_body.length() - 1] {
@@ -1667,6 +1667,17 @@ fn hot_lower_impl_canonicalize_block_body(
         ) =>
         for inner in hot_lower_impl_rebase_body(inner_body, 0) {
           spliced.push(inner)
+        }
+      Block(VoidBlockType, Expr(inner_body)) =>
+        match hot_lower_impl_try_pack_split_parent_exit_payload(bt, [instr]) {
+          Some([rewritten]) => spliced.push(rewritten)
+          _ =>
+            spliced.push(
+              Instruction::block(
+                @lib.BlockType::void_(),
+                Expr::new(inner_body),
+              ),
+            )
         }
       Loop(_, Expr(loop_body)) if hot_lower_impl_is_simple_parent_exit_body(
           loop_body, 1,
