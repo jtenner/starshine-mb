@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: replay saved pass-fuzz failures by exact case index
+
+- **Invalid-tag-index replay workflow** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/0072-2026-03-28-run-invalid-tag-index-binaryen-parser-gap.md`](./docs/0072-2026-03-28-run-invalid-tag-index-binaryen-parser-gap.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so saved pass-fuzz corpora can be replayed by exact `caseIndex`, including older `cases.jsonl` files that predate structured `failureClass` output. This documents and isolates the `remove-unused-names` Binaryen `invalid tag index` parser failure at saved `wasm-smith` case `662`.
+
 ## 2026-03-28 Fix: classify Binaryen invalid-tag-index fuzz failures
 
 - **Large RUN oracle refresh** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) after a larger `remove-unused-names` oracle sweep. The harness now classifies Binaryen `invalid tag index` parser failures explicitly, the command suite covers that path, and the backlog records the stronger safety evidence from `.tmp/pass-fuzz-run-genvalid-5000`, `.tmp/pass-fuzz-run-smith-2000`, and `.tmp/self-opt-run-remove-unused-names`.

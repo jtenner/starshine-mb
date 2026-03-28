@@ -29,6 +29,7 @@ type PassFuzzCompareOptions = {
   passFlags: string[];
   replayFailuresFrom: string | null;
   failureClass: CommandFailureClass | null;
+  replayCaseIndex: number | null;
 };
 
 type ParseCommand =
@@ -89,6 +90,7 @@ const RESERVED_OPTIONS = new Set([
   "--pass",
   "--replay-failures-from",
   "--failure-class",
+  "--case-index",
 ]);
 
 const SUPPORTED_PASS_FLAGS = new Set([
@@ -126,6 +128,7 @@ const HELP_TEXT = [
   "  --replay-failures-from <dir>",
   "                       Replay saved command-failure inputs from a prior out dir",
   "  --failure-class <id> Restrict replay to one failure family",
+  "  --case-index <n>     Restrict replay to one saved case index",
   "  --list-passes         Print supported pass names and exit",
   "  --help                Print this text and exit",
 ].join("\n");
@@ -382,6 +385,7 @@ function loadReplayCases(
   repoRoot: string,
   replayFailuresFrom: string,
   failureClass: CommandFailureClass | null,
+  replayCaseIndex: number | null,
 ): ReplayCase[] {
   const replayDir = resolveRepoPath(repoRoot, replayFailuresFrom);
   const casesPath = path.join(replayDir, "cases.jsonl");
@@ -399,7 +403,11 @@ function loadReplayCases(
     if (record.status !== "command-failure") {
       continue;
     }
-    if (failureClass !== null && record.failureClass !== failureClass) {
+    if (replayCaseIndex !== null && record.caseIndex !== replayCaseIndex) {
+      continue;
+    }
+    const recordFailureClass = record.failureClass ?? classifyCommandFailure(record.detail);
+    if (failureClass !== null && recordFailureClass !== failureClass) {
       continue;
     }
     const failureDir = path.join(
@@ -438,6 +446,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   const passFlags: string[] = [];
   let replayFailuresFrom: string | null = null;
   let failureClass: CommandFailureClass | null = null;
+  let replayCaseIndex: number | null = null;
   let command: ParseCommand["kind"] = "run";
 
   for (let i = 0; i < argv.length; ) {
@@ -510,6 +519,13 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         );
         i += 2;
         break;
+      case "--case-index":
+        replayCaseIndex = parseNonNegativeInt(
+          "case-index",
+          argv[i + 1] ?? fail("missing value for --case-index"),
+        );
+        i += 2;
+        break;
       default:
         if (RESERVED_OPTIONS.has(token)) {
           fail(`missing value for ${token}`);
@@ -535,6 +551,9 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   if (failureClass !== null && replayFailuresFrom === null) {
     fail("--failure-class requires --replay-failures-from");
   }
+  if (replayCaseIndex !== null && replayFailuresFrom === null) {
+    fail("--case-index requires --replay-failures-from");
+  }
 
   return {
     kind: "run",
@@ -551,6 +570,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       passFlags,
       replayFailuresFrom,
       failureClass,
+      replayCaseIndex,
     },
   };
 }
@@ -577,7 +597,12 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const replayCases =
     options.replayFailuresFrom === null
       ? null
-      : loadReplayCases(repoRoot, options.replayFailuresFrom, options.failureClass);
+      : loadReplayCases(
+          repoRoot,
+          options.replayFailuresFrom,
+          options.failureClass,
+          options.replayCaseIndex,
+        );
   const requestedCount = replayCases?.length ?? options.count;
 
   fs.mkdirSync(outDir, { recursive: true });

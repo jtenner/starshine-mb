@@ -963,6 +963,145 @@ process.exit(0);
   assert(starshineLogs.length === 1, `expected 1 Starshine replay, got ${starshineLogs.length}`);
 }
 
+export function runPassFuzzCompareReplayLegacyCaseIndexTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-replay-case-index-"));
+  const replayDir = path.join(tmpdir, "saved");
+  const outDir = path.join(tmpdir, "out");
+  const moonLog = path.join(tmpdir, "moon.log");
+  const starshineLog = path.join(tmpdir, "starshine.log");
+  const wasmOptLog = path.join(tmpdir, "wasm-opt.log");
+  const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
+
+  fs.mkdirSync(path.join(replayDir, "failures", "case-000662-wasm-smith"), { recursive: true });
+  fs.mkdirSync(path.join(replayDir, "failures", "case-000029-wasm-smith"), { recursive: true });
+  fs.writeFileSync(
+    path.join(replayDir, "cases.jsonl"),
+    [
+      JSON.stringify({
+        caseIndex: 662,
+        generator: "wasm-smith",
+        status: "command-failure",
+        detail: "Binaryen/canonicalization command failed: parse exception: invalid tag index (at 0:54)",
+      }),
+      JSON.stringify({
+        caseIndex: 29,
+        generator: "wasm-smith",
+        status: "command-failure",
+        detail: "Binaryen/canonicalization command failed: parse exception: Recursion groups of size zero not supported",
+      }),
+    ].join("\n") + "\n",
+  );
+  fs.writeFileSync(
+    path.join(replayDir, "failures", "case-000662-wasm-smith", "input.wasm"),
+    "saved-invalid-tag-index",
+  );
+  fs.writeFileSync(
+    path.join(replayDir, "failures", "case-000029-wasm-smith", "input.wasm"),
+    "saved-rec-group-zero",
+  );
+
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(args) + "\\n");
+process.exit(0);
+`,
+  );
+  const fakeStarshine = makeExecutable(
+    path.join(tmpdir, "fake-starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("--out");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], "starshine");
+process.exit(0);
+`,
+  );
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const args = process.argv.slice(2);
+if (args.includes("-S")) {
+  process.stdout.write("");
+  process.exit(0);
+}
+process.stderr.write("[parse exception: invalid tag index (at 0:54)]\\n");
+process.exit(1);
+`,
+  );
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_TOOLS_LOG, JSON.stringify(args) + "\\n");
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--replay-failures-from",
+      replayDir,
+      "--case-index",
+      "662",
+      "--pass",
+      "remove-unused-names",
+    ],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FAKE_MOON_LOG: moonLog,
+        FAKE_STARSHINE_LOG: starshineLog,
+        FAKE_WASM_OPT_LOG: wasmOptLog,
+        FAKE_WASM_TOOLS_LOG: wasmToolsLog,
+      },
+      encoding: "utf8",
+    },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare replay legacy case-index failed:\n${result.stderr}`);
+  }
+
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    requestedCount: number;
+    commandFailureCount: number;
+    commandFailureClasses: Record<string, number>;
+  };
+  assert(summary.requestedCount === 1, `expected 1 replayed legacy case, got ${summary.requestedCount}`);
+  assert(summary.commandFailureCount === 1, `expected 1 command failure, got ${summary.commandFailureCount}`);
+  assert(summary.commandFailureClasses["binaryen-invalid-tag-index"] === 1, `expected invalid-tag-index replay classification, got ${JSON.stringify(summary.commandFailureClasses)}`);
+
+  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").filter(Boolean);
+  assert(cases.length === 1, `expected 1 replay case record, got ${cases.length}`);
+  const entry = JSON.parse(cases[0]) as { caseIndex: number; failureClass?: string };
+  assert(entry.caseIndex === 662, `expected original case index 662, got ${entry.caseIndex}`);
+  assert(entry.failureClass === "binaryen-invalid-tag-index", `expected replayed invalid-tag-index classification, got ${JSON.stringify(entry)}`);
+}
+
 if (import.meta.main) {
   runPassFuzzCompareCommandTest();
   runPassFuzzCompareListPassesCommandTest();
@@ -972,4 +1111,5 @@ if (import.meta.main) {
   runPassFuzzCompareBinaryenFailureClassificationTest();
   runPassFuzzCompareBinaryenInvalidTagIndexClassificationTest();
   runPassFuzzCompareReplayFailureClassTest();
+  runPassFuzzCompareReplayLegacyCaseIndexTest();
 }
