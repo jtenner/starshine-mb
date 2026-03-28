@@ -1109,6 +1109,100 @@ fn hot_lower_impl_rebase_body(
 }
 
 ///|
+fn hot_lower_impl_shift_positive_label_depth(li : LabelIdx) -> LabelIdx {
+  let depth = hot_lower_impl_decoded_label_depth(li)
+  if depth > 0 {
+    LabelIdx::new((depth - 1).reinterpret_as_uint())
+  } else {
+    li
+  }
+}
+
+///|
+fn hot_lower_impl_shift_positive_catch_depth(catch_ : Catch) -> Catch {
+  match catch_ {
+    Catch(tag, li) =>
+      Catch::new(tag, hot_lower_impl_shift_positive_label_depth(li))
+    CatchRef(tag, li) =>
+      Catch::ref_(tag, hot_lower_impl_shift_positive_label_depth(li))
+    CatchAll(li) =>
+      Catch::all(hot_lower_impl_shift_positive_label_depth(li))
+    CatchAllRef(li) =>
+      Catch::all_ref(hot_lower_impl_shift_positive_label_depth(li))
+  }
+}
+
+///|
+fn hot_lower_impl_shift_positive_branch_depths_instr(
+  instr : Instruction,
+) -> Instruction {
+  match instr {
+    Br(li) => Instruction::br(hot_lower_impl_shift_positive_label_depth(li))
+    BrIf(li) =>
+      Instruction::br_if(hot_lower_impl_shift_positive_label_depth(li))
+    BrTable(labels, fallback) => {
+      let shifted : Array[LabelIdx] = []
+      for li in labels {
+        shifted.push(hot_lower_impl_shift_positive_label_depth(li))
+      }
+      Instruction::br_table(
+        shifted,
+        hot_lower_impl_shift_positive_label_depth(fallback),
+      )
+    }
+    BrOnNull(li) =>
+      Instruction::br_on_null(hot_lower_impl_shift_positive_label_depth(li))
+    BrOnNonNull(li) =>
+      Instruction::br_on_non_null(
+        hot_lower_impl_shift_positive_label_depth(li),
+      )
+    Block(bt, Expr(body)) =>
+      Instruction::block(
+        bt,
+        Expr::new(hot_lower_impl_shift_positive_branch_depths(body)),
+      )
+    Loop(bt, Expr(body)) =>
+      Instruction::loop_(
+        bt,
+        Expr::new(hot_lower_impl_shift_positive_branch_depths(body)),
+      )
+    If(bt, then_, else_) =>
+      Instruction::if_(
+        bt,
+        hot_lower_impl_shift_positive_branch_depths(then_),
+        match else_ {
+          Some(else_body) =>
+            Some(hot_lower_impl_shift_positive_branch_depths(else_body))
+          None => None
+        },
+      )
+    TryTable(bt, catches, Expr(body)) => {
+      let shifted_catches : Array[Catch] = []
+      for catch_ in catches {
+        shifted_catches.push(hot_lower_impl_shift_positive_catch_depth(catch_))
+      }
+      Instruction::try_table(
+        bt,
+        shifted_catches,
+        Expr::new(hot_lower_impl_shift_positive_branch_depths(body)),
+      )
+    }
+    _ => instr
+  }
+}
+
+///|
+fn hot_lower_impl_shift_positive_branch_depths(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  let shifted : Array[Instruction] = []
+  for instr in body {
+    shifted.push(hot_lower_impl_shift_positive_branch_depths_instr(instr))
+  }
+  shifted
+}
+
+///|
 fn hot_lower_impl_has_control_transfer(instr : Instruction) -> Bool {
   match instr {
     Block(_, _)
@@ -1471,6 +1565,57 @@ fn hot_lower_impl_try_voidify_terminal_return_if_forwarder(
 }
 
 ///|
+fn hot_lower_impl_try_voidify_dropped_if_forwarder(
+  body : Array[Instruction],
+) -> Array[Instruction]? {
+  if body.length() < 2 {
+    return None
+  }
+  match body[body.length() - 1] {
+    Drop => ()
+    _ => return None
+  }
+  let rewritten : Array[Instruction] = []
+  for i = 0; i < body.length() - 2; i = i + 1 {
+    if hot_lower_impl_has_control_transfer(body[i]) {
+      return None
+    }
+    rewritten.push(body[i])
+  }
+  match body[body.length() - 2] {
+    If(inner_bt, then_, Some(else_)) if inner_bt != @lib.BlockType::void_() =>
+      match
+        hot_lower_impl_try_sink_terminal_exit_into_arm(
+          then_,
+          Instruction::drop(),
+        ) {
+        Some(rewritten_then) =>
+          match
+            hot_lower_impl_try_sink_terminal_exit_into_arm(
+              else_,
+              Instruction::drop(),
+            ) {
+            Some(rewritten_else) =>
+              Some(
+                hot_lower_impl_append_unreachable_if_needed(
+                  rewritten + [
+                    Instruction::if_(
+                      @lib.BlockType::void_(),
+                      rewritten_then,
+                      Some(rewritten_else),
+                    ),
+                  ],
+                ),
+              )
+            None => None
+          }
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn hot_lower_impl_try_pack_unreachable_child_payload(
   bt : BlockType,
   body : Array[Instruction],
@@ -1653,6 +1798,15 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
       }
       match inner_if {
         If(VoidBlockType, then_, Some(else_)) => {
+          match
+            (
+              hot_lower_impl_body_terminal_branch_depth(then_),
+              hot_lower_impl_body_terminal_branch_depth(else_),
+            ) {
+            (Some(then_depth), Some(else_depth)) if then_depth != else_depth =>
+              return None
+            _ => ()
+          }
           let rebuilt = match extract_dropped_value_arm(then_) {
             Some(then_value) if arm_is_forwarding(else_) =>
               Some(Instruction::if_(bt, then_value, Some(else_)))
@@ -1740,6 +1894,85 @@ fn hot_lower_impl_try_unpack_parent_exit_payload_wrapper(
 }
 
 ///|
+fn hot_lower_impl_try_fix_split_payload_wrapper_with_tail(
+  bt : BlockType,
+  body : Array[Instruction],
+) -> Array[Instruction]? {
+  match bt {
+    VoidBlockType => return None
+    _ => ()
+  }
+  if body.length() < 2 {
+    return None
+  }
+  let child_body_needs_depth_fix = fn(body : Array[Instruction]) -> Bool {
+    if body.length() == 0 {
+      return false
+    }
+    let tail_idx = body.length() - 1
+    let if_idx = match body[tail_idx] {
+      Unreachable if tail_idx > 0 => tail_idx - 1
+      _ => tail_idx
+    }
+    match body[if_idx] {
+      If(VoidBlockType, then_, Some(else_)) =>
+        match
+          (
+            hot_lower_impl_body_terminal_branch_depth(then_),
+            hot_lower_impl_body_terminal_branch_depth(else_),
+          ) {
+          (Some(1), Some(2)) | (Some(2), Some(1)) => true
+          _ => false
+        }
+      _ => false
+    }
+  }
+  match body[0] {
+    Block(VoidBlockType, Expr(wrapper_body)) =>
+      match wrapper_body {
+        [Block(inner_bt, Expr(inner_body)), Br(li)] if inner_bt == bt &&
+          hot_lower_impl_decoded_label_depth(li) == 1 =>
+          match inner_body {
+            [Block(VoidBlockType, Expr(child_body)), payload] if {
+                !hot_lower_impl_has_control_transfer(payload) &&
+                child_body_needs_depth_fix(child_body)
+              } => {
+              let rewritten : Array[Instruction] = [
+                Instruction::block(
+                  @lib.BlockType::void_(),
+                  Expr::new([
+                    Instruction::block(
+                      inner_bt,
+                      Expr::new([
+                        Instruction::block(
+                          @lib.BlockType::void_(),
+                          Expr::new(
+                            hot_lower_impl_shift_positive_branch_depths(
+                              child_body,
+                            ),
+                          ),
+                        ),
+                        payload,
+                      ]),
+                    ),
+                    Instruction::br(li),
+                  ]),
+                ),
+              ]
+              for i = 1; i < body.length(); i = i + 1 {
+                rewritten.push(body[i])
+              }
+              Some(rewritten)
+            }
+            _ => None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn hot_lower_impl_canonicalize_instr(instr : Instruction) -> Instruction {
   match instr {
     Block(bt, Expr(body)) =>
@@ -1793,6 +2026,10 @@ fn hot_lower_impl_canonicalize_block_body(
     None => ()
   }
   match hot_lower_impl_try_pack_split_if_payload_forwarder(bt, canonical) {
+    Some(rewritten) => return rewritten
+    None => ()
+  }
+  match hot_lower_impl_try_fix_split_payload_wrapper_with_tail(bt, canonical) {
     Some(rewritten) => return rewritten
     None => ()
   }
@@ -1965,6 +2202,10 @@ fn hot_lower_impl_canonicalize_body(
   }
   let canonical = match
     hot_lower_impl_try_voidify_terminal_return_if_forwarder(canonical) {
+    Some(rewritten) => rewritten
+    None => canonical
+  }
+  let canonical = match hot_lower_impl_try_voidify_dropped_if_forwarder(canonical) {
     Some(rewritten) => rewritten
     None => canonical
   }
@@ -2174,6 +2415,56 @@ fn hot_lower_impl_stackify_nested_body(
 }
 
 ///|
+fn hot_lower_impl_fix_split_payload_wrappers_in_instr(
+  instr : Instruction,
+) -> Instruction {
+  match instr {
+    Block(bt, Expr(body)) => {
+      let fixed_body = hot_lower_impl_fix_split_payload_wrappers_in_body(body)
+      let fixed_body = match
+        hot_lower_impl_try_fix_split_payload_wrapper_with_tail(bt, fixed_body) {
+        Some(rewritten) => rewritten
+        None => fixed_body
+      }
+      Instruction::block(bt, Expr::new(fixed_body))
+    }
+    Loop(bt, Expr(body)) =>
+      Instruction::loop_(
+        bt,
+        Expr::new(hot_lower_impl_fix_split_payload_wrappers_in_body(body)),
+      )
+    If(bt, then_, else_) =>
+      Instruction::if_(
+        bt,
+        hot_lower_impl_fix_split_payload_wrappers_in_body(then_),
+        match else_ {
+          Some(else_body) =>
+            Some(hot_lower_impl_fix_split_payload_wrappers_in_body(else_body))
+          None => None
+        },
+      )
+    TryTable(bt, catches, Expr(body)) =>
+      Instruction::try_table(
+        bt,
+        catches,
+        Expr::new(hot_lower_impl_fix_split_payload_wrappers_in_body(body)),
+      )
+    _ => instr
+  }
+}
+
+///|
+fn hot_lower_impl_fix_split_payload_wrappers_in_body(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  let fixed : Array[Instruction] = []
+  for instr in body {
+    fixed.push(hot_lower_impl_fix_split_payload_wrappers_in_instr(instr))
+  }
+  fixed
+}
+
+///|
 fn hot_lower_body_with_extras(func : HotFunc) -> HotLowerBodyResult {
   hot_verify_all_or_abort(func)
   hot_lower_body_with_extras_unverified(func)
@@ -2212,6 +2503,7 @@ fn hot_lower_body_with_extras_unverified(func : HotFunc) -> HotLowerBodyResult {
   let stackified = hot_lower_impl_stackify_nested_body(
     func, canonical, extra_locals,
   )
+  let stackified = hot_lower_impl_fix_split_payload_wrappers_in_body(stackified)
   {
     body: hot_lower_impl_trim_redundant_unreachable_tail(
       hot_lower_impl_canonicalize_body(stackified),

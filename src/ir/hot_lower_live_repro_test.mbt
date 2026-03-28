@@ -22,3 +22,68 @@ test "hot lower keeps unreachable in exact cmd inner carrier shape" {
     .pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("unreachable"), msg=pretty)
 }
+
+///|
+test "hot lower live repro validates parent-exit payload carry shape" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit (block $work (if (i32.eq (local.get 0) (i32.const 1)) (then (local.set 2 (local.get 1)) (br $work)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (br $outer (local.get 2))) (i32.const 0))))",
+  )
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
+test "hot lower live repro validates compare-shape split local.set carry" {
+  let source =
+    #|(module
+    #|  (func (param i64) (result i32) (local i32 i32 i64 i32)
+    #|    (local.set 1
+    #|      (block $block24 (result i32)
+    #|        (block $block23
+    #|          (if
+    #|            (i64.eq
+    #|              (local.tee 3
+    #|                (local.get 0))
+    #|              (i64.const 4294967296))
+    #|            (then
+    #|              (drop
+    #|                (i32.const 5))
+    #|              (br $block23))
+    #|            (else
+    #|              (local.set 2
+    #|                (local.tee 4
+    #|                  (i32.wrap_i64
+    #|                    (local.tee 3
+    #|                      (local.get 3)))))
+    #|              (br $block23)))
+    #|          unreachable)
+    #|        (local.get 2)))
+    #|    (local.get 1)))
+  let fixture = ir_test_build_hot_from_wat(source)
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
