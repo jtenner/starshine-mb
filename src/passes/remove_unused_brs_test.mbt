@@ -546,6 +546,51 @@ test "remove-unused-brs detects nested multi-value root return context" {
 }
 
 ///|
+test "remove-unused-brs lifts scalar returned ladders through return and holder blocks" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32 i32) (result i32) (local i32) (block (result i32) (return (if (result i32) (local.get 0) (then (local.set 2 (i32.const 7)) (return (local.get 2))) (else (return (block (result i32) (if (result i32) (local.get 1) (then (i32.const 1)) (else (i32.const 2)))))))))))",
+  )
+  let root = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let root_body = @ir.hot_region_body_ref(func, root)
+  let tail = @ir.hot_region_get(func, root_body, 0)
+  let outer_if = @ir.hot_child_get(func, tail, 0)
+  let then_ref = @ir.hot_region_then_ref(func, outer_if)
+  let else_ref = @ir.hot_region_else_ref(func, outer_if).unwrap()
+  let then_holder = then_ref.holder
+  let else_holder = else_ref.holder
+  let else_return = @ir.hot_region_get(func, else_ref, 0)
+  let nested_block = @ir.hot_child_get(func, else_return, 0)
+
+  assert_eq(@ir.hot_node_result_arity(func, root), 1)
+  match @ir.hot_node_get(func, tail).op {
+    @ir.HotOp::Return => ()
+    _ => fail("expected lifted root body tail to be a return")
+  }
+  match @ir.hot_node_get(func, outer_if).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected lifted return child to be an if")
+  }
+  assert_eq(@ir.hot_node_result_arity(func, outer_if), 1)
+  match @ir.hot_node_get(func, then_holder).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected lifted then holder to stay a block")
+  }
+  match @ir.hot_node_get(func, else_holder).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected lifted else holder to stay a block")
+  }
+  match @ir.hot_node_get(func, else_return).op {
+    @ir.HotOp::Return => ()
+    _ => fail("expected lifted else arm root to be a return")
+  }
+  match @ir.hot_node_get(func, nested_block).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected nested returned value region to be wrapped in a block")
+  }
+  assert_eq(@ir.hot_node_result_arity(func, nested_block), 1)
+}
+
+///|
 test "remove-unused-brs preserves result ifs for nested multi-value root return blocks" {
   let optimized = match
     pass_test_run_pipeline(
