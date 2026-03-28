@@ -1521,6 +1521,29 @@ test "optimize-instructions canonicalizes relational local-get ordering" {
 }
 
 ///|
+test "optimize-instructions canonicalizes relational local gets across pure arithmetic trees" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result i32) local.get 2 local.get 0 local.get 1 i32.add i32.lt_s))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_gt_s()),
+  )
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::Binary => ()
+    _ => fail("expected pure arithmetic subtree to move to the lhs")
+  }
+  match @ir.hot_node_get(func, rhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected local.get to move to the rhs")
+  }
+  assert_eq(@ir.hot_node_get(func, rhs).imm0, 2)
+}
+
+///|
 test "optimize-instructions simplifies if i32.ne x 0 conditions" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) (if (result i32) (i32.ne (local.get 1) (i32.const 0)) (then (i32.const 1)) (else (i32.const 0)))))",

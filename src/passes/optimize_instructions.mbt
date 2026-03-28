@@ -1501,14 +1501,22 @@ fn optimize_instructions_try_canonicalize_relational_operands(
       if optimize_instructions_is_constlike(func, dead, rhs_id) {
         return false
       }
-      let rhs_local_id = match
+      let should_swap = match
         optimize_instructions_local_get_id(func, dead, rhs_id) {
-        Some(rhs_local_id) => rhs_local_id
-        None => return false
+        Some(rhs_local_id) => local_id > rhs_local_id
+        None => true
       }
-      let should_swap = local_id > rhs_local_id
       if !should_swap {
         return false
+      }
+      if optimize_instructions_local_get_id(func, dead, rhs_id) is None {
+        if !optimize_instructions_is_side_effect_free_expr(func, dead, rhs_id) {
+          return false
+        }
+        let use_def = pass_require_use_def(ctx, func)
+        if @ir.node_use_count(use_def, rhs_id) > 1 {
+          return false
+        }
       }
       optimize_instructions_rewrite_exact_with_children(
         ctx,
@@ -1535,7 +1543,13 @@ fn optimize_instructions_try_canonicalize_relational_operands(
         None => false
       }
       if !lhs_is_local_get {
-        return false
+        if !optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+          return false
+        }
+        let use_def = pass_require_use_def(ctx, func)
+        if @ir.node_use_count(use_def, lhs_id) > 1 {
+          return false
+        }
       }
       if !optimize_instructions_should_swap_commutative_node_kinds(
           func, dead, lhs_id, rhs_id,
