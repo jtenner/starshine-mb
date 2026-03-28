@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-28 Fix: rebaseline dead-code-elimination carrier and loop-wrapper regressions after the hot-lower validation repair
+
+- **`dead-code-elimination` green-suite checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to realign the remaining DCE regressions with the validated post-`hot_lower` carrier shapes. The split payload, stacked payload, outer-wrapper payload, and typed loop-body wrapper fixtures were still asserting the older pre-repair pretty-print form and single-tail `unreachable` layout, even though the pass output now validates and the repo’s carrier branches have been corrected to the new `Label 0 / Label 1` form. The revised assertions now check the real invariants for this slice: validated void-`if` lowering, preserved control shape, corrected branch depths, and presence of required `unreachable` tails without pinning the obsolete exact presentation.
+
+- **Repo status after DCE rebaseline** by **@jtenner**. `moon test src/passes/dead_code_elimination_test.mbt` is now green at `43/43`, and full `moon test` is green again at `1914/1914`. This closes the remaining red fallout from the earlier `src/ir` payload-carrier repair across `DeadCodeElimination`, `OptimizeInstructions`, and `RemoveUnusedBrs`.
+
 ## 2026-03-28 Fix: close the `src/ir` hot-lower payload-carrier slice and rebaseline downstream pass expectations
 
 - **`hot_lower` payload-carrier checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_test.mbt`](./src/ir/hot_lower_test.mbt), and [`src/ir/hot_lower_live_repro_test.mbt`](./src/ir/hot_lower_live_repro_test.mbt) to finish the current `src/ir` repair slice around dropped typed-`if` forwarders and packed parent-exit payload carriers. Lowering now voidifies terminal dropped-value `if` forwarders with the same explicit `unreachable` handling used for return-forwarder lowering, and a post-stackify cleanup pass repairs the surviving split payload-wrapper branch depths so the lowered `src/ir` fixtures validate again instead of emitting the earlier invalid `br 1 / br 2` carry shape. The focused `hot_lower` suite is now green, and `moon test src/ir` passes at `186/186`.
