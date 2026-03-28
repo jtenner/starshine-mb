@@ -35,7 +35,7 @@ type StarshineInvocation = {
 type CaseRecord = {
   caseIndex: number;
   generator: GeneratorKind;
-  status: "match" | "mismatch" | "validation-failure" | "generator-failure";
+  status: "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure";
   detail: string;
 };
 
@@ -46,6 +46,7 @@ type PassFuzzCompareSummary = {
   mismatchCount: number;
   validationFailureCount: number;
   generatorFailureCount: number;
+  commandFailureCount: number;
   maxFailuresHit: boolean;
   seed: string;
   generator: GeneratorMode;
@@ -199,6 +200,13 @@ function runValidate(wasmToolsBin: string, wasmPath: string, repoRoot: string): 
     ok: result.status === 0,
     stderr: (result.stderr ?? "").trim(),
   };
+}
+
+function commandFailureDetail(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
 }
 
 function normalizePrintWat(wasmOptBin: string, wasmPath: string, watPath: string, repoRoot: string): string {
@@ -480,6 +488,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     mismatchCount: 0,
     validationFailureCount: 0,
     generatorFailureCount: 0,
+    commandFailureCount: 0,
     maxFailuresHit: false,
     seed: seedHex(options.seed),
     generator: options.generator,
@@ -560,7 +569,21 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         starshineRawPath,
         inputPath,
       ];
-      runOrThrow(starshineInvocation.command, starshineArgs, { cwd: repoRoot, stdio: "pipe" });
+      try {
+        runOrThrow(starshineInvocation.command, starshineArgs, { cwd: repoRoot, stdio: "pipe" });
+      } catch (error) {
+        summary.commandFailureCount += 1;
+        failures += 1;
+        const detail = `Starshine command failed: ${commandFailureDetail(error)}`;
+        summary.failureDirs.push(persistFailureArtifacts(outDir, caseIndex + 1, generator, detail, workDir));
+        writeJsonlLine(casesPath, {
+          caseIndex: caseIndex + 1,
+          generator,
+          status: "command-failure",
+          detail,
+        });
+        continue;
+      }
 
       const starshineValidation = runValidate(options.wasmToolsBin, starshineRawPath, repoRoot);
       if (!starshineValidation.ok) {
@@ -577,15 +600,31 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         continue;
       }
 
-      runOrThrow(
-        options.wasmOptBin,
-        [inputPath, "--all-features", ...binaryenPassFlags, "-o", binaryenRawPath],
-        { cwd: repoRoot, stdio: "pipe" },
-      );
-      canonicalizeWasm(options.wasmOptBin, starshineRawPath, starshinePath, repoRoot);
-      canonicalizeWasm(options.wasmOptBin, binaryenRawPath, binaryenPath, repoRoot);
-      const starshineWat = normalizePrintWat(options.wasmOptBin, starshinePath, starshineWatPath, repoRoot);
-      const binaryenWat = normalizePrintWat(options.wasmOptBin, binaryenPath, binaryenWatPath, repoRoot);
+      let starshineWat = "";
+      let binaryenWat = "";
+      try {
+        runOrThrow(
+          options.wasmOptBin,
+          [inputPath, "--all-features", ...binaryenPassFlags, "-o", binaryenRawPath],
+          { cwd: repoRoot, stdio: "pipe" },
+        );
+        canonicalizeWasm(options.wasmOptBin, starshineRawPath, starshinePath, repoRoot);
+        canonicalizeWasm(options.wasmOptBin, binaryenRawPath, binaryenPath, repoRoot);
+        starshineWat = normalizePrintWat(options.wasmOptBin, starshinePath, starshineWatPath, repoRoot);
+        binaryenWat = normalizePrintWat(options.wasmOptBin, binaryenPath, binaryenWatPath, repoRoot);
+      } catch (error) {
+        summary.commandFailureCount += 1;
+        failures += 1;
+        const detail = `Binaryen/canonicalization command failed: ${commandFailureDetail(error)}`;
+        summary.failureDirs.push(persistFailureArtifacts(outDir, caseIndex + 1, generator, detail, workDir));
+        writeJsonlLine(casesPath, {
+          caseIndex: caseIndex + 1,
+          generator,
+          status: "command-failure",
+          detail,
+        });
+        continue;
+      }
 
       summary.comparedCount += 1;
       if (generator === "gen-valid") {
@@ -625,6 +664,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Normalized matches: ${summary.normalizedMatchCount}\n`);
   process.stdout.write(`Validation failures: ${summary.validationFailureCount}\n`);
   process.stdout.write(`Generator failures: ${summary.generatorFailureCount}\n`);
+  process.stdout.write(`Command failures: ${summary.commandFailureCount}\n`);
   process.stdout.write(`Mismatches: ${summary.mismatchCount}\n`);
 }
 

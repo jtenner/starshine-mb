@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: accumulate pass-fuzz command failures up to the cutoff
+
+- **Pass-fuzz failure accounting** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so `bun scripts/pass-fuzz-compare.ts ...` records Starshine, Binaryen, and canonicalization command failures as persisted `command-failure` cases instead of aborting the whole run on the first thrown command error. The summary now reports command-failure counts alongside mismatches, validation failures, and generator failures, and the focused Bun command test covers repeated failing Starshine invocations to verify the harness keeps collecting failures until `--max-failures` is hit.
+
 ## 2026-03-28 Docs: record RUME fuzz parity findings in backlog
 
 - **RUME backlog update** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to record the latest `remove-unused-module-elements` fuzzing results: two saved `wasm-smith` parity repros where Binaryen removes unused imported module elements that Starshine still preserves, a clean `gen-valid` `500/500` compare sweep, the likely `import_sec` rewrite gap in the pass implementation, and the follow-up replay work needed to close the imported-element mismatch and revisit the later `wasm-smith` decoder abort.
