@@ -12,6 +12,10 @@
 
 - **Formatting-only checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_test.mbt`](./src/ir/hot_lower_test.mbt), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to bring the rebased DCE and hot-lower files back to the current `moon fmt` layout without changing pass behavior.
 
+## 2026-03-28 Fix: lower one-arm payload branch ladders to `br_if`
+
+- **`remove-unused-brs` payload branch ladder checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so the pass can lower the remaining one-arm enclosing-block payload branch family to payload-carrying `br_if` plus fallthrough roots instead of leaving the outer void `if` in place. This targets the still-open Binaryen parity gap around functions like `$1105`/`$1106`.
+
 ## 2026-03-28 Refactor: add canonical HOT single-exit-arm queries
 
 - **HOT single-exit-arm query checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti), and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt) so IR2 now exposes a canonical helper for single-root exit arms (`return` or plain `br`). `RemoveUnusedBrs` uses that shared query in tail-return voidification instead of open-coding the same exit-arm check across both arms.
