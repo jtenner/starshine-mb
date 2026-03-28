@@ -8,6 +8,12 @@ import { fail, resolveMoonBin, resolveRepoPath, resolveWorkspaceRoot, runOrThrow
 
 type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
+type CommandFailureClass =
+  | "starshine-command-failed"
+  | "binaryen-invalid-type-index"
+  | "binaryen-rec-group-zero"
+  | "binaryen-invalid-wasm-type-neg64"
+  | "binaryen-command-failed";
 
 type PassFuzzCompareOptions = {
   count: number;
@@ -37,6 +43,7 @@ type CaseRecord = {
   generator: GeneratorKind;
   status: "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure";
   detail: string;
+  failureClass?: CommandFailureClass;
 };
 
 type PassFuzzCompareSummary = {
@@ -47,6 +54,7 @@ type PassFuzzCompareSummary = {
   validationFailureCount: number;
   generatorFailureCount: number;
   commandFailureCount: number;
+  commandFailureClasses: Partial<Record<CommandFailureClass, number>>;
   maxFailuresHit: boolean;
   seed: string;
   generator: GeneratorMode;
@@ -207,6 +215,30 @@ function commandFailureDetail(error: unknown): string {
     return error.message;
   }
   return String(error);
+}
+
+function classifyCommandFailure(detail: string): CommandFailureClass {
+  if (detail.startsWith("Starshine command failed:")) {
+    return "starshine-command-failed";
+  }
+  if (detail.includes("invalid type index")) {
+    return "binaryen-invalid-type-index";
+  }
+  if (detail.includes("Recursion groups of size zero not supported")) {
+    return "binaryen-rec-group-zero";
+  }
+  if (detail.includes("invalid wasm type: -64")) {
+    return "binaryen-invalid-wasm-type-neg64";
+  }
+  return "binaryen-command-failed";
+}
+
+function noteCommandFailureClass(
+  summary: PassFuzzCompareSummary,
+  failureClass: CommandFailureClass,
+): void {
+  summary.commandFailureClasses[failureClass] =
+    (summary.commandFailureClasses[failureClass] ?? 0) + 1;
 }
 
 function normalizePrintWat(wasmOptBin: string, wasmPath: string, watPath: string, repoRoot: string): string {
@@ -489,6 +521,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     validationFailureCount: 0,
     generatorFailureCount: 0,
     commandFailureCount: 0,
+    commandFailureClasses: {},
     maxFailuresHit: false,
     seed: seedHex(options.seed),
     generator: options.generator,
@@ -575,12 +608,15 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         summary.commandFailureCount += 1;
         failures += 1;
         const detail = `Starshine command failed: ${commandFailureDetail(error)}`;
+        const failureClass = classifyCommandFailure(detail);
+        noteCommandFailureClass(summary, failureClass);
         summary.failureDirs.push(persistFailureArtifacts(outDir, caseIndex + 1, generator, detail, workDir));
         writeJsonlLine(casesPath, {
           caseIndex: caseIndex + 1,
           generator,
           status: "command-failure",
           detail,
+          failureClass,
         });
         continue;
       }
@@ -616,12 +652,15 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         summary.commandFailureCount += 1;
         failures += 1;
         const detail = `Binaryen/canonicalization command failed: ${commandFailureDetail(error)}`;
+        const failureClass = classifyCommandFailure(detail);
+        noteCommandFailureClass(summary, failureClass);
         summary.failureDirs.push(persistFailureArtifacts(outDir, caseIndex + 1, generator, detail, workDir));
         writeJsonlLine(casesPath, {
           caseIndex: caseIndex + 1,
           generator,
           status: "command-failure",
           detail,
+          failureClass,
         });
         continue;
       }

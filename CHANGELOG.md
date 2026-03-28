@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: classify pass-fuzz command failures by parser family
+
+- **Pass-fuzz failure classification output** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so `pass-fuzz-compare` records structured `failureClass` values for command failures in both `cases.jsonl` and `result.json`. The harness now auto-buckets Binaryen parser failures such as `invalid type index`, `Recursion groups of size zero not supported`, and `invalid wasm type: -64`, and the focused command test covers the `invalid type index` classification path directly.
+
 ## 2026-03-28 Docs: track RUN fuzz command-failure families explicitly
 
 - **RUN fuzz backlog classification** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to add an explicit `remove-unused-names` follow-up slice for the saved Binaryen-side pass-fuzz command failures. The backlog now records the exact `invalid type index`, `Recursion groups of size zero not supported`, and `invalid wasm type: -64` case lists from `.tmp/pass-fuzz-run-smith` so future agents can replay those failures separately from Starshine semantic regressions.
