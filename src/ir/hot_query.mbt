@@ -4,6 +4,12 @@ fn hot_query_op(func : HotFunc, node_id : NodeId) -> HotOp {
 }
 
 ///|
+pub enum HotSimpleValueKey {
+  ConstValue(HotConstPayload)
+  LocalGetValue(LocalId)
+} derive(Eq, Show, Debug)
+
+///|
 fn hot_query_single_result_is_numeric(func : HotFunc, node_id : NodeId) -> Bool {
   match hot_type_results(func, hot_node_type(func, node_id)) {
     [@lib.NumTypeValType(_)] => true
@@ -133,6 +139,37 @@ pub fn hot_node_type(func : HotFunc, node_id : NodeId) -> TypeId {
 ///|
 pub fn hot_node_result_arity(func : HotFunc, node_id : NodeId) -> Int {
   hot_type_result_arity(func, hot_node_type(func, node_id))
+}
+
+///|
+pub fn hot_simple_value_key(
+  func : HotFunc,
+  node_id : NodeId,
+) -> HotSimpleValueKey? {
+  if node_id < 0 ||
+    node_id >= hot_node_count(func) ||
+    !hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = hot_node_get(func, node_id)
+  if node.child_count != 0 {
+    return None
+  }
+  match node.op {
+    HotOp::Const =>
+      Some(HotSimpleValueKey::ConstValue(hot_const_get(func, node.imm0)))
+    HotOp::LocalGet => Some(HotSimpleValueKey::LocalGetValue(node.imm0))
+    _ => None
+  }
+}
+
+///|
+pub fn hot_nodes_match_simple_value(
+  func : HotFunc,
+  lhs : NodeId,
+  rhs : NodeId,
+) -> Bool {
+  hot_simple_value_key(func, lhs) == hot_simple_value_key(func, rhs)
 }
 
 ///|

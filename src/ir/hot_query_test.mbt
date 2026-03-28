@@ -101,3 +101,31 @@ test "root child local and tombstone queries stay read only" {
   assert_false(hot_node_is_deleted(func, block))
   assert_eq(hot_revision_current(func), rev0)
 }
+
+///|
+test "simple value queries compare semantic leaf identity" {
+  let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
+  let const7a = hot_build_const_i32(func, @lib.I32(7))
+  let const7b = hot_build_const_i32(func, @lib.I32(7))
+  let const9 = hot_build_const_i32(func, @lib.I32(9))
+  let local0a = hot_build_local_get(func, 0)
+  let local0b = hot_build_local_get(func, 0)
+  let drop_local0 = hot_build_drop(func, local0a)
+
+  assert_true(hot_nodes_match_simple_value(func, const7a, const7b))
+  assert_false(hot_nodes_match_simple_value(func, const7a, const9))
+  assert_true(hot_nodes_match_simple_value(func, local0a, local0b))
+  assert_false(hot_nodes_match_simple_value(func, const7a, local0a))
+  assert_false(hot_nodes_match_simple_value(func, local0a, drop_local0))
+
+  match hot_simple_value_key(func, const7a) {
+    Some(HotSimpleValueKey::ConstValue(HotConstPayload::I32Const(value))) =>
+      assert_eq(value, @lib.I32(7))
+    other => fail("expected i32 const simple value key, got \{other}")
+  }
+  match hot_simple_value_key(func, local0a) {
+    Some(HotSimpleValueKey::LocalGetValue(local_id)) => assert_eq(local_id, 0)
+    other => fail("expected local.get simple value key, got \{other}")
+  }
+  assert_eq(hot_simple_value_key(func, drop_local0), None)
+}

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-27 Refactor: add canonical HOT simple-value queries
+
+- **HOT simple-value query groundwork** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), and [`src/ir/README.md`](./src/ir/README.md) so IR2 now exposes canonical read-only helpers for semantic simple leaf values (`const` payloads and `local.get` locals) instead of forcing passes to compare raw node storage and type ids directly. This is the first infrastructure slice toward fixing `RemoveUnusedBrs` IR-shape parity issues without reintroducing broad nested-region scans.
+
 ## 2026-03-27 Chore: de-localize docs links
 
 - **Docs link portability cleanup** by **@jtenner**. Updated [`docs/0010-2026-03-18-validate-trace-baseline.md`](./docs/0010-2026-03-18-validate-trace-baseline.md) and [`docs/0027-2026-03-22-exact-ref-null-immediates.md`](./docs/0027-2026-03-22-exact-ref-null-immediates.md) to replace hard-coded absolute filesystem links with repository-relative links.

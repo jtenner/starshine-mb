@@ -478,6 +478,8 @@ pub fn hot_node_set(HotFunc, Int, HotNode) -> Unit
 
 pub fn hot_node_type(HotFunc, Int) -> Int
 
+pub fn hot_nodes_match_simple_value(HotFunc, Int, Int) -> Bool
+
 pub fn hot_param_count(HotFunc) -> Int
 
 pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]
@@ -549,6 +551,8 @@ pub fn hot_root_splice(HotFunc, Int, Int, Array[Int]) -> Array[Int]
 pub fn hot_root_storage_count(HotFunc) -> Int
 
 pub fn hot_side_table_kind_for_op(HotOp) -> HotSideTableKind?
+
+pub fn hot_simple_value_key(HotFunc, Int) -> HotSimpleValueKey?
 
 pub fn hot_type_get(HotFunc, Int) -> HotTypeInfo
 
@@ -1287,6 +1291,14 @@ pub enum HotSideTableKind {
 pub impl Eq for HotSideTableKind
 pub impl Show for HotSideTableKind
 pub impl @debug.Debug for HotSideTableKind
+
+pub enum HotSimpleValueKey {
+  ConstValue(HotConstPayload)
+  LocalGetValue(Int)
+}
+pub impl Eq for HotSimpleValueKey
+pub impl Show for HotSimpleValueKey
+pub impl @debug.Debug for HotSimpleValueKey
 
 pub struct HotSsaConcreteLocals {
   value_locals : Array[Int]
