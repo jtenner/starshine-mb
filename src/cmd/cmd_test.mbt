@@ -4506,6 +4506,136 @@ test "run_cmd_with_adapter validates remove-unused-brs on debug artifact" {
 }
 
 ///|
+#cfg(target="native")
+test "run_cmd_with_adapter validates post-ssa cleanup mini-chain on debug artifact" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--dead-code-elimination",
+        "--vacuum",
+        "--optimize-instructions",
+        "--simplify-locals",
+        "--out",
+        output_path,
+        input_path,
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected post-ssa cleanup mini-chain artifact replay success, got \{e}",
+      )
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(
+    summary.resolved_passes,
+    [
+      "dead-code-elimination",
+      "vacuum",
+      "optimize-instructions",
+      "simplify-locals",
+    ],
+  )
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, output_path)
+  ignore(decode_module_bytes(writes[0].1))
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter validates modeled post-ssa cleanup prefix on debug artifact" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let passes = [
+    "--dead-code-elimination",
+    "--remove-unused-names",
+    "--remove-unused-brs",
+    "--remove-unused-names",
+    "--vacuum",
+    "--remove-unused-brs",
+    "--optimize-instructions",
+    "--heap-store-optimization",
+    "--pick-load-signs",
+    "--simplify-locals",
+  ]
+  let argv = passes.copy()
+  argv.push("--out")
+  argv.push(output_path)
+  argv.push(input_path)
+  let summary = match run_cmd_with_adapter(argv, io) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected modeled post-ssa cleanup prefix artifact replay success, got \{e}",
+      )
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(
+    summary.resolved_passes,
+    [
+      "dead-code-elimination",
+      "remove-unused-names",
+      "remove-unused-brs",
+      "remove-unused-names",
+      "vacuum",
+      "remove-unused-brs",
+      "optimize-instructions",
+      "heap-store-optimization",
+      "pick-load-signs",
+      "simplify-locals",
+    ],
+  )
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, output_path)
+  ignore(decode_module_bytes(writes[0].1))
+}
+
+///|
 #cfg(target="wasm")
 test "run_cmd uses wasm default io for --help" {
   match run_cmd(["--help"]) {

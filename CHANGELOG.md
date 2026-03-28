@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Test: lock modeled post-SSA cleanup prefix on artifact
+
+- **Post-SSA cleanup prefix replay guard** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/cmd/cmd_test.mbt`](./src/cmd/cmd_test.mbt) so native `cmd` regressions now replay both the post-SSA cleanup mini-chain (`dead-code-elimination -> vacuum -> optimize-instructions -> simplify-locals`) and the full currently-modeled post-SSA cleanup prefix through `simplify-locals` on `tests/node/dist/starshine-debug-wasi.wasm`. Both artifact replays validate in-memory, which moves the remaining hot-pipeline follow-up further downstream to later ordered-prefix proof and runtime work instead of this cleanup prefix.
+
 ## 2026-03-28 Test: lock RUB debug-artifact single-pass replay
 
 - **RUB artifact replay guard** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/cmd/cmd_test.mbt`](./src/cmd/cmd_test.mbt) so a native `cmd` regression now replays `--remove-unused-brs` on `tests/node/dist/starshine-debug-wasi.wasm` through `run_cmd_with_adapter` and validates the in-memory output module. This retires the stale `Func 807` single-pass stack-underflow checkpoint; the remaining RUB follow-up is ordered-prefix proof and any later multi-pass artifact failures, not a known direct-pass validate break.
