@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Research: tighten OI dead-suffix zero-sentinel regressions
+
+- **`optimize-instructions` dead-suffix zero-sentinel probe checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to strengthen the reduced HOT regressions around explicit zero sentinels after returning `if` carriers, including wrapped result blocks and arm-local dead suffixes, while also tightening the helper probes used to classify non-branch terminal exits during dead-suffix cleanup. Focused `moon test src/passes/optimize_instructions_test.mbt` is green on this checkpoint; the real debug artifact still retains the remaining `func 2390` / `func 3379` lone `unreachable` mismatch, so this commit captures the narrowed investigation state rather than a final parity fix.
+
 ## 2026-03-28 Chore: normalize DCE and hot-lower formatting after merge
 
 - **Formatting-only checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_test.mbt`](./src/ir/hot_lower_test.mbt), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to bring the rebased DCE and hot-lower files back to the current `moon fmt` layout without changing pass behavior.

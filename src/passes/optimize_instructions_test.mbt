@@ -1668,6 +1668,62 @@ test "optimize-instructions keeps constant boolean decision trees unwrapped in l
 }
 
 ///|
+test "optimize-instructions keeps zero sentinels after returning ifs in result blocks" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) (block (result i32) (if (result i32) (local.get 0) (then (block (return (i32.const 1)))) (else (block (return (i32.const 0))))) (i32.const 0))))",
+  )
+  let block = @ir.hot_root_get(func, 0)
+  let body = @ir.hot_region_body_ref(func, block)
+  assert_eq(@ir.hot_region_root_count(func, body), 2)
+  let tail = @ir.hot_region_get(func, body, 1)
+  match @ir.hot_node_get(func, tail).op {
+    @ir.HotOp::Const => ()
+    _ =>
+      fail(
+        "expected result-block zero sentinel to stay explicit after a returning if",
+      )
+  }
+}
+
+///|
+test "optimize-instructions keeps zero sentinels after wrapped returning ifs in result blocks" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) (block (result i32) (block (result i32) (if (result i32) (local.get 0) (then (block (return (i32.const 1)))) (else (block (return (i32.const 0))))) (i32.const 0)))))",
+  )
+  let outer = @ir.hot_root_get(func, 0)
+  let outer_body = @ir.hot_region_body_ref(func, outer)
+  let inner = @ir.hot_region_get(func, outer_body, 0)
+  let inner_body = @ir.hot_region_body_ref(func, inner)
+  assert_eq(@ir.hot_region_root_count(func, inner_body), 2)
+  let tail = @ir.hot_region_get(func, inner_body, 1)
+  match @ir.hot_node_get(func, tail).op {
+    @ir.HotOp::Const => ()
+    _ =>
+      fail(
+        "expected wrapped result-block zero sentinel to stay explicit after a returning if",
+      )
+  }
+}
+
+///|
+test "optimize-instructions keeps zero sentinels after returning ifs with dead arm suffixes" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) (block (result i32) (if (local.get 0) (then (return (i32.const 1)) (i32.const 9)) (else (return (i32.const 0)) (i32.const 8))) (i32.const 0))))",
+  )
+  let block = @ir.hot_root_get(func, 0)
+  let body = @ir.hot_region_body_ref(func, block)
+  assert_eq(@ir.hot_region_root_count(func, body), 2)
+  let tail = @ir.hot_region_get(func, body, 1)
+  match @ir.hot_node_get(func, tail).op {
+    @ir.HotOp::Const => ()
+    _ =>
+      fail(
+        "expected result-block zero sentinel to stay explicit when if arms end in dead suffixes",
+      )
+  }
+}
+
+///|
 test "optimize-instructions does not reorder across the same local" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 local.get 0 local.tee 0 i32.const 1 i32.shl i32.add))",

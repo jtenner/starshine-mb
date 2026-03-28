@@ -1164,6 +1164,121 @@ fn optimize_instructions_node_exits_only_via_branches(
 }
 
 ///|
+fn optimize_instructions_node_branches_to_label(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+  label_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br => node.imm0 == label_id
+    @ir.HotOp::If =>
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_region) =>
+          optimize_instructions_region_branches_to_label(
+            func,
+            dead,
+            @ir.hot_region_then_ref(func, node_id),
+            label_id,
+          ) &&
+          optimize_instructions_region_branches_to_label(
+            func, dead, else_region, label_id,
+          )
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_region_branches_to_label(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  region_ref : @ir.HotRegionRef,
+  label_id : Int,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return false
+  }
+  optimize_instructions_node_branches_to_label(
+    func,
+    dead,
+    @ir.hot_region_get(func, region_ref, root_count - 1),
+    label_id,
+  )
+}
+
+///|
+fn optimize_instructions_node_exits_via_nonbranch_terminal(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Unreachable
+    | @ir.HotOp::Return
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate => true
+    @ir.HotOp::Block =>
+      optimize_instructions_region_exits_via_nonbranch_terminal(
+        func,
+        dead,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    @ir.HotOp::If =>
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_region) =>
+          optimize_instructions_region_exits_via_nonbranch_terminal(
+            func,
+            dead,
+            @ir.hot_region_then_ref(func, node_id),
+          ) &&
+          optimize_instructions_region_exits_via_nonbranch_terminal(
+            func, dead, else_region,
+          )
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_region_exits_via_nonbranch_terminal(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return false
+  }
+  for idx = 0; idx < root_count; idx = idx + 1 {
+    let root = @ir.hot_region_get(func, region_ref, idx)
+    if !optimize_instructions_node_is_live(func, dead, root) {
+      continue
+    }
+    if optimize_instructions_node_exits_via_nonbranch_terminal(func, dead, root) {
+      return true
+    }
+    if optimize_instructions_node_never_falls_through(func, dead, root) {
+      return false
+    }
+  }
+  false
+}
+
+///|
 fn optimize_instructions_try_collapse_dead_region_suffix(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1240,8 +1355,19 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
         optimize_instructions_node_is_drop_zero_sentinel(func, tail_id) {
         return false
       }
+      let root_is_result_carrier = match root_op {
+        @ir.HotOp::If | @ir.HotOp::Block => true
+        _ => false
+      }
+      let keep_result_zero_sentinel = root_is_result_carrier &&
+        optimize_instructions_node_exits_via_nonbranch_terminal(
+          func, dead, root,
+        )
       if optimize_instructions_node_is_zero_sentinel(func, tail_id) &&
-        optimize_instructions_holder_flows_to_drop(ctx, func, region_ref) {
+        (
+          optimize_instructions_holder_flows_to_drop(ctx, func, region_ref) ||
+          keep_result_zero_sentinel
+        ) {
         return false
       }
     }
