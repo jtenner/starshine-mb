@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Docs: prune stale red-test backlog blockers
+
+- **Backlog blocker refresh** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) after re-running `moon test src/passes` and full `moon test`, both of which are green in the current tree. The stale red-test blocker text under `IR2`, `DCE`, `RUB`, and `OI` now reflects the current state: repo-side correctness is green, while the remaining work is artifact replay, ordered-prefix proof, and runtime follow-up.
+
 ## 2026-03-28 Fix: replay pass-fuzz command failures by failure class
 
 - **Pass-fuzz failure-family replay** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so `pass-fuzz-compare` can replay saved command-failure inputs from a prior out dir and restrict the run to a single structured `failureClass`. This makes the `invalid type index`, recursion-group-zero, and `invalid wasm type: -64` Binaryen families reproducible one at a time without rerunning the full mixed corpus.
