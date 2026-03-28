@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-27 Refactor: route `remove-unused-brs` payload splits through HOT queries
+
+- **HOT payload-split query adoption** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti), and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt) so IR2 now exposes canonical trailing-payload split helpers and `remove-unused-brs` consumes that shared query surface instead of maintaining its own copy of the stack-style payload split logic.
+
 ## 2026-03-27 Refactor: add canonical HOT simple-value queries
 
 - **HOT simple-value query groundwork** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), and [`src/ir/README.md`](./src/ir/README.md) so IR2 now exposes canonical read-only helpers for semantic simple leaf values (`const` payloads and `local.get` locals) instead of forcing passes to compare raw node storage and type ids directly. This is the first infrastructure slice toward fixing `RemoveUnusedBrs` IR-shape parity issues without reintroducing broad nested-region scans.

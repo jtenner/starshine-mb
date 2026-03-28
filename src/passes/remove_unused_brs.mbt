@@ -612,7 +612,7 @@ fn remove_unused_brs_build_tail_return_if_arm_body(
     return Some(remove_unused_brs_region_roots(func, arm_ref))
   }
   let (prefix, payload) = match
-    remove_unused_brs_region_split_payload_roots(func, arm_ref, return_arity) {
+    @ir.hot_region_split_trailing_payload_roots(func, arm_ref, return_arity) {
     Some(split) => split
     None => return None
   }
@@ -917,7 +917,7 @@ fn remove_unused_brs_region_tail_control_payload_count(
       payload_roots.push(roots[idx])
     }
     match
-      remove_unused_brs_split_payload_roots(
+      @ir.hot_split_trailing_payload_roots(
         func, payload_roots, expected_payloads,
       ) {
       Some(_) => Some(expected_payloads)
@@ -1551,53 +1551,6 @@ fn remove_unused_brs_try_rewrite_two_arm_branch_if(
 }
 
 ///|
-fn remove_unused_brs_region_split_payload_roots(
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-  result_arity : Int,
-) -> (Array[Int], Array[Int])? {
-  remove_unused_brs_split_payload_roots(
-    func,
-    remove_unused_brs_region_roots(func, region_ref),
-    result_arity,
-  )
-}
-
-///|
-fn remove_unused_brs_split_payload_roots(
-  func : @ir.HotFunc,
-  roots : Array[Int],
-  result_arity : Int,
-) -> (Array[Int], Array[Int])? {
-  if result_arity <= 0 {
-    return Some((roots, []))
-  }
-  let mut payload_arity = 0
-  let mut payload_start = roots.length()
-  while payload_start > 0 && payload_arity < result_arity {
-    let candidate = roots[payload_start - 1]
-    let candidate_arity = @ir.hot_node_result_arity(func, candidate)
-    if candidate_arity <= 0 {
-      return None
-    }
-    payload_arity += candidate_arity
-    payload_start -= 1
-  }
-  if payload_arity != result_arity {
-    return None
-  }
-  let prefix : Array[Int] = []
-  for idx = 0; idx < payload_start; idx = idx + 1 {
-    prefix.push(roots[idx])
-  }
-  let payload : Array[Int] = []
-  for idx = payload_start; idx < roots.length(); idx = idx + 1 {
-    payload.push(roots[idx])
-  }
-  Some((prefix, payload))
-}
-
-///|
 fn remove_unused_brs_region_roots_are_reorder_safe(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1627,7 +1580,7 @@ fn remove_unused_brs_build_region_value_expr(
   reorder_cache : Array[Int],
 ) -> Int? {
   let (prefix, payload) = match
-    remove_unused_brs_split_payload_roots(func, roots, 1) {
+    @ir.hot_split_trailing_payload_roots(func, roots, 1) {
     Some(split) => split
     None => return None
   }
@@ -1861,7 +1814,7 @@ fn remove_unused_brs_try_rewrite_branch_payload_if(
       return false
     }
     let (body_prefix, body_payload) = match
-      remove_unused_brs_region_split_payload_roots(func, body_ref, result_arity) {
+      @ir.hot_region_split_trailing_payload_roots(func, body_ref, result_arity) {
       Some(split) => split
       None => return false
     }
@@ -1945,7 +1898,7 @@ fn remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
       return false
     }
     let (body_prefix, body_payload) = match
-      remove_unused_brs_region_split_payload_roots(func, body_ref, result_arity) {
+      @ir.hot_region_split_trailing_payload_roots(func, body_ref, result_arity) {
       Some(split) => split
       None => return false
     }
@@ -2022,7 +1975,7 @@ fn remove_unused_brs_try_rewrite_tail_value_if_simple_payload_arm(
     negate_condition : Bool,
   ) -> Bool {
     let (simple_prefix, simple_payload) = match
-      remove_unused_brs_region_split_payload_roots(func, simple_ref, 1) {
+      @ir.hot_region_split_trailing_payload_roots(func, simple_ref, 1) {
       Some(split) => split
       None => return false
     }

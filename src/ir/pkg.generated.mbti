@@ -510,6 +510,8 @@ pub fn hot_region_set(HotFunc, HotRegionRef, Int, Int) -> Int
 
 pub fn hot_region_splice(HotFunc, HotRegionRef, Int, Int, Array[Int]) -> Array[Int]
 
+pub fn hot_region_split_trailing_payload_roots(HotFunc, HotRegionRef, Int) -> (Array[Int], Array[Int])?
+
 pub fn hot_region_then_ref(HotFunc, Int) -> HotRegionRef
 
 pub fn hot_replace_child_span(HotFunc, Int, Array[Int]) -> Array[Int]
@@ -553,6 +555,8 @@ pub fn hot_root_storage_count(HotFunc) -> Int
 pub fn hot_side_table_kind_for_op(HotOp) -> HotSideTableKind?
 
 pub fn hot_simple_value_key(HotFunc, Int) -> HotSimpleValueKey?
+
+pub fn hot_split_trailing_payload_roots(HotFunc, Array[Int], Int) -> (Array[Int], Array[Int])?
 
 pub fn hot_type_get(HotFunc, Int) -> HotTypeInfo
 

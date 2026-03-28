@@ -173,6 +173,53 @@ pub fn hot_nodes_match_simple_value(
 }
 
 ///|
+pub fn hot_region_split_trailing_payload_roots(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+  result_arity : Int,
+) -> (Array[NodeId], Array[NodeId])? {
+  hot_split_trailing_payload_roots(
+    func,
+    hot_region_roots(func, region_ref),
+    result_arity,
+  )
+}
+
+///|
+pub fn hot_split_trailing_payload_roots(
+  func : HotFunc,
+  roots : Array[NodeId],
+  result_arity : Int,
+) -> (Array[NodeId], Array[NodeId])? {
+  if result_arity <= 0 {
+    return Some((roots, []))
+  }
+  let mut payload_arity = 0
+  let mut payload_start = roots.length()
+  while payload_start > 0 && payload_arity < result_arity {
+    let candidate = roots[payload_start - 1]
+    let candidate_arity = hot_node_result_arity(func, candidate)
+    if candidate_arity <= 0 {
+      return None
+    }
+    payload_arity += candidate_arity
+    payload_start -= 1
+  }
+  if payload_arity != result_arity {
+    return None
+  }
+  let prefix : Array[NodeId] = []
+  for idx = 0; idx < payload_start; idx = idx + 1 {
+    prefix.push(roots[idx])
+  }
+  let payload : Array[NodeId] = []
+  for idx = payload_start; idx < roots.length(); idx = idx + 1 {
+    payload.push(roots[idx])
+  }
+  Some((prefix, payload))
+}
+
+///|
 pub fn hot_branch_target(func : HotFunc, node_id : NodeId) -> LabelId? {
   let node = hot_node_get(func, node_id)
   match node.op {

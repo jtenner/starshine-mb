@@ -129,3 +129,34 @@ test "simple value queries compare semantic leaf identity" {
   }
   assert_eq(hot_simple_value_key(func, drop_local0), None)
 }
+
+///|
+test "payload split queries expose trailing result roots canonically" {
+  let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
+  let prefix = hot_build_drop(func, hot_build_const_i32(func, @lib.I32(1)))
+  let payload_a = hot_build_const_i32(func, @lib.I32(7))
+  let payload_b = hot_build_local_get(func, 0)
+  let block = hot_build_block(func, @lib.BlockType::void_(), [
+    prefix, payload_a, payload_b,
+  ])
+  let body_ref = hot_region_body_ref(func, block)
+
+  let roots = [prefix, payload_a, payload_b]
+  match hot_split_trailing_payload_roots(func, roots, 2) {
+    Some((split_prefix, split_payload)) => {
+      assert_eq(split_prefix, [prefix])
+      assert_eq(split_payload, [payload_a, payload_b])
+    }
+    None => fail("expected payload split for direct roots")
+  }
+
+  match hot_region_split_trailing_payload_roots(func, body_ref, 2) {
+    Some((split_prefix, split_payload)) => {
+      assert_eq(split_prefix, [prefix])
+      assert_eq(split_payload, [payload_a, payload_b])
+    }
+    None => fail("expected payload split for region roots")
+  }
+
+  assert_eq(hot_split_trailing_payload_roots(func, roots, 3), None)
+}
