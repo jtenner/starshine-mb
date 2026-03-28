@@ -1758,17 +1758,11 @@ fn remove_unused_brs_try_rewrite_branch_payload_if(
   let br_id = @ir.hot_region_get(func, region_ref, idx)
   let br_node = @ir.hot_node_get(func, br_id)
   let if_id = match br_node.op {
-    @ir.HotOp::Br if br_node.child_count >= 1 => {
-      let candidate = @ir.hot_child_get(func, br_id, 0)
-      for child_idx = 1
-          child_idx < br_node.child_count
-          child_idx = child_idx + 1 {
-        if @ir.hot_child_get(func, br_id, child_idx) != candidate {
-          return false
-        }
+    @ir.HotOp::Br =>
+      match @ir.hot_node_repeated_live_child(func, br_id) {
+        Some(candidate) => candidate
+        None => return false
       }
-      candidate
-    }
     _ => return false
   }
   if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {

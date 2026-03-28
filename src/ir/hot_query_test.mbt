@@ -160,3 +160,36 @@ test "payload split queries expose trailing result roots canonically" {
 
   assert_eq(hot_split_trailing_payload_roots(func, roots, 3), None)
 }
+
+///|
+test "repeated-shape queries expose repeated live children and region roots canonically" {
+  let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
+  let cond = hot_build_local_get(func, 0)
+  let payload_if = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    cond,
+    [hot_build_const_i32(func, @lib.I32(1))],
+    else_body=Some([hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let repeated_br = hot_build_br(func, 7, values=[payload_if, payload_if])
+  let block = hot_build_block(func, @lib.BlockType::void_(), [
+    repeated_br, repeated_br,
+  ])
+  let body_ref = hot_region_body_ref(func, block)
+  let mixed_br = hot_build_br(func, 7, values=[
+    payload_if,
+    hot_build_const_i32(func, @lib.I32(3)),
+  ])
+  let mixed_block = hot_build_block(func, @lib.BlockType::void_(), [
+    repeated_br, mixed_br,
+  ])
+
+  assert_eq(hot_node_repeated_live_child(func, repeated_br), Some(payload_if))
+  assert_eq(hot_region_repeated_live_root(func, body_ref), Some(repeated_br))
+  assert_eq(hot_node_repeated_live_child(func, mixed_br), None)
+  assert_eq(
+    hot_region_repeated_live_root(func, hot_region_body_ref(func, mixed_block)),
+    None,
+  )
+}

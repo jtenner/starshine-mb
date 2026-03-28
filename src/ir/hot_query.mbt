@@ -220,6 +220,53 @@ pub fn hot_split_trailing_payload_roots(
 }
 
 ///|
+pub fn hot_node_repeated_live_child(
+  func : HotFunc,
+  node_id : NodeId,
+) -> NodeId? {
+  if node_id < 0 ||
+    node_id >= hot_node_count(func) ||
+    !hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = hot_node_get(func, node_id)
+  if node.child_count == 0 {
+    return None
+  }
+  let candidate = hot_child_get(func, node_id, 0)
+  if candidate < 0 || !hot_node_is_live(func, candidate) {
+    return None
+  }
+  for child_idx = 1; child_idx < node.child_count; child_idx = child_idx + 1 {
+    if hot_child_get(func, node_id, child_idx) != candidate {
+      return None
+    }
+  }
+  Some(candidate)
+}
+
+///|
+pub fn hot_region_repeated_live_root(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> NodeId? {
+  let root_count = hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return None
+  }
+  let candidate = hot_region_get(func, region_ref, 0)
+  if candidate < 0 || !hot_node_is_live(func, candidate) {
+    return None
+  }
+  for idx = 1; idx < root_count; idx = idx + 1 {
+    if hot_region_get(func, region_ref, idx) != candidate {
+      return None
+    }
+  }
+  Some(candidate)
+}
+
+///|
 pub fn hot_branch_target(func : HotFunc, node_id : NodeId) -> LabelId? {
   let node = hot_node_get(func, node_id)
   match node.op {

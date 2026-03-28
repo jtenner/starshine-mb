@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Refactor: add canonical HOT repeated-root and repeated-child queries
+
+- **HOT repeated-shape query checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti), and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt) so IR2 now exposes canonical helpers for repeated live child payloads and repeated live region roots. `RemoveUnusedBrs` uses the repeated-child query for branch-payload matching instead of open-coding the HOT storage pattern, which is groundwork for the remaining repeated-root multi-value parity family.
+
 ## 2026-03-28 Research: lock multi-value `remove-unused-brs` returned-ladder HOT shape
 
 - **`remove-unused-brs` multi-value lift-shape checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) to add a minimized HOT regression for the remaining `$3123`-style family: multi-value returned ladders currently lift as repeated root `If` nodes with holder blocks, nested result blocks, and a one-armed guard whose `then` tail is a payload-carrying `Br` over a repeated result `If`. This locks the actual IR contract the next parity rewrite has to target and avoids more guesswork from normalized WAT alone. `moon test src/passes/remove_unused_brs_test.mbt` is green.

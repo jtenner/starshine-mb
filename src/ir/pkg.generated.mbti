@@ -472,6 +472,8 @@ pub fn hot_node_kind_is_tuple(HotFunc, Int) -> Bool
 
 pub fn hot_node_may_throw_exception(HotFunc, Int) -> Bool
 
+pub fn hot_node_repeated_live_child(HotFunc, Int) -> Int?
+
 pub fn hot_node_result_arity(HotFunc, Int) -> Int
 
 pub fn hot_node_set(HotFunc, Int, HotNode) -> Unit
@@ -499,6 +501,8 @@ pub fn hot_region_get(HotFunc, HotRegionRef, Int) -> Int
 pub fn hot_region_insert(HotFunc, HotRegionRef, Int, Array[Int]) -> Unit
 
 pub fn hot_region_remove(HotFunc, HotRegionRef, Int, Int) -> Array[Int]
+
+pub fn hot_region_repeated_live_root(HotFunc, HotRegionRef) -> Int?
 
 pub fn hot_region_replace_body(HotFunc, HotRegionRef, Array[Int]) -> Unit
 
