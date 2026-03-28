@@ -1621,6 +1621,21 @@ test "optimize-instructions keeps boolean value ifs unwrapped when they feed if 
 }
 
 ///|
+test "optimize-instructions keeps boolean value ifs unwrapped in branch payloads" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) block (result i32) local.get 0 if (result i32) i32.const 1 else i32.const 0 end br 0 end))",
+  )
+  let block = @ir.hot_root_get(func, 0)
+  let body = @ir.hot_region_body_ref(func, block)
+  let branch = @ir.hot_region_get(func, body, 0)
+  let payload = @ir.hot_child_get(func, branch, 0)
+  match @ir.hot_node_get(func, payload).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected branch payload to stay as the original value if")
+  }
+}
+
+///|
 test "optimize-instructions does not reorder across the same local" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 local.get 0 local.tee 0 i32.const 1 i32.shl i32.add))",

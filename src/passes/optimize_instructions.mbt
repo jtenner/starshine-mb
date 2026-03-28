@@ -1805,8 +1805,8 @@ fn optimize_instructions_try_wrap_boolean_if_value_in_eqz(
   }
   let use_user = @ir.hot_node_get(func, use_site.user)
   match use_user.op {
-    @ir.HotOp::If if use_site.slot == 0 => return false
-    _ => ()
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => ()
+    _ => return false
   }
   let neg_then = match
     optimize_instructions_negate_boolean_expr_recursive(
