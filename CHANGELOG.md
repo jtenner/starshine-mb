@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: restore safe direct if rewrites in OI
+
+- **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to re-enable the safe subset of `optimize_instructions_try_optimize_if_condition`: duplicate-branch collapse and the direct `i32.ne` / `i32.eq` / `i32.eqz` condition rewrites. The nested boolean `if` inversion/negation helpers remain disabled while the invalid control/value-stack interaction is reduced further. Focused `OI` tests and the native `cmd.exe --optimize-instructions` artifact validation stay green on `tests/node/dist/starshine-debug-wasi.wasm`.
+
 ## 2026-03-28 Fix: disable unsafe OI compare and if rewrites
 
 - **`optimize-instructions` correctness hotfix** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt) to turn off `optimize_instructions_try_canonicalize_relational_operands` and `optimize_instructions_try_optimize_if_condition` after the native `cmd.exe --optimize-instructions` pipeline reproduced a final-module stack underflow on `tests/node/dist/starshine-debug-wasi.wasm`. This restores artifact validity while keeping the rest of the landed `OI` parity work in place; follow-up work will reintroduce narrower guarded versions of these rewrites once the invalid control/value-stack interaction is reduced and covered.

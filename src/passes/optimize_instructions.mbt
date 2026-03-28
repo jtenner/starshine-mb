@@ -1849,16 +1849,7 @@ fn optimize_instructions_try_optimize_if_condition(
   }
   let cond_instr = match @ir.hot_node_exact_instr(func, cond_id) {
     Some(instr) => instr
-    None => {
-      if optimize_instructions_try_invert_nested_if_condition(
-          ctx, func, dead, node_id, cond_id, then_region, else_region,
-        ) {
-        return true
-      }
-      return optimize_instructions_try_negate_nested_if_condition_to_eqz(
-        ctx, func, dead, node_id, cond_id, else_region,
-      )
-    }
+    None => return false
   }
   let direct_rewrite = match cond_instr {
     @lib.Instruction::I32Ne => {
@@ -1922,14 +1913,7 @@ fn optimize_instructions_try_optimize_if_condition(
   if direct_rewrite {
     return true
   }
-  if optimize_instructions_try_invert_nested_if_condition(
-      ctx, func, dead, node_id, cond_id, then_region, else_region,
-    ) {
-    return true
-  }
-  optimize_instructions_try_negate_nested_if_condition_to_eqz(
-    ctx, func, dead, node_id, cond_id, else_region,
-  )
+  false
 }
 
 ///|
@@ -2974,7 +2958,7 @@ fn optimize_instructions_visit_node(
         @ir.hot_control_node_label(func, node_id),
       )
     @ir.HotOp::If =>
-      (if false {
+      (if true {
         optimize_instructions_try_optimize_if_condition(
           ctx, func, dead, node_id,
         )
