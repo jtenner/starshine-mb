@@ -59,8 +59,8 @@
 
 ## Preset Composition
 
-- `optimize` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "vacuum", "optimize-instructions", "heap-store-optimization", "pick-load-signs", "simplify-locals"]`.
-- `shrink` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "vacuum", "optimize-instructions", "heap-store-optimization", "pick-load-signs", "simplify-locals"]`.
+- `optimize` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names", "vacuum", "optimize-instructions", "heap-store-optimization", "pick-load-signs", "simplify-locals", "remove-unused-names"]`.
+- `shrink` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names", "vacuum", "optimize-instructions", "heap-store-optimization", "pick-load-signs", "simplify-locals", "remove-unused-names"]`.
 - Future preset growth must only add implemented module or hot passes or explicitly documented boundary-only phases.
 
 

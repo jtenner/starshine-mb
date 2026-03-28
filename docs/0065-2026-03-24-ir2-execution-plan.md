@@ -25,8 +25,8 @@
   - module passes: `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `duplicate-function-elimination`, `remove-unused-module-elements`
 - hot passes: `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `pick-load-signs`, `simplify-locals`
   - presets: `optimize`, `shrink`
-- `optimize` and `shrink` now expand to the implemented mixed batch-1 module + hot sequence:
-  `memory-packing -> once-reduction -> global-refining -> global-struct-inference -> ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs -> vacuum -> optimize-instructions -> heap-store-optimization -> pick-load-signs -> simplify-locals`.
+- `optimize` and `shrink` now expand to the implemented mixed batch-1 module + hot sequence with all currently-modeled RUN slots replayed:
+  `memory-packing -> once-reduction -> global-refining -> global-struct-inference -> ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs -> remove-unused-names -> vacuum -> optimize-instructions -> heap-store-optimization -> pick-load-signs -> simplify-locals -> remove-unused-names`.
 - Legacy pass names remain categorized as `boundary-only` or `removed` in the registry for diagnostics, but they are not active help-surface entries.
 - CLI tooling and the fuzz harness now use real pass-name arrays; the deleted `ModulePass` compatibility shim is gone.
 - `agent-todo.md` is now the active-only backlog again. If future IR2 work resumes, add the next slice id there before landing code.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: replay remove-unused-names in all modeled RUN slots
+
+- **RUN preset replay wiring** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`README.md`](./README.md), [`agent-todo.md`](./agent-todo.md), [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](./docs/0063-2026-03-24-pass-port-batches-and-registry-map.md), [`docs/0065-2026-03-24-ir2-execution-plan.md`](./docs/0065-2026-03-24-ir2-execution-plan.md), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), and [`src/passes/registry_test.mbt`](./src/passes/registry_test.mbt) so the public `optimize` and `shrink` presets now replay `remove-unused-names` in all three currently-modeled RUN slots. The new tests lock both the preset expansion and the stale-label cleanup reason for the second RUN slot after `remove-unused-brs`.
+
 ## 2026-03-28 Fix: keep nullfuncref active elems on live defined tables in RUME
 
 - **Live-table default elem retention parity** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/remove_unused_module_elements.mbt`](./src/passes/remove_unused_module_elements.mbt), and [`src/passes/remove_unused_module_elements_test.mbt`](./src/passes/remove_unused_module_elements_test.mbt) so RUME only suppresses null-only active elem segments when they would otherwise root a dead imported table; once a table is already live, those active segments are preserved and rewritten normally. The focused regression covers the exported defined-table `nullfuncref` repro, and the refreshed `wasm-smith` replay reached `165/165` normalized matches with `0` mismatches, leaving only Binaryen-side parser failures in the remaining `20` failure slots.

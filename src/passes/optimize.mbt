@@ -214,9 +214,9 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "Run the default hot optimization preset.",
       [
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-        "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
-        "remove-unused-brs", "vacuum", "optimize-instructions", "heap-store-optimization",
-        "pick-load-signs", "simplify-locals",
+        "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
+        "remove-unused-names", "vacuum", "optimize-instructions", "heap-store-optimization",
+        "pick-load-signs", "simplify-locals", "remove-unused-names",
       ],
     ),
     pass_registry_entry_preset(
@@ -224,9 +224,9 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "Run the default size-biased hot optimization preset.",
       [
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-        "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "vacuum",
-        "remove-unused-brs", "vacuum", "optimize-instructions", "heap-store-optimization",
-        "pick-load-signs", "simplify-locals",
+        "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
+        "remove-unused-names", "vacuum", "optimize-instructions", "heap-store-optimization",
+        "pick-load-signs", "simplify-locals", "remove-unused-names",
       ],
     ),
   ]
@@ -267,8 +267,8 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
-    "vacuum", "optimize-instructions", "heap-store-optimization", "pick-load-signs",
-    "simplify-locals",
+    "remove-unused-names", "vacuum", "optimize-instructions", "heap-store-optimization",
+    "pick-load-signs", "simplify-locals", "remove-unused-names",
   ]
 }
 
@@ -277,8 +277,8 @@ pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
-    "vacuum", "optimize-instructions", "heap-store-optimization", "pick-load-signs",
-    "simplify-locals",
+    "remove-unused-names", "vacuum", "optimize-instructions", "heap-store-optimization",
+    "pick-load-signs", "simplify-locals", "remove-unused-names",
   ]
 }
 
