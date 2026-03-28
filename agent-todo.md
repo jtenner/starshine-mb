@@ -145,8 +145,12 @@ Observed unique-pass order
      - Doc: [0066#L188](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L188)
    - [RUB]002 - Multi-Slot Cleanup and Artifact Compare - Replay the pass in each Binaryen slot and confirm later `merge-blocks` opportunities match the reference output.
      - Deliverables: add early, mid, and late slot coverage; write regressions for branch-value and typed-block cases; compare the pass on the MoonBit debug artifact.
-     - Current blocker: `remove-unused-brs` is green in the current tree (`moon test src/passes` => `316/316`, full `moon test` => `1929/1929`), including the previously called-out dropped returned-if fixtures. The remaining work is now multi-slot replay and artifact compare proof rather than fixing a known local `.tee` / dropped-return correctness hole.
+     - Current blocker: the top-level scheduler gap is now fixed: `optimize` and `shrink` both replay `remove-unused-brs` in three modeled slots, focused preset tests cover those trace counts, and a loop-shaped payload-branch regression is in-tree. Artifact compare is still blocked by a pre-pass IR verify failure on `tests/node/dist/starshine-debug-wasi.wasm`: `func[(Func 24)] verify before remove-unused-brs: InvalidLabelOwner(4, 16)` when replayed with `STARSHINE_DEBUG_SERIAL_PASSES=1`.
      - Doc: [0066#L188](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L188)
+   - [IR]003 - Lifted Label Ownership Repro for RUB Artifact Gate - Reduce `Func 24` from the MoonBit debug artifact to a standalone `hot_lift`/verify repro so RUB artifact compare can resume.
+     - Deliverables: add a focused IR repro test or fixture for `InvalidLabelOwner(4, 16)`, fix the lifted label-owner corruption, and re-run the debug-artifact `remove-unused-brs` compare with serial verification enabled.
+     - Required APIs / invariants: every lifted control label must keep `hot_control_node_label(func, label.owner) == label_id`, region labels must stay attached to `Block` owners, and pre-pass verification must succeed before any RUB pass work starts.
+     - Suggested tests: `moon test src/ir`, `moon test src/passes`, `STARSHINE_DEBUG_SERIAL_PASSES=1 _build/native/release/build/cmd/cmd.exe --remove-unused-brs --out .tmp/rub-artifact-serial.wasm tests/node/dist/starshine-debug-wasi.wasm`.
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.

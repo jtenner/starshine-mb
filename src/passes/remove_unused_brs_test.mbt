@@ -931,6 +931,25 @@ test "remove-unused-brs rewrites one-arm payload branch ladders into br_if plus 
 }
 
 ///|
+test "remove-unused-brs preserves loop-stack drop when flattening one-arm payload branch ladders" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (block $exit (result i32) (i32.const 0) (loop (param i32) (local.get 0) (i32.const 0) (i32.gt_s) (if (then (i32.const 1) (br $exit)) (else (i32.const 2) drop)) drop) (i32.const 9))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs loop payload-branch ladder success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs strips stack-style branch exits from tail value if arms" {
   let optimized = match
     pass_test_run_pipeline(

@@ -85,6 +85,56 @@ test "optimize preset replays remove-unused-names in all RUN slots" {
 }
 
 ///|
+test "optimize preset replays remove-unused-brs in all RUB slots" {
+  let trace : Array[String] = []
+  let input = pass_test_module_from_wat(
+    "(module (func (param i32) (block $exit (if (local.get 0) (then (br $exit))))))",
+  )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["optimize"],
+    ) {
+    Ok(mod) => mod
+    Err(err) => fail("expected optimize pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected optimized module to validate, got \{err}")
+  }
+  let rub_starts = trace.filter(fn(line) {
+    line.contains("pass[remove-unused-brs]:start")
+  })
+  assert_eq(rub_starts.length(), 3)
+}
+
+///|
+test "shrink preset replays remove-unused-brs in all RUB slots" {
+  let trace : Array[String] = []
+  let input = pass_test_module_from_wat(
+    "(module (func (param i32) (block $exit (if (local.get 0) (then (br $exit))))))",
+  )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["shrink"],
+    ) {
+    Ok(mod) => mod
+    Err(err) => fail("expected shrink pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected shrink module to validate, got \{err}")
+  }
+  let rub_starts = trace.filter(fn(line) {
+    line.contains("pass[remove-unused-brs]:start")
+  })
+  assert_eq(rub_starts.length(), 3)
+}
+
+///|
 test "remove-unused-names can clean up stale labels exposed by remove-unused-brs" {
   let optimized = match
     run_hot_pipeline(

@@ -106,14 +106,16 @@ test "preset expansion stays on implemented active pass names" {
   assert_eq(optimize, [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
-    "remove-unused-names", "vacuum", "optimize-instructions", "heap-store-optimization",
-    "pick-load-signs", "simplify-locals", "remove-unused-names",
+    "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
+    "heap-store-optimization", "pick-load-signs", "simplify-locals", "remove-unused-brs",
+    "remove-unused-names",
   ])
   assert_eq(shrink, [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
-    "remove-unused-names", "vacuum", "optimize-instructions", "heap-store-optimization",
-    "pick-load-signs", "simplify-locals", "remove-unused-names",
+    "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
+    "heap-store-optimization", "pick-load-signs", "simplify-locals", "remove-unused-brs",
+    "remove-unused-names",
   ])
   for name in optimize {
     match pass_registry_category(name) {

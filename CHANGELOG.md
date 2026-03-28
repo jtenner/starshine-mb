@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: replay remove-unused-brs in all modeled preset slots
+
+- **RUB preset scheduler parity** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`src/passes/registry_test.mbt`](./src/passes/registry_test.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so the active `optimize` and `shrink` presets now replay `remove-unused-brs` in three modeled slots instead of one. Focused tests now lock the RUB trace count in both presets, keep the registry’s expanded pass lists aligned with the documented Binaryen slot model, and cover the loop-shaped payload-branch ladder that must stay valid before artifact replay can resume.
+
 ## 2026-03-28 Fix: persist printed WAT for pass-fuzz command failures
 
 - **Parser-gap artifact capture** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/0072-2026-03-28-run-invalid-tag-index-binaryen-parser-gap.md`](./docs/0072-2026-03-28-run-invalid-tag-index-binaryen-parser-gap.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so saved pass-fuzz command-failure artifacts now include `input.print.wat` when `wasm-tools print` succeeds. That makes Binaryen parser failures like RUN `case 662` directly inspectable from the saved replay directory.
