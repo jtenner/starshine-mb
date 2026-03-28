@@ -160,15 +160,14 @@ fn rume_build_table_to_elem_map(
       let mut elem_idx = 0
       while elem_idx < elems.length() {
         match elems[elem_idx] {
-          @lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), kind) =>
-            if rume_elem_init_has_effect(kind) {
+          @lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _) => {
             let table_slot = table_idx.reinterpret_as_int()
             if table_slot >= 0 && table_slot < table_to_elems.length() {
               table_to_elems[table_slot].push(
                 @lib.ElemIdx::new(elem_idx.reinterpret_as_uint()),
               )
             }
-            }
+          }
           _ => ()
         }
         elem_idx += 1

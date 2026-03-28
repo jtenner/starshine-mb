@@ -461,6 +461,68 @@ fn rume_test_nullref_active_elem_import_fixture() -> @lib.Module {
 }
 
 ///|
+fn rume_test_nullfuncref_active_elem_live_table_fixture() -> @lib.Module {
+  @lib.Module::new()
+  .with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::no_func())),
+          @lib.Limits::i32(21U, None),
+        ),
+        None,
+      ),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("W"),
+        @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string(""),
+        @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("g"),
+        @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::active(
+          @lib.TableIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.ElemKind::typed_exprs(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::no_func())),
+          [
+            @lib.Expr::new([
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::no_func()),
+              ),
+            ]),
+            @lib.Expr::new([
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::no_func()),
+              ),
+            ]),
+            @lib.Expr::new([
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::no_func()),
+              ),
+            ]),
+          ],
+        ),
+      ),
+    ]),
+  )
+}
+
+///|
 fn rume_test_live_access_targets(
   mod_ : @lib.Module,
 ) -> (UInt, UInt, UInt) raise {
@@ -921,6 +983,46 @@ test "remove-unused-module-elements drops no-op active nullref elem segments on 
     Err(err) =>
       fail(
         "expected imported-nullref-active-elem remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements keeps nullfuncref active elem segments on live defined tables" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_nullfuncref_active_elem_live_table_fixture(),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected live-table-nullfuncref remove-unused-module-elements success, got \{err}",
+      )
+  }
+
+  match optimized.elem_sec {
+    Some(
+      @lib.ElemSec(
+        [
+          @lib.Elem(
+            @lib.Active(@lib.TableIdx(table_idx), @lib.Expr([@lib.I32Const(_)])),
+            @lib.TypedExprsElemKind(_, exprs)
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(table_idx, 0U)
+      assert_eq(exprs.length(), 3)
+    }
+    _ => fail("expected active nullfuncref elem segment to remain on live table")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected live-table-nullfuncref remove-unused-module-elements module to validate, got \{err}",
       )
   }
 }

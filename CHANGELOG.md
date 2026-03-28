@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: keep nullfuncref active elems on live defined tables in RUME
+
+- **Live-table default elem retention parity** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/remove_unused_module_elements.mbt`](./src/passes/remove_unused_module_elements.mbt), and [`src/passes/remove_unused_module_elements_test.mbt`](./src/passes/remove_unused_module_elements_test.mbt) so RUME only suppresses null-only active elem segments when they would otherwise root a dead imported table; once a table is already live, those active segments are preserved and rewritten normally. The focused regression covers the exported defined-table `nullfuncref` repro, and the refreshed `wasm-smith` replay reached `165/165` normalized matches with `0` mismatches, leaving only Binaryen-side parser failures in the remaining `20` failure slots.
+
 ## 2026-03-28 Fix: drop imported-table nullref-only active elem roots in RUME
 
 - **Imported-table no-op elem parity** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/remove_unused_module_elements.mbt`](./src/passes/remove_unused_module_elements.mbt), and [`src/passes/remove_unused_module_elements_test.mbt`](./src/passes/remove_unused_module_elements_test.mbt) so RUME no longer roots imported tables through active elem segments whose payload is entirely `ref.null` and therefore has no live element payload to preserve. The focused regression covers the imported `anyref` repro shape directly, and the refreshed `wasm-smith` replay moved that frontier forward to a later defined-table `nullfuncref` active-segment mismatch while keeping the remaining `19` failure slots Binaryen-only.
