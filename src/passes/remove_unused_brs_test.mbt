@@ -591,6 +591,28 @@ test "remove-unused-brs lifts scalar returned ladders through return and holder 
 }
 
 ///|
+test "remove-unused-brs flattens nested returned ladder branch exits" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (block $exit (return (if (result i32) (local.get 0) (then (local.set 2 (i32.const 9)) (if (result i32) (local.get 1) (then (local.get 2)) (else (br $exit)))) (else (i32.const 4)))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs nested returned ladder branch-exit success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_false(
+    pretty.contains("(if (result i32)\n      (local.get 1)"),
+    msg=pretty,
+  )
+}
+
+///|
 test "remove-unused-brs preserves result ifs for nested multi-value root return blocks" {
   let optimized = match
     pass_test_run_pipeline(

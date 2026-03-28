@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: narrow scalar returned-ladder `remove-unused-brs` branch exits
+
+- **`remove-unused-brs` returned-ladder scalar branch-exit checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so the pass now rewrites the lifted `Return -> If -> holder Block` scalar family directly, with a narrow arm-tail branch-exit hook, a cheap returned-ladder shape precheck, an exact `i32.eqz` builder instead of the old synthetic `select(0,1,cond)` form, and a focused HOT-shape regression for nested returned ladders. `moon info`, `moon fmt`, and full `moon test` are green, and the March 28, 2026 compare run at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-2777147` improves exact Binaryen matches from `3625 / 3889` to `3627 / 3889`, making `$3077` and `$1927` exact while also improving Starshine `--remove-unused-brs` pass time from `527.048ms` on `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-2719179` to `509.918ms`; overall canonical parity and the speed target remain unmet (`Canonical wasm equal: no`, `Normalized WAT equal: no`).
+
 ## 2026-03-27 Refactor: route `remove-unused-brs` payload splits through HOT queries
 
 - **HOT payload-split query adoption** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti), and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt) so IR2 now exposes canonical trailing-payload split helpers and `remove-unused-brs` consumes that shared query surface instead of maintaining its own copy of the stack-style payload split logic.
