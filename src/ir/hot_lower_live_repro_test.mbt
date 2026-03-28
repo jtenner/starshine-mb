@@ -126,3 +126,100 @@ test "hot lower live repro validates typed loop carrier reloads backedge value" 
     Err(err) => fail(@validate.validation_error_message(err))
   }
 }
+
+///|
+test "hot lower live repro validates repeated shared operand emission" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (param i32 i32) (result i32) (i32.add (local.get 0) (local.get 1))))",
+  )
+  let add_id = hot_root_get(fixture.hot_func, 0)
+  let lhs = hot_child_get(fixture.hot_func, add_id, 0)
+  hot_child_set(fixture.hot_func, add_id, 1, lhs)
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
+test "hot lower live repro validates value-if condition consumed before later drop" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32)
+    #|    i32.const 0
+    #|    loop $loop (type $loop_t)
+    #|      local.tee 0
+    #|      i32.const 0
+    #|      i32.lt_s
+    #|      if (result i32)
+    #|        i32.const 1
+    #|      else
+    #|        local.get 0
+    #|        i32.const 5
+    #|        i32.ge_s
+    #|      end
+    #|      if
+    #|        nop
+    #|      end
+    #|      local.get 0
+    #|      drop
+    #|      local.get 0
+    #|      i32.const 1
+    #|      i32.add
+    #|      br $loop
+    #|    end
+    #|    i32.const 1)
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source)
+  let mut loop_id = -1
+  for idx = 0; idx < hot_root_count(fixture.hot_func); idx = idx + 1 {
+    let root_id = hot_root_get(fixture.hot_func, idx)
+    match hot_node_get(fixture.hot_func, root_id).op {
+      Loop => {
+        loop_id = root_id
+        break
+      }
+      _ => ()
+    }
+  }
+  if loop_id < 0 {
+    fail("expected fixture loop root")
+  }
+  let loop_body = hot_region_body_ref(fixture.hot_func, loop_id)
+  let value_if = hot_region_get(fixture.hot_func, loop_body, 0)
+  let inner_value_if = hot_child_get(fixture.hot_func, value_if, 0)
+  let value_if_else = match
+    hot_region_else_ref(fixture.hot_func, inner_value_if) {
+    Some(region) => region
+    None => fail("expected nested if with else")
+  }
+  let compare = hot_region_get(fixture.hot_func, value_if_else, 0)
+  let shared_local_get = hot_child_get(fixture.hot_func, compare, 0)
+  let drop_root = hot_region_get(fixture.hot_func, loop_body, 2)
+  hot_child_set(fixture.hot_func, drop_root, 0, shared_local_get)
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}

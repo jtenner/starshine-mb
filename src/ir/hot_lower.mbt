@@ -848,14 +848,19 @@ fn hot_lower_impl_emit_value(
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
+  force_emit? : Bool = false,
 ) -> Unit {
-  match stack.last() {
-    Some(top) if top.node_id == id => ()
-    _ =>
-      hot_lower_impl_emit_root(
-        func, id, use_def, label_frames, label_stack_head, stack, out, extra_locals,
-      )
-  }
+  hot_lower_impl_emit_root(
+    func,
+    id,
+    use_def,
+    label_frames,
+    label_stack_head,
+    stack,
+    out,
+    extra_locals,
+    allow_stack_top_reuse=!force_emit,
+  )
 }
 
 ///|
@@ -871,6 +876,7 @@ fn hot_lower_impl_emit_inputs(
 ) -> Unit {
   let matched = hot_lower_impl_matching_input_prefix(stack, inputs)
   for i = matched; i < inputs.length(); i = i + 1 {
+    let force_emit = i > matched && inputs[i - 1] == inputs[i]
     hot_lower_impl_emit_value(
       func,
       inputs[i],
@@ -880,6 +886,7 @@ fn hot_lower_impl_emit_inputs(
       stack,
       out,
       extra_locals,
+      force_emit=force_emit,
     )
   }
 }
@@ -894,8 +901,9 @@ fn hot_lower_impl_emit_root(
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
+  allow_stack_top_reuse? : Bool = true,
 ) -> Unit {
-  if hot_node_result_arity(func, id) > 0 {
+  if allow_stack_top_reuse && hot_node_result_arity(func, id) > 0 {
     match stack.last() {
       Some(top) if top.node_id == id => return
       _ => ()

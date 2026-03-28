@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: lower repeated shared HOT operands safely
+
+- **Hot-lower shared-operand stack fix** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), and [`src/ir/hot_lower_live_repro_test.mbt`](./src/ir/hot_lower_live_repro_test.mbt) so hot lowering no longer treats a reused value node as already materialized just because the same `node_id` is on top of the synthetic stack. Focused live repros now cover both the minimal repeated-operand underflow and a loop-carried nested value-`if` / later-`drop` shape, and the remaining work is refreshing large-artifact replay evidence without the temporary pass-manager tracing.
+
 ## 2026-03-28 Fix: preserve DCE loop-input drops needed by hot lowering
 
 - **DCE typed-loop input-drop guard** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), and [`src/passes/dead_code_elimination_live_repro_test.mbt`](./src/passes/dead_code_elimination_live_repro_test.mbt) so `dead-code-elimination` no longer deletes loop-body `drop` roots that consume typed loop input children. The new HOT-based live repro mutates a lifted loop into the exact shared-node carrier shape from the debug artifact, `moon test src/passes` and `moon test src/cmd` stay green, and the remaining large-artifact blocker is still the later `Func 1730` `stack underflow`, not this reduced loop-input-drop case.
