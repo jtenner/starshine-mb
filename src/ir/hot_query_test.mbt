@@ -158,10 +158,22 @@ test "single-root wrapper queries peel canonical block wrappers" {
   assert_eq(hot_region_single_live_block_root(func, root_ref), Some(root_block))
   assert_eq(hot_region_single_live_block_body(func, root_ref), Some(outer_body))
   assert_eq(
+    hot_region_single_live_block_body_or_self(func, root_ref),
+    outer_body,
+  )
+  assert_eq(
     hot_region_single_live_block_root(func, outer_body),
     Some(inner_block),
   )
+  assert_eq(
+    hot_region_single_live_block_body_or_self(func, outer_body),
+    inner_body,
+  )
   assert_eq(hot_region_single_live_root(func, inner_body), Some(payload))
+  assert_eq(
+    hot_region_single_live_block_body_or_self(func, inner_body),
+    inner_body,
+  )
   match hot_node_get(func, payload).op {
     HotOp::Const => ()
     _ => fail("expected peeled inner payload to be a const")
@@ -288,7 +300,9 @@ test "trailing plain-branch split queries expose prefix roots and tail target ca
   let prefix0 = hot_build_drop(func, hot_build_const_i32(func, @lib.I32(0)))
   let prefix1 = hot_build_drop(func, hot_build_const_i32(func, @lib.I32(1)))
   let tail = hot_build_br(func, 7)
-  let block = hot_build_block(func, @lib.BlockType::void_(), [prefix0, prefix1, tail])
+  let block = hot_build_block(func, @lib.BlockType::void_(), [
+    prefix0, prefix1, tail,
+  ])
   let body_ref = hot_region_body_ref(func, block)
   let mixed = hot_build_block(func, @lib.BlockType::void_(), [
     prefix0,
@@ -310,7 +324,10 @@ test "trailing plain-branch split queries expose prefix roots and tail target ca
     None => fail("expected trailing plain br target split for region roots")
   }
   assert_eq(
-    hot_region_split_trailing_plain_br_root(func, hot_region_body_ref(func, mixed)),
+    hot_region_split_trailing_plain_br_root(
+      func,
+      hot_region_body_ref(func, mixed),
+    ),
     None,
   )
   assert_eq(
@@ -408,6 +425,20 @@ test "repeated-shape queries expose repeated live children and region roots cano
       hot_region_body_ref(func, repeated_blocks),
     ),
     Some(hot_region_body_ref(func, repeated_inner_block)),
+  )
+  assert_eq(
+    hot_region_repeated_live_block_body_or_self(
+      func,
+      hot_region_body_ref(func, repeated_blocks),
+    ),
+    hot_region_body_ref(func, repeated_inner_block),
+  )
+  assert_eq(
+    hot_region_repeated_live_block_body_or_self(
+      func,
+      hot_region_body_ref(func, mixed_block),
+    ),
+    hot_region_body_ref(func, mixed_block),
   )
   assert_eq(hot_node_repeated_live_child(func, mixed_br), None)
   assert_eq(

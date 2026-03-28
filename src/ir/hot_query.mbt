@@ -214,6 +214,17 @@ pub fn hot_region_single_live_block_body(
 }
 
 ///|
+pub fn hot_region_single_live_block_body_or_self(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> HotRegionRef {
+  match hot_region_single_live_block_body(func, region_ref) {
+    Some(body_ref) => body_ref
+    None => region_ref
+  }
+}
+
+///|
 pub fn hot_region_single_live_if_root(
   func : HotFunc,
   region_ref : HotRegionRef,
@@ -467,6 +478,17 @@ pub fn hot_region_repeated_live_block_body(
   match hot_region_repeated_live_block_root(func, region_ref) {
     Some(block_id) => Some(hot_region_body_ref(func, block_id))
     None => None
+  }
+}
+
+///|
+pub fn hot_region_repeated_live_block_body_or_self(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> HotRegionRef {
+  match hot_region_repeated_live_block_body(func, region_ref) {
+    Some(body_ref) => body_ref
+    None => region_ref
   }
 }
 

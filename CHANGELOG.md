@@ -12,6 +12,10 @@
 
 - **Formatting-only checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_test.mbt`](./src/ir/hot_lower_test.mbt), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to bring the rebased DCE and hot-lower files back to the current `moon fmt` layout without changing pass behavior.
 
+## 2026-03-28 Refactor: add canonical HOT wrapper-body unwrap queries
+
+- **HOT wrapper-body unwrap checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), and [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti) so IR2 now exposes canonical "unwrap one block layer or keep the original region" queries for single-live and repeated-live block wrappers. This is groundwork for the remaining `RemoveUnusedBrs` returned-ladder parity work, which still encounters arm bodies through holder-block wrappers rather than direct region roots.
+
 ## 2026-03-28 Refactor: add canonical HOT trailing-branch split queries
 
 - **HOT trailing-branch split checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), and [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti) so IR2 now exposes canonical helpers for regions whose live roots end in a plain trailing `br`, including the body prefix and the branch target. This is groundwork for the remaining `RemoveUnusedBrs` multi-value returned-ladder family, which still re-discovers that shape ad hoc.
