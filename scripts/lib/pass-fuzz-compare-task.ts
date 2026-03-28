@@ -359,6 +359,8 @@ function persistFailureArtifacts(
   generator: GeneratorKind,
   detail: string,
   workDir: string,
+  wasmToolsBin: string,
+  repoRoot: string,
 ): string {
   const failureDir = path.join(
     outDir,
@@ -372,6 +374,19 @@ function persistFailureArtifacts(
     const target = path.join(failureDir, entry);
     if (fs.statSync(source).isFile()) {
       fs.copyFileSync(source, target);
+    }
+  }
+  const inputPath = path.join(failureDir, "input.wasm");
+  if (fs.existsSync(inputPath)) {
+    const result = spawnSync(wasmToolsBin, ["print", inputPath], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+    if (result.error) {
+      throw result.error;
+    }
+    if (result.status === 0) {
+      fs.writeFileSync(path.join(failureDir, "input.print.wat"), result.stdout ?? "");
     }
   }
   return failureDir;
@@ -699,7 +714,17 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           summary.generatorFailureCount += 1;
           failures += 1;
           const detail = `wasm-smith generation failed: ${smith.stderr || "unknown error"}`;
-          summary.failureDirs.push(persistFailureArtifacts(outDir, caseNumber, generator, detail, workDir));
+          summary.failureDirs.push(
+            persistFailureArtifacts(
+              outDir,
+              caseNumber,
+              generator,
+              detail,
+              workDir,
+              options.wasmToolsBin,
+              repoRoot,
+            ),
+          );
           writeJsonlLine(casesPath, {
             caseIndex: caseNumber,
             generator,
@@ -715,7 +740,17 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         summary.generatorFailureCount += 1;
         failures += 1;
         const detail = `generated input failed validation: ${baselineValidation.stderr || "unknown error"}`;
-        summary.failureDirs.push(persistFailureArtifacts(outDir, caseNumber, generator, detail, workDir));
+        summary.failureDirs.push(
+          persistFailureArtifacts(
+            outDir,
+            caseNumber,
+            generator,
+            detail,
+            workDir,
+            options.wasmToolsBin,
+            repoRoot,
+          ),
+        );
         writeJsonlLine(casesPath, {
           caseIndex: caseNumber,
           generator,
@@ -740,7 +775,17 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         const detail = `Starshine command failed: ${commandFailureDetail(error)}`;
         const failureClass = classifyCommandFailure(detail);
         noteCommandFailureClass(summary, failureClass);
-        summary.failureDirs.push(persistFailureArtifacts(outDir, caseNumber, generator, detail, workDir));
+        summary.failureDirs.push(
+          persistFailureArtifacts(
+            outDir,
+            caseNumber,
+            generator,
+            detail,
+            workDir,
+            options.wasmToolsBin,
+            repoRoot,
+          ),
+        );
         writeJsonlLine(casesPath, {
           caseIndex: caseNumber,
           generator,
@@ -756,7 +801,17 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         summary.validationFailureCount += 1;
         failures += 1;
         const detail = `Starshine output failed validation: ${starshineValidation.stderr || "unknown error"}`;
-        summary.failureDirs.push(persistFailureArtifacts(outDir, caseNumber, generator, detail, workDir));
+        summary.failureDirs.push(
+          persistFailureArtifacts(
+            outDir,
+            caseNumber,
+            generator,
+            detail,
+            workDir,
+            options.wasmToolsBin,
+            repoRoot,
+          ),
+        );
         writeJsonlLine(casesPath, {
           caseIndex: caseNumber,
           generator,
@@ -784,7 +839,17 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         const detail = `Binaryen/canonicalization command failed: ${commandFailureDetail(error)}`;
         const failureClass = classifyCommandFailure(detail);
         noteCommandFailureClass(summary, failureClass);
-        summary.failureDirs.push(persistFailureArtifacts(outDir, caseNumber, generator, detail, workDir));
+        summary.failureDirs.push(
+          persistFailureArtifacts(
+            outDir,
+            caseNumber,
+            generator,
+            detail,
+            workDir,
+            options.wasmToolsBin,
+            repoRoot,
+          ),
+        );
         writeJsonlLine(casesPath, {
           caseIndex: caseNumber,
           generator,
@@ -814,7 +879,17 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         summary.mismatchCount += 1;
         failures += 1;
         const detail = "normalized outputs differed";
-        summary.failureDirs.push(persistFailureArtifacts(outDir, caseNumber, generator, detail, workDir));
+        summary.failureDirs.push(
+          persistFailureArtifacts(
+            outDir,
+            caseNumber,
+            generator,
+            detail,
+            workDir,
+            options.wasmToolsBin,
+            repoRoot,
+          ),
+        );
         writeJsonlLine(casesPath, {
           caseIndex: caseNumber,
           generator,

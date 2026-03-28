@@ -812,6 +812,8 @@ process.exit(0);
   const entry = JSON.parse(cases[0]) as { status: string; failureClass?: string };
   assert(entry.status === "command-failure", `expected command-failure status, got ${entry.status}`);
   assert(entry.failureClass === "binaryen-invalid-tag-index", `expected classified case record, got ${JSON.stringify(entry)}`);
+  const watPath = path.join(outDir, "failures", "case-000001-gen-valid", "input.print.wat");
+  assert(fs.existsSync(watPath), `expected saved printed WAT at ${watPath}`);
 }
 
 export function runPassFuzzCompareReplayFailureClassTest(): void {

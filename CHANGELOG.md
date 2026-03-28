@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: persist printed WAT for pass-fuzz command failures
+
+- **Parser-gap artifact capture** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/0072-2026-03-28-run-invalid-tag-index-binaryen-parser-gap.md`](./docs/0072-2026-03-28-run-invalid-tag-index-binaryen-parser-gap.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so saved pass-fuzz command-failure artifacts now include `input.print.wat` when `wasm-tools print` succeeds. That makes Binaryen parser failures like RUN `case 662` directly inspectable from the saved replay directory.
+
 ## 2026-03-28 Fix: replay saved pass-fuzz failures by exact case index
 
 - **Invalid-tag-index replay workflow** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/0072-2026-03-28-run-invalid-tag-index-binaryen-parser-gap.md`](./docs/0072-2026-03-28-run-invalid-tag-index-binaryen-parser-gap.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so saved pass-fuzz corpora can be replayed by exact `caseIndex`, including older `cases.jsonl` files that predate structured `failureClass` output. This documents and isolates the `remove-unused-names` Binaryen `invalid tag index` parser failure at saved `wasm-smith` case `662`.

@@ -8,6 +8,7 @@ Document the `remove-unused-names` pass-fuzz command failure that currently appe
 
 - Source corpus: `.tmp/pass-fuzz-run-smith-2000`
 - Saved failure: `.tmp/pass-fuzz-run-smith-2000/failures/case-000662-wasm-smith`
+- Saved exact-case replay with printed WAT: `.tmp/pass-fuzz-run-smith-case-662-replay-wat/failures/case-000662-wasm-smith`
 - Failing Binaryen command:
 
 ```text
@@ -21,6 +22,7 @@ parse exception: invalid tag index (at 0:54)
 ```
 
 - Starshine side: the pass completes and emits `starshine.raw.wasm` for the same saved input.
+- The replay harness now persists `input.print.wat` beside `input.wasm` for command-failure artifacts, so this case can be inspected without rerunning `wasm-tools print`.
 
 ## Correctness Constraints
 
@@ -31,13 +33,14 @@ parse exception: invalid tag index (at 0:54)
 ## Validation Plan
 
 - Replay the exact saved case directly:
+- Replay the exact saved case directly:
 
 ```text
 bun scripts/pass-fuzz-compare.ts \
   --pass remove-unused-names \
   --replay-failures-from .tmp/pass-fuzz-run-smith-2000 \
   --case-index 662 \
-  --out-dir .tmp/pass-fuzz-run-smith-case-662-replay
+  --out-dir .tmp/pass-fuzz-run-smith-case-662-replay-wat
 ```
 
 - Replay the whole classified family when needed:
