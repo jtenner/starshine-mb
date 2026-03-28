@@ -837,7 +837,7 @@ test "dead-code-elimination preserves explicit unreachable in branchy carried re
 }
 
 ///|
-test "dead-code-elimination retargets outer wrapper payload forwarders in local.set values" {
+test "dead-code-elimination preserves outer wrapper payload forwarders in local.set values when oracle keeps them" {
   let mod_ = pass_test_module_from_wat(
     "(module (func (param i32 i32 i32) (result i32) (local i32 i32) (local.set 3 (block $outer (result i32) (block $mid (br $outer (block $inner (result i32) (block $cont (local.set 4 (local.get 0)) (drop (local.get 1)) (drop (local.get 2)) (br $inner (if (result i32) (local.get 0) (then (local.set 4 (local.get 1)) (br $cont)) (else (local.set 3 (local.get 2)) (br $mid))))) (local.get 4)))) (local.get 3))) (local.get 3)))",
   )
@@ -854,7 +854,7 @@ test "dead-code-elimination retargets outer wrapper payload forwarders in local.
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected dead-code-elimination outer-wrapper payload retarget success, got \{err}",
+        "expected dead-code-elimination outer-wrapper payload preservation success, got \{err}",
       )
   }
 
@@ -875,9 +875,11 @@ test "dead-code-elimination retargets outer wrapper payload forwarders in local.
     .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("unreachable"), msg=pretty)
-  assert_false(pretty.contains("(block $outer (result i32)"), msg=pretty)
-  assert_false(pretty.contains("(br $inner"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+  assert_true(pretty.contains("(block $outer (result i32)"), msg=pretty)
+  assert_true(pretty.contains("(block $mid"), msg=pretty)
+  assert_true(pretty.contains("(block $inner (result i32)"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Chore: sync DCE backlog state after live parity fix
+
+- **DCE todo and oracle-regression checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to record the carried-wrapper `unreachable` parity fix that is now committed, refresh the remaining DCE runtime and oracle blockers against current measurements, and realign one local-set wrapper regression with the current Binaryen behavior observed during artifact reduction.
+
 ## 2026-03-28 Chore: refresh OI todo state after rebased parity work
 
 - **`optimize-instructions` backlog refresh** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to record the current `OI` state after the rebased parity/correctness series: nested boolean `if` rewrites are restored; relational operand canonicalization is restored for local/local, pure-expression, load-safe, read-only heap/table, shared read-only, and unique `local.tee` compare roots; and the remaining blockers are now concentrated in the still-blocked shared/control/loop tee families plus dual-slot / ordered-prefix replay evidence.
