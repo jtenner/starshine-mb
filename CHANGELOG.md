@@ -2,7 +2,7 @@
 
 ## 2026-03-28 Fix: lower repeated shared HOT operands safely
 
-- **Hot-lower shared-operand stack fix** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), and [`src/ir/hot_lower_live_repro_test.mbt`](./src/ir/hot_lower_live_repro_test.mbt) so hot lowering no longer treats a reused value node as already materialized just because the same `node_id` is on top of the synthetic stack. Focused live repros now cover both the minimal repeated-operand underflow and a loop-carried nested value-`if` / later-`drop` shape, and the remaining work is refreshing large-artifact replay evidence without the temporary pass-manager tracing.
+- **Hot-lower shared-operand stack fix** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cmd/cmd_test.mbt`](./src/cmd/cmd_test.mbt), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), and [`src/ir/hot_lower_live_repro_test.mbt`](./src/ir/hot_lower_live_repro_test.mbt) so hot lowering no longer treats a reused value node as already materialized just because the same `node_id` is on top of the synthetic stack. Focused live repros now cover both the minimal repeated-operand underflow and a loop-carried nested value-`if` / later-`drop` shape, and a native `cmd` regression now replays `--dead-code-elimination` on `tests/node/dist/starshine-debug-wasi.wasm` directly in-process to keep the old `Func 1730` stack-underflow path covered without waiting on the full CLI artifact loop.
 
 ## 2026-03-28 Fix: preserve DCE loop-input drops needed by hot lowering
 
