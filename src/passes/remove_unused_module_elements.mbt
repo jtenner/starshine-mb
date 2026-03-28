@@ -719,6 +719,57 @@ fn rume_process_data(
 }
 
 ///|
+fn rume_mark_imported_parent_segments(
+  mod_ : @lib.Module,
+  table_imports : Int,
+  mem_imports : Int,
+  queue : Array[RumeItem],
+  used_elems : Array[Bool],
+  used_datas : Array[Bool],
+) -> Unit {
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) => {
+      let mut elem_idx = 0
+      while elem_idx < elems.length() {
+        match elems[elem_idx] {
+          @lib.Elem(@lib.Active(@lib.TableIdx(table_idx), _), _) =>
+            if table_idx.reinterpret_as_int() < table_imports {
+              rume_mark_elem(
+                queue,
+                used_elems,
+                @lib.ElemIdx::new(elem_idx.reinterpret_as_uint()),
+              )
+            }
+          _ => ()
+        }
+        elem_idx += 1
+      }
+    }
+    None => ()
+  }
+  match mod_.data_sec {
+    Some(@lib.DataSec(datas)) => {
+      let mut data_idx = 0
+      while data_idx < datas.length() {
+        match datas[data_idx] {
+          @lib.Data(@lib.Active(@lib.MemIdx(mem_idx), _), _) =>
+            if mem_idx.reinterpret_as_int() < mem_imports {
+              rume_mark_data(
+                queue,
+                used_datas,
+                @lib.DataIdx::new(data_idx.reinterpret_as_uint()),
+              )
+            }
+          _ => ()
+        }
+        data_idx += 1
+      }
+    }
+    None => ()
+  }
+}
+
+///|
 fn rume_collect_liveness(
   mod_ : @lib.Module,
 ) -> (
@@ -786,24 +837,9 @@ fn rume_collect_liveness(
       }
     None => ()
   }
-  let mut table_slot = 0
-  while table_slot < table_imports {
-    rume_mark_table(
-      queue,
-      used_tables,
-      @lib.TableIdx::new(table_slot.reinterpret_as_uint()),
-    )
-    table_slot += 1
-  }
-  let mut mem_slot = 0
-  while mem_slot < mem_imports {
-    rume_mark_mem(
-      queue,
-      used_mems,
-      @lib.MemIdx::new(mem_slot.reinterpret_as_uint()),
-    )
-    mem_slot += 1
-  }
+  rume_mark_imported_parent_segments(
+    mod_, table_imports, mem_imports, queue, used_elems, used_datas,
+  )
 
   let mut cursor = 0
   while cursor < queue.length() {
@@ -864,6 +900,21 @@ fn rume_build_abs_remap(
       next_abs += 1
     }
     def_idx += 1
+  }
+  remap
+}
+
+///|
+fn rume_build_used_remap(used : Array[Bool]) -> Array[Int] {
+  let remap = Array::make(used.length(), -1)
+  let mut next_idx = 0
+  let mut idx = 0
+  while idx < used.length() {
+    if used[idx] {
+      remap[idx] = next_idx
+      next_idx += 1
+    }
+    idx += 1
   }
   remap
 }
@@ -1610,10 +1661,10 @@ fn rume_apply_module_rewrite(
   let kept_mems = rume_kept_defined_from_used(used_mems, mem_imports)
   let kept_tags = rume_kept_defined_from_used(used_tags, tag_imports)
   let func_remap = rume_build_abs_remap(func_imports, kept_funcs)
-  let global_remap = rume_build_abs_remap(global_imports, kept_globals)
-  let table_remap = rume_build_abs_remap(table_imports, kept_tables)
-  let mem_remap = rume_build_abs_remap(mem_imports, kept_mems)
-  let tag_remap = rume_build_abs_remap(tag_imports, kept_tags)
+  let global_remap = rume_build_used_remap(used_globals)
+  let table_remap = rume_build_used_remap(used_tables)
+  let mem_remap = rume_build_used_remap(used_mems)
+  let tag_remap = rume_build_used_remap(used_tags)
   let elem_remap = rume_build_defined_remap(used_elems)
   let data_remap = rume_build_defined_remap(used_datas)
   let func_remap_is_identity = rume_remap_is_identity(func_remap)
@@ -1677,6 +1728,50 @@ fn rume_apply_module_rewrite(
   let next_start_sec = match mod_.start_sec {
     Some(@lib.StartSec(func_idx)) =>
       Some(@lib.StartSec::new(rume_rewrite_func_idx(func_idx, func_remap)))
+    None => None
+  }
+
+  let next_import_sec = match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      let next : Array[@lib.Import] = []
+      let mut table_idx = 0
+      let mut mem_idx = 0
+      let mut global_idx = 0
+      let mut tag_idx = 0
+      for import_ in imports {
+        let keep = match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(_)) => true
+          @lib.Import(_, _, @lib.TableExternType(_)) => {
+            let keep = used_tables[table_idx]
+            table_idx += 1
+            keep
+          }
+          @lib.Import(_, _, @lib.MemExternType(_)) => {
+            let keep = used_mems[mem_idx]
+            mem_idx += 1
+            keep
+          }
+          @lib.Import(_, _, @lib.GlobalExternType(_)) => {
+            let keep = used_globals[global_idx]
+            global_idx += 1
+            keep
+          }
+          @lib.Import(_, _, @lib.TagExternType(_)) => {
+            let keep = used_tags[tag_idx]
+            tag_idx += 1
+            keep
+          }
+        }
+        if keep {
+          next.push(import_)
+        }
+      }
+      if next.is_empty() {
+        None
+      } else {
+        Some(@lib.ImportSec::new(next))
+      }
+    }
     None => None
   }
 
@@ -1901,7 +1996,7 @@ fn rume_apply_module_rewrite(
   @lib.Module::new(
     custom_secs=mod_.custom_secs,
     type_sec=mod_.type_sec,
-    import_sec=mod_.import_sec,
+    import_sec=next_import_sec,
     func_annotation_sec=rume_rewrite_func_annotation_sec(
       mod_.func_annotation_sec,
       func_remap,

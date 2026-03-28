@@ -213,6 +213,141 @@ fn rume_test_memarg_rewrite_fixture() -> @lib.Module {
 }
 
 ///|
+fn rume_test_import_remap_fixture() -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(rume_test_type_sec())
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("dead_table"),
+        @lib.ExternType::table(rume_test_table_type()),
+      ),
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("live_table"),
+        @lib.ExternType::table(rume_test_table_type()),
+      ),
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("dead_mem"),
+        @lib.ExternType::mem(rume_test_mem_type()),
+      ),
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("live_mem"),
+        @lib.ExternType::mem(rume_test_mem_type()),
+      ),
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("dead_global"),
+        @lib.ExternType::global(
+          @lib.GlobalType::new(@lib.ValType::i32(), false),
+        ),
+      ),
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("live_global"),
+        @lib.ExternType::global(
+          @lib.GlobalType::new(@lib.ValType::i32(), false),
+        ),
+      ),
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("dead_tag"),
+        @lib.ExternType::tag(@lib.TagType::new(@lib.TypeIdx::new(0U))),
+      ),
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("live_tag"),
+        @lib.ExternType::tag(@lib.TagType::new(@lib.TypeIdx::new(0U))),
+      ),
+    ]),
+  )
+  .with_table_sec(
+    @lib.TableSec::new([@lib.Table::new(rume_test_table_type(), None)]),
+  )
+  .with_mem_sec(@lib.MemSec::new([rume_test_mem_type()]))
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), false),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+      ),
+    ]),
+  )
+  .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("table_import"),
+        @lib.ExternIdx::table(@lib.TableIdx::new(1U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("table_defined"),
+        @lib.ExternIdx::table(@lib.TableIdx::new(2U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("mem_import"),
+        @lib.ExternIdx::mem(@lib.MemIdx::new(1U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("mem_defined"),
+        @lib.ExternIdx::mem(@lib.MemIdx::new(2U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("global_import"),
+        @lib.ExternIdx::global(@lib.GlobalIdx::new(1U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("global_defined"),
+        @lib.ExternIdx::global(@lib.GlobalIdx::new(2U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("tag_import"),
+        @lib.ExternIdx::tag(@lib.TagIdx::new(1U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("tag_defined"),
+        @lib.ExternIdx::tag(@lib.TagIdx::new(2U)),
+      ),
+    ]),
+  )
+  .with_name_sec(
+    @lib.NameSec::new(
+      table_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("dead_table")),
+          @lib.NameAssoc::new(1U, @lib.Name::from_string("live_table")),
+          @lib.NameAssoc::new(2U, @lib.Name::from_string("defined_table")),
+        ]),
+      ),
+      memory_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("dead_mem")),
+          @lib.NameAssoc::new(1U, @lib.Name::from_string("live_mem")),
+          @lib.NameAssoc::new(2U, @lib.Name::from_string("defined_mem")),
+        ]),
+      ),
+      global_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("dead_global")),
+          @lib.NameAssoc::new(1U, @lib.Name::from_string("live_global")),
+          @lib.NameAssoc::new(2U, @lib.Name::from_string("defined_global")),
+        ]),
+      ),
+      tag_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("dead_tag")),
+          @lib.NameAssoc::new(1U, @lib.Name::from_string("live_tag")),
+          @lib.NameAssoc::new(2U, @lib.Name::from_string("defined_tag")),
+        ]),
+      ),
+    ),
+  )
+}
+
+///|
 fn rume_test_live_access_targets(
   mod_ : @lib.Module,
 ) -> (UInt, UInt, UInt) raise {
@@ -447,6 +582,137 @@ test "remove-unused-module-elements keeps active segments that initialize import
     Err(err) =>
       fail(
         "expected imported-parent remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements drops unused imported module elements and remaps survivors" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_import_remap_fixture(),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected imported-element remove-unused-module-elements success, got \{err}",
+      )
+  }
+
+  match optimized.import_sec {
+    Some(
+      @lib.ImportSec(
+        [
+          @lib.Import(_, live_table, @lib.TableExternType(_)),
+          @lib.Import(_, live_mem, @lib.MemExternType(_)),
+          @lib.Import(_, live_global, @lib.GlobalExternType(_)),
+          @lib.Import(_, live_tag, @lib.TagExternType(_)),
+        ]
+      )
+    ) => {
+      assert_eq(live_table, @lib.Name::from_string("live_table"))
+      assert_eq(live_mem, @lib.Name::from_string("live_mem"))
+      assert_eq(live_global, @lib.Name::from_string("live_global"))
+      assert_eq(live_tag, @lib.Name::from_string("live_tag"))
+    }
+    _ => fail("expected only live imported table/mem/global/tag entries")
+  }
+
+  match optimized.export_sec {
+    Some(
+      @lib.ExportSec(
+        [
+          @lib.Export(_, @lib.TableExternIdx(@lib.TableIdx(table_import_idx))),
+          @lib.Export(_, @lib.TableExternIdx(@lib.TableIdx(table_defined_idx))),
+          @lib.Export(_, @lib.MemExternIdx(@lib.MemIdx(mem_import_idx))),
+          @lib.Export(_, @lib.MemExternIdx(@lib.MemIdx(mem_defined_idx))),
+          @lib.Export(
+            _,
+            @lib.GlobalExternIdx(@lib.GlobalIdx(global_import_idx))
+          ),
+          @lib.Export(
+            _,
+            @lib.GlobalExternIdx(@lib.GlobalIdx(global_defined_idx))
+          ),
+          @lib.Export(_, @lib.TagExternIdx(@lib.TagIdx(tag_import_idx))),
+          @lib.Export(_, @lib.TagExternIdx(@lib.TagIdx(tag_defined_idx))),
+        ]
+      )
+    ) => {
+      assert_eq(table_import_idx, 0U)
+      assert_eq(table_defined_idx, 1U)
+      assert_eq(mem_import_idx, 0U)
+      assert_eq(mem_defined_idx, 1U)
+      assert_eq(global_import_idx, 0U)
+      assert_eq(global_defined_idx, 1U)
+      assert_eq(tag_import_idx, 0U)
+      assert_eq(tag_defined_idx, 1U)
+    }
+    _ =>
+      fail("expected rewritten export indices after imported-element removal")
+  }
+
+  match optimized.name_sec {
+    Some(sec) => {
+      let { table_names, memory_names, global_names, tag_names, .. } = sec
+      match table_names {
+        Some(
+          @lib.NameMap(
+            [@lib.NameAssoc(0U, table_live), @lib.NameAssoc(1U, table_defined)]
+          )
+        ) => {
+          assert_eq(table_live, @lib.Name::from_string("live_table"))
+          assert_eq(table_defined, @lib.Name::from_string("defined_table"))
+        }
+        _ => fail("expected rewritten table names")
+      }
+      match memory_names {
+        Some(
+          @lib.NameMap(
+            [@lib.NameAssoc(0U, mem_live), @lib.NameAssoc(1U, mem_defined)]
+          )
+        ) => {
+          assert_eq(mem_live, @lib.Name::from_string("live_mem"))
+          assert_eq(mem_defined, @lib.Name::from_string("defined_mem"))
+        }
+        _ => fail("expected rewritten memory names")
+      }
+      match global_names {
+        Some(
+          @lib.NameMap(
+            [
+              @lib.NameAssoc(0U, global_live),
+              @lib.NameAssoc(1U, global_defined),
+            ]
+          )
+        ) => {
+          assert_eq(global_live, @lib.Name::from_string("live_global"))
+          assert_eq(global_defined, @lib.Name::from_string("defined_global"))
+        }
+        _ => fail("expected rewritten global names")
+      }
+      match tag_names {
+        Some(
+          @lib.NameMap(
+            [@lib.NameAssoc(0U, tag_live), @lib.NameAssoc(1U, tag_defined)]
+          )
+        ) => {
+          assert_eq(tag_live, @lib.Name::from_string("live_tag"))
+          assert_eq(tag_defined, @lib.Name::from_string("defined_tag"))
+        }
+        _ => fail("expected rewritten tag names")
+      }
+    }
+    None => fail("expected rewritten name section")
+  }
+
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected imported-element remove-unused-module-elements module to validate, got \{err}",
       )
   }
 }

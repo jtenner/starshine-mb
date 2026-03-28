@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: drop and remap unused imported module elements in RUME
+
+- **`remove-unused-module-elements` imported-element parity** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/remove_unused_module_elements.mbt`](./src/passes/remove_unused_module_elements.mbt), and [`src/passes/remove_unused_module_elements_test.mbt`](./src/passes/remove_unused_module_elements_test.mbt) so RUME no longer preserves dead imported tables, memories, globals, and tags by copying `import_sec` through unchanged. The pass now roots imported parents only when active elem/data segments still initialize them, rebuilds absolute remaps from actual surviving imports, rewrites downstream indices against those compacted maps, and covers the imported-element case with a focused regression that checks surviving imports plus export and name-section remaps.
+
 ## 2026-03-28 Docs: classify RUME fuzz mismatches and command failures
 
 - **RUME fuzz classification update** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to record the full classified `remove-unused-module-elements` rerun after the harness failure-accounting fix: five saved imported-module-element retention mismatches, one empty active-data mismatch, and the accumulated Starshine/Binaryen command-failure buckets from the first `20` failing `wasm-smith` cases. The backlog now distinguishes semantic parity work from fuzz-coverage blockers and lists the exact saved repro directories that need focused reduction or follow-up.
