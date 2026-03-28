@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Chore: refresh IR2 and DCE blocker counts after hot-lower checkpoint
+
+- **IR2/DCE blocker refresh** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to record the repo state after the current `hot_lower` checkpoint: focused `src/ir/hot_lower_test.mbt` is down to 6 red cases concentrated in packed local-set carry and parent-exit payload families, while full `moon test` is still red with 13 failures because 7 downstream `dead-code-elimination` cases now include parent-exit stack-underflow validation failures and loop-body wrapper regressions that still depend on the remaining IR2 lowering repair.
+
 ## 2026-03-28 Fix: checkpoint hot-lower payload-forwarder repair progress
 
 - **`hot_lower` payload-forwarder checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), and [`src/ir/hot_lower_test.mbt`](./src/ir/hot_lower_test.mbt) to narrow the current IR2 payload-forwarder repair slice: malformed compare-shape WAT fixtures now parse, terminal-return voidification keeps the required explicit `unreachable`, parent-exit wrapper rebasing is tighter, and the split local-set carry matcher handles more dropped-value and parent-exit arm shapes. Focused `moon test src/ir/hot_lower_test.mbt` improved from 12 failures to 6 on this checkpoint; the remaining red cases are the packed local-set carry and parent-exit payload families, so this is an explicit WIP savepoint rather than signoff.
