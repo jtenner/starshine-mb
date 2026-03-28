@@ -699,6 +699,29 @@ fn optimize_instructions_negate_boolean_expr(
   if !optimize_instructions_node_is_live(func, dead, node_id) {
     return None
   }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
+      Some(@ir.hot_child_get(func, node_id, 0))
+    _ =>
+      match optimize_instructions_i32_const(func, dead, node_id) {
+        Some(@lib.I32(raw)) if raw == 0 =>
+          Some(@ir.hot_build_const_i32(func, @lib.I32(1)))
+        Some(@lib.I32(raw)) if raw == 1 =>
+          Some(@ir.hot_build_const_i32(func, @lib.I32(0)))
+        _ => None
+      }
+  }
+}
+
+///|
+fn optimize_instructions_negate_boolean_expr_recursive(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Int? {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return None
+  }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::If => {
@@ -712,7 +735,7 @@ fn optimize_instructions_negate_boolean_expr(
         return None
       }
       let neg_then = match
-        optimize_instructions_negate_boolean_expr(
+        optimize_instructions_negate_boolean_expr_recursive(
           func,
           dead,
           @ir.hot_region_get(func, then_region, 0),
@@ -721,7 +744,7 @@ fn optimize_instructions_negate_boolean_expr(
         None => return None
       }
       let neg_else = match
-        optimize_instructions_negate_boolean_expr(
+        optimize_instructions_negate_boolean_expr_recursive(
           func,
           dead,
           @ir.hot_region_get(func, else_region, 0),
@@ -735,18 +758,7 @@ fn optimize_instructions_negate_boolean_expr(
     }
     _ => ()
   }
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
-      Some(@ir.hot_child_get(func, node_id, 0))
-    _ =>
-      match optimize_instructions_i32_const(func, dead, node_id) {
-        Some(@lib.I32(raw)) if raw == 0 =>
-          Some(@ir.hot_build_const_i32(func, @lib.I32(1)))
-        Some(@lib.I32(raw)) if raw == 1 =>
-          Some(@ir.hot_build_const_i32(func, @lib.I32(0)))
-        _ => None
-      }
-  }
+  optimize_instructions_negate_boolean_expr(func, dead, node_id)
 }
 
 ///|
@@ -1837,7 +1849,7 @@ fn optimize_instructions_try_negate_nested_if_condition_to_eqz(
     return false
   }
   let neg_then = match
-    optimize_instructions_negate_boolean_expr(
+    optimize_instructions_negate_boolean_expr_recursive(
       func,
       dead,
       @ir.hot_region_get(func, cond_then, 0),
@@ -1846,7 +1858,7 @@ fn optimize_instructions_try_negate_nested_if_condition_to_eqz(
     None => return false
   }
   let neg_else = match
-    optimize_instructions_negate_boolean_expr(
+    optimize_instructions_negate_boolean_expr_recursive(
       func,
       dead,
       @ir.hot_region_get(func, cond_else, 0),
