@@ -281,7 +281,7 @@ fn remove_unused_brs_compute_label_refs(func : @ir.HotFunc) -> Array[Int] {
 }
 
 ///|
-fn remove_unused_brs_delete_unused_nodes(
+fn remove_unused_brs_delete_detached_leaf_nodes(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_ids : Array[Int],
@@ -310,22 +310,20 @@ fn remove_unused_brs_cleanup_detached_nodes(
   func : @ir.HotFunc,
   detached : Array[Int],
 ) -> Unit {
-  let deletions : Array[Int] = []
-  let nop_node = @ir.hot_node_get(func, @ir.hot_build_nop(func))
-  for node_id in detached {
-    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::Block
-      | @ir.HotOp::Loop
-      | @ir.HotOp::If
-      | @ir.HotOp::Try
-      | @ir.HotOp::TryTable => @ir.hot_replace_node(func, node_id, nop_node)
-      _ => deletions.push(node_id)
-    }
-  }
-  remove_unused_brs_delete_unused_nodes(ctx, func, deletions)
+  // Detached control subtrees keep label ownership valid; lower only walks
+  // from the roots, so RUB can safely leave unreachable detached nodes live.
+  ignore(ctx)
+  ignore(func)
+  ignore(detached)
+}
+
+///|
+fn remove_unused_brs_delete_unused_nodes(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_ids : Array[Int],
+) -> Unit {
+  remove_unused_brs_cleanup_detached_nodes(ctx, func, node_ids)
 }
 
 ///|
@@ -537,7 +535,7 @@ fn remove_unused_brs_trim_trailing_nops(
       _ => break
     }
     let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [])
-    pass_delete_detached_nodes(ctx, func, removed)
+    remove_unused_brs_delete_unused_nodes(ctx, func, removed)
     changed = true
   }
   changed
@@ -746,13 +744,11 @@ fn remove_unused_brs_try_voidify_tail_return_if(
   let removed = pass_splice_region(ctx, func, region_ref, idx, remove_count, [
     replacement, unreachable_id,
   ])
-  let nop_node = @ir.hot_node_get(func, @ir.hot_build_nop(func))
-  for removed_id in removed {
-    @ir.hot_replace_node(func, removed_id, nop_node)
-  }
-  @ir.hot_replace_node(func, if_id, nop_node)
-  @ir.hot_replace_node(func, then_ref.holder, nop_node)
-  @ir.hot_replace_node(func, else_ref.holder, nop_node)
+  remove_unused_brs_delete_unused_nodes(
+    ctx,
+    func,
+    removed + [if_id, then_ref.holder, else_ref.holder],
+  )
   true
 }
 
@@ -1168,13 +1164,52 @@ fn remove_unused_brs_try_rewrite_if_br(
     }
     _ => return false
   }
-  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
+  @ir.hot_control_demote_if_to_block(func, node_id, [replacement])
   pass_mark_mutated(ctx, func)
   remove_unused_brs_delete_unused_nodes(ctx, func, [
-    replacement,
     then_region.holder,
     then_root,
   ])
+  true
+}
+
+///|
+fn remove_unused_brs_try_inline_single_br_if_block(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  label_refs : Array[Int],
+) -> Bool {
+  if idx < 0 || idx >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let block_id = @ir.hot_region_get(func, region_ref, idx)
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block =>
+      if @ir.hot_node_result_arity(func, block_id) != 0 {
+        return false
+      }
+    _ => return false
+  }
+  let block_label = @ir.hot_control_node_label(func, block_id)
+  if remove_unused_brs_label_is_used(label_refs, block_label) {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  if @ir.hot_region_root_count(func, body_ref) != 1 {
+    return false
+  }
+  let body_root = @ir.hot_region_get(func, body_ref, 0)
+  match @ir.hot_node_get(func, body_root).op {
+    @ir.HotOp::Br | @ir.HotOp::BrIf => ()
+    _ => return false
+  }
+  ignore(pass_splice_region(ctx, func, region_ref, idx, 1, [body_root]))
+  pass_mark_mutated(ctx, func)
   true
 }
 
@@ -1614,15 +1649,12 @@ fn remove_unused_brs_try_rewrite_two_arm_branch_if(
     let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [
       replacement,
     ])
-    let nop_node = @ir.hot_node_get(func, @ir.hot_build_nop(func))
-    for removed_id in removed {
-      @ir.hot_replace_node(func, removed_id, nop_node)
-    }
-    @ir.hot_replace_node(func, if_id, nop_node)
-    @ir.hot_replace_node(func, then_ref.holder, nop_node)
-    @ir.hot_replace_node(func, then_root, nop_node)
-    @ir.hot_replace_node(func, else_ref.holder, nop_node)
-    @ir.hot_replace_node(func, else_root, nop_node)
+    remove_unused_brs_delete_unused_nodes(
+      ctx,
+      func,
+      removed +
+      [if_id, then_ref.holder, then_root, else_ref.holder, else_root],
+    )
     return true
   }
   let condition = @ir.hot_child_get(func, if_id, 0)
@@ -1631,15 +1663,11 @@ fn remove_unused_brs_try_rewrite_two_arm_branch_if(
   let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [
     branch_if, branch,
   ])
-  let nop_node = @ir.hot_node_get(func, @ir.hot_build_nop(func))
-  for removed_id in removed {
-    @ir.hot_replace_node(func, removed_id, nop_node)
-  }
-  @ir.hot_replace_node(func, if_id, nop_node)
-  @ir.hot_replace_node(func, then_ref.holder, nop_node)
-  @ir.hot_replace_node(func, then_root, nop_node)
-  @ir.hot_replace_node(func, else_ref.holder, nop_node)
-  @ir.hot_replace_node(func, else_root, nop_node)
+  remove_unused_brs_delete_unused_nodes(
+    ctx,
+    func,
+    removed + [if_id, then_ref.holder, then_root, else_ref.holder, else_root],
+  )
   true
 }
 
@@ -1729,7 +1757,7 @@ fn remove_unused_brs_try_rewrite_one_arm_payload_branch_if(
       replacement.push(@ir.hot_region_get(func, body_ref, root_idx))
     }
     ignore(pass_splice_region(ctx, func, region_ref, idx, 1, replacement))
-    pass_delete_detached_nodes(ctx, func, [
+    remove_unused_brs_delete_unused_nodes(ctx, func, [
       if_id,
       then_ref.holder,
       else_ref.holder,
@@ -2019,14 +2047,11 @@ fn remove_unused_brs_try_rewrite_branch_payload_if(
     let exit_branch = @ir.hot_build_br(func, br_node.imm0, values=body_payload)
     let replacement = [guard_branch] + body_prefix + [exit_branch]
     let removed = pass_splice_region(ctx, func, region_ref, idx, 1, replacement)
-    let nop_node = @ir.hot_node_get(func, @ir.hot_build_nop(func))
-    for removed_id in removed {
-      @ir.hot_replace_node(func, removed_id, nop_node)
-    }
-    @ir.hot_replace_node(func, br_id, nop_node)
-    @ir.hot_replace_node(func, if_id, nop_node)
-    @ir.hot_replace_node(func, then_ref.holder, nop_node)
-    @ir.hot_replace_node(func, else_ref.holder, nop_node)
+    remove_unused_brs_delete_unused_nodes(
+      ctx,
+      func,
+      removed + [br_id, if_id, then_ref.holder, else_ref.holder],
+    )
     true
   }
   if try_build(else_ref, then_ref, true) {
@@ -2096,13 +2121,11 @@ fn remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
     let removed = pass_splice_region(
       ctx, func, region_ref, tail_idx, 1, replacement,
     )
-    let nop_node = @ir.hot_node_get(func, @ir.hot_build_nop(func))
-    for removed_id in removed {
-      @ir.hot_replace_node(func, removed_id, nop_node)
-    }
-    @ir.hot_replace_node(func, if_id, nop_node)
-    @ir.hot_replace_node(func, then_ref.holder, nop_node)
-    @ir.hot_replace_node(func, else_ref.holder, nop_node)
+    remove_unused_brs_delete_unused_nodes(
+      ctx,
+      func,
+      removed + [if_id, then_ref.holder, else_ref.holder],
+    )
     true
   }
   if try_build(else_ref, then_ref, true) {
@@ -2192,10 +2215,11 @@ fn remove_unused_brs_try_rewrite_tail_value_if_simple_payload_arm(
       block_body,
     )
     ignore(pass_splice_region(ctx, func, region_ref, 0, root_count, [block_id]))
-    let nop_node = @ir.hot_node_get(func, @ir.hot_build_nop(func))
-    @ir.hot_replace_node(func, if_id, nop_node)
-    @ir.hot_replace_node(func, then_ref.holder, nop_node)
-    @ir.hot_replace_node(func, else_ref.holder, nop_node)
+    remove_unused_brs_delete_unused_nodes(
+      ctx,
+      func,
+      [if_id, then_ref.holder, else_ref.holder],
+    )
     pass_mark_mutated(ctx, func)
     true
   }
@@ -2329,7 +2353,7 @@ fn remove_unused_brs_try_flatten_block_if_chain(
           replacement.push(@ir.hot_region_get(func, else_ref, root_idx))
         }
         ignore(pass_splice_region(ctx, func, region_ref, idx, 1, replacement))
-        pass_delete_detached_nodes(ctx, func, [
+        remove_unused_brs_delete_unused_nodes(ctx, func, [
           if_id,
           then_ref.holder,
           then_root,
@@ -2354,7 +2378,7 @@ fn remove_unused_brs_try_flatten_block_if_chain(
           replacement.push(@ir.hot_region_get(func, then_ref, root_idx))
         }
         ignore(pass_splice_region(ctx, func, region_ref, idx, 1, replacement))
-        pass_delete_detached_nodes(ctx, func, [
+        remove_unused_brs_delete_unused_nodes(ctx, func, [
           if_id,
           then_ref.holder,
           else_ref.holder,
@@ -3248,6 +3272,13 @@ fn remove_unused_brs_visit_region(
       continue
     }
     match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block =>
+        if remove_unused_brs_try_inline_single_br_if_block(
+            ctx, func, region_ref, idx, label_refs,
+          ) {
+          changed = true
+          continue
+        }
       @ir.HotOp::Br =>
         if remove_unused_brs_try_rewrite_branch_payload_if(
             ctx, func, region_ref, idx, label_refs,

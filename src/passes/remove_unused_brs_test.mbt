@@ -1174,6 +1174,87 @@ test "remove-unused-brs survives after-each-pass verification on malloc-shaped n
 }
 
 ///|
+test "remove-unused-brs survives after-each-pass verification on loop block-exit if ladders" {
+  let source =
+    #|(module
+    #|  (func $sb.new (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $begin (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $incref (param i32))
+    #|  (func $read_char (param i32) (result i32)
+    #|    i32.const -1)
+    #|  (func $write_char (param i32 i32) (result i32)
+    #|    local.get 0)
+    #|  (func $finish (param i32) (result i32)
+    #|    i32.const 0)
+    #|  (func $to_string (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $repro (param $extern_str i32) (result i32)
+    #|    (local $out i32) (local $handle i32) (local $ch i32) (local $tmp i32)
+    #|    i32.const 0
+    #|    call $sb.new
+    #|    local.set $out
+    #|    local.get $extern_str
+    #|    call $begin
+    #|    local.set $handle
+    #|    block
+    #|      loop
+    #|        local.get $handle
+    #|        if
+    #|          local.get $handle
+    #|          call $incref
+    #|        end
+    #|        local.get $handle
+    #|        call $read_char
+    #|        local.set $ch
+    #|        local.get $ch
+    #|        i32.const -1
+    #|        i32.eq
+    #|        if
+    #|          br 2
+    #|        end
+    #|        local.get $ch
+    #|        local.set $tmp
+    #|        local.get $out
+    #|        call $incref
+    #|        local.get $out
+    #|        local.get $tmp
+    #|        call $write_char
+    #|        drop
+    #|        br 0
+    #|      end
+    #|      unreachable
+    #|    end
+    #|    local.get $handle
+    #|    call $finish
+    #|    drop
+    #|    local.get $out
+    #|    call $to_string))
+  let mod_ = pass_test_module_from_wat(source)
+  let optimized = match
+    run_hot_pipeline(
+      mod_,
+      HotPipelineOptions::new(
+        verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected loop block-exit remove-unused-brs after-each-pass verify success, got \{err}",
+      )
+  }
+
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected optimized loop block-exit repro to validate, got \{err}")
+  }
+}
+
+///|
 test "remove-unused-brs strips stack-style branch exits from tail value if arms" {
   let optimized = match
     pass_test_run_pipeline(
