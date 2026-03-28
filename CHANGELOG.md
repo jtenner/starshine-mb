@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Test: lock RUB debug-artifact single-pass replay
+
+- **RUB artifact replay guard** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/cmd/cmd_test.mbt`](./src/cmd/cmd_test.mbt) so a native `cmd` regression now replays `--remove-unused-brs` on `tests/node/dist/starshine-debug-wasi.wasm` through `run_cmd_with_adapter` and validates the in-memory output module. This retires the stale `Func 807` single-pass stack-underflow checkpoint; the remaining RUB follow-up is ordered-prefix proof and any later multi-pass artifact failures, not a known direct-pass validate break.
+
 ## 2026-03-28 Fix: lower repeated shared HOT operands safely
 
 - **Hot-lower shared-operand stack fix** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cmd/cmd_test.mbt`](./src/cmd/cmd_test.mbt), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), and [`src/ir/hot_lower_live_repro_test.mbt`](./src/ir/hot_lower_live_repro_test.mbt) so hot lowering no longer treats a reused value node as already materialized just because the same `node_id` is on top of the synthetic stack. Focused live repros now cover both the minimal repeated-operand underflow and a loop-carried nested value-`if` / later-`drop` shape, and a native `cmd` regression now replays `--dead-code-elimination` on `tests/node/dist/starshine-debug-wasi.wasm` directly in-process to keep the old `Func 1730` stack-underflow path covered without waiting on the full CLI artifact loop.
