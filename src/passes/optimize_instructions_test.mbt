@@ -1619,6 +1619,48 @@ test "optimize-instructions canonicalizes relational local gets across array.len
 }
 
 ///|
+test "optimize-instructions canonicalizes relational local gets across unique tee payloads" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(
+      params=[@lib.ValType::i32(), @lib.ValType::i32()],
+      locals=[@lib.ValType::i32()],
+    ),
+  )
+  let payload = @ir.hot_build_local_get(func, 1)
+  let tee = @ir.hot_build_local_tee(func, 2, payload)
+  let limit = @ir.hot_build_local_get(func, 0)
+  let compare = @ir.hot_build_compare(func, tee, limit)
+  @ir.hot_node_exact_instr_set(func, compare, @lib.Instruction::i32_lt_s())
+  @ir.hot_root_append(func, compare)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected optimize-instructions unique-tee success, got \{err}")
+  }
+
+  assert_eq(
+    @ir.hot_node_exact_instr(func, compare),
+    Some(@lib.Instruction::i32_gt_s()),
+  )
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, compare, 0)).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected limit local.get to move to the lhs")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, compare, 1)).op {
+    @ir.HotOp::LocalTee => ()
+    _ => fail("expected unique tee payload to move to the rhs")
+  }
+}
+
+///|
 test "optimize-instructions canonicalizes relational local gets across shared loads" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32(), @lib.ValType::i32()]),

@@ -1534,6 +1534,7 @@ fn optimize_instructions_try_canonicalize_relational_operands(
   instr : @lib.Instruction,
   lhs_id : Int,
   rhs_id : Int,
+  scratch : OptimizeInstructionsScratch,
 ) -> Bool {
   let reversed = match optimize_instructions_reverse_relational_instr(instr) {
     Some(reversed) => reversed
@@ -1554,8 +1555,32 @@ fn optimize_instructions_try_canonicalize_relational_operands(
         return false
       }
       if optimize_instructions_local_get_id(func, dead, rhs_id) is None {
+        let rhs_node = @ir.hot_node_get(func, rhs_id)
         if !optimize_instructions_is_side_effect_free_expr(func, dead, rhs_id) {
-          return false
+          match rhs_node.op {
+            @ir.HotOp::LocalTee => {
+              let use_def = pass_require_use_def(ctx, func)
+              optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
+              let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(
+                scratch,
+              )
+              let can_cross = optimize_instructions_can_cross_local_get(
+                func,
+                dead,
+                use_def,
+                rhs_id,
+                local_id,
+                false,
+                scratch.loop_input_nodes,
+                scratch.cross_seen_stamps,
+                seen_stamp,
+              )
+              if !can_cross {
+                return false
+              }
+            }
+            _ => return false
+          }
         }
       }
       optimize_instructions_rewrite_exact_with_children(
@@ -1583,8 +1608,33 @@ fn optimize_instructions_try_canonicalize_relational_operands(
         None => false
       }
       if !lhs_is_local_get {
+        let lhs_node = @ir.hot_node_get(func, lhs_id)
         if !optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
-          return false
+          match lhs_node.op {
+            @ir.HotOp::LocalTee => {
+              let local_id = @ir.hot_node_get(func, rhs_id).imm0
+              let use_def = pass_require_use_def(ctx, func)
+              optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
+              let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(
+                scratch,
+              )
+              let can_cross = optimize_instructions_can_cross_local_get(
+                func,
+                dead,
+                use_def,
+                lhs_id,
+                local_id,
+                false,
+                scratch.loop_input_nodes,
+                scratch.cross_seen_stamps,
+                seen_stamp,
+              )
+              if !can_cross {
+                return false
+              }
+            }
+            _ => return false
+          }
         }
       }
       if !optimize_instructions_should_swap_commutative_node_kinds(
@@ -2920,6 +2970,7 @@ fn optimize_instructions_visit_node(
           let relational_operands_changed = if true {
             optimize_instructions_try_canonicalize_relational_operands(
               ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+              scratch,
             )
           } else {
             false

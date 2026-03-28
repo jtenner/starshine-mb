@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: restore unique tee relational swaps in OI
+
+- **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to restore the unique-use `local.tee` compare-root case through the existing crossing analysis while still keeping shared tee payloads, control-bearing tee payloads, and loop-carried tee fronts blocked. Focused `OI` tests and the native `cmd.exe --optimize-instructions` run on `tests/node/dist/starshine-debug-wasi.wasm` stay green.
+
 ## 2026-03-28 Fix: restore shared read-only relational swaps in OI
 
 - **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to drop the extra single-use restriction for already-approved read-only relational operand trees. Shared pure-address loads and other shared read-only compare operands now canonicalize safely, while control-bearing and tee-based payloads remain blocked. Focused `OI` tests and the native `cmd.exe --optimize-instructions` run on `tests/node/dist/starshine-debug-wasi.wasm` stay green.
