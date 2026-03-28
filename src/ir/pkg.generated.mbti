@@ -506,6 +506,12 @@ pub fn hot_region_insert(HotFunc, HotRegionRef, Int, Array[Int]) -> Unit
 
 pub fn hot_region_remove(HotFunc, HotRegionRef, Int, Int) -> Array[Int]
 
+pub fn hot_region_repeated_live_block_body(HotFunc, HotRegionRef) -> HotRegionRef?
+
+pub fn hot_region_repeated_live_block_root(HotFunc, HotRegionRef) -> Int?
+
+pub fn hot_region_repeated_live_if_root(HotFunc, HotRegionRef) -> Int?
+
 pub fn hot_region_repeated_live_root(HotFunc, HotRegionRef) -> Int?
 
 pub fn hot_region_replace_body(HotFunc, HotRegionRef, Array[Int]) -> Unit

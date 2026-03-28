@@ -258,6 +258,15 @@ test "repeated-shape queries expose repeated live children and region roots cano
     repeated_br, repeated_br,
   ])
   let body_ref = hot_region_body_ref(func, block)
+  let repeated_if_block = hot_build_block(func, @lib.BlockType::void_(), [
+    payload_if, payload_if,
+  ])
+  let repeated_inner_block = hot_build_block(func, @lib.BlockType::void_(), [
+    hot_build_nop(func),
+  ])
+  let repeated_blocks = hot_build_block(func, @lib.BlockType::void_(), [
+    repeated_inner_block, repeated_inner_block,
+  ])
   let mixed_br = hot_build_br(func, 7, values=[
     payload_if,
     hot_build_const_i32(func, @lib.I32(3)),
@@ -268,9 +277,37 @@ test "repeated-shape queries expose repeated live children and region roots cano
 
   assert_eq(hot_node_repeated_live_child(func, repeated_br), Some(payload_if))
   assert_eq(hot_region_repeated_live_root(func, body_ref), Some(repeated_br))
+  assert_eq(
+    hot_region_repeated_live_if_root(
+      func,
+      hot_region_body_ref(func, repeated_if_block),
+    ),
+    Some(payload_if),
+  )
+  assert_eq(
+    hot_region_repeated_live_block_root(
+      func,
+      hot_region_body_ref(func, repeated_blocks),
+    ),
+    Some(repeated_inner_block),
+  )
+  assert_eq(
+    hot_region_repeated_live_block_body(
+      func,
+      hot_region_body_ref(func, repeated_blocks),
+    ),
+    Some(hot_region_body_ref(func, repeated_inner_block)),
+  )
   assert_eq(hot_node_repeated_live_child(func, mixed_br), None)
   assert_eq(
     hot_region_repeated_live_root(func, hot_region_body_ref(func, mixed_block)),
+    None,
+  )
+  assert_eq(
+    hot_region_repeated_live_if_root(
+      func,
+      hot_region_body_ref(func, mixed_block),
+    ),
     None,
   )
 }

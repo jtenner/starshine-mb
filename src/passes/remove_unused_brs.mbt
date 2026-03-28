@@ -918,24 +918,12 @@ fn remove_unused_brs_region_tail_control_payload_count(
   }
   let child_payloads = fn() -> Int? {
     if tail.child_count > 1 {
-      let first_id = @ir.hot_child_get(func, tail_id, 0)
-      if first_id < 0 || !@ir.hot_node_is_live(func, first_id) {
-        return None
-      }
-      let first_arity = @ir.hot_node_result_arity(func, first_id)
-      if first_arity == expected_payloads {
-        let mut repeated = true
-        for child_idx = 1
-            child_idx < tail.child_count
-            child_idx = child_idx + 1 {
-          if @ir.hot_child_get(func, tail_id, child_idx) != first_id {
-            repeated = false
-            break
+      match @ir.hot_node_repeated_live_child(func, tail_id) {
+        Some(first_id) =>
+          if @ir.hot_node_result_arity(func, first_id) == expected_payloads {
+            return Some(expected_payloads)
           }
-        }
-        if repeated {
-          return Some(expected_payloads)
-        }
+        None => ()
       }
     }
     let mut payloads = 0

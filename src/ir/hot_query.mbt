@@ -349,6 +349,47 @@ pub fn hot_region_repeated_live_root(
 }
 
 ///|
+pub fn hot_region_repeated_live_if_root(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> NodeId? {
+  let candidate = match hot_region_repeated_live_root(func, region_ref) {
+    Some(candidate) => candidate
+    None => return None
+  }
+  match hot_query_op(func, candidate) {
+    HotOp::If => Some(candidate)
+    _ => None
+  }
+}
+
+///|
+pub fn hot_region_repeated_live_block_root(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> NodeId? {
+  let candidate = match hot_region_repeated_live_root(func, region_ref) {
+    Some(candidate) => candidate
+    None => return None
+  }
+  match hot_query_op(func, candidate) {
+    HotOp::Block => Some(candidate)
+    _ => None
+  }
+}
+
+///|
+pub fn hot_region_repeated_live_block_body(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> HotRegionRef? {
+  match hot_region_repeated_live_block_root(func, region_ref) {
+    Some(block_id) => Some(hot_region_body_ref(func, block_id))
+    None => None
+  }
+}
+
+///|
 pub fn hot_branch_target(func : HotFunc, node_id : NodeId) -> LabelId? {
   let node = hot_node_get(func, node_id)
   match node.op {
