@@ -1673,10 +1673,7 @@ fn hot_lower_impl_canonicalize_block_body(
           Some([rewritten]) => spliced.push(rewritten)
           _ =>
             spliced.push(
-              Instruction::block(
-                @lib.BlockType::void_(),
-                Expr::new(inner_body),
-              ),
+              Instruction::block(@lib.BlockType::void_(), Expr::new(inner_body)),
             )
         }
       Loop(_, Expr(loop_body)) if hot_lower_impl_is_simple_parent_exit_body(
@@ -1740,39 +1737,38 @@ fn hot_lower_impl_canonicalize_body(
         for inner in inner_body {
           canonical.push(inner)
         }
-      Block(bt, Expr(inner_body)) if i == body.length() - 1 =>
-        {
-          let mut peeled = false
-          match bt {
-            VoidBlockType => ()
-            _ =>
-              match inner_body {
-                [Block(VoidBlockType, Expr(prefix_body)), LocalGet(_)] =>
-                  if !hot_lower_impl_body_targets_removed_label(prefix_body, 1) {
-                    for inner in inner_body {
-                      canonical.push(inner)
-                    }
-                    peeled = true
+      Block(bt, Expr(inner_body)) if i == body.length() - 1 => {
+        let mut peeled = false
+        match bt {
+          VoidBlockType => ()
+          _ =>
+            match inner_body {
+              [Block(VoidBlockType, Expr(prefix_body)), LocalGet(_)] =>
+                if !hot_lower_impl_body_targets_removed_label(prefix_body, 1) {
+                  for inner in inner_body {
+                    canonical.push(inner)
                   }
-                [Block(VoidBlockType, Expr(_)), Block(_, _)] =>
-                  if !hot_lower_impl_body_targets_removed_label(inner_body, 0) {
-                    match inner_body[1] {
-                      Block(tail_bt, Expr(_)) if tail_bt == bt => {
-                        for inner in inner_body {
-                          canonical.push(inner)
-                        }
-                        peeled = true
+                  peeled = true
+                }
+              [Block(VoidBlockType, Expr(_)), Block(_, _)] =>
+                if !hot_lower_impl_body_targets_removed_label(inner_body, 0) {
+                  match inner_body[1] {
+                    Block(tail_bt, Expr(_)) if tail_bt == bt => {
+                      for inner in inner_body {
+                        canonical.push(inner)
                       }
-                      _ => ()
+                      peeled = true
                     }
+                    _ => ()
                   }
-                _ => ()
-              }
-          }
-          if !peeled {
-            canonical.push(Instruction::block(bt, Expr::new(inner_body)))
-          }
+                }
+              _ => ()
+            }
         }
+        if !peeled {
+          canonical.push(Instruction::block(bt, Expr::new(inner_body)))
+        }
+      }
       canonical_instr => canonical.push(canonical_instr)
     }
   }

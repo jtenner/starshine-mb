@@ -838,10 +838,9 @@ test "dead-code-elimination rewrites split local.set wrapper forwarders" {
       @lib.TypeSec::new([
         @lib.RecType::new(
           @lib.SubType::comp_type(
-            @lib.CompType::func(
-              [@lib.ValType::i32(), @lib.ValType::i32()],
-              [@lib.ValType::i32()],
-            ),
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
           ),
         ),
       ]),
@@ -1093,11 +1092,7 @@ test "dead-code-elimination retargets prefix-heavy split local.set void-if forwa
         @lib.RecType::new(
           @lib.SubType::comp_type(
             @lib.CompType::func(
-              [
-                @lib.ValType::i32(),
-                @lib.ValType::i32(),
-                @lib.ValType::i32(),
-              ],
+              [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
               [@lib.ValType::i32()],
             ),
           ),
@@ -1141,11 +1136,7 @@ test "dead-code-elimination retargets prefix-heavy nested split local.set payloa
         @lib.RecType::new(
           @lib.SubType::comp_type(
             @lib.CompType::func(
-              [
-                @lib.ValType::i32(),
-                @lib.ValType::i32(),
-                @lib.ValType::i32(),
-              ],
+              [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
               [@lib.ValType::i32()],
             ),
           ),
@@ -1161,6 +1152,7 @@ test "dead-code-elimination retargets prefix-heavy nested split local.set payloa
 }
 
 ///|
+
 ///|
 test "dead-code-elimination retargets split wrappers with store-store-return tails" {
   let mod_ = pass_test_module_from_wat(
@@ -1206,6 +1198,7 @@ test "dead-code-elimination retargets split wrappers with store-store-return tai
 }
 
 ///|
+
 ///|
 test "dead-code-elimination keeps typed if wrappers with hidden region-label payload branches" {
   let func = @ir.HotFunc::new()

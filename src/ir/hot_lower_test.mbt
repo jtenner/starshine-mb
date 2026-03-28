@@ -605,9 +605,7 @@ test "hot lower peels final typed wrappers with void prefix and same-typed value
                 @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
                 @lib.Instruction::if_(
                   @lib.BlockType::void_(),
-                  [
-                    @lib.Instruction::br(@lib.LabelIdx::new(1U)),
-                  ],
+                  [@lib.Instruction::br(@lib.LabelIdx::new(1U))],
                   Some([
                     @lib.Instruction::i32_const(@lib.I32(9)),
                     @lib.Instruction::br(@lib.LabelIdx::new(2U)),

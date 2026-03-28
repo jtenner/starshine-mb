@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Chore: normalize DCE and hot-lower formatting after merge
+
+- **Formatting-only checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_test.mbt`](./src/ir/hot_lower_test.mbt), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to bring the rebased DCE and hot-lower files back to the current `moon fmt` layout without changing pass behavior.
+
 ## 2026-03-28 Refactor: add canonical HOT single-exit-arm queries
 
 - **HOT single-exit-arm query checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti), and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt) so IR2 now exposes a canonical helper for single-root exit arms (`return` or plain `br`). `RemoveUnusedBrs` uses that shared query in tail-return voidification instead of open-coding the same exit-arm check across both arms.
