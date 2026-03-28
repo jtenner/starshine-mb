@@ -542,6 +542,40 @@ pub fn hot_control_demote_loop_to_block(
 }
 
 ///|
+pub fn hot_control_demote_if_to_block(
+  func : HotFunc,
+  if_id : NodeId,
+  new_children : Array[NodeId],
+) -> Unit {
+  hot_mutate_require_live_node(func, if_id, "hot_control_demote_if_to_block")
+  let node = hot_node_get(func, if_id)
+  if node.op != HotOp::If {
+    abort("hot_control_demote_if_to_block requires an if node")
+  }
+  let label_id = hot_control_node_label(func, if_id)
+  hot_mutate_require_label_id(
+    func, label_id, "hot_control_demote_if_to_block if label",
+  )
+  ignore(hot_replace_child_span(func, if_id, new_children))
+  let next_node = hot_node_get(func, if_id)
+  func.nodes[if_id] = {
+    ..next_node,
+    op: HotOp::Block,
+    flags: hot_default_flags_for_op(HotOp::Block),
+    imm0: label_id,
+  }
+  let label = hot_label_get(func, label_id)
+  func.labels[label_id] = {
+    ..label,
+    kind: HotLabelKind::BlockLabel,
+    owner: if_id,
+    result_type: next_node.ty,
+    branch_arity: hot_type_result_arity(func, next_node.ty),
+  }
+  hot_revision_bump(func)
+}
+
+///|
 pub fn hot_node_get(func : HotFunc, id : NodeId) -> HotNode {
   hot_mutate_require_live_node(func, id, "hot node_get")
   func.nodes[id]

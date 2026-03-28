@@ -305,6 +305,30 @@ fn remove_unused_brs_replace_with_nop(
 }
 
 ///|
+fn remove_unused_brs_cleanup_detached_nodes(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  detached : Array[Int],
+) -> Unit {
+  let deletions : Array[Int] = []
+  let nop_node = @ir.hot_node_get(func, @ir.hot_build_nop(func))
+  for node_id in detached {
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block
+      | @ir.HotOp::Loop
+      | @ir.HotOp::If
+      | @ir.HotOp::Try
+      | @ir.HotOp::TryTable => @ir.hot_replace_node(func, node_id, nop_node)
+      _ => deletions.push(node_id)
+    }
+  }
+  remove_unused_brs_delete_unused_nodes(ctx, func, deletions)
+}
+
+///|
 fn remove_unused_brs_replace_with_child(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -317,7 +341,7 @@ fn remove_unused_brs_replace_with_child(
   let detached : Array[Int] = [child_id]
   @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, child_id))
   pass_mark_mutated(ctx, func)
-  remove_unused_brs_delete_unused_nodes(ctx, func, detached)
+  remove_unused_brs_cleanup_detached_nodes(ctx, func, detached)
   true
 }
 
@@ -334,7 +358,11 @@ fn remove_unused_brs_replace_with_node(
   }
   @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement_id))
   pass_mark_mutated(ctx, func)
-  remove_unused_brs_delete_unused_nodes(ctx, func, [replacement_id] + detached)
+  remove_unused_brs_cleanup_detached_nodes(
+    ctx,
+    func,
+    [replacement_id] + detached,
+  )
   true
 }
 
@@ -1221,6 +1249,37 @@ fn remove_unused_brs_match_value_if_to_select(
 }
 
 ///|
+fn remove_unused_brs_replace_unused_if_with_value_expr(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  if_id : Int,
+  replacement_id : Int,
+  detached_holders : Array[Int],
+) -> Bool {
+  if if_id < 0 ||
+    !@ir.hot_node_is_live(func, if_id) ||
+    replacement_id < 0 ||
+    !@ir.hot_node_is_live(func, replacement_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, if_id).op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  let block_children : Array[Int] = [replacement_id]
+  for holder_id in detached_holders {
+    if holder_id < 0 || !@ir.hot_node_is_live(func, holder_id) {
+      continue
+    }
+    ignore(@ir.hot_replace_child_span(func, holder_id, []))
+    block_children.push(holder_id)
+  }
+  @ir.hot_control_demote_if_to_block(func, if_id, block_children)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn remove_unused_brs_try_rewrite_value_if_to_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1232,12 +1291,12 @@ fn remove_unused_brs_try_rewrite_value_if_to_select(
       ctx, func, node_id, reorder_cache,
     ) {
     Some(rewrite) =>
-      remove_unused_brs_replace_with_node(
+      remove_unused_brs_replace_unused_if_with_value_expr(
         ctx,
         func,
         node_id,
         rewrite.replacement,
-        detached=[rewrite.then_holder, rewrite.else_holder],
+        [rewrite.then_holder, rewrite.else_holder],
       )
     None => false
   }
@@ -1282,12 +1341,12 @@ fn remove_unused_brs_try_rewrite_condition_child_value_if_to_select(
       allow_nonreorder_condition_with_reorder_safe_arms=true,
     ) {
     Some(rewrite) =>
-      remove_unused_brs_replace_with_node(
+      remove_unused_brs_replace_unused_if_with_value_expr(
         ctx,
         func,
         condition_id,
         rewrite.replacement,
-        detached=[rewrite.then_holder, rewrite.else_holder],
+        [rewrite.then_holder, rewrite.else_holder],
       )
     None => false
   }
@@ -1841,10 +1900,13 @@ fn remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
     let replacement = remove_unused_brs_build_select(
       func, result_type, then_value, else_value, condition,
     )
-    remove_unused_brs_replace_with_node(ctx, func, if_id, replacement, detached=[
-      then_ref.holder,
-      else_ref.holder,
-    ])
+    remove_unused_brs_replace_unused_if_with_value_expr(
+      ctx,
+      func,
+      if_id,
+      replacement,
+      [then_ref.holder, else_ref.holder],
+    )
   }
   if try_build(
       remove_unused_brs_build_stack_exit_region_value_expr(

@@ -950,6 +950,230 @@ test "remove-unused-brs preserves loop-stack drop when flattening one-arm payloa
 }
 
 ///|
+test "remove-unused-brs survives after-each-pass verification on malloc-shaped nested value-if ladders" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global $tlsf/ROOT (mut i32) (i32.const 1))
+    #|  (func $tlsf/initialize)
+    #|  (func $tlsf/searchBlock (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 8)
+    #|  (func $tlsf/addMemory (param i32 i32 i64)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop)
+    #|  (func $tlsf/removeBlock (param i32 i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop)
+    #|  (func $tlsf/insertBlock (param i32 i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop)
+    #|  (func $moonbit_malloc_like (param $0 i32) (result i32)
+    #|    (local $1 i32) (local $2 i32) (local $3 i32) (local $4 i32)
+    #|    global.get $tlsf/ROOT
+    #|    i32.eqz
+    #|    if
+    #|      call $tlsf/initialize
+    #|    end
+    #|    local.get $0
+    #|    i32.const 1073741820
+    #|    i32.gt_u
+    #|    if
+    #|      unreachable
+    #|    end
+    #|    global.get $tlsf/ROOT
+    #|    local.tee $2
+    #|    local.get $0
+    #|    i32.const 12
+    #|    i32.le_u
+    #|    if (result i32)
+    #|      i32.const 12
+    #|    else
+    #|      local.get $0
+    #|      i32.const 19
+    #|      i32.add
+    #|      i32.const -16
+    #|      i32.and
+    #|      i32.const 4
+    #|      i32.sub
+    #|    end
+    #|    local.tee $1
+    #|    call $tlsf/searchBlock
+    #|    local.tee $0
+    #|    i32.eqz
+    #|    if
+    #|      memory.size
+    #|      local.tee $0
+    #|      local.get $1
+    #|      i32.const 256
+    #|      i32.ge_u
+    #|      if (result i32)
+    #|        local.get $1
+    #|        i32.const 536870910
+    #|        i32.lt_u
+    #|        if (result i32)
+    #|          i32.const 1
+    #|          i32.const 27
+    #|          local.get $1
+    #|          i32.clz
+    #|          i32.sub
+    #|          i32.shl
+    #|          local.get $1
+    #|          i32.add
+    #|          i32.const 1
+    #|          i32.sub
+    #|        else
+    #|          local.get $1
+    #|        end
+    #|      else
+    #|        local.get $1
+    #|      end
+    #|      i32.const 4
+    #|      local.get $2
+    #|      i32.load offset=1568 align=1
+    #|      local.get $0
+    #|      i32.const 16
+    #|      i32.shl
+    #|      i32.const 4
+    #|      i32.sub
+    #|      i32.ne
+    #|      i32.shl
+    #|      i32.add
+    #|      i32.const 65535
+    #|      i32.add
+    #|      i32.const -65536
+    #|      i32.and
+    #|      i32.const 16
+    #|      i32.shr_u
+    #|      local.tee $3
+    #|      local.get $0
+    #|      local.get $3
+    #|      i32.gt_s
+    #|      select
+    #|      memory.grow
+    #|      i32.const 0
+    #|      i32.lt_s
+    #|      if
+    #|        local.get $3
+    #|        memory.grow
+    #|        i32.const 0
+    #|        i32.lt_s
+    #|        if
+    #|          unreachable
+    #|        end
+    #|      end
+    #|      local.get $2
+    #|      local.get $0
+    #|      i32.const 16
+    #|      i32.shl
+    #|      memory.size
+    #|      i64.extend_i32_s
+    #|      i64.const 16
+    #|      i64.shl
+    #|      call $tlsf/addMemory
+    #|      local.get $2
+    #|      local.get $1
+    #|      call $tlsf/searchBlock
+    #|      local.set $0
+    #|    end
+    #|    local.get $2
+    #|    local.get $0
+    #|    call $tlsf/removeBlock
+    #|    local.get $0
+    #|    i32.load align=1
+    #|    local.tee $3
+    #|    i32.const -4
+    #|    i32.and
+    #|    local.get $1
+    #|    i32.sub
+    #|    local.tee $4
+    #|    i32.const 16
+    #|    i32.ge_u
+    #|    if
+    #|      local.get $0
+    #|      local.get $3
+    #|      i32.const 2
+    #|      i32.and
+    #|      local.get $1
+    #|      i32.or
+    #|      i32.store align=1
+    #|      local.get $1
+    #|      local.get $0
+    #|      i32.const 4
+    #|      i32.add
+    #|      i32.add
+    #|      local.tee $1
+    #|      local.get $4
+    #|      i32.const 4
+    #|      i32.sub
+    #|      i32.const 1
+    #|      i32.or
+    #|      i32.store align=1
+    #|      local.get $2
+    #|      local.get $1
+    #|      call $tlsf/insertBlock
+    #|    else
+    #|      local.get $0
+    #|      local.get $3
+    #|      i32.const -2
+    #|      i32.and
+    #|      i32.store align=1
+    #|      local.get $0
+    #|      i32.const 4
+    #|      i32.add
+    #|      local.tee $1
+    #|      local.get $0
+    #|      i32.load align=1
+    #|      i32.const -4
+    #|      i32.and
+    #|      local.tee $2
+    #|      i32.add
+    #|      local.get $1
+    #|      local.get $2
+    #|      i32.add
+    #|      i32.load align=1
+    #|      i32.const -3
+    #|      i32.and
+    #|      i32.store align=1
+    #|    end
+    #|    local.get $0
+    #|    i32.const 4
+    #|    i32.add))
+  let mod_ = pass_test_module_from_wat(source)
+  let optimized = match
+    run_hot_pipeline(
+      mod_,
+      HotPipelineOptions::new(
+        verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected malloc-shaped remove-unused-brs after-each-pass verify success, got \{err}",
+      )
+  }
+
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected optimized malloc-shaped repro to validate, got \{err}")
+  }
+}
+
+///|
 test "remove-unused-brs strips stack-style branch exits from tail value if arms" {
   let optimized = match
     pass_test_run_pipeline(
