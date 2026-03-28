@@ -1637,10 +1637,16 @@ fn optimize_instructions_try_optimize_if_condition(
   }
   let cond_instr = match @ir.hot_node_exact_instr(func, cond_id) {
     Some(instr) => instr
-    None =>
-      return optimize_instructions_try_invert_nested_if_condition(
-        ctx, func, dead, node_id, cond_id, then_region, else_region,
+    None => {
+      if optimize_instructions_try_invert_nested_if_condition(
+          ctx, func, dead, node_id, cond_id, then_region, else_region,
+        ) {
+        return true
+      }
+      return optimize_instructions_try_negate_nested_if_condition_to_eqz(
+        ctx, func, dead, node_id, cond_id, else_region,
       )
+    }
   }
   let direct_rewrite = match cond_instr {
     @lib.Instruction::I32Ne => {
@@ -1704,8 +1710,13 @@ fn optimize_instructions_try_optimize_if_condition(
   if direct_rewrite {
     return true
   }
-  optimize_instructions_try_invert_nested_if_condition(
-    ctx, func, dead, node_id, cond_id, then_region, else_region,
+  if optimize_instructions_try_invert_nested_if_condition(
+      ctx, func, dead, node_id, cond_id, then_region, else_region,
+    ) {
+    return true
+  }
+  optimize_instructions_try_negate_nested_if_condition_to_eqz(
+    ctx, func, dead, node_id, cond_id, else_region,
   )
 }
 
@@ -1760,6 +1771,58 @@ fn optimize_instructions_try_invert_nested_if_condition(
       cond_id, else_region, then_region,
     ]),
   )
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_try_negate_nested_if_condition_to_eqz(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+  cond_id : Int,
+  else_region : Int,
+) -> Bool {
+  if @ir.hot_node_is_live(func, else_region) {
+    return false
+  }
+  match @ir.hot_node_get(func, cond_id).op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  let cond_then = @ir.hot_region_then_ref(func, cond_id)
+  let cond_else = match @ir.hot_region_else_ref(func, cond_id) {
+    Some(region) => region
+    None => return false
+  }
+  if @ir.hot_region_root_count(func, cond_then) != 1 ||
+    @ir.hot_region_root_count(func, cond_else) != 1 {
+    return false
+  }
+  let neg_then = match
+    optimize_instructions_negate_boolean_expr(
+      func,
+      dead,
+      @ir.hot_region_get(func, cond_then, 0),
+    ) {
+    Some(node) => node
+    None => return false
+  }
+  let neg_else = match
+    optimize_instructions_negate_boolean_expr(
+      func,
+      dead,
+      @ir.hot_region_get(func, cond_else, 0),
+    ) {
+    Some(node) => node
+    None => return false
+  }
+  @ir.hot_region_replace_body(func, cond_then, [neg_then])
+  @ir.hot_region_replace_body(func, cond_else, [neg_else])
+  let wrapped = @ir.hot_build_unary(func, @lib.ValType::i32(), cond_id)
+  @ir.hot_node_exact_instr_set(func, wrapped, @lib.Instruction::i32_eqz())
+  @ir.hot_child_set(func, node_id, 0, wrapped)
   pass_mark_mutated(ctx, func)
   true
 }
