@@ -1,40 +1,18 @@
 # Changelog
 
-## 2026-03-28 Fix: restore unique tee relational swaps in OI
+<<<<<<< HEAD
+## 2026-03-28 Fix: checkpoint DCE live-forwarder deletion and unreachable regressions
 
-- **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to restore the unique-use `local.tee` compare-root case through the existing crossing analysis while still keeping shared tee payloads, control-bearing tee payloads, and loop-carried tee fronts blocked. Focused `OI` tests and the native `cmd.exe --optimize-instructions` run on `tests/node/dist/starshine-debug-wasi.wasm` stay green.
+- **`dead-code-elimination` live-forwarder checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_live_repro_test.mbt`](./src/ir/hot_lower_live_repro_test.mbt), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), [`src/passes/dead_code_elimination_live_repro_test.mbt`](./src/passes/dead_code_elimination_live_repro_test.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to checkpoint the current live DCE slice: dead node deletion now uses a direct live-reference scan instead of the cached internal/external ref accounting path, hot-lower keeps the carried-wrapper unreachable canonicalization aligned with `moon fmt`, and the DCE suite adds explicit regressions for carried-result wrappers and typed loop-body wrappers with required `unreachable` tails. This is a work-in-progress checkpoint on `master`, not a parity signoff.
 
-## 2026-03-28 Fix: restore shared read-only relational swaps in OI
+## 2026-03-28 Fix: preserve carried-wrapper unreachable in hot lower
 
-- **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to drop the extra single-use restriction for already-approved read-only relational operand trees. Shared pure-address loads and other shared read-only compare operands now canonicalize safely, while control-bearing and tee-based payloads remain blocked. Focused `OI` tests and the native `cmd.exe --optimize-instructions` run on `tests/node/dist/starshine-debug-wasi.wasm` stay green.
-
-## 2026-03-28 Fix: restore read-only heap and table relational swaps in OI
-
-- **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to widen relational operand canonicalization again so unique-use read-only heap/table/memory expressions can cross `local.get` operands, including `array.len` and pure-address loads. Focused `OI` tests and the native `cmd.exe --optimize-instructions` run on `tests/node/dist/starshine-debug-wasi.wasm` stay green on this read-only compare recovery.
-
-## 2026-03-28 Fix: restore load-safe relational swaps in OI
-
-- **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to widen relational operand canonicalization further so unique-use loads with pure address trees can cross `local.get` operands. Focused `OI` tests and the native `cmd.exe --optimize-instructions` run on `tests/node/dist/starshine-debug-wasi.wasm` stay green on this load-safe compare recovery.
-
-## 2026-03-28 Fix: restore pure-expression relational swaps in OI
-
-- **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to widen relational operand canonicalization from local-get/local-get swaps to unique-use side-effect-free expression trees, while still blocking calls, loads, control-bearing subtrees, and tee-based payloads. Focused `OI` tests, native `moon build --target native --release src/cmd`, and the native `cmd.exe --optimize-instructions` run on `tests/node/dist/starshine-debug-wasi.wasm` are green on this broader compare-side recovery.
-
-## 2026-03-28 Fix: restore local-only relational operand swaps in OI
-
-- **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to re-enable the safe local-get/local-get subset of relational operand canonicalization while continuing to keep local-get-versus-subtree crossing disabled. Focused `OI` tests, native `moon build --target native --release src/cmd`, and the native `cmd.exe --optimize-instructions` run on `tests/node/dist/starshine-debug-wasi.wasm` are green on this narrower compare-side recovery.
-
-## 2026-03-28 Fix: restore nested boolean if rewrites in OI
-
-- **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to re-enable the nested boolean `if` inversion and `eqz` negation helpers inside `optimize_instructions_try_optimize_if_condition` now that the real invalid-module artifact no longer reproduces with the current parity stack. Focused `OI` tests, native `moon build --target native --release src/cmd`, and the native `cmd.exe --optimize-instructions` run on `tests/node/dist/starshine-debug-wasi.wasm` are green; `optimize_instructions_try_canonicalize_relational_operands` remains disabled as the still-unsafe compare-side surface.
-
-## 2026-03-28 Fix: restore safe direct if rewrites in OI
-
-- **`optimize-instructions` correctness refinement** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt), and [`src/passes/optimize_instructions_test.mbt`](./src/passes/optimize_instructions_test.mbt) to re-enable the safe subset of `optimize_instructions_try_optimize_if_condition`: duplicate-branch collapse and the direct `i32.ne` / `i32.eq` / `i32.eqz` condition rewrites. The nested boolean `if` inversion/negation helpers remain disabled while the invalid control/value-stack interaction is reduced further. Focused `OI` tests and the native `cmd.exe --optimize-instructions` artifact validation stay green on `tests/node/dist/starshine-debug-wasi.wasm`.
-
+- **`hot_lower` live carried-wrapper parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_live_repro_test.mbt`](./src/ir/hot_lower_live_repro_test.mbt), and [`src/passes/dead_code_elimination_live_repro_test.mbt`](./src/passes/dead_code_elimination_live_repro_test.mbt) so lowering now preserves or materializes the explicit `unreachable` required by the exact `run_cmd_with_adapter.inner` carried split-wrapper shape seen on the real debug artifact. Focused live repro tests, native release build, and the full native `--dead-code-elimination` replay remain green on this checkpoint, and the old normalized-WAT blocker around line `6281` is gone on the refreshed artifact.
+=======
 ## 2026-03-28 Fix: disable unsafe OI compare and if rewrites
 
 - **`optimize-instructions` correctness hotfix** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/optimize_instructions.mbt`](./src/passes/optimize_instructions.mbt) to turn off `optimize_instructions_try_canonicalize_relational_operands` and `optimize_instructions_try_optimize_if_condition` after the native `cmd.exe --optimize-instructions` pipeline reproduced a final-module stack underflow on `tests/node/dist/starshine-debug-wasi.wasm`. This restores artifact validity while keeping the rest of the landed `OI` parity work in place; follow-up work will reintroduce narrower guarded versions of these rewrites once the invalid control/value-stack interaction is reduced and covered.
+>>>>>>> e56db54 (Fix disable unsafe OI compare and if rewrites)
 
 ## 2026-03-28 Research: tighten OI dead-suffix zero-sentinel regressions
 
@@ -43,6 +21,26 @@
 ## 2026-03-28 Chore: normalize DCE and hot-lower formatting after merge
 
 - **Formatting-only checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_test.mbt`](./src/ir/hot_lower_test.mbt), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to bring the rebased DCE and hot-lower files back to the current `moon fmt` layout without changing pass behavior.
+
+## 2026-03-28 Fix: widen DCE split-forwarder rewrites and final hot-lower typed-wrapper peeling
+
+- **`dead-code-elimination` + `hot_lower` checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_test.mbt`](./src/ir/hot_lower_test.mbt), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) so final typed-wrapper peeling in hot lowering accepts the same-typed nested-tail block form directly, while DCE broadens split local-set wrapper / payload-forwarder rewrites for prefix-heavy direct-branch, void-if, and nested payload-block cases. This checkpoints the unrelated in-progress lowering and DCE work as its own slice instead of leaving it mixed into `RemoveUnusedBrs`. `moon info` and `moon fmt` pass, but `moon test src/ir/hot_lower_test.mbt` and `moon test src/passes/dead_code_elimination_test.mbt` are currently failing on this checkpoint, so this is an explicit WIP savepoint rather than a signoff.
+
+## 2026-03-28 Refactor: add canonical HOT wrapper-body unwrap queries
+
+- **HOT wrapper-body unwrap checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), and [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti) so IR2 now exposes canonical "unwrap one block layer or keep the original region" queries for single-live and repeated-live block wrappers. This is groundwork for the remaining `RemoveUnusedBrs` returned-ladder parity work, which still encounters arm bodies through holder-block wrappers rather than direct region roots.
+
+## 2026-03-28 Refactor: add canonical HOT trailing-branch split queries
+
+- **HOT trailing-branch split checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/README.md`](./src/ir/README.md), [`src/ir/hot_query.mbt`](./src/ir/hot_query.mbt), [`src/ir/hot_query_test.mbt`](./src/ir/hot_query_test.mbt), and [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti) so IR2 now exposes canonical helpers for regions whose live roots end in a plain trailing `br`, including the body prefix and the branch target. This is groundwork for the remaining `RemoveUnusedBrs` multi-value returned-ladder family, which still re-discovers that shape ad hoc.
+
+## 2026-03-28 Fix: lower reorder-safe condition ladders to `select`
+
+- **`remove-unused-brs` condition-ladder select checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so the pass can lower nested value-`if` condition ladders with non-reorder-safe conditions when both arms are reorder-safe. This targets the remaining Binaryen parity gap around functions like `$549` without broadening the global select matcher.
+
+## 2026-03-28 Fix: lower one-arm payload branch ladders to `br_if`
+
+- **`remove-unused-brs` payload branch ladder checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so the pass can lower the remaining one-arm enclosing-block payload branch family to payload-carrying `br_if` plus fallthrough roots instead of leaving the outer void `if` in place. This targets the still-open Binaryen parity gap around functions like `$1105`/`$1106`.
 
 ## 2026-03-28 Refactor: add canonical HOT single-exit-arm queries
 

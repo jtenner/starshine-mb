@@ -670,50 +670,6 @@ fn optimize_instructions_is_side_effect_free_expr(
     | @ir.HotOp::Const
     | @ir.HotOp::RefNull
     | @ir.HotOp::RefFunc => true
-    @ir.HotOp::Load
-    | @ir.HotOp::MemorySize
-    | @ir.HotOp::TableGet
-    | @ir.HotOp::TableSize => {
-      for slot = 0; slot < node.child_count; slot = slot + 1 {
-        if !optimize_instructions_is_side_effect_free_expr(
-            func,
-            dead,
-            func.children[node.child_base + slot],
-          ) {
-          return false
-        }
-      }
-      true
-    }
-    @ir.HotOp::Heap => {
-      let allowed = match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::StructGet(_, _))
-        | Some(@lib.Instruction::StructGetS(_, _))
-        | Some(@lib.Instruction::StructGetU(_, _))
-        | Some(@lib.Instruction::ArrayGet(_))
-        | Some(@lib.Instruction::ArrayGetS(_))
-        | Some(@lib.Instruction::ArrayGetU(_))
-        | Some(@lib.Instruction::ArrayLen)
-        | Some(@lib.Instruction::RefGetDesc(_))
-        | Some(@lib.Instruction::RefAsNonNull)
-        | Some(@lib.Instruction::I31GetS)
-        | Some(@lib.Instruction::I31GetU) => true
-        _ => false
-      }
-      if !allowed {
-        return false
-      }
-      for slot = 0; slot < node.child_count; slot = slot + 1 {
-        if !optimize_instructions_is_side_effect_free_expr(
-            func,
-            dead,
-            func.children[node.child_base + slot],
-          ) {
-          return false
-        }
-      }
-      true
-    }
     @ir.HotOp::Unary
     | @ir.HotOp::Binary
     | @ir.HotOp::Compare
@@ -1554,34 +1510,25 @@ fn optimize_instructions_try_canonicalize_relational_operands(
       if !should_swap {
         return false
       }
-      if optimize_instructions_local_get_id(func, dead, rhs_id) is None {
-        let rhs_node = @ir.hot_node_get(func, rhs_id)
-        if !optimize_instructions_is_side_effect_free_expr(func, dead, rhs_id) {
-          match rhs_node.op {
-            @ir.HotOp::LocalTee => {
-              let use_def = pass_require_use_def(ctx, func)
-              optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
-              let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(
-                scratch,
-              )
-              let can_cross = optimize_instructions_can_cross_local_get(
-                func,
-                dead,
-                use_def,
-                rhs_id,
-                local_id,
-                false,
-                scratch.loop_input_nodes,
-                scratch.cross_seen_stamps,
-                seen_stamp,
-              )
-              if !can_cross {
-                return false
-              }
-            }
-            _ => return false
-          }
-        }
+      let use_def = pass_require_use_def(ctx, func)
+      if @ir.node_use_count(use_def, rhs_id) > 1 {
+        return false
+      }
+      optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
+      let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
+      let can_cross = optimize_instructions_can_cross_local_get(
+        func,
+        dead,
+        use_def,
+        rhs_id,
+        local_id,
+        false,
+        scratch.loop_input_nodes,
+        scratch.cross_seen_stamps,
+        seen_stamp,
+      )
+      if !can_cross {
+        return false
       }
       optimize_instructions_rewrite_exact_with_children(
         ctx,
@@ -1598,48 +1545,31 @@ fn optimize_instructions_try_canonicalize_relational_operands(
     return true
   }
   match optimize_instructions_local_get_id(func, dead, rhs_id) {
-    Some(_) => {
-      if optimize_instructions_is_constlike(func, dead, lhs_id) {
-        return false
-      }
-      let lhs_is_local_get = match
-        optimize_instructions_local_get_id(func, dead, lhs_id) {
-        Some(_) => true
-        None => false
-      }
-      if !lhs_is_local_get {
-        let lhs_node = @ir.hot_node_get(func, lhs_id)
-        if !optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
-          match lhs_node.op {
-            @ir.HotOp::LocalTee => {
-              let local_id = @ir.hot_node_get(func, rhs_id).imm0
-              let use_def = pass_require_use_def(ctx, func)
-              optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
-              let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(
-                scratch,
-              )
-              let can_cross = optimize_instructions_can_cross_local_get(
-                func,
-                dead,
-                use_def,
-                lhs_id,
-                local_id,
-                false,
-                scratch.loop_input_nodes,
-                scratch.cross_seen_stamps,
-                seen_stamp,
-              )
-              if !can_cross {
-                return false
-              }
-            }
-            _ => return false
-          }
-        }
-      }
-      if !optimize_instructions_should_swap_commutative_node_kinds(
+    Some(local_id) => {
+      if optimize_instructions_is_constlike(func, dead, lhs_id) ||
+        !optimize_instructions_should_swap_commutative_node_kinds(
           func, dead, lhs_id, rhs_id,
         ) {
+        return false
+      }
+      let use_def = pass_require_use_def(ctx, func)
+      if @ir.node_use_count(use_def, lhs_id) > 1 {
+        return false
+      }
+      optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
+      let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
+      let can_cross = optimize_instructions_can_cross_local_get(
+        func,
+        dead,
+        use_def,
+        lhs_id,
+        local_id,
+        false,
+        scratch.loop_input_nodes,
+        scratch.cross_seen_stamps,
+        seen_stamp,
+      )
+      if !can_cross {
         return false
       }
       optimize_instructions_rewrite_exact_with_children(
@@ -1919,7 +1849,16 @@ fn optimize_instructions_try_optimize_if_condition(
   }
   let cond_instr = match @ir.hot_node_exact_instr(func, cond_id) {
     Some(instr) => instr
-    None => return false
+    None => {
+      if optimize_instructions_try_invert_nested_if_condition(
+          ctx, func, dead, node_id, cond_id, then_region, else_region,
+        ) {
+        return true
+      }
+      return optimize_instructions_try_negate_nested_if_condition_to_eqz(
+        ctx, func, dead, node_id, cond_id, else_region,
+      )
+    }
   }
   let direct_rewrite = match cond_instr {
     @lib.Instruction::I32Ne => {
@@ -2967,7 +2906,7 @@ fn optimize_instructions_visit_node(
             current_rhs = func.children[current.child_base + 1]
           }
 
-          let relational_operands_changed = if true {
+          let relational_operands_changed = if false {
             optimize_instructions_try_canonicalize_relational_operands(
               ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
               scratch,
@@ -3035,7 +2974,7 @@ fn optimize_instructions_visit_node(
         @ir.hot_control_node_label(func, node_id),
       )
     @ir.HotOp::If =>
-      (if true {
+      (if false {
         optimize_instructions_try_optimize_if_condition(
           ctx, func, dead, node_id,
         )
