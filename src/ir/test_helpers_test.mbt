@@ -73,3 +73,15 @@ test "ir test helpers verify and lower a mutated hot fixture" {
   assert_false(pretty.contains("nop"))
   assert_true(pretty.contains("I32(5)"))
 }
+
+///|
+test "ir test helpers lower binaryen-style tee compare branch shape stably" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (memory 1) (func (param i32 i32) (result i32) (local i32 i32) (i32.load offset=24 (block $exit (result i32) (br $exit (if (result i32) (i32.lt_s (local.tee 2 (i32.add (local.tee 3 (local.get 0)) (i32.const 1))) (local.get 1)) (then (i32.const 100)) (else (i32.const 200))))))))",
+  )
+
+  let lowered = ir_test_assert_verify_and_lower(fixture)
+  let pretty = lowered.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.lt_s"), msg=pretty)
+  assert_false(pretty.contains("tuple"), msg=pretty)
+}

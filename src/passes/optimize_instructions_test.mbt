@@ -687,6 +687,71 @@ test "optimize-instructions preserves mixed-label fallback branches after non-fa
 }
 
 ///|
+test "optimize-instructions preserves outer fallback branches after nested return-or-inner-escape blocks" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let carrier = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let carrier_label = @ir.hot_control_node_label(func, carrier)
+  let middle = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let middle_label = @ir.hot_control_node_label(func, middle)
+  let escape_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_local_get(func, 0),
+    [@ir.hot_build_return(func, [@ir.hot_build_const_i32(func, @lib.I32(9))])],
+    else_body=Some([@ir.hot_build_br(func, middle_label)]),
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, middle), [
+    escape_if,
+  ])
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, carrier), [
+    middle,
+    @ir.hot_build_br(func, carrier_label, values=[
+      @ir.hot_build_const_i32(func, @lib.I32(0)),
+    ]),
+  ])
+  @ir.hot_root_append(func, carrier)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimize-instructions nested-return fallback cleanup success, got \{err}",
+      )
+  }
+
+  let carrier_body = @ir.hot_region_body_ref(func, carrier)
+  assert_eq(@ir.hot_region_root_count(func, carrier_body), 2)
+  let carrier_tail = @ir.hot_region_get(func, carrier_body, 1)
+  match @ir.hot_node_get(func, carrier_tail).op {
+    @ir.HotOp::Br => ()
+    _ => fail("expected outer fallback branch to remain a value-carrying br")
+  }
+  assert_eq(@ir.hot_node_get(func, carrier_tail).imm0, carrier_label)
+  let carrier_tail_value = @ir.hot_child_get(func, carrier_tail, 0)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, carrier_tail_value).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
 test "optimize-instructions does not add unreachable tails to escaping if arms" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
@@ -762,7 +827,7 @@ test "optimize-instructions does not add unreachable tails to escaping if arms" 
 }
 
 ///|
-test "optimize-instructions negates nested boolean if conditions by swapping outer arms" {
+test "optimize-instructions keeps nested boolean if conditions in place for parity" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i64 i32) (result i32) local.get 0 i64.eqz if (result i32) local.get 1 i32.eqz else i32.const 0 end if (result i32) i32.const 1 else local.get 0 i64.const -1 i64.eq if (result i32) local.get 1 else i32.const 0 end end))",
   )
@@ -783,14 +848,18 @@ test "optimize-instructions negates nested boolean if conditions by swapping out
   }
   let inner_then_root = @ir.hot_region_get(func, inner_then, 0)
   let inner_else_root = @ir.hot_region_get(func, inner_else, 0)
-  match @ir.hot_node_get(func, inner_then_root).op {
-    @ir.HotOp::LocalGet => ()
-    _ => fail("expected nested if then arm to drop eqz and expose the local")
-  }
   assert_eq(
-    @ir.hot_const_get(func, @ir.hot_node_get(func, inner_else_root).imm0),
-    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+    @ir.hot_node_exact_instr(func, inner_then_root),
+    Some(@lib.Instruction::i32_eqz()),
   )
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, inner_then_root, 0)).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected nested if then arm to keep the original eqz payload")
+  }
+  match @ir.hot_node_get(func, inner_else_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected nested if else arm to keep the original const payload")
+  }
   let outer_then = @ir.hot_region_then_ref(func, outer_if)
   let outer_else = match @ir.hot_region_else_ref(func, outer_if) {
     Some(region) => region
@@ -799,13 +868,17 @@ test "optimize-instructions negates nested boolean if conditions by swapping out
   let outer_then_root = @ir.hot_region_get(func, outer_then, 0)
   let outer_else_root = @ir.hot_region_get(func, outer_else, 0)
   match @ir.hot_node_get(func, outer_then_root).op {
-    @ir.HotOp::If => ()
-    _ => fail("expected outer then arm to become the previous else branch")
+    @ir.HotOp::Const => ()
+    _ => fail("expected outer then arm to keep the original const branch")
   }
   assert_eq(
-    @ir.hot_const_get(func, @ir.hot_node_get(func, outer_else_root).imm0),
+    @ir.hot_const_get(func, @ir.hot_node_get(func, outer_then_root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(1)),
   )
+  match @ir.hot_node_get(func, outer_else_root).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected outer else arm to keep the original nested branch")
+  }
 }
 
 ///|

@@ -863,6 +863,62 @@ fn optimize_instructions_node_never_falls_through(
 }
 
 ///|
+fn optimize_instructions_region_never_falls_through_to_label(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  region_ref : @ir.HotRegionRef,
+  label_id : Int,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return false
+  }
+  optimize_instructions_node_never_falls_through_to_label(
+    func,
+    dead,
+    @ir.hot_region_get(func, region_ref, root_count - 1),
+    label_id,
+  )
+}
+
+///|
+fn optimize_instructions_node_never_falls_through_to_label(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+  label_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Unreachable
+    | @ir.HotOp::Return
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate => true
+    @ir.HotOp::Br => node.imm0 == label_id
+    @ir.HotOp::If =>
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_region) =>
+          optimize_instructions_region_never_falls_through_to_label(
+            func,
+            dead,
+            @ir.hot_region_then_ref(func, node_id),
+            label_id,
+          ) &&
+          optimize_instructions_region_never_falls_through_to_label(
+            func, dead, else_region, label_id,
+          )
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_node_exits_to_label(
   func : @ir.HotFunc,
   dead : Array[Bool],
@@ -975,6 +1031,24 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
       | @ir.HotOp::Delegate => true
       _ => false
     }
+    let tail_is_value_branch_to_label = if idx + 2 == root_count {
+      let tail_id = @ir.hot_region_get(func, region_ref, idx + 1)
+      let tail = @ir.hot_node_get(func, tail_id)
+      match tail.op {
+        @ir.HotOp::Br =>
+          tail.imm0 == label_id && @ir.hot_child_count(func, tail_id) > 0
+        _ => false
+      }
+    } else {
+      false
+    }
+    let never_falls_through = if tail_is_value_branch_to_label {
+      optimize_instructions_node_never_falls_through_to_label(
+        func, dead, root, label_id,
+      )
+    } else {
+      optimize_instructions_node_never_falls_through(func, dead, root)
+    }
     let escapes = if branch_only_if_escape {
       false
     } else {
@@ -988,7 +1062,7 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
         | @ir.HotOp::Delegate => true
         _ =>
           optimize_instructions_node_exits_to_label(func, dead, root, label_id) ||
-          optimize_instructions_node_never_falls_through(func, dead, root)
+          never_falls_through
       }
     }
     if !escapes {
@@ -1117,6 +1191,9 @@ fn optimize_instructions_try_canonicalize_relational_operands(
         return false
       }
       let use_def = pass_require_use_def(ctx, func)
+      if @ir.node_use_count(use_def, rhs_id) > 1 {
+        return false
+      }
       optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
@@ -1156,6 +1233,9 @@ fn optimize_instructions_try_canonicalize_relational_operands(
         return false
       }
       let use_def = pass_require_use_def(ctx, func)
+      if @ir.node_use_count(use_def, lhs_id) > 1 {
+        return false
+      }
       optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
       let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
       let can_cross = optimize_instructions_can_cross_local_get(
@@ -1531,49 +1611,14 @@ fn optimize_instructions_try_invert_nested_if_condition(
   then_region : Int,
   else_region : Int,
 ) -> Bool {
-  if !@ir.hot_node_is_live(func, else_region) {
-    return false
-  }
-  match @ir.hot_node_get(func, cond_id).op {
-    @ir.HotOp::If => ()
-    _ => return false
-  }
-  let cond_then = @ir.hot_region_then_ref(func, cond_id)
-  let cond_else = match @ir.hot_region_else_ref(func, cond_id) {
-    Some(region) => region
-    None => return false
-  }
-  if @ir.hot_region_root_count(func, cond_then) != 1 ||
-    @ir.hot_region_root_count(func, cond_else) != 1 {
-    return false
-  }
-  let neg_then = match
-    optimize_instructions_negate_boolean_expr(
-      func,
-      dead,
-      @ir.hot_region_get(func, cond_then, 0),
-    ) {
-    Some(node) => node
-    None => return false
-  }
-  let neg_else = match
-    optimize_instructions_negate_boolean_expr(
-      func,
-      dead,
-      @ir.hot_region_get(func, cond_else, 0),
-    ) {
-    Some(node) => node
-    None => return false
-  }
-  @ir.hot_region_replace_body(func, cond_then, [neg_then])
-  @ir.hot_region_replace_body(func, cond_else, [neg_else])
-  ignore(
-    @ir.hot_replace_child_span(func, node_id, [
-      cond_id, else_region, then_region,
-    ]),
-  )
-  pass_mark_mutated(ctx, func)
-  true
+  let _ = ctx
+  let _ = func
+  let _ = dead
+  let _ = node_id
+  let _ = cond_id
+  let _ = then_region
+  let _ = else_region
+  false
 }
 
 ///|
