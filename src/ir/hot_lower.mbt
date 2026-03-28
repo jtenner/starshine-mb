@@ -1186,9 +1186,7 @@ fn hot_lower_impl_is_same_typed_single_if_wrapper(
 }
 
 ///|
-fn hot_lower_impl_has_nonfallthrough_tail(
-  body : Array[Instruction],
-) -> Bool {
+fn hot_lower_impl_has_nonfallthrough_tail(body : Array[Instruction]) -> Bool {
   if body.length() == 0 {
     return false
   }
@@ -1210,7 +1208,7 @@ fn hot_lower_impl_has_nonfallthrough_tail(
 fn hot_lower_impl_try_sink_terminal_exit_into_arm(
   body : Array[Instruction],
   exit_ : Instruction,
-) -> Option[Array[Instruction]] {
+) -> Array[Instruction]? {
   if hot_lower_impl_has_nonfallthrough_tail(body) {
     return Some(body)
   }
@@ -1237,7 +1235,7 @@ fn hot_lower_impl_try_sink_terminal_exit_into_arm(
 fn hot_lower_impl_try_voidify_parent_exit_if_forwarder(
   bt : BlockType,
   body : Array[Instruction],
-) -> Option[Array[Instruction]] {
+) -> Array[Instruction]? {
   match bt {
     VoidBlockType => ()
     _ => return None
@@ -1273,16 +1271,16 @@ fn hot_lower_impl_try_voidify_parent_exit_if_forwarder(
               body[body.length() - 1],
             ) {
             Some(rewritten_else) => {
-      rewritten.push(
-        Instruction::if_(
-          @lib.BlockType::void_(),
-          rewritten_then,
-          Some(rewritten_else),
-        ),
-      )
-      rewritten.push(Instruction::unreachable_())
-      Some(rewritten)
-    }
+              rewritten.push(
+                Instruction::if_(
+                  @lib.BlockType::void_(),
+                  rewritten_then,
+                  Some(rewritten_else),
+                ),
+              )
+              rewritten.push(Instruction::unreachable_())
+              Some(rewritten)
+            }
             None => None
           }
         None => None
@@ -1294,7 +1292,7 @@ fn hot_lower_impl_try_voidify_parent_exit_if_forwarder(
 ///|
 fn hot_lower_impl_try_voidify_terminal_return_if_forwarder(
   body : Array[Instruction],
-) -> Option[Array[Instruction]] {
+) -> Array[Instruction]? {
   if body.length() < 2 {
     return None
   }
@@ -1320,16 +1318,16 @@ fn hot_lower_impl_try_voidify_terminal_return_if_forwarder(
               Instruction::return_(),
             ) {
             Some(rewritten_else) => {
-      rewritten.push(
-        Instruction::if_(
-          @lib.BlockType::void_(),
-          rewritten_then,
-          Some(rewritten_else),
-        ),
-      )
-      rewritten.push(Instruction::unreachable_())
-      Some(rewritten)
-    }
+              rewritten.push(
+                Instruction::if_(
+                  @lib.BlockType::void_(),
+                  rewritten_then,
+                  Some(rewritten_else),
+                ),
+              )
+              rewritten.push(Instruction::unreachable_())
+              Some(rewritten)
+            }
             None => None
           }
         None => None
@@ -1342,7 +1340,7 @@ fn hot_lower_impl_try_voidify_terminal_return_if_forwarder(
 fn hot_lower_impl_try_pack_unreachable_child_payload(
   bt : BlockType,
   body : Array[Instruction],
-) -> Option[Array[Instruction]] {
+) -> Array[Instruction]? {
   match bt {
     VoidBlockType => return None
     _ => ()
@@ -1376,10 +1374,7 @@ fn hot_lower_impl_try_pack_unreachable_child_payload(
       }
       let packed = Instruction::block(bt, Expr::new([child, payload]))
       Some([
-        Instruction::block(
-          @lib.BlockType::void_(),
-          Expr::new([packed, exit_]),
-        ),
+        Instruction::block(@lib.BlockType::void_(), Expr::new([packed, exit_])),
       ])
     }
     _ => None
@@ -1390,7 +1385,7 @@ fn hot_lower_impl_try_pack_unreachable_child_payload(
 fn hot_lower_impl_try_pack_split_parent_exit_payload(
   bt : BlockType,
   body : Array[Instruction],
-) -> Option[Array[Instruction]] {
+) -> Array[Instruction]? {
   match bt {
     VoidBlockType => return None
     _ => ()
@@ -1437,10 +1432,7 @@ fn hot_lower_impl_try_pack_split_parent_exit_payload(
         ignore(payload_kind)
       }
       Some([
-        Instruction::block(
-          @lib.BlockType::void_(),
-          Expr::new([packed, exit_]),
-        ),
+        Instruction::block(@lib.BlockType::void_(), Expr::new([packed, exit_])),
       ])
     }
     _ => None
@@ -1451,7 +1443,7 @@ fn hot_lower_impl_try_pack_split_parent_exit_payload(
 fn hot_lower_impl_try_pack_split_if_payload_forwarder(
   bt : BlockType,
   body : Array[Instruction],
-) -> Option[Array[Instruction]] {
+) -> Array[Instruction]? {
   match bt {
     VoidBlockType => return None
     _ => ()
@@ -1475,7 +1467,7 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
       }
       let extract_dropped_value_arm = fn(
         arm : Array[Instruction],
-      ) -> Option[Array[Instruction]] {
+      ) -> Array[Instruction]? {
         if arm.length() < 2 {
           return None
         }
@@ -1518,23 +1510,11 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
         If(VoidBlockType, then_, Some(else_)) => {
           let rebuilt = match extract_dropped_value_arm(then_) {
             Some(then_value) if arm_is_forwarding(else_) =>
-              Some(
-                Instruction::if_(
-                  bt,
-                  then_value,
-                  Some(else_),
-                ),
-              )
+              Some(Instruction::if_(bt, then_value, Some(else_)))
             _ =>
               match extract_dropped_value_arm(else_) {
                 Some(else_value) if arm_is_forwarding(then_) =>
-                  Some(
-                    Instruction::if_(
-                      bt,
-                      then_,
-                      Some(else_value),
-                    ),
-                  )
+                  Some(Instruction::if_(bt, then_, Some(else_value)))
                 _ => None
               }
           }
@@ -1543,7 +1523,9 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
               Some([
                 Instruction::block(
                   @lib.BlockType::void_(),
-                  Expr::new(prefix + [rebuilt_if, Instruction::br(LabelIdx::new(1U))]),
+                  Expr::new(
+                    prefix + [rebuilt_if, Instruction::br(LabelIdx::new(1U))],
+                  ),
                 ),
                 Instruction::local_get(carried_local),
               ])
@@ -1561,7 +1543,7 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
 fn hot_lower_impl_try_unpack_parent_exit_payload_wrapper(
   bt : BlockType,
   body : Array[Instruction],
-) -> Option[Array[Instruction]] {
+) -> Array[Instruction]? {
   match bt {
     VoidBlockType => ()
     _ => return None
@@ -1661,11 +1643,8 @@ fn hot_lower_impl_canonicalize_block_body(
       !hot_lower_impl_body_targets_removed_label(inner_body, 0) =>
       hot_lower_impl_rebase_body(inner_body, 0)
     [Block(VoidBlockType, Expr(inner_body))] if hot_lower_impl_is_parent_exit_payload_body(
-        bt,
-        inner_body,
-        1,
-      ) =>
-      hot_lower_impl_rebase_body(inner_body, 0)
+        bt, inner_body, 1,
+      ) => hot_lower_impl_rebase_body(inner_body, 0)
     [Block(inner_bt, Expr(inner_body))] if bt == inner_bt &&
       hot_lower_impl_is_same_typed_single_if_wrapper(bt, inner_body) =>
       hot_lower_impl_rebase_body(inner_body, 0)
@@ -1684,9 +1663,7 @@ fn hot_lower_impl_canonicalize_block_body(
           spliced.push(inner)
         }
       Block(VoidBlockType, Expr(inner_body)) if hot_lower_impl_is_parent_exit_payload_body(
-          bt,
-          inner_body,
-          1,
+          bt, inner_body, 1,
         ) =>
         for inner in hot_lower_impl_rebase_body(inner_body, 0) {
           spliced.push(inner)
@@ -1744,13 +1721,46 @@ fn hot_lower_impl_canonicalize_body(
   body : Array[Instruction],
 ) -> Array[Instruction] {
   let canonical : Array[Instruction] = []
-  for instr in body {
-    match hot_lower_impl_canonicalize_instr(instr) {
+  for i = 0; i < body.length(); i = i + 1 {
+    match hot_lower_impl_canonicalize_instr(body[i]) {
       Block(bt, Expr(inner_body)) if hot_lower_impl_can_inline_value_wrapper(
           bt, inner_body,
         ) =>
         for inner in inner_body {
           canonical.push(inner)
+        }
+      Block(bt, Expr(inner_body)) if i == body.length() - 1 =>
+        {
+          let mut peeled = false
+          match bt {
+            VoidBlockType => ()
+            _ =>
+              match inner_body {
+                [Block(VoidBlockType, Expr(prefix_body)), LocalGet(_)] =>
+                  if !hot_lower_impl_body_targets_removed_label(prefix_body, 1) {
+                    for inner in inner_body {
+                      canonical.push(inner)
+                    }
+                    peeled = true
+                  }
+                [Block(VoidBlockType, Expr(_)), Block(_, _)] =>
+                  if !hot_lower_impl_body_targets_removed_label(inner_body, 0) {
+                    match inner_body[1] {
+                      Block(tail_bt, Expr(_)) if tail_bt == bt => {
+                        for inner in inner_body {
+                          canonical.push(inner)
+                        }
+                        peeled = true
+                      }
+                      _ => ()
+                    }
+                  }
+                _ => ()
+              }
+          }
+          if !peeled {
+            canonical.push(Instruction::block(bt, Expr::new(inner_body)))
+          }
         }
       canonical_instr => canonical.push(canonical_instr)
     }
@@ -1807,20 +1817,20 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
                               let local_id = raw_local.reinterpret_as_int()
                               match hot_local_type(func, local_id) {
                                 Some(local_ty) => {
-                              rewritten.push(
-                                Instruction::block(
-                                  BlockType::val_type(local_ty),
-                                  Expr::new(
-                                    hot_lower_impl_canonicalize_block_body(
+                                  rewritten.push(
+                                    Instruction::block(
                                       BlockType::val_type(local_ty),
-                                      [body[idx], body[idx + 1]],
+                                      Expr::new(
+                                        hot_lower_impl_canonicalize_block_body(
+                                          BlockType::val_type(local_ty),
+                                          [body[idx], body[idx + 1]],
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              )
-                              rewritten.push(body[idx + 2])
-                              idx = idx + 3
-                              continue
+                                  )
+                                  rewritten.push(body[idx + 2])
+                                  idx = idx + 3
+                                  continue
                                 }
                                 None => ()
                               }
@@ -1931,11 +1941,7 @@ fn hot_lower_impl_stackify_nested_instr(
         match else_ {
           Some(else_body) =>
             Some(
-              hot_lower_impl_stackify_nested_body(
-                func,
-                else_body,
-                extra_locals,
-              ),
+              hot_lower_impl_stackify_nested_body(func, else_body, extra_locals),
             )
           None => None
         },
@@ -1963,9 +1969,7 @@ fn hot_lower_impl_stackify_nested_body(
     )
   }
   hot_lower_impl_stackify_wrapped_struct_set_prefixes(
-    func,
-    rewritten_children,
-    extra_locals,
+    func, rewritten_children, extra_locals,
   )
 }
 
@@ -2006,9 +2010,7 @@ fn hot_lower_body_with_extras_unverified(func : HotFunc) -> HotLowerBodyResult {
   }
   let canonical = hot_lower_impl_canonicalize_body(out)
   let stackified = hot_lower_impl_stackify_nested_body(
-    func,
-    canonical,
-    extra_locals,
+    func, canonical, extra_locals,
   )
   {
     body: hot_lower_impl_canonicalize_body(stackified),
