@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Docs: track RUN fuzz command-failure families explicitly
+
+- **RUN fuzz backlog classification** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to add an explicit `remove-unused-names` follow-up slice for the saved Binaryen-side pass-fuzz command failures. The backlog now records the exact `invalid type index`, `Recursion groups of size zero not supported`, and `invalid wasm type: -64` case lists from `.tmp/pass-fuzz-run-smith` so future agents can replay those failures separately from Starshine semantic regressions.
+
 ## 2026-03-28 Fix: replay remove-unused-names in all modeled RUN slots
 
 - **RUN preset replay wiring** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`README.md`](./README.md), [`agent-todo.md`](./agent-todo.md), [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](./docs/0063-2026-03-24-pass-port-batches-and-registry-map.md), [`docs/0065-2026-03-24-ir2-execution-plan.md`](./docs/0065-2026-03-24-ir2-execution-plan.md), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), and [`src/passes/registry_test.mbt`](./src/passes/registry_test.mbt) so the public `optimize` and `shrink` presets now replay `remove-unused-names` in all three currently-modeled RUN slots. The new tests lock both the preset expansion and the stale-label cleanup reason for the second RUN slot after `remove-unused-brs`.
