@@ -1552,8 +1552,7 @@ test "hot lower repacks split local.set carry blocks from compare shape" {
     #|    (local.get 1)))
   let fixture = ir_test_build_hot_from_wat(source)
   let validated = ir_test_assert_verify_and_lower(fixture)
-  let pretty = validated
-    .pretty_print_func(@lib.FuncIdx::new(0U))
+  let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(
     pretty.contains("(if (result i32)") || pretty.contains("(if I32"),
     msg=pretty,
@@ -1570,8 +1569,7 @@ test "hot lower preserves packed local.set carry blocks" {
     "(module (func (param i32 i32) (result i32) (local i32) (local.set 2 (block $outer (result i32) (block $mid (br $outer (block (result i32) (block $cont (if (local.get 0) (then (local.set 2 (local.get 1)) (br $cont)) (else (local.set 2 (i32.const 9)) (br $mid)))) (local.get 2)))) (i32.const 1))) (local.get 2)))",
   )
   let validated = ir_test_assert_verify_and_lower(fixture)
-  let pretty = validated
-    .pretty_print_func(@lib.FuncIdx::new(0U))
+  let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("unreachable"), msg=pretty)
   assert_true(pretty.contains("(br (Label 0))"), msg=pretty)
   assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
@@ -1584,8 +1582,7 @@ test "hot lower repacks prefix-heavy split local.set carry blocks" {
     "(module (func (param i32 i32 i32) (result i32) (local i32 i32) (local.set 3 (block $block2 (result i32) (block $block1 (block $block (local.set 4 (local.get 0)) (drop (local.get 1)) (drop (local.get 2)) (if (local.get 2) (then (local.set 4 (i32.const 7)) (br $block)) (else (local.set 4 (i32.const 9)) (br $block1))) unreachable) (local.get 4) (br $block2)) (local.get 3))) (local.get 3)))",
   )
   let validated = ir_test_assert_verify_and_lower(fixture)
-  let pretty = validated
-    .pretty_print_func(@lib.FuncIdx::new(0U))
+  let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("unreachable"), msg=pretty)
   assert_true(pretty.contains("(br (Label 0))"), msg=pretty)
   assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
@@ -1598,8 +1595,7 @@ test "hot lower peels nested br payload blocks with unreachable child payloads" 
     "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit (block $work (if (i32.eq (local.get 0) (i32.const 1)) (then (local.set 2 (local.get 1)) (br $work)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (br $outer (local.get 2))) (i32.const 0))))",
   )
   let validated = ir_test_assert_verify_and_lower(fixture)
-  let pretty = validated
-    .pretty_print_func(@lib.FuncIdx::new(0U))
+  let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
 
   assert_true(pretty.contains("unreachable"), msg=pretty)
   assert_true(pretty.contains("(br (Label 0))"), msg=pretty)
@@ -1613,8 +1609,7 @@ test "hot lower avoids wrapping parent-exit payloads in extra result blocks" {
     "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit (block $work (if (i32.eq (local.get 0) (i32.const 1)) (then (local.set 2 (local.get 1)) (br $work)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (br $outer (local.get 2))) (i32.const 0))))",
   )
   let validated = ir_test_assert_verify_and_lower(fixture)
-  let pretty = validated
-    .pretty_print_func(@lib.FuncIdx::new(0U))
+  let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
 
   assert_true(pretty.contains("unreachable"), msg=pretty)
   assert_true(pretty.contains("(br (Label 0))"), msg=pretty)

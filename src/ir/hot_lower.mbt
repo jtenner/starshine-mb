@@ -1125,8 +1125,7 @@ fn hot_lower_impl_shift_positive_catch_depth(catch_ : Catch) -> Catch {
       Catch::new(tag, hot_lower_impl_shift_positive_label_depth(li))
     CatchRef(tag, li) =>
       Catch::ref_(tag, hot_lower_impl_shift_positive_label_depth(li))
-    CatchAll(li) =>
-      Catch::all(hot_lower_impl_shift_positive_label_depth(li))
+    CatchAll(li) => Catch::all(hot_lower_impl_shift_positive_label_depth(li))
     CatchAllRef(li) =>
       Catch::all_ref(hot_lower_impl_shift_positive_label_depth(li))
   }
@@ -1153,9 +1152,7 @@ fn hot_lower_impl_shift_positive_branch_depths_instr(
     BrOnNull(li) =>
       Instruction::br_on_null(hot_lower_impl_shift_positive_label_depth(li))
     BrOnNonNull(li) =>
-      Instruction::br_on_non_null(
-        hot_lower_impl_shift_positive_label_depth(li),
-      )
+      Instruction::br_on_non_null(hot_lower_impl_shift_positive_label_depth(li))
     Block(bt, Expr(body)) =>
       Instruction::block(
         bt,
@@ -1598,7 +1595,8 @@ fn hot_lower_impl_try_voidify_dropped_if_forwarder(
             Some(rewritten_else) =>
               Some(
                 hot_lower_impl_append_unreachable_if_needed(
-                  rewritten + [
+                  rewritten +
+                  [
                     Instruction::if_(
                       @lib.BlockType::void_(),
                       rewritten_then,
@@ -1751,20 +1749,15 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
           return None
         }
         match arm[arm.length() - 1] {
-          Br(li) if {
+          Br(li) if ({
               let depth = hot_lower_impl_decoded_label_depth(li)
               depth == 0 || depth == 1
-            } => ()
+            }) => ()
           _ => return None
         }
         let value_end = match arm[arm.length() - 2] {
           Drop => arm.length() - 2
-          _ =>
-            if arm.length() == 2 {
-              1
-            } else {
-              return None
-            }
+          _ => if arm.length() == 2 { 1 } else { return None }
         }
         let value_instrs : Array[Instruction] = []
         for i = 0; i < value_end; i = i + 1 {
@@ -1783,10 +1776,10 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
           return false
         }
         match arm[arm.length() - 1] {
-          Br(li) if {
+          Br(li) if ({
               let depth = hot_lower_impl_decoded_label_depth(li)
               depth == 0 || depth == 1
-            } => ()
+            }) => ()
           _ => return false
         }
         for i = 0; i < arm.length() - 1; i = i + 1 {
@@ -1823,7 +1816,8 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
                 Instruction::block(
                   @lib.BlockType::void_(),
                   Expr::new(
-                    prefix + [
+                    prefix +
+                    [
                       rebuilt_if,
                       Instruction::br(LabelIdx::new(1U)),
                       Instruction::unreachable_(),
@@ -1933,10 +1927,10 @@ fn hot_lower_impl_try_fix_split_payload_wrapper_with_tail(
         [Block(inner_bt, Expr(inner_body)), Br(li)] if inner_bt == bt &&
           hot_lower_impl_decoded_label_depth(li) == 1 =>
           match inner_body {
-            [Block(VoidBlockType, Expr(child_body)), payload] if {
-                !hot_lower_impl_has_control_transfer(payload) &&
-                child_body_needs_depth_fix(child_body)
-              } => {
+            [Block(VoidBlockType, Expr(child_body)), payload] if !hot_lower_impl_has_control_transfer(
+                payload,
+              ) &&
+              child_body_needs_depth_fix(child_body) => {
               let rewritten : Array[Instruction] = [
                 Instruction::block(
                   @lib.BlockType::void_(),
@@ -2205,7 +2199,8 @@ fn hot_lower_impl_canonicalize_body(
     Some(rewritten) => rewritten
     None => canonical
   }
-  let canonical = match hot_lower_impl_try_voidify_dropped_if_forwarder(canonical) {
+  let canonical = match
+    hot_lower_impl_try_voidify_dropped_if_forwarder(canonical) {
     Some(rewritten) => rewritten
     None => canonical
   }

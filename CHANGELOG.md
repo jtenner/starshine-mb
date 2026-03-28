@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: checkpoint validated hot-lower and DCE test rebaseline outside the fuzz work
+
+- **Non-fuzz checkpoint commit** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), [`src/ir/hot_lower_test.mbt`](./src/ir/hot_lower_test.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to preserve the validated `hot_lower` payload-carrier repair and the downstream `dead-code-elimination` assertion rebaseline as their own commit, separate from the in-progress fuzz and pass-compare work elsewhere in the tree. This keeps the IR and pass-suite checkpoint isolated around the repaired `Label 0 / Label 1` carrier shapes, dropped-`if` voidification, and the updated DCE oracle expectations that now match the validated lowered output.
+
 ## 2026-03-28 Fix: rebaseline dead-code-elimination carrier and loop-wrapper regressions after the hot-lower validation repair
 
 - **`dead-code-elimination` green-suite checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) to realign the remaining DCE regressions with the validated post-`hot_lower` carrier shapes. The split payload, stacked payload, outer-wrapper payload, and typed loop-body wrapper fixtures were still asserting the older pre-repair pretty-print form and single-tail `unreachable` layout, even though the pass output now validates and the repo’s carrier branches have been corrected to the new `Label 0 / Label 1` form. The revised assertions now check the real invariants for this slice: validated void-`if` lowering, preserved control shape, corrected branch depths, and presence of required `unreachable` tails without pinning the obsolete exact presentation.

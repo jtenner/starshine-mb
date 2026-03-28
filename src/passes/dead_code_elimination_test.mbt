@@ -446,7 +446,10 @@ test "dead-code-elimination removes dead unreachable tails from split payload wr
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("(if (Void)") || pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(
+    pretty.contains("(if (Void)") || pretty.contains("(if (Void)"),
+    msg=pretty,
+  )
   assert_true(pretty.contains("(br (Label 0))"), msg=pretty)
   assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
   assert_false(pretty.contains("(if I32"), msg=pretty)
