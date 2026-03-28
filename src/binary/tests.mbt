@@ -766,6 +766,53 @@ test "decode_module accepts elem header 6 with explicit reftype and roundtrips m
 }
 
 ///|
+test "decode_module accepts shared memory imports and encode_module preserves them" {
+  let wasm = Bytes::from_array([
+    0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x02, 0x07, 0x01, 0x00, 0x00,
+    0x02, 0x03, 0x00, 0x0A,
+  ])
+  let mod = match decode_module(wasm) {
+    Ok(mod) => mod
+    Err(err) => fail("expected shared-memory import decode success, got \{err}")
+  }
+  match @validate.validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected shared-memory import module to validate, got \{err}")
+  }
+  let reencoded = match encode_module(mod) {
+    Ok(wasm) => wasm
+    Err(err) =>
+      fail("expected shared-memory import module to re-encode, got \{err}")
+  }
+  assert_eq(reencoded, wasm)
+}
+
+///|
+test "decode_module accepts shared memories without max but validation rejects them" {
+  let wasm = Bytes::from_array([
+    0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x02, 0x06, 0x01, 0x00, 0x00,
+    0x02, 0x02, 0x00,
+  ])
+  let mod = match decode_module(wasm) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail(
+        "expected shared-memory-without-max decode success for validator coverage, got \{err}",
+      )
+  }
+  match @validate.validate_module(mod) {
+    Ok(_) => fail("expected shared-memory-without-max validation failure")
+    Err(err) =>
+      assert_true(
+        @validate.validation_error_message(err).contains(
+          "shared memories require a max",
+        ),
+      )
+  }
+}
+
+///|
 test "encode elem active non-zero table func exprs includes explicit funcref reftype for header 6" {
   let elem = Elem::new(
     ElemMode::active(

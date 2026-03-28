@@ -438,7 +438,13 @@ pub impl Show for GlobalType with output(self, logger) {
 
 ///|
 pub impl Show for MemType with output(self, logger) {
-  let MemType(l) = self
+  let MemType(l, shared) = self
+  if shared {
+    logger.write_string("(MemType Shared ")
+    l.output(logger)
+    logger.write_char(')')
+    return
+  }
   l.output(logger)
 }
 

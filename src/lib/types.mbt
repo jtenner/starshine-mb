@@ -171,7 +171,7 @@ pub struct TagType(TypeIdx) derive(Eq, Arbitrary, Hash, Debug)
 pub struct GlobalType(ValType, Bool) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct MemType(Limits) derive(Eq, Arbitrary, Hash, Debug)
+pub struct MemType(Limits, Bool) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub struct TableType(RefType, Limits) derive(Eq, Arbitrary, Hash, Debug)
@@ -2240,8 +2240,8 @@ pub fn table_extern_type(tt : TableType) -> ExternType {
 }
 
 ///|
-pub fn mem_type(l : Limits) -> MemType {
-  MemType(l)
+pub fn mem_type(l : Limits, shared? : Bool = false) -> MemType {
+  MemType(l, shared)
 }
 
 ///|
@@ -7750,8 +7750,8 @@ pub fn GlobalType::new(vt : ValType, nullable : Bool) -> GlobalType {
 }
 
 ///|
-pub fn MemType::new(lim : Limits) -> MemType {
-  MemType(lim)
+pub fn MemType::new(lim : Limits, shared? : Bool = false) -> MemType {
+  MemType(lim, shared)
 }
 
 ///|

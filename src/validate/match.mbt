@@ -774,9 +774,9 @@ fn typeidx_leq_typeidx_fuel(
 
 ///|
 pub impl Match for MemType with matches(self, other, env) {
-  let MemType(l1) = self
-  let MemType(l2) = other
-  Match::matches(l1, l2, env)
+  let MemType(l1, shared1) = self
+  let MemType(l2, shared2) = other
+  shared1 == shared2 && Match::matches(l1, l2, env)
 }
 
 ///|

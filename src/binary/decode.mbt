@@ -1891,9 +1891,88 @@ pub impl Decode for TableType with decode(bytes, i) {
 
 ///|
 pub impl Decode for MemType with decode(bytes, i) {
-  match Decode::decode(bytes, i) {
-    Ok((l, i)) => Ok((MemType::new(l), i))
-    Err(t) => Err(t)
+  match bytes.get(i) {
+    Some(0x00) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U64(min), next)) =>
+          Ok((MemType::new(Limits::i32(min.to_uint(), None)), next))
+        Err(t) => Err(t)
+      }
+    Some(0x01) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U64(min), next)) =>
+          match Decode::decode(bytes, next) {
+            Ok((@lib.U64(max), end)) =>
+              Ok(
+                (
+                  MemType::new(Limits::i32(min.to_uint(), Some(max.to_uint()))),
+                  end,
+                ),
+              )
+            Err(t) => Err(t)
+          }
+        Err(t) => Err(t)
+      }
+    Some(0x02) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U64(min), next)) =>
+          Ok(
+            (MemType::new(Limits::i32(min.to_uint(), None), shared=true), next),
+          )
+        Err(t) => Err(t)
+      }
+    Some(0x03) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U64(min), next)) =>
+          match Decode::decode(bytes, next) {
+            Ok((@lib.U64(max), end)) =>
+              Ok(
+                (
+                  MemType::new(
+                    Limits::i32(min.to_uint(), Some(max.to_uint())),
+                    shared=true,
+                  ),
+                  end,
+                ),
+              )
+            Err(t) => Err(t)
+          }
+        Err(t) => Err(t)
+      }
+    Some(0x04) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U64(min), next)) =>
+          Ok((MemType::new(Limits::i64(min, None)), next))
+        Err(t) => Err(t)
+      }
+    Some(0x05) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U64(min), next)) =>
+          match Decode::decode(bytes, next) {
+            Ok((@lib.U64(max), end)) =>
+              Ok((MemType::new(Limits::i64(min, Some(max))), end))
+            Err(t) => Err(t)
+          }
+        Err(t) => Err(t)
+      }
+    Some(0x06) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U64(min), next)) =>
+          Ok((MemType::new(Limits::i64(min, None), shared=true), next))
+        Err(t) => Err(t)
+      }
+    Some(0x07) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U64(min), next)) =>
+          match Decode::decode(bytes, next) {
+            Ok((@lib.U64(max), end)) =>
+              Ok((MemType::new(Limits::i64(min, Some(max)), shared=true), end))
+            Err(t) => Err(t)
+          }
+        Err(t) => Err(t)
+      }
+    Some(_) => Err(BinaryDecodeError::InvalidLimits)
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
 }
 

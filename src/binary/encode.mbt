@@ -1219,7 +1219,57 @@ pub impl Encode for Limits with encode(val, buf) {
 
 ///|
 pub impl Encode for MemType with encode(val, buf) {
-  Encode::encode(val.0, buf)
+  let MemType(limits, shared) = val
+  match (limits, shared) {
+    (I32Limits(min, None), false) => {
+      buf.write_byte(0x00)
+      Encode::encode(@lib.U64(min.to_uint64()), buf)
+    }
+    (I32Limits(min, Some(max)), false) => {
+      buf.write_byte(0x01)
+      match Encode::encode(@lib.U64(min.to_uint64()), buf) {
+        Err(err) => return Err(err)
+        _ => ()
+      }
+      Encode::encode(@lib.U64(max.to_uint64()), buf)
+    }
+    (I32Limits(min, None), true) => {
+      buf.write_byte(0x02)
+      Encode::encode(@lib.U64(min.to_uint64()), buf)
+    }
+    (I32Limits(min, Some(max)), true) => {
+      buf.write_byte(0x03)
+      match Encode::encode(@lib.U64(min.to_uint64()), buf) {
+        Err(err) => return Err(err)
+        _ => ()
+      }
+      Encode::encode(@lib.U64(max.to_uint64()), buf)
+    }
+    (I64Limits(min, None), false) => {
+      buf.write_byte(0x04)
+      Encode::encode(@lib.U64(min), buf)
+    }
+    (I64Limits(min, Some(max)), false) => {
+      buf.write_byte(0x05)
+      match Encode::encode(@lib.U64(min), buf) {
+        Err(err) => return Err(err)
+        _ => ()
+      }
+      Encode::encode(@lib.U64(max), buf)
+    }
+    (I64Limits(min, None), true) => {
+      buf.write_byte(0x06)
+      Encode::encode(@lib.U64(min), buf)
+    }
+    (I64Limits(min, Some(max)), true) => {
+      buf.write_byte(0x07)
+      match Encode::encode(@lib.U64(min), buf) {
+        Err(err) => return Err(err)
+        _ => ()
+      }
+      Encode::encode(@lib.U64(max), buf)
+    }
+  }
 }
 
 ///|

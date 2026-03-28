@@ -290,7 +290,7 @@ fn merge_nonfallthrough_if_exits(left : TcEscape, right : TcEscape) -> TcEscape 
 fn TcState::mem_at_of(st : TcState, mem : MemIdx) -> Result[ValType, String] {
   match st.env.get_memtype(mem) {
     None => Err("invalid memory index")
-    Some(MemType(lim)) => Ok(lim.addr_valtype())
+    Some(MemType(lim, _)) => Ok(lim.addr_valtype())
   }
 }
 
@@ -1458,7 +1458,7 @@ fn memarg_check(
     None => default_mem
     Some(m) => m
   }
-  let MemType(lim) = match st.env.get_memtype(mem) {
+  let MemType(lim, _) = match st.env.get_memtype(mem) {
     None => return Err("invalid memory index in memarg")
     Some(mt) => mt
   }
@@ -2378,11 +2378,11 @@ fn typecheck_data_drop(st : TcState, data : DataIdx) -> TcResult {
 
 ///|
 fn typecheck_memory_copy(st : TcState, dst : MemIdx, src : MemIdx) -> TcResult {
-  let MemType(lim1) = match st.env.get_memtype(dst) {
+  let MemType(lim1, _) = match st.env.get_memtype(dst) {
     None => return Err("invalid dest memory index")
     Some(mt) => mt
   }
-  let MemType(lim2) = match st.env.get_memtype(src) {
+  let MemType(lim2, _) = match st.env.get_memtype(src) {
     None => return Err("invalid src memory index")
     Some(mt) => mt
   }

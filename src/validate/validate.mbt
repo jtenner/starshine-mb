@@ -891,7 +891,13 @@ pub impl Validate for GlobalType with validate(self, env) {
 
 ///|
 pub impl Validate for MemType with validate(self, env) {
-  let MemType(lim) = self
+  let MemType(lim, shared) = self
+  if shared {
+    match lim {
+      I32Limits(_, Some(_)) | I64Limits(_, Some(_)) => ()
+      _ => return Err("shared memories require a max")
+    }
+  }
   ValidateMax::validate_max(lim, env, 65536)
 }
 
@@ -1437,7 +1443,7 @@ pub impl Validate for DataMode with validate(self, env) {
     Passive => Ok(())
     Active(memidx, offset_expr) => {
       // memory must exist
-      let MemType(lim) = match env.get_memtype(memidx) {
+      let MemType(lim, _) = match env.get_memtype(memidx) {
         None => return Err("data.active: invalid memory index")
         Some(mt) => mt
       }
@@ -4416,6 +4422,20 @@ test "MemType validates with valid limits" {
   let env = empty_env()
   let mt = MemType::new(Limits::i32(0, Some(100)))
   assert_eq(Validate::validate(mt, env), Ok(()))
+}
+
+///|
+test "shared MemType validates with valid max" {
+  let env = empty_env()
+  let mt = MemType::new(Limits::i32(0, Some(100)), shared=true)
+  assert_eq(Validate::validate(mt, env), Ok(()))
+}
+
+///|
+test "shared MemType fails without max" {
+  let env = empty_env()
+  let mt = MemType::new(Limits::i32(0, None), shared=true)
+  assert_eq(Validate::validate(mt, env), Err("shared memories require a max"))
 }
 
 ///|

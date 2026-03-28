@@ -275,7 +275,7 @@ pub fn hot_module_resolve_mem_index_type(
   mem_idx : @lib.MemIdx,
 ) -> ValType? {
   match hot_module_resolve_mem_type(ctx, mem_idx) {
-    Some(@lib.MemType(limits)) => Some(limits.addr_valtype())
+    Some(@lib.MemType(limits, _)) => Some(limits.addr_valtype())
     None => None
   }
 }

@@ -59,9 +59,9 @@ fn mp_defined_mem_count(mod_ : @lib.Module) -> Int {
 ///|
 fn mp_defined_memory_size_bytes(mod_ : @lib.Module) -> UInt64? {
   match mod_.mem_sec {
-    Some(@lib.MemSec([@lib.MemType(@lib.I32Limits(initial, _))])) =>
+    Some(@lib.MemSec([@lib.MemType(@lib.I32Limits(initial, _), _)])) =>
       Some(initial.to_uint64() << 16)
-    Some(@lib.MemSec([@lib.MemType(@lib.I64Limits(initial, _))])) =>
+    Some(@lib.MemSec([@lib.MemType(@lib.I64Limits(initial, _), _)])) =>
       Some(initial << 16)
     _ => None
   }
