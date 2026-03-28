@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: preserve multi-slot branch payload arity in RUB
+
+- **RUB multi-value branch-payload safety** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so `remove-unused-brs` no longer rewrites branch-payload `if` nodes when the surviving payload side would collapse several branch slots into a single multi-value node. Focused regressions now cover both the lifted repeated-payload ladder shape and a standalone multi-value `br (if ...)` repro, `moon test src/passes` and `moon test src/cmd` stay green, and the native debug-artifact replay advances past `Func 7756` to the next blocker: final-module `stack underflow` in `Func 807`.
+
 ## 2026-03-28 Fix: replay remove-unused-brs in all modeled preset slots
 
 - **RUB preset scheduler parity** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`src/passes/registry_test.mbt`](./src/passes/registry_test.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so the active `optimize` and `shrink` presets now replay `remove-unused-brs` in three modeled slots instead of one. Focused tests now lock the RUB trace count in both presets, keep the registry’s expanded pass lists aligned with the documented Binaryen slot model, and cover the loop-shaped payload-branch ladder that must stay valid before artifact replay can resume.

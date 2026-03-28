@@ -798,11 +798,10 @@ fn remove_unused_brs_try_voidify_exit_only_value_if(
     ),
     [void_if, @ir.hot_build_unreachable(func)],
   )
-  @ir.hot_control_demote_if_to_block(
-    func,
-    node_id,
-    [void_if, @ir.hot_child_get(func, replacement, 1)],
-  )
+  @ir.hot_control_demote_if_to_block(func, node_id, [
+    void_if,
+    @ir.hot_child_get(func, replacement, 1),
+  ])
   pass_mark_mutated(ctx, func)
   remove_unused_brs_delete_unused_nodes(ctx, func, [
     replacement,
@@ -1656,8 +1655,7 @@ fn remove_unused_brs_try_rewrite_two_arm_branch_if(
     remove_unused_brs_delete_unused_nodes(
       ctx,
       func,
-      removed +
-      [if_id, then_ref.holder, then_root, else_ref.holder, else_root],
+      removed + [if_id, then_ref.holder, then_root, else_ref.holder, else_root],
     )
     return true
   }
@@ -2014,6 +2012,9 @@ fn remove_unused_brs_try_rewrite_branch_payload_if(
   }
   let then_ref = @ir.hot_region_then_ref(func, if_id)
   let result_arity = @ir.hot_node_result_arity(func, if_id)
+  if br_node.child_count != result_arity {
+    return false
+  }
   let if_label = @ir.hot_control_node_label(func, if_id)
   if remove_unused_brs_label_is_used(label_refs, if_label) {
     return false
@@ -2041,6 +2042,9 @@ fn remove_unused_brs_try_rewrite_branch_payload_if(
       @ir.hot_region_split_trailing_payload_roots(func, body_ref, result_arity) {
       Some(split) => split
       None => return false
+    }
+    if body_payload.length() != br_node.child_count {
+      return false
     }
     let guard_condition = if negate_condition {
       remove_unused_brs_build_i32_eqz(func, @ir.hot_child_get(func, if_id, 0))
@@ -2145,6 +2149,9 @@ fn remove_unused_brs_try_rewrite_tail_value_if_simple_payload_arm(
   region_ref : @ir.HotRegionRef,
   label_refs : Array[Int],
 ) -> Bool {
+  if @ir.hot_region_result_arity(func, region_ref) != 1 {
+    return false
+  }
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if root_count == 0 {
     return false
@@ -2219,11 +2226,11 @@ fn remove_unused_brs_try_rewrite_tail_value_if_simple_payload_arm(
       block_body,
     )
     ignore(pass_splice_region(ctx, func, region_ref, 0, root_count, [block_id]))
-    remove_unused_brs_delete_unused_nodes(
-      ctx,
-      func,
-      [if_id, then_ref.holder, else_ref.holder],
-    )
+    remove_unused_brs_delete_unused_nodes(ctx, func, [
+      if_id,
+      then_ref.holder,
+      else_ref.holder,
+    ])
     pass_mark_mutated(ctx, func)
     true
   }
@@ -2822,22 +2829,25 @@ fn remove_unused_brs_visit_node(
         let then_tail_op = @ir.hot_node_get(func, then_tail_id_for_return).op
         match then_tail_op {
           @ir.HotOp::Return =>
-            changed = remove_unused_brs_try_strip_return_context_tail(
+            if remove_unused_brs_try_strip_return_context_tail(
                 ctx, func, then_ref,
-              ) ||
-              changed
+              ) {
+              changed = true
+            }
           _ => ()
         }
       }
       if payload_context && !return_context {
-        changed = remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
+        if remove_unused_brs_try_rewrite_tail_value_if_branch_exit(
             ctx, func, then_ref, label_refs,
-          ) ||
-          changed
-        changed = remove_unused_brs_try_rewrite_tail_value_if_simple_payload_arm(
+          ) {
+          changed = true
+        }
+        if remove_unused_brs_try_rewrite_tail_value_if_simple_payload_arm(
             ctx, func, then_ref, label_refs,
-          ) ||
-          changed
+          ) {
+          changed = true
+        }
       }
       let then_tail_id = remove_unused_brs_region_tail_id(func, then_ref)
       if then_tail_id >= 0 {
@@ -2907,34 +2917,37 @@ fn remove_unused_brs_visit_node(
             let else_tail_op = @ir.hot_node_get(func, else_tail_id).op
             match else_tail_op {
               @ir.HotOp::If => {
-                changed = remove_unused_brs_try_strip_tail_if_exits(
+                if remove_unused_brs_try_strip_tail_if_exits(
                     ctx, func, else_ref,
-                  ) ||
-                  changed
-                changed = remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
+                  ) {
+                  changed = true
+                }
+                if remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(
                     ctx, func, else_ref, reorder_cache, label_refs,
-                  ) ||
-                  changed
+                  ) {
+                  changed = true
+                }
               }
               @ir.HotOp::Return =>
-                changed = remove_unused_brs_try_voidify_tail_return_if(
+                if remove_unused_brs_try_voidify_tail_return_if(
                     ctx, func, else_ref, label_refs,
-                  ) ||
-                  changed
+                  ) {
+                  changed = true
+                }
               @ir.HotOp::Nop =>
-                changed = remove_unused_brs_trim_trailing_nops(
-                    ctx, func, else_ref,
-                  ) ||
-                  changed
+                if remove_unused_brs_trim_trailing_nops(ctx, func, else_ref) {
+                  changed = true
+                }
               _ => ()
             }
           }
           if else_tail_id >= 0 &&
             remove_unused_brs_region_has_removable_tail_target(func, else_ref) {
-            changed = remove_unused_brs_try_remove_region_tail(
+            if remove_unused_brs_try_remove_region_tail(
                 ctx, func, else_ref, reorder_cache,
-              ) ||
-              changed
+              ) {
+              changed = true
+            }
           }
         }
         None => ()
@@ -2943,18 +2956,19 @@ fn remove_unused_brs_visit_node(
         remove_unused_brs_try_voidify_exit_only_value_if(ctx, func, node_id) {
         return true
       }
-      changed = remove_unused_brs_try_rewrite_value_if_to_select(
+      if remove_unused_brs_try_rewrite_value_if_to_select(
           ctx, func, node_id, reorder_cache,
-        ) ||
-        changed
-      changed = remove_unused_brs_try_merge_nested_if_conditions(
+        ) {
+        changed = true
+      }
+      if remove_unused_brs_try_merge_nested_if_conditions(
           ctx, func, node_id, reorder_cache,
-        ) ||
-        changed
-      changed = remove_unused_brs_try_rewrite_if_br(
-          ctx, func, node_id, reorder_cache,
-        ) ||
-        changed
+        ) {
+        changed = true
+      }
+      if remove_unused_brs_try_rewrite_if_br(ctx, func, node_id, reorder_cache) {
+        changed = true
+      }
     }
     @ir.HotOp::LocalSet =>
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {

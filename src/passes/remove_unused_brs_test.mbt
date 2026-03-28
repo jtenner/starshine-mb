@@ -686,6 +686,85 @@ test "remove-unused-brs lifts multi-value returned ladders through repeated hold
 }
 
 ///|
+test "remove-unused-brs survives repeated if payload slots in branch ladders" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32 i32 i32 i32) (result i32 i32) (if (result i32 i32) (local.get 3) (then (block $out (result i32 i32) (block $mid (result i32 i32) (if (local.get 0) (then (drop (i32.const 9)) (drop (i32.const 8)) (br $mid (if (result i32 i32) (local.get 1) (then (i32.const 1) (i32.const 2)) (else (i32.const 3) (i32.const 4)))))) (i32.const 5) (i32.const 6)))) (else (i32.const 7) (i32.const 8)))))",
+  )
+  let ctx = HotPassContext::new(
+    remove_unused_brs_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repeated-payload branch ladder success, got \{err}")
+  }
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repeated-payload branch shape to stay valid, got \{err}")
+  }
+}
+
+///|
+test "remove-unused-brs preserves multi-slot branch payload ladders with tail value if arms" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32 i32 i32) (result i32 i32 i32) (block (result i32 i32 i32) (block (result i32 i32 i32) (if (local.get 0) (then (drop (i32.const 9)) (br 0 (block (result i32 i32 i32) (i32.const 10) (i32.const 20) (if (result i32) (local.get 1) (then (i32.const 1)) (else (local.get 2))))))) (i32.const 5) (i32.const 6) (i32.const 7)))))",
+  )
+  let optimized = match
+    run_hot_pipeline(
+      mod_,
+      HotPipelineOptions::new(
+        verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected multi-slot branch payload ladder success, got \{err}")
+  }
+
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimized multi-slot branch payload ladder to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-brs preserves multi-value branch-payload if arms as separate branch slots" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32) (result i32 i32 i32) (block (result i32 i32 i32) (block (br 1 (if (result i32 i32 i32) (local.get 0) (then (block (result i32 i32 i32) (i32.const 1) (i32.const 2) (i32.const 3))) (else (br 1)))) (unreachable)))))",
+  )
+  let optimized = match
+    run_hot_pipeline(
+      mod_,
+      HotPipelineOptions::new(
+        verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected multi-value branch-payload if success, got \{err}")
+  }
+
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimized multi-value branch-payload if to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "remove-unused-brs flattens nested returned ladder branch exits" {
   let optimized = match
     pass_test_run_pipeline(
