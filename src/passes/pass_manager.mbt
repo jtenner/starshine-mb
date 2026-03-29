@@ -1572,12 +1572,14 @@ fn run_hot_pipeline_raw_append_local_read(
   out : Array[@lib.Instruction],
   source_aliases : Array[@lib.LocalIdx],
   canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : Array[Bool],
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   local_id : Int,
 ) -> Unit {
   if local_id >= params.length() &&
-    source_aliases[local_id] == canonical_aliases[local_id] {
+    source_aliases[local_id] == canonical_aliases[local_id] &&
+    !initialized_locals[local_id] {
     out.push(run_hot_pipeline_raw_default_instr_for_local(params, locals, local_id))
   } else {
     out.push(@lib.Instruction::local_get(source_aliases[local_id]))
@@ -1643,6 +1645,7 @@ fn run_hot_pipeline_raw_append_alias_merge_copies(
   source_aliases : Array[@lib.LocalIdx],
   target_aliases : Array[@lib.LocalIdx],
   canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : Array[Bool],
   result_types : Array[@lib.ValType],
   params : Array[@lib.ValType],
   locals : @lib.Locals,
@@ -1668,6 +1671,7 @@ fn run_hot_pipeline_raw_append_alias_merge_copies(
       out,
       source_aliases,
       canonical_aliases,
+      initialized_locals,
       params,
       locals,
       local_id,
@@ -1686,6 +1690,7 @@ fn run_hot_pipeline_raw_append_alias_copies(
   source_aliases : Array[@lib.LocalIdx],
   target_aliases : Array[@lib.LocalIdx],
   canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : Array[Bool],
   params : Array[@lib.ValType],
   locals : @lib.Locals,
 ) -> Unit {
@@ -1697,6 +1702,7 @@ fn run_hot_pipeline_raw_append_alias_copies(
       out,
       source_aliases,
       canonical_aliases,
+      initialized_locals,
       params,
       locals,
       local_id,
@@ -1714,6 +1720,18 @@ fn run_hot_pipeline_raw_canonical_aliases(
     canonical.push(@lib.LocalIdx::new(local_id.reinterpret_as_uint()))
   }
   canonical
+}
+
+///|
+fn run_hot_pipeline_raw_initialized_locals(
+  base_local_count : Int,
+  param_count : Int,
+) -> Array[Bool] {
+  let initialized : Array[Bool] = []
+  for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+    initialized.push(local_id < param_count)
+  }
+  initialized
 }
 
 ///|
@@ -1842,6 +1860,7 @@ fn run_hot_pipeline_raw_rewrite_br_if(
   label_target : RawSsaLabelTarget,
   source_aliases : Array[@lib.LocalIdx],
   canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : Array[Bool],
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
@@ -1854,6 +1873,7 @@ fn run_hot_pipeline_raw_rewrite_br_if(
       source_aliases,
       canonical_aliases,
       canonical_aliases,
+      initialized_locals,
       params,
       locals,
     )
@@ -1896,6 +1916,7 @@ fn run_hot_pipeline_raw_rewrite_br_if(
     source_aliases,
     canonical_aliases,
     canonical_aliases,
+    initialized_locals,
     params,
     locals,
   )
@@ -1922,11 +1943,13 @@ fn run_hot_pipeline_raw_rewrite_instrs(
   locals : @lib.Locals,
   local_aliases : Array[@lib.LocalIdx],
   canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : Array[Bool],
   label_stack : Array[RawSsaLabelTarget],
   extra_local_types : Array[@lib.ValType],
-) -> (Array[@lib.Instruction], Array[@lib.LocalIdx], Bool, Array[Bool])? {
+) -> (Array[@lib.Instruction], Array[@lib.LocalIdx], Array[Bool], Bool, Array[Bool])? {
   let rewritten : Array[@lib.Instruction] = []
   let mut aliases = local_aliases
+  let mut initialized = initialized_locals
   let mut fallthrough = true
   let exit_depths = run_hot_pipeline_raw_empty_exit_depths(label_stack)
   for instr in instrs {
@@ -1946,11 +1969,18 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             locals,
             aliases.copy(),
             canonical_aliases,
+            initialized.copy(),
             run_hot_pipeline_raw_push_label_target(label_stack, label_target),
             extra_local_types,
           ) {
           Some(
-            (rewritten_body, body_aliases, body_fallthrough, body_exit_depths)
+            (
+              rewritten_body,
+              body_aliases,
+              body_initialized,
+              body_fallthrough,
+              body_exit_depths,
+            )
           ) => {
             let body_exits_current_label = body_exit_depths.length() > 0 &&
               body_exit_depths[0]
@@ -1961,6 +1991,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               body_aliases,
               canonical_aliases,
               canonical_aliases,
+              body_initialized,
               label_target.result_types,
               params,
               locals,
@@ -1982,6 +2013,20 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                   canonical_aliases.copy()
                 } else {
                   body_aliases
+                }
+                initialized = if body_exits_current_label {
+                  let next_initialized = initialized.copy()
+                  for local_id = 0
+                      local_id < next_initialized.length()
+                      local_id = local_id + 1 {
+                    if body_aliases[local_id] != canonical_aliases[local_id] ||
+                      body_initialized[local_id] {
+                      next_initialized[local_id] = true
+                    }
+                  }
+                  next_initialized
+                } else {
+                  body_initialized
                 }
                 fallthrough = true
               } else {
@@ -2006,6 +2051,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             locals,
             aliases.copy(),
             canonical_aliases,
+            initialized.copy(),
             run_hot_pipeline_raw_push_label_target(label_stack, label_target),
             extra_local_types,
           ) {
@@ -2022,6 +2068,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 locals,
                 aliases.copy(),
                 canonical_aliases,
+                initialized.copy(),
                 run_hot_pipeline_raw_push_label_target(
                   label_stack, label_target,
                 ),
@@ -2034,6 +2081,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             (
               [],
               aliases.copy(),
+              initialized.copy(),
               true,
               run_hot_pipeline_raw_empty_exit_depths(
                 run_hot_pipeline_raw_push_label_target(
@@ -2042,8 +2090,20 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               ),
             )
         }
-        let (rewritten_then, then_aliases, then_fallthrough, then_exit_depths) = then_result
-        let (rewritten_else, else_aliases, else_fallthrough, else_exit_depths) = else_result
+        let (
+          rewritten_then,
+          then_aliases,
+          then_initialized,
+          then_fallthrough,
+          then_exit_depths,
+        ) = then_result
+        let (
+          rewritten_else,
+          else_aliases,
+          else_initialized,
+          else_fallthrough,
+          else_exit_depths,
+        ) = else_result
         let then_exits_current_label = then_exit_depths.length() > 0 &&
           then_exit_depths[0]
         let else_exits_current_label = else_exit_depths.length() > 0 &&
@@ -2060,6 +2120,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               then_aliases,
               canonical_aliases,
               canonical_aliases,
+              then_initialized,
               label_target.result_types,
               params,
               locals,
@@ -2072,6 +2133,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               else_aliases,
               canonical_aliases,
               canonical_aliases,
+              else_initialized,
               label_target.result_types,
               params,
               locals,
@@ -2098,6 +2160,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               then_aliases,
               merged_aliases,
               canonical_aliases,
+              then_initialized,
               label_target.result_types,
               params,
               locals,
@@ -2108,6 +2171,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               else_aliases,
               merged_aliases,
               canonical_aliases,
+              else_initialized,
               label_target.result_types,
               params,
               locals,
@@ -2143,6 +2207,14 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               else_fallthrough ||
               else_exits_current_label {
               aliases = canonical_aliases.copy()
+              for local_id = 0; local_id < initialized.length(); local_id = local_id + 1 {
+                if then_aliases[local_id] != canonical_aliases[local_id] ||
+                  then_initialized[local_id] ||
+                  else_aliases[local_id] != canonical_aliases[local_id] ||
+                  else_initialized[local_id] {
+                  initialized[local_id] = true
+                }
+              }
               fallthrough = true
             } else {
               fallthrough = false
@@ -2151,14 +2223,20 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             match (then_fallthrough, else_fallthrough) {
               (true, true) => {
                 aliases = merged_aliases
+                for local_id = 0; local_id < initialized.length(); local_id = local_id + 1 {
+                  initialized[local_id] = then_initialized[local_id] ||
+                    else_initialized[local_id]
+                }
                 fallthrough = true
               }
               (true, false) => {
                 aliases = then_aliases
+                initialized = then_initialized
                 fallthrough = true
               }
               (false, true) => {
                 aliases = else_aliases
+                initialized = else_initialized
                 fallthrough = true
               }
               (false, false) => fallthrough = false
@@ -2182,6 +2260,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           aliases,
           canonical_aliases,
           canonical_aliases,
+          initialized,
           label_target.result_types,
           params,
           locals,
@@ -2206,8 +2285,15 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         }
         match
           run_hot_pipeline_raw_rewrite_br_if(
-            module_ctx, label_idx, label_target, aliases, canonical_aliases, params,
-            locals, extra_local_types,
+            module_ctx,
+            label_idx,
+            label_target,
+            aliases,
+            canonical_aliases,
+            initialized,
+            params,
+            locals,
+            extra_local_types,
           ) {
           Some(branch_instrs) => rewritten.append(branch_instrs)
           None => return None
@@ -2222,6 +2308,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           rewritten,
           aliases,
           canonical_aliases,
+          initialized,
           params,
           locals,
           raw.reinterpret_as_int(),
@@ -2232,6 +2319,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           params, locals, local_id, extra_local_types,
         )
         aliases[local_id] = fresh_local
+        initialized[local_id] = true
         rewritten.push(@lib.Instruction::local_set(fresh_local))
       }
       @lib.LocalTee(@lib.LocalIdx(raw)) => {
@@ -2240,6 +2328,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           params, locals, local_id, extra_local_types,
         )
         aliases[local_id] = fresh_local
+        initialized[local_id] = true
         rewritten.push(@lib.Instruction::local_tee(fresh_local))
       }
       @lib.Return
@@ -2255,7 +2344,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
       _ => rewritten.push(instr)
     }
   }
-  Some((rewritten, aliases, fallthrough, exit_depths))
+  Some((rewritten, aliases, initialized, fallthrough, exit_depths))
 }
 
 ///|
@@ -2268,6 +2357,10 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
   let base_local_count = params.length() + locals.length()
   let local_aliases = run_hot_pipeline_raw_canonical_aliases(base_local_count)
   let canonical_aliases = local_aliases.copy()
+  let initialized_locals = run_hot_pipeline_raw_initialized_locals(
+    base_local_count,
+    params.length(),
+  )
   let extra_local_types : Array[@lib.ValType] = []
   match
     run_hot_pipeline_raw_rewrite_instrs(
@@ -2277,10 +2370,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       locals,
       local_aliases,
       canonical_aliases,
+      initialized_locals,
       [],
       extra_local_types,
     ) {
-    Some((rewritten_instrs, _, _, _)) => {
+    Some((rewritten_instrs, _, _, _, _)) => {
       let rewritten_locals = locals.copy()
       rewritten_locals.append_types(extra_local_types)
       Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)))
@@ -2297,10 +2391,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   let rewritten_instrs : Array[@lib.Instruction] = []
   let local_aliases : Array[@lib.LocalIdx] = []
+  let canonical_aliases : Array[@lib.LocalIdx] = []
+  let initialized_locals = run_hot_pipeline_raw_initialized_locals(
+    params.length() + locals.length(),
+    params.length(),
+  )
   let extra_local_types : Array[@lib.ValType] = []
   let base_local_count = params.length() + locals.length()
   for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
-    local_aliases.push(@lib.LocalIdx::new(local_id.reinterpret_as_uint()))
+    let local_idx = @lib.LocalIdx::new(local_id.reinterpret_as_uint())
+    local_aliases.push(local_idx)
+    canonical_aliases.push(local_idx)
   }
   for instr in instrs {
     match instr {
@@ -2308,7 +2409,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
         run_hot_pipeline_raw_append_local_read(
           rewritten_instrs,
           local_aliases,
-          local_aliases,
+          canonical_aliases,
+          initialized_locals,
           params,
           locals,
           raw.reinterpret_as_int(),
@@ -2323,6 +2425,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
           run_hot_pipeline_raw_local_type(params, locals, local_id),
         )
         local_aliases[local_id] = fresh_local
+        initialized_locals[local_id] = true
         rewritten_instrs.push(@lib.Instruction::local_set(fresh_local))
       }
       @lib.LocalTee(@lib.LocalIdx(raw)) => {
@@ -2335,6 +2438,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
           run_hot_pipeline_raw_local_type(params, locals, local_id),
         )
         local_aliases[local_id] = fresh_local
+        initialized_locals[local_id] = true
         rewritten_instrs.push(@lib.Instruction::local_tee(fresh_local))
       }
       _ => rewritten_instrs.push(instr)

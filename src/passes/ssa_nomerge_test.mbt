@@ -36,6 +36,38 @@ test "ssa-nomerge rewrites straight-line local traffic onto a unique def local" 
 }
 
 ///|
+test "ssa-nomerge keeps the latest straight-line local alias live" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result f64) (local f64) f64.const 69 local.tee 0 drop f64.const 39 local.tee 0 drop local.get 0))",
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected straight-line alias replay success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::f64(),
+      @lib.ValType::f64(),
+      @lib.ValType::f64(),
+    ]),
+  )
+  assert_eq(instrs, [
+    @lib.Instruction::f64_const(@lib.F64(69.0)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::f64_const(@lib.F64(39.0)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  ])
+}
+
+///|
 test "ssa-nomerge lowers branch joins through predecessor copies" {
   let input =
     #| (module
