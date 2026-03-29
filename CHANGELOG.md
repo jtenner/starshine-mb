@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Docs: record DCE and RUB oracle-fuzz gaps
+
+- **Pass-fuzz safety gate refresh** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) after fresh `gen-valid` differential-fuzz runs showed that recent artifact-backed replay evidence is not enough to call either `dead-code-elimination` or `remove-unused-brs` oracle-safe. `.tmp/pass-fuzz-dce-genvalid-1000` reached only `28` compared cases before hitting the `20`-mismatch cutoff, and `.tmp/pass-fuzz-rub-genvalid-1000` reached `31` compared cases before the same cutoff. The backlog now treats those passes as artifact-green but fuzz-red until the saved mismatch families are reduced and fixed.
+
 ## 2026-03-28 Test: lock modeled post-SSA cleanup prefix on artifact
 
 - **Post-SSA cleanup prefix replay guard** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/cmd/cmd_test.mbt`](./src/cmd/cmd_test.mbt) so native `cmd` regressions now replay both the post-SSA cleanup mini-chain (`dead-code-elimination -> vacuum -> optimize-instructions -> simplify-locals`) and the full currently-modeled post-SSA cleanup prefix through `simplify-locals` on `tests/node/dist/starshine-debug-wasi.wasm`. Both artifact replays validate in-memory, which moves the remaining hot-pipeline follow-up further downstream to later ordered-prefix proof and runtime work instead of this cleanup prefix.
