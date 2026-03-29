@@ -1642,6 +1642,7 @@ fn run_hot_pipeline_raw_append_alias_merge_copies(
   branch_instrs : Array[@lib.Instruction],
   source_aliases : Array[@lib.LocalIdx],
   target_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
   result_types : Array[@lib.ValType],
   params : Array[@lib.ValType],
   locals : @lib.Locals,
@@ -1666,7 +1667,7 @@ fn run_hot_pipeline_raw_append_alias_merge_copies(
     run_hot_pipeline_raw_append_local_read(
       out,
       source_aliases,
-      target_aliases,
+      canonical_aliases,
       params,
       locals,
       local_id,
@@ -1713,6 +1714,39 @@ fn run_hot_pipeline_raw_canonical_aliases(
     canonical.push(@lib.LocalIdx::new(local_id.reinterpret_as_uint()))
   }
   canonical
+}
+
+///|
+fn run_hot_pipeline_raw_has_default_local_reads(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_has_default_local_reads(body, param_count) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_has_default_local_reads(then_body, param_count) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_has_default_local_reads(body, param_count) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        if raw.reinterpret_as_int() >= param_count {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -1922,13 +1956,14 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               body_exit_depths[0]
             let mut finalized_body = rewritten_body
             if body_fallthrough && body_exits_current_label {
-              finalized_body = run_hot_pipeline_raw_append_alias_merge_copies(
-                finalized_body,
-                body_aliases,
-                canonical_aliases,
-                label_target.result_types,
-                params,
-                locals,
+            finalized_body = run_hot_pipeline_raw_append_alias_merge_copies(
+              finalized_body,
+              body_aliases,
+              canonical_aliases,
+              canonical_aliases,
+              label_target.result_types,
+              params,
+              locals,
                 extra_local_types,
               )
             }
@@ -2024,6 +2059,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               finalized_then,
               then_aliases,
               canonical_aliases,
+              canonical_aliases,
               label_target.result_types,
               params,
               locals,
@@ -2034,6 +2070,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             finalized_else = run_hot_pipeline_raw_append_alias_merge_copies(
               finalized_else,
               else_aliases,
+              canonical_aliases,
               canonical_aliases,
               label_target.result_types,
               params,
@@ -2060,6 +2097,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               finalized_then,
               then_aliases,
               merged_aliases,
+              canonical_aliases,
               label_target.result_types,
               params,
               locals,
@@ -2069,6 +2107,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               finalized_else,
               else_aliases,
               merged_aliases,
+              canonical_aliases,
               label_target.result_types,
               params,
               locals,
@@ -2141,6 +2180,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         let branch_instrs = run_hot_pipeline_raw_append_alias_merge_copies(
           [],
           aliases,
+          canonical_aliases,
           canonical_aliases,
           label_target.result_types,
           params,
@@ -2344,19 +2384,38 @@ fn run_hot_pipeline_raw_ssa_nomerge(
   let (has_writes, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
     instrs,
   )
+  let module_ctx = run_hot_pipeline_require_module_ctx(mod_, module_state, options)
+  let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
   if !has_writes {
+    if !run_hot_pipeline_raw_has_default_local_reads(instrs, params.length()) {
+      return Some({
+        reason: "no-local-writes",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if has_structured_control {
+      match
+        run_hot_pipeline_raw_ssa_nomerge_structured(original, module_ctx, params) {
+        Some(rewritten) =>
+          return Some({
+            reason: "default-local-reads",
+            func: rewritten,
+            unchanged_original: false,
+            trace_skip_raw: true,
+          })
+        None => return None
+      }
+    }
     return Some({
-      reason: "no-local-writes",
-      func: original,
-      unchanged_original: true,
+      reason: "default-local-reads",
+      func: run_hot_pipeline_raw_ssa_nomerge_straight_line(original, params),
+      unchanged_original: false,
       trace_skip_raw: true,
     })
   }
   if has_structured_control {
-    let module_ctx = run_hot_pipeline_require_module_ctx(
-      mod_, module_state, options,
-    )
-    let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
     let base_local_count = params.length() + locals.length()
     if has_branches &&
       (
@@ -2377,15 +2436,9 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       None => None
     }
   } else {
-    let module_ctx = run_hot_pipeline_require_module_ctx(
-      mod_, module_state, options,
-    )
     Some({
       reason: "straight-line-local-writes",
-      func: run_hot_pipeline_raw_ssa_nomerge_straight_line(
-        original,
-        run_hot_pipeline_required_func_params(module_ctx, func_idx),
-      ),
+      func: run_hot_pipeline_raw_ssa_nomerge_straight_line(original, params),
       unchanged_original: false,
       trace_skip_raw: true,
     })

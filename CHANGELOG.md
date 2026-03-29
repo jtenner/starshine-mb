@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-29 Checkpoint: extend SSA raw rewrite to no-write default reads
+
+- **`ssa-nomerge` no-write default-read checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt) so the raw `ssa-nomerge` fast path now rewrites no-write functions that still read non-param locals, and alias-merge copy materialization now compares against the true canonical alias set when deciding whether to synthesize default local values. Focused `ssa-nomerge` perf tests stay green, and the `gen-valid` smoke lane improved from `.tmp/pass-fuzz-ssa-genvalid-100-rerun1` (`66` compared, `46` matches, `20` mismatches) to `.tmp/pass-fuzz-ssa-genvalid-100-rerun2` (`100` compared, `81` matches, `19` mismatches). This is still a checkpoint: the remaining dominant families are raw fresh-local slot inflation and a smaller residual default-local family on rewritten locals.
+
 ## 2026-03-29 Checkpoint: start SSA raw default-local parity reduction
 
 - **`ssa-nomerge` raw default-local checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt) so the raw `ssa-nomerge` fast path now materializes typed default values when a rewritten non-param local still points at its canonical alias, including predecessor-copy materialization. Focused `ssa-nomerge` perf tests stay green, and the `gen-valid` smoke lane improved from `.tmp/pass-fuzz-ssa-genvalid-100-smoke` (`54` compared, `34` matches, `20` mismatches) to `.tmp/pass-fuzz-ssa-genvalid-100-rerun1` (`66` compared, `46` matches, `20` mismatches). This is still a checkpoint: the remaining dominant families are no-write default-local reads that still skip the pass entirely, plus raw fresh-local slot inflation where Binaryen reuses the original local slot.
