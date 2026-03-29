@@ -197,6 +197,25 @@ test "precompute preserves root nops after simplifying dead pure prefixes before
 }
 
 ///|
+test "precompute lowers empty root blocks to nops before surviving roots" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param f32) (result f32) (local f32) i64.const 942 drop f32.const 80 local.tee 0 drop block nop end f32.const 5 local.set 1 block nop end local.get 0))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected precompute root-block nop parity success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(block"), msg=pretty)
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 1))"), msg=pretty)
+  assert_true(pretty.contains("(local.get (Local 0))"), msg=pretty)
+}
+
+///|
 test "precompute falls back to the original function when lowered output would be invalid" {
   let trace : Array[String] = []
   let optimized = match

@@ -758,6 +758,20 @@ fn precompute_simplify_region_roots(
     }
     if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
       match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::Block | @ir.HotOp::Loop =>
+          if region_ref == @ir.HotRegionRef::root() &&
+            @ir.hot_node_result_arity(func, node_id) == 0 &&
+            precompute_region_is_all_nops(
+              func,
+              @ir.hot_region_body_ref(func, node_id),
+            ) {
+            let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [
+              @ir.hot_build_nop(func),
+            ])
+            pass_delete_detached_nodes(ctx, func, removed)
+            changed = true
+            continue
+          }
         @ir.HotOp::Drop =>
           if @ir.hot_child_count(func, node_id) == 1 &&
             precompute_is_discardable_value(
@@ -828,6 +842,21 @@ fn precompute_simplify_region_roots(
     pass_mark_mutated(ctx, func)
   }
   changed
+}
+
+///|
+fn precompute_region_is_all_nops(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Nop => ()
+      _ => return false
+    }
+  }
+  true
 }
 
 ///|

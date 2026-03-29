@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-29 Checkpoint: collapse PC root empty-block nop families
+
+- **`precompute` root empty-block parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/precompute.mbt`](./src/passes/precompute.mbt), and [`src/passes/precompute_test.mbt`](./src/passes/precompute_test.mbt) so root-level void `block` / `loop` nodes whose bodies are already all `nop`s now collapse to a single root `nop` before later root cleanup runs. Focused `precompute` tests stay green, and the repaired `gen-valid` smoke lane moved from `.tmp/pass-fuzz-pc-genvalid-100-rerun7` (`100/100` compared, `97` matches, `3` mismatches) to `.tmp/pass-fuzz-pc-genvalid-100-rerun8` (`100/100` compared, `100` matches, `0` mismatches). This is still a checkpoint pending the 10k compare lane and artifact parity work.
+
 ## 2026-03-29 Checkpoint: align PC root nop replacement and cleanup
 
 - **`precompute` root-`nop` parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/precompute.mbt`](./src/passes/precompute.mbt), and [`src/passes/precompute_test.mbt`](./src/passes/precompute_test.mbt) so root-level dead pure `drop`s now rewrite to `nop`, non-root `nop` trimming stays enabled, all-root `nop` bodies coalesce to a single `nop`, and pure root `nop` prefixes still collapse before a trailing constant result. Focused `precompute` tests stay green, and the repaired `gen-valid` smoke lane improved sharply from `.tmp/pass-fuzz-pc-genvalid-100-rerun3` (`24` compared, `20` mismatches) to `.tmp/pass-fuzz-pc-genvalid-100-rerun6` (`97` compared, `77` normalized matches, `20` mismatches). This is still a checkpoint: the remaining mismatch family now mixes residual root-`nop` count differences around side-effecting roots and all-`nop` void bodies, so `precompute` is not at 10k signoff yet.
