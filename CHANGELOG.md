@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Docs: refresh DCE native-release blocker state
+
+- **DCE runtime-blocker refresh** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) after rechecking the current `dead-code-elimination` replay path on `tests/node/dist/starshine-debug-wasi.wasm`. The old note claiming the baseline artifact fails validation before Binaryen runs is now stale: source-mode `moon run src/cmd -- --dead-code-elimination ...` succeeds. The active blocker is native-release divergence instead: `_build/native/release/build/cmd/cmd.exe --dead-code-elimination ...` fails final validation with `stack underflow` in `(Func 1730)`, `bun scripts/self-optimize-compare.ts ... --dead-code-elimination` stops on that same Starshine-side failure before Binaryen runs, and `moon test --target native --release --package jtenner/starshine/cmd --file cmd_test.mbt` currently exits with `SIGSEGV`.
+
 ## 2026-03-28 Test: refresh DCE oracle-fuzz gate after pure-drop fix
 
 - **DCE large-corpus oracle rerun** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) after rerunning `dead-code-elimination` differential fuzzing on fresh `gen-valid` corpora. The new evidence is `.tmp/pass-fuzz-dce-genvalid-50-after-pure-drop-fix` (`50/50`) and `.tmp/pass-fuzz-dce-genvalid-1000-after-pure-drop-fix` (`1000/1000`), both with `0` mismatches, `0` command failures, and `0` validation failures, so the old saved mismatch list is retired and the next DCE follow-up is runtime/ordered-prefix proof rather than repo-side oracle parity.
