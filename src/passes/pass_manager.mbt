@@ -2640,12 +2640,18 @@ fn run_hot_pipeline_raw_ssa_nomerge(
           original, module_ctx, params,
         ) {
         Some(rewritten) =>
-          return Some({
-            reason: "default-local-reads",
-            func: rewritten,
-            unchanged_original: false,
-            trace_skip_raw: true,
-          })
+          if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+              rewritten,
+            ) {
+            return None
+          } else {
+            return Some({
+              reason: "default-local-reads",
+              func: rewritten,
+              unchanged_original: false,
+              trace_skip_raw: true,
+            })
+          }
         None => return None
       }
     }
@@ -2668,12 +2674,18 @@ fn run_hot_pipeline_raw_ssa_nomerge(
     match
       run_hot_pipeline_raw_ssa_nomerge_structured(original, module_ctx, params) {
       Some(rewritten) =>
-        Some({
-          reason: "structured-local-writes",
-          func: rewritten,
-          unchanged_original: false,
-          trace_skip_raw: true,
-        })
+        if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+            rewritten,
+          ) {
+          None
+        } else {
+          Some({
+            reason: "structured-local-writes",
+            func: rewritten,
+            unchanged_original: false,
+            trace_skip_raw: true,
+          })
+        }
       None => None
     }
   } else {
@@ -3592,18 +3604,24 @@ fn run_hot_pipeline_apply_hot_pass(
           Ok(result) => result
           Err(err) => return Err("func[\{func_idx}]: \{err}")
         }
-        let should_keep_original = descriptor.name == "precompute" &&
+        let should_keep_original =
           !result.unchanged_original &&
           (
-            run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
-              result.func,
-            ) ||
-            !run_hot_pipeline_precompute_writeback_validates(
-              mod_,
-              defs,
-              lowered,
-              code_idx,
-              result.func,
+            (
+              descriptor.name == "precompute" ||
+              descriptor.name == "ssa-nomerge"
+            ) &&
+            (
+              run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+                result.func,
+              ) ||
+              !run_hot_pipeline_precompute_writeback_validates(
+                mod_,
+                defs,
+                lowered,
+                code_idx,
+                result.func,
+              )
             )
           )
         if should_keep_original {
