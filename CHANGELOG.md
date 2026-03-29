@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Docs: mark RUN complete
+
+- **RUN backlog closure** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to remove `remove-unused-names` from the active unreleased backlog. The pass now has exact single-pass parity, modeled triple-slot preset replay, canonical debug-artifact compare evidence, and a fresh `.tmp/pass-fuzz-run-genvalid-10000` oracle sweep with `10000/10000` compared cases, `10000/10000` normalized matches, and zero mismatches or failures; the remaining Binaryen parser-family fuzz artifacts are no longer tracked as active RUN work.
+
 ## 2026-03-28 Test: harden RUN 10k pass-fuzz signoff
 
 - **RUN 10k oracle floor** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so `pass-fuzz-compare` can fail closed when a signoff requires a minimum number of successful comparisons via `--min-compared`. The new command test locks that gate, and the fresh RUN oracle sweep at `.tmp/pass-fuzz-run-genvalid-10000` completes with `10000/10000` compared cases, `10000/10000` normalized matches, and `0` mismatches, validation failures, generator failures, or command failures.
