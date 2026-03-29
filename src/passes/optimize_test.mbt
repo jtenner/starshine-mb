@@ -135,6 +135,56 @@ test "shrink preset replays remove-unused-brs in all RUB slots" {
 }
 
 ///|
+test "optimize preset replays precompute in both PC slots" {
+  let trace : Array[String] = []
+  let input = pass_test_module_from_wat(
+    "(module (func (result i32) i32.const 1 i32.const 2 i32.add))",
+  )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["optimize"],
+    ) {
+    Ok(mod) => mod
+    Err(err) => fail("expected optimize pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected optimized module to validate, got \{err}")
+  }
+  let pc_starts = trace.filter(fn(line) {
+    line.contains("pass[precompute]:start")
+  })
+  assert_eq(pc_starts.length(), 2)
+}
+
+///|
+test "shrink preset replays precompute in both PC slots" {
+  let trace : Array[String] = []
+  let input = pass_test_module_from_wat(
+    "(module (func (result i32) i32.const 1 i32.const 2 i32.add))",
+  )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["shrink"],
+    ) {
+    Ok(mod) => mod
+    Err(err) => fail("expected shrink pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected shrink module to validate, got \{err}")
+  }
+  let pc_starts = trace.filter(fn(line) {
+    line.contains("pass[precompute]:start")
+  })
+  assert_eq(pc_starts.length(), 2)
+}
+
+///|
 test "remove-unused-names can clean up stale labels exposed by remove-unused-brs" {
   let optimized = match
     run_hot_pipeline(

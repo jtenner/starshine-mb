@@ -79,6 +79,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   let ssa = ssa_nomerge_descriptor()
   let dce = dead_code_elimination_descriptor()
   let opt = optimize_instructions_descriptor()
+  let precompute = precompute_descriptor()
   let pls = pick_load_signs_descriptor()
   let hso = heap_store_optimization_descriptor()
   let locals = simplify_locals_descriptor()
@@ -89,6 +90,8 @@ test "batch 1 descriptors expose the active first hot ports" {
   assert_eq(dce.name, "dead-code-elimination")
   assert_eq(@ir.hot_pass_requires(dce), [])
   assert_eq(opt.name, "optimize-instructions")
+  assert_eq(precompute.name, "precompute")
+  assert_eq(@ir.hot_pass_requires(precompute), [])
   assert_eq(pls.name, "pick-load-signs")
   assert_eq(@ir.hot_pass_requires(pls), [@ir.HotAnalysis::use_def()])
   assert_eq(hso.name, "heap-store-optimization")
@@ -107,15 +110,15 @@ test "preset expansion stays on implemented active pass names" {
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "simplify-locals", "remove-unused-brs",
-    "remove-unused-names",
+    "heap-store-optimization", "pick-load-signs", "precompute", "simplify-locals",
+    "remove-unused-brs", "precompute", "remove-unused-names",
   ])
   assert_eq(shrink, [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "simplify-locals", "remove-unused-brs",
-    "remove-unused-names",
+    "heap-store-optimization", "pick-load-signs", "precompute", "simplify-locals",
+    "remove-unused-brs", "precompute", "remove-unused-names",
   ])
   for name in optimize {
     match pass_registry_category(name) {

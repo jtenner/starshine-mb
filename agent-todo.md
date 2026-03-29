@@ -167,6 +167,8 @@ Observed unique-pass order
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [PC]001 - Constant Folding Surface - Audit the exact constant, tuple, and local-evaluable fragments Binaryen folds in the top-level `precompute` slots for `-O` / `-Os`.
      - Deliverables: map foldable op families; preserve trap behavior and feature typing; note the difference between top-level `precompute` and nested `precompute-propagate`.
+     - Status: initial exact-const integer fold core is now wired as an active hot pass and the optimize/shrink presets replay it in two modeled slots.
+     - Current blocker: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --precompute` still produces invalid Starshine output; `wasm-tools validate` reports `func 1119` stack underflow after the initial fold core lands.
      - Doc: [0066#L208](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L208)
    - [PC]002 - Early/Late Slot Regression and Artifact Parity - Harden the pass for both top-level slots and compare the resulting folds against Binaryen on the debug artifact.
      - Deliverables: add regressions for early and late folding opportunities; verify interaction with surrounding cleanup passes; replay `--precompute` parity on the artifact.
