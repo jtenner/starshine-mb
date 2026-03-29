@@ -527,7 +527,14 @@ fn remove_unused_brs_trim_trailing_nops(
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
   let mut changed = false
+  let preserve_single_if_arm_nop = remove_unused_brs_region_is_if_arm(
+    func, region_ref,
+  )
   while @ir.hot_region_root_count(func, region_ref) > 0 {
+    if preserve_single_if_arm_nop &&
+      @ir.hot_region_root_count(func, region_ref) == 1 {
+      break
+    }
     let idx = @ir.hot_region_root_count(func, region_ref) - 1
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     match @ir.hot_node_get(func, node_id).op {
@@ -539,6 +546,35 @@ fn remove_unused_brs_trim_trailing_nops(
     changed = true
   }
   changed
+}
+
+///|
+fn remove_unused_brs_region_is_if_arm(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  if region_ref == @ir.HotRegionRef::root() {
+    return false
+  }
+  let holder = region_ref.holder
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::If => ()
+      _ => continue
+    }
+    for slot = 1; slot <= 2; slot = slot + 1 {
+      if slot >= @ir.hot_child_count(func, node_id) {
+        continue
+      }
+      if @ir.hot_child_get(func, node_id, slot) == holder {
+        return true
+      }
+    }
+  }
+  false
 }
 
 ///|

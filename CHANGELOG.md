@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: preserve explicit `nop`-only `if` arms in RUB
+
+- **RUB first oracle-family parity** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so `remove-unused-brs` no longer trims away the last explicit `nop` inside trivial `if` arms just because the arm is otherwise empty. Focused tests now preserve `nop`-only `then` / `else` regions while still trimming trailing `nop`s from plain block bodies, and a fresh oracle spot-check at `.tmp/pass-fuzz-rub-genvalid-100-after-if-arm-nop-fix` improved to `97/100` normalized matches with `0` command failures. The old sampled mismatch `case-000002-gen-valid` is fixed; the remaining RUB fuzz blockers are the later saved mismatches `case-000021-gen-valid`, `case-000050-gen-valid`, and `case-000066-gen-valid`.
+
 ## 2026-03-28 Docs: track iterative binary decoder follow-up
 
 - **Decoder backlog split** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to add a dedicated `[BIN]001` slice for replacing the current recursive binary expression decoder with an iterative strategy. The native stack-limit prep fix remains the short-term unblocker, but the backlog now explicitly tracks removing that decoder fragility instead of treating it as part of the DCE optimizer bug.
