@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-29 Checkpoint: narrow `ssa-nomerge` artifact fail-closed guards to real carrier blockers
+
+- **`ssa-nomerge` hard-exit carrier checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt) so the temporary `ssa-nomerge` artifact fail-closed path no longer pays full-module writeback validation on every changed function. The guard now skips only the known invalid carrier families directly: the earlier mismatched escape-carrier shape plus the broader hard-exit carrier wrapper reduced from the debug artifact. Focused `moon test src/passes/ssa_nomerge_test.mbt` stays green, fresh native `--ssa-nomerge` replay on `tests/node/dist/starshine-debug-wasi.wasm` now advances past the old `Func 1118` and `Func 2832` failures, and the next concrete artifact blocker is later at `Func 7781` with a final-module `type mismatch`.
+
 ## 2026-03-29 Checkpoint: fail closed on invalid `ssa-nomerge` artifact rewrites
 
 - **`ssa-nomerge` artifact fail-closed checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cmd/cmd_test.mbt`](./src/cmd/cmd_test.mbt), and [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt) so the `ssa-nomerge` hot path now keeps the original lowered function when the rewritten candidate trips the existing post-lower invalid escape-carrier or writeback-validation gates, and native `cmd` coverage now includes a checked-in debug-artifact replay for `--ssa-nomerge`. This is still a checkpoint rather than signoff: the earlier `ssa_destroy` abort is already gone, but the large-artifact replay remains the active parity blocker until the fresh native artifact path validates cleanly and the full optimize chain can reach later-pass timing again.

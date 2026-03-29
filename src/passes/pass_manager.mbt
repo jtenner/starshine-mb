@@ -3535,12 +3535,78 @@ fn run_hot_pipeline_precompute_has_mismatched_escape_carrier_block(
 }
 
 ///|
+fn run_hot_pipeline_has_hard_exit(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::Return
+    | @lib.Instruction::Unreachable
+    | @lib.Instruction::Throw(_)
+    | @lib.Instruction::ThrowRef => true
+    @lib.Instruction::Block(_, @lib.Expr(body))
+    | @lib.Instruction::Loop(_, @lib.Expr(body))
+    | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+      body.any(fn(child) { run_hot_pipeline_has_hard_exit(child) })
+    @lib.Instruction::If(_, then_, Some(else_)) =>
+      then_.any(fn(child) { run_hot_pipeline_has_hard_exit(child) }) ||
+      else_.any(fn(child) { run_hot_pipeline_has_hard_exit(child) })
+    @lib.Instruction::If(_, then_, None) =>
+      then_.any(fn(child) { run_hot_pipeline_has_hard_exit(child) })
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_has_invalid_hard_exit_escape_carrier_block(
+  instr : @lib.Instruction,
+) -> Bool {
+  let walk_body = fn(body : Array[@lib.Instruction]) -> Bool {
+    body.any(fn(child) {
+      run_hot_pipeline_has_invalid_hard_exit_escape_carrier_block(child)
+    })
+  }
+  match instr {
+    @lib.Instruction::Block(
+      block_type,
+      @lib.Expr([@lib.Instruction::Block(@lib.VoidBlockType, @lib.Expr(prefix)), .._, @lib.Instruction::LocalGet(_)])
+    ) => {
+      match block_type {
+        @lib.VoidBlockType => walk_body(prefix)
+        _ =>
+          if prefix.any(fn(item) { run_hot_pipeline_has_hard_exit(item) }) {
+            true
+          } else {
+            walk_body(prefix)
+          }
+      }
+    }
+    @lib.Instruction::Block(_, @lib.Expr(body))
+    | @lib.Instruction::Loop(_, @lib.Expr(body))
+    | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) => walk_body(body)
+    @lib.Instruction::If(_, then_, Some(else_)) =>
+      walk_body(then_) || walk_body(else_)
+    @lib.Instruction::If(_, then_, None) => walk_body(then_)
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
   func : @lib.Func,
 ) -> Bool {
   let @lib.Func(_, @lib.Expr(body)) = func
   body.any(fn(instr) {
     run_hot_pipeline_precompute_has_mismatched_escape_carrier_block(instr)
+  })
+}
+
+///|
+fn run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
+  func : @lib.Func,
+) -> Bool {
+  let @lib.Func(_, @lib.Expr(body)) = func
+  body.any(fn(instr) {
+    run_hot_pipeline_has_invalid_hard_exit_escape_carrier_block(instr)
   })
 }
 
@@ -3608,19 +3674,29 @@ fn run_hot_pipeline_apply_hot_pass(
           !result.unchanged_original &&
           (
             (
-              descriptor.name == "precompute" ||
-              descriptor.name == "ssa-nomerge"
-            ) &&
+              descriptor.name == "precompute" &&
+              (
+                run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+                  result.func,
+                ) ||
+                !run_hot_pipeline_precompute_writeback_validates(
+                  mod_,
+                  defs,
+                  lowered,
+                  code_idx,
+                  result.func,
+                )
+              )
+            ) ||
             (
-              run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
-                result.func,
-              ) ||
-              !run_hot_pipeline_precompute_writeback_validates(
-                mod_,
-                defs,
-                lowered,
-                code_idx,
-                result.func,
+              descriptor.name == "ssa-nomerge" &&
+              (
+                run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+                  result.func,
+                ) ||
+                run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
+                  result.func,
+                )
               )
             )
           )
