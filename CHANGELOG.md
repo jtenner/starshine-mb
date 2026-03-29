@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: preserve explicit pure drop roots in DCE
+
+- **DCE pure-drop oracle parity** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) so `dead-code-elimination` no longer deletes explicit root `drop`s whose children are pure values like constants. Focused tests now lock both single and consecutive pure-drop roots to the Binaryen shape, and a fresh oracle spot-check at `.tmp/pass-fuzz-dce-genvalid-50-after-drop-root-fix` reached `50/50` normalized matches with `0` mismatches while the larger corpus rerun remains pending.
+
 ## 2026-03-28 Docs: record DCE and RUB oracle-fuzz gaps
 
 - **Pass-fuzz safety gate refresh** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) after fresh `gen-valid` differential-fuzz runs showed that recent artifact-backed replay evidence is not enough to call either `dead-code-elimination` or `remove-unused-brs` oracle-safe. `.tmp/pass-fuzz-dce-genvalid-1000` reached only `28` compared cases before hitting the `20`-mismatch cutoff, and `.tmp/pass-fuzz-rub-genvalid-1000` reached `31` compared cases before the same cutoff. The backlog now treats those passes as artifact-green but fuzz-red until the saved mismatch families are reduced and fixed.
