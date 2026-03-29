@@ -28,6 +28,13 @@
 - Gitignore new non-repo build or cache dirs when needed.
 - Do not use destructive git commands unless explicitly requested.
 
+## Working On Passes
+
+- Correctness first.
+- Match oracle Binaryen at minimum.
+- Target `< 1s` or `>= 50%` of Binaryen wall time where possible.
+- Verify parity with `bun fuzz compare-pass ...` or `bun scripts/pass-fuzz-compare.ts ...` at `10000` comparisons.
+
 ## Commit
 
 - Update relevant docs and `CHANGELOG.md` before commit.
@@ -106,4 +113,4 @@
 
 - Ask before running the full self-optimize pipeline.
 - Ask before running `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --optimize`.
-- Parity signoff requires canonical parity and Starshine wall time at least 50% as fast as Binaryen.
+- Parity signoff requires canonical parity and Starshine wall time `>= 50%` of Binaryen where possible.
