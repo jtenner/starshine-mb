@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: dump final-invalid native modules before CLI validate errors
+
+- **Native final-validate dump hook** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt), and [`src/cmd/cmd_test.mbt`](./src/cmd/cmd_test.mbt) so native CLI runs now dump the current module to `/tmp/starshine-invalid-final.wasm` and the offending pretty-printed function to `/tmp/starshine-invalid-final-func.txt` when final-module validation fails before encode. A focused native child-process regression covers that path with a deliberately invalid module, which gives the DCE native `Func 1730` blocker a direct artifact capture path instead of relying only on stderr pretty-print.
+
 ## 2026-03-28 Docs: refresh DCE native-release blocker state
 
 - **DCE runtime-blocker refresh** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) after rechecking the current `dead-code-elimination` replay path on `tests/node/dist/starshine-debug-wasi.wasm`. The old note claiming the baseline artifact fails validation before Binaryen runs is now stale: source-mode `moon run src/cmd -- --dead-code-elimination ...` succeeds. The active blocker is native-release divergence instead: `_build/native/release/build/cmd/cmd.exe --dead-code-elimination ...` fails final validation with `stack underflow` in `(Func 1730)`, `bun scripts/self-optimize-compare.ts ... --dead-code-elimination` stops on that same Starshine-side failure before Binaryen runs, and `moon test --target native --release --package jtenner/starshine/cmd --file cmd_test.mbt` currently exits with `SIGSEGV`.

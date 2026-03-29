@@ -4267,6 +4267,48 @@ test "run_cmd native child process does not crash for --optimize" {
 
 ///|
 #cfg(target="native")
+test "run_cmd native child process dumps final-invalid module on validate failure" {
+  let input_path = native_tmp_file("child-invalid-input")
+  let output_path = native_tmp_file("child-invalid-output")
+  let invalid_dump_path = "/tmp/starshine-invalid-final.wasm"
+  let invalid_func_dump_path = "/tmp/starshine-invalid-final-func.txt"
+  native_remove_if_exists(input_path)
+  native_remove_if_exists(output_path)
+  native_remove_if_exists(invalid_dump_path)
+  native_remove_if_exists(invalid_func_dump_path)
+
+  let wasm = encode_module_bytes(fixture_invalid_i32_result_module())
+  assert_true(native_write_bytes(input_path, wasm))
+
+  let (signaled, status) = native_run_cmd_exit_status([
+    "--vacuum", "--out", output_path, input_path,
+  ])
+  if signaled {
+    native_remove_if_exists(input_path)
+    native_remove_if_exists(output_path)
+    native_remove_if_exists(invalid_dump_path)
+    native_remove_if_exists(invalid_func_dump_path)
+    fail("expected child to exit normally, got signal \{status}")
+  }
+  assert_eq(status, 1)
+  match native_read_bytes(invalid_dump_path) {
+    Some(bytes) => ignore(decode_module_bytes(bytes))
+    None => fail("expected invalid final-module dump at \{invalid_dump_path}")
+  }
+  match native_read_bytes(invalid_func_dump_path) {
+    Some(bytes) => assert_true(bytes.length() > 0)
+    None =>
+      fail("expected invalid final-function dump at \{invalid_func_dump_path}")
+  }
+
+  native_remove_if_exists(input_path)
+  native_remove_if_exists(output_path)
+  native_remove_if_exists(invalid_dump_path)
+  native_remove_if_exists(invalid_func_dump_path)
+}
+
+///|
+#cfg(target="native")
 test "run_cmd uses native default io to read inputs and write outputs" {
   let input_path = native_tmp_file("io-input")
   let output_path = native_tmp_file("io-output")

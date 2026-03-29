@@ -1702,12 +1702,21 @@ fn validate_module_for_pipeline_step(
 ) -> Result[Unit, CmdError] {
   match validate_module(mod) {
     Ok(_) => Ok(())
-    Err(err) =>
+    Err(err) => {
+      cmd_debug_dump_invalid_final_module(mod)
+      match validation_error_func_idx(err) {
+        Some(func_idx) =>
+          cmd_debug_dump_invalid_final_func_text(
+            mod.pretty_print_func(func_idx),
+          )
+        None => ()
+      }
       Err(
         CmdError::OptimizeFailed(
           format_pipeline_validation_error(stage, mod, err),
         ),
       )
+    }
   }
 }
 
@@ -3519,6 +3528,27 @@ fn cmd_debug_dump_invalid_encoded_module(bytes : Bytes) -> Unit {
 
 ///|
 #cfg(target="native")
+fn cmd_debug_dump_invalid_final_module(mod : Module) -> Unit {
+  match encode_module(mod) {
+    Ok(bytes) =>
+      ignore(cmd_native_write_file("/tmp/starshine-invalid-final.wasm", bytes))
+    Err(_) => ()
+  }
+}
+
+///|
+#cfg(target="native")
+fn cmd_debug_dump_invalid_final_func_text(text : String) -> Unit {
+  ignore(
+    @sfs.write_file_bytes(
+      "/tmp/starshine-invalid-final-func.txt",
+      text.to_bytes(),
+    ),
+  )
+}
+
+///|
+#cfg(target="native")
 fn cmd_debug_dump_invalid_encoded_func_text(
   before_text : String,
   after_text : String,
@@ -3545,6 +3575,18 @@ fn cmd_debug_dump_invalid_encoded_module(_bytes : Bytes) -> Unit {
 
 ///|
 #cfg(target="js")
+fn cmd_debug_dump_invalid_final_module(_mod : Module) -> Unit {
+
+}
+
+///|
+#cfg(target="js")
+fn cmd_debug_dump_invalid_final_func_text(_text : String) -> Unit {
+
+}
+
+///|
+#cfg(target="js")
 fn cmd_debug_dump_invalid_encoded_func_text(
   _before_text : String,
   _after_text : String,
@@ -3555,6 +3597,18 @@ fn cmd_debug_dump_invalid_encoded_func_text(
 ///|
 #cfg(target="llvm")
 fn cmd_debug_dump_invalid_encoded_module(_bytes : Bytes) -> Unit {
+
+}
+
+///|
+#cfg(target="llvm")
+fn cmd_debug_dump_invalid_final_module(_mod : Module) -> Unit {
+
+}
+
+///|
+#cfg(target="llvm")
+fn cmd_debug_dump_invalid_final_func_text(_text : String) -> Unit {
 
 }
 
@@ -3570,6 +3624,18 @@ fn cmd_debug_dump_invalid_encoded_func_text(
 ///|
 #cfg(target="wasm-gc")
 fn cmd_debug_dump_invalid_encoded_module(_bytes : Bytes) -> Unit {
+
+}
+
+///|
+#cfg(target="wasm-gc")
+fn cmd_debug_dump_invalid_final_module(_mod : Module) -> Unit {
+
+}
+
+///|
+#cfg(target="wasm-gc")
+fn cmd_debug_dump_invalid_final_func_text(_text : String) -> Unit {
 
 }
 
@@ -3585,6 +3651,18 @@ fn cmd_debug_dump_invalid_encoded_func_text(
 ///|
 #cfg(target="wasm")
 fn cmd_debug_dump_invalid_encoded_module(_bytes : Bytes) -> Unit {
+
+}
+
+///|
+#cfg(target="wasm")
+fn cmd_debug_dump_invalid_final_module(_mod : Module) -> Unit {
+
+}
+
+///|
+#cfg(target="wasm")
+fn cmd_debug_dump_invalid_final_func_text(_text : String) -> Unit {
 
 }
 
