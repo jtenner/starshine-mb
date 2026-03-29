@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-29 Checkpoint: align PC root nop replacement and cleanup
+
+- **`precompute` root-`nop` parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/precompute.mbt`](./src/passes/precompute.mbt), and [`src/passes/precompute_test.mbt`](./src/passes/precompute_test.mbt) so root-level dead pure `drop`s now rewrite to `nop`, non-root `nop` trimming stays enabled, all-root `nop` bodies coalesce to a single `nop`, and pure root `nop` prefixes still collapse before a trailing constant result. Focused `precompute` tests stay green, and the repaired `gen-valid` smoke lane improved sharply from `.tmp/pass-fuzz-pc-genvalid-100-rerun3` (`24` compared, `20` mismatches) to `.tmp/pass-fuzz-pc-genvalid-100-rerun6` (`97` compared, `77` normalized matches, `20` mismatches). This is still a checkpoint: the remaining mismatch family now mixes residual root-`nop` count differences around side-effecting roots and all-`nop` void bodies, so `precompute` is not at 10k signoff yet.
+
 ## 2026-03-29 Checkpoint: trim PC root nops before trailing consts
 
 - **`precompute` trailing-const nop parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/precompute.mbt`](./src/passes/precompute.mbt), and [`src/passes/precompute_test.mbt`](./src/passes/precompute_test.mbt) so `precompute` now trims root-level `nop` residue before a trailing constant result while preserving explicit `nop`s before a trailing `local.get`, matching the smallest Binaryen boundary confirmed on reduced fixtures. Focused tests are green, but the repaired `gen-valid` oracle lane is still far from signoff: `.tmp/pass-fuzz-pc-genvalid-100-rerun3` reaches only `24` compared cases before the `20`-failure cap, and the remaining diffs are still dominated by additional `nop` residue families.

@@ -127,7 +127,7 @@ test "precompute rewrites dropped pure constants to a single nop in void bodies"
 }
 
 ///|
-test "precompute removes nop residue and dead pure drops before final results" {
+test "precompute removes pure root nop prefixes before a final const result" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (global i64 (i64.const 486)) (func (result i32) i32.const 1 if nop else nop end f64.const 45 drop global.get 0 drop nop nop nop i32.const 655))",
@@ -175,6 +175,25 @@ test "precompute preserves explicit nops before a trailing local.get result" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("nop"), msg=pretty)
   assert_true(pretty.contains("(local.get (Local 1))"), msg=pretty)
+}
+
+///|
+test "precompute preserves root nops after simplifying dead pure prefixes before a trailing const" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (global i32 (i32.const 212)) (func (param f32 i64) (result i32) nop global.get 0 drop f32.const 78 drop i64.const 756 local.set 1 nop nop i32.const 700))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected precompute dead-prefix nop parity success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 1))"), msg=pretty)
+  assert_true(pretty.contains("I32(700)"), msg=pretty)
 }
 
 ///|

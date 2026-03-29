@@ -764,8 +764,8 @@ fn precompute_simplify_region_roots(
               func,
               @ir.hot_child_get(func, node_id, 0),
             ) {
-            let replacement = if @ir.hot_region_root_count(func, region_ref) ==
-              1 {
+            let replacement = if region_ref == @ir.HotRegionRef::root() ||
+              @ir.hot_region_root_count(func, region_ref) == 1 {
               [@ir.hot_build_nop(func)]
             } else {
               []
@@ -837,9 +837,6 @@ fn precompute_trim_region_nops(
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
   let mut changed = false
-  let initial_root_count = @ir.hot_region_root_count(func, region_ref)
-  let preserve_single_root_nop = region_ref == @ir.HotRegionRef::root() &&
-    initial_root_count == 1
   let mut idx = 0
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
@@ -899,13 +896,13 @@ fn precompute_trim_region_nops(
     if idx >= @ir.hot_region_root_count(func, region_ref) {
       break
     }
+    if region_ref == @ir.HotRegionRef::root() {
+      idx += 1
+      continue
+    }
     let current_id = @ir.hot_region_get(func, region_ref, idx)
     match @ir.hot_node_get(func, current_id).op {
       @ir.HotOp::Nop => {
-        if preserve_single_root_nop &&
-          @ir.hot_region_root_count(func, region_ref) == 1 {
-          break
-        }
         ignore(pass_splice_region(ctx, func, region_ref, idx, 1, []))
         changed = true
         continue
@@ -913,6 +910,31 @@ fn precompute_trim_region_nops(
       _ => ()
     }
     idx += 1
+  }
+  changed
+}
+
+///|
+fn precompute_coalesce_all_root_nops(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  let region_ref = @ir.HotRegionRef::root()
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count <= 1 {
+    return false
+  }
+  for idx = 0; idx < root_count; idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Nop => ()
+      _ => return false
+    }
+  }
+  let mut changed = false
+  while @ir.hot_region_root_count(func, region_ref) > 1 {
+    ignore(pass_splice_region(ctx, func, region_ref, 1, 1, []))
+    changed = true
   }
   changed
 }
@@ -935,19 +957,17 @@ fn precompute_trim_root_nops_before_trailing_const(
     @ir.HotOp::Const => ()
     _ => return false
   }
-  let mut changed = false
-  let mut idx = 0
-  while idx + 1 < @ir.hot_region_root_count(func, region_ref) {
+  for idx = 0; idx + 1 < root_count; idx = idx + 1 {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::Nop => {
-        ignore(pass_splice_region(ctx, func, region_ref, idx, 1, []))
-        changed = true
-        continue
-      }
-      _ => ()
+      @ir.HotOp::Nop => ()
+      _ => return false
     }
-    idx += 1
+  }
+  let mut changed = false
+  while @ir.hot_region_root_count(func, region_ref) > 1 {
+    ignore(pass_splice_region(ctx, func, region_ref, 0, 1, []))
+    changed = true
   }
   changed
 }
@@ -1008,6 +1028,10 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     }
     if changed_round &&
       precompute_trim_region_nops(ctx, func, @ir.HotRegionRef::root()) {
+      changed_round = true
+      changed_any = true
+    }
+    if precompute_coalesce_all_root_nops(ctx, func) {
       changed_round = true
       changed_any = true
     }
