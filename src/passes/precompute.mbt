@@ -918,6 +918,41 @@ fn precompute_trim_region_nops(
 }
 
 ///|
+fn precompute_trim_root_nops_before_trailing_const(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  let region_ref = @ir.HotRegionRef::root()
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count <= 1 {
+    return false
+  }
+  let tail_id = @ir.hot_region_get(func, region_ref, root_count - 1)
+  if tail_id < 0 || !@ir.hot_node_is_live(func, tail_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, tail_id).op {
+    @ir.HotOp::Const => ()
+    _ => return false
+  }
+  let mut changed = false
+  let mut idx = 0
+  while idx + 1 < @ir.hot_region_root_count(func, region_ref) {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Nop => {
+        ignore(pass_splice_region(ctx, func, region_ref, idx, 1, []))
+        changed = true
+        continue
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  changed
+}
+
+///|
 fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let mut changed_any = false
   let mut changed_round = true
@@ -973,6 +1008,10 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     }
     if changed_round &&
       precompute_trim_region_nops(ctx, func, @ir.HotRegionRef::root()) {
+      changed_round = true
+      changed_any = true
+    }
+    if precompute_trim_root_nops_before_trailing_const(ctx, func) {
       changed_round = true
       changed_any = true
     }

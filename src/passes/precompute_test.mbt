@@ -145,6 +145,39 @@ test "precompute removes nop residue and dead pure drops before final results" {
 }
 
 ///|
+test "precompute removes a leading nop before a final const result" {
+  let optimized = match
+    pass_test_run_pipeline("(module (func (result i32) nop i32.const 363))", [
+      "precompute",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected precompute leading-nop const success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("I32(363)"), msg=pretty)
+}
+
+///|
+test "precompute preserves explicit nops before a trailing local.get result" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result f32) (local i32 f32) nop nop local.get 1))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected precompute trailing-local-get nop parity, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("(local.get (Local 1))"), msg=pretty)
+}
+
+///|
 test "precompute falls back to the original function when lowered output would be invalid" {
   let trace : Array[String] = []
   let optimized = match
