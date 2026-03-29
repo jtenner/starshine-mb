@@ -209,26 +209,10 @@ function resolveStarshineInvocation(
     };
   }
 
-  const releaseBinaryExe = path.join(repoRoot, "_build", "native", "release", "build", "cmd", "cmd.exe");
-  const releaseBinary = path.join(repoRoot, "_build", "native", "release", "build", "cmd", "cmd");
-  if (fs.existsSync(releaseBinaryExe)) {
-    return { command: releaseBinaryExe, argsPrefix: [] };
-  }
-  if (fs.existsSync(releaseBinary)) {
-    return { command: releaseBinary, argsPrefix: [] };
-  }
   return {
     command: moonBin,
     argsPrefix: ["run", "--target", "native", "--release", "src/cmd", "--"],
   };
-}
-
-function compileStarshine(repoRoot: string, moonBin: string): void {
-  runOrThrow(
-    moonBin,
-    ["build", "--target", "native", "--release", "--package", "jtenner/starshine/cmd"],
-    { cwd: repoRoot, stdio: "pipe" },
-  );
 }
 
 function runValidate(wasmToolsBin: string, wasmPath: string, repoRoot: string): { ok: boolean; stderr: string } {
@@ -637,8 +621,6 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   fs.mkdirSync(inputsDir, { recursive: true });
   fs.mkdirSync(smithDir, { recursive: true });
   fs.writeFileSync(casesPath, "");
-
-  compileStarshine(repoRoot, options.moonBin);
 
   const genValidCount =
     replayCases === null ? requiredGenValidCount(options.generator, options.count) : 0;

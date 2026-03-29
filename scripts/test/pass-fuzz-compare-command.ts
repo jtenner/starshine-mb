@@ -13,6 +13,13 @@ function assert(condition: boolean, message: string): void {
   }
 }
 
+function readJsonlLog(pathname: string): string[][] {
+  if (!fs.existsSync(pathname)) {
+    return [];
+  }
+  return fs.readFileSync(pathname, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as string[]);
+}
+
 function makeExecutable(basePath: string, source: string): string {
   if (process.platform === "win32") {
     const scriptPath = `${basePath}.js`;
@@ -143,22 +150,11 @@ process.exit(0);
     fail(`pass-fuzz-compare failed:\n${result.stderr}`);
   }
 
-  const moonLogs = fs.readFileSync(moonLog, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as string[]);
-  assert(moonLogs.length === 2, `expected compile and gen-valid moon invocations, got ${moonLogs.length}`);
+  const moonLogs = readJsonlLog(moonLog);
+  assert(moonLogs.length === 1, `expected gen-valid-only moon invocation, got ${moonLogs.length}`);
   assert(
-    JSON.stringify(moonLogs[0]) === JSON.stringify([
-      "build",
-      "--target",
-      "native",
-      "--release",
-      "--package",
-      "jtenner/starshine/cmd",
-    ]),
-    `unexpected compile invocation:\n${JSON.stringify(moonLogs[0], null, 2)}`,
-  );
-  assert(
-    moonLogs[1].includes("--emit-gen-valid-batch"),
-    `expected gen-valid batch invocation, got ${JSON.stringify(moonLogs[1], null, 2)}`,
+    moonLogs[0].includes("--emit-gen-valid-batch"),
+    `expected gen-valid batch invocation, got ${JSON.stringify(moonLogs[0], null, 2)}`,
   );
 
   const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
@@ -438,19 +434,8 @@ process.exit(0);
     fail(`pass-fuzz-compare with wasm-smith-only failed:\n${result.stderr}`);
   }
 
-  const moonLogs = fs.readFileSync(moonLog, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as string[]);
-  assert(moonLogs.length === 1, `expected compile-only moon invocation, got ${moonLogs.length}`);
-  assert(
-    JSON.stringify(moonLogs[0]) === JSON.stringify([
-      "build",
-      "--target",
-      "native",
-      "--release",
-      "--package",
-      "jtenner/starshine/cmd",
-    ]),
-    `unexpected compile invocation:\n${JSON.stringify(moonLogs[0], null, 2)}`,
-  );
+  const moonLogs = readJsonlLog(moonLog);
+  assert(moonLogs.length === 0, `expected no moon invocations for wasm-smith-only with explicit starshine bin, got ${moonLogs.length}`);
 
   const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
     comparedCount: number;
@@ -940,9 +925,8 @@ process.exit(0);
     fail(`pass-fuzz-compare replay-by-failure-class failed:\n${result.stderr}`);
   }
 
-  const moonLogs = fs.readFileSync(moonLog, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as string[]);
-  assert(moonLogs.length === 1, `expected compile-only moon invocation, got ${moonLogs.length}`);
-  assert(!moonLogs[0].includes("src/fuzz"), `unexpected generator invocation during replay: ${JSON.stringify(moonLogs[0])}`);
+  const moonLogs = readJsonlLog(moonLog);
+  assert(moonLogs.length === 0, `expected no moon invocations during replay with explicit starshine bin, got ${moonLogs.length}`);
 
   const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
     requestedCount: number;
@@ -1218,6 +1202,119 @@ process.exit(0);
   assert(summary.commandFailureCount === 1, `expected commandFailureCount=1, got ${summary.commandFailureCount}`);
 }
 
+export function runPassFuzzCompareDefaultStarshineInvocationTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-default-starshine-"));
+  const outDir = path.join(tmpdir, "out");
+  const moonLog = path.join(tmpdir, "moon.log");
+  const wasmOptLog = path.join(tmpdir, "wasm-opt.log");
+  const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
+
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(args) + "\\n");
+if (args[0] === "run" && args.includes("src/fuzz")) {
+  const outDir = args[args.indexOf("--out-dir") + 1];
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, "gen-valid-000001.wasm"), "gen-valid-1");
+  process.exit(0);
+}
+if (args[0] === "run" && args.includes("src/cmd")) {
+  const outIndex = args.indexOf("--out");
+  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+  fs.writeFileSync(args[outIndex + 1], "starshine");
+  process.exit(0);
+}
+process.exit(1);
+`,
+  );
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("-o");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], args.includes("-S") ? "(module)\\n" : "binaryen");
+process.exit(0);
+`,
+  );
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_TOOLS_LOG, JSON.stringify(args) + "\\n");
+if (args[0] === "smith") {
+  const outIndex = args.indexOf("-o");
+  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+  fs.writeFileSync(args[outIndex + 1], "smith");
+}
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count",
+      "1",
+      "--generator",
+      "gen-valid",
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--pass",
+      "remove-unused-brs",
+    ],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FAKE_MOON_LOG: moonLog,
+        FAKE_WASM_OPT_LOG: wasmOptLog,
+        FAKE_WASM_TOOLS_LOG: wasmToolsLog,
+      },
+      encoding: "utf8",
+    },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare default starshine invocation failed:\n${result.stderr}`);
+  }
+
+  const moonLogs = readJsonlLog(moonLog);
+  assert(moonLogs.length === 2, `expected gen-valid and starshine moon invocations, got ${moonLogs.length}`);
+  assert(
+    moonLogs[0].includes("--emit-gen-valid-batch"),
+    `expected gen-valid batch invocation first, got ${JSON.stringify(moonLogs[0], null, 2)}`,
+  );
+  assert(
+    JSON.stringify(moonLogs[1].slice(0, 6)) === JSON.stringify(["run", "--target", "native", "--release", "src/cmd", "--"]),
+    `expected default starshine invocation via moon run --release, got ${JSON.stringify(moonLogs[1], null, 2)}`,
+  );
+  assert(
+    moonLogs[1].includes("--remove-unused-brs"),
+    `expected pass flag in default starshine invocation, got ${JSON.stringify(moonLogs[1], null, 2)}`,
+  );
+}
+
 if (import.meta.main) {
   runPassFuzzCompareCommandTest();
   runPassFuzzCompareListPassesCommandTest();
@@ -1229,4 +1326,5 @@ if (import.meta.main) {
   runPassFuzzCompareReplayFailureClassTest();
   runPassFuzzCompareReplayLegacyCaseIndexTest();
   runPassFuzzCompareMinComparedGateTest();
+  runPassFuzzCompareDefaultStarshineInvocationTest();
 }
