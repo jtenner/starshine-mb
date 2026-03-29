@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-29 Checkpoint: start SSA raw default-local parity reduction
+
+- **`ssa-nomerge` raw default-local checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt) so the raw `ssa-nomerge` fast path now materializes typed default values when a rewritten non-param local still points at its canonical alias, including predecessor-copy materialization. Focused `ssa-nomerge` perf tests stay green, and the `gen-valid` smoke lane improved from `.tmp/pass-fuzz-ssa-genvalid-100-smoke` (`54` compared, `34` matches, `20` mismatches) to `.tmp/pass-fuzz-ssa-genvalid-100-rerun1` (`66` compared, `46` matches, `20` mismatches). This is still a checkpoint: the remaining dominant families are no-write default-local reads that still skip the pass entirely, plus raw fresh-local slot inflation where Binaryen reuses the original local slot.
+
 ## 2026-03-29 Docs: defer PC artifact signoff behind SSA replay fix
 
 - **`precompute` signoff deferred behind `ssa-nomerge`** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) so the backlog now records that `precompute` itself is green on the gold-standard compare lane at `.tmp/pass-fuzz-pc-genvalid-10000` (`10000/10000`, `0` mismatches), but later debug-artifact verification is deferred because the full current optimize chain aborts inside `ssa-nomerge` before the later `precompute` slots can be timed or compared on the artifact.

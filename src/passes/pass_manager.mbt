@@ -1541,6 +1541,50 @@ fn run_hot_pipeline_raw_local_type(
 }
 
 ///|
+fn run_hot_pipeline_raw_default_instr_for_local(
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  local_id : Int,
+) -> @lib.Instruction {
+  match run_hot_pipeline_raw_local_type(params, locals, local_id) {
+    @lib.NumTypeValType(@lib.I32NumType) =>
+      @lib.Instruction::i32_const(@lib.I32::new(0))
+    @lib.NumTypeValType(@lib.I64NumType) =>
+      @lib.Instruction::i64_const(@lib.I64::new(0L))
+    @lib.NumTypeValType(@lib.F32NumType) =>
+      @lib.Instruction::f32_const(@lib.F32::new(0.0))
+    @lib.NumTypeValType(@lib.F64NumType) =>
+      @lib.Instruction::f64_const(@lib.F64::new(0.0))
+    @lib.VecTypeValType =>
+      @lib.Instruction::v128_const(
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      )
+    @lib.RefTypeValType(rt) => @lib.Instruction::ref_null_type(rt)
+    _ =>
+      abort(
+        "hot pipeline raw ssa-nomerge rewrite hit unsupported default local type",
+      )
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_append_local_read(
+  out : Array[@lib.Instruction],
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  local_id : Int,
+) -> Unit {
+  if local_id >= params.length() &&
+    source_aliases[local_id] == canonical_aliases[local_id] {
+    out.push(run_hot_pipeline_raw_default_instr_for_local(params, locals, local_id))
+  } else {
+    out.push(@lib.Instruction::local_get(source_aliases[local_id]))
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_aliases_equal(
   lhs : Array[@lib.LocalIdx],
   rhs : Array[@lib.LocalIdx],
@@ -1619,7 +1663,14 @@ fn run_hot_pipeline_raw_append_alias_merge_copies(
     if source_aliases[local_id] == target_aliases[local_id] {
       continue
     }
-    out.push(@lib.Instruction::local_get(source_aliases[local_id]))
+    run_hot_pipeline_raw_append_local_read(
+      out,
+      source_aliases,
+      target_aliases,
+      params,
+      locals,
+      local_id,
+    )
     out.push(@lib.Instruction::local_set(target_aliases[local_id]))
   }
   for local_idx in result_scratch {
@@ -1633,12 +1684,22 @@ fn run_hot_pipeline_raw_append_alias_copies(
   out : Array[@lib.Instruction],
   source_aliases : Array[@lib.LocalIdx],
   target_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
 ) -> Unit {
   for local_id = 0; local_id < target_aliases.length(); local_id = local_id + 1 {
     if source_aliases[local_id] == target_aliases[local_id] {
       continue
     }
-    out.push(@lib.Instruction::local_get(source_aliases[local_id]))
+    run_hot_pipeline_raw_append_local_read(
+      out,
+      source_aliases,
+      canonical_aliases,
+      params,
+      locals,
+      local_id,
+    )
     out.push(@lib.Instruction::local_set(target_aliases[local_id]))
   }
 }
@@ -1755,7 +1816,12 @@ fn run_hot_pipeline_raw_rewrite_br_if(
   if label_target.result_types.length() == 0 {
     let then_body : Array[@lib.Instruction] = []
     run_hot_pipeline_raw_append_alias_copies(
-      then_body, source_aliases, canonical_aliases,
+      then_body,
+      source_aliases,
+      canonical_aliases,
+      canonical_aliases,
+      params,
+      locals,
     )
     then_body.push(@lib.Instruction::br(target_label))
     return Some([
@@ -1792,7 +1858,12 @@ fn run_hot_pipeline_raw_rewrite_br_if(
 
   let then_body : Array[@lib.Instruction] = []
   run_hot_pipeline_raw_append_alias_copies(
-    then_body, source_aliases, canonical_aliases,
+    then_body,
+    source_aliases,
+    canonical_aliases,
+    canonical_aliases,
+    params,
+    locals,
   )
   for scratch_local in result_scratch {
     then_body.push(@lib.Instruction::local_get(scratch_local))
@@ -2107,8 +2178,13 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         }
       }
       @lib.LocalGet(@lib.LocalIdx(raw)) =>
-        rewritten.push(
-          @lib.Instruction::local_get(aliases[raw.reinterpret_as_int()]),
+        run_hot_pipeline_raw_append_local_read(
+          rewritten,
+          aliases,
+          canonical_aliases,
+          params,
+          locals,
+          raw.reinterpret_as_int(),
         )
       @lib.LocalSet(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
@@ -2189,8 +2265,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
   for instr in instrs {
     match instr {
       @lib.LocalGet(@lib.LocalIdx(raw)) =>
-        rewritten_instrs.push(
-          @lib.Instruction::local_get(local_aliases[raw.reinterpret_as_int()]),
+        run_hot_pipeline_raw_append_local_read(
+          rewritten_instrs,
+          local_aliases,
+          local_aliases,
+          params,
+          locals,
+          raw.reinterpret_as_int(),
         )
       @lib.LocalSet(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
