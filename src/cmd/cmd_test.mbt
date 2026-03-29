@@ -106,6 +106,25 @@ fn decode_module_bytes(bytes : Bytes) -> Module {
 }
 
 ///|
+fn count_substring(text : String, needle : String) -> Int {
+  if needle.length() == 0 {
+    return 0
+  }
+  let mut count = 0
+  let limit = text.length() - needle.length()
+  let mut i = 0
+  while i <= limit {
+    if text.sub(start=i, end=i + needle.length()).to_string() == needle {
+      count += 1
+      i += needle.length()
+    } else {
+      i += 1
+    }
+  }
+  count
+}
+
+///|
 fn module_with_label_names(mod_ : Module, label_count : Int) -> Module {
   let label_entries : Array[@lib.NameAssoc] = []
   for i = 0; i < label_count; i = i + 1 {
@@ -4584,6 +4603,51 @@ test "run_cmd_with_adapter validates remove-unused-brs on debug artifact" {
   assert_eq(writes.length(), 1)
   assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter validates optimize-instructions on debug artifact" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--optimize-instructions", "--out", output_path, input_path],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected optimize-instructions artifact replay success, got \{e}")
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, ["optimize-instructions"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, output_path)
+  let optimized = decode_module_bytes(writes[0].1)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(29U))
+  assert_eq(count_substring(pretty, "unreachable"), 4, msg=pretty)
+  assert_true(pretty.contains("(br (Label 2))"), msg=pretty)
 }
 
 ///|

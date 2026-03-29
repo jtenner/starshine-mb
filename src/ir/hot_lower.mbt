@@ -1331,6 +1331,11 @@ fn hot_lower_impl_body_has_terminal_exit(body : Array[Instruction]) -> Bool {
   }
   match body[body.length() - 1] {
     Br(_) | BrTable(_, _) | Return | Throw(_) | ThrowRef | Unreachable => true
+    Block(_, Expr(inner)) | Loop(_, Expr(inner)) =>
+      hot_lower_impl_body_has_terminal_exit(inner)
+    If(_, then_, Some(else_)) =>
+      hot_lower_impl_body_has_terminal_exit(then_) &&
+      hot_lower_impl_body_has_terminal_exit(else_)
     _ => false
   }
 }
@@ -1402,15 +1407,13 @@ fn hot_lower_impl_trim_redundant_unreachable_tail(
     return body
   }
   match body[body.length() - 1] {
-    Unreachable if hot_lower_impl_instr_is_nonfallthrough(
-        body[body.length() - 2],
-      ) => {
-      match body[body.length() - 2] {
-        If(VoidBlockType, then_, Some(else_)) =>
-          if hot_lower_impl_body_has_terminal_exit(then_) &&
-            hot_lower_impl_body_has_terminal_exit(else_) {
-            return body
-          }
+    Unreachable => {
+      let prev = body[body.length() - 2]
+      if !hot_lower_impl_instr_is_nonfallthrough(prev) {
+        return body
+      }
+      match prev {
+        If(_, _, _) | Block(_, _) | Loop(_, _) => return body
         Br(_) =>
           if body.length() >= 3 {
             match body[body.length() - 3] {
@@ -1419,7 +1422,8 @@ fn hot_lower_impl_trim_redundant_unreachable_tail(
               _ => ()
             }
           }
-        _ => ()
+        Return | Throw(_) | ThrowRef | Unreachable => ()
+        _ => return body
       }
       let trimmed : Array[Instruction] = []
       for i = 0; i < body.length() - 1; i = i + 1 {

@@ -161,22 +161,6 @@ Observed unique-pass order
    - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
 
-#### OI - Optimize Instructions
-1. Keep the remaining follow-up visible.
-   - [OI]001 - Relational/Boolean Parity Finish - Continue the Binaryen parity audit from the current landed checkpoint instead of redoing the whole pass.
-     - Deliverables: keep the restored nested-boolean `if` rewrites stable; keep relational operand canonicalization enabled for local/local, pure-expression, load-safe, read-only heap/table/memory, shared read-only, and unique `local.tee` compare roots; finish reducing the remaining Binaryen deltas in the still-blocked shared tee payload, control-bearing tee payload, and loop-carried tee families without reopening the known tuple/result-shape regressions.
-     - Current blocker: the broad unsafe compare/control rewrites are no longer disabled wholesale, but the highest-risk tee/control families are still intentionally blocked pending focused artifact reductions.
-     - Doc: [0066#L193](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L193)
-   - [OI]002 - Dual-Slot Replay and Regression Lock - Verify both OI slots remain correct after surrounding pipeline work and lock the behavior in focused tests.
-     - Deliverables: add repeated-slot pipeline coverage; extend regressions around tuple users, typed ops, dead-suffix carriers, and compare/tee replay; rerun the debug-artifact compare harness for `--optimize-instructions` with any required ordered-prefix replay and record the remaining parity/perf gap explicitly.
-     - Current blocker: `optimize-instructions` is not part of the current green test baseline (`moon test` => `1929/1929`), so this is not an immediate correctness blocker. The remaining work is repeated-slot and ordered-prefix evidence refresh after the current `hot_lower` / DCE / RUB follow-up work settles, especially for the still-blocked tee/control parity families.
-     - Doc: [0066#L193](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L193)
-2. Do work.
-   - Keep the landed compare and nested-boolean rewrites stable while finishing the blocked tee/control parity families and the repeated-slot replay work.
-   - Wire any remaining OI updates into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
-3. Test against binaryen.
-   - Keep focused regressions in `src/passes/optimize_instructions_test.mbt` green, add scheduler/dispatcher coverage when slot behavior changes, and compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --optimize-instructions` plus any required ordered-prefix replay.
-
 #### HSO - Heap Store Optimization
 1. Keep the remaining follow-up visible.
    - [HSO]003 - Debug Artifact Oracle and Runtime Budget - Replay the landed pass against the referenced debug artifact once it is present locally and reduce the hot-pass overhead toward Binaryen's budget.

@@ -38,6 +38,25 @@ fn hot_lower_test_struct_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lower_test_count_substring(text : String, needle : String) -> Int {
+  if needle.length() == 0 {
+    return 0
+  }
+  let mut count = 0
+  let limit = text.length() - needle.length()
+  let mut i = 0
+  while i <= limit {
+    if text.sub(start=i, end=i + needle.length()).to_string() == needle {
+      count += 1
+      i += needle.length()
+    } else {
+      i += 1
+    }
+  }
+  count
+}
+
+///|
 test "hot lower roundtrips representative exact-payload families" {
   let memarg = hot_lower_test_memarg()
   let body = @lib.Expr::new([
@@ -1574,6 +1593,23 @@ test "hot lower preserves packed local.set carry blocks" {
   assert_true(pretty.contains("(br (Label 0))"), msg=pretty)
   assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
   assert_false(pretty.contains("(br (Label 2))"), msg=pretty)
+}
+
+///|
+test "hot lower keeps nested escaping-if unreachable sentinels" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (memory 1) (func (param i32) (result i32) local.get 0) (func (param i32 i32) (result i32) (local i32) local.get 0 call 0 local.get 1 call 0 i32.eq if loop local.get 0 call 0 local.get 2 i32.gt_s if local.get 0 local.get 2 i32.const 1 i32.shl i32.add i32.load16_u offset=8 local.get 1 local.get 2 i32.const 1 i32.shl i32.add i32.load16_u offset=8 i32.eq if local.get 2 i32.const 1 i32.add local.set 2 br 2 else i32.const 0 return end unreachable else i32.const 1 return end unreachable end unreachable else i32.const 0 return end unreachable))",
+    code_idx=1,
+  )
+  let lowered = ir_test_assert_verify_and_lower(fixture)
+  let pretty = lowered.pretty_print_func(@lib.FuncIdx::new(1U))
+
+  assert_eq(
+    hot_lower_test_count_substring(pretty, "unreachable"),
+    3,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("(br (Label 2))"), msg=pretty)
 }
 
 ///|

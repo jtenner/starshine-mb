@@ -165,6 +165,27 @@ fn optimize_instructions_replace_with_exact_compare(
 }
 
 ///|
+fn optimize_instructions_node_block_type(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @lib.BlockType? {
+  match @ir.hot_type_get(func, @ir.hot_node_get(func, node_id).ty) {
+    @ir.HotTypeInfo::VoidType => Some(@lib.BlockType::void_())
+    @ir.HotTypeInfo::Value(val_type) => Some(@lib.BlockType::val_type(val_type))
+    @ir.HotTypeInfo::BlockResult(block_type)
+    | @ir.HotTypeInfo::BlockResultResolved(block_type, _) => Some(block_type)
+    @ir.HotTypeInfo::Results(values) =>
+      if values.is_empty() {
+        Some(@lib.BlockType::void_())
+      } else if values.length() == 1 {
+        Some(@lib.BlockType::val_type(values[0]))
+      } else {
+        None
+      }
+  }
+}
+
+///|
 fn optimize_instructions_rewrite_exact_with_children(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -175,6 +196,67 @@ fn optimize_instructions_rewrite_exact_with_children(
   ignore(@ir.hot_replace_child_span(func, node_id, new_children))
   @ir.hot_node_exact_instr_set(func, node_id, instr)
   pass_mark_mutated(ctx, func)
+}
+
+///|
+fn optimize_instructions_try_fold_constant_if_condition(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  let cond_id = @ir.hot_child_get(func, node_id, 0)
+  let take_then = match optimize_instructions_i32_const(func, dead, cond_id) {
+    Some(@lib.I32(0)) => false
+    Some(@lib.I32(_)) => true
+    None => return false
+  }
+  let chosen_region = if take_then {
+    @ir.hot_region_then_ref(func, node_id)
+  } else {
+    match @ir.hot_region_else_ref(func, node_id) {
+      Some(region) => region
+      None => {
+        let nop = @ir.hot_build_nop(func)
+        @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, nop))
+        pass_mark_mutated(ctx, func)
+        return true
+      }
+    }
+  }
+  let root_count = @ir.hot_region_root_count(func, chosen_region)
+  if root_count == 0 {
+    let nop = @ir.hot_build_nop(func)
+    @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, nop))
+    pass_mark_mutated(ctx, func)
+    return true
+  }
+  if root_count == 1 {
+    @ir.hot_replace_node(
+      func,
+      node_id,
+      @ir.hot_node_get(func, @ir.hot_region_get(func, chosen_region, 0)),
+    )
+    pass_mark_mutated(ctx, func)
+    return true
+  }
+  let block_type = match optimize_instructions_node_block_type(func, node_id) {
+    Some(block_type) => block_type
+    None => return false
+  }
+  let body : Array[Int] = []
+  for i = 0; i < root_count; i = i + 1 {
+    body.push(@ir.hot_region_get(func, chosen_region, i))
+  }
+  let block_id = @ir.hot_build_block(func, block_type, body)
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, block_id))
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|
@@ -795,6 +877,55 @@ fn optimize_instructions_is_boolean_constant_tree(
   optimize_instructions_is_boolean_constant_tree(
     func,
     dead,
+    @ir.hot_region_get(func, else_region, 0),
+  )
+}
+
+///|
+fn optimize_instructions_boolean_tree_if_nodes_are_unshared(
+  func : @ir.HotFunc,
+  dead : Array[Bool],
+  use_def : @ir.HotUseDef,
+  node_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, node_id) == 1 =>
+      return true
+    _ => ()
+  }
+  match optimize_instructions_i32_const(func, dead, node_id) {
+    Some(@lib.I32(0)) | Some(@lib.I32(1)) => return true
+    _ => ()
+  }
+  if @ir.node_use_count(use_def, node_id) > 1 {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  let then_region = @ir.hot_region_then_ref(func, node_id)
+  let else_region = match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) => region
+    None => return false
+  }
+  if @ir.hot_region_root_count(func, then_region) != 1 ||
+    @ir.hot_region_root_count(func, else_region) != 1 {
+    return false
+  }
+  optimize_instructions_boolean_tree_if_nodes_are_unshared(
+    func,
+    dead,
+    use_def,
+    @ir.hot_region_get(func, then_region, 0),
+  ) &&
+  optimize_instructions_boolean_tree_if_nodes_are_unshared(
+    func,
+    dead,
+    use_def,
     @ir.hot_region_get(func, else_region, 0),
   )
 }
@@ -2022,6 +2153,10 @@ fn optimize_instructions_try_invert_nested_if_condition(
   if !@ir.hot_node_is_live(func, else_region) {
     return false
   }
+  let use_def = pass_require_use_def(ctx, func)
+  if @ir.node_use_count(use_def, cond_id) != 1 {
+    return false
+  }
   match @ir.hot_node_get(func, cond_id).op {
     @ir.HotOp::If => ()
     _ => return false
@@ -2074,6 +2209,12 @@ fn optimize_instructions_try_negate_nested_if_condition_to_eqz(
   else_region : Int,
 ) -> Bool {
   if @ir.hot_node_is_live(func, else_region) {
+    return false
+  }
+  let use_def = pass_require_use_def(ctx, func)
+  if !optimize_instructions_boolean_tree_if_nodes_are_unshared(
+      func, dead, use_def, cond_id,
+    ) {
     return false
   }
   match @ir.hot_node_get(func, cond_id).op {
@@ -2974,13 +3115,10 @@ fn optimize_instructions_visit_node(
         @ir.hot_control_node_label(func, node_id),
       )
     @ir.HotOp::If =>
-      (if false {
-        optimize_instructions_try_optimize_if_condition(
-          ctx, func, dead, node_id,
-        )
-      } else {
-        false
-      }) ||
+      optimize_instructions_try_fold_constant_if_condition(
+        ctx, func, dead, node_id,
+      ) ||
+      optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id) ||
       optimize_instructions_try_wrap_boolean_if_value_in_eqz(
         ctx, func, dead, node_id,
       ) ||
