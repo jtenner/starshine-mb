@@ -433,7 +433,7 @@ test "dead-code-elimination removes direct void-if payload forwarders with trail
 }
 
 ///|
-test "dead-code-elimination keeps split payload wrappers when rewritten lowering goes invalid" {
+test "dead-code-elimination keeps split payload wrappers when early trim would go invalid" {
   let trace : Array[String] = []
   let optimized = match
     pass_test_run_pipeline(
@@ -451,16 +451,22 @@ test "dead-code-elimination keeps split payload wrappers when rewritten lowering
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(
     trace.any(fn(line) {
+      line.contains("reason=trimmed-unreachable-split-wrapper")
+    }),
+    msg=pretty,
+  )
+  assert_false(
+    trace.any(fn(line) {
       line.contains("pass[dead-code-elimination]:skip-invalid-lower")
     }),
     msg=pretty,
   )
-  assert_true(pretty.contains("unreachable"), msg=pretty)
   assert_true(
     pretty.contains("(if (Void)") || pretty.contains("(if (Void)"),
     msg=pretty,
   )
   assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
 }
 
 ///|

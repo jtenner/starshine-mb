@@ -1093,12 +1093,24 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
           Some(else_region) => else_region
           None => return false
         }
+        let allow_simple_trim = payload_root_count == 1
         if arm_is_bare_br(then_region) && arm_is_bare_br(else_region) {
-          ignore(
-            pass_splice_region(ctx, func, forwarder_body, inner_br_idx + 1, 1, []),
-          )
-          dead_code_elimination_invalidate_branch_user_cache(branch_user_cache)
-          return true
+          if !allow_simple_trim {
+            trace_reason("trimmed-unreachable-split-wrapper")
+          } else {
+            ignore(
+              pass_splice_region(
+                ctx,
+                func,
+                forwarder_body,
+                inner_br_idx + 1,
+                1,
+                [],
+              ),
+            )
+            dead_code_elimination_invalidate_branch_user_cache(branch_user_cache)
+            return true
+          }
         }
       }
       _ => ()

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-29 Checkpoint: reject the split-wrapper DCE trim before lowering
+
+- **`dead-code-elimination` split-wrapper trim guard checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) so the early branch-payload forwarder unreachable-trim now refuses the two-root split-wrapper family instead of mutating it into a later invalid lower. The reduced repro no longer reaches `skip-invalid-lower`; it now cleanly bails as `reason=trimmed-unreachable-split-wrapper`, keeps the original `unreachable`, and leaves the real parity rewrite work visible without poisoning later lowering.
+
 ## 2026-03-29 Checkpoint: classify split-wrapper DCE invalid-lower debt as fail-closed
 
 - **`dead-code-elimination` split-wrapper fail-closed checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) so the reduced split-payload wrapper repro now explicitly locks the current `skip-invalid-lower` behavior instead of pretending the parity fix is already landed. The pass does mutate that shape, but the lowered candidate is still invalid and gets rejected by the existing fail-closed guard, so the source suite now tracks it as active lowering debt rather than a false green expectation.
