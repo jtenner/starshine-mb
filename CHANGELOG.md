@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Docs: track iterative binary decoder follow-up
+
+- **Decoder backlog split** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to add a dedicated `[BIN]001` slice for replacing the current recursive binary expression decoder with an iterative strategy. The native stack-limit prep fix remains the short-term unblocker, but the backlog now explicitly tracks removing that decoder fragility instead of treating it as part of the DCE optimizer bug.
+
 ## 2026-03-28 Fix: share native runtime stack prep and readable failure dumps
 
 - **Native DCE blocker narrowing** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt), and [`src/cmd/cmd_test.mbt`](./src/cmd/cmd_test.mbt) so native callers of `run_cmd` / `run_cmd_with_adapter` now get the same stack-soft-limit raise that `main` already used. That removes the earlier native decode `SIGSEGV` on the checked-in DCE artifact and turns the native-default-I/O replay into the same clean `OptimizeFailed("final module validate ... (Func 1730)")` blocker seen in the standalone CLI. The new native regression locks that behavior in, and the dumped offending-function text is now UTF-8 encoded instead of being written with embedded NUL bytes.

@@ -117,6 +117,13 @@ Observed unique-pass order
      - Reproduce broader native-release instability: `moon test --target native --release --package jtenner/starshine/cmd --file cmd_test.mbt`
      - Inspect the dumped invalid module after a native failure: `wasm-tools validate /tmp/starshine-invalid-final.wasm` and `wasm-tools print /tmp/starshine-invalid-final.wasm`
      - Doc: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
+   - [BIN]001 - Iterative Expr Decoder - Replace the current recursive binary expression decoder with an explicit worklist / stack machine so deeply nested valid wasm does not depend on native call-stack budget.
+     - Goal: make `decode_expr_with_depth` and the instruction decoder robust on large artifact inputs without requiring `setrlimit`-style runtime setup.
+     - Why: native `run_cmd` originally crashed in recursive `decode_instruction_with_depth` / `decode_expr_with_depth` frames on the checked-in DCE artifact until the CLI started raising the process stack limit before decode. That workaround unblocks current investigation, but the decoder strategy is still fragile and should not rely on platform stack size.
+     - Deliverables: design and land an iterative decode path for nested expressions / control instructions; preserve exact decode errors and offsets; add large-depth regressions that exercise native `run_cmd` without extra runtime stack prep assumptions.
+     - Exit criteria: large nested modules decode successfully under native callers without stack-limit hacks, and the recursive decoder no longer appears in the active native blocker path.
+     - Reproduce the old failure shape: `gdb -batch -ex run -ex 'thread apply all bt' --args _build/native/release/test/cmd/cmd.blackbox_test.exe 'cmd_test.mbt:87-88'`
+     - Relevant code: [`decode.mbt`](/home/jtenner/Projects/starshine-mb/src/binary/decode.mbt)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
