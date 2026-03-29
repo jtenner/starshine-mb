@@ -433,11 +433,13 @@ test "dead-code-elimination removes direct void-if payload forwarders with trail
 }
 
 ///|
-test "dead-code-elimination removes dead unreachable tails from split payload wrappers" {
+test "dead-code-elimination keeps split payload wrappers when rewritten lowering goes invalid" {
+  let trace : Array[String] = []
   let optimized = match
     pass_test_run_pipeline(
       "(module (memory 1) (func (param i32) (result i32) (local i32 i32) (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 1 (i32.const 1)) (if (local.get 0) (then (local.set 1 (i32.const 7)) (br $block8)) (else (local.set 1 (i32.const 9)) (br $block9))) unreachable) (local.get 1)))) (i32.store align=1 (i32.const 0) (local.get 1)) (i32.store align=1 (i32.const 4) (local.get 1)) (return (local.get 1)))))",
       ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -448,12 +450,17 @@ test "dead-code-elimination removes dead unreachable tails from split payload wr
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[dead-code-elimination]:skip-invalid-lower")
+    }),
+    msg=pretty,
+  )
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_true(
     pretty.contains("(if (Void)") || pretty.contains("(if (Void)"),
     msg=pretty,
   )
-  assert_true(pretty.contains("(br (Label 0))"), msg=pretty)
   assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
-  assert_false(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-29 Checkpoint: classify split-wrapper DCE invalid-lower debt as fail-closed
+
+- **`dead-code-elimination` split-wrapper fail-closed checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) so the reduced split-payload wrapper repro now explicitly locks the current `skip-invalid-lower` behavior instead of pretending the parity fix is already landed. The pass does mutate that shape, but the lowered candidate is still invalid and gets rejected by the existing fail-closed guard, so the source suite now tracks it as active lowering debt rather than a false green expectation.
+
 ## 2026-03-29 Checkpoint: raw-skip candidate-free `remove-unused-names` replay
 
 - **`remove-unused-names` artifact raw-skip checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`](./docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), and [`src/passes/perf_test.mbt`](./src/passes/perf_test.mbt) so the pass manager now skips hot lift for `remove-unused-names` when the raw function body contains neither loops nor single-child block wrappers anywhere in its control tree, while the optimize preset trace coverage now uses a loop-backed RUN candidate that still proves all three modeled RUN slots execute. Focused RUN tests and perf coverage are green, and the fresh native debug-artifact replay at `.tmp/run-artifact-rawskip` now reports `pass[remove-unused-names]:skip-raw reason=no-remove-unused-names-candidates count=9746`, retiring the earlier giant if-only `Func 545` hotspot that had been paying a `30.477610s` lift in the stale optimize trace.
