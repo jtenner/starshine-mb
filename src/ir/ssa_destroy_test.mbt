@@ -92,6 +92,40 @@ test "ssa destruction lowers loop-header phis before the backedge and preheader"
 }
 
 ///|
+test "ssa destruction lowers phis from synthetic block continuations" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [
+              @lib.Instruction::i32_const(@lib.I32(7)),
+              @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            ],
+            Some([@lib.Instruction::nop()]),
+          ),
+        ]),
+      ),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+
+  ignore(ssa_destroy_into_hot(func, cfg, ssa))
+  hot_verify_all_or_abort(func)
+}
+
+///|
 test "ssa predecessor copy insertion allocates a temp for cycles" {
   let func = HotFunc::new(
     locals=HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),

@@ -132,3 +132,37 @@ test "cfg build keeps unreachable roots in distinct predless blocks" {
   ])
   assert_eq(cfg_predecessors(cfg, nop_block), [])
 }
+
+///|
+test "cfg build gives synthetic continuations a concrete insertion span" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [@lib.Instruction::nop()],
+            Some([@lib.Instruction::nop()]),
+          ),
+        ]),
+      ),
+    ]),
+    HotLocals::new(),
+  )
+  let cfg = cfg_build(func)
+  let outer_block = hot_root_get(func, 0)
+  let mut found = false
+  for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
+    let block = cfg_block_get(cfg, block_id)
+    if block.is_synthetic &&
+      block.region_holder == outer_block &&
+      block.start_slot == 1 &&
+      block.end_slot == 1 {
+      found = true
+      break
+    }
+  }
+  assert_true(found)
+}

@@ -238,12 +238,21 @@ fn cfg_builder_region_build_empty(
 ///|
 fn cfg_builder_maybe_continuation(
   builder : CfgBuilder,
+  region_ref : HotRegionRef,
+  slot : Int,
   next_block : BlockId?,
 ) -> (BlockId?, Bool) {
   match next_block {
     Some(block_id) => (Some(block_id), false)
     None => {
-      let block_id = cfg_builder_add_block(builder, [], true)
+      let block_id = cfg_builder_add_block(
+        builder,
+        [],
+        true,
+        region_holder=cfg_builder_region_holder(region_ref),
+        start_slot=slot,
+        end_slot=slot,
+      )
       (Some(block_id), true)
     }
   }
@@ -310,7 +319,10 @@ fn cfg_builder_process_block(
   match node.op {
     HotOp::Block => {
       let (continuation, synthetic_exit) = cfg_builder_maybe_continuation(
-        builder, next_block,
+        builder,
+        region_ref,
+        segment.end_slot,
+        next_block,
       )
       cfg_builder_label_target_set(
         builder,
@@ -363,7 +375,10 @@ fn cfg_builder_process_block(
     }
     HotOp::If => {
       let (continuation, synthetic_exit) = cfg_builder_maybe_continuation(
-        builder, next_block,
+        builder,
+        region_ref,
+        segment.end_slot,
+        next_block,
       )
       cfg_builder_label_target_set(
         builder,
@@ -419,7 +434,10 @@ fn cfg_builder_process_block(
     }
     HotOp::Try => {
       let (continuation, synthetic_exit) = cfg_builder_maybe_continuation(
-        builder, next_block,
+        builder,
+        region_ref,
+        segment.end_slot,
+        next_block,
       )
       cfg_builder_label_target_set(
         builder,
@@ -474,7 +492,10 @@ fn cfg_builder_process_block(
     }
     HotOp::TryTable => {
       let (continuation, synthetic_exit) = cfg_builder_maybe_continuation(
-        builder, next_block,
+        builder,
+        region_ref,
+        segment.end_slot,
+        next_block,
       )
       cfg_builder_label_target_set(
         builder,

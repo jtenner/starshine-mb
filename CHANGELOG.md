@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-29 Checkpoint: unblock SSA artifact abort into a concrete validator repro
+
+- **`ssa-nomerge` synthetic-continuation replay checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`](./docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md), [`src/ir/cfg.mbt`](./src/ir/cfg.mbt), [`src/ir/cfg_test.mbt`](./src/ir/cfg_test.mbt), and [`src/ir/ssa_destroy_test.mbt`](./src/ir/ssa_destroy_test.mbt) so synthetic CFG continuations created at end-of-region now keep a concrete insertion span for later predecessor-copy lowering, with focused CFG and SSA-destruction regressions covering that shape. Fresh native `moon run --target native --release src/cmd -- --tracing pass --debug-serial-passes --ssa-nomerge ...` replay on `tests/node/dist/starshine-debug-wasi.wasm` no longer aborts inside `ssa_destroy`; the shared debug-artifact blocker has advanced to final validation in `Func 1118` (`stack underflow`) after `ssa-nomerge` rewrites a nested result-typed block/`if` cluster.
+
 ## 2026-03-29 Checkpoint: confirm SSA no-merge 10k parity
 
 - **`ssa-nomerge` 10k parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`](./docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md) so the project docs now record the completed gold-standard oracle run at `.tmp/pass-fuzz-ssa-genvalid-10000`, which finished `10000/10000` compared with `10000` normalized matches, `0` mismatches, and no validation, generator, or command failures. The remaining shared blocker is now the `ssa-nomerge` debug-artifact replay path that still prevents later-pass timing/signoff on the current optimize chain.
