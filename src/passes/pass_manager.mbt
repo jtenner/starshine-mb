@@ -1580,7 +1580,9 @@ fn run_hot_pipeline_raw_append_local_read(
   if local_id >= params.length() &&
     source_aliases[local_id] == canonical_aliases[local_id] &&
     !initialized_locals[local_id] {
-    out.push(run_hot_pipeline_raw_default_instr_for_local(params, locals, local_id))
+    out.push(
+      run_hot_pipeline_raw_default_instr_for_local(params, locals, local_id),
+    )
   } else {
     out.push(@lib.Instruction::local_get(source_aliases[local_id]))
   }
@@ -1668,12 +1670,7 @@ fn run_hot_pipeline_raw_append_alias_merge_copies(
       continue
     }
     run_hot_pipeline_raw_append_local_read(
-      out,
-      source_aliases,
-      canonical_aliases,
-      initialized_locals,
-      params,
-      locals,
+      out, source_aliases, canonical_aliases, initialized_locals, params, locals,
       local_id,
     )
     out.push(@lib.Instruction::local_set(target_aliases[local_id]))
@@ -1699,12 +1696,7 @@ fn run_hot_pipeline_raw_append_alias_copies(
       continue
     }
     run_hot_pipeline_raw_append_local_read(
-      out,
-      source_aliases,
-      canonical_aliases,
-      initialized_locals,
-      params,
-      locals,
+      out, source_aliases, canonical_aliases, initialized_locals, params, locals,
       local_id,
     )
     out.push(@lib.Instruction::local_set(target_aliases[local_id]))
@@ -1781,19 +1773,15 @@ fn run_hot_pipeline_raw_instrs_have_later_local_read(
         }
       @lib.If(_, then_body, else_body) => {
         if run_hot_pipeline_raw_instrs_have_later_local_read(
-          then_body,
-          0,
-          local_id,
-        ) {
+            then_body, 0, local_id,
+          ) {
           return true
         }
         match else_body {
           Some(body) =>
             if run_hot_pipeline_raw_instrs_have_later_local_read(
-              body,
-              0,
-              local_id,
-            ) {
+                body, 0, local_id,
+              ) {
               return true
             }
           None => ()
@@ -1818,28 +1806,20 @@ fn run_hot_pipeline_raw_instrs_have_later_local_write(
   for idx = start_idx; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
       @lib.Block(_, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_instrs_have_later_local_write(
-          body,
-          0,
-          local_id,
-        ) {
+        if run_hot_pipeline_raw_instrs_have_later_local_write(body, 0, local_id) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
         if run_hot_pipeline_raw_instrs_have_later_local_write(
-          then_body,
-          0,
-          local_id,
-        ) {
+            then_body, 0, local_id,
+          ) {
           return true
         }
         match else_body {
           Some(body) =>
             if run_hot_pipeline_raw_instrs_have_later_local_write(
-              body,
-              0,
-              local_id,
-            ) {
+                body, 0, local_id,
+              ) {
               return true
             }
           None => ()
@@ -1957,13 +1937,8 @@ fn run_hot_pipeline_raw_rewrite_br_if(
   if label_target.result_types.length() == 0 {
     let then_body : Array[@lib.Instruction] = []
     run_hot_pipeline_raw_append_alias_copies(
-      then_body,
-      source_aliases,
-      canonical_aliases,
-      canonical_aliases,
-      initialized_locals,
-      params,
-      locals,
+      then_body, source_aliases, canonical_aliases, canonical_aliases, initialized_locals,
+      params, locals,
     )
     then_body.push(@lib.Instruction::br(target_label))
     return Some([
@@ -2000,13 +1975,8 @@ fn run_hot_pipeline_raw_rewrite_br_if(
 
   let then_body : Array[@lib.Instruction] = []
   run_hot_pipeline_raw_append_alias_copies(
-    then_body,
-    source_aliases,
-    canonical_aliases,
-    canonical_aliases,
-    initialized_locals,
-    params,
-    locals,
+    then_body, source_aliases, canonical_aliases, canonical_aliases, initialized_locals,
+    params, locals,
   )
   for scratch_local in result_scratch {
     then_body.push(@lib.Instruction::local_get(scratch_local))
@@ -2034,7 +2004,13 @@ fn run_hot_pipeline_raw_rewrite_instrs(
   initialized_locals : Array[Bool],
   label_stack : Array[RawSsaLabelTarget],
   extra_local_types : Array[@lib.ValType],
-) -> (Array[@lib.Instruction], Array[@lib.LocalIdx], Array[Bool], Bool, Array[Bool])? {
+) -> (
+  Array[@lib.Instruction],
+  Array[@lib.LocalIdx],
+  Array[Bool],
+  Bool,
+  Array[Bool],
+)? {
   let rewritten : Array[@lib.Instruction] = []
   let mut aliases = local_aliases
   let mut initialized = initialized_locals
@@ -2075,15 +2051,15 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               body_exit_depths[0]
             let mut finalized_body = rewritten_body
             if body_fallthrough && body_exits_current_label {
-            finalized_body = run_hot_pipeline_raw_append_alias_merge_copies(
-              finalized_body,
-              body_aliases,
-              canonical_aliases,
-              canonical_aliases,
-              body_initialized,
-              label_target.result_types,
-              params,
-              locals,
+              finalized_body = run_hot_pipeline_raw_append_alias_merge_copies(
+                finalized_body,
+                body_aliases,
+                canonical_aliases,
+                canonical_aliases,
+                body_initialized,
+                label_target.result_types,
+                params,
+                locals,
                 extra_local_types,
               )
             }
@@ -2296,7 +2272,9 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               else_fallthrough ||
               else_exits_current_label {
               aliases = canonical_aliases.copy()
-              for local_id = 0; local_id < initialized.length(); local_id = local_id + 1 {
+              for local_id = 0
+                  local_id < initialized.length()
+                  local_id = local_id + 1 {
                 if then_aliases[local_id] != canonical_aliases[local_id] ||
                   then_initialized[local_id] ||
                   else_aliases[local_id] != canonical_aliases[local_id] ||
@@ -2312,7 +2290,9 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             match (then_fallthrough, else_fallthrough) {
               (true, true) => {
                 aliases = merged_aliases
-                for local_id = 0; local_id < initialized.length(); local_id = local_id + 1 {
+                for local_id = 0
+                    local_id < initialized.length()
+                    local_id = local_id + 1 {
                   initialized[local_id] = then_initialized[local_id] ||
                     else_initialized[local_id]
                 }
@@ -2374,15 +2354,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         }
         match
           run_hot_pipeline_raw_rewrite_br_if(
-            module_ctx,
-            label_idx,
-            label_target,
-            aliases,
-            canonical_aliases,
-            initialized,
-            params,
-            locals,
-            extra_local_types,
+            module_ctx, label_idx, label_target, aliases, canonical_aliases, initialized,
+            params, locals, extra_local_types,
           ) {
           Some(branch_instrs) => rewritten.append(branch_instrs)
           None => return None
@@ -2416,7 +2389,9 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             local_id,
           ) {
           initialized[local_id] = true
-          rewritten.push(@lib.Instruction::local_set(canonical_aliases[local_id]))
+          rewritten.push(
+            @lib.Instruction::local_set(canonical_aliases[local_id]),
+          )
         } else {
           let fresh_local = run_hot_pipeline_raw_fresh_local(
             params, locals, local_id, extra_local_types,
@@ -2440,7 +2415,9 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             local_id,
           ) {
           initialized[local_id] = true
-          rewritten.push(@lib.Instruction::local_tee(canonical_aliases[local_id]))
+          rewritten.push(
+            @lib.Instruction::local_tee(canonical_aliases[local_id]),
+          )
         } else {
           let fresh_local = run_hot_pipeline_raw_fresh_local(
             params, locals, local_id, extra_local_types,
@@ -2539,15 +2516,15 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
         let local_id = raw.reinterpret_as_int()
         if local_aliases[local_id] == canonical_aliases[local_id] &&
           run_hot_pipeline_raw_instrs_have_later_local_read(
-          instrs,
-          idx + 1,
-          local_id,
-        ) &&
+            instrs,
+            idx + 1,
+            local_id,
+          ) &&
           !run_hot_pipeline_raw_instrs_have_later_local_write(
             instrs,
             idx + 1,
             local_id,
-        ) {
+          ) {
           initialized_locals[local_id] = true
           local_aliases[local_id] = canonical_aliases[local_id]
           rewritten_instrs.push(
@@ -2570,15 +2547,15 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
         let local_id = raw.reinterpret_as_int()
         if local_aliases[local_id] == canonical_aliases[local_id] &&
           run_hot_pipeline_raw_instrs_have_later_local_read(
-          instrs,
-          idx + 1,
-          local_id,
-        ) &&
+            instrs,
+            idx + 1,
+            local_id,
+          ) &&
           !run_hot_pipeline_raw_instrs_have_later_local_write(
             instrs,
             idx + 1,
             local_id,
-        ) {
+          ) {
           initialized_locals[local_id] = true
           local_aliases[local_id] = canonical_aliases[local_id]
           rewritten_instrs.push(
@@ -2644,7 +2621,9 @@ fn run_hot_pipeline_raw_ssa_nomerge(
   let (has_writes, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
     instrs,
   )
-  let module_ctx = run_hot_pipeline_require_module_ctx(mod_, module_state, options)
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_, module_state, options,
+  )
   let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
   if !has_writes {
     if !run_hot_pipeline_raw_has_default_local_reads(instrs, params.length()) {
@@ -2657,7 +2636,9 @@ fn run_hot_pipeline_raw_ssa_nomerge(
     }
     if has_structured_control {
       match
-        run_hot_pipeline_raw_ssa_nomerge_structured(original, module_ctx, params) {
+        run_hot_pipeline_raw_ssa_nomerge_structured(
+          original, module_ctx, params,
+        ) {
         Some(rewritten) =>
           return Some({
             reason: "default-local-reads",

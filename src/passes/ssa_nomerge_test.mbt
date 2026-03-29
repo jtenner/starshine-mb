@@ -24,10 +24,7 @@ test "ssa-nomerge keeps straight-line local traffic on the canonical slot" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_eq(
-    locals,
-    @lib.Locals::from_types([@lib.ValType::i32()]),
-  )
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
   assert_eq(instrs, [
     @lib.Instruction::i32_const(@lib.I32(5)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
@@ -43,8 +40,7 @@ test "ssa-nomerge keeps the latest straight-line local alias live" {
       ["ssa-nomerge"],
     ) {
     Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected straight-line alias replay success, got \{err}")
+    Err(err) => fail("expected straight-line alias replay success, got \{err}")
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
@@ -91,8 +87,7 @@ test "ssa-nomerge reuses canonical param slots through structured no-merge write
     #|
   let optimized = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
     Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected structured param slot reuse success, got \{err}")
+    Err(err) => fail("expected structured param slot reuse success, got \{err}")
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
@@ -312,10 +307,7 @@ test "ssa-nomerge rewrites structured early-return local traffic without hot lif
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_eq(
     locals,
-    @lib.Locals::from_types([
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-    ]),
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
   )
   assert_eq(instrs, [
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
