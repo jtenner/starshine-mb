@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Test: broaden RUB oracle sweep to 10k
+
+- **RUB 10k gen-valid oracle floor** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) after rerunning `remove-unused-brs` differential fuzzing on a larger `gen-valid` corpus with the fail-closed `--min-compared 10000` gate. The new evidence at `.tmp/pass-fuzz-rub-genvalid-10000` completes with `10000/10000` compared cases, `10000/10000` normalized matches, and `0` mismatches, validation failures, generator failures, or command failures, so the remaining RUB work is ordered-prefix/runtime follow-up rather than broader `gen-valid` oracle reduction.
+
 ## 2026-03-28 Docs: mark RUN complete
 
 - **RUN backlog closure** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) to remove `remove-unused-names` from the active unreleased backlog. The pass now has exact single-pass parity, modeled triple-slot preset replay, canonical debug-artifact compare evidence, and a fresh `.tmp/pass-fuzz-run-genvalid-10000` oracle sweep with `10000/10000` compared cases, `10000/10000` normalized matches, and zero mismatches or failures; the remaining Binaryen parser-family fuzz artifacts are no longer tracked as active RUN work.
