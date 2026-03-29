@@ -4451,9 +4451,7 @@ test "run_cmd_with_adapter validates dead-code-elimination on debug artifact" {
     ) {
     Ok(v) => v
     Err(e) =>
-      fail(
-        "expected dead-code-elimination artifact replay success, got \{e}",
-      )
+      fail("expected dead-code-elimination artifact replay success, got \{e}")
   }
   assert_eq(summary.input_files, [input_path])
   assert_eq(summary.output_files, [output_path])
@@ -4494,9 +4492,7 @@ test "run_cmd_with_adapter validates remove-unused-brs on debug artifact" {
     ) {
     Ok(v) => v
     Err(e) =>
-      fail(
-        "expected remove-unused-brs artifact replay success, got \{e}",
-      )
+      fail("expected remove-unused-brs artifact replay success, got \{e}")
   }
   assert_eq(summary.input_files, [input_path])
   assert_eq(summary.output_files, [output_path])
@@ -4533,13 +4529,8 @@ test "run_cmd_with_adapter validates post-ssa cleanup mini-chain on debug artifa
   let summary = match
     run_cmd_with_adapter(
       [
-        "--dead-code-elimination",
-        "--vacuum",
-        "--optimize-instructions",
-        "--simplify-locals",
-        "--out",
-        output_path,
-        input_path,
+        "--dead-code-elimination", "--vacuum", "--optimize-instructions", "--simplify-locals",
+        "--out", output_path, input_path,
       ],
       io,
     ) {
@@ -4551,15 +4542,9 @@ test "run_cmd_with_adapter validates post-ssa cleanup mini-chain on debug artifa
   }
   assert_eq(summary.input_files, [input_path])
   assert_eq(summary.output_files, [output_path])
-  assert_eq(
-    summary.resolved_passes,
-    [
-      "dead-code-elimination",
-      "vacuum",
-      "optimize-instructions",
-      "simplify-locals",
-    ],
-  )
+  assert_eq(summary.resolved_passes, [
+    "dead-code-elimination", "vacuum", "optimize-instructions", "simplify-locals",
+  ])
   assert_eq(writes.length(), 1)
   assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
@@ -4591,16 +4576,9 @@ test "run_cmd_with_adapter validates modeled post-ssa cleanup prefix on debug ar
     },
   )
   let passes = [
-    "--dead-code-elimination",
-    "--remove-unused-names",
-    "--remove-unused-brs",
-    "--remove-unused-names",
-    "--vacuum",
-    "--remove-unused-brs",
-    "--optimize-instructions",
-    "--heap-store-optimization",
-    "--pick-load-signs",
-    "--simplify-locals",
+    "--dead-code-elimination", "--remove-unused-names", "--remove-unused-brs", "--remove-unused-names",
+    "--vacuum", "--remove-unused-brs", "--optimize-instructions", "--heap-store-optimization",
+    "--pick-load-signs", "--simplify-locals",
   ]
   let argv = passes.copy()
   argv.push("--out")
@@ -4615,21 +4593,11 @@ test "run_cmd_with_adapter validates modeled post-ssa cleanup prefix on debug ar
   }
   assert_eq(summary.input_files, [input_path])
   assert_eq(summary.output_files, [output_path])
-  assert_eq(
-    summary.resolved_passes,
-    [
-      "dead-code-elimination",
-      "remove-unused-names",
-      "remove-unused-brs",
-      "remove-unused-names",
-      "vacuum",
-      "remove-unused-brs",
-      "optimize-instructions",
-      "heap-store-optimization",
-      "pick-load-signs",
-      "simplify-locals",
-    ],
-  )
+  assert_eq(summary.resolved_passes, [
+    "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names",
+    "vacuum", "remove-unused-brs", "optimize-instructions", "heap-store-optimization",
+    "pick-load-signs", "simplify-locals",
+  ])
   assert_eq(writes.length(), 1)
   assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))

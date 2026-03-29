@@ -886,7 +886,7 @@ fn hot_lower_impl_emit_inputs(
       stack,
       out,
       extra_locals,
-      force_emit=force_emit,
+      force_emit~,
     )
   }
 }
