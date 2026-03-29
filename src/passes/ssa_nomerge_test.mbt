@@ -13,7 +13,7 @@ fn ssa_test_first_defined_func(
 }
 
 ///|
-test "ssa-nomerge rewrites straight-line local traffic onto a unique def local" {
+test "ssa-nomerge keeps straight-line local traffic on the canonical slot" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (result i32) (local i32) i32.const 5 local.set 0 local.get 0))",
@@ -26,12 +26,12 @@ test "ssa-nomerge rewrites straight-line local traffic onto a unique def local" 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_eq(
     locals,
-    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+    @lib.Locals::from_types([@lib.ValType::i32()]),
   )
   assert_eq(instrs, [
     @lib.Instruction::i32_const(@lib.I32(5)),
-    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
   ])
 }
 
@@ -64,6 +64,56 @@ test "ssa-nomerge keeps the latest straight-line local alias live" {
     @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
     @lib.Instruction::drop(),
     @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  ])
+}
+
+///|
+test "ssa-nomerge reuses canonical param slots through structured no-merge writes" {
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     i32.const 0
+    #|     if
+    #|       nop
+    #|     else
+    #|       nop
+    #|     end
+    #|     i32.const 1
+    #|     if
+    #|       nop
+    #|     else
+    #|       nop
+    #|     end
+    #|     i32.const 819
+    #|     local.tee 0
+    #|     drop
+    #|     local.get 0))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected structured param slot reuse success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_eq(locals, @lib.Locals::from_types([]))
+  assert_eq(instrs, [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::nop()],
+      Some([@lib.Instruction::nop()]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::nop()],
+      Some([@lib.Instruction::nop()]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(819)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
   ])
 }
 
@@ -265,7 +315,6 @@ test "ssa-nomerge rewrites structured early-return local traffic without hot lif
     @lib.Locals::from_types([
       @lib.ValType::i32(),
       @lib.ValType::i32(),
-      @lib.ValType::i32(),
     ]),
   )
   assert_eq(instrs, [
@@ -274,16 +323,16 @@ test "ssa-nomerge rewrites structured early-return local traffic without hot lif
       @lib.BlockType::void_(),
       [
         @lib.Instruction::i32_const(@lib.I32(7)),
-        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
-        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
         @lib.Instruction::return_(),
       ],
       Some([
         @lib.Instruction::i32_const(@lib.I32(9)),
-        @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
       ]),
     ),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
   ])
 }
 
