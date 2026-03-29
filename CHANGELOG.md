@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-29 Docs: defer PC artifact signoff behind SSA replay fix
+
+- **`precompute` signoff deferred behind `ssa-nomerge`** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) so the backlog now records that `precompute` itself is green on the gold-standard compare lane at `.tmp/pass-fuzz-pc-genvalid-10000` (`10000/10000`, `0` mismatches), but later debug-artifact verification is deferred because the full current optimize chain aborts inside `ssa-nomerge` before the later `precompute` slots can be timed or compared on the artifact.
+
 ## 2026-03-29 Checkpoint: collapse PC root empty-block nop families
 
 - **`precompute` root empty-block parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/precompute.mbt`](./src/passes/precompute.mbt), and [`src/passes/precompute_test.mbt`](./src/passes/precompute_test.mbt) so root-level void `block` / `loop` nodes whose bodies are already all `nop`s now collapse to a single root `nop` before later root cleanup runs. Focused `precompute` tests stay green, and the repaired `gen-valid` smoke lane moved from `.tmp/pass-fuzz-pc-genvalid-100-rerun7` (`100/100` compared, `97` matches, `3` mismatches) to `.tmp/pass-fuzz-pc-genvalid-100-rerun8` (`100/100` compared, `100` matches, `0` mismatches). This is still a checkpoint pending the 10k compare lane and artifact parity work.
