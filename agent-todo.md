@@ -161,15 +161,6 @@ Observed unique-pass order
    - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
 
-#### HSO - Heap Store Optimization
-1. Keep the remaining follow-up visible.
-   - [HSO]003 - Debug Artifact Oracle and Runtime Budget - Replay the landed pass against the referenced debug artifact once it is present locally and reduce the hot-pass overhead toward Binaryen's budget.
-     - Goal: confirm the committed HSO rewrite stays canonical on the exact MoonBit debug artifact, not just focused synthetic GC fixtures.
-     - Why: the current worktree reached canonical wasm and normalized WAT parity on a generated GC fixture, but `tests/node/dist/starshine-debug-wasi.wasm` is not present here and recent pass timings are still far slower than Binaryen.
-     - Deliverables: rerun `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --heap-store-optimization`; document any required ordered-prefix replay; trim the remaining pass overhead or record the blocking hotspots explicitly.
-     - Exit criteria: exact debug-artifact replay is recorded and the remaining HSO perf gap is either materially improved or called out as a release blocker.
-     - Doc: [0066#L198](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L198)
-
 #### PLS - Pick Load Signs
 1. Canonical correctness landed.
    - [PLS]002 - Rewrite Matrix and Artifact Compare - Add the rewrite, cover signed/unsigned boundary cases, and compare single-pass output against Binaryen on the debug artifact.

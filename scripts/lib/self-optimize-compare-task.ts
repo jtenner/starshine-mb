@@ -34,6 +34,7 @@ type ComparisonSummary = {
   binaryenElapsedMs: number;
   starshineAtLeastAsFast: boolean;
   starshinePassElapsedMs: number;
+  starshinePassSkippedRaw: boolean;
   binaryenPassElapsedMs: number;
   starshinePassAtLeastAsFast: boolean;
   normalizedWatEqual: boolean;
@@ -156,10 +157,14 @@ function parseStarshinePassElapsedMs(stderr: string): number {
   if (matches.length !== 0) {
     return matches.reduce((sum, match) => sum + Number(match[1]), 0) / 1000;
   }
-  if (/pass\[[^\]]+\]:skip-raw\b/.test(stderr)) {
+  if (starshinePassSkippedRaw(stderr)) {
     return 0;
   }
   fail("failed to parse Starshine pass timing from traced stderr");
+}
+
+function starshinePassSkippedRaw(stderr: string): boolean {
+  return /pass\[[^\]]+\]:skip-raw\b/.test(stderr);
 }
 
 function parseBinaryenPassElapsedMs(stdout: string, stderr: string): number {
@@ -314,6 +319,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     stdio: "pipe",
   });
   const starshinePassElapsedMs = parseStarshinePassElapsedMs(starshineRun.stderr);
+  const starshinePassSkipped = starshinePassSkippedRaw(starshineRun.stderr);
   const binaryenPassElapsedMs = parseBinaryenPassElapsedMs(
     binaryenRun.stdout,
     binaryenRun.stderr,
@@ -346,6 +352,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     binaryenElapsedMs: binaryenRun.elapsedMs,
     starshineAtLeastAsFast: starshineRun.elapsedMs <= binaryenRun.elapsedMs,
     starshinePassElapsedMs,
+    starshinePassSkippedRaw: starshinePassSkipped,
     binaryenPassElapsedMs,
     starshinePassAtLeastAsFast: starshinePassElapsedMs <= binaryenPassElapsedMs,
     normalizedWatEqual: starshineWat === binaryenWat,
@@ -372,6 +379,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Binaryen runtime (ms): ${summary.binaryenElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Starshine at least as fast: ${summary.starshineAtLeastAsFast ? "yes" : "no"}\n`);
   process.stdout.write(`Starshine pass runtime (ms): ${summary.starshinePassElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine pass skipped raw: ${summary.starshinePassSkippedRaw ? "yes" : "no"}\n`);
   process.stdout.write(`Binaryen pass runtime (ms): ${summary.binaryenPassElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Starshine pass at least as fast: ${summary.starshinePassAtLeastAsFast ? "yes" : "no"}\n`);
   process.stdout.write(`Normalized WAT equal: ${summary.normalizedWatEqual ? "yes" : "no"}\n`);

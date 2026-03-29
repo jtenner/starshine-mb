@@ -227,6 +227,7 @@ process.exit(0);
     binaryenElapsedMs: number;
     starshineAtLeastAsFast: boolean;
     starshinePassElapsedMs: number;
+    starshinePassSkippedRaw: boolean;
     binaryenPassElapsedMs: number;
     starshinePassAtLeastAsFast: boolean;
     normalizedWatEqual: boolean;
@@ -252,6 +253,7 @@ process.exit(0);
   assert(summary.binaryenElapsedMs >= 5, `expected measured Binaryen runtime, got ${summary.binaryenElapsedMs}`);
   assert(summary.starshineAtLeastAsFast === false, "expected Starshine runtime parity flag to report slower");
   assert(summary.starshinePassElapsedMs === 40, `expected parsed Starshine pass runtime, got ${summary.starshinePassElapsedMs}`);
+  assert(summary.starshinePassSkippedRaw === false, "expected traced pass run not to report raw skip");
   assert(summary.binaryenPassElapsedMs === 10, `expected parsed Binaryen pass runtime, got ${summary.binaryenPassElapsedMs}`);
   assert(summary.starshinePassAtLeastAsFast === false, "expected Starshine pass parity flag to report slower");
   assert(summary.normalizedWatEqual === true, "expected normalized WAT equality");
@@ -283,6 +285,7 @@ process.exit(0);
     `expected runtime parity verdict in stdout:\n${result.stdout}`,
   );
   assert(result.stdout.includes("Starshine pass runtime (ms): 40.000"), `expected Starshine pass runtime in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine pass skipped raw: no"), `expected raw-skip status in stdout:\n${result.stdout}`);
   assert(result.stdout.includes("Binaryen pass runtime (ms): 10.000"), `expected Binaryen pass runtime in stdout:\n${result.stdout}`);
   assert(
     result.stdout.includes("Starshine pass at least as fast: no"),

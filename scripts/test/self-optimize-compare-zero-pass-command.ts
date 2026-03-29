@@ -128,6 +128,7 @@ process.exit(0);
     fs.readFileSync(path.join(outDir, "result.json"), "utf8"),
   ) as {
     starshinePassElapsedMs: number;
+    starshinePassSkippedRaw: boolean;
     binaryenPassElapsedMs: number;
     starshinePassAtLeastAsFast: boolean;
     normalizedWatEqual: boolean;
@@ -142,6 +143,10 @@ process.exit(0);
     `expected parsed Binaryen pass runtime, got ${summary.binaryenPassElapsedMs}`,
   );
   assert(
+    summary.starshinePassSkippedRaw === true,
+    "expected zero-pass compare to report raw skip",
+  );
+  assert(
     summary.starshinePassAtLeastAsFast === true,
     "expected zero-runtime pass parity verdict to report fast enough",
   );
@@ -150,6 +155,10 @@ process.exit(0);
   assert(
     result.stdout.includes("Starshine pass runtime (ms): 0.000"),
     `expected zero pass runtime in stdout:\n${result.stdout}`,
+  );
+  assert(
+    result.stdout.includes("Starshine pass skipped raw: yes"),
+    `expected raw-skip status in stdout:\n${result.stdout}`,
   );
 }
 
