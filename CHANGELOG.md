@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-29 Checkpoint: fail closed on invalid dead-code-elimination artifact rewrites
+
+- **`dead-code-elimination` artifact fail-closed checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt) so `dead-code-elimination` now keeps the original function when lowering hits either the known suspicious escape-carrier families, a rewritten single-function writeback that fails validation against the module environment, or a lowered local count above the in-tree `50000` limit. This narrows the next optimize-path blocker from a crashing later-pass fallout chain back to the exact invalid `dead-code-elimination` lowering families on `tests/node/dist/starshine-debug-wasi.wasm`.
+
 ## 2026-03-29 Checkpoint: fix repeated multi-result return lowering in the SSA replay path
 
 - **`ssa-nomerge` repeated-return-input checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), and [`src/ir/ssa_destroy_test.mbt`](./src/ir/ssa_destroy_test.mbt) so hot lowering no longer re-emits the same multi-result input node once per repeated child when lowering ops like `Return`. The new direct HOT regression locks the reduced `br_table`/multi-value return shape that had been duplicating a returned result block, and the fresh native `--ssa-nomerge` replay on `tests/node/dist/starshine-debug-wasi.wasm` now completes and validates again. Focused `ssa_destroy` coverage is green, and the native `cmd` artifact regression for `--ssa-nomerge` is green too.

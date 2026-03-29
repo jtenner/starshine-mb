@@ -3401,26 +3401,30 @@ fn run_hot_pipeline_original_func(
 ///|
 fn run_hot_pipeline_precompute_writeback_validates(
   mod_ : @lib.Module,
-  defs : Array[@lib.Func],
-  lowered : Array[@lib.Func]?,
   code_idx : Int,
   rewritten : @lib.Func,
 ) -> Bool {
-  let candidate_defs = match lowered {
-    Some(current) => {
-      let next = current.copy()
-      next[code_idx] = rewritten
-      next
-    }
-    None => {
-      let next = defs.copy()
-      next[code_idx] = rewritten
-      next
-    }
+  let type_idx = match mod_.func_sec {
+    Some(@lib.FuncSec(type_idxs)) =>
+      match type_idxs.get(code_idx) {
+        Some(type_idx) => type_idx
+        None => return false
+      }
+    None => return false
+  }
+  let env0 = @validate.Env::new().with_module(
+    mod_.with_func_sec(@lib.FuncSec::new([])),
+  )
+  let env = match
+    @validate.validate_funcsec(Some(@lib.FuncSec::new([type_idx])), env0) {
+    Ok(env) => env
+    Err(_) => return false
   }
   match
-    @validate.validate_module(
-      mod_.with_code_sec(@lib.CodeSec::new(candidate_defs)),
+    @validate.validate_codesec(
+      Some(@lib.CodeSec::new([rewritten])),
+      Some(@lib.FuncSec::new([type_idx])),
+      env,
     ) {
     Ok(_) => true
     Err(_) => false
@@ -3535,9 +3539,7 @@ fn run_hot_pipeline_precompute_has_mismatched_escape_carrier_block(
 }
 
 ///|
-fn run_hot_pipeline_has_hard_exit(
-  instr : @lib.Instruction,
-) -> Bool {
+fn run_hot_pipeline_has_hard_exit(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Instruction::Return
     | @lib.Instruction::Unreachable
@@ -3568,8 +3570,14 @@ fn run_hot_pipeline_has_invalid_hard_exit_escape_carrier_block(
   match instr {
     @lib.Instruction::Block(
       block_type,
-      @lib.Expr([@lib.Instruction::Block(@lib.VoidBlockType, @lib.Expr(prefix)), .._, @lib.Instruction::LocalGet(_)])
-    ) => {
+      @lib.Expr(
+        [
+          @lib.Instruction::Block(@lib.VoidBlockType, @lib.Expr(prefix)),
+          ..,
+          @lib.Instruction::LocalGet(_),
+        ]
+      )
+    ) =>
       match block_type {
         @lib.VoidBlockType => walk_body(prefix)
         _ =>
@@ -3579,7 +3587,6 @@ fn run_hot_pipeline_has_invalid_hard_exit_escape_carrier_block(
             walk_body(prefix)
           }
       }
-    }
     @lib.Instruction::Block(_, @lib.Expr(body))
     | @lib.Instruction::Loop(_, @lib.Expr(body))
     | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) => walk_body(body)
@@ -3608,6 +3615,12 @@ fn run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
   body.any(fn(instr) {
     run_hot_pipeline_has_invalid_hard_exit_escape_carrier_block(instr)
   })
+}
+
+///|
+fn run_hot_pipeline_lowered_func_exceeds_local_limit(func : @lib.Func) -> Bool {
+  let @lib.Func(locals, _) = func
+  locals.length() > 50000
 }
 
 ///|
@@ -3670,8 +3683,7 @@ fn run_hot_pipeline_apply_hot_pass(
           Ok(result) => result
           Err(err) => return Err("func[\{func_idx}]: \{err}")
         }
-        let should_keep_original =
-          !result.unchanged_original &&
+        let should_keep_original = !result.unchanged_original &&
           (
             (
               descriptor.name == "precompute" &&
@@ -3681,8 +3693,23 @@ fn run_hot_pipeline_apply_hot_pass(
                 ) ||
                 !run_hot_pipeline_precompute_writeback_validates(
                   mod_,
-                  defs,
-                  lowered,
+                  code_idx,
+                  result.func,
+                )
+              )
+            ) ||
+            (
+              descriptor.name == "dead-code-elimination" &&
+              (
+                run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+                  result.func,
+                ) ||
+                run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
+                  result.func,
+                ) ||
+                run_hot_pipeline_lowered_func_exceeds_local_limit(result.func) ||
+                !run_hot_pipeline_precompute_writeback_validates(
+                  mod_,
                   code_idx,
                   result.func,
                 )
