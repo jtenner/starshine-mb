@@ -264,3 +264,78 @@ test "ssa destruction does not allocate extra locals for dead local tees" {
   assert_eq(hot_local_count(func), 1)
   assert_eq(hot_node_get(func, hot_root_get(func, 0)).op.to_string(), "Const")
 }
+
+///|
+fn ssa_destroy_test_count_substring(text : String, needle : String) -> Int {
+  if needle.length() == 0 {
+    return 0
+  }
+  let mut count = 0
+  let limit = text.length() - needle.length()
+  let mut i = 0
+  while i <= limit {
+    if text.sub(start=i, end=i + needle.length()).to_string() == needle {
+      count += 1
+      i += needle.length()
+    } else {
+      i += 1
+    }
+  }
+  count
+}
+
+///|
+test "ssa destruction does not duplicate returned br_table result regions" {
+  let input =
+    #| (module
+    #|   (func (param i32 i32) (result i32 i32)
+    #|     (local i32)
+    #|     local.get 1
+    #|     local.set 2
+    #|     block (result i32 i32)
+    #|       block
+    #|         block
+    #|           local.get 2
+    #|           br_table 0 1
+    #|         end
+    #|         local.get 0
+    #|         local.get 1
+    #|         br 1
+    #|       end
+    #|       i32.const 11
+    #|       i32.const 22
+    #|     end
+    #|     return
+    #|     i32.const 33
+    #|     i32.const 44))
+    #|
+  let fixture = ir_test_build_hot_from_wat(
+    input,
+  )
+
+  let baseline_pretty = fixture.mod_
+    .with_code_sec(@lib.CodeSec::new([hot_lower_func(fixture.hot_func)]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(
+    ssa_destroy_test_count_substring(baseline_pretty, "(block (Type 1)"),
+    1,
+  )
+
+  let fixture = ir_test_build_hot_from_wat(input)
+  let cfg = cfg_build(fixture.hot_func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(fixture.hot_func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(fixture.hot_func, cfg, dom, liveness, use_def)
+
+  ignore(ssa_destroy_into_hot(fixture.hot_func, cfg, ssa))
+
+  let lowered = hot_lower_func(fixture.hot_func)
+  let pretty = fixture.mod_
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(
+    ssa_destroy_test_count_substring(pretty, "(block (Type 1)"),
+    1,
+  )
+}

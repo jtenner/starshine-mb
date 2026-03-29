@@ -875,19 +875,30 @@ fn hot_lower_impl_emit_inputs(
   extra_locals : Array[ValType],
 ) -> Unit {
   let matched = hot_lower_impl_matching_input_prefix(stack, inputs)
-  for i = matched; i < inputs.length(); i = i + 1 {
-    let force_emit = i > matched && inputs[i - 1] == inputs[i]
-    hot_lower_impl_emit_value(
-      func,
-      inputs[i],
-      use_def,
-      label_frames,
-      label_stack_head,
-      stack,
-      out,
-      extra_locals,
-      force_emit~,
-    )
+  let mut idx = matched
+  while idx < inputs.length() {
+    let input_id = inputs[idx]
+    let mut run_len = 1
+    while idx + run_len < inputs.length() && inputs[idx + run_len] == input_id {
+      run_len += 1
+    }
+    let result_arity = hot_node_result_arity(func, input_id)
+    let emit_span = if result_arity > 0 { result_arity } else { 1 }
+    let emit_count = (run_len + emit_span - 1) / emit_span
+    for emit_idx = 0; emit_idx < emit_count; emit_idx = emit_idx + 1 {
+      hot_lower_impl_emit_value(
+        func,
+        input_id,
+        use_def,
+        label_frames,
+        label_stack_head,
+        stack,
+        out,
+        extra_locals,
+        force_emit=emit_idx > 0,
+      )
+    }
+    idx += run_len
   }
 }
 
@@ -2167,13 +2178,22 @@ fn hot_lower_impl_canonicalize_body(
                 }
               [Block(VoidBlockType, Expr(_)), Block(_, _)] =>
                 if !hot_lower_impl_body_targets_removed_label(inner_body, 0) {
-                  match inner_body[1] {
-                    Block(tail_bt, Expr(_)) if tail_bt == bt => {
-                      for inner in inner_body {
-                        canonical.push(inner)
+                  match inner_body[0] {
+                    Block(
+                      VoidBlockType,
+                      Expr(prefix_body)
+                    ) if prefix_body.any(fn(instr) {
+                        hot_lower_impl_has_control_transfer(instr)
+                      }) =>
+                      match inner_body[1] {
+                        Block(tail_bt, Expr(_)) if tail_bt == bt => {
+                          for inner in inner_body {
+                            canonical.push(inner)
+                          }
+                          peeled = true
+                        }
+                        _ => ()
                       }
-                      peeled = true
-                    }
                     _ => ()
                   }
                 }

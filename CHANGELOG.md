@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-29 Checkpoint: fix repeated multi-result return lowering in the SSA replay path
+
+- **`ssa-nomerge` repeated-return-input checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt), and [`src/ir/ssa_destroy_test.mbt`](./src/ir/ssa_destroy_test.mbt) so hot lowering no longer re-emits the same multi-result input node once per repeated child when lowering ops like `Return`. The new direct HOT regression locks the reduced `br_table`/multi-value return shape that had been duplicating a returned result block, and the fresh native `--ssa-nomerge` replay on `tests/node/dist/starshine-debug-wasi.wasm` now completes and validates again. Focused `ssa_destroy` coverage is green, and the native `cmd` artifact regression for `--ssa-nomerge` is green too.
+
 ## 2026-03-29 Checkpoint: narrow `ssa-nomerge` artifact fail-closed guards to real carrier blockers
 
 - **`ssa-nomerge` hard-exit carrier checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt) so the temporary `ssa-nomerge` artifact fail-closed path no longer pays full-module writeback validation on every changed function. The guard now skips only the known invalid carrier families directly: the earlier mismatched escape-carrier shape plus the broader hard-exit carrier wrapper reduced from the debug artifact. Focused `moon test src/passes/ssa_nomerge_test.mbt` stays green, fresh native `--ssa-nomerge` replay on `tests/node/dist/starshine-debug-wasi.wasm` now advances past the old `Func 1118` and `Func 2832` failures, and the next concrete artifact blocker is later at `Func 7781` with a final-module `type mismatch`.
