@@ -99,6 +99,7 @@ For each local that has at least one candidate load producer:
 - Completed: descriptors added via `pick_load_signs_descriptor()` and `pick_load_signs_summary()`.
 - Completed: `pick-load-signs` is registered as hot in `src/passes/optimize.mbt` and placed in `optimize`/`shrink` after `optimize-instructions`.
 - Completed: `src/passes/pass_manager.mbt` now routes `pick-load-signs` through `hot_pass_run` with module-memory fast-skip.
+- Completed: raw candidate screening now skips hot lift for functions that lack an exact narrow-load `local.set` producer plus any extension-use surface, and identical `no-pick-load-signs-candidates` traces are aggregated across the module.
 - Completed: registry/preset tests were updated to reflect active pass availability.
 
 ## Validation Plan
@@ -116,6 +117,21 @@ For each local that has at least one candidate load producer:
   - `moon info && moon fmt`
   - targeted pass tests (`pick_load_signs_test.mbt`)
   - full `moon test`
+  - pass-fuzz parity: `bun scripts/pass-fuzz-compare.ts --pass pick-load-signs --generator gen-valid --count 10000 --min-compared 10000`
 - Canonical parity check:
   - `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --pick-load-signs`
   - target: canonical/WAT parity + at least ~50% runtime compared to Binaryen in this pass slot.
+
+## Signoff Notes
+
+- 2026-03-29 signoff is green on `tests/node/dist/starshine-debug-wasi.wasm`:
+  - canonical wasm equal: yes
+  - normalized WAT equal: yes
+  - Starshine runtime: `2067.184 ms`
+  - Binaryen runtime: `1408.509 ms`
+  - Starshine pass runtime: `3.061 ms`
+  - Binaryen pass runtime: `78.709 ms`
+- 2026-03-29 pass-fuzz parity is green at `.tmp/pass-fuzz-pls-genvalid-10000`:
+  - `10000/10000` compared
+  - `10000` normalized matches
+  - `0` mismatches, validation failures, generator failures, or command failures

@@ -1430,6 +1430,91 @@ fn run_hot_pipeline_hso_candidate_scan(
 }
 
 ///|
+priv struct PlsCandidateScanState {
+  mut has_candidate_producer : Bool
+  mut has_local_get : Bool
+  mut has_extension_surface : Bool
+}
+
+///|
+fn run_hot_pipeline_pls_candidate_scan_into(
+  instrs : Array[@lib.Instruction],
+  state : PlsCandidateScanState,
+) -> Unit {
+  let mut prev_was_candidate_load = false
+  for instr in instrs {
+    if state.has_candidate_producer &&
+      state.has_local_get &&
+      state.has_extension_surface {
+      return
+    }
+    match instr {
+      @lib.LocalSet(_) =>
+        if prev_was_candidate_load {
+          state.has_candidate_producer = true
+        }
+      @lib.LocalGet(_) => state.has_local_get = true
+      @lib.I32Extend8S
+      | @lib.I32Extend16S
+      | @lib.I64Extend8S
+      | @lib.I64Extend16S
+      | @lib.I64Extend32S
+      | @lib.I64ExtendI32S
+      | @lib.I64ExtendI32U
+      | @lib.I32And
+      | @lib.I64And
+      | @lib.I32Shl
+      | @lib.I64Shl => state.has_extension_surface = true
+      @lib.I32Load8S(_)
+      | @lib.I32Load8U(_)
+      | @lib.I32Load16S(_)
+      | @lib.I32Load16U(_)
+      | @lib.I64Load8S(_)
+      | @lib.I64Load8U(_)
+      | @lib.I64Load16S(_)
+      | @lib.I64Load16U(_)
+      | @lib.I64Load32S(_)
+      | @lib.I64Load32U(_) => prev_was_candidate_load = true
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) => {
+        run_hot_pipeline_pls_candidate_scan_into(body, state)
+        prev_was_candidate_load = false
+      }
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_pls_candidate_scan_into(then_body, state)
+        match else_body {
+          Some(else_body) =>
+            run_hot_pipeline_pls_candidate_scan_into(else_body, state)
+          None => ()
+        }
+        prev_was_candidate_load = false
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) => {
+        run_hot_pipeline_pls_candidate_scan_into(body, state)
+        prev_was_candidate_load = false
+      }
+      _ => prev_was_candidate_load = false
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_pls_candidate_scan(
+  instrs : Array[@lib.Instruction],
+) -> (Bool, Bool, Bool) {
+  let state = {
+    has_candidate_producer: false,
+    has_local_get: false,
+    has_extension_surface: false,
+  }
+  run_hot_pipeline_pls_candidate_scan_into(instrs, state)
+  (
+    state.has_candidate_producer,
+    state.has_local_get,
+    state.has_extension_surface,
+  )
+}
+
+///|
 fn run_hot_pipeline_required_func_params(
   module_ctx : @ir.HotModuleContext,
   func_idx : @lib.FuncIdx,
@@ -2252,6 +2337,31 @@ fn run_hot_pipeline_raw_heap_store_optimization(
 }
 
 ///|
+fn run_hot_pipeline_raw_pick_load_signs(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "pick-load-signs" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(_, @lib.Expr(instrs)) = original
+  let (has_candidate_producer, has_local_get, has_extension_surface) = run_hot_pipeline_pls_candidate_scan(
+    instrs,
+  )
+  if has_candidate_producer && has_local_get && has_extension_surface {
+    return None
+  }
+  Some({
+    reason: "no-pick-load-signs-candidates",
+    func: original,
+    unchanged_original: true,
+    trace_skip_raw: true,
+  })
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -2326,6 +2436,10 @@ fn run_hot_pipeline_func(
   }
   match
     run_hot_pipeline_raw_heap_store_optimization(mod_, func_idx, descriptor) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match run_hot_pipeline_raw_pick_load_signs(mod_, func_idx, descriptor) {
     Some(result) => return Ok(result)
     None => ()
   }
@@ -2945,6 +3059,7 @@ fn run_hot_pipeline_apply_hot_pass(
     Some(@lib.CodeSec(defs)) => {
       let mut lowered : Array[@lib.Func]? = None
       let mut hso_raw_skip_count = 0
+      let mut pls_raw_skip_count = 0
       for code_idx = 0; code_idx < defs.length(); code_idx = code_idx + 1 {
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
@@ -2960,6 +3075,9 @@ fn run_hot_pipeline_apply_hot_pass(
           if descriptor.name == "heap-store-optimization" &&
             result.reason == "no-heap-store-candidates" {
             hso_raw_skip_count += 1
+          } else if descriptor.name == "pick-load-signs" &&
+            result.reason == "no-pick-load-signs-candidates" {
+            pls_raw_skip_count += 1
           } else {
             pipeline_trace_hook(
               options.trace,
@@ -2985,6 +3103,14 @@ fn run_hot_pipeline_apply_hot_pass(
           descriptor.name,
           "skip-raw",
           payload="reason=no-heap-store-candidates count=\{hso_raw_skip_count}",
+        )
+      }
+      if pls_raw_skip_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-raw",
+          payload="reason=no-pick-load-signs-candidates count=\{pls_raw_skip_count}",
         )
       }
       match lowered {

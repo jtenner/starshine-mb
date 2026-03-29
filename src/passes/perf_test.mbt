@@ -1337,3 +1337,91 @@ test "heap-store-optimization aggregates identical raw-skip trace lines across f
   )
   assert_false(text.contains("pass[heap-store-optimization]:func"))
 }
+
+///|
+test "pick-load-signs skips raw lift when the original function has no narrow load candidates" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (result i32) i32.const 9))",
+      ["pick-load-signs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected raw-skip pick-load-signs success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[pick-load-signs]:skip-raw reason=no-pick-load-signs-candidates",
+    ),
+  )
+  assert_false(text.contains("pass[pick-load-signs]:func"))
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=analysis:use-def"))
+  assert_false(text.contains("perf:timer name=pass:pick-load-signs"))
+}
+
+///|
+test "pick-load-signs skips raw lift when narrow loads have no extension surface" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (result i32) (local $x i32) i32.const 0 i32.load8_u local.set $x local.get $x))",
+      ["pick-load-signs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected raw-skip pick-load-signs no-extension success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[pick-load-signs]:skip-raw reason=no-pick-load-signs-candidates",
+    ),
+  )
+  assert_false(text.contains("pass[pick-load-signs]:func"))
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=analysis:use-def"))
+}
+
+///|
+test "pick-load-signs aggregates identical raw-skip trace lines across functions" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (func (result i32) i32.const 1)
+    #|   (func (result i32) i32.const 2))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["pick-load-signs"],
+      options=HotPipelineOptions::new(trace=Some(trace)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected aggregated pick-load-signs raw-skip success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_eq(
+    perf_test_count_occurrences(
+      text, "pass[pick-load-signs]:skip-raw reason=no-pick-load-signs-candidates",
+    ),
+    1,
+  )
+  assert_false(text.contains("pass[pick-load-signs]:func"))
+}

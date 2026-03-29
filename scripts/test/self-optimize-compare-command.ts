@@ -293,6 +293,134 @@ process.exit(0);
   );
 }
 
+export function runSelfOptimizeCompareDefaultStarshineInvocationTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-self-opt-compare-default-"));
+  const inputPath = path.join(tmpdir, "input.wasm");
+  const outDir = path.join(tmpdir, "out");
+  const moonLog = path.join(tmpdir, "moon.log");
+  const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
+  const wasmOptLog = path.join(tmpdir, "wasm-opt.log");
+  fs.writeFileSync(inputPath, "input");
+
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(args) + "\\n");
+if (args[0] === "run") {
+  const outIndex = args.indexOf("--out");
+  if (outIndex === -1 || outIndex + 1 >= args.length) {
+    process.stderr.write("missing --out\\n");
+    process.exit(1);
+  }
+  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+  fs.writeFileSync(args[outIndex + 1], "starshine-wasm");
+  process.stderr.write("[trace] input fixture:opt perf:timer name=pass:pick-load-signs elapsed_us=40000 total_us=40000\\n");
+}
+process.exit(0);
+`,
+  );
+
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("-o");
+if (outIndex === -1 || outIndex + 1 >= args.length) {
+  process.stderr.write("missing -o\\n");
+  process.exit(1);
+}
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+if (args.includes("-S")) {
+  fs.writeFileSync(args[outIndex + 1], "(module)\\n");
+  process.exit(0);
+}
+if (args.includes("--strip-debug")) {
+  fs.writeFileSync(args[outIndex + 1], "binaryen-wasm");
+  process.exit(0);
+}
+process.stderr.write("[PassRunner] passes took 0.010000 seconds.\\n");
+fs.writeFileSync(args[outIndex + 1], "binaryen-wasm");
+`,
+  );
+
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+fs.writeFileSync(process.env.FAKE_WASM_TOOLS_LOG, JSON.stringify(process.argv.slice(2), null, 2));
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "self-optimize-compare.ts"),
+      inputPath,
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--pick-load-signs",
+    ],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FAKE_MOON_LOG: moonLog,
+        FAKE_WASM_TOOLS_LOG: wasmToolsLog,
+        FAKE_WASM_OPT_LOG: wasmOptLog,
+      },
+      encoding: "utf8",
+    },
+  );
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`self-optimize-compare default starshine invocation failed:\n${result.stderr}`);
+  }
+
+  const moonLogs = fs
+    .readFileSync(moonLog, "utf8")
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as string[]);
+  assert(moonLogs.length === 2, `expected compile and run moon invocations, got ${moonLogs.length}`);
+  assert(
+    JSON.stringify(moonLogs[0]) === JSON.stringify([
+      "build",
+      "--target",
+      "native",
+      "--release",
+      "--package",
+      "jtenner/starshine/cmd",
+    ]),
+    `unexpected default compile invocation:\n${JSON.stringify(moonLogs[0], null, 2)}`,
+  );
+  assert(
+    JSON.stringify(moonLogs[1].slice(0, 6)) === JSON.stringify(["run", "--target", "native", "--release", "src/cmd", "--"]),
+    `expected default run invocation via moon run --release, got ${JSON.stringify(moonLogs[1], null, 2)}`,
+  );
+  assert(
+    moonLogs[1].includes("--pick-load-signs"),
+    `expected pass flag in default run invocation, got ${JSON.stringify(moonLogs[1], null, 2)}`,
+  );
+}
+
 if (import.meta.main) {
   runSelfOptimizeCompareCommandTest();
+  runSelfOptimizeCompareDefaultStarshineInvocationTest();
 }
