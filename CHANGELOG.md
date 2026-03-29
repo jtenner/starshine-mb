@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Test: harden RUN 10k pass-fuzz signoff
+
+- **RUN 10k oracle floor** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so `pass-fuzz-compare` can fail closed when a signoff requires a minimum number of successful comparisons via `--min-compared`. The new command test locks that gate, and the fresh RUN oracle sweep at `.tmp/pass-fuzz-run-genvalid-10000` completes with `10000/10000` compared cases, `10000/10000` normalized matches, and `0` mismatches, validation failures, generator failures, or command failures.
+
 ## 2026-03-28 Docs: retire RUB `gen-valid` oracle-red status
 
 - **RUB larger-corpus oracle rerun** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) after rerunning `remove-unused-brs` differential fuzzing on a fresh larger `gen-valid` corpus. The new evidence is `.tmp/pass-fuzz-rub-genvalid-1000-rerun` (`1000/1000`) alongside the earlier `.tmp/pass-fuzz-rub-genvalid-100-after-root-nop-count-fix` (`100/100`), both with `0` mismatches, `0` validation failures, and `0` command failures, so the old RUB `gen-valid` oracle-red note is retired. The remaining RUB follow-up is broader generator coverage plus ordered-prefix/runtime evidence, not a currently known semantic mismatch in the pass.

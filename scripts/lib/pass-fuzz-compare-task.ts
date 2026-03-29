@@ -18,6 +18,7 @@ type CommandFailureClass =
 
 type PassFuzzCompareOptions = {
   count: number;
+  minCompared: number | null;
   seed: bigint;
   outDir: string;
   moonBin: string;
@@ -58,6 +59,7 @@ type ReplayCase = {
 
 type PassFuzzCompareSummary = {
   requestedCount: number;
+  minCompared: number | null;
   comparedCount: number;
   normalizedMatchCount: number;
   mismatchCount: number;
@@ -80,6 +82,7 @@ type PassFuzzCompareSummary = {
 const RESERVED_OPTIONS = new Set([
   "--count",
   "--seed",
+  "--min-compared",
   "--out-dir",
   "--moon",
   "--starshine-bin",
@@ -121,6 +124,7 @@ const HELP_TEXT = [
   "options:",
   "  --count <n>           Number of modules to compare. Default: 10000",
   "  --seed <value>        Non-negative deterministic seed. Default: 0x5eed",
+  "  --min-compared <n>    Require at least this many successful comparisons",
   "  --out-dir <dir>       Output directory for artifacts and failures",
   "  --generator <mode>    both | wasm-smith | gen-valid. Default: both",
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
@@ -450,6 +454,7 @@ function loadReplayCases(
 
 export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let count = 10000;
+  let minCompared: number | null = null;
   let seed = 0x5eedn;
   let outDir = path.join(os.tmpdir(), `starshine-pass-fuzz-compare-${process.pid}`);
   let moonBin = resolveMoonBin();
@@ -482,6 +487,13 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         break;
       case "--seed":
         seed = parseBigIntSeed(argv[i + 1] ?? fail("missing value for --seed"));
+        i += 2;
+        break;
+      case "--min-compared":
+        minCompared = parseNonNegativeInt(
+          "min-compared",
+          argv[i + 1] ?? fail("missing value for --min-compared"),
+        );
         i += 2;
         break;
       case "--out-dir":
@@ -574,6 +586,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
     kind: "run",
     options: {
       count,
+      minCompared,
       seed,
       outDir,
       moonBin,
@@ -656,6 +669,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const starshineInvocation = resolveStarshineInvocation(repoRoot, options.starshineBin, options.moonBin);
   const summary: PassFuzzCompareSummary = {
     requestedCount,
+    minCompared: options.minCompared,
     comparedCount: 0,
     normalizedMatchCount: 0,
     mismatchCount: 0,
@@ -903,6 +917,11 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   }
 
   fs.writeFileSync(resultPath, JSON.stringify(summary, null, 2) + "\n");
+  if (options.minCompared !== null && summary.comparedCount < options.minCompared) {
+    fail(
+      `pass-fuzz-compare compared ${summary.comparedCount} cases, below required minimum ${options.minCompared}`,
+    );
+  }
   process.stdout.write(`Wrote pass fuzz compare artifacts to ${outDir}\n`);
   process.stdout.write(`Compared cases: ${summary.comparedCount}/${summary.requestedCount}\n`);
   process.stdout.write(`Normalized matches: ${summary.normalizedMatchCount}\n`);

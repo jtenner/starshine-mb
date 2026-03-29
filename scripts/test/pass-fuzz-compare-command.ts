@@ -1104,6 +1104,120 @@ process.exit(0);
   assert(entry.failureClass === "binaryen-invalid-tag-index", `expected replayed invalid-tag-index classification, got ${JSON.stringify(entry)}`);
 }
 
+export function runPassFuzzCompareMinComparedGateTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-min-compared-"));
+  const outDir = path.join(tmpdir, "out");
+  const moonLog = path.join(tmpdir, "moon.log");
+  const starshineLog = path.join(tmpdir, "starshine.log");
+  const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
+
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(args) + "\\n");
+if (args[0] === "run" && args.includes("src/fuzz")) {
+  const outDir = args[args.indexOf("--out-dir") + 1];
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, "gen-valid-000001.wasm"), "gen-valid-1");
+}
+process.exit(0);
+`,
+  );
+  const fakeStarshine = makeExecutable(
+    path.join(tmpdir, "fake-starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("--out");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], "starshine");
+process.exit(0);
+`,
+  );
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const args = process.argv.slice(2);
+if (args.includes("-S")) {
+  process.stdout.write("");
+  process.exit(0);
+}
+process.stderr.write("[parse exception: invalid type index: 0 (at 0:13)]\\n");
+process.exit(1);
+`,
+  );
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_TOOLS_LOG, JSON.stringify(args) + "\\n");
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count",
+      "1",
+      "--min-compared",
+      "1",
+      "--generator",
+      "gen-valid",
+      "--max-failures",
+      "1",
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--pass",
+      "remove-unused-names",
+    ],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FAKE_MOON_LOG: moonLog,
+        FAKE_STARSHINE_LOG: starshineLog,
+        FAKE_WASM_TOOLS_LOG: wasmToolsLog,
+      },
+      encoding: "utf8",
+    },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+  assert(result.status !== 0, "expected min-compared gate failure");
+  assert(
+    result.stderr.includes("below required minimum 1"),
+    `expected min-compared failure message, got:\n${result.stderr}`,
+  );
+
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    minCompared: number | null;
+    comparedCount: number;
+    commandFailureCount: number;
+  };
+  assert(summary.minCompared === 1, `expected minCompared=1, got ${summary.minCompared}`);
+  assert(summary.comparedCount === 0, `expected comparedCount=0, got ${summary.comparedCount}`);
+  assert(summary.commandFailureCount === 1, `expected commandFailureCount=1, got ${summary.commandFailureCount}`);
+}
+
 if (import.meta.main) {
   runPassFuzzCompareCommandTest();
   runPassFuzzCompareListPassesCommandTest();
@@ -1114,4 +1228,5 @@ if (import.meta.main) {
   runPassFuzzCompareBinaryenInvalidTagIndexClassificationTest();
   runPassFuzzCompareReplayFailureClassTest();
   runPassFuzzCompareReplayLegacyCaseIndexTest();
+  runPassFuzzCompareMinComparedGateTest();
 }
