@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Docs: retire RUB `gen-valid` oracle-red status
+
+- **RUB larger-corpus oracle rerun** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) after rerunning `remove-unused-brs` differential fuzzing on a fresh larger `gen-valid` corpus. The new evidence is `.tmp/pass-fuzz-rub-genvalid-1000-rerun` (`1000/1000`) alongside the earlier `.tmp/pass-fuzz-rub-genvalid-100-after-root-nop-count-fix` (`100/100`), both with `0` mismatches, `0` validation failures, and `0` command failures, so the old RUB `gen-valid` oracle-red note is retired. The remaining RUB follow-up is broader generator coverage plus ordered-prefix/runtime evidence, not a currently known semantic mismatch in the pass.
+
 ## 2026-03-28 Fix: preserve Binaryen root-`nop` parity in RUB
 
 - **RUB second oracle-family parity** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so `remove-unused-brs` now preserves a lone explicit function-root `nop` when it was the entire body, but still trims away all root `nop`s when the body started with multiple `nop` roots. Focused tests lock both boundaries, and the fresh oracle spot-check at `.tmp/pass-fuzz-rub-genvalid-100-after-root-nop-count-fix` reaches `100/100` normalized matches with `0` mismatches, `0` validation failures, and `0` command failures. This retires the sampled root-`nop` families first seen at `case-000021-gen-valid`, `case-000050-gen-valid`, `case-000066-gen-valid`, and the follow-on `case-000054-gen-valid`, `case-000074-gen-valid`, `case-000084-gen-valid`.
