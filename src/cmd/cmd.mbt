@@ -2917,6 +2917,7 @@ pub fn run_cmd_with_adapter(
   io : CmdIO,
   config_json? : String? = None,
 ) -> Result[CmdRunSummary, CmdError] {
+  cmd_prepare_runtime()
   if args.length() > 0 {
     if args[0] == "spec" || args[0] == "spec-runner" {
       let spec_args = Array::new(capacity=args.length() - 1)
@@ -3542,7 +3543,7 @@ fn cmd_debug_dump_invalid_final_func_text(text : String) -> Unit {
   ignore(
     @sfs.write_file_bytes(
       "/tmp/starshine-invalid-final-func.txt",
-      text.to_bytes(),
+      @utf8.encode(text),
     ),
   )
 }
@@ -3556,13 +3557,13 @@ fn cmd_debug_dump_invalid_encoded_func_text(
   ignore(
     @sfs.write_file_bytes(
       "/tmp/starshine-invalid-before.txt",
-      before_text.to_bytes(),
+      @utf8.encode(before_text),
     ),
   )
   ignore(
     @sfs.write_file_bytes(
       "/tmp/starshine-invalid-after.txt",
-      after_text.to_bytes(),
+      @utf8.encode(after_text),
     ),
   )
 }
@@ -4065,7 +4066,6 @@ extern "c" fn cmd_native_exit(code : Int) -> Unit = "quick_exit"
 ///|
 #cfg(target="native")
 fn main {
-  cmd_native_raise_stack_soft_limit()
   let args = trim_program_name(@env.args())
   let exit_code = run_cmd_exit_code(args)
   if exit_code != 0 {
@@ -4077,6 +4077,36 @@ fn main {
 #cfg(target="js")
 fn main {
   ()
+}
+
+///|
+#cfg(target="native")
+fn cmd_prepare_runtime() -> Unit {
+  cmd_native_raise_stack_soft_limit()
+}
+
+///|
+#cfg(target="js")
+fn cmd_prepare_runtime() -> Unit {
+
+}
+
+///|
+#cfg(target="llvm")
+fn cmd_prepare_runtime() -> Unit {
+
+}
+
+///|
+#cfg(target="wasm-gc")
+fn cmd_prepare_runtime() -> Unit {
+
+}
+
+///|
+#cfg(target="wasm")
+fn cmd_prepare_runtime() -> Unit {
+
 }
 
 ///|

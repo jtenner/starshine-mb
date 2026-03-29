@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Fix: share native runtime stack prep and readable failure dumps
+
+- **Native DCE blocker narrowing** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt), and [`src/cmd/cmd_test.mbt`](./src/cmd/cmd_test.mbt) so native callers of `run_cmd` / `run_cmd_with_adapter` now get the same stack-soft-limit raise that `main` already used. That removes the earlier native decode `SIGSEGV` on the checked-in DCE artifact and turns the native-default-I/O replay into the same clean `OptimizeFailed("final module validate ... (Func 1730)")` blocker seen in the standalone CLI. The new native regression locks that behavior in, and the dumped offending-function text is now UTF-8 encoded instead of being written with embedded NUL bytes.
+
 ## 2026-03-28 Fix: dump final-invalid native modules before CLI validate errors
 
 - **Native final-validate dump hook** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt), and [`src/cmd/cmd_test.mbt`](./src/cmd/cmd_test.mbt) so native CLI runs now dump the current module to `/tmp/starshine-invalid-final.wasm` and the offending pretty-printed function to `/tmp/starshine-invalid-final-func.txt` when final-module validation fails before encode. A focused native child-process regression covers that path with a deliberately invalid module, which gives the DCE native `Func 1730` blocker a direct artifact capture path instead of relying only on stderr pretty-print.

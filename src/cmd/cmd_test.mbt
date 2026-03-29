@@ -4504,6 +4504,49 @@ test "run_cmd_with_adapter validates dead-code-elimination on debug artifact" {
 
 ///|
 #cfg(target="native")
+test "run_cmd reports dead-code-elimination native default-io blocker on debug artifact" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = native_tmp_file("dce-native-default-io-output")
+  let invalid_dump_path = "/tmp/starshine-invalid-final.wasm"
+  let invalid_func_dump_path = "/tmp/starshine-invalid-final-func.txt"
+  native_remove_if_exists(output_path)
+  native_remove_if_exists(invalid_dump_path)
+  native_remove_if_exists(invalid_func_dump_path)
+
+  match run_cmd(["--dead-code-elimination", "--out", output_path, input_path]) {
+    Ok(summary) =>
+      fail(
+        "expected native default-io replay to hit the known Func 1730 blocker, got \{summary}",
+      )
+    Err(CmdError::OptimizeFailed(msg)) => {
+      assert_true(msg.contains("final module validate"), msg~)
+      assert_true(msg.contains("(Func 1730)"), msg~)
+    }
+    Err(err) =>
+      fail(
+        "expected native default-io optimize failure for the known blocker, got \{err}",
+      )
+  }
+  match native_read_bytes(invalid_dump_path) {
+    Some(bytes) => ignore(decode_module_bytes(bytes))
+    None => fail("expected invalid final-module dump at \{invalid_dump_path}")
+  }
+  match native_read_bytes(invalid_func_dump_path) {
+    Some(bytes) => {
+      let text = bytes_to_ascii_string(bytes)
+      assert_true(text.contains("func code[1711]"))
+    }
+    None =>
+      fail("expected invalid final-function dump at \{invalid_func_dump_path}")
+  }
+
+  native_remove_if_exists(output_path)
+  native_remove_if_exists(invalid_dump_path)
+  native_remove_if_exists(invalid_func_dump_path)
+}
+
+///|
+#cfg(target="native")
 test "run_cmd_with_adapter validates remove-unused-brs on debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let output_path = "out.wasm"
