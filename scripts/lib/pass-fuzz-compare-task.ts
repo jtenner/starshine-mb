@@ -4,7 +4,14 @@ import path from "node:path";
 import process from "node:process";
 import { spawnSync } from "node:child_process";
 
-import { fail, resolveMoonBin, resolveRepoPath, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
+import {
+  fail,
+  makeRepoTmpEnv,
+  resolveMoonBin,
+  resolveRepoPath,
+  resolveWorkspaceRoot,
+  runOrThrow,
+} from "./task-runtime";
 
 type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
@@ -219,6 +226,7 @@ function resolveStarshineInvocation(
 function runValidate(wasmToolsBin: string, wasmPath: string, repoRoot: string): { ok: boolean; stderr: string } {
   const result = spawnSync(wasmToolsBin, ["validate", wasmPath], {
     cwd: repoRoot,
+    env: makeRepoTmpEnv(repoRoot),
     encoding: "utf8",
   });
   if (result.error) {
@@ -268,7 +276,7 @@ function normalizePrintWat(wasmOptBin: string, wasmPath: string, watPath: string
   runOrThrow(
     wasmOptBin,
     [wasmPath, "--all-features", "--strip-debug", "-S", "-o", watPath],
-    { cwd: repoRoot, stdio: "pipe" },
+    { cwd: repoRoot, env: makeRepoTmpEnv(repoRoot), stdio: "pipe" },
   );
   return fs.readFileSync(watPath, "utf8");
 }
@@ -277,13 +285,14 @@ function canonicalizeWasm(wasmOptBin: string, inputPath: string, outputPath: str
   runOrThrow(
     wasmOptBin,
     [inputPath, "--all-features", "--strip-debug", "-o", outputPath],
-    { cwd: repoRoot, stdio: "pipe" },
+    { cwd: repoRoot, env: makeRepoTmpEnv(repoRoot), stdio: "pipe" },
   );
 }
 
 function runSmith(wasmToolsBin: string, outputPath: string, seedBytes: Buffer, repoRoot: string): { ok: boolean; stderr: string } {
   const result = spawnSync(wasmToolsBin, ["smith", "-o", outputPath], {
     cwd: repoRoot,
+    env: makeRepoTmpEnv(repoRoot),
     input: seedBytes,
     encoding: "utf8",
   });
@@ -590,6 +599,8 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
 
 export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const repoRoot = resolveWorkspaceRoot();
+  const repoTmpEnv = makeRepoTmpEnv(repoRoot);
+  const repoTmpDir = repoTmpEnv.TMPDIR || path.join(repoRoot, ".tmp", "codex-tmp");
   const parsed = parsePassFuzzCompareArgs(argv);
   if (parsed.kind === "help") {
     process.stdout.write(`${HELP_TEXT}\n`);
@@ -644,7 +655,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         "--out-dir",
         genValidDir,
       ],
-      { cwd: repoRoot, stdio: "pipe" },
+      { cwd: repoRoot, env: repoTmpEnv, stdio: "pipe" },
     );
   }
   const genValidInputs = genValidCount > 0 ? listGeneratedGenValidInputs(genValidDir) : [];
@@ -684,7 +695,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     const replayCase = replayCases?.[replayIndex] ?? null;
     const generator = replayCase?.generator ?? generatorForIndex(options.generator, replayIndex);
     const caseNumber = replayCase?.caseIndex ?? replayIndex + 1;
-    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-case-"));
+    const workDir = fs.mkdtempSync(path.join(repoTmpDir, "starshine-pass-fuzz-case-"));
     const inputPath = path.join(workDir, "input.wasm");
     const starshineRawPath = path.join(workDir, "starshine.raw.wasm");
     const starshinePath = path.join(workDir, "starshine.wasm");
@@ -765,7 +776,11 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         inputPath,
       ];
       try {
-        runOrThrow(starshineInvocation.command, starshineArgs, { cwd: repoRoot, stdio: "pipe" });
+        runOrThrow(starshineInvocation.command, starshineArgs, {
+          cwd: repoRoot,
+          env: repoTmpEnv,
+          stdio: "pipe",
+        });
       } catch (error) {
         summary.commandFailureCount += 1;
         failures += 1;
@@ -824,7 +839,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         runOrThrow(
           options.wasmOptBin,
           [inputPath, "--all-features", ...binaryenPassFlags, "-o", binaryenRawPath],
-          { cwd: repoRoot, stdio: "pipe" },
+          { cwd: repoRoot, env: repoTmpEnv, stdio: "pipe" },
         );
         canonicalizeWasm(options.wasmOptBin, starshineRawPath, starshinePath, repoRoot);
         canonicalizeWasm(options.wasmOptBin, binaryenRawPath, binaryenPath, repoRoot);

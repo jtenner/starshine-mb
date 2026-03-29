@@ -73,8 +73,10 @@ test "precompute folds constant false void ifs to nops" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("nop"), msg=pretty)
   assert_false(pretty.contains("(if"), msg=pretty)
-  assert_true(pretty.contains("i64.const I64(3)"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("I64(3)"), msg=pretty)
 }
 
 ///|
@@ -91,6 +93,55 @@ test "precompute folds constant true result ifs to the chosen arm" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("(if"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "precompute retargets split local.set wrappers with void-if forwarders" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32 i32) (local.set 1 (block $outer (result i32) (block $exit (br $outer (block $mid (result i32) (block $cont (if (local.get 0) (then (local.set 2 (i32.const 7)) (br $cont)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (local.get 2)))) (local.get 1))) (local.get 1)))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected precompute split-wrapper success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block $outer (result i32)"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
+test "precompute rewrites dropped pure constants to a single nop in void bodies" {
+  let optimized = match
+    pass_test_run_pipeline("(module (func i64.const 360 drop))", ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected precompute pure-drop success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("I64(360)"), msg=pretty)
+}
+
+///|
+test "precompute removes nop residue and dead pure drops before final results" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (global i64 (i64.const 486)) (func (result i32) i32.const 1 if nop else nop end f64.const 45 drop global.get 0 drop nop nop nop i32.const 655))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected precompute nop-residue cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("I32(655)"), msg=pretty)
 }
 
 ///|

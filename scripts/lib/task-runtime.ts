@@ -39,6 +39,20 @@ export function resolveRepoPath(repoRoot: string, candidate: string): string {
   return path.isAbsolute(candidate) ? candidate : path.join(repoRoot, candidate);
 }
 
+export function makeRepoTmpEnv(
+  repoRoot: string,
+  baseEnv: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const repoTmpDir = path.join(repoRoot, ".tmp", "codex-tmp");
+  fs.mkdirSync(repoTmpDir, { recursive: true });
+  return {
+    ...baseEnv,
+    TMPDIR: repoTmpDir,
+    TMP: repoTmpDir,
+    TEMP: repoTmpDir,
+  };
+}
+
 export function runOrThrow(
   command: string,
   args: string[],

@@ -1208,6 +1208,7 @@ export function runPassFuzzCompareDefaultStarshineInvocationTest(): void {
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-default-starshine-"));
   const outDir = path.join(tmpdir, "out");
   const moonLog = path.join(tmpdir, "moon.log");
+  const moonEnvLog = path.join(tmpdir, "moon-env.log");
   const wasmOptLog = path.join(tmpdir, "wasm-opt.log");
   const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
 
@@ -1218,6 +1219,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(args) + "\\n");
+fs.appendFileSync(process.env.FAKE_MOON_ENV_LOG, JSON.stringify({
+  tmpdir: process.env.TMPDIR ?? null,
+  tmp: process.env.TMP ?? null,
+  temp: process.env.TEMP ?? null,
+}) + "\\n");
 if (args[0] === "run" && args.includes("src/fuzz")) {
   const outDir = args[args.indexOf("--out-dir") + 1];
   fs.mkdirSync(outDir, { recursive: true });
@@ -1286,6 +1292,7 @@ process.exit(0);
       env: {
         ...process.env,
         FAKE_MOON_LOG: moonLog,
+        FAKE_MOON_ENV_LOG: moonEnvLog,
         FAKE_WASM_OPT_LOG: wasmOptLog,
         FAKE_WASM_TOOLS_LOG: wasmToolsLog,
       },
@@ -1302,6 +1309,12 @@ process.exit(0);
 
   const moonLogs = readJsonlLog(moonLog);
   assert(moonLogs.length === 2, `expected gen-valid and starshine moon invocations, got ${moonLogs.length}`);
+  const moonEnvLogs = fs.readFileSync(moonEnvLog, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as {
+    tmpdir: string | null;
+    tmp: string | null;
+    temp: string | null;
+  });
+  assert(moonEnvLogs.length === 2, `expected env logs for both moon invocations, got ${moonEnvLogs.length}`);
   assert(
     moonLogs[0].includes("--emit-gen-valid-batch"),
     `expected gen-valid batch invocation first, got ${JSON.stringify(moonLogs[0], null, 2)}`,
@@ -1314,6 +1327,12 @@ process.exit(0);
     moonLogs[1].includes("--remove-unused-brs"),
     `expected pass flag in default starshine invocation, got ${JSON.stringify(moonLogs[1], null, 2)}`,
   );
+  for (const envLog of moonEnvLogs) {
+    const expectedTmp = path.join(repoRoot, ".tmp", "codex-tmp");
+    assert(envLog.tmpdir === expectedTmp, `expected TMPDIR=${expectedTmp}, got ${JSON.stringify(envLog)}`);
+    assert(envLog.tmp === expectedTmp, `expected TMP=${expectedTmp}, got ${JSON.stringify(envLog)}`);
+    assert(envLog.temp === expectedTmp, `expected TEMP=${expectedTmp}, got ${JSON.stringify(envLog)}`);
+  }
 }
 
 if (import.meta.main) {

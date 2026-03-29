@@ -168,11 +168,11 @@ Observed unique-pass order
    - [PC]001 - Constant Folding Surface - Audit the exact constant, tuple, and local-evaluable fragments Binaryen folds in the top-level `precompute` slots for `-O` / `-Os`.
      - Deliverables: map foldable op families; preserve trap behavior and feature typing; note the difference between top-level `precompute` and nested `precompute-propagate`.
      - Status: initial exact-const integer fold core now includes constant-`if` folding, `precompute` is wired as an active hot pass in both modeled slots, and guarded writeback skips the known invalid carry-wrapper lower shape instead of emitting bad wasm.
-     - Current blocker: the debug artifact replay is now valid again, but `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --precompute` still reports canonical parity `no`, normalized WAT parity `no`, and a large runtime gap (`~119595 ms` vs Binaryen `~1745 ms`).
+     - Current blocker: the compare harness `gen-valid` lane is repaired, but `bun scripts/pass-fuzz-compare.ts --pass precompute --generator gen-valid --count 100 --min-compared 100` is still red (`23` compared, `20` mismatches). The first repaired family was dead pure drops / constant-`if` residue; the next dominant family is Binaryen stripping extra nop residue from mutated functions that Starshine still keeps. The debug artifact replay also remains canonically unequal and much slower (`~119595 ms` vs Binaryen `~1745 ms`).
      - Doc: [0066#L208](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L208)
    - [PC]002 - Early/Late Slot Regression and Artifact Parity - Harden the pass for both top-level slots and compare the resulting folds against Binaryen on the debug artifact.
      - Deliverables: add regressions for early and late folding opportunities; verify interaction with surrounding cleanup passes; replay `--precompute` parity on the artifact.
-     - Current focus: broaden Binaryen-style local-evaluable folding beyond exact const arithmetic, starting with structured control and carried-local simplifications exposed by the artifact diff.
+     - Current focus: finish the nop-residue parity family exposed by repaired `gen-valid` fuzzing, then return to broader local-evaluable folding and the structured-control families still visible in the artifact diff.
      - Doc: [0066#L208](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L208)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
