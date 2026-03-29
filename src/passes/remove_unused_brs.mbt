@@ -527,10 +527,16 @@ fn remove_unused_brs_trim_trailing_nops(
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
   let mut changed = false
-  let preserve_single_if_arm_nop = remove_unused_brs_region_is_if_arm(
-    func, region_ref,
-  )
+  let initial_root_count = @ir.hot_region_root_count(func, region_ref)
+  let preserve_single_root_nop = region_ref == @ir.HotRegionRef::root() &&
+    initial_root_count == 1
+  let preserve_single_if_arm_nop = initial_root_count == 1 &&
+    remove_unused_brs_region_is_if_arm(func, region_ref)
   while @ir.hot_region_root_count(func, region_ref) > 0 {
+    if preserve_single_root_nop &&
+      @ir.hot_region_root_count(func, region_ref) == 1 {
+      break
+    }
     if preserve_single_if_arm_nop &&
       @ir.hot_region_root_count(func, region_ref) == 1 {
       break

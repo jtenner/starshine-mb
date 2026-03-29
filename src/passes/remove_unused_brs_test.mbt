@@ -130,6 +130,31 @@ test "remove-unused-brs still trims trailing nops in plain block bodies" {
 }
 
 ///|
+test "remove-unused-brs preserves explicit lone root nop" {
+  let optimized = match
+    pass_test_run_pipeline("(module (func nop))", ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected remove-unused-brs root nop success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("nop"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs trims all root nops when body has more than one" {
+  let optimized = match
+    pass_test_run_pipeline("(module (func nop nop))", ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs multi-root nop trim success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("nop"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites pure value if into select" {
   let optimized = match
     pass_test_run_pipeline(
