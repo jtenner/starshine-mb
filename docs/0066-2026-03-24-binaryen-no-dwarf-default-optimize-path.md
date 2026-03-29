@@ -174,6 +174,7 @@ For `wasm-opt tests/node/dist/starshine-debug-wasi.wasm -O --all-features`, the 
 
 - Starts the function pipeline because `-O` maps to shrink level 1.
 - Implementation must untangle locals into semi-SSA form without introducing new merge copies that later cleanup must undo.
+- Current status: the repaired `gen-valid` parity lanes are green through `.tmp/pass-fuzz-ssa-genvalid-10000` with `10000/10000` compared and `0` mismatches; the remaining optimize-path blocker is debug-artifact replay and runtime, not differential fuzz parity.
 
 ### DCE - Dead Code Elimination
 

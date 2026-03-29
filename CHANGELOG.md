@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-29 Checkpoint: confirm SSA no-merge 10k parity
+
+- **`ssa-nomerge` 10k parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`](./docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md) so the project docs now record the completed gold-standard oracle run at `.tmp/pass-fuzz-ssa-genvalid-10000`, which finished `10000/10000` compared with `10000` normalized matches, `0` mismatches, and no validation, generator, or command failures. The remaining shared blocker is now the `ssa-nomerge` debug-artifact replay path that still prevents later-pass timing/signoff on the current optimize chain.
+
 ## 2026-03-29 Checkpoint: tighten SSA raw slot selection
 
 - **`ssa-nomerge` raw slot-selection checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), and [`src/passes/ssa_nomerge_test.mbt`](./src/passes/ssa_nomerge_test.mbt) so the raw `ssa-nomerge` fast path now chooses between canonical-slot reuse and fresh locals based on whether the current alias is still canonical, whether a later read exists, and whether another write to that same local still appears later in the same sequence. That brings the repaired `gen-valid` smoke lane from `.tmp/pass-fuzz-ssa-genvalid-100-rerun3` (`100` compared, `82` matches, `18` mismatches) through `.tmp/pass-fuzz-ssa-genvalid-100-rerun7` (`100` compared, `100` matches, `0` mismatches) while keeping focused `ssa-nomerge` tests and perf tests green. This is still a checkpoint pending the 10k parity gate and the debug-artifact replay that currently blocks later-pass timing.
