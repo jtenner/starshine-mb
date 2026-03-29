@@ -3012,6 +3012,152 @@ fn run_hot_pipeline_original_func(
 }
 
 ///|
+fn run_hot_pipeline_precompute_writeback_validates(
+  mod_ : @lib.Module,
+  defs : Array[@lib.Func],
+  lowered : Array[@lib.Func]?,
+  code_idx : Int,
+  rewritten : @lib.Func,
+) -> Bool {
+  let candidate_defs = match lowered {
+    Some(current) => {
+      let next = current.copy()
+      next[code_idx] = rewritten
+      next
+    }
+    None => {
+      let next = defs.copy()
+      next[code_idx] = rewritten
+      next
+    }
+  }
+  match
+    @validate.validate_module(
+      mod_.with_code_sec(@lib.CodeSec::new(candidate_defs)),
+    ) {
+    Ok(_) => true
+    Err(_) => false
+  }
+}
+
+///|
+fn run_hot_pipeline_precompute_branch_depth(instr : @lib.Instruction) -> Int? {
+  match instr {
+    @lib.Instruction::Br(label_idx) => {
+      let @lib.LabelIdx(raw) = label_idx
+      Some(raw.reinterpret_as_int())
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_precompute_has_control_transfer(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::Block(_, _)
+    | @lib.Instruction::Loop(_, _)
+    | @lib.Instruction::If(_, _, _)
+    | @lib.Instruction::TryTable(_, _, _)
+    | @lib.Instruction::Br(_)
+    | @lib.Instruction::BrIf(_)
+    | @lib.Instruction::BrTable(_, _)
+    | @lib.Instruction::Return
+    | @lib.Instruction::Throw(_)
+    | @lib.Instruction::ThrowRef
+    | @lib.Instruction::Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_precompute_has_mismatched_escape_carrier_block(
+  instr : @lib.Instruction,
+) -> Bool {
+  let walk_body = fn(body : Array[@lib.Instruction]) -> Bool {
+    body.any(fn(child) {
+      run_hot_pipeline_precompute_has_mismatched_escape_carrier_block(child)
+    })
+  }
+  match instr {
+    @lib.Instruction::Block(
+      block_type,
+      @lib.Expr(
+        [
+          @lib.Instruction::Block(
+            @lib.VoidBlockType,
+            @lib.Expr(
+              [
+                .. prefix,
+                @lib.Instruction::If(@lib.VoidBlockType, then_, Some(else_)),
+                @lib.Instruction::Unreachable,
+              ]
+            )
+          ),
+          @lib.Instruction::LocalGet(_),
+        ]
+      )
+    ) => {
+      match block_type {
+        @lib.VoidBlockType => ()
+        _ =>
+          match
+            (
+              match then_.last() {
+                Some(last) => run_hot_pipeline_precompute_branch_depth(last)
+                None => None
+              },
+              match else_.last() {
+                Some(last) => run_hot_pipeline_precompute_branch_depth(last)
+                None => None
+              },
+            ) {
+            (Some(then_depth), Some(else_depth)) if (
+                then_depth == 1 && else_depth == 2
+              ) ||
+              (then_depth == 2 && else_depth == 1) => {
+              for item in prefix {
+                if run_hot_pipeline_precompute_has_control_transfer(item) {
+                  return false
+                }
+              }
+              return true
+            }
+            _ => ()
+          }
+      }
+      if walk_body(then_) || walk_body(else_) {
+        return true
+      }
+      for item in prefix {
+        if run_hot_pipeline_precompute_has_mismatched_escape_carrier_block(item) {
+          return true
+        }
+      }
+      false
+    }
+    @lib.Instruction::Block(_, @lib.Expr(body))
+    | @lib.Instruction::Loop(_, @lib.Expr(body))
+    | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) => walk_body(body)
+    @lib.Instruction::If(_, then_, Some(else_)) =>
+      walk_body(then_) || walk_body(else_)
+    @lib.Instruction::If(_, then_, None) => walk_body(then_)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+  func : @lib.Func,
+) -> Bool {
+  let @lib.Func(_, @lib.Expr(body)) = func
+  body.any(fn(instr) {
+    run_hot_pipeline_precompute_has_mismatched_escape_carrier_block(instr)
+  })
+}
+
+///|
 fn run_hot_pipeline_drop_label_names(mod_ : @lib.Module) -> @lib.Module {
   match mod_.name_sec {
     Some(name_sec) => {
@@ -3070,6 +3216,29 @@ fn run_hot_pipeline_apply_hot_pass(
           ) {
           Ok(result) => result
           Err(err) => return Err("func[\{func_idx}]: \{err}")
+        }
+        let should_keep_original = descriptor.name == "precompute" &&
+          !result.unchanged_original &&
+          (
+            run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+              result.func,
+            ) ||
+            !run_hot_pipeline_precompute_writeback_validates(
+              mod_,
+              defs,
+              lowered,
+              code_idx,
+              result.func,
+            )
+          )
+        if should_keep_original {
+          pipeline_trace_hook(
+            options.trace,
+            descriptor.name,
+            "skip-invalid-lower",
+            payload="func=\{func_idx}",
+          )
+          continue
         }
         if result.trace_skip_raw {
           if descriptor.name == "heap-store-optimization" &&

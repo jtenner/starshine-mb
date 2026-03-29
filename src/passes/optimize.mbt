@@ -137,10 +137,10 @@ fn pass_registry_removed_names() -> Array[String] {
     "avoid-reinterprets", "coalesce-locals", "code-folding", "code-pushing", "const-hoisting",
     "dataflow-optimization", "local-cse", "local-subtyping", "loop-invariant-code-motion",
     "merge-locals", "merge-blocks", "flatten", "re-reloop", "tuple-optimization",
-    "optimize-added-constants", "optimize-added-constants-propagate",
-    "precompute-propagate", "redundant-set-elimination", "optimize-casts", "de-nan",
-    "simplify-locals-no-tee", "simplify-locals-no-structure", "simplify-locals-no-tee-no-structure",
-    "simplify-locals-no-nesting", "untee",
+    "optimize-added-constants", "optimize-added-constants-propagate", "precompute-propagate",
+    "redundant-set-elimination", "optimize-casts", "de-nan", "simplify-locals-no-tee",
+    "simplify-locals-no-structure", "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting",
+    "untee",
   ]
 }
 

@@ -209,6 +209,7 @@ export function runPassFuzzCompareListPassesCommandTest(): void {
   }
   assert(result.stdout.includes("remove-unused-brs"), `expected remove-unused-brs in list output:\n${result.stdout}`);
   assert(result.stdout.includes("dead-code-elimination"), `expected dead-code-elimination in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("precompute"), `expected precompute in list output:\n${result.stdout}`);
   assert(!result.stdout.includes("--remove-unused-brs"), `expected canonical names without -- prefix:\n${result.stdout}`);
 }
 

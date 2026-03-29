@@ -90,7 +90,11 @@ fn precompute_try_fold_unary(
         ctx,
         func,
         node_id,
-        if v == @lib.I32(0) { @lib.I32(1) } else { @lib.I32(0) },
+        if v == @lib.I32(0) {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
       )
       return true
     }
@@ -102,7 +106,11 @@ fn precompute_try_fold_unary(
         ctx,
         func,
         node_id,
-        if v == @lib.I64(0L) { @lib.I32(1) } else { @lib.I32(0) },
+        if v == @lib.I64(0L) {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
       )
       true
     }
@@ -119,17 +127,43 @@ fn precompute_try_fold_binary(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  match (instr, precompute_i32_const(func, lhs_id), precompute_i32_const(func, rhs_id)) {
+  match
+    (
+      instr,
+      precompute_i32_const(func, lhs_id),
+      precompute_i32_const(func, rhs_id),
+    ) {
     (@lib.Instruction::I32Add, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, @lib.I32((lhs.reinterpret_as_uint() + rhs.reinterpret_as_uint()).reinterpret_as_int()))
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(
+          (lhs.reinterpret_as_uint() + rhs.reinterpret_as_uint()).reinterpret_as_int(),
+        ),
+      )
       return true
     }
     (@lib.Instruction::I32Sub, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, @lib.I32((lhs.reinterpret_as_uint() - rhs.reinterpret_as_uint()).reinterpret_as_int()))
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(
+          (lhs.reinterpret_as_uint() - rhs.reinterpret_as_uint()).reinterpret_as_int(),
+        ),
+      )
       return true
     }
     (@lib.Instruction::I32Mul, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, @lib.I32((lhs.reinterpret_as_uint() * rhs.reinterpret_as_uint()).reinterpret_as_int()))
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(
+          (lhs.reinterpret_as_uint() * rhs.reinterpret_as_uint()).reinterpret_as_int(),
+        ),
+      )
       return true
     }
     (@lib.Instruction::I32And, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
@@ -146,72 +180,207 @@ fn precompute_try_fold_binary(
     }
     (@lib.Instruction::I32Shl, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
       let shift = rhs.reinterpret_as_uint() & 31U
-      precompute_replace_with_const_i32(ctx, func, node_id, @lib.I32((lhs.reinterpret_as_uint() << shift.reinterpret_as_int()).reinterpret_as_int()))
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(
+          (lhs.reinterpret_as_uint() << shift.reinterpret_as_int()).reinterpret_as_int(),
+        ),
+      )
       return true
     }
     (@lib.Instruction::I32ShrU, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
       let shift = rhs.reinterpret_as_uint() & 31U
-      precompute_replace_with_const_i32(ctx, func, node_id, @lib.I32((lhs.reinterpret_as_uint() >> shift.reinterpret_as_int()).reinterpret_as_int()))
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(
+          (lhs.reinterpret_as_uint() >> shift.reinterpret_as_int()).reinterpret_as_int(),
+        ),
+      )
       return true
     }
     (@lib.Instruction::I32ShrS, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
       let shift = rhs.reinterpret_as_uint() & 31U
-      precompute_replace_with_const_i32(ctx, func, node_id, @lib.I32(lhs >> shift.reinterpret_as_int()))
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(lhs >> shift.reinterpret_as_int()),
+      )
       return true
     }
     (@lib.Instruction::I32Eq, Some(lhs), Some(rhs)) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs == rhs { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs == rhs {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       return true
     }
     (@lib.Instruction::I32Ne, Some(lhs), Some(rhs)) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs != rhs { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs != rhs {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       return true
     }
     (@lib.Instruction::I32LtS, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs < rhs { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs < rhs {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       return true
     }
     (@lib.Instruction::I32LtU, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs.reinterpret_as_uint() < rhs.reinterpret_as_uint() { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs.reinterpret_as_uint() < rhs.reinterpret_as_uint() {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       return true
     }
     (@lib.Instruction::I32GtS, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs > rhs { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs > rhs {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       return true
     }
     (@lib.Instruction::I32GtU, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs.reinterpret_as_uint() > rhs.reinterpret_as_uint() { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs.reinterpret_as_uint() > rhs.reinterpret_as_uint() {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       return true
     }
     (@lib.Instruction::I32LeS, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs <= rhs { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs <= rhs {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       return true
     }
     (@lib.Instruction::I32LeU, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs.reinterpret_as_uint() <= rhs.reinterpret_as_uint() { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs.reinterpret_as_uint() <= rhs.reinterpret_as_uint() {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       return true
     }
     (@lib.Instruction::I32GeS, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs >= rhs { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs >= rhs {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       return true
     }
     (@lib.Instruction::I32GeU, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs.reinterpret_as_uint() >= rhs.reinterpret_as_uint() { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs.reinterpret_as_uint() >= rhs.reinterpret_as_uint() {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       return true
     }
     _ => ()
   }
-  match (instr, precompute_i64_const(func, lhs_id), precompute_i64_const(func, rhs_id)) {
+  match
+    (
+      instr,
+      precompute_i64_const(func, lhs_id),
+      precompute_i64_const(func, rhs_id),
+    ) {
     (@lib.Instruction::I64Add, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
-      precompute_replace_with_const_i64(ctx, func, node_id, @lib.I64((lhs.reinterpret_as_uint64() + rhs.reinterpret_as_uint64()).reinterpret_as_int64()))
+      precompute_replace_with_const_i64(
+        ctx,
+        func,
+        node_id,
+        @lib.I64(
+          (lhs.reinterpret_as_uint64() + rhs.reinterpret_as_uint64()).reinterpret_as_int64(),
+        ),
+      )
       true
     }
     (@lib.Instruction::I64Sub, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
-      precompute_replace_with_const_i64(ctx, func, node_id, @lib.I64((lhs.reinterpret_as_uint64() - rhs.reinterpret_as_uint64()).reinterpret_as_int64()))
+      precompute_replace_with_const_i64(
+        ctx,
+        func,
+        node_id,
+        @lib.I64(
+          (lhs.reinterpret_as_uint64() - rhs.reinterpret_as_uint64()).reinterpret_as_int64(),
+        ),
+      )
       true
     }
     (@lib.Instruction::I64Mul, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
-      precompute_replace_with_const_i64(ctx, func, node_id, @lib.I64((lhs.reinterpret_as_uint64() * rhs.reinterpret_as_uint64()).reinterpret_as_int64()))
+      precompute_replace_with_const_i64(
+        ctx,
+        func,
+        node_id,
+        @lib.I64(
+          (lhs.reinterpret_as_uint64() * rhs.reinterpret_as_uint64()).reinterpret_as_int64(),
+        ),
+      )
       true
     }
     (@lib.Instruction::I64And, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
@@ -228,57 +397,166 @@ fn precompute_try_fold_binary(
     }
     (@lib.Instruction::I64Shl, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
       let shift = rhs.reinterpret_as_uint64() & 63UL
-      precompute_replace_with_const_i64(ctx, func, node_id, @lib.I64((lhs.reinterpret_as_uint64() << shift.to_int()).reinterpret_as_int64()))
+      precompute_replace_with_const_i64(
+        ctx,
+        func,
+        node_id,
+        @lib.I64(
+          (lhs.reinterpret_as_uint64() << shift.to_int()).reinterpret_as_int64(),
+        ),
+      )
       true
     }
     (@lib.Instruction::I64ShrU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
       let shift = rhs.reinterpret_as_uint64() & 63UL
-      precompute_replace_with_const_i64(ctx, func, node_id, @lib.I64((lhs.reinterpret_as_uint64() >> shift.to_int()).reinterpret_as_int64()))
+      precompute_replace_with_const_i64(
+        ctx,
+        func,
+        node_id,
+        @lib.I64(
+          (lhs.reinterpret_as_uint64() >> shift.to_int()).reinterpret_as_int64(),
+        ),
+      )
       true
     }
     (@lib.Instruction::I64ShrS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
       let shift = rhs.reinterpret_as_uint64() & 63UL
-      precompute_replace_with_const_i64(ctx, func, node_id, @lib.I64(lhs >> shift.to_int()))
+      precompute_replace_with_const_i64(
+        ctx,
+        func,
+        node_id,
+        @lib.I64(lhs >> shift.to_int()),
+      )
       true
     }
     (@lib.Instruction::I64Eq, Some(lhs), Some(rhs)) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs == rhs { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs == rhs {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       true
     }
     (@lib.Instruction::I64Ne, Some(lhs), Some(rhs)) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs != rhs { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs != rhs {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       true
     }
     (@lib.Instruction::I64LtS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs < rhs { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs < rhs {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       true
     }
     (@lib.Instruction::I64LtU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs.reinterpret_as_uint64() < rhs.reinterpret_as_uint64() { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs.reinterpret_as_uint64() < rhs.reinterpret_as_uint64() {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       true
     }
     (@lib.Instruction::I64GtS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs > rhs { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs > rhs {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       true
     }
     (@lib.Instruction::I64GtU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs.reinterpret_as_uint64() > rhs.reinterpret_as_uint64() { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs.reinterpret_as_uint64() > rhs.reinterpret_as_uint64() {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       true
     }
     (@lib.Instruction::I64LeS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs <= rhs { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs <= rhs {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       true
     }
     (@lib.Instruction::I64LeU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs.reinterpret_as_uint64() <= rhs.reinterpret_as_uint64() { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs.reinterpret_as_uint64() <= rhs.reinterpret_as_uint64() {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       true
     }
     (@lib.Instruction::I64GeS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs >= rhs { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs >= rhs {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       true
     }
     (@lib.Instruction::I64GeU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
-      precompute_replace_with_const_i32(ctx, func, node_id, if lhs.reinterpret_as_uint64() >= rhs.reinterpret_as_uint64() { @lib.I32(1) } else { @lib.I32(0) })
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs.reinterpret_as_uint64() >= rhs.reinterpret_as_uint64() {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
       true
     }
     _ => false
@@ -286,16 +564,84 @@ fn precompute_try_fold_binary(
 }
 
 ///|
-fn precompute_run(
+fn precompute_try_fold_constant_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-) -> HotPassResult {
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  let cond_id = @ir.hot_child_get(func, node_id, 0)
+  let take_then = match precompute_i32_const(func, cond_id) {
+    Some(@lib.I32(0)) => false
+    Some(@lib.I32(_)) => true
+    None => return false
+  }
+  let chosen_region = if take_then {
+    @ir.hot_region_then_ref(func, node_id)
+  } else {
+    match @ir.hot_region_else_ref(func, node_id) {
+      Some(region) => region
+      None => {
+        let nop = @ir.hot_build_nop(func)
+        @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, nop))
+        pass_mark_mutated(ctx, func)
+        return true
+      }
+    }
+  }
+  let root_count = @ir.hot_region_root_count(func, chosen_region)
+  if root_count == 0 {
+    let nop = @ir.hot_build_nop(func)
+    @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, nop))
+    pass_mark_mutated(ctx, func)
+    return true
+  }
+  if root_count == 1 {
+    @ir.hot_replace_node(
+      func,
+      node_id,
+      @ir.hot_node_get(func, @ir.hot_region_get(func, chosen_region, 0)),
+    )
+    pass_mark_mutated(ctx, func)
+    return true
+  }
+  let block_type = match
+    @ir.hot_type_get(func, @ir.hot_node_type(func, node_id)) {
+    @ir.HotTypeInfo::BlockResult(block_type)
+    | @ir.HotTypeInfo::BlockResultResolved(block_type, _) => Some(block_type)
+    _ => None
+  }
+  let block_type = match block_type {
+    Some(block_type) => block_type
+    None => return false
+  }
+  let body : Array[Int] = []
+  for i = 0; i < root_count; i = i + 1 {
+    body.push(@ir.hot_region_get(func, chosen_region, i))
+  }
+  let block_id = @ir.hot_build_block(func, block_type, body)
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, block_id))
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let mut changed_any = false
   let mut changed_round = true
   while changed_round {
     changed_round = false
     for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
       if !@ir.hot_node_is_live(func, node_id) {
+        continue
+      }
+      if precompute_try_fold_constant_if(ctx, func, node_id) {
+        changed_round = true
+        changed_any = true
         continue
       }
       let instr = match @ir.hot_node_exact_instr(func, node_id) {
