@@ -374,6 +374,42 @@ fn perf_test_make_nested_constructor_hot_skip_module() -> String {
 }
 
 ///|
+fn perf_test_make_if_only_no_run_candidate_module(repetitions : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    local.get 0)\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 128 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < repetitions {
+    let set_local = i % 64 + 1
+    out.write_string("    local.get 0\n")
+    out.write_string("    if\n")
+    out.write_string("      local.get 0\n")
+    out.write_string("      call 0\n")
+    out.write_string("      local.set ")
+    out.write_string(set_local.to_string())
+    out.write_string("\n")
+    out.write_string("    else\n")
+    out.write_string("      local.get 0\n")
+    out.write_string("      call 0\n")
+    out.write_string("      drop\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 test "perf session records hot allocation deltas dumps and checkpoints" {
   let lines : Array[String] = []
   let perf = HotPerfSession::new(
@@ -554,6 +590,34 @@ test "ssa-nomerge skips raw lift when the original function has no local writes"
   assert_true(text.contains("pass[ssa-nomerge]:skip-raw"))
   assert_false(text.contains("perf:timer name=lift"))
   assert_false(text.contains("perf:timer name=pass:ssa-nomerge"))
+}
+
+///|
+test "remove-unused-names skips raw lift when the original function has no candidate control flow" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_if_only_no_run_candidate_module(256)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-names"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected raw-skip remove-unused-names success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-names]:skip-raw reason=no-remove-unused-names-candidates",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:remove-unused-names"))
 }
 
 ///|

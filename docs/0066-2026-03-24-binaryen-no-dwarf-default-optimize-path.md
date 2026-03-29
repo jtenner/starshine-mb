@@ -129,6 +129,7 @@ For `wasm-opt tests/node/dist/starshine-debug-wasi.wasm -O --all-features`, the 
 ## Performance Impact
 
 - The heavy cost centers in the observed MoonBit artifact run are `coalesce-locals`, `optimize-casts`, `code-folding`, `merge-blocks`, and the early `ssa-nomerge` conversion.
+- The old `remove-unused-names` giant no-op family is no longer one of those centers: the latest native debug-artifact replay now raw-skips `9746` candidate-free functions, so the earlier huge if-only `Func 545` lift hotspot is retired and the remaining cleanup-path budget gap is later in the chain.
 - The repeated cleanup passes are still part of the intended Binaryen shape even when individually cheap.
 - Nested reruns mean late global passes can trigger additional hot-path work that does not show up if Starshine models the preset as a single flat list only.
 

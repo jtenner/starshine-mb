@@ -2749,6 +2749,60 @@ fn run_hot_pipeline_raw_pick_load_signs(
 }
 
 ///|
+fn run_hot_pipeline_instr_has_remove_unused_names_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  instrs.any(fn(instr) {
+    run_hot_pipeline_instr_is_remove_unused_names_candidate(instr)
+  })
+}
+
+///|
+fn run_hot_pipeline_instr_is_remove_unused_names_candidate(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::Loop(_, _) => true
+    @lib.Instruction::Block(
+      _,
+      @lib.Expr([@lib.Instruction::Block(_, @lib.Expr(_))])
+    ) => true
+    @lib.Instruction::Block(_, @lib.Expr(body))
+    | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_instr_has_remove_unused_names_candidate(body)
+    @lib.Instruction::If(_, then_, Some(else_)) =>
+      run_hot_pipeline_instr_has_remove_unused_names_candidate(then_) ||
+      run_hot_pipeline_instr_has_remove_unused_names_candidate(else_)
+    @lib.Instruction::If(_, then_, None) =>
+      run_hot_pipeline_instr_has_remove_unused_names_candidate(then_)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "remove-unused-names" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(_, @lib.Expr(instrs)) = original
+  if run_hot_pipeline_instr_has_remove_unused_names_candidate(instrs) {
+    None
+  } else {
+    Some({
+      reason: "no-remove-unused-names-candidates",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -2827,6 +2881,10 @@ fn run_hot_pipeline_func(
     None => ()
   }
   match run_hot_pipeline_raw_pick_load_signs(mod_, func_idx, descriptor) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match run_hot_pipeline_raw_remove_unused_names(mod_, func_idx, descriptor) {
     Some(result) => return Ok(result)
     None => ()
   }
@@ -3672,6 +3730,7 @@ fn run_hot_pipeline_apply_hot_pass(
       let mut lowered : Array[@lib.Func]? = None
       let mut hso_raw_skip_count = 0
       let mut pls_raw_skip_count = 0
+      let mut run_raw_skip_count = 0
       for code_idx = 0; code_idx < defs.length(); code_idx = code_idx + 1 {
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
@@ -3743,6 +3802,9 @@ fn run_hot_pipeline_apply_hot_pass(
           } else if descriptor.name == "pick-load-signs" &&
             result.reason == "no-pick-load-signs-candidates" {
             pls_raw_skip_count += 1
+          } else if descriptor.name == "remove-unused-names" &&
+            result.reason == "no-remove-unused-names-candidates" {
+            run_raw_skip_count += 1
           } else {
             pipeline_trace_hook(
               options.trace,
@@ -3776,6 +3838,14 @@ fn run_hot_pipeline_apply_hot_pass(
           descriptor.name,
           "skip-raw",
           payload="reason=no-pick-load-signs-candidates count=\{pls_raw_skip_count}",
+        )
+      }
+      if run_raw_skip_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-raw",
+          payload="reason=no-remove-unused-names-candidates count=\{run_raw_skip_count}",
         )
       }
       match lowered {
