@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-28 Test: refresh DCE oracle-fuzz gate after pure-drop fix
+
+- **DCE large-corpus oracle rerun** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) after rerunning `dead-code-elimination` differential fuzzing on fresh `gen-valid` corpora. The new evidence is `.tmp/pass-fuzz-dce-genvalid-50-after-pure-drop-fix` (`50/50`) and `.tmp/pass-fuzz-dce-genvalid-1000-after-pure-drop-fix` (`1000/1000`), both with `0` mismatches, `0` command failures, and `0` validation failures, so the old saved mismatch list is retired and the next DCE follow-up is runtime/ordered-prefix proof rather than repo-side oracle parity.
+
 ## 2026-03-28 Chore: format artifact replay tests and hot-lower call site
 
 - **Post-slice cleanup sync** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/cmd/cmd_test.mbt`](./src/cmd/cmd_test.mbt), and [`src/ir/hot_lower.mbt`](./src/ir/hot_lower.mbt) to keep the recent artifact replay tests and `hot_lower` call site in sync with formatter-preferred argument layout and named-argument shorthand. No behavior changed in this cleanup commit.
