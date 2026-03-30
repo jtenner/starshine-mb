@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-30 Chore: add harness task fixtures
+
+- **Harness task-fixture check-in** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`.tasks/commit.md`](./.tasks/commit.md), [`.tasks/publish.md`](./.tasks/publish.md), [`.tasks/research.md`](./.tasks/research.md), and [`.tasks/working-on-passes.md`](./.tasks/working-on-passes.md) to check in the local task prompts used for harness testing. These files document the commit, publish, research, and pass-work flows without changing compiler or pass behavior.
+
 ## 2026-03-30 Fix: guard RUB exit-only value-if use chains
 
 - **`remove-unused-brs` exit-only use-chain guard** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so `remove-unused-brs` now voidifies exit-only result `if`s only when their single-use chain stays on safe `local.tee` and single-result holder-root links into drop/set/branch/return sites. Wrapped value-op chains like `local.tee -> i32.eqz -> drop` now stay typed instead of being rewritten into a later invalid control/value mix, and the new focused regression keeps that boundary green under `after_each_pass` verification.
