@@ -309,9 +309,7 @@ test "ssa destruction does not duplicate returned br_table result regions" {
     #|     i32.const 33
     #|     i32.const 44))
     #|
-  let fixture = ir_test_build_hot_from_wat(
-    input,
-  )
+  let fixture = ir_test_build_hot_from_wat(input)
 
   let baseline_pretty = fixture.mod_
     .with_code_sec(@lib.CodeSec::new([hot_lower_func(fixture.hot_func)]))
@@ -334,8 +332,5 @@ test "ssa destruction does not duplicate returned br_table result regions" {
   let pretty = fixture.mod_
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_eq(
-    ssa_destroy_test_count_substring(pretty, "(block (Type 1)"),
-    1,
-  )
+  assert_eq(ssa_destroy_test_count_substring(pretty, "(block (Type 1)"), 1)
 }

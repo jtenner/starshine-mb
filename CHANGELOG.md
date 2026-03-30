@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-30 Fix: guard RUB exit-only value-if use chains
+
+- **`remove-unused-brs` exit-only use-chain guard** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), and [`src/passes/remove_unused_brs_test.mbt`](./src/passes/remove_unused_brs_test.mbt) so `remove-unused-brs` now voidifies exit-only result `if`s only when their single-use chain stays on safe `local.tee` and single-result holder-root links into drop/set/branch/return sites. Wrapped value-op chains like `local.tee -> i32.eqz -> drop` now stay typed instead of being rewritten into a later invalid control/value mix, and the new focused regression keeps that boundary green under `after_each_pass` verification.
+
 ## 2026-03-29 Checkpoint: reject the split-wrapper DCE trim before lowering
 
 - **`dead-code-elimination` split-wrapper trim guard checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt), and [`src/passes/dead_code_elimination_test.mbt`](./src/passes/dead_code_elimination_test.mbt) so the early branch-payload forwarder unreachable-trim now refuses the two-root split-wrapper family instead of mutating it into a later invalid lower. The reduced repro no longer reaches `skip-invalid-lower`; it now cleanly bails as `reason=trimmed-unreachable-split-wrapper`, keeps the original `unreachable`, and leaves the real parity rewrite work visible without poisoning later lowering.

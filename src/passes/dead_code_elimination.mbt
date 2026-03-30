@@ -1108,7 +1108,9 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
                 [],
               ),
             )
-            dead_code_elimination_invalidate_branch_user_cache(branch_user_cache)
+            dead_code_elimination_invalidate_branch_user_cache(
+              branch_user_cache,
+            )
             return true
           }
         }

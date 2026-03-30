@@ -1809,7 +1809,10 @@ test "run_cmd_with_adapter validates ssa-nomerge on debug artifact" {
     },
   )
   let summary = match
-    run_cmd_with_adapter(["--ssa-nomerge", "--out", output_path, input_path], io) {
+    run_cmd_with_adapter(
+      ["--ssa-nomerge", "--out", output_path, input_path],
+      io,
+    ) {
     Ok(v) => v
     Err(e) => fail("expected ssa-nomerge artifact replay success, got \{e}")
   }

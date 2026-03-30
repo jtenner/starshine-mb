@@ -1567,3 +1567,26 @@ test "remove-unused-brs voidifies dropped exit-only ifs through local.tee wrappe
   assert_true(pretty.contains("(if (Void)"), msg=pretty)
   assert_true(pretty.contains("unreachable"), msg=pretty)
 }
+
+///|
+test "remove-unused-brs preserves exit-only ifs when local.tee feeds a value op" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) (drop (i32.eqz (local.tee 1 (if (result i32) (local.get 0) (then (return (i32.const 1))) (else (return (i32.const 2))))))) (i32.const 0)))",
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(
+        verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected wrapped exit-only value-if to stay typed under remove-unused-brs, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if I32"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_false(pretty.contains("(if Void"), msg=pretty)
+}

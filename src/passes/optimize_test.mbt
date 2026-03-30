@@ -62,9 +62,7 @@ test "run_hot_pipeline accepts remove-unused-names as an active hot pass" {
 ///|
 test "optimize preset replays remove-unused-names in all RUN slots" {
   let trace : Array[String] = []
-  let input = pass_test_module_from_wat(
-    "(module (func loop br 0 end))",
-  )
+  let input = pass_test_module_from_wat("(module (func loop br 0 end))")
   let optimized = match
     run_hot_pipeline(
       input,

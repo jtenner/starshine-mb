@@ -826,6 +826,11 @@ fn remove_unused_brs_try_voidify_exit_only_value_if(
   if @ir.hot_region_single_exit_root(func, else_ref) == None {
     return false
   }
+  if !remove_unused_brs_has_safe_exit_only_value_if_use_chain(
+      ctx, func, node_id,
+    ) {
+    return false
+  }
   let void_if = @ir.hot_build_if(
     func,
     @lib.BlockType::void_(),
@@ -851,6 +856,97 @@ fn remove_unused_brs_try_voidify_exit_only_value_if(
     else_ref.holder,
   ])
   true
+}
+
+///|
+fn remove_unused_brs_root_use_region_ref(
+  func : @ir.HotFunc,
+  node_id : Int,
+  holder_id : Int,
+  slot : Int,
+) -> @ir.HotRegionRef? {
+  let user = @ir.hot_node_get(func, holder_id)
+  for info in @ir.hot_control_region_slot_info(user.op) {
+    let region_ref = match info.role {
+      @ir.HotControlRegionRole::BodyRegion =>
+        Some(@ir.hot_region_body_ref(func, holder_id))
+      @ir.HotControlRegionRole::ThenRegion =>
+        Some(@ir.hot_region_then_ref(func, holder_id))
+      @ir.HotControlRegionRole::ElseRegion =>
+        @ir.hot_region_else_ref(func, holder_id)
+      @ir.HotControlRegionRole::CatchRegion =>
+        @ir.hot_region_catch_ref(func, holder_id)
+      @ir.HotControlRegionRole::CatchListRegion =>
+        Some(@ir.hot_region_catch_list_ref(func, holder_id))
+    }
+    match region_ref {
+      Some(region_ref) =>
+        if slot < @ir.hot_region_root_count(func, region_ref) &&
+          @ir.hot_region_get(func, region_ref, slot) == node_id {
+          return Some(region_ref)
+        }
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+fn remove_unused_brs_has_safe_exit_only_value_if_use_chain(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let use_def = pass_require_use_def(ctx, func)
+  let mut current = node_id
+  for hops = 0; hops < 64; hops = hops + 1 {
+    if @ir.node_use_count(use_def, current) != 1 {
+      return false
+    }
+    let sites = @ir.node_use_sites_borrowed(use_def, current)
+    if sites.length() != 1 {
+      return false
+    }
+    let site = sites[0]
+    if site.user == -1 {
+      return false
+    }
+    let user = @ir.hot_node_get(func, site.user)
+    match site.kind {
+      @ir.HotUseSlotKind::ChildUseSlot =>
+        match user.op {
+          @ir.HotOp::LocalTee => {
+            if site.slot != 0 {
+              return false
+            }
+            current = site.user
+          }
+          @ir.HotOp::Drop | @ir.HotOp::LocalSet => return site.slot == 0
+          @ir.HotOp::Br | @ir.HotOp::Return => return true
+          @ir.HotOp::BrIf | @ir.HotOp::BrTable =>
+            return site.slot < @ir.hot_child_count(func, site.user) - 1
+          _ => return false
+        }
+      @ir.HotUseSlotKind::RootUseSlot => {
+        let region_ref = match
+          remove_unused_brs_root_use_region_ref(
+            func,
+            current,
+            site.user,
+            site.slot,
+          ) {
+          Some(region_ref) => region_ref
+          None => return false
+        }
+        if @ir.hot_node_result_arity(func, site.user) != 1 ||
+          site.slot != @ir.hot_region_root_count(func, region_ref) - 1 {
+          return false
+        }
+        current = site.user
+      }
+    }
+  }
+  false
 }
 
 ///|

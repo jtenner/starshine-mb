@@ -2179,10 +2179,9 @@ fn hot_lower_impl_canonicalize_body(
               [Block(VoidBlockType, Expr(_)), Block(_, _)] =>
                 if !hot_lower_impl_body_targets_removed_label(inner_body, 0) {
                   match inner_body[0] {
-                    Block(
-                      VoidBlockType,
-                      Expr(prefix_body)
-                    ) if prefix_body.any(fn(instr) {
+                    Block(VoidBlockType, Expr(prefix_body)) if prefix_body.any(fn(
+                        instr,
+                      ) {
                         hot_lower_impl_has_control_transfer(instr)
                       }) =>
                       match inner_body[1] {
