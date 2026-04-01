@@ -86,6 +86,10 @@ test "hot module context resolves imported and defined boundary indices" {
     Some(@lib.GlobalType::new(@lib.ValType::i64(), false)),
   )
   assert_eq(
+    hot_module_resolve_global_const_init(ctx, @lib.GlobalIdx::new(0U)),
+    None,
+  )
+  assert_eq(
     hot_module_resolve_mem_index_type(ctx, @lib.MemIdx::new(0U)),
     Some(@lib.ValType::i32()),
   )
@@ -127,6 +131,40 @@ test "hot module context expands type-index block results and aggregate fields" 
         @lib.Mut::var_(),
       ),
     ),
+  )
+}
+
+///|
+test "hot module context resolves immutable global const initializers" {
+  let mod_ = @lib.Module::new().with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), false),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+      ),
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(9))]),
+      ),
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), false),
+        @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))]),
+      ),
+    ]),
+  )
+  let ctx = hot_module_context_from_module(mod_)
+
+  assert_eq(
+    hot_module_resolve_global_const_init(ctx, @lib.GlobalIdx::new(0U)),
+    Some(HotConstPayload::i32_const(@lib.I32(7))),
+  )
+  assert_eq(
+    hot_module_resolve_global_const_init(ctx, @lib.GlobalIdx::new(1U)),
+    None,
+  )
+  assert_eq(
+    hot_module_resolve_global_const_init(ctx, @lib.GlobalIdx::new(2U)),
+    Some(HotConstPayload::i32_const(@lib.I32(7))),
   )
 }
 

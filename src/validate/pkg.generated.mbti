@@ -60,6 +60,8 @@ pub fn validate_datacnt(@lib.DataCntSec?, @lib.DataSec?) -> Result[Unit, String]
 
 pub fn validate_datasec(@lib.DataSec?, Env) -> Result[Env, String]
 
+pub fn validate_defined_func_against_module(@lib.Module, @lib.FuncIdx, @lib.Func) -> Result[Unit, String]
+
 pub fn validate_elemsec(@lib.ElemSec?, Env) -> Result[Env, String]
 
 pub fn validate_exportsec(@lib.ExportSec?, Env) -> Result[Unit, String]

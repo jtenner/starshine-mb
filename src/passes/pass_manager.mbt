@@ -3457,36 +3457,31 @@ fn run_hot_pipeline_original_func(
 }
 
 ///|
+fn run_hot_pipeline_precompute_writeback_validation_error(
+  mod_ : @lib.Module,
+  code_idx : Int,
+  rewritten : @lib.Func,
+) -> String? {
+  let func_idx = @lib.FuncIdx::new(
+    (run_hot_pipeline_imported_func_count(mod_) + code_idx).reinterpret_as_uint(),
+  )
+  match
+    @validate.validate_defined_func_against_module(mod_, func_idx, rewritten) {
+    Ok(_) => None
+    Err(err) => Some(err)
+  }
+}
+
+///|
 fn run_hot_pipeline_precompute_writeback_validates(
   mod_ : @lib.Module,
   code_idx : Int,
   rewritten : @lib.Func,
 ) -> Bool {
-  let type_idx = match mod_.func_sec {
-    Some(@lib.FuncSec(type_idxs)) =>
-      match type_idxs.get(code_idx) {
-        Some(type_idx) => type_idx
-        None => return false
-      }
-    None => return false
-  }
-  let env0 = @validate.Env::new().with_module(
-    mod_.with_func_sec(@lib.FuncSec::new([])),
-  )
-  let env = match
-    @validate.validate_funcsec(Some(@lib.FuncSec::new([type_idx])), env0) {
-    Ok(env) => env
-    Err(_) => return false
-  }
-  match
-    @validate.validate_codesec(
-      Some(@lib.CodeSec::new([rewritten])),
-      Some(@lib.FuncSec::new([type_idx])),
-      env,
-    ) {
-    Ok(_) => true
-    Err(_) => false
-  }
+  run_hot_pipeline_precompute_writeback_validation_error(
+    mod_, code_idx, rewritten,
+  ) ==
+  None
 }
 
 ///|
@@ -3742,56 +3737,69 @@ fn run_hot_pipeline_apply_hot_pass(
           Ok(result) => result
           Err(err) => return Err("func[\{func_idx}]: \{err}")
         }
-        let should_keep_original = !result.unchanged_original &&
-          (
-            (
-              descriptor.name == "precompute" &&
-              (
-                run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
-                  result.func,
-                ) ||
-                !run_hot_pipeline_precompute_writeback_validates(
-                  mod_,
-                  code_idx,
-                  result.func,
-                )
-              )
-            ) ||
-            (
-              descriptor.name == "dead-code-elimination" &&
-              (
-                run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
-                  result.func,
-                ) ||
-                run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
-                  result.func,
-                ) ||
-                run_hot_pipeline_lowered_func_exceeds_local_limit(result.func) ||
-                !run_hot_pipeline_precompute_writeback_validates(
-                  mod_,
-                  code_idx,
-                  result.func,
-                )
-              )
-            ) ||
-            (
-              descriptor.name == "ssa-nomerge" &&
-              (
-                run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
-                  result.func,
-                ) ||
-                run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
-                  result.func,
-                )
-              )
-            )
-          )
-        if should_keep_original {
+        let skip_invalid_lower_reason : String? = if result.unchanged_original {
+          None
+        } else if descriptor.name == "precompute" {
+          if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+              result.func,
+            ) {
+            Some("invalid-escape-carrier")
+          } else {
+            match
+              run_hot_pipeline_precompute_writeback_validation_error(
+                mod_,
+                code_idx,
+                result.func,
+              ) {
+              Some(msg) => Some("writeback-validate:\{msg}")
+              None => None
+            }
+          }
+        } else if descriptor.name == "dead-code-elimination" {
+          if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+              result.func,
+            ) {
+            Some("invalid-escape-carrier")
+          } else if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
+              result.func,
+            ) {
+            Some("suspicious-escape-carrier")
+          } else if run_hot_pipeline_lowered_func_exceeds_local_limit(
+              result.func,
+            ) {
+            Some("local-limit")
+          } else {
+            match
+              run_hot_pipeline_precompute_writeback_validation_error(
+                mod_,
+                code_idx,
+                result.func,
+              ) {
+              Some(msg) => Some("writeback-validate:\{msg}")
+              None => None
+            }
+          }
+        } else if descriptor.name == "ssa-nomerge" {
+          if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+              result.func,
+            ) {
+            Some("invalid-escape-carrier")
+          } else if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
+              result.func,
+            ) {
+            Some("suspicious-escape-carrier")
+          } else {
+            None
+          }
+        } else {
+          None
+        }
+        if skip_invalid_lower_reason != None {
           pipeline_trace_hook(
             options.trace,
             descriptor.name,
             "skip-invalid-lower",
-            payload="func=\{func_idx}",
+            payload="func=\{func_idx} reason=\{skip_invalid_lower_reason.unwrap()}",
           )
           continue
         }

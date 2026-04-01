@@ -17,6 +17,30 @@ pub fn precompute_summary() -> String {
 }
 
 ///|
+fn precompute_global_const(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @ir.HotConstPayload? {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::GlobalGet => ()
+    _ => return None
+  }
+  match ctx.module_ctx {
+    Some(module_ctx) =>
+      @ir.hot_module_resolve_global_const_init(
+        module_ctx,
+        @lib.GlobalIdx::new(node.imm0.reinterpret_as_uint()),
+      )
+    None => None
+  }
+}
+
+///|
 fn precompute_i32_const(func : @ir.HotFunc, node_id : Int) -> @lib.I32? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
@@ -28,7 +52,24 @@ fn precompute_i32_const(func : @ir.HotFunc, node_id : Int) -> @lib.I32? {
         @ir.HotConstPayload::I32Const(value) => Some(value)
         _ => None
       }
+    @ir.HotOp::GlobalGet => None
     _ => None
+  }
+}
+
+///|
+fn precompute_i32_exact_const(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @lib.I32? {
+  match precompute_i32_const(func, node_id) {
+    Some(value) => Some(value)
+    None =>
+      match precompute_global_const(ctx, func, node_id) {
+        Some(@ir.HotConstPayload::I32Const(value)) => Some(value)
+        _ => None
+      }
   }
 }
 
@@ -44,7 +85,24 @@ fn precompute_i64_const(func : @ir.HotFunc, node_id : Int) -> @lib.I64? {
         @ir.HotConstPayload::I64Const(value) => Some(value)
         _ => None
       }
+    @ir.HotOp::GlobalGet => None
     _ => None
+  }
+}
+
+///|
+fn precompute_i64_exact_const(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @lib.I64? {
+  match precompute_i64_const(func, node_id) {
+    Some(value) => Some(value)
+    None =>
+      match precompute_global_const(ctx, func, node_id) {
+        Some(@ir.HotConstPayload::I64Const(value)) => Some(value)
+        _ => None
+      }
   }
 }
 
@@ -77,6 +135,37 @@ fn precompute_replace_with_const_i64(
 }
 
 ///|
+fn precompute_try_fold_global_get(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match precompute_global_const(ctx, func, node_id) {
+    Some(payload) => {
+      let temp = match payload {
+        @ir.HotConstPayload::I32Const(value) =>
+          @ir.hot_build_const_i32(func, value)
+        @ir.HotConstPayload::I64Const(value) =>
+          @ir.hot_build_const_i64(func, value)
+        @ir.HotConstPayload::F32Const(value) =>
+          @ir.hot_build_const_f32(func, value)
+        @ir.HotConstPayload::F64Const(value) =>
+          @ir.hot_build_const_f64(func, value)
+        @ir.HotConstPayload::RefNullConst(value) =>
+          @ir.hot_build_ref_null(func, value)
+        @ir.HotConstPayload::StringConst(_) => return false
+      }
+      let replacement = @ir.hot_node_get(func, temp)
+      @ir.hot_delete_node(func, temp)
+      @ir.hot_replace_node(func, node_id, replacement)
+      pass_mark_mutated(ctx, func)
+      true
+    }
+    None => false
+  }
+}
+
+///|
 fn precompute_try_fold_unary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -84,7 +173,7 @@ fn precompute_try_fold_unary(
   instr : @lib.Instruction,
   operand_id : Int,
 ) -> Bool {
-  match (instr, precompute_i32_const(func, operand_id)) {
+  match (instr, precompute_i32_exact_const(ctx, func, operand_id)) {
     (@lib.Instruction::I32Eqz, Some(v)) => {
       precompute_replace_with_const_i32(
         ctx,
@@ -100,7 +189,7 @@ fn precompute_try_fold_unary(
     }
     _ => ()
   }
-  match (instr, precompute_i64_const(func, operand_id)) {
+  match (instr, precompute_i64_exact_const(ctx, func, operand_id)) {
     (@lib.Instruction::I64Eqz, Some(v)) => {
       precompute_replace_with_const_i32(
         ctx,
@@ -130,8 +219,8 @@ fn precompute_try_fold_binary(
   match
     (
       instr,
-      precompute_i32_const(func, lhs_id),
-      precompute_i32_const(func, rhs_id),
+      precompute_i32_exact_const(ctx, func, lhs_id),
+      precompute_i32_exact_const(ctx, func, rhs_id),
     ) {
     (@lib.Instruction::I32Add, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
       precompute_replace_with_const_i32(
@@ -347,8 +436,8 @@ fn precompute_try_fold_binary(
   match
     (
       instr,
-      precompute_i64_const(func, lhs_id),
-      precompute_i64_const(func, rhs_id),
+      precompute_i64_exact_const(ctx, func, lhs_id),
+      precompute_i64_exact_const(ctx, func, rhs_id),
     ) {
     (@lib.Instruction::I64Add, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
       precompute_replace_with_const_i64(
@@ -575,7 +664,7 @@ fn precompute_try_fold_constant_if(
     _ => return false
   }
   let cond_id = @ir.hot_child_get(func, node_id, 0)
-  let take_then = match precompute_i32_const(func, cond_id) {
+  let take_then = match precompute_i32_exact_const(ctx, func, cond_id) {
     Some(@lib.I32(0)) => false
     Some(@lib.I32(_)) => true
     None => return false
@@ -794,7 +883,8 @@ fn precompute_simplify_region_roots(
         @ir.HotOp::If =>
           if @ir.hot_node_result_arity(func, node_id) == 0 {
             let cond_id = @ir.hot_child_get(func, node_id, 0)
-            let take_then = match precompute_i32_const(func, cond_id) {
+            let take_then = match
+              precompute_i32_exact_const(ctx, func, cond_id) {
               Some(@lib.I32(0)) => Some(false)
               Some(@lib.I32(_)) => Some(true)
               None => None
@@ -1013,6 +1103,11 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     }
     for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
       if !@ir.hot_node_is_live(func, node_id) {
+        continue
+      }
+      if precompute_try_fold_global_get(ctx, func, node_id) {
+        changed_round = true
+        changed_any = true
         continue
       }
       if precompute_try_eliminate_dead_drop(ctx, func, node_id) {

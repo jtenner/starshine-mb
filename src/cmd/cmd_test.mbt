@@ -4775,6 +4775,44 @@ test "run_cmd_with_adapter validates pick-load-signs on debug artifact" {
 
 ///|
 #cfg(target="native")
+test "run_cmd_with_adapter validates precompute on debug artifact" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(["--precompute", "--out", output_path, input_path], io) {
+    Ok(v) => v
+    Err(e) => fail("expected precompute artifact replay success, got \{e}")
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, ["precompute"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, output_path)
+  ignore(decode_module_bytes(writes[0].1))
+}
+
+///|
+#cfg(target="native")
 test "run_cmd_with_adapter validates post-ssa cleanup mini-chain on debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let output_path = "out.wasm"

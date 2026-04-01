@@ -211,6 +211,8 @@ For `wasm-opt tests/node/dist/starshine-debug-wasi.wasm -O --all-features`, the 
 
 - Runs once early and once late for `-O` / `-Os`; the artifact does not take the `precompute-propagate` top-level branch.
 - Implementation must fold constants and local evaluable fragments conservatively enough to compose with repeated late cleanup.
+- Current status (`2026-04-01`): the hot replay path now folds immutable `global.get` inputs and validates single-function writebacks against the full module environment, which removes the earlier false `invalid function index` skip wall when a rewritten function calls sibling definitions.
+- Current blocker (`2026-04-01`): the traced native debug-artifact replay for `--precompute` is down to `14` skipped functions, with one real `writeback-validate:stack underflow` case and the remaining `invalid-escape-carrier` family still blocking canonical parity.
 
 ### CP - Code Pushing
 

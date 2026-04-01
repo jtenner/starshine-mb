@@ -1586,6 +1586,65 @@ pub fn validate_funcsec(funcsec : FuncSec?, env0 : Env) -> Result[Env, String] {
 }
 
 ///|
+fn validate_env_before_codesec(m : Module) -> Result[Env, String] {
+  let mut env = Env::new()
+  env = match validate_typesec(m.type_sec, env) {
+    Ok(env) => env
+    Err(err) => return Err(err)
+  }
+  env = match validate_importsec(m.import_sec, env) {
+    Ok(env) => env
+    Err(err) => return Err(err)
+  }
+  env = match validate_funcsec(m.func_sec, env) {
+    Ok(env) => env
+    Err(err) => return Err(err)
+  }
+  env = match validate_tablesec(m.table_sec, env) {
+    Ok(env) => env
+    Err(err) => return Err(err)
+  }
+  env = match validate_memsec(m.mem_sec, env) {
+    Ok(env) => env
+    Err(err) => return Err(err)
+  }
+  env = match validate_tagsec(m.tag_sec, env) {
+    Ok(env) => env
+    Err(err) => return Err(err)
+  }
+  env = match validate_globalsec(m.global_sec, env) {
+    Ok(env) => env
+    Err(err) => return Err(err)
+  }
+  env = match validate_elemsec(m.elem_sec, env) {
+    Ok(env) => env
+    Err(err) => return Err(err)
+  }
+  env = match validate_datasec(m.data_sec, env) {
+    Ok(env) => env
+    Err(err) => return Err(err)
+  }
+  Ok(env)
+}
+
+///|
+pub fn validate_defined_func_against_module(
+  m : Module,
+  func_idx : FuncIdx,
+  f : Func,
+) -> Result[Unit, String] {
+  let env = match validate_env_before_codesec(m) {
+    Ok(env) => env
+    Err(err) => return Err(err)
+  }
+  let ft = match env.get_functype_by_funcidx(func_idx) {
+    Some(ft) => ft
+    None => return Err("missing functype for defined function")
+  }
+  validate_func_body_against_functype(env, ft, f)
+}
+
+///|
 pub impl Validate for DataMode with validate(self, env) {
   match self {
     Passive => Ok(())

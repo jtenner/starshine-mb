@@ -7,6 +7,7 @@ pub struct HotModuleContext {
   tables : Array[TableType]
   mems : Array[@lib.MemType]
   globals : Array[GlobalType]
+  global_const_inits : Array[HotConstPayload?]
   elems : Array[Elem]
   datas : Array[Data]
   tags : Array[TagType]
@@ -78,11 +79,53 @@ fn hot_module_context_empty_func_type_slots(
 }
 
 ///|
+fn hot_module_context_eval_const_instr(
+  instr : @lib.Instruction,
+  global_const_inits : Array[HotConstPayload?],
+) -> HotConstPayload? {
+  match instr {
+    @lib.I32Const(value) => Some(HotConstPayload::i32_const(value))
+    @lib.I64Const(value) => Some(HotConstPayload::i64_const(value))
+    @lib.F32Const(value) => Some(HotConstPayload::f32_const(value))
+    @lib.F64Const(value) => Some(HotConstPayload::f64_const(value))
+    @lib.RefNull(ref_type) => Some(HotConstPayload::ref_null_const(ref_type))
+    @lib.StringConst(bytes) => Some(HotConstPayload::string_const(bytes))
+    @lib.GlobalGet(global_idx) =>
+      match global_idx {
+        @lib.GlobalIdx(raw) =>
+          match global_const_inits.get(raw.reinterpret_as_int()) {
+            Some(payload) => payload
+            None => None
+          }
+      }
+    _ => None
+  }
+}
+
+///|
+fn hot_module_context_eval_global_const_init(
+  global_type : GlobalType,
+  init : @lib.Expr,
+  global_const_inits : Array[HotConstPayload?],
+) -> HotConstPayload? {
+  let @lib.GlobalType(_, mutable) = global_type
+  if mutable {
+    return None
+  }
+  match init {
+    @lib.Expr([instr]) =>
+      hot_module_context_eval_const_instr(instr, global_const_inits)
+    _ => None
+  }
+}
+
+///|
 pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
   let func_type_idxs : Array[TypeIdx] = []
   let tables : Array[TableType] = []
   let mems : Array[@lib.MemType] = []
   let globals : Array[GlobalType] = []
+  let global_const_inits : Array[HotConstPayload?] = []
   let elems : Array[Elem] = []
   let datas : Array[Data] = []
   let tags : Array[TagType] = []
@@ -96,8 +139,10 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
           @lib.Import(_, _, @lib.TableExternType(table_type)) =>
             tables.push(table_type)
           @lib.Import(_, _, @lib.MemExternType(mem_type)) => mems.push(mem_type)
-          @lib.Import(_, _, @lib.GlobalExternType(global_type)) =>
+          @lib.Import(_, _, @lib.GlobalExternType(global_type)) => {
             globals.push(global_type)
+            global_const_inits.push(None)
+          }
           @lib.Import(_, _, @lib.TagExternType(tag_type)) => tags.push(tag_type)
         }
       }
@@ -129,8 +174,13 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
   match mod_.global_sec {
     Some(@lib.GlobalSec(defs)) =>
       for global in defs {
-        let @lib.Global(global_type, _) = global
+        let @lib.Global(global_type, init) = global
         globals.push(global_type)
+        global_const_inits.push(
+          hot_module_context_eval_global_const_init(
+            global_type, init, global_const_inits,
+          ),
+        )
       }
     None => ()
   }
@@ -166,6 +216,7 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
     tables,
     mems,
     globals,
+    global_const_inits,
     elems,
     datas,
     tags,
@@ -258,6 +309,18 @@ pub fn hot_module_resolve_global_type(
 ) -> GlobalType? {
   let @lib.GlobalIdx(raw) = global_idx
   ctx.globals.get(raw.reinterpret_as_int())
+}
+
+///|
+pub fn hot_module_resolve_global_const_init(
+  ctx : HotModuleContext,
+  global_idx : @lib.GlobalIdx,
+) -> HotConstPayload? {
+  let @lib.GlobalIdx(raw) = global_idx
+  match ctx.global_const_inits.get(raw.reinterpret_as_int()) {
+    Some(payload) => payload
+    None => None
+  }
 }
 
 ///|
