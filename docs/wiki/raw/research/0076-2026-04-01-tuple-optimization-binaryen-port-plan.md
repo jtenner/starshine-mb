@@ -221,7 +221,7 @@ Once the pass exists and has artifact proof:
 Current status (`2026-04-02`):
 
 - The HOT-native tuple rewrite is now active on the explicit hot-pass surface: the registry, pass manager dispatch, and CLI flag all accept `tuple-optimization`.
-- The default `optimize` / `shrink` preset order is intentionally unchanged in this tree for now.
+- The default `optimize` / `shrink` preset order is intentionally unchanged in this tree for now; do not approximate the Binaryen slot with a nearby local ordering.
 - The remaining scheduler work is therefore the exact Binaryen slot and multivalue gate, not generic pass activation anymore.
 
 ## Concrete First Slice Plan
