@@ -193,6 +193,14 @@ pub fn hot_revision_bump(func : HotFunc) -> Unit {
 }
 
 ///|
+pub fn hot_append_body_local(func : HotFunc, ty : ValType) -> LocalId {
+  let local_id = hot_local_count(func)
+  func.locals.locals.push(ty)
+  hot_revision_bump(func)
+  local_id
+}
+
+///|
 pub fn hot_root_count(func : HotFunc) -> Int {
   func.roots.length()
 }

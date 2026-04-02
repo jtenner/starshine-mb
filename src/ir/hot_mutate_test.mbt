@@ -106,3 +106,48 @@ test "node deletion records tombstones without immediate free-list reuse" {
   hot_revision_bump(func)
   assert_eq(hot_revision_current(func), rev1 + 1)
 }
+
+///|
+test "body local append helper returns the next local id and bumps revision" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i64(),
+    ]),
+  )
+
+  let rev0 = hot_revision_current(func)
+  let first = hot_append_body_local(func, @lib.ValType::f32())
+  assert_eq(first, 2)
+  assert_eq(hot_revision_current(func), rev0 + 1)
+  assert_eq(hot_local_count(func), 3)
+  assert_eq(hot_local_body_count(func), 2)
+  assert_eq(hot_local_type(func, first), Some(@lib.ValType::f32()))
+
+  let rev1 = hot_revision_current(func)
+  let second = hot_append_body_local(func, @lib.ValType::i32())
+  assert_eq(second, 3)
+  assert_eq(hot_revision_current(func), rev1 + 1)
+  assert_eq(hot_local_count(func), 4)
+  assert_eq(hot_local_body_count(func), 3)
+  assert_eq(hot_local_type(func, second), Some(@lib.ValType::i32()))
+}
+
+///|
+test "appended body locals lower in append order" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  ignore(hot_append_body_local(func, @lib.ValType::f32()))
+  ignore(hot_append_body_local(func, @lib.ValType::i64()))
+
+  let lowered = hot_lower_func(func)
+  let @lib.Func(locals, body) = lowered
+
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::f32(),
+      @lib.ValType::i64(),
+    ]),
+  )
+  assert_eq(body, @lib.Expr::new([]))
+}

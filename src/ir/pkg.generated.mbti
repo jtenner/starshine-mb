@@ -196,6 +196,8 @@ pub fn hot_alloc_memarg(HotFunc, HotMemArg) -> Int
 
 pub fn hot_alloc_node(HotFunc, HotNode) -> Int
 
+pub fn hot_append_body_local(HotFunc, @lib.ValType) -> Int
+
 pub fn hot_append_root(HotFunc, Int) -> Unit
 
 pub fn hot_body_result_type(HotFunc) -> Int

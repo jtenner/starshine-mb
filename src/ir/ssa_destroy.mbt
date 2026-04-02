@@ -76,14 +76,6 @@ fn ssa_destroy_insert_index(func : HotFunc, block : HotBlockInfo) -> Int {
 }
 
 ///|
-fn ssa_destroy_append_body_local(func : HotFunc, ty : ValType) -> LocalId {
-  let local_id = hot_local_count(func)
-  func.locals.locals.push(ty)
-  hot_revision_bump(func)
-  local_id
-}
-
-///|
 fn ssa_destroy_remove_copy(copies : Array[HotSsaCopy], idx : Int) -> HotSsaCopy {
   let removed = copies[idx]
   let last = copies.length() - 1
@@ -141,7 +133,7 @@ fn ssa_destroy_schedule_copies(
       continue
     }
     let cycle = pending[0]
-    let temp_local = ssa_destroy_append_body_local(
+    let temp_local = hot_append_body_local(
       func,
       ssa_destroy_local_type(func, cycle.target_local),
     )
@@ -386,7 +378,7 @@ pub fn ssa_destroy_into_hot(
   ignore(policy)
   let concrete = ssa_assign_concrete_locals(func, ssa)
   for ty in concrete.extra_local_types {
-    ignore(ssa_destroy_append_body_local(func, ty))
+    ignore(hot_append_body_local(func, ty))
   }
 
   for node_id = 0
