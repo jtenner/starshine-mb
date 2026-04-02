@@ -115,7 +115,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   assert_eq(h2l.name, "heap2local")
   assert_eq(@ir.hot_pass_requires(h2l), [@ir.HotAnalysis::use_def()])
   assert_eq(locals.name, "simplify-locals")
-  assert_true(@ir.hot_pass_requires(locals).contains(@ir.HotAnalysis::ssa()))
+  assert_eq(@ir.hot_pass_requires(locals), [])
   assert_eq(rub.name, "remove-unused-brs")
 }
 

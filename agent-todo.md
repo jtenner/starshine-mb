@@ -7,6 +7,9 @@
 - Keep each slice actionable enough to implement directly without re-deriving the architecture.
 - Move completed work to `CHANGELOG.md`.
 
+## Current Validation Blockers
+- `moon test` is currently red on four independent cases outside `[SL]001`: [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/src/cmd/cmd_test.mbt) (`run_cmd_with_adapter applies ssa-nomerge to wasm inputs`, `run_cmd_with_adapter interleaves dump validate and optimize steps in cli order`, `run_cmd_with_adapter prints ordered log entries to stderr and sees post-pass state`) and [`src/ir/hot_lower_test.mbt`](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/src/ir/hot_lower_test.mbt) (`hot lower keeps nested escaping-if unreachable sentinels`). These still reproduce in isolated package runs on 2026-04-02.
+
 ## v0.1.0 Active Slice
 
 ### Binaryen no-DWARF default optimize pathway parity (`version_129`, `-O` / `-Os`)
@@ -396,9 +399,6 @@ Observed unique-pass order
 1. Research exact functionality in document.
    - Research exactly how it works with the simplify-locals pass folder and archived note: [simplify-locals index](./docs/wiki/binaryen/passes/simplify-locals/index.md), [Binaryen strategy](./docs/wiki/binaryen/passes/simplify-locals/binaryen-strategy.md), and [0076 archived research note](./docs/wiki/raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [SL]001 - No-Structure Sinking Core - Replace the current SSA-only dead-def cleanup with the Binaryen-style late local-sinking core before any new structured returns are introduced.
-     - Deliverables: add get counting, single-use sinking, multi-use tee sinking, overwritten-set cleanup, `drop(tee)` collapse, and non-SSA dead-set cleanup while keeping the public pass id unchanged.
-     - Doc: [0076 archived research note](./docs/wiki/raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)
    - [SL]002 - Effect Ordering and Equivalent Copy Cleanup - Match Binaryen's directional invalidation rules and late equivalent-local canonicalization before structured lifting lands.
      - Deliverables: add pass-local ordered effect summaries; block unsafe motion across locals, globals, memory, and control; canonicalize equivalent gets with type-refinement preference; remove redundant copy traffic in the full late pass.
      - Doc: [Binaryen strategy](./docs/wiki/binaryen/passes/simplify-locals/binaryen-strategy.md)

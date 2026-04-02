@@ -1,4 +1,37 @@
 ///|
+test "simplify-locals sinks a single-use local.set into the later get" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32) i32.const 1 local.set 0 local.get 0))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected simplify-locals sink success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set"))
+  assert_false(pretty.contains("local.get"))
+  assert_true(pretty.contains("I32(1)"))
+}
+
+///|
+test "simplify-locals sinks a multi-use local through a tee" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32) i32.const 1 local.set 0 local.get 0 local.get 0 i32.add))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected simplify-locals tee success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set"))
+  assert_true(pretty.contains("local.tee"))
+}
+
+///|
 test "simplify-locals rewrites dead local.set roots" {
   let optimized = match
     pass_test_run_pipeline(
@@ -11,7 +44,8 @@ test "simplify-locals rewrites dead local.set roots" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("local.set"))
-  assert_true(pretty.contains("drop"))
+  assert_true(pretty.contains("nop"))
+  assert_false(pretty.contains("drop"))
   assert_true(pretty.contains("I32(7)"))
 }
 
@@ -28,22 +62,63 @@ test "simplify-locals rewrites dead local.tee roots" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("local.tee"))
-  assert_true(pretty.contains("drop"))
+  assert_true(pretty.contains("nop"))
+  assert_false(pretty.contains("drop"))
   assert_true(pretty.contains("I32(7)"))
 }
 
 ///|
-test "simplify-locals skips unreachable local defs outside the ssa overlay" {
+test "simplify-locals removes overwritten pending local sets" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32) i32.const 1 local.set 0 i32.const 2 local.set 0 local.get 0))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected overwritten-set simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set"))
+  assert_false(pretty.contains("local.get"))
+  assert_true(pretty.contains("drop"))
+  assert_true(pretty.contains("I32(1)"))
+  assert_true(pretty.contains("I32(2)"))
+}
+
+///|
+test "simplify-locals collapses drop of a sunk tee back into a set" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32) i32.const 1 local.set 0 local.get 0 drop local.get 0))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected simplify-locals drop-tee collapse success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set"))
+  assert_false(pretty.contains("local.tee"))
+  assert_true(pretty.contains("I32(1)"))
+}
+
+///|
+test "simplify-locals removes unreachable dead local defs outside the ssa overlay" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (result i32) (local i32) block unreachable i32.const 1 local.set 0 end i32.const 7))",
       ["simplify-locals"],
     ) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected unreachable simplify-locals success, got \{err}")
+    Err(err) =>
+      fail("expected unreachable dead-def simplify-locals success, got \{err}")
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set"))
   assert_true(pretty.contains("I32(7)"))
 }
 
