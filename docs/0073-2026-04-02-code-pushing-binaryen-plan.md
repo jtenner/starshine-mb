@@ -136,11 +136,17 @@
 - Passes run through the HOT pipeline contract described in
   [`src/ir/README.md`](../src/ir/README.md) and [`0062`](./0062-2026-03-24-pass-porting-checklist.md):
   `lift -> verify -> analyze -> mutate -> verify -> lower`.
+- [`src/passes/code_pushing.mbt`](../src/passes/code_pushing.mbt) now exists in an
+  analysis-only direct-pass form.
+  The first slice landed Binaryen-style body-local SFA counting plus cached
+  subtree summaries for local/global read-write sets and conservative
+  unremovable-side-effect checks, but it does not yet rewrite HOT regions.
 - [`src/passes/optimize.mbt`](../src/passes/optimize.mbt) currently keeps
   `code-pushing` as a removed pass name and omits it from the `optimize` and
   `shrink` presets.
-- [`src/passes/pass_manager.mbt`](../src/passes/pass_manager.mbt) does not yet
-  dispatch a `code-pushing` hot pass.
+- [`src/passes/pass_manager.mbt`](../src/passes/pass_manager.mbt) now dispatches
+  `code-pushing` for direct hot-pass execution, but the registry and presets do
+  not expose it yet.
 - HOT regions already store root lists directly for root, block, loop, then, else,
   try body, and catch regions.
   That means Starshine does not need Binaryen's `blockify(...)` step when it
@@ -180,6 +186,10 @@
 - Create:
   - [`src/passes/code_pushing.mbt`](../src/passes/code_pushing.mbt)
   - [`src/passes/code_pushing_test.mbt`](../src/passes/code_pushing_test.mbt)
+- CP001 is the first checkpoint of that step.
+  The files now host the direct-pass descriptor, the local SFA analyzer, cached
+  subtree barrier summaries, and focused red-green coverage for the analysis
+  layer.
 - The new pass should mirror Binaryen's structure closely:
   - `code_pushing_descriptor()`
   - `code_pushing_summary()`

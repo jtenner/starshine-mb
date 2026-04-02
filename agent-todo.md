@@ -188,6 +188,7 @@ Observed unique-pass order
    - Exact Binaryen behavior, Starshine surface gaps, and the first-slice implementation plan live in [0073](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L1).
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [CP]001 - SFA Eligibility And Barrier Summaries - Mirror Binaryen's candidate analysis before any rewrite lands.
+     - Status: completed in direct hot-pass form. `src/passes/code_pushing.mbt` now computes Binaryen-style body-local SFA eligibility, cached subtree local/global access summaries, and conservative unremovable-side-effect gating, while `src/passes/code_pushing_test.mbt` locks the analysis layer with focused hot-pass coverage. Registry and preset exposure remain deferred to `[CP]003`.
      - Goal: prove exactly which `local.set` roots are pushable in HOT without silently strengthening the oracle.
      - Why: Binaryen relies on a weaker SFA test plus region-local barrier data, and the shared HOT effect model is currently too coarse to port the pass faithfully.
      - Deliverables: a pass-local postorder analyzer for `num_sets`, `num_gets`, `num_gets_so_far`, and SFA eligibility; cached pushable summaries layered on top of the existing HOT effect mask; a default-semantics `cp_has_unremovable_side_effects(...)` predicate.
@@ -195,7 +196,7 @@ Observed unique-pass order
      - Required APIs / invariants: walk `HotFunc` regions directly; keep the first slice local to `src/passes/code_pushing.mbt`; do not depend on the SSA overlay; match Binaryen's ordinary trap semantics first.
      - Dependencies: [0073 exact behavior](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L49), [0073 main gaps](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L149), [0073 implementation plan 1-3](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L176)
      - Exit criteria: focused tests prove params, non-SFA locals, side-effecting values, and locals with remaining uses after the current block are rejected for movement.
-     - Suggested tests: `moon test src/passes`
+     - Suggested tests: `moon test src/passes/code_pushing_test.mbt`, `moon test src/passes`
      - Doc: [0073](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L1)
    - [CP]002 - Region Rewrite Core And One-Arm If Sinking - Land the actual motion algorithm in Binaryen order.
      - Goal: implement `optimizeSegment` first and `optimizeIntoIf` second for the supported HOT push points.
@@ -228,7 +229,7 @@ Observed unique-pass order
      - Suggested tests: `moon info && moon fmt`, `moon test`, `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --code-pushing`
      - Doc: [0073](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L1)
 3. Do work.
-   - Land `[CP]001 -> [CP]004` in order. Do not expose the preset slot before the rewrite exists and its local safety analysis is in place.
+   - `[CP]001` is landed. Continue with `[CP]002 -> [CP]004` in order, and do not expose the preset slot before the rewrite exists and its local safety analysis is in place.
    - Keep the first landing at Binaryen's default semantics. Leave trap-relaxing modes and non-nullable-local repair as explicit follow-up work unless the required hot-pass APIs land first.
 4. Test against binaryen.
    - Add edge-case and regression tests beside the implementing file plus any scheduler or dispatcher coverage needed for the pass.

@@ -8,6 +8,22 @@ import {
 }
 
 // Values
+pub fn code_pushing_descriptor() -> @ir.HotPassDescriptor
+
+pub fn code_pushing_summary() -> String
+
+pub fn cp_analyze_locals(@ir.HotFunc) -> Array[CpLocalInfo]
+
+pub fn cp_node_has_unremovable_side_effects(@ir.HotFunc, Int) -> Bool
+
+pub fn cp_node_reads_global(@ir.HotFunc, Int, Int) -> Bool
+
+pub fn cp_node_reads_local(@ir.HotFunc, Int, Int) -> Bool
+
+pub fn cp_node_writes_global(@ir.HotFunc, Int, Int) -> Bool
+
+pub fn cp_node_writes_local(@ir.HotFunc, Int, Int) -> Bool
+
 pub fn dead_code_elimination_descriptor() -> @ir.HotPassDescriptor
 
 pub fn dead_code_elimination_summary() -> String
@@ -183,6 +199,18 @@ pub fn tuple_optimization_summary() -> String
 // Errors
 
 // Types and methods
+pub struct CpLocalInfo {
+  num_sets : Int
+  num_gets : Int
+  num_gets_so_far : Int
+  saw_get_before_set : Bool
+  is_param : Bool
+  sfa : Bool
+}
+pub impl Eq for CpLocalInfo
+pub impl Show for CpLocalInfo
+pub impl @debug.Debug for CpLocalInfo
+
 pub struct HotPassContext {
   descriptor : @ir.HotPassDescriptor
   cache : @ir.HotAnalysisCache
