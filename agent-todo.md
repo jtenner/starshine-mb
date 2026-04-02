@@ -185,20 +185,54 @@ Observed unique-pass order
 
 #### CP - Code Pushing
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L213](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L213)
+   - Exact Binaryen behavior, Starshine surface gaps, and the first-slice implementation plan live in [0073](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L1).
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [CP]001 - Motion Safety Rules - Port Binaryen's code-motion rules for pushing work deeper into control flow without duplicating invalid side effects.
-     - Deliverables: encode effect and trap guards for movable expressions; preserve control dependence and size heuristics; define the bailout cases clearly.
-     - Doc: [0066#L213](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L213)
-   - [CP]002 - Rewrite Coverage and Artifact Validation - Implement the move and test it against branchy, trap-sensitive fixtures plus the MoonBit debug artifact.
-     - Deliverables: add regressions for duplicated work, traps, and branch-local constants; wire the pass into the early slot; compare Starshine and Binaryen pass output.
-     - Doc: [0066#L213](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L213)
+   - [CP]001 - SFA Eligibility And Barrier Summaries - Mirror Binaryen's candidate analysis before any rewrite lands.
+     - Goal: prove exactly which `local.set` roots are pushable in HOT without silently strengthening the oracle.
+     - Why: Binaryen relies on a weaker SFA test plus region-local barrier data, and the shared HOT effect model is currently too coarse to port the pass faithfully.
+     - Deliverables: a pass-local postorder analyzer for `num_sets`, `num_gets`, `num_gets_so_far`, and SFA eligibility; cached pushable summaries layered on top of the existing HOT effect mask; a default-semantics `cp_has_unremovable_side_effects(...)` predicate.
+     - Tasks: collect candidate-local stats over HOT regions; track whether later uses remain after the current block; summarize locals/globals read or written by each candidate subtree without widening `src/ir/effects.mbt` yet.
+     - Required APIs / invariants: walk `HotFunc` regions directly; keep the first slice local to `src/passes/code_pushing.mbt`; do not depend on the SSA overlay; match Binaryen's ordinary trap semantics first.
+     - Dependencies: [0073 exact behavior](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L49), [0073 main gaps](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L149), [0073 implementation plan 1-3](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L176)
+     - Exit criteria: focused tests prove params, non-SFA locals, side-effecting values, and locals with remaining uses after the current block are rejected for movement.
+     - Suggested tests: `moon test src/passes`
+     - Doc: [0073](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L1)
+   - [CP]002 - Region Rewrite Core And One-Arm If Sinking - Land the actual motion algorithm in Binaryen order.
+     - Goal: implement `optimizeSegment` first and `optimizeIntoIf` second for the supported HOT push points.
+     - Why: correctness depends on preserving move order, refusing duplication, and matching Binaryen's one-arm sink bailouts exactly.
+     - Deliverables: a backward segment scan for `If`, `BrIf`, `BrOnNull`, `BrOnNonNull`, `BrOnCast`, `BrOnCastFail`, and top-level `Drop` push points; stable reinsertion immediately before the push point; one-arm `if` sinking with `nop` replacement and `unreachable`-typed refusal.
+     - Tasks: push eligible roots past conditional barriers inside one region; ignore control-flow-transfer effects only inside the local barrier logic Binaryen uses; add the arm-use and post-`if` checks before mutating `then` or `else`.
+     - Required APIs / invariants: preserve original order among moved roots; never duplicate computation; never increase execution frequency; never move across barriers that can change observable local, global, memory, table, throw, or trap behavior.
+     - Dependencies: [0073 push points](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L65), [0073 segment rewrite](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L76), [0073 `if` sinking](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L91), [0073 correctness constraints](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L270)
+     - Exit criteria: pass-local tests cover `br_if`, multi-set order preservation, one-arm `if` sinks, blocked both-arm cases, post-`if` use blocks, condition interference, and `br_on_cast`.
+     - Suggested tests: `moon test src/passes`
+     - Doc: [0073](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L1)
+   - [CP]003 - Scheduler, Registry, And Early-Slot Replay - Wire the pass into Starshine's active optimization surfaces.
+     - Goal: expose `code-pushing` as a real hot pass and place it in the correct currently-implemented neighborhood.
+     - Why: parity needs the pass to exist both as a direct flag and in the early preset slot after `precompute`.
+     - Deliverables: `src/passes/code_pushing.mbt` and `src/passes/code_pushing_test.mbt`; dispatch in `src/passes/pass_manager.mbt`; removal of `code-pushing` from the removed-pass set in `src/passes/optimize.mbt`; registry and preset trace coverage for the single CP slot Starshine can model today.
+     - Tasks: add the descriptor and summary surfaces; thread the pass through direct invocation, preset expansion, and any scheduler coverage that currently assumes `code-pushing` is removed; add trace assertions for the early slot.
+     - Required APIs / invariants: keep the current reduced preset order `... -> pick-load-signs -> precompute -> code-pushing -> simplify-locals -> ...`; document missing nested rerun sites instead of inventing them before their surrounding passes exist.
+     - Dependencies: [0073 placement](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L39), [0073 current Starshine surface](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L133), [0073 implementation plan 5](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L232)
+     - Exit criteria: direct `--code-pushing` execution works, `optimize` and `shrink` include the early slot, and preset tests prove the slot appears exactly once in today's reduced path.
+     - Suggested tests: `moon test src/passes`, `moon test src/cmd`
+     - Doc: [0073](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L1)
+   - [CP]004 - Binaryen Parity Proof And Follow-On Gaps - Close the compare loop and keep deferred oracle gaps explicit.
+     - Goal: validate default-semantics parity on the debug artifact and fence off trap-mode or GC follow-up work.
+     - Why: Binaryen's `-tnh`, `--ignore-implicit-traps`, and non-nullable-local repair behavior are real, but they should not be conflated with the first landing.
+     - Deliverables: debug-artifact compare evidence, ordered-prefix replay around `precompute -> code-pushing`, a named pass-fuzz lane if the harness supports it cleanly, and explicit blocker notes for trap-mode policy threading plus GC local-type repair.
+     - Tasks: replay the pass against Binaryen on `tests/node/dist/starshine-debug-wasi.wasm`; preserve any mismatches as saved repros; split remaining gaps into default-semantics bugs vs trap-policy or local-typing follow-up work.
+     - Current blocker: exact TNH / implicit-trap parity needs `HotPipelineOptions` or equivalent hot-pass policy plumbing; the GC `ref-into-if` family is follow-up work until local-type repair is representable in the current pipeline.
+     - Dependencies: [0073 edge cases](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L118), [0073 follow-up scope](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L243), [0073 validation plan](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L282), [0073 open questions](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L307)
+     - Exit criteria: Starshine matches Binaryen on the targeted debug-artifact `code-pushing` replay under default semantics, or the remaining mismatches are reduced to explicitly tracked trap-mode or local-typing gaps.
+     - Suggested tests: `moon info && moon fmt`, `moon test`, `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --code-pushing`
+     - Doc: [0073](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L1)
 3. Do work.
-   - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
-   - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
+   - Land `[CP]001 -> [CP]004` in order. Do not expose the preset slot before the rewrite exists and its local safety analysis is in place.
+   - Keep the first landing at Binaryen's default semantics. Leave trap-relaxing modes and non-nullable-local repair as explicit follow-up work unless the required hot-pass APIs land first.
 4. Test against binaryen.
-   - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
-   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
+   - Add edge-case and regression tests beside the implementing file plus any scheduler or dispatcher coverage needed for the pass.
+   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --code-pushing` and an ordered-prefix replay centered on the early `precompute -> code-pushing` slot.
 
 #### TO - Tuple Optimization
 1. Research exact functionality in document.
