@@ -88,6 +88,44 @@ test "simplify-locals removes overwritten pending local sets" {
 }
 
 ///|
+test "simplify-locals keeps overwritten dead tee values as drops before the final dead write" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) i32.const 34 local.tee 0 drop i32.const 854 local.tee 0 drop))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dead-tee overwrite simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(34)"), msg=pretty)
+  assert_false(pretty.contains("I32(854)"), msg=pretty)
+}
+
+///|
+test "simplify-locals sinks through empty linear block wrappers" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32) i32.const 80 local.set 0 block nop end local.get 0))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected empty-block simplify-locals sink success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("I32(80)"), msg=pretty)
+}
+
+///|
 test "simplify-locals does not sink captured local values past later writes" {
   let optimized = match
     pass_test_run_pipeline(

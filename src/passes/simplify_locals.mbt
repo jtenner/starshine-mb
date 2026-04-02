@@ -724,9 +724,6 @@ fn simplify_locals_record_local_set(
     None => ()
   }
   sinkables[local_id] = None
-  if get_counts[local_id] == 0 {
-    return changed
-  }
   if first_cycle && get_counts[local_id] > 1 {
     return changed
   }
@@ -773,7 +770,37 @@ fn simplify_locals_scan_node(
   let mut changed = false
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Loop => {
+    @ir.HotOp::Block => {
+      if simplify_locals_scan_region(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          sinkables,
+          first_cycle,
+          get_counts,
+          detached,
+        ) {
+        changed = true
+      }
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      let keep_sinkables = if @ir.hot_node_result_arity(func, node_id) != 0 {
+        false
+      } else if simplify_locals_region_has_branch_to_label(
+          func,
+          body_ref,
+          @ir.hot_control_node_label(func, node_id),
+        ) {
+        false
+      } else if simplify_locals_region_is_unreachableish(func, body_ref) {
+        false
+      } else {
+        true
+      }
+      if !keep_sinkables {
+        simplify_locals_clear_sinkables(sinkables)
+      }
+      return changed
+    }
+    @ir.HotOp::Loop => {
       if simplify_locals_scan_region(
           func,
           @ir.hot_region_body_ref(func, node_id),
@@ -875,11 +902,21 @@ fn simplify_locals_scan_node(
     _ =>
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
         let child_id = @ir.hot_child_get(func, node_id, slot)
-        if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+        let scan_child_id = match node.op {
+          @ir.HotOp::Drop if slot == 0 &&
+            child_id >= 0 &&
+            @ir.hot_node_is_live(func, child_id) =>
+            match @ir.hot_node_get(func, child_id).op {
+              @ir.HotOp::LocalTee => @ir.hot_child_get(func, child_id, 0)
+              _ => child_id
+            }
+          _ => child_id
+        }
+        if scan_child_id < 0 || !@ir.hot_node_is_live(func, scan_child_id) {
           continue
         }
         if simplify_locals_scan_node(
-            func, child_id, sinkables, first_cycle, get_counts, detached,
+            func, scan_child_id, sinkables, first_cycle, get_counts, detached,
           ) {
           changed = true
         }

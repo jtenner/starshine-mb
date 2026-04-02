@@ -41,6 +41,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
+    pass_registry_category("reorder-locals"),
+    Some(HotPassRegistryCategory::boundary_only()),
+  )
+  assert_eq(
     pass_registry_category("duplicate-function-elimination"),
     Some(HotPassRegistryCategory::module_pass()),
   )

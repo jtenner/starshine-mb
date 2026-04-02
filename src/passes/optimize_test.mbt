@@ -354,6 +354,76 @@ test "optimize preset schedules heap2local in the mid-function GC slot" {
   assert_eq(optimize[15], "remove-unused-brs")
   assert_eq(optimize[16], "heap2local")
   assert_eq(optimize[17], "simplify-locals")
+
+test "optimize preset keeps simplify-locals in the late modeled cleanup slot" {
+  let trace : Array[String] = []
+  let input = pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) (local i32) local.get 0 if i32.const 1 local.set 1 else i32.const 2 local.set 1 end local.get 1))",
+  )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["optimize"],
+    ) {
+    Ok(mod) => mod
+    Err(err) => fail("expected optimize pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected optimized module to validate, got \{err}")
+  }
+
+  let starts : Array[String] = []
+  for line in trace {
+    if line.contains(":start") {
+      starts.push(line)
+    }
+  }
+  let mut sl_idx = -1
+  let mut sl_count = 0
+  for idx = 0; idx < starts.length(); idx = idx + 1 {
+    if starts[idx].contains("pass[simplify-locals]:start") {
+      sl_count += 1
+      sl_idx = idx
+    }
+  }
+  assert_eq(sl_count, 1)
+  assert_true(sl_idx > 0, msg=starts.to_string())
+  assert_true(
+    starts[sl_idx - 1].contains("pass[precompute]:start"),
+    msg=starts.to_string(),
+  )
+  assert_true(
+    sl_idx + 1 < starts.length() &&
+    starts[sl_idx + 1].contains("pass[remove-unused-brs]:start"),
+    msg=starts.to_string(),
+  )
+}
+
+///|
+test "vacuum cleans simplify-locals structured return residue in the late cleanup pair" {
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(
+        "(module (func (param i32) (result i32) (local i32) block $exit local.get 0 if i32.const 1 local.set 1 br $exit end i32.const 2 local.set 1 end local.get 1))",
+      ),
+      HotPipelineOptions::new(),
+      ["simplify-locals", "vacuum"],
+    ) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected simplify-locals/vacuum cleanup success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected cleanup pair module to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("block I32"), msg=pretty)
 }
 
 ///|
