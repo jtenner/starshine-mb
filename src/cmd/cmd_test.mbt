@@ -1781,6 +1781,46 @@ test "run_cmd_with_adapter applies ssa-nomerge to wasm inputs" {
 }
 
 ///|
+test "run_cmd_with_adapter accepts tuple-optimization" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (result i32) (local i32 i32 i32) block (result i32 i32 i32) i32.const 10 i32.const 20 i32.const 30 end local.set 2 local.set 1 local.set 0 local.get 0))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple.wasm"] },
+    file_exists=fn(path) { path == "tuple.wasm" },
+    read_file=fn(path) {
+      if path == "tuple.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--tuple-optimization", "--out", "out.wasm", "tuple.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected tuple-optimization run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["tuple-optimization"])
+  assert_eq(writes.length(), 1)
+  match @validate.validate_module(decode_module_bytes(writes[0].1)) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected tuple-optimization output to validate, got \{err}")
+  }
+}
+
+///|
 #cfg(target="native")
 test "run_cmd_with_adapter validates ssa-nomerge on debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"

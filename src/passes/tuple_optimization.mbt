@@ -17,6 +17,28 @@ struct HotTupleOptimizationAnalysis {
 } derive(Eq, Show, Debug)
 
 ///|
+pub fn tuple_optimization_descriptor() -> @ir.HotPassDescriptor {
+  @ir.HotPassDescriptor::new(
+    "tuple-optimization",
+    requires=[@ir.HotAnalysis::use_def()],
+    invalidates=[
+      @ir.HotAnalysis::cfg(),
+      @ir.HotAnalysis::dominance(),
+      @ir.HotAnalysis::liveness(),
+      @ir.HotAnalysis::use_def(),
+      @ir.HotAnalysis::effects(),
+      @ir.HotAnalysis::loop_info(),
+      @ir.HotAnalysis::ssa(),
+    ],
+  )
+}
+
+///|
+pub fn tuple_optimization_summary() -> String {
+  "Split exact HOT multivalue spill and copy bridges into fresh scalar locals before later local cleanup."
+}
+
+///|
 fn tuple_optimization_may_have_candidates(func : @ir.HotFunc) -> Bool {
   let mut has_multivalue = false
   let mut has_local_writes = false
@@ -702,4 +724,23 @@ fn tuple_optimization_rewrite_good_components(
     }
   }
   true
+}
+
+///|
+fn tuple_optimization_run(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> HotPassResult {
+  if !tuple_optimization_may_have_candidates(func) {
+    return HotPassResult::unchanged()
+  }
+  let analysis = tuple_optimization_analyze(
+    func,
+    pass_require_use_def(ctx, func),
+  )
+  if tuple_optimization_rewrite_good_components(ctx, func, analysis) {
+    HotPassResult::changed()
+  } else {
+    HotPassResult::unchanged()
+  }
 }

@@ -135,11 +135,10 @@ fn pass_registry_removed_names() -> Array[String] {
   [
     "avoid-reinterprets", "coalesce-locals", "code-folding", "code-pushing", "const-hoisting",
     "dataflow-optimization", "local-cse", "local-subtyping", "loop-invariant-code-motion",
-    "merge-locals", "merge-blocks", "flatten", "re-reloop", "tuple-optimization",
-    "optimize-added-constants", "optimize-added-constants-propagate", "precompute-propagate",
-    "redundant-set-elimination", "optimize-casts", "de-nan", "simplify-locals-no-tee",
-    "simplify-locals-no-structure", "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting",
-    "untee",
+    "merge-locals", "merge-blocks", "flatten", "re-reloop", "optimize-added-constants",
+    "optimize-added-constants-propagate", "precompute-propagate", "redundant-set-elimination",
+    "optimize-casts", "de-nan", "simplify-locals-no-tee", "simplify-locals-no-structure",
+    "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting", "untee",
   ]
 }
 
@@ -198,6 +197,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "pick-load-signs",
       pick_load_signs_summary(),
       pick_load_signs_descriptor(),
+    ),
+    pass_registry_entry_hot(
+      "tuple-optimization",
+      tuple_optimization_summary(),
+      tuple_optimization_descriptor(),
     ),
     pass_registry_entry_hot(
       "precompute",

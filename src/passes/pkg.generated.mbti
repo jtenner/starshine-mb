@@ -166,6 +166,10 @@ pub fn ssa_nomerge_descriptor() -> @ir.HotPassDescriptor
 
 pub fn ssa_nomerge_summary() -> String
 
+pub fn tuple_optimization_descriptor() -> @ir.HotPassDescriptor
+
+pub fn tuple_optimization_summary() -> String
+
 // Errors
 
 // Types and methods

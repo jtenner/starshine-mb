@@ -218,6 +218,12 @@ Once the pass exists and has artifact proof:
 - place it between `code-pushing` and `simplify-locals-nostructure`
 - add dispatcher / CLI coverage where the active pass surface expects it
 
+Current status (`2026-04-02`):
+
+- The HOT-native tuple rewrite is now active on the explicit hot-pass surface: the registry, pass manager dispatch, and CLI flag all accept `tuple-optimization`.
+- The default `optimize` / `shrink` preset order is intentionally unchanged in this tree for now.
+- The remaining scheduler work is therefore the exact Binaryen slot and multivalue gate, not generic pass activation anymore.
+
 ## Concrete First Slice Plan
 
 1. Add the doc-backed pass skeleton and tests first.

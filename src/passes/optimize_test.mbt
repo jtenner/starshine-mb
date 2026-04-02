@@ -60,6 +60,23 @@ test "run_hot_pipeline accepts remove-unused-names as an active hot pass" {
 }
 
 ///|
+test "run_hot_pipeline accepts tuple-optimization as an active hot pass" {
+  let input = pass_test_module_from_wat(
+    "(module (func (result i32) (local i32 i32 i32) block (result i32 i32 i32) i32.const 10 i32.const 20 i32.const 30 end local.set 2 local.set 1 local.set 0 local.get 0))",
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["tuple-optimization"]) {
+    Ok(mod) => mod
+    Err(err) => fail("expected tuple-optimization pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected tuple-optimization module to validate, got \{err}")
+  }
+}
+
+///|
 test "optimize preset replays remove-unused-names in all RUN slots" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat("(module (func loop br 0 end))")

@@ -33,6 +33,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
+    pass_registry_category("tuple-optimization"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
     pass_registry_category("simplify-locals"),
     Some(HotPassRegistryCategory::hot_pass()),
   )
@@ -89,6 +93,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   let opt = optimize_instructions_descriptor()
   let precompute = precompute_descriptor()
   let pls = pick_load_signs_descriptor()
+  let tuple = tuple_optimization_descriptor()
   let hso = heap_store_optimization_descriptor()
   let h2l = heap2local_descriptor()
   let locals = simplify_locals_descriptor()
@@ -103,6 +108,8 @@ test "batch 1 descriptors expose the active first hot ports" {
   assert_eq(@ir.hot_pass_requires(precompute), [])
   assert_eq(pls.name, "pick-load-signs")
   assert_eq(@ir.hot_pass_requires(pls), [@ir.HotAnalysis::use_def()])
+  assert_eq(tuple.name, "tuple-optimization")
+  assert_eq(@ir.hot_pass_requires(tuple), [@ir.HotAnalysis::use_def()])
   assert_eq(hso.name, "heap-store-optimization")
   assert_true(@ir.hot_pass_requires(hso).contains(@ir.HotAnalysis::effects()))
   assert_eq(h2l.name, "heap2local")
@@ -149,5 +156,23 @@ test "run_hot_pipeline rejects removed registry names" {
   match run_hot_pipeline(input, HotPipelineOptions::new(), ["de-nan"]) {
     Ok(_) => fail("expected removed registry name to reject in hot pipeline")
     Err(err) => assert_true(err.contains("removed"))
+  }
+}
+
+///|
+test "run_hot_pipeline accepts tuple-optimization as an active hot pass" {
+  let input = pass_test_module_from_wat(
+    "(module (func (result i32) (local i32 i32) (block (result i32 i32) i32.const 5 i32.const 9) local.set 0 local.set 1 local.get 0))",
+  )
+
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["tuple-optimization"]) {
+    Ok(mod) => mod
+    Err(err) => fail("expected tuple-optimization pipeline success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, _)])) => assert_eq(locals.length(), 4)
+    other =>
+      fail("expected single-function tuple-optimization module, got \{other}")
   }
 }
