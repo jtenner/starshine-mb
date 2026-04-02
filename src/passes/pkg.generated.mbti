@@ -286,6 +286,16 @@ pub enum HotPipelineVerifyTarget {
   ModuleTarget(@lib.Module)
 }
 
+type HotTupleOptimizationAnalysis
+pub impl Eq for HotTupleOptimizationAnalysis
+pub impl Show for HotTupleOptimizationAnalysis
+pub impl @debug.Debug for HotTupleOptimizationAnalysis
+
+type HotTupleOptimizationGroup
+pub impl Eq for HotTupleOptimizationGroup
+pub impl Show for HotTupleOptimizationGroup
+pub impl @debug.Debug for HotTupleOptimizationGroup
+
 // Type aliases
 
 // Traits
