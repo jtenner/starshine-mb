@@ -88,6 +88,42 @@ test "simplify-locals removes overwritten pending local sets" {
 }
 
 ///|
+test "simplify-locals does not sink captured local values past later writes" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) local.get 1 local.set 2 i32.const 7 local.set 1 local.get 2))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected local-conflict simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 2)"), msg=pretty)
+}
+
+///|
+test "simplify-locals canonicalizes equivalent copies across adjacent blocks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) block local.get 0 local.set 1 end local.get 1 local.get 0 i32.add))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected equivalent-copy simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("local.get 1"), msg=pretty)
+}
+
+///|
 test "simplify-locals collapses drop of a sunk tee back into a set" {
   let optimized = match
     pass_test_run_pipeline(

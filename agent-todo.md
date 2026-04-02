@@ -399,9 +399,6 @@ Observed unique-pass order
 1. Research exact functionality in document.
    - Research exactly how it works with the simplify-locals pass folder and archived note: [simplify-locals index](./docs/wiki/binaryen/passes/simplify-locals/index.md), [Binaryen strategy](./docs/wiki/binaryen/passes/simplify-locals/binaryen-strategy.md), and [0076 archived research note](./docs/wiki/raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [SL]002 - Effect Ordering and Equivalent Copy Cleanup - Match Binaryen's directional invalidation rules and late equivalent-local canonicalization before structured lifting lands.
-     - Deliverables: add pass-local ordered effect summaries; block unsafe motion across locals, globals, memory, and control; canonicalize equivalent gets with type-refinement preference; remove redundant copy traffic in the full late pass.
-     - Doc: [Binaryen strategy](./docs/wiki/binaryen/passes/simplify-locals/binaryen-strategy.md)
    - [SL]003 - Structured Return Families - Port the block, if, and loop return rewrites that Binaryen's full late `simplify-locals` uses after the no-structure core is stable.
      - Deliverables: implement block-return lifting, if-else and unreachable-arm lifting, the one-armed-if defaultable-local guard, and loop-return lifting through hot region edits without regressing typed lowering.
      - Doc: [Binaryen strategy](./docs/wiki/binaryen/passes/simplify-locals/binaryen-strategy.md)
