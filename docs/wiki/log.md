@@ -270,6 +270,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded that the earlier `moon run`-backed long lane `/tmp/pass-fuzz-tuple-gen-valid-10000-emptysummary-2026-04-10` stopped after `2124` matches with repeated missing-output validation failures, while direct replay of the first recorded input still writes valid output, so the current evidence points at launcher churn rather than a tuple-opt semantic regression.
 - Added the later reduced timing ladder entries `/tmp/self-opt-tuple-tail-live0-sharedmarks-2026-04-10` and `/tmp/self-opt-tuple-tail-live0-cleanupfast-2026-04-10`, which show that the newer shared traversal-mark reuse and cleanup fast-path experiments did not beat the earlier `0.511 ms` reduced pass checkpoint.
 
+## [2026-04-10] ingest | crystallize simplify-locals research into the pass folder
+
+- Moved the branch-local `simplify-locals` research note into `docs/wiki/raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md` because archive serial `0073` is already assigned in the shared wiki history.
+- Expanded `binaryen/passes/simplify-locals/` with a real landing page plus `binaryen-strategy.md` and `starshine-hot-ir-strategy.md`.
+- Recorded the staged Binaryen sink and cleanup model, the repo's no-structure-first HOT-IR port strategy, and the fact that the archived note is a historical source while living Binaryen pass pages now track the shared `version_129` oracle.
+- Updated `docs/wiki/index.md` and `docs/wiki/binaryen/passes/index.md` so the new simplify-locals pages are discoverable.
+
 ## [2026-04-10] research | map MoonBit formal proof rollout
 
 - Added archived research note `docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md` covering the current official `moon prove` workflow, local CLI/toolchain evidence, proof-model constraints, and a Starshine target matrix.
