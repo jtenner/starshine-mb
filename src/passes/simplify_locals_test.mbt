@@ -126,6 +126,24 @@ test "simplify-locals sinks through empty linear block wrappers" {
 }
 
 ///|
+test "simplify-locals does not sink value reads across later writes to the source local" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) local.get 1 local.set 2 i32.const 9 local.set 1 local.get 2))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected source-local ordering simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+}
+
+///|
 test "simplify-locals does not sink captured local values past later writes" {
   let optimized = match
     pass_test_run_pipeline(

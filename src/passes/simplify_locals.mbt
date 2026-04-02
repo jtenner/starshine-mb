@@ -30,6 +30,13 @@ priv struct SimplifyLocalsSinkableInfo {
 }
 
 ///|
+priv struct SimplifyLocalsSinkables {
+  entries : Array[SimplifyLocalsSinkableInfo?]
+  active_pos : Array[Int]
+  active_locals : Array[Int]
+}
+
+///|
 priv struct SimplifyLocalsTailSet {
   root_idx : Int
   node_id : Int
@@ -48,23 +55,86 @@ priv struct SimplifyLocalsBranchExit {
 }
 
 ///|
-fn simplify_locals_new_sinkables(
-  func : @ir.HotFunc,
-) -> Array[SimplifyLocalsSinkableInfo?] {
-  Array::make(@ir.hot_local_count(func), None)
-}
-
-///|
-fn simplify_locals_clear_sinkables(
-  sinkables : Array[SimplifyLocalsSinkableInfo?],
-) -> Unit {
-  for idx = 0; idx < sinkables.length(); idx = idx + 1 {
-    sinkables[idx] = None
+fn simplify_locals_new_sinkables(func : @ir.HotFunc) -> SimplifyLocalsSinkables {
+  {
+    entries: Array::make(@ir.hot_local_count(func), None),
+    active_pos: Array::make(@ir.hot_local_count(func), -1),
+    active_locals: [],
   }
 }
 
 ///|
-fn simplify_locals_collect_local_effects(
+fn simplify_locals_sinkables_get(
+  sinkables : SimplifyLocalsSinkables,
+  local_id : Int,
+) -> SimplifyLocalsSinkableInfo? {
+  if local_id < 0 || local_id >= sinkables.entries.length() {
+    return None
+  }
+  sinkables.entries[local_id]
+}
+
+///|
+fn simplify_locals_sinkables_set(
+  sinkables : SimplifyLocalsSinkables,
+  local_id : Int,
+  info : SimplifyLocalsSinkableInfo,
+) -> Unit {
+  if local_id < 0 || local_id >= sinkables.entries.length() {
+    return
+  }
+  if sinkables.active_pos[local_id] < 0 {
+    sinkables.active_pos[local_id] = sinkables.active_locals.length()
+    sinkables.active_locals.push(local_id)
+  }
+  sinkables.entries[local_id] = Some(info)
+}
+
+///|
+fn simplify_locals_sinkables_clear_local(
+  sinkables : SimplifyLocalsSinkables,
+  local_id : Int,
+) -> Unit {
+  if local_id < 0 || local_id >= sinkables.entries.length() {
+    return
+  }
+  let pos = sinkables.active_pos[local_id]
+  if pos >= 0 {
+    let last_local = sinkables.active_locals.pop().unwrap()
+    if last_local != local_id {
+      sinkables.active_locals[pos] = last_local
+      sinkables.active_pos[last_local] = pos
+    }
+    sinkables.active_pos[local_id] = -1
+  }
+  sinkables.entries[local_id] = None
+}
+
+///|
+fn simplify_locals_clear_sinkables(sinkables : SimplifyLocalsSinkables) -> Unit {
+  while !sinkables.active_locals.is_empty() {
+    let local_id = sinkables.active_locals.pop().unwrap()
+    sinkables.entries[local_id] = None
+    sinkables.active_pos[local_id] = -1
+  }
+}
+
+///|
+fn simplify_locals_new_local_effect_bits(func : @ir.HotFunc) -> Array[Bool] {
+  Array::make(@ir.hot_local_count(func), false)
+}
+
+///|
+fn simplify_locals_empty_effects(func : @ir.HotFunc) -> SimplifyLocalsEffects {
+  {
+    mask: 0U,
+    local_reads: simplify_locals_new_local_effect_bits(func),
+    local_writes: simplify_locals_new_local_effect_bits(func),
+  }
+}
+
+///|
+fn simplify_locals_record_exact_local_effects(
   func : @ir.HotFunc,
   node_id : Int,
   local_reads : Array[Bool],
@@ -85,28 +155,220 @@ fn simplify_locals_collect_local_effects(
       }
     _ => ()
   }
+}
+
+///|
+fn simplify_locals_collect_subtree_local_effects(
+  func : @ir.HotFunc,
+  node_id : Int,
+  local_reads : Array[Bool],
+  local_writes : Array[Bool],
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  simplify_locals_record_exact_local_effects(
+    func, node_id, local_reads, local_writes,
+  )
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
-    simplify_locals_collect_local_effects(
+    simplify_locals_collect_subtree_local_effects(
       func, child_id, local_reads, local_writes,
     )
   }
 }
 
 ///|
-fn simplify_locals_effects_for_node(
+fn simplify_locals_effects_mask_for_flags(flags : UInt) -> @ir.EffectMask {
+  let mut mask = 0U
+  if (flags & @ir.HOT_FLAG_CONTROL) != 0U ||
+    (flags & @ir.HOT_FLAG_BRANCH) != 0U ||
+    (flags & @ir.HOT_FLAG_TERMINATOR) != 0U {
+    mask = mask | @ir.EFFECT_MASK_CONTROL
+  }
+  if (flags & @ir.HOT_FLAG_CALL) != 0U {
+    mask = mask | @ir.EFFECT_MASK_CALL | @ir.EFFECT_MASK_THROW
+  }
+  if (flags & @ir.HOT_FLAG_THROWS) != 0U ||
+    (flags & @ir.HOT_FLAG_HAS_EXCEPTIONAL_SUCC) != 0U {
+    mask = mask | @ir.EFFECT_MASK_THROW
+  }
+  if (flags & @ir.HOT_FLAG_MAY_TRAP) != 0U {
+    mask = mask | @ir.EFFECT_MASK_TRAP
+  }
+  mask
+}
+
+///|
+fn simplify_locals_effects_mask_for_atomic_exact(
+  instr : @lib.Instruction?,
+) -> @ir.EffectMask {
+  match instr {
+    Some(@lib.Instruction::MemoryAtomicNotify(_)) =>
+      @ir.EFFECT_MASK_MEMORY_WRITE | @ir.EFFECT_MASK_TRAP
+    Some(@lib.Instruction::MemoryAtomicWait32(_))
+    | Some(@lib.Instruction::MemoryAtomicWait64(_))
+    | Some(@lib.Instruction::I32AtomicLoad(_))
+    | Some(@lib.Instruction::I64AtomicLoad(_))
+    | Some(@lib.Instruction::I32AtomicLoad8U(_))
+    | Some(@lib.Instruction::I32AtomicLoad16U(_))
+    | Some(@lib.Instruction::I64AtomicLoad8U(_))
+    | Some(@lib.Instruction::I64AtomicLoad16U(_))
+    | Some(@lib.Instruction::I64AtomicLoad32U(_)) =>
+      @ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_TRAP
+    Some(@lib.Instruction::I32AtomicStore(_))
+    | Some(@lib.Instruction::I64AtomicStore(_))
+    | Some(@lib.Instruction::I32AtomicStore8(_))
+    | Some(@lib.Instruction::I32AtomicStore16(_))
+    | Some(@lib.Instruction::I64AtomicStore8(_))
+    | Some(@lib.Instruction::I64AtomicStore16(_))
+    | Some(@lib.Instruction::I64AtomicStore32(_)) =>
+      @ir.EFFECT_MASK_MEMORY_WRITE | @ir.EFFECT_MASK_TRAP
+    Some(@lib.Instruction::AtomicRmw(_, _))
+    | Some(@lib.Instruction::AtomicCmpxchg(_, _)) =>
+      @ir.EFFECT_MASK_MEMORY_READ |
+      @ir.EFFECT_MASK_MEMORY_WRITE |
+      @ir.EFFECT_MASK_TRAP
+    _ =>
+      @ir.EFFECT_MASK_MEMORY_READ |
+      @ir.EFFECT_MASK_MEMORY_WRITE |
+      @ir.EFFECT_MASK_TRAP
+  }
+}
+
+///|
+fn simplify_locals_effects_mask_for_heap_exact(
+  instr : @lib.Instruction?,
+) -> @ir.EffectMask {
+  match instr {
+    Some(@lib.Instruction::StructGet(_, _))
+    | Some(@lib.Instruction::StructGetS(_, _))
+    | Some(@lib.Instruction::StructGetU(_, _))
+    | Some(@lib.Instruction::ArrayGet(_))
+    | Some(@lib.Instruction::ArrayGetS(_))
+    | Some(@lib.Instruction::ArrayGetU(_))
+    | Some(@lib.Instruction::ArrayLen)
+    | Some(@lib.Instruction::RefGetDesc(_)) =>
+      @ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_TRAP
+    Some(@lib.Instruction::StructSet(_, _))
+    | Some(@lib.Instruction::ArraySet(_))
+    | Some(@lib.Instruction::ArrayFill(_)) =>
+      @ir.EFFECT_MASK_MEMORY_WRITE | @ir.EFFECT_MASK_TRAP
+    Some(@lib.Instruction::StructNew(_))
+    | Some(@lib.Instruction::StructNewDefault(_))
+    | Some(@lib.Instruction::StructNewDesc(_))
+    | Some(@lib.Instruction::StructNewDefaultDesc(_))
+    | Some(@lib.Instruction::ArrayNew(_))
+    | Some(@lib.Instruction::ArrayNewDefault(_))
+    | Some(@lib.Instruction::ArrayNewFixed(_, _))
+    | Some(@lib.Instruction::ArrayNewData(_, _))
+    | Some(@lib.Instruction::ArrayNewElem(_, _))
+    | Some(@lib.Instruction::ArrayCopy(_, _))
+    | Some(@lib.Instruction::ArrayInitData(_, _))
+    | Some(@lib.Instruction::ArrayInitElem(_, _)) =>
+      @ir.EFFECT_MASK_MEMORY_READ |
+      @ir.EFFECT_MASK_MEMORY_WRITE |
+      @ir.EFFECT_MASK_TRAP
+    Some(@lib.Instruction::RefAsNonNull)
+    | Some(@lib.Instruction::I31GetS)
+    | Some(@lib.Instruction::I31GetU) => @ir.EFFECT_MASK_TRAP
+    Some(@lib.Instruction::RefEq)
+    | Some(@lib.Instruction::AnyConvertExtern)
+    | Some(@lib.Instruction::ExternConvertAny)
+    | Some(@lib.Instruction::RefI31) => 0U
+    _ => @ir.EFFECT_MASK_TRAP
+  }
+}
+
+///|
+fn simplify_locals_effects_mask_for_exact_node(
   func : @ir.HotFunc,
   node_id : Int,
-) -> SimplifyLocalsEffects {
-  let local_reads = Array::make(@ir.hot_local_count(func), false)
-  let local_writes = Array::make(@ir.hot_local_count(func), false)
+) -> @ir.EffectMask {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return { mask: 0U, local_reads, local_writes }
+    return 0U
   }
-  simplify_locals_collect_local_effects(
-    func, node_id, local_reads, local_writes,
-  )
-  { mask: @ir.effects_for_node(func, node_id), local_reads, local_writes }
+  let node = @ir.hot_node_get(func, node_id)
+  let exact_mask = match node.op {
+    @ir.HotOp::LocalGet | @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+      @ir.EFFECT_MASK_LOCAL_STATE
+    @ir.HotOp::GlobalGet | @ir.HotOp::GlobalSet => @ir.EFFECT_MASK_GLOBAL_STATE
+    @ir.HotOp::Load => @ir.EFFECT_MASK_MEMORY_READ
+    @ir.HotOp::Store => @ir.EFFECT_MASK_MEMORY_WRITE
+    @ir.HotOp::MemorySize => @ir.EFFECT_MASK_MEMORY_READ
+    @ir.HotOp::MemoryGrow =>
+      @ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_MEMORY_WRITE
+    @ir.HotOp::MemoryCopy | @ir.HotOp::MemoryInit =>
+      @ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_MEMORY_WRITE
+    @ir.HotOp::MemoryFill | @ir.HotOp::DataDrop => @ir.EFFECT_MASK_MEMORY_WRITE
+    @ir.HotOp::TableGet | @ir.HotOp::TableSize => @ir.EFFECT_MASK_TABLE_READ
+    @ir.HotOp::TableSet
+    | @ir.HotOp::TableGrow
+    | @ir.HotOp::TableFill
+    | @ir.HotOp::ElemDrop => @ir.EFFECT_MASK_TABLE_WRITE
+    @ir.HotOp::TableCopy | @ir.HotOp::TableInit =>
+      @ir.EFFECT_MASK_TABLE_READ | @ir.EFFECT_MASK_TABLE_WRITE
+    @ir.HotOp::Atomic =>
+      simplify_locals_effects_mask_for_atomic_exact(
+        @ir.hot_node_exact_instr(func, node_id),
+      )
+    @ir.HotOp::Heap =>
+      simplify_locals_effects_mask_for_heap_exact(
+        @ir.hot_node_exact_instr(func, node_id),
+      )
+    _ => 0U
+  }
+  simplify_locals_effects_mask_for_flags(node.flags) | exact_mask
+}
+
+///|
+fn simplify_locals_exact_local_read_id(node : @ir.HotNode) -> Int {
+  match node.op {
+    @ir.HotOp::LocalGet => node.imm0
+    _ => -1
+  }
+}
+
+///|
+fn simplify_locals_exact_local_write_id(node : @ir.HotNode) -> Int {
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => node.imm0
+    _ => -1
+  }
+}
+
+///|
+fn simplify_locals_effects_for_pending_local_set(
+  func : @ir.HotFunc,
+  node_id : Int,
+  node : @ir.HotNode,
+) -> SimplifyLocalsEffects {
+  let effects = simplify_locals_empty_effects(func)
+  let value_mask = if node.child_count != 0 {
+    @ir.effects_for_node(func, @ir.hot_child_get(func, node_id, 0))
+  } else {
+    0U
+  }
+  if node.child_count != 0 &&
+    simplify_locals_effects_has(value_mask, @ir.EFFECT_MASK_LOCAL_STATE) &&
+    !simplify_locals_effects_has(
+      value_mask,
+      @ir.EFFECT_MASK_CALL |
+      @ir.EFFECT_MASK_CONTROL |
+      @ir.EFFECT_MASK_THROW |
+      @ir.EFFECT_MASK_TRAP,
+    ) {
+    simplify_locals_collect_subtree_local_effects(
+      func,
+      @ir.hot_child_get(func, node_id, 0),
+      effects.local_reads,
+      effects.local_writes,
+    )
+  }
+  if node.imm0 >= 0 && node.imm0 < effects.local_writes.length() {
+    effects.local_writes[node.imm0] = true
+  }
+  { ..effects, mask: value_mask | @ir.EFFECT_MASK_LOCAL_STATE }
 }
 
 ///|
@@ -118,17 +380,20 @@ fn simplify_locals_effects_has(
 }
 
 ///|
-fn simplify_locals_effects_conflict_locals(
+fn simplify_locals_effects_conflict_exact_local(
   lhs : SimplifyLocalsEffects,
-  rhs : SimplifyLocalsEffects,
+  rhs_local_read : Int,
+  rhs_local_write : Int,
 ) -> Bool {
-  for idx = 0; idx < lhs.local_reads.length(); idx = idx + 1 {
-    if lhs.local_writes[idx] && (rhs.local_reads[idx] || rhs.local_writes[idx]) {
-      return true
-    }
-    if lhs.local_reads[idx] && rhs.local_writes[idx] {
-      return true
-    }
+  if rhs_local_read >= 0 &&
+    rhs_local_read < lhs.local_writes.length() &&
+    lhs.local_writes[rhs_local_read] {
+    return true
+  }
+  if rhs_local_write >= 0 &&
+    rhs_local_write < lhs.local_reads.length() &&
+    (lhs.local_reads[rhs_local_write] || lhs.local_writes[rhs_local_write]) {
+    return true
   }
   false
 }
@@ -136,10 +401,12 @@ fn simplify_locals_effects_conflict_locals(
 ///|
 fn simplify_locals_effects_ordered_before(
   lhs : SimplifyLocalsEffects,
-  rhs : SimplifyLocalsEffects,
+  rhs_mask : @ir.EffectMask,
+  rhs_local_read : Int,
+  rhs_local_write : Int,
 ) -> Bool {
   if simplify_locals_effects_has(lhs.mask, @ir.EFFECT_MASK_CALL) ||
-    simplify_locals_effects_has(rhs.mask, @ir.EFFECT_MASK_CALL) {
+    simplify_locals_effects_has(rhs_mask, @ir.EFFECT_MASK_CALL) {
     return true
   }
 
@@ -148,19 +415,23 @@ fn simplify_locals_effects_ordered_before(
     @ir.EFFECT_MASK_CONTROL | @ir.EFFECT_MASK_THROW,
   )
   let rhs_non_linear = simplify_locals_effects_has(
-    rhs.mask,
+    rhs_mask,
     @ir.EFFECT_MASK_CONTROL | @ir.EFFECT_MASK_THROW,
   )
-  if (lhs_non_linear || rhs_non_linear) && lhs.mask != 0U && rhs.mask != 0U {
+  if (lhs_non_linear || rhs_non_linear) && lhs.mask != 0U && rhs_mask != 0U {
     return true
   }
 
-  if simplify_locals_effects_conflict_locals(lhs, rhs) {
+  if simplify_locals_effects_has(lhs.mask, @ir.EFFECT_MASK_LOCAL_STATE) &&
+    simplify_locals_effects_has(rhs_mask, @ir.EFFECT_MASK_LOCAL_STATE) &&
+    simplify_locals_effects_conflict_exact_local(
+      lhs, rhs_local_read, rhs_local_write,
+    ) {
     return true
   }
 
   if simplify_locals_effects_has(lhs.mask, @ir.EFFECT_MASK_GLOBAL_STATE) &&
-    simplify_locals_effects_has(rhs.mask, @ir.EFFECT_MASK_GLOBAL_STATE) {
+    simplify_locals_effects_has(rhs_mask, @ir.EFFECT_MASK_GLOBAL_STATE) {
     return true
   }
 
@@ -173,11 +444,11 @@ fn simplify_locals_effects_ordered_before(
     @ir.EFFECT_MASK_MEMORY_WRITE,
   )
   let rhs_reads_memory = simplify_locals_effects_has(
-    rhs.mask,
+    rhs_mask,
     @ir.EFFECT_MASK_MEMORY_READ,
   )
   let rhs_writes_memory = simplify_locals_effects_has(
-    rhs.mask,
+    rhs_mask,
     @ir.EFFECT_MASK_MEMORY_WRITE,
   )
   if lhs_writes_memory && (rhs_reads_memory || rhs_writes_memory) {
@@ -196,11 +467,11 @@ fn simplify_locals_effects_ordered_before(
     @ir.EFFECT_MASK_TABLE_WRITE,
   )
   let rhs_reads_table = simplify_locals_effects_has(
-    rhs.mask,
+    rhs_mask,
     @ir.EFFECT_MASK_TABLE_READ,
   )
   let rhs_writes_table = simplify_locals_effects_has(
-    rhs.mask,
+    rhs_mask,
     @ir.EFFECT_MASK_TABLE_WRITE,
   )
   if lhs_writes_table && (rhs_reads_table || rhs_writes_table) {
@@ -211,8 +482,8 @@ fn simplify_locals_effects_ordered_before(
   }
 
   let lhs_traps = simplify_locals_effects_has(lhs.mask, @ir.EFFECT_MASK_TRAP)
-  let rhs_traps = simplify_locals_effects_has(rhs.mask, @ir.EFFECT_MASK_TRAP)
-  if lhs_traps && rhs.mask != 0U {
+  let rhs_traps = simplify_locals_effects_has(rhs_mask, @ir.EFFECT_MASK_TRAP)
+  if lhs_traps && rhs_mask != 0U {
     return true
   }
   if rhs_traps && lhs.mask != 0U {
@@ -225,25 +496,39 @@ fn simplify_locals_effects_ordered_before(
 ///|
 fn simplify_locals_invalidate_sinkables(
   func : @ir.HotFunc,
-  sinkables : Array[SimplifyLocalsSinkableInfo?],
-  effects : SimplifyLocalsEffects,
+  node_id : Int,
+  node : @ir.HotNode,
+  sinkables : SimplifyLocalsSinkables,
   skip_local? : Int = -1,
 ) -> Unit {
-  if effects.mask == 0U {
+  let effects_mask = simplify_locals_effects_mask_for_exact_node(func, node_id)
+  if effects_mask == 0U {
     return
   }
-  for idx = 0; idx < sinkables.length(); idx = idx + 1 {
-    if idx == skip_local {
+  let effects_local_read = simplify_locals_exact_local_read_id(node)
+  let effects_local_write = simplify_locals_exact_local_write_id(node)
+  let mut idx = 0
+  while idx < sinkables.active_locals.length() {
+    let local_id = sinkables.active_locals[idx]
+    if local_id == skip_local {
+      idx = idx + 1
       continue
     }
-    match sinkables[idx] {
+    match sinkables.entries[local_id] {
       Some(info) =>
         if !@ir.hot_node_is_live(func, info.node_id) ||
-          simplify_locals_effects_ordered_before(info.effects, effects) {
-          sinkables[idx] = None
+          simplify_locals_effects_ordered_before(
+            info.effects,
+            effects_mask,
+            effects_local_read,
+            effects_local_write,
+          ) {
+          simplify_locals_sinkables_clear_local(sinkables, local_id)
+          continue
         }
       None => ()
     }
+    idx = idx + 1
   }
 }
 
@@ -590,16 +875,52 @@ fn simplify_locals_value_is_pure(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
-fn simplify_locals_collect_label_owned_nodes(
+fn simplify_locals_mark_reachable(
   func : @ir.HotFunc,
-  owner : Int,
-) -> Bool {
+  node_id : Int,
+  reachable : Array[Bool],
+) -> Unit {
+  if node_id < 0 ||
+    node_id >= reachable.length() ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    reachable[node_id] {
+    return
+  }
+  reachable[node_id] = true
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    simplify_locals_mark_reachable(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      reachable,
+    )
+  }
+}
+
+///|
+fn simplify_locals_build_reachable_nodes(func : @ir.HotFunc) -> Array[Bool] {
+  let reachable = Array::make(@ir.hot_node_count(func), false)
+  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
+    simplify_locals_mark_reachable(
+      func,
+      @ir.hot_root_get(func, root_idx),
+      reachable,
+    )
+  }
+  reachable
+}
+
+///|
+fn simplify_locals_build_label_owner_nodes(func : @ir.HotFunc) -> Array[Bool] {
+  let label_owners = Array::make(@ir.hot_node_count(func), false)
   for label_id = 0; label_id < func.labels.length(); label_id = label_id + 1 {
-    if @ir.hot_label_owner(func, label_id) == owner {
-      return true
+    let owner = @ir.hot_label_owner(func, label_id)
+    if owner >= 0 &&
+      owner < label_owners.length() &&
+      @ir.hot_node_is_live(func, owner) {
+      label_owners[owner] = true
     }
   }
-  false
+  label_owners
 }
 
 ///|
@@ -640,51 +961,23 @@ fn simplify_locals_delete_detached_nodes(
   func : @ir.HotFunc,
   node_ids : Array[Int],
 ) -> Unit {
-  let pending = node_ids.copy()
-  let mut progress = true
-  while progress {
-    progress = false
-    for idx = 0; idx < pending.length(); idx = idx + 1 {
-      let node_id = pending[idx]
-      if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-        pending[idx] = -1
-        continue
-      }
-      if simplify_locals_collect_label_owned_nodes(func, node_id) {
-        continue
-      }
-      let mut referenced = false
-      for root_idx = 0
-          root_idx < @ir.hot_root_count(func)
-          root_idx = root_idx + 1 {
-        if @ir.hot_root_get(func, root_idx) == node_id {
-          referenced = true
-          break
-        }
-      }
-      if referenced {
-        continue
-      }
-      for user_id = 0
-          user_id < @ir.hot_node_count(func) && !referenced
-          user_id = user_id + 1 {
-        if !@ir.hot_node_is_live(func, user_id) || user_id == node_id {
-          continue
-        }
-        for slot = 0; slot < @ir.hot_child_count(func, user_id); slot = slot + 1 {
-          if @ir.hot_child_get(func, user_id, slot) == node_id {
-            referenced = true
-            break
-          }
-        }
-      }
-      if referenced {
-        continue
-      }
-      @ir.hot_delete_node(func, node_id)
-      pending[idx] = -1
-      progress = true
+  if node_ids.is_empty() {
+    return
+  }
+  let reachable = simplify_locals_build_reachable_nodes(func)
+  let label_owners = simplify_locals_build_label_owner_nodes(func)
+  let seen = Array::make(@ir.hot_node_count(func), false)
+  for node_id in node_ids {
+    if node_id < 0 || node_id >= reachable.length() || seen[node_id] {
+      continue
     }
+    seen[node_id] = true
+    if !@ir.hot_node_is_live(func, node_id) ||
+      reachable[node_id] ||
+      label_owners[node_id] {
+      continue
+    }
+    @ir.hot_delete_node(func, node_id)
   }
 }
 
@@ -693,14 +986,13 @@ fn simplify_locals_record_local_set(
   func : @ir.HotFunc,
   node_id : Int,
   node : @ir.HotNode,
-  sinkables : Array[SimplifyLocalsSinkableInfo?],
+  sinkables : SimplifyLocalsSinkables,
   first_cycle : Bool,
   get_counts : Array[Int],
-  effects : SimplifyLocalsEffects,
 ) -> Bool {
   let local_id = node.imm0
   let mut changed = false
-  match sinkables[local_id] {
+  match simplify_locals_sinkables_get(sinkables, local_id) {
     Some(previous_info) =>
       if @ir.hot_node_is_live(func, previous_info.node_id) {
         let previous_node = @ir.hot_node_get(func, previous_info.node_id)
@@ -723,11 +1015,14 @@ fn simplify_locals_record_local_set(
       }
     None => ()
   }
-  sinkables[local_id] = None
+  simplify_locals_sinkables_clear_local(sinkables, local_id)
   if first_cycle && get_counts[local_id] > 1 {
     return changed
   }
-  sinkables[local_id] = Some({ node_id, effects })
+  simplify_locals_sinkables_set(sinkables, local_id, {
+    node_id,
+    effects: simplify_locals_effects_for_pending_local_set(func, node_id, node),
+  })
   changed
 }
 
@@ -735,7 +1030,7 @@ fn simplify_locals_record_local_set(
 fn simplify_locals_scan_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  sinkables : Array[SimplifyLocalsSinkableInfo?],
+  sinkables : SimplifyLocalsSinkables,
   first_cycle : Bool,
   get_counts : Array[Int],
   detached : Array[Int],
@@ -759,7 +1054,7 @@ fn simplify_locals_scan_region(
 fn simplify_locals_scan_node(
   func : @ir.HotFunc,
   node_id : Int,
-  sinkables : Array[SimplifyLocalsSinkableInfo?],
+  sinkables : SimplifyLocalsSinkables,
   first_cycle : Bool,
   get_counts : Array[Int],
   detached : Array[Int],
@@ -782,19 +1077,9 @@ fn simplify_locals_scan_node(
         changed = true
       }
       let body_ref = @ir.hot_region_body_ref(func, node_id)
-      let keep_sinkables = if @ir.hot_node_result_arity(func, node_id) != 0 {
-        false
-      } else if simplify_locals_region_has_branch_to_label(
-          func,
-          body_ref,
-          @ir.hot_control_node_label(func, node_id),
-        ) {
-        false
-      } else if simplify_locals_region_is_unreachableish(func, body_ref) {
-        false
-      } else {
-        true
-      }
+      let keep_sinkables = @ir.hot_node_result_arity(func, node_id) == 0 &&
+        simplify_locals_region_last_live_non_nop_root_idx(func, body_ref)
+        is None
       if !keep_sinkables {
         simplify_locals_clear_sinkables(sinkables)
       }
@@ -923,12 +1208,11 @@ fn simplify_locals_scan_node(
       }
   }
 
-  let original_effects = simplify_locals_effects_for_node(func, node_id)
   let mut current = @ir.hot_node_get(func, node_id)
   match current.op {
     @ir.HotOp::LocalGet => {
       let local_id = current.imm0
-      match sinkables[local_id] {
+      match simplify_locals_sinkables_get(sinkables, local_id) {
         Some(info) =>
           if @ir.hot_node_is_live(func, info.node_id) {
             let pending_node = @ir.hot_node_get(func, info.node_id)
@@ -951,9 +1235,9 @@ fn simplify_locals_scan_node(
                     simplify_locals_make_local_tee(func, local_id, value_id),
                   )
                 } else {
-                  sinkables[local_id] = None
+                  simplify_locals_sinkables_clear_local(sinkables, local_id)
                   simplify_locals_invalidate_sinkables(
-                    func, sinkables, original_effects,
+                    func, node_id, current, sinkables,
                   )
                   return changed
                 }
@@ -962,17 +1246,17 @@ fn simplify_locals_scan_node(
                   info.node_id,
                   simplify_locals_make_nop(func),
                 )
-                sinkables[local_id] = None
+                simplify_locals_sinkables_clear_local(sinkables, local_id)
                 changed = true
               }
-              _ => sinkables[local_id] = None
+              _ => simplify_locals_sinkables_clear_local(sinkables, local_id)
             }
           } else {
-            sinkables[local_id] = None
+            simplify_locals_sinkables_clear_local(sinkables, local_id)
           }
         None => ()
       }
-      simplify_locals_invalidate_sinkables(func, sinkables, original_effects)
+      simplify_locals_invalidate_sinkables(func, node_id, current, sinkables)
       return changed
     }
     _ => ()
@@ -1002,24 +1286,24 @@ fn simplify_locals_scan_node(
   }
 
   current = @ir.hot_node_get(func, node_id)
-  let current_effects = simplify_locals_effects_for_node(func, node_id)
   match current.op {
     @ir.HotOp::LocalSet => {
       simplify_locals_invalidate_sinkables(
         func,
+        node_id,
+        current,
         sinkables,
-        current_effects,
         skip_local=current.imm0,
       )
       if simplify_locals_record_local_set(
-          func, node_id, current, sinkables, first_cycle, get_counts, current_effects,
+          func, node_id, current, sinkables, first_cycle, get_counts,
         ) {
         changed = true
       }
       changed
     }
     _ => {
-      simplify_locals_invalidate_sinkables(func, sinkables, current_effects)
+      simplify_locals_invalidate_sinkables(func, node_id, current, sinkables)
       changed
     }
   }
@@ -1651,89 +1935,120 @@ fn simplify_locals_run_structure_rewrites(
 }
 
 ///|
-fn simplify_locals_new_equivalences(func : @ir.HotFunc) -> Array[Array[Bool]] {
-  let equivalences : Array[Array[Bool]] = []
+priv struct SimplifyLocalsEquivalentState {
+  rep_of_local : Array[Int]
+  members_of_rep : Array[Array[Int]]
+}
+
+///|
+fn simplify_locals_new_equivalences(
+  func : @ir.HotFunc,
+) -> SimplifyLocalsEquivalentState {
+  let rep_of_local = Array::make(@ir.hot_local_count(func), 0)
+  let members_of_rep : Array[Array[Int]] = []
   for local_id = 0
       local_id < @ir.hot_local_count(func)
       local_id = local_id + 1 {
-    let row = Array::make(@ir.hot_local_count(func), false)
-    row[local_id] = true
-    equivalences.push(row)
+    rep_of_local[local_id] = local_id
+    members_of_rep.push([local_id])
   }
-  equivalences
+  { rep_of_local, members_of_rep }
 }
 
 ///|
 fn simplify_locals_clone_equivalences(
-  equivalences : Array[Array[Bool]],
-) -> Array[Array[Bool]] {
-  let cloned : Array[Array[Bool]] = []
-  for row in equivalences {
-    cloned.push(row.copy())
+  equivalences : SimplifyLocalsEquivalentState,
+) -> SimplifyLocalsEquivalentState {
+  let cloned_members : Array[Array[Int]] = []
+  for members in equivalences.members_of_rep {
+    cloned_members.push(members.copy())
   }
-  cloned
+  {
+    rep_of_local: equivalences.rep_of_local.copy(),
+    members_of_rep: cloned_members,
+  }
 }
 
 ///|
 fn simplify_locals_clear_equivalences(
-  equivalences : Array[Array[Bool]],
+  equivalences : SimplifyLocalsEquivalentState,
 ) -> Unit {
-  for row = 0; row < equivalences.length(); row = row + 1 {
-    for col = 0; col < equivalences[row].length(); col = col + 1 {
-      equivalences[row][col] = row == col
-    }
+  for local_id = 0
+      local_id < equivalences.rep_of_local.length()
+      local_id = local_id + 1 {
+    equivalences.rep_of_local[local_id] = local_id
+    equivalences.members_of_rep[local_id] = [local_id]
   }
 }
 
 ///|
 fn simplify_locals_reset_equivalent_local(
-  equivalences : Array[Array[Bool]],
+  equivalences : SimplifyLocalsEquivalentState,
   local_id : Int,
 ) -> Unit {
-  if local_id < 0 || local_id >= equivalences.length() {
+  if local_id < 0 || local_id >= equivalences.rep_of_local.length() {
     return
   }
-  for idx = 0; idx < equivalences.length(); idx = idx + 1 {
-    equivalences[local_id][idx] = false
-    equivalences[idx][local_id] = false
+  let rep = equivalences.rep_of_local[local_id]
+  if rep < 0 || rep >= equivalences.members_of_rep.length() {
+    equivalences.rep_of_local[local_id] = local_id
+    equivalences.members_of_rep[local_id] = [local_id]
+    return
   }
-  equivalences[local_id][local_id] = true
+  let remaining : Array[Int] = []
+  for member_id in equivalences.members_of_rep[rep] {
+    if member_id != local_id {
+      remaining.push(member_id)
+    }
+  }
+  if rep == local_id && !remaining.is_empty() {
+    let new_rep = remaining[0]
+    equivalences.members_of_rep[new_rep] = remaining
+    for member_id in remaining {
+      equivalences.rep_of_local[member_id] = new_rep
+    }
+  } else if rep != local_id {
+    equivalences.members_of_rep[rep] = remaining
+  }
+  equivalences.rep_of_local[local_id] = local_id
+  equivalences.members_of_rep[local_id] = [local_id]
 }
 
 ///|
 fn simplify_locals_equivalent_check(
-  equivalences : Array[Array[Bool]],
+  equivalences : SimplifyLocalsEquivalentState,
   lhs : Int,
   rhs : Int,
 ) -> Bool {
   lhs >= 0 &&
   rhs >= 0 &&
-  lhs < equivalences.length() &&
-  rhs < equivalences.length() &&
-  equivalences[lhs][rhs]
+  lhs < equivalences.rep_of_local.length() &&
+  rhs < equivalences.rep_of_local.length() &&
+  equivalences.rep_of_local[lhs] == equivalences.rep_of_local[rhs]
 }
 
 ///|
 fn simplify_locals_add_equivalence(
-  equivalences : Array[Array[Bool]],
+  equivalences : SimplifyLocalsEquivalentState,
   local_id : Int,
   other_local : Int,
 ) -> Unit {
   if local_id < 0 ||
     other_local < 0 ||
-    local_id >= equivalences.length() ||
-    other_local >= equivalences.length() {
+    local_id >= equivalences.rep_of_local.length() ||
+    other_local >= equivalences.rep_of_local.length() ||
+    local_id == other_local {
     return
   }
-  let related = equivalences[other_local].copy()
-  related[other_local] = true
-  equivalences[local_id][local_id] = true
-  for idx = 0; idx < related.length(); idx = idx + 1 {
-    if related[idx] {
-      equivalences[local_id][idx] = true
-      equivalences[idx][local_id] = true
-    }
+  let other_rep = equivalences.rep_of_local[other_local]
+  if other_rep < 0 ||
+    other_rep >= equivalences.members_of_rep.length() ||
+    equivalences.rep_of_local[local_id] == other_rep {
+    return
   }
+  simplify_locals_reset_equivalent_local(equivalences, local_id)
+  equivalences.rep_of_local[local_id] = other_rep
+  equivalences.members_of_rep[other_rep].push(local_id)
 }
 
 ///|
@@ -1802,17 +2117,19 @@ fn simplify_locals_get_count_ignoring_current(
 fn simplify_locals_pick_best_equivalent_local(
   env : @validate.Env?,
   func : @ir.HotFunc,
-  equivalences : Array[Array[Bool]],
+  equivalences : SimplifyLocalsEquivalentState,
   get_counts : Array[Int],
   local_id : Int,
 ) -> Int {
+  if local_id < 0 || local_id >= equivalences.rep_of_local.length() {
+    return local_id
+  }
   let mut best = local_id
-  for candidate = 0
-      candidate < equivalences.length()
-      candidate = candidate + 1 {
-    if !equivalences[local_id][candidate] {
-      continue
-    }
+  let rep = equivalences.rep_of_local[local_id]
+  if rep < 0 || rep >= equivalences.members_of_rep.length() {
+    return best
+  }
+  for candidate in equivalences.members_of_rep[rep] {
     if candidate == best ||
       !simplify_locals_local_type_is_subtype(env, func, candidate, best) {
       continue
@@ -1832,10 +2149,10 @@ fn simplify_locals_pick_best_equivalent_local(
 
 ///|
 fn simplify_locals_scan_equivalent_region(
-  ctx : HotPassContext,
+  env : @validate.Env?,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  equivalences : Array[Array[Bool]],
+  equivalences : SimplifyLocalsEquivalentState,
   get_counts : Array[Int],
 ) -> Bool {
   let mut changed = false
@@ -1845,7 +2162,7 @@ fn simplify_locals_scan_equivalent_region(
       continue
     }
     if simplify_locals_scan_equivalent_node(
-        ctx, func, node_id, equivalences, get_counts,
+        env, func, node_id, equivalences, get_counts,
       ) {
       changed = true
     }
@@ -1855,10 +2172,10 @@ fn simplify_locals_scan_equivalent_region(
 
 ///|
 fn simplify_locals_scan_equivalent_current(
-  ctx : HotPassContext,
+  env : @validate.Env?,
   func : @ir.HotFunc,
   node_id : Int,
-  equivalences : Array[Array[Bool]],
+  equivalences : SimplifyLocalsEquivalentState,
   get_counts : Array[Int],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -1888,7 +2205,6 @@ fn simplify_locals_scan_equivalent_current(
     }
     @ir.HotOp::LocalGet => {
       let local_id = node.imm0
-      let env = simplify_locals_type_env(ctx)
       let best = simplify_locals_pick_best_equivalent_local(
         env, func, equivalences, get_counts, local_id,
       )
@@ -1928,10 +2244,10 @@ fn simplify_locals_scan_equivalent_current(
 
 ///|
 fn simplify_locals_scan_equivalent_node(
-  ctx : HotPassContext,
+  env : @validate.Env?,
   func : @ir.HotFunc,
   node_id : Int,
-  equivalences : Array[Array[Bool]],
+  equivalences : SimplifyLocalsEquivalentState,
   get_counts : Array[Int],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -1942,7 +2258,7 @@ fn simplify_locals_scan_equivalent_node(
   match node.op {
     @ir.HotOp::Block => {
       if simplify_locals_scan_equivalent_region(
-          ctx,
+          env,
           func,
           @ir.hot_region_body_ref(func, node_id),
           equivalences,
@@ -1955,13 +2271,13 @@ fn simplify_locals_scan_equivalent_node(
     @ir.HotOp::If => {
       let condition_id = @ir.hot_child_get(func, node_id, 0)
       if simplify_locals_scan_equivalent_node(
-          ctx, func, condition_id, equivalences, get_counts,
+          env, func, condition_id, equivalences, get_counts,
         ) {
         changed = true
       }
       let then_equivalences = simplify_locals_clone_equivalences(equivalences)
       if simplify_locals_scan_equivalent_region(
-          ctx,
+          env,
           func,
           @ir.hot_region_then_ref(func, node_id),
           then_equivalences,
@@ -1975,7 +2291,7 @@ fn simplify_locals_scan_equivalent_node(
             equivalences,
           )
           if simplify_locals_scan_equivalent_region(
-              ctx, func, else_ref, else_equivalences, get_counts,
+              env, func, else_ref, else_equivalences, get_counts,
             ) {
             changed = true
           }
@@ -1988,7 +2304,7 @@ fn simplify_locals_scan_equivalent_node(
     @ir.HotOp::Loop => {
       let loop_equivalences = simplify_locals_new_equivalences(func)
       if simplify_locals_scan_equivalent_region(
-          ctx,
+          env,
           func,
           @ir.hot_region_body_ref(func, node_id),
           loop_equivalences,
@@ -2002,7 +2318,7 @@ fn simplify_locals_scan_equivalent_node(
     @ir.HotOp::Try => {
       let body_equivalences = simplify_locals_new_equivalences(func)
       if simplify_locals_scan_equivalent_region(
-          ctx,
+          env,
           func,
           @ir.hot_region_body_ref(func, node_id),
           body_equivalences,
@@ -2014,7 +2330,7 @@ fn simplify_locals_scan_equivalent_node(
         Some(catch_ref) => {
           let catch_equivalences = simplify_locals_new_equivalences(func)
           if simplify_locals_scan_equivalent_region(
-              ctx, func, catch_ref, catch_equivalences, get_counts,
+              env, func, catch_ref, catch_equivalences, get_counts,
             ) {
             changed = true
           }
@@ -2027,7 +2343,7 @@ fn simplify_locals_scan_equivalent_node(
     @ir.HotOp::TryTable => {
       let body_equivalences = simplify_locals_new_equivalences(func)
       if simplify_locals_scan_equivalent_region(
-          ctx,
+          env,
           func,
           @ir.hot_region_body_ref(func, node_id),
           body_equivalences,
@@ -2037,7 +2353,7 @@ fn simplify_locals_scan_equivalent_node(
       }
       let catch_equivalences = simplify_locals_new_equivalences(func)
       if simplify_locals_scan_equivalent_region(
-          ctx,
+          env,
           func,
           @ir.hot_region_catch_list_ref(func, node_id),
           catch_equivalences,
@@ -2055,14 +2371,14 @@ fn simplify_locals_scan_equivalent_node(
           continue
         }
         if simplify_locals_scan_equivalent_node(
-            ctx, func, child_id, equivalences, get_counts,
+            env, func, child_id, equivalences, get_counts,
           ) {
           changed = true
         }
       }
   }
   if simplify_locals_scan_equivalent_current(
-      ctx, func, node_id, equivalences, get_counts,
+      env, func, node_id, equivalences, get_counts,
     ) {
     changed = true
   }
@@ -2071,19 +2387,40 @@ fn simplify_locals_scan_equivalent_node(
 
 ///|
 fn simplify_locals_run_main_cycle(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   first_cycle : Bool,
   detached : Array[Int],
 ) -> Bool {
   let sinkables = simplify_locals_new_sinkables(func)
-  simplify_locals_scan_region(
+  let count_gets_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:simplify-locals:count-local-gets",
+  )
+  let get_counts = simplify_locals_count_local_gets(func)
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:simplify-locals:count-local-gets",
+    count_gets_start_us,
+  )
+  let scan_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:simplify-locals:scan-root-region",
+  )
+  let changed = simplify_locals_scan_region(
     func,
     @ir.HotRegionRef::root(),
     sinkables,
     first_cycle,
-    simplify_locals_count_local_gets(func),
+    get_counts,
     detached,
   )
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:simplify-locals:scan-root-region",
+    scan_start_us,
+  )
+  changed
 }
 
 ///|
@@ -2091,8 +2428,9 @@ fn simplify_locals_run_equivalent_cleanup(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> Bool {
+  let env = simplify_locals_type_env(ctx)
   simplify_locals_scan_equivalent_region(
-    ctx,
+    env,
     func,
     @ir.HotRegionRef::root(),
     simplify_locals_new_equivalences(func),
@@ -2187,17 +2525,53 @@ fn simplify_locals_run(
   let mut first_cycle = true
   let mut changed = false
   while true {
+    let main_cycle_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:main-cycle",
+    )
     let main_detached : Array[Int] = []
     let main_changed = simplify_locals_run_main_cycle(
-      func, first_cycle, main_detached,
+      ctx, func, first_cycle, main_detached,
+    )
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:main-cycle",
+      main_cycle_start_us,
+    )
+    let main_delete_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:delete-main-detached",
     )
     simplify_locals_delete_detached_nodes(func, main_detached)
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:delete-main-detached",
+      main_delete_start_us,
+    )
 
+    let cleanup_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:dead-cleanup",
+    )
     let cleanup_detached : Array[Int] = []
     let cleanup_changed = simplify_locals_run_dead_cleanup(
       func, cleanup_detached,
     )
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:dead-cleanup",
+      cleanup_start_us,
+    )
+    let cleanup_delete_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:delete-dead-detached",
+    )
     simplify_locals_delete_detached_nodes(func, cleanup_detached)
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:delete-dead-detached",
+      cleanup_delete_start_us,
+    )
 
     if main_changed || cleanup_changed {
       changed = true
@@ -2210,23 +2584,68 @@ fn simplify_locals_run(
       continue
     }
 
+    let structure_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:structure",
+    )
     let structure_detached : Array[Int] = []
     let structure_changed = simplify_locals_run_structure_rewrites(
       func, structure_detached,
     )
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:structure",
+      structure_start_us,
+    )
+    let structure_delete_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:delete-structure-detached",
+    )
     simplify_locals_delete_detached_nodes(func, structure_detached)
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:delete-structure-detached",
+      structure_delete_start_us,
+    )
 
     if structure_changed {
       changed = true
       continue
     }
 
+    let equivalent_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:equivalent-cleanup",
+    )
     let late_changed = simplify_locals_run_equivalent_cleanup(ctx, func)
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:equivalent-cleanup",
+      equivalent_start_us,
+    )
+    let late_cleanup_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:late-dead-cleanup",
+    )
     let late_cleanup_detached : Array[Int] = []
     let late_cleanup_changed = simplify_locals_run_dead_cleanup(
       func, late_cleanup_detached,
     )
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:late-dead-cleanup",
+      late_cleanup_start_us,
+    )
+    let late_delete_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:delete-late-detached",
+    )
     simplify_locals_delete_detached_nodes(func, late_cleanup_detached)
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:simplify-locals:delete-late-detached",
+      late_delete_start_us,
+    )
 
     if late_changed || late_cleanup_changed {
       changed = true
