@@ -13,7 +13,7 @@ pub fn simplify_locals_descriptor() -> @ir.HotPassDescriptor {
 
 ///|
 pub fn simplify_locals_summary() -> String {
-  "Sink local.sets into later gets on linear traces, canonicalize equivalent copies, and remove dead local writes without restructuring control."
+  "Sink local.sets into later gets, lift structured block/if/loop returns when safe, canonicalize equivalent copies, and remove dead local writes."
 }
 
 ///|
@@ -27,6 +27,24 @@ priv struct SimplifyLocalsEffects {
 priv struct SimplifyLocalsSinkableInfo {
   node_id : Int
   effects : SimplifyLocalsEffects
+}
+
+///|
+priv struct SimplifyLocalsTailSet {
+  root_idx : Int
+  node_id : Int
+  local_id : Int
+  value_id : Int
+}
+
+///|
+priv struct SimplifyLocalsBranchExit {
+  region_ref : @ir.HotRegionRef
+  set_idx : Int
+  set_id : Int
+  br_id : Int
+  local_id : Int
+  value_id : Int
 }
 
 ///|
@@ -278,6 +296,235 @@ fn simplify_locals_make_local_set(
   let replacement = @ir.hot_node_get(func, replacement_id)
   @ir.hot_delete_node(func, replacement_id)
   replacement
+}
+
+///|
+fn simplify_locals_local_type_id(
+  func : @ir.HotFunc,
+  local_id : Int,
+  fallback_id : Int,
+) -> Int {
+  match @ir.hot_local_type(func, local_id) {
+    Some(local_type) =>
+      @ir.hot_type_intern_block_result(
+        func,
+        @lib.BlockType::val_type(local_type),
+      )
+    None =>
+      match @ir.hot_type_results(func, @ir.hot_node_type(func, fallback_id)) {
+        [value_type] =>
+          @ir.hot_type_intern_block_result(
+            func,
+            @lib.BlockType::val_type(value_type),
+          )
+        _ => @ir.hot_type_void(func)
+      }
+  }
+}
+
+///|
+fn simplify_locals_local_type_is_defaultable(
+  func : @ir.HotFunc,
+  local_id : Int,
+) -> Bool {
+  match @ir.hot_local_type(func, local_id) {
+    Some(@lib.RefTypeValType(ref_type)) =>
+      @lib.RefType::is_defaultable(ref_type)
+    Some(@lib.BotValType) => false
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn simplify_locals_region_last_live_non_nop_root_idx(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Int? {
+  let mut idx = @ir.hot_region_root_count(func, region_ref) - 1
+  while idx >= 0 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::Nop => ()
+        _ => return Some(idx)
+      }
+    }
+    idx = idx - 1
+  }
+  None
+}
+
+///|
+fn simplify_locals_region_prev_live_non_nop_root_idx(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  before_idx : Int,
+) -> Int? {
+  let mut idx = before_idx - 1
+  while idx >= 0 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::Nop => ()
+        _ => return Some(idx)
+      }
+    }
+    idx = idx - 1
+  }
+  None
+}
+
+///|
+fn simplify_locals_region_next_live_non_nop_root_idx(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  after_idx : Int,
+) -> Int? {
+  let mut idx = after_idx + 1
+  while idx < @ir.hot_region_root_count(func, region_ref) {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::Nop => ()
+        _ => return Some(idx)
+      }
+    }
+    idx = idx + 1
+  }
+  None
+}
+
+///|
+fn simplify_locals_region_tail_local_set(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> SimplifyLocalsTailSet? {
+  let root_idx = match
+    simplify_locals_region_last_live_non_nop_root_idx(func, region_ref) {
+    Some(root_idx) => root_idx
+    None => return None
+  }
+  let node_id = @ir.hot_region_get(func, region_ref, root_idx)
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalSet =>
+      Some({
+        root_idx,
+        node_id,
+        local_id: node.imm0,
+        value_id: @ir.hot_child_get(func, node_id, 0),
+      })
+    _ => None
+  }
+}
+
+///|
+fn simplify_locals_node_is_nonfallthrough_exit(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Unreachable
+    | @ir.HotOp::Br
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::Return
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate => true
+    _ => false
+  }
+}
+
+///|
+fn simplify_locals_region_is_unreachableish(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  match simplify_locals_region_last_live_non_nop_root_idx(func, region_ref) {
+    Some(root_idx) =>
+      simplify_locals_node_is_nonfallthrough_exit(
+        func,
+        @ir.hot_region_get(func, region_ref, root_idx),
+      )
+    None => false
+  }
+}
+
+///|
+fn simplify_locals_node_targets_label(
+  func : @ir.HotFunc,
+  node_id : Int,
+  label_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::BrTable =>
+      if @ir.hot_branch_table_default_target(func, node.imm0) == label_id {
+        true
+      } else {
+        let targets = @ir.hot_branch_table_targets_for_node(func, node_id)
+        for target in targets {
+          if target == label_id {
+            return true
+          }
+        }
+        false
+      }
+    _ => @ir.hot_branch_target(func, node_id) == Some(label_id)
+  }
+}
+
+///|
+fn simplify_locals_value_can_clone_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  node_id < 0 ||
+  !@ir.hot_node_is_live(func, node_id) ||
+  !@ir.hot_node_kind_is_control(func, node_id)
+}
+
+///|
+fn simplify_locals_try_consume_following_local_get(
+  func : @ir.HotFunc,
+  parent_region : @ir.HotRegionRef,
+  root_idx : Int,
+  local_id : Int,
+  detached : Array[Int],
+) -> Bool {
+  let next_idx = match
+    simplify_locals_region_next_live_non_nop_root_idx(
+      func, parent_region, root_idx,
+    ) {
+    Some(next_idx) => next_idx
+    None => return false
+  }
+  let next_id = @ir.hot_region_get(func, parent_region, next_idx)
+  if next_id < 0 || !@ir.hot_node_is_live(func, next_id) {
+    return false
+  }
+  let next = @ir.hot_node_get(func, next_id)
+  match next.op {
+    @ir.HotOp::LocalGet if next.imm0 == local_id => {
+      let removed = @ir.hot_region_splice(func, parent_region, next_idx, 1, [])
+      for removed_id in removed {
+        detached.push(removed_id)
+      }
+      true
+    }
+    _ => false
+  }
 }
 
 ///|
@@ -652,19 +899,26 @@ fn simplify_locals_scan_node(
               @ir.HotOp::LocalSet => {
                 let value_id = @ir.hot_child_get(func, info.node_id, 0)
                 let one_use = first_cycle || get_counts[local_id] == 1
-                if one_use {
+                if one_use &&
+                  simplify_locals_value_can_clone_node(func, value_id) {
                   @ir.hot_replace_node(
                     func,
                     node_id,
                     @ir.hot_node_get(func, value_id),
                   )
                   detached.push(value_id)
-                } else {
+                } else if !one_use {
                   @ir.hot_replace_node(
                     func,
                     node_id,
                     simplify_locals_make_local_tee(func, local_id, value_id),
                   )
+                } else {
+                  sinkables[local_id] = None
+                  simplify_locals_invalidate_sinkables(
+                    func, sinkables, original_effects,
+                  )
+                  return changed
                 }
                 @ir.hot_replace_node(
                   func,
@@ -732,6 +986,631 @@ fn simplify_locals_scan_node(
       changed
     }
   }
+}
+
+///|
+fn simplify_locals_collect_block_branch_exits(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  target_label : Int,
+  exits : Array[SimplifyLocalsBranchExit],
+) -> Bool {
+  let last_idx = simplify_locals_region_last_live_non_nop_root_idx(
+    func, region_ref,
+  )
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    if simplify_locals_node_targets_label(func, node_id, target_label) {
+      let node = @ir.hot_node_get(func, node_id)
+      match node.op {
+        @ir.HotOp::Br => {
+          if node.child_count != 0 || last_idx != Some(idx) {
+            return false
+          }
+          let set_idx = match
+            simplify_locals_region_prev_live_non_nop_root_idx(
+              func, region_ref, idx,
+            ) {
+            Some(set_idx) => set_idx
+            None => return false
+          }
+          let set_id = @ir.hot_region_get(func, region_ref, set_idx)
+          if set_id < 0 || !@ir.hot_node_is_live(func, set_id) {
+            return false
+          }
+          let set = @ir.hot_node_get(func, set_id)
+          match set.op {
+            @ir.HotOp::LocalSet =>
+              exits.push({
+                region_ref,
+                set_idx,
+                set_id,
+                br_id: node_id,
+                local_id: set.imm0,
+                value_id: @ir.hot_child_get(func, set_id, 0),
+              })
+            _ => return false
+          }
+        }
+        _ => return false
+      }
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        if !simplify_locals_collect_block_branch_exits(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            target_label,
+            exits,
+          ) {
+          return false
+        }
+      @ir.HotOp::If => {
+        if !simplify_locals_collect_block_branch_exits(
+            func,
+            @ir.hot_region_then_ref(func, node_id),
+            target_label,
+            exits,
+          ) {
+          return false
+        }
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_ref) =>
+            if !simplify_locals_collect_block_branch_exits(
+                func, else_ref, target_label, exits,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::Try => {
+        if !simplify_locals_collect_block_branch_exits(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            target_label,
+            exits,
+          ) {
+          return false
+        }
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_ref) =>
+            if !simplify_locals_collect_block_branch_exits(
+                func, catch_ref, target_label, exits,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable =>
+        if !simplify_locals_collect_block_branch_exits(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            target_label,
+            exits,
+          ) ||
+          !simplify_locals_collect_block_branch_exits(
+            func,
+            @ir.hot_region_catch_list_ref(func, node_id),
+            target_label,
+            exits,
+          ) {
+          return false
+        }
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn simplify_locals_region_has_branch_to_label(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  target_label : Int,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    if simplify_locals_node_targets_label(func, node_id, target_label) {
+      return true
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        if simplify_locals_region_has_branch_to_label(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            target_label,
+          ) {
+          return true
+        }
+      @ir.HotOp::If => {
+        if simplify_locals_region_has_branch_to_label(
+            func,
+            @ir.hot_region_then_ref(func, node_id),
+            target_label,
+          ) {
+          return true
+        }
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_ref) =>
+            if simplify_locals_region_has_branch_to_label(
+                func, else_ref, target_label,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::Try => {
+        if simplify_locals_region_has_branch_to_label(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            target_label,
+          ) {
+          return true
+        }
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_ref) =>
+            if simplify_locals_region_has_branch_to_label(
+                func, catch_ref, target_label,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable =>
+        if simplify_locals_region_has_branch_to_label(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            target_label,
+          ) ||
+          simplify_locals_region_has_branch_to_label(
+            func,
+            @ir.hot_region_catch_list_ref(func, node_id),
+            target_label,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn simplify_locals_try_rewrite_block_return(
+  func : @ir.HotFunc,
+  parent_region : @ir.HotRegionRef,
+  root_idx : Int,
+  node_id : Int,
+  get_counts : Array[Int],
+  detached : Array[Int],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, node_id) != 0 {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, node_id)
+  let fallthrough = match
+    simplify_locals_region_tail_local_set(func, body_ref) {
+    Some(fallthrough) => fallthrough
+    None => return false
+  }
+  if fallthrough.local_id < 0 ||
+    fallthrough.local_id >= get_counts.length() ||
+    get_counts[fallthrough.local_id] == 0 {
+    return false
+  }
+  let exits : Array[SimplifyLocalsBranchExit] = []
+  if !simplify_locals_collect_block_branch_exits(
+      func,
+      body_ref,
+      @ir.hot_control_node_label(func, node_id),
+      exits,
+    ) ||
+    exits.is_empty() {
+    return false
+  }
+  for exit in exits {
+    if exit.local_id != fallthrough.local_id {
+      return false
+    }
+  }
+  ignore(
+    @ir.hot_region_set(
+      func,
+      body_ref,
+      fallthrough.root_idx,
+      fallthrough.value_id,
+    ),
+  )
+  detached.push(fallthrough.node_id)
+  for exit in exits {
+    ignore(
+      @ir.hot_region_set(
+        func,
+        exit.region_ref,
+        exit.set_idx,
+        @ir.hot_build_nop(func),
+      ),
+    )
+    ignore(@ir.hot_replace_child_span(func, exit.br_id, [exit.value_id]))
+    detached.push(exit.set_id)
+  }
+  @ir.hot_control_result_type_set(
+    func,
+    node_id,
+    simplify_locals_local_type_id(
+      func,
+      fallthrough.local_id,
+      fallthrough.value_id,
+    ),
+  )
+  if get_counts[fallthrough.local_id] == 1 &&
+    simplify_locals_try_consume_following_local_get(
+      func,
+      parent_region,
+      root_idx,
+      fallthrough.local_id,
+      detached,
+    ) {
+    return true
+  }
+  ignore(
+    @ir.hot_region_set(
+      func,
+      parent_region,
+      root_idx,
+      @ir.hot_build_local_set(func, fallthrough.local_id, node_id),
+    ),
+  )
+  true
+}
+
+///|
+fn simplify_locals_try_rewrite_if_return(
+  func : @ir.HotFunc,
+  parent_region : @ir.HotRegionRef,
+  root_idx : Int,
+  node_id : Int,
+  get_counts : Array[Int],
+  detached : Array[Int],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, node_id) != 0 {
+    return false
+  }
+  let then_ref = @ir.hot_region_then_ref(func, node_id)
+  let then_tail = simplify_locals_region_tail_local_set(func, then_ref)
+  let then_unreachable = simplify_locals_region_is_unreachableish(
+    func, then_ref,
+  )
+  match @ir.hot_region_else_ref(func, node_id) {
+    Some(else_ref) => {
+      let else_tail = simplify_locals_region_tail_local_set(func, else_ref)
+      let else_unreachable = simplify_locals_region_is_unreachableish(
+        func, else_ref,
+      )
+      let chosen_local = if then_unreachable {
+        match else_tail {
+          Some(tail) => tail.local_id
+          None => return false
+        }
+      } else if else_unreachable {
+        match then_tail {
+          Some(tail) => tail.local_id
+          None => return false
+        }
+      } else {
+        match (then_tail, else_tail) {
+          (Some(then_tail), Some(else_tail)) if then_tail.local_id ==
+            else_tail.local_id => then_tail.local_id
+          _ => return false
+        }
+      }
+      if chosen_local < 0 ||
+        chosen_local >= get_counts.length() ||
+        get_counts[chosen_local] == 0 {
+        return false
+      }
+      let fallback_value = if then_unreachable {
+        else_tail.unwrap().value_id
+      } else {
+        then_tail.unwrap().value_id
+      }
+      if !then_unreachable {
+        let tail = then_tail.unwrap()
+        ignore(@ir.hot_region_set(func, then_ref, tail.root_idx, tail.value_id))
+        detached.push(tail.node_id)
+      }
+      if !else_unreachable {
+        let tail = else_tail.unwrap()
+        ignore(@ir.hot_region_set(func, else_ref, tail.root_idx, tail.value_id))
+        detached.push(tail.node_id)
+      }
+      @ir.hot_control_result_type_set(
+        func,
+        node_id,
+        simplify_locals_local_type_id(func, chosen_local, fallback_value),
+      )
+      if get_counts[chosen_local] == 1 &&
+        simplify_locals_try_consume_following_local_get(
+          func, parent_region, root_idx, chosen_local, detached,
+        ) {
+        return true
+      }
+      ignore(
+        @ir.hot_region_set(
+          func,
+          parent_region,
+          root_idx,
+          @ir.hot_build_local_set(func, chosen_local, node_id),
+        ),
+      )
+      true
+    }
+    None => {
+      let then_tail = match then_tail {
+        Some(then_tail) => then_tail
+        None => return false
+      }
+      if then_tail.local_id < 0 ||
+        then_tail.local_id >= get_counts.length() ||
+        get_counts[then_tail.local_id] == 0 ||
+        !simplify_locals_local_type_is_defaultable(func, then_tail.local_id) {
+        return false
+      }
+      ignore(
+        @ir.hot_region_set(
+          func,
+          then_ref,
+          then_tail.root_idx,
+          then_tail.value_id,
+        ),
+      )
+      detached.push(then_tail.node_id)
+      let result_block_type = match
+        @ir.hot_local_type(func, then_tail.local_id) {
+        Some(local_type) => @lib.BlockType::val_type(local_type)
+        None => return false
+      }
+      let replacement_if = @ir.hot_build_if(
+        func,
+        result_block_type,
+        @ir.hot_child_get(func, node_id, 0),
+        [then_tail.value_id],
+        else_body=Some([@ir.hot_build_local_get(func, then_tail.local_id)]),
+      )
+      @ir.hot_region_replace_body(func, then_ref, [])
+      @ir.hot_control_demote_if_to_block(func, node_id, [])
+      if get_counts[then_tail.local_id] == 1 &&
+        simplify_locals_try_consume_following_local_get(
+          func,
+          parent_region,
+          root_idx,
+          then_tail.local_id,
+          detached,
+        ) {
+        ignore(
+          @ir.hot_region_set(func, parent_region, root_idx, replacement_if),
+        )
+        return true
+      }
+      ignore(
+        @ir.hot_region_set(
+          func,
+          parent_region,
+          root_idx,
+          @ir.hot_build_local_set(func, then_tail.local_id, replacement_if),
+        ),
+      )
+      true
+    }
+  }
+}
+
+///|
+fn simplify_locals_try_rewrite_loop_return(
+  func : @ir.HotFunc,
+  parent_region : @ir.HotRegionRef,
+  root_idx : Int,
+  node_id : Int,
+  get_counts : Array[Int],
+  detached : Array[Int],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Loop => ()
+    _ => return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, node_id)
+  let tail = match simplify_locals_region_tail_local_set(func, body_ref) {
+    Some(tail) => tail
+    None => return false
+  }
+  if tail.local_id < 0 ||
+    tail.local_id >= get_counts.length() ||
+    get_counts[tail.local_id] == 0 {
+    return false
+  }
+  if simplify_locals_region_has_branch_to_label(
+      func,
+      body_ref,
+      @ir.hot_control_node_label(func, node_id),
+    ) {
+    return false
+  }
+  let next_idx = match
+    simplify_locals_region_next_live_non_nop_root_idx(
+      func, parent_region, root_idx,
+    ) {
+    Some(next_idx) => next_idx
+    None => return false
+  }
+  let next_id = @ir.hot_region_get(func, parent_region, next_idx)
+  if next_id < 0 || !@ir.hot_node_is_live(func, next_id) {
+    return false
+  }
+  let next = @ir.hot_node_get(func, next_id)
+  match next.op {
+    @ir.HotOp::LocalGet => if next.imm0 != tail.local_id { return false }
+    _ => return false
+  }
+  ignore(
+    @ir.hot_region_set(func, body_ref, tail.root_idx, @ir.hot_build_nop(func)),
+  )
+  detached.push(tail.node_id)
+  let replacement_id = if get_counts[tail.local_id] == 1 {
+    tail.value_id
+  } else {
+    @ir.hot_build_local_tee(func, tail.local_id, tail.value_id)
+  }
+  ignore(@ir.hot_region_set(func, parent_region, next_idx, replacement_id))
+  detached.push(next_id)
+  true
+}
+
+///|
+fn simplify_locals_try_structure_rewrite_region(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  get_counts : Array[Int],
+  detached : Array[Int],
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::Block =>
+        if simplify_locals_try_structure_rewrite_region(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            get_counts,
+            detached,
+          ) ||
+          simplify_locals_try_rewrite_block_return(
+            func, region_ref, idx, node_id, get_counts, detached,
+          ) {
+          return true
+        }
+      @ir.HotOp::If => {
+        if simplify_locals_try_structure_rewrite_region(
+            func,
+            @ir.hot_region_then_ref(func, node_id),
+            get_counts,
+            detached,
+          ) {
+          return true
+        }
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_ref) =>
+            if simplify_locals_try_structure_rewrite_region(
+                func, else_ref, get_counts, detached,
+              ) {
+              return true
+            }
+          None => ()
+        }
+        if simplify_locals_try_rewrite_if_return(
+            func, region_ref, idx, node_id, get_counts, detached,
+          ) {
+          return true
+        }
+      }
+      @ir.HotOp::Loop =>
+        if simplify_locals_try_structure_rewrite_region(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            get_counts,
+            detached,
+          ) ||
+          simplify_locals_try_rewrite_loop_return(
+            func, region_ref, idx, node_id, get_counts, detached,
+          ) {
+          return true
+        }
+      @ir.HotOp::Try => {
+        if simplify_locals_try_structure_rewrite_region(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            get_counts,
+            detached,
+          ) {
+          return true
+        }
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_ref) =>
+            if simplify_locals_try_structure_rewrite_region(
+                func, catch_ref, get_counts, detached,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable =>
+        if simplify_locals_try_structure_rewrite_region(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            get_counts,
+            detached,
+          ) ||
+          simplify_locals_try_structure_rewrite_region(
+            func,
+            @ir.hot_region_catch_list_ref(func, node_id),
+            get_counts,
+            detached,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn simplify_locals_run_structure_rewrites(
+  func : @ir.HotFunc,
+  detached : Array[Int],
+) -> Bool {
+  simplify_locals_try_structure_rewrite_region(
+    func,
+    @ir.HotRegionRef::root(),
+    simplify_locals_count_local_gets(func),
+    detached,
+  )
 }
 
 ///|
@@ -1251,9 +2130,11 @@ fn simplify_locals_run_dead_cleanup(
         if get_counts[node.imm0] != 0 {
           continue
         }
-        @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, value_id))
-        detached.push(value_id)
-        changed = true
+        if simplify_locals_value_can_clone_node(func, value_id) {
+          @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, value_id))
+          detached.push(value_id)
+          changed = true
+        }
       }
       _ => ()
     }
@@ -1289,6 +2170,17 @@ fn simplify_locals_run(
       continue
     }
     if main_changed || cleanup_changed {
+      continue
+    }
+
+    let structure_detached : Array[Int] = []
+    let structure_changed = simplify_locals_run_structure_rewrites(
+      func, structure_detached,
+    )
+    simplify_locals_delete_detached_nodes(func, structure_detached)
+
+    if structure_changed {
+      changed = true
       continue
     }
 

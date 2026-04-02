@@ -159,6 +159,178 @@ test "simplify-locals removes unreachable dead local defs outside the ssa overla
 }
 
 ///|
+test "simplify-locals lifts matching block exits into a block result" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) block $exit local.get 0 if i32.const 1 local.set 1 br $exit end i32.const 2 local.set 1 end local.get 1))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected block-return simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("block I32"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "simplify-locals lifts if-else local writes into an if result" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) local.get 0 if i32.const 1 local.set 1 else i32.const 2 local.set 1 end local.get 1))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected if-return simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if I32"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "simplify-locals keeps later reads alive when lifting if results" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) local.get 0 if i32.const 1 local.set 1 else i32.const 2 local.set 1 end local.get 1 local.get 1 i32.add))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected multi-read if-return simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if I32"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+}
+
+///|
+test "simplify-locals lifts reachable if-else arms even when the other arm is unreachable" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) local.get 0 if unreachable else i32.const 9 local.set 1 end local.get 1))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected unreachable-arm simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if I32"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
+test "simplify-locals lifts one-armed if writes for defaultable locals" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) local.get 0 if i32.const 7 local.set 1 end local.get 1))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected one-armed simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if I32"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "simplify-locals skips one-armed if lifting for non-defaultable locals" {
+  let non_defaultable = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+  )
+  let nullable = @lib.ValType::funcref()
+  let probe = @ir.HotFunc::new()
+  let body_result_type = @ir.hot_type_intern_value(probe, non_defaultable)
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[
+      @lib.ValType::i32(),
+      non_defaultable,
+      nullable,
+    ]),
+    body_result_type~,
+  )
+  ignore(@ir.hot_type_intern_value(func, non_defaultable))
+  let condition = @ir.hot_build_local_get(func, 0)
+  let lifted = @ir.hot_build_heap(
+    func,
+    [non_defaultable],
+    @lib.Instruction::ref_as_non_null(),
+    [@ir.hot_build_local_get(func, 2)],
+  )
+  let set = @ir.hot_build_local_set(func, 1, lifted)
+  let if_id = @ir.hot_build_if(func, @lib.BlockType::void_(), condition, [set])
+  @ir.hot_root_append(func, if_id)
+  @ir.hot_root_append(func, @ir.hot_build_local_get(func, 1))
+  let ctx = HotPassContext::new(
+    simplify_locals_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected non-defaultable one-armed simplify-locals success, got \{err}",
+      )
+  }
+
+  assert_eq(@ir.hot_root_count(func), 2)
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected non-defaultable if to stay as a plain if root")
+  }
+  let then_region = @ir.hot_region_then_ref(func, @ir.hot_root_get(func, 0))
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, then_region, 0)).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected non-defaultable then arm to keep the local.set")
+  }
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 1)).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected trailing local.get to remain after the if")
+  }
+}
+
+///|
+test "simplify-locals lifts loop tail writes across the loop fallthrough" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32) loop i32.const 9 local.set 0 end local.get 0))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected loop simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("loop"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
 test "simplify-locals keeps shared tee children that remain referenced" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),

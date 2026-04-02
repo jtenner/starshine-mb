@@ -8,7 +8,7 @@
 - Move completed work to `CHANGELOG.md`.
 
 ## Current Validation Blockers
-- `moon test` is currently red on four independent cases outside `[SL]001`: [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/src/cmd/cmd_test.mbt) (`run_cmd_with_adapter applies ssa-nomerge to wasm inputs`, `run_cmd_with_adapter interleaves dump validate and optimize steps in cli order`, `run_cmd_with_adapter prints ordered log entries to stderr and sees post-pass state`) and [`src/ir/hot_lower_test.mbt`](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/src/ir/hot_lower_test.mbt) (`hot lower keeps nested escaping-if unreachable sentinels`). These still reproduce in isolated package runs on 2026-04-02.
+- `moon test` is currently red on four independent cases outside the landed `simplify-locals` checkpoints: [`src/cmd/cmd_test.mbt`](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/src/cmd/cmd_test.mbt) (`run_cmd_with_adapter applies ssa-nomerge to wasm inputs`, `run_cmd_with_adapter interleaves dump validate and optimize steps in cli order`, `run_cmd_with_adapter prints ordered log entries to stderr and sees post-pass state`) and [`src/ir/hot_lower_test.mbt`](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/src/ir/hot_lower_test.mbt) (`hot lower keeps nested escaping-if unreachable sentinels`). These still reproduce in isolated package runs on 2026-04-02.
 
 ## v0.1.0 Active Slice
 
@@ -399,9 +399,6 @@ Observed unique-pass order
 1. Research exact functionality in document.
    - Research exactly how it works with the simplify-locals pass folder and archived note: [simplify-locals index](./docs/wiki/binaryen/passes/simplify-locals/index.md), [Binaryen strategy](./docs/wiki/binaryen/passes/simplify-locals/binaryen-strategy.md), and [0076 archived research note](./docs/wiki/raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [SL]003 - Structured Return Families - Port the block, if, and loop return rewrites that Binaryen's full late `simplify-locals` uses after the no-structure core is stable.
-     - Deliverables: implement block-return lifting, if-else and unreachable-arm lifting, the one-armed-if defaultable-local guard, and loop-return lifting through hot region edits without regressing typed lowering.
-     - Doc: [Binaryen strategy](./docs/wiki/binaryen/passes/simplify-locals/binaryen-strategy.md)
    - [SL]004 - Slot Validation and Artifact Replay - Lock the completed pass into the late slot and prove parity against Binaryen on both focused and large-artifact lanes.
      - Deliverables: add focused regressions for late-slot cleanup plus surrounding `vacuum` / `reorder-locals` behavior; verify scheduler placement; run pass-fuzz parity and `--simplify-locals` artifact compare.
      - Doc: [Starshine strategy](./docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md)
