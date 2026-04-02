@@ -77,6 +77,36 @@ test "run_hot_pipeline accepts tuple-optimization as an active hot pass" {
 }
 
 ///|
+test "run_hot_pipeline keeps tuple-optimization as a no-op on scalar-only input" {
+  let input = pass_test_module_from_wat(
+    "(module (func (result i32) (local i32) i32.const 5 local.set 0 local.get 0))",
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["tuple-optimization"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected scalar-only tuple-optimization success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected scalar-only tuple-optimization module to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, @lib.Expr(instrs))])) => {
+      assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+      assert_eq(instrs, [
+        @lib.Instruction::i32_const(@lib.I32(5)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ])
+    }
+    other =>
+      fail("expected scalar-only tuple-optimization single-function output, got \{other}")
+  }
+}
+
+///|
 test "optimize preset replays remove-unused-names in all RUN slots" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat("(module (func loop br 0 end))")

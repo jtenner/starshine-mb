@@ -222,6 +222,7 @@ Current status (`2026-04-02`):
 
 - The HOT-native tuple rewrite is now active on the explicit hot-pass surface: the registry, pass manager dispatch, and CLI flag all accept `tuple-optimization`.
 - The default `optimize` / `shrink` preset order is intentionally unchanged in this tree for now; do not approximate the Binaryen slot with a nearby local ordering.
+- Scalar-only explicit-pass coverage is now locked too: running `tuple-optimization` directly on a no-multivalue function stays a no-op on the public pass-manager surface.
 - Initial Binaryen proof is green on the clean lane: `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --generator gen-valid --count 2000 --min-compared 2000 --max-failures 20 --out-dir .tmp/pass-fuzz-tuple-optimization-genvalid-2000` reached `2000/2000` normalized matches with no mismatches or command failures; the earlier spot-check `.tmp/pass-fuzz-tuple-optimization-genvalid-500` was also `500/500`.
 - The `wasm-smith` lane also remains mismatch-free so far: `.tmp/pass-fuzz-tuple-optimization-smith-200` reached `165/165` normalized matches before hitting only Binaryen parser failures (`invalid type index`, `Recursion groups of size zero not supported`, and `invalid wasm type: -64`).
 - The remaining scheduler work is therefore the exact Binaryen slot and multivalue gate, not generic pass activation anymore.
