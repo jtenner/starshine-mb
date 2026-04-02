@@ -136,11 +136,14 @@
 - Passes run through the HOT pipeline contract described in
   [`src/ir/README.md`](../src/ir/README.md) and [`0062`](./0062-2026-03-24-pass-porting-checklist.md):
   `lift -> verify -> analyze -> mutate -> verify -> lower`.
-- [`src/passes/code_pushing.mbt`](../src/passes/code_pushing.mbt) now exists in an
-  analysis-only direct-pass form.
-  The first slice landed Binaryen-style body-local SFA counting plus cached
-  subtree summaries for local/global read-write sets and conservative
-  unremovable-side-effect checks, but it does not yet rewrite HOT regions.
+- [`src/passes/code_pushing.mbt`](../src/passes/code_pushing.mbt) now exists in a
+  rewrite-capable direct-pass form.
+  CP001 landed Binaryen-style body-local SFA counting plus cached subtree
+  summaries for local/global read-write sets and conservative
+  unremovable-side-effect checks.
+  CP002 now rewrites HOT regions directly for `if`, `br_if`, `br_on_*`, and
+  `drop`-wrapped push points, including stable same-region reordering plus
+  one-arm `if` sinking with the terminal-opposite-arm later-read exception.
 - [`src/passes/optimize.mbt`](../src/passes/optimize.mbt) currently keeps
   `code-pushing` as a removed pass name and omits it from the `optimize` and
   `shrink` presets.
@@ -186,10 +189,10 @@
 - Create:
   - [`src/passes/code_pushing.mbt`](../src/passes/code_pushing.mbt)
   - [`src/passes/code_pushing_test.mbt`](../src/passes/code_pushing_test.mbt)
-- CP001 is the first checkpoint of that step.
+- CP001 and CP002 are the first two checkpoints of that step.
   The files now host the direct-pass descriptor, the local SFA analyzer, cached
-  subtree barrier summaries, and focused red-green coverage for the analysis
-  layer.
+  subtree barrier summaries, the region rewrite core, and focused red-green
+  coverage for both analysis and direct HOT rewrites.
 - The new pass should mirror Binaryen's structure closely:
   - `code_pushing_descriptor()`
   - `code_pushing_summary()`
@@ -234,6 +237,9 @@
 - Stage B:
   Binaryen-style `optimizeIntoIf`, sinking into exactly one arm when the arm-use
   and post-`if` conditions match the oracle.
+- CP002 landed the default-semantics direct-pass version of Stage A and Stage B
+  on HOT regions, including same-region order-preserving reinsertion and the
+  later-read exception when the opposite arm cannot fall through.
 - Keep the first slice conservative:
   - no duplication
   - no sink of `unreachable`-typed values into `if` arms

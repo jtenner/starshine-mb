@@ -199,6 +199,7 @@ Observed unique-pass order
      - Suggested tests: `moon test src/passes/code_pushing_test.mbt`, `moon test src/passes`
      - Doc: [0073](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L1)
    - [CP]002 - Region Rewrite Core And One-Arm If Sinking - Land the actual motion algorithm in Binaryen order.
+     - Status: completed in direct hot-pass form. `src/passes/code_pushing.mbt` now performs stable same-region reordering to conditional push points plus one-arm `if` sinking with `nop` replacement, `drop`-wrapped pushpoint recognition, and the terminal-opposite-arm later-read allowance. `src/passes/code_pushing_test.mbt` now covers the landed `if` and `br_if` rewrite core while registry, preset, and artifact parity remain deferred to `[CP]003` and `[CP]004`.
      - Goal: implement `optimizeSegment` first and `optimizeIntoIf` second for the supported HOT push points.
      - Why: correctness depends on preserving move order, refusing duplication, and matching Binaryen's one-arm sink bailouts exactly.
      - Deliverables: a backward segment scan for `If`, `BrIf`, `BrOnNull`, `BrOnNonNull`, `BrOnCast`, `BrOnCastFail`, and top-level `Drop` push points; stable reinsertion immediately before the push point; one-arm `if` sinking with `nop` replacement and `unreachable`-typed refusal.
@@ -229,7 +230,7 @@ Observed unique-pass order
      - Suggested tests: `moon info && moon fmt`, `moon test`, `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --code-pushing`
      - Doc: [0073](/home/jtenner/Projects/starshine-mb-code-pushing/docs/0073-2026-04-02-code-pushing-binaryen-plan.md#L1)
 3. Do work.
-   - `[CP]001` is landed. Continue with `[CP]002 -> [CP]004` in order, and do not expose the preset slot before the rewrite exists and its local safety analysis is in place.
+   - `[CP]001` and `[CP]002` are landed. Continue with `[CP]003 -> [CP]004` in order, and do not expose the preset slot before the rewrite exists and its local safety analysis is in place.
    - Keep the first landing at Binaryen's default semantics. Leave trap-relaxing modes and non-nullable-local repair as explicit follow-up work unless the required hot-pass APIs land first.
 4. Test against binaryen.
    - Add edge-case and regression tests beside the implementing file plus any scheduler or dispatcher coverage needed for the pass.

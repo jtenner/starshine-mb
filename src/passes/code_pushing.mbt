@@ -5,7 +5,7 @@ pub fn code_pushing_descriptor() -> @ir.HotPassDescriptor {
 
 ///|
 pub fn code_pushing_summary() -> String {
-  "Analyze Binaryen-style `local.set` code-pushing candidates and subtree barriers before landing the rewrite."
+  "Push Binaryen-style SFA `local.set` roots closer to conditional push points with conservative HOT-region rewrites."
 }
 
 ///|
@@ -36,6 +36,15 @@ priv struct CpSummaryCache {
 }
 
 ///|
+priv struct CpBarrierSummary {
+  mut mask : UInt
+  local_reads : @ir.Bitset
+  local_writes : @ir.Bitset
+  global_reads : @ir.Bitset
+  global_writes : @ir.Bitset
+}
+
+///|
 fn cp_new_local_info(is_param : Bool) -> CpLocalInfo {
   {
     num_sets: 0,
@@ -62,9 +71,34 @@ fn cp_empty_effect_summary(
 }
 
 ///|
+fn cp_new_barrier_summary(
+  local_count : Int,
+  global_count : Int,
+) -> CpBarrierSummary {
+  {
+    mask: 0U,
+    local_reads: @ir.bitset_new(local_count),
+    local_writes: @ir.bitset_new(local_count),
+    global_reads: @ir.bitset_new(global_count),
+    global_writes: @ir.bitset_new(global_count),
+  }
+}
+
+///|
 fn cp_bitset_any(bitset : @ir.Bitset) -> Bool {
   for idx = 0; idx < bitset.size; idx = idx + 1 {
     if @ir.bitset_contains(bitset, idx) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn cp_bitset_overlaps(lhs : @ir.Bitset, rhs : @ir.Bitset) -> Bool {
+  let limit = if lhs.size < rhs.size { lhs.size } else { rhs.size }
+  for idx = 0; idx < limit; idx = idx + 1 {
+    if @ir.bitset_contains(lhs, idx) && @ir.bitset_contains(rhs, idx) {
       return true
     }
   }
@@ -103,6 +137,18 @@ fn cp_summary_merge_bits_into(
   ignore(@ir.bitset_union_into(dst.local_writes, src.local_writes))
   ignore(@ir.bitset_union_into(dst.global_reads, src.global_reads))
   ignore(@ir.bitset_union_into(dst.global_writes, src.global_writes))
+}
+
+///|
+fn cp_barrier_merge_summary(
+  barrier : CpBarrierSummary,
+  summary : CpEffectSummary,
+) -> Unit {
+  barrier.mask = barrier.mask | summary.mask
+  ignore(@ir.bitset_union_into(barrier.local_reads, summary.local_reads))
+  ignore(@ir.bitset_union_into(barrier.local_writes, summary.local_writes))
+  ignore(@ir.bitset_union_into(barrier.global_reads, summary.global_reads))
+  ignore(@ir.bitset_union_into(barrier.global_writes, summary.global_writes))
 }
 
 ///|
@@ -150,7 +196,7 @@ fn cp_effect_summary_for_node(
     return cache.summaries[node_id]
   }
   let node = @ir.hot_node_get(func, node_id)
-  let summary = {
+  let summary : CpEffectSummary = {
     mask: @ir.effects_for_node(func, node_id),
     local_reads: @ir.bitset_new(cache.local_count),
     local_writes: @ir.bitset_new(cache.local_count),
@@ -213,6 +259,44 @@ fn cp_has_unremovable_side_effects(summary : CpEffectSummary) -> Bool {
     return true
   }
   cp_bitset_any(summary.local_writes) || cp_bitset_any(summary.global_writes)
+}
+
+///|
+fn cp_summary_conflicts_with_barrier(
+  moving : CpEffectSummary,
+  barrier : CpBarrierSummary,
+) -> Bool {
+  if (
+      barrier.mask &
+      (
+        @ir.EFFECT_MASK_CONTROL |
+        @ir.EFFECT_MASK_CALL |
+        @ir.EFFECT_MASK_THROW |
+        @ir.EFFECT_MASK_TRAP
+      )
+    ) !=
+    0U {
+    return true
+  }
+  if cp_bitset_overlaps(moving.local_writes, barrier.local_reads) ||
+    cp_bitset_overlaps(moving.local_writes, barrier.local_writes) ||
+    cp_bitset_overlaps(moving.local_reads, barrier.local_writes) {
+    return true
+  }
+  if cp_bitset_overlaps(moving.global_writes, barrier.global_reads) ||
+    cp_bitset_overlaps(moving.global_writes, barrier.global_writes) ||
+    cp_bitset_overlaps(moving.global_reads, barrier.global_writes) {
+    return true
+  }
+  if (moving.mask & @ir.EFFECT_MASK_MEMORY_READ) != 0U &&
+    (barrier.mask & (@ir.EFFECT_MASK_MEMORY_WRITE | @ir.EFFECT_MASK_TRAP)) != 0U {
+    return true
+  }
+  if (moving.mask & @ir.EFFECT_MASK_TABLE_READ) != 0U &&
+    (barrier.mask & @ir.EFFECT_MASK_TABLE_WRITE) != 0U {
+    return true
+  }
+  false
 }
 
 ///|
@@ -358,15 +442,463 @@ pub fn cp_node_has_unremovable_side_effects(
 }
 
 ///|
-fn code_pushing_run(_ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
-  ignore(cp_analyze_locals(func))
-  let cache = cp_new_summary_cache(func)
-  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
-    let root_id = @ir.hot_root_get(func, root_idx)
+fn cp_region_roots_copy(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Array[Int] {
+  let roots : Array[Int] = []
+  let mut idx = 0
+  while idx < @ir.hot_region_root_count(func, region_ref) {
+    roots.push(@ir.hot_region_get(func, region_ref, idx))
+    idx = idx + 1
+  }
+  roots
+}
+
+///|
+fn cp_node_id_arrays_equal(lhs : Array[Int], rhs : Array[Int]) -> Bool {
+  if lhs.length() != rhs.length() {
+    return false
+  }
+  let mut idx = 0
+  while idx < lhs.length() {
+    if lhs[idx] != rhs[idx] {
+      return false
+    }
+    idx = idx + 1
+  }
+  true
+}
+
+///|
+fn cp_root_pushable_local(
+  infos : Array[CpLocalInfo],
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Int? {
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, root_id)
+  match node.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return None
+  }
+  if node.imm0 < 0 || node.imm0 >= infos.length() || !infos[node.imm0].sfa {
+    return None
+  }
+  if @ir.hot_child_count(func, root_id) == 0 {
+    return Some(node.imm0)
+  }
+  let value_id = @ir.hot_child_get(func, root_id, 0)
+  if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
+    return Some(node.imm0)
+  }
+  let value_summary = cp_effect_summary_for_node(cache, func, value_id)
+  if cp_has_unremovable_side_effects(value_summary) {
+    return None
+  }
+  if (
+      value_summary.mask &
+      (
+        @ir.EFFECT_MASK_CONTROL |
+        @ir.EFFECT_MASK_CALL |
+        @ir.EFFECT_MASK_THROW |
+        @ir.EFFECT_MASK_TRAP |
+        @ir.EFFECT_MASK_MEMORY_WRITE |
+        @ir.EFFECT_MASK_TABLE_WRITE
+      )
+    ) !=
+    0U {
+    return None
+  }
+  Some(node.imm0)
+}
+
+///|
+fn cp_region_reads_local(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  local_id : Int,
+) -> Bool {
+  let mut idx = 0
+  while idx < @ir.hot_region_root_count(func, region_ref) {
+    if cp_summary_reads_local(
+        cp_effect_summary_for_node(
+          cache,
+          func,
+          @ir.hot_region_get(func, region_ref, idx),
+        ),
+        local_id,
+      ) {
+      return true
+    }
+    idx = idx + 1
+  }
+  false
+}
+
+///|
+fn cp_region_reads_local_after_index(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  start_idx : Int,
+  local_id : Int,
+) -> Bool {
+  let mut idx = start_idx
+  while idx < @ir.hot_region_root_count(func, region_ref) {
+    if cp_summary_reads_local(
+        cp_effect_summary_for_node(
+          cache,
+          func,
+          @ir.hot_region_get(func, region_ref, idx),
+        ),
+        local_id,
+      ) {
+      return true
+    }
+    idx = idx + 1
+  }
+  false
+}
+
+///|
+fn cp_region_has_terminal_last_live_root(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let mut idx = @ir.hot_region_root_count(func, region_ref) - 1
+  while idx >= 0 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::Br
+        | @ir.HotOp::BrTable
+        | @ir.HotOp::Return
+        | @ir.HotOp::Throw
+        | @ir.HotOp::ThrowRef
+        | @ir.HotOp::Rethrow
+        | @ir.HotOp::Delegate
+        | @ir.HotOp::Unreachable => return true
+        _ => return false
+      }
+    }
+    idx = idx - 1
+  }
+  false
+}
+
+///|
+fn cp_root_pushpoint_id(func : @ir.HotFunc, root_id : Int) -> Int? {
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return None
+  }
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::If
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail => Some(root_id)
+    @ir.HotOp::Drop =>
+      if @ir.hot_child_count(func, root_id) == 0 {
+        None
+      } else {
+        cp_root_pushpoint_id(func, @ir.hot_child_get(func, root_id, 0))
+      }
+    _ => None
+  }
+}
+
+///|
+fn cp_root_is_pushpoint(func : @ir.HotFunc, root_id : Int) -> Bool {
+  match cp_root_pushpoint_id(func, root_id) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn cp_root_if_pushpoint_id(func : @ir.HotFunc, root_id : Int) -> Int? {
+  match cp_root_pushpoint_id(func, root_id) {
+    Some(pushpoint_id) =>
+      match @ir.hot_node_get(func, pushpoint_id).op {
+        @ir.HotOp::If => Some(pushpoint_id)
+        _ => None
+      }
+    None => None
+  }
+}
+
+///|
+fn cp_if_sink_allows_later_reads(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  if_idx : Int,
+  local_id : Int,
+  target_is_then : Bool,
+  then_ref : @ir.HotRegionRef,
+  else_ref : @ir.HotRegionRef?,
+) -> Bool {
+  if !cp_region_reads_local_after_index(
+      cache,
+      func,
+      region_ref,
+      if_idx + 1,
+      local_id,
+    ) {
+    return true
+  }
+  if target_is_then {
+    match else_ref {
+      Some(else_ref) => cp_region_has_terminal_last_live_root(func, else_ref)
+      None => false
+    }
+  } else {
+    cp_region_has_terminal_last_live_root(func, then_ref)
+  }
+}
+
+///|
+fn cp_try_sink_into_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  if_idx : Int,
+  infos : Array[CpLocalInfo],
+  cache : CpSummaryCache,
+) -> Bool {
+  if if_idx <= 0 {
+    return false
+  }
+  let if_id = match
+    cp_root_if_pushpoint_id(func, @ir.hot_region_get(func, region_ref, if_idx)) {
+    Some(if_id) => if_id
+    None => return false
+  }
+  let barrier = cp_new_barrier_summary(cache.local_count, cache.global_count)
+  let cond_id = @ir.hot_child_get(func, if_id, 0)
+  if cond_id >= 0 && @ir.hot_node_is_live(func, cond_id) {
+    cp_barrier_merge_summary(
+      barrier,
+      cp_effect_summary_for_node(cache, func, cond_id),
+    )
+  }
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = @ir.hot_region_else_ref(func, if_id)
+  let mut scan = if_idx - 1
+  while scan >= 0 {
+    let root_id = @ir.hot_region_get(func, region_ref, scan)
+    let root_summary = cp_effect_summary_for_node(cache, func, root_id)
+    match cp_root_pushable_local(infos, cache, func, root_id) {
+      Some(local_id) => {
+        let then_reads = cp_region_reads_local(cache, func, then_ref, local_id)
+        let else_reads = match else_ref {
+          Some(else_ref) =>
+            cp_region_reads_local(cache, func, else_ref, local_id)
+          None => false
+        }
+        let target_is_then = then_reads && !else_reads
+        if then_reads != else_reads &&
+          cp_if_sink_allows_later_reads(
+            cache, func, region_ref, if_idx, local_id, target_is_then, then_ref,
+            else_ref,
+          ) &&
+          !cp_summary_conflicts_with_barrier(root_summary, barrier) {
+          let target_region = if target_is_then {
+            then_ref
+          } else {
+            else_ref.unwrap()
+          }
+          ignore(
+            @ir.hot_region_set(func, region_ref, scan, @ir.hot_build_nop(func)),
+          )
+          @ir.hot_region_insert(func, target_region, 0, [root_id])
+          pass_mark_mutated(ctx, func)
+          return true
+        }
+      }
+      None => ()
+    }
+    cp_barrier_merge_summary(barrier, root_summary)
+    scan = scan - 1
+  }
+  false
+}
+
+///|
+fn cp_try_push_to_pushpoint(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  target_idx : Int,
+  infos : Array[CpLocalInfo],
+  cache : CpSummaryCache,
+) -> Bool {
+  if target_idx <= 0 {
+    return false
+  }
+  let roots = cp_region_roots_copy(func, region_ref)
+  if !cp_root_is_pushpoint(func, roots[target_idx]) {
+    return false
+  }
+  let barrier = cp_new_barrier_summary(cache.local_count, cache.global_count)
+  let movable = Array::make(roots.length(), false)
+  let mut scan = target_idx - 1
+  while scan >= 0 {
+    let root_id = roots[scan]
+    let root_summary = cp_effect_summary_for_node(cache, func, root_id)
+    let can_move = match cp_root_pushable_local(infos, cache, func, root_id) {
+      Some(_) => !cp_summary_conflicts_with_barrier(root_summary, barrier)
+      None => false
+    }
+    if can_move {
+      movable[scan] = true
+    } else {
+      cp_barrier_merge_summary(barrier, root_summary)
+    }
+    scan = scan - 1
+  }
+  let moved : Array[Int] = []
+  let mut idx = 0
+  while idx < roots.length() {
+    if movable[idx] {
+      moved.push(roots[idx])
+    }
+    idx = idx + 1
+  }
+  if moved.is_empty() {
+    return false
+  }
+  let next : Array[Int] = []
+  idx = 0
+  while idx < roots.length() {
+    if idx == target_idx {
+      for node_id in moved {
+        next.push(node_id)
+      }
+    }
+    if !movable[idx] {
+      next.push(roots[idx])
+    }
+    idx = idx + 1
+  }
+  if cp_node_id_arrays_equal(roots, next) {
+    return false
+  }
+  @ir.hot_region_replace_body(func, region_ref, next)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn cp_try_rewrite_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  infos : Array[CpLocalInfo],
+  cache : CpSummaryCache,
+) -> Bool {
+  let mut idx = 0
+  while idx < @ir.hot_region_root_count(func, region_ref) {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    if cp_try_sink_into_if(ctx, func, region_ref, idx, infos, cache) ||
+      cp_try_push_to_pushpoint(ctx, func, region_ref, idx, infos, cache) {
+      return true
+    }
     if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+      idx = idx + 1
       continue
     }
-    ignore(cp_effect_summary_for_node(cache, func, root_id))
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        if cp_try_rewrite_region(
+            ctx,
+            func,
+            @ir.hot_region_body_ref(func, root_id),
+            infos,
+            cache,
+          ) {
+          return true
+        }
+      @ir.HotOp::If => {
+        if cp_try_rewrite_region(
+            ctx,
+            func,
+            @ir.hot_region_then_ref(func, root_id),
+            infos,
+            cache,
+          ) {
+          return true
+        }
+        match @ir.hot_region_else_ref(func, root_id) {
+          Some(else_ref) =>
+            if cp_try_rewrite_region(ctx, func, else_ref, infos, cache) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::Try => {
+        if cp_try_rewrite_region(
+            ctx,
+            func,
+            @ir.hot_region_body_ref(func, root_id),
+            infos,
+            cache,
+          ) {
+          return true
+        }
+        match @ir.hot_region_catch_ref(func, root_id) {
+          Some(catch_ref) =>
+            if cp_try_rewrite_region(ctx, func, catch_ref, infos, cache) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable =>
+        if cp_try_rewrite_region(
+            ctx,
+            func,
+            @ir.hot_region_body_ref(func, root_id),
+            infos,
+            cache,
+          ) ||
+          cp_try_rewrite_region(
+            ctx,
+            func,
+            @ir.hot_region_catch_list_ref(func, root_id),
+            infos,
+            cache,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+    idx = idx + 1
   }
-  HotPassResult::unchanged()
+  false
+}
+
+///|
+fn code_pushing_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
+  let mut changed = false
+  while true {
+    let infos = cp_analyze_locals(func)
+    let cache = cp_new_summary_cache(func)
+    if !cp_try_rewrite_region(ctx, func, @ir.HotRegionRef::root(), infos, cache) {
+      break
+    }
+    changed = true
+  }
+  if changed {
+    HotPassResult::changed()
+  } else {
+    HotPassResult::unchanged()
+  }
 }
