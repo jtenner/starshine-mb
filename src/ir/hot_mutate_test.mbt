@@ -133,6 +133,29 @@ test "body local append helper returns the next local id and bumps revision" {
 }
 
 ///|
+test "label owner helper rehomes built control labels to replacement node ids" {
+  let func = HotFunc::new()
+  let temp_block = hot_build_block(func, @lib.BlockType::void_(), [
+    hot_build_const_i32(func, @lib.I32(1)),
+  ])
+  let replacement = hot_build_nop(func)
+  let replacement_node = hot_node_get(func, temp_block)
+  let label_id = hot_control_node_label(func, temp_block)
+
+  hot_node_set(func, replacement, replacement_node)
+  hot_label_owner_set(func, label_id, replacement)
+  hot_root_append(func, replacement)
+  hot_delete_node(func, temp_block)
+
+  assert_eq(hot_label_owner(func, label_id), replacement)
+  match hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected rehomed control label verification success, got \{err}")
+  }
+}
+
+///|
 test "appended body locals lower in append order" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   ignore(hot_append_body_local(func, @lib.ValType::f32()))

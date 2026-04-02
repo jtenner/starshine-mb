@@ -328,3 +328,378 @@ fn tuple_optimization_analyze(
   tuple_optimization_propagate_badness(groups)
   { groups, local_group_ids }
 }
+
+///|
+fn tuple_optimization_require_local_type(
+  func : @ir.HotFunc,
+  local_id : Int,
+) -> @lib.ValType {
+  match @ir.hot_local_type(func, local_id) {
+    Some(ty) => ty
+    None => abort("tuple-optimization rewrite requires valid local ids")
+  }
+}
+
+///|
+fn tuple_optimization_group_should_rewrite(
+  group : HotTupleOptimizationGroup,
+) -> Bool {
+  !group.bad && group.valid_uses > 1
+}
+
+///|
+fn tuple_optimization_replace_with_built(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  target_id : Int,
+  replacement_id : Int,
+) -> Unit {
+  let replacement = @ir.hot_node_get(func, replacement_id)
+  match replacement.op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable =>
+      @ir.hot_label_owner_set(func, replacement.imm0, target_id)
+    _ => ()
+  }
+  @ir.hot_delete_node(func, replacement_id)
+  pass_replace_node(ctx, func, target_id, replacement)
+}
+
+///|
+fn tuple_optimization_build_group_rewrite_mask(
+  groups : Array[HotTupleOptimizationGroup],
+) -> Array[Bool] {
+  let rewrite_mask : Array[Bool] = []
+  for group in groups {
+    rewrite_mask.push(tuple_optimization_group_should_rewrite(group))
+  }
+  rewrite_mask
+}
+
+///|
+fn tuple_optimization_ensure_split_locals(
+  func : @ir.HotFunc,
+  groups : Array[HotTupleOptimizationGroup],
+  rewrite_mask : Array[Bool],
+  split_locals_by_group : Array[Array[Int]],
+  split_ready : Array[Bool],
+  split_visiting : Array[Bool],
+  group_id : Int,
+) -> Array[Int] {
+  if group_id < 0 || group_id >= groups.length() {
+    abort("tuple-optimization rewrite group ids must stay in range")
+  }
+  if !rewrite_mask[group_id] {
+    abort(
+      "tuple-optimization rewrite only allocates split locals for good groups",
+    )
+  }
+  if split_ready[group_id] {
+    return split_locals_by_group[group_id]
+  }
+  if split_visiting[group_id] {
+    abort("tuple-optimization rewrite copy graph must stay acyclic")
+  }
+  split_visiting[group_id] = true
+  let source_lane_locals = match groups[group_id].copy_source {
+    Some(source_group) => {
+      if source_group < 0 ||
+        source_group >= groups.length() ||
+        !rewrite_mask[source_group] {
+        abort(
+          "tuple-optimization rewrite copy sources must stay within good groups",
+        )
+      }
+      tuple_optimization_ensure_split_locals(
+        func, groups, rewrite_mask, split_locals_by_group, split_ready, split_visiting,
+        source_group,
+      )
+    }
+    None => groups[group_id].lane_locals
+  }
+  let split_locals : Array[Int] = []
+  for local_id in source_lane_locals {
+    split_locals.push(
+      @ir.hot_append_body_local(
+        func,
+        tuple_optimization_require_local_type(func, local_id),
+      ),
+    )
+  }
+  split_locals_by_group[group_id] = split_locals
+  split_ready[group_id] = true
+  split_visiting[group_id] = false
+  split_locals
+}
+
+///|
+fn tuple_optimization_collect_rewrite_order_visit(
+  groups : Array[HotTupleOptimizationGroup],
+  rewrite_mask : Array[Bool],
+  seen : Array[Bool],
+  out : Array[Int],
+  group_id : Int,
+) -> Unit {
+  if group_id < 0 || group_id >= groups.length() || seen[group_id] {
+    return
+  }
+  seen[group_id] = true
+  match groups[group_id].copy_source {
+    Some(source_group) =>
+      tuple_optimization_collect_rewrite_order_visit(
+        groups, rewrite_mask, seen, out, source_group,
+      )
+    None => ()
+  }
+  if rewrite_mask[group_id] {
+    out.push(group_id)
+  }
+}
+
+///|
+fn tuple_optimization_collect_rewrite_order(
+  groups : Array[HotTupleOptimizationGroup],
+  rewrite_mask : Array[Bool],
+) -> Array[Int] {
+  let order : Array[Int] = []
+  let seen = Array::make(groups.length(), false)
+  for group_id = 0; group_id < groups.length(); group_id = group_id + 1 {
+    if rewrite_mask[group_id] {
+      tuple_optimization_collect_rewrite_order_visit(
+        groups, rewrite_mask, seen, order, group_id,
+      )
+    }
+  }
+  order
+}
+
+///|
+fn tuple_optimization_build_source_host_replacement(
+  func : @ir.HotFunc,
+  group : HotTupleOptimizationGroup,
+  split_locals : Array[Int],
+) -> Int {
+  let host_lane = split_locals.length() - 1
+  let body : Array[Int] = []
+  for lane_idx = split_locals.length() - 1
+      lane_idx >= 0
+      lane_idx = lane_idx - 1 {
+    body.push(
+      @ir.hot_build_local_set(func, split_locals[lane_idx], group.producer),
+    )
+  }
+  let host = @ir.hot_node_get(func, group.defining_nodes[host_lane])
+  match host.op {
+    @ir.HotOp::LocalTee => {
+      body.push(@ir.hot_build_local_get(func, split_locals[host_lane]))
+      @ir.hot_build_block(
+        func,
+        @lib.BlockType::val_type(
+          tuple_optimization_require_local_type(func, split_locals[host_lane]),
+        ),
+        body,
+      )
+    }
+    _ => @ir.hot_build_block(func, @lib.BlockType::void_(), body)
+  }
+}
+
+///|
+fn tuple_optimization_build_copy_host_replacement(
+  func : @ir.HotFunc,
+  group : HotTupleOptimizationGroup,
+  split_locals : Array[Int],
+  source_split_locals : Array[Int],
+) -> Int {
+  if split_locals.length() != source_split_locals.length() {
+    abort("tuple-optimization rewrite copy groups must preserve lane arity")
+  }
+  let host_lane = split_locals.length() - 1
+  let body : Array[Int] = []
+  for lane_idx = split_locals.length() - 1
+      lane_idx >= 0
+      lane_idx = lane_idx - 1 {
+    body.push(
+      @ir.hot_build_local_set(
+        func,
+        split_locals[lane_idx],
+        @ir.hot_build_local_get(func, source_split_locals[lane_idx]),
+      ),
+    )
+  }
+  let host = @ir.hot_node_get(func, group.defining_nodes[host_lane])
+  match host.op {
+    @ir.HotOp::LocalTee => {
+      body.push(@ir.hot_build_local_get(func, split_locals[host_lane]))
+      @ir.hot_build_block(
+        func,
+        @lib.BlockType::val_type(
+          tuple_optimization_require_local_type(func, split_locals[host_lane]),
+        ),
+        body,
+      )
+    }
+    _ => @ir.hot_build_block(func, @lib.BlockType::void_(), body)
+  }
+}
+
+///|
+fn tuple_optimization_rewrite_group_reads(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  group : HotTupleOptimizationGroup,
+  split_locals : Array[Int],
+) -> Unit {
+  for lane_idx = 0
+      lane_idx < group.lane_locals.length()
+      lane_idx = lane_idx + 1 {
+    for
+      read_id in @ir.local_read_nodes_borrowed(
+        use_def,
+        group.lane_locals[lane_idx],
+      ) {
+      if !@ir.hot_node_is_live(func, read_id) {
+        continue
+      }
+      tuple_optimization_replace_with_built(
+        ctx,
+        func,
+        read_id,
+        @ir.hot_build_local_get(func, split_locals[lane_idx]),
+      )
+    }
+  }
+}
+
+///|
+fn tuple_optimization_rewrite_group_defs(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  group : HotTupleOptimizationGroup,
+  split_locals : Array[Int],
+  source_split_locals? : Array[Int]? = None,
+) -> Unit {
+  let host_lane = group.defining_nodes.length() - 1
+  let host_replacement = match source_split_locals {
+    Some(source_split_locals) =>
+      tuple_optimization_build_copy_host_replacement(
+        func, group, split_locals, source_split_locals,
+      )
+    None =>
+      tuple_optimization_build_source_host_replacement(
+        func, group, split_locals,
+      )
+  }
+  tuple_optimization_replace_with_built(
+    ctx,
+    func,
+    group.defining_nodes[host_lane],
+    host_replacement,
+  )
+  for lane_idx = 0
+      lane_idx < group.defining_nodes.length()
+      lane_idx = lane_idx + 1 {
+    if lane_idx == host_lane ||
+      !@ir.hot_node_is_live(func, group.defining_nodes[lane_idx]) {
+      continue
+    }
+    let replacement = match
+      @ir.hot_node_get(func, group.defining_nodes[lane_idx]).op {
+      @ir.HotOp::LocalTee =>
+        @ir.hot_build_local_get(func, split_locals[lane_idx])
+      _ => @ir.hot_build_nop(func)
+    }
+    tuple_optimization_replace_with_built(
+      ctx,
+      func,
+      group.defining_nodes[lane_idx],
+      replacement,
+    )
+  }
+}
+
+///|
+fn tuple_optimization_rewrite_good_components(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  analysis : HotTupleOptimizationAnalysis,
+) -> Bool {
+  let rewrite_mask = tuple_optimization_build_group_rewrite_mask(
+    analysis.groups,
+  )
+  let mut has_rewrites = false
+  for should_rewrite in rewrite_mask {
+    if should_rewrite {
+      has_rewrites = true
+      break
+    }
+  }
+  if !has_rewrites {
+    return false
+  }
+  let split_locals_by_group : Array[Array[Int]] = []
+  for _ in 0..<analysis.groups.length() {
+    split_locals_by_group.push([])
+  }
+  let split_ready = Array::make(analysis.groups.length(), false)
+  let split_visiting = Array::make(analysis.groups.length(), false)
+  for group_id = 0; group_id < analysis.groups.length(); group_id = group_id + 1 {
+    if rewrite_mask[group_id] {
+      ignore(
+        tuple_optimization_ensure_split_locals(
+          func,
+          analysis.groups,
+          rewrite_mask,
+          split_locals_by_group,
+          split_ready,
+          split_visiting,
+          group_id,
+        ),
+      )
+    }
+  }
+  let rewrite_order = tuple_optimization_collect_rewrite_order(
+    analysis.groups,
+    rewrite_mask,
+  )
+  for group_id in rewrite_order {
+    let group = analysis.groups[group_id]
+    let split_locals = split_locals_by_group[group_id]
+    tuple_optimization_rewrite_group_reads(
+      ctx,
+      func,
+      @ir.use_def_build(func),
+      group,
+      split_locals,
+    )
+    match group.copy_source {
+      Some(source_group) =>
+        tuple_optimization_rewrite_group_defs(
+          ctx,
+          func,
+          group,
+          split_locals,
+          source_split_locals=Some(split_locals_by_group[source_group]),
+        )
+      None =>
+        tuple_optimization_rewrite_group_defs(ctx, func, group, split_locals)
+    }
+    match group.copy_source {
+      Some(_) => {
+        @ir.hot_replace_child_spans_and_control_result_type(
+          func,
+          group.producer,
+          @ir.hot_type_void(func),
+          [@ir.HotChildSpanRewrite::new(group.producer, [])],
+        )
+        pass_mark_mutated(ctx, func)
+      }
+      None => ()
+    }
+  }
+  true
+}

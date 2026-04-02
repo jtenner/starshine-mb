@@ -362,6 +362,8 @@ pub fn hot_label_kind(HotFunc, Int) -> HotLabelKind
 
 pub fn hot_label_owner(HotFunc, Int) -> Int
 
+pub fn hot_label_owner_set(HotFunc, Int, Int) -> Unit
+
 pub fn hot_label_result_type(HotFunc, Int) -> Int
 
 pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc

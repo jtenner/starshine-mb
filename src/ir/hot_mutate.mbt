@@ -598,6 +598,19 @@ pub fn hot_node_set(func : HotFunc, id : NodeId, node : HotNode) -> Unit {
 }
 
 ///|
+pub fn hot_label_owner_set(
+  func : HotFunc,
+  label_id : LabelId,
+  owner : NodeId,
+) -> Unit {
+  hot_mutate_require_label_id(func, label_id, "hot label_owner_set label")
+  hot_mutate_require_live_node(func, owner, "hot label_owner_set owner")
+  let label = hot_label_get(func, label_id)
+  func.labels[label_id] = { ..label, owner, }
+  hot_revision_bump(func)
+}
+
+///|
 pub fn hot_node_exact_instr_set(
   func : HotFunc,
   id : NodeId,
