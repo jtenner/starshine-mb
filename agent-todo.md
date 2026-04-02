@@ -394,14 +394,20 @@ Observed unique-pass order
 
 #### SL - Simplify Locals
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L263](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L263)
+   - Research exactly how it works with the simplify-locals pass folder and archived note: [simplify-locals index](./docs/wiki/binaryen/passes/simplify-locals/index.md), [Binaryen strategy](./docs/wiki/binaryen/passes/simplify-locals/binaryen-strategy.md), and [0076 archived research note](./docs/wiki/raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [SL]001 - Full Local Simplification Audit - Harden the existing simplify-locals pass so the late local cleanup exactly matches Binaryen's post-coalescing behavior.
-     - Deliverables: diff the current Starshine pass against Binaryen's late slot semantics; close any remaining copy, tee, or dead-local gaps; preserve typed structure and tuple locals.
-     - Doc: [0066#L263](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L263)
-   - [SL]002 - Slot Validation and Artifact Replay - Lock the corrected pass into scheduler tests and replay the MoonBit debug-artifact compare harness.
-     - Deliverables: add focused regressions for late-slot local cleanup; verify surrounding `vacuum` and `reorder-locals` behavior; run `--simplify-locals` parity against Binaryen.
-     - Doc: [0066#L263](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L263)
+   - [SL]001 - No-Structure Sinking Core - Replace the current SSA-only dead-def cleanup with the Binaryen-style late local-sinking core before any new structured returns are introduced.
+     - Deliverables: add get counting, single-use sinking, multi-use tee sinking, overwritten-set cleanup, `drop(tee)` collapse, and non-SSA dead-set cleanup while keeping the public pass id unchanged.
+     - Doc: [0076 archived research note](./docs/wiki/raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)
+   - [SL]002 - Effect Ordering and Equivalent Copy Cleanup - Match Binaryen's directional invalidation rules and late equivalent-local canonicalization before structured lifting lands.
+     - Deliverables: add pass-local ordered effect summaries; block unsafe motion across locals, globals, memory, and control; canonicalize equivalent gets with type-refinement preference; remove redundant copy traffic in the full late pass.
+     - Doc: [Binaryen strategy](./docs/wiki/binaryen/passes/simplify-locals/binaryen-strategy.md)
+   - [SL]003 - Structured Return Families - Port the block, if, and loop return rewrites that Binaryen's full late `simplify-locals` uses after the no-structure core is stable.
+     - Deliverables: implement block-return lifting, if-else and unreachable-arm lifting, the one-armed-if defaultable-local guard, and loop-return lifting through hot region edits without regressing typed lowering.
+     - Doc: [Binaryen strategy](./docs/wiki/binaryen/passes/simplify-locals/binaryen-strategy.md)
+   - [SL]004 - Slot Validation and Artifact Replay - Lock the completed pass into the late slot and prove parity against Binaryen on both focused and large-artifact lanes.
+     - Deliverables: add focused regressions for late-slot cleanup plus surrounding `vacuum` / `reorder-locals` behavior; verify scheduler placement; run pass-fuzz parity and `--simplify-locals` artifact compare.
+     - Doc: [Starshine strategy](./docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
