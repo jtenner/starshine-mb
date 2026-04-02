@@ -202,20 +202,57 @@ Observed unique-pass order
 
 #### TO - Tuple Optimization
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L218](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L218)
+   - Research exactly how it works with a document: [0076#L1](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L1)
+   - Current conclusion: Binaryen's pass is a conservative tuple-local lowering pass, but the first Starshine port should be HOT-native because current HOT lift already models most relevant raw-wasm shapes as shared multi-result producers plus scalar spill locals instead of explicit tuple AST nodes.
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [TO]001 - Multivalue Tuple Rewrite Rules - Port the tuple construction and extraction simplifications Binaryen performs before heavy local cleanup.
-     - Deliverables: cover tuple.make and tuple.extract style patterns; preserve multivalue typing and ordering; reject cases that still need surrounding locals intact.
-     - Doc: [0066#L218](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L218)
-   - [TO]002 - Feature-Gated Validation and Artifact Compare - Add multivalue regressions and confirm the pass only appears when the artifact feature set matches Binaryen's gate.
-     - Deliverables: add tests for tuple users before `simplify-locals-nostructure`; cover feature-off scheduler behavior; compare `--tuple-optimization` output against Binaryen.
-     - Doc: [0066#L218](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L218)
+   - [TO]001 - HOT Local Split Helper Surface - Publish the minimal hot-IR helper support needed to append scalar body locals for tuple-lane lowering without open-coding `func.locals.locals.push` inside the pass.
+     - Goal: make tuple-lane local allocation an explicit HOT mutation operation instead of a private one-off detail.
+     - Why: Binaryen's pass allocates one new scalar local per tuple lane, and the current public HOT mutation surface does not yet expose that operation even though `ssa_destroy` already has a private helper.
+     - Deliverables: extract or add a helper for appending body locals with revision bumps; keep local ordering deterministic; make the helper usable from the new pass without reaching into HOT storage directly.
+     - Required APIs: `src/ir/hot_mutate.mbt` or an extracted shared helper from `src/ir/ssa_destroy.mbt`; `src/ir/hot_lower.mbt` local-declaration flow; `src/ir/pkg.generated.mbti` if the helper becomes public.
+     - Invariants: preserve existing param/body-local ordering; bump `revision` on every semantic local-table mutation; do not hide tuple-specific semantics in a generic local helper.
+     - Dependencies: [0062 pass-porting checklist](/home/jtenner/Projects/starshine-mb/docs/0062-2026-03-24-pass-porting-checklist.md#L12), [0076#L235](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L235)
+     - Exit criteria: tuple-optimization can allocate scalar lane locals through a documented helper, and focused IR tests lock revision bumps plus lowered local declaration order.
+     - Suggested tests: `moon test src/ir`, focused helper coverage in `src/ir`, and `moon test src/passes`.
+     - Doc: [0076#L221](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L221)
+   - [TO]002 - HOT-Native Candidate Analysis - Recreate Binaryen's `uses` / `validUses` / copy-component screening over HOT multivalue spill bridges instead of over explicit tuple AST nodes.
+     - Goal: classify exactly which HOT-local multivalue components are safe to lower.
+     - Why: Binaryen's correctness comes from conservative escape analysis plus badness propagation across tuple-local copy components, not from a single peephole rewrite.
+     - Deliverables: add a cheap no-op screen; count valid vs invalid tuple-like uses; build the symmetric copy graph for connected spill/copy components; reject unsupported whole-value consumers and unreachable tee chains.
+     - Required APIs: `pass_require_use_def(...)`, `src/ir/hot_query.mbt`, `src/ir/hot_walk.mbt`, `@ir.hot_node_result_arity(...)`, and any pass-local shape helpers needed to recognize HOT spill bridges.
+     - Invariants: preserve Binaryen's conservative escape policy; reject ambiguous multivalue shapes instead of guessing; do not require CFG or SSA unless a real failing case proves they are necessary.
+     - Dependencies: [TO]001 local-growth helper support, [0076#L53](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L53), [0076#L197](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L197)
+     - Exit criteria: focused red/green tests prove the pass can distinguish good vs bad HOT-native tuple-like components, including copy chains, escapes, and tee-based traffic.
+     - Suggested tests: `moon test src/passes`, HOT fixture coverage through `src/passes/pass_test_helpers.mbt`, and focused `moon test src/ir` checks when helper queries are added.
+     - Doc: [0076#L164](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L164)
+   - [TO]003 - Good-Component Rewrite And Cleanup - Lower good HOT-native multivalue spill components into scalar-lane locals and direct scalar forwarding, then remove the dead bridge residue.
+     - Goal: implement the HOT-native equivalent of Binaryen's tuple-local split rewrite.
+     - Why: current HOT lift already exposes the relevant artifact shapes as shared multi-result producers plus scalar spill locals, so the pass win comes from rewriting those bridges before heavier local cleanup.
+     - Deliverables: rewrite good spill/copy components to scalar lane locals; preserve tee ordering with explicit replacement sequencing where needed; forward lane reads directly; clean detached bridge nodes with public pass helpers; leave unsupported components untouched.
+     - Required APIs: [TO]001 helper surface; `pass_replace_node(...)`; `pass_splice_region(...)`; `pass_delete_detached_nodes(...)`; `pass_mark_mutated(...)`; HOT builder helpers for local get/set/tee rewrites.
+     - Invariants: preserve lane ordering and source lane types; preserve tee side effects exactly; do not require explicit HOT `TupleMake` / `TupleExtract` support for the first keepable port.
+     - Dependencies: [TO]001, [TO]002, [0076#L94](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L94), [0076#L184](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L184)
+     - Exit criteria: focused HOT-native regressions prove scalar-lane rewrite correctness for surviving-lane, copy-chain, and tee-preservation cases, and the pass leaves unsupported escape cases unchanged.
+     - Suggested tests: `moon test src/passes`, targeted HOT-lower roundtrip checks in `src/ir`, and pass-specific WAT fixtures covering one-lane-survives and tee-ordering cases.
+     - Doc: [0076#L221](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L221)
+   - [TO]004 - Scheduler, Registry, And Oracle Proof - Promote `tuple-optimization` from removed placeholder to a real hot pass at Binaryen's multivalue-gated slot and prove parity on fuzz plus the MoonBit artifact.
+     - Goal: expose the pass through the real optimizer surfaces and prove it is safe in the intended early slot.
+     - Why: the implementation is incomplete until the registry, preset order, feature gate, and artifact compare path all match the documented Binaryen slot.
+     - Deliverables: register the pass as active; gate it on multivalue; place it after `code-pushing` and before `simplify-locals-nostructure`; add feature-off and dispatcher coverage; run pass-fuzz compare and debug-artifact compare for signoff.
+     - Required APIs: `src/passes/optimize.mbt` registry/preset surface; `src/cmd/cmd.mbt` and command tests if removed-pass rejection becomes direct execution support; `bun scripts/pass-fuzz-compare.ts`; `bun scripts/self-optimize-compare.ts`.
+     - Invariants: preserve Binaryen's multivalue-only gate; preserve the exact early slot ordering; do not bundle explicit HOT tuple pseudo-op roundtrip support into this slice unless the HOT-native port proves insufficient first.
+     - Dependencies: [TO]002, [TO]003, [0076#L36](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L36), [0076#L212](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L212), [0076#L255](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L255)
+     - Exit criteria: the pass is active in the registry and preset slot, feature-off tests stay green, `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 10000 ...` is acceptable, and artifact compare evidence exists for `--tuple-optimization`.
+     - Suggested tests: `moon test src/passes`, `moon test src/cmd`, `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 10000 --max-failures 20 --out-dir .tmp/pass-fuzz-tuple-optimization`, and `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --tuple-optimization`.
+     - Doc: [0076#L255](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L255)
 3. Do work.
-   - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
-   - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
+   - Land the slices above in dependency order: local-growth helper first, then candidate analysis, then rewrite, then scheduler/parity proof.
+   - Keep the first keepable implementation HOT-native; do not widen the scope to explicit HOT tuple pseudo-op lift/lower support unless the HOT-native rewrite proves insufficient on real parity cases.
+   - Wire the pass into the exact top-level slot documented in the research doc before calling the work done.
 4. Test against binaryen.
    - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
-   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
+   - Compare Starshine vs Binaryen with `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 10000 ...` and `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --tuple-optimization`.
+   - If a parity gap only appears in explicit HOT tuple pseudo-op unit coverage, slice that follow-up separately instead of bundling it into the first HOT-native port.
 
 #### SLNS - Simplify Locals No-Structure
 1. Research exact functionality in document.
