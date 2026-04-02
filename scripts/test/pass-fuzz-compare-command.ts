@@ -212,6 +212,7 @@ export function runPassFuzzCompareListPassesCommandTest(): void {
   assert(result.stdout.includes("reorder-locals"), `expected reorder-locals in list output:\n${result.stdout}`);
   assert(result.stdout.includes("dead-code-elimination"), `expected dead-code-elimination in list output:\n${result.stdout}`);
   assert(result.stdout.includes("precompute"), `expected precompute in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("tuple-optimization"), `expected tuple-optimization in list output:\n${result.stdout}`);
   assert(!result.stdout.includes("--remove-unused-brs"), `expected canonical names without -- prefix:\n${result.stdout}`);
 }
 
@@ -330,6 +331,129 @@ process.exit(0);
   assert(
     JSON.stringify(summary.passFlags) === JSON.stringify(["--heap2local"]),
     `expected --pass alias to normalize to flag, got ${JSON.stringify(summary.passFlags)}`,
+  );
+}
+
+export function runPassFuzzCompareTupleOptimizationPassAliasCommandTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-tuple-pass-alias-"));
+  const outDir = path.join(tmpdir, "out");
+  const moonLog = path.join(tmpdir, "moon.log");
+  const starshineLog = path.join(tmpdir, "starshine.log");
+  const wasmOptLog = path.join(tmpdir, "wasm-opt.log");
+  const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
+
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(args) + "\\n");
+if (args[0] === "run" && args.includes("src/fuzz")) {
+  const outDir = args[args.indexOf("--out-dir") + 1];
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, "gen-valid-000001.wasm"), "gen-valid-1");
+}
+process.exit(0);
+`,
+  );
+  const fakeStarshine = makeExecutable(
+    path.join(tmpdir, "fake-starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("--out");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], "starshine");
+process.exit(0);
+`,
+  );
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("-o");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+if (args.includes("-S")) {
+  fs.writeFileSync(args[outIndex + 1], "(module)\\n");
+} else {
+  fs.writeFileSync(args[outIndex + 1], "binaryen");
+}
+process.exit(0);
+`,
+  );
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_TOOLS_LOG, JSON.stringify(args) + "\\n");
+if (args[0] === "smith") {
+  const outIndex = args.indexOf("-o");
+  fs.writeFileSync(args[outIndex + 1], "smith");
+}
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count",
+      "1",
+      "--seed",
+      "0x5eed",
+      "--generator",
+      "gen-valid",
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--pass",
+      "tuple-optimization",
+    ],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FAKE_MOON_LOG: moonLog,
+        FAKE_STARSHINE_LOG: starshineLog,
+        FAKE_WASM_OPT_LOG: wasmOptLog,
+        FAKE_WASM_TOOLS_LOG: wasmToolsLog,
+      },
+      encoding: "utf8",
+    },
+  );
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare with tuple-optimization --pass failed:\n${result.stderr}`);
+  }
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    passFlags: string[];
+    binaryenPassFlags: string[];
+  };
+  assert(
+    JSON.stringify(summary.passFlags) === JSON.stringify(["--tuple-optimization"]),
+    `expected tuple-optimization --pass alias to normalize to flag, got ${JSON.stringify(summary.passFlags)}`,
+  );
+  assert(
+    JSON.stringify(summary.binaryenPassFlags) === JSON.stringify(["--tuple-optimization"]),
+    `expected tuple-optimization binaryen flags to stay canonical, got ${JSON.stringify(summary.binaryenPassFlags)}`,
   );
 }
 
@@ -1341,6 +1465,7 @@ if (import.meta.main) {
   runPassFuzzCompareCommandTest();
   runPassFuzzCompareListPassesCommandTest();
   runPassFuzzComparePassAliasCommandTest();
+  runPassFuzzCompareTupleOptimizationPassAliasCommandTest();
   runPassFuzzCompareWasmSmithOnlyCommandTest();
   runPassFuzzCompareCommandFailureAccumulationTest();
   runPassFuzzCompareBinaryenFailureClassificationTest();
