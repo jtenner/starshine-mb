@@ -943,6 +943,53 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_hot_only_candidates(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_condition_child_value_if_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (
+          @lib.If(@lib.ValTypeBlockType(_), _, Some(_)),
+          @lib.If(@lib.VoidBlockType, _, None),
+        ) => return true
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_condition_child_value_if_candidate(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_condition_child_value_if_candidate(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_remove_unused_brs_has_condition_child_value_if_candidate(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    idx = idx + 1
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_dce_raw_has_early_terminator(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -3095,6 +3142,9 @@ fn run_hot_pipeline_raw_remove_unused_brs(
   }
   if run_hot_pipeline_raw_remove_unused_brs_can_skip_structured_return_ladder(
       locals, instrs,
+    ) &&
+    !run_hot_pipeline_raw_remove_unused_brs_has_condition_child_value_if_candidate(
+      instrs,
     ) {
     return Some({
       reason: "structured-return-ladder-noop",

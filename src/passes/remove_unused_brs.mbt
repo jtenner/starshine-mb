@@ -2020,6 +2020,93 @@ fn remove_unused_brs_try_rewrite_result_block_prefix_payload_branch(
 }
 
 ///|
+fn remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  block_id : Int,
+  label_refs : Array[Int],
+  branch_payload_children : Array[Bool],
+) -> Bool {
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block =>
+      if @ir.hot_node_result_arity(func, block_id) != 1 {
+        return false
+      }
+    _ => return false
+  }
+  if block_id >= 0 &&
+    block_id < branch_payload_children.length() &&
+    branch_payload_children[block_id] {
+    return false
+  }
+  let block_label = @ir.hot_control_node_label(func, block_id)
+  if block_label < 0 ||
+    block_label >= label_refs.length() ||
+    label_refs[block_label] != 1 {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  if @ir.hot_region_root_count(func, body_ref) < 2 {
+    return false
+  }
+  let if_id = @ir.hot_region_get(func, body_ref, 0)
+  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, if_id).op {
+    @ir.HotOp::If =>
+      if @ir.hot_node_result_arity(func, if_id) != 0 {
+        return false
+      }
+    _ => return false
+  }
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  match @ir.hot_region_else_ref(func, if_id) {
+    Some(_) => return false
+    None => ()
+  }
+  let result_arity = @ir.hot_node_result_arity(func, block_id)
+  if result_arity != 1 {
+    return false
+  }
+  let result_type = @ir.hot_type_results(
+      func,
+      @ir.hot_node_type(func, block_id),
+    )[0]
+  let branch_body = match
+    remove_unused_brs_build_stack_exit_region_value_body(
+      func, then_ref, BranchTarget(block_label), result_arity,
+    ) {
+    Some(branch_body) => branch_body
+    None => return false
+  }
+  let fallthrough_roots : Array[Int] = []
+  for root_idx = 1
+      root_idx < @ir.hot_region_root_count(func, body_ref)
+      root_idx = root_idx + 1 {
+    fallthrough_roots.push(@ir.hot_region_get(func, body_ref, root_idx))
+  }
+  match @ir.hot_split_trailing_payload_roots(func, fallthrough_roots, result_arity) {
+    Some(_) => ()
+    None => return false
+  }
+  let replacement = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(result_type),
+    @ir.hot_child_get(func, if_id, 0),
+    branch_body,
+    else_body=Some(fallthrough_roots),
+  )
+  @ir.hot_replace_node(func, block_id, @ir.hot_node_get(func, replacement))
+  pass_mark_mutated(ctx, func)
+  pass_delete_detached_nodes(ctx, func, [replacement, if_id, then_ref.holder])
+  true
+}
+
+///|
 fn remove_unused_brs_region_roots_are_reorder_safe(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2078,6 +2165,52 @@ fn remove_unused_brs_build_region_value_expr(
       block_roots,
     ),
   )
+}
+
+///|
+fn remove_unused_brs_build_stack_exit_region_value_body(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  target : RemoveUnusedBrsTailTarget,
+  result_arity : Int,
+) -> Array[Int]? {
+  if result_arity <= 0 {
+    return None
+  }
+  let roots = remove_unused_brs_region_roots(func, region_ref)
+  if roots.is_empty() {
+    return None
+  }
+  let tail_id = roots[roots.length() - 1]
+  let tail = @ir.hot_node_get(func, tail_id)
+  match target {
+    ReturnTarget =>
+      match tail.op {
+        @ir.HotOp::Return => ()
+        _ => return None
+      }
+    BranchTarget(label_id) =>
+      match tail.op {
+        @ir.HotOp::Br if tail.imm0 == label_id => ()
+        _ => return None
+      }
+    NoTarget => return None
+  }
+  let body_roots : Array[Int] = []
+  for idx = 0; idx < roots.length() - 1; idx = idx + 1 {
+    body_roots.push(roots[idx])
+  }
+  for child_idx = 0; child_idx < tail.child_count; child_idx = child_idx + 1 {
+    let child_id = @ir.hot_child_get(func, tail_id, child_idx)
+    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+      return None
+    }
+    body_roots.push(child_id)
+  }
+  match @ir.hot_split_trailing_payload_roots(func, body_roots, result_arity) {
+    Some(_) => Some(body_roots)
+    None => None
+  }
 }
 
 ///|
@@ -3152,6 +3285,11 @@ fn remove_unused_brs_visit_node(
           return_context, control_cache, return_cache,
         ) ||
         changed
+      if remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(
+          ctx, func, node_id, label_refs, branch_payload_children,
+        ) {
+        return true
+      }
       changed = remove_unused_brs_try_rewrite_result_block_prefix_payload_branch(
           ctx, func, body_ref, label_refs, branch_payload_children,
         ) ||
